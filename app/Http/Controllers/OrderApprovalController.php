@@ -16,6 +16,7 @@ class OrderApprovalController extends Controller
             $query->where('SONumber', 'like', "%$search%");
         $orders = $query->latest()
             ->paginate(10);
+
         return Inertia::render('OrderApproval/Index', [
             'orders' => $orders,
             'filters' => request()->only(['search'])
