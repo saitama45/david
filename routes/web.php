@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\ApprovedOrder;
 use App\Http\Controllers\CategoryController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\ExcelTemplateController;
@@ -69,6 +70,10 @@ Route::middleware('auth')
 
         Route::controller(OrderReceivingController::class)->name('orders-receiving.')->group(function () {
             Route::get('/orders-receiving', 'index')->name('index');
+        });
+
+        Route::controller(ApprovedOrder::class)->name('approved-orders.')->group(function () {
+            Route::get('/approved-orders', 'index')->name('index');
         });
 
 
