@@ -89,6 +89,9 @@ const logout = () => {
                             Orders Approval
                         </NavLink>
                         <DropdownMenuLabel> Receiving </DropdownMenuLabel>
+                        <NavLink href="/orders-receiving" :icon="Home">
+                            Orders
+                        </NavLink>
                         <DropdownMenuLabel> Sales </DropdownMenuLabel>
                         <DropdownMenuLabel> Inventory </DropdownMenuLabel>
                         <NavLink href="/items-list" :icon="Home">

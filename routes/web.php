@@ -5,6 +5,7 @@ use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\ExcelTemplateController;
 use App\Http\Controllers\ItemController;
 use App\Http\Controllers\OrderApprovalController;
+use App\Http\Controllers\OrderReceivingController;
 use App\Http\Controllers\StoreOrderController;
 use App\Http\Controllers\ProfileController;
 use Illuminate\Support\Facades\Route;
@@ -64,6 +65,10 @@ Route::middleware('auth')
 
         Route::controller(ItemController::class)->name('items.')->group(function () {
             Route::get('/items-list', 'index')->name('index');
+        });
+
+        Route::controller(OrderReceivingController::class)->name('orders-receiving.')->group(function () {
+            Route::get('/orders-receiving', 'index')->name('index');
         });
 
 

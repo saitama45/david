@@ -1,12 +1,18 @@
 <script setup>
-import { ref, watch } from "vue";
-import { usePage } from "@inertiajs/vue3";
+import { ref } from "vue";
 import { useForm } from "@inertiajs/vue3";
-import { router } from "@inertiajs/vue3";
-let search = ref(usePage().props.search);
+import { useToast } from "primevue/usetoast";
+import { useSearch } from "@/Composables/useSearch";
+import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogHeader,
+    DialogTitle,
+} from "@/components/ui/dialog";
 
 const isEditModalVisible = ref(false);
-import { useToast } from "primevue/usetoast";
+
 const toast = useToast();
 const isLoading = ref(false);
 
@@ -41,21 +47,7 @@ const props = defineProps({
     },
 });
 
-import { throttle } from "lodash";
-
-watch(
-    search,
-    throttle(function (value) {
-        router.get(
-            route("categories.index"),
-            { search: value },
-            {
-                preserveState: true,
-                replace: true,
-            }
-        );
-    }, 500)
-);
+const { search } = useSearch("categories.index");
 
 const editCategoryDetails = (id) => {
     targetId.value = id;
@@ -65,14 +57,6 @@ const editCategoryDetails = (id) => {
     form.description = data.Description;
     form.value = data.Value;
 };
-
-import {
-    Dialog,
-    DialogContent,
-    DialogDescription,
-    DialogHeader,
-    DialogTitle,
-} from "@/components/ui/dialog";
 </script>
 
 <template>

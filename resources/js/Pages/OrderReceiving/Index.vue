@@ -15,14 +15,11 @@ const statusBadgeColor = (status) => {
             return "bg-yellow-500 text-white";
     }
 };
-const { search } = useSearch("orders-approval.index");
 
-const showOrderDetails = (id) => {
-    router.get(`/orders-approval/show/${id}`);
-};
+const { search } = useSearch("orders-receiving.index");
 </script>
 <template>
-    <Layout heading="Orders For Approval List">
+    <Layout heading="Orders For Receiving List">
         <TableContainer>
             <TableHeader>
                 <SearchBar>
@@ -36,27 +33,20 @@ const showOrderDetails = (id) => {
 
             <Table>
                 <TableHead>
-                    <TH> Order Placed At </TH>
-                    <TH> SO Date</TH>
+                    <TH> Store/Branch</TH>
                     <TH> SO Number</TH>
-                    <TH> Total Item</TH>
-                    <TH> Total Quantity </TH>
-                    <TH> Created By</TH>
-                    <TH> Vendor </TH>
-                    <TH> Branch </TH>
-                    <TH> Status </TH>
+                    <TH> Order Date</TH>
+                    <TH> Actual Received</TH>
+                    <TH> Receiving Status </TH>
                     <TH> Actions </TH>
                 </TableHead>
                 <TableBody>
                     <tr v-for="order in orders.data">
-                        <TD>{{ order.OrderDate }}</TD>
-                        <TD>{{ order.SODate }}</TD>
+                        <TD>{{ order.branch?.Name ?? "N/a" }}</TD>
                         <TD>{{ order.SONumber }}</TD>
+                        <TD>{{ order.OrderDate }}</TD>
                         <TD>{{ order.Total_Item }}</TD>
                         <TD>{{ order.TOTALQUANTITY }}</TD>
-                        <TD>{{ order.CreatedBy }}</TD>
-                        <TD>{{ order.vendor?.Name ?? "N/a" }}</TD>
-                        <TD>{{ order.branch?.Name ?? "N/a" }}</TD>
                         <TD>
                             <Badge
                                 :class="statusBadgeColor(order.IsApproved)"
@@ -69,10 +59,7 @@ const showOrderDetails = (id) => {
                             >
                         </TD>
                         <TD>
-                            <Button
-                                variant="link"
-                                @click="showOrderDetails(order.SONumber)"
-                            >
+                            <Button variant="link">
                                 <Eye />
                             </Button>
                         </TD>

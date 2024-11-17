@@ -1,30 +1,12 @@
 <script setup>
+import { useSearch } from "@/Composables/useSearch";
 const props = defineProps({
     items: {
         type: Object,
         required: true,
     },
 });
-
-import { router } from "@inertiajs/vue3";
-import { throttle } from "lodash";
-import { usePage } from "@inertiajs/vue3";
-let search = ref(usePage().props.search);
-import { ref, watch } from "vue";
-
-watch(
-    search,
-    throttle(function (value) {
-        router.get(
-            route("items.index"),
-            { search: value },
-            {
-                preserveState: true,
-                replace: true,
-            }
-        );
-    }, 500)
-);
+const { search } = useSearch("items.index");
 </script>
 
 <template>
