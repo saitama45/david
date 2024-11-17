@@ -30,8 +30,8 @@ jobs:
       - name: Deploy to FTP
         uses: SamKirkland/FTP-Deploy-Action@v4.3.4
         with:
-          server: win9071.site4now.net
-          username: leynnnnnn-001
+          server: win8023.site4now.net
+          username: tix_bok
           password: superadmin2024
           protocol: ftp
           exclude: |
