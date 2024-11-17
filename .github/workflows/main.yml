@@ -25,7 +25,7 @@ jobs:
         with:
           server: win9071.site4now.net
           username: leynnnnnn-001
-          password: ${{ secrets.FTP_PASSWORD }}
+          password: superadmin2024
           protocol: ftp
           exclude: |
             **/.git*
