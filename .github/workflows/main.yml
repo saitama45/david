@@ -9,6 +9,13 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.1'
+          extensions: fileinfo, mbstring, xml, gd, zip
+          ini-values: post_max_size=256M, max_execution_time=180
+
       - name: Install Dependencies
         shell: powershell
         run: |
