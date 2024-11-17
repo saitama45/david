@@ -6,12 +6,42 @@ jobs:
     name: Build package and deploy to SmarterASP.NET
     runs-on: windows-latest
     steps:
-      - name: build file
+      - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Sync files
+      # If you're using Node.js
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18'
+
+      # If you're using PHP/Composer
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.1'
+
+      # Install dependencies and build
+      - name: Install Dependencies
+        run: |
+          if exist "package.json" npm install
+          if exist "composer.json" composer install
+
+      # Build steps if needed
+      - name: Build Project
+        run: |
+          if exist "package.json" npm run build
+
+      # Deploy to FTP
+      - name: Deploy to FTP
         uses: SamKirkland/FTP-Deploy-Action@v4.3.4
         with:
           server: win9071.site4now.net
           username: leynnnnnn-001
           password: superadmin2024
+          protocol: ftp
+          exclude: |
+            **/.git*
+            **/.git*/**
+            **/node_modules/**
+            README.md
