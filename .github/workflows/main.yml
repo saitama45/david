@@ -13,5 +13,5 @@ jobs:
         uses: SamKirkland/FTP-Deploy-Action@v4.3.4
         with:
           server: win9071.site4now.net
-          username: leynnnnnn
+          username: leynnnnnn-001
           password: superadmin2024
