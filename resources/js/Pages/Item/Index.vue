@@ -26,7 +26,7 @@ const { search } = useSearch("items.index");
                 <TableHead>
                     <TH>Code</TH>
                     <TH>Name</TH>
-                    <TH>Unit</TH>
+                    <TH>Unit Test</TH>
                 </TableHead>
 
                 <TableBody>
