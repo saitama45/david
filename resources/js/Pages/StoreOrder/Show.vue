@@ -1,7 +1,5 @@
 <script setup>
-import { MagnifyingGlassIcon } from "@radix-icons/vue";
 import { ref } from "vue";
-const search = ref(null);
 const statusBadgeColor = (status) => {
     switch (status) {
         case "RECEIVED":
@@ -14,7 +12,6 @@ const statusBadgeColor = (status) => {
             return "bg-yellow-500 text-white";
     }
 };
-import { Badge } from "@/components/ui/badge";
 
 const props = defineProps({
     orders: {

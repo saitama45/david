@@ -31,6 +31,14 @@ import ConfirmationService from "primevue/confirmationservice";
 import { Label } from "@/components/ui/label";
 import FormError from "@/Components/FormError.vue";
 import Pagination from "./Components/table/Pagination.vue";
+import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogHeader,
+    DialogTitle,
+} from "@/components/ui/dialog";
+import { Badge } from "@/components/ui/badge";
 
 const appName = import.meta.env.VITE_APP_NAME || "Laravel";
 
@@ -69,6 +77,12 @@ createInertiaApp({
             .component("Label", Label)
             .component("FormError", FormError)
             .component("Pagination", Pagination)
+            .component("Dialog", Dialog)
+            .component("DialogContent", DialogContent)
+            .component("DialogDescription", DialogDescription)
+            .component("DialogHeader", DialogHeader)
+            .component("DialogTitle", DialogTitle)
+            .component("Badge", Badge)
             .use(PrimeVue, {
                 theme: {
                     preset: Aura,

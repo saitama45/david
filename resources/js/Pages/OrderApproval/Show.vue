@@ -7,11 +7,7 @@ const props = defineProps({
         type: Object,
     },
 });
-import { Badge } from "@/components/ui/badge";
-
-import TableContainer from "@/Components/table/TableContainer.vue";
 import { ref } from "vue";
-import DivFlexCenter from "@/Components/div/DivFlexCenter.vue";
 const search = ref(null);
 const statusBadgeColor = (status) => {
     switch (status) {

@@ -1,5 +1,4 @@
 <script setup>
-import { Badge } from "@/components/ui/badge";
 import { useSearch } from "@/Composables/useSearch";
 import { router } from "@inertiajs/vue3";
 const props = defineProps({
