@@ -212,29 +212,7 @@ const resetFilter = () => {
                     </tr>
                 </TableBody>
             </Table>
-            <div
-                v-if="orders.data.length === 0"
-                class="p-5 flex justify-center w-full"
-            >
-                No Result Found
-            </div>
-            <div
-                v-if="orders.data.length !== 0"
-                class="flex items-center justify-end gap-2"
-            >
-                <Component
-                    v-for="link in orders.links"
-                    :is="link.url ? 'Link' : 'span'"
-                    :href="link.url"
-                    v-html="link.label"
-                    class="px-3 py-1 border border-gray-200 text-primary-font font-bold rounded-lg"
-                    :class="{
-                        'bg-primary text-white': link.active,
-                        'hover:bg-primary/50 transition-colors transition-duration duration-300':
-                            link.url,
-                    }"
-                />
-            </div>
+            <Pagination :data="orders" />
         </TableContainer>
     </Layout>
 </template>

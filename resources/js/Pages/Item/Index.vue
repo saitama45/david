@@ -37,23 +37,7 @@ const { search } = useSearch("items.index");
                     </tr>
                 </TableBody>
             </Table>
-            <div
-                v-if="items.data.length !== 0"
-                class="flex items-center justify-end gap-2"
-            >
-                <Component
-                    v-for="link in items.links"
-                    :is="link.url ? 'Link' : 'span'"
-                    :href="link.url"
-                    v-html="link.label"
-                    class="px-3 py-1 border border-gray-200 text-primary-font font-bold rounded-lg"
-                    :class="{
-                        'bg-primary text-white': link.active,
-                        'hover:bg-primary/50 transition-colors transition-duration duration-300':
-                            link.url,
-                    }"
-                />
-            </div>
+            <Pagination :data="items" />
         </TableContainer>
     </Layout>
 </template>

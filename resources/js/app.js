@@ -30,6 +30,7 @@ import { Filter, Eye, Pencil, Trash2 } from "lucide-vue-next";
 import ConfirmationService from "primevue/confirmationservice";
 import { Label } from "@/components/ui/label";
 import FormError from "@/Components/FormError.vue";
+import Pagination from "./Components/table/Pagination.vue";
 
 const appName = import.meta.env.VITE_APP_NAME || "Laravel";
 
@@ -67,6 +68,7 @@ createInertiaApp({
             .component("Trash2", Trash2)
             .component("Label", Label)
             .component("FormError", FormError)
+            .component("Pagination", Pagination)
             .use(PrimeVue, {
                 theme: {
                     preset: Aura,
