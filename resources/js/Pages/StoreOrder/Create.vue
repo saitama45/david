@@ -7,27 +7,21 @@ import {
     CardTitle,
     CardFooter,
 } from "@/components/ui/card";
-import {
-    Table,
-    TableBody,
-    TableCell,
-    TableHead,
-    TableHeader,
-    TableRow,
-} from "@/components/ui/table";
+import DatePicker from "primevue/datepicker";
+import Select from "primevue/select";
+import { computed } from "vue";
 
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import {
-    Select,
-    SelectContent,
-    SelectGroup,
-    SelectItem,
-    SelectLabel,
-    SelectTrigger,
-    SelectValue,
-} from "@/components/ui/select";
-
+// import {
+//     Select,
+//     SelectContent,
+//     SelectGroup,
+//     SelectItem,
+//     SelectLabel,
+//     SelectTrigger,
+//     SelectValue,
+// } from "@/components/ui/select";
 
 const props = defineProps({
     products: {
@@ -40,13 +34,27 @@ const props = defineProps({
     },
 });
 
+const branchesOptions = computed(() => {
+    return Object.entries(props.branches).map(([value, label]) => ({
+        value: value,
+        label: label,
+    }));
+});
+
+const productsOptions = computed(() => {
+    return Object.entries(props.products).map(([value, label]) => ({
+        value: value,
+        label: label,
+    }));
+});
+
 import { ref, reactive, watch } from "vue";
 import { useForm } from "@inertiajs/vue3";
 import { useToast } from "primevue/usetoast";
 
 const productId = ref(null);
-const orderDate = ref(props.orderDate);
-const store = ref(null);
+const orderDate = ref(new Date().toLocaleString().slice(0, 10));
+const storeId = ref(null);
 const visible = ref(false);
 const toast = useToast();
 const isLoading = ref(false);
@@ -63,10 +71,18 @@ const form = useForm({
     orders_file: null,
 });
 
+const orderForm = useForm({
+    'storeId': storeId.value
+});
+
 const itemForm = useForm({
     item: null,
     quantity: null,
 });
+
+const store = () => {
+    orderForm.post(route(''));
+}
 
 import { useConfirm } from "primevue/useconfirm";
 
@@ -77,7 +93,7 @@ watch(productId, (newValue) => {
         isLoading.value = true;
         itemForm.item = newValue;
         axios
-            .get(route("product.show", newValue))
+            .get(route("product.show", newValue.value))
             .then((response) => response.data)
             .then((result) => {
                 productDetails.item_name = result.InventoryName;
@@ -112,8 +128,6 @@ const addToOrdersButton = () => {
         !productDetails.unit ||
         !productDetails.quantity
     ) {
-        console.log("test");
-
         return;
     }
 
@@ -128,8 +142,6 @@ const addToOrdersButton = () => {
     } else {
         orders.value.push({ ...productDetails });
     }
-
-    console.log(orders.value);
 
     Object.keys(productDetails).forEach((key) => {
         productDetails[key] = null;
@@ -222,29 +234,26 @@ const proceedButton = () => {
                         >
                     </CardHeader>
                     <CardContent class="space-y-3">
-                        <div class="space-y-1">
+                        <div class="flex flex-col space-y-1">
                             <Label>Store</Label>
-                            <Select v-model="store">
-                                <SelectTrigger>
-                                    <SelectValue placeholder="Select Store" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    <SelectGroup>
-                                        <SelectLabel>Select Store</SelectLabel>
-                                        <SelectItem
-                                            v-for="(value, key) in branches"
-                                            :key="key"
-                                            :value="key"
-                                        >
-                                            {{ value }}
-                                        </SelectItem>
-                                    </SelectGroup>
-                                </SelectContent>
+                            <Select
+                                filter
+                                placeholder="Select a Store"
+                                v-model="storeId"
+                                :options="branchesOptions"
+                                optionLabel="label"
+                            >
                             </Select>
                         </div>
                         <div class="flex flex-col space-y-1">
                             <Label>SO Date</Label>
-                            <Input type="date" v-model="orderDate" />
+                            <DatePicker
+                                showIcon
+                                fluid
+                                dateFormat="dd/mm/yy"
+                                v-model="orderDate"
+                                :showOnFocus="false"
+                            />
                         </div>
                     </CardContent>
                 </Card>
@@ -256,24 +265,15 @@ const proceedButton = () => {
                         >
                     </CardHeader>
                     <CardContent class="space-y-3">
-                        <div class="space-y-1">
+                        <div class="flex flex-col space-y-1">
                             <Label>Item</Label>
-                            <Select v-model="productId">
-                                <SelectTrigger>
-                                    <SelectValue placeholder="Select Item" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    <SelectGroup>
-                                        <SelectLabel>Select Store</SelectLabel>
-                                        <SelectItem
-                                            v-for="(value, key) in products"
-                                            :key="key"
-                                            :value="key"
-                                        >
-                                            {{ value }}
-                                        </SelectItem>
-                                    </SelectGroup>
-                                </SelectContent>
+                            <Select
+                                filter
+                                placeholder="Select an Item"
+                                v-model="productId"
+                                :options="productsOptions"
+                                optionLabel="label"
+                            >
                             </Select>
                             <FormError>{{ itemForm.errors.item }}</FormError>
                         </div>
@@ -318,37 +318,33 @@ const proceedButton = () => {
                 </CardHeader>
                 <CardContent>
                     <Table>
-                        <TableHeader>
-                            <TableRow>
-                                <TableHead> Name </TableHead>
-                                <TableHead> Code </TableHead>
-                                <TableHead> Unit </TableHead>
-                                <TableHead> Quantity </TableHead>
-                                <TableHead> Cost </TableHead>
-                                <TableHead> Action </TableHead>
-                            </TableRow>
-                        </TableHeader>
+                        <TableHead>
+                            <TH> Name </TH>
+                            <TH> Code </TH>
+                            <TH> Unit </TH>
+                            <TH> Quantity </TH>
+                            <TH> Cost </TH>
+                            <TH> Action </TH>
+                        </TableHead>
+
                         <TableBody>
-                            <TableRow
-                                v-for="order in orders"
-                                :key="order.item_code"
-                            >
-                                <TableCell>
+                            <tr v-for="order in orders" :key="order.item_code">
+                                <TD>
                                     {{ order.item_name }}
-                                </TableCell>
-                                <TableCell>
+                                </TD>
+                                <TD>
                                     {{ order.item_code }}
-                                </TableCell>
-                                <TableCell>
+                                </TD>
+                                <TD>
                                     {{ order.unit }}
-                                </TableCell>
-                                <TableCell>
+                                </TD>
+                                <TD>
                                     {{ order.quantity }}
-                                </TableCell>
-                                <TableCell>
+                                </TD>
+                                <TD>
                                     {{ order.cost }}
-                                </TableCell>
-                                <TableCell>
+                                </TD>
+                                <TD>
                                     <Button
                                         @click="removeItem(order.item_code)"
                                         variant="outline"
@@ -356,8 +352,8 @@ const proceedButton = () => {
                                     >
                                         <Trash2 />
                                     </Button>
-                                </TableCell>
-                            </TableRow>
+                                </TD>
+                            </tr>
                         </TableBody>
                     </Table>
                 </CardContent>

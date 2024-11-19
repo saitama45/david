@@ -1,6 +1,4 @@
 <script setup>
-import Layout from "@/Layouts/App.vue";
-import { Badge } from "@/components/ui/badge";
 import { router } from "@inertiajs/vue3";
 import {
     Popover,

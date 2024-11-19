@@ -37,6 +37,7 @@ import {
     DialogDescription,
     DialogHeader,
     DialogTitle,
+    DialogFooter,
 } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 
@@ -83,6 +84,7 @@ createInertiaApp({
             .component("DialogHeader", DialogHeader)
             .component("DialogTitle", DialogTitle)
             .component("Badge", Badge)
+            .component("DialogFooter", DialogFooter)
             .use(PrimeVue, {
                 theme: {
                     preset: Aura,

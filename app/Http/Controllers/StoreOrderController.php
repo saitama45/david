@@ -9,6 +9,7 @@ use Inertia\Inertia;
 use App\Models\Order;
 use App\Models\Product;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Request;
 use Maatwebsite\Excel\Facades\Excel;
 
 class StoreOrderController extends Controller
@@ -36,10 +37,6 @@ class StoreOrderController extends Controller
 
         $branches = Branch::options();
 
-        // $orderNumber = DB::select("CALL SP_GET_LAST_SO_BYBRANCH(?)", [31]);
-
-
-
         return Inertia::render(
             'StoreOrder/Index',
             [
@@ -53,7 +50,6 @@ class StoreOrderController extends Controller
     public function create()
     {
         $products = Product::select('ID', 'InventoryName')
-            ->limit(10)
             ->get()
             ->pluck('InventoryName', 'ID');
         $branches = Branch::options();
@@ -61,6 +57,15 @@ class StoreOrderController extends Controller
             'products' => $products,
             'branches' => $branches
         ]);
+    }
+
+    public function store(Request $request)
+    {
+        $validated = $request->validate([
+            'storeId' => ['required', 'exists:branches,id']
+        ]);
+
+        dd($validated);
     }
 
     public function show($id)
