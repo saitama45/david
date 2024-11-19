@@ -6,6 +6,7 @@ import InputLabel from "@/Components/InputLabel.vue";
 import PrimaryButton from "@/Components/PrimaryButton.vue";
 import { Head, Link, useForm } from "@inertiajs/vue3";
 import { Input } from "@/components/ui/input";
+import ImageBanner from "../../../images/temporaryLoginImage.png";
 
 defineProps({
     canResetPassword: {
@@ -30,8 +31,83 @@ const submit = () => {
 </script>
 
 <template>
-    <GuestLayout>
-        <Head title="Log in" />
+    <div class="grid grid-cols-2 gap-10 min-h-screen items-center p-20">
+        <section>
+            <img :src="ImageBanner" alt="banner" />
+        </section>
+        <section class="border border-gray-300 rounded-lg p-10 space-y-7">
+            <h1 class="text-lg mb-7">Welcome to Food Costing!</h1>
+            <h1 class="text-2xl font-bold">Sign in to your account</h1>
+
+            <form class="space-y-5" @submit.prevent="submit">
+                <div>
+                    <InputLabel for="email" value="Email" />
+
+                    <Input
+                        id="email"
+                        type="email"
+                        class="mt-1 block w-full h-12"
+                        v-model="form.email"
+                        required
+                        autofocus
+                        autocomplete="username"
+                        placeholder="Enter your email"
+                    />
+
+                    <InputError class="mt-2" :message="form.errors.email" />
+                </div>
+
+                <div class="mt-4">
+                    <InputLabel for="password" value="Password" />
+
+                    <Input
+                        id="password"
+                        type="password"
+                        class="mt-1 block w-full h-12"
+                        v-model="form.password"
+                        required
+                        autocomplete="current-password"
+                        placeholder="Enter your password"
+                    />
+
+                    <InputError class="mt-2" :message="form.errors.password" />
+                </div>
+
+                <div class="flex items-center justify-between">
+                    <div class="mt-4 block">
+                        <label class="flex items-center">
+                            <Checkbox
+                                name="remember"
+                                v-model:checked="form.remember"
+                            />
+                            <span class="ms-2 text-sm text-gray-600"
+                                >Remember me</span
+                            >
+                        </label>
+                    </div>
+
+                    <Link
+                        v-if="canResetPassword"
+                        :href="route('password.request')"
+                        class="rounded-md text-sm text-gray-600 underline hover:text-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
+                    >
+                        Forgot your password?
+                    </Link>
+                </div>
+
+                <Button
+                    class="w-full h-12"
+                    :class="{ 'opacity-25': form.processing }"
+                    :disabled="form.processing"
+                >
+                    Log in
+                </Button>
+            </form>
+        </section>
+    </div>
+</template>
+
+<!-- <Head title="Log in" />
 
         <div v-if="status" class="mb-4 text-sm font-medium text-green-600">
             {{ status }}
@@ -93,6 +169,4 @@ const submit = () => {
                     Log in
                 </PrimaryButton>
             </div>
-        </form>
-    </GuestLayout>
-</template>
+        </form> -->

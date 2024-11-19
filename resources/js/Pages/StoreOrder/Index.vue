@@ -37,8 +37,23 @@ const showOrderDetails = (id) => {
     router.get(`/store-orders/show/${id}`);
 };
 
-let from = ref(usePage().props.from);
-let to = ref(usePage().props.to);
+let from = ref(
+    usePage().props.from ??
+        new Intl.DateTimeFormat("en-CA", {
+            year: "numeric",
+            month: "2-digit",
+            day: "2-digit",
+        }).format(new Date())
+);
+
+let to = ref(
+    usePage().props.to ??
+        new Intl.DateTimeFormat("en-CA", {
+            year: "numeric",
+            month: "2-digit",
+            day: "2-digit",
+        }).format(new Date())
+);
 let branchId = ref(usePage().props.branchId);
 let search = ref(usePage().props.search);
 
