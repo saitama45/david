@@ -31,8 +31,10 @@ const submit = () => {
 </script>
 
 <template>
-    <div class="grid grid-cols-2 gap-10 min-h-screen items-center p-20">
-        <section>
+    <div
+        class="grid lg:grid-cols-2 gap-10 min-h-screen items-center p-20 grid-cols-1"
+    >
+        <section class="lg:block hidden">
             <img :src="ImageBanner" alt="banner" />
         </section>
         <section class="border border-gray-300 rounded-lg p-10 space-y-7">
@@ -74,7 +76,7 @@ const submit = () => {
                 </div>
 
                 <div class="flex items-center justify-between">
-                    <div class="mt-4 block">
+                    <div class="block">
                         <label class="flex items-center">
                             <Checkbox
                                 name="remember"
