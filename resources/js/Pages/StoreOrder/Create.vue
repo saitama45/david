@@ -13,15 +13,6 @@ import { computed } from "vue";
 
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-// import {
-//     Select,
-//     SelectContent,
-//     SelectGroup,
-//     SelectItem,
-//     SelectLabel,
-//     SelectTrigger,
-//     SelectValue,
-// } from "@/components/ui/select";
 
 const props = defineProps({
     products: {
@@ -54,7 +45,6 @@ import { useToast } from "primevue/usetoast";
 
 const productId = ref(null);
 const orderDate = ref(new Date().toLocaleString().slice(0, 10));
-const storeId = ref(null);
 const visible = ref(false);
 const toast = useToast();
 const isLoading = ref(false);
@@ -72,7 +62,8 @@ const form = useForm({
 });
 
 const orderForm = useForm({
-    'storeId': storeId.value
+    storeId: null,
+    orders: [],
 });
 
 const itemForm = useForm({
@@ -81,8 +72,15 @@ const itemForm = useForm({
 });
 
 const store = () => {
-    orderForm.post(route(''));
-}
+    orderForm.post(route("store-orders.store"), {
+        onSuccess: () => {
+            console.log();
+        },
+        onError: (e) => {
+            console.log(e);
+        },
+    });
+};
 
 import { useConfirm } from "primevue/useconfirm";
 
@@ -111,8 +109,6 @@ const importOrdersButton = () => {
     visible.value = true;
 };
 
-const orders = ref([]);
-
 const addToOrdersButton = () => {
     itemForm.quantity = productDetails.quantity;
     if (!itemForm.item) {
@@ -131,18 +127,22 @@ const addToOrdersButton = () => {
         return;
     }
 
-    const existingItemIndex = orders.value.findIndex(
+    // Remove .value here
+    const existingItemIndex = orderForm.orders.findIndex(
         (order) => order.item_code === productDetails.item_code
     );
 
     if (existingItemIndex !== -1) {
-        orders.value[existingItemIndex].quantity += Number(
+        // Update existing item quantity
+        orderForm.orders[existingItemIndex].quantity += Number(
             productDetails.quantity
         );
     } else {
-        orders.value.push({ ...productDetails });
+        // Add new item
+        orderForm.orders.push({ ...productDetails });
     }
 
+    // Reset form fields
     Object.keys(productDetails).forEach((key) => {
         productDetails[key] = null;
     });
@@ -172,7 +172,8 @@ const removeItem = (item_code) => {
             severity: "danger",
         },
         accept: () => {
-            orders.value = orders.value.filter(
+            // Remove .value here
+            orderForm.orders = orderForm.orders.filter(
                 (item) => item.item_code !== item_code
             );
             toast.add({
@@ -198,9 +199,8 @@ const proceedButton = () => {
             },
         })
         .then((response) => {
-            console.log(response);
-            orders.value = [...orders.value, ...response.data.orders];
-            console.log(orders.value);
+            // Remove .value here
+            orderForm.orders = [...orderForm.orders, ...response.data.orders];
             visible.value = false;
             toast.add({
                 severity: "success",
@@ -239,9 +239,10 @@ const proceedButton = () => {
                             <Select
                                 filter
                                 placeholder="Select a Store"
-                                v-model="storeId"
+                                v-model="orderForm.storeId"
                                 :options="branchesOptions"
                                 optionLabel="label"
+                                optionValue="value"
                             >
                             </Select>
                         </div>
@@ -312,11 +313,12 @@ const proceedButton = () => {
                     </CardFooter>
                 </Card>
             </section>
-            <Card class="col-span-2">
+
+            <Card class="col-span-2 flex flex-col">
                 <CardHeader>
                     <CardTitle>Items List</CardTitle>
                 </CardHeader>
-                <CardContent>
+                <CardContent class="flex-1">
                     <Table>
                         <TableHead>
                             <TH> Name </TH>
@@ -328,7 +330,10 @@ const proceedButton = () => {
                         </TableHead>
 
                         <TableBody>
-                            <tr v-for="order in orders" :key="order.item_code">
+                            <tr
+                                v-for="order in orderForm.orders"
+                                :key="order.item_code"
+                            >
                                 <TD>
                                     {{ order.item_name }}
                                 </TD>
@@ -357,6 +362,9 @@ const proceedButton = () => {
                         </TableBody>
                     </Table>
                 </CardContent>
+                <CardFooter class="flex justify-end">
+                    <Button @click="store">Place Order</Button>
+                </CardFooter>
             </Card>
         </div>
 

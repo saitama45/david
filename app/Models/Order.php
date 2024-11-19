@@ -66,4 +66,9 @@ class Order extends Model
     {
         return $this->belongsTo(Vendor::class, 'Supplier');
     }
+
+    public function ordered_items()
+    {
+        return $this->hasMany(OrderedItem::class, 'TransactionHeaderID');
+    }
 }

@@ -7,17 +7,19 @@ use App\Imports\OrderListImport;
 use App\Models\Branch;
 use Inertia\Inertia;
 use App\Models\Order;
+use App\Models\OrderedItem;
 use App\Models\Product;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Request;
+use Illuminate\Http\Request;
+use Illuminate\Support\Number;
 use Maatwebsite\Excel\Facades\Excel;
 
 class StoreOrderController extends Controller
 {
     public function index()
     {
-        $from = request('from') ?? '2000-01-01';
-        $to = request('to') ? date('Y-m-d', strtotime(request('to') . ' +1 day')) : now()->addDay();
+        $from = request('from') ?? today();
+        $to = request('to') ?? today();
         $branchId = request('branchId');
         $search = request('search');
 
@@ -61,11 +63,15 @@ class StoreOrderController extends Controller
 
     public function store(Request $request)
     {
+        dd($request);
         $validated = $request->validate([
-            'storeId' => ['required', 'exists:branches,id']
+            'storeId' => ['required', 'exists:branch,id']
         ]);
-
-        dd($validated);
+        $branchId = $validated['storeId'];
+        $branchCode = Branch::select('BranchCode')->findOrFail($branchId)->BranchCode;
+        $orderCount = Order::where('BranchID', $branchId)->count() + 1;
+        $orderNumber = str_pad($orderCount, 5, '0', STR_PAD_LEFT);
+        $formattedOrderNumber = "$branchCode-$orderNumber";
     }
 
     public function show($id)
