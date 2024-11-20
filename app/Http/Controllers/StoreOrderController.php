@@ -9,8 +9,10 @@ use Inertia\Inertia;
 use App\Models\Order;
 use App\Models\OrderedItem;
 use App\Models\Product;
+use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Number;
 use Maatwebsite\Excel\Facades\Excel;
 
@@ -35,7 +37,6 @@ class StoreOrderController extends Controller
             ->whereBetween('OrderDate', [$from, $to])
             ->latest()
             ->paginate(10);
-
 
         $branches = Branch::options();
 
@@ -63,15 +64,34 @@ class StoreOrderController extends Controller
 
     public function store(Request $request)
     {
-        dd($request);
         $validated = $request->validate([
-            'storeId' => ['required', 'exists:branch,id']
+            'storeId' => ['required', 'exists:branch,id'],
+            'orders' => ['required']
         ]);
         $branchId = $validated['storeId'];
         $branchCode = Branch::select('BranchCode')->findOrFail($branchId)->BranchCode;
         $orderCount = Order::where('BranchID', $branchId)->count() + 1;
         $orderNumber = str_pad($orderCount, 5, '0', STR_PAD_LEFT);
         $formattedOrderNumber = "$branchCode-$orderNumber";
+
+        Order::create([
+            'TransactionType' => 'SO',
+            'OrderDate' => $validated['OrderDate'],
+            'ReceivingDate' => null,
+            'Total_Item' => sizeof($validated['orders']),
+            'TOTALQUANTITY' => 0,
+            'EncoderId' => Auth::user()->id,
+            'Supplier' => 1,
+            'Status' => 'PENDING',
+            'IsApproved' => -1,
+            'ReceivedById' => -1,
+            'LastUpdatedById' => null,
+            'CreatedDate' => today(),
+            'LastUpdateDate' => null,
+            'BranchID' =>  $branchId,
+            'SONumber' => $formattedOrderNumber,
+            'SODate' => null,
+        ]);
     }
 
     public function show($id)

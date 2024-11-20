@@ -2,38 +2,26 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
 class Product extends Model
 {
-    protected $table = 'productmasterfile';
+    /** @use HasFactory<\Database\Factories\ProductFactory> */
+    use HasFactory;
 
     protected $fillable = [
-        'ID',
-        'ProductType',
-        'InventoryID',
-        'Barcode',
-        'InventoryName',
-        'Brand',
-        'CategRep',
-        'ClasiRep',
-        'CategoryA',
-        'CategoryB',
-        'UOM',
-        'Conversion',
-        'Packaging',
-        'Status',
-        'CreatedBy',
-        'CreatedDate',
-        'UpdatedBy',
-        'UpdatedDate',
-        'Cost',
-        'SRP1',
-        'SRP2',
-        'SRP3',
-        'SRP4',
-        'SRP5',
-        'SRP6',
-        'SRP7'
+        'id',
+        'product_type_id',
+        'unit_of_measurement_id',
+        'inventory_code',
+        'name',
+        'brand',
+        'categ_rep',
+        'clasi_rep',
+        'conversion',
+        'packaging',
+        'is_active',
+        'cost',
     ];
 }

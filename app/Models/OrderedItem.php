@@ -9,38 +9,31 @@ class OrderedItem extends Model
     protected $table = 'transactiondetails';
 
     protected $fillable = [
-        'id',
-        'TransactionHeaderID',
-        'ItemCode',
-        'Cost',
-        'REC_QTY',
-        'PO_QTY',
-        'POUserID',
-        'RECUserID',
-        'ExcelFilename',
-        'CreatedDate',
-        'LastUpdateDate',
-        'IsApproved',
-        'CreatedByID',
-        'UpdatedByID',
-        'ApprovedByID',
-        'ReceivedByID',
-        'Updated_at',
-        'created_at',
-        'Remarks',
-        'ExpirationDate',
-        'ReceivingDate',
-        'isDelete',
-        'DeletedByID',
-        'DeleteRemarks',
-        'isDuplicate',
-        'SO_Number',
-        'DRAttachment',
-        'ApproveDate'
+        'order_id',
+        'product_id',
+        'quantity_ordered',
+        'quantity_received',
+        'remarks',
     ];
 
     public function order()
     {
-        $this->belongsTo(Order::class, 'Id');
+        $this->belongsTo(Order::class, 'SONumber');
+    }
+
+    public function storeManyOrderItems(Order $order, array $items)
+    {
+        $itemsToInsert = collect($items)->map(function ($item) use ($order) {
+            return [
+                'TransactionHeaderID' => $order->id,
+                'ItemCode' => $item['product_id'],
+                'Cost' => $item['quantity'],
+                'REC_QTY' => $item['price'],
+                'PO_QTY' => now(),
+                'COST' => now(),
+            ];
+        })->toArray();
+
+        return OrderedItem::insert($itemsToInsert);
     }
 }
