@@ -103,12 +103,19 @@ const logout = () => {
                         <DropdownMenuLabel> Reports </DropdownMenuLabel>
                         <DropdownMenuLabel> Reference </DropdownMenuLabel>
                         <NavLink href="/category-list" :icon="Home">
-                            Categories </NavLink
-                        ><NavLink
+                            Categories
+                        </NavLink>
+                        <NavLink
                             :href="route('inventory-categories.index')"
                             :icon="Home"
                         >
                             Invetory Categories
+                        </NavLink>
+                        <NavLink
+                            :href="route('unit-of-measurements.index')"
+                            :icon="Home"
+                        >
+                            Unit of Measurements
                         </NavLink>
                         <DropdownMenuLabel> User </DropdownMenuLabel>
                     </nav>

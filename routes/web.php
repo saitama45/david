@@ -10,6 +10,7 @@ use App\Http\Controllers\OrderApprovalController;
 use App\Http\Controllers\OrderReceivingController;
 use App\Http\Controllers\StoreOrderController;
 use App\Http\Controllers\ProfileController;
+use App\Http\Controllers\UnitOfMeasurementController;
 use Illuminate\Support\Facades\Route;
 
 Route::redirect('/', '/dashboard');
@@ -83,6 +84,11 @@ Route::middleware('auth')
         Route::controller(InvetoryCategoryController::class)->name('inventory-categories.')->group(function () {
             Route::get('/inventory-categories', 'index')->name('index');
             Route::post('/inventory-categories/update/{id}', 'update')->name('update');
+        });
+
+        Route::controller(UnitOfMeasurementController::class)->name('unit-of-measurements.')->group(function () {
+            Route::get('/unit-of-measurements', 'index')->name('index');
+            Route::post('/unit-of-measurements/update/{id}', 'update')->name('update');
         });
 
 
