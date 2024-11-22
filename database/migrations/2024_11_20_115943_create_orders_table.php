@@ -19,25 +19,25 @@ return new class extends Migration
             $table->id();
             $table->foreignId('encoder_id')
                 ->constrained('users')
-                ->nullOnDelete();
+                ->cascadeOnDelete();
 
             $table->foreignIdFor(Supplier::class)
                 ->constrained()
-                ->nullOnDelete();
+                ->cascadeOnDelete();
 
             $table->foreignId('received_by_id')
                 ->nullable()
                 ->constrained('users')
-                ->nullOnDelete();
+                ->cascadeOnDelete();
 
-            $table->foreignIdFor(Branch::class)
-                ->constrained()
-                ->nullOnDelete();
+            $table->foreignId('store_branch_id')
+                ->constrained('store_branches')
+                ->cascadeOnDelete();
 
             $table->foreignId('approved_by_id')
                 ->nullable()
                 ->constrained('users')
-                ->nullOnDelete();
+                ->cascadeOnDelete();
 
             $table->date('order_number');
 

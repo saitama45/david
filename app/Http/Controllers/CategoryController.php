@@ -3,21 +3,21 @@
 namespace App\Http\Controllers;
 
 use App\Models\Classification;
+use App\Models\Product;
+use App\Models\ProductCategory;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
-use PhpOffice\PhpSpreadsheet\Calculation\Category;
 
 class CategoryController extends Controller
 {
     public function index()
     {
         $search = request('search');
-        $query = Classification::query()
-            ->where('Module', 'Category');
+        $query = ProductCategory::query();
 
         if ($search)
-            $query->where('SettingName', 'like', "%$search%");
+            $query->where('name', 'like', "%$search%");
 
         $categories = $query->paginate(10);
         return Inertia::render('Category/Index', [

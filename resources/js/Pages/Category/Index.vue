@@ -53,7 +53,7 @@ const editCategoryDetails = (id) => {
 </script>
 
 <template>
-    <Layout heading="Categories">
+    <Layout heading="Product Categories">
         <TableContainer>
             <TableHeader>
                 <SearchBar>
@@ -68,17 +68,15 @@ const editCategoryDetails = (id) => {
             <Table>
                 <TableHead>
                     <TH> Id </TH>
-                    <TH> Setting Name</TH>
-                    <TH> Description</TH>
-                    <TH> Value </TH>
+                    <TH> Name</TH>
+                    <TH> Remarks</TH>
                     <TH> Actions </TH>
                 </TableHead>
                 <TableBody>
                     <tr v-for="category in categories.data">
                         <TD>{{ category.id }}</TD>
-                        <TD>{{ category.SettingName }}</TD>
-                        <TD>{{ category.Value }}</TD>
-                        <TD>{{ category.Description }}</TD>
+                        <TD>{{ category.name }}</TD>
+                        <TD>{{ category.remarks ?? 'N/a' }}</TD>
                         <TD>
                             <Button
                                 @click="editCategoryDetails(category.id)"

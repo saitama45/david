@@ -17,7 +17,14 @@ class DatabaseSeeder extends Seeder
 
         User::factory()->create([
             'name' => 'Test User',
-            'email' => 'test@example.com',
+            'email' => 'admin@gmail.com',
+            'password' => 'admin1234',
+        ]);
+
+        $this->call([
+            UnitOfMeasurementSeeder::class,
+            ProductCategorySeeder::class,
+            InventoryCategorySeeder::class
         ]);
     }
 }
