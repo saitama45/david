@@ -16,4 +16,9 @@ class Supplier extends Model
         'is_active',
         'remarks',
     ];
+
+    public function store_orders()
+    {
+        return $this->hasMany(StoreOrder::class);
+    }
 }

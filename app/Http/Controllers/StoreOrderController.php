@@ -9,6 +9,9 @@ use Inertia\Inertia;
 use App\Models\Order;
 use App\Models\OrderedItem;
 use App\Models\Product;
+use App\Models\ProductInventory;
+use App\Models\StoreBranch;
+use App\Models\StoreOrder;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Http\Request;
@@ -25,20 +28,20 @@ class StoreOrderController extends Controller
         $branchId = request('branchId');
         $search = request('search');
 
-        $query = Order::query()->with(['branch', 'vendor']);
+        $query = StoreOrder::query()->with(['store_branch', 'supplier']);
 
-        if ($branchId)
-            $query->where('BranchID', $branchId);
+        // if ($branchId)
+        //     $query->where('BranchID', $branchId);
 
-        if ($search)
-            $query->where('SONumber', 'like', '%' . $search . '%');
+        // if ($search)
+        //     $query->where('SONumber', 'like', '%' . $search . '%');
 
         $orders = $query
-            ->whereBetween('OrderDate', [$from, $to])
+            // ->whereBetween('OrderDate', [$from, $to])
             ->latest()
             ->paginate(10);
 
-        $branches = Branch::options();
+        $branches = StoreBranch::options();
 
         return Inertia::render(
             'StoreOrder/Index',
@@ -52,10 +55,9 @@ class StoreOrderController extends Controller
 
     public function create()
     {
-        $products = Product::select('ID', 'InventoryName')
-            ->get()
-            ->pluck('InventoryName', 'ID');
-        $branches = Branch::options();
+        $products = ProductInventory::options();
+
+        $branches = StoreBranch::options();
         return Inertia::render('StoreOrder/Create', [
             'products' => $products,
             'branches' => $branches

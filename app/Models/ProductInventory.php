@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Traits\HasSelections;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
@@ -10,7 +11,7 @@ use PhpOffice\PhpSpreadsheet\Calculation\Category;
 class ProductInventory extends Model
 {
     /** @use HasFactory<\Database\Factories\ProductInventoryFactory> */
-    use HasFactory;
+    use HasFactory, HasSelections;
 
     protected $fillable = [
         'inventory_category_id',

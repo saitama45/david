@@ -22,4 +22,14 @@ class StoreOrder extends Model
         'remarks',
         'order_approved_date',
     ];
+
+    public function store_branch()
+    {
+        return $this->belongsTo(StoreBranch::class);
+    }
+
+    public function supplier()
+    {
+        return $this->belongsTo(Supplier::class);
+    }
 }

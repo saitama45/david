@@ -187,26 +187,22 @@ const resetFilter = () => {
             <Table>
                 <TableHead>
                     <TH>Id</TH>
-                    <TH>Vendor</TH>
+                    <TH>Supplier</TH>
                     <TH>Store</TH>
-                    <TH>Order Placed At</TH>
                     <TH>Order #</TH>
                     <TH>Order Date</TH>
-                    <TH>Order Items</TH>
-                    <TH>Order Quantity</TH>
-                    <TH>Receiving Status</TH>
+                    <TH>Order Placed Date</TH>
+                    <TH>Order Status</TH>
                     <TH>Actions</TH>
                 </TableHead>
                 <TableBody>
                     <tr v-for="order in orders.data" :key="order.id">
                         <TD>{{ order.Id }}</TD>
-                        <TD>{{ order.vendor?.Name ?? "N/A" }}</TD>
-                        <TD>{{ order.branch?.Name ?? "N/A" }}</TD>
-                        <TD>{{ order.created_at }}</TD>
-                        <TD>{{ order.SONumber }}</TD>
-                        <TD>{{ order.OrderDate }}</TD>
-                        <TD>{{ order.Total_Item }}</TD>
-                        <TD>{{ order.TOTALQUANTITY ?? 0 }}</TD>
+                        <TD>{{ order.supplier?.name ?? "N/A" }}</TD>
+                        <TD>{{ order.store_branch?.name ?? "N/A" }}</TD>
+                        <TD>{{ order.order_number }}</TD>
+                        <TD>{{ order.order_date }}</TD>
+                        <TD>{{ order.order_status }}</TD>
                         <TD>
                             <Badge
                                 :class="statusBadgeColor(order.Status)"

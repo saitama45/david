@@ -50,11 +50,12 @@ const visible = ref(false);
 const isLoading = ref(false);
 
 const productDetails = reactive({
-    item_code: null,
-    item_name: null,
-    unit: null,
+    inventory_code: null,
+    name: null,
+    unit_of_measurement: null,
     quantity: null,
     cost: null,
+    total_cost: null,
 });
 
 const form = useForm({
@@ -68,7 +69,6 @@ const orderForm = useForm({
 
 const itemForm = useForm({
     item: null,
-    quantity: null,
 });
 
 const store = () => {
@@ -94,11 +94,10 @@ watch(productId, (newValue) => {
             .get(route("product.show", newValue.value))
             .then((response) => response.data)
             .then((result) => {
-                productDetails.item_name = result.InventoryName;
-                productDetails.item_code = result.InventoryID;
-                productDetails.unit = result.Packaging;
-                productDetails.cost = result.Cost;
-                console.log(productDetails);
+                productDetails.name = result.name;
+                productDetails.inventory_code = result.inventory_code;
+                productDetails.unit_of_measurement = result.unit_of_measurement;
+                productDetails.cost = result.cost;
             })
             .catch((err) => console.log(err))
             .finally(() => (isLoading.value = false));
@@ -110,32 +109,34 @@ const importOrdersButton = () => {
 };
 
 const addToOrdersButton = () => {
-    itemForm.quantity = productDetails.quantity;
     if (!itemForm.item) {
         itemForm.setError("item", "Item field is required");
     }
-    if (!itemForm.quantity) {
+    if (!productDetails.quantity) {
         itemForm.setError("quantity", "Quantity field is required");
     }
 
     if (
-        !productDetails.item_code ||
-        !productDetails.item_name ||
-        !productDetails.unit ||
+        !productDetails.inventory_code ||
+        !productDetails.name ||
+        !productDetails.unit_of_measurement ||
         !productDetails.quantity
     ) {
         return;
     }
 
     const existingItemIndex = orderForm.orders.findIndex(
-        (order) => order.item_code === productDetails.item_code
+        (order) => order.inventory_code === productDetails.inventory_code
     );
 
     if (existingItemIndex !== -1) {
-        orderForm.orders[existingItemIndex].quantity += Number(
-            productDetails.quantity
-        );
+        const quantity = (orderForm.orders[existingItemIndex].quantity +=
+            Number(productDetails.quantity));
+        orderForm.orders[existingItemIndex].total_cost =
+            productDetails.cost * quantity;
     } else {
+        productDetails.total_cost =
+            productDetails.cost * productDetails.quantity;
         orderForm.orders.push({ ...productDetails });
     }
 
@@ -279,7 +280,7 @@ const proceedButton = () => {
                             <Input
                                 type="text"
                                 disabled
-                                v-model="productDetails.unit"
+                                v-model="productDetails.unit_of_measurement"
                             />
                         </div>
                         <div class="flex flex-col space-y-1">
@@ -322,6 +323,7 @@ const proceedButton = () => {
                             <TH> Unit </TH>
                             <TH> Quantity </TH>
                             <TH> Cost </TH>
+                            <TH> Total Cost </TH>
                             <TH> Action </TH>
                         </TableHead>
 
@@ -331,19 +333,22 @@ const proceedButton = () => {
                                 :key="order.item_code"
                             >
                                 <TD>
-                                    {{ order.item_name }}
+                                    {{ order.name }}
                                 </TD>
                                 <TD>
-                                    {{ order.item_code }}
+                                    {{ order.inventory_code }}
                                 </TD>
                                 <TD>
-                                    {{ order.unit }}
+                                    {{ order.unit_of_measurement }}
                                 </TD>
                                 <TD>
                                     {{ order.quantity }}
                                 </TD>
                                 <TD>
                                     {{ order.cost }}
+                                </TD>
+                                <TD>
+                                    {{ order.total_cost }}
                                 </TD>
                                 <TD>
                                     <Button
