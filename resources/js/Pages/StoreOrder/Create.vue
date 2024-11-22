@@ -42,11 +42,11 @@ const productsOptions = computed(() => {
 import { ref, reactive, watch } from "vue";
 import { useForm } from "@inertiajs/vue3";
 import { useToast } from "primevue/usetoast";
-
+const toast = useToast();
 const productId = ref(null);
 const orderDate = ref(new Date().toLocaleString().slice(0, 10));
 const visible = ref(false);
-const toast = useToast();
+
 const isLoading = ref(false);
 
 const productDetails = reactive({
@@ -127,22 +127,18 @@ const addToOrdersButton = () => {
         return;
     }
 
-    // Remove .value here
     const existingItemIndex = orderForm.orders.findIndex(
         (order) => order.item_code === productDetails.item_code
     );
 
     if (existingItemIndex !== -1) {
-        // Update existing item quantity
         orderForm.orders[existingItemIndex].quantity += Number(
             productDetails.quantity
         );
     } else {
-        // Add new item
         orderForm.orders.push({ ...productDetails });
     }
 
-    // Reset form fields
     Object.keys(productDetails).forEach((key) => {
         productDetails[key] = null;
     });

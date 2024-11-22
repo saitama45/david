@@ -10,6 +10,11 @@ import {
 import { useForm, router } from "@inertiajs/vue3";
 import { useSelectOptions } from "@/Composables/useSelectOptions";
 import MultiSelect from "primevue/multiselect";
+import { useConfirm } from "primevue/useconfirm";
+import { useToast } from "primevue/usetoast";
+const toast = useToast();
+
+const confirm = useConfirm();
 
 const form = useForm({
     inventory_category_id: null,
@@ -48,11 +53,34 @@ const { options: productCategoriesOptions } = useSelectOptions(
 );
 
 const handleCreate = () => {
-    form.post(route("items.store"), {
-        preserveScroll: true,
-        onSuccess: () => {},
-        onError: (e) => {
-            console.log(e);
+    confirm.require({
+        message: "Are you sure you want to create this product?",
+        header: "Confirmation",
+        icon: "pi pi-exclamation-triangle",
+        rejectProps: {
+            label: "Cancel",
+            severity: "secondary",
+            outlined: true,
+        },
+        acceptProps: {
+            label: "Create",
+            severity: "success",
+        },
+        accept: () => {
+            form.post(route("items.store"), {
+                preserveScroll: true,
+                onSuccess: () => {
+                    toast.add({
+                        severity: "success",
+                        summary: "Success",
+                        detail: "New Product Successfully Created",
+                        life: 3000,
+                    });
+                },
+                onError: (e) => {
+                    console.log(e);
+                },
+            });
         },
     });
 };

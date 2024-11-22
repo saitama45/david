@@ -1,5 +1,5 @@
 <template>
-    <td class="text-sm py-1 font-normal">
+    <td class="text-sm py-2 font-normal">
         <slot></slot>
     </td>
 </template>

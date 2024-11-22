@@ -20,9 +20,9 @@ return new class extends Migration
 
             $table->string('name');
 
-            $table->string('inventory_code');
+            $table->string('inventory_code')->unique();
 
-            $table->string('brand');
+            $table->string('brand')->nullable();
 
             $table->double('conversion');
 
