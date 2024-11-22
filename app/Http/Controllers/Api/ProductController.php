@@ -7,7 +7,6 @@ use App\Models\Product;
 use App\Models\ProductInventory;
 use Illuminate\Http\Request;
 
-use function Pest\Laravel\json;
 
 class ProductController extends Controller
 {
@@ -16,6 +15,7 @@ class ProductController extends Controller
 
         $item = ProductInventory::with('unit_of_measurement')->find($id);
         $item = [
+            'id' => $item->id,
             'name' => $item->name,
             'inventory_code' => $item->inventory_code,
             'unit_of_measurement' => $item->unit_of_measurement->name,

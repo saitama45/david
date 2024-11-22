@@ -2,6 +2,8 @@
 
 namespace App\Http\Controllers;
 
+use App\Enum\OrderRequestStatus;
+use App\Enum\OrderStatus;
 use App\Http\Requests\Api\StoreOrderRequest;
 use App\Imports\OrderListImport;
 use App\Models\Branch;
@@ -12,6 +14,7 @@ use App\Models\Product;
 use App\Models\ProductInventory;
 use App\Models\StoreBranch;
 use App\Models\StoreOrder;
+use App\Models\Supplier;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Http\Request;
@@ -40,7 +43,6 @@ class StoreOrderController extends Controller
             // ->whereBetween('OrderDate', [$from, $to])
             ->latest()
             ->paginate(10);
-
         $branches = StoreBranch::options();
 
         return Inertia::render(
@@ -66,34 +68,42 @@ class StoreOrderController extends Controller
 
     public function store(Request $request)
     {
+        $supplier = Supplier::select('id')->where('supplier_code', 'CS')->first()->id;
+
         $validated = $request->validate([
-            'storeId' => ['required', 'exists:branch,id'],
-            'orders' => ['required']
+            'branch_id' => ['required', 'exists:store_branches,id'],
+            'order_date' => ['required'],
+            'orders' => ['required', 'array']
         ]);
-        $branchId = $validated['storeId'];
-        $branchCode = Branch::select('BranchCode')->findOrFail($branchId)->BranchCode;
-        $orderCount = Order::where('BranchID', $branchId)->count() + 1;
+
+        $branchId = $validated['branch_id'];
+        $branchCode = StoreBranch::select('branch_code')->findOrFail($branchId)->branch_code;
+        $orderCount = StoreOrder::where('store_branch_id', $branchId)->count() + 1;
         $orderNumber = str_pad($orderCount, 5, '0', STR_PAD_LEFT);
         $formattedOrderNumber = "$branchCode-$orderNumber";
 
-        Order::create([
-            'TransactionType' => 'SO',
-            'OrderDate' => $validated['OrderDate'],
-            'ReceivingDate' => null,
-            'Total_Item' => sizeof($validated['orders']),
-            'TOTALQUANTITY' => 0,
-            'EncoderId' => Auth::user()->id,
-            'Supplier' => 1,
-            'Status' => 'PENDING',
-            'IsApproved' => -1,
-            'ReceivedById' => -1,
-            'LastUpdatedById' => null,
-            'CreatedDate' => today(),
-            'LastUpdateDate' => null,
-            'BranchID' =>  $branchId,
-            'SONumber' => $formattedOrderNumber,
-            'SODate' => null,
+        DB::beginTransaction();
+        $order = StoreOrder::create([
+            'encoder_id' => 1,
+            'supplier_id' => $supplier,
+            'store_branch_id' => $branchId,
+            'order_number' => $formattedOrderNumber,
+            'order_date' => Carbon::parse($validated['order_date'])->format('Y-m-d'),
+            'order_status' => OrderStatus::PENDING->value,
+            'order_request_status' => OrderRequestStatus::PENDING->value,
         ]);
+
+
+        foreach ($validated['orders'] as $data) {
+            $order->store_order_items()->create([
+                'product_inventory_id' => $data['id'],
+                'quantity_ordered' => $data['quantity'],
+                'total_cost' => $data['total_cost'],
+            ]);
+        }
+        DB::commit();
+
+        return to_route('/store-orders');
     }
 
     public function show($id)

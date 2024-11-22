@@ -10,10 +10,10 @@ class StoreOrder extends Model
     /** @use HasFactory<\Database\Factories\StoreOrderFactory> */
     use HasFactory;
 
-    protected $attributes = [
+    protected $fillable = [
         'encoder_id',
         'supplier_id',
-        'branch_id',
+        'store_branch_id',
         'approved_by_user_id',
         'order_number',
         'order_date',
@@ -21,6 +21,12 @@ class StoreOrder extends Model
         'order_request_status',
         'remarks',
         'order_approved_date',
+    ];
+
+    protected $casts = [
+        'created_at' => 'date:F d, Y',
+        'order_date' => 'date:F d, Y',
+        'order_approved_date' => 'date:F d, Y',
     ];
 
     public function store_branch()
@@ -31,5 +37,10 @@ class StoreOrder extends Model
     public function supplier()
     {
         return $this->belongsTo(Supplier::class);
+    }
+
+    public function store_order_items()
+    {
+        return $this->hasMany(StoreOrderItem::class);
     }
 }

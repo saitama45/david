@@ -44,12 +44,12 @@ import { useForm } from "@inertiajs/vue3";
 import { useToast } from "primevue/usetoast";
 const toast = useToast();
 const productId = ref(null);
-const orderDate = ref(new Date().toLocaleString().slice(0, 10));
 const visible = ref(false);
 
 const isLoading = ref(false);
 
 const productDetails = reactive({
+    id: null,
     inventory_code: null,
     name: null,
     unit_of_measurement: null,
@@ -63,7 +63,8 @@ const form = useForm({
 });
 
 const orderForm = useForm({
-    storeId: null,
+    branch_id: null,
+    order_date: new Date().toLocaleString().slice(0, 10),
     orders: [],
 });
 
@@ -74,7 +75,12 @@ const itemForm = useForm({
 const store = () => {
     orderForm.post(route("store-orders.store"), {
         onSuccess: () => {
-            console.log();
+            toast.add({
+                severity: "success",
+                summary: "Success",
+                detail: "Order Created Successfully.",
+                life: 5000,
+            });
         },
         onError: (e) => {
             console.log(e);
@@ -94,6 +100,7 @@ watch(productId, (newValue) => {
             .get(route("product.show", newValue.value))
             .then((response) => response.data)
             .then((result) => {
+                productDetails.id = result.id;
                 productDetails.name = result.name;
                 productDetails.inventory_code = result.inventory_code;
                 productDetails.unit_of_measurement = result.unit_of_measurement;
@@ -126,7 +133,7 @@ const addToOrdersButton = () => {
     }
 
     const existingItemIndex = orderForm.orders.findIndex(
-        (order) => order.inventory_code === productDetails.inventory_code
+        (order) => order.id === productDetails.id
     );
 
     if (existingItemIndex !== -1) {
@@ -236,7 +243,7 @@ const proceedButton = () => {
                             <Select
                                 filter
                                 placeholder="Select a Store"
-                                v-model="orderForm.storeId"
+                                v-model="orderForm.branch_id"
                                 :options="branchesOptions"
                                 optionLabel="label"
                                 optionValue="value"
@@ -248,8 +255,8 @@ const proceedButton = () => {
                             <DatePicker
                                 showIcon
                                 fluid
-                                dateFormat="dd/mm/yy"
-                                v-model="orderDate"
+                                dateFormat="yy/mm/dd"
+                                v-model="orderForm.order_date"
                                 :showOnFocus="false"
                             />
                         </div>

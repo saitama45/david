@@ -15,7 +15,12 @@ class StoreOrderItem extends Model
         'product_inventory_id',
         'quantity_ordered',
         'quantity_received',
+        'total_cost',
         'remarks',
     ];
-}
 
+    public function store_order()
+    {
+        return $this->belongsTo(StoreOrder::class);
+    }
+}

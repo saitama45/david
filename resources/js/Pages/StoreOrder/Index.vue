@@ -105,7 +105,7 @@ watch(
 );
 
 const statusBadgeColor = (status) => {
-    switch (status) {
+    switch (status.toUpperCase()) {
         case "RECEIVED":
             return "bg-green-500 text-white";
         case "PENDING":
@@ -197,17 +197,17 @@ const resetFilter = () => {
                 </TableHead>
                 <TableBody>
                     <tr v-for="order in orders.data" :key="order.id">
-                        <TD>{{ order.Id }}</TD>
+                        <TD>{{ order.id }}</TD>
                         <TD>{{ order.supplier?.name ?? "N/A" }}</TD>
                         <TD>{{ order.store_branch?.name ?? "N/A" }}</TD>
                         <TD>{{ order.order_number }}</TD>
                         <TD>{{ order.order_date }}</TD>
-                        <TD>{{ order.order_status }}</TD>
+                        <TD>{{ order.created_at }}</TD>
                         <TD>
                             <Badge
-                                :class="statusBadgeColor(order.Status)"
+                                :class="statusBadgeColor(order.order_status)"
                                 class="font-bold"
-                                >{{ order.Status }}</Badge
+                                >{{ order.order_status }}</Badge
                             >
                         </TD>
                         <TD>
