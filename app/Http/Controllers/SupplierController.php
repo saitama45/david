@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Supplier;
+use Inertia\Inertia;
 
 class SupplierController extends Controller
 {
@@ -15,7 +16,7 @@ class SupplierController extends Controller
             $query->where('name', 'like', "%$search%");
 
         $suppliers = $query->paginate(10);
-        return Supplier::render('Supplier/Index', [
+        return Inertia::render('Supplier/Index', [
             'data' => $suppliers,
             'filters' => request()->only(['search'])
         ]);

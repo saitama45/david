@@ -33,7 +33,7 @@ const store = () => {
 };
 
 const props = defineProps({
-    categories: {
+    data: {
         type: Object,
         required: true,
     },
@@ -44,14 +44,14 @@ const { search } = useSearch("categories.index");
 const editCategoryDetails = (id) => {
     targetId.value = id;
     isEditModalVisible.value = true;
-    const data = props.categories.data.find((item) => item.id === id);
+    const data = props.data.data.find((item) => item.id === id);
     form.name = data.name;
     form.remarks = data.remarks;
 };
 </script>
 
 <template>
-    <Layout heading="Product Categories">
+    <Layout heading="Suppliers">
         <TableContainer>
             <TableHeader>
                 <SearchBar>
@@ -67,17 +67,17 @@ const editCategoryDetails = (id) => {
                 <TableHead>
                     <TH> Id </TH>
                     <TH> Name</TH>
-                    <TH> Remarks</TH>
+                    <TH> Supplier Code</TH>
                     <TH> Actions </TH>
                 </TableHead>
                 <TableBody>
-                    <tr v-for="category in categories.data">
-                        <TD>{{ category.id }}</TD>
-                        <TD>{{ category.name }}</TD>
-                        <TD>{{ category.remarks ?? "N/a" }}</TD>
+                    <tr v-for="data in data.data">
+                        <TD>{{ data.id }}</TD>
+                        <TD>{{ data.name }}</TD>
+                        <TD>{{ data.supplier_code }}</TD>
                         <TD>
                             <Button
-                                @click="editCategoryDetails(category.id)"
+                                @click="editCategoryDetails(data.id)"
                                 class="text-blue-500"
                                 variant="link"
                             >
@@ -88,7 +88,7 @@ const editCategoryDetails = (id) => {
                 </TableBody>
             </Table>
 
-            <Pagination :data="categories" />
+            <Pagination :data="data" />
         </TableContainer>
 
         <Dialog v-model:open="isEditModalVisible">

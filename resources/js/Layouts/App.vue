@@ -108,8 +108,11 @@ const logout = () => {
                         <NavLink href="/inventory-categories" :icon="Home">
                             Invetory Categories
                         </NavLink>
-                        <NavLink href="/unit-of-measurements" :icon="Home">
-                            Unit of Measurements
+                        <NavLink href="/store-branches" :icon="Home">
+                            Store Branches
+                        </NavLink>
+                        <NavLink href="/suppliers" :icon="Home">
+                            Suppliers
                         </NavLink>
                         <DropdownMenuLabel> User </DropdownMenuLabel>
                     </nav>
