@@ -17,7 +17,7 @@ const form = useForm({
 const targetId = ref(null);
 
 const store = () => {
-    form.post(route("categories.update", targetId.value), {
+    form.post(route("inventory-categories.update", targetId.value), {
         preserveScroll: true,
         onSuccess: () => {
             toast.add({

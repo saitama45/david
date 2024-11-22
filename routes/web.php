@@ -4,6 +4,7 @@ use App\Http\Controllers\ApprovedOrder;
 use App\Http\Controllers\CategoryController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\ExcelTemplateController;
+use App\Http\Controllers\InvetoryCategoryController;
 use App\Http\Controllers\ItemController;
 use App\Http\Controllers\OrderApprovalController;
 use App\Http\Controllers\OrderReceivingController;
@@ -64,7 +65,7 @@ Route::middleware('auth')
 
         Route::controller(CategoryController::class)->name('categories.')->group(function () {
             Route::get('/category-list', 'index')->name('index');
-            Route::post('/category-list/update/{classfication}', 'update')->name('update');
+            Route::post('/category-list/update/{id}', 'update')->name('update');
         });
 
         Route::controller(ItemController::class)->name('items.')->group(function () {
@@ -77,6 +78,10 @@ Route::middleware('auth')
 
         Route::controller(ApprovedOrder::class)->name('approved-orders.')->group(function () {
             Route::get('/approved-orders', 'index')->name('index');
+        });
+
+        Route::controller(InvetoryCategoryController::class)->name('inventory-categories.')->group(function () {
+            Route::get('/inventory-categories', 'index')->name('index');
         });
 
 

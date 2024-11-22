@@ -2,25 +2,22 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\Classification;
-use App\Models\Product;
-use App\Models\ProductCategory;
+use App\Models\InventoryCategory;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
 
-class CategoryController extends Controller
+class InvetoryCategoryController extends Controller
 {
     public function index()
     {
         $search = request('search');
-        $query = ProductCategory::query();
+        $query = InventoryCategory::query();
 
         if ($search)
             $query->where('name', 'like', "%$search%");
 
         $categories = $query->paginate(10);
-        return Inertia::render('Category/Index', [
+        return Inertia::render('InvetoryCategory/Index', [
             'categories' => $categories,
             'filters' => request()->only(['search'])
         ]);
@@ -33,7 +30,7 @@ class CategoryController extends Controller
             'remarks' => 'required',
         ]);
 
-        $category = ProductCategory::findOrFail($id);
+        $category = InventoryCategory::findOrFail($id);
         $category->update($validated);
 
 
