@@ -13,26 +13,9 @@ class Branch extends Model
     protected $table = 'branch';
 
     protected $fillable = [
-        'id',
-        'BranchCode',
-        'Name',
-        'SysBranchId',
-        'SysBranchCode',
-        'Email',
-        'MobileNo',
-        'Status',
-        'CreatedBy',
-        'UpdatedBy',
-        'BrandName',
-        'BrandCode',
-        'TIN',
-        'POC',
-        'StoreRepEmail',
-        'AOMEmail',
-        'HeadChefEmail',
-        'DirOpsEmail',
-        'VPOpsEmail',
-        'Address'
+        'branch_code',
+        'name',
+        'status'
     ];
 
     public function orders()

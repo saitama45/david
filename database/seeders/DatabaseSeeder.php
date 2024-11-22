@@ -2,6 +2,8 @@
 
 namespace Database\Seeders;
 
+use App\Models\StoreBranch;
+use App\Models\Supplier;
 use App\Models\User;
 // use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
@@ -24,7 +26,9 @@ class DatabaseSeeder extends Seeder
         $this->call([
             UnitOfMeasurementSeeder::class,
             ProductCategorySeeder::class,
-            InventoryCategorySeeder::class
+            InventoryCategorySeeder::class,
+            StoreBranchSeeder::class,
+            SupplierSeeder::class
         ]);
     }
 }

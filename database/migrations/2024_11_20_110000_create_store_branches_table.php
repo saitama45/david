@@ -13,19 +13,9 @@ return new class extends Migration
     {
         Schema::create('store_branches', function (Blueprint $table) {
             $table->id();
+            $table->string('name');
             $table->string('branch_code');
-            $table->string('brand_name');
-            $table->string('brand_code');
-            $table->string('phone_number')->nullable();
-            $table->string('email')->nullable();
-            $table->boolean('is_active')->default(false);
-            $table->string('tin')->nullable();
-            $table->string('point_of_contact')->nullable();
-            $table->string('store_representative_email')->nullable();
-            $table->string('head_chef_email')->nullable();
-            $table->string('dir_ops_email')->nullable();
-            $table->string('vp_ops_email')->nullable();
-            $table->string('address')->nullable();
+            $table->boolean('is_active')->default(true);
             $table->timestamps();
         });
     }

@@ -15,7 +15,6 @@ export function useSearch(routeName) {
                     replace: true,
                 }
             );
-            console.log(search);
         }, 500)
     );
 

@@ -1,27 +1,5 @@
 <script setup>
 import { useSearch } from "@/Composables/useSearch";
-import { useToast } from "primevue/usetoast";
-import { watch } from "vue";
-import { usePage } from "@inertiajs/vue3";
-const toast = useToast();
-const page = usePage();
-
-console.log(page);
-
-watch(
-    () => page.props.flash,
-    (flash) => {
-        if (flash && flash.message) {
-            toast.add({
-                severity: flash.message.severity,
-                summary: flash.message.summary,
-                detail: flash.message.detail,
-                life: 3000,
-            });
-        }
-    },
-    { immediate: true, deep: true }
-);
 
 const props = defineProps({
     items: {
@@ -65,6 +43,7 @@ const { search } = useSearch("items.index");
                     <TH>Conversion</TH>
                     <TH>UOM</TH>
                     <TH>Cost</TH>
+                    <TH>Actions</TH>
                 </TableHead>
 
                 <TableBody>
@@ -76,6 +55,11 @@ const { search } = useSearch("items.index");
                         <TD>{{ item.conversion }}</TD>
                         <TD>{{ item.unit_of_measurement.name }}</TD>
                         <TD>{{ item.cost }}</TD>
+                        <TH>
+                            <Button class="text-blue-500" variant="link">
+                                <Pencil class="size-6" />
+                            </Button>
+                        </TH>
                     </tr>
                 </TableBody>
             </Table>

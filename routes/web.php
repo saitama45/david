@@ -10,7 +10,10 @@ use App\Http\Controllers\OrderApprovalController;
 use App\Http\Controllers\OrderReceivingController;
 use App\Http\Controllers\StoreOrderController;
 use App\Http\Controllers\ProfileController;
+use App\Http\Controllers\StoreBranchController;
+use App\Http\Controllers\SupplierController;
 use App\Http\Controllers\UnitOfMeasurementController;
+use App\Models\StoreBranch;
 use Illuminate\Support\Facades\Route;
 
 Route::redirect('/', '/dashboard');
@@ -81,6 +84,13 @@ Route::middleware('auth')
 
         Route::controller(ApprovedOrder::class)->name('approved-orders.')->group(function () {
             Route::get('/approved-orders', 'index')->name('index');
+        });
+
+        Route::controller(StoreBranchController::class)->name('store-branches.')->group(function () {
+            Route::get('/store-branches', 'index')->name('index');
+        });
+        Route::controller(SupplierController::class)->name('suppliers.')->group(function () {
+            Route::get('/suppliers', 'index')->name('index');
         });
 
         Route::controller(InvetoryCategoryController::class)->name('inventory-categories.')->group(function () {

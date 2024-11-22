@@ -14,8 +14,6 @@ class Supplier extends Model
         'supplier_code',
         'name',
         'is_active',
-        'point_of_contact',
-        'contact_information',
         'remarks',
     ];
 }
