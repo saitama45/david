@@ -51,7 +51,7 @@ const editCategoryDetails = (id) => {
 </script>
 
 <template>
-    <Layout heading="Product Categories">
+    <Layout heading="Inventory Categories">
         <TableContainer>
             <TableHeader>
                 <SearchBar>

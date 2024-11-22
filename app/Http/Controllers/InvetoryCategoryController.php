@@ -33,7 +33,6 @@ class InvetoryCategoryController extends Controller
         $category = InventoryCategory::findOrFail($id);
         $category->update($validated);
 
-
         return to_route('categories.index');
     }
 }

@@ -82,6 +82,7 @@ Route::middleware('auth')
 
         Route::controller(InvetoryCategoryController::class)->name('inventory-categories.')->group(function () {
             Route::get('/inventory-categories', 'index')->name('index');
+            Route::post('/inventory-categories/update/{id}', 'update')->name('update');
         });
 
 
