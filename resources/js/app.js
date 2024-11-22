@@ -41,7 +41,8 @@ import {
 } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import Textarea from "./Components/ui/textarea/Textarea.vue";
-
+import Select from "primevue/select";
+import InputContainer from "./Components/form/InputContainer.vue";
 
 const appName = import.meta.env.VITE_APP_NAME || "Laravel";
 
@@ -88,6 +89,8 @@ createInertiaApp({
             .component("Badge", Badge)
             .component("DialogFooter", DialogFooter)
             .component("Textarea", Textarea)
+            .component("Select", Select)
+            .component("InputContainer", InputContainer)
             .use(PrimeVue, {
                 theme: {
                     preset: Aura,

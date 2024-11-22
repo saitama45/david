@@ -71,6 +71,8 @@ Route::middleware('auth')
 
         Route::controller(ItemController::class)->name('items.')->group(function () {
             Route::get('/items-list', 'index')->name('index');
+            Route::get('/items-list/create', 'create')->name('create');
+            Route::post('/items-list/store', 'store')->name('store');
         });
 
         Route::controller(OrderReceivingController::class)->name('orders-receiving.')->group(function () {

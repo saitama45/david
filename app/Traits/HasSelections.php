@@ -8,6 +8,6 @@ trait HasSelections
 {
     public function scopeOptions(Builder $query)
     {
-        return $query->select('id', 'Name')->where('status', 1)->get()->pluck('Name', 'id');
+        return $query->pluck('name', 'id');
     }
 }

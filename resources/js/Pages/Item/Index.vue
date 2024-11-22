@@ -6,11 +6,22 @@ const props = defineProps({
         required: true,
     },
 });
+
+import { router } from "@inertiajs/vue3";
+const handleClick = () => {
+    router.get(route("items.create"));
+};
+
 const { search } = useSearch("items.index");
 </script>
 
 <template>
-    <Layout heading="Items List">
+    <Layout
+        heading="Products List"
+        :hasButton="true"
+        buttonName="Create New Product"
+        :handleClick="handleClick"
+    >
         <TableContainer>
             <TableHeader>
                 <SearchBar>

@@ -105,16 +105,10 @@ const logout = () => {
                         <NavLink href="/category-list" :icon="Home">
                             Categories
                         </NavLink>
-                        <NavLink
-                            :href="route('inventory-categories.index')"
-                            :icon="Home"
-                        >
+                        <NavLink href="/inventory-categories" :icon="Home">
                             Invetory Categories
                         </NavLink>
-                        <NavLink
-                            :href="route('unit-of-measurements.index')"
-                            :icon="Home"
-                        >
+                        <NavLink href="/unit-of-measurements" :icon="Home">
                             Unit of Measurements
                         </NavLink>
                         <DropdownMenuLabel> User </DropdownMenuLabel>
@@ -210,7 +204,7 @@ const logout = () => {
                         buttonName
                     }}</Button>
                 </div>
-                <div class="space-y-10">
+                <div class="space-y-5">
                     <slot />
                 </div>
             </main>
