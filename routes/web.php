@@ -65,6 +65,10 @@ Route::middleware('auth')
         Route::controller(OrderApprovalController::class)->name('orders-approval.')->group(function () {
             Route::get('/orders-approval', 'index')->name('index');
             Route::get('/orders-approval/show/{id}', 'show')->name('show');
+
+            Route::post('/orders-approval/approve/{id}', 'approve')->name('approve');
+
+            Route::post('/orders-approval/reject/{id}', 'reject')->name('reject');
         });
 
         Route::controller(CategoryController::class)->name('categories.')->group(function () {

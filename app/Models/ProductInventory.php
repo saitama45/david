@@ -51,4 +51,9 @@ class ProductInventory extends Model
     {
         return $this->belongsTo(InventoryCategory::class);
     }
+
+    public function store_order_items()
+    {
+        return $this->hasMany(StoreOrderItem::class);
+    }
 }

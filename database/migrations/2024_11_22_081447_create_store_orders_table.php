@@ -18,7 +18,7 @@ return new class extends Migration
             $table->id();
             $table->foreignId('encoder_id')->constrained('users')->cascadeOnDelete();
             $table->foreignId('supplier_id')->constrained('suppliers')->cascadeOnDelete();
-            $table->foreignId('approved_by_user_id')
+            $table->foreignId('approver_id')
                 ->nullable()->constrained('users')->cascadeOnDelete();
             $table->foreignId('store_branch_id')->constrained('store_branches')->cascadeOnDelete();
             $table->string('order_number')->unique();
@@ -26,6 +26,7 @@ return new class extends Migration
             $table->enum('order_status', OrderStatus::values())->default(OrderStatus::PENDING->value);
             $table->enum('order_request_status', OrderRequestStatus::values())->default(OrderStatus::PENDING->value);
             $table->text('remarks')->nullable();
+            $table->dateTime('approval_action_date')->nullable();
             $table->timestamps();
         });
     }

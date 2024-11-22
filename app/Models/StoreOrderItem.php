@@ -19,8 +19,18 @@ class StoreOrderItem extends Model
         'remarks',
     ];
 
+    protected $casts = [
+        'total_cost' => 'decimal:2'
+    ];
+
+
     public function store_order()
     {
         return $this->belongsTo(StoreOrder::class);
+    }
+
+    public function product_inventory()
+    {
+        return $this->belongsTo(ProductInventory::class);
     }
 }

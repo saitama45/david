@@ -33,16 +33,16 @@ class StoreOrderController extends Controller
 
         $query = StoreOrder::query()->with(['store_branch', 'supplier']);
 
-        // if ($branchId)
-        //     $query->where('BranchID', $branchId);
+        if ($branchId)
+            $query->where('store_branch_id', $branchId);
 
-        // if ($search)
-        //     $query->where('SONumber', 'like', '%' . $search . '%');
+        if ($search)
+            $query->where('order_number', 'like', '%' . $search . '%');
 
         $orders = $query
-            // ->whereBetween('OrderDate', [$from, $to])
             ->latest()
             ->paginate(10);
+
         $branches = StoreBranch::options();
 
         return Inertia::render(
@@ -103,16 +103,17 @@ class StoreOrderController extends Controller
         }
         DB::commit();
 
-        return to_route('/store-orders');
+        return redirect()->route('store-orders.index');
     }
 
     public function show($id)
     {
-        $orders = DB::select("CALL SP_GET_RECEIVINGITEMS_HEADERID(?,?)", [$id, 1]);
-        $orderDetails = DB::select("CALL SP_GET_SO_TRANSACTIONHEADER(?)", [$id]);
+        $order = StoreOrder::with(['store_branch', 'supplier', 'store_order_items'])->where('order_number', $id)->firstOrFail();
+        $orderedItems = $order->store_order_items()->with(['product_inventory', 'product_inventory.unit_of_measurement'])->get();
+
         return Inertia::render('StoreOrder/Show', [
-            'orders' => $orders,
-            'orderDetails' => $orderDetails
+            'order' => $order,
+            'orderedItems' => $orderedItems
         ]);
     }
 

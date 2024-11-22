@@ -106,12 +106,12 @@ watch(
 
 const statusBadgeColor = (status) => {
     switch (status.toUpperCase()) {
-        case "RECEIVED":
+        case "APPROVED":
             return "bg-green-500 text-white";
         case "PENDING":
             return "bg-yellow-500 text-white";
-        case "INCOMPLETE":
-            return "bg-orange-500 text-white";
+        case "REJECTED":
+            return "bg-red-400 text-white";
         default:
             return "bg-yellow-500 text-white";
     }
@@ -192,7 +192,7 @@ const resetFilter = () => {
                     <TH>Order #</TH>
                     <TH>Order Date</TH>
                     <TH>Order Placed Date</TH>
-                    <TH>Order Status</TH>
+                    <TH>Order Approval Status</TH>
                     <TH>Actions</TH>
                 </TableHead>
                 <TableBody>
@@ -205,14 +205,18 @@ const resetFilter = () => {
                         <TD>{{ order.created_at }}</TD>
                         <TD>
                             <Badge
-                                :class="statusBadgeColor(order.order_status)"
+                                :class="
+                                    statusBadgeColor(order.order_request_status)
+                                "
                                 class="font-bold"
-                                >{{ order.order_status }}</Badge
+                                >{{
+                                    order.order_request_status.toUpperCase()
+                                }}</Badge
                             >
                         </TD>
                         <TD>
                             <Button
-                                @click="showOrderDetails(order.SONumber)"
+                                @click="showOrderDetails(order.order_number)"
                                 variant="link"
                             >
                                 <Eye />

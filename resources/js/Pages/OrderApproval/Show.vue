@@ -1,9 +1,12 @@
 <script setup>
+import { useBackButton } from "@/Composables/useBackButton";
+
+const { backButton } = useBackButton(route("orders-approval.index"));
 const props = defineProps({
-    orders: {
+    order: {
         type: Object,
     },
-    orderDetails: {
+    orderedItems: {
         type: Object,
     },
 });
@@ -21,7 +24,6 @@ const statusBadgeColor = (status) => {
             return "bg-yellow-500 text-white";
     }
 };
-const { SONumber, SODate, STATUS, SOApproved } = props.orderDetails[0];
 </script>
 
 <template>
@@ -31,15 +33,20 @@ const { SONumber, SODate, STATUS, SOApproved } = props.orderDetails[0];
                 <DivFlexCenter class="gap-5">
                     <span class="text-gray-700 text-sm">
                         Order Number:
-                        <span class="font-bold"> {{ SONumber }}</span>
+                        <span class="font-bold"> {{ order.order_number }}</span>
                     </span>
                     <span class="text-gray-700 text-sm">
-                        Order Date: <span class="font-bold"> {{ SODate }}</span>
+                        Order Date:
+                        <span class="font-bold"> {{ order.order_date }}</span>
                     </span>
                     <span class="text-gray-700 text-sm">
                         Status:
-                        <Badge :class="statusBadgeColor(STATUS)">
-                            {{ STATUS }}
+                        <Badge
+                            :class="
+                                statusBadgeColor(order.order_request_status)
+                            "
+                        >
+                            {{ order.order_request_status.toUpperCase() }}
                         </Badge>
                     </span>
                 </DivFlexCenter>
@@ -62,31 +69,36 @@ const { SONumber, SODate, STATUS, SOApproved } = props.orderDetails[0];
 
             <Table>
                 <TableHead>
-                    <TH>Item</TH>
-                    <TH>Code</TH>
-                    <TH>Unit</TH>
-                    <TH>Quantity</TH>
-                    <TH>Actions</TH>
+                    <TH> Item Code </TH>
+                    <TH> Name </TH>
+                    <TH> Unit </TH>
+                    <TH> Quantity </TH>
+                    <TH> Cost </TH>
+                    <TH> Total Cost </TH>
+                    <TH> Actions </TH>
                 </TableHead>
                 <TableBody>
-                    <tr v-for="order in orders" :key="order.id">
-                        <TD>{{ order.InventoryName }}</TD>
-                        <TD>{{ order.ItemCode }}</TD>
-                        <TD>{{ order.UOM_Desc }}</TD>
-                        <TD>{{ order.PO_QTY }}</TD>
-                        <TD class="w-[200px]">
-                            <DivFlexCenter class="gap-5">
-                                <button class="text-blue-500">
-                                    <Pencil />
-                                </button>
-                                <button class="text-red-500">
-                                    <Trash2 />
-                                </button>
-                            </DivFlexCenter>
+                    <tr v-for="order in orderedItems" :key="order.id">
+                        <TD>{{ order.product_inventory.inventory_code }}</TD>
+                        <TD>{{ order.product_inventory.name }}</TD>
+                        <TD>{{
+                            order.product_inventory.unit_of_measurement.name
+                        }}</TD>
+                        <TD>{{ order.quantity_ordered }}</TD>
+                        <TD>{{ order.product_inventory.cost }}</TD>
+                        <TD>{{ order.total_cost }}</TD>
+                        <TD>
+                            <Button class="text-red-500" variant="outline">
+                                <Trash2 />
+                            </Button>
                         </TD>
                     </tr>
                 </TableBody>
             </Table>
         </TableContainer>
+
+        <Button variant="outline" class="text-lg px-7" @click="backButton">
+            Back
+        </Button>
     </Layout>
 </template>

@@ -14,13 +14,13 @@ class StoreOrder extends Model
         'encoder_id',
         'supplier_id',
         'store_branch_id',
-        'approved_by_user_id',
+        'approver_id',
         'order_number',
         'order_date',
         'order_status',
         'order_request_status',
         'remarks',
-        'order_approved_date',
+        'approval_action_date',
     ];
 
     protected $casts = [
