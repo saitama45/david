@@ -1,6 +1,11 @@
 <script setup>
 import { useForm, router } from "@inertiajs/vue3";
 import { useSelectOptions } from "@/Composables/useSelectOptions";
+import { useConfirm } from "primevue/useconfirm";
+import { useToast } from "primevue/usetoast";
+const toast = useToast();
+const confirm = useConfirm();
+
 const form = useForm({
     name: null,
     email: null,
@@ -8,6 +13,39 @@ const form = useForm({
     role: null,
     remarks: null,
 });
+
+const handleCreate = () => {
+    confirm.require({
+        message: "Are you sure you want to create this user?",
+        header: "Confirmation",
+        icon: "pi pi-exclamation-triangle",
+        rejectProps: {
+            label: "Cancel",
+            severity: "secondary",
+            outlined: true,
+        },
+        acceptProps: {
+            label: "Create",
+            severity: "success",
+        },
+        accept: () => {
+            form.post(route("users.store"), {
+                preserveScroll: true,
+                onSuccess: () => {
+                    toast.add({
+                        severity: "success",
+                        summary: "Success",
+                        detail: "New User Successfully Created",
+                        life: 3000,
+                    });
+                },
+                onError: (e) => {
+                    console.log(e);
+                },
+            });
+        },
+    });
+};
 
 const props = defineProps({
     roles: {
