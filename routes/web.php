@@ -14,6 +14,7 @@ use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\StoreBranchController;
 use App\Http\Controllers\SupplierController;
 use App\Http\Controllers\UnitOfMeasurementController;
+use App\Http\Controllers\UserController;
 use App\Models\StoreBranch;
 use Illuminate\Support\Facades\Route;
 
@@ -85,6 +86,10 @@ Route::middleware('auth')
 
         Route::controller(OrderReceivingController::class)->name('orders-receiving.')->group(function () {
             Route::get('/orders-receiving', 'index')->name('index');
+        });
+
+        Route::controller(UserController::class)->name('users.')->group(function () {
+            Route::get('/users', 'index')->name('index');
         });
 
         Route::controller(ApprovedOrderController::class)->name('approved-orders.')->group(function () {

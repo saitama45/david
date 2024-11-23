@@ -115,6 +115,7 @@ const logout = () => {
                             Suppliers
                         </NavLink>
                         <DropdownMenuLabel> User </DropdownMenuLabel>
+                        <NavLink href="/users" :icon="Home"> Users </NavLink>
                     </nav>
                 </div>
                 <div class="mt-auto p-4">Test</div>
