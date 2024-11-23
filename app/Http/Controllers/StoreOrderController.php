@@ -6,10 +6,7 @@ use App\Enum\OrderRequestStatus;
 use App\Enum\OrderStatus;
 use App\Http\Requests\Api\StoreOrderRequest;
 use App\Imports\OrderListImport;
-use App\Models\Branch;
 use Inertia\Inertia;
-use App\Models\Order;
-use App\Models\OrderedItem;
 use App\Models\Product;
 use App\Models\ProductInventory;
 use App\Models\StoreBranch;
@@ -18,8 +15,6 @@ use App\Models\Supplier;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Number;
 use Maatwebsite\Excel\Facades\Excel;
 
 class StoreOrderController extends Controller
@@ -40,6 +35,7 @@ class StoreOrderController extends Controller
             $query->where('order_number', 'like', '%' . $search . '%');
 
         $orders = $query
+        ->whereBetween('created_at', [$from, $to])
             ->latest()
             ->paginate(10);
 

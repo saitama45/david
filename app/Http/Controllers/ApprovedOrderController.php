@@ -3,12 +3,11 @@
 namespace App\Http\Controllers;
 
 use App\Enum\OrderRequestStatus;
-use App\Models\Order;
 use App\Models\StoreOrder;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 
-class OrderReceivingController extends Controller
+class ApprovedOrderController extends Controller
 {
     public function index()
     {
@@ -22,7 +21,7 @@ class OrderReceivingController extends Controller
             ->latest()
             ->paginate(10);
 
-        return Inertia::render('OrderReceiving/Index', [
+        return Inertia::render('ApprovedOrder/Index', [
             'orders' => $orders
         ]);
     }

@@ -1,6 +1,6 @@
 <script setup>
-import { Badge } from "@/components/ui/badge";
 import { useSearch } from "@/Composables/useSearch";
+
 const props = defineProps({
     orders: {
         type: Object,
@@ -8,64 +8,69 @@ const props = defineProps({
 });
 
 const statusBadgeColor = (status) => {
-    switch (status) {
-        case 1:
+    switch (status.toUpperCase()) {
+        case "APPROVED":
             return "bg-green-500 text-white";
+        case "PENDING":
+            return "bg-yellow-500 text-white";
+        case "REJECTED":
+            return "bg-red-400 text-white";
         default:
             return "bg-yellow-500 text-white";
     }
 };
 
-const { search } = useSearch("orders-receiving.index");
+const { search } = useSearch("approved-orders.index");
 </script>
+
 <template>
-    <Layout heading="Orders For Receiving List">
+    <Layout heading="Approved Orders">
         <TableContainer>
             <TableHeader>
                 <SearchBar>
                     <Input
                         class="pl-10"
                         v-model="search"
-                        placeholder="Order Number Search"
+                        placeholder="Search..."
                     />
                 </SearchBar>
             </TableHeader>
 
             <Table>
                 <TableHead>
-                    <TH> Store/Branch</TH>
-                    <TH> SO Number</TH>
-                    <TH> Order Date</TH>
-                    <TH> Actual Received</TH>
-                    <TH> Receiving Status </TH>
-                    <TH> Actions </TH>
+                    <TH>Id</TH>
+                    <TH>Supplier</TH>
+                    <TH>Store</TH>
+                    <TH>Order #</TH>
+                    <TH>Order Date</TH>
+                    <TH>Order Placed Date</TH>
+                    <TH>Order Approval Status</TH>
+                    <TH>Actions</TH>
                 </TableHead>
                 <TableBody>
                     <tr v-for="order in orders.data">
-                        <TD>{{ order.branch?.Name ?? "N/a" }}</TD>
-                        <TD>{{ order.SONumber }}</TD>
-                        <TD>{{ order.OrderDate }}</TD>
-                        <TD>{{ order.Total_Item }}</TD>
-                        <TD>{{ order.TOTALQUANTITY }}</TD>
+                        <TD>{{ order.id }}</TD>
+                        <TD>{{ order.supplier?.name ?? "N/A" }}</TD>
+                        <TD>{{ order.store_branch?.name ?? "N/A" }}</TD>
+                        <TD>{{ order.order_number }}</TD>
+                        <TD>{{ order.order_date }}</TD>
+                        <TD>{{ order.created_at }}</TD>
                         <TD>
                             <Badge
-                                :class="statusBadgeColor(order.IsApproved)"
+                                :class="
+                                    statusBadgeColor(order.order_request_status)
+                                "
                                 class="font-bold"
                                 >{{
-                                    order.IsApproved == 1
-                                        ? "Approved"
-                                        : "For Approval"
+                                    order.order_request_status.toUpperCase()
                                 }}</Badge
                             >
                         </TD>
-                        <TD>
-                            <Button variant="link">
-                                <Eye />
-                            </Button>
-                        </TD>
+                        <TD></TD>
                     </tr>
                 </TableBody>
             </Table>
+
             <Pagination :data="orders" />
         </TableContainer>
     </Layout>

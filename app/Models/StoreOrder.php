@@ -9,6 +9,8 @@ class StoreOrder extends Model
 {
     /** @use HasFactory<\Database\Factories\StoreOrderFactory> */
     use HasFactory;
+    // Ordering -> Store Order
+    //NNSSR-00001
 
     protected $fillable = [
         'encoder_id',
