@@ -220,9 +220,6 @@ const isLoading = ref(false);
                     <div class="flex flex-col space-y-1">
                         <DivFlexCenter class="justify-between">
                             <Label>Quantity Received</Label>
-                            <span class="text-xs"
-                                >Quantity to receive: {{ order }}</span
-                            >
                         </DivFlexCenter>
                         <Input v-model="form.quantity_received" />
                         <FormError>{{

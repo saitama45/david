@@ -16,6 +16,16 @@ import {
     Menu,
     Package,
     Package2,
+    ShoppingCart,
+    SquareChartGantt,
+    Folders,
+    FileCheck,
+    PackageSearch,
+    ScrollText,
+    LayoutList,
+    Store,
+    Container,
+    UsersRound,
 } from "lucide-vue-next";
 import Toast from "primevue/toast";
 import { router } from "@inertiajs/vue3";
@@ -82,40 +92,48 @@ const logout = () => {
                             Dashboard
                         </NavLink>
                         <DropdownMenuLabel> Ordering </DropdownMenuLabel>
-                        <NavLink href="/store-orders" :icon="Package">
+                        <NavLink href="/store-orders" :icon="ShoppingCart">
                             Store Orders
                         </NavLink>
-                        <NavLink href="/orders-approval" :icon="Home">
+                        <NavLink
+                            href="/orders-approval"
+                            :icon="SquareChartGantt"
+                        >
                             Orders Approval
                         </NavLink>
                         <DropdownMenuLabel> Receiving </DropdownMenuLabel>
-                        <NavLink href="/orders-receiving" :icon="Home">
+                        <NavLink href="/orders-receiving" :icon="Folders">
                             Orders
                         </NavLink>
-                        <NavLink href="/approved-orders" :icon="Home">
+                        <NavLink href="/approved-orders" :icon="FileCheck">
                             Approved Orders
                         </NavLink>
                         <DropdownMenuLabel> Sales </DropdownMenuLabel>
                         <DropdownMenuLabel> Inventory </DropdownMenuLabel>
-                        <NavLink href="/items-list" :icon="Home">
+                        <NavLink href="/items-list" :icon="PackageSearch">
                             Items
                         </NavLink>
                         <DropdownMenuLabel> Reports </DropdownMenuLabel>
                         <DropdownMenuLabel> Reference </DropdownMenuLabel>
-                        <NavLink href="/category-list" :icon="Home">
+                        <NavLink href="/category-list" :icon="ScrollText">
                             Categories
                         </NavLink>
-                        <NavLink href="/inventory-categories" :icon="Home">
+                        <NavLink
+                            href="/inventory-categories"
+                            :icon="LayoutList"
+                        >
                             Invetory Categories
                         </NavLink>
-                        <NavLink href="/store-branches" :icon="Home">
+                        <NavLink href="/store-branches" :icon="Store">
                             Store Branches
                         </NavLink>
-                        <NavLink href="/suppliers" :icon="Home">
+                        <NavLink href="/suppliers" :icon="Container">
                             Suppliers
                         </NavLink>
                         <DropdownMenuLabel> User </DropdownMenuLabel>
-                        <NavLink href="/users" :icon="Home"> Users </NavLink>
+                        <NavLink href="/users" :icon="UsersRound">
+                            Users
+                        </NavLink>
                     </nav>
                 </div>
                 <div class="mt-auto p-4">Test</div>

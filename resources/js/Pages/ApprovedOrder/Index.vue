@@ -66,7 +66,11 @@ const { search } = useSearch("approved-orders.index");
                                 }}</Badge
                             >
                         </TD>
-                        <TD></TD>
+                        <TD>
+                            <Button variant="outline">
+                                <Eye />
+                            </Button>
+                        </TD>
                     </tr>
                 </TableBody>
             </Table>

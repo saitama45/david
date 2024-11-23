@@ -25,7 +25,13 @@ import SearchBar from "./Components/table/SearchBar.vue";
 import TableHeader from "./Components/table/TableHeader.vue";
 import TableHead from "./Components/table/TableHead.vue";
 import TableBody from "./Components/table/TableBody.vue";
-import { Filter, Eye, Pencil, Trash2, EllipsisVertical } from "lucide-vue-next";
+import {
+    Filter,
+    Eye,
+    Pencil,
+    Trash2,
+    EllipsisVertical,
+} from "lucide-vue-next";
 import ConfirmationService from "primevue/confirmationservice";
 import { Label } from "@/components/ui/label";
 import FormError from "@/Components/FormError.vue";
