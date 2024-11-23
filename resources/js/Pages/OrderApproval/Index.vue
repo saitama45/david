@@ -1,7 +1,29 @@
 <script setup>
 import { useSearch } from "@/Composables/useSearch";
-import { router } from "@inertiajs/vue3";
 import { useToast } from "primevue/usetoast";
+import { router, usePage } from "@inertiajs/vue3";
+import { ref, watch } from "vue";
+
+let filter = ref(usePage().props.filter || "pending");
+
+watch(filter, function (value) {
+    router.get(
+        route("orders-approval.index"),
+        { filter: value },
+        {
+            preserveState: true,
+            replace: true,
+        }
+    );
+});
+
+const changeFilter = (currentFilter) => {
+    filter.value = currentFilter;
+};
+
+const isFilterActive = (currentFilter) => {
+    return filter.value == currentFilter ? "bg-primary text-white" : "";
+};
 import {
     Popover,
     PopoverContent,
@@ -10,6 +32,9 @@ import {
 const toast = useToast();
 const props = defineProps({
     orders: {
+        type: Object,
+    },
+    counts: {
         type: Object,
     },
 });
@@ -58,6 +83,43 @@ const showOrderDetails = (id) => {
 </script>
 <template>
     <Layout heading="Orders For Approval List">
+        <DivFlexCenter
+            class="gap-2 w-fit mx-auto px-5 py-2 bg-white rounded-lg shadow-lg"
+        >
+            <Button
+                class="px-10 bg-white/10 text-gray-800 hover:text-white gap-3"
+                :class="isFilterActive('pending')"
+                @click="changeFilter('pending')"
+                >PENDING
+                <Badge
+                    class="border border-gray bg-transparent text-gray-900"
+                    :class="isFilterActive('pending')"
+                    >{{ counts.pending }}</Badge
+                >
+            </Button>
+            <Button
+                class="px-10 bg-white/10 text-gray-800 hover:text-white gap-5"
+                :class="isFilterActive('approved')"
+                @click="changeFilter('approved')"
+                >APPROVED
+                <Badge
+                    class="border border-gray bg-transparent text-gray-900"
+                    :class="isFilterActive('approved')"
+                    >{{ counts.approved }}</Badge
+                ></Button
+            >
+            <Button
+                class="px-10 bg-white/10 text-gray-800 hover:text-white gap-5"
+                :class="isFilterActive('rejected')"
+                @click="changeFilter('rejected')"
+                >REJECTED
+                <Badge
+                    class="border border-gray bg-transparent text-gray-900"
+                    :class="isFilterActive('rejected')"
+                    >{{ counts.rejected }}</Badge
+                ></Button
+            >
+        </DivFlexCenter>
         <TableContainer>
             <TableHeader>
                 <SearchBar>

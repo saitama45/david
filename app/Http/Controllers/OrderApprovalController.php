@@ -15,17 +15,30 @@ class OrderApprovalController extends Controller
     public function index()
     {
         $search = request('search');
+        $filter = request('filter') ?? 'pending';
+
         $query = StoreOrder::query()->with(['store_branch', 'supplier']);
+
+        $counts = [
+            'pending' => (clone $query)->where('order_request_status', 'pending')->count(),
+            'approved' => (clone $query)->where('order_request_status', 'approved')->count(),
+            'rejected' => (clone $query)->where('order_request_status', 'rejected')->count(),
+        ];
+
 
         if ($search)
             $query->where('order_number', 'like', '%' . $search . '%');
+
+        if ($filter)
+            $query->where('order_request_status', $filter);
 
         $orders = $query->latest()
             ->paginate(10);
 
         return Inertia::render('OrderApproval/Index', [
             'orders' => $orders,
-            'filters' => request()->only(['search'])
+            'filters' => request()->only(['search', 'filter']),
+            'counts' => $counts
         ]);
     }
 
