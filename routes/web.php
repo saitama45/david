@@ -90,6 +90,7 @@ Route::middleware('auth')
 
         Route::controller(UserController::class)->name('users.')->group(function () {
             Route::get('/users', 'index')->name('index');
+            Route::get('/users/create', 'create')->name('create');
         });
 
         Route::controller(ApprovedOrderController::class)->name('approved-orders.')->group(function () {

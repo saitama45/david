@@ -1,12 +1,4 @@
 <script setup>
-import {
-    Card,
-    CardContent,
-    CardHeader,
-    CardDescription,
-    CardFooter,
-    CardTitle,
-} from "@/components/ui/card";
 import { useForm, router } from "@inertiajs/vue3";
 import { useSelectOptions } from "@/Composables/useSelectOptions";
 import MultiSelect from "primevue/multiselect";

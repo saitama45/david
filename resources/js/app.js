@@ -43,6 +43,14 @@ import { Badge } from "@/components/ui/badge";
 import Textarea from "./Components/ui/textarea/Textarea.vue";
 import Select from "primevue/select";
 import InputContainer from "./Components/form/InputContainer.vue";
+import {
+    Card,
+    CardContent,
+    CardHeader,
+    CardDescription,
+    CardFooter,
+    CardTitle,
+} from "@/components/ui/card";
 
 const appName = import.meta.env.VITE_APP_NAME || "Laravel";
 
@@ -92,6 +100,12 @@ createInertiaApp({
             .component("Select", Select)
             .component("InputContainer", InputContainer)
             .component("EllipsisVertical", EllipsisVertical)
+            .component("Card", Card)
+            .component("CardContent", CardContent)
+            .component("CardHeader", CardHeader)
+            .component("CardFooter", CardFooter)
+            .component("CardDescription", CardDescription)
+            .component("CardTitle", CardTitle)
             .use(PrimeVue, {
                 theme: {
                     preset: Aura,

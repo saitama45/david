@@ -10,7 +10,6 @@ const handleClick = () => {
     router.get("/users/create");
 };
 
-console.log(props.users);
 </script>
 
 <template>
