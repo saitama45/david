@@ -19,14 +19,23 @@ class ItemController extends Controller
     public function index()
     {
         $search = request('search');
+        $filter = request('filter');
+
         $query = ProductInventory::query()->with(['inventory_category', 'unit_of_measurement', 'product_categories']);
+
+        if ($filter === 'with_cost')
+            $query->where('cost', '>', 0);
+
+        if ($filter === 'without_cost')
+            $query->where('cost', '===', 0);
+
         if ($search)
             $query->whereAny(['name', 'inventory_code'], 'like', "%$search%");
         $items = $query->paginate(10);
 
         return Inertia::render('Item/Index', [
             'items' => $items,
-            'filters' => request()->only(['search'])
+            'filters' => request()->only(['search', 'filter'])
         ])->with('success', true);
     }
 

@@ -51,6 +51,8 @@ import {
     CardFooter,
     CardTitle,
 } from "@/components/ui/card";
+import FilterTab from "./Components/FilterTab.vue";
+import FilterTabButton from "./Components/FilterTabButton.vue";
 
 const appName = import.meta.env.VITE_APP_NAME || "Laravel";
 
@@ -106,6 +108,8 @@ createInertiaApp({
             .component("CardFooter", CardFooter)
             .component("CardDescription", CardDescription)
             .component("CardTitle", CardTitle)
+            .component("FilterTab", FilterTab)
+            .component("FilterTabButton", FilterTabButton)
             .use(PrimeVue, {
                 theme: {
                     preset: Aura,
