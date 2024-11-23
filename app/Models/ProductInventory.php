@@ -17,10 +17,12 @@ class ProductInventory extends Model
         'inventory_category_id',
         'unit_of_measurement_id',
         'name',
+        'barcode',
         'inventory_code',
         'brand',
         'conversion',
         'cost',
+        'is_active'
     ];
 
     protected $casts = [

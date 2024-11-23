@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Imports\ProductInventoryImport;
 use App\Models\InventoryCategory;
 use App\Models\Product;
 use App\Models\ProductCategory;
@@ -11,6 +12,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
+use Maatwebsite\Excel\Facades\Excel;
 
 class ItemController extends Controller
 {
@@ -60,5 +62,15 @@ class ItemController extends Controller
         });
 
         return redirect()->route('items.index');
+    }
+
+    public function import(Request $request)
+    {
+        $request->validate([
+            'products_file' => 'required|mimes:xlsx,xls,csv'
+        ]);
+
+        Excel::import(new ProductInventoryImport, $request->file('products_file'));
+        return redirect()->route('items.index')->with('success', 'Import successful');
     }
 }

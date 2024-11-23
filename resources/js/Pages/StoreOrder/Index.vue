@@ -31,8 +31,15 @@ const props = defineProps({
     branches: {
         type: Object,
     },
+    auth: {
+        type: Object,
+    },
 });
 
+const role = props.auth.user.role;
+const hasCreateAccess = role === "admin" || role === "so_encoder";
+
+console.log();
 const showOrderDetails = (id) => {
     router.get(`/store-orders/show/${id}`);
 };
@@ -127,7 +134,7 @@ const resetFilter = () => {
 <template>
     <Layout
         heading="Store Orders"
-        :hasButton="true"
+        :hasButton="hasCreateAccess"
         buttonName="Create New Order"
         :handleClick="handleClick"
     >

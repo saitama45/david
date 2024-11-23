@@ -22,11 +22,15 @@ return new class extends Migration
 
             $table->string('inventory_code')->unique();
 
+            $table->string('barcode')->nullable();
+
             $table->string('brand')->nullable();
 
             $table->double('conversion');
 
             $table->double('cost');
+
+            $table->boolean('is_active');
 
             $table->timestamps();
         });

@@ -51,14 +51,17 @@ Route::middleware('auth')
                 Route::get('/show/{id}', 'show')
                     ->name('show');
 
-                Route::post('/store', 'store')
-                    ->name('store');
+                Route::middleware('check.persmission:create-so')->group(function () {
+                    Route::post('/store', 'store')
+                        ->name('store');
+                    Route::get('/create', 'create')
+                        ->name('store-orders-create');
+                });
 
                 Route::post('/orders-list', 'validateHeaderUpload')
                     ->name('orders-list');
 
-                Route::get('/create', 'create')
-                    ->name('store-orders-create');
+
 
                 Route::post('/store-orders', 'getImportedOrders')
                     ->name('imported-file');
@@ -82,6 +85,8 @@ Route::middleware('auth')
             Route::get('/items-list', 'index')->name('index');
             Route::get('/items-list/create', 'create')->name('create');
             Route::post('/items-list/store', 'store')->name('store');
+
+            Route::post('/items-list/import', 'import')->name('import');
         });
 
         Route::controller(OrderReceivingController::class)->name('orders-receiving.')->group(function () {

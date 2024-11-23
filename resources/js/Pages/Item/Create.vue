@@ -4,6 +4,30 @@ import { useSelectOptions } from "@/Composables/useSelectOptions";
 import MultiSelect from "primevue/multiselect";
 import { useConfirm } from "primevue/useconfirm";
 import { useToast } from "primevue/usetoast";
+import { ref, reactive, watch } from "vue";
+
+const isImportModalVisible = ref(false);
+
+const importForm = useForm({
+    products_file: null,
+});
+
+const importFile = () => {
+    isLoading.value = true;
+    importForm.post(route("items.import"), {
+        onSuccess: () => {
+            toast.add({
+                severity: "success",
+                summary: "Success",
+                detail: "New Products Created",
+                life: 3000,
+            });
+        },
+        onError: (e) => {
+            console.log(e);
+        },
+    });
+};
 const toast = useToast();
 
 const confirm = useConfirm();
@@ -76,14 +100,23 @@ const handleCreate = () => {
         },
     });
 };
-
+const isLoading = ref(false);
 const handleCancel = () => {
     router.get(route("items.index"));
+};
+
+const openFormModal = () => {
+    return (isImportModalVisible.value = true);
 };
 </script>
 
 <template>
-    <Layout heading="Create New Product">
+    <Layout
+        heading="Create New Product"
+        :hasButton="true"
+        buttonName="Import Excel"
+        :handleClick="openFormModal"
+    >
         <Card>
             <CardHeader>
                 <CardTitle>Product Details</CardTitle>
@@ -167,4 +200,44 @@ const handleCancel = () => {
             </CardFooter>
         </Card>
     </Layout>
+
+    <Dialog v-model:open="isImportModalVisible">
+        <DialogContent class="sm:max-w-[600px]">
+            <DialogHeader>
+                <DialogTitle>Import Products</DialogTitle>
+                <DialogDescription>
+                    Import the excel file of the products.
+                </DialogDescription>
+            </DialogHeader>
+            <div class="space-y-5">
+                <div class="flex flex-col space-y-1">
+                    <Input
+                        type="file"
+                        @input="
+                            importForm.products_file = $event.target.files[0]
+                        "
+                    />
+                    <FormError>{{ importForm.errors.products_file }}</FormError>
+                </div>
+                <div class="flex flex-col space-y-1">
+                    <Label class="text-xs">Accepted Products File Format</Label>
+                    <ul>
+                        <li class="text-xs">
+                            <a
+                                class="text-blue-500 underline"
+                                href="/excel/gsi-bakery-template"
+                                >Click to download</a
+                            >
+                        </li>
+                    </ul>
+                </div>
+            </div>
+            <DialogFooter>
+                <Button @click="importFile" type="submit" class="gap-2">
+                    Proceed
+                    <span><Loading v-if="isLoading" /></span>
+                </Button>
+            </DialogFooter>
+        </DialogContent>
+    </Dialog>
 </template>
