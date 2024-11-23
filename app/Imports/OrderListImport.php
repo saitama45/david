@@ -2,7 +2,9 @@
 
 namespace App\Imports;
 
+use App\Models\ProductInventory;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Number;
 use Maatwebsite\Excel\Concerns\ToCollection;
 
 class OrderListImport implements ToCollection
@@ -19,15 +21,16 @@ class OrderListImport implements ToCollection
                 return $row[6] > 0;
             })
             ->map(function ($row, $key) {
+                $product = ProductInventory::with('unit_of_measurement')->where('inventory_code', $row[2])->first();
+                $totalCost = $product->cost * $row[6];
                 return [
-                    'category' => $row[0],
-                    'classification' => $row[1],
-                    'item_code' => $row[2],
-                    'item_name' => $row[3],
-                    'package_configuration' => $row[4],
-                    'unit' => $row[5],
-                    'quantity' => $row[6],
-                    'cost' => 0
+                    'id' => $product->id,
+                    'inventory_code' => $product->inventory_code,
+                    'name' => $product->name,
+                    'cost' => $product->cost,
+                    'unit_of_measurement' => $product->unit_of_measurement?->name,
+                    'total_cost' => $totalCost,
+                    'quantity' => $row[6]
                 ];
             })
             ->values();
@@ -37,6 +40,4 @@ class OrderListImport implements ToCollection
     {
         return $this->importedData;
     }
-
-    
 }

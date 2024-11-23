@@ -16,4 +16,6 @@ class UnitOfMeasurement extends Model
         'name',
         'remarks'
     ];
+
+    
 }

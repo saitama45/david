@@ -204,6 +204,7 @@ const proceedButton = () => {
         })
         .then((response) => {
             // Remove .value here
+            console.log(response);
             orderForm.orders = [...orderForm.orders, ...response.data.orders];
             visible.value = false;
             toast.add({

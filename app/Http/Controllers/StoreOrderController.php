@@ -21,8 +21,8 @@ class StoreOrderController extends Controller
 {
     public function index()
     {
-        $from = request('from') ?? today();
-        $to = request('to') ?? today();
+        $from = request('from') ? Carbon::parse(request('from')) : Carbon::today();
+        $to = request('to') ? Carbon::parse(request('to'))->addDay() : Carbon::today()->addDay();
         $branchId = request('branchId');
         $search = request('search');
 
@@ -35,7 +35,7 @@ class StoreOrderController extends Controller
             $query->where('order_number', 'like', '%' . $search . '%');
 
         $orders = $query
-        ->whereBetween('created_at', [$from, $to])
+            ->whereBetween('created_at', [$from, $to])
             ->latest()
             ->paginate(10);
 
