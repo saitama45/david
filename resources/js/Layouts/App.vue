@@ -85,9 +85,7 @@ const logout = () => {
                     </Button>
                 </div>
                 <div class="flex-1">
-                    <nav
-                        class="grid items-start px-2 text-sm font-medium lg:px-4"
-                    >
+                    <nav class="grid items-start pl-4 text-sm font-medium">
                         <NavLink href="/dashboard" :icon="Home">
                             Dashboard
                         </NavLink>
