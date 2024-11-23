@@ -24,11 +24,6 @@ const changeFilter = (currentFilter) => {
 const isFilterActive = (currentFilter) => {
     return filter.value == currentFilter ? "bg-primary text-white" : "";
 };
-import {
-    Popover,
-    PopoverContent,
-    PopoverTrigger,
-} from "@/components/ui/popover";
 const toast = useToast();
 const props = defineProps({
     orders: {

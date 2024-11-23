@@ -1,5 +1,6 @@
 <script setup>
 import { useSearch } from "@/Composables/useSearch";
+import { router } from "@inertiajs/vue3";
 
 const props = defineProps({
     orders: {
@@ -9,17 +10,18 @@ const props = defineProps({
 
 const statusBadgeColor = (status) => {
     switch (status.toUpperCase()) {
-        case "APPROVED":
+        case "RECEIVED":
             return "bg-green-500 text-white";
         case "PENDING":
             return "bg-yellow-500 text-white";
-        case "REJECTED":
-            return "bg-red-400 text-white";
         default:
-            return "bg-yellow-500 text-white";
+            return "bg-orange-500 text-white";
     }
 };
 
+const viewDetails = (id) => {
+    router.get(`/orders-receiving/show/${id}`);
+};
 const { search } = useSearch("approved-orders.index");
 </script>
 
@@ -44,7 +46,7 @@ const { search } = useSearch("approved-orders.index");
                     <TH>Order #</TH>
                     <TH>Order Date</TH>
                     <TH>Order Placed Date</TH>
-                    <TH>Order Approval Status</TH>
+                    <TH>Receiving Status</TH>
                     <TH>Actions</TH>
                 </TableHead>
                 <TableBody>
@@ -57,16 +59,19 @@ const { search } = useSearch("approved-orders.index");
                         <TD>{{ order.created_at }}</TD>
                         <TD>
                             <Badge
-                                :class="
-                                    statusBadgeColor(order.order_request_status)
-                                "
+                                :class="statusBadgeColor(order.order_status)"
                                 class="font-bold"
-                                >{{
-                                    order.order_request_status.toUpperCase()
-                                }}</Badge
+                                >{{ order.order_status.toUpperCase() }}</Badge
                             >
                         </TD>
-                        <TD></TD>
+                        <TD>
+                            <Button
+                                variant="outline"
+                                @click="viewDetails(order.order_number)"
+                            >
+                                <Eye />
+                            </Button>
+                        </TD>
                     </tr>
                 </TableBody>
             </Table>

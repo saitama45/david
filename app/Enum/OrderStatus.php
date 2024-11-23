@@ -2,9 +2,9 @@
 
 namespace App\Enum;
 
-enum OrderStatus : string
+enum OrderStatus: string
 {
-    case INCOMPLETE = 'partially_received';
+    case PARTIALLY_RECEIVED = 'partially_received';
     case PENDING = 'pending';
     case RECEIVED = 'received';
 

@@ -13,8 +13,6 @@ class DashboardController extends Controller
 {
     public function index()
     {
-        $product = ProductInventory::with('unit_of_measurement')->where('inventory_code', '105A2A')->first();
-        dd($product);
         return Inertia::render('Dashboard/Index');
     }
 

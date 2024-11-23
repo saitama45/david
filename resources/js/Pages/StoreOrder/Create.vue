@@ -1,12 +1,4 @@
 <script setup>
-import {
-    Card,
-    CardContent,
-    CardDescription,
-    CardHeader,
-    CardTitle,
-    CardFooter,
-} from "@/components/ui/card";
 import DatePicker from "primevue/datepicker";
 import Select from "primevue/select";
 import { computed } from "vue";
@@ -204,7 +196,6 @@ const proceedButton = () => {
         })
         .then((response) => {
             // Remove .value here
-            console.log(response);
             orderForm.orders = [...orderForm.orders, ...response.data.orders];
             visible.value = false;
             toast.add({
@@ -328,8 +319,8 @@ const proceedButton = () => {
                         <TableHead>
                             <TH> Name </TH>
                             <TH> Code </TH>
-                            <TH> Unit </TH>
                             <TH> Quantity </TH>
+                            <TH> Unit </TH>
                             <TH> Cost </TH>
                             <TH> Total Cost </TH>
                             <TH> Action </TH>
@@ -347,10 +338,10 @@ const proceedButton = () => {
                                     {{ order.inventory_code }}
                                 </TD>
                                 <TD>
-                                    {{ order.unit_of_measurement }}
+                                    {{ order.quantity }}
                                 </TD>
                                 <TD>
-                                    {{ order.quantity }}
+                                    {{ order.unit_of_measurement }}
                                 </TD>
                                 <TD>
                                     {{ order.cost }}

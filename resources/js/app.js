@@ -19,7 +19,6 @@ import Table from "./Components/table/Table.vue";
 import TH from "./Components/table/TH.vue";
 import TD from "./Components/table/TD.vue";
 import { Link } from "@inertiajs/vue3";
-import Popover from "primevue/popover";
 import TableContainer from "./Components/table/TableContainer.vue";
 import { MagnifyingGlassIcon } from "@radix-icons/vue";
 import SearchBar from "./Components/table/SearchBar.vue";
@@ -53,6 +52,11 @@ import {
 } from "@/components/ui/card";
 import FilterTab from "./Components/FilterTab.vue";
 import FilterTabButton from "./Components/FilterTabButton.vue";
+import {
+    Popover,
+    PopoverContent,
+    PopoverTrigger,
+} from "@/components/ui/popover";
 
 const appName = import.meta.env.VITE_APP_NAME || "Laravel";
 
@@ -78,6 +82,8 @@ createInertiaApp({
             .component("TD", TD)
             .component("Link", Link)
             .component("Popover", Popover)
+            .component("PopoverContent", PopoverContent)
+            .component("PopoverTrigger", PopoverTrigger)
             .component("TableContainer", TableContainer)
             .component("MagnifyingGlassIcon", MagnifyingGlassIcon)
             .component("SearchBar", SearchBar)

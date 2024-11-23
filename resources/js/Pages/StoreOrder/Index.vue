@@ -39,7 +39,6 @@ const props = defineProps({
 const role = props.auth.user.role;
 const hasCreateAccess = role === "admin" || role === "so_encoder";
 
-console.log();
 const showOrderDetails = (id) => {
     router.get(`/store-orders/show/${id}`);
 };

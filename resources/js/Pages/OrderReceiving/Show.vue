@@ -1,0 +1,246 @@
+<script setup>
+import { ref } from "vue";
+import { useForm } from "@inertiajs/vue3";
+import { useToast } from "primevue/usetoast";
+const toast = useToast();
+
+const props = defineProps({
+    order: {
+        type: Object,
+        required: true,
+    },
+    orderedItems: {
+        type: Object,
+        required: true,
+    },
+});
+
+const targetId = ref(null);
+const itemDetails = ref(null);
+const form = useForm({
+    quantity_received: null,
+});
+
+const showItemDetails = ref(false);
+itemDetails.value = props.orderedItems[1];
+const opentItemDetails = (id) => {
+    const index = props.orderedItems.findIndex((order) => order.id === id);
+    itemDetails.value = props.orderedItems[index];
+    showItemDetails.value = true;
+};
+
+const showReceiveForm = ref(false);
+
+const openReceiveForm = (id) => {
+    targetId.value = id;
+    showReceiveForm.value = true;
+};
+
+const submitReceivingForm = () => {
+    form.post(route("orders-receiving.receive", targetId.value), {
+        onSuccess: () => {
+            toast.add({
+                severity: "success",
+                summary: "Success",
+                detail: "Received Quantity Updated Successfully.",
+                life: 5000,
+            });
+            showReceiveForm.value = false;
+        },
+        onError: (e) => {
+            console.log(e);
+        },
+    });
+};
+const isLoading = ref(false);
+</script>
+
+<template>
+    <Layout heading="Order Details">
+        <div class="grid grid-cols-3 gap-5">
+            <Card>
+                <CardHeader class="gap-5">
+                    <div class="divide-y">
+                        <DivFlexCenter class="justify-between py-3">
+                            <Label class="flex-1">Order Number: </Label>
+                            <Label class="flex-1">{{
+                                order.order_number
+                            }}</Label>
+                        </DivFlexCenter>
+                        <DivFlexCenter class="justify-between py-3">
+                            <Label class="flex-1">Order Date: </Label>
+                            <Label class="flex-1">{{ order.order_date }}</Label>
+                        </DivFlexCenter>
+                        <DivFlexCenter class="justify-between py-3">
+                            <Label class="flex-1">Order Request Status: </Label>
+                            <Label class="flex-1">{{
+                                order.order_request_status.toUpperCase()
+                            }}</Label>
+                        </DivFlexCenter>
+                        <DivFlexCenter class="justify-between py-3">
+                            <Label class="flex-1"
+                                >Order Receiving Status:
+                            </Label>
+                            <Label class="flex-1">{{
+                                order.order_status.toUpperCase()
+                            }}</Label>
+                        </DivFlexCenter>
+                        <DivFlexCenter class="justify-between py-3">
+                            <Label class="flex-1 self-start">Remarks: </Label>
+                            <Label class="flex-1">{{
+                                order.remarks ?? "None"
+                            }}</Label>
+                        </DivFlexCenter>
+                    </div>
+                </CardHeader>
+            </Card>
+            <TableContainer class="col-span-2">
+                <Table>
+                    <TableHead>
+                        <TH> Item Code </TH>
+                        <TH> Name </TH>
+                        <TH> Quantity Ordered</TH>
+                        <TH> Quantity Received</TH>
+                        <TH> Actions </TH>
+                    </TableHead>
+
+                    <TableBody>
+                        <tr v-for="order in orderedItems" :key="order.id">
+                            <TD>{{
+                                order.product_inventory.inventory_code
+                            }}</TD>
+                            <TD>{{ order.product_inventory.name }}</TD>
+                            <TD>{{ order.quantity_ordered }}</TD>
+                            <TD>{{ order.quantity_received }}</TD>
+                            <TD>
+                                <DivFlexCenter class="gap-5">
+                                    <Button
+                                        @click="opentItemDetails(order.id)"
+                                        variant="outline"
+                                    >
+                                        <Eye />
+                                    </Button>
+                                    <Popover
+                                        v-if="
+                                            order.quantity_ordered !==
+                                            order.quantity_received
+                                        "
+                                    >
+                                        <PopoverTrigger>
+                                            <EllipsisVertical />
+                                        </PopoverTrigger>
+                                        <PopoverContent class="w-fit">
+                                            <DivFlexCol>
+                                                <Button
+                                                    @click="
+                                                        openReceiveForm(
+                                                            order.id
+                                                        )
+                                                    "
+                                                    class="text-green-500"
+                                                    variant="link"
+                                                >
+                                                    Receive
+                                                </Button>
+                                            </DivFlexCol>
+                                        </PopoverContent>
+                                    </Popover>
+                                </DivFlexCenter>
+                            </TD>
+                        </tr>
+                    </TableBody>
+                </Table>
+            </TableContainer>
+        </div>
+
+        <Dialog v-model:open="showItemDetails">
+            <DialogContent class="sm:max-w-[600px]">
+                <DialogHeader>
+                    <DialogTitle>View Details</DialogTitle>
+                    <DialogDescription
+                        >Ordered Item Information</DialogDescription
+                    >
+                </DialogHeader>
+                <div class="grid grid-cols-2 gap-2">
+                    <div>
+                        <span class="text-xs">Name</span>
+                        <p>{{ itemDetails.product_inventory.name }}</p>
+                    </div>
+                    <div>
+                        <span class="text-xs">Inventory Code</span>
+                        <p>
+                            {{ itemDetails.product_inventory.inventory_code }}
+                        </p>
+                    </div>
+                    <div>
+                        <span class="text-xs">Conversion</span>
+                        <p>{{ itemDetails.product_inventory.conversion }}</p>
+                    </div>
+                    <div>
+                        <span class="text-xs">UOM</span>
+                        <p>
+                            {{
+                                itemDetails.product_inventory
+                                    .unit_of_measurement.name
+                            }}
+                        </p>
+                    </div>
+                    <div>
+                        <span class="text-xs">Cost</span>
+                        <p>
+                            {{ itemDetails.product_inventory.cost }}
+                        </p>
+                    </div>
+                    <div>
+                        <span class="text-xs">Quantity Ordered</span>
+                        <p>
+                            {{ itemDetails.quantity_ordered }}
+                        </p>
+                    </div>
+                    <div>
+                        <span class="text-xs">Quantity Received</span>
+                        <p>
+                            {{ itemDetails.quantity_received }}
+                        </p>
+                    </div>
+                </div>
+            </DialogContent>
+        </Dialog>
+
+        <Dialog v-model:open="showReceiveForm">
+            <DialogContent class="sm:max-w-[600px]">
+                <DialogHeader>
+                    <DialogTitle>Receiving Form</DialogTitle>
+                    <DialogDescription
+                        >Please input the quantity of the item you
+                        received.</DialogDescription
+                    >
+                </DialogHeader>
+                <div class="space-y-5">
+                    <div class="flex flex-col space-y-1">
+                        <DivFlexCenter class="justify-between">
+                            <Label>Quantity Received</Label>
+                            <span class="text-xs"
+                                >Quantity to receive: {{ order }}</span
+                            >
+                        </DivFlexCenter>
+                        <Input v-model="form.quantity_received" />
+                        <FormError>{{
+                            form.errors.quantity_received
+                        }}</FormError>
+                    </div>
+                </div>
+                <DialogFooter>
+                    <Button
+                        type="submit"
+                        class="gap-2"
+                        @click="submitReceivingForm"
+                    >
+                        Confirm
+                        <span><Loading v-if="isLoading" /></span>
+                    </Button>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
+    </Layout>
+</template>

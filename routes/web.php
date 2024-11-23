@@ -61,8 +61,6 @@ Route::middleware('auth')
                 Route::post('/orders-list', 'validateHeaderUpload')
                     ->name('orders-list');
 
-
-
                 Route::post('/store-orders', 'getImportedOrders')
                     ->name('imported-file');
             });
@@ -91,6 +89,9 @@ Route::middleware('auth')
 
         Route::controller(OrderReceivingController::class)->name('orders-receiving.')->group(function () {
             Route::get('/orders-receiving', 'index')->name('index');
+            Route::get('/orders-receiving/show/{id}', 'show')->name('show');
+
+            Route::post('/orders-receiving/receive/{id}', 'receive')->name('receive');
         });
 
         Route::controller(UserController::class)->name('users.')->group(function () {

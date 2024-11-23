@@ -51,7 +51,7 @@ console.log(props.orderedItems);
                 </DivFlexCenter>
 
                 <Button class="bg-blue-500 hover:bg-blue-300">
-                    Copy Order and Create
+                    Copy Order and Create Another
                 </Button>
             </DivFlexCenter>
             <DivFlexCenter class="justify-between">
