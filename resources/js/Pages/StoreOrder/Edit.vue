@@ -1,7 +1,6 @@
 <script setup>
-import Select from "primevue/select";
 import { useSelectOptions } from "@/Composables/useSelectOptions";
-
+import { useForm } from "@inertiajs/vue3";
 import { useConfirm } from "primevue/useconfirm";
 import { useToast } from "@/Composables/useToast";
 
@@ -9,9 +8,17 @@ const confirm = useConfirm();
 const { toast } = useToast();
 
 const props = defineProps({
+    order: {
+        type: Object,
+        required: true,
+    },
+    orderedItems: {
+        type: Object,
+        required: true,
+    },
     products: {
         type: Object,
-        required: false,
+        required: true,
     },
     branches: {
         type: Object,
@@ -21,12 +28,18 @@ const props = defineProps({
 
 const { options: branchesOptions } = useSelectOptions(props.branches);
 const { options: productsOptions } = useSelectOptions(props.products);
-
-import { useForm } from "@inertiajs/vue3";
-
 const productId = ref(null);
-const visible = ref(false);
 const isLoading = ref(false);
+
+const orderForm = useForm({
+    branch_id: props.order.store_branch_id + "",
+    order_date: props.order.order_date,
+    orders: [],
+});
+
+const itemForm = useForm({
+    item: null,
+});
 
 const productDetails = reactive({
     id: null,
@@ -38,32 +51,44 @@ const productDetails = reactive({
     total_cost: null,
 });
 
-const excelFileForm = useForm({
-    orders_file: null,
+props.orderedItems.forEach((item) => {
+    const product = {
+        id: item.id,
+        inventory_code: item.product_inventory.inventory_code,
+        name: item.product_inventory.name,
+        unit_of_measurement: item.product_inventory.unit_of_measurement.name,
+        quantity: item.quantity_ordered,
+        cost: item.product_inventory.cost,
+        total_cost: parseFloat(
+            item.quantity_ordered * item.product_inventory.cost
+        ).toFixed(2),
+    };
+    orderForm.orders.push(product);
 });
 
-const orderForm = useForm({
-    branch_id: null,
-    order_date: new Date().toLocaleString().slice(0, 10),
-    orders: [],
-});
+const addItemQuantity = (id) => {
+    const index = orderForm.orders.findIndex((item) => item.id === id);
+    orderForm.orders[index].quantity += 1;
+    orderForm.orders[index].total_cost = parseFloat(
+        orderForm.orders[index].quantity * orderForm.orders[index].cost
+    ).toFixed(2);
+};
 
-const itemForm = useForm({
-    item: null,
-});
-
-const store = () => {
-    if (orderForm.orders.length < 1) {
-        toast.add({
-            severity: "error",
-            summary: "Error",
-            detail: "Please select at least one item before proceeding.",
-            life: 5000,
-        });
+const minusItemQuantity = (id) => {
+    const index = orderForm.orders.findIndex((item) => item.id === id);
+    orderForm.orders[index].quantity -= 1;
+    if (orderForm.orders[index].quantity < 1) {
+        orderForm.orders = orderForm.orders.filter((item) => item.id !== id);
         return;
     }
+    orderForm.orders[index].total_cost = parseFloat(
+        orderForm.orders[index].quantity * orderForm.orders[index].cost
+    ).toFixed(2);
+};
+
+const removeItem = (id) => {
     confirm.require({
-        message: "Are you sure you want to place this order?",
+        message: "Are you sure you want to remove this item from your orders?",
         header: "Confirmation",
         icon: "pi pi-exclamation-triangle",
         rejectProps: {
@@ -72,53 +97,21 @@ const store = () => {
             outlined: true,
         },
         acceptProps: {
-            label: "Confirm",
-            severity: "info",
+            label: "Remove",
+            severity: "danger",
         },
         accept: () => {
-            orderForm.post(route("store-orders.store"), {
-                onSuccess: () => {
-                    toast.add({
-                        severity: "success",
-                        summary: "Success",
-                        detail: "Order Created Successfully.",
-                        life: 5000,
-                    });
-                },
-                onError: (e) => {
-                    toast.add({
-                        severity: "error",
-                        summary: "Error",
-                        detail: "Can't place the order.",
-                        life: 5000,
-                    });
-                },
+            orderForm.orders = orderForm.orders.filter(
+                (item) => item.id !== id
+            );
+            toast.add({
+                severity: "success",
+                summary: "Confirmed",
+                detail: "Item Removed",
+                life: 3000,
             });
         },
     });
-};
-// Nat - (This function will just check if the value item select changed to set the UOM accordingly)
-watch(productId, (newValue) => {
-    if (newValue) {
-        isLoading.value = true;
-        itemForm.item = newValue;
-        axios
-            .get(route("product.show", newValue.value))
-            .then((response) => response.data)
-            .then((result) => {
-                productDetails.id = result.id;
-                productDetails.name = result.name;
-                productDetails.inventory_code = result.inventory_code;
-                productDetails.unit_of_measurement = result.unit_of_measurement;
-                productDetails.cost = result.cost;
-            })
-            .catch((err) => console.log(err))
-            .finally(() => (isLoading.value = false));
-    }
-});
-
-const importOrdersButton = () => {
-    visible.value = true;
 };
 
 const addToOrdersButton = () => {
@@ -170,82 +163,18 @@ const addToOrdersButton = () => {
     itemForm.clearErrors();
 };
 
-// Nat - (getting the imported data)
-const addImportedItemsToOrderList = () => {
-    isLoading.value = true;
-    const formData = new FormData();
-    formData.append("orders_file", excelFileForm.orders_file);
-
-    axios
-        .post(route("store-orders.imported-file"), formData, {
-            headers: {
-                "Content-Type": "multipart/form-data",
-            },
-        })
-        .then((response) => {
-            response.data.orders.forEach((importedOrder) => {
-                const existingItemIndex = orderForm.orders.findIndex(
-                    (order) => order.id === importedOrder.id
-                );
-
-                if (existingItemIndex !== -1) {
-                    const updatedQuantity =
-                        orderForm.orders[existingItemIndex].quantity +
-                        Number(importedOrder.quantity);
-                    orderForm.orders[existingItemIndex].quantity =
-                        updatedQuantity;
-                    orderForm.orders[existingItemIndex].total_cost = parseFloat(
-                        updatedQuantity *
-                            orderForm.orders[existingItemIndex].cost
-                    ).toFixed(2);
-                } else {
-                    orderForm.orders.push({
-                        ...importedOrder,
-                        total_cost: parseFloat(
-                            importedOrder.quantity * importedOrder.cost
-                        ).toFixed(2),
-                    });
-                }
-            });
-
-            visible.value = false;
-            toast.add({
-                severity: "success",
-                summary: "Success",
-                detail: "Items added successfully.",
-                life: 5000,
-            });
-            excelFileForm.orders_file = null;
-        })
-        .catch((error) => {
-            excelFileForm.setError("orders_file", error.response.data.message);
-        })
-        .finally(() => (isLoading.value = false));
-};
-
-const addItemQuantity = (id) => {
-    const index = orderForm.orders.findIndex((item) => item.id === id);
-    orderForm.orders[index].quantity += 1;
-    orderForm.orders[index].total_cost = parseFloat(
-        orderForm.orders[index].quantity * orderForm.orders[index].cost
-    ).toFixed(2);
-};
-
-const minusItemQuantity = (id) => {
-    const index = orderForm.orders.findIndex((item) => item.id === id);
-    orderForm.orders[index].quantity -= 1;
-    if (orderForm.orders[index].quantity < 1) {
-        orderForm.orders = orderForm.orders.filter((item) => item.id !== id);
+const update = () => {
+    if (orderForm.orders.length < 1) {
+        toast.add({
+            severity: "error",
+            summary: "Error",
+            detail: "Please select at least one item before proceeding.",
+            life: 5000,
+        });
         return;
     }
-    orderForm.orders[index].total_cost = parseFloat(
-        orderForm.orders[index].quantity * orderForm.orders[index].cost
-    ).toFixed(2);
-};
-
-const removeItem = (id) => {
     confirm.require({
-        message: "Are you sure you want to remove this item from your orders?",
+        message: "Are you sure you want to place update the order details?",
         header: "Confirmation",
         icon: "pi pi-exclamation-triangle",
         rejectProps: {
@@ -254,39 +183,65 @@ const removeItem = (id) => {
             outlined: true,
         },
         acceptProps: {
-            label: "Remove",
-            severity: "danger",
+            label: "Confirm",
+            severity: "info",
         },
         accept: () => {
-            // Remove .value here
-            orderForm.orders = orderForm.orders.filter(
-                (item) => item.id !== id
-            );
-            toast.add({
-                severity: "success",
-                summary: "Confirmed",
-                detail: "Item Removed",
-                life: 3000,
+            orderForm.put(route("store-orders.update", props.order.id), {
+                onSuccess: () => {
+                    toast.add({
+                        severity: "success",
+                        summary: "Success",
+                        detail: "Order Created Successfully.",
+                        life: 5000,
+                    });
+                },
+                onError: (e) => {
+                    toast.add({
+                        severity: "error",
+                        summary: "Error",
+                        detail: "Can't place the order.",
+                        life: 5000,
+                    });
+                },
             });
         },
     });
 };
-</script>
 
+watch(productId, (newValue) => {
+    if (newValue) {
+        isLoading.value = true;
+        itemForm.item = newValue;
+        axios
+            .get(route("product.show", newValue.value))
+            .then((response) => response.data)
+            .then((result) => {
+                productDetails.id = result.id;
+                productDetails.name = result.name;
+                productDetails.inventory_code = result.inventory_code;
+                productDetails.unit_of_measurement = result.unit_of_measurement;
+                productDetails.cost = result.cost;
+            })
+            .catch((err) => console.log(err))
+            .finally(() => (isLoading.value = false));
+    }
+});
+
+const heading = `Edit Order #${props.order.order_number}`;
+</script>
 <template>
-    <Layout
-        heading="Store Order > Create"
-        :hasButton="true"
-        buttonName="Import Orders"
-        :handleClick="importOrdersButton"
-    >
+    <Layout :heading="heading">
         <div class="grid grid-cols-3 gap-5">
             <section class="grid gap-5">
                 <Card>
                     <CardHeader>
                         <CardTitle>Order Details</CardTitle>
                         <CardDescription
-                            >Please input all the fields</CardDescription
+                            >Status:
+                            <Badge>{{
+                                order.order_request_status.toUpperCase()
+                            }}</Badge></CardDescription
                         >
                     </CardHeader>
                     <CardContent class="space-y-3">
@@ -440,59 +395,11 @@ const removeItem = (id) => {
                         </TableBody>
                     </Table>
                 </CardContent>
+
                 <CardFooter class="flex justify-end">
-                    <Button @click="store">Place Order</Button>
+                    <Button @click="update">Save Changes</Button>
                 </CardFooter>
             </Card>
         </div>
-
-        <Dialog v-model:open="visible">
-            <DialogContent class="sm:max-w-[600px]">
-                <DialogHeader>
-                    <DialogTitle>Import Orders</DialogTitle>
-                    <DialogDescription>
-                        Import the excel file of your orders.
-                    </DialogDescription>
-                </DialogHeader>
-                <div class="space-y-5">
-                    <div class="flex flex-col space-y-1">
-                        <Label>Orders</Label>
-                        <Input
-                            type="file"
-                            @input="
-                                excelFileForm.orders_file =
-                                    $event.target.files[0]
-                            "
-                        />
-                        <FormError>{{
-                            excelFileForm.errors.orders_file
-                        }}</FormError>
-                    </div>
-                    <div class="flex flex-col space-y-1">
-                        <Label class="text-xs">Order Templates</Label>
-                        <ul>
-                            <li class="text-xs">
-                                GSI BAKERY:
-                                <a
-                                    class="text-blue-500 underline"
-                                    href="/excel/gsi-bakery-template"
-                                    >Click to download</a
-                                >
-                            </li>
-                        </ul>
-                    </div>
-                </div>
-                <DialogFooter>
-                    <Button
-                        @click="addImportedItemsToOrderList"
-                        type="submit"
-                        class="gap-2"
-                    >
-                        Proceed
-                        <span><Loading v-if="isLoading" /></span>
-                    </Button>
-                </DialogFooter>
-            </DialogContent>
-        </Dialog>
     </Layout>
 </template>

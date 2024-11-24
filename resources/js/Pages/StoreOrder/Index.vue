@@ -1,10 +1,5 @@
 <script setup>
 import { router } from "@inertiajs/vue3";
-import {
-    Popover,
-    PopoverContent,
-    PopoverTrigger,
-} from "@/components/ui/popover";
 import { usePage } from "@inertiajs/vue3";
 import {
     Select,
@@ -40,6 +35,9 @@ const showOrderDetails = (id) => {
     router.get(`/store-orders/show/${id}`);
 };
 
+const editOrderDetails = (id) => {
+    router.get(`/store-orders/edit/${id}`);
+};
 let from = ref(
     usePage().props.from ??
         new Intl.DateTimeFormat("en-CA", {
@@ -218,12 +216,23 @@ const resetFilter = () => {
                             >
                         </TD>
                         <TD>
-                            <Button
-                                @click="showOrderDetails(order.order_number)"
-                                variant="link"
-                            >
-                                <Eye />
-                            </Button>
+                            <DivFlexCenter class="gap-3">
+                                <button
+                                    @click="
+                                        showOrderDetails(order.order_number)
+                                    "
+                                >
+                                    <Eye class="size-5" />
+                                </button>
+                                <button
+                                    class="text-blue-500"
+                                    @click="
+                                        editOrderDetails(order.order_number)
+                                    "
+                                >
+                                    <Pencil class="size-5" />
+                                </button>
+                            </DivFlexCenter>
                         </TD>
                     </tr>
                 </TableBody>

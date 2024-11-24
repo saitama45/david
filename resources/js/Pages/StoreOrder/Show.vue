@@ -1,5 +1,7 @@
 <script setup>
-import { ref } from "vue";
+import { useBackButton } from "@/Composables/useBackButton";
+
+const { backButton } = useBackButton(route("store-orders.index"));
 const statusBadgeColor = (status) => {
     switch (status.toUpperCase()) {
         case "APPROVED":
@@ -21,8 +23,6 @@ const props = defineProps({
         type: Object,
     },
 });
-
-console.log(props.orderedItems);
 </script>
 
 <template>
@@ -66,7 +66,6 @@ console.log(props.orderedItems);
                     <TH> Quantity </TH>
                     <TH> Cost </TH>
                     <TH> Total Cost </TH>
-                    <TH> Actions </TH>
                 </TableHead>
                 <TableBody>
                     <tr v-for="order in orderedItems" :key="order.id">
@@ -78,14 +77,13 @@ console.log(props.orderedItems);
                         <TD>{{ order.quantity_ordered }}</TD>
                         <TD>{{ order.product_inventory.cost }}</TD>
                         <TD>{{ order.total_cost }}</TD>
-                        <TD>
-                            <Button class="text-red-500" variant="outline">
-                                <Trash2 />
-                            </Button>
-                        </TD>
                     </tr>
                 </TableBody>
             </Table>
         </TableContainer>
+
+        <Button variant="outline" class="text-lg px-7" @click="backButton">
+            Back
+        </Button>
     </Layout>
 </template>

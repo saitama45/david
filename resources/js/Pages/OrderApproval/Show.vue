@@ -10,7 +10,6 @@ const props = defineProps({
         type: Object,
     },
 });
-import { ref } from "vue";
 const search = ref(null);
 const statusBadgeColor = (status) => {
     switch (status) {

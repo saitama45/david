@@ -143,4 +143,62 @@ class StoreOrderController extends Controller
             'orderDate' => $storeOrderRequest->store_order_date
         ]);
     }
+
+    public function edit($id)
+    {
+        $order = StoreOrder::with(['store_branch', 'supplier', 'store_order_items'])->where('order_number', $id)->firstOrFail();
+        $orderedItems = $order->store_order_items()->with(['product_inventory', 'product_inventory.unit_of_measurement'])->get();
+        $products = ProductInventory::options();
+        $branches = StoreBranch::options();
+
+        return Inertia::render('StoreOrder/Edit', [
+            'order' => $order,
+            'orderedItems' => $orderedItems,
+            'products' => $products,
+            'branches' => $branches
+        ]);
+    }
+
+    public function update(Request $request, $id)
+    {
+        $validated = $request->validate([
+            'branch_id' => ['required', 'exists:store_branches,id'],
+            'order_date' => ['required'],
+            'orders' => ['required', 'array']
+        ], [
+            'branch_id.required' => 'Store branch is required'
+        ]);
+
+        $order = StoreOrder::with('store_order_items')->findOrFail($id);
+
+        DB::beginTransaction();
+        $order->update([
+            'store_branch_id' => $validated['branch_id'],
+            'order_date' => Carbon::createFromFormat('F d, Y', $validated['order_date'])->format('Y-m-d')
+        ]);
+
+        $updatedProductIds = collect($validated['orders'])->pluck('id')->toArray();
+
+        $order->store_order_items()
+            ->whereNotIn('product_inventory_id', $updatedProductIds)
+            ->delete();
+
+        foreach ($validated['orders'] as $data) {
+            $order->store_order_items()->updateOrCreate(
+                [
+                    'store_order_id' => $order->id,
+                    'product_inventory_id' => $data['id'],
+                ],
+                [
+                    'quantity_ordered' => $data['quantity'],
+                    'total_cost' => $data['total_cost'],
+                ]
+            );
+        }
+
+        $order->save();
+        DB::commit();
+
+        return redirect()->route('store-orders.index');
+    }
 }

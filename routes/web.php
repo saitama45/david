@@ -54,8 +54,15 @@ Route::middleware('auth')
                 Route::middleware('check.persmission:create-so')->group(function () {
                     Route::post('/store', 'store')
                         ->name('store');
+
                     Route::get('/create', 'create')
-                        ->name('store-orders-create');
+                        ->name('create');
+
+                    Route::get('/edit/{id}', 'edit')
+                        ->name('edit');
+
+                    Route::put('/update/{id}', 'update')
+                        ->name('update');
                 });
 
                 Route::post('/orders-list', 'validateHeaderUpload')
@@ -120,8 +127,6 @@ Route::middleware('auth')
             Route::get('/unit-of-measurements', 'index')->name('index');
             Route::post('/unit-of-measurements/update/{id}', 'update')->name('update');
         });
-
-
 
         Route::get('/profile', [ProfileController::class, 'edit'])
             ->name('profile.edit');
