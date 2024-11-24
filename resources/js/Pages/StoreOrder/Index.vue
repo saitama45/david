@@ -5,9 +5,6 @@ import {
     PopoverContent,
     PopoverTrigger,
 } from "@/components/ui/popover";
-
-import { Filter, Eye } from "lucide-vue-next";
-import { ref, watch } from "vue";
 import { usePage } from "@inertiajs/vue3";
 import {
     Select,

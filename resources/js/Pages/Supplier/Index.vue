@@ -1,5 +1,4 @@
 <script setup>
-import { ref } from "vue";
 import { useForm } from "@inertiajs/vue3";
 import { useToast } from "primevue/usetoast";
 import { useSearch } from "@/Composables/useSearch";

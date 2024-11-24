@@ -14,7 +14,6 @@ const handleClick = () => {
 };
 
 import { usePage } from "@inertiajs/vue3";
-import { ref, watch } from "vue";
 
 let filter = ref(usePage().props.filter || "all");
 

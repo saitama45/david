@@ -1,10 +1,6 @@
 <script setup>
 import DatePicker from "primevue/datepicker";
 import Select from "primevue/select";
-import { computed } from "vue";
-
-import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
 
 const props = defineProps({
     products: {
@@ -31,7 +27,6 @@ const productsOptions = computed(() => {
     }));
 });
 
-import { ref, reactive, watch } from "vue";
 import { useForm } from "@inertiajs/vue3";
 import { useToast } from "primevue/usetoast";
 const toast = useToast();

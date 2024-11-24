@@ -1,6 +1,5 @@
 import { router, usePage } from "@inertiajs/vue3";
 import { throttle } from "lodash";
-import { ref, watch } from "vue";
 
 export function useSearch(routeName) {
     let search = ref(usePage().props.search);

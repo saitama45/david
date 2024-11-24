@@ -30,6 +30,7 @@
         "primevue": "^4.2.1",
         "radix-vue": "^1.9.9",
         "tailwind-merge": "^2.5.4",
-        "tailwindcss-animate": "^1.0.7"
+        "tailwindcss-animate": "^1.0.7",
+        "vue-global-api": "^0.4.1"
     }
 }
