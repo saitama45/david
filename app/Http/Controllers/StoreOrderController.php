@@ -70,6 +70,8 @@ class StoreOrderController extends Controller
             'branch_id' => ['required', 'exists:store_branches,id'],
             'order_date' => ['required'],
             'orders' => ['required', 'array']
+        ], [
+            'branch_id.required' => 'Store branch is required'
         ]);
 
         $branchId = $validated['branch_id'];

@@ -1,6 +1,8 @@
 <script setup>
-import DatePicker from "primevue/datepicker";
 import Select from "primevue/select";
+import { useSelectOptions } from "@/Composables/useSelectOptions";
+import { useToast } from "@/Composables/useToast";
+const { toast } = useToast();
 
 const props = defineProps({
     products: {
@@ -13,23 +15,11 @@ const props = defineProps({
     },
 });
 
-const branchesOptions = computed(() => {
-    return Object.entries(props.branches).map(([value, label]) => ({
-        value: value,
-        label: label,
-    }));
-});
-
-const productsOptions = computed(() => {
-    return Object.entries(props.products).map(([value, label]) => ({
-        value: value,
-        label: label,
-    }));
-});
+const { options: branchesOptions } = useSelectOptions(props.branches);
+const { options: productsOptions } = useSelectOptions(props.products);
 
 import { useForm } from "@inertiajs/vue3";
-import { useToast } from "primevue/usetoast";
-const toast = useToast();
+
 const productId = ref(null);
 const visible = ref(false);
 
@@ -45,7 +35,7 @@ const productDetails = reactive({
     total_cost: null,
 });
 
-const form = useForm({
+const excelFileForm = useForm({
     orders_file: null,
 });
 
@@ -60,6 +50,15 @@ const itemForm = useForm({
 });
 
 const store = () => {
+    if (orderForm.orders.length < 1) {
+        toast.add({
+            severity: "error",
+            summary: "Error",
+            detail: "Please select at least one item before proceeding.",
+            life: 5000,
+        });
+        return;
+    }
     orderForm.post(route("store-orders.store"), {
         onSuccess: () => {
             toast.add({
@@ -71,6 +70,7 @@ const store = () => {
         },
         onError: (e) => {
             console.log(e);
+            console.log(orderForm);
         },
     });
 };
@@ -103,11 +103,14 @@ const importOrdersButton = () => {
 };
 
 const addToOrdersButton = () => {
+    itemForm.clearErrors();
     if (!itemForm.item) {
         itemForm.setError("item", "Item field is required");
+        return;
     }
-    if (!productDetails.quantity) {
-        itemForm.setError("quantity", "Quantity field is required");
+    if (Number(productDetails.quantity) < 1) {
+        itemForm.setError("quantity", "Quantity must be at least 1");
+        return;
     }
 
     if (
@@ -181,7 +184,7 @@ const removeItem = (item_code) => {
 const proceedButton = () => {
     isLoading.value = true;
     const formData = new FormData();
-    formData.append("orders_file", form.orders_file);
+    formData.append("orders_file", excelFileForm.orders_file);
 
     axios
         .post(route("store-orders.imported-file"), formData, {
@@ -190,8 +193,35 @@ const proceedButton = () => {
             },
         })
         .then((response) => {
-            // Remove .value here
-            orderForm.orders = [...orderForm.orders, ...response.data.orders];
+            // Process each imported order
+            response.data.orders.forEach((importedOrder) => {
+                // Check if the item already exists in orders
+                const existingItemIndex = orderForm.orders.findIndex(
+                    (order) => order.id === importedOrder.id
+                );
+
+                if (existingItemIndex !== -1) {
+                    // Update existing item quantity and total cost
+                    const updatedQuantity =
+                        orderForm.orders[existingItemIndex].quantity +
+                        Number(importedOrder.quantity);
+                    orderForm.orders[existingItemIndex].quantity =
+                        updatedQuantity;
+                    orderForm.orders[existingItemIndex].total_cost = parseFloat(
+                        updatedQuantity *
+                            orderForm.orders[existingItemIndex].cost
+                    ).toFixed(2);
+                } else {
+                    // Add new item
+                    orderForm.orders.push({
+                        ...importedOrder,
+                        total_cost: parseFloat(
+                            importedOrder.quantity * importedOrder.cost
+                        ).toFixed(2),
+                    });
+                }
+            });
+
             visible.value = false;
             toast.add({
                 severity: "success",
@@ -199,12 +229,32 @@ const proceedButton = () => {
                 detail: "Items added successfully.",
                 life: 5000,
             });
-            form.orders_file = null;
+            excelFileForm.orders_file = null;
         })
         .catch((error) => {
-            form.setError("orders_file", error.response.data.message);
+            excelFileForm.setError("orders_file", error.response.data.message);
         })
         .finally(() => (isLoading.value = false));
+};
+
+const addItemQuantity = (id) => {
+    const index = orderForm.orders.findIndex((item) => item.id === id);
+    orderForm.orders[index].quantity += 1;
+    orderForm.orders[index].total_cost = parseFloat(
+        orderForm.orders[index].quantity * orderForm.orders[index].cost
+    ).toFixed(2);
+};
+
+const minusItemQuantity = (id) => {
+    const index = orderForm.orders.findIndex((item) => item.id === id);
+    orderForm.orders[index].quantity -= 1;
+    if (orderForm.orders[index].quantity < 1) {
+        orderForm.orders = orderForm.orders.filter((item) => item.id !== id);
+        return;
+    }
+    orderForm.orders[index].total_cost = parseFloat(
+        orderForm.orders[index].quantity * orderForm.orders[index].cost
+    ).toFixed(2);
 };
 </script>
 
@@ -226,7 +276,7 @@ const proceedButton = () => {
                     </CardHeader>
                     <CardContent class="space-y-3">
                         <div class="flex flex-col space-y-1">
-                            <Label>Store</Label>
+                            <InputLabel label="Store Branch" />
                             <Select
                                 filter
                                 placeholder="Select a Store"
@@ -236,9 +286,12 @@ const proceedButton = () => {
                                 optionValue="value"
                             >
                             </Select>
+                            <FormError>{{
+                                orderForm.errors.branch_id
+                            }}</FormError>
                         </div>
                         <div class="flex flex-col space-y-1">
-                            <Label>SO Date</Label>
+                            <InputLabel label="Order Date" />
                             <DatePicker
                                 showIcon
                                 fluid
@@ -246,6 +299,9 @@ const proceedButton = () => {
                                 v-model="orderForm.order_date"
                                 :showOnFocus="false"
                             />
+                            <FormError>{{
+                                orderForm.errors.order_date
+                            }}</FormError>
                         </div>
                     </CardContent>
                 </Card>
@@ -344,14 +400,26 @@ const proceedButton = () => {
                                 <TD>
                                     {{ order.total_cost }}
                                 </TD>
-                                <TD>
-                                    <Button
+                                <TD class="flex gap-3">
+                                    <button
+                                        class="text-red-500"
+                                        @click="minusItemQuantity(order.id)"
+                                    >
+                                        <Minus />
+                                    </button>
+                                    <button
+                                        class="text-green-500"
+                                        @click="addItemQuantity(order.id)"
+                                    >
+                                        <Plus />
+                                    </button>
+                                    <button
                                         @click="removeItem(order.item_code)"
                                         variant="outline"
                                         class="text-red-500"
                                     >
                                         <Trash2 />
-                                    </Button>
+                                    </button>
                                 </TD>
                             </tr>
                         </TableBody>
@@ -376,9 +444,14 @@ const proceedButton = () => {
                         <Label>Orders</Label>
                         <Input
                             type="file"
-                            @input="form.orders_file = $event.target.files[0]"
+                            @input="
+                                excelFileForm.orders_file =
+                                    $event.target.files[0]
+                            "
                         />
-                        <FormError>{{ form.errors.orders_file }}</FormError>
+                        <FormError>{{
+                            excelFileForm.errors.orders_file
+                        }}</FormError>
                     </div>
                     <div class="flex flex-col space-y-1">
                         <Label class="text-xs">Order Templates</Label>

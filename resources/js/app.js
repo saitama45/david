@@ -31,6 +31,8 @@ import {
     Pencil,
     Trash2,
     EllipsisVertical,
+    Minus,
+    Plus,
 } from "lucide-vue-next";
 import ConfirmationService from "primevue/confirmationservice";
 import { Label } from "@/components/ui/label";
@@ -63,8 +65,8 @@ import {
     PopoverContent,
     PopoverTrigger,
 } from "@/components/ui/popover";
-
-
+import DatePicker from "primevue/datepicker";
+import InputLabel from "@/Components/form/InputLabel.vue";
 
 const appName = import.meta.env.VITE_APP_NAME || "Laravel";
 
@@ -124,6 +126,10 @@ createInertiaApp({
             .component("CardTitle", CardTitle)
             .component("FilterTab", FilterTab)
             .component("FilterTabButton", FilterTabButton)
+            .component("DatePicker", DatePicker)
+            .component("InputLabel", InputLabel)
+            .component("Plus", Plus)
+            .component("Minus", Minus)
             .use(PrimeVue, {
                 theme: {
                     preset: Aura,
