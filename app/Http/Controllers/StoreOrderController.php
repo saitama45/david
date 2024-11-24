@@ -161,6 +161,7 @@ class StoreOrderController extends Controller
 
     public function update(Request $request, $id)
     {
+
         $validated = $request->validate([
             'branch_id' => ['required', 'exists:store_branches,id'],
             'order_date' => ['required'],
@@ -172,6 +173,10 @@ class StoreOrderController extends Controller
         $order = StoreOrder::with('store_order_items')->findOrFail($id);
 
         DB::beginTransaction();
+
+        if ($order->store_branch_id !== $validated['branch_id'])
+            $order->order_number = $this->getOrderNumber($validated['branch_id']);
+
         $order->update([
             'store_branch_id' => $validated['branch_id'],
             'order_date' => Carbon::createFromFormat('F d, Y', $validated['order_date'])->format('Y-m-d')
@@ -200,5 +205,14 @@ class StoreOrderController extends Controller
         DB::commit();
 
         return redirect()->route('store-orders.index');
+    }
+
+    public function getOrderNumber($id)
+    {
+        $branchId = $id;
+        $branchCode = StoreBranch::select('branch_code')->findOrFail($branchId)->branch_code;
+        $orderCount = StoreOrder::where('store_branch_id', $branchId)->count() + 1;
+        $orderNumber = str_pad($orderCount, 5, '0', STR_PAD_LEFT);
+        return "$branchCode-$orderNumber";
     }
 }
