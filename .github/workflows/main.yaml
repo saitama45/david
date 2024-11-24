@@ -1,0 +1,38 @@
+on: [push]
+
+jobs:
+  build_and_deploy:
+    name: Build package and deploy to SmarterASP.NET
+    runs-on: windows-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          extensions: fileinfo, mbstring, xml, gd, zip
+          ini-values: post_max_size=256M, max_execution_time=180
+
+      - name: Install Dependencies
+        shell: powershell
+        run: |
+          if (Test-Path "package.json") { npm install }
+          if (Test-Path "composer.json") { composer install }
+      - name: Build Project
+        shell: powershell
+        run: |
+          if (Test-Path "package.json") { npm run build }
+      - name: Deploy to FTP
+        uses: SamKirkland/FTP-Deploy-Action@v4.3.4
+        with:
+          server: win8203.site4now.net
+          username: tix_bok
+          password: superadmin2024
+          protocol: ftp
+          exclude: |
+            **/.git*
+            **/.git*/**
+            **/node_modules/**
+            README.md

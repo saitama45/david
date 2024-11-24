@@ -146,7 +146,11 @@ class StoreOrderController extends Controller
 
     public function edit($id)
     {
-        $order = StoreOrder::with(['store_branch', 'supplier', 'store_order_items'])->where('order_number', $id)->firstOrFail();
+        $order = StoreOrder::with(['store_branch', 'supplier', 'store_order_items'])
+            ->where('order_number', $id)->firstOrFail();
+
+        if ($order->order_request_status !== OrderRequestStatus::PENDING->value)
+            abort(401, 'Order can no longer be updated');
         $orderedItems = $order->store_order_items()->with(['product_inventory', 'product_inventory.unit_of_measurement'])->get();
         $products = ProductInventory::options();
         $branches = StoreBranch::options();

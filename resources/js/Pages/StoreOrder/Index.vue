@@ -225,6 +225,9 @@ const resetFilter = () => {
                                     <Eye class="size-5" />
                                 </button>
                                 <button
+                                    v-if="
+                                        order.order_request_status === 'pending'
+                                    "
                                     class="text-blue-500"
                                     @click="
                                         editOrderDetails(order.order_number)
