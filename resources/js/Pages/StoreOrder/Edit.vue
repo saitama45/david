@@ -192,7 +192,7 @@ const update = () => {
                     toast.add({
                         severity: "success",
                         summary: "Success",
-                        detail: "Order Created Successfully.",
+                        detail: "Order Updated Successfully.",
                         life: 5000,
                     });
                 },
@@ -200,7 +200,7 @@ const update = () => {
                     toast.add({
                         severity: "error",
                         summary: "Error",
-                        detail: "Can't place the order.",
+                        detail: "Can't place update the order.",
                         life: 5000,
                     });
                 },

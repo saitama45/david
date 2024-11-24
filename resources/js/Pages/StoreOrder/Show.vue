@@ -48,6 +48,18 @@ const props = defineProps({
                             {{ order.order_request_status.toUpperCase() }}
                         </Badge>
                     </span>
+                    <span class="text-gray-700 text-sm">
+                        Store Branch:
+                        <span class="font-bold">
+                            {{ order.store_branch.name }}</span
+                        >
+                    </span>
+                    <span class="text-gray-700 text-sm">
+                        Supplier:
+                        <span class="font-bold">
+                            {{ order.supplier.name }}</span
+                        >
+                    </span>
                 </DivFlexCenter>
 
                 <Button class="bg-blue-500 hover:bg-blue-300">

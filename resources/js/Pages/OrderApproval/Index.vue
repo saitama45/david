@@ -1,8 +1,12 @@
 <script setup>
 import { useSearch } from "@/Composables/useSearch";
-import { useToast } from "primevue/usetoast";
 import { router, usePage } from "@inertiajs/vue3";
 
+import { useConfirm } from "primevue/useconfirm";
+import { useToast } from "@/Composables/useToast";
+
+const confirm = useConfirm();
+const { toast } = useToast();
 
 let filter = ref(usePage().props.filter || "pending");
 
@@ -24,7 +28,7 @@ const changeFilter = (currentFilter) => {
 const isFilterActive = (currentFilter) => {
     return filter.value == currentFilter ? "bg-primary text-white" : "";
 };
-const toast = useToast();
+
 const props = defineProps({
     orders: {
         type: Object,
@@ -33,6 +37,8 @@ const props = defineProps({
         type: Object,
     },
 });
+
+console.log(props);
 
 const statusBadgeColor = (status) => {
     switch (status.toUpperCase()) {
@@ -47,27 +53,69 @@ const statusBadgeColor = (status) => {
 const { search } = useSearch("orders-approval.index");
 
 const approveOrder = (id) => {
-    router.post(route("orders-approval.approve", id), {
-        onSuccess: (page) => {
-            toast.add({
-                severity: "success",
-                summary: "Success",
-                detail: "Order Approved Successfully.",
-                life: 3000,
-            });
+    confirm.require({
+        message: "Are you sure you want to approve this order?",
+        header: "Confirmation",
+        icon: "pi pi-exclamation-triangle",
+        rejectProps: {
+            label: "Cancel",
+            severity: "secondary",
+            outlined: true,
+        },
+        acceptProps: {
+            label: "Confirm",
+            severity: "info",
+        },
+        accept: () => {
+            router.post(
+                route("orders-approval.approve", id),
+                {},
+                {
+                    preserveScroll: true,
+                    onSuccess: () => {
+                        toast.add({
+                            severity: "success",
+                            summary: "Success",
+                            detail: "Order Approved Successfully.",
+                            life: 3000,
+                        });
+                    },
+                }
+            );
         },
     });
 };
 
 const rejectOrder = (id) => {
-    router.post(route("orders-approval.reject", id), {
-        onSuccess: (page) => {
-            toast.add({
-                severity: "success",
-                summary: "Success",
-                detail: "Order Approved Successfully.",
-                life: 3000,
-            });
+    confirm.require({
+        message: "Are you sure you want to approve this order?",
+        header: "Confirmation",
+        icon: "pi pi-exclamation-triangle",
+        rejectProps: {
+            label: "Cancel",
+            severity: "secondary",
+            outlined: true,
+        },
+        acceptProps: {
+            label: "Confirm",
+            severity: "info",
+        },
+        accept: () => {
+            router.post(
+                route("orders-approval.reject", id),
+                {},
+                {
+                    preserveScroll: true,
+                    onSuccess: () => {
+                        toast.add({
+                            severity: "success",
+                            summary: "Success",
+                            detail: "Order Rejected Successfully.",
+                            life: 3000,
+                        });
+                    },
+                }
+            );
         },
     });
 };

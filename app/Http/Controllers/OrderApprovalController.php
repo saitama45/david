@@ -59,7 +59,7 @@ class OrderApprovalController extends Controller
             'approver_id' => Auth::user()->id,
             'approval_action_date' => Carbon::now()
         ]);
-        return back();
+        return to_route('orders-approval.index');
     }
 
     public function reject($id)
@@ -69,6 +69,6 @@ class OrderApprovalController extends Controller
             'approver_id' => Auth::user()->id,
             'approval_action_date' => Carbon::now()
         ]);
-        return back();
+        return to_route('orders-approval.index');
     }
 }
