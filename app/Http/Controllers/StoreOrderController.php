@@ -54,25 +54,28 @@ class StoreOrderController extends Controller
     public function create()
     {
         $products = ProductInventory::options();
-
+        $suppliers = Supplier::options();
         $branches = StoreBranch::options();
         return Inertia::render('StoreOrder/Create', [
             'products' => $products,
-            'branches' => $branches
+            'branches' => $branches,
+            'suppliers' => $suppliers
         ]);
     }
 
     public function store(Request $request)
     {
-        $supplier = Supplier::select('id')->where('supplier_code', 'CS')->first()->id;
-
         $validated = $request->validate([
             'branch_id' => ['required', 'exists:store_branches,id'],
+            'supplier_id' => ['required', 'exists:suppliers,id'],
             'order_date' => ['required', 'after_or_equal:today'],
             'orders' => ['required', 'array']
         ], [
-            'branch_id.required' => 'Store branch is required'
+            'branch_id.required' => 'Store field branch is required',
+            'supplier_id.required' => 'Supplier field is required'
         ]);
+
+        $supplier = Supplier::first($validated['supplier_id'])->id;
 
         $branchId = $validated['branch_id'];
         $branchCode = StoreBranch::select('branch_code')->findOrFail($branchId)->branch_code;

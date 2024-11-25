@@ -17,10 +17,15 @@ const props = defineProps({
         type: Object,
         required: true,
     },
+    suppliers: {
+        type: Object,
+        required: true,
+    },
 });
 
 const { options: branchesOptions } = useSelectOptions(props.branches);
 const { options: productsOptions } = useSelectOptions(props.products);
+const { options: suppliersOptions } = useSelectOptions(props.suppliers);
 
 import { useForm } from "@inertiajs/vue3";
 
@@ -44,6 +49,7 @@ const excelFileForm = useForm({
 
 const orderForm = useForm({
     branch_id: null,
+    supplier_id: null,
     order_date: new Date().toLocaleString().slice(0, 10),
     orders: [],
 });
@@ -271,9 +277,6 @@ const removeItem = (id) => {
         },
     });
 };
-
-
-
 </script>
 
 <template>
@@ -293,6 +296,21 @@ const removeItem = (id) => {
                         >
                     </CardHeader>
                     <CardContent class="space-y-3">
+                        <div class="flex flex-col space-y-1">
+                            <InputLabel label="Supplier" />
+                            <Select
+                                filter
+                                placeholder="Select a Supplier"
+                                v-model="orderForm.supplier_id"
+                                :options="suppliersOptions"
+                                optionLabel="label"
+                                optionValue="value"
+                            >
+                            </Select>
+                            <FormError>{{
+                                orderForm.errors.supplier_id
+                            }}</FormError>
+                        </div>
                         <div class="flex flex-col space-y-1">
                             <InputLabel label="Store Branch" />
                             <Select
