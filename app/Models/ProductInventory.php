@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Traits\HasSelections;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
@@ -11,7 +12,7 @@ use PhpOffice\PhpSpreadsheet\Calculation\Category;
 class ProductInventory extends Model
 {
     /** @use HasFactory<\Database\Factories\ProductInventoryFactory> */
-    use HasFactory, HasSelections;
+    use HasFactory;
 
     protected $fillable = [
         'inventory_category_id',
@@ -57,5 +58,15 @@ class ProductInventory extends Model
     public function store_order_items()
     {
         return $this->hasMany(StoreOrderItem::class);
+    }
+
+    public function getSelectOptionNameAttribute()
+    {
+        return "$this->name ($this->inventory_code)";
+    }
+
+    public function scopeOptions(Builder $query)
+    {
+        return $query->select(['id', 'name', 'inventory_code'])->get()->pluck('select_option_name', 'id');
     }
 }
