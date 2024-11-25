@@ -334,6 +334,7 @@ const removeItem = (id) => {
                                 dateFormat="yy/mm/dd"
                                 v-model="orderForm.order_date"
                                 :showOnFocus="false"
+                                :minDate="new Date()"
                             />
                             <FormError>{{
                                 orderForm.errors.order_date
