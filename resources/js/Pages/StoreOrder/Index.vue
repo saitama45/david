@@ -16,6 +16,8 @@ const handleClick = () => {
     router.get("/store-orders/create");
 };
 
+let filter = ref(usePage().props.filter || "all");
+
 const props = defineProps({
     orders: {
         type: Object,
@@ -123,6 +125,21 @@ const resetFilter = () => {
         (branchId.value = null),
         (search.value = null);
 };
+
+watch(filter, function (value) {
+    router.get(
+        route("store-orders.index"),
+        { filter: value },
+        {
+            preserveState: true,
+            replace: true,
+        }
+    );
+});
+
+const changeFilter = (currentFilter) => {
+    filter.value = currentFilter;
+};
 </script>
 
 <template>
@@ -132,6 +149,32 @@ const resetFilter = () => {
         buttonName="Create New Order"
         :handleClick="handleClick"
     >
+        <FilterTab>
+            <FilterTabButton
+                label="All"
+                filter="all"
+                :currentFilter="filter"
+                @click="changeFilter('all')"
+            />
+            <FilterTabButton
+                label="Approved"
+                filter="approved"
+                :currentFilter="filter"
+                @click="changeFilter('approved')"
+            />
+            <FilterTabButton
+                label="Pending"
+                filter="pending"
+                :currentFilter="filter"
+                @click="changeFilter('pending')"
+            />
+            <FilterTabButton
+                label="Rejected"
+                filter="rejected"
+                :currentFilter="filter"
+                @click="changeFilter('rejected')"
+            />
+        </FilterTab>
         <TableContainer>
             <TableHeader>
                 <!-- Search Bar-->

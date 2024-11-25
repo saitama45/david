@@ -25,8 +25,12 @@ class StoreOrderController extends Controller
         $to = request('to') ? Carbon::parse(request('to'))->addDay() : Carbon::today()->addDay();
         $branchId = request('branchId');
         $search = request('search');
+        $filter = request('filter') ?? 'all';
 
         $query = StoreOrder::query()->with(['store_branch', 'supplier']);
+
+        if ($filter !== 'all')
+            $query->where('order_request_status', $filter);
 
         if ($branchId)
             $query->where('store_branch_id', $branchId);
@@ -51,7 +55,7 @@ class StoreOrderController extends Controller
             [
                 'orders' => $orders,
                 'branches' => $branches,
-                'filters' => request()->only(['from', 'to', 'branchId', 'search'])
+                'filters' => request()->only(['from', 'to', 'branchId', 'search', 'filter'])
             ]
         );
     }
@@ -86,7 +90,7 @@ class StoreOrderController extends Controller
         $branchCode = StoreBranch::select('branch_code')->findOrFail($branchId)->branch_code;
         $orderCount = StoreOrder::where('store_branch_id', $branchId)->count() + 1;
         $orderNumber = str_pad($orderCount, 5, '0', STR_PAD_LEFT);
-        $formattedOrderNumber = "$branchCode-$orderNumber"; 
+        $formattedOrderNumber = "$branchCode-$orderNumber";
 
         DB::beginTransaction();
         $order = StoreOrder::create([
