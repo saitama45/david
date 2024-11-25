@@ -36,15 +36,9 @@ jobs:
           protocol: ftps
           port: 21
           timeout: 60000
-          server-dir: /tix/public/
           dangerous-clean-slate: true
           exclude: |
             **/.git*
             **/.git*/**
             **/node_modules/**
             README.md
-          script: |
-            php artisan storage:link
-            php artisan config:cache
-            php artisan route:cache
-            php artisan view:cache
