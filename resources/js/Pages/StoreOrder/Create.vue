@@ -109,7 +109,7 @@ watch(productId, (newValue) => {
         isLoading.value = true;
         itemForm.item = newValue;
         axios
-            .get(route("product.show", newValue.value))
+            .get(route("product.show", newValue))
             .then((response) => response.data)
             .then((result) => {
                 productDetails.id = result.id;
@@ -358,6 +358,7 @@ const removeItem = (id) => {
                                 v-model="productId"
                                 :options="productsOptions"
                                 optionLabel="label"
+                                optionValue="value"
                             >
                             </Select>
                             <FormError>{{ itemForm.errors.item }}</FormError>

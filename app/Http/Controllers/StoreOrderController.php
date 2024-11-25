@@ -80,13 +80,13 @@ class StoreOrderController extends Controller
             'supplier_id.required' => 'Supplier field is required'
         ]);
 
-        $supplier = Supplier::first($validated['supplier_id'])->id;
+        $supplier = Supplier::find($validated['supplier_id'])->id;
 
         $branchId = $validated['branch_id'];
         $branchCode = StoreBranch::select('branch_code')->findOrFail($branchId)->branch_code;
         $orderCount = StoreOrder::where('store_branch_id', $branchId)->count() + 1;
         $orderNumber = str_pad($orderCount, 5, '0', STR_PAD_LEFT);
-        $formattedOrderNumber = "$branchCode-$orderNumber";
+        $formattedOrderNumber = "$branchCode-$orderNumber"; 
 
         DB::beginTransaction();
         $order = StoreOrder::create([

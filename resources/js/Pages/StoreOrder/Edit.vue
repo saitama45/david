@@ -53,7 +53,7 @@ const productDetails = reactive({
 
 props.orderedItems.forEach((item) => {
     const product = {
-        id: item.id,
+        id: item.product_inventory.id,
         inventory_code: item.product_inventory.inventory_code,
         name: item.product_inventory.name,
         unit_of_measurement: item.product_inventory.unit_of_measurement.name,
@@ -133,6 +133,8 @@ const addToOrdersButton = () => {
     ) {
         return;
     }
+
+    console.log(orderForm.orders);
 
     const existingItemIndex = orderForm.orders.findIndex(
         (order) => order.id === productDetails.id
@@ -214,7 +216,7 @@ watch(productId, (newValue) => {
         isLoading.value = true;
         itemForm.item = newValue;
         axios
-            .get(route("product.show", newValue.value))
+            .get(route("product.show", newValue))
             .then((response) => response.data)
             .then((result) => {
                 productDetails.id = result.id;
@@ -291,6 +293,7 @@ const heading = `Edit Order #${props.order.order_number}`;
                                 v-model="productId"
                                 :options="productsOptions"
                                 optionLabel="label"
+                                optionValue="value"
                             >
                             </Select>
                             <FormError>{{ itemForm.errors.item }}</FormError>
