@@ -1,10 +1,8 @@
 <script setup>
 import Checkbox from "@/Components/Checkbox.vue";
-import GuestLayout from "@/Layouts/GuestLayout.vue";
 import InputError from "@/Components/InputError.vue";
 import InputLabel from "@/Components/InputLabel.vue";
-import PrimaryButton from "@/Components/PrimaryButton.vue";
-import { Head, Link, useForm } from "@inertiajs/vue3";
+import { Link, useForm } from "@inertiajs/vue3";
 import { Input } from "@/components/ui/input";
 import ImageBanner from "../../../images/temporaryLoginImage.png";
 
@@ -37,9 +35,13 @@ const submit = () => {
         <section class="lg:block hidden">
             <img :src="ImageBanner" alt="banner" />
         </section>
-        <section class="border border-gray-300 rounded-lg p-10 space-y-7">
-            <h1 class="text-lg mb-7">Welcome to Food Costing!</h1>
-            <h1 class="text-2xl font-bold">Sign in to your account</h1>
+        <section class="border border-gray-300 rounded-lg p-10 space-y-5">
+            <h1 class="text-lg mb-5 text-[#26B689]">
+                Welcome to Food Costing!
+            </h1>
+            <h1 class="text-2xl font-bold text-[#26B689]">
+                Sign in to your account
+            </h1>
 
             <form class="space-y-5" @submit.prevent="submit">
                 <div>
@@ -98,7 +100,7 @@ const submit = () => {
                 </div>
 
                 <Button
-                    class="w-full h-12"
+                    class="w-full h-12 bg-[#26B689] font-bold text-lg"
                     :class="{ 'opacity-25': form.processing }"
                     :disabled="form.processing"
                 >
@@ -108,4 +110,3 @@ const submit = () => {
         </section>
     </div>
 </template>
-

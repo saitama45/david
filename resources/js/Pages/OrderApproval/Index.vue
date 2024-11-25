@@ -88,7 +88,7 @@ const approveOrder = (id) => {
 
 const rejectOrder = (id) => {
     confirm.require({
-        message: "Are you sure you want to approve this order?",
+        message: "Are you sure you want to reject this order?",
         header: "Confirmation",
         icon: "pi pi-exclamation-triangle",
         rejectProps: {
@@ -97,7 +97,7 @@ const rejectOrder = (id) => {
             outlined: true,
         },
         acceptProps: {
-            label: "Confirm",
+            label: "danger",
             severity: "info",
         },
         accept: () => {
