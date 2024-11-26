@@ -33,4 +33,9 @@ class StoreOrderItem extends Model
     {
         return $this->belongsTo(ProductInventory::class);
     }
+
+    public function ordered_item_receive_dates()
+    {
+        return $this->hasMany(OrderedItemReceiveDate::class);
+    }
 }

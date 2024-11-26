@@ -101,6 +101,10 @@ const rejectOrder = (id) => {
         },
     });
 };
+
+const copyOrderAndCreateAnother = (id) => {
+    router.get("/store-orders/create", { orderId: id });
+};
 </script>
 
 <template>
@@ -138,7 +142,10 @@ const rejectOrder = (id) => {
                     >
                         Update Details
                     </Button>
-                    <Button class="bg-blue-500 hover:bg-blue-300">
+                    <Button
+                        class="bg-blue-500 hover:bg-blue-300"
+                        @click="copyOrderAndCreateAnother(order.id)"
+                    >
                         Copy Order And Create
                     </Button>
                     <Button

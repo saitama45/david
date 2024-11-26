@@ -13,12 +13,18 @@ const props = defineProps({
         type: Object,
         required: true,
     },
+    receiveDatesHistory: {
+        type: Object,
+        required: true,
+    },
 });
 
 const targetId = ref(null);
 const itemDetails = ref(null);
 const form = useForm({
     quantity_received: null,
+    received_date: null,
+    remarks: null,
 });
 
 const showItemDetails = ref(false);
@@ -113,40 +119,58 @@ const isLoading = ref(false);
                             <TD>{{ order.quantity_ordered }}</TD>
                             <TD>{{ order.quantity_received }}</TD>
                             <TD>
-                                <DivFlexCenter class="gap-5">
+                                <DivFlexCenter class="gap-3">
                                     <Button
                                         @click="opentItemDetails(order.id)"
                                         variant="outline"
                                     >
                                         <Eye />
                                     </Button>
-                                    <Popover
+                                    <Button
                                         v-if="
                                             order.quantity_ordered !==
                                             order.quantity_received
                                         "
+                                        @click="openReceiveForm(order.id)"
+                                        class="text-green-500"
+                                        variant="link"
                                     >
-                                        <PopoverTrigger>
-                                            <EllipsisVertical />
-                                        </PopoverTrigger>
-                                        <PopoverContent class="w-fit">
-                                            <DivFlexCol>
-                                                <Button
-                                                    @click="
-                                                        openReceiveForm(
-                                                            order.id
-                                                        )
-                                                    "
-                                                    class="text-green-500"
-                                                    variant="link"
-                                                >
-                                                    Receive
-                                                </Button>
-                                            </DivFlexCol>
-                                        </PopoverContent>
-                                    </Popover>
+                                        Receive
+                                    </Button>
                                 </DivFlexCenter>
                             </TD>
+                        </tr>
+                    </TableBody>
+                </Table>
+            </TableContainer>
+
+            <TableContainer class="col-span-3">
+                <CardTitle>Receive Dates History</CardTitle>
+                <Table>
+                    <TableHead>
+                        <TH> Id </TH>
+                        <TH> Item </TH>
+                        <TH> Item Code </TH>
+                        <TH> Received By </TH>
+                        <TH> Quantity Received</TH>
+                        <TH> Received At</TH>
+                    </TableHead>
+                    <TableBody>
+                        <tr
+                            v-for="history in receiveDatesHistory"
+                            :key="history.id"
+                        >
+                            <TD>{{ history.id }}</TD>
+                            <TD>{{
+                                history.store_order_item.product_inventory.name
+                            }}</TD>
+                            <TD>{{
+                                history.store_order_item.product_inventory
+                                    .inventory_code
+                            }}</TD>
+                            <TD>TBD</TD>
+                            <TD>{{ history.quantity_received }}</TD>
+                            <TD>{{ history.received_date }}</TD>
                         </tr>
                     </TableBody>
                 </Table>
@@ -216,16 +240,27 @@ const isLoading = ref(false);
                         received.</DialogDescription
                     >
                 </DialogHeader>
-                <div class="space-y-5">
+                <div class="space-y-3">
                     <div class="flex flex-col space-y-1">
-                        <DivFlexCenter class="justify-between">
-                            <Label>Quantity Received</Label>
-                        </DivFlexCenter>
-                        <Input v-model="form.quantity_received" />
+                        <Label>Quantity Received</Label>
+                        <Input v-model="form.quantity_received" type="number" />
                         <FormError>{{
                             form.errors.quantity_received
                         }}</FormError>
                     </div>
+                    <InputContainer>
+                        <Label>Date</Label>
+                        <Input
+                            type="datetime-local"
+                            v-model="form.received_date"
+                        />
+                        <FormError>{{ form.errors.received_date }}</FormError>
+                    </InputContainer>
+                    <InputContainer>
+                        <Label>Remarks</Label>
+                        <Textarea v-model="form.remarks" />
+                        <FormError>{{ form.errors.remarks }}</FormError>
+                    </InputContainer>
                 </div>
                 <DialogFooter>
                     <Button
