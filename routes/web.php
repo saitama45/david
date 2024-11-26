@@ -9,6 +9,7 @@ use App\Http\Controllers\InvetoryCategoryController;
 use App\Http\Controllers\ItemController;
 use App\Http\Controllers\OrderApprovalController;
 use App\Http\Controllers\OrderReceivingController;
+use App\Http\Controllers\ProductOrderSummaryController;
 use App\Http\Controllers\StoreOrderController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\StoreBranchController;
@@ -92,6 +93,11 @@ Route::middleware('auth')
             Route::post('/items-list/store', 'store')->name('store');
 
             Route::post('/items-list/import', 'import')->name('import');
+        });
+
+        Route::controller(ProductOrderSummaryController::class)->name('product-orders-summary.')->group(function () {
+            Route::get('/product-orders-summary', 'index')->name('index');
+            Route::get('/product-orders-summary/show/{id}', 'show')->name('show');
         });
 
         Route::controller(OrderReceivingController::class)->name('orders-receiving.')->group(function () {

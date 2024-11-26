@@ -111,6 +111,12 @@ const logout = () => {
                         <NavLink href="/items-list" :icon="PackageSearch">
                             Items
                         </NavLink>
+                        <NavLink
+                            href="/product-orders-summary"
+                            :icon="PackageSearch"
+                        >
+                            Product Orders Summary
+                        </NavLink>
                         <DropdownMenuLabel> Reports </DropdownMenuLabel>
                         <DropdownMenuLabel> Reference </DropdownMenuLabel>
                         <NavLink href="/category-list" :icon="ScrollText">
