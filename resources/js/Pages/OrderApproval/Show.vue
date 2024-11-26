@@ -1,5 +1,6 @@
 <script setup>
 import { useBackButton } from "@/Composables/useBackButton";
+import { router } from "@inertiajs/vue3";
 
 const { backButton } = useBackButton(route("orders-approval.index"));
 const props = defineProps({
@@ -10,6 +11,10 @@ const props = defineProps({
         type: Object,
     },
 });
+
+const updateDetails = (order_number) => {
+    router.get(`/store-orders/edit/${order_number}`);
+};
 const search = ref(null);
 const statusBadgeColor = (status) => {
     switch (status) {
@@ -51,7 +56,12 @@ const statusBadgeColor = (status) => {
                 </DivFlexCenter>
 
                 <DivFlexCenter class="gap-5">
-                    <Button variant="secondary"> Update Details </Button>
+                    <Button
+                        variant="secondary"
+                        @click="updateDetails(order.order_number)"
+                    >
+                        Update Details
+                    </Button>
                     <Button class="bg-blue-500 hover:bg-blue-300">
                         Copy Order And Create
                     </Button>
@@ -74,7 +84,6 @@ const statusBadgeColor = (status) => {
                     <TH> Quantity </TH>
                     <TH> Cost </TH>
                     <TH> Total Cost </TH>
-                    <TH> Actions </TH>
                 </TableHead>
                 <TableBody>
                     <tr v-for="order in orderedItems" :key="order.id">
@@ -86,11 +95,6 @@ const statusBadgeColor = (status) => {
                         <TD>{{ order.quantity_ordered }}</TD>
                         <TD>{{ order.product_inventory.cost }}</TD>
                         <TD>{{ order.total_cost }}</TD>
-                        <TD>
-                            <Button class="text-red-500" variant="outline">
-                                <Trash2 />
-                            </Button>
-                        </TD>
                     </tr>
                 </TableBody>
             </Table>
