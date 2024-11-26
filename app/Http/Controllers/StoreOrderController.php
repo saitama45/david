@@ -60,15 +60,20 @@ class StoreOrderController extends Controller
         );
     }
 
-    public function create()
+    public function create(Request $request)
     {
+        if ($request->has('orderId')) {
+            $orderId = $request->input('orderId');
+            $previousOrder = StoreOrder::with(['store_order_items', 'store_order_items.product_inventory', 'store_order_items.product_inventory.unit_of_measurement'])->find($orderId);
+        }
         $products = ProductInventory::options();
         $suppliers = Supplier::options();
         $branches = StoreBranch::options();
         return Inertia::render('StoreOrder/Create', [
             'products' => $products,
             'branches' => $branches,
-            'suppliers' => $suppliers
+            'suppliers' => $suppliers,
+            'previousOrder' => $previousOrder ?? null
         ]);
     }
 
@@ -86,18 +91,13 @@ class StoreOrderController extends Controller
 
         $supplier = Supplier::find($validated['supplier_id'])->id;
 
-        $branchId = $validated['branch_id'];
-        $branchCode = StoreBranch::select('branch_code')->findOrFail($branchId)->branch_code;
-        $orderCount = StoreOrder::where('store_branch_id', $branchId)->count() + 1;
-        $orderNumber = str_pad($orderCount, 5, '0', STR_PAD_LEFT);
-        $formattedOrderNumber = "$branchCode-$orderNumber";
 
         DB::beginTransaction();
         $order = StoreOrder::create([
             'encoder_id' => 1,
             'supplier_id' => $supplier,
-            'store_branch_id' => $branchId,
-            'order_number' => $formattedOrderNumber,
+            'store_branch_id' => $validated['branch_id'],
+            'order_number' => $this->getOrderNumber($validated['branch_id']),
             'order_date' => Carbon::parse($validated['order_date'])->format('Y-m-d'),
             'order_status' => OrderStatus::PENDING->value,
             'order_request_status' => OrderRequestStatus::PENDING->value,

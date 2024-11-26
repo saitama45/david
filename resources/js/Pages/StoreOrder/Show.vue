@@ -1,5 +1,6 @@
 <script setup>
 import { useBackButton } from "@/Composables/useBackButton";
+import { router } from "@inertiajs/vue3";
 
 const { backButton } = useBackButton(route("store-orders.index"));
 const statusBadgeColor = (status) => {
@@ -23,6 +24,10 @@ const props = defineProps({
         type: Object,
     },
 });
+
+const copyOrderAndCreateAnother = (id) => {
+    router.get("/store-orders/create", { orderId: id });
+};
 </script>
 
 <template>
@@ -62,7 +67,10 @@ const props = defineProps({
                     </span>
                 </DivFlexCenter>
 
-                <Button class="bg-blue-500 hover:bg-blue-300">
+                <Button
+                    class="bg-blue-500 hover:bg-blue-300"
+                    @click="copyOrderAndCreateAnother(order.id)"
+                >
                     Copy Order and Create Another
                 </Button>
             </DivFlexCenter>

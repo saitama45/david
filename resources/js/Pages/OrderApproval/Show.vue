@@ -1,6 +1,11 @@
 <script setup>
 import { useBackButton } from "@/Composables/useBackButton";
 import { router } from "@inertiajs/vue3";
+import { useConfirm } from "primevue/useconfirm";
+import { useToast } from "@/Composables/useToast";
+
+const confirm = useConfirm();
+const { toast } = useToast();
 
 const { backButton } = useBackButton(route("orders-approval.index"));
 const props = defineProps({
@@ -18,15 +23,83 @@ const updateDetails = (order_number) => {
 const search = ref(null);
 const statusBadgeColor = (status) => {
     switch (status) {
-        case "RECEIVED":
+        case "APPROVED":
             return "bg-green-500 text-white";
         case "PENDING":
             return "bg-yellow-500 text-white";
-        case "INCOMPLETE":
-            return "bg-orange-500 text-white";
+        case "REJECTED":
+            return "bg-red-500 text-white";
         default:
             return "bg-yellow-500 text-white";
     }
+};
+
+const approveOrder = (id) => {
+    confirm.require({
+        message: "Are you sure you want to approve this order?",
+        header: "Confirmation",
+        icon: "pi pi-exclamation-triangle",
+        rejectProps: {
+            label: "Cancel",
+            severity: "secondary",
+            outlined: true,
+        },
+        acceptProps: {
+            label: "Confirm",
+            severity: "info",
+        },
+        accept: () => {
+            router.post(
+                route("orders-approval.approve", id),
+                {},
+                {
+                    preserveScroll: true,
+                    onSuccess: () => {
+                        toast.add({
+                            severity: "success",
+                            summary: "Success",
+                            detail: "Order Approved Successfully.",
+                            life: 3000,
+                        });
+                    },
+                }
+            );
+        },
+    });
+};
+
+const rejectOrder = (id) => {
+    confirm.require({
+        message: "Are you sure you want to reject this order?",
+        header: "Confirmation",
+        icon: "pi pi-exclamation-triangle",
+        rejectProps: {
+            label: "Cancel",
+            severity: "secondary",
+            outlined: true,
+        },
+        acceptProps: {
+            label: "danger",
+            severity: "info",
+        },
+        accept: () => {
+            router.post(
+                route("orders-approval.reject", id),
+                {},
+                {
+                    preserveScroll: true,
+                    onSuccess: () => {
+                        toast.add({
+                            severity: "success",
+                            summary: "Success",
+                            detail: "Order Rejected Successfully.",
+                            life: 3000,
+                        });
+                    },
+                }
+            );
+        },
+    });
 };
 </script>
 
@@ -47,7 +120,9 @@ const statusBadgeColor = (status) => {
                         Status:
                         <Badge
                             :class="
-                                statusBadgeColor(order.order_request_status)
+                                statusBadgeColor(
+                                    order.order_request_status.toUpperCase()
+                                )
                             "
                         >
                             {{ order.order_request_status.toUpperCase() }}
@@ -57,6 +132,7 @@ const statusBadgeColor = (status) => {
 
                 <DivFlexCenter class="gap-5">
                     <Button
+                        v-if="order.order_request_status === 'pending'"
                         variant="secondary"
                         @click="updateDetails(order.order_number)"
                     >
@@ -65,8 +141,18 @@ const statusBadgeColor = (status) => {
                     <Button class="bg-blue-500 hover:bg-blue-300">
                         Copy Order And Create
                     </Button>
-                    <Button variant="destructive"> Decline Order </Button>
-                    <Button class="bg-green-500 hover:bg-green-300">
+                    <Button
+                        v-if="order.order_request_status === 'pending'"
+                        variant="destructive"
+                        @click="rejectOrder(order.id)"
+                    >
+                        Decline Order
+                    </Button>
+                    <Button
+                        v-if="order.order_request_status === 'pending'"
+                        class="bg-green-500 hover:bg-green-300"
+                        @click="approveOrder(order.id)"
+                    >
                         Approve Order
                     </Button>
                 </DivFlexCenter>

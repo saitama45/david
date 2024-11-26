@@ -21,7 +21,13 @@ const props = defineProps({
         type: Object,
         required: true,
     },
+    previousOrder: {
+        type: Object,
+        required: false,
+    },
 });
+
+const previousOrder = props.previousOrder;
 
 const { options: branchesOptions } = useSelectOptions(props.branches);
 const { options: productsOptions } = useSelectOptions(props.products);
@@ -48,8 +54,8 @@ const excelFileForm = useForm({
 });
 
 const orderForm = useForm({
-    branch_id: null,
-    supplier_id: null,
+    branch_id: previousOrder?.store_branch_id + "",
+    supplier_id: previousOrder?.supplier_id + "",
     order_date: new Date().toLocaleString().slice(0, 10),
     orders: [],
 });
@@ -277,6 +283,24 @@ const removeItem = (id) => {
         },
     });
 };
+
+if (previousOrder) {
+    previousOrder.store_order_items.forEach((item) => {
+        const product = {
+            id: item.product_inventory.id,
+            inventory_code: item.product_inventory.inventory_code,
+            name: item.product_inventory.name,
+            unit_of_measurement:
+                item.product_inventory.unit_of_measurement.name,
+            quantity: item.quantity_ordered,
+            cost: item.product_inventory.cost,
+            total_cost: parseFloat(
+                item.quantity_ordered * item.product_inventory.cost
+            ).toFixed(2),
+        };
+        orderForm.orders.push(product);
+    });
+}
 </script>
 
 <template>

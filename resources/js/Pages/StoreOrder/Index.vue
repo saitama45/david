@@ -183,7 +183,7 @@ const changeFilter = (currentFilter) => {
                         v-model="search"
                         id="search"
                         type="text"
-                        placeholder="Order number search"
+                        placeholder="Search..."
                         class="pl-10"
                     />
                 </SearchBar>
