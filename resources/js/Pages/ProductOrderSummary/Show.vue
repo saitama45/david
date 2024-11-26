@@ -1,4 +1,6 @@
 <script setup>
+import { useBackButton } from "@/Composables/useBackButton";
+const { backButton } = useBackButton(route("product-orders-summary.index"));
 const { item, orders } = defineProps({
     item: {
         type: Object,
@@ -34,5 +36,9 @@ const heading = `Orders For Item ${item.name} (${item.inventory_code})`;
                 </TableBody>
             </Table>
         </TableContainer>
+
+        <Button variant="outline" class="text-lg px-7" @click="backButton">
+            Back
+        </Button>
     </Layout>
 </template>
