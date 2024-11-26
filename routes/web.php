@@ -115,6 +115,7 @@ Route::middleware('auth')
 
         Route::controller(ApprovedOrderController::class)->name('approved-orders.')->group(function () {
             Route::get('/approved-orders', 'index')->name('index');
+            Route::get('/approved-orders/show/{id}', 'show')->name('show');
         });
 
         Route::controller(StoreBranchController::class)->name('store-branches.')->group(function () {

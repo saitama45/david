@@ -4,8 +4,6 @@ namespace App\Http\Controllers;
 
 use App\Enum\OrderRequestStatus;
 use App\Enum\OrderStatus;
-use App\Models\Order;
-use App\Models\OrderedItemReceiveDate;
 use App\Models\StoreOrder;
 use App\Models\StoreOrderItem;
 use Illuminate\Http\Request;
@@ -75,7 +73,8 @@ class OrderReceivingController extends Controller
             ],
             'remarks' => ['sometimes'],
         ], [
-            'quantity_received.max' => "You can only receive up to {$quantityToReceive} items for this order."
+            'quantity_received.max' => "You can only receive up to {$quantityToReceive} items for this order.",
+            'received_date.before_or_equal' => "Received date field must be a date before or equal to current time"
         ]);
 
         $order->order_status = OrderStatus::PARTIALLY_RECEIVED->value;

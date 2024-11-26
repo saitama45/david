@@ -1,5 +1,6 @@
 <script setup>
 import { useSearch } from "@/Composables/useSearch";
+import { router } from "@inertiajs/vue3";
 
 const props = defineProps({
     orders: {
@@ -21,6 +22,10 @@ const statusBadgeColor = (status) => {
 };
 
 const { search } = useSearch("approved-orders.index");
+const showOrderDetails = (id) => {
+    console.log(id);
+    router.get(`/approved-orders/show/${id}`);
+};
 </script>
 
 <template>
@@ -67,7 +72,10 @@ const { search } = useSearch("approved-orders.index");
                             >
                         </TD>
                         <TD>
-                            <Button variant="outline">
+                            <Button
+                                variant="outline"
+                                @click="showOrderDetails(order.order_number)"
+                            >
                                 <Eye />
                             </Button>
                         </TD>
