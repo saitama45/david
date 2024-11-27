@@ -1,5 +1,5 @@
 <script setup>
-import { Button } from "@/components/ui/button";
+import Logo from "../../images/logo.png";
 import {
     DropdownMenu,
     DropdownMenuContent,
@@ -71,9 +71,9 @@ const logout = () => {
                 <div
                     class="flex h-14 items-center border-b px-4 lg:h-[60px] lg:px-6"
                 >
-                    <a href="/" class="flex items-center gap-2 font-semibold">
-                        <Package2 class="h-6 w-6" />
-                        <span class="">Project Story</span>
+                    <a href="/" class="flex items-center font-semibold">
+                        <img :src="Logo" alt="logo" class="size-20" />
+                        <span class="font-bold">Project David</span>
                     </a>
                     <Button
                         variant="outline"
