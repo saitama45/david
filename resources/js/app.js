@@ -72,7 +72,7 @@ import ShowButton from "./Components/button/ShowButton.vue";
 const appName = import.meta.env.VITE_APP_NAME || "Laravel";
 
 createInertiaApp({
-    title: (title) => `${title} - ${appName}`,
+    title: (title) => `Project David`,
     resolve: (name) =>
         resolvePageComponent(
             `./Pages/${name}.vue`,
