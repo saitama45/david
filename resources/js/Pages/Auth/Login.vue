@@ -30,16 +30,18 @@ const submit = () => {
 
 <template>
     <div
-        class="grid lg:grid-cols-2 gap-10 min-h-screen items-center p-20 grid-cols-1"
+        class="grid lg:grid-cols-2 gap-10 min-h-screen items-center sm:p-20 p-5 grid-cols-1"
     >
         <section class="lg:block hidden">
             <img :src="ImageBanner" alt="banner" />
         </section>
-        <section class="border border-gray-300 rounded-lg p-10 space-y-5">
-            <h1 class="text-lg mb-5 text-[#26B689]">
+        <section
+            class="border border-gray-300 rounded-lg sm:p-10 sm:space-y-5 space-y-3 p-5"
+        >
+            <h1 class="sm:text-lg text-sm sm:mb-5 text-[#26B689]">
                 Welcome to Food Costing!
             </h1>
-            <h1 class="text-2xl font-bold text-[#26B689]">
+            <h1 class="sm:text-2xl text-lg font-bold text-[#26B689]">
                 Sign in to your account
             </h1>
 
@@ -50,7 +52,7 @@ const submit = () => {
                     <Input
                         id="email"
                         type="email"
-                        class="mt-1 block w-full h-12"
+                        class="mt-1 block w-full sm:h-12"
                         v-model="form.email"
                         required
                         autofocus
@@ -67,7 +69,7 @@ const submit = () => {
                     <Input
                         id="password"
                         type="password"
-                        class="mt-1 block w-full h-12"
+                        class="mt-1 block w-full sm:h-12"
                         v-model="form.password"
                         required
                         autocomplete="current-password"
@@ -84,7 +86,7 @@ const submit = () => {
                                 name="remember"
                                 v-model:checked="form.remember"
                             />
-                            <span class="ms-2 text-sm text-gray-600"
+                            <span class="ms-2 sm:text-sm text-xs text-gray-600"
                                 >Remember me</span
                             >
                         </label>
@@ -93,7 +95,7 @@ const submit = () => {
                     <Link
                         v-if="canResetPassword"
                         :href="route('password.request')"
-                        class="rounded-md text-sm text-gray-600 underline hover:text-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
+                        class="rounded-md sm:text-sm text-xs text-gray-600 underline hover:text-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
                     >
                         Forgot your password?
                     </Link>
