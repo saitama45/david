@@ -7,6 +7,10 @@ const props = defineProps({
         type: Object,
         required: true,
     },
+    items: {
+        type: Object,
+        required: true,
+    },
 });
 
 const selectedItems = ref([]);
@@ -14,6 +18,8 @@ const selectedItems = ref([]);
 const bulkApprove = () => {
     console.log(selectedItems.value);
 };
+
+console.log(props.order);
 </script>
 
 <template>
@@ -32,13 +38,12 @@ const bulkApprove = () => {
                     <TH> </TH>
                     <TH>Item</TH>
                     <TH>Inventory Code</TH>
-                    <TH>Order Date</TH>
-                    <TH>Quantity Ordered</TH>
+                    <TH>Received Date</TH>
                     <TH>Quantity Received</TH>
                     <TH>Actions</TH>
                 </TableHead>
                 <TableBody>
-                    <tr v-for="item in order.store_order_items" :key="item.id">
+                    <tr v-for="item in items" :key="item.id">
                         <TD>
                             <Checkbox
                                 v-model="selectedItems"
@@ -46,10 +51,14 @@ const bulkApprove = () => {
                                 :inputId="`item-${item.id}`"
                             />
                         </TD>
-                        <TD>{{ item.product_inventory.name }}</TD>
-                        <TD>{{ item.product_inventory.inventory_code }}</TD>
-                        <TD>{{ order.order_date }}</TD>
-                        <TD>{{ item.quantity_ordered }}</TD>
+                        <TD>{{
+                            item.store_order_item.product_inventory.name
+                        }}</TD>
+                        <TD>{{
+                            item.store_order_item.product_inventory
+                                .inventory_code
+                        }}</TD>
+                        <TD>{{ item.received_date }}</TD>
                         <TD>{{ item.quantity_received }}</TD>
                         <TD>
                             <Button variant="link" class="text-green-500 p-0">

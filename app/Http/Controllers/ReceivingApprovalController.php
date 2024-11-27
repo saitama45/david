@@ -18,17 +18,11 @@ class ReceivingApprovalController extends Controller
 
     public function show($id)
     {
-        $order = StoreOrder::with([
-            'store_branch',
-            'supplier',
-            'store_order_items',
-            'store_order_items.product_inventory',
-            'ordered_item_receive_dates',
-            'ordered_item_receive_dates.store_order_item',
-            'ordered_item_receive_dates.store_order_item.product_inventory'
-        ])->where('order_number', $id)->firstOrFail();
+        $order = StoreOrder::where('order_number', $id)->firstOrFail();
+        $items = $order->ordered_item_receive_dates()->with('store_order_item.product_inventory')->get();
         return Inertia::render('ReceivingApproval/Show', [
-            'order' => $order
+            'order' => $order,
+            'items' => $items
         ]);
     }
 }
