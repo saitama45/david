@@ -103,6 +103,9 @@ const logout = () => {
                         <NavLink href="/orders-receiving" :icon="Folders">
                             Orders
                         </NavLink>
+                        <NavLink href="/receiving-approvals" :icon="Folders">
+                            Approvals
+                        </NavLink>
                         <NavLink href="/approved-orders" :icon="FileCheck">
                             Approved Orders
                         </NavLink>

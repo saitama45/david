@@ -12,7 +12,7 @@ class ApprovedOrderController extends Controller
     public function index()
     {
         $search = request('search');
-        $query = StoreOrder::query()->with(['store_branch', 'supplier'])->where('order_request_status', OrderRequestStatus::APRROVED->value);
+        $query = StoreOrder::query()->with(['store_branch', 'supplier'])->where('order_request_status', 'test');
 
         if ($search)
             $query->where('order_number', 'like', '%' . $search . '%');

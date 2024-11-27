@@ -67,6 +67,7 @@ import {
 } from "@/components/ui/popover";
 import DatePicker from "primevue/datepicker";
 import InputLabel from "@/Components/form/InputLabel.vue";
+import ShowButton from "./Components/button/ShowButton.vue";
 
 const appName = import.meta.env.VITE_APP_NAME || "Laravel";
 
@@ -130,6 +131,7 @@ createInertiaApp({
             .component("InputLabel", InputLabel)
             .component("Plus", Plus)
             .component("Minus", Minus)
+            .component("ShowButton", ShowButton)
             .use(PrimeVue, {
                 theme: {
                     preset: Aura,

@@ -94,11 +94,11 @@ watch(filter, function (value) {
                         <TD>{{ item.conversion }}</TD>
                         <TD>{{ item.unit_of_measurement.name }}</TD>
                         <TD>{{ item.cost }}</TD>
-                        <TH>
+                        <TD>
                             <Button class="text-blue-500" variant="link">
                                 <Pencil class="size-6" />
                             </Button>
-                        </TH>
+                        </TD>
                     </tr>
                 </TableBody>
             </Table>

@@ -12,6 +12,7 @@ use App\Http\Controllers\OrderReceivingController;
 use App\Http\Controllers\ProductOrderSummaryController;
 use App\Http\Controllers\StoreOrderController;
 use App\Http\Controllers\ProfileController;
+use App\Http\Controllers\ReceivingApprovalController;
 use App\Http\Controllers\StoreBranchController;
 use App\Http\Controllers\SupplierController;
 use App\Http\Controllers\UnitOfMeasurementController;
@@ -133,6 +134,11 @@ Route::middleware('auth')
         Route::controller(UnitOfMeasurementController::class)->name('unit-of-measurements.')->group(function () {
             Route::get('/unit-of-measurements', 'index')->name('index');
             Route::post('/unit-of-measurements/update/{id}', 'update')->name('update');
+        });
+
+        Route::controller(ReceivingApprovalController::class)->prefix('receiving-approvals')->name('receiving-approvals.')->group(function () {
+            Route::get('/', 'index')->name('index');
+            Route::get('/show/{id}', 'show')->name('show');
         });
 
         Route::get('/profile', [ProfileController::class, 'edit'])
