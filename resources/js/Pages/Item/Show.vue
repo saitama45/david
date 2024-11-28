@@ -42,11 +42,6 @@ const { item } = defineProps({
                         item.unit_of_measurement.name
                     }}</Label>
 
-                    <Label>Unit Of Measurement</Label>
-                    <Label class="font-bold">{{
-                        item.unit_of_measurement.name
-                    }}</Label>
-
                     <Label>Cost</Label>
                     <Label class="font-bold">{{ item.cost }}</Label>
 
@@ -55,7 +50,7 @@ const { item } = defineProps({
                         item.is_active ? "Yes" : "No"
                     }}</Label>
 
-                    <Label>Stock</Label>
+                    <Label>Stock on Hand</Label>
                     <Label class="font-bold">{{ item.stock }}</Label>
 
                     <Label>Stock Used</Label>
@@ -79,9 +74,18 @@ const { item } = defineProps({
                     </TableHead>
                     <TableBody>
                         <tr v-for="order in orders" :key="order.id">
-                            <TD>{{
-                                order.store_order_item.store_order.order_number
-                            }}</TD>
+                            <TD>
+                                <a
+                                    class="p-0 text-blue-500"
+                                    target="_blank"
+                                    :href="`/store-orders/show/${order.store_order_item.store_order.order_number}`"
+                                >
+                                    {{
+                                        order.store_order_item.store_order
+                                            .order_number
+                                    }}
+                                </a>
+                            </TD>
                             <TD>{{
                                 order.store_order_item.store_order.supplier.name
                             }}</TD>
