@@ -32,12 +32,11 @@ class ApprovedOrderController extends Controller
 
     public function show($id)
     {
-        $order = StoreOrder::with(['store_branch', 'supplier', 'store_order_items'])->where('order_number', $id)->firstOrFail();
-        $orderedItems = $order->store_order_items()->with(['product_inventory', 'product_inventory.unit_of_measurement'])->get();
-
+        $order = StoreOrder::where('order_number', $id)->firstOrFail();
+        $items = $order->ordered_item_receive_dates()->with('store_order_item.product_inventory')->where('is_approved', true)->get();;
         return Inertia::render('ApprovedOrder/Show', [
             'order' => $order,
-            'orderedItems' => $orderedItems
+            'items' => $items
         ]);
     }
 }

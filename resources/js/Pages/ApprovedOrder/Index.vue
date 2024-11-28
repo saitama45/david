@@ -10,9 +10,9 @@ const props = defineProps({
 
 const statusBadgeColor = (status) => {
     switch (status.toUpperCase()) {
-        case "APPROVED":
+        case "RECEIVED":
             return "bg-green-500 text-white";
-        case "PENDING":
+        case "PARTIALLY_RECEIVED":
             return "bg-yellow-500 text-white";
         case "REJECTED":
             return "bg-red-400 text-white";
@@ -49,7 +49,7 @@ const showOrderDetails = (id) => {
                     <TH>Order #</TH>
                     <TH>Order Date</TH>
                     <TH>Order Placed Date</TH>
-                    <TH>Order Approval Status</TH>
+                    <TH>Order Status</TH>
                     <TH>Actions</TH>
                 </TableHead>
                 <TableBody>
@@ -62,12 +62,10 @@ const showOrderDetails = (id) => {
                         <TD>{{ order.created_at }}</TD>
                         <TD>
                             <Badge
-                                :class="
-                                    statusBadgeColor(order.order_request_status)
-                                "
+                                :class="statusBadgeColor(order.order_status)"
                                 class="font-bold"
                                 >{{
-                                    order.order_request_status
+                                    order.order_status
                                         .toUpperCase()
                                         .replace("_", " ")
                                 }}</Badge
