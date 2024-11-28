@@ -109,13 +109,13 @@ const isLoading = ref(false);
                     </div>
                 </CardHeader>
             </Card>
-            <TableContainer class="col-span-2">
+            <TableContainer class="col-span-2 min-w-fit">
                 <Table>
                     <TableHead>
                         <TH> Item Code </TH>
                         <TH> Name </TH>
-                        <TH> Quantity Ordered</TH>
-                        <TH> Quantity Received</TH>
+                        <TH> Ordered</TH>
+                        <TH> Received</TH>
                         <TH> Actions </TH>
                     </TableHead>
 
@@ -127,14 +127,13 @@ const isLoading = ref(false);
                             <TD>{{ order.product_inventory.name }}</TD>
                             <TD>{{ order.quantity_ordered }}</TD>
                             <TD>{{ order.quantity_received }}</TD>
-                            <TD>
-                                <DivFlexCenter class="gap-3">
-                                    <Button
+                            <TD class="w-[90px]">
+                                <DivFlexCenter class="gap-1">
+                                    <ShowButton
                                         @click="opentItemDetails(order.id)"
-                                        variant="outline"
                                     >
                                         <Eye />
-                                    </Button>
+                                    </ShowButton>
                                     <Button
                                         v-if="
                                             order.quantity_ordered !==

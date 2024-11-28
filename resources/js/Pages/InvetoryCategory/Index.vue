@@ -75,13 +75,12 @@ const editCategoryDetails = (id) => {
                         <TD>{{ category.name }}</TD>
                         <TD>{{ category.remarks ?? "N/a" }}</TD>
                         <TD>
-                            <Button
+                            <button
                                 @click="editCategoryDetails(category.id)"
                                 class="text-blue-500"
-                                variant="link"
                             >
-                                <Pencil />
-                            </Button>
+                                <Pencil class="size-5" />
+                            </button>
                         </TD>
                     </tr>
                 </TableBody>

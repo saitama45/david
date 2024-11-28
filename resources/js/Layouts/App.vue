@@ -64,9 +64,9 @@ const logout = () => {
     <Toast />
     <ConfirmDialog></ConfirmDialog>
     <div
-        class="grid min-h-screen w-full md:grid-cols-[220px_1fr] lg:grid-cols-[280px_1fr]"
+        class="grid min-h-screen max-h-screen overflow-hidden w-full md:grid-cols-[220px_1fr] lg:grid-cols-[280px_1fr]"
     >
-        <div class="hidden border-r bg-muted/40 md:block">
+        <div class="hidden border-r bg-muted/40 md:block overflow-auto">
             <div class="flex h-full max-h-screen flex-col gap-2">
                 <div
                     class="flex h-14 items-center border-b px-4 lg:h-[60px] lg:px-6"
@@ -126,7 +126,7 @@ const logout = () => {
                             Categories
                         </NavLink>
                         <NavLink
-                            href="/inventory-categories" 
+                            href="/inventory-categories"
                             :icon="LayoutList"
                         >
                             Invetory Categories
@@ -146,7 +146,7 @@ const logout = () => {
                 <div class="mt-auto p-4">Test</div>
             </div>
         </div>
-        <div class="flex flex-col">
+        <div class="flex flex-col overflow-hidden">
             <header
                 class="flex h-14 items-center gap-4 border-b bg-muted/40 px-4 lg:h-[60px] lg:px-6"
             >
@@ -225,7 +225,7 @@ const logout = () => {
                 </DropdownMenu>
             </header>
             <main
-                class="flex flex-1 flex-col gap-4 p-4 lg:gap-6 lg:p-6 bg-white/10"
+                class="flex flex-1 flex-col gap-4 p-4 lg:gap-6 lg:p-6 bg-white/10 overflow-auto"
             >
                 <div class="flex items-center justify-between">
                     <h1 class="text-lg font-semibold md:text-2xl">

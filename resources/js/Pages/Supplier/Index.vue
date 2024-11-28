@@ -75,13 +75,13 @@ const editCategoryDetails = (id) => {
                         <TD>{{ data.name }}</TD>
                         <TD>{{ data.supplier_code }}</TD>
                         <TD>
-                            <Button
+                            <button
                                 @click="editCategoryDetails(data.id)"
                                 class="text-blue-500"
                                 variant="link"
                             >
-                                <Pencil class="size-6" />
-                            </Button>
+                                <Pencil class="size-5" />
+                            </button>
                         </TD>
                     </tr>
                 </TableBody>
