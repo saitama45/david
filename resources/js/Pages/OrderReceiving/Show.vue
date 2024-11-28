@@ -50,6 +50,7 @@ const openReceiveForm = (id) => {
 };
 
 const submitReceivingForm = () => {
+    isLoading.value = true;
     form.post(route("orders-receiving.receive", targetId.value), {
         onSuccess: () => {
             toast.add({
@@ -59,6 +60,8 @@ const submitReceivingForm = () => {
                 life: 5000,
             });
             showReceiveForm.value = false;
+            isLoading.value = false;
+            form.reset();
         },
         onError: (e) => {
             console.log(e);
