@@ -25,7 +25,39 @@ const selectedItems = ref([]);
 const approveReceivedItemForm = useForm({
     id: null,
 });
-
+const approveAllItems = () => {
+    approveReceivedItemForm.id = [];
+    approveReceivedItemForm.id = props.items.map((item) => item.id);
+    confirm.require({
+        message: "Are you sure you want to approve all the items status?",
+        header: "Confirmation",
+        icon: "pi pi-exclamation-triangle",
+        rejectProps: {
+            label: "Cancel",
+            severity: "secondary",
+            outlined: true,
+        },
+        acceptProps: {
+            label: "Confirm",
+            severity: "success",
+        },
+        accept: () => {
+            approveReceivedItemForm.post(
+                route("receiving-approvals.approve-received-item"),
+                {
+                    onSuccess: () => {
+                        toast.add({
+                            severity: "success",
+                            summary: "Success",
+                            detail: "Received Items Status Approved Successfully.",
+                            life: 3000,
+                        });
+                    },
+                }
+            );
+        },
+    });
+};
 
 const approveSeletedItems = () => {
     approveReceivedItemForm.id = selectedItems.value;
@@ -104,7 +136,9 @@ const approveReceivedItem = (id) => {
                     variant="outline"
                     >Approve Selected Items</Button
                 >
-                <Button class="bg-green-500">Approve All</Button>
+                <Button class="bg-green-500" @click="approveAllItems"
+                    >Approve All</Button
+                >
             </TableHeader>
             <Table>
                 <TableHead>
