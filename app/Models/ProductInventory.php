@@ -62,6 +62,11 @@ class ProductInventory extends Model
         return $this->hasMany(StoreOrderItem::class);
     }
 
+    public function ordered_item_receive_date()
+    {
+        return $this->hasManyThrough(OrderedItemReceiveDate::class, StoreOrderItem::class);
+    }
+
     public function getSelectOptionNameAttribute()
     {
         return "$this->name ($this->inventory_code)";

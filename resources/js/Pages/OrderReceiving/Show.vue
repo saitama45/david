@@ -34,7 +34,6 @@ const form = useForm({
     remarks: null,
 });
 
-
 const showItemDetails = ref(false);
 itemDetails.value = props.orderedItems[1];
 const opentItemDetails = (id) => {
@@ -96,7 +95,9 @@ const isLoading = ref(false);
                                 >Order Receiving Status:
                             </Label>
                             <Label class="flex-1">{{
-                                order.order_status.toUpperCase()
+                                order.order_status
+                                    .toUpperCase()
+                                    .replace("_", " ")
                             }}</Label>
                         </DivFlexCenter>
                         <DivFlexCenter class="justify-between py-3">

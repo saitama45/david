@@ -8,7 +8,7 @@ defineProps({
 </script>
 <template>
     <div v-if="data.data.length === 0" class="p-5 flex justify-center w-full">
-        No Result Found
+        Nothing to show
     </div>
     <div
         v-if="data.data.length !== 0"

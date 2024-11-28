@@ -139,6 +139,7 @@ Route::middleware('auth')
         Route::controller(ReceivingApprovalController::class)->prefix('receiving-approvals')->name('receiving-approvals.')->group(function () {
             Route::get('/', 'index')->name('index');
             Route::get('/show/{id}', 'show')->name('show');
+            Route::post('/approve', 'approveReceivedItem')->name('approve-received-item');
         });
 
         Route::get('/profile', [ProfileController::class, 'edit'])

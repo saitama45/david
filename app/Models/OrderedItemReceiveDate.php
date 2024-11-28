@@ -32,4 +32,9 @@ class OrderedItemReceiveDate extends Model
     {
         return $this->belongsTo(StoreOrder::class);
     }
+
+    public function product_inventory()
+    {
+        return $this->belongsTo(ProductInventory::class);
+    }
 }

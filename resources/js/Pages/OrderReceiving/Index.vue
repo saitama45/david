@@ -61,7 +61,11 @@ const { search } = useSearch("approved-orders.index");
                             <Badge
                                 :class="statusBadgeColor(order.order_status)"
                                 class="font-bold"
-                                >{{ order.order_status.toUpperCase() }}</Badge
+                                >{{
+                                    order.order_status
+                                        .toUpperCase()
+                                        .replace("_", " ")
+                                }}</Badge
                             >
                         </TD>
                         <TD>

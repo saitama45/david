@@ -43,6 +43,7 @@ class ProductInventoryImport implements ToModel, WithHeadingRow
             'brand' => $row['brand'],
             'conversion' => $row['conversion'],
             'cost' => $this->getCost($row['cost']),
+            'stock' => 100,
             'is_active' => $this->getStatus($row['status'])
         ]);
         return $product;

@@ -67,7 +67,9 @@ const showOrderDetails = (id) => {
                                 "
                                 class="font-bold"
                                 >{{
-                                    order.order_request_status.toUpperCase()
+                                    order.order_request_status
+                                        .toUpperCase()
+                                        .replace("_", " ")
                                 }}</Badge
                             >
                         </TD>

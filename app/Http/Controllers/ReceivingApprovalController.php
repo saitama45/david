@@ -2,15 +2,25 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\OrderedItemReceiveDate;
 use App\Models\StoreOrder;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
 
 class ReceivingApprovalController extends Controller
 {
     public function index()
     {
-        $orders = StoreOrder::with(['supplier', 'store_branch'])->whereHas('ordered_item_receive_dates')->paginate(10);
+        $orders = StoreOrder::with([
+            'supplier',
+            'store_branch',
+            'ordered_item_receive_dates' => function ($query) {
+                $query->where('is_approved', false);
+            }
+        ])->whereHas('ordered_item_receive_dates', function ($query) {
+            $query->where('is_approved', false);
+        })->paginate(10);
         return Inertia::render('ReceivingApproval/Index', [
             'orders' => $orders
         ]);
@@ -19,10 +29,42 @@ class ReceivingApprovalController extends Controller
     public function show($id)
     {
         $order = StoreOrder::where('order_number', $id)->firstOrFail();
-        $items = $order->ordered_item_receive_dates()->with('store_order_item.product_inventory')->get();
+        $items = $order->ordered_item_receive_dates()->with('store_order_item.product_inventory')->where('is_approved', false)->get();;
         return Inertia::render('ReceivingApproval/Show', [
             'order' => $order,
             'items' => $items
         ]);
+    }
+
+    public function approveReceivedItem(Request $request)
+    {
+        $validated = $request->validate([
+            'id' => ['required'],
+        ]);
+        // Approve the receive date
+        if (is_array($validated['id'])) {
+            foreach ($validated['id'] as $id) {
+                DB::beginTransaction();
+                $data = OrderedItemReceiveDate::with('store_order_item.product_inventory')->find($id);
+                $data->update(['is_approved' => true]);
+                $item = $data->store_order_item->product_inventory;
+                $item->stock -= $data->quantity_received;
+                $item->stock_used += $data->quantity_received;
+                $item->save();
+                $data->save();
+                DB::commit();
+            }
+        } else {
+            DB::beginTransaction();
+            $data = OrderedItemReceiveDate::with('store_order_item.product_inventory')->find($validated['id']);
+            $data->update(['is_approved' => true]);
+            $item = $data->store_order_item->product_inventory;
+            $item->stock -= $data->quantity_received;
+            $item->stock_used += $data->quantity_received;
+            $item->save();
+            $data->save();
+            DB::commit();
+        }
+        return back();
     }
 }

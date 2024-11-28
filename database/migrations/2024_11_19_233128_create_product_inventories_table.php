@@ -30,6 +30,10 @@ return new class extends Migration
 
             $table->double('cost');
 
+            $table->integer('stock')->default(0);
+
+            $table->integer('stock_used')->default(0);
+
             $table->boolean('is_active');
 
             $table->timestamps();

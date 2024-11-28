@@ -33,7 +33,7 @@ const props = defineProps({
                     </tr>
                 </TableBody>
             </Table>
+            <Pagination :data="orders" />
         </TableContainer>
-        <Pagination :data="orders" />
     </Layout>
 </template>

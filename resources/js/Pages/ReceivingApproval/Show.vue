@@ -1,7 +1,14 @@
 <script setup>
 import { useBackButton } from "@/Composables/useBackButton";
 import Checkbox from "primevue/checkbox";
+import { useForm } from "@inertiajs/vue3";
 const { backButton } = useBackButton(route("receiving-approvals.index"));
+
+import { useConfirm } from "primevue/useconfirm";
+import { useToast } from "primevue/usetoast";
+const toast = useToast();
+const confirm = useConfirm();
+
 const props = defineProps({
     order: {
         type: Object,
@@ -15,11 +22,76 @@ const props = defineProps({
 
 const selectedItems = ref([]);
 
-const bulkApprove = () => {
-    console.log(selectedItems.value);
+const approveReceivedItemForm = useForm({
+    id: null,
+});
+
+
+const approveSeletedItems = () => {
+    approveReceivedItemForm.id = selectedItems.value;
+    confirm.require({
+        message: "Are you sure you want to approve the selected items status?",
+        header: "Confirmation",
+        icon: "pi pi-exclamation-triangle",
+        rejectProps: {
+            label: "Cancel",
+            severity: "secondary",
+            outlined: true,
+        },
+        acceptProps: {
+            label: "Confirm",
+            severity: "success",
+        },
+        accept: () => {
+            approveReceivedItemForm.post(
+                route("receiving-approvals.approve-received-item"),
+                {
+                    onSuccess: () => {
+                        toast.add({
+                            severity: "success",
+                            summary: "Success",
+                            detail: "Received Item Status Approved Successfully.",
+                            life: 3000,
+                        });
+                    },
+                }
+            );
+        },
+    });
 };
 
-console.log(props.order);
+const approveReceivedItem = (id) => {
+    approveReceivedItemForm.id = id;
+    confirm.require({
+        message: "Are you sure you want to approve this received item status?",
+        header: "Confirmation",
+        icon: "pi pi-exclamation-triangle",
+        rejectProps: {
+            label: "Cancel",
+            severity: "secondary",
+            outlined: true,
+        },
+        acceptProps: {
+            label: "Confirm",
+            severity: "success",
+        },
+        accept: () => {
+            approveReceivedItemForm.post(
+                route("receiving-approvals.approve-received-item"),
+                {
+                    onSuccess: () => {
+                        toast.add({
+                            severity: "success",
+                            summary: "Success",
+                            detail: "Received Item Status Approved Successfully.",
+                            life: 3000,
+                        });
+                    },
+                }
+            );
+        },
+    });
+};
 </script>
 
 <template>
@@ -28,7 +100,7 @@ console.log(props.order);
             <TableHeader class="justify-between">
                 <Button
                     v-if="selectedItems.length > 0"
-                    @click="bulkApprove"
+                    @click="approveSeletedItems"
                     variant="outline"
                     >Approve Selected Items</Button
                 >
@@ -41,6 +113,7 @@ console.log(props.order);
                     <TH>Inventory Code</TH>
                     <TH>Received Date</TH>
                     <TH>Quantity Received</TH>
+                    <TH>Is Approved?</TH>
                     <TH>Actions</TH>
                 </TableHead>
                 <TableBody>
@@ -61,8 +134,13 @@ console.log(props.order);
                         }}</TD>
                         <TD>{{ item.received_date }}</TD>
                         <TD>{{ item.quantity_received }}</TD>
+                        <TD>{{ item.is_approved == 1 ? "Yes" : "No" }}</TD>
                         <TD>
-                            <Button variant="link" class="text-green-500 p-0">
+                            <Button
+                                @click="approveReceivedItem(item.id)"
+                                variant="link"
+                                class="text-green-500 p-0"
+                            >
                                 Approve
                             </Button>
                         </TD>
