@@ -275,6 +275,7 @@ const isLoading = ref(false);
                 </div>
                 <DialogFooter>
                     <Button
+                        :disabled="isLoading"
                         type="submit"
                         class="gap-2"
                         @click="submitReceivingForm"
