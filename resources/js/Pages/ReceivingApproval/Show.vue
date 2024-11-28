@@ -25,13 +25,14 @@ console.log(props.order);
 <template>
     <Layout :heading="`Order Number ${order.order_number}`">
         <TableContainer>
-            <TableHeader>
+            <TableHeader class="justify-between">
                 <Button
                     v-if="selectedItems.length > 0"
                     @click="bulkApprove"
                     variant="outline"
                     >Approve Selected Items</Button
                 >
+                <Button class="bg-green-500">Approve All</Button>
             </TableHeader>
             <Table>
                 <TableHead>

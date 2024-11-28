@@ -23,6 +23,8 @@ class ProductInventory extends Model
         'brand',
         'conversion',
         'cost',
+        'stock',
+        'stock_used',
         'is_active'
     ];
 

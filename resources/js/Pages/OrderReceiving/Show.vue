@@ -23,9 +23,17 @@ const targetId = ref(null);
 const itemDetails = ref(null);
 const form = useForm({
     quantity_received: null,
-    received_date: null,
+    received_date:
+        new Date().toLocaleDateString("en-CA") +
+        "T" +
+        new Date().toLocaleTimeString("en-PH", {
+            hour: "2-digit",
+            minute: "2-digit",
+            hour12: false,
+        }),
     remarks: null,
 });
+
 
 const showItemDetails = ref(false);
 itemDetails.value = props.orderedItems[1];

@@ -18,6 +18,7 @@ return new class extends Migration
             $table->integer('quantity_received');
             $table->dateTime('received_date');
             $table->text('remarks')->nullable();
+            $table->text('is_approved')->default(false);
             $table->timestamps();
         });
     }

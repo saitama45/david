@@ -16,6 +16,7 @@ class OrderedItemReceiveDate extends Model
         'quantity_received',
         'received_date',
         'remarks',
+        'is_approved',
     ];
 
     protected $casts = [
