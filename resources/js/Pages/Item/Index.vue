@@ -94,10 +94,14 @@ watch(filter, function (value) {
                         <TD>{{ item.conversion }}</TD>
                         <TD>{{ item.unit_of_measurement.name }}</TD>
                         <TD>{{ item.cost }}</TD>
-                        <TD>
-                            <Button class="text-blue-500" variant="link">
+                        <TD class="flex items-center gap-2">
+                            <button class="text-blue-500" variant="link">
                                 <Pencil class="size-6" />
-                            </Button>
+                            </button>
+                            <ShowButton
+                                :isLink="true"
+                                :href="`items-list/show/${item.inventory_code}`"
+                            />
                         </TD>
                     </tr>
                 </TableBody>

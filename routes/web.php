@@ -1,6 +1,6 @@
 <?php
 
-use App\Http\Controllers\ApprovedOrder;
+use App\Http\Controllers\ApprovedReceivedItem;
 use App\Http\Controllers\ApprovedOrderController;
 use App\Http\Controllers\CategoryController;
 use App\Http\Controllers\DashboardController;
@@ -91,6 +91,7 @@ Route::middleware('auth')
         Route::controller(ItemController::class)->name('items.')->group(function () {
             Route::get('/items-list', 'index')->name('index');
             Route::get('/items-list/create', 'create')->name('create');
+            Route::get('/items-list/show/{id}', 'show')->name('show');
             Route::post('/items-list/store', 'store')->name('store');
 
             Route::post('/items-list/import', 'import')->name('import');

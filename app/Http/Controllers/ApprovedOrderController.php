@@ -25,7 +25,7 @@ class ApprovedOrderController extends Controller
             ->latest()
             ->paginate(10);
 
-        return Inertia::render('ApprovedOrder/Index', [
+        return Inertia::render('ApprovedReceivedItem/Index', [
             'orders' => $orders
         ]);
     }
@@ -34,7 +34,7 @@ class ApprovedOrderController extends Controller
     {
         $order = StoreOrder::where('order_number', $id)->firstOrFail();
         $items = $order->ordered_item_receive_dates()->with('store_order_item.product_inventory')->where('is_approved', true)->get();;
-        return Inertia::render('ApprovedOrder/Show', [
+        return Inertia::render('ApprovedReceivedItem/Show', [
             'order' => $order,
             'items' => $items
         ]);

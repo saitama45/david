@@ -107,7 +107,7 @@ const logout = () => {
                             Approvals
                         </NavLink>
                         <NavLink href="/approved-orders" :icon="FileCheck">
-                            Approved Orders
+                            Approved Received Items
                         </NavLink>
                         <DropdownMenuLabel> Sales </DropdownMenuLabel>
                         <DropdownMenuLabel> Inventory </DropdownMenuLabel>
@@ -118,7 +118,7 @@ const logout = () => {
                             href="/product-orders-summary"
                             :icon="PackageSearch"
                         >
-                            Product Orders Summary
+                            Item Orders Summary
                         </NavLink>
                         <DropdownMenuLabel> Reports </DropdownMenuLabel>
                         <DropdownMenuLabel> Reference </DropdownMenuLabel>
@@ -126,7 +126,7 @@ const logout = () => {
                             Categories
                         </NavLink>
                         <NavLink
-                            href="/inventory-categories"
+                            href="/inventory-categories" 
                             :icon="LayoutList"
                         >
                             Invetory Categories

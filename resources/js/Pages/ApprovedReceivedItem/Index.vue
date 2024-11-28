@@ -29,7 +29,7 @@ const showOrderDetails = (id) => {
 </script>
 
 <template>
-    <Layout heading="Approved Orders">
+    <Layout heading="Approved Received Items">
         <TableContainer>
             <TableHeader>
                 <SearchBar>

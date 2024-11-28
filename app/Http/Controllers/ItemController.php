@@ -4,9 +4,11 @@ namespace App\Http\Controllers;
 
 use App\Imports\ProductInventoryImport;
 use App\Models\InventoryCategory;
+use App\Models\OrderedItemReceiveDate;
 use App\Models\Product;
 use App\Models\ProductCategory;
 use App\Models\ProductInventory;
+use App\Models\StoreOrder;
 use App\Models\UnitOfMeasurement;
 use Illuminate\Http\Request;
 use Illuminate\Support\Arr;
@@ -48,6 +50,22 @@ class ItemController extends Controller
             'unitOfMeasurements' => $unitOfMeasurements,
             'inventoryCategories' => $inventoryCategories,
             'productCategories' => $productCategories
+        ]);
+    }
+
+    public function show($id)
+    {
+        $item = ProductInventory::with(['inventory_category', 'unit_of_measurement'])->where('inventory_code', $id)->first();
+
+        $orders = OrderedItemReceiveDate::with(['store_order_item', 'store_order_item.store_order', 'store_order_item.store_order.store_branch', 'store_order_item.store_order.supplier'])
+            ->whereHas('store_order_item', function ($query) use ($item) {
+                $query->where('product_inventory_id', $item->id);
+            })
+            ->where('is_approved', true)
+            ->get();
+        return Inertia::render('Item/Show', [
+            'item' => $item,
+            'orders' => $orders
         ]);
     }
 
