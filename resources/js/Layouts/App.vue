@@ -161,29 +161,102 @@ const logout = () => {
                             <span class="sr-only">Toggle navigation menu</span>
                         </Button>
                     </SheetTrigger>
-                    <SheetContent side="left" class="flex flex-col">
+                    <SheetContent
+                        side="left"
+                        class="flex flex-col overflow-scroll"
+                    >
                         <nav class="grid gap-2 text-lg font-medium">
+                            <!-- Logo -->
                             <a
                                 href="#"
                                 class="flex items-center gap-2 text-lg font-semibold"
                             >
-                                <Package2 class="h-6 w-6" />
-                                <span class="sr-only">Acme Inc</span>
+                                <span class="text-sm">Project David</span>
                             </a>
-                            <a
-                                href="#"
-                                class="mx-[-0.65rem] flex items-center gap-4 rounded-xl px-3 py-2 text-muted-foreground hover:text-foreground"
-                            >
-                                <Home class="h-5 w-5" />
-                                Dashboard
-                            </a>
-                            <a
-                                href="#"
-                                class="mx-[-0.65rem] flex items-center gap-4 rounded-xl px-3 py-2 text-muted-foreground hover:text-foreground"
-                            >
-                                <Home class="h-5 w-5" />
-                                Ordering
-                            </a>
+
+                            <nav class="grid items-start text-sm font-medium">
+                                <NavLink href="/dashboard" :icon="Home">
+                                    Dashboard
+                                </NavLink>
+                                <DropdownMenuLabel>
+                                    Ordering
+                                </DropdownMenuLabel>
+                                <NavLink
+                                    href="/store-orders"
+                                    :icon="ShoppingCart"
+                                >
+                                    Store Orders
+                                </NavLink>
+                                <NavLink
+                                    href="/orders-approval"
+                                    :icon="SquareChartGantt"
+                                >
+                                    Orders Approval
+                                </NavLink>
+                                <DropdownMenuLabel>
+                                    Receiving
+                                </DropdownMenuLabel>
+                                <NavLink
+                                    href="/orders-receiving"
+                                    :icon="Folders"
+                                >
+                                    Orders
+                                </NavLink>
+                                <NavLink
+                                    href="/receiving-approvals"
+                                    :icon="Folders"
+                                >
+                                    Approvals
+                                </NavLink>
+                                <NavLink
+                                    href="/approved-orders"
+                                    :icon="FileCheck"
+                                >
+                                    Approved Received Items
+                                </NavLink>
+                                <DropdownMenuLabel> Sales </DropdownMenuLabel>
+                                <DropdownMenuLabel>
+                                    Inventory
+                                </DropdownMenuLabel>
+                                <NavLink
+                                    href="/items-list"
+                                    :icon="PackageSearch"
+                                >
+                                    Items
+                                </NavLink>
+                                <NavLink
+                                    href="/product-orders-summary"
+                                    :icon="PackageSearch"
+                                >
+                                    Item Orders Summary
+                                </NavLink>
+                                <DropdownMenuLabel> Reports </DropdownMenuLabel>
+                                <DropdownMenuLabel>
+                                    Reference
+                                </DropdownMenuLabel>
+                                <NavLink
+                                    href="/category-list"
+                                    :icon="ScrollText"
+                                >
+                                    Categories
+                                </NavLink>
+                                <NavLink
+                                    href="/inventory-categories"
+                                    :icon="LayoutList"
+                                >
+                                    Invetory Categories
+                                </NavLink>
+                                <NavLink href="/store-branches" :icon="Store">
+                                    Store Branches
+                                </NavLink>
+                                <NavLink href="/suppliers" :icon="Container">
+                                    Suppliers
+                                </NavLink>
+                                <DropdownMenuLabel> User </DropdownMenuLabel>
+                                <NavLink href="/users" :icon="UsersRound">
+                                    Users
+                                </NavLink>
+                            </nav>
                         </nav>
                     </SheetContent>
                 </Sheet>

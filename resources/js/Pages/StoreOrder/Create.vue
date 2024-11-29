@@ -310,7 +310,7 @@ if (previousOrder) {
         buttonName="Import Orders"
         :handleClick="importOrdersButton"
     >
-        <div class="grid grid-cols-3 gap-5">
+        <div class="grid sm:grid-cols-3 gap-5 grid-cols-1">
             <section class="grid gap-5">
                 <Card>
                     <CardHeader>
