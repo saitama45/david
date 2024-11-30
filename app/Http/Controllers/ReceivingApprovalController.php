@@ -48,8 +48,8 @@ class ReceivingApprovalController extends Controller
                 $data = OrderedItemReceiveDate::with('store_order_item.product_inventory')->find($id);
                 $data->update(['is_approved' => true]);
                 $item = $data->store_order_item->product_inventory;
-                $item->stock -= $data->quantity_received;
-                $item->stock_used += $data->quantity_received;
+                $item->stock += $data->quantity_received;
+                $item->recently_added = $data->quantity_received;
                 $item->save();
                 $data->save();
                 DB::commit();
@@ -59,8 +59,8 @@ class ReceivingApprovalController extends Controller
             $data = OrderedItemReceiveDate::with('store_order_item.product_inventory')->find($validated['id']);
             $data->update(['is_approved' => true]);
             $item = $data->store_order_item->product_inventory;
-            $item->stock -= $data->quantity_received;
-            $item->stock_used += $data->quantity_received;
+            $item->stock += $data->quantity_received;
+            $item->recently_added = $data->quantity_received;
             $item->save();
             $data->save();
             DB::commit();

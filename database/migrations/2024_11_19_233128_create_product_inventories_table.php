@@ -32,7 +32,7 @@ return new class extends Migration
 
             $table->integer('stock')->default(0);
 
-            $table->integer('stock_used')->default(0);
+            $table->integer('recently_added')->default(0);
 
             $table->boolean('is_active');
 

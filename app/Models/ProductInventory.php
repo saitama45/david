@@ -24,7 +24,7 @@ class ProductInventory extends Model
         'conversion',
         'cost',
         'stock',
-        'stock_used',
+        'recently_added',
         'is_active'
     ];
 
