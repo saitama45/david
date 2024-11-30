@@ -98,8 +98,8 @@ const rejectOrder = (id) => {
             outlined: true,
         },
         acceptProps: {
-            label: "danger",
-            severity: "info",
+            label: "Confirm",
+            severity: "danger",
         },
         accept: () => {
             router.post(

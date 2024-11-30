@@ -117,8 +117,7 @@ const isLoading = ref(false);
                     <TableHead>
                         <TH> Item Code </TH>
                         <TH> Name </TH>
-                        <TH> Ordered</TH>
-                        <TH> Received</TH>
+                        <TH> Quantity Received</TH>
                         <TH> Actions </TH>
                     </TableHead>
 
@@ -128,7 +127,6 @@ const isLoading = ref(false);
                                 order.product_inventory.inventory_code
                             }}</TD>
                             <TD>{{ order.product_inventory.name }}</TD>
-                            <TD>{{ order.quantity_ordered }}</TD>
                             <TD>{{ order.quantity_received }}</TD>
                             <TD class="w-[90px]">
                                 <DivFlexCenter class="gap-1">
