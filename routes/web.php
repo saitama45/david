@@ -40,6 +40,9 @@ Route::middleware('auth')
                     ->name('gsi-pr-template');
                 Route::get('/pul-template', 'pulTemplate')
                     ->name('pul-template');
+
+                Route::get('/products-template', 'productsTemplate')
+                    ->name('products-template');
             });
 
         Route::controller(StoreOrderController::class)

@@ -225,7 +225,7 @@ const openFormModal = () => {
                         <li class="text-xs">
                             <a
                                 class="text-blue-500 underline"
-                                href="/excel/gsi-bakery-template"
+                                href="/excel/products-template"
                                 >Click to download</a
                             >
                         </li>

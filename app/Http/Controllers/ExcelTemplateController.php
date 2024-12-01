@@ -24,4 +24,10 @@ class ExcelTemplateController extends Controller
         $path = 'storage\excel-templates\PUL_SAMPLE_SO_UPLOAD.xlsx';
         return response()->download($path);
     }
+
+    public function productsTemplate()
+    {
+        $path = 'storage\excel-templates\GSI_PRODUCTS.xlsx';
+        return response()->download($path);
+    }
 }
