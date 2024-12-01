@@ -1,5 +1,7 @@
 <script setup>
 import Select from "primevue/select";
+import { useBackButton } from "@/Composables/useBackButton";
+const { backButton } = useBackButton(route("store-orders.index"));
 import { useSelectOptions } from "@/Composables/useSelectOptions";
 
 import { useConfirm } from "primevue/useconfirm";
@@ -541,5 +543,9 @@ if (previousOrder) {
                 </DialogFooter>
             </DialogContent>
         </Dialog>
+
+        <Button variant="outline" class="text-lg px-7" @click="backButton">
+            Back
+        </Button>
     </Layout>
 </template>

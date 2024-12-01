@@ -3,6 +3,8 @@ import { useSelectOptions } from "@/Composables/useSelectOptions";
 import { useForm } from "@inertiajs/vue3";
 import { useConfirm } from "primevue/useconfirm";
 import { useToast } from "@/Composables/useToast";
+import { useBackButton } from "@/Composables/useBackButton";
+const { backButton } = useBackButton(route("store-orders.index"));
 
 const confirm = useConfirm();
 const { toast } = useToast();
@@ -404,5 +406,9 @@ const heading = `Edit Order #${props.order.order_number}`;
                 </CardFooter>
             </Card>
         </div>
+
+        <Button variant="outline" class="text-lg px-7" @click="backButton">
+            Back
+        </Button>
     </Layout>
 </template>

@@ -1,5 +1,7 @@
 <script setup>
 import CardContent from "@/Components/ui/card/CardContent.vue";
+import { useBackButton } from "@/Composables/useBackButton";
+const { backButton } = useBackButton(route("items.index"));
 
 const { item } = defineProps({
     item: {
@@ -100,5 +102,9 @@ const { item } = defineProps({
                 </Table>
             </CardContent>
         </Card>
+
+        <Button variant="outline" class="text-lg px-7" @click="backButton">
+            Back
+        </Button>
     </Layout>
 </template>

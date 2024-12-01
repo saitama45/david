@@ -4,6 +4,9 @@ import { useForm } from "@inertiajs/vue3";
 import { useToast } from "primevue/usetoast";
 const toast = useToast();
 
+import { useBackButton } from "@/Composables/useBackButton";
+const { backButton } = useBackButton(route("orders-receiving.index"));
+
 const props = defineProps({
     order: {
         type: Object,
@@ -95,6 +98,7 @@ const submitDeliveryReceiptForm = () => {
             },
             onError: (e) => {
                 console.log(e);
+                isLoading.value = false;
             },
         }
     );
@@ -367,5 +371,9 @@ const isLoading = ref(false);
                 </DialogFooter>
             </DialogContent>
         </Dialog>
+
+        <Button variant="outline" class="text-lg px-7" @click="backButton">
+            Back
+        </Button>
     </Layout>
 </template>
