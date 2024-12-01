@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Enum\OrderRequestStatus;
 use App\Enum\OrderStatus;
+use App\Models\DeliveryReceipt;
 use App\Models\StoreOrder;
 use App\Models\StoreOrderItem;
 use Illuminate\Http\Request;
@@ -94,5 +95,21 @@ class OrderReceivingController extends Controller
         DB::commit();
 
         return redirect()->back();
+    }
+
+    public function addDeliveryReceiptNumber(Request $request)
+    {
+        dd($request);
+        $validated = $request->validate([
+            'delivery_receipt_number' => ['required', 'unique:delivery_receipts,delivery_receipt_number'],
+            'store_order_id' => ['required', 'exists:store_orders,id'],
+            'remarks' => ['sometimes']
+        ]);
+
+        DeliveryReceipt::create([
+            'delivery_receipt_number' => $validated['delivery_receipt_number'],
+            'store_order_id' => $validated['store_order_id'],
+            'remarks' => $validated['remarks']
+        ]);
     }
 }

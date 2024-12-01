@@ -105,8 +105,8 @@ Route::middleware('auth')
         Route::controller(OrderReceivingController::class)->name('orders-receiving.')->group(function () {
             Route::get('/orders-receiving', 'index')->name('index');
             Route::get('/orders-receiving/show/{id}', 'show')->name('show');
-
             Route::post('/orders-receiving/receive/{id}', 'receive')->name('receive');
+            Route::post('/orders-receiving/add-delivery-receipt-number', 'addDeliveryReceiptNumber')->name('add-delivery-receipt-number');
         });
 
         Route::controller(UserController::class)->name('users.')->group(function () {

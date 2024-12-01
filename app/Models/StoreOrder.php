@@ -52,4 +52,9 @@ class StoreOrder extends Model
     {
         return $this->hasManyThrough(OrderedItemReceiveDate::class, StoreOrderItem::class);
     }
+
+    public function delivery_receipts()
+    {
+        return $this->hasMany(DeliveryReceipt::class);
+    }
 }

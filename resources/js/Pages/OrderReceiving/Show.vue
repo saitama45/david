@@ -35,6 +35,12 @@ const form = useForm({
     remarks: null,
 });
 
+const deliveryReceiptForm = useForm({
+    store_order_id: props.order.id,
+    delivery_receipt_number: null,
+    remarks: null,
+});
+
 const showItemDetails = ref(false);
 itemDetails.value = props.orderedItems[1];
 const opentItemDetails = (id) => {
@@ -44,6 +50,7 @@ const opentItemDetails = (id) => {
 };
 
 const showReceiveForm = ref(false);
+const showDeliveryReceiptForm = ref(false);
 
 const openReceiveForm = (id) => {
     targetId.value = id;
@@ -68,6 +75,29 @@ const submitReceivingForm = () => {
             console.log(e);
         },
     });
+};
+
+const submitDeliveryReceiptForm = () => {
+    isLoading.value = true;
+    deliveryReceiptForm.post(
+        route("orders-receiving.add-delivery-receipt-number"),
+        {
+            onSuccess: () => {
+                toast.add({
+                    severity: "success",
+                    summary: "Success",
+                    detail: "Received Quantity Updated Successfully.",
+                    life: 5000,
+                });
+                showReceiveForm.value = false;
+                isLoading.value = false;
+                deliveryReceiptForm.reset();
+            },
+            onError: (e) => {
+                console.log(e);
+            },
+        }
+    );
 };
 const isLoading = ref(false);
 </script>
@@ -114,6 +144,12 @@ const isLoading = ref(false);
                 </CardHeader>
             </Card>
             <TableContainer class="col-span-2 min-w-fit">
+                <section class="flex justify-end gap-3">
+                    <Button>Attach Image</Button>
+                    <Button @click="showDeliveryReceiptForm = true"
+                        >Add Delivery Number</Button
+                    >
+                </section>
                 <Table>
                     <TableHead>
                         <TH> Item Code </TH>
@@ -186,6 +222,45 @@ const isLoading = ref(false);
                 </Table>
             </TableContainer>
         </div>
+
+        <Dialog v-model:open="showDeliveryReceiptForm">
+            <DialogContent class="sm:max-w-[600px]">
+                <DialogHeader>
+                    <DialogTitle>Delivery Receipt Form</DialogTitle>
+                    <DialogDescription
+                        >Input all the important details</DialogDescription
+                    >
+                </DialogHeader>
+                <div class="space-y-3">
+                    <InputContainer>
+                        <Label class="text-xs">Delivery Receipt Number</Label>
+                        <Input
+                            v-model="
+                                deliveryReceiptForm.delivery_receipt_number
+                            "
+                        />
+                        <FormError>{{
+                            deliveryReceiptForm.errors.delivery_receipt_number
+                        }}</FormError>
+                    </InputContainer>
+                    <InputContainer>
+                        <Label class="text-xs">Remarks</Label>
+                        <Textarea v-model="deliveryReceiptForm.remarks" />
+                        <FormError>{{
+                            deliveryReceiptForm.errors.remarks
+                        }}</FormError>
+                    </InputContainer>
+                </div>
+                <DialogFooter>
+                    <Button
+                        :disabled="isLoading"
+                        class="gap-2"
+                        @click="submitDeliveryReceiptForm"
+                        >Add <span><Loading v-if="isLoading" /></span
+                    ></Button>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
 
         <Dialog v-model:open="showItemDetails">
             <DialogContent class="sm:max-w-[600px]">
