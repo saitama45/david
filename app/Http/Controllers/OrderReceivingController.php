@@ -53,18 +53,18 @@ class OrderReceivingController extends Controller
     public function receive(Request $request, $id)
     {
         $orderedItem = StoreOrderItem::with('store_order')->findOrFail($id);
-        $order = $orderedItem->store_order;
-        $totalOrderedQuantity = $order->store_order_items->sum('quantity_ordered');
-        $totalQuantityReceived = $order->store_order_items->sum('quantity_received');
+        // $order = $orderedItem->store_order;
+        // $totalOrderedQuantity = $order->store_order_items->sum('quantity_ordered');
+        // $totalQuantityReceived = $order->store_order_items->sum('quantity_received');
 
-        $quantityToReceive = $orderedItem->quantity_ordered - $orderedItem->quantity_received;
+        // $quantityToReceive = $orderedItem->quantity_ordered - $orderedItem->quantity_received;
 
         $validated = $request->validate([
             'quantity_received' => [
                 'required',
                 'numeric',
-                'min:0',
-                "max:{$quantityToReceive}"
+                'min:1',
+                // "max:{$quantityToReceive}"
             ],
             'received_date' => [
                 'required',
@@ -72,13 +72,14 @@ class OrderReceivingController extends Controller
                 'before_or_equal:' . now(),
             ],
             'remarks' => ['sometimes'],
+            'expiry_date' => ['required', 'date', 'after:today']
         ], [
-            'quantity_received.max' => "You can only receive up to {$quantityToReceive} items for this order.",
+            // 'quantity_received.max' => "You can only receive up to {$quantityToReceive} items for this order.",
             'received_date.before_or_equal' => "Received date field must be a date before or equal to current time"
         ]);
 
-        $order->order_status = OrderStatus::PARTIALLY_RECEIVED->value;
-        if ($totalOrderedQuantity == $totalQuantityReceived + $validated['quantity_received']) $order->order_status = OrderStatus::RECEIVED->value;
+        // $order->order_status = OrderStatus::PARTIALLY_RECEIVED->value;
+        // if ($totalOrderedQuantity == $totalQuantityReceived + $validated['quantity_received']) $order->order_status = OrderStatus::RECEIVED->value;
 
         DB::beginTransaction();
         $orderedItem->ordered_item_receive_dates()->create([
@@ -89,7 +90,7 @@ class OrderReceivingController extends Controller
         ]);
         $orderedItem->quantity_received += $validated['quantity_received'];
         $orderedItem->save();
-        $order->save();
+        // $order->save();
         DB::commit();
 
         return redirect()->back();

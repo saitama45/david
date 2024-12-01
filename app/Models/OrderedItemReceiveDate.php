@@ -15,12 +15,14 @@ class OrderedItemReceiveDate extends Model
         'received_by_user_id',
         'quantity_received',
         'received_date',
+        'expiry_date',
         'remarks',
         'is_approved',
     ];
 
     protected $casts = [
-        'received_date' => 'date:F d, Y h:i a'
+        'received_date' => 'date:F d, Y h:i a',
+        'expiry_date' => 'date:F d, Y'
     ];
 
     public function store_order_item()

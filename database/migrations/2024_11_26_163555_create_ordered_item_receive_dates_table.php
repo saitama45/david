@@ -17,6 +17,7 @@ return new class extends Migration
             $table->foreignId('received_by_user_id')->constrained('users')->cascadeOnDelete();
             $table->integer('quantity_received');
             $table->dateTime('received_date');
+            $table->date('expiry_date');
             $table->text('remarks')->nullable();
             $table->boolean('is_approved')->default(false);
             $table->timestamps();

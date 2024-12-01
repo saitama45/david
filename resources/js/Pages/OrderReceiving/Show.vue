@@ -31,6 +31,7 @@ const form = useForm({
             minute: "2-digit",
             hour12: false,
         }),
+    expiry_date: null,
     remarks: null,
 });
 
@@ -258,13 +259,20 @@ const isLoading = ref(false);
                         }}</FormError>
                     </div>
                     <InputContainer>
-                        <Label>Date</Label>
+                        <Label>Received Date</Label>
                         <Input
                             type="datetime-local"
                             v-model="form.received_date"
                         />
                         <FormError>{{ form.errors.received_date }}</FormError>
                     </InputContainer>
+
+                    <InputContainer>
+                        <Label>Item Expiry Date</Label>
+                        <Input type="date" v-model="form.expiry_date" />
+                        <FormError>{{ form.errors.expiry_date }}</FormError>
+                    </InputContainer>
+
                     <InputContainer>
                         <Label>Remarks</Label>
                         <Textarea v-model="form.remarks" />
