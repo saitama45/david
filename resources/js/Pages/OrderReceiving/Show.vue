@@ -93,7 +93,7 @@ const submitDeliveryReceiptForm = () => {
                     detail: "Received Quantity Updated Successfully.",
                     life: 5000,
                 });
-                showReceiveForm.value = false;
+                showDeliveryReceiptForm.value = false;
                 isLoading.value = false;
                 deliveryReceiptForm.reset();
             },
