@@ -87,6 +87,7 @@ class OrderReceivingController extends Controller
             'received_by_user_id' => Auth::user()->id,
             'quantity_received' => $validated['quantity_received'],
             'received_date' => $validated['received_date'],
+            'expiry_date' => $validated['expiry_date'],
             'remarks' => $validated['remarks'],
         ]);
         $orderedItem->quantity_received += $validated['quantity_received'];

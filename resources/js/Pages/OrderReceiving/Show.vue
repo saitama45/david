@@ -76,6 +76,7 @@ const submitReceivingForm = () => {
         },
         onError: (e) => {
             console.log(e);
+            isLoading.value = false;
         },
     });
 };

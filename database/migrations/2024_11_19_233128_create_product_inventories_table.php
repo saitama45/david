@@ -34,7 +34,7 @@ return new class extends Migration
 
             $table->integer('recently_added')->default(0);
 
-            $table->boolean('is_active');
+            $table->boolean('is_active')->default(true);
 
             $table->timestamps();
         });

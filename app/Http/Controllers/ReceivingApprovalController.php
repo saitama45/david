@@ -65,6 +65,8 @@ class ReceivingApprovalController extends Controller
             $data->save();
             DB::commit();
         }
+
+        // 
         return back();
     }
 }
