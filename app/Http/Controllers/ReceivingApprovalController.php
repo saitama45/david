@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Enum\OrderStatus;
 use App\Models\OrderedItemReceiveDate;
 use App\Models\StoreOrder;
 use Illuminate\Http\Request;
@@ -56,17 +57,31 @@ class ReceivingApprovalController extends Controller
             }
         } else {
             DB::beginTransaction();
-            $data = OrderedItemReceiveDate::with('store_order_item.product_inventory')->find($validated['id']);
+            $data = OrderedItemReceiveDate::with(['store_order_item.store_order.store_order_items', 'store_order_item.product_inventory'])->find($validated['id']);
             $data->update(['is_approved' => true]);
             $item = $data->store_order_item->product_inventory;
             $item->stock += $data->quantity_received;
             $item->recently_added = $data->quantity_received;
+
+            $orderedItems = $data->store_order_item->store_order->store_order_items;
+            $storeOrder = $data->store_order_item->store_order;
+            $storeOrder->order_status = OrderStatus::RECEIVED->value;
+            foreach ($orderedItems as $item) {
+                if ($item->quantity_ordered > $item->quantity_received) {
+                    $storeOrder->order_status = OrderStatus::PARTIALLY_RECEIVED->value;
+                    dd($item);
+                }
+            }
+
+            $storeOrder->save();
             $item->save();
             $data->save();
             DB::commit();
         }
 
-        // 
+
+
+
         return back();
     }
 }
