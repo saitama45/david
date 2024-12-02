@@ -58,13 +58,13 @@ const copyOrderAndCreateAnother = (id) => {
                         </Badge>
                     </span>
                     <span class="text-gray-700 text-sm">
-                        RECEIVIING STATUS:
+                        Receiving Status:
                         <Badge :class="statusBadgeColor(order.order_status)">
                             {{ order.order_status.toUpperCase() }}
                         </Badge>
                     </span>
                     <span class="text-gray-700 text-sm">
-                        Store Branch:
+                        Store Branch: 
                         <span class="font-bold">
                             {{ order.store_branch.name }}</span
                         >
