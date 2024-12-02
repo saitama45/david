@@ -69,7 +69,6 @@ class ReceivingApprovalController extends Controller
             foreach ($orderedItems as $item) {
                 if ($item->quantity_ordered > $item->quantity_received) {
                     $storeOrder->order_status = OrderStatus::PARTIALLY_RECEIVED->value;
-                    dd($item);
                 }
             }
 

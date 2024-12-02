@@ -26,6 +26,7 @@ class OrderReceivingController extends Controller
             ->latest()
             ->paginate(10);
 
+
         return Inertia::render('OrderReceiving/Index', [
             'orders' => $orders
         ]);
@@ -34,6 +35,7 @@ class OrderReceivingController extends Controller
     public function show($id)
     {
         $order = StoreOrder::with([
+            'delivery_receipts',
             'store_branch',
             'supplier',
             'store_order_items',
@@ -42,6 +44,7 @@ class OrderReceivingController extends Controller
             'ordered_item_receive_dates.store_order_item.product_inventory'
         ])->where('order_number', $id)->firstOrFail();
         $orderedItems = $order->store_order_items()->with(['product_inventory', 'product_inventory.unit_of_measurement'])->get();
+
         $receiveDatesHistory = $order->ordered_item_receive_dates;
 
         return Inertia::render('OrderReceiving/Show', [
@@ -100,7 +103,6 @@ class OrderReceivingController extends Controller
 
     public function addDeliveryReceiptNumber(Request $request)
     {
-        dd($request);
         $validated = $request->validate([
             'delivery_receipt_number' => ['required', 'unique:delivery_receipts,delivery_receipt_number'],
             'store_order_id' => ['required', 'exists:store_orders,id'],

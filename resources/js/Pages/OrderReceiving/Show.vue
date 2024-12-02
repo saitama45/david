@@ -99,6 +99,7 @@ const submitDeliveryReceiptForm = () => {
             },
             onError: (e) => {
                 console.log(e);
+                showDeliveryReceiptForm.value = false;
                 isLoading.value = false;
             },
         }
@@ -145,6 +146,20 @@ const isLoading = ref(false);
                                 order.remarks ?? "None"
                             }}</Label>
                         </DivFlexCenter>
+                        <DivFlexCenter class="justify-between py-3">
+                            <Label class="flex-1 self-start"
+                                >Delivery Receipt Numbers:
+                            </Label>
+                            <DivFlexCol class="flex-1 gap-2">
+                                <Label
+                                    v-for="receipt in order.delivery_receipts"
+                                    class="flex-1"
+                                    >{{
+                                        receipt.delivery_receipt_number
+                                    }}</Label
+                                >
+                            </DivFlexCol>
+                        </DivFlexCenter>
                     </div>
                 </CardHeader>
             </Card>
@@ -178,10 +193,6 @@ const isLoading = ref(false);
                                         <Eye />
                                     </ShowButton>
                                     <Button
-                                        v-if="
-                                            order.quantity_ordered !==
-                                            order.quantity_received
-                                        "
                                         @click="openReceiveForm(order.id)"
                                         class="text-green-500"
                                         variant="link"
