@@ -114,13 +114,13 @@ const logout = () => {
                         <NavLink href="/items-list" :icon="PackageSearch">
                             Items
                         </NavLink>
+                        <DropdownMenuLabel> Reports </DropdownMenuLabel>
                         <NavLink
                             href="/product-orders-summary"
                             :icon="PackageSearch"
                         >
                             Item Orders Summary
                         </NavLink>
-                        <DropdownMenuLabel> Reports </DropdownMenuLabel>
                         <DropdownMenuLabel> Reference </DropdownMenuLabel>
                         <NavLink href="/category-list" :icon="ScrollText">
                             Categories
@@ -224,13 +224,13 @@ const logout = () => {
                                 >
                                     Items
                                 </NavLink>
+                                <DropdownMenuLabel> Reports </DropdownMenuLabel>
                                 <NavLink
                                     href="/product-orders-summary"
                                     :icon="PackageSearch"
                                 >
                                     Item Orders Summary
                                 </NavLink>
-                                <DropdownMenuLabel> Reports </DropdownMenuLabel>
                                 <DropdownMenuLabel>
                                     Reference
                                 </DropdownMenuLabel>
