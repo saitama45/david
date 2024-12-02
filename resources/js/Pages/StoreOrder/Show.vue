@@ -7,8 +7,12 @@ const statusBadgeColor = (status) => {
     switch (status.toUpperCase()) {
         case "APPROVED":
             return "bg-green-500 text-white";
+        case "RECEIVED":
+            return "bg-green-500 text-white";
         case "PENDING":
             return "bg-yellow-500 text-white";
+        case "PARTIALLY_RECEIVED":
+            return "bg-orange-500 text-white";
         case "REJECTED":
             return "bg-red-400 text-white";
         default:
@@ -51,6 +55,12 @@ const copyOrderAndCreateAnother = (id) => {
                             "
                         >
                             {{ order.order_request_status.toUpperCase() }}
+                        </Badge>
+                    </span>
+                    <span class="text-gray-700 text-sm">
+                        RECEIVIING STATUS:
+                        <Badge :class="statusBadgeColor(order.order_status)">
+                            {{ order.order_status.toUpperCase() }}
                         </Badge>
                     </span>
                     <span class="text-gray-700 text-sm">
