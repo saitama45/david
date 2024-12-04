@@ -49,4 +49,14 @@ class User extends Authenticatable
             'password' => 'hashed',
         ];
     }
+
+    public function store_branches()
+    {
+        return $this->belongsToMany(
+            StoreBranch::class,
+            'user_assigned_store_branches',
+            'user_id',
+            'store_branch_id'
+        );
+    }
 }

@@ -15,7 +15,10 @@ use App\Models\Supplier;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 use Maatwebsite\Excel\Facades\Excel;
+
+use function Pest\Laravel\get;
 
 class StoreOrderController extends Controller
 {
@@ -28,6 +31,12 @@ class StoreOrderController extends Controller
         $filter = request('filter') ?? 'all';
 
         $query = StoreOrder::query()->with(['store_branch', 'supplier']);
+
+        $user = Auth::user();
+
+        if ($user->role === 'so_encoder') {
+            $query->whereIn('store_branch_id', $user->store_branches->pluck('id'));
+        }
 
         if ($filter !== 'all')
             $query->where('order_request_status', $filter);
@@ -47,8 +56,8 @@ class StoreOrderController extends Controller
             ->whereBetween('created_at', [$from, $to])
             ->latest()
             ->paginate(10);
-
         $branches = StoreBranch::options();
+
 
         return Inertia::render(
             'StoreOrder/Index',
@@ -68,7 +77,13 @@ class StoreOrderController extends Controller
         }
         $products = ProductInventory::options();
         $suppliers = Supplier::options();
-        $branches = StoreBranch::options();
+        $user = Auth::user();
+        if ($user->role == 'so_encoder') {
+            $assignedBranches = $user->store_branches->pluck('id');
+            $branches = StoreBranch::whereIn('id', $assignedBranches)->options();
+        } else {
+            $branches = StoreBranch::options();
+        }
         return Inertia::render('StoreOrder/Create', [
             'products' => $products,
             'branches' => $branches,

@@ -12,6 +12,7 @@ const form = useForm({
     password: null,
     role: null,
     remarks: null,
+    assignedBranches: [],
 });
 
 const handleCreate = () => {
@@ -52,11 +53,16 @@ const props = defineProps({
         type: Object,
         required: true,
     },
+    branches: {
+        type: Object,
+        required: true,
+    },
 });
 const handleCancel = () => {
     router.get(route("users.index"));
 };
 const { options: rolesOptions } = useSelectOptions(props.roles);
+const { options: branchesOptions } = useSelectOptions(props.branches);
 </script>
 <template>
     <Layout heading="Create New User">
@@ -94,6 +100,19 @@ const { options: rolesOptions } = useSelectOptions(props.roles);
                 <InputContainer>
                     <Label>Remarks</Label>
                     <Textarea v-model="form.remarks" />
+                    <FormError>{{ form.errors.remarksl }}</FormError>
+                </InputContainer>
+                <InputContainer v-if="form.role === 'so_encoder'">
+                    <Label>Assigned Branches</Label>
+                    <MultiSelect
+                        filter
+                        placeholder="Assign Branches"
+                        v-model="form.assignedBranches"
+                        :options="branchesOptions"
+                        optionLabel="label"
+                        optionValue="value"
+                    >
+                    </MultiSelect>
                     <FormError>{{ form.errors.remarksl }}</FormError>
                 </InputContainer>
             </CardContent>

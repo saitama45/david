@@ -1,6 +1,6 @@
 <script setup>
 import StatisticOverview from "../../Components/dashboard/StatisticOverview.vue";
-import Layout from "@/Layouts/App.vue";
+
 
 </script>
 <template>

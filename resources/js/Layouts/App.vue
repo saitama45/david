@@ -31,7 +31,7 @@ import ConfirmDialog from "primevue/confirmdialog";
 
 import NavLink from "../Components/NavLink.vue";
 
-const { auth } = defineProps({
+defineProps({
     heading: String,
     handleClick: {
         type: Function,
@@ -46,29 +46,30 @@ const { auth } = defineProps({
         type: String,
         required: false,
     },
-    auth: {
-        type: Object,
-    },
 });
+import { usePage } from "@inertiajs/vue3";
+const props = usePage().props;
 
-const role = auth?.user.role;
+const role = props.auth?.user.role;
+
+const isAdmin = role === "admin";
 const canViewStoreOrderPage = role === "admin" || true;
 const canViewOrderApprovals = role === "admin" || true;
 
 const canViewReceivingOrders = role === "admin" || true;
-const canViewReceivingApprovals = role === "admin" || true;
+const canViewReceivingApprovals = role === "admin" || role === "rec_approver";
 const canViewApprovedReceivedItems = role === "admin" || true;
 
 const canViewItems = role === "admin" || true;
 
-const canViewItemsOrderSummary = role === "admin" || true;
+const canViewItemsOrderSummary = role === "admin";
 
-const canViewCategories = role === "admin" || true;
-const canViewInventoryCategories = role === "admin" || true;
-const canViewStoreBranch = role === "admin" || true;
-const canViewSupplier = role === "admin" || true;
+const canViewCategories = role === "admin";
+const canViewInventoryCategories = role === "admin";
+const canViewStoreBranch = role === "admin";
+const canViewSupplier = role === "admin";
 
-const canViewUsers = role === "admin" || true;
+const canViewUsers = role === "admin";
 
 const logout = () => {
     router.post("/logout");
@@ -150,7 +151,9 @@ const logout = () => {
                         >
                             Items
                         </NavLink>
-                        <DropdownMenuLabel> Reports </DropdownMenuLabel>
+                        <DropdownMenuLabel v-if="isAdmin">
+                            Reports
+                        </DropdownMenuLabel>
                         <NavLink
                             v-if="canViewItemsOrderSummary"
                             href="/product-orders-summary"
@@ -158,7 +161,9 @@ const logout = () => {
                         >
                             Item Orders Summary
                         </NavLink>
-                        <DropdownMenuLabel> Reference </DropdownMenuLabel>
+                        <DropdownMenuLabel v-if="isAdmin">
+                            Reference
+                        </DropdownMenuLabel>
                         <NavLink
                             v-if="canViewCategories"
                             href="/category-list"
@@ -187,7 +192,9 @@ const logout = () => {
                         >
                             Suppliers
                         </NavLink>
-                        <DropdownMenuLabel> User </DropdownMenuLabel>
+                        <DropdownMenuLabel v-if="isAdmin">
+                            User
+                        </DropdownMenuLabel>
                         <NavLink
                             v-if="canViewUsers"
                             href="/users"

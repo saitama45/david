@@ -193,6 +193,7 @@ const isLoading = ref(false);
                                         <Eye />
                                     </ShowButton>
                                     <Button
+                                        v-if="order.order_status !== 'received'"
                                         @click="openReceiveForm(order.id)"
                                         class="text-green-500"
                                         variant="link"

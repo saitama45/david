@@ -55,8 +55,8 @@ class ReceivingApprovalController extends Controller
                 $orderedItems = $data->store_order_item->store_order->store_order_items;
                 $storeOrder = $data->store_order_item->store_order;
                 $storeOrder->order_status = OrderStatus::RECEIVED->value;
-                foreach ($orderedItems as $item) {
-                    if ($item->quantity_ordered > $item->quantity_received) {
+                foreach ($orderedItems as $itemOrdered) {
+                    if ($itemOrdered->quantity_ordered > $itemOrdered->quantity_received) {
                         $storeOrder->order_status = OrderStatus::PARTIALLY_RECEIVED->value;
                     }
                 }
@@ -74,11 +74,13 @@ class ReceivingApprovalController extends Controller
             $item->stock += $data->quantity_received;
             $item->recently_added = $data->quantity_received;
 
+
+
             $orderedItems = $data->store_order_item->store_order->store_order_items;
             $storeOrder = $data->store_order_item->store_order;
             $storeOrder->order_status = OrderStatus::RECEIVED->value;
-            foreach ($orderedItems as $item) {
-                if ($item->quantity_ordered > $item->quantity_received) {
+            foreach ($orderedItems as $itemOrdered) {
+                if ($itemOrdered->quantity_ordered > $itemOrdered->quantity_received) {
                     $storeOrder->order_status = OrderStatus::PARTIALLY_RECEIVED->value;
                 }
             }
@@ -86,6 +88,7 @@ class ReceivingApprovalController extends Controller
             $storeOrder->save();
             $item->save();
             $data->save();
+
             DB::commit();
         }
 

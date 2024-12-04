@@ -69,7 +69,7 @@ import DatePicker from "primevue/datepicker";
 import InputLabel from "@/Components/form/InputLabel.vue";
 import ShowButton from "./Components/button/ShowButton.vue";
 import Camera from "simple-vue-camera";
-
+import MultiSelect from "primevue/multiselect";
 const appName = import.meta.env.VITE_APP_NAME || "Laravel";
 
 createInertiaApp({
@@ -134,6 +134,7 @@ createInertiaApp({
             .component("Minus", Minus)
             .component("ShowButton", ShowButton)
             .component("camera", Camera)
+            .component("MultiSelect", MultiSelect)
             .use(PrimeVue, {
                 theme: {
                     preset: Aura,

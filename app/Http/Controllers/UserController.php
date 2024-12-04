@@ -3,8 +3,10 @@
 namespace App\Http\Controllers;
 
 use App\Enum\UserRole;
+use App\Models\StoreBranch;
 use App\Models\User;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
 use Illuminate\Support\Str;
 
@@ -22,11 +24,13 @@ class UserController extends Controller
     public function create()
     {
         $roles = UserRole::values();
+        $branches = StoreBranch::options();
         foreach ($roles as &$role) {
             $role = Str::headline($role);
         }
         return Inertia::render('User/Create', [
-            'roles' => $roles
+            'roles' => $roles,
+            'branches' => $branches
         ]);
     }
 
@@ -37,11 +41,22 @@ class UserController extends Controller
             'email' => ['required', 'unique:users,email'],
             'role' => ['required'],
             'remarks' => ['sometimes'],
+
         ]);
+
+        if ($validated['role'] === 'so_encoder')
+            $validatedAssignedStoreBranches = $request->validate([
+                'assignedBranches' => ['required'],
+            ]);
+
 
         $validated['password'] = 'password';
 
-        User::create($validated);
+        DB::beginTransaction();
+        $user = User::create($validated);
+        if ($validated['role'] === 'so_encoder')
+            $user->store_branches()->attach($validatedAssignedStoreBranches['assignedBranches']);
+        DB::commit();
 
         return redirect()->route('users.index');
     }
