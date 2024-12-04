@@ -226,14 +226,13 @@ class StoreOrderController extends Controller
     public function getOrderNumber($id)
     {
         $branchId = $id;
-        $count = 1;
+        $branchCode = StoreBranch::select('branch_code')->findOrFail($branchId)->branch_code;
+        $orderCount = StoreOrder::where('store_branch_id', $branchId)->count() + 1;
         while (true) {
-            $branchCode = StoreBranch::select('branch_code')->findOrFail($branchId)->branch_code;
-            $orderCount = StoreOrder::where('store_branch_id', $branchId)->count() + $count;
             $orderNumber = str_pad($orderCount, 5, '0', STR_PAD_LEFT);
             $store_order_number = "$branchCode-$orderNumber";
             $result = StoreOrder::where('order_number', $store_order_number)->first();
-            $count++;
+            $orderCount++;
             if (!$result) break;
         }
         return $store_order_number;
