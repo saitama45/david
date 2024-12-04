@@ -14,8 +14,6 @@ import {
     CircleUser,
     Home,
     Menu,
-    Package,
-    Package2,
     ShoppingCart,
     SquareChartGantt,
     Folders,
@@ -33,7 +31,7 @@ import ConfirmDialog from "primevue/confirmdialog";
 
 import NavLink from "../Components/NavLink.vue";
 
-defineProps({
+const { auth } = defineProps({
     heading: String,
     handleClick: {
         type: Function,
@@ -48,12 +46,29 @@ defineProps({
         type: String,
         required: false,
     },
+    auth: {
+        type: Object,
+    },
 });
 
-import { usePage } from "@inertiajs/vue3";
-const isActive = (route) => {
-    return usePage().url.includes(route);
-};
+const role = props.auth.user.role;
+const canViewStoreOrderPage = role === "admin" || true;
+const canViewOrderApprovals = role === "admin" || true;
+
+const canViewReceivingOrders = role === "admin" || true;
+const canViewReceivingApprovals = role === "admin" || true;
+const canViewApprovedReceivedItems = role === "admin" || true;
+
+const canViewItems = role === "admin" || true;
+
+const canViewItemsOrderSummary = role === "admin" || true;
+
+const canViewCategories = role === "admin" || true;
+const canViewInventoryCategories = role === "admin" || true;
+const canViewStoreBranch = role === "admin" || true;
+const canViewSupplier = role === "admin" || true;
+
+const canViewUsers = role === "admin" || true;
 
 const logout = () => {
     router.post("/logout");
@@ -90,55 +105,94 @@ const logout = () => {
                             Dashboard
                         </NavLink>
                         <DropdownMenuLabel> Ordering </DropdownMenuLabel>
-                        <NavLink href="/store-orders" :icon="ShoppingCart">
+                        <NavLink
+                            v-if="canViewStoreOrderPage"
+                            href="/store-orders"
+                            :icon="ShoppingCart"
+                        >
                             Store Orders
                         </NavLink>
                         <NavLink
+                            v-if="canViewOrderApprovals"
                             href="/orders-approval"
                             :icon="SquareChartGantt"
                         >
                             Orders Approval
                         </NavLink>
                         <DropdownMenuLabel> Receiving </DropdownMenuLabel>
-                        <NavLink href="/orders-receiving" :icon="Folders">
+                        <NavLink
+                            v-if="canViewReceivingOrders"
+                            href="/orders-receiving"
+                            :icon="Folders"
+                        >
                             Orders
                         </NavLink>
-                        <NavLink href="/receiving-approvals" :icon="Folders">
+                        <NavLink
+                            v-if="canViewReceivingApprovals"
+                            href="/receiving-approvals"
+                            :icon="Folders"
+                        >
                             Approvals
                         </NavLink>
-                        <NavLink href="/approved-orders" :icon="FileCheck">
+                        <NavLink
+                            v-if="canViewApprovedReceivedItems"
+                            href="/approved-orders"
+                            :icon="FileCheck"
+                        >
                             Approved Received Items
                         </NavLink>
                         <DropdownMenuLabel> Sales </DropdownMenuLabel>
                         <DropdownMenuLabel> Inventory </DropdownMenuLabel>
-                        <NavLink href="/items-list" :icon="PackageSearch">
+                        <NavLink
+                            v-if="canViewItems"
+                            href="/items-list"
+                            :icon="PackageSearch"
+                        >
                             Items
                         </NavLink>
                         <DropdownMenuLabel> Reports </DropdownMenuLabel>
                         <NavLink
+                            v-if="canViewItemsOrderSummary"
                             href="/product-orders-summary"
                             :icon="PackageSearch"
                         >
                             Item Orders Summary
                         </NavLink>
                         <DropdownMenuLabel> Reference </DropdownMenuLabel>
-                        <NavLink href="/category-list" :icon="ScrollText">
+                        <NavLink
+                            v-if="canViewCategories"
+                            href="/category-list"
+                            :icon="ScrollText"
+                        >
                             Categories
                         </NavLink>
                         <NavLink
+                            v-if="canViewInventoryCategories"
                             href="/inventory-categories"
                             :icon="LayoutList"
                         >
                             Invetory Categories
                         </NavLink>
-                        <NavLink href="/store-branches" :icon="Store">
+                        <NavLink
+                            v-if="canViewStoreBranch"
+                            href="/store-branches"
+                            :icon="Store"
+                        >
                             Store Branches
                         </NavLink>
-                        <NavLink href="/suppliers" :icon="Container">
+                        <NavLink
+                            v-if="canViewSupplier"
+                            href="/suppliers"
+                            :icon="Container"
+                        >
                             Suppliers
                         </NavLink>
                         <DropdownMenuLabel> User </DropdownMenuLabel>
-                        <NavLink href="/users" :icon="UsersRound">
+                        <NavLink
+                            v-if="canViewUsers"
+                            href="/users"
+                            :icon="UsersRound"
+                        >
                             Users
                         </NavLink>
                     </nav>
@@ -182,12 +236,14 @@ const logout = () => {
                                     Ordering
                                 </DropdownMenuLabel>
                                 <NavLink
+                                    v-if="canViewStoreOrderPage"
                                     href="/store-orders"
                                     :icon="ShoppingCart"
                                 >
                                     Store Orders
                                 </NavLink>
                                 <NavLink
+                                    v-if="canViewOrderApprovals"
                                     href="/orders-approval"
                                     :icon="SquareChartGantt"
                                 >
@@ -197,18 +253,21 @@ const logout = () => {
                                     Receiving
                                 </DropdownMenuLabel>
                                 <NavLink
+                                    v-if="canViewReceivingOrders"
                                     href="/orders-receiving"
                                     :icon="Folders"
                                 >
                                     Orders
                                 </NavLink>
                                 <NavLink
+                                    v-if="canViewReceivingApprovals"
                                     href="/receiving-approvals"
                                     :icon="Folders"
                                 >
                                     Approvals
                                 </NavLink>
                                 <NavLink
+                                    v-if="canViewApprovedReceivedItems"
                                     href="/approved-orders"
                                     :icon="FileCheck"
                                 >
@@ -219,6 +278,7 @@ const logout = () => {
                                     Inventory
                                 </DropdownMenuLabel>
                                 <NavLink
+                                    v-if="canViewItems"
                                     href="/items-list"
                                     :icon="PackageSearch"
                                 >
@@ -226,6 +286,7 @@ const logout = () => {
                                 </NavLink>
                                 <DropdownMenuLabel> Reports </DropdownMenuLabel>
                                 <NavLink
+                                    v-if="canViewItemsOrderSummary"
                                     href="/product-orders-summary"
                                     :icon="PackageSearch"
                                 >
@@ -235,25 +296,39 @@ const logout = () => {
                                     Reference
                                 </DropdownMenuLabel>
                                 <NavLink
+                                    v-if="canViewCategories"
                                     href="/category-list"
                                     :icon="ScrollText"
                                 >
                                     Categories
                                 </NavLink>
                                 <NavLink
+                                    v-if="canViewInventoryCategories"
                                     href="/inventory-categories"
                                     :icon="LayoutList"
                                 >
                                     Invetory Categories
                                 </NavLink>
-                                <NavLink href="/store-branches" :icon="Store">
+                                <NavLink
+                                    v-if="canViewStoreBranch"
+                                    href="/store-branches"
+                                    :icon="Store"
+                                >
                                     Store Branches
                                 </NavLink>
-                                <NavLink href="/suppliers" :icon="Container">
+                                <NavLink
+                                    v-if="canViewSupplier"
+                                    href="/suppliers"
+                                    :icon="Container"
+                                >
                                     Suppliers
                                 </NavLink>
                                 <DropdownMenuLabel> User </DropdownMenuLabel>
-                                <NavLink href="/users" :icon="UsersRound">
+                                <NavLink
+                                    v-if="canViewUsers"
+                                    href="/users"
+                                    :icon="UsersRound"
+                                >
                                     Users
                                 </NavLink>
                             </nav>

@@ -30,8 +30,10 @@ const props = defineProps({
     },
 });
 
+console.log(props.auth);
 const role = props.auth.user.role;
 const hasCreateAccess = role === "admin" || role === "so_encoder";
+const hasEditAccess = role === "admin" || role === "so_encoder";
 
 const showOrderDetails = (id) => {
     router.get(`/store-orders/show/${id}`);
@@ -269,7 +271,8 @@ const changeFilter = (currentFilter) => {
                                 </button>
                                 <button
                                     v-if="
-                                        order.order_request_status === 'pending'
+                                        order.order_request_status ===
+                                            'pending' && hasEditAccess
                                     "
                                     class="text-blue-500"
                                     @click="
