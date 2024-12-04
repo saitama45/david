@@ -67,7 +67,7 @@ class OrderReceivingController extends Controller
         // $totalOrderedQuantity = $order->store_order_items->sum('quantity_ordered');
         // $totalQuantityReceived = $order->store_order_items->sum('quantity_received');
 
-        // $quantityToReceive = $orderedItem->quantity_ordered - $orderedItem->quantity_received
+        // $quantityToReceive = $orderedItem->quantity_ordered - $orderedItem->quantity_received;
 
         $validated = $request->validate([
             'quantity_received' => [
