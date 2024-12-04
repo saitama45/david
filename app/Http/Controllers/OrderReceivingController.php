@@ -19,6 +19,12 @@ class OrderReceivingController extends Controller
         $search = request('search');
         $query = StoreOrder::query()->with(['store_branch', 'supplier'])->where('order_request_status', OrderRequestStatus::APRROVED->value);
 
+        $user = Auth::user();
+
+        if ($user->role === 'so_encoder') {
+            $query->whereIn('store_branch_id', $user->store_branches->pluck('id'));
+        }
+
         if ($search)
             $query->where('order_number', 'like', '%' . $search . '%');
 

@@ -180,7 +180,13 @@ class StoreOrderController extends Controller
             abort(401, 'Order can no longer be updated');
         $orderedItems = $order->store_order_items()->with(['product_inventory', 'product_inventory.unit_of_measurement'])->get();
         $products = ProductInventory::options();
-        $branches = StoreBranch::options();
+        $user = Auth::user();
+        if ($user->role == 'so_encoder') {
+            $assignedBranches = $user->store_branches->pluck('id');
+            $branches = StoreBranch::whereIn('id', $assignedBranches)->options();
+        } else {
+            $branches = StoreBranch::options();
+        }
 
         return Inertia::render('StoreOrder/Edit', [
             'order' => $order,
