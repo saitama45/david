@@ -54,7 +54,7 @@ const role = props.auth?.user.role;
 
 const isAdmin = role === "admin";
 const canViewStoreOrderPage = role === "admin" || true;
-const canViewOrderApprovals = role === "admin" || true;
+const canViewOrderApprovals = role === "admin";
 
 const canViewReceivingOrders = role === "admin" || true;
 const canViewReceivingApprovals = role === "admin" || role === "rec_approver";
