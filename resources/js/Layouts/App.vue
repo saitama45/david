@@ -51,7 +51,7 @@ const { auth } = defineProps({
     },
 });
 
-const role = props.auth.user.role;
+const role = auth?.user.role;
 const canViewStoreOrderPage = role === "admin" || true;
 const canViewOrderApprovals = role === "admin" || true;
 
