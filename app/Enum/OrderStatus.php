@@ -4,6 +4,7 @@ namespace App\Enum;
 
 enum OrderStatus: string
 {
+    //
     case PARTIALLY_RECEIVED = 'partially_received';
     case PENDING = 'pending';
     case RECEIVED = 'received';
