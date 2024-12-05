@@ -105,6 +105,8 @@ const submitDeliveryReceiptForm = () => {
         }
     );
 };
+const canReceive = props.order.order_status !== "received";
+
 const isLoading = ref(false);
 </script>
 
@@ -193,7 +195,7 @@ const isLoading = ref(false);
                                         <Eye />
                                     </ShowButton>
                                     <Button
-                                        v-if="order.order_status !== 'received'"
+                                        v-if="canReceive"
                                         @click="openReceiveForm(order.id)"
                                         class="text-green-500"
                                         variant="link"
