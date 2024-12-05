@@ -23,6 +23,13 @@ class DatabaseSeeder extends Seeder
             'password' => 'admin1234',
         ]);
 
+        User::factory()->create([
+            'name' => 'Test User',
+            'email' => 'soencoder@gmail.com',
+            'password' => 'so1234',
+            'role' => 'so_encoder'
+        ]);
+
         $this->call([
             UnitOfMeasurementSeeder::class,
             ProductCategorySeeder::class,
