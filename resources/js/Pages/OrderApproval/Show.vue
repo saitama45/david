@@ -177,6 +177,7 @@ const copyOrderAndCreateAnother = (id) => {
                     <TH> Quantity </TH>
                     <TH> Cost </TH>
                     <TH> Total Cost </TH>
+                    <TH> Actions </TH>
                 </TableHead>
                 <TableBody>
                     <tr v-for="order in orderedItems" :key="order.id">
@@ -185,9 +186,25 @@ const copyOrderAndCreateAnother = (id) => {
                         <TD>{{
                             order.product_inventory.unit_of_measurement.name
                         }}</TD>
-                        <TD>{{ order.quantity_ordered }}</TD>
+                        <TD class="flex items-center gap-3"
+                            >{{ order.quantity_ordered }}
+
+                            <div class="flex items-center gap-1">
+                                <button class="text-red-500">
+                                    <Minus />
+                                </button>
+                                <button class="text-green-500">
+                                    <Plus />
+                                </button>
+                            </div>
+                        </TD>
                         <TD>{{ order.product_inventory.cost }}</TD>
                         <TD>{{ order.total_cost }}</TD>
+                        <TD>
+                            <LinkButton class="text-blue-500"
+                                >Add Remarks</LinkButton
+                            >
+                        </TD>
                     </tr>
                 </TableBody>
             </Table>

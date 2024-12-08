@@ -70,6 +70,8 @@ import InputLabel from "@/Components/form/InputLabel.vue";
 import ShowButton from "./Components/button/ShowButton.vue";
 import Camera from "simple-vue-camera";
 import MultiSelect from "primevue/multiselect";
+import Checkbox from "primevue/checkbox";
+import LinkButton from "./Components/button/LinkButton.vue";
 const appName = import.meta.env.VITE_APP_NAME || "Laravel";
 
 createInertiaApp({
@@ -135,6 +137,8 @@ createInertiaApp({
             .component("ShowButton", ShowButton)
             .component("camera", Camera)
             .component("MultiSelect", MultiSelect)
+            .component("Checkbox", Checkbox)
+            .component("LinkButton", LinkButton)
             .use(PrimeVue, {
                 theme: {
                     preset: Aura,

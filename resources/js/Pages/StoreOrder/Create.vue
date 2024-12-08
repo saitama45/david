@@ -162,8 +162,9 @@ const addToOrdersButton = () => {
     if (existingItemIndex !== -1) {
         const quantity = (orderForm.orders[existingItemIndex].quantity +=
             Number(productDetails.quantity));
-        orderForm.orders[existingItemIndex].total_cost =
-            productDetails.cost * quantity;
+        orderForm.orders[existingItemIndex].total_cost = parseFloat(
+            productDetails.cost * quantity
+        ).toFixed(2);
     } else {
         productDetails.total_cost = parseFloat(
             productDetails.cost * productDetails.quantity

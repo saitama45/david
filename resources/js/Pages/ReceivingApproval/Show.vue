@@ -1,6 +1,6 @@
 <script setup>
 import { useBackButton } from "@/Composables/useBackButton";
-import Checkbox from "primevue/checkbox";
+
 import { useForm } from "@inertiajs/vue3";
 const { backButton } = useBackButton(route("receiving-approvals.index"));
 

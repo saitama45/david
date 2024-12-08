@@ -89,7 +89,7 @@ const logout = () => {
                 >
                     <a href="/" class="flex items-center font-semibold">
                         <img :src="Logo" alt="logo" class="size-20" />
-                        <span class="font-bold">Project David</span>
+                        <span class="font-bold">David</span>
                     </a>
                     <Button
                         variant="outline"
