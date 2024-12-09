@@ -83,7 +83,7 @@ Route::middleware('auth')
 
             Route::post('/orders-approval/approve', 'approve')->name('approve');
 
-            Route::post('/orders-approval/reject/{id}', 'reject')->name('reject');
+            Route::post('/orders-approval/reject', 'reject')->name('reject');
 
             Route::post('/orders-approval/add-remarks/{id}', 'addRemarks')->name('add-remarks');
         });

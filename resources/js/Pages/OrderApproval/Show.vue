@@ -69,39 +69,39 @@ const statusBadgeColor = (status) => {
 //     });
 // };
 
-const rejectOrder = (id) => {
-    confirm.require({
-        message: "Are you sure you want to reject this order?",
-        header: "Confirmation",
-        icon: "pi pi-exclamation-triangle",
-        rejectProps: {
-            label: "Cancel",
-            severity: "secondary",
-            outlined: true,
-        },
-        acceptProps: {
-            label: "Confirm",
-            severity: "danger",
-        },
-        accept: () => {
-            router.post(
-                route("orders-approval.reject", id),
-                {},
-                {
-                    preserveScroll: true,
-                    onSuccess: () => {
-                        toast.add({
-                            severity: "success",
-                            summary: "Success",
-                            detail: "Order Rejected Successfully.",
-                            life: 3000,
-                        });
-                    },
-                }
-            );
-        },
-    });
-};
+// const rejectOrder = (id) => {
+//     confirm.require({
+//         message: "Are you sure you want to reject this order?",
+//         header: "Confirmation",
+//         icon: "pi pi-exclamation-triangle",
+//         rejectProps: {
+//             label: "Cancel",
+//             severity: "secondary",
+//             outlined: true,
+//         },
+//         acceptProps: {
+//             label: "Confirm",
+//             severity: "danger",
+//         },
+//         accept: () => {
+//             router.post(
+//                 route("orders-approval.reject", id),
+//                 {},
+//                 {
+//                     preserveScroll: true,
+//                     onSuccess: () => {
+//                         toast.add({
+//                             severity: "success",
+//                             summary: "Success",
+//                             detail: "Order Rejected Successfully.",
+//                             life: 3000,
+//                         });
+//                     },
+//                 }
+//             );
+//         },
+//     });
+// };
 
 const itemRemarksForm = useForm({
     remarks: null,
@@ -121,6 +121,7 @@ const copyOrderAndCreateAnother = (id) => {
 };
 const isLoading = ref(false);
 const showApproveOrderForm = ref(false);
+const showRejectOrderForm = ref(false);
 
 const remarksForm = useForm({
     id: null,
@@ -128,6 +129,10 @@ const remarksForm = useForm({
 });
 const approveOrder = (id) => {
     showApproveOrderForm.value = true;
+    remarksForm.id = id;
+};
+const rejectOrder = (id) => {
+    showRejectOrderForm.value = true;
     remarksForm.id = id;
 };
 
@@ -139,6 +144,24 @@ const confirmApproveOrder = () => {
                 severity: "success",
                 summary: "Success",
                 detail: "Order Approved Successfully.",
+                life: 3000,
+            });
+            isLoading.value = false;
+        },
+        onError: () => {
+            isLoading.value = false;
+        },
+    });
+};
+
+const confirmRejectOrder = () => {
+    isLoading.value = true;
+    remarksForm.post(route("orders-approval.reject"), {
+        onSuccess: () => {
+            toast.add({
+                severity: "success",
+                summary: "Success",
+                detail: "Order Reject Successfully.",
                 life: 3000,
             });
             isLoading.value = false;
@@ -267,6 +290,30 @@ const confirmApproveOrder = () => {
                         class="gap-2"
                     >
                         Approve
+                        <span><Loading v-if="isLoading" /></span>
+                    </Button>
+                </DialogFooter>
+            </DialogContent>
+            <div class="space-y-5"></div>
+        </Dialog>
+
+        <Dialog v-model:open="showRejectOrderForm">
+            <DialogContent class="sm:max-w-[600px]">
+                <DialogHeader>
+                    <DialogTitle>Reject Order</DialogTitle>
+                    <DialogDescription> </DialogDescription>
+                </DialogHeader>
+                <InputContainer>
+                    <Label class="text-xs">Remarks</Label>
+                    <Textarea v-model="remarksForm.remarks" />
+                </InputContainer>
+                <DialogFooter>
+                    <Button
+                        @click="confirmRejectOrder"
+                        type="submit"
+                        class="gap-2"
+                    >
+                        Reject
                         <span><Loading v-if="isLoading" /></span>
                     </Button>
                 </DialogFooter>

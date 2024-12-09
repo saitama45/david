@@ -55,6 +55,7 @@ class OrderApprovalController extends Controller
 
     public function approve(Request $request)
     {
+        dd('green');
         $validated = $request->validate([
             'id' => ['required'],
             'remarks' => ['sometimes']
@@ -77,13 +78,25 @@ class OrderApprovalController extends Controller
         return to_route('orders-approval.index');
     }
 
-    public function reject($id)
+    public function reject(Request $request)
     {
-        StoreOrder::findOrFail($id)->update([
+        $validated = $request->validate([
+            'id' => ['required'],
+            'remarks' => ['sometimes']
+        ]);
+        $storeOrder = StoreOrder::findOrFail($validated['id']);
+        $storeOrder->update([
             'order_request_status' => OrderRequestStatus::REJECTED->value,
             'approver_id' => Auth::user()->id,
             'approval_action_date' => Carbon::now()
         ]);
+        if (!empty($validated['remarks'])) {
+            $storeOrder->store_order_remarks()->create([
+                'user_id' => Auth::user()->id,
+                'action' => 'reject order',
+                'remarks' => $validated['remarks']
+            ]);
+        }
         return to_route('orders-approval.index');
     }
 
