@@ -57,4 +57,9 @@ class StoreOrder extends Model
     {
         return $this->hasMany(DeliveryReceipt::class);
     }
+
+    public function store_order_remarks()
+    {
+        return $this->hasMany(StoreOrderRemark::class);
+    }
 }

@@ -6,6 +6,7 @@ use App\Enum\OrderRequestStatus;
 use App\Models\Order;
 use App\Models\StoreOrder;
 use Carbon\Carbon;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
@@ -52,13 +53,27 @@ class OrderApprovalController extends Controller
         ]);
     }
 
-    public function approve($id)
+    public function approve(Request $request)
     {
-        StoreOrder::findOrFail($id)->update([
+        $validated = $request->validate([
+            'id' => ['required'],
+            'remarks' => ['sometimes']
+        ]);
+        DB::beginTransaction();
+        $storeOrder = StoreOrder::findOrFail($validated['id']);
+        $storeOrder->update([
             'order_request_status' => OrderRequestStatus::APRROVED->value,
             'approver_id' => Auth::user()->id,
             'approval_action_date' => Carbon::now()
         ]);
+        if (!empty($validated['remarks'])) {
+            $storeOrder->store_order_remarks()->create([
+                'user_id' => Auth::user()->id,
+                'action' => 'approve order',
+                'remarks' => $validated['remarks']
+            ]);
+        }
+        DB::commit();
         return to_route('orders-approval.index');
     }
 

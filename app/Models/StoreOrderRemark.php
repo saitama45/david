@@ -15,4 +15,9 @@ class StoreOrderRemark extends Model
         'action',
         'remarks'
     ];
+
+    public function store_order()
+    {
+        return $this->belongsTo(StoreOrder::class);
+    }
 }

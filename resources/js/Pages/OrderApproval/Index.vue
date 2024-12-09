@@ -212,7 +212,7 @@ const showOrderDetails = (id) => {
                             >
                                 <Eye />
                             </Button>
-                            <Popover
+                            <!-- <Popover
                                 v-if="order.order_request_status === 'pending'"
                             >
                                 <PopoverTrigger>
@@ -240,7 +240,7 @@ const showOrderDetails = (id) => {
                                         </Button>
                                     </DivFlexCol>
                                 </PopoverContent>
-                            </Popover>
+                            </Popover> -->
                         </TD>
                     </tr></TableBody
                 >

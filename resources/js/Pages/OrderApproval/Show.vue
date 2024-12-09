@@ -35,39 +35,39 @@ const statusBadgeColor = (status) => {
     }
 };
 
-const approveOrder = (id) => {
-    confirm.require({
-        message: "Are you sure you want to approve this order?",
-        header: "Confirmation",
-        icon: "pi pi-exclamation-triangle",
-        rejectProps: {
-            label: "Cancel",
-            severity: "secondary",
-            outlined: true,
-        },
-        acceptProps: {
-            label: "Confirm",
-            severity: "info",
-        },
-        accept: () => {
-            router.post(
-                route("orders-approval.approve", id),
-                {},
-                {
-                    preserveScroll: true,
-                    onSuccess: () => {
-                        toast.add({
-                            severity: "success",
-                            summary: "Success",
-                            detail: "Order Approved Successfully.",
-                            life: 3000,
-                        });
-                    },
-                }
-            );
-        },
-    });
-};
+// const approveOrder = (id) => {
+//     confirm.require({
+//         message: "Are you sure you want to approve this order?",
+//         header: "Confirmation",
+//         icon: "pi pi-exclamation-triangle",
+//         rejectProps: {
+//             label: "Cancel",
+//             severity: "secondary",
+//             outlined: true,
+//         },
+//         acceptProps: {
+//             label: "Confirm",
+//             severity: "info",
+//         },
+//         accept: () => {
+//             router.post(
+//                 route("orders-approval.approve", id),
+//                 {},
+//                 {
+//                     preserveScroll: true,
+//                     onSuccess: () => {
+//                         toast.add({
+//                             severity: "success",
+//                             summary: "Success",
+//                             detail: "Order Approved Successfully.",
+//                             life: 3000,
+//                         });
+//                     },
+//                 }
+//             );
+//         },
+//     });
+// };
 
 const rejectOrder = (id) => {
     confirm.require({
@@ -118,6 +118,35 @@ const addRemarks = (id) => {
 
 const copyOrderAndCreateAnother = (id) => {
     router.get("/store-orders/create", { orderId: id });
+};
+const isLoading = ref(false);
+const showApproveOrderForm = ref(false);
+
+const remarksForm = useForm({
+    id: null,
+    remarks: null,
+});
+const approveOrder = (id) => {
+    showApproveOrderForm.value = true;
+    remarksForm.id = id;
+};
+
+const confirmApproveOrder = () => {
+    isLoading.value = true;
+    remarksForm.post(route("orders-approval.approve"), {
+        onSuccess: () => {
+            toast.add({
+                severity: "success",
+                summary: "Success",
+                detail: "Order Approved Successfully.",
+                life: 3000,
+            });
+            isLoading.value = false;
+        },
+        onError: () => {
+            isLoading.value = false;
+        },
+    });
 };
 </script>
 
@@ -220,5 +249,29 @@ const copyOrderAndCreateAnother = (id) => {
         <Button variant="outline" class="text-lg px-7" @click="backButton">
             Back
         </Button>
+
+        <Dialog v-model:open="showApproveOrderForm">
+            <DialogContent class="sm:max-w-[600px]">
+                <DialogHeader>
+                    <DialogTitle>Approve Order</DialogTitle>
+                    <DialogDescription> </DialogDescription>
+                </DialogHeader>
+                <InputContainer>
+                    <Label class="text-xs">Remarks</Label>
+                    <Textarea v-model="remarksForm.remarks" />
+                </InputContainer>
+                <DialogFooter>
+                    <Button
+                        @click="confirmApproveOrder"
+                        type="submit"
+                        class="gap-2"
+                    >
+                        Approve
+                        <span><Loading v-if="isLoading" /></span>
+                    </Button>
+                </DialogFooter>
+            </DialogContent>
+            <div class="space-y-5"></div>
+        </Dialog>
     </Layout>
 </template>
