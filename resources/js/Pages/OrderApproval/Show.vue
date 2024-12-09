@@ -243,7 +243,7 @@ const confirmRejectOrder = () => {
                     <TH> Quantity </TH>
                     <TH> Cost </TH>
                     <TH> Total Cost </TH>
-                    <TH> Actions </TH>
+                    <!-- <TH> Actions </TH> -->
                 </TableHead>
                 <TableBody>
                     <tr v-for="order in orderedItems" :key="order.id">
@@ -257,13 +257,13 @@ const confirmRejectOrder = () => {
                         </TD>
                         <TD>{{ order.product_inventory.cost }}</TD>
                         <TD>{{ order.total_cost }}</TD>
-                        <TD>
+                        <!-- <TD>
                             <LinkButton
                                 class="text-blue-500"
                                 @click="addRemarks(order.id)"
                                 >Add Remarks</LinkButton
                             >
-                        </TD>
+                        </TD> -->
                     </tr>
                 </TableBody>
             </Table>
