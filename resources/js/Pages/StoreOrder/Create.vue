@@ -58,7 +58,7 @@ const excelFileForm = useForm({
 const orderForm = useForm({
     branch_id: previousOrder?.store_branch_id + "",
     supplier_id: previousOrder?.supplier_id + "",
-    order_date: new Date().toLocaleString().slice(0, 10),
+    order_date: null,
     orders: [],
 });
 
@@ -274,7 +274,6 @@ const removeItem = (id) => {
             severity: "danger",
         },
         accept: () => {
-            // Remove .value here
             orderForm.orders = orderForm.orders.filter(
                 (item) => item.id !== id
             );
@@ -287,6 +286,11 @@ const removeItem = (id) => {
         },
     });
 };
+
+const orderRestrictionDate = reactive({
+    minDate: null,
+    maxDate: null,
+});
 
 if (previousOrder) {
     previousOrder.store_order_items.forEach((item) => {
@@ -305,6 +309,90 @@ if (previousOrder) {
         orderForm.orders.push(product);
     });
 }
+
+const calculatePULILANOrderDate = () => {
+    const now = new Date();
+
+    const nextSunday = new Date(
+        now.getFullYear(),
+        now.getMonth(),
+        now.getDate() + (7 - now.getDay())
+    );
+
+    const nextSaturday = new Date(
+        now.getFullYear(),
+        now.getMonth(),
+        nextSunday.getDate() + 6
+    );
+
+    orderRestrictionDate.minDate = nextSunday;
+    orderRestrictionDate.maxDate = nextSaturday;
+};
+
+const calculateGSIOrderDate = () => {
+    const now = new Date();
+    const currentDay = now.getDay();
+    const currentHour = now.getHours();
+
+    const nextSunday = new Date(
+        now.getFullYear(),
+        now.getMonth(),
+        now.getDate() + (7 - now.getDay())
+    );
+
+    const nextWednesday = new Date(
+        now.getFullYear(),
+        now.getMonth(),
+        nextSunday.getDate() + 3
+    );
+
+    if (
+        currentDay === 0 ||
+        currentDay === 1 ||
+        currentDay === 2 ||
+        (currentDay === 3 && currentHour < 7)
+    ) {
+        orderRestrictionDate.minDate = nextSunday;
+        orderRestrictionDate.maxDate = nextWednesday;
+    } else {
+        const twoWeeksSunday = new Date(
+            now.getFullYear(),
+            now.getMonth(),
+            now.getDate() + (14 - now.getDay())
+        );
+
+        const twoWeeksWednesday = new Date(
+            now.getFullYear(),
+            now.getMonth(),
+            twoWeeksSunday.getDate() + 2
+        );
+
+        orderRestrictionDate.minDate = twoWeeksSunday;
+        orderRestrictionDate.maxDate = twoWeeksWednesday;
+    }
+};
+watch(
+    () => orderForm.supplier_id,
+    (supplier_id) => {
+
+        if (!supplier_id) return;
+
+        const selectedBranch = Object.values(suppliersOptions.value).find(
+            (option) => option.value === supplier_id + ""
+        );
+
+        if (!selectedBranch) return;
+
+        if (
+            selectedBranch.label === "GSI OT-BAKERY" ||
+            selectedBranch.label === "GSI OT-PR"
+        ) {
+            calculateGSIOrderDate();
+        } else if (selectedBranch.label === "PUL OT-DG") {
+            calculatePULILANOrderDate();
+        }
+    }
+);
 </script>
 
 <template>
@@ -362,7 +450,8 @@ if (previousOrder) {
                                 dateFormat="yy/mm/dd"
                                 v-model="orderForm.order_date"
                                 :showOnFocus="false"
-                                :minDate="new Date()"
+                                :minDate="orderRestrictionDate.minDate"
+                                :maxDate="orderRestrictionDate.maxDate"
                             />
                             <FormError>{{
                                 orderForm.errors.order_date

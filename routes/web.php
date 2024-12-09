@@ -84,6 +84,8 @@ Route::middleware('auth')
             Route::post('/orders-approval/approve/{id}', 'approve')->name('approve');
 
             Route::post('/orders-approval/reject/{id}', 'reject')->name('reject');
+
+            Route::post('/orders-approval/add-remarks/{id}', 'addRemarks')->name('add-remarks');
         });
 
         Route::controller(CategoryController::class)->name('categories.')->group(function () {

@@ -71,4 +71,9 @@ class OrderApprovalController extends Controller
         ]);
         return to_route('orders-approval.index');
     }
+
+    public function addRemarks($id)
+    {
+        dd($id);
+    }
 }

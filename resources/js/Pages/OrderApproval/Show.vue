@@ -3,6 +3,7 @@ import { useBackButton } from "@/Composables/useBackButton";
 import { router } from "@inertiajs/vue3";
 import { useConfirm } from "primevue/useconfirm";
 import { useToast } from "@/Composables/useToast";
+import { useForm } from "@inertiajs/vue3";
 
 const confirm = useConfirm();
 const { toast } = useToast();
@@ -102,6 +103,19 @@ const rejectOrder = (id) => {
     });
 };
 
+const itemRemarksForm = useForm({
+    remarks: null,
+});
+
+const addRemarks = (id) => {
+    console.log(id);
+    itemRemarksForm.post(route("orders-approval.add-remarks", id), {
+        onSuccess: () => {
+            console.log("success");
+        },
+    });
+};
+
 const copyOrderAndCreateAnother = (id) => {
     router.get("/store-orders/create", { orderId: id });
 };
@@ -188,20 +202,13 @@ const copyOrderAndCreateAnother = (id) => {
                         }}</TD>
                         <TD class="flex items-center gap-3"
                             >{{ order.quantity_ordered }}
-
-                            <div class="flex items-center gap-1">
-                                <button class="text-red-500">
-                                    <Minus />
-                                </button>
-                                <button class="text-green-500">
-                                    <Plus />
-                                </button>
-                            </div>
                         </TD>
                         <TD>{{ order.product_inventory.cost }}</TD>
                         <TD>{{ order.total_cost }}</TD>
                         <TD>
-                            <LinkButton class="text-blue-500"
+                            <LinkButton
+                                class="text-blue-500"
+                                @click="addRemarks(order.id)"
                                 >Add Remarks</LinkButton
                             >
                         </TD>
