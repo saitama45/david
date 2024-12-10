@@ -23,8 +23,6 @@ class ProductInventory extends Model
         'brand',
         'conversion',
         'cost',
-        'stock',
-        'recently_added',
         'is_active'
     ];
 
@@ -77,7 +75,7 @@ class ProductInventory extends Model
         return $query->select(['id', 'name', 'inventory_code'])->get()->pluck('select_option_name', 'id');
     }
 
-    public function inventoryStocks()
+    public function inventory_stocks()
     {
         return $this->hasMany(ProductInventoryStock::class);
     }

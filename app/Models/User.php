@@ -22,7 +22,6 @@ class User extends Authenticatable
         'name',
         'email',
         'password',
-        'role',
         'remarks',
         'is_active'
     ];
@@ -58,5 +57,10 @@ class User extends Authenticatable
             'user_id',
             'store_branch_id'
         );
+    }
+
+    public function user_roles()
+    {
+        return $this->hasMany(UserRole::class);
     }
 }

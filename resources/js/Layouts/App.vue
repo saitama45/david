@@ -50,26 +50,28 @@ defineProps({
 import { usePage } from "@inertiajs/vue3";
 const props = usePage().props;
 
-const role = props.auth?.user.role;
+const roles = Object.values(props.auth?.user);
+console.log(roles);
 
-const isAdmin = role === "admin";
-const canViewStoreOrderPage = role === "admin";
-const canViewOrderApprovals = role === "admin";
+const isAdmin = roles.includes("admin");
+const canViewStoreOrderPage = roles.includes("admin");
+const canViewOrderApprovals = roles.includes("admin");
 
-const canViewReceivingOrders = role === "admin";
-const canViewReceivingApprovals = role === "admin" || role === "rec_approver";
-const canViewApprovedReceivedItems = role === "admin";
+const canViewReceivingOrders = roles.includes("admin");
+const canViewReceivingApprovals =
+    roles.includes("admin") || roles.includes("rec_approver");
+const canViewApprovedReceivedItems = roles.includes("admin");
 
-const canViewItems = role === "admin";
+const canViewItems = roles.includes("admin");
 
-const canViewItemsOrderSummary = role === "admin";
+const canViewItemsOrderSummary = roles.includes("admin");
 
-const canViewCategories = role === "admin";
-const canViewInventoryCategories = role === "admin";
-const canViewStoreBranch = role === "admin";
-const canViewSupplier = role === "admin";
+const canViewCategories = roles.includes("admin");
+const canViewInventoryCategories = roles.includes("admin");
+const canViewStoreBranch = roles.includes("admin");
+const canViewSupplier = roles.includes("admin");
 
-const canViewUsers = role === "admin";
+const canViewUsers = roles.includes("admin");
 
 const logout = () => {
     router.post("/logout");
@@ -160,6 +162,12 @@ const logout = () => {
                             :icon="PackageSearch"
                         >
                             Item Orders Summary
+                        </NavLink>
+                        <NavLink
+                            href="/stocks"
+                            :icon="PackageSearch"
+                        >
+                            Stocks
                         </NavLink>
                         <DropdownMenuLabel v-if="isAdmin">
                             Reference

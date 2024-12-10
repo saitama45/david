@@ -30,10 +30,6 @@ return new class extends Migration
 
             $table->double('cost');
 
-            $table->integer('stock')->default(0);
-
-            $table->integer('recently_added')->default(0);
-
             $table->boolean('is_active')->default(true);
 
             $table->timestamps();

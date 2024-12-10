@@ -22,4 +22,9 @@ class ProductInventoryStock extends Model
     {
         return $this->belongsTo(ProductInventory::class, 'product_inventory_id');
     }
+
+    public function store_branch()
+    {
+        return $this->belongsTo(StoreBranch::class);
+    }
 }

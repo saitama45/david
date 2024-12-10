@@ -38,4 +38,9 @@ class StoreBranch extends Model
             'user_id'
         );
     }
+
+    public function inventory_stock()
+    {
+        return $this->belongsTo(ProductInventoryStock::class);
+    }
 }

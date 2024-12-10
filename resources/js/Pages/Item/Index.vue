@@ -82,7 +82,6 @@ watch(filter, function (value) {
                     <TH>Conversion</TH>
                     <TH>UOM</TH>
                     <TH>Cost</TH>
-                    <TH>Stock on Hand</TH>
                     <TH>Actions</TH>
                 </TableHead>
 
@@ -95,7 +94,6 @@ watch(filter, function (value) {
                         <TD>{{ item.conversion }}</TD>
                         <TD>{{ item.unit_of_measurement.name }}</TD>
                         <TD>{{ item.cost }}</TD>
-                        <TD>{{ item.stock }}</TD>
                         <TD class="flex items-center gap-2">
                             <button class="text-blue-500" variant="link">
                                 <Pencil class="size-6" />

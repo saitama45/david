@@ -5,6 +5,7 @@ namespace Database\Seeders;
 use App\Models\StoreBranch;
 use App\Models\Supplier;
 use App\Models\User;
+use App\Models\UserRole;
 // use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
 
@@ -17,18 +18,34 @@ class DatabaseSeeder extends Seeder
     {
         // User::factory(10)->create();
 
-        User::factory()->create([
+        $user = User::factory()->create([
             'name' => 'Test User',
             'email' => 'admin@gmail.com',
-            'password' => 'admin1234',
         ]);
 
-        User::factory()->create([
+        UserRole::create([
+            'user_id' => 1,
+            'role' => 'admin'
+        ]);
+
+        $user1 = User::factory()->create([
             'name' => 'Test User',
             'email' => 'soencoder@gmail.com',
             'password' => 'so1234',
-            'role' => 'so_encoder'
         ]);
+
+        UserRole::create([
+            'user_id' => 2,
+            'role' => 'so_encoder',
+        ]);
+
+        
+        UserRole::create([
+            'user_id' => 2,
+            'role' => 'rec_approver'
+        ]);
+
+
 
         $this->call([
             UnitOfMeasurementSeeder::class,

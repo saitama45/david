@@ -51,12 +51,6 @@ const { item } = defineProps({
                     <Label class="font-bold">{{
                         item.is_active ? "Yes" : "No"
                     }}</Label>
-
-                    <Label>Stock on Hand</Label>
-                    <Label class="font-bold">{{ item.stock }}</Label>
-
-                    <Label>Recently Added</Label>
-                    <Label class="font-bold">{{ item.recently_added }}</Label>
                 </CardContent>
             </Card>
         </section>

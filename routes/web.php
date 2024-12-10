@@ -13,6 +13,7 @@ use App\Http\Controllers\ProductOrderSummaryController;
 use App\Http\Controllers\StoreOrderController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\ReceivingApprovalController;
+use App\Http\Controllers\StockController;
 use App\Http\Controllers\StoreBranchController;
 use App\Http\Controllers\SupplierController;
 use App\Http\Controllers\UnitOfMeasurementController;
@@ -124,6 +125,12 @@ Route::middleware('auth')
             Route::get('/approved-orders', 'index')->name('index');
             Route::get('/approved-orders/show/{id}', 'show')->name('show');
         });
+
+        Route::controller(StockController::class)->name('stocks')
+            ->group(function () {
+                Route::get('/stocks', 'index')->name('index');
+                Route::get('/stocks/show/{id}', 'show')->name('show');
+            });
 
         Route::controller(StoreBranchController::class)->name('store-branches.')->group(function () {
             Route::get('/store-branches', 'index')->name('index');

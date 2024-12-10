@@ -39,7 +39,7 @@ class UserController extends Controller
         $validated = $request->validate([
             'name' => ['required'],
             'email' => ['required', 'unique:users,email'],
-            'role' => ['required'],
+            'roles' => ['required'],
             'remarks' => ['sometimes'],
 
         ]);
@@ -56,6 +56,11 @@ class UserController extends Controller
         $user = User::create($validated);
         if ($validated['role'] === 'so_encoder')
             $user->store_branches()->attach($validatedAssignedStoreBranches['assignedBranches']);
+        foreach ($validated['roles'] as $role) {
+            $user->user_role()->create([
+                'role' => $role
+            ]);
+        }
         DB::commit();
 
         return redirect()->route('users.index');
