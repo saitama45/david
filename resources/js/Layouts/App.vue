@@ -53,14 +53,14 @@ const props = usePage().props;
 const role = props.auth?.user.role;
 
 const isAdmin = role === "admin";
-const canViewStoreOrderPage = role === "admin" || true;
+const canViewStoreOrderPage = role === "admin";
 const canViewOrderApprovals = role === "admin";
 
-const canViewReceivingOrders = role === "admin" || true;
+const canViewReceivingOrders = role === "admin";
 const canViewReceivingApprovals = role === "admin" || role === "rec_approver";
-const canViewApprovedReceivedItems = role === "admin" || true;
+const canViewApprovedReceivedItems = role === "admin";
 
-const canViewItems = role === "admin" || true;
+const canViewItems = role === "admin";
 
 const canViewItemsOrderSummary = role === "admin";
 
