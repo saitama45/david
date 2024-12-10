@@ -13,8 +13,13 @@ class ProductInventoryStock extends Model
     protected $fillable = [
         'product_inventory_id',
         'store_branch_id',
-        'quantity', 
+        'quantity',
         'recently_added',
         'used',
     ];
+
+    public function product()
+    {
+        return $this->belongsTo(ProductInventory::class, 'product_inventory_id');
+    }
 }

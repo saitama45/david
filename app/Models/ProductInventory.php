@@ -76,4 +76,23 @@ class ProductInventory extends Model
     {
         return $query->select(['id', 'name', 'inventory_code'])->get()->pluck('select_option_name', 'id');
     }
+
+    public function inventoryStocks()
+    {
+        return $this->hasMany(ProductInventoryStock::class);
+    }
+
+    protected static function booted()
+    {
+        static::created(function ($product) {
+            $storeBranches = StoreBranch::all();
+
+            foreach ($storeBranches as $branch) {
+                ProductInventoryStock::create([
+                    'product_inventory_id' => $product->id,
+                    'store_branch_id' => $branch->id,
+                ]);
+            }
+        });
+    }
 }
