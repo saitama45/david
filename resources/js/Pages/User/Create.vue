@@ -10,7 +10,7 @@ const form = useForm({
     name: null,
     email: null,
     password: null,
-    role: null,
+    roles: [],
     remarks: null,
     assignedBranches: [],
 });
@@ -86,15 +86,14 @@ const { options: branchesOptions } = useSelectOptions(props.branches);
                 </InputContainer>
                 <InputContainer>
                     <Label>Role</Label>
-                    <Select
+                    <MultiSelect
                         filter
-                        placeholder="Select Role"
-                        v-model="form.role"
+                        placeholder="Assign Roles"
+                        v-model="form.roles"
                         :options="rolesOptions"
                         optionLabel="label"
                         optionValue="value"
-                    >
-                    </Select>
+                    ></MultiSelect>
                     <FormError>{{ form.errors.role }}</FormError>
                 </InputContainer>
                 <InputContainer>
