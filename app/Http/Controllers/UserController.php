@@ -54,13 +54,14 @@ class UserController extends Controller
 
         DB::beginTransaction();
         $user = User::create($validated);
-        if ($validated['role'] === 'so_encoder')
-            $user->store_branches()->attach($validatedAssignedStoreBranches['assignedBranches']);
-        foreach ($validated['roles'] as $role) {
-            $user->user_role()->create([
-                'role' => $role
+        if (in_array('so_encoder', $validated['roles'])) {
+            $validatedAssignedStoreBranches = $request->validate([
+                'assignedBranches' => ['required', 'array'],
             ]);
+
+            $user->store_branches()->attach($validatedAssignedStoreBranches['assignedBranches']);
         }
+
         DB::commit();
 
         return redirect()->route('users.index');

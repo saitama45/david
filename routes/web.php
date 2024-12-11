@@ -54,10 +54,10 @@ Route::middleware('auth')
                 Route::get('/', 'index')
                     ->name('index');
 
-                Route::get('/show/{id}', 'show')
-                    ->name('show');
+                Route::middleware('role:admin|so encoder')->group(function () {
+                    Route::get('/show/{id}', 'show')
+                        ->name('show');
 
-                Route::middleware('check.persmission:create-so')->group(function () {
                     Route::post('/store', 'store')
                         ->name('store');
 
@@ -69,13 +69,13 @@ Route::middleware('auth')
 
                     Route::put('/update/{id}', 'update')
                         ->name('update');
+
+                    Route::post('/orders-list', 'validateHeaderUpload')
+                        ->name('orders-list');
+
+                    Route::post('/store-orders', 'getImportedOrders')
+                        ->name('imported-file');
                 });
-
-                Route::post('/orders-list', 'validateHeaderUpload')
-                    ->name('orders-list');
-
-                Route::post('/store-orders', 'getImportedOrders')
-                    ->name('imported-file');
             });
 
         Route::controller(OrderApprovalController::class)->name('orders-approval.')->group(function () {

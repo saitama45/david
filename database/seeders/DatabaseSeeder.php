@@ -2,12 +2,11 @@
 
 namespace Database\Seeders;
 
-use App\Models\StoreBranch;
-use App\Models\Supplier;
 use App\Models\User;
-use App\Models\UserRole;
 // use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
+use Illuminate\Support\Facades\Hash;
+use Spatie\Permission\Models\Permission;
 
 class DatabaseSeeder extends Seeder
 {
@@ -16,34 +15,39 @@ class DatabaseSeeder extends Seeder
      */
     public function run(): void
     {
-        // User::factory(10)->create();
+        $this->call(RolesAndPermissionSeeder::class);
+        $admin = User::factory()->create([
+            'name' => 'Test User',
+            'email' => 'admin@gmail.com',
+            'password' => Hash::make('admin1234')
+        ]);
+
+        $admin->assignRole(['admin']);
+        $admin->givePermissionTo(Permission::all());
 
         $user = User::factory()->create([
             'name' => 'Test User',
-            'email' => 'admin@gmail.com',
-        ]);
-
-        UserRole::create([
-            'user_id' => 1,
-            'role' => 'admin'
-        ]);
-
-        $user1 = User::factory()->create([
-            'name' => 'Test User',
             'email' => 'soencoder@gmail.com',
-            'password' => 'so1234',
+            'password' => Hash::make('admin1234')
         ]);
 
-        UserRole::create([
-            'user_id' => 2,
-            'role' => 'so_encoder',
+        $user->assignRole(['so encoder']);
+
+        $user = User::factory()->create([
+            'name' => 'Test User',
+            'email' => 'recencoder@gmail.com',
+            'password' => Hash::make('admin1234')
         ]);
 
-        
-        UserRole::create([
-            'user_id' => 2,
-            'role' => 'rec_approver'
+        $user->assignRole(['rec encoder']);
+
+        $user = User::factory()->create([
+            'name' => 'Test User',
+            'email' => 'recapprover@gmail.com',
+            'password' => Hash::make('admin1234')
         ]);
+
+        $user->assignRole(['rec approver']);
 
 
 

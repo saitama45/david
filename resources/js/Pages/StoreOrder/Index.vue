@@ -29,11 +29,10 @@ const props = defineProps({
         type: Object,
     },
 });
+const { roles, is_admin } = usePage().props.auth;
 
-console.log(props.auth);
-const role = props.auth.user.role;
-const hasCreateAccess = role === "admin" || role === "so_encoder";
-const hasEditAccess = role === "admin" || role === "so_encoder";
+const hasCreateAccess = is_admin || roles.includes("so encoder");
+const hasEditAccess = is_admin || roles.includes("so_encoder");
 
 const showOrderDetails = (id) => {
     router.get(`/store-orders/show/${id}`);

@@ -42,7 +42,7 @@ class ReceivingApprovalController extends Controller
         $validated = $request->validate([
             'id' => ['required'],
         ]);
-        // Approve the receive date
+
         if (is_array($validated['id'])) {
             foreach ($validated['id'] as $id) {
                 DB::beginTransaction();
@@ -73,8 +73,6 @@ class ReceivingApprovalController extends Controller
             $item = $data->store_order_item->product_inventory;
             $item->stock += $data->quantity_received;
             $item->recently_added = $data->quantity_received;
-
-
 
             $orderedItems = $data->store_order_item->store_order->store_order_items;
             $storeOrder = $data->store_order_item->store_order;

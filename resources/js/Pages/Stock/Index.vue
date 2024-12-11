@@ -4,7 +4,7 @@ const props = defineProps({
         type: Object,
     },
 });
-console.log(props.items);
+
 </script>
 <template>
     <Layout heading="Stocks">

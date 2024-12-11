@@ -48,30 +48,36 @@ defineProps({
     },
 });
 import { usePage } from "@inertiajs/vue3";
-const props = usePage().props;
 
-const roles = Object.values(props.auth?.user);
-console.log(roles);
+const { roles, is_admin } = usePage().props.auth;
 
-const isAdmin = roles.includes("admin");
-const canViewStoreOrderPage = roles.includes("admin");
-const canViewOrderApprovals = roles.includes("admin");
+const isAdmin = is_admin;
 
-const canViewReceivingOrders = roles.includes("admin");
-const canViewReceivingApprovals =
-    roles.includes("admin") || roles.includes("rec_approver");
-const canViewApprovedReceivedItems = roles.includes("admin");
+const canViewOrderingGroup = is_admin || roles.includes("so encoder");
+const canViewReceivingGroup = is_admin || roles.includes("rec approver");
+const canViewSalesGroup = is_admin;
+const canViewReportsGroup = is_admin || roles.includes("so encoder");
+const canViewInventoryGroup = is_admin;
 
-const canViewItems = roles.includes("admin");
+const canViewStoreOrderPage = is_admin || roles.includes("so encoder");
+const canViewOrderApprovals = is_admin;
 
-const canViewItemsOrderSummary = roles.includes("admin");
+const canViewReceivingOrders = is_admin;
+const canViewReceivingApprovals = is_admin || roles.includes("rec approver");
+const canViewApprovedReceivedItems = is_admin;
 
-const canViewCategories = roles.includes("admin");
-const canViewInventoryCategories = roles.includes("admin");
-const canViewStoreBranch = roles.includes("admin");
-const canViewSupplier = roles.includes("admin");
+const canViewItems = is_admin;
 
-const canViewUsers = roles.includes("admin");
+const canViewItemsOrderSummary = is_admin;
+
+const canViewStocks = is_admin || roles.includes("so encoder");
+
+const canViewCategories = is_admin;
+const canViewInventoryCategories = is_admin;
+const canViewStoreBranch = is_admin;
+const canViewSupplier = is_admin;
+
+const canViewUsers = is_admin;
 
 const logout = () => {
     router.post("/logout");
@@ -107,7 +113,9 @@ const logout = () => {
                         <NavLink href="/dashboard" :icon="Home">
                             Dashboard
                         </NavLink>
-                        <DropdownMenuLabel> Ordering </DropdownMenuLabel>
+                        <DropdownMenuLabel v-if="canViewOrderingGroup">
+                            Ordering
+                        </DropdownMenuLabel>
                         <NavLink
                             v-if="canViewStoreOrderPage"
                             href="/store-orders"
@@ -122,7 +130,9 @@ const logout = () => {
                         >
                             Orders Approval
                         </NavLink>
-                        <DropdownMenuLabel> Receiving </DropdownMenuLabel>
+                        <DropdownMenuLabel v-if="canViewReceivingGroup">
+                            Receiving
+                        </DropdownMenuLabel>
                         <NavLink
                             v-if="canViewReceivingOrders"
                             href="/orders-receiving"
@@ -144,8 +154,12 @@ const logout = () => {
                         >
                             Approved Received Items
                         </NavLink>
-                        <DropdownMenuLabel> Sales </DropdownMenuLabel>
-                        <DropdownMenuLabel> Inventory </DropdownMenuLabel>
+                        <DropdownMenuLabel v-if="canViewSalesGroup">
+                            Sales
+                        </DropdownMenuLabel>
+                        <DropdownMenuLabel v-if="canViewInventoryGroup">
+                            Inventory
+                        </DropdownMenuLabel>
                         <NavLink
                             v-if="canViewItems"
                             href="/items-list"
@@ -153,7 +167,7 @@ const logout = () => {
                         >
                             Items
                         </NavLink>
-                        <DropdownMenuLabel v-if="isAdmin">
+                        <DropdownMenuLabel v-if="canViewReportsGroup">
                             Reports
                         </DropdownMenuLabel>
                         <NavLink
@@ -166,6 +180,7 @@ const logout = () => {
                         <NavLink
                             href="/stocks"
                             :icon="PackageSearch"
+                            v-if="canViewStocks"
                         >
                             Stocks
                         </NavLink>
@@ -243,11 +258,13 @@ const logout = () => {
                                 <span class="text-sm">Project David</span>
                             </a>
 
-                            <nav class="grid items-start text-sm font-medium">
+                            <nav
+                                class="grid items-start pl-4 text-sm font-medium"
+                            >
                                 <NavLink href="/dashboard" :icon="Home">
                                     Dashboard
                                 </NavLink>
-                                <DropdownMenuLabel>
+                                <DropdownMenuLabel v-if="canViewOrderingGroup">
                                     Ordering
                                 </DropdownMenuLabel>
                                 <NavLink
@@ -264,7 +281,7 @@ const logout = () => {
                                 >
                                     Orders Approval
                                 </NavLink>
-                                <DropdownMenuLabel>
+                                <DropdownMenuLabel v-if="canViewReceivingGroup">
                                     Receiving
                                 </DropdownMenuLabel>
                                 <NavLink
@@ -288,8 +305,10 @@ const logout = () => {
                                 >
                                     Approved Received Items
                                 </NavLink>
-                                <DropdownMenuLabel> Sales </DropdownMenuLabel>
-                                <DropdownMenuLabel>
+                                <DropdownMenuLabel v-if="canViewSalesGroup">
+                                    Sales
+                                </DropdownMenuLabel>
+                                <DropdownMenuLabel v-if="canViewInventoryGroup">
                                     Inventory
                                 </DropdownMenuLabel>
                                 <NavLink
@@ -299,7 +318,9 @@ const logout = () => {
                                 >
                                     Items
                                 </NavLink>
-                                <DropdownMenuLabel> Reports </DropdownMenuLabel>
+                                <DropdownMenuLabel v-if="canViewReportsGroup">
+                                    Reports
+                                </DropdownMenuLabel>
                                 <NavLink
                                     v-if="canViewItemsOrderSummary"
                                     href="/product-orders-summary"
@@ -307,7 +328,14 @@ const logout = () => {
                                 >
                                     Item Orders Summary
                                 </NavLink>
-                                <DropdownMenuLabel>
+                                <NavLink
+                                    href="/stocks"
+                                    :icon="PackageSearch"
+                                    v-if="canViewStocks"
+                                >
+                                    Stocks
+                                </NavLink>
+                                <DropdownMenuLabel v-if="isAdmin">
                                     Reference
                                 </DropdownMenuLabel>
                                 <NavLink
@@ -338,7 +366,9 @@ const logout = () => {
                                 >
                                     Suppliers
                                 </NavLink>
-                                <DropdownMenuLabel> User </DropdownMenuLabel>
+                                <DropdownMenuLabel v-if="isAdmin">
+                                    User
+                                </DropdownMenuLabel>
                                 <NavLink
                                     v-if="canViewUsers"
                                     href="/users"
