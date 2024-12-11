@@ -74,6 +74,7 @@ import Checkbox from "primevue/checkbox";
 import LinkButton from "./Components/button/LinkButton.vue";
 import LabelXS from "./Components/LabelXS.vue";
 import SpanBold from "./Components/SpanBold.vue";
+import EditButton from "./Components/button/EditButton.vue";
 const appName = import.meta.env.VITE_APP_NAME || "Laravel";
 
 createInertiaApp({
@@ -143,6 +144,7 @@ createInertiaApp({
             .component("LinkButton", LinkButton)
             .component("LabelXS", LabelXS)
             .component("SpanBold", SpanBold)
+            .component("EditButton", EditButton)
             .use(PrimeVue, {
                 theme: {
                     preset: Aura,

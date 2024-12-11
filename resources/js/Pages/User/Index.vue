@@ -44,10 +44,14 @@ const handleClick = () => {
                         }}</TD>
                         <TD>{{ user.is_active == 1 ? "Yes" : "No" }}</TD>
                         <TD>
-                            <DivFlexCenter class="gap-2">
+                            <DivFlexCenter class="gap-3">
                                 <ShowButton
                                     :isLink="true"
                                     :href="`/users/show/${user.id}`"
+                                />
+                                <EditButton
+                                    :isLink="true"
+                                    :href="`/users/edit/${user.id}`"
                                 />
                             </DivFlexCenter>
                         </TD>

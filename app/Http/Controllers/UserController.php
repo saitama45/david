@@ -34,6 +34,15 @@ class UserController extends Controller
         ]);
     }
 
+    public function edit($id)
+    {
+        $users = User::with('roles')->paginate(10);
+
+        return Inertia::render('User/Edit', [
+            'users' => $users
+        ]);
+    }
+
     public function store(Request $request)
     {
         $validated = $request->validate([
