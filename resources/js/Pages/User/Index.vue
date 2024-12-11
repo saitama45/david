@@ -9,7 +9,6 @@ const props = defineProps({
 const handleClick = () => {
     router.get("/users/create");
 };
-
 </script>
 
 <template>
@@ -29,18 +28,29 @@ const handleClick = () => {
             <Table>
                 <TableHead>
                     <TH> Id </TH>
-                    <TH> Name</TH>
+                    <TH> Full Name</TH>
                     <TH> Email</TH>
-                    <TH> Role</TH>
+                    <TH> Roles</TH>
                     <TH> Is Active</TH>
+                    <TH> Actions </TH>
                 </TableHead>
                 <TableBody>
                     <tr v-for="user in users.data">
                         <TD>{{ user.id }}</TD>
-                        <TD>{{ user.name }}</TD>
+                        <TD>{{ user.first_name + " " + user.last_name }}</TD>
                         <TD>{{ user.email }}</TD>
-                        <TD>{{ user.role }}</TD>
-                        <TD>{{ user.isActive ? "Yes" : "No" }}</TD>
+                        <TD>{{
+                            user.roles.map((role) => role.name).join(",")
+                        }}</TD>
+                        <TD>{{ user.is_active == 1 ? "Yes" : "No" }}</TD>
+                        <TD>
+                            <DivFlexCenter class="gap-2">
+                                <ShowButton
+                                    :isLink="true"
+                                    :href="`/users/show/${user.id}`"
+                                />
+                            </DivFlexCenter>
+                        </TD>
                     </tr>
                 </TableBody>
             </Table>

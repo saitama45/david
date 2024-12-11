@@ -72,6 +72,8 @@ import Camera from "simple-vue-camera";
 import MultiSelect from "primevue/multiselect";
 import Checkbox from "primevue/checkbox";
 import LinkButton from "./Components/button/LinkButton.vue";
+import LabelXS from "./Components/LabelXS.vue";
+import SpanBold from "./Components/SpanBold.vue";
 const appName = import.meta.env.VITE_APP_NAME || "Laravel";
 
 createInertiaApp({
@@ -139,6 +141,8 @@ createInertiaApp({
             .component("MultiSelect", MultiSelect)
             .component("Checkbox", Checkbox)
             .component("LinkButton", LinkButton)
+            .component("LabelXS", LabelXS)
+            .component("SpanBold", SpanBold)
             .use(PrimeVue, {
                 theme: {
                     preset: Aura,

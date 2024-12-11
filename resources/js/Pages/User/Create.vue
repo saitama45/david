@@ -7,7 +7,10 @@ const toast = useToast();
 const confirm = useConfirm();
 
 const form = useForm({
-    name: null,
+    first_name: null,
+    middle_name: null,
+    last_name: null,
+    phone_number: null,
     email: null,
     password: null,
     roles: [],
@@ -75,9 +78,24 @@ const { options: branchesOptions } = useSelectOptions(props.branches);
             </CardHeader>
             <CardContent class="grid grid-cols-2 gap-5">
                 <InputContainer>
-                    <Label>Name</Label>
-                    <Input v-model="form.name" />
-                    <FormError>{{ form.errors.name }}</FormError>
+                    <Label>First Name</Label>
+                    <Input v-model="form.first_name" />
+                    <FormError>{{ form.errors.first_name }}</FormError>
+                </InputContainer>
+                <InputContainer>
+                    <Label>Middle Name</Label>
+                    <Input v-model="form.middle_name" />
+                    <FormError>{{ form.errors.middle_name }}</FormError>
+                </InputContainer>
+                <InputContainer>
+                    <Label>Last Name</Label>
+                    <Input v-model="form.last_name" />
+                    <FormError>{{ form.errors.last_name }}</FormError>
+                </InputContainer>
+                <InputContainer>
+                    <Label>Phone Number</Label>
+                    <Input v-model="form.phone_number" />
+                    <FormError>{{ form.errors.phone_number }}</FormError>
                 </InputContainer>
                 <InputContainer>
                     <Label>Email</Label>
@@ -94,14 +112,14 @@ const { options: branchesOptions } = useSelectOptions(props.branches);
                         optionLabel="label"
                         optionValue="value"
                     ></MultiSelect>
-                    <FormError>{{ form.errors.role }}</FormError>
+                    <FormError>{{ form.errors.roles }}</FormError>
                 </InputContainer>
                 <InputContainer>
                     <Label>Remarks</Label>
                     <Textarea v-model="form.remarks" />
                     <FormError>{{ form.errors.remarksl }}</FormError>
                 </InputContainer>
-                <InputContainer v-if="form.roles.includes('so_encoder')">
+                <InputContainer v-if="form.roles.includes('so encoder')">
                     <Label>Assigned Branches</Label>
                     <MultiSelect
                         filter

@@ -119,6 +119,7 @@ Route::middleware('auth')
             Route::get('/users', 'index')->name('index');
             Route::get('/users/create', 'create')->name('create');
             Route::post('/users/store', 'store')->name('store');
+            Route::get('/users/show/{id}', 'show')->name('show');
         });
 
         Route::controller(ApprovedOrderController::class)->name('approved-orders.')->group(function () {

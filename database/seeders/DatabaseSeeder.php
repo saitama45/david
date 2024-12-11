@@ -17,7 +17,6 @@ class DatabaseSeeder extends Seeder
     {
         $this->call(RolesAndPermissionSeeder::class);
         $admin = User::factory()->create([
-            'name' => 'Test User',
             'email' => 'admin@gmail.com',
             'password' => Hash::make('admin1234')
         ]);
@@ -26,7 +25,6 @@ class DatabaseSeeder extends Seeder
         $admin->givePermissionTo(Permission::all());
 
         $user = User::factory()->create([
-            'name' => 'Test User',
             'email' => 'soencoder@gmail.com',
             'password' => Hash::make('admin1234')
         ]);
@@ -34,7 +32,6 @@ class DatabaseSeeder extends Seeder
         $user->assignRole(['so encoder']);
 
         $user = User::factory()->create([
-            'name' => 'Test User',
             'email' => 'recencoder@gmail.com',
             'password' => Hash::make('admin1234')
         ]);
@@ -42,7 +39,6 @@ class DatabaseSeeder extends Seeder
         $user->assignRole(['rec encoder']);
 
         $user = User::factory()->create([
-            'name' => 'Test User',
             'email' => 'recapprover@gmail.com',
             'password' => Hash::make('admin1234')
         ]);

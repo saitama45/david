@@ -14,7 +14,7 @@ class UserController extends Controller
 {
     public function index()
     {
-        $users = User::paginate(10);
+        $users = User::with('roles')->paginate(10);
 
         return Inertia::render('User/Index', [
             'users' => $users
@@ -37,14 +37,17 @@ class UserController extends Controller
     public function store(Request $request)
     {
         $validated = $request->validate([
-            'name' => ['required'],
+            'first_name' => ['required'],
+            'middle_name' => ['sometimes'],
+            'last_name' => ['required'],
+            'phone_number' => ['required'],
             'email' => ['required', 'unique:users,email'],
             'roles' => ['required'],
             'remarks' => ['sometimes'],
 
         ]);
 
-        if ($validated['role'] === 'so_encoder')
+        if (in_array('so_encoder', $validated['roles']))
             $validatedAssignedStoreBranches = $request->validate([
                 'assignedBranches' => ['required'],
             ]);
@@ -54,10 +57,13 @@ class UserController extends Controller
 
         DB::beginTransaction();
         $user = User::create($validated);
+        $user->assignRole($validated['roles']);
         if (in_array('so_encoder', $validated['roles'])) {
             $validatedAssignedStoreBranches = $request->validate([
                 'assignedBranches' => ['required', 'array'],
             ]);
+
+
 
             $user->store_branches()->attach($validatedAssignedStoreBranches['assignedBranches']);
         }
@@ -65,5 +71,13 @@ class UserController extends Controller
         DB::commit();
 
         return redirect()->route('users.index');
+    }
+
+    public function show($id)
+    {
+        $user = User::with('roles')->find($id);
+        return Inertia::render('User/Show', [
+            'user' => $user
+        ]);
     }
 }

@@ -5,9 +5,9 @@ namespace App\Enum;
 enum UserRole: string
 {
     case ADMIN = 'admin';
-    case SO_ENCODER = 'so_encoder';
-    case REC_ENCODER = 'rec_encoder';
-    case REC_APPROVER = 'rec_approver';
+    case SO_ENCODER = 'so encoder';
+    case REC_ENCODER = 'rec encoder';
+    case REC_APPROVER = 'rec approver';
 
     public static function values()
     {
