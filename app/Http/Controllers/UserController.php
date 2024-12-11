@@ -17,7 +17,7 @@ class UserController extends Controller
         $users = User::with('roles')->paginate(10);
 
         return Inertia::render('User/Index', [
-            'users' => $users
+            'users' => $users,
         ]);
     }
 
@@ -36,10 +36,13 @@ class UserController extends Controller
 
     public function edit($id)
     {
-        $users = User::with('roles')->paginate(10);
-
+        $user = User::with(['roles', 'store_branches'])->find($id);
+        $roles = UserRole::values();
+        $branches = StoreBranch::options();
         return Inertia::render('User/Edit', [
-            'users' => $users
+            'user' => $user,
+            'roles' => $roles,
+            'branches' => $branches
         ]);
     }
 
@@ -56,7 +59,7 @@ class UserController extends Controller
 
         ]);
 
-        if (in_array('so_encoder', $validated['roles']))
+        if (in_array('so encoder', $validated['roles']))
             $validatedAssignedStoreBranches = $request->validate([
                 'assignedBranches' => ['required'],
             ]);
@@ -67,7 +70,7 @@ class UserController extends Controller
         DB::beginTransaction();
         $user = User::create($validated);
         $user->assignRole($validated['roles']);
-        if (in_array('so_encoder', $validated['roles'])) {
+        if (in_array('so encoder', $validated['roles'])) {
             $validatedAssignedStoreBranches = $request->validate([
                 'assignedBranches' => ['required', 'array'],
             ]);
@@ -80,6 +83,54 @@ class UserController extends Controller
         DB::commit();
 
         return redirect()->route('users.index');
+    }
+
+    public function update(Request $request, $id)
+    {
+        $validated = $request->validate([
+            'first_name' => ['required'],
+            'middle_name' => ['sometimes'],
+            'last_name' => ['required'],
+            'phone_number' => ['required'],
+            'email' => ['required', 'unique:users,email,' . $id],
+            'roles' => ['required', 'array'],
+            'remarks' => ['sometimes'],
+            'assignedBranches' => ['sometimes', 'array'],
+        ]);
+
+        DB::beginTransaction();
+        try {
+            $user = User::findOrFail($id);
+
+            $user->update([
+                'first_name' => $validated['first_name'],
+                'middle_name' => $validated['middle_name'] ?? null,
+                'last_name' => $validated['last_name'],
+                'phone_number' => $validated['phone_number'],
+                'email' => $validated['email'],
+                'remarks' => $validated['remarks'] ?? null,
+            ]);
+
+            $user->syncRoles($validated['roles']);
+
+            if (in_array('so encoder', $validated['roles'])) {
+
+                if (empty($validated['assignedBranches'])) {
+                    throw new \Exception('Assigned branches are required for SO encoder');
+                }
+
+                $user->store_branches()->sync($validated['assignedBranches']);
+            } else {
+                $user->store_branches()->detach();
+            }
+
+            DB::commit();
+
+            return redirect()->route('users.index');
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return back()->withErrors(['error' => $e->getMessage()]);
+        }
     }
 
     public function show($id)

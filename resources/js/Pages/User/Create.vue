@@ -117,7 +117,7 @@ const { options: branchesOptions } = useSelectOptions(props.branches);
                 <InputContainer>
                     <Label>Remarks</Label>
                     <Textarea v-model="form.remarks" />
-                    <FormError>{{ form.errors.remarksl }}</FormError>
+                    <FormError>{{ form.errors.remarks }}</FormError>
                 </InputContainer>
                 <InputContainer v-if="form.roles.includes('so encoder')">
                     <Label>Assigned Branches</Label>
