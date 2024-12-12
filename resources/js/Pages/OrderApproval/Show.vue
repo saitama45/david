@@ -171,6 +171,39 @@ const confirmRejectOrder = () => {
         },
     });
 };
+
+const itemsDetail = ref([]);
+props.orderedItems.forEach((item) =>
+    itemsDetail.value.push({
+        id: item.id,
+        quantity_ordered: item.quantity_ordered,
+        quantity_approved: item.quantity_ordered,
+    })
+);
+
+const lessQuantityApproved = (id) => {
+    const itemIndex = itemsDetail.value.findIndex((item) => item.id === id);
+
+    if (itemIndex !== -1) {
+        const currentItem = itemsDetail.value[itemIndex];
+
+        if (currentItem.quantity_approved > 0) {
+            currentItem.quantity_approved--;
+        }
+    }
+};
+
+const addQuantityApproved = (id) => {
+    const itemIndex = itemsDetail.value.findIndex((item) => item.id === id);
+
+    if (itemIndex !== -1) {
+        const currentItem = itemsDetail.value[itemIndex];
+
+        if (currentItem.quantity_approved < currentItem.quantity_ordered) {
+            currentItem.quantity_approved++;
+        }
+    }
+};
 </script>
 
 <template>
@@ -243,7 +276,7 @@ const confirmRejectOrder = () => {
                     <TH> Quantity </TH>
                     <TH> Cost </TH>
                     <TH> Total Cost </TH>
-                    <!-- <TH> Actions </TH> -->
+                    <TH> Actions </TH>
                 </TableHead>
                 <TableBody>
                     <tr v-for="order in orderedItems" :key="order.id">
@@ -252,18 +285,29 @@ const confirmRejectOrder = () => {
                         <TD>{{
                             order.product_inventory.unit_of_measurement.name
                         }}</TD>
-                        <TD class="flex items-center gap-3"
-                            >{{ order.quantity_ordered }}
+                        <TD class="flex items-center gap-3">
+                            {{
+                                itemsDetail.find((item) => item.id === order.id)
+                                    ?.quantity_approved || 0
+                            }}
+                            <DivFlexCenter class="gap-2">
+                                <button @click="lessQuantityApproved(order.id)">
+                                    Minus
+                                </button>
+                                <button @click="addQuantityApproved(order.id)">
+                                    Add
+                                </button>
+                            </DivFlexCenter>
                         </TD>
                         <TD>{{ order.product_inventory.cost }}</TD>
                         <TD>{{ order.total_cost }}</TD>
-                        <!-- <TD>
+                        <TD>
                             <LinkButton
                                 class="text-blue-500"
                                 @click="addRemarks(order.id)"
                                 >Add Remarks</LinkButton
                             >
-                        </TD> -->
+                        </TD>
                     </tr>
                 </TableBody>
             </Table>
