@@ -334,17 +334,23 @@ const calculateGSIOrderDate = () => {
     const currentDay = now.getDay();
     const currentHour = now.getHours();
 
-    const nextSunday = new Date(
-        now.getFullYear(),
-        now.getMonth(),
-        now.getDate() + (7 - now.getDay())
-    );
+    const getNextDayOfWeek = (targetDay, forceNextWeek = false) => {
+        const result = new Date(now);
+        
+        let daysToAdd = ((targetDay - now.getDay() + 7) % 7);
+        
+        if (forceNextWeek || daysToAdd === 0) {
+            daysToAdd += 7;
+        }
+        
+        result.setDate(now.getDate() + daysToAdd);
+        return result;
+    };
 
-    const nextWednesday = new Date(
-        now.getFullYear(),
-        now.getMonth(),
-        nextSunday.getDate() + 3
-    );
+    const nextWednesday = getNextDayOfWeek(3, true);
+    const nextSunday = getNextDayOfWeek(0, true);
+    const nextThursday = getNextDayOfWeek(4, true);
+    const nextSaturday = getNextDayOfWeek(6, true);
 
     if (
         currentDay === 0 ||
@@ -355,26 +361,13 @@ const calculateGSIOrderDate = () => {
         orderRestrictionDate.minDate = nextSunday;
         orderRestrictionDate.maxDate = nextWednesday;
     } else {
-        const twoWeeksSunday = new Date(
-            now.getFullYear(),
-            now.getMonth(),
-            now.getDate() + (14 - now.getDay())
-        );
-
-        const twoWeeksWednesday = new Date(
-            now.getFullYear(),
-            now.getMonth(),
-            twoWeeksSunday.getDate() + 2
-        );
-
-        orderRestrictionDate.minDate = twoWeeksSunday;
-        orderRestrictionDate.maxDate = twoWeeksWednesday;
+        orderRestrictionDate.minDate = nextThursday;
+        orderRestrictionDate.maxDate = nextSaturday;
     }
 };
 watch(
     () => orderForm.supplier_id,
     (supplier_id) => {
-
         if (!supplier_id) return;
 
         const selectedBranch = Object.values(suppliersOptions.value).find(
