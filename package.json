@@ -22,6 +22,7 @@
         "@primevue/themes": "^4.2.1",
         "@radix-icons/vue": "^1.0.0",
         "@vueuse/core": "^11.3.0",
+        "chart.js": "^4.4.7",
         "class-variance-authority": "^0.7.0",
         "clsx": "^2.1.1",
         "lodash": "^4.17.21",

@@ -234,7 +234,6 @@ const logout = () => {
                         </NavLink>
                     </nav>
                 </div>
-                <div class="mt-auto p-4">Test</div>
             </div>
         </div>
         <div class="flex flex-col overflow-hidden">
