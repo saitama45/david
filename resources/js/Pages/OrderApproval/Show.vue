@@ -178,6 +178,8 @@ props.orderedItems.forEach((item) =>
         id: item.id,
         quantity_ordered: item.quantity_ordered,
         quantity_approved: item.quantity_ordered,
+        item_cost: item.product_inventory.cost,
+        total_cost: item.total_cost,
     })
 );
 
@@ -189,6 +191,9 @@ const lessQuantityApproved = (id) => {
 
         if (currentItem.quantity_approved > 0) {
             currentItem.quantity_approved--;
+            currentItem.total_cost = parseFloat(
+                currentItem.item_cost * currentItem.quantity_approved
+            ).toFixed(2);
         }
     }
 };
@@ -198,10 +203,10 @@ const addQuantityApproved = (id) => {
 
     if (itemIndex !== -1) {
         const currentItem = itemsDetail.value[itemIndex];
-
-        if (currentItem.quantity_approved < currentItem.quantity_ordered) {
-            currentItem.quantity_approved++;
-        }
+        currentItem.quantity_approved++;
+        currentItem.total_cost = parseFloat(
+            currentItem.item_cost * currentItem.quantity_approved
+        ).toFixed(2);
     }
 };
 </script>
@@ -276,7 +281,7 @@ const addQuantityApproved = (id) => {
                     <TH> Quantity </TH>
                     <TH> Cost </TH>
                     <TH> Total Cost </TH>
-                    <TH> Actions </TH>
+                    <!-- <TH> Actions </TH> -->
                 </TableHead>
                 <TableBody>
                     <tr v-for="order in orderedItems" :key="order.id">
@@ -292,22 +297,27 @@ const addQuantityApproved = (id) => {
                             }}
                             <DivFlexCenter class="gap-2">
                                 <button @click="lessQuantityApproved(order.id)">
-                                    Minus
+                                    <Minus class="size-4 text-red-500" />
                                 </button>
                                 <button @click="addQuantityApproved(order.id)">
-                                    Add
+                                    <Plus class="size-4 text-green-500" />
                                 </button>
                             </DivFlexCenter>
                         </TD>
                         <TD>{{ order.product_inventory.cost }}</TD>
-                        <TD>{{ order.total_cost }}</TD>
                         <TD>
+                            {{
+                                itemsDetail.find((item) => item.id === order.id)
+                                    ?.total_cost || 0
+                            }}
+                        </TD>
+                        <!-- <TD>
                             <LinkButton
                                 class="text-blue-500"
                                 @click="addRemarks(order.id)"
                                 >Add Remarks</LinkButton
                             >
-                        </TD>
+                        </TD> -->
                     </tr>
                 </TableBody>
             </Table>
