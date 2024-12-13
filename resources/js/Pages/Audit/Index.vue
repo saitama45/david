@@ -33,6 +33,7 @@ const props = defineProps({
                     </tr>
                 </TableBody>
             </Table>
+            <Pagination :data="audits" />
         </TableContainer>
     </Layout>
 </template>
