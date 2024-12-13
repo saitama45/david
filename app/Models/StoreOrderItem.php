@@ -14,6 +14,7 @@ class StoreOrderItem extends Model
         'store_order_id',
         'product_inventory_id',
         'quantity_ordered',
+        'quantity_approved',
         'quantity_received',
         'total_cost',
         'remarks',

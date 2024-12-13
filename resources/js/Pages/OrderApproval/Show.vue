@@ -126,6 +126,7 @@ const showRejectOrderForm = ref(false);
 const remarksForm = useForm({
     id: null,
     remarks: null,
+    updatedOrderedItemDetails: null,
 });
 const approveOrder = (id) => {
     showApproveOrderForm.value = true;
@@ -138,6 +139,7 @@ const rejectOrder = (id) => {
 
 const confirmApproveOrder = () => {
     isLoading.value = true;
+    remarksForm.updatedOrderedItemDetails = itemsDetail.value;
     remarksForm.post(route("orders-approval.approve"), {
         onSuccess: () => {
             toast.add({

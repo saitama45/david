@@ -142,12 +142,12 @@ const isLoading = ref(false);
                                     .replace("_", " ")
                             }}</Label>
                         </DivFlexCenter>
-                        <DivFlexCenter class="justify-between py-3">
+                        <!-- <DivFlexCenter class="justify-between py-3">
                             <Label class="flex-1 self-start">Remarks: </Label>
                             <Label class="flex-1">{{
                                 order.remarks ?? "None"
                             }}</Label>
-                        </DivFlexCenter>
+                        </DivFlexCenter> -->
                         <DivFlexCenter class="justify-between py-3">
                             <Label class="flex-1 self-start"
                                 >Delivery Receipt Numbers:

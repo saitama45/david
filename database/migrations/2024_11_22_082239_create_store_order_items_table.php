@@ -16,6 +16,7 @@ return new class extends Migration
             $table->foreignId('store_order_id')->constrained('store_orders')->cascadeOnDelete();
             $table->foreignId('product_inventory_id')->constrained('product_inventories');
             $table->integer('quantity_ordered');
+            $table->integer('quantity_approved')->default(0);
             $table->integer('quantity_received')->default(0);
             $table->double('total_cost');
             $table->text('remarks')->nullable();

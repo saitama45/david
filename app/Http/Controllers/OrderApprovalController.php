@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Enum\OrderRequestStatus;
 use App\Models\Order;
 use App\Models\StoreOrder;
+use App\Models\StoreOrderItem;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -55,10 +56,10 @@ class OrderApprovalController extends Controller
 
     public function approve(Request $request)
     {
-        dd('green');
         $validated = $request->validate([
             'id' => ['required'],
-            'remarks' => ['sometimes']
+            'remarks' => ['sometimes'],
+            'updatedOrderedItemDetails' => ['required']
         ]);
         DB::beginTransaction();
         $storeOrder = StoreOrder::findOrFail($validated['id']);
@@ -67,6 +68,13 @@ class OrderApprovalController extends Controller
             'approver_id' => Auth::user()->id,
             'approval_action_date' => Carbon::now()
         ]);
+        foreach ($validated['updatedOrderedItemDetails'] as $item) {
+            $orderedItem = StoreOrderItem::find($item['id']);
+            $orderedItem->update([
+                'total_cost' => $item['total_cost'],
+                'quantity_approved' => $item['quantity_approved'],
+            ]);
+        }
         if (!empty($validated['remarks'])) {
             $storeOrder->store_order_remarks()->create([
                 'user_id' => Auth::user()->id,
@@ -74,6 +82,7 @@ class OrderApprovalController extends Controller
                 'remarks' => $validated['remarks']
             ]);
         }
+     
         DB::commit();
         return to_route('orders-approval.index');
     }

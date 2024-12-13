@@ -331,18 +331,37 @@ const calculatePULILANOrderDate = () => {
 
 const calculateGSIOrderDate = () => {
     const now = new Date();
+
+    const upcomingSunday = new Date(
+        now.getFullYear(),
+        now.getMonth(),
+        now.getDate() + (7 - now.getDay())
+    );
+
+    const secondBatchStartDate = new Date(
+        now.getFullYear(),
+        now.getMonth(),
+        upcomingSunday.getDate() + 4
+    );
+
+    const secondBatchEndDate = new Date(
+        now.getFullYear(),
+        now.getMonth(),
+        upcomingSunday.getDate() + 6
+    );
+
     const currentDay = now.getDay();
     const currentHour = now.getHours();
 
     const getNextDayOfWeek = (targetDay, forceNextWeek = false) => {
         const result = new Date(now);
-        
-        let daysToAdd = ((targetDay - now.getDay() + 7) % 7);
-        
+
+        let daysToAdd = (targetDay - now.getDay() + 7) % 7;
+
         if (forceNextWeek || daysToAdd === 0) {
             daysToAdd += 7;
         }
-        
+
         result.setDate(now.getDate() + daysToAdd);
         return result;
     };
@@ -361,8 +380,9 @@ const calculateGSIOrderDate = () => {
         orderRestrictionDate.minDate = nextSunday;
         orderRestrictionDate.maxDate = nextWednesday;
     } else {
-        orderRestrictionDate.minDate = nextThursday;
-        orderRestrictionDate.maxDate = nextSaturday;
+
+        orderRestrictionDate.minDate = secondBatchStartDate;
+        orderRestrictionDate.maxDate = secondBatchEndDate;
     }
 };
 watch(
