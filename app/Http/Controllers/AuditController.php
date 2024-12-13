@@ -10,8 +10,8 @@ class AuditController extends Controller
 {
     public function index()
     {
-        $audits = Audit::with('user')->paginate(10);
-        
+        $audits = Audit::with('user')->latest()->paginate(10);
+
         return Inertia::render('Audit/Index', [
             'audits' => $audits
         ]);

@@ -74,8 +74,8 @@ class ReceivingApprovalController extends Controller
             $data = OrderedItemReceiveDate::with(['store_order_item.store_order.store_order_items', 'store_order_item.product_inventory'])->find($validated['id']);
             $data->update(['is_approved' => true]);
             $item = $data->store_order_item->product_inventory;
-            $item->stock += $data->quantity_received;
-            $item->recently_added = $data->quantity_received;
+            // $item->stock += $data->quantity_received;
+            // $item->recently_added = $data->quantity_received;
 
             $orderedItems = $data->store_order_item->store_order->store_order_items;
             $storeOrder = $data->store_order_item->store_order;
