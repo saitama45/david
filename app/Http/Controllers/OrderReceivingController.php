@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Enum\OrderRequestStatus;
 use App\Enum\OrderStatus;
 use App\Models\DeliveryReceipt;
+use App\Models\ProductInventoryStock;
 use App\Models\StoreOrder;
 use App\Models\StoreOrderItem;
 use Illuminate\Http\Request;
@@ -63,7 +64,8 @@ class OrderReceivingController extends Controller
     public function receive(Request $request, $id)
     {
         $orderedItem = StoreOrderItem::with('store_order')->findOrFail($id);
-        // $order = $orderedItem->store_order;
+        $order = $orderedItem->store_order;
+        $productInventoryStock = ProductInventoryStock::where('product_inventory_id', $orderedItem->product_inventory_id)->where('store_branch_id', $order->store_branch_id)->first();
         // $totalOrderedQuantity = $order->store_order_items->sum('quantity_ordered');
         // $totalQuantityReceived = $order->store_order_items->sum('quantity_received');
 
@@ -99,7 +101,10 @@ class OrderReceivingController extends Controller
             'expiry_date' => $validated['expiry_date'],
             'remarks' => $validated['remarks'],
         ]);
+        $productInventoryStock->quantity += $validated['quantity_received'];
+        $productInventoryStock->recently_added = $validated['quantity_received'];
         $orderedItem->quantity_received += $validated['quantity_received'];
+        $productInventoryStock->save();
         $orderedItem->save();
         // $order->save();
         DB::commit();
