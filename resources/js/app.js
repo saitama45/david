@@ -33,6 +33,7 @@ import {
     EllipsisVertical,
     Minus,
     Plus,
+    MonitorCog,
 } from "lucide-vue-next";
 import ConfirmationService from "primevue/confirmationservice";
 import { Label } from "@/components/ui/label";
@@ -145,6 +146,7 @@ createInertiaApp({
             .component("LabelXS", LabelXS)
             .component("SpanBold", SpanBold)
             .component("EditButton", EditButton)
+            .component("MonitorCog", MonitorCog)
             .use(PrimeVue, {
                 theme: {
                     preset: Aura,

@@ -6,8 +6,10 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
+use Illuminate\Support\Facades\Auth;
 use OwenIt\Auditing\Contracts\Auditable;
 use Spatie\Permission\Traits\HasRoles;
+use OwenIt\Auditing\Models\Audit;
 
 class User extends Authenticatable implements Auditable
 {
@@ -71,5 +73,20 @@ class User extends Authenticatable implements Auditable
     public function getFullNameAttribute()
     {
         return $this->first_name . " " . $this->last_name;
+    }
+
+    public function auditEvent($event)
+    {
+        Audit::create([
+            'user_type' => self::class,
+            'user_id' => Auth::id(),
+            'auditable_type' => self::class,
+            'auditable_id'   => $this->id,
+            'event'          => $event,
+            'url'            => request()->fullUrl(),
+            'ip_address'     => request()->ip(),
+            'user_agent'     => request()->userAgent(),
+            'created_at'     => now(),
+        ]);
     }
 }

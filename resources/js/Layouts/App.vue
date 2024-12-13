@@ -23,6 +23,7 @@ import {
     LayoutList,
     Store,
     Container,
+    MonitorCog,
     UsersRound,
 } from "lucide-vue-next";
 import Toast from "primevue/toast";
@@ -113,7 +114,7 @@ const logout = () => {
                         <NavLink href="/dashboard" :icon="Home">
                             Dashboard
                         </NavLink>
-                        <NavLink href="/audits" :icon="Home">
+                        <NavLink href="/audits" :icon="MonitorCog">
                             Audits
                         </NavLink>
                         <DropdownMenuLabel v-if="canViewOrderingGroup">
