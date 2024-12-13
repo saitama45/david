@@ -157,6 +157,13 @@ const logout = () => {
                         <DropdownMenuLabel v-if="canViewSalesGroup">
                             Sales
                         </DropdownMenuLabel>
+                        <NavLink
+                            v-if="true"
+                            href="/product-sales"
+                            :icon="FileCheck"
+                        >
+                            Product Sales
+                        </NavLink>
                         <DropdownMenuLabel v-if="canViewInventoryGroup">
                             Inventory
                         </DropdownMenuLabel>
@@ -308,6 +315,13 @@ const logout = () => {
                                 <DropdownMenuLabel v-if="canViewSalesGroup">
                                     Sales
                                 </DropdownMenuLabel>
+                                <NavLink
+                                    v-if="true"
+                                    href="/product-sales"
+                                    :icon="FileCheck"
+                                >
+                                    Product Sales
+                                </NavLink>
                                 <DropdownMenuLabel v-if="canViewInventoryGroup">
                                     Inventory
                                 </DropdownMenuLabel>

@@ -10,6 +10,7 @@ use App\Http\Controllers\ItemController;
 use App\Http\Controllers\OrderApprovalController;
 use App\Http\Controllers\OrderReceivingController;
 use App\Http\Controllers\ProductOrderSummaryController;
+use App\Http\Controllers\ProductSalesController;
 use App\Http\Controllers\StoreOrderController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\ReceivingApprovalController;
@@ -156,6 +157,10 @@ Route::middleware('auth')
             Route::get('/', 'index')->name('index');
             Route::get('/show/{id}', 'show')->name('show');
             Route::post('/approve', 'approveReceivedItem')->name('approve-received-item');
+        });
+
+        Route::controller(ProductSalesController::class)->prefix('product-sales')->name('product-sales.')->group(function () {
+            Route::get('/', 'index')->name('index');
         });
 
         Route::get('/profile', [ProfileController::class, 'edit'])
