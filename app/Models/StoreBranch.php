@@ -6,11 +6,12 @@ use App\Traits\HasSelections;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Builder;
+use OwenIt\Auditing\Contracts\Auditable;
 
-class StoreBranch extends Model
+class StoreBranch extends Model implements Auditable
 {
     /** @use HasFactory<\Database\Factories\StoreBranchFactory> */
-    use HasFactory;
+    use HasFactory, \OwenIt\Auditing\Auditable;
 
     protected $fillable = [
         'id',

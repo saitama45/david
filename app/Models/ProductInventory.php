@@ -7,12 +7,13 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use OwenIt\Auditing\Contracts\Auditable;
 use PhpOffice\PhpSpreadsheet\Calculation\Category;
 
-class ProductInventory extends Model
+class ProductInventory extends Model implements Auditable
 {
     /** @use HasFactory<\Database\Factories\ProductInventoryFactory> */
-    use HasFactory;
+    use HasFactory, \OwenIt\Auditing\Auditable;
 
     protected $fillable = [
         'inventory_category_id',

@@ -4,11 +4,12 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use OwenIt\Auditing\Contracts\Auditable;
 
-class StoreOrder extends Model
+class StoreOrder extends Model implements Auditable
 {
     /** @use HasFactory<\Database\Factories\StoreOrderFactory> */
-    use HasFactory;
+    use HasFactory, \OwenIt\Auditing\Auditable;
     // Ordering -> Store Order
     //NNSSR-00001
 

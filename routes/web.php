@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\ApprovedReceivedItem;
 use App\Http\Controllers\ApprovedOrderController;
+use App\Http\Controllers\AuditController;
 use App\Http\Controllers\CategoryController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\ExcelTemplateController;
@@ -152,6 +153,8 @@ Route::middleware('auth')
             Route::get('/unit-of-measurements', 'index')->name('index');
             Route::post('/unit-of-measurements/update/{id}', 'update')->name('update');
         });
+
+        Route::get('/audits', [AuditController::class, 'index']);
 
         Route::controller(ReceivingApprovalController::class)->prefix('receiving-approvals')->name('receiving-approvals.')->group(function () {
             Route::get('/', 'index')->name('index');

@@ -113,6 +113,9 @@ const logout = () => {
                         <NavLink href="/dashboard" :icon="Home">
                             Dashboard
                         </NavLink>
+                        <NavLink href="/audits" :icon="Home">
+                            Audits
+                        </NavLink>
                         <DropdownMenuLabel v-if="canViewOrderingGroup">
                             Ordering
                         </DropdownMenuLabel>

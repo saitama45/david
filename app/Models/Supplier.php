@@ -6,11 +6,12 @@ use App\Traits\HasSelections;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Builder;
+use OwenIt\Auditing\Contracts\Auditable;
 
-class Supplier extends Model
+class Supplier extends Model implements Auditable
 {
     /** @use HasFactory<\Database\Factories\SupplierFactory> */
-    use HasFactory, HasSelections;
+    use HasFactory, HasSelections, \OwenIt\Auditing\Auditable;
 
     protected $fillable = [
         'supplier_code',

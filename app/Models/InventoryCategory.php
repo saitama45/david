@@ -6,11 +6,12 @@ use App\Traits\HasSelections;
 use App\Traits\Traits\ProductInventoryReference;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use OwenIt\Auditing\Contracts\Auditable;
 
-class InventoryCategory extends Model
+class InventoryCategory extends Model implements Auditable
 {
     /** @use HasFactory<\Database\Factories\InventoryCategoryFactory> */
-    use HasFactory, ProductInventoryReference, HasSelections;
+    use HasFactory, ProductInventoryReference, HasSelections, \OwenIt\Auditing\Auditable;
 
     protected $fillable = [
         'name',

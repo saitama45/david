@@ -14,19 +14,21 @@ const setChartData = () => {
     const documentStyle = getComputedStyle(document.body);
 
     return {
-        labels: ["Apple Chie", "Almond Crunch", "Ice Cream"],
+        labels: ["Apple Chie", "Almond Crunch", "Ice Cream", "Knorr"], 
         datasets: [
             {
-                data: [540, 325, 702],
+                data: [540, 325, 702, 200],
                 backgroundColor: [
-                    documentStyle.getPropertyValue("--p-cyan-500"),
+                    documentStyle.getPropertyValue("--p-blue-500"),
+                    documentStyle.getPropertyValue("--p-yellow-500"),
+                    documentStyle.getPropertyValue("--p-green-500"),
                     documentStyle.getPropertyValue("--p-orange-500"),
-                    documentStyle.getPropertyValue("--p-gray-500"),
                 ],
                 hoverBackgroundColor: [
-                    documentStyle.getPropertyValue("--p-cyan-400"),
+                    documentStyle.getPropertyValue("--p-blue-400"),
+                    documentStyle.getPropertyValue("--p-yellow-400"),
+                    documentStyle.getPropertyValue("--p-green-400"),
                     documentStyle.getPropertyValue("--p-orange-400"),
-                    documentStyle.getPropertyValue("--p-gray-400"),
                 ],
             },
         ],
