@@ -1,4 +1,6 @@
-<script setup></script>
+<script setup>
+
+</script>
 <template>
     <Layout heading="DST Orders > Create">
         <div class="grid sm:grid-cols-3 gap-5 grid-cols-1">
@@ -101,7 +103,6 @@
                             <TH> Total Cost </TH>
                             <TH> Action </TH>
                         </TableHead>
-
                         <TableBody> </TableBody>
                     </Table>
                 </CardContent>
@@ -110,5 +111,7 @@
                 </CardFooter>
             </Card>
         </div>
+
+       
     </Layout>
 </template>

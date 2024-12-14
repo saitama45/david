@@ -12,7 +12,7 @@ class DTSController extends Controller
         return Inertia::render('DTSOrder/Index');
     }
 
-    public function create()
+    public function create($variant)
     {
         return Inertia::render('DTSOrder/Create');
     }
