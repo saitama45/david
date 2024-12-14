@@ -4,11 +4,15 @@ const props = defineProps({
         type: Object,
     },
 });
-
 </script>
 <template>
     <Layout heading="Stocks">
         <TableContainer>
+            <TableHeader>
+                <SearchBar>
+                    <Input class="pl-10" placeholder="Search..." />
+                </SearchBar>
+            </TableHeader>
             <Table>
                 <TableHead>
                     <TH>Id</TH>

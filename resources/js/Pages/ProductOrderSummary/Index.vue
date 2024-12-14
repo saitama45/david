@@ -15,6 +15,11 @@ const showProductOrdersDetails = (id) => {
 <template>
     <Layout heading="Item Orders Summary">
         <TableContainer>
+            <TableHeader>
+                <SearchBar>
+                    <Input class="pl-10" placeholder="Search..." />
+                </SearchBar>
+            </TableHeader>
             <Table>
                 <TableHead>
                     <TH>Id</TH>

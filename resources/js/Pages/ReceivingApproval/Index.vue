@@ -10,6 +10,14 @@ const props = defineProps({
 <template>
     <Layout heading="Received Orders For Approval List">
         <TableContainer>
+            <TableHeader>
+                <SearchBar>
+                    <Input
+                        class="pl-10"
+                        placeholder="Search..."
+                    />
+                </SearchBar>
+            </TableHeader>
             <Table>
                 <TableHead>
                     <TH>Id</TH>

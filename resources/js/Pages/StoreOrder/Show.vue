@@ -64,7 +64,7 @@ const copyOrderAndCreateAnother = (id) => {
                         </Badge>
                     </span>
                     <span class="text-gray-700 text-sm">
-                        Store Branch: 
+                        Store Branch:
                         <span class="font-bold">
                             {{ order.store_branch.name }}</span
                         >
@@ -84,9 +84,12 @@ const copyOrderAndCreateAnother = (id) => {
                     Copy Order and Create Another
                 </Button>
             </DivFlexCenter>
-            <DivFlexCenter class="justify-between">
-                <SearchBar />
-            </DivFlexCenter>
+
+            <TableHeader>
+                <SearchBar>
+                    <Input class="pl-10" placeholder="Search..." />
+                </SearchBar>
+            </TableHeader>
 
             <Table>
                 <TableHead>

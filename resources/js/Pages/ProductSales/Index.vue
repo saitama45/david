@@ -10,6 +10,11 @@ defineProps({
 <template>
     <Layout heading="Product Sales Data">
         <TableContainer>
+            <TableHeader>
+                <SearchBar>
+                    <Input class="pl-10" placeholder="Search..." />
+                </SearchBar>
+            </TableHeader>
             <Table>
                 <TableHead>
                     <TD>Product</TD>
