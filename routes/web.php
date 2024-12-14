@@ -34,7 +34,7 @@ Route::middleware('auth')
 
         Route::controller(ExcelTemplateController::class)
             ->name('excel.')
-            ->prefix('excel')
+            ->prefix('excel') 
             ->group(function () {
 
                 Route::get('/gsi-bakery-template', 'gsiBakeryTemplate')
@@ -164,6 +164,7 @@ Route::middleware('auth')
 
         Route::controller(ProductSalesController::class)->prefix('product-sales')->name('product-sales.')->group(function () {
             Route::get('/', 'index')->name('index');
+            Route::get('/show/{id}', 'show')->name('show');
         });
 
         Route::get('/profile', [ProfileController::class, 'edit'])

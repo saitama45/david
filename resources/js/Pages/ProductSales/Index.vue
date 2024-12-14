@@ -34,7 +34,10 @@ defineProps({
                             parseFloat(item.cost * item.total_sold).toFixed(2)
                         }}</TD>
                         <TD>
-                            <ShowButton />
+                            <ShowButton
+                                :isLink="true"
+                                :href="`/product-sales/show/${item.id}`"
+                            />
                         </TD>
                     </tr>
                 </TableBody>
