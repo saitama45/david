@@ -5,6 +5,7 @@ use App\Http\Controllers\ApprovedOrderController;
 use App\Http\Controllers\AuditController;
 use App\Http\Controllers\CategoryController;
 use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\DTSController;
 use App\Http\Controllers\ExcelTemplateController;
 use App\Http\Controllers\InvetoryCategoryController;
 use App\Http\Controllers\ItemController;
@@ -152,6 +153,11 @@ Route::middleware('auth')
         Route::controller(UnitOfMeasurementController::class)->name('unit-of-measurements.')->group(function () {
             Route::get('/unit-of-measurements', 'index')->name('index');
             Route::post('/unit-of-measurements/update/{id}', 'update')->name('update');
+        });
+
+        Route::controller(DTSController::class)->name('dts-orders.')->prefix('dts-orders')->group(function(){
+            Route::get('/', 'index')->name('index');
+            Route::get('/create', 'create')->name('create');
         });
 
         Route::get('/audits', [AuditController::class, 'index']);

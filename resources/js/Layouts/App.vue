@@ -128,6 +128,13 @@ const logout = () => {
                             Store Orders
                         </NavLink>
                         <NavLink
+                            v-if="canViewStoreOrderPage"
+                            href="/dts-orders"
+                            :icon="ShoppingCart"
+                        >
+                            DTS Orders
+                        </NavLink>
+                        <NavLink
                             v-if="canViewOrderApprovals"
                             href="/orders-approval"
                             :icon="SquareChartGantt"
