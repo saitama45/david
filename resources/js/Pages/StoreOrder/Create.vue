@@ -380,7 +380,6 @@ const calculateGSIOrderDate = () => {
         orderRestrictionDate.minDate = nextSunday;
         orderRestrictionDate.maxDate = nextWednesday;
     } else {
-
         orderRestrictionDate.minDate = secondBatchStartDate;
         orderRestrictionDate.maxDate = secondBatchEndDate;
     }
@@ -637,6 +636,7 @@ watch(
                 </div>
                 <DialogFooter>
                     <Button
+                        :disabled="isLoading"
                         @click="addImportedItemsToOrderList"
                         type="submit"
                         class="gap-2"

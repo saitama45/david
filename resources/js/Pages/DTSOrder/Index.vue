@@ -20,7 +20,7 @@ const showVariantChoices = () => {
 };
 
 const proceed = () => {
-    console.log(variant.value);
+    if (!variant.value) return;
     router.get(`/dts-orders/create/${variant.value}`);
 };
 
@@ -125,7 +125,12 @@ const handleClick = () => {
                 </Select>
 
                 <DialogFooter>
-                    <Button @click="proceed" type="submit" class="gap-2">
+                    <Button
+                        :disabled="isLoading"
+                        @click="proceed"
+                        type="submit"
+                        class="gap-2"
+                    >
                         Proceed
                         <span><Loading v-if="isLoading" /></span>
                     </Button>

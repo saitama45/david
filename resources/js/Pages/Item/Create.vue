@@ -233,7 +233,12 @@ const openFormModal = () => {
                 </div>
             </div>
             <DialogFooter>
-                <Button @click="importFile" type="submit" class="gap-2">
+                <Button
+                    :disabled="isLoading"
+                    @click="importFile"
+                    type="submit"
+                    class="gap-2"
+                >
                     Proceed
                     <span><Loading v-if="isLoading" /></span>
                 </Button>
