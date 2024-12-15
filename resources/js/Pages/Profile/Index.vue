@@ -1,12 +1,24 @@
 <script setup>
 import Logo from "../../../images/logo.png";
 import { useForm, router } from "@inertiajs/vue3";
+const { user } = defineProps({
+    user: {
+        type: Object,
+        required: true,
+    },
+});
 const form = useForm({
-    first_name: null,
-    middle_name: null,
-    last_name: null,
-    phone_number: null,
-    email: null,
+    first_name: user.first_name,
+    middle_name: user.middle_name,
+    last_name: user.last_name,
+    phone_number: user.phone_number,
+    email: user.email,
+});
+
+const passwordForm = useForm({
+    current_password: null,
+    password: null,
+    confirm_password: null,
 });
 </script>
 
@@ -22,9 +34,15 @@ const form = useForm({
 
                 <DivFlexCol class="gap-5 h-56">
                     <section>
-                        <h1 class="font-bold text-2xl">Nathaniel Alvarez</h1>
+                        <h1 class="font-bold text-2xl">
+                            {{ user.first_name + " " + user.last_name }}
+                        </h1>
                         <p class="text-blue-500 font-bold text-sm">
-                            Admin, So Encoder
+                            {{
+                                user.roles
+                                    .map((role) => role.name.toUpperCase())
+                                    .join(",")
+                            }}
                         </p>
                     </section>
 
@@ -36,21 +54,23 @@ const form = useForm({
                             <span class="font-bold text-gray-800 text-sm"
                                 >Phone:
                             </span>
-                            <span class="font-bold text-blue-500 text-sm"
-                                >09288229210
+                            <span class="font-bold text-blue-500 text-sm">
+                                {{ user.phone_number }}
                             </span>
                             <span class="font-bold text-gray-800 text-sm"
                                 >Email:
                             </span>
-                            <span class="font-bold text-blue-500 text-sm"
-                                >nathaniel@gmail.com
+                            <span class="font-bold text-blue-500 text-sm">
+                                {{ user.email }}
                             </span>
                         </section>
                     </DivFlexCol>
 
                     <DivFlexCol class="gap-3">
                         <span class="text-xs text-gray-800">Remarks</span>
-                        <span class="text-sm text-gray-800 font-bold">N/a</span>
+                        <span class="text-sm text-gray-800 font-bold">{{
+                            user.remarks ?? "N/a"
+                        }}</span>
                     </DivFlexCol>
                 </DivFlexCol>
             </DivFlexCenter>
@@ -105,18 +125,22 @@ const form = useForm({
             <CardContent class="space-y-4">
                 <InputContainer>
                     <Label>Current Password</Label>
-                    <Input v-model="form.phone_number" />
-                    <FormError>{{ form.errors.phone_number }}</FormError>
+                    <Input v-model="passwordForm.current_password" />
+                    <FormError>{{
+                        passwordForm.errors.current_password
+                    }}</FormError>
                 </InputContainer>
                 <InputContainer>
                     <Label>New Password</Label>
-                    <Input v-model="form.phone_number" />
-                    <FormError>{{ form.errors.phone_number }}</FormError>
+                    <Input v-model="passwordForm.password" />
+                    <FormError>{{ passwordForm.errors.password }}</FormError>
                 </InputContainer>
                 <InputContainer>
                     <Label>Confirm Password</Label>
-                    <Input v-model="form.phone_number" />
-                    <FormError>{{ form.errors.phone_number }}</FormError>
+                    <Input v-model="passwordForm.confirm_password" />
+                    <FormError>{{
+                        passwordForm.errors.confirm_password
+                    }}</FormError>
                 </InputContainer>
             </CardContent>
             <CardFooter class="justify-end gap-3">
