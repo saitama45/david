@@ -79,7 +79,7 @@ import EditButton from "./Components/button/EditButton.vue";
 const appName = import.meta.env.VITE_APP_NAME || "Laravel";
 
 createInertiaApp({
-    title: (title) => `Project David`,
+    title: (title) => `David`,
     resolve: (name) =>
         resolvePageComponent(
             `./Pages/${name}.vue`,
