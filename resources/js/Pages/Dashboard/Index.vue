@@ -1,6 +1,7 @@
 <script setup>
 import StatisticOverview from "../../Components/dashboard/StatisticOverview.vue";
 import Chart from "primevue/chart";
+import { router } from "@inertiajs/vue3";
 
 onMounted(() => {
     chartData.value = setChartData();
@@ -14,7 +15,7 @@ const setChartData = () => {
     const documentStyle = getComputedStyle(document.body);
 
     return {
-        labels: ["Apple Chie", "Almond Crunch", "Ice Cream", "Knorr"], 
+        labels: ["Apple Chie", "Almond Crunch", "Ice Cream", "Knorr"],
         datasets: [
             {
                 data: [540, 325, 702, 200],
@@ -49,6 +50,10 @@ const setChartOptions = () => {
             },
         },
     };
+};
+
+const test = () => {
+    router.get("/test");
 };
 </script>
 <template>

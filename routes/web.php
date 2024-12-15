@@ -32,6 +32,9 @@ Route::middleware('auth')
         Route::get('/dashboard', [DashboardController::class, 'index'])
             ->name('dashboard');
 
+        Route::get('/test', [DashboardController::class, 'test'])
+            ->name('test');
+
 
         Route::controller(ExcelTemplateController::class)
             ->name('excel.')
@@ -187,7 +190,3 @@ Route::middleware('auth')
     });
 
 require __DIR__ . '/auth.php';
-
-Route::get('/test', function () {
-    return phpinfo();
-});
