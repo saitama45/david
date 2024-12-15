@@ -35,7 +35,7 @@ Route::middleware('auth')
 
         Route::controller(ExcelTemplateController::class)
             ->name('excel.')
-            ->prefix('excel') 
+            ->prefix('excel')
             ->group(function () {
 
                 Route::get('/gsi-bakery-template', 'gsiBakeryTemplate')
@@ -155,7 +155,7 @@ Route::middleware('auth')
             Route::post('/unit-of-measurements/update/{id}', 'update')->name('update');
         });
 
-        Route::controller(DTSController::class)->name('dts-orders.')->prefix('dts-orders')->group(function(){
+        Route::controller(DTSController::class)->name('dts-orders.')->prefix('dts-orders')->group(function () {
             Route::get('/', 'index')->name('index');
             Route::get('/create/{variant}', 'create')->name('create');
         });
@@ -173,14 +173,17 @@ Route::middleware('auth')
             Route::get('/show/{id}', 'show')->name('show');
         });
 
-        Route::get('/profile', [ProfileController::class, 'edit'])
-            ->name('profile.edit');
+        Route::get('/profile', [ProfileController::class, 'index'])
+            ->name('profile.index');
 
-        Route::patch('/profile', [ProfileController::class, 'update'])
-            ->name('profile.update');
+        // Route::get('/profile', [ProfileController::class, 'edit'])
+        //     ->name('profile.edit');
 
-        Route::delete('/profile', [ProfileController::class, 'destroy'])
-            ->name('profile.destroy');
+        // Route::patch('/profile', [ProfileController::class, 'update'])
+        //     ->name('profile.update');
+
+        // Route::delete('/profile', [ProfileController::class, 'destroy'])
+        //     ->name('profile.destroy');
     });
 
 require __DIR__ . '/auth.php';
