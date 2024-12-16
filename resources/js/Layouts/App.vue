@@ -109,7 +109,9 @@ const logout = () => {
                         <span class="sr-only">Toggle notifications</span>
                     </Button>
                 </div>
-                <div class="flex-1 overflow-y-auto">
+                <div
+                    class="flex-1 overflow-y-auto scrollbar-thin scrollbar-track-gray-100 scrollbar-thumb-gray-300 hover:scrollbar-thumb-gray-400"
+                >
                     <nav class="grid items-start pl-4 text-sm font-medium">
                         <NavLink href="/dashboard" :icon="Home">
                             Dashboard
@@ -448,7 +450,7 @@ const logout = () => {
                 </DropdownMenu>
             </header>
             <main
-                class="flex-1 flex flex-col gap-4 p-4 lg:gap-6 lg:p-6 overflow-y-scroll"
+                class="flex-1 flex flex-col gap-4 p-4 lg:gap-6 lg:p-6 overflow-y-scroll scrollbar-thin scrollbar-track-gray-100 scrollbar-thumb-gray-300 hover:scrollbar-thumb-gray-400"
             >
                 <div class="flex items-center justify-between">
                     <h1 class="text-lg font-semibold md:text-2xl">
