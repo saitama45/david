@@ -89,9 +89,9 @@ const logout = () => {
     <Toast />
     <ConfirmDialog></ConfirmDialog>
     <div
-        class="grid min-h-screen max-h-screen w-full md:grid-cols-[220px_1fr] lg:grid-cols-[280px_1fr]"
+        class="grid min-h-screen max-h-screen w-full md:grid-cols-[220px_1fr] lg:grid-cols-[280px_1fr] overflow-hidden"
     >
-        <div class="hidden border-r bg-muted/40 md:block">
+        <div class="hidden border-r bg-muted/40 md:block overflow-hidden">
             <div class="flex h-full max-h-screen flex-col gap-2">
                 <div
                     class="flex h-14 items-center border-b px-4 lg:h-[60px] lg:px-6"
@@ -109,7 +109,7 @@ const logout = () => {
                         <span class="sr-only">Toggle notifications</span>
                     </Button>
                 </div>
-                <div class="flex-1">
+                <div class="flex-1 overflow-y-auto">
                     <nav class="grid items-start pl-4 text-sm font-medium">
                         <NavLink href="/dashboard" :icon="Home">
                             Dashboard
@@ -247,11 +247,12 @@ const logout = () => {
                 </div>
             </div>
         </div>
-        <div class="flex flex-col overflow-hidden">
+
+        <div class="flex flex-col overflow-hidden min-h-screen max-h-screen">
             <header
-                class="flex h-14 items-center gap-4 border-b bg-muted/40 px-4 lg:h-[60px] lg:px-6"
+                class="flex-shrink-0 flex h-14 items-center gap-4 border-b bg-muted/40 px-4 lg:h-[60px] lg:px-6"
             >
-                <Sheet>
+                <Sheet class="overflow-scroll">
                     <SheetTrigger as-child>
                         <Button
                             variant="outline"
@@ -266,7 +267,9 @@ const logout = () => {
                         side="left"
                         class="flex flex-col overflow-scroll"
                     >
-                        <nav class="grid gap-2 text-lg font-medium">
+                        <nav
+                            class="grid gap-2 text-lg font-medium overflow-scroll"
+                        >
                             <!-- Logo -->
                             <a
                                 href="#"
@@ -404,6 +407,7 @@ const logout = () => {
                         </nav>
                     </SheetContent>
                 </Sheet>
+
                 <div class="w-full flex-1">
                     <!-- <form>
                         <div class="relative">
@@ -444,7 +448,7 @@ const logout = () => {
                 </DropdownMenu>
             </header>
             <main
-                class="flex flex-1 flex-col gap-4 p-4 lg:gap-6 lg:p-6 bg-white/10 overflow-auto"
+                class="flex-1 flex flex-col gap-4 p-4 lg:gap-6 lg:p-6 overflow-y-scroll"
             >
                 <div class="flex items-center justify-between">
                     <h1 class="text-lg font-semibold md:text-2xl">
