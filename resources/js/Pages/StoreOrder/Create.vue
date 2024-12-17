@@ -332,6 +332,18 @@ const calculatePULILANOrderDate = () => {
 const calculateGSIOrderDate = () => {
     const now = new Date();
 
+    const nextSunday = new Date(
+        now.getFullYear(),
+        now.getMonth(),
+        now.getDate() + (7 - now.getDay())
+    );
+
+    const nextWednesday = new Date(
+        now.getFullYear(),
+        now.getMonth(),
+        nextSunday.getDate() + 3
+    );
+
     const upcomingSunday = new Date(
         now.getFullYear(),
         now.getMonth(),
@@ -353,31 +365,13 @@ const calculateGSIOrderDate = () => {
     const currentDay = now.getDay();
     const currentHour = now.getHours();
 
-    const getNextDayOfWeek = (targetDay, forceNextWeek = false) => {
-        const result = new Date(now);
-
-        let daysToAdd = (targetDay - now.getDay() + 7) % 7;
-
-        if (forceNextWeek || daysToAdd === 0) {
-            daysToAdd += 7;
-        }
-
-        result.setDate(now.getDate() + daysToAdd);
-        return result;
-    };
-    const nextSunday = getNextDayOfWeek(0, true);
-    const nextWednesday = getNextDayOfWeek(3, true);
-
-    const nextThursday = getNextDayOfWeek(4, true);
-    const nextSaturday = getNextDayOfWeek(6, true);
-
     if (
         currentDay === 0 ||
         currentDay === 1 ||
         currentDay === 2 ||
         (currentDay === 3 && currentHour < 7)
     ) {
-        orderRestrictionDate.minDate = nextSunday;
+        orderRestrictionDate.minDate = upcomingSunday;
         orderRestrictionDate.maxDate = nextWednesday;
     } else {
         orderRestrictionDate.minDate = secondBatchStartDate;
