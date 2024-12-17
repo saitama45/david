@@ -1,5 +1,27 @@
 <script setup>
+import { useForm } from "@inertiajs/vue3";
+const { suppliers, items } = defineProps({
+    suppliers: {
+        type: Object,
+        required: true,
+    },
+    items: {
+        type: Object,
+        required: true,
+    },
+});
 
+import { useSelectOptions } from "@/Composables/useSelectOptions";
+
+const { options: itemsOption } = useSelectOptions(items);
+const { options: suppliersOptions } = useSelectOptions(suppliers);
+
+const orderForm = useForm({
+    branch_id: null,
+    supplier_id: Object.keys(suppliers)[0] + "",
+    order_date: null,
+    orders: [],
+});
 </script>
 <template>
     <Layout heading="DST Orders > Create">
@@ -18,8 +40,10 @@
                             <Select
                                 filter
                                 placeholder="Select a Supplier"
+                                :options="suppliersOptions"
                                 optionLabel="label"
                                 optionValue="value"
+                                v-model="orderForm.supplier_id"
                             >
                             </Select>
                             <FormError></FormError>
@@ -63,6 +87,7 @@
                                 placeholder="Select an Item"
                                 optionLabel="label"
                                 optionValue="value"
+                                :options="itemsOption"
                             >
                             </Select>
                             <FormError></FormError>
@@ -111,7 +136,5 @@
                 </CardFooter>
             </Card>
         </div>
-
-       
     </Layout>
 </template>

@@ -18,7 +18,6 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Maatwebsite\Excel\Facades\Excel;
 
-use function Pest\Laravel\get;
 
 class StoreOrderController extends Controller
 {
@@ -77,12 +76,12 @@ class StoreOrderController extends Controller
             $orderId = $request->input('orderId');
             $previousOrder = StoreOrder::with(['store_order_items', 'store_order_items.product_inventory', 'store_order_items.product_inventory.unit_of_measurement'])->find($orderId);
         }
+
         $products = ProductInventory::options();
-        $suppliers = Supplier::options();
+        $suppliers = Supplier::whereNot('supplier_code', 'DROPS')->options();
         $user = Auth::user();
 
         if (in_array('so encoder', $user->roles->pluck('name')->toArray()) && !in_array('admin', $user->roles->pluck('name')->toArray())) {
-
             $assignedBranches = $user->store_branches->pluck('id');
             $branches = StoreBranch::whereIn('id', $assignedBranches)->options();
         } else {
@@ -158,23 +157,6 @@ class StoreOrderController extends Controller
         ]);
     }
 
-    public function validateHeaderUpload(StoreOrderRequest $storeOrderRequest)
-    {
-        $import = new OrderListImport();
-        Excel::import($import, $storeOrderRequest->file('orders_list'));
-
-        $importedCollection = $import->getImportedData();
-        $products = Product::select('ID', 'InventoryName')
-            ->limit(10)
-            ->get()
-            ->pluck('InventoryName', 'ID');
-
-        return Inertia::render('StoreOrder/Create', [
-            'orders' => $importedCollection,
-            'products' => $products,
-            'orderDate' => $storeOrderRequest->store_order_date
-        ]);
-    }
 
     public function edit($id)
     {
