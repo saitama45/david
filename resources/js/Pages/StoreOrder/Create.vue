@@ -365,9 +365,9 @@ const calculateGSIOrderDate = () => {
         result.setDate(now.getDate() + daysToAdd);
         return result;
     };
-
-    const nextWednesday = getNextDayOfWeek(3, true);
     const nextSunday = getNextDayOfWeek(0, true);
+    const nextWednesday = getNextDayOfWeek(3, true);
+
     const nextThursday = getNextDayOfWeek(4, true);
     const nextSaturday = getNextDayOfWeek(6, true);
 
@@ -405,7 +405,6 @@ watch(
         }
     }
 );
-
 </script>
 
 <template>

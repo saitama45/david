@@ -34,7 +34,9 @@ class StoreOrderController extends Controller
 
         $user = Auth::user();
 
-        if ($user->role === 'so_encoder') {
+
+        if (in_array('so encoder', $user->roles->pluck('name')->toArray()) && !in_array('admin', $user->roles->pluck('name')->toArray())) {
+
             $query->whereIn('store_branch_id', $user->store_branches->pluck('id'));
         }
 
@@ -78,12 +80,15 @@ class StoreOrderController extends Controller
         $products = ProductInventory::options();
         $suppliers = Supplier::options();
         $user = Auth::user();
-        if ($user->role == 'so_encoder') {
+
+        if (in_array('so encoder', $user->roles->pluck('name')->toArray()) && !in_array('admin', $user->roles->pluck('name')->toArray())) {
+
             $assignedBranches = $user->store_branches->pluck('id');
             $branches = StoreBranch::whereIn('id', $assignedBranches)->options();
         } else {
             $branches = StoreBranch::options();
         }
+
         return Inertia::render('StoreOrder/Create', [
             'products' => $products,
             'branches' => $branches,
