@@ -2,6 +2,7 @@
 
 namespace Database\Seeders;
 
+use App\Models\DeliverySchedule;
 use App\Models\User;
 // use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
@@ -52,7 +53,8 @@ class DatabaseSeeder extends Seeder
             ProductCategorySeeder::class,
             InventoryCategorySeeder::class,
             StoreBranchSeeder::class,
-            SupplierSeeder::class
+            SupplierSeeder::class,
+            DeliveryScheduleSeeder::class
         ]);
     }
 }

@@ -44,4 +44,9 @@ class StoreBranch extends Model implements Auditable
     {
         return $this->belongsTo(ProductInventoryStock::class);
     }
+
+    public function delivery_schedule()
+    {
+        return $this->belongsToMany(DeliverySchedule::class);
+    }
 }
