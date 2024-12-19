@@ -3,6 +3,7 @@
 namespace Database\Seeders;
 
 use App\Models\DeliverySchedule;
+use App\Models\DTSDeliverySchedule;
 use App\Models\User;
 // use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
@@ -54,7 +55,8 @@ class DatabaseSeeder extends Seeder
             InventoryCategorySeeder::class,
             StoreBranchSeeder::class,
             SupplierSeeder::class,
-            DeliveryScheduleSeeder::class
+            DeliveryScheduleSeeder::class,
+            DTSDeliveryScheduleSeeder::class
         ]);
     }
 }

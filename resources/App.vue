@@ -98,7 +98,7 @@ const logout = () => {
                 >
                     <a href="/" class="flex items-center font-semibold">
                         <img :src="Logo" alt="logo" class="size-20" />
-                        <span class="font-bold">DAVID</span>
+                        <span class="font-bold">David</span>
                     </a>
                     <Button
                         variant="outline"
@@ -116,7 +116,7 @@ const logout = () => {
                         <NavLink href="/dashboard" :icon="Home">
                             Dashboard
                         </NavLink>
-                        <NavLink href="/audits" :icon="MonitorCog" v-if="false">
+                        <NavLink href="/audits" :icon="MonitorCog">
                             Audits
                         </NavLink>
                         <DropdownMenuLabel v-if="canViewOrderingGroup">

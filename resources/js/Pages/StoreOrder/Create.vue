@@ -458,6 +458,7 @@ watch(
                                 :showOnFocus="false"
                                 :minDate="orderRestrictionDate.minDate"
                                 :maxDate="orderRestrictionDate.maxDate"
+                                :manualInput="true"
                             />
                             <FormError>{{
                                 orderForm.errors.order_date

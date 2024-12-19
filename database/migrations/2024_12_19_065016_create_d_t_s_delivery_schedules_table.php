@@ -15,6 +15,7 @@ return new class extends Migration
             $table->id();
             $table->foreignId('delivery_schedule_id')->constrained('delivery_schedules')->cascadeOnDelete();
             $table->foreignId('store_branch_id')->constrained('store_branches')->cascadeOnDelete();
+            $table->string('variant');
             $table->timestamps();
         });
     }

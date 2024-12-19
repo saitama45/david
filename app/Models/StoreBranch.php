@@ -45,8 +45,13 @@ class StoreBranch extends Model implements Auditable
         return $this->belongsTo(ProductInventoryStock::class);
     }
 
-    public function delivery_schedule()
+    public function delivery_schedules()
     {
-        return $this->belongsToMany(DeliverySchedule::class);
+        return $this->belongsToMany(
+            DeliverySchedule::class,
+            'd_t_s_delivery_schedules',
+            'store_branch_id',
+            'delivery_schedule_id'
+        );
     }
 }

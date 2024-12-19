@@ -12,7 +12,7 @@ class DTSDeliverySchedule extends Model
 
     protected $fillable = [
         'delivery_schedule_id',
-        'store_branch_id'
+        'store_branch_id',
+        'variant'
     ];
-    
 }

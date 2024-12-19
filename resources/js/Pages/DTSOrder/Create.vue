@@ -1,6 +1,6 @@
 <script setup>
 import { useForm } from "@inertiajs/vue3";
-const { suppliers, items } = defineProps({
+const { suppliers, items, branches, variant } = defineProps({
     suppliers: {
         type: Object,
         required: true,
@@ -9,12 +9,23 @@ const { suppliers, items } = defineProps({
         type: Object,
         required: true,
     },
+    branches: {
+        type: Object,
+        required: true,
+    },
+    variant: {
+        required: true,
+        type: String,
+    },
 });
+
+console.log(variant);
 
 import { useSelectOptions } from "@/Composables/useSelectOptions";
 
 const { options: itemsOption } = useSelectOptions(items);
 const { options: suppliersOptions } = useSelectOptions(suppliers);
+const { options: branchesOptions } = useSelectOptions(branches);
 
 const orderForm = useForm({
     branch_id: null,
@@ -22,9 +33,55 @@ const orderForm = useForm({
     order_date: null,
     orders: [],
 });
+
+const allowedDays = ref([]);
+
+const dayNameToNumber = {
+    SUNDAY: 0,
+    MONDAY: 1,
+    TUESDAY: 2,
+    WEDNESDAY: 3,
+    THURSDAY: 4,
+    FRIDAY: 5,
+    SATURDAY: 6,
+};
+
+watch(
+    () => orderForm.branch_id,
+    (value) => {
+        if (value) {
+            axios
+                .get(route("schedule.show", value), {
+                    params: { variant: variant },
+                })
+                .then((response) => {
+                    const days = response.data.map(
+                        (item) => dayNameToNumber[item]
+                    );
+                    let daysOfWeek = [0, 1, 2, 3, 4, 5, 6];
+                    allowedDays.value = daysOfWeek.filter(
+                        (item) => !days.includes(item)
+                    );
+                    console.log(allowedDays.value);
+                })
+                .catch((err) => console.log(err));
+        }
+    }
+);
+const getNextSunday = () => {
+    const today = new Date();
+    const dayOfWeek = today.getDay();
+    const daysUntilNextSunday = (7 - dayOfWeek) % 7 || 7;
+
+    const nextSunday = new Date(today);
+    nextSunday.setDate(today.getDate() + daysUntilNextSunday);
+    return nextSunday;
+};
+
+//Proxy(Array) {0: 1, 1: 3, 2: 5}
 </script>
 <template>
-    <Layout heading="DST Orders > Create">
+    <Layout :heading="`DST Orders > ${variant.toUpperCase()} > Create`">
         <div class="grid sm:grid-cols-3 gap-5 grid-cols-1">
             <section class="grid gap-5">
                 <Card>
@@ -53,8 +110,10 @@ const orderForm = useForm({
                             <Select
                                 filter
                                 placeholder="Select a Store"
+                                :options="branchesOptions"
                                 optionLabel="label"
                                 optionValue="value"
+                                v-model="orderForm.branch_id"
                             >
                             </Select>
                             <FormError></FormError>
@@ -62,10 +121,13 @@ const orderForm = useForm({
                         <div class="flex flex-col space-y-1">
                             <InputLabel label="Order Date" />
                             <DatePicker
+                                v-model="orderForm.order_date"
                                 showIcon
                                 fluid
+                                :disabledDays="allowedDays"
                                 dateFormat="yy/mm/dd"
                                 :showOnFocus="false"
+                                :minDate="new Date()"
                             />
                             <FormError></FormError>
                         </div>

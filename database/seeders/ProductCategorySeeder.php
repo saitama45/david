@@ -27,15 +27,15 @@ class ProductCategorySeeder extends Seeder
             'MKTG',
             'RETAIL',
             'SMALLWARES',
-            'WORK IN PROCESS'
+            'WORK IN PROCESS',
+            'ICE CREAM',
+            'SALMON',
         ];
 
-        foreach($categories as $category){
+        foreach ($categories as $category) {
             ProductCategory::create([
                 'name' => $category
             ]);
         }
-
-        
     }
 }

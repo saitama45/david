@@ -79,4 +79,14 @@ class ProductInventoryImport implements ToModel, WithHeadingRow
         $status = trim($status);
         return $this->statuses[$status] ?? false;
     }
+
+    public function chunkSize(): int
+    {
+        return 1000;
+    }
+
+    public function batchSize(): int
+    {
+        return 500;
+    }
 }

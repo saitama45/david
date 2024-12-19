@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\ProductInventory;
+use App\Models\StoreBranch;
 use App\Models\Supplier;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -20,13 +21,23 @@ class DTSController extends Controller
         $items = ProductInventory::whereHas(
             'product_categories',
             function ($query) use ($variant) {
-                $query->where('name', $variant);
+                $query->where('name', strtoupper($variant));
             }
         )->options();
+        if ($variant === 'ice cream') {
+            $branches = StoreBranch::whereIn('id', [11, 31, 17, 22])->options();
+        }
+        if ($variant === 'salmon') {
+            $branches = StoreBranch::whereIn('id', [21, 22, 23])->options();
+        }
 
         return Inertia::render('DTSOrder/Create', [
             'suppliers' => $suppliers,
-            'items' => $items
+            'items' => $items,
+            'branches' => $branches,
+            'variant' => $variant
         ]);
     }
+
+    public function getDTSSchedules() {}
 }
