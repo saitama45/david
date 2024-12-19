@@ -111,7 +111,7 @@ const store = () => {
         },
     });
 };
-// Nat - (This function will just check if the value item select changed to set the UOM accordingly)
+
 watch(productId, (newValue) => {
     if (newValue) {
         isLoading.value = true;

@@ -25,6 +25,7 @@ return new class extends Migration
             $table->date('order_date');
             $table->enum('order_status', OrderStatus::values())->default(OrderStatus::PENDING->value);
             $table->enum('order_request_status', OrderRequestStatus::values())->default(OrderStatus::PENDING->value);
+            $table->string('type')->default('normal');
             $table->text('remarks')->nullable();
             $table->dateTime('approval_action_date')->nullable();
             $table->timestamps();

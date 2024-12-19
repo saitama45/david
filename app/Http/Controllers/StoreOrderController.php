@@ -51,12 +51,12 @@ class StoreOrderController extends Controller
                     $query->where('name', 'like', '%' . $search . '%');
                 });;
 
-
-
         $orders = $query
             ->whereBetween('created_at', [$from, $to])
+            ->where('type', 'normal')
             ->latest()
             ->paginate(10);
+            
         $branches = StoreBranch::options();
 
 

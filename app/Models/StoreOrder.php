@@ -23,6 +23,7 @@ class StoreOrder extends Model implements Auditable
         'order_status',
         'order_request_status',
         'remarks',
+        'type',
         'approval_action_date',
     ];
 
@@ -46,8 +47,6 @@ class StoreOrder extends Model implements Auditable
     {
         return $this->hasMany(StoreOrderItem::class);
     }
-
-
 
     public function ordered_item_receive_dates()
     {

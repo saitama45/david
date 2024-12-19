@@ -9,6 +9,7 @@ import {
     SelectValue,
 } from "@/components/ui/select";
 import { router } from "@inertiajs/vue3";
+import { usePage } from "@inertiajs/vue3";
 const filter = ref("all");
 const changeFilter = (currentFilter) => {};
 const variant = ref("");
@@ -39,9 +40,34 @@ const variants = [
     },
 ];
 
-const handleClick = () => {
-    router.get("/dts-orders/create");
+const props = defineProps({
+    orders: {
+        type: Object,
+    },
+    branches: {
+        type: Object,
+    },
+    auth: {
+        type: Object,
+    },
+});
+
+const statusBadgeColor = (status) => {
+    switch (status.toUpperCase()) {
+        case "APPROVED":
+            return "bg-green-500 text-white";
+        case "PENDING":
+            return "bg-yellow-500 text-white";
+        case "REJECTED":
+            return "bg-red-400 text-white";
+        default:
+            return "bg-yellow-500 text-white";
+    }
 };
+const { roles, is_admin } = usePage().props.auth;
+
+const hasCreateAccess = is_admin || roles.includes("so encoder");
+const hasEditAccess = is_admin || roles.includes("so_encoder");
 </script>
 <template>
     <Layout
@@ -95,7 +121,50 @@ const handleClick = () => {
                     <TH>Order Approval Status</TH>
                     <TH>Actions</TH>
                 </TableHead>
-                <TableBody> </TableBody>
+                <TableBody>
+                    <tr v-for="order in orders.data" :key="order.id">
+                        <TD>{{ order.id }}</TD>
+                        <TD>{{ order.supplier?.name ?? "N/A" }}</TD>
+                        <TD>{{ order.store_branch?.name ?? "N/A" }}</TD>
+                        <TD>{{ order.order_number }}</TD>
+                        <TD>{{ order.order_date }}</TD>
+                        <TD>{{ order.created_at }}</TD>
+                        <TD>
+                            <Badge
+                                :class="
+                                    statusBadgeColor(order.order_request_status)
+                                "
+                                class="font-bold"
+                                >{{
+                                    order.order_request_status.toUpperCase()
+                                }}</Badge
+                            >
+                        </TD>
+                        <TD>
+                            <DivFlexCenter class="gap-3">
+                                <button
+                                    @click="
+                                        showOrderDetails(order.order_number)
+                                    "
+                                >
+                                    <Eye class="size-5" />
+                                </button>
+                                <button
+                                    v-if="
+                                        order.order_request_status ===
+                                            'pending' && hasEditAccess
+                                    "
+                                    class="text-blue-500"
+                                    @click="
+                                        editOrderDetails(order.order_number)
+                                    "
+                                >
+                                    <Pencil class="size-5" />
+                                </button>
+                            </DivFlexCenter>
+                        </TD>
+                    </tr>
+                </TableBody>
             </Table>
         </TableContainer>
 

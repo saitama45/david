@@ -161,6 +161,7 @@ Route::middleware('auth')
         Route::controller(DTSController::class)->name('dts-orders.')->prefix('dts-orders')->group(function () {
             Route::get('/', 'index')->name('index');
             Route::get('/create/{variant}', 'create')->name('create');
+            Route::post('/store', 'store')->name('store');
         });
 
         Route::get('/audits', [AuditController::class, 'index']);
