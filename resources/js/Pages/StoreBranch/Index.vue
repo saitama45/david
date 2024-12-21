@@ -2,6 +2,7 @@
 import { useForm } from "@inertiajs/vue3";
 import { useToast } from "primevue/usetoast";
 import { useSearch } from "@/Composables/useSearch";
+import { router } from "@inertiajs/vue3";
 
 const isEditModalVisible = ref(false);
 
@@ -47,6 +48,10 @@ const editCategoryDetails = (id) => {
     form.name = data.name;
     form.remarks = data.remarks;
 };
+
+const viewDetails = (id) => {
+    router.get(`/store-branches/show/${id}`);
+};
 </script>
 
 <template>
@@ -67,6 +72,8 @@ const editCategoryDetails = (id) => {
                     <TH> Id </TH>
                     <TH> Name</TH>
                     <TH> Branch Code</TH>
+                    <TH> Brand Name</TH>
+                    <TH> Brand Code</TH>
                     <TH> Actions </TH>
                 </TableHead>
                 <TableBody>
@@ -74,12 +81,17 @@ const editCategoryDetails = (id) => {
                         <TD>{{ branch.id }}</TD>
                         <TD>{{ branch.name }}</TD>
                         <TD>{{ branch.branch_code }}</TD>
+                        <TD>{{ branch.brand_name ?? "N/a" }}</TD>
+                        <TD>{{ branch.brand_code ?? "N/a" }}</TD>
                         <TD>
                             <button
                                 @click="editCategoryDetails(branch.id)"
                                 class="text-blue-500"
                             >
                                 <Pencil class="size-5" />
+                            </button>
+                            <button @click="viewDetails(branch.id)">
+                                <ShowButton />
                             </button>
                         </TD>
                     </tr>

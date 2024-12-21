@@ -141,8 +141,9 @@ Route::middleware('auth')
                 Route::get('/stocks/show/{id}', 'show')->name('show');
             });
 
-        Route::controller(StoreBranchController::class)->name('store-branches.')->group(function () {
-            Route::get('/store-branches', 'index')->name('index');
+        Route::controller(StoreBranchController::class)->name('store-branches.')->prefix('store-branches')->group(function () {
+            Route::get('/', 'index')->name('index');
+            Route::get('/show/{id}', 'show')->name('show');
         });
         Route::controller(SupplierController::class)->name('suppliers.')->group(function () {
             Route::get('/suppliers', 'index')->name('index');

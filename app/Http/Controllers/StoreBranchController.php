@@ -22,4 +22,13 @@ class StoreBranchController extends Controller
             'filters' => request()->only(['search'])
         ]);
     }
+
+    public function show($id)
+    {
+
+        $branch = StoreBranch::findOrFail($id);
+        return Inertia::render('StoreBranch/Edit', [
+            'branch' => $branch
+        ]);
+    }
 }
