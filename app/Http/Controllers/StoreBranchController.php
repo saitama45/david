@@ -27,7 +27,7 @@ class StoreBranchController extends Controller
     {
 
         $branch = StoreBranch::findOrFail($id);
-        return Inertia::render('StoreBranch/Edit', [
+        return Inertia::render('StoreBranch/Show', [
             'branch' => $branch
         ]);
     }

@@ -76,6 +76,7 @@ import LinkButton from "./Components/button/LinkButton.vue";
 import LabelXS from "./Components/LabelXS.vue";
 import SpanBold from "./Components/SpanBold.vue";
 import EditButton from "./Components/button/EditButton.vue";
+import InfolistLabel from "./Components/InfolistLabel.vue";
 const appName = import.meta.env.VITE_APP_NAME || "Laravel";
 
 createInertiaApp({
@@ -147,6 +148,7 @@ createInertiaApp({
             .component("SpanBold", SpanBold)
             .component("EditButton", EditButton)
             .component("MonitorCog", MonitorCog)
+            .component("InfolistLabel", InfolistLabel)
             .use(PrimeVue, {
                 theme: {
                     preset: Aura,
