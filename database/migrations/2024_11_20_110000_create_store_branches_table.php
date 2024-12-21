@@ -13,8 +13,20 @@ return new class extends Migration
     {
         Schema::create('store_branches', function (Blueprint $table) {
             $table->id();
-            $table->string('name');
             $table->string('branch_code');
+            $table->string('name');
+            $table->string('brand_name')->nullable();
+            $table->string('brand_code')->nullable();
+            $table->string('store_status');
+            $table->string('tin')->nullable();
+            $table->string('complete_address')->nullable();
+            $table->string('head_chef')->nullable();
+            $table->string('director_operations')->nullable();
+            $table->string('vp_operations')->nullable();
+            $table->string('store_representative')->nullable();
+            $table->string('aom')->nullable();
+            $table->string('point_of_contact')->nullable();
+            $table->string('contact_number')->nullable();
             $table->boolean('is_active')->default(true);
             $table->timestamps();
         });

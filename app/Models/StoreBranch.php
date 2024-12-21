@@ -17,6 +17,18 @@ class StoreBranch extends Model implements Auditable
         'id',
         'branch_code',
         'name',
+        'brand_name',
+        'brand_code',
+        'store_status',
+        'tin',
+        'complete_address',
+        'head_chef',
+        'director_operations',
+        'vp_operations',
+        'store_representative',
+        'aom',
+        'point_of_contact',
+        'contact_number',
         'is_active'
     ];
 
