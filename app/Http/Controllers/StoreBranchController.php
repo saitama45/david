@@ -25,10 +25,47 @@ class StoreBranchController extends Controller
 
     public function show($id)
     {
-
         $branch = StoreBranch::findOrFail($id);
         return Inertia::render('StoreBranch/Show', [
             'branch' => $branch
         ]);
+    }
+
+    public function edit($id)
+    {
+        $branch = StoreBranch::findOrFail($id);
+
+        return Inertia::render('StoreBranch/Edit', [
+            'branch' => $branch
+        ]);
+    }
+
+    public function create()
+    {
+        return Inertia::render('StoreBranch/Create');
+    }
+
+    public function store(Request $request)
+    {
+        $validated = $request->validate([
+            'branch_code' => ['required'],
+            'name' => ['required'],
+            'store_status' => ['required']
+        ]);
+
+        StoreBranch::create($validated);
+        return to_route("store-branches.index");
+    }
+
+    public function update(Request $request, $id)
+    {
+        $branch = StoreBranch::findOrFail($id);
+        $validated = $request->validate([
+            'branch_code' => ['required'],
+            'name' => ['required'],
+            'store_status' => ['required']
+        ]);
+        $branch->update($validated);
+        return to_route("store-branches.index");
     }
 }

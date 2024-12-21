@@ -42,20 +42,25 @@ const props = defineProps({
 const { search } = useSearch("categories.index");
 
 const editCategoryDetails = (id) => {
-    targetId.value = id;
-    isEditModalVisible.value = true;
-    const data = props.data.data.find((item) => item.id === id);
-    form.name = data.name;
-    form.remarks = data.remarks;
+    router.get(`/store-branches/edit/${id}`);
 };
 
 const viewDetails = (id) => {
     router.get(`/store-branches/show/${id}`);
 };
+
+const createNewStoreBranch = () => {
+    router.get("/store-branches/create");
+};
 </script>
 
 <template>
-    <Layout heading="Store Branches">
+    <Layout
+        heading="Store Branches"
+        :hasButton="true"
+        :handleClick="createNewStoreBranch"
+        buttonName="Create New Store Branch"
+    >
         <TableContainer>
             <TableHeader>
                 <SearchBar>

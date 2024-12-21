@@ -1,10 +1,13 @@
 <script setup>
+import { useBackButton } from "@/Composables/useBackButton";
 defineProps({
     branch: {
         type: Object,
         required: true,
     },
 });
+
+const { backButton } = useBackButton(route("store-branches.index"));
 </script>
 
 <template>
@@ -73,5 +76,9 @@ defineProps({
                 }}</SpanBold>
             </InputContainer>
         </Card>
+
+        <Button variant="outline" class="text-lg px-7" @click="backButton">
+            Back
+        </Button>
     </Layout>
 </template>

@@ -143,7 +143,11 @@ Route::middleware('auth')
 
         Route::controller(StoreBranchController::class)->name('store-branches.')->prefix('store-branches')->group(function () {
             Route::get('/', 'index')->name('index');
+            Route::get('/create', 'create')->name('create');
+            Route::post('/store', 'store')->name('store');
             Route::get('/show/{id}', 'show')->name('show');
+            Route::get('/edit/{id}', 'edit')->name('edit');
+            Route::post('/update/{id}', 'update')->name('update');
         });
         Route::controller(SupplierController::class)->name('suppliers.')->group(function () {
             Route::get('/suppliers', 'index')->name('index');
