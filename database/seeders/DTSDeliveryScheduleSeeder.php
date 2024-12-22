@@ -96,6 +96,77 @@ class DTSDeliveryScheduleSeeder extends Seeder
                 'delivery_schedule_id' => 2,
                 'variant' => 'SALMON'
             ],
+            // Fruits and veggies 
+            [
+                'store_branch_id' => 23,
+                'delivery_schedule_id' => 1,
+                'variant' => 'FRUITS AND VEGETABLES'
+            ],
+            [
+                'store_branch_id' => 23,
+                'delivery_schedule_id' => 3,
+                'variant' => 'FRUITS AND VEGETABLES'
+            ],
+            [
+                'store_branch_id' => 23,
+                'delivery_schedule_id' => 5,
+                'variant' => 'FRUITS AND VEGETABLES'
+            ],
+            [
+                'store_branch_id' => 16,
+                'delivery_schedule_id' => 1,
+                'variant' => 'FRUITS AND VEGETABLES'
+            ],
+            [
+                'store_branch_id' => 16,
+                'delivery_schedule_id' => 3,
+                'variant' => 'FRUITS AND VEGETABLES'
+            ],
+            [
+                'store_branch_id' => 16,
+                'delivery_schedule_id' => 5,
+                'variant' => 'FRUITS AND VEGETABLES'
+            ],
+            [
+                'store_branch_id' => 7,
+                'delivery_schedule_id' => 2,
+                'variant' => 'FRUITS AND VEGETABLES'
+            ],
+            [
+                'store_branch_id' => 7,
+                'delivery_schedule_id' => 4,
+                'variant' => 'FRUITS AND VEGETABLES'
+            ],
+            [
+                'store_branch_id' => 7,
+                'delivery_schedule_id' => 6,
+                'variant' => 'FRUITS AND VEGETABLES'
+            ],
+            [
+                'store_branch_id' => 13,
+                'delivery_schedule_id' => 1,
+                'variant' => 'FRUITS AND VEGETABLES'
+            ],
+            [
+                'store_branch_id' => 13,
+                'delivery_schedule_id' => 4,
+                'variant' => 'FRUITS AND VEGETABLES'
+            ],
+            [
+                'store_branch_id' => 6,
+                'delivery_schedule_id' => 6,
+                'variant' => 'FRUITS AND VEGETABLES'
+            ],
+            [
+                'store_branch_id' => 6,
+                'delivery_schedule_id' => 1,
+                'variant' => 'FRUITS AND VEGETABLES'
+            ],
+            [
+                'store_branch_id' => 6,
+                'delivery_schedule_id' => 4,
+                'variant' => 'FRUITS AND VEGETABLES'
+            ],
         ];
 
         foreach ($schedules as $schedule) {

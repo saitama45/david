@@ -63,6 +63,10 @@ class DTSController extends Controller
             $branches = StoreBranch::whereIn('id', [21, 22, 23])->options();
         }
 
+        if ($variant === 'fruits and vegetables') {
+            $branches = StoreBranch::whereIn('id', [23, 16, 7, 13, 6])->options();
+        }
+
         return Inertia::render('DTSOrder/Create', [
             'suppliers' => $suppliers,
             'items' => $items,
