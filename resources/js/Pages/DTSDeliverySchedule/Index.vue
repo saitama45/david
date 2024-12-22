@@ -12,6 +12,18 @@ console.log(branches);
 <template>
     <Layout heading="DTS Delivery Schedules">
         <TableContainer>
+            <TableHeader>
+                <!-- Search Bar-->
+                <SearchBar>
+                    <Input
+                        v-model="search"
+                        id="search"
+                        type="text"
+                        placeholder="Search..."
+                        class="pl-10"
+                    />
+                </SearchBar>
+            </TableHeader>
             <Table>
                 <TableHead>
                     <TH>Store Branch</TH>

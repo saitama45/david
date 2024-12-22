@@ -56,17 +56,7 @@ class DTSDeliveryScheduleSeeder extends Seeder
                 'delivery_schedule_id' => 1,
                 'variant' => 'ICE CREAM'
             ],
-            [
-                'store_branch_id' => 7,
-                'delivery_schedule_id' => 4,
-                'variant' => 'ICE CREAM'
-            ],
             // FIL
-            [
-                'store_branch_id' => 8,
-                'delivery_schedule_id' => 4,
-                'variant' => 'ICE CREAM'
-            ],
             [
                 'store_branch_id' => 8,
                 'delivery_schedule_id' => 4,
@@ -144,7 +134,7 @@ class DTSDeliveryScheduleSeeder extends Seeder
                 'variant' => 'SALMON'
             ],
 
-            
+
             // Fruits and veggies 
             [
                 'store_branch_id' => 23,
