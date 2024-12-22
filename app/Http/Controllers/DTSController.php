@@ -48,14 +48,13 @@ class DTSController extends Controller
 
     public function create($variant)
     {
-        $products = ProductInventory::options();
         $suppliers = Supplier::where('supplier_code', 'DROPS')->options();
-        $items = ProductInventory::whereHas(
-            'product_categories',
-            function ($query) use ($variant) {
-                $query->where('name', strtoupper($variant));
-            }
-        )->options();
+        if ($variant === 'fruits and vegetables') {
+            $items = ProductInventory::where('inventory_category_id', 6)
+                ->options();
+        } else {
+            $items = ProductInventory::whereRaw('LOWER(name) LIKE ?', ['%' . strtolower($variant) . '%'])->options();
+        }
         if ($variant === 'ice cream') {
             $branches = StoreBranch::whereIn('id', [11, 31, 17, 22])->options();
         }
@@ -72,7 +71,6 @@ class DTSController extends Controller
             'items' => $items,
             'branches' => $branches,
             'variant' => $variant,
-            'products' => $products
         ]);
     }
 

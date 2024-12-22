@@ -381,6 +381,7 @@ const calculateGSIOrderDate = () => {
 watch(
     () => orderForm.supplier_id,
     (supplier_id) => {
+        orderForm.order_date = null;
         if (!supplier_id) return;
 
         const selectedBranch = Object.values(suppliersOptions.value).find(

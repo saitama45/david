@@ -35,7 +35,7 @@ class ProductInventoryImport implements ToModel, WithHeadingRow
     public function model(array $row)
     {
 
-        $product = ProductInventory::create([
+        $product = ProductInventory::updateOrCreate([
             'inventory_category_id' => $this->getInventoryCategoryId($row['inventory_category']),
             'unit_of_measurement_id' => $this->getUnitOfMeasuremntId($row['uom']),
             'name' => $row['name'],
@@ -43,7 +43,6 @@ class ProductInventoryImport implements ToModel, WithHeadingRow
             'brand' => $row['brand'],
             'conversion' => $row['conversion'],
             'cost' => $this->getCost($row['cost']),
-            'stock' => 100,
             'is_active' => $this->getStatus($row['status'])
         ]);
         return $product;
