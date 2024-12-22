@@ -23,6 +23,7 @@ class DTSOrderScheduleController extends Controller
             ->values()
             ->toArray();
 
+// [1, 3, 5]
         return response()->json($days);
     }
 }

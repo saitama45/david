@@ -52,32 +52,45 @@ const dayNameToNumber = {
 watch(
     () => orderForm.branch_id,
     (value) => {
+        orderForm.order_date = null;
         if (value) {
             axios
                 .get(route("schedule.show", value), {
                     params: { variant: variant },
                 })
                 .then((response) => {
+                    // [1, 3, 5]
                     const days = response.data.map(
                         (item) => dayNameToNumber[item]
                     );
+                    // [Moday, Wednesay, Friday]
                     let daysOfWeek = [0, 1, 2, 3, 4, 5, 6];
                     allowedDays.value = daysOfWeek.filter(
                         (item) => !days.includes(item)
                     );
-                    console.log(allowedDays.value);
+                    // [Tuesday, THrusy, Sat]
                 })
                 .catch((err) => console.log(err));
         }
     }
 );
-const getNextSunday = () => {
+const getNextMonday = () => {
     const today = new Date();
     const dayOfWeek = today.getDay();
     const daysUntilNextSunday = (7 - dayOfWeek) % 7 || 7;
 
     const nextSunday = new Date(today);
-    nextSunday.setDate(today.getDate() + daysUntilNextSunday);
+    nextSunday.setDate(today.getDate() + daysUntilNextSunday + 1);
+    return nextSunday;
+};
+
+const getNextSaturday = () => {
+    const today = new Date();
+    const dayOfWeek = today.getDay();
+    const daysUntilNextSunday = (7 - dayOfWeek) % 7 || 7;
+
+    const nextSunday = new Date(today);
+    nextSunday.setDate(today.getDate() + daysUntilNextSunday + 6);
     return nextSunday;
 };
 
@@ -318,7 +331,8 @@ const store = () => {
                                 :disabledDays="allowedDays"
                                 dateFormat="yy/mm/dd"
                                 :showOnFocus="false"
-                                :minDate="new Date()"
+                                :minDate="getNextMonday()"
+                                :maxDate="getNextSaturday()"
                             />
                             <FormError>{{
                                 orderForm.errors.order_date
