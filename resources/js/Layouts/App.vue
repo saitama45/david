@@ -119,6 +119,16 @@ const logout = () => {
                         <NavLink href="/audits" :icon="MonitorCog" v-if="false">
                             Audits
                         </NavLink>
+                        <DropdownMenuLabel v-if="isAdmin">
+                            Schedules
+                        </DropdownMenuLabel>
+                        <NavLink
+                            v-if="isAdmin"
+                            href="/delivery-schedules"
+                            :icon="ShoppingCart"
+                        >
+                            Delivery Schedules
+                        </NavLink>
                         <DropdownMenuLabel v-if="canViewOrderingGroup">
                             Ordering
                         </DropdownMenuLabel>

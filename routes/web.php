@@ -5,6 +5,7 @@ use App\Http\Controllers\ApprovedOrderController;
 use App\Http\Controllers\AuditController;
 use App\Http\Controllers\CategoryController;
 use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\DeliveryScheduleController;
 use App\Http\Controllers\DTSController;
 use App\Http\Controllers\ExcelTemplateController;
 use App\Http\Controllers\InvetoryCategoryController;
@@ -167,6 +168,11 @@ Route::middleware('auth')
             Route::get('/', 'index')->name('index');
             Route::get('/create/{variant}', 'create')->name('create');
             Route::post('/store', 'store')->name('store');
+        });
+
+        Route::controller(DeliveryScheduleController::class)->name('delivery-schedules.')->prefix('delivery-schedules')->group(function(){
+            Route::get('/', 'index')->name('index');
+            Route::get('/edit/{id}', 'edit')->name('edit');
         });
 
         Route::get('/audits', [AuditController::class, 'index']);
