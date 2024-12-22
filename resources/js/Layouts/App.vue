@@ -127,7 +127,7 @@ const logout = () => {
                             href="/delivery-schedules"
                             :icon="ShoppingCart"
                         >
-                            Delivery Schedules
+                            DTS Delivery Schedules
                         </NavLink>
                         <DropdownMenuLabel v-if="canViewOrderingGroup">
                             Ordering

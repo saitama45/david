@@ -14,7 +14,16 @@ class DTSDeliveryScheduleSeeder extends Seeder
     public function run(): void
     {
         $schedules = [
+            // 1 - Monday
+            // 2 - Tuesay
+            // 3 - Wednesday
+            // 4 - Thursday 
+            // 5- Friday 
+            // 6 -Saturday 
+
             // Ice Cream
+
+            // GREENFIELD
             [
                 'store_branch_id' => 11,
                 'delivery_schedule_id' => 1,
@@ -30,6 +39,40 @@ class DTSDeliveryScheduleSeeder extends Seeder
                 'delivery_schedule_id' => 5,
                 'variant' => 'ICE CREAM'
             ],
+            // AYALA MALLS MANILA BAY
+            [
+                'store_branch_id' => 7,
+                'delivery_schedule_id' => 1,
+                'variant' => 'ICE CREAM'
+            ],
+            [
+                'store_branch_id' => 7,
+                'delivery_schedule_id' => 4,
+                'variant' => 'ICE CREAM'
+            ],
+            // OKADA
+            [
+                'store_branch_id' => 15,
+                'delivery_schedule_id' => 1,
+                'variant' => 'ICE CREAM'
+            ],
+            [
+                'store_branch_id' => 7,
+                'delivery_schedule_id' => 4,
+                'variant' => 'ICE CREAM'
+            ],
+            // FIL
+            [
+                'store_branch_id' => 8,
+                'delivery_schedule_id' => 4,
+                'variant' => 'ICE CREAM'
+            ],
+            [
+                'store_branch_id' => 8,
+                'delivery_schedule_id' => 4,
+                'variant' => 'ICE CREAM'
+            ],
+            // Vermosa 
             [
                 'store_branch_id' => 31,
                 'delivery_schedule_id' => 2,
@@ -40,6 +83,7 @@ class DTSDeliveryScheduleSeeder extends Seeder
                 'delivery_schedule_id' => 5,
                 'variant' => 'ICE CREAM'
             ],
+            // Nuvali
             [
                 'store_branch_id' => 17,
                 'delivery_schedule_id' => 3,
@@ -50,6 +94,7 @@ class DTSDeliveryScheduleSeeder extends Seeder
                 'delivery_schedule_id' => 6,
                 'variant' => 'ICE CREAM'
             ],
+            // SM MAISON
             [
                 'store_branch_id' => 22,
                 'delivery_schedule_id' => 1,
@@ -60,6 +105,8 @@ class DTSDeliveryScheduleSeeder extends Seeder
                 'delivery_schedule_id' => 4,
                 'variant' => 'ICE CREAM'
             ],
+
+
             // Salmon
             [
                 'store_branch_id' => 21,
@@ -96,6 +143,8 @@ class DTSDeliveryScheduleSeeder extends Seeder
                 'delivery_schedule_id' => 2,
                 'variant' => 'SALMON'
             ],
+
+            
             // Fruits and veggies 
             [
                 'store_branch_id' => 23,

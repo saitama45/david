@@ -1,15 +1,22 @@
 <script setup>
+const { branches } = defineProps({
+    branches: {
+        type: Object,
+        required: true,
+    },
+});
 
+console.log(branches);
 </script>
 
 <template>
-    <Layout heading="Delivery Schedules">
+    <Layout heading="DTS Delivery Schedules">
         <TableContainer>
             <Table>
                 <TableHead>
                     <TH>Store Branch</TH>
                     <TH>Loc Code</TH>
-                    <TH>
+                    <!-- <TH>
                         <DivFlexCol>
                             Normal Orders
                             <LabelXS class="text-[10px]"
@@ -24,7 +31,7 @@
                                 >Thurs (7:00 am) to Sat (7:00 am)</LabelXS
                             >
                         </DivFlexCol>
-                    </TH>
+                    </TH> -->
                     <TH>
                         <DivFlexCol>
                             DTS Orders
@@ -48,10 +55,10 @@
                 </TableHead>
 
                 <TableBody>
-                    <tr>
-                        <TD>SM BICUTAN</TD>
-                        <TD>SMB</TD>
-                        <TD>
+                    <tr v-for="branch in branches.data">
+                        <TD>{{ branch.name }}</TD>
+                        <TD>{{ branch.branch_code }}</TD>
+                        <!-- <TD>
                             <DivFlexCol class="gap-1">
                                 <Badge class="w-fit">SUNDAY</Badge>
                                 <Badge class="w-fit">MONDAY</Badge>
@@ -65,24 +72,48 @@
                                 <Badge class="w-fit">FRIDAY</Badge>
                                 <Badge class="w-fit">SATURDAY</Badge>
                             </DivFlexCol>
-                        </TD>
+                        </TD> -->
                         <TD>
                             <DivFlexCol class="gap-1">
-                                <Badge class="w-fit">MONDAY</Badge>
-                                <Badge class="w-fit">WEDNESDAY</Badge>
-                                <Badge class="w-fit">FRIDAY</Badge>
+                                <Badge
+                                    class="w-fit"
+                                    v-if="branch.ice_cream"
+                                    v-for="data in branch.ice_cream.day"
+                                >
+                                    {{ data }}
+                                </Badge>
+                                <SpanBold v-else>No Schedule</SpanBold>
                             </DivFlexCol>
                         </TD>
                         <TD>
                             <DivFlexCol class="gap-1">
-                                <Badge class="w-fit">THURSDAY</Badge>
-                                <Badge class="w-fit">SATURDAY</Badge>
+                                <Badge
+                                    class="w-fit"
+                                    v-if="branch.salmon"
+                                    v-for="data in branch.salmon.day"
+                                >
+                                    {{ data }}
+                                </Badge>
+                                <SpanBold v-else>No Schedule</SpanBold>
                             </DivFlexCol>
                         </TD>
-                        <TD>No Schedule</TD>
+                        <TD>
+                            <DivFlexCol class="gap-1">
+                                <Badge
+                                    class="w-fit"
+                                    v-if="branch.fruits_and_vegetables"
+                                    v-for="data in branch.fruits_and_vegetables
+                                        .day"
+                                >
+                                    {{ data }}
+                                </Badge>
+                                <SpanBold v-else>No Schedule</SpanBold>
+                            </DivFlexCol>
+                        </TD>
                     </tr>
                 </TableBody>
             </Table>
+            <Pagination :data="branches" />
         </TableContainer>
     </Layout>
 </template>

@@ -64,6 +64,9 @@ class StoreBranch extends Model implements Auditable
             'd_t_s_delivery_schedules',
             'store_branch_id',
             'delivery_schedule_id'
-        );
+        )
+            ->withPivot('variant');
+
+          
     }
 }
