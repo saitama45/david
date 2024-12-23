@@ -55,18 +55,23 @@ class DTSController extends Controller
         } else {
             $items = ProductInventory::whereRaw('LOWER(name) LIKE ?', ['%' . strtolower($variant) . '%'])->options();
         }
-        // if ($variant === 'ice cream') {
-        //     $branches = StoreBranch::whereIn('id', [11, 31, 17, 22])->options();
-        // }
-        // if ($variant === 'salmon') {
-        //     $branches = StoreBranch::whereIn('id', [21, 22, 23])->options();
-        // }
+        if ($variant === 'ice cream') {
 
-        // if ($variant === 'fruits and vegetables') {
-        //     $branches = StoreBranch::whereIn('id', [23, 16, 7, 13, 6])->options();
-        // }
+            $branches = StoreBranch::whereHas('delivery_schedules', function ($query) {
+                $query->where('variant', 'ICE CREAM');
+            })->options();
+        }
+        if ($variant === 'salmon') {
+            $branches = StoreBranch::whereHas('delivery_schedules', function ($query) {
+                $query->where('variant', 'SALMON');
+            })->options();
+        }
+        if ($variant === 'fruits and vegetables') {
+            $branches = StoreBranch::whereHas('delivery_schedules', function ($query) {
+                $query->where('variant', 'FRUITS AND VEGETABLES');
+            })->options();
+        }
 
-        $branches = StoreBranch::options();
 
         return Inertia::render('DTSOrder/Create', [
             'suppliers' => $suppliers,
