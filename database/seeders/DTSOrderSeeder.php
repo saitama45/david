@@ -38,7 +38,7 @@ class DTSOrderSeeder extends Seeder
      */
     public function run(): void
     {
-        // Delivery schedule mapping (1 = Monday, 2 = Tuesday, etc.)
+
         $branchDeliverySchedules = [
             11 => [1, 3, 5],    // GREENFIELD - Mon, Wed, Fri
             7 => [1, 4],        // AYALA MALLS MANILA BAY - Mon, Thu
@@ -65,15 +65,13 @@ class DTSOrderSeeder extends Seeder
             14 => [4],          // TOL NORTH - Thu only
         ];
 
-        // Generate dates from September to October (excluding Sundays)
         $startDate = Carbon::create(2024, 9, 1);
-        $endDate = Carbon::create(2024, 10, 31);
+        $endDate = Carbon::create(2024, 12, 28);
 
         foreach ($branchDeliverySchedules as $branchId => $deliveryDays) {
             $currentDate = $startDate->copy();
 
             while ($currentDate <= $endDate) {
-                // Skip if Sunday (7) or not in delivery days
                 if ($currentDate->dayOfWeek !== 0 && in_array($currentDate->dayOfWeek, $deliveryDays)) {
                     $storeOrder = StoreOrder::create([
                         'encoder_id' => 1,

@@ -16,6 +16,7 @@ class StoreBranch extends Model implements Auditable
     protected $fillable = [
         'id',
         'branch_code',
+        'location_code',
         'name',
         'brand_name',
         'brand_code',

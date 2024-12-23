@@ -64,6 +64,7 @@ class StoreBranchSeeder extends Seeder
             ],
             [
                 'branch_code' => 'NNVIA',
+                'location_code' => 'VIA',
                 'name' => 'Arcovia',
                 'brand_name' => 'Eat, Drink and Innovate Inc.',
                 'brand_code' => 'EDI',
@@ -73,6 +74,7 @@ class StoreBranchSeeder extends Seeder
             ],
             [
                 'branch_code' => 'NNABA',
+                'location_code' => 'ABA',
                 'name' => 'Ayala Malls Manila Bay',
                 'brand_name' => 'Eat, Drink and Innovate Inc.',
                 'brand_code' => 'EDI',
@@ -82,6 +84,7 @@ class StoreBranchSeeder extends Seeder
             ],
             [
                 'branch_code' => 'NNFIL',
+                'location_code' => 'FIL',
                 'name' => 'Filinvest Super Mall',
                 'brand_name' => 'Eat, Drink and Innovate Inc.',
                 'brand_code' => 'EDI',
@@ -91,6 +94,7 @@ class StoreBranchSeeder extends Seeder
             ],
             [
                 'branch_code' => 'NNGWM',
+                'location_code' => 'GWM',
                 'name' => 'Gateway Mall 2',
                 'brand_name' => 'Eat, Drink and Innovate Inc.',
                 'brand_code' => 'EDI',
@@ -100,6 +104,7 @@ class StoreBranchSeeder extends Seeder
             ],
             [
                 'branch_code' => 'NNGLO',
+                'location_code' => 'GLO1',
                 'name' => 'Glorietta 2',
                 'brand_name' => 'Eat, Drink and Innovate Inc.',
                 'brand_code' => 'EDI',
@@ -109,6 +114,7 @@ class StoreBranchSeeder extends Seeder
             ],
             [
                 'branch_code' => 'NNGFD',
+                'location_code' => 'GFD',
                 'name' => 'Greenfield',
                 'brand_name' => 'Eat, Drink and Innovate Inc.',
                 'brand_code' => 'EDI',
@@ -118,6 +124,7 @@ class StoreBranchSeeder extends Seeder
             ],
             [
                 'branch_code' => 'NNHSS',
+                'location_code' => 'HSS',
                 'name' => 'High Street South',
                 'brand_name' => 'Eat, Drink and Innovate Inc.',
                 'brand_code' => 'EDI',
@@ -127,6 +134,7 @@ class StoreBranchSeeder extends Seeder
             ],
             [
                 'branch_code' => 'NNKLT',
+                'location_code' => 'KLT',
                 'name' => 'KL Tower Serviced Residences',
                 'brand_name' => 'Tabletop Partners, Inc.',
                 'brand_code' => 'TTP',
@@ -145,6 +153,7 @@ class StoreBranchSeeder extends Seeder
             ],
             [
                 'branch_code' => 'NNOKA',
+                'location_code' => 'OKA',
                 'name' => 'Nono\'s Okada',
                 'brand_name' => 'Passions United, Inc.',
                 'brand_code' => 'PSI',
@@ -154,6 +163,7 @@ class StoreBranchSeeder extends Seeder
             ],
             [
                 'branch_code' => 'NNUTC',
+                'location_code' => 'UTC',
                 'name' => 'NONO\'S UP TOWN Center',
                 'brand_name' => 'Eat, Drink and Innovate Inc.',
                 'brand_code' => 'EDI',
@@ -163,6 +173,7 @@ class StoreBranchSeeder extends Seeder
             ],
             [
                 'branch_code' => 'NNNUV',
+                'location_code' => 'NUV',
                 'name' => 'Nuvali',
                 'brand_name' => 'Eat, Drink and Innovate Inc.',
                 'brand_code' => 'EDI',
@@ -181,6 +192,7 @@ class StoreBranchSeeder extends Seeder
             ],
             [
                 'branch_code' => 'NNPDM',
+                'location_code' => 'PDM',
                 'name' => 'Podium Ortigas',
                 'brand_name' => 'Eat, Drink and Innovate Inc.',
                 'brand_code' => 'EDI',
@@ -190,6 +202,7 @@ class StoreBranchSeeder extends Seeder
             ],
             [
                 'branch_code' => 'NNRAO',
+                'location_code' => 'RAO',
                 'name' => 'Robinson\'s Antipolo',
                 'brand_name' => 'Eat, Drink and Innovate Inc.',
                 'brand_code' => 'EDI',
@@ -199,6 +212,7 @@ class StoreBranchSeeder extends Seeder
             ],
             [
                 'branch_code' => 'NNRWL',
+                'location_code' => 'RWL',
                 'name' => 'Rockwell',
                 'brand_name' => 'Tabletop Partners, Inc.',
                 'brand_code' => 'TTP',
@@ -208,7 +222,8 @@ class StoreBranchSeeder extends Seeder
             ],
             [
                 'branch_code' => 'NNSMA',
-                'name' => 'S Maison',
+                'location_code' => 'GFD',
+                'name' => 'SM Maison',
                 'brand_name' => 'Passions United, Inc.',
                 'brand_code' => 'PSI',
                 'store_status' => 'Active',
@@ -217,6 +232,7 @@ class StoreBranchSeeder extends Seeder
             ],
             [
                 'branch_code' => 'NNBIC',
+                'location_code' => 'SMBIC',
                 'name' => 'SM Bicutan',
                 'brand_name' => 'Eat, Drink and Innovate Inc.',
                 'brand_code' => 'EDI',
@@ -225,7 +241,8 @@ class StoreBranchSeeder extends Seeder
                 'complete_address' => 'TBD'
             ],
             [
-                'branch_code' => 'NNSFV',
+                'branch_code' => 'NNSFW',
+                'location_code' => 'SFW',
                 'name' => 'SM Fairview Nono\'s',
                 'brand_name' => 'Passions United, Inc.',
                 'brand_code' => 'PSI',
@@ -235,6 +252,7 @@ class StoreBranchSeeder extends Seeder
             ],
             [
                 'branch_code' => 'NNSGC',
+                'location_code' => 'SGC',
                 'name' => 'SM Grand Central',
                 'brand_name' => 'Tabletop Partners, Inc.',
                 'brand_code' => 'TTP',
@@ -244,6 +262,7 @@ class StoreBranchSeeder extends Seeder
             ],
             [
                 'branch_code' => 'NNSSR',
+                'location_code' => 'SSR',
                 'name' => 'SM Santa Rosa',
                 'brand_name' => 'Tabletop Partners, Inc.',
                 'brand_code' => 'TTP',
@@ -262,6 +281,7 @@ class StoreBranchSeeder extends Seeder
             ],
             [
                 'branch_code' => 'NNTOL',
+                'location_code' => 'TOL',
                 'name' => 'The Outlets at Lipa',
                 'brand_name' => 'Eat, Drink and Innovate Inc.',
                 'brand_code' => 'EDI',
@@ -271,6 +291,7 @@ class StoreBranchSeeder extends Seeder
             ],
             [
                 'branch_code' => 'NN3CN',
+                'location_code' => '3CN',
                 'name' => 'Three Central',
                 'brand_name' => 'Eat, Drink and Innovate Inc.',
                 'brand_code' => 'EDI',
@@ -280,6 +301,7 @@ class StoreBranchSeeder extends Seeder
             ],
             [
                 'branch_code' => 'NNUPM',
+                'location_code' => 'UPM',
                 'name' => 'Uptown Mall',
                 'brand_name' => 'Tabletop Partners, Inc.',
                 'brand_code' => 'TTP',
@@ -289,6 +311,7 @@ class StoreBranchSeeder extends Seeder
             ],
             [
                 'branch_code' => 'NNVER',
+                'location_code' => 'VER',
                 'name' => 'Vermosa',
                 'brand_name' => 'Eat, Drink and Innovate Inc.',
                 'brand_code' => 'EDI',

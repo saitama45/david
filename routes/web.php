@@ -8,6 +8,7 @@ use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\DeliveryScheduleController;
 use App\Http\Controllers\DTSController;
 use App\Http\Controllers\ExcelTemplateController;
+use App\Http\Controllers\IceCreamOrderController;
 use App\Http\Controllers\InvetoryCategoryController;
 use App\Http\Controllers\ItemController;
 use App\Http\Controllers\OrderApprovalController;
@@ -173,6 +174,10 @@ Route::middleware('auth')
         Route::controller(DeliveryScheduleController::class)->name('delivery-schedules.')->prefix('delivery-schedules')->group(function(){
             Route::get('/', 'index')->name('index');
             Route::get('/edit/{id}', 'edit')->name('edit');
+        });
+
+        Route::controller(IceCreamOrderController::class)->name('ice-cream-orders.')->prefix('ice-cream-orders')->group(function(){
+            Route::get('/', 'index')->name('index');
         });
 
         Route::get('/audits', [AuditController::class, 'index']);

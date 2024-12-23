@@ -17,6 +17,7 @@ return new class extends Migration
             $table->string('name');
             $table->string('brand_name')->nullable();
             $table->string('brand_code')->nullable();
+            $table->string('location_code')->nullable();
             $table->string('store_status');
             $table->string('tin')->nullable();
             $table->string('complete_address')->nullable();

@@ -177,6 +177,16 @@ const logout = () => {
                         >
                             Approved Received Items
                         </NavLink>
+                        <DropdownMenuLabel v-if="true">
+                            Orders
+                        </DropdownMenuLabel>
+                        <NavLink
+                            v-if="canViewApprovedReceivedItems"
+                            href="/ice-cream-orders"
+                            :icon="FileCheck"
+                        >
+                            Ice Cream Orders
+                        </NavLink>
                         <DropdownMenuLabel v-if="canViewSalesGroup">
                             Sales
                         </DropdownMenuLabel>
