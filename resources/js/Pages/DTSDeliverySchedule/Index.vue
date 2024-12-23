@@ -16,7 +16,6 @@ console.log(branches);
                 <!-- Search Bar-->
                 <SearchBar>
                     <Input
-                        v-model="search"
                         id="search"
                         type="text"
                         placeholder="Search..."

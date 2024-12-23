@@ -64,15 +64,19 @@ const statusBadgeColor = (status) => {
             return "bg-yellow-500 text-white";
     }
 };
+
 const { roles, is_admin } = usePage().props.auth;
 
-const hasCreateAccess = is_admin || roles.includes("so encoder");
+const now = new Date();
+const isCutOff = ref(now.getDay() >= 3 && now.getHours() > 12);
+
+const hasCreateAccess = is_admin || (roles.includes("so encoder") && !isCutOff);
 const hasEditAccess = is_admin || roles.includes("so_encoder");
 </script>
 <template>
     <Layout
         heading="DTS Orders"
-        :hasButton="true"
+        :hasButton="hasCreateAccess"
         :handleClick="showVariantChoices"
         buttonName="Create New Order"
     >
