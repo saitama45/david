@@ -7,7 +7,7 @@ use Illuminate\Database\Eloquent\Factories\Factory;
 /**
  * @extends \Illuminate\Database\Eloquent\Factories\Factory<\App\Models\StoreOrder>
  */
-class StoreOrderFactory extends Factory
+class DTSOrderFactory extends Factory
 {
     /**
      * Define the model's default state.
@@ -17,6 +17,10 @@ class StoreOrderFactory extends Factory
     public function definition(): array
     {
         return [
+            'encoder_id' => 1,
+            'supplier_id' => 5,
+            'order_number' => 'TEST-' . fake()->numberBetween(00000, 11111),
+            'order_date' => fake()->date(),
             
         ];
     }

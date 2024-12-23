@@ -56,7 +56,7 @@ class StoreOrderController extends Controller
             ->where('type', 'normal')
             ->latest()
             ->paginate(10);
-            
+
         $branches = StoreBranch::options();
 
 
@@ -113,7 +113,7 @@ class StoreOrderController extends Controller
 
         DB::beginTransaction();
         $order = StoreOrder::create([
-            'encoder_id' => 1,
+            'encoder_id' => Auth::user()->id,
             'supplier_id' => $supplier,
             'store_branch_id' => $validated['branch_id'],
             'order_number' => $this->getOrderNumber($validated['branch_id']),

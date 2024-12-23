@@ -170,6 +170,7 @@ const hasEditAccess = is_admin || roles.includes("so_encoder");
                     </tr>
                 </TableBody>
             </Table>
+            <Pagination :data="orders" />
         </TableContainer>
 
         <Dialog v-model:open="isVariantChoicesVisible">
