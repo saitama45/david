@@ -93,14 +93,14 @@ class DTSOrderSeeder extends Seeder
             9 => [2, 4, 6],     // Gateway Mall 2 - Tue, Thu, Sat
             31 => [2, 4, 6],    // Vermosa - Tue, Thu, Sat
         ];
-        
+
 
 
         $startDate = Carbon::create(2024, 11, 4);
         $endDate = Carbon::create(2024, 12, 28);
 
         $iceCreamId = ProductInventory::where('inventory_code', '359A2A')->first()->id;
-        $salmonId = ProductInventory::where('inventory_code', '269A2A')->first()->id;
+        $salmon = ProductInventory::where('inventory_code', '269A2A')->first();
 
         // foreach ($iceCreamBranchDeliverySchedules as $branchId => $deliveryDays) {
         //     $currentDate = $startDate->copy();
@@ -152,11 +152,11 @@ class DTSOrderSeeder extends Seeder
 
                     $quantity = random_int(5, 10);
                     $storeOrder->store_order_items()->create([
-                        'product_inventory_id' => $salmonId,
+                        'product_inventory_id' => $salmon->id,
                         'quantity_ordered' => $quantity,
                         'quantity_approved' => $quantity,
                         'quantity_received' => $quantity,
-                        'total_cost' => 109.65 * $quantity
+                        'total_cost' => $salmon->cost * $quantity
                     ]);
                 }
 
