@@ -1,4 +1,5 @@
 <script setup>
+import { router } from "@inertiajs/vue3";
 const {
     mondayOrders,
     tuesdayOrders,
@@ -6,6 +7,8 @@ const {
     thursdayOrders,
     fridayOrders,
     saturdayOrders,
+    datesOption,
+    filters,
 } = defineProps({
     mondayOrders: {
         type: Object,
@@ -31,13 +34,17 @@ const {
         type: Object,
         required: true,
     },
+    datesOption: {
+        type: Object,
+        required: true,
+    },
+    filters: {
+        type: Object,
+        required: true,
+    },
 });
 
-const dates = ref([
-    { name: "December 23, 2024 - December 27, 2024", code: "NY" },
-]);
-
-const selectedDate = ref("NY");
+const selectedDate = ref(filters.start_date_filter || datesOption[0]["code"]);
 
 const days = [
     { name: "Monday", orders: mondayOrders },
@@ -47,6 +54,18 @@ const days = [
     { name: "Friday", orders: fridayOrders },
     { name: "Saturday", orders: saturdayOrders },
 ];
+
+watch(selectedDate, function (value) {
+    console.log(value);
+    router.get(
+        route("ice-cream-orders.index"),
+        { start_date_filter: value },
+        {
+            preserveState: false,
+            replace: true,
+        }
+    );
+});
 </script>
 
 <template>
@@ -55,7 +74,7 @@ const days = [
             <TableHeader>
                 <Select
                     v-model="selectedDate"
-                    :options="dates"
+                    :options="datesOption"
                     class="w-fit"
                     optionLabel="name"
                     optionValue="code"
@@ -64,7 +83,8 @@ const days = [
 
             <DivFlexCol v-for="day in days" :key="day.name" class="gap-2">
                 <SpanBold>{{ day.name }}</SpanBold>
-                <TableConatiner
+
+                <TableContainer
                     v-for="data in day.orders"
                     :key="data.item_code"
                 >
@@ -89,7 +109,7 @@ const days = [
                             </tr>
                         </TableBody>
                     </Table>
-                </TableConatiner>
+                </TableContainer>
             </DivFlexCol>
         </TableContainer>
     </Layout>

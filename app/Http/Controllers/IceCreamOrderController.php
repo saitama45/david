@@ -6,14 +6,22 @@ use App\Models\StoreBranch;
 use App\Models\StoreOrder;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
 use Inertia\Inertia;
 
 class IceCreamOrderController extends Controller
 {
     public function index()
     {
-        $startDate = Carbon::now()->startOfWeek();
+        $start_date_filter = request('start_date_filter');
+
+
+        $datesOption = $this->generateDateOptions();
+
+        $startDate =  $start_date_filter ? Carbon::parse($start_date_filter) : Carbon::now()->startOfWeek();
+
         $monday = $startDate->toDateString();
+
         $tuesday = $startDate->copy()->addDays(1)->toDateString();
         $wednesday = $startDate->copy()->addDays(2)->toDateString();
         $thursday = $startDate->copy()->addDays(3)->toDateString();
@@ -36,8 +44,45 @@ class IceCreamOrderController extends Controller
             'wednesdayOrders' => $wednesdayOrders,
             'thursdayOrders' => $thursdayOrders,
             'fridayOrders' => $fridayOrders,
-            'saturdayOrders' => $saturdayOrders
+            'saturdayOrders' => $saturdayOrders,
+            'datesOption' => $datesOption,
+            'filters' => request()->only(['start_date_filter'])
         ]);
+    }
+
+    public function generateDateOptions()
+    {
+        $firstOrder = StoreOrder::with(['store_order_items.product_inventory'])
+            ->where('type', 'dts')
+            ->whereHas('store_order_items.product_inventory', function ($query) {
+                $query->where('inventory_code', '359A2A');
+            })
+            ->orderBy('order_date', 'asc')
+            ->first();
+
+
+        if (!$firstOrder) {
+            return [];
+        }
+
+        $startDate = Carbon::parse($firstOrder->order_date)->startOfWeek();
+        $currentDate = Carbon::now()->startOfWeek();
+        $dateOptions = [];
+        $weekCounter = 1;
+
+        while ($startDate <= $currentDate) {
+            $endDate = $startDate->copy()->addDays(5);
+
+            $dateOptions[] = [
+                'name' => $startDate->format('F d, Y') . ' - ' . $endDate->format('F d, Y'),
+                'code' => $startDate->format('Y-m-d')
+            ];
+
+            $startDate->addWeek();
+            $weekCounter++;
+        }
+
+        return array_reverse($dateOptions);
     }
 
     public function getBranchesId($scheduleId)
@@ -54,6 +99,7 @@ class IceCreamOrderController extends Controller
 
     public function getOrders($branchesId, $day)
     {
+
         return StoreOrder::with([
             'store_branch',
             'store_order_items',
