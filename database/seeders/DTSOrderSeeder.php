@@ -63,6 +63,7 @@ class DTSOrderSeeder extends Seeder
             9 => [3, 6],        // GWM QC - Wed, Sat
             28 => [3, 6],       // TOL NORTH - Wed, Sat
             14 => [4],          // TOL NORTH - Thu only
+            16 => [3, 6]
         ];
 
         $startDate = Carbon::create(2024, 9, 1);

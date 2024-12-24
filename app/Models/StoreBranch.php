@@ -53,6 +53,7 @@ class StoreBranch extends Model implements Auditable
         );
     }
 
+
     public function inventory_stock()
     {
         return $this->belongsTo(ProductInventoryStock::class);

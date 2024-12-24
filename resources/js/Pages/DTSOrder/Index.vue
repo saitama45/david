@@ -65,6 +65,10 @@ const statusBadgeColor = (status) => {
     }
 };
 
+const showOrderDetails = (id) => {
+    router.get(`/dts-orders/show/${id}`);
+};
+
 const { roles, is_admin } = usePage().props.auth;
 
 const now = new Date();

@@ -30,7 +30,7 @@ const props = defineProps({
 });
 
 const copyOrderAndCreateAnother = (id) => {
-    router.get("/store-orders/create", { orderId: id });
+    router.get("/dts-orders/create", { orderId: id });
 };
 </script>
 
@@ -77,12 +77,12 @@ const copyOrderAndCreateAnother = (id) => {
                     </span>
                 </DivFlexCenter>
 
-                <Button
+                <!-- <Button
                     class="bg-blue-500 hover:bg-blue-300"
                     @click="copyOrderAndCreateAnother(order.id)"
                 >
                     Copy Order and Create Another
-                </Button>
+                </Button> -->
             </DivFlexCenter>
 
             <TableHeader>

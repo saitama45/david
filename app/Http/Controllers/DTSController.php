@@ -123,6 +123,17 @@ class DTSController extends Controller
         return redirect()->route('dts-orders.index');
     }
 
+    public function show($id)
+    {
+        $order = StoreOrder::with(['store_branch', 'supplier', 'store_order_items'])->where('order_number', $id)->firstOrFail();
+        $orderedItems = $order->store_order_items()->with(['product_inventory', 'product_inventory.unit_of_measurement'])->get();
+
+        return Inertia::render('DTSOrder/Show', [
+            'order' => $order,
+            'orderedItems' => $orderedItems
+        ]);
+    }
+
     public function getOrderNumber($id)
     {
         $branchId = $id;

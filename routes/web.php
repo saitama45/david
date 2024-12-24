@@ -168,15 +168,17 @@ Route::middleware('auth')
         Route::controller(DTSController::class)->name('dts-orders.')->prefix('dts-orders')->group(function () {
             Route::get('/', 'index')->name('index');
             Route::get('/create/{variant}', 'create')->name('create');
+            Route::get('/show/{id}', 'show')
+                ->name('show');
             Route::post('/store', 'store')->name('store');
         });
 
-        Route::controller(DeliveryScheduleController::class)->name('delivery-schedules.')->prefix('delivery-schedules')->group(function(){
+        Route::controller(DeliveryScheduleController::class)->name('delivery-schedules.')->prefix('delivery-schedules')->group(function () {
             Route::get('/', 'index')->name('index');
             Route::get('/edit/{id}', 'edit')->name('edit');
         });
 
-        Route::controller(IceCreamOrderController::class)->name('ice-cream-orders.')->prefix('ice-cream-orders')->group(function(){
+        Route::controller(IceCreamOrderController::class)->name('ice-cream-orders.')->prefix('ice-cream-orders')->group(function () {
             Route::get('/', 'index')->name('index');
         });
 

@@ -80,7 +80,7 @@ import InfolistLabel from "./Components/InfolistLabel.vue";
 const appName = import.meta.env.VITE_APP_NAME || "Laravel";
 
 createInertiaApp({
-    title: (title) => `David`,
+    title: (title) => `DAVID`,
     resolve: (name) =>
         resolvePageComponent(
             `./Pages/${name}.vue`,

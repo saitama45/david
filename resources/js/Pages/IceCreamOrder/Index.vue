@@ -1,28 +1,52 @@
 <script setup>
-const { orders } = defineProps({
-    orders: {
+const {
+    mondayOrders,
+    tuesdayOrders,
+    wednesdayOrders,
+    thursdayOrders,
+    fridayOrders,
+    saturdayOrders,
+} = defineProps({
+    mondayOrders: {
         type: Object,
         required: true,
     },
-    dateOptionsFilter: {
+    tuesdayOrders: {
         type: Object,
-        default: {},
+        required: true,
+    },
+    wednesdayOrders: {
+        type: Object,
+        required: true,
+    },
+    thursdayOrders: {
+        type: Object,
+        required: true,
+    },
+    fridayOrders: {
+        type: Object,
+        required: true,
+    },
+    saturdayOrders: {
+        type: Object,
+        required: true,
     },
 });
-const daysOfWeek = [
-    { label: "Monday", items: orders.Monday },
-    { label: "Tuesday", items: orders.Tuesday },
-    { label: "Wednesday", items: orders.Wednesday },
-    { label: "Thursday", items: orders.Thursday },
-    { label: "Friday", items: orders.Friday },
-    { label: "Saturday", items: orders.Saturday },
-];
 
 const dates = ref([
     { name: "December 23, 2024 - December 27, 2024", code: "NY" },
 ]);
 
 const selectedDate = ref("NY");
+
+const days = [
+    { name: "Monday", orders: mondayOrders },
+    { name: "Tuesday", orders: tuesdayOrders },
+    { name: "Wednesday", orders: wednesdayOrders },
+    { name: "Thursday", orders: thursdayOrders },
+    { name: "Friday", orders: fridayOrders },
+    { name: "Saturday", orders: saturdayOrders },
+];
 </script>
 
 <template>
@@ -37,45 +61,36 @@ const selectedDate = ref("NY");
                     optionValue="code"
                 />
             </TableHeader>
-            <div
-                v-for="{ label, items } in daysOfWeek"
-                :key="label"
-                class="gap-2"
-            >
-                <SpanBold>{{ label }}</SpanBold>
-                <Card v-for="order in items" :key="order.id">
-                    <CardHeader>
-                        <CardTitle>
-                            {{ order.ordered_item }}
-                        </CardTitle>
-                        <CardDescription>
-                            Total Order: {{ order.total_quantity }}
-                        </CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                        <Table>
-                            <TableHead>
-                                <TH
-                                    v-for="branch in order.branches"
-                                    :key="branch.store"
+
+            <DivFlexCol v-for="day in days" :key="day.name" class="gap-2">
+                <SpanBold>{{ day.name }}</SpanBold>
+                <TableConatiner
+                    v-for="data in day.orders"
+                    :key="data.item_code"
+                >
+                    <Label>{{ data.item }} ({{ data.item_code }})</Label>
+                    <Table>
+                        <TableHead>
+                            <TH
+                                v-for="item in data.branches"
+                                :key="item.display_name"
+                            >
+                                {{ item.display_name }}
+                            </TH>
+                        </TableHead>
+                        <TableBody>
+                            <tr>
+                                <TD
+                                    v-for="item in data.branches"
+                                    :key="item.display_name"
                                 >
-                                    {{ branch.store }}
-                                </TH>
-                            </TableHead>
-                            <TableBody>
-                                <tr>
-                                    <TD
-                                        v-for="branch in order.branches"
-                                        :key="branch.store"
-                                    >
-                                        {{ branch.quantity }}
-                                    </TD>
-                                </tr>
-                            </TableBody>
-                        </Table>
-                    </CardContent>
-                </Card>
-            </div>
+                                    {{ item.quantity_ordered }}
+                                </TD>
+                            </tr>
+                        </TableBody>
+                    </Table>
+                </TableConatiner>
+            </DivFlexCol>
         </TableContainer>
     </Layout>
 </template>

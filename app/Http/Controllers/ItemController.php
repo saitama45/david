@@ -93,7 +93,7 @@ class ItemController extends Controller
 
     public function import(Request $request)
     {
-        set_time_limit(500);
+        set_time_limit(1000);
         $request->validate([
             'products_file' => 'required|mimes:xlsx,xls,csv'
         ]);
