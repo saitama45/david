@@ -44,6 +44,8 @@ const {
     },
 });
 
+const defaultSelectedDate =
+    datesOption.length > 0 ? datesOption[0]["code"] : null;
 const selectedDate = ref(filters.start_date_filter || datesOption[0]["code"]);
 
 const days = [
@@ -90,7 +92,9 @@ watch(selectedDate, function (value) {
                 >
                     <DivFlexCol>
                         <Label>{{ data.item }} ({{ data.item_code }})</Label>
-                        <SpanBold class="text-xs">Total Orders: {{ data.total_quantity}}</SpanBold>
+                        <SpanBold class="text-xs"
+                            >Total Orders: {{ data.total_quantity }}</SpanBold
+                        >
                     </DivFlexCol>
                     <Table>
                         <TableHead>

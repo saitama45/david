@@ -15,6 +15,7 @@ use App\Http\Controllers\OrderApprovalController;
 use App\Http\Controllers\OrderReceivingController;
 use App\Http\Controllers\ProductOrderSummaryController;
 use App\Http\Controllers\ProductSalesController;
+use App\Http\Controllers\SalmonOrderController;
 use App\Http\Controllers\StoreOrderController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\ReceivingApprovalController;
@@ -179,6 +180,10 @@ Route::middleware('auth')
         });
 
         Route::controller(IceCreamOrderController::class)->name('ice-cream-orders.')->prefix('ice-cream-orders')->group(function () {
+            Route::get('/', 'index')->name('index');
+        });
+
+        Route::controller(SalmonOrderController::class)->name('salmon-orders.')->prefix('salmon-orders')->group(function () {
             Route::get('/', 'index')->name('index');
         });
 

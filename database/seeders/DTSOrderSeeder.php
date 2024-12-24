@@ -2,6 +2,7 @@
 
 namespace Database\Seeders;
 
+use App\Models\ProductInventory;
 use App\Models\StoreOrder;
 use App\Models\StoreBranch;
 use Carbon\Carbon;
@@ -69,6 +70,8 @@ class DTSOrderSeeder extends Seeder
         $startDate = Carbon::create(2024, 9, 1);
         $endDate = Carbon::create(2024, 12, 28);
 
+        $product = ProductInventory::where('inventory_code', '359A2A')->first()->id;
+
         foreach ($branchDeliverySchedules as $branchId => $deliveryDays) {
             $currentDate = $startDate->copy();
 
@@ -88,7 +91,7 @@ class DTSOrderSeeder extends Seeder
 
                     $quantity = random_int(5, 10);
                     $storeOrder->store_order_items()->create([
-                        'product_inventory_id' => 498,
+                        'product_inventory_id' => $product,
                         'quantity_ordered' => $quantity,
                         'quantity_approved' => $quantity,
                         'quantity_received' => $quantity,
