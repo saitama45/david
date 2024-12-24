@@ -126,9 +126,13 @@ class IceCreamOrderController extends Controller
             ->groupBy('item')
             ->map(function ($itemGroup) {
                 $firstItem = $itemGroup->first();
+                $total_quantity = $itemGroup->sum(function ($item) {
+                    return $item['branch']['quantity_ordered'];
+                });
                 return [
                     'item' => $firstItem['item'],
                     'item_code' => $firstItem['item_code'],
+                    'total_quantity' => $total_quantity,
                     'branches' => $itemGroup->pluck('branch')
                 ];
             })

@@ -88,7 +88,10 @@ watch(selectedDate, function (value) {
                     v-for="data in day.orders"
                     :key="data.item_code"
                 >
-                    <Label>{{ data.item }} ({{ data.item_code }})</Label>
+                    <DivFlexCol>
+                        <Label>{{ data.item }} ({{ data.item_code }})</Label>
+                        <SpanBold class="text-xs">Total Orders: {{ data.total_quantity}}</SpanBold>
+                    </DivFlexCol>
                     <Table>
                         <TableHead>
                             <TH
