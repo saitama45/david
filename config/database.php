@@ -62,8 +62,9 @@ return [
                 PDO::ATTR_PERSISTENT => true,
             ]) : [],
             'pool' => [
-                'min' => 2,
-                'max' => 10,
+                'min_connections' => 1,
+                'max_connections' => 10,
+                'idle_timeout' => 60
             ],
         ],
 
