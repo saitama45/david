@@ -47,5 +47,6 @@ defineProps({
                 </InputContainer>
             </section>
         </Card>
+        <BackButton routeName="users.index" />
     </Layout>
 </template>

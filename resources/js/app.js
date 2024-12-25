@@ -2,6 +2,7 @@ import "../css/app.css";
 import "./bootstrap";
 import "primeicons/primeicons.css";
 
+
 import { createInertiaApp } from "@inertiajs/vue3";
 import { resolvePageComponent } from "laravel-vite-plugin/inertia-helpers";
 import { createApp, h } from "vue";
@@ -77,6 +78,7 @@ import LabelXS from "./Components/LabelXS.vue";
 import SpanBold from "./Components/SpanBold.vue";
 import EditButton from "./Components/button/EditButton.vue";
 import InfolistLabel from "./Components/InfolistLabel.vue";
+import BackButton from "./Components/BackButton.vue";
 const appName = import.meta.env.VITE_APP_NAME || "Laravel";
 
 createInertiaApp({
@@ -149,6 +151,7 @@ createInertiaApp({
             .component("EditButton", EditButton)
             .component("MonitorCog", MonitorCog)
             .component("InfolistLabel", InfolistLabel)
+            .component("BackButton", BackButton)
             .use(PrimeVue, {
                 theme: {
                     preset: Aura,

@@ -20,10 +20,6 @@ const handleClick = () => {
 watch(
     search,
     throttle(function (value) {
-        let params = {};
-        if (value && value.trim() !== "") {
-            params.search = value;
-        }
         router.get(
             route("users.index"),
             { search: value },
@@ -90,5 +86,6 @@ watch(
 
             <Pagination :data="users" />
         </TableContainer>
+
     </Layout>
 </template>
