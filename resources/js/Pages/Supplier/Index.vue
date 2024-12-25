@@ -16,13 +16,13 @@ const form = useForm({
 const targetId = ref(null);
 
 const store = () => {
-    form.post(route("categories.update", targetId.value), {
+    form.post(route("suppliers.update", targetId.value), {
         preserveScroll: true,
         onSuccess: () => {
             toast.add({
                 severity: "success",
                 summary: "Success",
-                detail: "Category Details Updated Successfully.",
+                detail: "Supplier Details Updated Successfully.",
                 life: 5000,
             });
             form.reset();
@@ -38,7 +38,7 @@ const props = defineProps({
     },
 });
 
-const { search } = useSearch("categories.index");
+const { search } = useSearch("suppliers.index");
 
 const editCategoryDetails = (id) => {
     targetId.value = id;
