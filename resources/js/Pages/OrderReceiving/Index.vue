@@ -2,8 +2,6 @@
 import { useSearch } from "@/Composables/useSearch";
 import { router } from "@inertiajs/vue3";
 
-
-
 const props = defineProps({
     orders: {
         type: Object,
@@ -24,7 +22,7 @@ const statusBadgeColor = (status) => {
 const viewDetails = (id) => {
     router.get(`/orders-receiving/show/${id}`);
 };
-const { search } = useSearch("approved-orders.index");
+const { search } = useSearch("orders-receiving.index");
 </script>
 
 <template>
@@ -84,7 +82,5 @@ const { search } = useSearch("approved-orders.index");
 
             <Pagination :data="orders" />
         </TableContainer>
-
- 
     </Layout>
 </template>

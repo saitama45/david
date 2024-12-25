@@ -26,7 +26,8 @@ class ApprovedOrderController extends Controller
             ->paginate(10);
 
         return Inertia::render('ApprovedReceivedItem/Index', [
-            'orders' => $orders
+            'orders' => $orders,
+            'filters' => request()->only(['search'])
         ]);
     }
 

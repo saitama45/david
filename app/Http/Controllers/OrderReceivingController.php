@@ -35,7 +35,8 @@ class OrderReceivingController extends Controller
 
 
         return Inertia::render('OrderReceiving/Index', [
-            'orders' => $orders
+            'orders' => $orders,
+            'filters' => request()->only(['search'])
         ]);
     }
 
