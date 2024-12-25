@@ -2,13 +2,16 @@ import { router, usePage } from "@inertiajs/vue3";
 import { throttle } from "lodash";
 
 export function useSearch(routeName, id) {
-    console.log(usePage().props);
     let search = ref(usePage().props.filters.search);
+
+    const getRoute = () => {
+        return id ? route(routeName, id) : route(routeName);
+    };
     watch(
         search,
         throttle(function (value) {
             router.get(
-                route(routeName, id),
+                getRoute(),
                 { search: value },
                 {
                     preserveState: true,

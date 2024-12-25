@@ -11,13 +11,21 @@ class ProductSalesController extends Controller
 {
     public function index()
     {
-        $items = ProductInventory::with('store_order_items')
-            ->withSum('store_order_items as total_sold', 'quantity_received')
-            ->paginate(10);
+        $search = request('search');
 
+        $query = ProductInventory::query()->with('store_order_items')
+            ->withSum('store_order_items', 'quantity_received')
+            ->whereHas('store_order_items');
+
+        if ($search) {
+            $query->whereAny(['name', 'inventory_code'], 'like', "%$search%");
+        }
+
+        $items = $query->paginate(10);
 
         return Inertia::render('ProductSales/Index', [
-            'items' => $items
+            'items' => $items,
+            'filters' => request()->only(['search'])
         ]);
     }
 
