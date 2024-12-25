@@ -8,6 +8,7 @@ use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\DeliveryScheduleController;
 use App\Http\Controllers\DTSController;
 use App\Http\Controllers\ExcelTemplateController;
+use App\Http\Controllers\FruitAndVegetableController;
 use App\Http\Controllers\IceCreamOrderController;
 use App\Http\Controllers\InvetoryCategoryController;
 use App\Http\Controllers\ItemController;
@@ -198,6 +199,13 @@ Route::middleware('auth')
         Route::controller(ProductSalesController::class)->prefix('product-sales')->name('product-sales.')->group(function () {
             Route::get('/', 'index')->name('index');
             Route::get('/show/{id}', 'show')->name('show');
+        });
+
+        Route::controller(FruitAndVegetableController::class)
+            ->prefix('fruits-and-vegetables')
+            ->name('fruits-and-vegetables.')
+            ->group(function () {
+            Route::get('/', 'index')->name('index');
         });
 
         Route::get('/profile', [ProfileController::class, 'index'])

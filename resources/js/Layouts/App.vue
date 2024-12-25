@@ -194,6 +194,13 @@ const logout = () => {
                         >
                             Salmon Orders
                         </NavLink>
+                        <NavLink
+                            v-if="canViewApprovedReceivedItems"
+                            href="/fruits-and-vegetables"
+                            :icon="FileCheck"
+                        >
+                            Fruits And Vegetables Orders
+                        </NavLink>
                         <DropdownMenuLabel v-if="canViewSalesGroup">
                             Sales
                         </DropdownMenuLabel>
