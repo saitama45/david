@@ -102,36 +102,36 @@ class DTSOrderSeeder extends Seeder
         $iceCreamId = ProductInventory::where('inventory_code', '359A2A')->first()->id;
         $salmon = ProductInventory::where('inventory_code', '269A2A')->first();
 
-        // foreach ($iceCreamBranchDeliverySchedules as $branchId => $deliveryDays) {
-        //     $currentDate = $startDate->copy();
+         foreach ($iceCreamBranchDeliverySchedules as $branchId => $deliveryDays) {
+             $currentDate = $startDate->copy();
 
-        //     while ($currentDate <= $endDate) {
-        //         if ($currentDate->dayOfWeek !== 0 && in_array($currentDate->dayOfWeek, $deliveryDays)) {
-        //             $storeOrder = StoreOrder::create([
-        //                 'encoder_id' => 1,
-        //                 'supplier_id' => 5,
-        //                 'store_branch_id' => $branchId,
-        //                 'approver_id' => 1,
-        //                 'order_number' => $this->generateOrderNumber($branchId),
-        //                 'order_date' => $currentDate->format('Y-m-d'),
-        //                 'order_status' => 'received',
-        //                 'order_request_status' => 'approved',
-        //                 'type' => 'dts',
-        //             ]);
+             while ($currentDate <= $endDate) {
+                 if ($currentDate->dayOfWeek !== 0 && in_array($currentDate->dayOfWeek, $deliveryDays)) {
+                     $storeOrder = StoreOrder::create([
+                         'encoder_id' => 1,
+                         'supplier_id' => 5,
+                         'store_branch_id' => $branchId,
+                         'approver_id' => 1,
+                         'order_number' => $this->generateOrderNumber($branchId),
+                         'order_date' => $currentDate->format('Y-m-d'),
+                         'order_status' => 'received',
+                         'order_request_status' => 'approved',
+                         'type' => 'dts',
+                     ]);
 
-        //             $quantity = random_int(5, 10);
-        //             $storeOrder->store_order_items()->create([
-        //                 'product_inventory_id' => $iceCreamId,
-        //                 'quantity_ordered' => $quantity,
-        //                 'quantity_approved' => $quantity,
-        //                 'quantity_received' => $quantity,
-        //                 'total_cost' => 109.65 * $quantity
-        //             ]);
-        //         }
+                     $quantity = random_int(5, 10);
+                     $storeOrder->store_order_items()->create([
+                         'product_inventory_id' => $iceCreamId,
+                         'quantity_ordered' => $quantity,
+                         'quantity_approved' => $quantity,
+                         'quantity_received' => $quantity,
+                         'total_cost' => 109.65 * $quantity
+                     ]);
+                 }
 
-        //         $currentDate->addDay();
-        //     }
-        // }
+                 $currentDate->addDay();
+             }
+         }
 
         foreach ($salmonBranchDeliverySchedules as $branchId => $deliveryDays) {
             $currentDate = $startDate->copy();
