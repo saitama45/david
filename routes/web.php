@@ -138,7 +138,7 @@ Route::middleware('auth')
             Route::get('/approved-orders/show/{id}', 'show')->name('show');
         });
 
-        Route::controller(StockController::class)->name('stocks')
+        Route::controller(StockController::class)->name('stocks.')
             ->group(function () {
                 Route::get('/stocks', 'index')->name('index');
                 Route::get('/stocks/show/{id}', 'show')->name('show');

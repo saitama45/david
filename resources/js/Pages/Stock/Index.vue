@@ -1,16 +1,28 @@
 <script setup>
+import { useSearch } from "@/Composables/useSearch";
+
 const props = defineProps({
     items: {
         type: Object,
     },
+    filters: {
+        type: Object,
+        required: true,
+    },
 });
+
+const { search } = useSearch("stocks.index");
 </script>
 <template>
     <Layout heading="Stocks">
         <TableContainer>
             <TableHeader>
                 <SearchBar>
-                    <Input class="pl-10" placeholder="Search..." />
+                    <Input
+                        v-model="search"
+                        class="pl-10"
+                        placeholder="Search..."
+                    />
                 </SearchBar>
             </TableHeader>
             <Table>

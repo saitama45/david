@@ -11,9 +11,15 @@ class StockController extends Controller
 {
     public function index()
     {
-        $items = ProductInventory::with('unit_of_measurement')->paginate();
+        $search = request('search');
+        $query = ProductInventory::query()->with('unit_of_measurement');
+        if ($search) {
+            $query->whereAny(['name', 'inventory_code'], 'like', "%$search%");
+        }
+        $items = $query->paginate();
         return Inertia::render('Stock/Index', [
-            'items' => $items
+            'items' => $items,
+            'filters' => request()->only(['search'])
         ]);
     }
 
