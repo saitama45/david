@@ -1,15 +1,32 @@
 <script setup>
+import { useSearch } from "@/Composables/useSearch";
+
 const props = defineProps({
     data: {
         type: Object,
     },
 });
+
+const { search } = useSearch(
+    "stocks.show",
+    props.data.data[0].product_inventory_id
+);
+
 const product = props.data.data[0].product;
 const heading = `${product.name} (${product.inventory_code}) Stock Per Store`;
 </script>
 <template>
     <Layout :heading="heading">
         <TableContainer>
+            <TableHeader>
+                <SearchBar>
+                    <Input
+                        v-model="search"
+                        class="pl-10"
+                        placeholder="Search..."
+                    />
+                </SearchBar>
+            </TableHeader>
             <Table>
                 <TableHead>
                     <TH>Branch</TH>
@@ -30,5 +47,6 @@ const heading = `${product.name} (${product.inventory_code}) Stock Per Store`;
             </Table>
             <Pagination :data="data" />
         </TableContainer>
+        <BackButton routeName="stocks.index" />
     </Layout>
 </template>

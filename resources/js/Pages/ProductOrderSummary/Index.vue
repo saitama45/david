@@ -1,5 +1,9 @@
 <script setup>
 import { router } from "@inertiajs/vue3";
+
+import { useSearch } from "@/Composables/useSearch";
+const { search } = useSearch("categories.index");
+
 const props = defineProps({
     items: {
         type: Object,
@@ -17,7 +21,11 @@ const showProductOrdersDetails = (id) => {
         <TableContainer>
             <TableHeader>
                 <SearchBar>
-                    <Input class="pl-10" placeholder="Search..." />
+                    <Input
+                        v-model="search"
+                        class="pl-10"
+                        placeholder="Search..."
+                    />
                 </SearchBar>
             </TableHeader>
             <Table>

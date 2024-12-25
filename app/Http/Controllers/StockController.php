@@ -25,9 +25,22 @@ class StockController extends Controller
 
     public function show($id)
     {
-        $data = ProductInventoryStock::with(['product', 'store_branch'])->where('product_inventory_id', $id)->paginate(10);
+        $search = request('search');
+
+        $query = ProductInventoryStock::query()->with(['product', 'store_branch'])->where('product_inventory_id', $id);
+
+        if ($search) {
+            $query->whereHas('store_branch', function ($query) use ($search) {
+                $query->whereAny(['name', 'branch_code'], 'like', "%$search%");
+            });
+        }
+
+        $data = $query->paginate(10);
+
+
         return Inertia::render('Stock/Show', [
-            'data' => $data
+            'data' => $data,
+            'filters' => request()->only(['search'])
         ]);
     }
 }
