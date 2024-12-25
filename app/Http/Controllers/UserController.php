@@ -14,10 +14,16 @@ class UserController extends Controller
 {
     public function index()
     {
-        $users = User::with('roles')->paginate(10);
+        $search = request('search');
+        $query = User::query()->with('roles');
+        if ($search) {
+            $query->whereAny(['first_name', 'last_name', 'email'], 'like', "%$search%");
+        }
+        $users = $query->paginate(10);
 
         return Inertia::render('User/Index', [
             'users' => $users,
+            'filters' => request()->only(['search'])
         ]);
     }
 

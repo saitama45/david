@@ -1,14 +1,39 @@
 <script setup>
 import { router } from "@inertiajs/vue3";
+import { throttle } from "lodash";
 const props = defineProps({
     users: {
         type: Object,
         required: true,
     },
+    filters: {
+        type: Object,
+        required: true,
+    },
 });
+let filter = ref(props.filters.search);
+const search = ref(filter.value);
 const handleClick = () => {
     router.get("/users/create");
 };
+
+watch(
+    search,
+    throttle(function (value) {
+        let params = {};
+        if (value && value.trim() !== "") {
+            params.search = value;
+        }
+        router.get(
+            route("users.index"),
+            { search: value },
+            {
+                preserveState: true,
+                replace: true,
+            }
+        );
+    }, 500)
+);
 </script>
 
 <template>
@@ -21,7 +46,11 @@ const handleClick = () => {
         <TableContainer>
             <TableHeader>
                 <SearchBar>
-                    <Input class="pl-10" placeholder="Search..." />
+                    <Input
+                        v-model="search"
+                        class="pl-10"
+                        placeholder="Search..."
+                    />
                 </SearchBar>
             </TableHeader>
 
