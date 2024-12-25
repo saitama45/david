@@ -53,7 +53,7 @@ class StoreOrderController extends Controller
 
         $orders = $query
             ->whereBetween('created_at', [$from, $to])
-            ->where('type', 'normal')
+            ->where('type', 'regular')
             ->latest()
             ->paginate(10);
 

@@ -2,7 +2,7 @@
 import { router } from "@inertiajs/vue3";
 
 import { useSearch } from "@/Composables/useSearch";
-const { search } = useSearch("categories.index");
+const { search } = useSearch("product-orders-summary.index");
 
 const props = defineProps({
     items: {
@@ -60,6 +60,7 @@ const showProductOrdersDetails = (id) => {
                     </tr>
                 </TableBody>
             </Table>
+            <Pagination :data="items" />
         </TableContainer>
     </Layout>
 </template>
