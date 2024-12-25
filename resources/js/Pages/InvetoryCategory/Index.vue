@@ -38,7 +38,7 @@ const props = defineProps({
     },
 });
 
-const { search } = useSearch("categories.index");
+const { search } = useSearch("inventory-categories.index");
 
 const editCategoryDetails = (id) => {
     targetId.value = id;
