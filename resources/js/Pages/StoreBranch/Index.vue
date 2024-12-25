@@ -17,7 +17,7 @@ const form = useForm({
 const targetId = ref(null);
 
 const store = () => {
-    form.post(route("categories.update", targetId.value), {
+    form.post(route("store-branches.update", targetId.value), {
         preserveScroll: true,
         onSuccess: () => {
             toast.add({
@@ -39,7 +39,7 @@ const props = defineProps({
     },
 });
 
-const { search } = useSearch("categories.index");
+const { search } = useSearch("store-branches.index");
 
 const editCategoryDetails = (id) => {
     router.get(`/store-branches/edit/${id}`);

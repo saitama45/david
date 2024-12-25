@@ -67,6 +67,7 @@ const editCategoryDetails = (id) => {
                     <TH> Id </TH>
                     <TH> Name</TH>
                     <TH> Supplier Code</TH>
+                    <TH> Remarks</TH>
                     <TH> Actions </TH>
                 </TableHead>
                 <TableBody>
@@ -74,6 +75,7 @@ const editCategoryDetails = (id) => {
                         <TD>{{ data.id }}</TD>
                         <TD>{{ data.name }}</TD>
                         <TD>{{ data.supplier_code }}</TD>
+                        <TD>{{ data.remarks ?? "N/a" }}</TD>
                         <TD>
                             <button
                                 @click="editCategoryDetails(data.id)"
