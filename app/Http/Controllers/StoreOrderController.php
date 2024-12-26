@@ -101,7 +101,7 @@ class StoreOrderController extends Controller
         $validated = $request->validate([
             'branch_id' => ['required', 'exists:store_branches,id'],
             'supplier_id' => ['required', 'exists:suppliers,id'],
-            'order_date' => ['required', 'after_or_equal:today'],
+            'order_date' => ['required'],
             'orders' => ['required', 'array']
         ], [
             'branch_id.required' => 'Store field branch is required',
@@ -117,7 +117,7 @@ class StoreOrderController extends Controller
             'supplier_id' => $supplier,
             'store_branch_id' => $validated['branch_id'],
             'order_number' => $this->getOrderNumber($validated['branch_id']),
-            'order_date' => Carbon::parse($validated['order_date'])->format('Y-m-d'),
+            'order_date' => Carbon::parse($validated['order_date'])->addDays(1)->format('Y-m-d'),
             'order_status' => OrderStatus::PENDING->value,
             'order_request_status' => OrderRequestStatus::PENDING->value,
         ]);

@@ -15,6 +15,7 @@ class DeliveryScheduleController extends Controller
 
         $formattedResult = $branches->through(function ($branch) {
             $result = [
+                'id' => $branch->id,
                 'name' => $branch->name,
                 'branch_code' => $branch->branch_code,
             ];

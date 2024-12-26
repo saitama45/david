@@ -19,7 +19,10 @@ class IceCreamOrderController extends Controller
 
         $startDate = $start_date_filter
             ? Carbon::parse($start_date_filter)
-            : Carbon::now();
+            : Carbon::now()->startOfWeek();
+
+
+
 
         $monday = $startDate->toDateString();
         $tuesday = $startDate->copy()->addDays(1)->toDateString();

@@ -39,7 +39,7 @@ const submit = () => {
             class="border border-gray-300 rounded-lg sm:p-10 sm:space-y-5 space-y-3 p-5"
         >
             <h1 class="sm:text-lg text-sm sm:mb-5 text-[#74d1f6]">
-                Welcome to David!
+                Welcome to DAVID!
             </h1>
             <h1 class="sm:text-2xl text-lg font-bold text-[#24ace4]">
                 Sign in to your account

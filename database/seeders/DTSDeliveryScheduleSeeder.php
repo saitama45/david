@@ -666,12 +666,6 @@ class DTSDeliveryScheduleSeeder extends Seeder
                 'variant' => 'SALMON'
             ],
 
-
-
-
-
-
-
             // Fruits and veggies 
             [
                 'store_branch_id' => 23,

@@ -83,15 +83,18 @@ class DTSController extends Controller
 
     public function store(Request $request)
     {
+
         $validated = $request->validate([
             'branch_id' => ['required', 'exists:store_branches,id'],
             'supplier_id' => ['required', 'exists:suppliers,id'],
-            'order_date' => ['required', 'after_or_equal:today'],
+            'order_date' => ['required'],
             'orders' => ['required', 'array']
         ], [
             'branch_id.required' => 'Store field branch is required',
             'supplier_id.required' => 'Supplier field is required'
         ]);
+
+
 
         $supplier = Supplier::find($validated['supplier_id'])->id;
 
@@ -102,7 +105,7 @@ class DTSController extends Controller
             'supplier_id' => $supplier,
             'store_branch_id' => $validated['branch_id'],
             'order_number' => $this->getOrderNumber($validated['branch_id']),
-            'order_date' => Carbon::parse($validated['order_date'])->format('Y-m-d'),
+            'order_date' => Carbon::parse($validated['order_date'])->addDay()->format('Y-m-d'),
             'order_status' => OrderStatus::PENDING->value,
             'order_request_status' => OrderRequestStatus::PENDING->value,
             'type' => 'dts'

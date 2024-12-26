@@ -25,6 +25,7 @@ console.log(branches);
             </TableHeader>
             <Table>
                 <TableHead>
+                    <TH>Id</TH>
                     <TH>Store Branch</TH>
                     <TH>Loc Code</TH>
                     <!-- <TH>
@@ -67,6 +68,7 @@ console.log(branches);
 
                 <TableBody>
                     <tr v-for="branch in branches.data">
+                        <TD>{{ branch.id }}</TD>
                         <TD>{{ branch.name }}</TD>
                         <TD>{{ branch.branch_code }}</TD>
                         <!-- <TD>

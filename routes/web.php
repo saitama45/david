@@ -205,8 +205,9 @@ Route::middleware('auth')
             ->prefix('fruits-and-vegetables')
             ->name('fruits-and-vegetables.')
             ->group(function () {
-            Route::get('/', 'index')->name('index');
-        });
+                Route::get('/', 'index')->name('index');
+                Route::get('/show/{id}', 'show')->name('show');
+            });
 
         Route::get('/profile', [ProfileController::class, 'index'])
             ->name('profile.index');

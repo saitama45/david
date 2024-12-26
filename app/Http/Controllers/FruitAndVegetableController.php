@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\ProductInventory;
 use App\Models\StoreBranch;
 use App\Models\StoreOrder;
+use App\Models\StoreOrderItem;
 use Carbon\Carbon;
 use Exception;
 use Illuminate\Http\Request;
@@ -74,23 +75,61 @@ class FruitAndVegetableController extends Controller
     }
 
 
-    public function generateDateOptions()
+    public function show($id)
+    {
+        $start_date_filter = request('start_date_filter');
+
+        $datesOption = $this->generateDateOptions($id);
+
+        $startDate = $start_date_filter
+            ? Carbon::parse($start_date_filter)
+            : Carbon::now()->startOfWeek();
+
+
+        $monday = $startDate->toDateString();
+        $tuesday = $startDate->copy()->addDays(1)->toDateString();
+        $wednesday = $startDate->copy()->addDays(2)->toDateString();
+        $thursday = $startDate->copy()->addDays(3)->toDateString();
+        $friday = $startDate->copy()->addDays(4)->toDateString();
+        $saturday = $startDate->copy()->addDays(5)->toDateString();
+
+        $mondayOrders = $this->getOrders($this->getBranchesId(1), $monday, $id);
+
+        $tuesdayOrders =  $this->getOrders($this->getBranchesId(2), $tuesday, $id);
+        $wednesdayOrders =  $this->getOrders($this->getBranchesId(3), $wednesday, $id);
+        $thursdayOrders =  $this->getOrders($this->getBranchesId(4), $thursday, $id);
+        $fridayOrders =  $this->getOrders($this->getBranchesId(5), $friday, $id);
+        $saturdayOrders =  $this->getOrders($this->getBranchesId(6), $saturday, $id);
+
+        return Inertia::render('FruitAndVegetableOrder/Show', [
+            'mondayOrders' => $mondayOrders,
+            'tuesdayOrders' => $tuesdayOrders,
+            'wednesdayOrders' => $wednesdayOrders,
+            'thursdayOrders' => $thursdayOrders,
+            'fridayOrders' => $fridayOrders,
+            'saturdayOrders' => $saturdayOrders,
+            'datesOption' => $datesOption,
+            'filters' => request()->only(['start_date_filter']),
+            'inventory_code' => $id
+        ]);
+    }
+
+    public function generateDateOptions($id)
     {
         $firstOrder = StoreOrder::with(['store_order_items.product_inventory'])
             ->where('type', 'dts')
-            ->whereHas('store_order_items.product_inventory', function ($query) {
-                $query->whereIn('inventory_category_id', [6]);
+            ->whereHas('store_order_items.product_inventory', function ($query) use ($id) {
+                $query->where('inventory_code', $id);
             })
             ->orderBy('order_date', 'asc')
             ->first();
-
 
         if (!$firstOrder) {
             return [];
         }
 
         $startDate = Carbon::parse($firstOrder->order_date)->startOfWeek();
-        $currentDate = Carbon::now()->startOfWeek();
+        $currentDate = Carbon::now()->next('Monday');
         $dateOptions = [];
         $weekCounter = 1;
 
@@ -121,18 +160,17 @@ class FruitAndVegetableController extends Controller
             ->pluck('id');
     }
 
-    public function getOrders($branchesId, $day)
+    public function getOrders($branchesId, $day, $id)
     {
-
         return StoreOrder::with([
             'store_branch',
             'store_order_items',
             'store_order_items.product_inventory'
         ])
-            ->whereIn('store_branch_id', $branchesId)
+            // ->whereIn('store_branch_id', $branchesId)
             ->where('order_date', $day)
-            ->whereHas('store_order_items.product_inventory', function ($query) {
-                $query->whereIn('inventory_category_id', [6]);
+            ->whereHas('store_order_items.product_inventory', function ($query) use ($id) {
+                $query->where('inventory_code', $id);
             })
             ->get()
             ->flatMap(function ($order) {
@@ -140,6 +178,7 @@ class FruitAndVegetableController extends Controller
                     return [
                         'item' => $item->product_inventory->name,
                         'item_code' => $item->product_inventory->inventory_code,
+                        'branch_key' => $order->store_branch->id,
                         'branch' => [
                             'display_name' => "{$order->store_branch->brand_code}-NONOS {$order->store_branch->location_code}",
                             'quantity_ordered' => $item->quantity_ordered
@@ -150,14 +189,27 @@ class FruitAndVegetableController extends Controller
             ->groupBy('item')
             ->map(function ($itemGroup) {
                 $firstItem = $itemGroup->first();
-                $total_quantity = $itemGroup->sum(function ($item) {
-                    return $item['branch']['quantity_ordered'];
-                });
+
+                $branches = $itemGroup
+                    ->groupBy('branch_key')
+                    ->map(function ($branchGroup) {
+                        $first = $branchGroup->first();
+                        return [
+                            'display_name' => $first['branch']['display_name'],
+                            'quantity_ordered' => $branchGroup->sum(function ($item) {
+                                return $item['branch']['quantity_ordered'];
+                            })
+                        ];
+                    })
+                    ->values();
+
+                $total_quantity = $branches->sum('quantity_ordered');
+
                 return [
                     'item' => $firstItem['item'],
                     'item_code' => $firstItem['item_code'],
                     'total_quantity' => $total_quantity,
-                    'branches' => $itemGroup->pluck('branch')
+                    'branches' => $branches
                 ];
             })
             ->values();

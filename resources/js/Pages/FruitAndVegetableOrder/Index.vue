@@ -8,7 +8,6 @@ const { items } = defineProps({
     },
 });
 
-console.log(items);
 </script>
 
 <template>
@@ -45,7 +44,11 @@ console.log(items);
                         <TD>{{ item.quantity_ordered.thursday }}</TD>
                         <TD>{{ item.quantity_ordered.friday }}</TD>
                         <TD>{{ item.quantity_ordered.saturday }}</TD>
-                        <TD><ShowButton /></TD>
+                        <TD
+                            ><ShowButton
+                                :isLink="true"
+                                :href="`/fruits-and-vegetables/show/${item.inventory_code}`"
+                        /></TD>
                     </tr>
                 </TableBody>
             </Table>
