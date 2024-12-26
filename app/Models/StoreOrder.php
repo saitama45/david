@@ -29,7 +29,7 @@ class StoreOrder extends Model implements Auditable
 
     protected $casts = [
         'created_at' => 'date:F d, Y',
-        'order_date' => 'date:F d, Y',
+        // 'order_date' => 'date:F d, Y',
         'order_approved_date' => 'date:F d, Y',
     ];
 

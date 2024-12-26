@@ -6,6 +6,7 @@ use App\Models\ProductInventory;
 use App\Models\StoreBranch;
 use App\Models\StoreOrder;
 use Carbon\Carbon;
+use Exception;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 
@@ -13,25 +14,58 @@ class FruitAndVegetableController extends Controller
 {
     public function index()
     {
+        $search = request('search');
         $start_date_filter = request('start_date_filter');
+        $startDate = $start_date_filter ? Carbon::parse($start_date_filter) : Carbon::now()->startOfWeek();
 
-        // $datesOption = $this->generateDateOptions();
-        $startDate =  $start_date_filter ? Carbon::parse($start_date_filter) : Carbon::now()->startOfWeek();
+        $dates = [
+            'monday' => $startDate->toDateString(),
+            'tuesday' => $startDate->copy()->addDays(1)->toDateString(),
+            'wednesday' => $startDate->copy()->addDays(2)->toDateString(),
+            'thursday' => $startDate->copy()->addDays(3)->toDateString(),
+            'friday' => $startDate->copy()->addDays(4)->toDateString(),
+            'saturday' => $startDate->copy()->addDays(5)->toDateString(),
+        ];
 
-        $monday = $startDate->toDateString();
-        $tuesday = $startDate->copy()->addDays(1)->toDateString();
-        $wednesday = $startDate->copy()->addDays(2)->toDateString();
-        $thursday = $startDate->copy()->addDays(3)->toDateString();
-        $friday = $startDate->copy()->addDays(4)->toDateString();
-        $saturday = $startDate->copy()->addDays(5)->toDateString();
+        $storeOrders = StoreOrder::with(['store_order_items.product_inventory'])
+            ->where('type', 'dts')
+            ->whereBetween('order_date', [reset($dates), end($dates)])
+            ->whereHas('store_order_items.product_inventory', function ($query) {
+                $query->where('inventory_category_id', 6);
+            })
+            ->get();
 
-        // Get all the fruits and vegetables from the product invetory list
-        // $fruitsAndVegetables = ProductInventory::with('store_order_items')
-        //     ->where('inventory_category_id', 6)->get();
+            
 
+
+        $formattedProducts = ProductInventory::where('inventory_category_id', 6)
+            ->paginate(10)
+            ->through(function ($product) use ($storeOrders, $dates) {
+
+                $quantityByDay = collect($dates)->mapWithKeys(function ($date, $dayName) use ($storeOrders, $product) {
+
+
+                    $quantity = $storeOrders
+                        ->where('order_date', $date)
+                        ->flatMap(function ($order) {
+                            return $order->store_order_items;
+                        })
+                        ->where('product_inventory_id', $product->id)
+                        ->sum('quantity_ordered');
+
+                    return [$dayName => (int)$quantity];
+                });
+
+                return [
+                    'name' => $product->name,
+                    'inventory_code' => $product->inventory_code,
+                    'quantity_ordered' => $quantityByDay
+                ];
+            });
 
         return Inertia::render('FruitAndVegetableOrder/Index', [
-            'filters' => request()->only(['start_date_filter'])
+            'filters' => request()->only(['start_date_filter', 'search']),
+            'items' => $formattedProducts
         ]);
     }
 
