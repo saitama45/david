@@ -94,46 +94,88 @@ class DTSOrderSeeder extends Seeder
             31 => [2, 4, 6],    // Vermosa - Tue, Thu, Sat
         ];
 
+        $nAndSFruitsAndVegetableBranchDeliverySchedules = [
+            8 => [1, 3, 5],    // Filinvest Super Mall - Mon, Wed, Fri
+            17 => [1, 3, 5],   // Nuvali - Mon, Wed, Fri
+            26 => [1, 3, 5],   // SM Santa Rosa - Mon, Wed, Fri
+            28 => [1, 3, 5],   // The Outlets at Lipa - Mon, Wed, Fri
+            31 => [1, 3, 5],   // Vermosa - Mon, Wed, Fri
+        ];
 
+        $fruitsAndVegetablesList =  ProductInventory::with('store_order_items')
+            ->where('inventory_category_id', 6)
+            ->get()
+            ->pluck('id', 'cost');
 
-        $startDate = Carbon::create(2024, 11, 4);
+        $startDate = Carbon::create(2024, 11, 25);
         $endDate = Carbon::create(2024, 12, 28);
 
         $iceCreamId = ProductInventory::where('inventory_code', '359A2A')->first()->id;
         $salmon = ProductInventory::where('inventory_code', '269A2A')->first();
 
-         foreach ($iceCreamBranchDeliverySchedules as $branchId => $deliveryDays) {
-             $currentDate = $startDate->copy();
+        // foreach ($iceCreamBranchDeliverySchedules as $branchId => $deliveryDays) {
+        //     $currentDate = $startDate->copy();
 
-             while ($currentDate <= $endDate) {
-                 if ($currentDate->dayOfWeek !== 0 && in_array($currentDate->dayOfWeek, $deliveryDays)) {
-                     $storeOrder = StoreOrder::create([
-                         'encoder_id' => 1,
-                         'supplier_id' => 5,
-                         'store_branch_id' => $branchId,
-                         'approver_id' => 1,
-                         'order_number' => $this->generateOrderNumber($branchId),
-                         'order_date' => $currentDate->format('Y-m-d'),
-                         'order_status' => 'received',
-                         'order_request_status' => 'approved',
-                         'type' => 'dts',
-                     ]);
+        //     while ($currentDate <= $endDate) {
+        //         if ($currentDate->dayOfWeek !== 0 && in_array($currentDate->dayOfWeek, $deliveryDays)) {
+        //             $storeOrder = StoreOrder::create([
+        //                 'encoder_id' => 1,
+        //                 'supplier_id' => 5,
+        //                 'store_branch_id' => $branchId,
+        //                 'approver_id' => 1,
+        //                 'order_number' => $this->generateOrderNumber($branchId),
+        //                 'order_date' => $currentDate->format('Y-m-d'),
+        //                 'order_status' => 'received',
+        //                 'order_request_status' => 'approved',
+        //                 'type' => 'dts',
+        //             ]);
 
-                     $quantity = random_int(5, 10);
-                     $storeOrder->store_order_items()->create([
-                         'product_inventory_id' => $iceCreamId,
-                         'quantity_ordered' => $quantity,
-                         'quantity_approved' => $quantity,
-                         'quantity_received' => $quantity,
-                         'total_cost' => 109.65 * $quantity
-                     ]);
-                 }
+        //             $quantity = random_int(5, 10);
+        //             $storeOrder->store_order_items()->create([
+        //                 'product_inventory_id' => $iceCreamId,
+        //                 'quantity_ordered' => $quantity,
+        //                 'quantity_approved' => $quantity,
+        //                 'quantity_received' => $quantity,
+        //                 'total_cost' => 109.65 * $quantity
+        //             ]);
+        //         }
 
-                 $currentDate->addDay();
-             }
-         }
+        //         $currentDate->addDay();
+        //     }
+        // }
 
-        foreach ($salmonBranchDeliverySchedules as $branchId => $deliveryDays) {
+        // foreach ($salmonBranchDeliverySchedules as $branchId => $deliveryDays) {
+        //     $currentDate = $startDate->copy();
+
+        //     while ($currentDate <= $endDate) {
+        //         if ($currentDate->dayOfWeek !== 0 && in_array($currentDate->dayOfWeek, $deliveryDays)) {
+        //             $storeOrder = StoreOrder::create([
+        //                 'encoder_id' => 1,
+        //                 'supplier_id' => 5,
+        //                 'store_branch_id' => $branchId,
+        //                 'approver_id' => 1,
+        //                 'order_number' => $this->generateOrderNumber($branchId),
+        //                 'order_date' => $currentDate->format('Y-m-d'),
+        //                 'order_status' => 'received',
+        //                 'order_request_status' => 'approved',
+        //                 'type' => 'dts',
+        //             ]);
+
+        //             $quantity = random_int(5, 10);
+        //             $storeOrder->store_order_items()->create([
+        //                 'product_inventory_id' => $salmon->id,
+        //                 'quantity_ordered' => $quantity,
+        //                 'quantity_approved' => $quantity,
+        //                 'quantity_received' => $quantity,
+        //                 'total_cost' => $salmon->cost * $quantity
+        //             ]);
+        //         }
+
+        //         $currentDate->addDay();
+        //     }
+        // }
+
+        foreach ($nAndSFruitsAndVegetableBranchDeliverySchedules as $branchId => $deliveryDays) {
             $currentDate = $startDate->copy();
 
             while ($currentDate <= $endDate) {
@@ -149,17 +191,22 @@ class DTSOrderSeeder extends Seeder
                         'order_request_status' => 'approved',
                         'type' => 'dts',
                     ]);
+                    for ($i = 0; $i < 5; $i++) {
+                        $randomItem = $fruitsAndVegetablesList->random();
+                        $productInventoryId = $randomItem;
+                        $productCost = $fruitsAndVegetablesList->search($randomItem);
 
-                    $quantity = random_int(5, 10);
-                    $storeOrder->store_order_items()->create([
-                        'product_inventory_id' => $salmon->id,
-                        'quantity_ordered' => $quantity,
-                        'quantity_approved' => $quantity,
-                        'quantity_received' => $quantity,
-                        'total_cost' => $salmon->cost * $quantity
-                    ]);
+                        $quantity = random_int(1, 10);
+
+                        $storeOrder->store_order_items()->create([
+                            'product_inventory_id' => $productInventoryId,
+                            'quantity_ordered' => $quantity,
+                            'quantity_approved' => $quantity,
+                            'quantity_received' => $quantity,
+                            'total_cost' => $productCost * $quantity
+                        ]);
+                    }
                 }
-
                 $currentDate->addDay();
             }
         }

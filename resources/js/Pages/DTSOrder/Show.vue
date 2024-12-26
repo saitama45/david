@@ -2,7 +2,7 @@
 import { useBackButton } from "@/Composables/useBackButton";
 import { router } from "@inertiajs/vue3";
 
-const { backButton } = useBackButton(route("store-orders.index"));
+const { backButton } = useBackButton(route("dts-orders.index"));
 const statusBadgeColor = (status) => {
     switch (status.toUpperCase()) {
         case "APPROVED":

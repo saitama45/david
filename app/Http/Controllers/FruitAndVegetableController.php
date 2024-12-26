@@ -15,7 +15,7 @@ class FruitAndVegetableController extends Controller
     {
         $start_date_filter = request('start_date_filter');
 
-        $datesOption = $this->generateDateOptions();
+        // $datesOption = $this->generateDateOptions();
         $startDate =  $start_date_filter ? Carbon::parse($start_date_filter) : Carbon::now()->startOfWeek();
 
         $monday = $startDate->toDateString();
@@ -26,9 +26,8 @@ class FruitAndVegetableController extends Controller
         $saturday = $startDate->copy()->addDays(5)->toDateString();
 
         // Get all the fruits and vegetables from the product invetory list
-        $fruitsAndVegetables = ProductInventory::where('inventory_category_id', 6)->get();
-
-        dd($fruitsAndVegetables);
+        // $fruitsAndVegetables = ProductInventory::with('store_order_items')
+        //     ->where('inventory_category_id', 6)->get();
 
 
         return Inertia::render('FruitAndVegetableOrder/Index', [
