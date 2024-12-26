@@ -35,10 +35,14 @@ class FruitAndVegetableController extends Controller
             })
             ->get();
 
-            
+
+        $query = ProductInventory::query();
+        if ($search) {
+            $query->whereAny(['name', 'inventory_code'], 'like', "%{$search}%");
+        }
 
 
-        $formattedProducts = ProductInventory::where('inventory_category_id', 6)
+        $formattedProducts = $query->where('inventory_category_id', 6)
             ->paginate(10)
             ->through(function ($product) use ($storeOrders, $dates) {
 
