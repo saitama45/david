@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\ProductInventory;
 use App\Models\StoreBranch;
 use App\Models\StoreOrder;
 use Carbon\Carbon;
@@ -14,34 +15,23 @@ class FruitAndVegetableController extends Controller
     {
         $start_date_filter = request('start_date_filter');
 
-
         $datesOption = $this->generateDateOptions();
-
         $startDate =  $start_date_filter ? Carbon::parse($start_date_filter) : Carbon::now()->startOfWeek();
 
         $monday = $startDate->toDateString();
-
         $tuesday = $startDate->copy()->addDays(1)->toDateString();
         $wednesday = $startDate->copy()->addDays(2)->toDateString();
         $thursday = $startDate->copy()->addDays(3)->toDateString();
         $friday = $startDate->copy()->addDays(4)->toDateString();
         $saturday = $startDate->copy()->addDays(5)->toDateString();
 
+        // Get all the fruits and vegetables from the product invetory list
+        $fruitsAndVegetables = ProductInventory::where('inventory_category_id', 6)->get();
 
-        $mondayOrders = $this->getOrders($this->getBranchesId(1), $monday);
-        $tuesdayOrders =  $this->getOrders($this->getBranchesId(2), $tuesday);
-        $wednesdayOrders =  $this->getOrders($this->getBranchesId(3), $wednesday);
-        $thursdayOrders =  $this->getOrders($this->getBranchesId(4), $thursday);
-        $fridayOrders =  $this->getOrders($this->getBranchesId(5), $friday);
-        $saturdayOrders =  $this->getOrders($this->getBranchesId(6), $saturday);
+        dd($fruitsAndVegetables);
+
+
         return Inertia::render('FruitAndVegetableOrder/Index', [
-            'mondayOrders' => $mondayOrders,
-            'tuesdayOrders' => $tuesdayOrders,
-            'wednesdayOrders' => $wednesdayOrders,
-            'thursdayOrders' => $thursdayOrders,
-            'fridayOrders' => $fridayOrders,
-            'saturdayOrders' => $saturdayOrders,
-            'datesOption' => $datesOption,
             'filters' => request()->only(['start_date_filter'])
         ]);
     }

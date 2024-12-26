@@ -41,7 +41,7 @@ class AppServiceProvider extends ServiceProvider
         //     Gate::define($permission, fn(User $user) => in_array($user->role, $roles));
         // }
 
-        register_shutdown_function(function () {
+        $this->app->terminating(function () {
             DB::disconnect();
         });
     }

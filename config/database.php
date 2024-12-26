@@ -44,7 +44,7 @@ return [
 
         'mysql' => [
             'driver' => 'mysql',
-            'wait_timeout' => 300,
+            'wait_timeout' => 60,
             'url' => env('DB_URL'),
             'host' => env('DB_HOST', '127.0.0.1'),
             'port' => env('DB_PORT', '3306'),
@@ -60,9 +60,9 @@ return [
             'engine' => null,
             'options' => extension_loaded('pdo_mysql') ? array_filter([
                 PDO::MYSQL_ATTR_SSL_CA => env('MYSQL_ATTR_SSL_CA'),
-                PDO::ATTR_PERSISTENT => true,
+                PDO::ATTR_PERSISTENT => false,
                 PDO::ATTR_EMULATE_PREPARES => true,
-                PDO::ATTR_TIMEOUT => 300
+                PDO::ATTR_TIMEOUT => 60
             ]) : [],
             'pool' => [
                 'min_connections' => 1,
