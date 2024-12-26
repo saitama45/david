@@ -14,19 +14,18 @@ class SalmonOrderController extends Controller
     {
         $start_date_filter = request('start_date_filter');
 
-
         $datesOption = $this->generateDateOptions();
 
-        $startDate =  $start_date_filter ? Carbon::parse($start_date_filter) : Carbon::now()->startOfWeek();
+        $startDate = $start_date_filter
+            ? Carbon::parse($start_date_filter)
+            : Carbon::now()->startOfWeek();
 
         $monday = $startDate->toDateString();
-
         $tuesday = $startDate->copy()->addDays(1)->toDateString();
         $wednesday = $startDate->copy()->addDays(2)->toDateString();
         $thursday = $startDate->copy()->addDays(3)->toDateString();
         $friday = $startDate->copy()->addDays(4)->toDateString();
         $saturday = $startDate->copy()->addDays(5)->toDateString();
-
 
         $mondayOrders = $this->getOrders($this->getBranchesId(1), $monday);
         $tuesdayOrders =  $this->getOrders($this->getBranchesId(2), $tuesday);
@@ -34,8 +33,6 @@ class SalmonOrderController extends Controller
         $thursdayOrders =  $this->getOrders($this->getBranchesId(4), $thursday);
         $fridayOrders =  $this->getOrders($this->getBranchesId(5), $friday);
         $saturdayOrders =  $this->getOrders($this->getBranchesId(6), $saturday);
-
-
 
         return Inertia::render('SalmonOrder/Index', [
             'mondayOrders' => $mondayOrders,
@@ -59,13 +56,12 @@ class SalmonOrderController extends Controller
             ->orderBy('order_date', 'asc')
             ->first();
 
-
         if (!$firstOrder) {
             return [];
         }
 
         $startDate = Carbon::parse($firstOrder->order_date)->startOfWeek();
-        $currentDate = Carbon::now()->startOfWeek();
+        $currentDate = Carbon::now()->next('Monday');
         $dateOptions = [];
         $weekCounter = 1;
 
@@ -98,7 +94,6 @@ class SalmonOrderController extends Controller
 
     public function getOrders($branchesId, $day)
     {
-
         return StoreOrder::with([
             'store_branch',
             'store_order_items',
@@ -115,6 +110,7 @@ class SalmonOrderController extends Controller
                     return [
                         'item' => $item->product_inventory->name,
                         'item_code' => $item->product_inventory->inventory_code,
+                        'branch_key' => $order->store_branch->id,
                         'branch' => [
                             'display_name' => "{$order->store_branch->brand_code}-NONOS {$order->store_branch->location_code}",
                             'quantity_ordered' => $item->quantity_ordered
@@ -125,14 +121,27 @@ class SalmonOrderController extends Controller
             ->groupBy('item')
             ->map(function ($itemGroup) {
                 $firstItem = $itemGroup->first();
-                $total_quantity = $itemGroup->sum(function ($item) {
-                    return $item['branch']['quantity_ordered'];
-                });
+
+                $branches = $itemGroup
+                    ->groupBy('branch_key')
+                    ->map(function ($branchGroup) {
+                        $first = $branchGroup->first();
+                        return [
+                            'display_name' => $first['branch']['display_name'],
+                            'quantity_ordered' => $branchGroup->sum(function ($item) {
+                                return $item['branch']['quantity_ordered'];
+                            })
+                        ];
+                    })
+                    ->values();
+
+                $total_quantity = $branches->sum('quantity_ordered');
+
                 return [
                     'item' => $firstItem['item'],
                     'item_code' => $firstItem['item_code'],
                     'total_quantity' => $total_quantity,
-                    'branches' => $itemGroup->pluck('branch')
+                    'branches' => $branches
                 ];
             })
             ->values();

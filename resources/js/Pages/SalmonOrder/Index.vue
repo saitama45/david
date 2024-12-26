@@ -45,8 +45,8 @@ const {
 });
 
 const defaultSelectedDate =
-    datesOption.length > 0 ? datesOption[0]["code"] : null;
-const selectedDate = ref(filters.start_date_filter || datesOption[0]["code"]);
+    datesOption.length > 0 ? datesOption[1]["code"] : null;
+const selectedDate = ref(filters.start_date_filter || datesOption[1]["code"]);
 
 const days = [
     { name: "Monday", orders: mondayOrders },
@@ -85,7 +85,7 @@ watch(selectedDate, function (value) {
 
             <DivFlexCol v-for="day in days" :key="day.name" class="gap-2">
                 <SpanBold>{{ day.name }}</SpanBold>
-
+                <h1 v-if="day.orders.length < 1">No orders to show</h1>
                 <TableContainer
                     v-for="data in day.orders"
                     :key="data.item_code"
