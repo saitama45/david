@@ -80,8 +80,7 @@ watch(selectedDate, function (value) {
         <TableContainer>
             <TableHeader>
                 <Select
-                    v-model="selectedDate"
-                    :options="datesOption"
+
                     class="w-fit"
                     optionLabel="name"
                     optionValue="code"

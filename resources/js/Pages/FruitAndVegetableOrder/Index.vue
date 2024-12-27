@@ -7,7 +7,6 @@ const { items } = defineProps({
         required: true,
     },
 });
-
 </script>
 
 <template>
@@ -21,6 +20,14 @@ const { items } = defineProps({
                         placeholder="Search..."
                     />
                 </SearchBar>
+
+                <Select
+                    v-model="selectedDate"
+                    :options="datesOption"
+                    class="w-fit"
+                    optionLabel="name"
+                    optionValue="code"
+                />
             </TableHeader>
             <Table>
                 <TableHead>
