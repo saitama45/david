@@ -13,11 +13,18 @@ use Inertia\Inertia;
 
 class FruitAndVegetableController extends Controller
 {
+
     public function index()
     {
         $search = request('search');
         $start_date_filter = request('start_date_filter');
         $startDate = $start_date_filter ? Carbon::parse($start_date_filter) : Carbon::now()->startOfWeek();
+
+        if ($start_date_filter) {
+            session(['fruit_veg_start_date' => $start_date_filter]);
+        } else {
+            session()->forget('fruit_veg_start_date');
+        }
 
         $inventoryIds = ProductInventory::where('inventory_category_id', 6)
             ->pluck('inventory_code')
@@ -87,12 +94,13 @@ class FruitAndVegetableController extends Controller
     {
         $start_date_filter = request('start_date_filter');
 
-        $datesOption = $this->generateDateOptions($id);
+        $datesOption = $this->generateDateOptions([$id]);
 
         $startDate = $start_date_filter
             ? Carbon::parse($start_date_filter)
-            : Carbon::now()->startOfWeek();
-
+            : (session('fruit_veg_start_date')
+                ? Carbon::parse(session('fruit_veg_start_date'))
+                : Carbon::now()->startOfWeek());
 
         $monday = $startDate->toDateString();
         $tuesday = $startDate->copy()->addDays(1)->toDateString();
@@ -118,7 +126,8 @@ class FruitAndVegetableController extends Controller
             'saturdayOrders' => $saturdayOrders,
             'datesOption' => $datesOption,
             'filters' => request()->only(['start_date_filter']),
-            'inventory_code' => $id
+            'inventory_code' => $id,
+            'currentFilter' => session('fruit_veg_start_date')
         ]);
     }
 

@@ -10,6 +10,7 @@ const {
     datesOption,
     filters,
     inventory_code,
+    currentFilter,
 } = defineProps({
     mondayOrders: {
         type: Object,
@@ -47,11 +48,18 @@ const {
         type: String,
         required: true,
     },
+    currentFilter: {
+        type: String,
+        required: false,
+    },
 });
 
+console.log(currentFilter);
 const defaultSelectedDate =
     datesOption.length > 0 ? datesOption[1]["code"] : null;
-const selectedDate = ref(filters.start_date_filter || datesOption[1]["code"]);
+const selectedDate = ref(
+    filters.start_date_filter || currentFilter || datesOption[1]["code"]
+);
 
 const days = [
     { name: "Monday", orders: mondayOrders },
