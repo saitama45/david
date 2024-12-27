@@ -2,7 +2,6 @@ import "../css/app.css";
 import "./bootstrap";
 import "primeicons/primeicons.css";
 
-
 import { createInertiaApp } from "@inertiajs/vue3";
 import { resolvePageComponent } from "laravel-vite-plugin/inertia-helpers";
 import { createApp, h } from "vue";
@@ -26,6 +25,7 @@ import SearchBar from "./Components/table/SearchBar.vue";
 import TableHeader from "./Components/table/TableHeader.vue";
 import TableHead from "./Components/table/TableHead.vue";
 import TableBody from "./Components/table/TableBody.vue";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import {
     Filter,
     Eye,
@@ -152,6 +152,8 @@ createInertiaApp({
             .component("MonitorCog", MonitorCog)
             .component("InfolistLabel", InfolistLabel)
             .component("BackButton", BackButton)
+            .component("RadioGroup", RadioGroup)
+            .component("RadioGroupItem", RadioGroupItem)
             .use(PrimeVue, {
                 theme: {
                     preset: Aura,

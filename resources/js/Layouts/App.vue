@@ -211,6 +211,13 @@ const logout = () => {
                         >
                             Product Sales
                         </NavLink>
+                        <NavLink
+                            v-if="true"
+                            href="/sales-orders"
+                            :icon="FileCheck"
+                        >
+                            Sales Order
+                        </NavLink>
                         <DropdownMenuLabel v-if="canViewInventoryGroup">
                             Inventory
                         </DropdownMenuLabel>

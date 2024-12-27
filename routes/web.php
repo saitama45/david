@@ -16,6 +16,7 @@ use App\Http\Controllers\OrderApprovalController;
 use App\Http\Controllers\OrderReceivingController;
 use App\Http\Controllers\ProductOrderSummaryController;
 use App\Http\Controllers\ProductSalesController;
+use App\Http\Controllers\SalesOrderController;
 use App\Http\Controllers\SalmonOrderController;
 use App\Http\Controllers\StoreOrderController;
 use App\Http\Controllers\ProfileController;
@@ -204,6 +205,14 @@ Route::middleware('auth')
         Route::controller(FruitAndVegetableController::class)
             ->prefix('fruits-and-vegetables')
             ->name('fruits-and-vegetables.')
+            ->group(function () {
+                Route::get('/', 'index')->name('index');
+                Route::get('/show/{id}', 'show')->name('show');
+            });
+
+        Route::controller(SalesOrderController::class)
+            ->prefix('sales-orders')
+            ->name('sales-orders.')
             ->group(function () {
                 Route::get('/', 'index')->name('index');
                 Route::get('/show/{id}', 'show')->name('show');
