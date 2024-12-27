@@ -1,7 +1,10 @@
 <script setup>
 import InputContainer from "@/Components/form/InputContainer.vue";
 
-const showAddItemModal = ref(true);
+const isAddItemModalVisible = ref(true);
+const showAddItemModal = () => {
+    isAddItemModalVisible.value = true;
+};
 </script>
 
 <template>
@@ -133,9 +136,7 @@ const showAddItemModal = ref(true);
 
             <TableContainer class="col-span-2 h-fit">
                 <DivFlexCenter class="gap-3">
-                    <Button>Add Item</Button>
-                    <Button>Sales Invoice</Button>
-                    <Button>Sales Order</Button>
+                    <Button @click="showAddItemModal">Add Item</Button>
                 </DivFlexCenter>
                 <Table>
                     <TableHead>
@@ -157,7 +158,7 @@ const showAddItemModal = ref(true);
             </TableContainer>
         </Card>
 
-        <Dialog v-model:open="showAddItemModal">
+        <Dialog v-model:open="isAddItemModalVisible">
             <DialogContent class="sm:max-w-[600px]">
                 <DialogHeader>
                     <DialogTitle>Add Item</DialogTitle>
