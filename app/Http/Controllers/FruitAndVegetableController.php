@@ -173,19 +173,23 @@ class FruitAndVegetableController extends Controller
                 $query->where('inventory_code', $id);
             })
             ->get()
-            ->flatMap(function ($order) {
-                return $order->store_order_items->map(function ($item) use ($order) {
-                    return [
-                        'item' => $item->product_inventory->name,
-                        'item_code' => $item->product_inventory->inventory_code,
-                        'branch_key' => $order->store_branch->id,
-                        'branch' => [
-                            'display_name' => "{$order->store_branch->brand_code}-NONOS {$order->store_branch->location_code}",
-                            'quantity_ordered' => $item->quantity_ordered
-                        ]
-                    ];
+            ->flatMap(function ($order) use ($id) {
+                return $order->store_order_items->map(function ($item) use ($order, $id) {
+                    if ($id === $item->product_inventory->inventory_code) {
+                        return [
+                            'item' => $item->product_inventory->name,
+                            'item_code' => $item->product_inventory->inventory_code,
+                            'branch_key' => $order->store_branch->id,
+                            'branch' => [
+                                'display_name' => "{$order->store_branch->brand_code}-NONOS {$order->store_branch->location_code}",
+                                'quantity_ordered' => $item->quantity_ordered
+                            ]
+                        ];
+                    }
+                    return null;
                 });
             })
+            ->filter()
             ->groupBy('item')
             ->map(function ($itemGroup) {
                 $firstItem = $itemGroup->first();
