@@ -1,4 +1,5 @@
 <script setup>
+import { useSearch } from "@/Composables/useSearch";
 import {
     Select,
     SelectContent,
@@ -10,6 +11,8 @@ import {
 } from "@/components/ui/select";
 import { router } from "@inertiajs/vue3";
 import { usePage } from "@inertiajs/vue3";
+
+const { search } = useSearch("dts-orders.index");
 let filter = ref(usePage().props.filter || "all");
 const changeFilter = (currentFilter) => {
     filter.value = currentFilter;
@@ -127,7 +130,12 @@ const hasEditAccess = is_admin || roles.includes("so_encoder");
         <TableContainer>
             <TableHeader>
                 <SearchBar>
-                    <Input id="search" placeholder="Search..." class="pl-10" />
+                    <Input
+                        v-model="search"
+                        id="search"
+                        placeholder="Search..."
+                        class="pl-10"
+                    />
                 </SearchBar>
             </TableHeader>
 
