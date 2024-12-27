@@ -1,11 +1,36 @@
 <script setup>
 import { useSearch } from "@/Composables/useSearch";
 const { search } = useSearch("fruits-and-vegetables.index");
-const { items } = defineProps({
+import { router } from "@inertiajs/vue3";
+const { items, datesOption, filters } = defineProps({
     items: {
         type: Object,
         required: true,
     },
+    datesOption: {
+        type: Object,
+        required: true,
+    },
+    filters: {
+        type: Object,
+        required: true,
+    },
+});
+
+const defaultSelectedDate =
+    datesOption.length > 0 ? datesOption[1]["code"] : null;
+const selectedDate = ref(filters.start_date_filter || datesOption[1]["code"]);
+
+watch(selectedDate, function (value) {
+    console.log(value);
+    router.get(
+        route("fruits-and-vegetables.index"),
+        { start_date_filter: value },
+        {
+            preserveState: false,
+            replace: true,
+        }
+    );
 });
 </script>
 
@@ -24,7 +49,8 @@ const { items } = defineProps({
                 <Select
                     v-model="selectedDate"
                     :options="datesOption"
-                    class="w-fit"
+                    placeholder="No Available Options"
+                    class="min-w-96 w-fit"
                     optionLabel="name"
                     optionValue="code"
                 />

@@ -19,6 +19,13 @@ class FruitAndVegetableController extends Controller
         $start_date_filter = request('start_date_filter');
         $startDate = $start_date_filter ? Carbon::parse($start_date_filter) : Carbon::now()->startOfWeek();
 
+        $inventoryIds = ProductInventory::where('inventory_category_id', 6)
+            ->pluck('inventory_code')
+            ->toArray();
+
+        $datesOption = $this->generateDateOptions($inventoryIds);
+
+
         $dates = [
             'monday' => $startDate->toDateString(),
             'tuesday' => $startDate->copy()->addDays(1)->toDateString(),
@@ -70,7 +77,8 @@ class FruitAndVegetableController extends Controller
 
         return Inertia::render('FruitAndVegetableOrder/Index', [
             'filters' => request()->only(['start_date_filter', 'search']),
-            'items' => $formattedProducts
+            'items' => $formattedProducts,
+            'datesOption' => $datesOption
         ]);
     }
 
@@ -119,7 +127,7 @@ class FruitAndVegetableController extends Controller
         $firstOrder = StoreOrder::with(['store_order_items.product_inventory'])
             ->where('type', 'dts')
             ->whereHas('store_order_items.product_inventory', function ($query) use ($id) {
-                $query->where('inventory_code', $id);
+                $query->whereIn('inventory_code', $id);
             })
             ->orderBy('order_date', 'asc')
             ->first();
