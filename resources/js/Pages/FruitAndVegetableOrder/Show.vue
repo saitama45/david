@@ -76,7 +76,7 @@ watch(selectedDate, function (value) {
 </script>
 
 <template>
-    <Layout :heading="`Orders List`">
+    <Layout :heading="`Orders Per Store Branch`">
         <TableContainer>
             <TableHeader>
                 <Select
