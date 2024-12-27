@@ -10,8 +10,10 @@ import {
 } from "@/components/ui/select";
 import { router } from "@inertiajs/vue3";
 import { usePage } from "@inertiajs/vue3";
-const filter = ref("all");
-const changeFilter = (currentFilter) => {};
+let filter = ref(usePage().props.filter || "all");
+const changeFilter = (currentFilter) => {
+    filter.value = currentFilter;
+};
 const variant = ref("");
 const isLoading = false;
 
@@ -39,6 +41,17 @@ const variants = [
         label: "Fruits and Vegetables",
     },
 ];
+
+watch(filter, function (value) {
+    router.get(
+        route("dts-orders.index"),
+        { filter: value },
+        {
+            preserveState: true,
+            replace: true,
+        }
+    );
+});
 
 const props = defineProps({
     orders: {

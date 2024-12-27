@@ -29,6 +29,9 @@ class DTSController extends Controller
             $query->whereIn('store_branch_id', $user->store_branches->pluck('id'));
         }
 
+        if ($filter !== 'all')
+            $query->where('order_request_status', $filter);
+
         if ($search)
             $query->where('order_number', 'like', '%' . $search . '%')
                 ->orWhereHas('store_branch', function ($query) use ($search) {

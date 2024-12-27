@@ -11,4 +11,9 @@ class SalesOrderController extends Controller
     {
         return Inertia::render('SalesOrder/Index');
     }
+
+    public function create()
+    {
+        return Inertia::render('SalesOrder/Create');
+    }
 }

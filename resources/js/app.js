@@ -35,6 +35,7 @@ import {
     Minus,
     Plus,
     MonitorCog,
+    Download,
 } from "lucide-vue-next";
 import ConfirmationService from "primevue/confirmationservice";
 import { Label } from "@/components/ui/label";
@@ -154,6 +155,7 @@ createInertiaApp({
             .component("BackButton", BackButton)
             .component("RadioGroup", RadioGroup)
             .component("RadioGroupItem", RadioGroupItem)
+            .component("Download", Download)
             .use(PrimeVue, {
                 theme: {
                     preset: Aura,

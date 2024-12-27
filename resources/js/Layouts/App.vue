@@ -177,30 +177,6 @@ const logout = () => {
                         >
                             Approved Received Items
                         </NavLink>
-                        <DropdownMenuLabel v-if="true">
-                            Orders
-                        </DropdownMenuLabel>
-                        <NavLink
-                            v-if="canViewApprovedReceivedItems"
-                            href="/ice-cream-orders"
-                            :icon="FileCheck"
-                        >
-                            Ice Cream Orders
-                        </NavLink>
-                        <NavLink
-                            v-if="canViewApprovedReceivedItems"
-                            href="/salmon-orders"
-                            :icon="FileCheck"
-                        >
-                            Salmon Orders
-                        </NavLink>
-                        <NavLink
-                            v-if="canViewApprovedReceivedItems"
-                            href="/fruits-and-vegetables"
-                            :icon="FileCheck"
-                        >
-                            Fruits And Vegetables Orders
-                        </NavLink>
                         <DropdownMenuLabel v-if="canViewSalesGroup">
                             Sales
                         </DropdownMenuLabel>
@@ -237,6 +213,27 @@ const logout = () => {
                             :icon="PackageSearch"
                         >
                             Item Orders Summary
+                        </NavLink>
+                        <NavLink
+                            v-if="canViewApprovedReceivedItems"
+                            href="/ice-cream-orders"
+                            :icon="FileCheck"
+                        >
+                            Ice Cream Orders
+                        </NavLink>
+                        <NavLink
+                            v-if="canViewApprovedReceivedItems"
+                            href="/salmon-orders"
+                            :icon="FileCheck"
+                        >
+                            Salmon Orders
+                        </NavLink>
+                        <NavLink
+                            v-if="canViewApprovedReceivedItems"
+                            href="/fruits-and-vegetables"
+                            :icon="FileCheck"
+                        >
+                            Fruits And Vegetables Orders
                         </NavLink>
                         <NavLink
                             href="/stocks"
