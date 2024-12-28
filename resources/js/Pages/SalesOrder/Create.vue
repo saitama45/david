@@ -189,7 +189,7 @@ const showAddItemModal = () => {
                         </DivFlexCol>
                         <DivFlexCol>
                             <LabelXS>Available SOH</LabelXS>
-                            <SpanBold>10.00</SpanBold>
+                            <SpanBold>0</SpanBold>
                         </DivFlexCol>
                     </section>
                     <InputContainer>
