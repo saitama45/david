@@ -3,7 +3,7 @@ import { ref } from "vue";
 import { useForm } from "@inertiajs/vue3";
 import { useToast } from "primevue/usetoast";
 
-import Test from "@/Pages/Test.vue";
+import Camera from "@/Pages/Camera.vue";
 const toast = useToast();
 
 import { useBackButton } from "@/Composables/useBackButton";
@@ -411,7 +411,10 @@ const isLoading = ref(false);
                     </DialogDescription>
                 </DialogHeader>
                 <DivFlexCol class="gap-1 p-2 border border-gray-300 rounded-lg">
-                    <Test />
+                    <Camera
+                        :store_order_id="order.id"
+                        @upload-success="isImageModalVisible = false"
+                    />
                 </DivFlexCol>
             </DialogContent>
         </Dialog>

@@ -25,8 +25,9 @@ class TestController extends Controller
 
     public function store(Request $request)
     {
-        $request->validate([
+        $validated = $request->validate([
             'image' => 'required|image|mimes:jpeg,png,jpg,gif,svg|max:2048',
+            'store_order_id' => 'required'
         ]);
 
         $image = $request->file('image');
@@ -38,7 +39,8 @@ class TestController extends Controller
         $path = $request->file('image')->store('images', 'public');
 
         ImageAttachment::create([
-            'file_path' => $path, 
+            'store_order_id' => $validated['store_order_id'],
+            'file_path' => $path,
             'mime_type' => $image->getMimeType(),
         ]);
 

@@ -10,5 +10,5 @@ class ImageAttachment extends Model
     /** @use HasFactory<\Database\Factories\ImageAttachmentFactory> */
     use HasFactory;
 
-    protected $fillable = ['file_path', 'mime_type'];
+    protected $fillable = ['store_order_id','file_path', 'mime_type'];
 }

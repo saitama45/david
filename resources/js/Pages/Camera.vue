@@ -1,15 +1,26 @@
 <script setup>
-import { ref, onMounted } from "vue";
 import { useForm } from "@inertiajs/vue3";
 import { Camera } from "lucide-vue-next";
+
+import { useConfirm } from "primevue/useconfirm";
+import { useToast } from "@/Composables/useToast";
+const confirm = useConfirm();
+const { toast } = useToast();
+
 const canvas = ref(null);
 const video = ref(null);
 const ctx = ref(null);
 const streamActive = ref(true);
 const capturedImage = ref(null);
 const currentStream = ref(null);
+const emit = defineEmits(["uploadSuccess"]);
+
+const { store_order_id } = defineProps({
+    store_order_id: null,
+});
 
 const imageForm = useForm({
+    store_order_id: store_order_id,
     image: null,
 });
 
@@ -30,7 +41,12 @@ onMounted(async () => {
     ctx.value = canvas.value.getContext("2d");
 
     if (!navigator.mediaDevices?.getUserMedia) {
-        console.error("getUserMedia is not supported in this browser");
+        toast.add({
+            severity: "error",
+            summary: "Error",
+            detail: "Session is not secured, could not open camera.",
+            life: 5000,
+        });
         return;
     }
 
@@ -142,7 +158,13 @@ function uploadToDatabase() {
 
     imageForm.post(route("upload-image"), {
         onSuccess: () => {
-            console.log("Image uploaded successfully");
+            toast.add({
+                severity: "success",
+                summary: "Success",
+                detail: "Image attached successfully.",
+                life: 5000,
+            });
+            emit("uploadSuccess");
         },
     });
 }
