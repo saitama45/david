@@ -14,6 +14,7 @@ const streamActive = ref(true);
 const capturedImage = ref(null);
 const currentStream = ref(null);
 const emit = defineEmits(["uploadSuccess"]);
+const isCameraDisabled = ref(false);
 
 const { store_order_id } = defineProps({
     store_order_id: null,
@@ -47,6 +48,7 @@ onMounted(async () => {
             detail: "Session is not secured, could not open camera.",
             life: 5000,
         });
+        isCameraDisabled.value = true;
         return;
     }
 
@@ -191,7 +193,11 @@ function uploadToDatabase() {
         ></canvas>
 
         <div class="flex space-x-4">
-            <Button v-if="!capturedImage" @click="takePicture">
+            <Button
+                :disabled="isCameraDisabled"
+                v-if="!capturedImage"
+                @click="takePicture"
+            >
                 <Camera class="mr-2" /> Take Picture
             </Button>
             <template v-else>
