@@ -23,7 +23,7 @@ class StoreOrder extends Model implements Auditable
         'order_status',
         'order_request_status',
         'remarks',
-        'type',
+        'variant',
         'approval_action_date',
     ];
 

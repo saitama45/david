@@ -52,7 +52,7 @@ class StoreOrderController extends Controller
 
         $orders = $query
             ->whereBetween('created_at', [$from, $to])
-            ->where('type', 'regular')
+            ->where('variant', 'regular')
             ->latest()
             ->paginate(10);
 
@@ -213,8 +213,6 @@ class StoreOrderController extends Controller
             'store_branch_id' => $validated['branch_id'],
             'order_date' => Carbon::parse($validated['order_date'])->addDays(1)->format('Y-m-d'),
         ]);
-
-
 
         $updatedProductIds = collect($validated['orders'])->pluck('id')->toArray();
 

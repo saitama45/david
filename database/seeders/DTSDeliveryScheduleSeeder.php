@@ -667,76 +667,165 @@ class DTSDeliveryScheduleSeeder extends Seeder
             ],
 
             // Fruits and veggies 
+
             [
-                'store_branch_id' => 23,
+                'store_branch_id' => 8,
                 'delivery_schedule_id' => 1,
                 'variant' => 'FRUITS AND VEGETABLES'
             ],
+
             [
-                'store_branch_id' => 23,
+                'store_branch_id' => 8,
                 'delivery_schedule_id' => 3,
                 'variant' => 'FRUITS AND VEGETABLES'
             ],
+
             [
-                'store_branch_id' => 23,
+                'store_branch_id' => 8,
                 'delivery_schedule_id' => 5,
                 'variant' => 'FRUITS AND VEGETABLES'
             ],
+
             [
-                'store_branch_id' => 16,
+                'store_branch_id' => 17,
                 'delivery_schedule_id' => 1,
                 'variant' => 'FRUITS AND VEGETABLES'
             ],
             [
-                'store_branch_id' => 16,
+                'store_branch_id' => 17,
                 'delivery_schedule_id' => 3,
                 'variant' => 'FRUITS AND VEGETABLES'
             ],
+
             [
-                'store_branch_id' => 16,
+                'store_branch_id' => 17,
                 'delivery_schedule_id' => 5,
                 'variant' => 'FRUITS AND VEGETABLES'
             ],
+
             [
-                'store_branch_id' => 7,
-                'delivery_schedule_id' => 2,
-                'variant' => 'FRUITS AND VEGETABLES'
-            ],
-            [
-                'store_branch_id' => 7,
-                'delivery_schedule_id' => 4,
-                'variant' => 'FRUITS AND VEGETABLES'
-            ],
-            [
-                'store_branch_id' => 7,
-                'delivery_schedule_id' => 6,
-                'variant' => 'FRUITS AND VEGETABLES'
-            ],
-            [
-                'store_branch_id' => 13,
+                'store_branch_id' => 26,
                 'delivery_schedule_id' => 1,
                 'variant' => 'FRUITS AND VEGETABLES'
             ],
             [
-                'store_branch_id' => 13,
-                'delivery_schedule_id' => 4,
+                'store_branch_id' => 26,
+                'delivery_schedule_id' => 3,
                 'variant' => 'FRUITS AND VEGETABLES'
             ],
+
             [
-                'store_branch_id' => 6,
-                'delivery_schedule_id' => 6,
+                'store_branch_id' => 26,
+                'delivery_schedule_id' => 5,
                 'variant' => 'FRUITS AND VEGETABLES'
             ],
+
             [
-                'store_branch_id' => 6,
+                'store_branch_id' => 28,
                 'delivery_schedule_id' => 1,
                 'variant' => 'FRUITS AND VEGETABLES'
             ],
             [
-                'store_branch_id' => 6,
-                'delivery_schedule_id' => 4,
+                'store_branch_id' => 28,
+                'delivery_schedule_id' => 3,
                 'variant' => 'FRUITS AND VEGETABLES'
             ],
+
+            [
+                'store_branch_id' => 28,
+                'delivery_schedule_id' => 5,
+                'variant' => 'FRUITS AND VEGETABLES'
+            ],
+
+            [
+                'store_branch_id' => 31,
+                'delivery_schedule_id' => 1,
+                'variant' => 'FRUITS AND VEGETABLES'
+            ],
+            [
+                'store_branch_id' => 31,
+                'delivery_schedule_id' => 3,
+                'variant' => 'FRUITS AND VEGETABLES'
+            ],
+
+            [
+                'store_branch_id' => 31,
+                'delivery_schedule_id' => 5,
+                'variant' => 'FRUITS AND VEGETABLES'
+            ],
+
+
+
+            // [
+            //     'store_branch_id' => 23,
+            //     'delivery_schedule_id' => 1,
+            //     'variant' => 'FRUITS AND VEGETABLES'
+            // ],
+            // [
+            //     'store_branch_id' => 23,
+            //     'delivery_schedule_id' => 3,
+            //     'variant' => 'FRUITS AND VEGETABLES'
+            // ],
+            // [
+            //     'store_branch_id' => 23,
+            //     'delivery_schedule_id' => 5,
+            //     'variant' => 'FRUITS AND VEGETABLES'
+            // ],
+            // [
+            //     'store_branch_id' => 16,
+            //     'delivery_schedule_id' => 1,
+            //     'variant' => 'FRUITS AND VEGETABLES'
+            // ],
+            // [
+            //     'store_branch_id' => 16,
+            //     'delivery_schedule_id' => 3,
+            //     'variant' => 'FRUITS AND VEGETABLES'
+            // ],
+            // [
+            //     'store_branch_id' => 16,
+            //     'delivery_schedule_id' => 5,
+            //     'variant' => 'FRUITS AND VEGETABLES'
+            // ],
+            // [
+            //     'store_branch_id' => 7,
+            //     'delivery_schedule_id' => 2,
+            //     'variant' => 'FRUITS AND VEGETABLES'
+            // ],
+            // [
+            //     'store_branch_id' => 7,
+            //     'delivery_schedule_id' => 4,
+            //     'variant' => 'FRUITS AND VEGETABLES'
+            // ],
+            // [
+            //     'store_branch_id' => 7,
+            //     'delivery_schedule_id' => 6,
+            //     'variant' => 'FRUITS AND VEGETABLES'
+            // ],
+            // [
+            //     'store_branch_id' => 13,
+            //     'delivery_schedule_id' => 1,
+            //     'variant' => 'FRUITS AND VEGETABLES'
+            // ],
+            // [
+            //     'store_branch_id' => 13,
+            //     'delivery_schedule_id' => 4,
+            //     'variant' => 'FRUITS AND VEGETABLES'
+            // ],
+            // [
+            //     'store_branch_id' => 6,
+            //     'delivery_schedule_id' => 6,
+            //     'variant' => 'FRUITS AND VEGETABLES'
+            // ],
+            // [
+            //     'store_branch_id' => 6,
+            //     'delivery_schedule_id' => 1,
+            //     'variant' => 'FRUITS AND VEGETABLES'
+            // ],
+            // [
+            //     'store_branch_id' => 6,
+            //     'delivery_schedule_id' => 4,
+            //     'variant' => 'FRUITS AND VEGETABLES'
+            // ],
 
             // Metro Manila
 
@@ -954,8 +1043,8 @@ class DTSDeliveryScheduleSeeder extends Seeder
                 'delivery_schedule_id' => 6,
                 'variant' => 'FRUITS AND VEGETABLES'
             ],
-             // GWM - 9
-             [
+            // GWM - 9
+            [
                 'store_branch_id' => 9,
                 'delivery_schedule_id' => 2,
                 'variant' => 'FRUITS AND VEGETABLES'
@@ -970,8 +1059,8 @@ class DTSDeliveryScheduleSeeder extends Seeder
                 'delivery_schedule_id' => 6,
                 'variant' => 'FRUITS AND VEGETABLES'
             ],
-             // UPM - 30
-             [
+            // UPM - 30
+            [
                 'store_branch_id' => 30,
                 'delivery_schedule_id' => 2,
                 'variant' => 'FRUITS AND VEGETABLES'
@@ -1017,7 +1106,7 @@ class DTSDeliveryScheduleSeeder extends Seeder
                 'store_branch_id' => 22,
                 'delivery_schedule_id' => 6,
                 'variant' => 'FRUITS AND VEGETABLES'
-            ],            
+            ],
             // 3CN - 29
             [
                 'store_branch_id' => 29,
@@ -1028,7 +1117,7 @@ class DTSDeliveryScheduleSeeder extends Seeder
                 'store_branch_id' => 29,
                 'delivery_schedule_id' => 4,
                 'variant' => 'FRUITS AND VEGETABLES'
-            ],        
+            ],
         ];
 
         foreach ($schedules as $schedule) {

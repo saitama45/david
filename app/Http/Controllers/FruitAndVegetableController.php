@@ -43,7 +43,7 @@ class FruitAndVegetableController extends Controller
         ];
 
         $storeOrders = StoreOrder::with(['store_order_items.product_inventory'])
-            ->where('type', 'dts')
+            ->where('variant', 'fruits and vegetables')
             ->whereBetween('order_date', [reset($dates), end($dates)])
             ->whereHas('store_order_items.product_inventory', function ($query) {
                 $query->where('inventory_category_id', 6);
@@ -134,7 +134,7 @@ class FruitAndVegetableController extends Controller
     public function generateDateOptions($id)
     {
         $firstOrder = StoreOrder::with(['store_order_items.product_inventory'])
-            ->where('type', 'dts')
+            ->where('variant', 'fruits and vegetables')
             ->whereHas('store_order_items.product_inventory', function ($query) use ($id) {
                 $query->whereIn('inventory_code', $id);
             })

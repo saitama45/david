@@ -127,7 +127,7 @@ class DTSOrderSeeder extends Seeder
                         'order_date' => $currentDate->format('Y-m-d'),
                         'order_status' => 'received',
                         'order_request_status' => 'approved',
-                        'type' => 'dts',
+                        'variant' => 'ice cream',
                     ]);
 
                     $quantity = random_int(5, 10);
@@ -158,7 +158,7 @@ class DTSOrderSeeder extends Seeder
                         'order_date' => $currentDate->format('Y-m-d'),
                         'order_status' => 'received',
                         'order_request_status' => 'approved',
-                        'type' => 'dts',
+                        'variant' => 'salmon',
                     ]);
 
                     $quantity = random_int(5, 10);
@@ -189,7 +189,7 @@ class DTSOrderSeeder extends Seeder
                         'order_date' => $currentDate->format('Y-m-d'),
                         'order_status' => 'received',
                         'order_request_status' => 'approved',
-                        'type' => 'dts',
+                        'variant' => 'fruits and vegetables',
                     ]);
                     for ($i = 0; $i < 5; $i++) {
                         $randomItem = $fruitsAndVegetablesList->random();

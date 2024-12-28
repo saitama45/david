@@ -18,6 +18,7 @@ class DTSController extends Controller
 {
     public function index()
     {
+
         $search = request('search');
         $filter = request('filter') ?? 'all';
 
@@ -44,10 +45,14 @@ class DTSController extends Controller
                     $query->where('name', 'like', '%' . $search . '%');
                 });;
 
+
+
         $orders = $query
-            ->where('type', 'dts')
+            ->whereNot('variant', 'regular')
             ->latest()
             ->paginate(10);
+
+
 
         return Inertia::render('DTSOrder/Index', [
             'orders' => $orders,
@@ -94,12 +99,12 @@ class DTSController extends Controller
 
     public function store(Request $request)
     {
-
         $validated = $request->validate([
             'branch_id' => ['required', 'exists:store_branches,id'],
             'supplier_id' => ['required', 'exists:suppliers,id'],
             'order_date' => ['required'],
-            'orders' => ['required', 'array']
+            'orders' => ['required', 'array'],
+            'variant' => ['required']
         ], [
             'branch_id.required' => 'Store field branch is required',
             'supplier_id.required' => 'Supplier field is required'
@@ -119,7 +124,7 @@ class DTSController extends Controller
             'order_date' => Carbon::parse($validated['order_date'])->addDay()->format('Y-m-d'),
             'order_status' => OrderStatus::PENDING->value,
             'order_request_status' => OrderRequestStatus::PENDING->value,
-            'type' => 'dts'
+            'variant' => $validated['variant']
         ]);
 
 
@@ -154,7 +159,8 @@ class DTSController extends Controller
             'supplier_id' => ['required'],
             'branch_id' => ['required', 'exists:store_branches,id'],
             'order_date' => ['required'],
-            'orders' => ['required', 'array']
+            'orders' => ['required', 'array'],
+            'variant' => ['required']
         ], [
             'branch_id.required' => 'Store branch is required'
         ]);
@@ -166,7 +172,8 @@ class DTSController extends Controller
         $order->update([
             'supplier_id' => $validated['supplier_id'],
             'store_branch_id' => $validated['branch_id'],
-            'order_date' => $validated['order_date']
+            'order_date' => $validated['order_date'],
+            'variant' => $validated['variant']
         ]);
         $updatedProductIds = collect($validated['orders'])->pluck('id')->toArray();
         $order->store_order_items()
@@ -189,7 +196,7 @@ class DTSController extends Controller
         $order->save();
         DB::commit();
 
-        return redirect()->route('store-orders.index');
+        return redirect()->route('dts-orders.index');
     }
 
     public function edit($id)
@@ -200,7 +207,16 @@ class DTSController extends Controller
         if ($order->order_request_status !== OrderRequestStatus::PENDING->value)
             abort(401, 'Order can no longer be updated');
         $orderedItems = $order->store_order_items()->with(['product_inventory', 'product_inventory.unit_of_measurement'])->get();
-        $products = ProductInventory::options();
+
+
+        if ($order->variant === 'fruits and vegetables') {
+            $products = ProductInventory::where('inventory_category_id', 6)
+                ->options();
+        } else if ($order->variant === 'salmon') {
+            $products = ProductInventory::where('inventory_code', '269A2A')->options();
+        } else {
+            $products = ProductInventory::where('inventory_code', '359A2A')->options();
+        }
         $suppliers = Supplier::where('supplier_code', 'DROPS')->options();
         $user = Auth::user();
         if ($user->role == 'so_encoder') {

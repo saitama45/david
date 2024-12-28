@@ -49,7 +49,7 @@ class SalmonOrderController extends Controller
     public function generateDateOptions()
     {
         $firstOrder = StoreOrder::with(['store_order_items.product_inventory'])
-            ->where('type', 'dts')
+            ->where('variant', 'salmon')
             ->whereHas('store_order_items.product_inventory', function ($query) {
                 $query->where('inventory_code', '269A2A');
             })

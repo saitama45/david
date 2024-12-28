@@ -35,6 +35,7 @@ const orderForm = useForm({
     supplier_id: Object.keys(suppliers)[0] + "",
     order_date: null,
     orders: [],
+    variant: variant
 });
 
 const allowedDays = ref([]);

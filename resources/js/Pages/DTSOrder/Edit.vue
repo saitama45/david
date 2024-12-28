@@ -43,6 +43,7 @@ const orderForm = useForm({
     branch_id: props.order.store_branch_id + "",
     order_date: props.order.order_date,
     orders: [],
+    variant: props.order.variant
 });
 
 const itemForm = useForm({
@@ -197,7 +198,7 @@ const update = () => {
             severity: "info",
         },
         accept: () => {
-            orderForm.put(route("store-orders.update", props.order.id), {
+            orderForm.put(route("dts-orders.update", props.order.id), {
                 onSuccess: () => {
                     toast.add({
                         severity: "success",
@@ -219,122 +220,82 @@ const update = () => {
     });
 };
 
-watch(productId, (newValue) => {
-    if (newValue) {
-        isLoading.value = true;
-        itemForm.item = newValue;
-        axios
-            .get(route("product.show", newValue))
-            .then((response) => response.data)
-            .then((result) => {
-                productDetails.id = result.id;
-                productDetails.name = result.name;
-                productDetails.inventory_code = result.inventory_code;
-                productDetails.unit_of_measurement = result.unit_of_measurement;
-                productDetails.cost = result.cost;
-            })
-            .catch((err) => console.log(err))
-            .finally(() => (isLoading.value = false));
-    }
-});
-
-const orderRestrictionDate = reactive({
-    minDate: null,
-    maxDate: null,
-});
-
-const calculatePULILANOrderDate = () => {
-    const now = new Date();
-
-    const nextSunday = new Date(
-        now.getFullYear(),
-        now.getMonth(),
-        now.getDate() + (7 - now.getDay())
-    );
-
-    const nextSaturday = new Date(
-        now.getFullYear(),
-        now.getMonth(),
-        nextSunday.getDate() + 6
-    );
-
-    orderRestrictionDate.minDate = nextSunday;
-    orderRestrictionDate.maxDate = nextSaturday;
-};
-
-const calculateGSIOrderDate = () => {
-    const now = new Date();
-
-    const nextSunday = new Date(
-        now.getFullYear(),
-        now.getMonth(),
-        now.getDate() + (7 - now.getDay())
-    );
-
-    const nextWednesday = new Date(
-        now.getFullYear(),
-        now.getMonth(),
-        nextSunday.getDate() + 3
-    );
-
-    const upcomingSunday = new Date(
-        now.getFullYear(),
-        now.getMonth(),
-        now.getDate() + (7 - now.getDay())
-    );
-
-    const secondBatchStartDate = new Date(
-        now.getFullYear(),
-        now.getMonth(),
-        upcomingSunday.getDate() + 4
-    );
-
-    const secondBatchEndDate = new Date(
-        now.getFullYear(),
-        now.getMonth(),
-        upcomingSunday.getDate() + 6
-    );
-
-    const currentDay = now.getDay();
-    const currentHour = now.getHours();
-
-    if (
-        currentDay === 0 ||
-        currentDay === 1 ||
-        currentDay === 2 ||
-        (currentDay === 3 && currentHour < 7)
-    ) {
-        orderRestrictionDate.minDate = upcomingSunday;
-        orderRestrictionDate.maxDate = nextWednesday;
-    } else {
-        orderRestrictionDate.minDate = secondBatchStartDate;
-        orderRestrictionDate.maxDate = secondBatchEndDate;
-    }
-};
+const allowedDays = ref([]);
 
 watch(
-    () => orderForm.supplier_id,
-    (supplier_id) => {
+    () => orderForm.branch_id,
+    (value) => {
         orderForm.order_date = null;
-        if (!supplier_id) return;
-
-        const selectedBranch = Object.values(suppliersOptions.value).find(
-            (option) => option.value === supplier_id + ""
-        );
-
-        if (!selectedBranch) return;
-
-        if (
-            selectedBranch.label === "GSI OT-BAKERY" ||
-            selectedBranch.label === "GSI OT-PR"
-        ) {
-            calculateGSIOrderDate();
-        } else if (selectedBranch.label === "PUL OT-DG") {
-            calculatePULILANOrderDate();
+        if (value) {
+            axios
+                .get(route("schedule.show", value), {
+                    params: { variant: variant },
+                })
+                .then((response) => {
+                    // [1, 3, 5]
+                    const days = response.data.map(
+                        (item) => dayNameToNumber[item]
+                    );
+                    // [Moday, Wednesay, Friday]
+                    let daysOfWeek = [0, 1, 2, 3, 4, 5, 6];
+                    allowedDays.value = daysOfWeek.filter(
+                        (item) => !days.includes(item)
+                    );
+                    // [Tuesday, THrusy, Sat]
+                })
+                .catch((err) => console.log(err));
         }
     }
 );
 
+const dayNameToNumber = {
+    SUNDAY: 0,
+    MONDAY: 1,
+    TUESDAY: 2,
+    WEDNESDAY: 3,
+    THURSDAY: 4,
+    FRIDAY: 5,
+    SATURDAY: 6,
+};
+
+onMounted(() => {
+    axios
+        .get(route("schedule.show", orderForm.branch_id), {
+            params: { variant: "ice cream" },
+        })
+        .then((response) => {
+            // [1, 3, 5]
+            const days = response.data.map((item) => dayNameToNumber[item]);
+            // [Moday, Wednesay, Friday]
+            let daysOfWeek = [0, 1, 2, 3, 4, 5, 6];
+            allowedDays.value = daysOfWeek.filter(
+                (item) => !days.includes(item)
+            );
+            console.log(allowedDays.value);
+            // [Tuesday, THrusy, Sat]
+        })
+        .catch((err) => console.log(err));
+});
+
+const getNextMonday = () => {
+    const today = new Date();
+    const dayOfWeek = today.getDay();
+    const daysUntilNextSunday = (7 - dayOfWeek) % 7 || 7;
+
+    const nextSunday = new Date(today);
+    nextSunday.setDate(today.getDate() + daysUntilNextSunday + 1);
+    return nextSunday;
+};
+
+const getNextSaturday = () => {
+    const today = new Date();
+    const dayOfWeek = today.getDay();
+    const daysUntilNextSunday = (7 - dayOfWeek) % 7 || 7;
+
+    const nextSunday = new Date(today);
+    nextSunday.setDate(today.getDate() + daysUntilNextSunday + 6);
+    return nextSunday;
+};
 const heading = `Edit Order #${props.order.order_number}`;
 </script>
 <template>
@@ -385,14 +346,14 @@ const heading = `Edit Order #${props.order.order_number}`;
                         <div class="flex flex-col space-y-1">
                             <InputLabel label="Order Date" />
                             <DatePicker
+                                v-model="orderForm.order_date"
                                 showIcon
                                 fluid
+                                :disabledDays="allowedDays"
                                 dateFormat="yy/mm/dd"
-                                v-model="orderForm.order_date"
                                 :showOnFocus="false"
-                                :minDate="orderRestrictionDate.minDate"
-                                :maxDate="orderRestrictionDate.maxDate"
-                                :manualInput="true"
+                                :minDate="getNextMonday()"
+                                :maxDate="getNextSaturday()"
                             />
                             <FormError>{{
                                 orderForm.errors.order_date
