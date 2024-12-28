@@ -24,6 +24,7 @@ use App\Http\Controllers\ReceivingApprovalController;
 use App\Http\Controllers\StockController;
 use App\Http\Controllers\StoreBranchController;
 use App\Http\Controllers\SupplierController;
+use App\Http\Controllers\TestController;
 use App\Http\Controllers\UnitOfMeasurementController;
 use App\Http\Controllers\UserController;
 use App\Models\StoreBranch;
@@ -200,7 +201,7 @@ Route::middleware('auth')
         Route::controller(ProductSalesController::class)->prefix('product-sales')->name('product-sales.')->group(function () {
             Route::get('/', 'index')->name('index');
             Route::get('/show/{id}', 'show')->name('show');
-        });
+        });;
 
         Route::controller(FruitAndVegetableController::class)
             ->prefix('fruits-and-vegetables')
@@ -219,8 +220,19 @@ Route::middleware('auth')
                 Route::get('/show/{id}', 'show')->name('show');
             });
 
+
+
+
         Route::get('/profile', [ProfileController::class, 'index'])
             ->name('profile.index');
+
+        Route::controller(TestController::class)->group(function () {
+            Route::get('/test', 'index')->name('test');
+            Route::post('/uploadImage', 'store')->name('upload-image');
+        });
+
+
+
 
         // Route::get('/profile', [ProfileController::class, 'edit'])
         //     ->name('profile.edit');

@@ -12,8 +12,8 @@ import {
 import { router } from "@inertiajs/vue3";
 import { usePage } from "@inertiajs/vue3";
 
-const { search } = useSearch("dts-orders.index");
 let filter = ref(usePage().props.filter || "all");
+const { search } = useSearch("dts-orders.index");
 const changeFilter = (currentFilter) => {
     filter.value = currentFilter;
 };

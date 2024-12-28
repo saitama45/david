@@ -2,6 +2,8 @@
 import { ref } from "vue";
 import { useForm } from "@inertiajs/vue3";
 import { useToast } from "primevue/usetoast";
+
+import Test from "@/Pages/Test.vue";
 const toast = useToast();
 
 import { useBackButton } from "@/Composables/useBackButton";
@@ -21,6 +23,11 @@ const props = defineProps({
         required: true,
     },
 });
+
+const isImageModalVisible = ref(true);
+const openImageModal = () => {
+    isImageModalVisible.value = true;
+};
 
 const targetId = ref(null);
 const itemDetails = ref(null);
@@ -167,7 +174,7 @@ const isLoading = ref(false);
             </Card>
             <TableContainer class="col-span-2 min-w-fit">
                 <section class="flex justify-end gap-3">
-                    <Button>Attach Image</Button>
+                    <Button @click="openImageModal">Attach Image</Button>
                     <Button @click="showDeliveryReceiptForm = true"
                         >Add Delivery Number</Button
                     >
@@ -394,5 +401,19 @@ const isLoading = ref(false);
         <Button variant="outline" class="text-lg px-7" @click="backButton">
             Back
         </Button>
+
+        <Dialog v-model:open="isImageModalVisible">
+            <DialogContent class="sm:max-w-[600px]">
+                <DialogHeader>
+                    <DialogTitle>Image Attachment</DialogTitle>
+                    <DialogDescription>
+                        Please upload or take a picture to proceed.
+                    </DialogDescription>
+                </DialogHeader>
+                <DivFlexCol class="gap-1 p-2 border border-gray-300 rounded-lg">
+                    <Test />
+                </DivFlexCol>
+            </DialogContent>
+        </Dialog>
     </Layout>
 </template>

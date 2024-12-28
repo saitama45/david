@@ -13,7 +13,7 @@ const showAddItemModal = () => {
             class="grid grid-cols-3 p-5 gap-5 overflow-auto overflow-x-auto scrollbar-thin scrollbar-track-gray-100 scrollbar-thumb-gray-300 hover:scrollbar-thumb-gray-400"
         >
             <DivFlexCol class="gap-3 min-w-[400px]">
-                <DivFlexCol>
+                <!-- <DivFlexCol>
                     <LabelXS>Status:</LabelXS>
                     <SpanBold> ON PROCESS</SpanBold>
                 </DivFlexCol>
@@ -32,15 +32,15 @@ const showAddItemModal = () => {
                             :manualInput="true"
                         />
                     </InputContainer>
-                </DivFlexCenter>
+                </DivFlexCenter> -->
 
-                <DivFlexCenter class="justify-between">
+                <DivFlexCenter class="grid grid-cols-2 gap-3">
                     <InputContainer>
-                        <LabelXS>SI#:</LabelXS>
-                        <SpanBold> SO4872384973829</SpanBold>
+                        <LabelXS>Sales Invoice Number:</LabelXS>
+                        <Input />
                     </InputContainer>
                     <InputContainer>
-                        <LabelXS>SI Date: </LabelXS>
+                        <LabelXS>Sales Invoice Date:</LabelXS>
                         <DatePicker
                             showIcon
                             fluid
@@ -170,7 +170,7 @@ const showAddItemModal = () => {
                 </DialogHeader>
                 <DivFlexCol class="gap-3">
                     <InputContainer>
-                        <LabelXS>Warehouse</LabelXS>
+                        <LabelXS>Store Branch</LabelXS>
                         <Input />
                     </InputContainer>
                     <InputContainer>
