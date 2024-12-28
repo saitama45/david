@@ -211,7 +211,7 @@ class StoreOrderController extends Controller
         $order->update([
             'supplier_id' => $validated['supplier_id'],
             'store_branch_id' => $validated['branch_id'],
-            'order_date' => $validated['order_date']
+            'order_date' => Carbon::parse($validated['order_date'])->addDays(1)->format('Y-m-d'),
         ]);
 
 

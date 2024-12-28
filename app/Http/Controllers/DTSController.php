@@ -148,6 +148,77 @@ class DTSController extends Controller
         ]);
     }
 
+    public function update(Request $request, $id)
+    {
+        $validated = $request->validate([
+            'supplier_id' => ['required'],
+            'branch_id' => ['required', 'exists:store_branches,id'],
+            'order_date' => ['required'],
+            'orders' => ['required', 'array']
+        ], [
+            'branch_id.required' => 'Store branch is required'
+        ]);
+        $order = StoreOrder::with('store_order_items')->findOrFail($id);
+
+        DB::beginTransaction();
+        if ($order->store_branch_id !== $validated['branch_id'])
+            $order->order_number = $this->getOrderNumber($validated['branch_id']);
+        $order->update([
+            'supplier_id' => $validated['supplier_id'],
+            'store_branch_id' => $validated['branch_id'],
+            'order_date' => $validated['order_date']
+        ]);
+        $updatedProductIds = collect($validated['orders'])->pluck('id')->toArray();
+        $order->store_order_items()
+            ->whereNotIn('product_inventory_id', $updatedProductIds)
+            ->delete();
+
+        foreach ($validated['orders'] as $data) {
+            $order->store_order_items()->updateOrCreate(
+                [
+                    'store_order_id' => $order->id,
+                    'product_inventory_id' => $data['id'],
+                ],
+                [
+                    'quantity_ordered' => $data['quantity'],
+                    'total_cost' => $data['total_cost'],
+                ]
+            );
+        }
+
+        $order->save();
+        DB::commit();
+
+        return redirect()->route('store-orders.index');
+    }
+
+    public function edit($id)
+    {
+        $order = StoreOrder::with(['store_branch', 'supplier', 'store_order_items'])
+            ->where('order_number', $id)->firstOrFail();
+
+        if ($order->order_request_status !== OrderRequestStatus::PENDING->value)
+            abort(401, 'Order can no longer be updated');
+        $orderedItems = $order->store_order_items()->with(['product_inventory', 'product_inventory.unit_of_measurement'])->get();
+        $products = ProductInventory::options();
+        $suppliers = Supplier::where('supplier_code', 'DROPS')->options();
+        $user = Auth::user();
+        if ($user->role == 'so_encoder') {
+            $assignedBranches = $user->store_branches->pluck('id');
+            $branches = StoreBranch::whereIn('id', $assignedBranches)->options();
+        } else {
+            $branches = StoreBranch::options();
+        }
+
+        return Inertia::render('DTSOrder/Edit', [
+            'order' => $order,
+            'orderedItems' => $orderedItems,
+            'products' => $products,
+            'branches' => $branches,
+            'suppliers' => $suppliers
+        ]);
+    }
+
     public function getOrderNumber($id)
     {
         $branchId = $id;

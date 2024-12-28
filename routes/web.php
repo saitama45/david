@@ -175,6 +175,8 @@ Route::middleware('auth')
             Route::get('/show/{id}', 'show')
                 ->name('show');
             Route::post('/store', 'store')->name('store');
+            Route::get('/edit/{id}', 'edit')
+                ->name('edit');
         });
 
         Route::controller(DeliveryScheduleController::class)->name('delivery-schedules.')->prefix('delivery-schedules')->group(function () {

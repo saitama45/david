@@ -85,6 +85,10 @@ const showOrderDetails = (id) => {
     router.get(`/dts-orders/show/${id}`);
 };
 
+const editOrderDetails = (id) => {
+    router.get(`/dts-orders/edit/${id}`);
+};
+
 const { roles, is_admin } = usePage().props.auth;
 
 const now = new Date();

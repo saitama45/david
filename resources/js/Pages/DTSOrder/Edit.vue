@@ -37,7 +37,7 @@ const { options: productsOptions } = useSelectOptions(props.products);
 const { options: suppliersOptions } = useSelectOptions(props.suppliers);
 const productId = ref(null);
 const isLoading = ref(false);
-
+console.log(props.order);
 const orderForm = useForm({
     supplier_id: props.order.supplier_id + "",
     branch_id: props.order.store_branch_id + "",
@@ -334,23 +334,6 @@ watch(
         }
     }
 );
-
-onMounted(() => {
-    const selectedBranch = Object.values(suppliersOptions.value).find(
-        (option) => option.value === orderForm.supplier_id + ""
-    );
-
-    if (!selectedBranch) return;
-
-    if (
-        selectedBranch.label === "GSI OT-BAKERY" ||
-        selectedBranch.label === "GSI OT-PR"
-    ) {
-        calculateGSIOrderDate();
-    } else if (selectedBranch.label === "PUL OT-DG") {
-        calculatePULILANOrderDate();
-    }
-});
 
 const heading = `Edit Order #${props.order.order_number}`;
 </script>
