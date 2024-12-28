@@ -61,6 +61,8 @@ class DTSController extends Controller
         if ($variant === 'fruits and vegetables') {
             $items = ProductInventory::where('inventory_category_id', 6)
                 ->options();
+        } else if ($variant === 'salmon') {
+            $items = ProductInventory::where('inventory_code', '269A2A')->options();
         } else {
             $items = ProductInventory::whereRaw('LOWER(name) LIKE ?', ['%' . strtolower($variant) . '%'])->options();
         }

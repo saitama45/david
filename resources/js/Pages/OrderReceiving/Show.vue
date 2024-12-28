@@ -24,7 +24,7 @@ const props = defineProps({
     },
 });
 
-const isImageModalVisible = ref(true);
+const isImageModalVisible = ref(false);
 const openImageModal = () => {
     isImageModalVisible.value = true;
 };
