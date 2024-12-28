@@ -7,7 +7,6 @@ use App\Enum\OrderStatus;
 use App\Http\Requests\Api\StoreOrderRequest;
 use App\Imports\OrderListImport;
 use Inertia\Inertia;
-use App\Models\Product;
 use App\Models\ProductInventory;
 use App\Models\StoreBranch;
 use App\Models\StoreOrder;
@@ -186,6 +185,7 @@ class StoreOrderController extends Controller
     public function update(Request $request, $id)
     {
 
+
         $validated = $request->validate([
             'branch_id' => ['required', 'exists:store_branches,id'],
             'order_date' => ['required'],
@@ -194,17 +194,23 @@ class StoreOrderController extends Controller
             'branch_id.required' => 'Store branch is required'
         ]);
 
+
+
         $order = StoreOrder::with('store_order_items')->findOrFail($id);
+
 
         DB::beginTransaction();
 
         if ($order->store_branch_id !== $validated['branch_id'])
             $order->order_number = $this->getOrderNumber($validated['branch_id']);
 
+
         $order->update([
             'store_branch_id' => $validated['branch_id'],
-            'order_date' => Carbon::createFromFormat('F d, Y', $validated['order_date'])->format('Y-m-d')
+            'order_date' => $validated['order_date']
         ]);
+
+
 
         $updatedProductIds = collect($validated['orders'])->pluck('id')->toArray();
 
