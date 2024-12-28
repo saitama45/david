@@ -378,6 +378,7 @@ const calculateGSIOrderDate = () => {
         orderRestrictionDate.maxDate = secondBatchEndDate;
     }
 };
+
 watch(
     () => orderForm.supplier_id,
     (supplier_id) => {

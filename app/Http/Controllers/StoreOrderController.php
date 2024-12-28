@@ -166,6 +166,7 @@ class StoreOrderController extends Controller
             abort(401, 'Order can no longer be updated');
         $orderedItems = $order->store_order_items()->with(['product_inventory', 'product_inventory.unit_of_measurement'])->get();
         $products = ProductInventory::options();
+        $suppliers = Supplier::whereNot('supplier_code', 'DROPS')->options();
         $user = Auth::user();
         if ($user->role == 'so_encoder') {
             $assignedBranches = $user->store_branches->pluck('id');
@@ -178,7 +179,8 @@ class StoreOrderController extends Controller
             'order' => $order,
             'orderedItems' => $orderedItems,
             'products' => $products,
-            'branches' => $branches
+            'branches' => $branches,
+            'suppliers' => $suppliers
         ]);
     }
 
@@ -187,6 +189,7 @@ class StoreOrderController extends Controller
 
 
         $validated = $request->validate([
+            'supplier_id' => ['required'],
             'branch_id' => ['required', 'exists:store_branches,id'],
             'order_date' => ['required'],
             'orders' => ['required', 'array']
@@ -206,6 +209,7 @@ class StoreOrderController extends Controller
 
 
         $order->update([
+            'supplier_id' => $validated['supplier_id'],
             'store_branch_id' => $validated['branch_id'],
             'order_date' => $validated['order_date']
         ]);

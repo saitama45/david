@@ -26,14 +26,20 @@ const props = defineProps({
         type: Object,
         required: true,
     },
+    suppliers: {
+        type: Object,
+        required: true,
+    },
 });
 
 const { options: branchesOptions } = useSelectOptions(props.branches);
 const { options: productsOptions } = useSelectOptions(props.products);
+const { options: suppliersOptions } = useSelectOptions(props.suppliers);
 const productId = ref(null);
 const isLoading = ref(false);
 
 const orderForm = useForm({
+    supplier_id: props.order.supplier_id + "",
     branch_id: props.order.store_branch_id + "",
     order_date: props.order.order_date,
     orders: [],
@@ -232,6 +238,103 @@ watch(productId, (newValue) => {
     }
 });
 
+const orderRestrictionDate = reactive({
+    minDate: null,
+    maxDate: null,
+});
+
+const calculatePULILANOrderDate = () => {
+    const now = new Date();
+
+    const nextSunday = new Date(
+        now.getFullYear(),
+        now.getMonth(),
+        now.getDate() + (7 - now.getDay())
+    );
+
+    const nextSaturday = new Date(
+        now.getFullYear(),
+        now.getMonth(),
+        nextSunday.getDate() + 6
+    );
+
+    orderRestrictionDate.minDate = nextSunday;
+    orderRestrictionDate.maxDate = nextSaturday;
+};
+
+const calculateGSIOrderDate = () => {
+    const now = new Date();
+
+    const nextSunday = new Date(
+        now.getFullYear(),
+        now.getMonth(),
+        now.getDate() + (7 - now.getDay())
+    );
+
+    const nextWednesday = new Date(
+        now.getFullYear(),
+        now.getMonth(),
+        nextSunday.getDate() + 3
+    );
+
+    const upcomingSunday = new Date(
+        now.getFullYear(),
+        now.getMonth(),
+        now.getDate() + (7 - now.getDay())
+    );
+
+    const secondBatchStartDate = new Date(
+        now.getFullYear(),
+        now.getMonth(),
+        upcomingSunday.getDate() + 4
+    );
+
+    const secondBatchEndDate = new Date(
+        now.getFullYear(),
+        now.getMonth(),
+        upcomingSunday.getDate() + 6
+    );
+
+    const currentDay = now.getDay();
+    const currentHour = now.getHours();
+
+    if (
+        currentDay === 0 ||
+        currentDay === 1 ||
+        currentDay === 2 ||
+        (currentDay === 3 && currentHour < 7)
+    ) {
+        orderRestrictionDate.minDate = upcomingSunday;
+        orderRestrictionDate.maxDate = nextWednesday;
+    } else {
+        orderRestrictionDate.minDate = secondBatchStartDate;
+        orderRestrictionDate.maxDate = secondBatchEndDate;
+    }
+};
+
+watch(
+    () => orderForm.supplier_id,
+    (supplier_id) => {
+        orderForm.order_date = null;
+        if (!supplier_id) return;
+
+        const selectedBranch = Object.values(suppliersOptions.value).find(
+            (option) => option.value === supplier_id + ""
+        );
+
+        if (!selectedBranch) return;
+
+        if (
+            selectedBranch.label === "GSI OT-BAKERY" ||
+            selectedBranch.label === "GSI OT-PR"
+        ) {
+            calculateGSIOrderDate();
+        } else if (selectedBranch.label === "PUL OT-DG") {
+            calculatePULILANOrderDate();
+        }
+    }
+);
+
 const heading = `Edit Order #${props.order.order_number}`;
 </script>
 <template>
@@ -249,6 +352,21 @@ const heading = `Edit Order #${props.order.order_number}`;
                         >
                     </CardHeader>
                     <CardContent class="space-y-3">
+                        <div class="flex flex-col space-y-1">
+                            <InputLabel label="Supplier" />
+                            <Select
+                                filter
+                                placeholder="Select a Supplier"
+                                v-model="orderForm.supplier_id"
+                                :options="suppliersOptions"
+                                optionLabel="label"
+                                optionValue="value"
+                            >
+                            </Select>
+                            <FormError>{{
+                                orderForm.errors.supplier_id
+                            }}</FormError>
+                        </div>
                         <div class="flex flex-col space-y-1">
                             <InputLabel label="Store Branch" />
                             <Select
@@ -272,6 +390,9 @@ const heading = `Edit Order #${props.order.order_number}`;
                                 dateFormat="yy/mm/dd"
                                 v-model="orderForm.order_date"
                                 :showOnFocus="false"
+                                :minDate="orderRestrictionDate.minDate"
+                                :maxDate="orderRestrictionDate.maxDate"
+                                :manualInput="true"
                             />
                             <FormError>{{
                                 orderForm.errors.order_date
