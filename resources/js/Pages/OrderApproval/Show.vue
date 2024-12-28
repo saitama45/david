@@ -341,6 +341,7 @@ const addQuantityApproved = (id) => {
                 </InputContainer>
                 <DialogFooter>
                     <Button
+                        :disabled="isLoading"
                         @click="confirmApproveOrder"
                         type="submit"
                         class="gap-2"
@@ -365,6 +366,7 @@ const addQuantityApproved = (id) => {
                 </InputContainer>
                 <DialogFooter>
                     <Button
+                        :disabled="isLoading"
                         @click="confirmRejectOrder"
                         type="submit"
                         class="gap-2"

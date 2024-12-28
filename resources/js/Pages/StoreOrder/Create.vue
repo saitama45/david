@@ -313,17 +313,11 @@ if (previousOrder) {
 const calculatePULILANOrderDate = () => {
     const now = new Date();
 
-    const nextSunday = new Date(
-        now.getFullYear(),
-        now.getMonth(),
-        now.getDate() + (7 - now.getDay())
-    );
+    const nextSunday = new Date(now);
+    nextSunday.setDate(now.getDate() + (7 - now.getDay()));
 
-    const nextSaturday = new Date(
-        now.getFullYear(),
-        now.getMonth(),
-        nextSunday.getDate() + 6
-    );
+    const nextSaturday = new Date(nextSunday);
+    nextSaturday.setDate(nextSunday.getDate() + 6);
 
     orderRestrictionDate.minDate = nextSunday;
     orderRestrictionDate.maxDate = nextSaturday;
@@ -332,35 +326,20 @@ const calculatePULILANOrderDate = () => {
 const calculateGSIOrderDate = () => {
     const now = new Date();
 
-    const nextSunday = new Date(
-        now.getFullYear(),
-        now.getMonth(),
-        now.getDate() + (7 - now.getDay())
-    );
+    const nextSunday = new Date(now);
+    nextSunday.setDate(now.getDate() + (7 - now.getDay()));
 
-    const nextWednesday = new Date(
-        now.getFullYear(),
-        now.getMonth(),
-        nextSunday.getDate() + 3
-    );
+    const nextWednesday = new Date(nextSunday);
+    nextWednesday.setDate(nextSunday.getDate() + 3);
 
-    const upcomingSunday = new Date(
-        now.getFullYear(),
-        now.getMonth(),
-        now.getDate() + (7 - now.getDay())
-    );
+    const upcomingSunday = new Date(now);
+    upcomingSunday.setDate(now.getDate() + (7 - now.getDay()));
 
-    const secondBatchStartDate = new Date(
-        now.getFullYear(),
-        now.getMonth(),
-        upcomingSunday.getDate() + 4
-    );
+    const secondBatchStartDate = new Date(upcomingSunday);
+    secondBatchStartDate.setDate(upcomingSunday.getDate() + 4);
 
-    const secondBatchEndDate = new Date(
-        now.getFullYear(),
-        now.getMonth(),
-        upcomingSunday.getDate() + 6
-    );
+    const secondBatchEndDate = new Date(upcomingSunday);
+    secondBatchEndDate.setDate(upcomingSunday.getDate() + 6);
 
     const currentDay = now.getDay();
     const currentHour = now.getHours();
@@ -458,9 +437,9 @@ watch(
                                 dateFormat="yy/mm/dd"
                                 v-model="orderForm.order_date"
                                 :showOnFocus="false"
+                                :manualInput="true"
                                 :minDate="orderRestrictionDate.minDate"
                                 :maxDate="orderRestrictionDate.maxDate"
-                                :manualInput="true"
                             />
                             <FormError>{{
                                 orderForm.errors.order_date
