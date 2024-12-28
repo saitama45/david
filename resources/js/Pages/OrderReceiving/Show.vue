@@ -412,6 +412,7 @@ const isLoading = ref(false);
                 </DialogHeader>
                 <DivFlexCol class="gap-1 p-2 border border-gray-300 rounded-lg">
                     <Camera
+                        :is-modal-open="isImageModalVisible"
                         :store_order_id="order.id"
                         @upload-success="isImageModalVisible = false"
                     />

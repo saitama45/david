@@ -16,8 +16,33 @@ const currentStream = ref(null);
 const emit = defineEmits(["uploadSuccess"]);
 const isCameraDisabled = ref(false);
 
-const { store_order_id } = defineProps({
+const { store_order_id, isModalOpen } = defineProps({
     store_order_id: null,
+    isModalOpen: {
+        type: Boolean,
+        default: false,
+    },
+});
+
+onMounted(async () => {
+    if (isModalOpen) {
+        await initializeCamera();
+    }
+});
+
+watch(
+    () => isModalOpen,
+    async (isOpen) => {
+        if (isOpen) {
+            await initializeCamera();
+        } else {
+            stopCamera();
+        }
+    }
+);
+
+onUnmounted(() => {
+    stopCamera();
 });
 
 const imageForm = useForm({
@@ -33,7 +58,7 @@ const constraints = {
     },
 };
 
-onMounted(async () => {
+async function initializeCamera() {
     if (!video.value || !canvas.value) {
         console.error("Video or canvas element not found");
         return;
@@ -53,7 +78,18 @@ onMounted(async () => {
     }
 
     await startCamera();
-});
+}
+
+function stopCamera() {
+    if (currentStream.value) {
+        currentStream.value.getTracks().forEach((track) => track.stop());
+        currentStream.value = null;
+    }
+    streamActive.value = false;
+    if (ctx.value && canvas.value) {
+        ctx.value.clearRect(0, 0, canvas.value.width, canvas.value.height);
+    }
+}
 
 async function startCamera() {
     try {
@@ -62,6 +98,7 @@ async function startCamera() {
         await setStream(stream);
     } catch (error) {
         console.error("Error accessing camera:", error);
+        isCameraDisabled.value = true;
     }
 }
 
