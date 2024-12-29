@@ -236,11 +236,7 @@ function uploadToDatabase() {
         ></canvas>
 
         <div class="flex space-x-4">
-            <Button
-                :disabled="isCameraDisabled"
-                v-if="!capturedImage"
-                @click="takePicture"
-            >
+            <Button v-if="!capturedImage" @click="takePicture">
                 <Camera class="mr-2" /> Take Picture
             </Button>
             <template v-else>
