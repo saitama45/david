@@ -298,24 +298,6 @@ const orderRestrictionDate = reactive({
     maxDate: null,
 });
 
-if (previousOrder) {
-    previousOrder.store_order_items.forEach((item) => {
-        const product = {
-            id: item.product_inventory.id,
-            inventory_code: item.product_inventory.inventory_code,
-            name: item.product_inventory.name,
-            unit_of_measurement:
-                item.product_inventory.unit_of_measurement.name,
-            quantity: item.quantity_ordered,
-            cost: item.product_inventory.cost,
-            total_cost: parseFloat(
-                item.quantity_ordered * item.product_inventory.cost
-            ).toFixed(2),
-        };
-        orderForm.orders.push(product);
-    });
-}
-
 const calculatePULILANOrderDate = () => {
     const now = new Date();
 
@@ -386,6 +368,37 @@ watch(
         }
     }
 );
+
+if (previousOrder) {
+    previousOrder.store_order_items.forEach((item) => {
+        const product = {
+            id: item.product_inventory.id,
+            inventory_code: item.product_inventory.inventory_code,
+            name: item.product_inventory.name,
+            unit_of_measurement:
+                item.product_inventory.unit_of_measurement.name,
+            quantity: item.quantity_ordered,
+            cost: item.product_inventory.cost,
+            total_cost: parseFloat(
+                item.quantity_ordered * item.product_inventory.cost
+            ).toFixed(2),
+        };
+        orderForm.orders.push(product);
+    });
+
+    const selectedBranch = Object.values(suppliersOptions.value).find(
+        (option) => option.value === orderForm.supplier_id + ""
+    );
+
+    if (
+        selectedBranch.label === "GSI OT-BAKERY" ||
+        selectedBranch.label === "GSI OT-PR"
+    ) {
+        calculateGSIOrderDate();
+    } else if (selectedBranch.label === "PUL OT-DG") {
+        calculatePULILANOrderDate();
+    }
+}
 </script>
 
 <template>

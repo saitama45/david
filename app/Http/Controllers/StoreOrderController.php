@@ -15,6 +15,7 @@ use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Storage;
 use Maatwebsite\Excel\Facades\Excel;
 
 
@@ -136,12 +137,37 @@ class StoreOrderController extends Controller
 
     public function show($id)
     {
-        $order = StoreOrder::with(['store_branch', 'supplier', 'store_order_items'])->where('order_number', $id)->firstOrFail();
+
+        $order = StoreOrder::with([
+            'encoder',
+            'approver',
+            'delivery_receipts',
+            'store_branch',
+            'supplier',
+            'store_order_items',
+            'ordered_item_receive_dates',
+            'ordered_item_receive_dates.receiver',
+            'ordered_item_receive_dates.store_order_item',
+            'ordered_item_receive_dates.store_order_item.product_inventory',
+            'image_attachments'
+        ])->where('order_number', $id)->firstOrFail();
         $orderedItems = $order->store_order_items()->with(['product_inventory', 'product_inventory.unit_of_measurement'])->get();
+
+
+        $images = $order->image_attachments->map(function ($image) {
+            return [
+                'id' => $image->id,
+                'image_url' => Storage::url($image->file_path),
+            ];
+        });
+
+        $receiveDatesHistory = $order->ordered_item_receive_dates;
 
         return Inertia::render('StoreOrder/Show', [
             'order' => $order,
-            'orderedItems' => $orderedItems
+            'orderedItems' => $orderedItems,
+            'receiveDatesHistory' => $receiveDatesHistory,
+            'images' => $images
         ]);
     }
 

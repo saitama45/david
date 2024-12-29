@@ -2,7 +2,7 @@
 import { useBackButton } from "@/Composables/useBackButton";
 import { router } from "@inertiajs/vue3";
 
-const { backButton } = useBackButton(route("dts-orders.index"));
+const { backButton } = useBackButton(route("store-orders.index"));
 const statusBadgeColor = (status) => {
     switch (status.toUpperCase()) {
         case "APPROVED":
@@ -27,96 +27,276 @@ const props = defineProps({
     orderedItems: {
         type: Object,
     },
+    receiveDatesHistory: {
+        type: Object,
+        required: true,
+    },
+    images: {
+        type: Object,
+        required: true,
+    },
 });
 
 const copyOrderAndCreateAnother = (id) => {
-    router.get("/dts-orders/create", { orderId: id });
+    router.get("/store-orders/create", { orderId: id });
+};
+
+const isViewModalVisible = ref(false);
+const selectedItem = ref();
+const openViewModalForm = (id) => {
+    const data = props.receiveDatesHistory;
+    const existingItemIndex = data.findIndex((history) => history.id === id);
+    const history = data[existingItemIndex];
+    selectedItem.value = history;
+    isViewModalVisible.value = true;
 };
 </script>
 
 <template>
-    <Layout heading="Order Details">
-        <TableContainer>
-            <DivFlexCenter class="justify-between">
-                <DivFlexCenter class="gap-5">
-                    <span class="text-gray-700 text-sm">
-                        Order Number:
-                        <span class="font-bold"> {{ order.order_number }}</span>
-                    </span>
-                    <span class="text-gray-700 text-sm">
-                        Order Date:
-                        <span class="font-bold"> {{ order.order_date }}</span>
-                    </span>
-                    <span class="text-gray-700 text-sm">
-                        Status:
-                        <Badge
-                            :class="
-                                statusBadgeColor(order.order_request_status)
-                            "
-                        >
-                            {{ order.order_request_status.toUpperCase() }}
-                        </Badge>
-                    </span>
-                    <span class="text-gray-700 text-sm">
-                        Receiving Status:
-                        <Badge :class="statusBadgeColor(order.order_status)">
-                            {{ order.order_status.toUpperCase() }}
-                        </Badge>
-                    </span>
-                    <span class="text-gray-700 text-sm">
-                        Store Branch:
-                        <span class="font-bold">
-                            {{ order.store_branch.name }}</span
-                        >
-                    </span>
-                    <span class="text-gray-700 text-sm">
-                        Supplier:
-                        <span class="font-bold">
-                            {{ order.supplier.name }}</span
-                        >
-                    </span>
-                </DivFlexCenter>
+    <Layout
+        heading="Order Details"
+        :hasButton="true"
+        buttonName="Copy Order and Create Another"
+        :handleClick="() => copyOrderAndCreateAnother(order.id)"
+    >
+        <DivFlexCol class="gap-3">
+            <Card class="p-5 grid grid-cols-4 gap-5">
+                <InputContainer>
+                    <LabelXS>Encoder: </LabelXS>
+                    <SpanBold
+                        >{{ order.encoder.first_name }}
+                        {{ order.encoder.last_name }}</SpanBold
+                    >
+                </InputContainer>
+                <InputContainer>
+                    <LabelXS>Order Number: </LabelXS>
+                    <SpanBold>{{ order.order_number }}</SpanBold>
+                </InputContainer>
+                <InputContainer>
+                    <LabelXS>Order Date: </LabelXS>
+                    <SpanBold>{{ order.order_date }}</SpanBold>
+                </InputContainer>
+                <InputContainer>
+                    <LabelXS>Order Request Status: </LabelXS>
+                    <Badge
+                        class="w-fit"
+                        :class="statusBadgeColor(order.order_request_status)"
+                        >{{ order.order_request_status.toUpperCase() }}</Badge
+                    >
+                </InputContainer>
+                <InputContainer>
+                    <LabelXS>Approver: </LabelXS>
+                    <SpanBold v-if="order.approver"
+                        >{{ order.approver.first_name }}
+                        {{ order.approver.last_name }}</SpanBold
+                    >
+                    <SpanBold v-if="!order.approver">N/a</SpanBold>
+                </InputContainer>
+                <InputContainer>
+                    <LabelXS>Order Receiving Status: </LabelXS>
+                    <Badge
+                        class="w-fit"
+                        :class="statusBadgeColor(order.order_status)"
+                        >{{
+                            order.order_status.toUpperCase().replace("_", " ")
+                        }}</Badge
+                    >
+                    <SpanBold>{{}}</SpanBold>
+                </InputContainer>
+                <InputContainer>
+                    <LabelXS>Variant: </LabelXS>
+                    <SpanBold>{{ order.variant.toUpperCase() }}</SpanBold>
+                </InputContainer>
+                <InputContainer>
+                    <LabelXS>Approval Action Date: </LabelXS>
+                    <SpanBold>{{
+                        order.approval_action_date ?? "N/a"
+                    }}</SpanBold>
+                </InputContainer>
+            </Card>
 
-                <!-- <Button
-                    class="bg-blue-500 hover:bg-blue-300"
-                    @click="copyOrderAndCreateAnother(order.id)"
-                >
-                    Copy Order and Create Another
-                </Button> -->
-            </DivFlexCenter>
+            <TableContainer class="h-fit">
+                <!-- <DivFlexCenter class="justify-end">
+                    <Button
+                        class="bg-blue-500 hover:bg-blue-300"
+                        @click="copyOrderAndCreateAnother(order.id)"
+                    >
+                        Copy Order and Create Another
+                    </Button>
+                </DivFlexCenter> -->
 
-            <TableHeader>
-                <SearchBar>
-                    <Input class="pl-10" placeholder="Search..." />
-                </SearchBar>
-            </TableHeader>
+                <!-- <TableHeader>
+                    <SearchBar>
+                        <Input class="pl-10" placeholder="Search..." />
+                    </SearchBar>
+                </TableHeader> -->
+                <TableHeader>
+                    <SpanBold>Ordered Items</SpanBold>
+                </TableHeader>
+                <Table>
+                    <TableHead>
+                        <TH> Item Code </TH>
+                        <TH> Name </TH>
+                        <TH> Unit </TH>
+                        <TH> Quantity </TH>
+                        <TH> Cost </TH>
+                        <TH> Total Cost </TH>
+                    </TableHead>
+                    <TableBody>
+                        <tr v-for="order in orderedItems" :key="order.id">
+                            <TD>{{
+                                order.product_inventory.inventory_code
+                            }}</TD>
+                            <TD>{{ order.product_inventory.name }}</TD>
+                            <TD>{{
+                                order.product_inventory.unit_of_measurement.name
+                            }}</TD>
+                            <TD>{{ order.quantity_ordered }}</TD>
+                            <TD>{{ order.product_inventory.cost }}</TD>
+                            <TD>{{ order.total_cost }}</TD>
+                        </tr>
+                    </TableBody>
+                </Table>
+            </TableContainer>
 
-            <Table>
-                <TableHead>
-                    <TH> Item Code </TH>
-                    <TH> Name </TH>
-                    <TH> Unit </TH>
-                    <TH> Quantity </TH>
-                    <TH> Cost </TH>
-                    <TH> Total Cost </TH>
-                </TableHead>
-                <TableBody>
-                    <tr v-for="order in orderedItems" :key="order.id">
-                        <TD>{{ order.product_inventory.inventory_code }}</TD>
-                        <TD>{{ order.product_inventory.name }}</TD>
-                        <TD>{{
-                            order.product_inventory.unit_of_measurement.name
-                        }}</TD>
-                        <TD>{{ order.quantity_ordered }}</TD>
-                        <TD>{{ order.product_inventory.cost }}</TD>
-                        <TD>{{ order.total_cost }}</TD>
-                    </tr>
-                </TableBody>
-            </Table>
-        </TableContainer>
+            <Card class="p-5">
+                <InputContainer>
+                    <LabelXS>Delivery Receipt Numbers: </LabelXS>
+                    <DivFlexCol class="flex-1 gap-2">
+                        <SpanBold v-for="receipt in order.delivery_receipts">{{
+                            receipt.delivery_receipt_number
+                        }}</SpanBold>
+                    </DivFlexCol>
+                    <SpanBold v-if="order.delivery_receipts.length < 1"
+                        >None</SpanBold
+                    >
+                </InputContainer>
+            </Card>
+
+            <Card class="p-5">
+                <InputContainer class="col-span-4">
+                    <LabelXS>Image Attachments: </LabelXS>
+                    <DivFlexCenter class="gap-2">
+                        <img
+                            v-for="image in images"
+                            :src="image.image_url"
+                            class="size-24"
+                        />
+                    </DivFlexCenter>
+                    <SpanBold v-if="images.length < 1">None</SpanBold>
+                </InputContainer>
+            </Card>
+
+            <TableContainer>
+                <CardTitle>Receive Dates History</CardTitle>
+                <Table>
+                    <TableHead>
+                        <TH> Id </TH>
+                        <TH> Item </TH>
+                        <TH> Item Code </TH>
+                        <!-- <TH> Received By </TH> -->
+                        <TH> Quantity Received</TH>
+                        <TH> Received At</TH>
+                        <TH> Is Approved?</TH>
+                        <TH>Actions</TH>
+                    </TableHead>
+                    <TableBody>
+                        <tr
+                            v-for="history in receiveDatesHistory"
+                            :key="history.id"
+                        >
+                            <TD>{{ history.id }}</TD>
+                            <TD>{{
+                                history.store_order_item.product_inventory.name
+                            }}</TD>
+                            <TD>{{
+                                history.store_order_item.product_inventory
+                                    .inventory_code
+                            }}</TD>
+                            <!-- <TD>
+                                {{ history.receiver.first_name }}
+                                {{ history.receiver.last_name }}
+                            </TD> -->
+                            <TD>{{ history.quantity_received }}</TD>
+                            <TD>{{ history.received_date }}</TD>
+                            <TD>{{
+                                history.is_approved === 1 ? "Yes" : "No"
+                            }}</TD>
+                            <TD>
+                                <DivFlexCenter class="gap-3">
+                                    <ShowButton
+                                        @click="openViewModalForm(history.id)"
+                                    />
+                                </DivFlexCenter>
+                            </TD>
+                        </tr>
+                    </TableBody>
+                </Table>
+            </TableContainer>
+        </DivFlexCol>
 
         <Button variant="outline" class="text-lg px-7" @click="backButton">
             Back
         </Button>
+
+        <!-- View Modal -->
+        <Dialog v-model:open="isViewModalVisible">
+            <DialogContent class="sm:max-w-[600px]">
+                <DialogHeader>
+                    <DialogTitle>Received Item Details</DialogTitle>
+                </DialogHeader>
+                <section class="grid grid-cols-2 gap-5">
+                    <InputContainer>
+                        <LabelXS>Item</LabelXS>
+                        <SpanBold
+                            >{{
+                                selectedItem.store_order_item.product_inventory
+                                    .name
+                            }}
+                            ({{
+                                selectedItem.store_order_item.product_inventory
+                                    .inventory_code
+                            }})</SpanBold
+                        >
+                    </InputContainer>
+                    <InputContainer>
+                        <LabelXS>Received By</LabelXS>
+                        <SpanBold
+                            >{{ selectedItem.receiver.first_name }}
+                            {{ selectedItem.receiver.last_name }}</SpanBold
+                        >
+                    </InputContainer>
+
+                    <InputContainer>
+                        <LabelXS>Quantity Received</LabelXS>
+                        <SpanBold>{{
+                            selectedItem.quantity_received
+                        }}</SpanBold>
+                    </InputContainer>
+
+                    <InputContainer>
+                        <LabelXS>Received At</LabelXS>
+                        <SpanBold>{{ selectedItem.received_date }}</SpanBold>
+                    </InputContainer>
+
+                    <InputContainer>
+                        <LabelXS>Expiry Date</LabelXS>
+                        <SpanBold>{{ selectedItem.expiry_date }}</SpanBold>
+                    </InputContainer>
+
+                    <InputContainer>
+                        <LabelXS>Is approved?</LabelXS>
+                        <SpanBold>{{
+                            selectedItem.is_approved ? "Yes" : "No"
+                        }}</SpanBold>
+                    </InputContainer>
+
+                    <InputContainer>
+                        <LabelXS>Remarks</LabelXS>
+                        <SpanBold>{{ selectedItem.remarks ?? "N/a" }}</SpanBold>
+                    </InputContainer>
+                </section>
+            </DialogContent>
+        </Dialog>
     </Layout>
 </template>
