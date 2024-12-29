@@ -164,6 +164,23 @@ const deleteReceiveDate = (id) => {
         },
     });
 };
+
+const isEditModalVisible = ref(false);
+const editReceiveDetailsForm = useForm({
+    quantity_received: null,
+    expiry_date: null,
+});
+
+const openEditModalForm = (id) => {
+    const data = props.receiveDatesHistory;
+    const existingItemIndex = data.findIndex((history) => history.id === id);
+    const history = data[existingItemIndex];
+    console.log(history);
+
+    editReceiveDetailsForm.quantity_received = history.quantity_received;
+    editReceiveDetailsForm.expiry_date = history.expiry_date;
+    isEditModalVisible.value = true;
+};
 </script>
 
 <template>
@@ -322,8 +339,12 @@ const deleteReceiveDate = (id) => {
                             <TD>
                                 <DivFlexCenter class="gap-3">
                                     <ShowButton />
-                                    <EditButton />
+                                    <EditButton
+                                        v-if="!history.is_approved"
+                                        @click="openEditModalForm(history.id)"
+                                    />
                                     <DeleteButton
+                                        v-if="!history.is_approved"
                                         @click="deleteReceiveDate(history.id)"
                                     />
                                 </DivFlexCenter>
@@ -483,6 +504,7 @@ const deleteReceiveDate = (id) => {
             Back
         </Button>
 
+        <!-- Camera Modal -->
         <Dialog v-model:open="isImageModalVisible">
             <DialogContent class="sm:max-w-[600px]">
                 <DialogHeader>
@@ -498,6 +520,54 @@ const deleteReceiveDate = (id) => {
                         @upload-success="isImageModalVisible = false"
                     />
                 </DivFlexCol>
+            </DialogContent>
+        </Dialog>
+
+        <!-- Receive Detail Edti Modal -->
+        <Dialog v-model:open="isEditModalVisible">
+            <DialogContent class="sm:max-w-[600px]">
+                <DialogHeader>
+                    <DialogTitle>Edit Received Item Details</DialogTitle>
+                    <DialogDescription>
+                        Please input all the required fields.
+                    </DialogDescription>
+                </DialogHeader>
+
+                <div class="space-y-3">
+                    <div class="flex flex-col space-y-1">
+                        <Label>Quantity Received</Label>
+                        <Input
+                            v-model="editReceiveDetailsForm.quantity_received"
+                            type="number"
+                        />
+                        <FormError>{{
+                            editReceiveDetailsForm.errors.quantity_received
+                        }}</FormError>
+                    </div>
+
+                    <InputContainer>
+                        <Label>Item Expiry Date</Label>
+                        <Input
+                            type="date"
+                            v-model="editReceiveDetailsForm.expiry_date"
+                        />
+                        <FormError>{{
+                            editReceiveDetailsForm.errors.expiry_date
+                        }}</FormError>
+                    </InputContainer>
+                </div>
+
+                <DialogFooter>
+                    <Button
+                        :disabled="isLoading"
+                        type="submit"
+                        class="gap-2"
+                        @click="submitReceivingForm"
+                    >
+                        Update
+                        <span v-if="isLoading"><Loading /></span>
+                    </Button>
+                </DialogFooter>
             </DialogContent>
         </Dialog>
     </Layout>

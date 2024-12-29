@@ -23,7 +23,7 @@ class OrderedItemReceiveDate extends Model implements Auditable
 
     protected $casts = [
         'received_date' => 'date:F d, Y h:i a',
-        'expiry_date' => 'date:F d, Y'
+        // 'expiry_date' => 'date:F d, Y'
     ];
 
     public function receiver()
