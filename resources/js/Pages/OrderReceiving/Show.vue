@@ -204,6 +204,16 @@ const updateReceiveDetails = () => {
         }
     );
 };
+
+const isViewModalVisible = ref(false);
+const selectedItem = ref();
+const openViewModalForm = (id) => {
+    const data = props.receiveDatesHistory;
+    const existingItemIndex = data.findIndex((history) => history.id === id);
+    const history = data[existingItemIndex];
+    selectedItem.value = history;
+    isViewModalVisible.value = true;
+};
 </script>
 
 <template>
@@ -364,7 +374,9 @@ const updateReceiveDetails = () => {
                             }}</TD>
                             <TD>
                                 <DivFlexCenter class="gap-3">
-                                    <ShowButton />
+                                    <ShowButton
+                                        @click="openViewModalForm(history.id)"
+                                    />
                                     <EditButton
                                         v-if="!history.is_approved"
                                         @click="openEditModalForm(history.id)"
@@ -546,6 +558,66 @@ const updateReceiveDetails = () => {
                         @upload-success="isImageModalVisible = false"
                     />
                 </DivFlexCol>
+            </DialogContent>
+        </Dialog>
+
+        <!-- View Modal -->
+        <Dialog v-model:open="isViewModalVisible">
+            <DialogContent class="sm:max-w-[600px]">
+                <DialogHeader>
+                    <DialogTitle>Received Item Details</DialogTitle>
+                </DialogHeader>
+                <section class="grid grid-cols-2 gap-5">
+                    <InputContainer>
+                        <LabelXS>Item</LabelXS>
+                        <SpanBold
+                            >{{
+                                selectedItem.store_order_item.product_inventory
+                                    .name
+                            }}
+                            ({{
+                                selectedItem.store_order_item.product_inventory
+                                    .inventory_code
+                            }})</SpanBold
+                        >
+                    </InputContainer>
+                    <InputContainer>
+                        <LabelXS>Received By</LabelXS>
+                        <SpanBold
+                            >{{ selectedItem.receiver.first_name }}
+                            {{ selectedItem.receiver.last_name }}</SpanBold
+                        >
+                    </InputContainer>
+
+                    <InputContainer>
+                        <LabelXS>Quantity Received</LabelXS>
+                        <SpanBold>{{
+                            selectedItem.quantity_received
+                        }}</SpanBold>
+                    </InputContainer>
+
+                    <InputContainer>
+                        <LabelXS>Received At</LabelXS>
+                        <SpanBold>{{ selectedItem.received_date }}</SpanBold>
+                    </InputContainer>
+
+                    <InputContainer>
+                        <LabelXS>Expiry Date</LabelXS>
+                        <SpanBold>{{ selectedItem.expiry_date }}</SpanBold>
+                    </InputContainer>
+
+                    <InputContainer>
+                        <LabelXS>Is approved?</LabelXS>
+                        <SpanBold>{{
+                            selectedItem.is_approved ? "Yes" : "No"
+                        }}</SpanBold>
+                    </InputContainer>
+
+                    <InputContainer>
+                        <LabelXS>Remarks</LabelXS>
+                        <SpanBold>{{ selectedItem.remarks ?? "N/a" }}</SpanBold>
+                    </InputContainer>
+                </section>
             </DialogContent>
         </Dialog>
 
