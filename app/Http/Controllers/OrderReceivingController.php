@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Enum\OrderRequestStatus;
 use App\Enum\OrderStatus;
 use App\Models\DeliveryReceipt;
+use App\Models\OrderedItemReceiveDate;
 use App\Models\ProductInventoryStock;
 use App\Models\StoreOrder;
 use App\Models\StoreOrderItem;
@@ -53,11 +54,13 @@ class OrderReceivingController extends Controller
             'supplier',
             'store_order_items',
             'ordered_item_receive_dates',
+            'ordered_item_receive_dates.receiver',
             'ordered_item_receive_dates.store_order_item',
             'ordered_item_receive_dates.store_order_item.product_inventory',
             'image_attachments'
         ])->where('order_number', $id)->firstOrFail();
         $orderedItems = $order->store_order_items()->with(['product_inventory', 'product_inventory.unit_of_measurement'])->get();
+
 
         $images = $order->image_attachments->map(function ($image) {
             return [
@@ -140,5 +143,20 @@ class OrderReceivingController extends Controller
             'store_order_id' => $validated['store_order_id'],
             'remarks' => $validated['remarks']
         ]);
+    }
+
+    public function deleteReceiveDateHistory($id)
+    {
+
+        $history = OrderedItemReceiveDate::with('store_order_item')->findOrFail($id);
+
+
+        DB::beginTransaction();
+        $history->store_order_item->quantity_received -= $history->quantity_received;
+        $history->store_order_item->save();
+        $history->delete();
+        DB::commit();
+
+        return redirect()->back();
     }
 }

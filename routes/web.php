@@ -125,6 +125,8 @@ Route::middleware('auth')
             Route::get('/orders-receiving/show/{id}', 'show')->name('show');
             Route::post('/orders-receiving/receive/{id}', 'receive')->name('receive');
             Route::post('/orders-receiving/add-delivery-receipt-number', 'addDeliveryReceiptNumber')->name('add-delivery-receipt-number');
+
+            Route::post('/orders-receiving/delete-receiving-history/{id}', 'deleteReceiveDateHistory')->name('delete-receiving-history');
         });
 
         Route::controller(UserController::class)->name('users.')->group(function () {

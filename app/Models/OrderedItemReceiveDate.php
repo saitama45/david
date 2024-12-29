@@ -26,6 +26,11 @@ class OrderedItemReceiveDate extends Model implements Auditable
         'expiry_date' => 'date:F d, Y'
     ];
 
+    public function receiver()
+    {
+        return $this->belongsTo(User::class, 'received_by_user_id');
+    }
+
     public function store_order_item()
     {
         return $this->belongsTo(StoreOrderItem::class);

@@ -2,9 +2,12 @@
 import { ref } from "vue";
 import { useForm } from "@inertiajs/vue3";
 import { useToast } from "primevue/usetoast";
+import { router } from "@inertiajs/vue3";
 
+import { useConfirm } from "primevue/useconfirm";
 import Camera from "@/Pages/Camera.vue";
 const toast = useToast();
+const confirm = useConfirm();
 
 import { useBackButton } from "@/Composables/useBackButton";
 const { backButton } = useBackButton(route("orders-receiving.index"));
@@ -119,6 +122,48 @@ const submitDeliveryReceiptForm = () => {
 const canReceive = props.order.order_status !== "received";
 
 const isLoading = ref(false);
+
+const deleteReceiveDate = (id) => {
+    confirm.require({
+        message: "Are you sure you want to delete this history?",
+        header: "Confirmation",
+        icon: "pi pi-exclamation-triangle",
+        rejectProps: {
+            label: "Cancel",
+            severity: "secondary",
+            outlined: true,
+        },
+        acceptProps: {
+            label: "Confirm",
+            severity: "success",
+        },
+        accept: () => {
+            router.post(
+                route("orders-receiving.delete-receiving-history", id),
+                {},
+                {
+                    onSuccess: (page) => {
+                        toast.add({
+                            severity: "success",
+                            summary: "Success",
+                            detail: "Receive Date History Deleted.",
+                            life: 5000,
+                        });
+                        console.log(page);
+                    },
+                    onError: (errors) => {
+                        toast.add({
+                            severity: "error",
+                            summary: "Error",
+                            detail: err,
+                            life: 5000,
+                        });
+                    },
+                }
+            );
+        },
+    });
+};
 </script>
 
 <template>
@@ -176,7 +221,7 @@ const isLoading = ref(false);
                         }}</SpanBold>
                     </DivFlexCol>
                     <SpanBold v-if="order.delivery_receipts.length < 1"
-                        >N/a</SpanBold
+                        >None</SpanBold
                     >
                 </InputContainer>
             </Card>
@@ -191,7 +236,7 @@ const isLoading = ref(false);
                             class="size-24"
                         />
                     </DivFlexCenter>
-                    <SpanBold v-if="images.length < 1">N/a</SpanBold>
+                    <SpanBold v-if="images.length < 1">None</SpanBold>
                 </InputContainer>
             </Card>
 
@@ -246,10 +291,11 @@ const isLoading = ref(false);
                         <TH> Id </TH>
                         <TH> Item </TH>
                         <TH> Item Code </TH>
-                        <TH> Received By </TH>
+                        <!-- <TH> Received By </TH> -->
                         <TH> Quantity Received</TH>
                         <TH> Received At</TH>
                         <TH> Is Approved?</TH>
+                        <TH>Actions</TH>
                     </TableHead>
                     <TableBody>
                         <tr
@@ -264,12 +310,24 @@ const isLoading = ref(false);
                                 history.store_order_item.product_inventory
                                     .inventory_code
                             }}</TD>
-                            <TD>TBD</TD>
+                            <!-- <TD>
+                                {{ history.receiver.first_name }}
+                                {{ history.receiver.last_name }}
+                            </TD> -->
                             <TD>{{ history.quantity_received }}</TD>
                             <TD>{{ history.received_date }}</TD>
                             <TD>{{
                                 history.is_approved === 1 ? "Yes" : "No"
                             }}</TD>
+                            <TD>
+                                <DivFlexCenter class="gap-3">
+                                    <ShowButton />
+                                    <EditButton />
+                                    <DeleteButton
+                                        @click="deleteReceiveDate(history.id)"
+                                    />
+                                </DivFlexCenter>
+                            </TD>
                         </tr>
                     </TableBody>
                 </Table>

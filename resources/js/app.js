@@ -80,6 +80,7 @@ import SpanBold from "./Components/SpanBold.vue";
 import EditButton from "./Components/button/EditButton.vue";
 import InfolistLabel from "./Components/InfolistLabel.vue";
 import BackButton from "./Components/BackButton.vue";
+import DeleteButton from "./Components/button/DeleteButton.vue";
 const appName = import.meta.env.VITE_APP_NAME || "Laravel";
 
 createInertiaApp({
@@ -156,6 +157,7 @@ createInertiaApp({
             .component("RadioGroup", RadioGroup)
             .component("RadioGroupItem", RadioGroupItem)
             .component("Download", Download)
+            .component("DeleteButton", DeleteButton)
             .use(PrimeVue, {
                 theme: {
                     preset: Aura,
