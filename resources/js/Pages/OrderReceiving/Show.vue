@@ -294,12 +294,15 @@ const openViewModalForm = (id) => {
             </Card>
 
             <TableContainer class="col-span-2 min-w-fit">
-                <section class="flex justify-end gap-3">
-                    <Button @click="openImageModal">Attach Image</Button>
-                    <Button @click="showDeliveryReceiptForm = true"
-                        >Add Delivery Number</Button
-                    >
-                </section>
+                <DivFlexCenter class="justify-between">
+                    <SpanBold>Ordered Items</SpanBold>
+                    <DivFlexCenter class="gap-3">
+                        <Button @click="openImageModal">Attach Image</Button>
+                        <Button @click="showDeliveryReceiptForm = true"
+                            >Add Delivery Number</Button
+                        >
+                    </DivFlexCenter>
+                </DivFlexCenter>
                 <Table>
                     <TableHead>
                         <TH> Item Code </TH>
