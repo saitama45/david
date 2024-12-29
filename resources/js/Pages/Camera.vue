@@ -235,6 +235,7 @@ function uploadToDatabase() {
             height="320"
             class="border border-gray-300 rounded-lg bg-black"
         ></canvas>
+        <FormError>{{ imageForm.errors.image }}</FormError>
 
         <div class="flex space-x-4">
             <Button v-if="!capturedImage" @click="takePicture">
