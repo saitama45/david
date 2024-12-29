@@ -208,8 +208,9 @@ function uploadToDatabase() {
             emit("uploadSuccess");
             isLoading.value = false;
         },
-        onError: () => {
+        onError: (err) => {
             isLoading.value = false;
+            console.log(err);
         },
     });
 }
