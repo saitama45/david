@@ -38,7 +38,7 @@ const props = defineProps({
 });
 
 const copyOrderAndCreateAnother = (id) => {
-    router.get("/store-orders/create", { orderId: id });
+    router.get("/dts-orders/create", { orderId: id });
 };
 
 const isViewModalVisible = ref(false);
@@ -55,7 +55,7 @@ const openViewModalForm = (id) => {
 <template>
     <Layout
         heading="Order Details"
-        :hasButton="true"
+        :hasButton="false"
         buttonName="Copy Order and Create Another"
         :handleClick="() => copyOrderAndCreateAnother(order.id)"
     >
