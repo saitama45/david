@@ -55,6 +55,11 @@ class User extends Authenticatable implements Auditable
         ];
     }
 
+    public function store_orders()
+    {
+        return $this->hasMany(StoreOrder::class);
+    }
+
     public function store_branches()
     {
         return $this->belongsToMany(

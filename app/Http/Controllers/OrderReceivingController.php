@@ -11,6 +11,7 @@ use App\Models\StoreOrderItem;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 use Inertia\Inertia;
 
 class OrderReceivingController extends Controller
@@ -19,6 +20,7 @@ class OrderReceivingController extends Controller
     {
         $search = request('search');
         $query = StoreOrder::query()->with(['store_branch', 'supplier'])->where('order_request_status', OrderRequestStatus::APRROVED->value);
+
 
         $user = Auth::user();
 
@@ -34,6 +36,7 @@ class OrderReceivingController extends Controller
             ->paginate(10);
 
 
+
         return Inertia::render('OrderReceiving/Index', [
             'orders' => $orders,
             'filters' => request()->only(['search'])
@@ -43,22 +46,33 @@ class OrderReceivingController extends Controller
     public function show($id)
     {
         $order = StoreOrder::with([
+            'encoder',
+            'approver',
             'delivery_receipts',
             'store_branch',
             'supplier',
             'store_order_items',
             'ordered_item_receive_dates',
             'ordered_item_receive_dates.store_order_item',
-            'ordered_item_receive_dates.store_order_item.product_inventory'
+            'ordered_item_receive_dates.store_order_item.product_inventory',
+            'image_attachments'
         ])->where('order_number', $id)->firstOrFail();
         $orderedItems = $order->store_order_items()->with(['product_inventory', 'product_inventory.unit_of_measurement'])->get();
+
+        $images = $order->image_attachments->map(function ($image) {
+            return [
+                'id' => $image->id,
+                'image_url' => Storage::url($image->file_path),
+            ];
+        });
 
         $receiveDatesHistory = $order->ordered_item_receive_dates;
 
         return Inertia::render('OrderReceiving/Show', [
             'order' => $order,
             'orderedItems' => $orderedItems,
-            'receiveDatesHistory' => $receiveDatesHistory
+            'receiveDatesHistory' => $receiveDatesHistory,
+            'images' => $images
         ]);
     }
 

@@ -22,6 +22,10 @@ const props = defineProps({
         type: Object,
         required: true,
     },
+    images: {
+        type: Object,
+        required: true,
+    },
 });
 
 const isImageModalVisible = ref(false);
@@ -119,59 +123,75 @@ const isLoading = ref(false);
 
 <template>
     <Layout heading="Order Details">
-        <div class="grid grid-cols-3 gap-5">
-            <Card>
-                <CardHeader class="gap-5">
-                    <div class="divide-y">
-                        <DivFlexCenter class="justify-between py-3">
-                            <Label class="flex-1">Order Number: </Label>
-                            <Label class="flex-1">{{
-                                order.order_number
-                            }}</Label>
-                        </DivFlexCenter>
-                        <DivFlexCenter class="justify-between py-3">
-                            <Label class="flex-1">Order Date: </Label>
-                            <Label class="flex-1">{{ order.order_date }}</Label>
-                        </DivFlexCenter>
-                        <DivFlexCenter class="justify-between py-3">
-                            <Label class="flex-1">Order Request Status: </Label>
-                            <Label class="flex-1">{{
-                                order.order_request_status.toUpperCase()
-                            }}</Label>
-                        </DivFlexCenter>
-                        <DivFlexCenter class="justify-between py-3">
-                            <Label class="flex-1"
-                                >Order Receiving Status:
-                            </Label>
-                            <Label class="flex-1">{{
-                                order.order_status
-                                    .toUpperCase()
-                                    .replace("_", " ")
-                            }}</Label>
-                        </DivFlexCenter>
-                        <!-- <DivFlexCenter class="justify-between py-3">
-                            <Label class="flex-1 self-start">Remarks: </Label>
-                            <Label class="flex-1">{{
-                                order.remarks ?? "None"
-                            }}</Label>
-                        </DivFlexCenter> -->
-                        <DivFlexCenter class="justify-between py-3">
-                            <Label class="flex-1 self-start"
-                                >Delivery Receipt Numbers:
-                            </Label>
-                            <DivFlexCol class="flex-1 gap-2">
-                                <Label
-                                    v-for="receipt in order.delivery_receipts"
-                                    class="flex-1"
-                                    >{{
-                                        receipt.delivery_receipt_number
-                                    }}</Label
-                                >
-                            </DivFlexCol>
-                        </DivFlexCenter>
-                    </div>
-                </CardHeader>
+        <DivFlexCol class="gap-3">
+            <Card class="p-5 grid grid-cols-4 gap-5">
+                <InputContainer>
+                    <LabelXS>Encoder: </LabelXS>
+                    <SpanBold
+                        >{{ order.encoder.first_name }}
+                        {{ order.encoder.last_name }}</SpanBold
+                    >
+                </InputContainer>
+                <InputContainer>
+                    <LabelXS>Order Number: </LabelXS>
+                    <SpanBold>{{ order.order_number }}</SpanBold>
+                </InputContainer>
+                <InputContainer>
+                    <LabelXS>Order Date: </LabelXS>
+                    <SpanBold>{{ order.order_date }}</SpanBold>
+                </InputContainer>
+                <InputContainer>
+                    <LabelXS>Order Request Status: </LabelXS>
+                    <SpanBold>{{
+                        order.order_request_status.toUpperCase()
+                    }}</SpanBold>
+                </InputContainer>
+                <InputContainer>
+                    <LabelXS>Approver: </LabelXS>
+                    <SpanBold
+                        >{{ order.approver.first_name }}
+                        {{ order.approver.last_name }}</SpanBold
+                    >
+                    <SpanBold v-if="!order.approver">N/a</SpanBold>
+                </InputContainer>
+                <InputContainer>
+                    <LabelXS>Order Receiving Status: </LabelXS>
+                    <SpanBold>{{
+                        order.order_status.toUpperCase().replace("_", " ")
+                    }}</SpanBold>
+                </InputContainer>
+                <InputContainer>
+                    <LabelXS>Variant: </LabelXS>
+                    <SpanBold>{{ order.variant.toUpperCase() }}</SpanBold>
+                </InputContainer>
+                <InputContainer>
+                    <LabelXS>Approval Action Date: </LabelXS>
+                    <SpanBold>{{ order.approval_action_date }}</SpanBold>
+                </InputContainer>
+                <InputContainer class="col-span-4">
+                    <LabelXS>Delivery Receipt Numbers: </LabelXS>
+                    <DivFlexCol class="flex-1 gap-2">
+                        <SpanBold v-for="receipt in order.delivery_receipts">{{
+                            receipt.delivery_receipt_number
+                        }}</SpanBold>
+                    </DivFlexCol>
+                    <SpanBold v-if="order.delivery_receipts.length < 1"
+                        >N/a</SpanBold
+                    >
+                </InputContainer>
+                <InputContainer class="col-span-4">
+                    <LabelXS>Image Attachments: </LabelXS>
+                    <DivFlexCenter class="gap-2">
+                        <img
+                            v-for="image in images"
+                            :src="image.image_url"
+                            class="size-24"
+                        />
+                    </DivFlexCenter>
+                    <SpanBold v-if="images.length < 1">N/a</SpanBold>
+                </InputContainer>
             </Card>
+
             <TableContainer class="col-span-2 min-w-fit">
                 <section class="flex justify-end gap-3">
                     <Button @click="openImageModal">Attach Image</Button>
@@ -216,7 +236,7 @@ const isLoading = ref(false);
                 </Table>
             </TableContainer>
 
-            <TableContainer class="col-span-3">
+            <TableContainer>
                 <CardTitle>Receive Dates History</CardTitle>
                 <Table>
                     <TableHead>
@@ -251,7 +271,7 @@ const isLoading = ref(false);
                     </TableBody>
                 </Table>
             </TableContainer>
-        </div>
+        </DivFlexCol>
 
         <Dialog v-model:open="showDeliveryReceiptForm">
             <DialogContent class="sm:max-w-[600px]">

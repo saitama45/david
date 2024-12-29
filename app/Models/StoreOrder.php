@@ -33,6 +33,16 @@ class StoreOrder extends Model implements Auditable
         'order_approved_date' => 'date:F d, Y',
     ];
 
+    public function encoder()
+    {
+        return $this->belongsTo(User::class, 'encoder_id');
+    }
+
+    public function approver()
+    {
+        return $this->belongsTo(User::class, 'approver_id');
+    }
+
     public function store_branch()
     {
         return $this->belongsTo(StoreBranch::class);
@@ -61,5 +71,10 @@ class StoreOrder extends Model implements Auditable
     public function store_order_remarks()
     {
         return $this->hasMany(StoreOrderRemark::class);
+    }
+
+    public function image_attachments()
+    {
+        return $this->hasMany(ImageAttachment::class);
     }
 }

@@ -15,6 +15,7 @@ const capturedImage = ref(null);
 const currentStream = ref(null);
 const emit = defineEmits(["uploadSuccess"]);
 const isCameraDisabled = ref(false);
+const isLoading = ref(false);
 
 const { store_order_id, isModalOpen } = defineProps({
     store_order_id: null,
@@ -194,6 +195,7 @@ function uploadToDatabase() {
         console.error("No image captured");
         return;
     }
+    isLoading.value = true;
 
     imageForm.post(route("upload-image"), {
         onSuccess: () => {
@@ -204,6 +206,10 @@ function uploadToDatabase() {
                 life: 5000,
             });
             emit("uploadSuccess");
+            isLoading.value = false;
+        },
+        onError: () => {
+            isLoading.value = false;
         },
     });
 }
@@ -241,7 +247,14 @@ function uploadToDatabase() {
                 <Button variant="outline" @click="retake">
                     Retake Picture
                 </Button>
-                <Button @click="uploadToDatabase"> Upload Picture </Button>
+                <Button
+                    :disabled="isLoading"
+                    @click="uploadToDatabase"
+                    class="gap-2"
+                >
+                    Upload Picture
+                    <span><Loading v-if="isLoading" /></span>
+                </Button>
             </template>
         </div>
     </div>
