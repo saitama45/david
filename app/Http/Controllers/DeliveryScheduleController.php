@@ -11,13 +11,19 @@ class DeliveryScheduleController extends Controller
 {
     public function index()
     {
-        $branches = StoreBranch::with('delivery_schedules')->paginate(10);
+        $search = request('search');
+        $query = StoreBranch::query()->with('delivery_schedules');
+
+        if ($search)
+            $query->where('name', 'like', "%$search%");
+
+        $branches = $query->paginate(10);
 
         $formattedResult = $branches->through(function ($branch) {
             $result = [
                 'id' => $branch->id,
                 'name' => $branch->name,
-                'branch_code' => $branch->branch_code,
+                'location_code' => $branch->location_code,
             ];
 
             $groupedSchedules = $branch->delivery_schedules
@@ -35,7 +41,8 @@ class DeliveryScheduleController extends Controller
 
 
         return Inertia::render('DTSDeliverySchedule/Index', [
-            'branches' => $formattedResult
+            'branches' => $formattedResult,
+            'filters' => request()->only(['search'])
         ]);
     }
 

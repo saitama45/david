@@ -5,8 +5,9 @@ const { branches } = defineProps({
         required: true,
     },
 });
+import { useSearch } from "@/Composables/useSearch";
 
-console.log(branches);
+const { search } = useSearch("delivery-schedules.index");
 </script>
 
 <template>
@@ -18,6 +19,7 @@ console.log(branches);
                     <Input
                         id="search"
                         type="text"
+                        v-model="search"
                         placeholder="Search..."
                         class="pl-10"
                     />
@@ -27,7 +29,7 @@ console.log(branches);
                 <TableHead>
                     <TH>Id</TH>
                     <TH>Store Branch</TH>
-                    <TH>Loc Code</TH>
+                    <TH>Location Code</TH>
                     <!-- <TH>
                         <DivFlexCol>
                             Normal Orders
@@ -70,7 +72,7 @@ console.log(branches);
                     <tr v-for="branch in branches.data">
                         <TD>{{ branch.id }}</TD>
                         <TD>{{ branch.name }}</TD>
-                        <TD>{{ branch.branch_code }}</TD>
+                        <TD>{{ branch.location_code ?? "N/a" }}</TD>
                         <!-- <TD>
                             <DivFlexCol class="gap-1">
                                 <Badge class="w-fit">SUNDAY</Badge>

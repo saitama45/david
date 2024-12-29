@@ -14,7 +14,7 @@ class StoreBranchController extends Controller
         $query = StoreBranch::query();
 
         if ($search)
-            $query->where('name', 'like', "%$search%");
+            $query->whereAny(['name', 'location_code'], 'like', "%$search%");
 
         $branches = $query->paginate(10);
         return Inertia::render('StoreBranch/Index', [

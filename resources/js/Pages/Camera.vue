@@ -179,7 +179,7 @@ function takePicture() {
 }
 
 async function retake() {
-    imageForm.reset();
+    imageForm.clearErrors();
     if (ctx.value && canvas.value) {
         ctx.value.clearRect(0, 0, canvas.value.width, canvas.value.height);
     }

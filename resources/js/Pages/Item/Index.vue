@@ -15,6 +15,7 @@ const handleClick = () => {
 
 import { usePage } from "@inertiajs/vue3";
 
+
 let filter = ref(usePage().props.filter || "all");
 
 const { search } = useSearch("items.index");
