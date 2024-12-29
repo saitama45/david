@@ -5,6 +5,10 @@ const props = defineProps({
         required: true,
     },
 });
+
+import { useSearch } from "@/Composables/useSearch";
+
+const { search } = useSearch("receiving-approvals.index");
 </script>
 
 <template>
@@ -13,6 +17,7 @@ const props = defineProps({
             <TableHeader>
                 <SearchBar>
                     <Input
+                        v-model="search"
                         class="pl-10"
                         placeholder="Search..."
                     />

@@ -14,7 +14,9 @@ class ReceivingApprovalController extends Controller
 {
     public function index()
     {
-        $orders = StoreOrder::with([
+        $search = request('search');
+
+        $query = StoreOrder::query()->with([
             'supplier',
             'store_branch',
             'ordered_item_receive_dates' => function ($query) {
@@ -22,9 +24,16 @@ class ReceivingApprovalController extends Controller
             }
         ])->whereHas('ordered_item_receive_dates', function ($query) {
             $query->where('is_approved', false);
-        })->paginate(10);
+        });
+
+        if ($search)
+            $query->whereAny(['order_number'], 'like', "%$search%");
+
+
+        $orders = $query->paginate(10);
         return Inertia::render('ReceivingApproval/Index', [
-            'orders' => $orders
+            'orders' => $orders,
+            'filters' => request()->only(['search'])
         ]);
     }
 
