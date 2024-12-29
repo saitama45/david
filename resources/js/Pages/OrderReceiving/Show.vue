@@ -167,6 +167,7 @@ const deleteReceiveDate = (id) => {
 
 const isEditModalVisible = ref(false);
 const editReceiveDetailsForm = useForm({
+    id: null,
     quantity_received: null,
     expiry_date: null,
 });
@@ -175,11 +176,33 @@ const openEditModalForm = (id) => {
     const data = props.receiveDatesHistory;
     const existingItemIndex = data.findIndex((history) => history.id === id);
     const history = data[existingItemIndex];
-    console.log(history);
 
+    editReceiveDetailsForm.id = history.id;
     editReceiveDetailsForm.quantity_received = history.quantity_received;
     editReceiveDetailsForm.expiry_date = history.expiry_date;
     isEditModalVisible.value = true;
+};
+
+const updateReceiveDetails = () => {
+    isLoading.value = true;
+    editReceiveDetailsForm.post(
+        route("orders-receiving.update-receiving-history"),
+        {
+            onSuccess: (page) => {
+                toast.add({
+                    severity: "success",
+                    summary: "Success",
+                    detail: "Updated Successfully.",
+                    life: 5000,
+                });
+                isLoading.value = false;
+                isEditModalVisible.value = false;
+            },
+            onError: (errors) => {
+                isLoading.value = false;
+            },
+        }
+    );
 };
 </script>
 
@@ -230,7 +253,10 @@ const openEditModalForm = (id) => {
                     <LabelXS>Approval Action Date: </LabelXS>
                     <SpanBold>{{ order.approval_action_date }}</SpanBold>
                 </InputContainer>
-                <InputContainer class="col-span-4">
+            </Card>
+
+            <Card class="p-5">
+                <InputContainer>
                     <LabelXS>Delivery Receipt Numbers: </LabelXS>
                     <DivFlexCol class="flex-1 gap-2">
                         <SpanBold v-for="receipt in order.delivery_receipts">{{
@@ -562,7 +588,7 @@ const openEditModalForm = (id) => {
                         :disabled="isLoading"
                         type="submit"
                         class="gap-2"
-                        @click="submitReceivingForm"
+                        @click="updateReceiveDetails"
                     >
                         Update
                         <span v-if="isLoading"><Loading /></span>

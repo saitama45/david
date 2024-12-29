@@ -159,4 +159,18 @@ class OrderReceivingController extends Controller
 
         return redirect()->back();
     }
+
+    public function updateReceiveDateHistory(Request $request)
+    {
+
+        $validated = $request->validate([
+            'id' => ['required'],
+            'quantity_received' => ['required', 'numeric', 'min:1'],
+            'expiry_date' => ['required']
+        ]);
+
+        $history = OrderedItemReceiveDate::findOrFail($validated['id']);
+        $history->update($validated);
+        return redirect()->back();
+    }
 }
