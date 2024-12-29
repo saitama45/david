@@ -21,4 +21,9 @@ class StoreOrderRemark extends Model implements Auditable
     {
         return $this->belongsTo(StoreOrder::class);
     }
+
+    public function user()
+    {
+        return $this->belongsTo(User::class);
+    }
 }
