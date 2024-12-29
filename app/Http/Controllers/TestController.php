@@ -18,7 +18,7 @@ class TestController extends Controller
             ];
         });
 
-        return Inertia::render('Test', [
+        return Inertia::render('Camera', [
             'images' => $images,
         ]);
     }

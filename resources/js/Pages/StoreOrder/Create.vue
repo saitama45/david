@@ -62,6 +62,12 @@ const orderForm = useForm({
     orders: [],
 });
 
+const computeOverallTotal = computed(() => {
+    return orderForm.orders
+        .reduce((total, order) => total + parseFloat(order.total_cost), 0)
+        .toFixed(2);
+});
+
 const itemForm = useForm({
     item: null,
 });
@@ -505,8 +511,14 @@ watch(
             </section>
 
             <Card class="col-span-2 flex flex-col">
-                <CardHeader>
-                    <CardTitle>Items List</CardTitle>
+                <CardHeader class="flex justify-between">
+                    <DivFlexCenter class="justify-between">
+                        <CardTitle>Items List</CardTitle>
+                        <DivFlexCenter class="gap-2">
+                            <LabelXS> Overall Total:</LabelXS>
+                            <SpanBold>{{ computeOverallTotal }}</SpanBold>
+                        </DivFlexCenter>
+                    </DivFlexCenter>
                 </CardHeader>
                 <CardContent class="flex-1">
                     <Table>

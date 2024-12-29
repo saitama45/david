@@ -179,6 +179,9 @@ const isLoading = ref(false);
                         >N/a</SpanBold
                     >
                 </InputContainer>
+            </Card>
+
+            <Card class="p-5">
                 <InputContainer class="col-span-4">
                     <LabelXS>Image Attachments: </LabelXS>
                     <DivFlexCenter class="gap-2">
