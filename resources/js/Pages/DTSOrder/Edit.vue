@@ -43,7 +43,7 @@ const orderForm = useForm({
     branch_id: props.order.store_branch_id + "",
     order_date: props.order.order_date,
     orders: [],
-    variant: props.order.variant
+    variant: props.order.variant,
 });
 
 const itemForm = useForm({
@@ -173,6 +173,12 @@ const addToOrdersButton = () => {
     itemForm.item = null;
     itemForm.clearErrors();
 };
+
+const computeOverallTotal = computed(() => {
+    return orderForm.orders
+        .reduce((total, order) => total + parseFloat(order.total_cost), 0)
+        .toFixed(2);
+});
 
 const update = () => {
     if (orderForm.orders.length < 1) {
@@ -419,8 +425,14 @@ const heading = `Edit Order #${props.order.order_number}`;
             </section>
 
             <Card class="col-span-2 flex flex-col">
-                <CardHeader>
-                    <CardTitle>Items List</CardTitle>
+                <CardHeader class="flex justify-between">
+                    <DivFlexCenter class="justify-between">
+                        <CardTitle>Items List</CardTitle>
+                        <DivFlexCenter class="gap-2">
+                            <LabelXS> Overall Total:</LabelXS>
+                            <SpanBold>{{ computeOverallTotal }}</SpanBold>
+                        </DivFlexCenter>
+                    </DivFlexCenter>
                 </CardHeader>
                 <CardContent class="flex-1">
                     <Table>

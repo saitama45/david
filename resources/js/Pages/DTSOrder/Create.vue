@@ -35,7 +35,7 @@ const orderForm = useForm({
     supplier_id: Object.keys(suppliers)[0] + "",
     order_date: null,
     orders: [],
-    variant: variant
+    variant: variant,
 });
 
 const allowedDays = ref([]);
@@ -130,6 +130,12 @@ const productDetails = reactive({
     quantity: null,
     cost: null,
     total_cost: null,
+});
+
+const computeOverallTotal = computed(() => {
+    return orderForm.orders
+        .reduce((total, order) => total + parseFloat(order.total_cost), 0)
+        .toFixed(2);
 });
 
 const addToOrdersButton = () => {
@@ -401,8 +407,14 @@ const store = () => {
             </section>
 
             <Card class="col-span-2 flex flex-col">
-                <CardHeader>
-                    <CardTitle>Items List</CardTitle>
+                <CardHeader class="flex justify-between">
+                    <DivFlexCenter class="justify-between">
+                        <CardTitle>Items List</CardTitle>
+                        <DivFlexCenter class="gap-2">
+                            <LabelXS> Overall Total:</LabelXS>
+                            <SpanBold>{{ computeOverallTotal }}</SpanBold>
+                        </DivFlexCenter>
+                    </DivFlexCenter>
                 </CardHeader>
                 <CardContent class="flex-1">
                     <Table>
