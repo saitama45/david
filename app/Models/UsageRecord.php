@@ -28,6 +28,6 @@ class UsageRecord extends Model
 
     public function branch()
     {
-        return $this->belongsTo(StoreBranch::class);
+        return $this->belongsTo(StoreBranch::class, 'store_branch_id');
     }
 }

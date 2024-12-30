@@ -118,6 +118,17 @@ const removeItem = (id) => {
         },
     });
 };
+
+const store = () => {
+    form.post(route("usage-records.store"), {
+        onSuccess: () => {
+            console.log("success");
+        },
+        onError: () => {
+            console.log("error");
+        },
+    });
+};
 </script>
 
 <template>
@@ -144,6 +155,9 @@ const removeItem = (id) => {
                                 v-model="form.store_branch_id"
                             >
                             </Select>
+                            <FormError>{{
+                                form.errors.store_branch_id
+                            }}</FormError>
                         </InputContainer>
                         <InputContainer>
                             <LabelXS>Usage Date</LabelXS>
@@ -152,6 +166,7 @@ const removeItem = (id) => {
                                 showIcon
                                 v-model="form.usage_date"
                             />
+                            <FormError>{{ form.errors.usage_date }}</FormError>
                         </InputContainer>
                     </CardContent>
                 </Card>
@@ -232,6 +247,9 @@ const removeItem = (id) => {
                         </tr>
                     </TableBody>
                 </Table>
+                <DivFlexCenter class="justify-end">
+                    <Button @click="store">Proceed</Button>
+                </DivFlexCenter>
             </TableContainer>
         </Card>
     </Layout>
