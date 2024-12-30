@@ -43,7 +43,10 @@ const handleClick = () => {
                         <TD>{{ record.branch.name }}</TD>
                         <TD>{{ record.branch.branch_code }}</TD>
                         <TD>
-                            <ShowButton :isLink="true" href="" />
+                            <ShowButton
+                                :isLink="true"
+                                :href="route('usage-records.show', record.id)"
+                            />
                         </TD>
                     </tr>
                 </TableBody>

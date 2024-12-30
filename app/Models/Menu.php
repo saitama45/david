@@ -28,7 +28,7 @@ class Menu extends Model
         return $query->select(['id', 'name'])->get()->pluck('name', 'id');
     }
 
-    public function menuIngredients()
+    public function menu_ingredients()
     {
         return $this->hasMany(MenuIngredient::class);
     }

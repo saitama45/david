@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Menu;
 use App\Models\StoreBranch;
 use App\Models\UsageRecord;
+use App\Models\UsageRecordItem;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -57,5 +58,36 @@ class UsageRecordController extends Controller
         }
         DB::commit();
         return redirect()->route('usage-records.index');
+    }
+
+    public function show($id)
+    {
+        $record = UsageRecord::with([
+            'branch',
+            'encoder',
+            'usage_record_items',
+            'usage_record_items.menu',
+            'usage_record_items.menu.menu_ingredients',
+            'usage_record_items.menu.menu_ingredients.product',
+        ])->findOrFail($id);
+        $itemsSold = $record->usage_record_items()->with('menu')->paginate(5);
+
+        $ingredients = UsageRecordItem::where('usage_record_id', $id)
+            ->join('menus', 'usage_record_items.menu_id', '=', 'menus.id')
+            ->join('menu_ingredients', 'menus.id', '=', 'menu_ingredients.menu_id')
+            ->join('product_inventories', 'menu_ingredients.product_inventory_id', '=', 'product_inventories.id')
+            ->select([
+                'product_inventories.*',
+                'menu_ingredients.quantity as ingredient_quantity',
+                'usage_record_items.quantity as ordered_quantity',
+                DB::raw('(menu_ingredients.quantity * usage_record_items.quantity) as total_quantity')
+            ])
+            ->get();
+
+        return Inertia::render('UsageRecord/Show', [
+            'record' => $record,
+            'itemsSold' => $itemsSold,
+            'ingredients' => $ingredients
+        ]);
     }
 }
