@@ -36,6 +36,13 @@ class ProductInventory extends Model implements Auditable
         return '₱' . number_format($this->cost, 2);
     }
 
+    public function menus()
+    {
+        return $this->belongsToMany(Menu::class, 'menu_ingredients')
+            ->withPivot('quantity')
+            ->withTimestamps();
+    }
+
     public function product_categories(): BelongsToMany
     {
         return $this->belongsToMany(

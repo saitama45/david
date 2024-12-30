@@ -26,6 +26,7 @@ use App\Http\Controllers\StoreBranchController;
 use App\Http\Controllers\SupplierController;
 use App\Http\Controllers\TestController;
 use App\Http\Controllers\UnitOfMeasurementController;
+use App\Http\Controllers\UsageRecordController;
 use App\Http\Controllers\UserController;
 use App\Models\StoreBranch;
 use Illuminate\Support\Facades\Route;
@@ -225,6 +226,14 @@ Route::middleware('auth')
                 Route::get('/', 'index')->name('index');
                 Route::get('/create', 'create')->name('create');
                 Route::get('/show/{id}', 'show')->name('show');
+            });
+
+        Route::controller(UsageRecordController::class)
+            ->prefix('usage-records')
+            ->name('usage-records.')
+            ->group(function () {
+                Route::get('/', 'index')->name('index');
+                Route::get('/create', 'create')->name('create');
             });
 
 
