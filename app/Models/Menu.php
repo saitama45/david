@@ -18,6 +18,11 @@ class Menu extends Model
         'remarks'
     ];
 
+    public function usage_record_items()
+    {
+        return $this->hasMany(UsageRecordItem::class);
+    }
+
     public function scopeOptions(Builder $query)
     {
         return $query->select(['id', 'name'])->get()->pluck('name', 'id');

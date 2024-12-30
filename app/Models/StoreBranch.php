@@ -38,6 +38,12 @@ class StoreBranch extends Model implements Auditable
         return $this->hasMany(StoreOrder::class);
     }
 
+    public function usage_records()
+    {
+        return $this->hasMany(UsageRecord::class);
+    }
+
+
     public function scopeOptions(Builder $query)
     {
         return $query->where('is_active', true)->pluck('name', 'id');
