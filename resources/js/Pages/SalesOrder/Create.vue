@@ -13,12 +13,11 @@ const showAddItemModal = () => {
             class="grid grid-cols-1 p-3 gap-5 overflow-auto overflow-x-auto scrollbar-thin scrollbar-track-gray-100 scrollbar-thumb-gray-300 hover:scrollbar-thumb-gray-400"
         >
             <DivFlexCol class="gap-3 min-w-[380px]">
-                <!-- <DivFlexCol>
+                <DivFlexCol>
                     <LabelXS>Status:</LabelXS>
                     <SpanBold> ON PROCESS</SpanBold>
                 </DivFlexCol>
-
-                <DivFlexCenter class="justify-between">
+                <DivFlexCenter class="grid grid-cols-2 gap-3">
                     <InputContainer>
                         <LabelXS>SO#:</LabelXS>
                         <SpanBold> SO4872384973829</SpanBold>
@@ -32,7 +31,7 @@ const showAddItemModal = () => {
                             :manualInput="true"
                         />
                     </InputContainer>
-                </DivFlexCenter> -->
+                </DivFlexCenter>
 
                 <DivFlexCenter class="grid grid-cols-2 gap-3">
                     <InputContainer>

@@ -173,7 +173,35 @@ const openViewModalForm = (id) => {
                 </InputContainer>
             </Card>
 
-           E
+            <TableContainer>
+                <TableHeader>
+                    <SpanBold>Remarks</SpanBold>
+                </TableHeader>
+                <Table>
+                    <TableHead>
+                        <TH>Id</TH>
+                        <TH>Remarks By</TH>
+                        <TH>Action</TH>
+                        <TH>Remarks</TH>
+                        <TH>Created At</TH>
+                    </TableHead>
+                    <TableBody>
+                        <tr v-for="remarks in order.store_order_remarks">
+                            <TD>{{ remarks.id }}</TD>
+                            <TD
+                                >{{ remarks.user.first_name }}
+                                {{ remarks.user.last_name }}</TD
+                            >
+                            <TD>
+                                {{ remarks.action.toUpperCase() }}
+                            </TD>
+                            <TD>{{ remarks.remarks }}</TD>
+                            <TD>{{ remarks.created_at }}</TD>
+                        </tr>
+                    </TableBody>
+                </Table>
+            </TableContainer>
+
             <Card class="p-5">
                 <InputContainer class="col-span-4">
                     <LabelXS>Image Attachments: </LabelXS>

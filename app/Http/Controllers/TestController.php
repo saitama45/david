@@ -26,7 +26,7 @@ class TestController extends Controller
     public function store(Request $request)
     {
         $validated = $request->validate([
-            'image' => 'required|image|mimes:jpeg,png,jpg,gif,svg|max:2048',
+            'image' => 'required',
             'store_order_id' => 'required'
         ]);
 
