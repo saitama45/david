@@ -18,11 +18,11 @@ const { menus, branches } = defineProps({
 
 const form = useForm({
     store_branch_id: null,
-    usage_date: null,
+    usage_date: new Date().toDateString(),
     items: [],
 });
 
-const itemForm = reactive({
+const itemForm = useForm({
     id: null,
     name: null,
     quantity: null,
@@ -31,6 +31,15 @@ const itemForm = reactive({
 });
 
 const addToItemsList = () => {
+    if (itemForm.id === null) {
+        itemForm.setError("id", "Item field is required");
+        return;
+    }
+    if (itemForm.quantity < 1) {
+        itemForm.setError("quantity", "Quantity must be atleast 1");
+        return;
+    }
+    console.log(itemForm.id);
     const existingItemIndex = form.items.findIndex(
         (item) => item.id === itemForm.id
     );
@@ -43,29 +52,32 @@ const addToItemsList = () => {
         item.total_price = parseFloat(item.quantity * itemForm.price);
     }
 
-    Object.keys(itemForm).forEach((key) => {
-        itemForm[key] = null;
-    });
-    console.log(itemForm);
-    itemId.value = null;
+    itemForm.reset();
+    itemForm.clearErrors();
+
+    // Object.keys(itemForm).forEach((key) => {
+    //     itemForm[key] = null;
+    // });
 };
 
 const { options: menusOptions } = useSelectOptions(menus);
 const { options: branchesOptions } = useSelectOptions(branches);
 
-const itemId = ref(null);
-watch(itemId, (newValue) => {
-    if (newValue == null) return;
-    axios
-        .get(route("menu-item.show", newValue))
-        .then((res) => res.data)
-        .then((result) => {
-            itemForm.id = result.id;
-            itemForm.name = result.name;
-            itemForm.price = result.price;
-        })
-        .catch((err) => console.log(err));
-});
+watch(
+    () => itemForm.id,
+    (newValue) => {
+        if (newValue == null) return;
+        itemForm.clearErrors();
+        axios
+            .get(route("menu-item.show", newValue))
+            .then((res) => res.data)
+            .then((result) => {
+                itemForm.name = result.name;
+                itemForm.price = result.price;
+            })
+            .catch((err) => console.log(err));
+    }
+);
 
 const addItemQuantity = (id) => {
     const index = form.items.findIndex((item) => item.id === id);
@@ -120,12 +132,37 @@ const removeItem = (id) => {
 };
 
 const store = () => {
-    form.post(route("usage-records.store"), {
-        onSuccess: () => {
-            console.log("success");
+    if (form.items.length < 1) {
+        toast.add({
+            severity: "error",
+            summary: "Error",
+            detail: "Please select at least one item before proceeding.",
+            life: 5000,
+        });
+        return;
+    }
+    confirm.require({
+        message: "Are you sure you want to create this record?",
+        header: "Confirmation",
+        icon: "pi pi-exclamation-triangle",
+        rejectProps: {
+            label: "Cancel",
+            severity: "secondary",
+            outlined: true,
         },
-        onError: () => {
-            console.log("error");
+        acceptProps: {
+            label: "Confirm",
+            severity: "info",
+        },
+        accept: () => {
+            form.post(route("usage-records.store"), {
+                onSuccess: () => {
+                    console.log("success");
+                },
+                onError: () => {
+                    console.log("error");
+                },
+            });
         },
     });
 };
@@ -165,6 +202,7 @@ const store = () => {
                                 fluid
                                 showIcon
                                 v-model="form.usage_date"
+                                :maxDate="new Date()"
                             />
                             <FormError>{{ form.errors.usage_date }}</FormError>
                         </InputContainer>
@@ -188,13 +226,17 @@ const store = () => {
                                 :options="menusOptions"
                                 optionLabel="label"
                                 optionValue="value"
-                                v-model="itemId"
+                                v-model="itemForm.id"
                             >
                             </Select>
+                            <FormError>{{ itemForm.errors.id }}</FormError>
                         </InputContainer>
                         <InputContainer>
                             <LabelXS>Quantity</LabelXS>
                             <Input type="number" v-model="itemForm.quantity" />
+                            <FormError>{{
+                                itemForm.errors.quantity
+                            }}</FormError>
                         </InputContainer>
                     </CardContent>
                     <CardFooter class="justify-end">

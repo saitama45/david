@@ -18,7 +18,7 @@ class MenuCategorySeeder extends Seeder
         // Create categories
         $categories = ['DESSERTS', 'PASTAS', 'MAINS'];
         foreach ($categories as $category) {
-            MenuCategory::create([
+            MenuCategory::updateOrCreate([
                 'name' => $category
             ]);
         }
@@ -43,7 +43,7 @@ class MenuCategorySeeder extends Seeder
         ];
 
         foreach ($menus as $menu) {
-            Menu::create($menu);
+            Menu::updateOrCreate($menu);
         }
 
 
@@ -58,13 +58,13 @@ class MenuCategorySeeder extends Seeder
             [
                 'menu_id' => 2,
                 'inventory_codes' => ['269D9A', '874A2C', '392A2A'],
-                'quantities' => [1, 1, 1]
+                'quantities' => [1, 1, 0.3]
             ],
 
             [
                 'menu_id' => 3,
                 'inventory_codes' => ['399A2A', '453A2A', 'FR040100137', 'FR040100082'],
-                'quantities' => [1, 1, 1, 1]
+                'quantities' => [1, 1, 0.2, 0.1]
             ]
         ];
 
@@ -72,7 +72,7 @@ class MenuCategorySeeder extends Seeder
             foreach ($menuIngredient['inventory_codes'] as $index => $code) {
                 $productInventoryId = ProductInventory::where('inventory_code', $code)->first()->id;
 
-                MenuIngredient::create([
+                MenuIngredient::updateOrCreate([
                     'menu_id' => $menuIngredient['menu_id'],
                     'product_inventory_id' => $productInventoryId,
                     'quantity' => $menuIngredient['quantities'][$index]

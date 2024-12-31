@@ -85,6 +85,7 @@ const { record, itemsSold } = defineProps({
                         <TH>Name</TH>
                         <TH>Price</TH>
                         <TH>Quantity Used</TH>
+                        <TH>UOM</TH>
                         <TH>Total Price</TH>
                         <TH>Actions</TH>
                     </TableHead>
@@ -94,6 +95,7 @@ const { record, itemsSold } = defineProps({
                             <TD>{{ item.name }}</TD>
                             <TD>{{ item.cost }}</TD>
                             <TD>{{ item.total_quantity }}</TD>
+                            <TD>{{ item.uom }}</TD>
                             <TD>{{
                                 parseFloat(
                                     item.total_quantity * item.cost

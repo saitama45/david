@@ -39,7 +39,7 @@ class UsageRecordController extends Controller
     {
         $validated =  $request->validate([
             'store_branch_id' => ['required'],
-            'usage_date' => ['required'],
+            'usage_date' => ['required', 'before_or_equal:today'],
             'items' => ['required', 'array']
         ], [
             'store_branch_id.required' => 'Store branch is required'
@@ -76,11 +76,14 @@ class UsageRecordController extends Controller
             ->join('menus', 'usage_record_items.menu_id', '=', 'menus.id')
             ->join('menu_ingredients', 'menus.id', '=', 'menu_ingredients.menu_id')
             ->join('product_inventories', 'menu_ingredients.product_inventory_id', '=', 'product_inventories.id')
+            ->join('unit_of_measurements', 'product_inventories.unit_of_measurement_id', '=', 'unit_of_measurements.id')
             ->select([
                 'product_inventories.*',
                 'menu_ingredients.quantity as ingredient_quantity',
                 'usage_record_items.quantity as ordered_quantity',
-                DB::raw('(menu_ingredients.quantity * usage_record_items.quantity) as total_quantity')
+                DB::raw('(menu_ingredients.quantity * usage_record_items.quantity) as total_quantity'),
+                'unit_of_measurements.name as uom',
+
             ])
             ->get();
 
