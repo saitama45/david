@@ -3,6 +3,11 @@ import { useSelectOptions } from "@/Composables/useSelectOptions";
 import { usePage, router, useForm } from "@inertiajs/vue3";
 
 import { throttle } from "lodash";
+
+import { useConfirm } from "primevue/useconfirm";
+import { useToast } from "@/Composables/useToast";
+const confirm = useConfirm();
+const { toast } = useToast();
 const { products, branches } = defineProps({
     products: {
         type: Object,
@@ -55,7 +60,12 @@ const form = useForm({
     quantity: null,
     remarks: null,
 });
-watch(isLogUsageModalOpen, (value) => {});
+watch(isLogUsageModalOpen, (value) => {
+    if (!value) {
+        form.reset();
+        form.clearErrors();
+    }
+});
 const openLogUsageModal = (id) => {
     form.id = id;
     form.store_branch_id = branchId.value;
@@ -65,10 +75,21 @@ const openLogUsageModal = (id) => {
 const logUsage = () => {
     form.post(route("stock-management.log-usage"), {
         onSuccess: () => {
-            console.log("test");
+            toast.add({
+                severity: "success",
+                summary: "Success",
+                detail: "Usaged logged Successfully.",
+                life: 5000,
+            });
+            isLogUsageModalOpen.value = false;
         },
         onError: () => {
-            console.log("error");
+            toast.add({
+                severity: "error",
+                summary: "Error",
+                detail: "An error occured while trying to log the usage.",
+                life: 5000,
+            });
         },
     });
 };
