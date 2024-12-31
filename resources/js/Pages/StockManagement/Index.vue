@@ -22,6 +22,8 @@ const branchId = ref(
 
 let search = ref(usePage().props.filters.search);
 
+const isLogUsageModalOpen = ref(true);
+
 watch(branchId, (newValue) => {
     router.get(
         route("stock-management.index"),
@@ -88,20 +90,51 @@ watch(
                         <TD>{{ product.estimated_used }}</TD>
                         <TD>{{ product.recorded_used }}</TD>
                         <TD>
-                            <ShowButton
-                                :isLink="true"
-                                :href="
-                                    route(
-                                        'stock-management.show',
-                                        product.inventory_code
-                                    )
-                                "
-                            />
+                            <DivFlexCenter class="gap-3">
+                                <ShowButton
+                                    :isLink="true"
+                                    :href="
+                                        route(
+                                            'stock-management.show',
+                                            product.inventory_code
+                                        )
+                                    "
+                                />
+                                <Button
+                                    variant="link"
+                                    class="text-xs text-orange-500"
+                                    >Log Usage</Button
+                                >
+                            </DivFlexCenter>
                         </TD>
                     </tr>
                 </TableBody>
             </Table>
             <Pagination :data="products" />
         </TableContainer>
+
+        <Dialog v-model:open="isLogUsageModalOpen">
+            <DialogContent class="sm:max-w-[600px]">
+                <DialogHeader>
+                    <DialogTitle>Log Usage</DialogTitle>
+                    <DialogDescription>
+                        Please input all the required fields.
+                    </DialogDescription>
+                </DialogHeader>
+                <DivFlexCol class="gap-3">
+                    <InputContainer>
+                        <LabelXS>Quantity Used</LabelXS>
+                        <Input type="number" />
+                    </InputContainer>
+                    <InputContainer>
+                        <LabelXS>Remarks</LabelXS>
+                        <Textarea type="number" />
+                    </InputContainer>
+                </DivFlexCol>
+                <DialogFooter class="justify-end">
+                    <Button>Submit</Button>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
     </Layout>
 </template>

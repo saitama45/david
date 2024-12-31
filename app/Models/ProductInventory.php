@@ -88,6 +88,11 @@ class ProductInventory extends Model implements Auditable
         return $this->hasMany(ProductInventoryStock::class);
     }
 
+    public function inventory_stocks_used()
+    {
+        return $this->hasMany(ProductInventoryStockUsed::class);
+    }
+
     protected static function booted()
     {
         static::created(function ($product) {

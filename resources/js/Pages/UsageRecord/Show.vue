@@ -28,7 +28,7 @@ const computeSoldItemsTotal = () => {
 </script>
 
 <template>
-    <Layout heading="Record Details">
+    <Layout heading="Usage Record Details">
         <DivFlexCol class="gap-5">
             <Card class="p-5 grid grid-cols-2 gap-5">
                 <InputContainer>
