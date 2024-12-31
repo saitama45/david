@@ -1,18 +1,56 @@
 <script setup>
-import { useSearch } from "@/Composables/useSearch";
-const { products } = defineProps({
+import { useSelectOptions } from "@/Composables/useSelectOptions";
+import { usePage, router } from "@inertiajs/vue3";
+
+import { throttle } from "lodash";
+const { products, branches } = defineProps({
     products: {
+        type: Object,
+        required: true,
+    },
+    branches: {
         type: Object,
         required: true,
     },
 });
 
-const { search } = useSearch("stock-management.index");
+const { options: branchesOptions } = useSelectOptions(branches);
+
+const branchId = ref(
+    usePage().props.filters.branchId || branchesOptions.value[0].value
+);
+
+let search = ref(usePage().props.filters.search);
+
+watch(branchId, (newValue) => {
+    router.get(
+        route("stock-management.index"),
+        { branchId: newValue, search: search.value },
+        {
+            preserveState: true,
+            replace: true,
+        }
+    );
+});
+
+watch(
+    search,
+    throttle(function (value) {
+        router.get(
+            route("stock-management.index"),
+            { search: value, branchId: branchId.value },
+            {
+                preserveState: true,
+                replace: true,
+            }
+        );
+    }, 500)
+);
 </script>
 <template>
     <Layout heading="Stock Management">
         <TableContainer>
-            <TableHeader>
+            <DivFlexCenter class="justify-between">
                 <SearchBar>
                     <Input
                         class="pl-10"
@@ -20,7 +58,17 @@ const { search } = useSearch("stock-management.index");
                         v-model="search"
                     />
                 </SearchBar>
-            </TableHeader>
+                <Select
+                    filter
+                    class="min-w-72"
+                    placeholder="Select a Supplier"
+                    :options="branchesOptions"
+                    optionLabel="label"
+                    optionValue="value"
+                    v-model="branchId"
+                >
+                </Select>
+            </DivFlexCenter>
             <Table>
                 <TableHead>
                     <TH>Name</TH>

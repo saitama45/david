@@ -3,8 +3,10 @@
 namespace App\Http\Controllers;
 
 use App\Models\ProductInventory;
+use App\Models\StoreBranch;
 use App\Models\UsageRecord;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
 
 class StockManagementController extends Controller
@@ -12,29 +14,32 @@ class StockManagementController extends Controller
     public function index()
     {
         $search = request('search');
-        $usageRecords = UsageRecord::with([
-            'usage_record_items.menu.menu_ingredients',
-        ])
-            ->where('store_branch_id', 3)
-            ->get()
-            ->flatMap(function ($usageRecord) {
-                return $usageRecord->usage_record_items->flatMap(function ($item) {
-                    return $item->menu->menu_ingredients->map(function ($ingredient) use ($item) {
-                        return [
-                            'product_id' => $ingredient->product_inventory_id,
-                            'quantity_used' => $ingredient->quantity * $item->quantity
-                        ];
-                    });
-                });
-            })
-            ->groupBy('product_id')
-            ->map(function ($items) {
-                return $items->sum('quantity_used');
-            });
+        $branches = StoreBranch::options();
+        $branchId = request('branchId') ?? $branches->keys()->first();
 
-        $query = ProductInventory::query()->with(['inventory_stocks' => function ($query) {
-            $query->where('store_branch_id', 3);
-        }, 'unit_of_measurement']);
+        // Usage Records calculation
+        $usageRecords = DB::table('usage_records as ur')
+            ->join('usage_record_items as uri', 'ur.id', '=', 'uri.usage_record_id')
+            ->join('menus as m', 'uri.menu_id', '=', 'm.id')
+            ->join('menu_ingredients as mi', 'm.id', '=', 'mi.menu_id')
+            ->where('ur.store_branch_id', $branchId)
+            ->select(
+                'mi.product_inventory_id',
+                DB::raw('SUM(mi.quantity * uri.quantity) as total_quantity_used')
+            )
+            ->groupBy('mi.product_inventory_id')
+            ->pluck('total_quantity_used', 'product_inventory_id')
+            ->toArray();
+
+        // Product query
+        $query = ProductInventory::query()
+            ->with(['unit_of_measurement'])
+            ->whereHas('inventory_stocks', function ($query) use ($branchId) {
+                $query->where('store_branch_id', $branchId);
+            })
+            ->with(['inventory_stocks' => function ($query) use ($branchId) {
+                $query->where('store_branch_id', $branchId);
+            }]);
 
         if ($search) {
             $query->whereAny(['name', 'inventory_code'], 'like', "%$search%");
@@ -56,7 +61,8 @@ class StockManagementController extends Controller
 
         return Inertia::render('StockManagement/Index', [
             'products' => $products,
-            'filters' => request()->only(['search'])
+            'branches' => $branches,
+            'filters' => request()->only(['search', 'branchId'])
         ]);
     }
 
