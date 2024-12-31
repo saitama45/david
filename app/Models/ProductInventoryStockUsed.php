@@ -17,6 +17,10 @@ class ProductInventoryStockUsed extends Model
         'remarks'
     ];
 
+    protected $casts = [
+        'created_at' => 'date:F d, Y h:i a',
+    ];
+
     public function product()
     {
         return $this->belongsTo(ProductInventory::class, 'product_inventory_id');

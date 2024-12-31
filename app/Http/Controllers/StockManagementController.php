@@ -19,7 +19,6 @@ class StockManagementController extends Controller
         $branches = StoreBranch::options();
         $branchId = request('branchId') ?? $branches->keys()->first();
 
-        // Usage Records calculation
         $usageRecords = DB::table('usage_records as ur')
             ->join('usage_record_items as uri', 'ur.id', '=', 'uri.usage_record_id')
             ->join('menus as m', 'uri.menu_id', '=', 'm.id')
@@ -33,7 +32,6 @@ class StockManagementController extends Controller
             ->pluck('total_quantity_used', 'product_inventory_id')
             ->toArray();
 
-        // Product query
         $query = ProductInventory::query()
             ->with(['unit_of_measurement'])
             ->whereHas('inventory_stocks', function ($query) use ($branchId) {
@@ -68,10 +66,20 @@ class StockManagementController extends Controller
         ]);
     }
 
-    public function show($id)
+    public function show(Request $request, $id)
     {
+        $branches = StoreBranch::options();
+        $branchId = $request->only('branchId')['branchId'] ?? $branches->keys()->first();
 
-        return Inertia::render('StockManagement/Show');
+        $history = ProductInventoryStockUsed::where('product_inventory_id', $id)
+            ->where('store_branch_id', 3)->paginate(10);
+
+
+
+        return Inertia::render('StockManagement/Show', [
+            'branches' => $branches,
+            'history' => $history
+        ]);
     }
     public function logUsage(Request $request)
     {
@@ -93,7 +101,7 @@ class StockManagementController extends Controller
             'quantity' => $validated['quantity'],
             'remarks' => $validated['remarks']
         ]);
- 
+
         DB::commit();
     }
 }

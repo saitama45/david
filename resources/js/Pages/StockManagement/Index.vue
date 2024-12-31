@@ -93,6 +93,16 @@ const logUsage = () => {
         },
     });
 };
+
+const showDetails = (id) => {
+    router.get(
+        route("stock-management.show", id),
+        {
+            branchId: branchId.value,
+        },
+        {}
+    );
+};
 </script>
 <template>
     <Layout heading="Stock Management">
@@ -136,15 +146,7 @@ const logUsage = () => {
                         <TD>{{ product.recorded_used }}</TD>
                         <TD>
                             <DivFlexCenter class="gap-3">
-                                <ShowButton
-                                    :isLink="true"
-                                    :href="
-                                        route(
-                                            'stock-management.show',
-                                            product.inventory_code
-                                        )
-                                    "
-                                />
+                                <ShowButton @click="showDetails(product.id)" />
                                 <Button
                                     @click="openLogUsageModal(product.id)"
                                     variant="link"
