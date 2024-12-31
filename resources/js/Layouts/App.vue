@@ -211,6 +211,13 @@ const logout = () => {
                         >
                             Usage Records
                         </NavLink>
+                        <NavLink
+                            v-if="canViewItems"
+                            href="/stock-management"
+                            :icon="PackageSearch"
+                        >
+                            Stock Management
+                        </NavLink>
                         <DropdownMenuLabel v-if="canViewReportsGroup">
                             Reports
                         </DropdownMenuLabel>

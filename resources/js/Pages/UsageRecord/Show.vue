@@ -1,5 +1,5 @@
 <script setup>
-const { record, itemsSold } = defineProps({
+const { record, itemsSold, ingredients } = defineProps({
     record: {
         type: Object,
         required: true,
@@ -13,6 +13,18 @@ const { record, itemsSold } = defineProps({
         required: true,
     },
 });
+
+const computeSoldItemsTotal = () => {
+    return itemsSold.data
+        .reduce((total, item) => total + item.quantity * item.menu.price, 0)
+        .toFixed(2);
+};
+
+// const computeIngredientsTotal = () => {
+//     return ingredients
+//         .reduce((total, item) => total + item.total_quantity * item.cost, 0)
+//         .toFixed(2);
+// };
 </script>
 
 <template>
@@ -45,9 +57,13 @@ const { record, itemsSold } = defineProps({
             </Card>
 
             <TableContainer>
-                <TableHeader>
-                    <SpanBold>Sold Items</SpanBold>
-                </TableHeader>
+                <DivFlexCenter class="flex justify-between">
+                    <SpanBold>Items Sold</SpanBold>
+                    <DivFlexCenter class="gap-2">
+                        <LabelXS> Overall Total:</LabelXS>
+                        <SpanBold>{{ computeSoldItemsTotal() }}</SpanBold>
+                    </DivFlexCenter>
+                </DivFlexCenter>
                 <Table>
                     <TableHead>
                         <TH>Id</TH>
@@ -76,31 +92,35 @@ const { record, itemsSold } = defineProps({
             </TableContainer>
 
             <TableContainer>
-                <TableHeader>
+                <DivFlexCenter class="flex justify-between">
                     <SpanBold>Ingredients Used</SpanBold>
-                </TableHeader>
+                    <!-- <DivFlexCenter class="gap-2">
+                        <LabelXS> Overall Total:</LabelXS>
+                        <SpanBold>{{ computeIngredientsTotal() }}</SpanBold>
+                    </DivFlexCenter> -->
+                </DivFlexCenter>
                 <Table>
                     <TableHead>
                         <TH>Item</TH>
                         <TH>Name</TH>
-                        <TH>Price</TH>
+                        <!-- <TH>Price</TH> -->
                         <TH>Quantity Used</TH>
                         <TH>UOM</TH>
-                        <TH>Total Price</TH>
+                        <!-- <TH>Total Price</TH> -->
                         <TH>Actions</TH>
                     </TableHead>
                     <TableBody>
                         <tr v-for="item in ingredients">
                             <TD>{{ item.inventory_code }}</TD>
                             <TD>{{ item.name }}</TD>
-                            <TD>{{ item.cost }}</TD>
+                            <!-- <TD>{{ item.cost }}</TD> -->
                             <TD>{{ item.total_quantity }}</TD>
                             <TD>{{ item.uom }}</TD>
-                            <TD>{{
+                            <!-- <TD>{{
                                 parseFloat(
                                     item.total_quantity * item.cost
                                 ).toFixed(2)
-                            }}</TD>
+                            }}</TD> -->
                             <TD>
                                 <ShowButton />
                             </TD>

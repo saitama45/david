@@ -81,10 +81,10 @@ class UsageRecordController extends Controller
                 'product_inventories.*',
                 'menu_ingredients.quantity as ingredient_quantity',
                 'usage_record_items.quantity as ordered_quantity',
-                DB::raw('(menu_ingredients.quantity * usage_record_items.quantity) as total_quantity'),
-                'unit_of_measurements.name as uom',
-
+                DB::raw('SUM(menu_ingredients.quantity * usage_record_items.quantity) as total_quantity'),
+                'unit_of_measurements.name as uom'
             ])
+            ->groupBy('product_inventories.id')
             ->get();
 
         return Inertia::render('UsageRecord/Show', [
