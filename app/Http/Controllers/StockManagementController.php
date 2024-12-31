@@ -70,9 +70,9 @@ class StockManagementController extends Controller
     {
         $branches = StoreBranch::options();
         $branchId = $request->only('branchId')['branchId'] ?? $branches->keys()->first();
-
+   
         $history = ProductInventoryStockUsed::where('product_inventory_id', $id)
-            ->where('store_branch_id', 3)->paginate(10);
+            ->where('store_branch_id', $branchId)->paginate(10);
 
 
 
