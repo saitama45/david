@@ -14,7 +14,7 @@ class ProductInventoryStockUsed extends Model
         'product_inventory_id',
         'store_branch_id',
         'quantity',
-        'recently_added',
+        'remarks'
     ];
 
     public function product()

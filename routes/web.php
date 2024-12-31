@@ -245,6 +245,7 @@ Route::middleware('auth')
             ->group(function () {
                 Route::get('/', 'index')->name('index');
                 Route::get('/show/{id}', 'show')->name('show');
+                Route::post('/log-usage', 'logUsage')->name('log-usage');
             });
 
 

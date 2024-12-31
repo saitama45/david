@@ -3,6 +3,8 @@
 namespace App\Http\Controllers;
 
 use App\Models\ProductInventory;
+use App\Models\ProductInventoryStock;
+use App\Models\ProductInventoryStockUsed;
 use App\Models\StoreBranch;
 use App\Models\UsageRecord;
 use Illuminate\Http\Request;
@@ -70,5 +72,28 @@ class StockManagementController extends Controller
     {
 
         return Inertia::render('StockManagement/Show');
+    }
+    public function logUsage(Request $request)
+    {
+        $validated = $request->validate([
+            'id' => ['required'],
+            'store_branch_id' => ['required'],
+            'quantity' => ['required', 'numeric', 'min:1'],
+            'remarks' => ['sometimes']
+        ]);
+
+
+        DB::beginTransaction();
+        $product = ProductInventoryStock::where('product_inventory_id', $validated['id'])->where('store_branch_id', $validated['store_branch_id'])->first();
+        $product->used += $validated['quantity'];
+        $product->save();
+        ProductInventoryStockUsed::create([
+            'product_inventory_id' => $validated['id'],
+            'store_branch_id' => $validated['store_branch_id'],
+            'quantity' => $validated['quantity'],
+            'remarks' => $validated['remarks']
+        ]);
+ 
+        DB::commit();
     }
 }

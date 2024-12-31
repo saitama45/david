@@ -1,6 +1,6 @@
 <script setup>
 import { useSelectOptions } from "@/Composables/useSelectOptions";
-import { usePage, router } from "@inertiajs/vue3";
+import { usePage, router, useForm } from "@inertiajs/vue3";
 
 import { throttle } from "lodash";
 const { products, branches } = defineProps({
@@ -21,8 +21,6 @@ const branchId = ref(
 );
 
 let search = ref(usePage().props.filters.search);
-
-const isLogUsageModalOpen = ref(true);
 
 watch(branchId, (newValue) => {
     router.get(
@@ -48,6 +46,32 @@ watch(
         );
     }, 500)
 );
+
+const isLogUsageModalOpen = ref(false);
+
+const form = useForm({
+    id: null,
+    store_branch_id: null,
+    quantity: null,
+    remarks: null,
+});
+watch(isLogUsageModalOpen, (value) => {});
+const openLogUsageModal = (id) => {
+    form.id = id;
+    form.store_branch_id = branchId.value;
+    isLogUsageModalOpen.value = true;
+};
+
+const logUsage = () => {
+    form.post(route("stock-management.log-usage"), {
+        onSuccess: () => {
+            console.log("test");
+        },
+        onError: () => {
+            console.log("error");
+        },
+    });
+};
 </script>
 <template>
     <Layout heading="Stock Management">
@@ -101,6 +125,7 @@ watch(
                                     "
                                 />
                                 <Button
+                                    @click="openLogUsageModal(product.id)"
                                     variant="link"
                                     class="text-xs text-orange-500"
                                     >Log Usage</Button
@@ -123,16 +148,33 @@ watch(
                 </DialogHeader>
                 <DivFlexCol class="gap-3">
                     <InputContainer>
+                        <LabelXS>Store Branch</LabelXS>
+                        <Select
+                            filter
+                            class="min-w-72"
+                            placeholder="Select a Supplier"
+                            :options="branchesOptions"
+                            optionLabel="label"
+                            optionValue="value"
+                            v-model="form.store_branch_id"
+                        >
+                        </Select>
+                        <FormError>{{ form.errors.store_branch_id }}</FormError>
+                    </InputContainer>
+
+                    <InputContainer>
                         <LabelXS>Quantity Used</LabelXS>
-                        <Input type="number" />
+                        <Input type="number" v-model="form.quantity" />
+                        <FormError>{{ form.errors.quantity }}</FormError>
                     </InputContainer>
                     <InputContainer>
                         <LabelXS>Remarks</LabelXS>
-                        <Textarea type="number" />
+                        <Textarea type="number" v-model="form.remarks" />
+                        <FormError>{{ form.errors.remarks }}</FormError>
                     </InputContainer>
                 </DivFlexCol>
                 <DialogFooter class="justify-end">
-                    <Button>Submit</Button>
+                    <Button @click="logUsage">Submit</Button>
                 </DialogFooter>
             </DialogContent>
         </Dialog>
