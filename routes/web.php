@@ -189,6 +189,7 @@ Route::middleware('auth')
         Route::controller(DeliveryScheduleController::class)->name('delivery-schedules.')->prefix('delivery-schedules')->group(function () {
             Route::get('/', 'index')->name('index');
             Route::get('/edit/{id}', 'edit')->name('edit');
+            Route::post('/update/{id}', 'update')->name('update');
         });
 
         Route::controller(IceCreamOrderController::class)->name('ice-cream-orders.')->prefix('ice-cream-orders')->group(function () {

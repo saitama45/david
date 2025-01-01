@@ -72,4 +72,33 @@ class DeliveryScheduleController extends Controller
             'deliverySchedules' => $deliverySchedules
         ]);
     }
+
+    public function update(Request $request, $id)
+    {
+        $branch = StoreBranch::findOrFail($id);
+
+        $request->validate([
+            'ice_cream' => 'array',
+            'salmon' => 'array',
+            'fruits_and_vegetables' => 'array'
+        ]);
+
+        $branch->delivery_schedules()->detach();
+
+        $attachSchedules = function ($schedules, $variant) use ($branch) {
+            if (!empty($schedules)) {
+                foreach ($schedules as $scheduleId) {
+                    $branch->delivery_schedules()->attach($scheduleId, [
+                        'variant' => strtoupper(str_replace('_', ' ', $variant))
+                    ]);
+                }
+            }
+        };
+
+        $attachSchedules($request->ice_cream, 'ice_cream');
+        $attachSchedules($request->salmon, 'salmon');
+        $attachSchedules($request->fruits_and_vegetables, 'fruits_and_vegetables');
+
+        return redirect()->route('delivery-schedules.index');
+    }
 }

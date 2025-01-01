@@ -3,6 +3,10 @@ import CardDescription from "@/Components/ui/card/CardDescription.vue";
 import { useSelectOptions } from "@/Composables/useSelectOptions";
 import { useForm } from "@inertiajs/vue3";
 import { computed } from "vue";
+import { useConfirm } from "primevue/useconfirm";
+import { useToast } from "primevue/usetoast";
+const toast = useToast();
+const confirm = useConfirm();
 
 const props = defineProps({
     branch: {
@@ -44,6 +48,23 @@ const form = useForm({
     salmon: getScheduleValues("salmon"),
     fruits_and_vegetables: getScheduleValues("fruits_and_vegetables"),
 });
+
+const update = (id) => {
+    form.post(route("delivery-schedules.update", props.branch.id), {
+        preserveScroll: true,
+        onSuccess: () => {
+            toast.add({
+                severity: "success",
+                summary: "Success",
+                detail: "Store Schedule Successfully Updated",
+                life: 3000,
+            });
+        },
+        onError: (e) => {
+            console.log(e);
+        },
+    });
+};
 </script>
 
 <template>
@@ -117,6 +138,10 @@ const form = useForm({
                     ></MultiSelect>
                 </CardContent>
             </Card>
+
+            <DivFlexCenter class="justify-end">
+                <Button @click="update">Update</Button>
+            </DivFlexCenter>
         </DivFlexCol>
     </Layout>
 </template>
