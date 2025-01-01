@@ -242,7 +242,7 @@ const removeItem = (id) => {
 };
 
 const store = () => {
-    console.log(orderForm.order_date);
+   
     if (orderForm.orders.length < 1) {
         toast.add({
             severity: "error",

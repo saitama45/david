@@ -33,9 +33,11 @@ class Menu extends Model
         return $query->select(['id', 'name'])->get()->pluck('name', 'id');
     }
 
-    public function menu_ingredients()
+    public function product_inventories()
     {
-        return $this->hasMany(MenuIngredient::class);
+        return $this->belongsToMany(ProductInventory::class, 'menu_ingredients')
+            ->withPivot('quantity')
+            ->withTimestamps();
     }
 
 

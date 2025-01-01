@@ -1,4 +1,5 @@
 <script setup>
+import { router } from "@inertiajs/vue3";
 const props = defineProps({
     menus: {
         type: Object,
@@ -6,11 +7,18 @@ const props = defineProps({
     },
 });
 
-console.log(props.menus);
+const createNewMenu = () => {
+    router.get(route("menu-list.create"));
+};
 </script>
 
 <template>
-    <Layout heading="Menu List">
+    <Layout
+        heading="Menu List"
+        :hasButton="true"
+        :handleClick="createNewMenu"
+        buttonName="Create New Menu"
+    >
         <TableContainer>
             <TableHeader>
                 <SearchBar>
@@ -32,7 +40,10 @@ console.log(props.menus);
                         <TD>{{ menu.category }}</TD>
                         <TD>{{ menu.price }}</TD>
                         <TD>
-                            <EditButton />
+                            <DivFlexCenter class="gap-3">
+                                <ShowButton />
+                                <EditButton />
+                            </DivFlexCenter>
                         </TD>
                     </tr>
                 </TableBody>
