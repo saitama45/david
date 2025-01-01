@@ -63,7 +63,7 @@ const canViewInventoryGroup = is_admin;
 const canViewStoreOrderPage = is_admin || roles.includes("so encoder");
 const canViewOrderApprovals = is_admin;
 
-const canViewReceivingOrders = is_admin;
+const canViewReceivingOrders = is_admin || roles.includes("so encoder");
 const canViewReceivingApprovals = is_admin || roles.includes("rec approver");
 const canViewApprovedReceivedItems = is_admin;
 

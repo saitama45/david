@@ -59,11 +59,17 @@ class ReceivingApprovalController extends Controller
                 $data = OrderedItemReceiveDate::with('store_order_item.product_inventory')->find($id);
                 $data->update(['is_approved' => true]);
                 $item = $data->store_order_item->product_inventory;
-                // $item->stock += $data->quantity_received;
-                // $item->recently_added = $data->quantity_received;
 
                 $orderedItems = $data->store_order_item->store_order->store_order_items;
                 $storeOrder = $data->store_order_item->store_order;
+
+
+                $stock = ProductInventoryStock::where('product_inventory_id', $item->id)->where('store_branch_id', $storeOrder->store_branch_id);
+                $stock->increment('quantity', $data->quantity_received);
+                $stock->update(['recently_added' => $data->quantity_received]);
+
+
+                $data->store_order_item->quantity_received += $data->quantity_received;
 
 
                 $storeOrder->order_status = OrderStatus::RECEIVED->value;
@@ -73,9 +79,11 @@ class ReceivingApprovalController extends Controller
                     }
                 }
 
+
                 $storeOrder->save();
                 $item->save();
                 $data->save();
+                $data->store_order_item->save();
                 DB::commit();
             }
         } else {
@@ -83,11 +91,17 @@ class ReceivingApprovalController extends Controller
             $data = OrderedItemReceiveDate::with(['store_order_item.store_order.store_order_items', 'store_order_item.product_inventory'])->find($validated['id']);
             $data->update(['is_approved' => true]);
             $item = $data->store_order_item->product_inventory;
-            // $item->stock += $data->quantity_received;
-            // $item->recently_added = $data->quantity_received;
 
             $orderedItems = $data->store_order_item->store_order->store_order_items;
             $storeOrder = $data->store_order_item->store_order;
+
+
+            $stock = ProductInventoryStock::where('product_inventory_id', $item->id)->where('store_branch_id', $storeOrder->store_branch_id);
+            $stock->increment('quantity', $data->quantity_received);
+            $stock->update(['recently_added' => $data->quantity_received]);
+
+            $data->store_order_item->quantity_received += $data->quantity_received;
+
             $storeOrder->order_status = OrderStatus::RECEIVED->value;
             foreach ($orderedItems as $itemOrdered) {
                 if ($itemOrdered->quantity_ordered > $itemOrdered->quantity_received) {
@@ -97,6 +111,7 @@ class ReceivingApprovalController extends Controller
 
             $storeOrder->save();
             $item->save();
+            $data->store_order_item->save();
             $data->save();
 
             DB::commit();

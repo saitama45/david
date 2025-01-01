@@ -31,6 +31,8 @@ const { branches, history } = defineProps({
                     </tr>
                 </TableBody>
             </Table>
+            <Pagination :data="history" />
         </TableContainer>
+        <BackButton routeName="stock-management.index" />
     </Layout>
 </template>

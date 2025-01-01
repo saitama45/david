@@ -4,7 +4,6 @@ import { useSelectOptions } from "@/Composables/useSelectOptions";
 import MultiSelect from "primevue/multiselect";
 import { useConfirm } from "primevue/useconfirm";
 import { useToast } from "primevue/usetoast";
-import { ref, reactive, watch } from "vue";
 
 const isImportModalVisible = ref(false);
 
@@ -22,9 +21,10 @@ const importFile = () => {
                 detail: "New Products Created",
                 life: 3000,
             });
+            isLoading.value = false;
         },
         onError: (e) => {
-            console.log(e);
+            isLoading.value = false;
         },
     });
 };
@@ -108,6 +108,14 @@ const handleCancel = () => {
 const openFormModal = () => {
     return (isImportModalVisible.value = true);
 };
+
+watch(isImportModalVisible, (value) => {
+    if (!value) {
+        importForm.reset();
+        importForm.clearErrors();
+        isLoading.value = false;
+    }
+});
 </script>
 
 <template>

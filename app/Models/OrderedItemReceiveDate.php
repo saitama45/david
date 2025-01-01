@@ -45,4 +45,5 @@ class OrderedItemReceiveDate extends Model implements Auditable
     {
         return $this->belongsTo(ProductInventory::class);
     }
+
 }

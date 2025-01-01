@@ -30,7 +30,7 @@ const submit = () => {
 
 <template>
     <div
-        class="grid lg:grid-cols-2 gap-10 min-h-screen items-center sm:p-20 p-5 grid-cols-1"
+        class="grid lg:grid-cols-2 gap-10 max-h-screen items-center sm:p-20 p-5 grid-cols-1"
     >
         <section class="lg:block hidden">
             <img :src="ImageBanner" alt="banner" />
