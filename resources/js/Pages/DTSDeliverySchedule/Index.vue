@@ -66,6 +66,7 @@ const { search } = useSearch("delivery-schedules.index");
                             >
                         </DivFlexCol>
                     </TH>
+                    <TH>Actions</TH>
                 </TableHead>
 
                 <TableBody>
@@ -125,6 +126,13 @@ const { search } = useSearch("delivery-schedules.index");
                                 <SpanBold v-else>No Schedule</SpanBold>
                             </DivFlexCol>
                         </TD>
+                        <TD
+                            ><EditButton
+                                :isLink="true"
+                                :href="
+                                    route('delivery-schedules.edit', branch.id)
+                                "
+                        /></TD>
                     </tr>
                 </TableBody>
             </Table>

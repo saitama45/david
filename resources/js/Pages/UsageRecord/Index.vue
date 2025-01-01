@@ -51,6 +51,7 @@ const handleClick = () => {
                     </tr>
                 </TableBody>
             </Table>
+            <Pagination :data="records" />
         </TableContainer>
     </Layout>
 </template>

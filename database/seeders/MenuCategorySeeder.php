@@ -51,16 +51,15 @@ class MenuCategorySeeder extends Seeder
 
             [
                 'menu_id' => 1,
-                'inventory_codes' => ['250D9A', '359A2A'],
-                'quantities' => [1, 1]
+                'inventory_codes' => ['250D9A', '359A2A', '101D9A'],
+                'quantities' => [1, 1, 1]
             ],
 
             [
                 'menu_id' => 2,
-                'inventory_codes' => ['269D9A', '874A2C', '392A2A'],
-                'quantities' => [1, 1, 0.3]
+                'inventory_codes' => ['269D9A', '874A2C', '392A2A', '105A2A'],
+                'quantities' => [1, 1, 0.3, 1]
             ],
-
             [
                 'menu_id' => 3,
                 'inventory_codes' => ['399A2A', '453A2A', 'FR040100137', 'FR040100082'],

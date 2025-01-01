@@ -17,9 +17,15 @@ const { items, datesOption, filters } = defineProps({
     },
 });
 
-const defaultSelectedDate =
-    datesOption.length > 0 ? datesOption[1]["code"] : null;
-const selectedDate = ref(filters.start_date_filter || datesOption[1]["code"]);
+const getDefaultSelectedDate = () => {
+    if (!datesOption || !Array.isArray(datesOption) || datesOption.length < 2) {
+        return null;
+    }
+    return datesOption[1]?.code || null;
+};
+
+const defaultSelectedDate = getDefaultSelectedDate();
+const selectedDate = ref(filters.start_date_filter || defaultSelectedDate);
 
 watch(selectedDate, function (value) {
     console.log(value);

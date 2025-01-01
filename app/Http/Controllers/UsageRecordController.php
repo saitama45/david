@@ -19,7 +19,6 @@ class UsageRecordController extends Controller
         $query = UsageRecord::query()->with(['encoder', 'branch']);
         $records = $query->paginate(10);
 
-
         return Inertia::render('UsageRecord/Index', [
             'records' => $records
         ]);

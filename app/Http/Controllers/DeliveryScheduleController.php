@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\DeliverySchedule;
 use App\Models\StoreBranch;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -48,6 +49,27 @@ class DeliveryScheduleController extends Controller
 
     public function edit($id)
     {
-        return Inertia::render('DTSDeliverySchedule/Edit');
+        $branch = StoreBranch::query()->with('delivery_schedules')->findOrFail($id);
+        $groupedSchedules = $branch->delivery_schedules
+            ->groupBy('pivot.variant')
+            ->map(function ($schedules) {
+                return $schedules->pluck('id')->toArray();
+            })
+            ->mapWithKeys(function ($value, $key) {
+                $snakeKey = Str::snake(strtolower($key));
+                return [$snakeKey => $value];
+            });
+
+
+        $deliverySchedules = DeliverySchedule::options()->map(function ($day, $id) {
+            return ['value' => $id, 'label' => $day];
+        });
+
+
+        return Inertia::render('DTSDeliverySchedule/Edit', [
+            'branch' => $branch,
+            'schedules' => $groupedSchedules,
+            'deliverySchedules' => $deliverySchedules
+        ]);
     }
 }
