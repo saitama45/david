@@ -60,13 +60,25 @@ watch(
 
 const addItemQuantity = (id) => {
     const index = form.ingredients.findIndex((item) => item.id === id);
-    form.ingredients[index].quantity += 1;
+    if (form.ingredients[index].quantity < 1) {
+        form.ingredients[index].quantity = Number(
+            (form.ingredients[index].quantity + 0.1).toFixed(1)
+        );
+    } else {
+        form.ingredients[index].quantity += 1;
+    }
 };
 
 const minusItemQuantity = (id) => {
     const index = form.ingredients.findIndex((item) => item.id === id);
-    form.ingredients[index].quantity -= 1;
     if (form.ingredients[index].quantity < 1) {
+        form.ingredients[index].quantity = Number(
+            (form.ingredients[index].quantity - 0.1).toFixed(1)
+        );
+    } else {
+        form.ingredients[index].quantity -= 1;
+    }
+    if (form.ingredients[index].quantity < 0.1) {
         form.ingredients = form.ingredients.filter((item) => item.id !== id);
         return;
     }
