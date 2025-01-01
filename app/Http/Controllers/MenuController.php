@@ -47,7 +47,7 @@ class MenuController extends Controller
             'remarks' => ['nullable'],
             'ingredients' => ['required', 'array', 'min:1'],
             'ingredients.*.id' => ['required', 'exists:product_inventories,id'],
-            'ingredients.*.quantity' => ['required', 'numeric', 'min:1'],
+            'ingredients.*.quantity' => ['required', 'numeric', 'min:0.1'],
         ]);
 
         $ingredients = $validated['ingredients'];
@@ -55,14 +55,32 @@ class MenuController extends Controller
         $menu = Menu::create($validated);
 
         foreach ($ingredients as $ingredient) {
-            $menu->product_inventories()->attach([
-                'product_inventory_id' => $ingredient['id'],
+            $menu->product_inventories()->attach(['product_inventory_id' => $ingredient['id']], [
                 'quantity' => $ingredient['quantity'],
             ]);
         }
         DB::commit();
 
         return redirect()->route('menu-list.index');
+    }
+
+    public function show($id)
+    {
+        $menu = Menu::with(['product_inventories', 'product_inventories.unit_of_measurement'])->findOrFail($id);
+
+        $ingredients = $menu->product_inventories->map(function ($ingredient) {
+            return [
+                'id' => $ingredient->id,
+                'inventory_code' => $ingredient->inventory_code,
+                'name' => $ingredient->name,
+                'quantity' => $ingredient->pivot->quantity,
+                'uom' => $ingredient->unit_of_measurement->name,
+            ];
+        });
+        return Inertia::render('Menu/Show', [
+            'menu' => $menu,
+            'ingredients' => $ingredients,
+        ]);
     }
 
     public function edit($id)

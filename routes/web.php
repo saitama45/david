@@ -206,6 +206,7 @@ Route::middleware('auth')
         Route::controller(MenuController::class)->prefix('menu-list')->name('menu-list.')->group(function () {
             Route::get('/', 'index')->name('index');
             Route::get('/create', 'create')->name('create');
+            Route::get('/show/{id}', 'show')->name('show');
             Route::post('/store', 'store')->name('store');
             Route::get('/update/{id}', 'update/{id}')->name('update/{id}');
             Route::get('/edit/{id}', 'edit')->name('edit');

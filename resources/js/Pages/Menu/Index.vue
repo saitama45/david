@@ -41,7 +41,10 @@ const createNewMenu = () => {
                         <TD>{{ menu.price }}</TD>
                         <TD>
                             <DivFlexCenter class="gap-3">
-                                <ShowButton />
+                                <ShowButton
+                                    :isLink="true"
+                                    :href="route('menu-list.show', menu.id)"
+                                />
                                 <EditButton />
                             </DivFlexCenter>
                         </TD>
