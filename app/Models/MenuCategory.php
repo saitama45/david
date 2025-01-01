@@ -15,4 +15,8 @@ class MenuCategory extends Model
         'remarks'
     ];
 
+    public function menus()
+    {
+        return $this->hasMany(Menu::class);
+    }
 }

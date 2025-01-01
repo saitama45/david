@@ -18,6 +18,11 @@ class Menu extends Model
         'remarks'
     ];
 
+    public function category()
+    {
+        return $this->belongsTo(MenuCategory::class, 'category_id');
+    }
+
     public function usage_record_items()
     {
         return $this->hasMany(UsageRecordItem::class);

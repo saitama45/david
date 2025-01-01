@@ -206,6 +206,13 @@ const logout = () => {
                         </NavLink>
                         <NavLink
                             v-if="canViewItems"
+                            href="/menu-list"
+                            :icon="PackageSearch"
+                        >
+                            Menu
+                        </NavLink>
+                        <NavLink
+                            v-if="canViewItems"
                             href="/usage-records"
                             :icon="PackageSearch"
                         >

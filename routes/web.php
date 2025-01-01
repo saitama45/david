@@ -12,6 +12,7 @@ use App\Http\Controllers\FruitAndVegetableController;
 use App\Http\Controllers\IceCreamOrderController;
 use App\Http\Controllers\InvetoryCategoryController;
 use App\Http\Controllers\ItemController;
+use App\Http\Controllers\MenuController;
 use App\Http\Controllers\OrderApprovalController;
 use App\Http\Controllers\OrderReceivingController;
 use App\Http\Controllers\ProductOrderSummaryController;
@@ -201,6 +202,11 @@ Route::middleware('auth')
         });
 
         Route::get('/audits', [AuditController::class, 'index']);
+
+        Route::controller(MenuController::class)->prefix('menu-list')->name('menu-list.')->group(function () {
+            Route::get('/', 'index')->name('index');
+            Route::get('/create', 'create')->name('create');
+        });
 
         Route::controller(ReceivingApprovalController::class)->prefix('receiving-approvals')->name('receiving-approvals.')->group(function () {
             Route::get('/', 'index')->name('index');
