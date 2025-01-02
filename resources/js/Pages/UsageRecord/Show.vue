@@ -51,8 +51,56 @@ const computeSoldItemsTotal = () => {
                     <SpanBold>{{ record.branch.branch_code }}</SpanBold>
                 </InputContainer>
                 <InputContainer>
-                    <LabelXS>Usage Date</LabelXS>
-                    <SpanBold>{{ record.usage_date }}</SpanBold>
+                    <LabelXS>Order Number</LabelXS>
+                    <SpanBold>{{ record.order_number }}</SpanBold>
+                </InputContainer>
+                <InputContainer>
+                    <LabelXS>Transaction Period</LabelXS>
+                    <SpanBold>{{ record.transaction_period }}</SpanBold>
+                </InputContainer>
+                <InputContainer>
+                    <LabelXS>Transaction Date</LabelXS>
+                    <SpanBold>{{ record.transaction_date }}</SpanBold>
+                </InputContainer>
+                <InputContainer>
+                    <LabelXS>Cashier Id</LabelXS>
+                    <SpanBold>{{ record.cashier_id }}</SpanBold>
+                </InputContainer>
+                <InputContainer>
+                    <LabelXS>Order Type</LabelXS>
+                    <SpanBold>{{ record.order_type }}</SpanBold>
+                </InputContainer>
+                <InputContainer>
+                    <LabelXS>Sub Total</LabelXS>
+                    <SpanBold>{{ record.sub_total }}</SpanBold>
+                </InputContainer>
+                <InputContainer>
+                    <LabelXS>Total Amount</LabelXS>
+                    <SpanBold>{{ record.total_amount }}</SpanBold>
+                </InputContainer>
+                <InputContainer>
+                    <LabelXS>Tax Amount</LabelXS>
+                    <SpanBold>{{ record.tax_amount ?? "None" }}</SpanBold>
+                </InputContainer>
+                <InputContainer>
+                    <LabelXS>Payment Type</LabelXS>
+                    <SpanBold>{{ record.payment_type }}</SpanBold>
+                </InputContainer>
+                <InputContainer>
+                    <LabelXS>Discount Amount</LabelXS>
+                    <SpanBold>{{ record.discount_amount ?? "None" }}</SpanBold>
+                </InputContainer>
+                <InputContainer>
+                    <LabelXS>Discount Type</LabelXS>
+                    <SpanBold>{{ record.discount_type ?? "None" }}</SpanBold>
+                </InputContainer>
+                <InputContainer>
+                    <LabelXS>Service Charge</LabelXS>
+                    <SpanBold>{{ record.service_charge ?? "None" }}</SpanBold>
+                </InputContainer>
+                <InputContainer>
+                    <LabelXS>Remarks</LabelXS>
+                    <SpanBold>{{ record.remarks ?? "None" }}</SpanBold>
                 </InputContainer>
             </Card>
 

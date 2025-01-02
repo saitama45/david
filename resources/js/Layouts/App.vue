@@ -195,9 +195,9 @@ const logout = () => {
                             Sales Order
                         </NavLink>
                         <NavLink
-                            v-if="true"
-                            href="/store-transactions"
-                            :icon="FileCheck"
+                            v-if="canViewItems"
+                            href="/usage-records"
+                            :icon="PackageSearch"
                         >
                             Store Transactions
                         </NavLink>
@@ -217,13 +217,6 @@ const logout = () => {
                             :icon="PackageSearch"
                         >
                             Menu
-                        </NavLink>
-                        <NavLink
-                            v-if="canViewItems"
-                            href="/usage-records"
-                            :icon="PackageSearch"
-                        >
-                            Usage Records
                         </NavLink>
                         <NavLink
                             v-if="canViewItems"

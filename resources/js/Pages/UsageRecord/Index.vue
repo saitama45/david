@@ -14,9 +14,9 @@ const handleClick = () => {
 
 <template>
     <Layout
-        heading="Usage Records"
+        heading="Store Transactions"
         :hasButton="true"
-        buttonName="Create New Record"
+        buttonName="Create New Transaction"
         :handleClick="handleClick"
     >
         <TableContainer>

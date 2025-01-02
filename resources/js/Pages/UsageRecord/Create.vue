@@ -200,7 +200,7 @@ const paymentTypes = [
 </script>
 
 <template>
-    <Layout heading="Create Usage Record">
+    <Layout heading="Create New Transaction">
         <Card class="p-5 grid grid-cols-3 gap-5">
             <DivFlexCol class="gap-5">
                 <Card>
