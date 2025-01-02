@@ -194,6 +194,13 @@ const logout = () => {
                         >
                             Sales Order
                         </NavLink>
+                        <NavLink
+                            v-if="true"
+                            href="/store-transactions"
+                            :icon="FileCheck"
+                        >
+                            Store Transactions
+                        </NavLink>
                         <DropdownMenuLabel v-if="canViewInventoryGroup">
                             Inventory
                         </DropdownMenuLabel>
@@ -402,6 +409,20 @@ const logout = () => {
                                     :icon="FileCheck"
                                 >
                                     Product Sales
+                                </NavLink>
+                                <NavLink
+                                    v-if="true"
+                                    href="/store-transactions"
+                                    :icon="FileCheck"
+                                >
+                                    Store Transactions
+                                </NavLink>
+                                <NavLink
+                                    v-if="true"
+                                    href="/store-transactions"
+                                    :icon="FileCheck"
+                                >
+                                    Store Transactions
                                 </NavLink>
                                 <DropdownMenuLabel v-if="canViewInventoryGroup">
                                     Inventory

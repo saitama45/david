@@ -7,6 +7,7 @@ use App\Models\StoreBranch;
 use App\Models\UsageRecord;
 use App\Models\UsageRecordItem;
 use Carbon\Carbon;
+use Exception;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -36,18 +37,51 @@ class UsageRecordController extends Controller
 
     public function store(Request $request)
     {
-        $validated =  $request->validate([
-            'store_branch_id' => ['required'],
-            'usage_date' => ['required', 'before_or_equal:today'],
-            'items' => ['required', 'array']
+        $validated = $request->validate([
+            'store_branch_id' => ['required', 'exists:store_branches,id'],
+            'transaction_period' => ['required', 'string'],
+            'transaction_date' => ['required', 'date', 'before_or_equal:today'],
+            'order_number' => ['required', 'string'],
+            'cashier_id' => ['required'],
+            'order_type' => ['required', 'string'],
+            'sub_total' => ['required', 'numeric', 'min:0'],
+            'total_amount' => ['required', 'numeric', 'min:0'],
+            'tax_amount' => ['nullable', 'numeric', 'min:0'],
+            'payment_type' => ['required', 'string'],
+            'discount_amount' => ['nullable', 'numeric', 'min:0'],
+            'discount_type' => ['nullable', 'string'],
+            'service_charge' => ['nullable', 'numeric', 'min:0'],
+            'remarks' => ['nullable', 'string'],
+            'items' => ['required', 'array'],
+            'items.*.id' => ['required', 'exists:menus,id'],
+            'items.*.quantity' => ['required', 'numeric', 'min:0.1'],
         ], [
-            'store_branch_id.required' => 'Store branch is required'
+            'store_branch_id.required' => 'Store branch is required.',
+            'transaction_date.required' => 'Transaction date is required.',
+            'transaction_date.before_or_equal' => 'Transaction date cannot be in the future.',
+            'items.required' => 'Items are required.',
+            'items.*.id.exists' => 'The selected item is invalid.',
+            'items.*.quantity.required' => 'Quantity is required.',
+            'items.*.quantity.min' => 'Quantity must be at least 0.1.',
         ]);
+
         DB::beginTransaction();
         $record = UsageRecord::create([
             'encoder_id' => Auth::user()->id,
             'store_branch_id' => $validated['store_branch_id'],
-            'usage_date' => Carbon::parse($validated['usage_date'])->addDays(1)->format('Y-m-d'),
+            'order_number' => $validated['order_number'],
+            'transaction_period' => $validated['transaction_period'],
+            'transaction_date' => Carbon::parse($validated['transaction_date'])->format('Y-m-d'),
+            'cashier_id' => $validated['cashier_id'],
+            'order_type' => $validated['order_type'],
+            'sub_total' => $validated['sub_total'],
+            'total_amount' => $validated['total_amount'],
+            'tax_amount' => $validated['tax_amount'] ?? 0,
+            'payment_type' => $validated['payment_type'],
+            'discount_amount' => $validated['discount_amount'] ?? 0,
+            'discount_type' => $validated['discount_type'] ?? null,
+            'service_charge' => $validated['service_charge'] ?? 0,
+            'remarks' => $validated['remarks'] ?? null,
         ]);
         foreach ($validated['items'] as $item) {
             $record->usage_record_items()->create([

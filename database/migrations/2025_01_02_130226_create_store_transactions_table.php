@@ -11,9 +11,8 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('usage_records', function (Blueprint $table) {
+        Schema::create('store_transactions', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('store_branch_id')->constrained('store_branches')->cascadeOnDelete();
             $table->foreignId('encoder_id')->constrained('users');
             $table->string('order_number');
             $table->string('transaction_period');
@@ -22,11 +21,11 @@ return new class extends Migration
             $table->string('order_type');
             $table->decimal('sub_total', 10, 2);
             $table->decimal('total_amount', 10, 2);
-            $table->decimal('tax_amount', 10, 2)->default(0);
+            $table->decimal('tax_amount', 10, 2);
             $table->string('payment_type');
-            $table->decimal('discount_amount', 10, 2)->default(0);
-            $table->string('discount_type')->nullable();
-            $table->decimal('service_charge', 10, 2)->default(0);
+            $table->decimal('discount_amount', 10, 2);
+            $table->string('discount_type');
+            $table->decimal('service_charge', 10, 2);
             $table->string('remarks')->nullable();
             $table->timestamps();
         });
@@ -37,6 +36,6 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::dropIfExists('usage_records');
+        Schema::dropIfExists('store_transactions');
     }
 };

@@ -26,12 +26,14 @@ use App\Http\Controllers\ReceivingApprovalController;
 use App\Http\Controllers\StockController;
 use App\Http\Controllers\StockManagementController;
 use App\Http\Controllers\StoreBranchController;
+use App\Http\Controllers\StoreTransactionController;
 use App\Http\Controllers\SupplierController;
 use App\Http\Controllers\TestController;
 use App\Http\Controllers\UnitOfMeasurementController;
 use App\Http\Controllers\UsageRecordController;
 use App\Http\Controllers\UserController;
 use App\Models\StoreBranch;
+use App\Models\StoreTransaction;
 use Illuminate\Support\Facades\Route;
 
 Route::redirect('/', '/dashboard');
@@ -241,9 +243,9 @@ Route::middleware('auth')
                 Route::get('/show/{id}', 'show')->name('show');
             });
 
-            Route::controller(MenuCategoryController::class)->prefix('menu-categories')
+        Route::controller(MenuCategoryController::class)->prefix('menu-categories')
             ->name('menu-categories.')
-            ->group(function(){
+            ->group(function () {
                 Route::get('/', 'index')->name('index');
                 Route::get('/create', 'create')->name('create');
                 Route::post('/store', 'store')->name('store');
@@ -269,6 +271,15 @@ Route::middleware('auth')
                 Route::get('/', 'index')->name('index');
                 Route::get('/show/{id}', 'show')->name('show');
                 Route::post('/log-usage', 'logUsage')->name('log-usage');
+            });
+
+
+        Route::controller(StoreTransactionController::class)->name('store-transactions.')
+            ->prefix('store-transactions')
+            ->group(function () {
+                Route::get('/', 'index')->name('index');
+                Route::get('/show/{id}', 'show')->name('show');
+                Route::get('/create', 'create')->name('create');
             });
 
 

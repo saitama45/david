@@ -28,20 +28,19 @@ const handleClick = () => {
             <Table>
                 <TableHead>
                     <TH>Id</TH>
-                    <TH>Encoder</TH>
+                    <TH>Order Number</TH>
                     <TH>Store Branch</TH>
-                    <TH>Branch Code</TH>
+                    <TH>Transaction Date</TH>
+                    <TH>Total Amount</TH>
                     <TH>Actions</TH>
                 </TableHead>
                 <TableBody>
                     <tr v-for="record in records.data">
                         <TD>{{ record.id }}</TD>
-                        <TD
-                            >{{ record.encoder.first_name }}
-                            {{ record.encoder.last_name }}</TD
-                        >
+                        <TD>{{ record.order_number }}</TD>
                         <TD>{{ record.branch.name }}</TD>
-                        <TD>{{ record.branch.branch_code }}</TD>
+                        <TD>{{ record.transaction_date }}</TD>
+                        <TD>{{ record.total_amount }}</TD>
                         <TD>
                             <ShowButton
                                 :isLink="true"
