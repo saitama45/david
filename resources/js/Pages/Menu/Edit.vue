@@ -169,13 +169,29 @@ const update = () => {
         });
         return;
     }
-    form.put(route("menu-list.update", menu.id), {
-        onSuccess: () => {
-            toast.add({
-                severity: "success",
-                summary: "Success",
-                detail: "Menu updated successfully",
-                life: 3000,
+    confirm.require({
+        message: "Are you sure you want to update this menu?",
+        header: "Confirmation",
+        icon: "pi pi-exclamation-triangle",
+        rejectProps: {
+            label: "Cancel",
+            severity: "secondary",
+            outlined: true,
+        },
+        acceptProps: {
+            label: "Update",
+            severity: "success",
+        },
+        accept: () => {
+            form.put(route("menu-list.update", menu.id), {
+                onSuccess: () => {
+                    toast.add({
+                        severity: "success",
+                        summary: "Success",
+                        detail: "Menu updated successfully",
+                        life: 3000,
+                    });
+                },
             });
         },
     });

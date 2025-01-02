@@ -149,24 +149,40 @@ const store = () => {
         });
         return;
     }
-    form.post(route("menu-list.store"), {
-        preserveScroll: true,
-        onSuccess: () => {
-            toast.add({
-                severity: "success",
-                summary: "Success",
-                detail: "Menu created successfully",
-                life: 3000,
-            });
+    confirm.require({
+        message: "Are you sure you want to create this menu?",
+        header: "Confirmation",
+        icon: "pi pi-exclamation-triangle",
+        rejectProps: {
+            label: "Cancel",
+            severity: "secondary",
+            outlined: true,
         },
-        onError: (e) => {
-            toast.add({
-                severity: "error",
-                summary: "Error",
-                detail: "Failed to create menu.",
-                life: 3000,
+        acceptProps: {
+            label: "Create",
+            severity: "success",
+        },
+        accept: () => {
+            form.post(route("menu-list.store"), {
+                preserveScroll: true,
+                onSuccess: () => {
+                    toast.add({
+                        severity: "success",
+                        summary: "Success",
+                        detail: "Menu created successfully",
+                        life: 3000,
+                    });
+                },
+                onError: (e) => {
+                    toast.add({
+                        severity: "error",
+                        summary: "Error",
+                        detail: "Failed to create menu.",
+                        life: 3000,
+                    });
+                    console.log(e);
+                },
             });
-            console.log(e);
         },
     });
 };
