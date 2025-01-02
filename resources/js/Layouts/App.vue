@@ -274,6 +274,13 @@ const logout = () => {
                             Categories
                         </NavLink>
                         <NavLink
+                            v-if="canViewCategories"
+                            href="/menu-categories"
+                            :icon="ScrollText"
+                        >
+                            Menu Categories
+                        </NavLink>
+                        <NavLink
                             v-if="canViewInventoryCategories"
                             href="/inventory-categories"
                             :icon="LayoutList"

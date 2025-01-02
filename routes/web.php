@@ -12,6 +12,7 @@ use App\Http\Controllers\FruitAndVegetableController;
 use App\Http\Controllers\IceCreamOrderController;
 use App\Http\Controllers\InvetoryCategoryController;
 use App\Http\Controllers\ItemController;
+use App\Http\Controllers\MenuCategoryController;
 use App\Http\Controllers\MenuController;
 use App\Http\Controllers\OrderApprovalController;
 use App\Http\Controllers\OrderReceivingController;
@@ -238,6 +239,17 @@ Route::middleware('auth')
                 Route::get('/', 'index')->name('index');
                 Route::get('/create', 'create')->name('create');
                 Route::get('/show/{id}', 'show')->name('show');
+            });
+
+            Route::controller(MenuCategoryController::class)->prefix('menu-categories')
+            ->name('menu-categories.')
+            ->group(function(){
+                Route::get('/', 'index')->name('index');
+                Route::get('/create', 'create')->name('create');
+                Route::post('/store', 'store')->name('store');
+                Route::get('/show/{id}', 'show')->name('show');
+                Route::get('/edit/{id}', 'edit')->name('edit');
+                Route::post('/update/{id}', 'update')->name('update');
             });
 
         Route::controller(UsageRecordController::class)
