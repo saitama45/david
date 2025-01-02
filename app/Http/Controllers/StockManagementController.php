@@ -26,11 +26,20 @@ class StockManagementController extends Controller
             ->where('ur.store_branch_id', $branchId)
             ->select(
                 'mi.product_inventory_id',
-                DB::raw('SUM(mi.quantity * uri.quantity) as total_quantity_used')
+                DB::raw('SUM(mi.quantity * uri.quantity) as total_quantity_used'),
+                DB::raw('GROUP_CONCAT(DISTINCT mi.unit) as units')
             )
             ->groupBy('mi.product_inventory_id')
-            ->pluck('total_quantity_used', 'product_inventory_id')
+            ->get()
+            ->mapWithKeys(function ($item) {
+                return [
+                    $item->product_inventory_id => $item->total_quantity_used,
+                    $item->product_inventory_id . '_units' => $item->units
+                ];
+            })
             ->toArray();
+
+
 
         $query = ProductInventory::query()
             ->with(['unit_of_measurement'])
@@ -47,7 +56,12 @@ class StockManagementController extends Controller
 
         $products = $query
             ->paginate(10)
+            ->withQueryString()
             ->through(function ($item) use ($usageRecords) {
+                $units = isset($usageRecords[$item->id . '_units'])
+                    ? '(' . str_replace(',', ', ', $usageRecords[$item->id . '_units']) . ')'
+                    : '';
+
                 return [
                     'id' => $item->id,
                     'name' => $item->name,
@@ -55,9 +69,11 @@ class StockManagementController extends Controller
                     'stock_on_hand' => $item->inventory_stocks->first()->quantity - $item->inventory_stocks->first()->used,
                     'recorded_used' => $item->inventory_stocks->first()->used,
                     'estimated_used' => $usageRecords[$item->id] ?? 0,
+                    'ingredient_units' => $units,
                     'uom' => $item->unit_of_measurement->name,
                 ];
             });
+
 
         return Inertia::render('StockManagement/Index', [
             'products' => $products,
@@ -70,11 +86,9 @@ class StockManagementController extends Controller
     {
         $branches = StoreBranch::options();
         $branchId = $request->only('branchId')['branchId'] ?? $branches->keys()->first();
-   
+
         $history = ProductInventoryStockUsed::where('product_inventory_id', $id)
             ->where('store_branch_id', $branchId)->paginate(10);
-
-
 
         return Inertia::render('StockManagement/Show', [
             'branches' => $branches,

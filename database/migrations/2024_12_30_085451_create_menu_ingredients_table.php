@@ -16,6 +16,7 @@ return new class extends Migration
             $table->foreignId('menu_id')->constrained('menus')->cascadeOnDelete();
             $table->foreignId('product_inventory_id')->constrained('product_inventories')->cascadeOnDelete();
             $table->double('quantity');
+            $table->string('unit')->nullable();
             $table->timestamps();
         });
     }

@@ -28,10 +28,16 @@ const branchId = ref(
 let search = ref(usePage().props.filters.search);
 
 watch(branchId, (newValue) => {
+    console.log(usePage());
     router.get(
         route("stock-management.index"),
-        { branchId: newValue, search: search.value },
         {
+            branchId: newValue,
+            search: search.value,
+            page: 1,
+        },
+        {
+            preserveScroll: true,
             preserveState: true,
             replace: true,
         }
@@ -43,8 +49,13 @@ watch(
     throttle(function (value) {
         router.get(
             route("stock-management.index"),
-            { search: value, branchId: branchId.value },
             {
+                search: value,
+                branchId: branchId.value,
+                page: 1,
+            },
+            {
+                preserveScroll: true,
                 preserveState: true,
                 replace: true,
             }
@@ -129,10 +140,10 @@ const showDetails = (id) => {
             <Table>
                 <TableHead>
                     <TH>Name</TH>
-                    <TH>Inventory Code</TH>
+                    <TH>Code</TH>
                     <TH>UOM</TH>
-                    <TH>Stock On Hand</TH>
-                    <TH>Sytem Estimated Used</TH>
+                    <TH>SOH</TH>
+                    <TH>Estimated Used</TH>
                     <TH>Recorded Used</TH>
                     <TH>Actions</TH>
                 </TableHead>
@@ -142,7 +153,10 @@ const showDetails = (id) => {
                         <TD>{{ product.inventory_code }}</TD>
                         <TD>{{ product.uom }}</TD>
                         <TD>{{ product.stock_on_hand }}</TD>
-                        <TD>{{ product.estimated_used }}</TD>
+                        <TD
+                            >{{ product.estimated_used }}
+                            {{ product.ingredient_units }}</TD
+                        >
                         <TD>{{ product.recorded_used }}</TD>
                         <TD>
                             <DivFlexCenter class="gap-3">

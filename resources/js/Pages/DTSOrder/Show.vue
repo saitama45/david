@@ -138,7 +138,9 @@ const openViewModalForm = (id) => {
                         <TH> Item Code </TH>
                         <TH> Name </TH>
                         <TH> Unit </TH>
-                        <TH> Quantity </TH>
+                        <TH> Ordered</TH>
+                        <TH> Approved</TH>
+                        <TH> Received</TH>
                         <TH> Cost </TH>
                         <TH> Total Cost </TH>
                     </TableHead>
@@ -152,6 +154,8 @@ const openViewModalForm = (id) => {
                                 order.product_inventory.unit_of_measurement.name
                             }}</TD>
                             <TD>{{ order.quantity_ordered }}</TD>
+                            <TD>{{ order.quantity_approved }}</TD>
+                            <TD>{{ order.quantity_received }}</TD>
                             <TD>{{ order.product_inventory.cost }}</TD>
                             <TD>{{ order.total_cost }}</TD>
                         </tr>

@@ -37,6 +37,7 @@ const ingredientsForm = useForm({
     name: "",
     quantity: "",
     uom: "",
+    unit: "",
 });
 
 watch(
@@ -51,6 +52,7 @@ watch(
                     ingredientsForm.name = result.name;
                     ingredientsForm.inventory_code = result.inventory_code;
                     ingredientsForm.uom = result.unit_of_measurement;
+                    ingredientsForm.unit = result.unit_of_measurement;
                 })
                 .catch((err) => console.log(err))
                 .finally(() => (isLoading.value = false));
@@ -132,6 +134,7 @@ const addIngredient = () => {
         form.ingredients[existingItemIndex].quantity += Number(
             ingredientsForm.quantity
         );
+        form.ingredients[existingItemIndex].unit = ingredientsForm.unit;
     } else {
         form.ingredients.push({ ...ingredientsForm });
     }
@@ -269,6 +272,10 @@ const store = () => {
                                 {{ ingredientsForm.errors.quantity }}
                             </FormError>
                         </InputContainer>
+                        <InputContainer>
+                            <Label>Ingredient UOM</Label>
+                            <Input v-model="ingredientsForm.unit" />
+                        </InputContainer>
                     </CardContent>
                     <CardFooter class="justify-end">
                         <Button @click="addIngredient">Add</Button>
@@ -285,7 +292,7 @@ const store = () => {
                         <TH>Inventory Code</TH>
                         <TH>Name</TH>
                         <TH>Quantity</TH>
-                        <TH>UOM</TH>
+                        <TH>Ingredient UOM</TH>
                         <TH>Actions</TH>
                     </TableHead>
                     <TableBody>
@@ -295,7 +302,7 @@ const store = () => {
                             </TD>
                             <TD>{{ ingredient.name }}</TD>
                             <TD>{{ ingredient.quantity }}</TD>
-                            <TD>{{ ingredient.uom }}</TD>
+                            <TD>{{ ingredient.unit }}</TD>
                             <TD class="flex gap-3">
                                 <button
                                     class="text-red-500"

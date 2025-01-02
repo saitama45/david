@@ -40,6 +40,7 @@ class MenuController extends Controller
 
     public function store(Request $request)
     {
+
         $validated = $request->validate([
             'name' => ['required'],
             'price' => ['required', 'numeric'],
@@ -48,6 +49,7 @@ class MenuController extends Controller
             'ingredients' => ['required', 'array', 'min:1'],
             'ingredients.*.id' => ['required', 'exists:product_inventories,id'],
             'ingredients.*.quantity' => ['required', 'numeric', 'min:0.1'],
+            'ingredients.*.unit' => ['required'],
         ]);
 
         $ingredients = $validated['ingredients'];
@@ -55,8 +57,9 @@ class MenuController extends Controller
         $menu = Menu::create($validated);
 
         foreach ($ingredients as $ingredient) {
-            $menu->product_inventories()->attach(['product_inventory_id' => $ingredient['id']], [
+            $menu->product_inventories()->attach($ingredient['id'], [
                 'quantity' => $ingredient['quantity'],
+                'unit' => $ingredient['unit']
             ]);
         }
         DB::commit();
@@ -66,8 +69,6 @@ class MenuController extends Controller
 
     public function show($id)
     {
-
-
         $menu = Menu::with(['product_inventories', 'product_inventories.unit_of_measurement'])->findOrFail($id);
 
         $ingredients = $menu->product_inventories->map(function ($ingredient) {
@@ -76,7 +77,7 @@ class MenuController extends Controller
                 'inventory_code' => $ingredient->inventory_code,
                 'name' => $ingredient->name,
                 'quantity' => $ingredient->pivot->quantity,
-                'uom' => $ingredient->unit_of_measurement->name,
+                'uom' => $ingredient->pivot->unit ?? $ingredient->unit_of_measurement->name,
             ];
         });
         return Inertia::render('Menu/Show', [
@@ -97,7 +98,7 @@ class MenuController extends Controller
                 'inventory_code' => $ingredient->inventory_code,
                 'name' => $ingredient->name,
                 'quantity' => $ingredient->pivot->quantity,
-                'uom' => $ingredient->unit_of_measurement->name,
+                'uom' => $ingredient->pivot->unit ?? $ingredient->unit_of_measurement->name,
             ];
         });
         return Inertia::render('Menu/Edit', [

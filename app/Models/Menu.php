@@ -36,7 +36,7 @@ class Menu extends Model
     public function product_inventories()
     {
         return $this->belongsToMany(ProductInventory::class, 'menu_ingredients')
-            ->withPivot('quantity')
+            ->withPivot(['quantity', 'unit'])
             ->withTimestamps();
     }
 

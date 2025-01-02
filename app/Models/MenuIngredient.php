@@ -10,7 +10,7 @@ class MenuIngredient extends Model
     /** @use HasFactory<\Database\Factories\MenuIngredientFactory> */
     use HasFactory;
 
-    protected $fillable = ['menu_id', 'product_inventory_id', 'quantity'];
+    protected $fillable = ['menu_id', 'product_inventory_id', 'quantity', 'unit'];
 
     public function menu()
     {
