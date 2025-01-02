@@ -159,7 +159,27 @@ const addIngredient = () => {
     ingredientsForm.reset();
 };
 
-const update = () => {};
+const update = () => {
+    if (form.ingredients.length < 1) {
+        toast.add({
+            severity: "error",
+            summary: "Error",
+            detail: "Please select at least one ingredient before proceeding.",
+            life: 5000,
+        });
+        return;
+    }
+    form.put(route("menu-list.update", menu.id), {
+        onSuccess: () => {
+            toast.add({
+                severity: "success",
+                summary: "Success",
+                detail: "Menu updated successfully",
+                life: 3000,
+            });
+        },
+    });
+};
 </script>
 <template>
     <Layout heading="Edit Menu">
@@ -292,7 +312,7 @@ const update = () => {};
                     </TableBody>
                 </Table>
                 <DivFlexCenter class="justify-end">
-                    <Button @click="update">Create</Button>
+                    <Button @click="update">Update</Button>
                 </DivFlexCenter>
             </TableContainer>
         </Card>

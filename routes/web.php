@@ -208,7 +208,7 @@ Route::middleware('auth')
             Route::get('/create', 'create')->name('create');
             Route::get('/show/{id}', 'show')->name('show');
             Route::post('/store', 'store')->name('store');
-            Route::get('/update/{id}', 'update/{id}')->name('update/{id}');
+            Route::put('/update/{id}', 'update')->name('update');
             Route::get('/edit/{id}', 'edit')->name('edit');
         });
 

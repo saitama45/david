@@ -107,4 +107,44 @@ class MenuController extends Controller
             'products' => $products,
         ]);
     }
+
+    public function update(Request $request, $id)
+    {
+        $validated = $request->validate([
+            'name' => ['required'],
+            'price' => ['required', 'numeric'],
+            'category_id' => ['required', 'exists:menu_categories,id'],
+            'remarks' => ['nullable'],
+            'ingredients' => ['required', 'array', 'min:1'],
+            'ingredients.*.id' => ['required', 'exists:product_inventories,id'],
+            'ingredients.*.quantity' => ['required', 'numeric', 'min:0.1'],
+        ]);
+
+        DB::beginTransaction();
+        try {
+            $menu = Menu::findOrFail($id);
+
+            $menu->update([
+                'name' => $validated['name'],
+                'price' => $validated['price'],
+                'category_id' => $validated['category_id'],
+                'remarks' => $validated['remarks'],
+            ]);
+
+            $menu->product_inventories()->detach();
+
+            foreach ($validated['ingredients'] as $ingredient) {
+                $menu->product_inventories()->attach($ingredient['id'], [
+                    'quantity' => $ingredient['quantity'],
+                ]);
+            }
+
+            DB::commit();
+
+            return redirect()->route('menu-list.index');
+        } catch (\Exception $e) {
+            DB::rollback();
+            return back()->withErrors(['error' => 'Failed to update menu. ' . $e->getMessage()]);
+        }
+    }
 }
