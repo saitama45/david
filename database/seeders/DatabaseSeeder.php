@@ -47,7 +47,7 @@ class DatabaseSeeder extends Seeder
 
         $user->assignRole(['rec approver']);
 
-
+        // 269D9A  874A2C   392A2A 105A2A
 
         $this->call([
             UnitOfMeasurementSeeder::class,
@@ -56,7 +56,8 @@ class DatabaseSeeder extends Seeder
             StoreBranchSeeder::class,
             SupplierSeeder::class,
             DeliveryScheduleSeeder::class,
-            DTSDeliveryScheduleSeeder::class
+            DTSDeliveryScheduleSeeder::class,
+            MenuCategorySeeder::class
         ]);
     }
 }

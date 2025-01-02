@@ -43,7 +43,7 @@ const props = defineProps({
                         <TH>UOM</TH>
                     </Thead>
                     <Tbody>
-                        <Tr
+                        <tr
                             v-for="ingredient in ingredients"
                             :key="ingredient.id"
                         >
@@ -51,7 +51,7 @@ const props = defineProps({
                             <TD>{{ ingredient.name }}</TD>
                             <TD>{{ ingredient.quantity }}</TD>
                             <TD>{{ ingredient.uom }}</TD>
-                        </Tr>
+                        </tr>
                     </Tbody>
                 </Table>
             </TableContainer>

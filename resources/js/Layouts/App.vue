@@ -188,13 +188,6 @@ const logout = () => {
                             Product Sales
                         </NavLink>
                         <NavLink
-                            v-if="true"
-                            href="/sales-orders"
-                            :icon="FileCheck"
-                        >
-                            Sales Order
-                        </NavLink>
-                        <NavLink
                             v-if="canViewItems"
                             href="/usage-records"
                             :icon="PackageSearch"
