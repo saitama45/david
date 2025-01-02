@@ -15,6 +15,8 @@ defineProps({
         class="flex items-center justify-end gap-2"
     >
         <Component
+            preserve-scroll
+            preserve-state
             v-for="link in data.links"
             :is="link.url ? 'Link' : 'span'"
             :href="link.url"

@@ -101,9 +101,13 @@ const addItemQuantity = (id) => {
 };
 
 const computeOverallTotal = computed(() => {
-    return form.items
+    const total = form.items
         .reduce((total, order) => total + parseFloat(order.total_price), 0)
         .toFixed(2);
+
+    form.sub_total = total;
+    form.total_amount = total - form.discount_amount + form.service_charge;
+    return total;
 });
 
 const minusItemQuantity = (id) => {
