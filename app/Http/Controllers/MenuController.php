@@ -66,6 +66,8 @@ class MenuController extends Controller
 
     public function show($id)
     {
+
+
         $menu = Menu::with(['product_inventories', 'product_inventories.unit_of_measurement'])->findOrFail($id);
 
         $ingredients = $menu->product_inventories->map(function ($ingredient) {
@@ -85,6 +87,24 @@ class MenuController extends Controller
 
     public function edit($id)
     {
-        return Inertia::render('Menu/Edit');
+        $categories = MenuCategory::options();
+        $products = ProductInventory::options();
+        $menu = Menu::with(['product_inventories', 'product_inventories.unit_of_measurement'])->findOrFail($id);
+
+        $ingredients = $menu->product_inventories->map(function ($ingredient) {
+            return [
+                'id' => $ingredient->id,
+                'inventory_code' => $ingredient->inventory_code,
+                'name' => $ingredient->name,
+                'quantity' => $ingredient->pivot->quantity,
+                'uom' => $ingredient->unit_of_measurement->name,
+            ];
+        });
+        return Inertia::render('Menu/Edit', [
+            'menu' => $menu,
+            'ingredients' => $ingredients,
+            'categories' => $categories,
+            'products' => $products,
+        ]);
     }
 }

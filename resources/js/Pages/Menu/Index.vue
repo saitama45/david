@@ -45,7 +45,10 @@ const createNewMenu = () => {
                                     :isLink="true"
                                     :href="route('menu-list.show', menu.id)"
                                 />
-                                <EditButton />
+                                <EditButton
+                                    :isLink="true"
+                                    :href="route('menu-list.edit', menu.id)"
+                                />
                             </DivFlexCenter>
                         </TD>
                     </tr>
