@@ -19,7 +19,7 @@ return new class extends Migration
             $table->foreignId('encoder_id')->constrained('users')->cascadeOnDelete();
             $table->foreignId('supplier_id')->constrained('suppliers')->cascadeOnDelete();
             $table->foreignId('approver_id')
-                ->nullable()->constrained('users')->cascadeOnDelete();
+                ->nullable()->constrained('users');
             $table->foreignId('store_branch_id')->constrained('store_branches')->cascadeOnDelete();
             $table->string('order_number')->unique();
             $table->date('order_date');

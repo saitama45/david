@@ -40,6 +40,11 @@ class Menu extends Model
             ->withTimestamps();
     }
 
+    public function menu_ingredients()
+    {
+        return $this->hasMany(MenuIngredient::class);
+    }
+
 
     public function products()
     {

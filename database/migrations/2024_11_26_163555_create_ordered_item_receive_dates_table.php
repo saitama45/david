@@ -14,7 +14,7 @@ return new class extends Migration
         Schema::create('ordered_item_receive_dates', function (Blueprint $table) {
             $table->id();
             $table->foreignId('store_order_item_id')->constrained('store_order_items')->cascadeOnDelete();
-            $table->foreignId('received_by_user_id')->constrained('users')->cascadeOnDelete();
+            $table->foreignId('received_by_user_id')->constrained('users');
             $table->integer('quantity_received');
             $table->dateTime('received_date');
             $table->date('expiry_date');

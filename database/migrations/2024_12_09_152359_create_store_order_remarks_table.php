@@ -13,7 +13,7 @@ return new class extends Migration
     {
         Schema::create('store_order_remarks', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('user_id')->constrained('users')->cascadeOnDelete();
+            $table->foreignId('user_id')->constrained('users');
             $table->foreignId('store_order_id')->constrained('store_orders')->cascadeOnDelete();
             $table->string('action');
             $table->text('remarks');
