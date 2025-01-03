@@ -48,22 +48,17 @@ const { search } = useSearch("delivery-schedules.index");
                     </TH> -->
                     <TH>
                         <DivFlexCol>
-                            DTS Orders
-                            <LabelXS class="text-[10px]">Ice Cream</LabelXS>
+                            Ice Cream
                         </DivFlexCol>
                     </TH>
                     <TH>
                         <DivFlexCol>
-                            DTS Orders
-                            <LabelXS class="text-[10px]">Salmon</LabelXS>
+                            Salmon
                         </DivFlexCol>
                     </TH>
                     <TH>
                         <DivFlexCol>
-                            DTS Orders
-                            <LabelXS class="text-[10px]"
-                                >Fruits and Vegetables</LabelXS
-                            >
+                            Fruits and Vegetables
                         </DivFlexCol>
                     </TH>
                     <TH>Actions</TH>
