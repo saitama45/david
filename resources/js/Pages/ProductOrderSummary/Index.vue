@@ -1,9 +1,8 @@
 <script setup>
-import { router } from "@inertiajs/vue3";
-
+import { router, usePage } from "@inertiajs/vue3";
 import { useSearch } from "@/Composables/useSearch";
 const { search } = useSearch("product-orders-summary.index");
-
+let dateRange = ref(usePage().props.filters.dateRange);
 const props = defineProps({
     items: {
         type: Object,
@@ -14,12 +13,23 @@ const props = defineProps({
 const showProductOrdersDetails = (id) => {
     router.get(`/product-orders-summary/show/${id}`);
 };
+
+watch(dateRange, (value) => {
+    router.get(
+        route("product-orders-summary.index"),
+        { dateRange: value },
+        {
+            preserveState: true,
+            replace: true,
+        }
+    );
+});
 </script>
 
 <template>
     <Layout heading="Item Orders Summary">
         <TableContainer>
-            <TableHeader>
+            <TableHeader class="justify-between">
                 <SearchBar>
                     <Input
                         v-model="search"
@@ -27,6 +37,12 @@ const showProductOrdersDetails = (id) => {
                         placeholder="Search..."
                     />
                 </SearchBar>
+                <DatePicker
+                    class="min-w-64"
+                    selectionMode="range"
+                    v-model="dateRange"
+                    :manualInput="false"
+                />
             </TableHeader>
             <Table>
                 <TableHead>
