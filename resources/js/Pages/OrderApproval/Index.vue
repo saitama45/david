@@ -1,26 +1,39 @@
 <script setup>
-import { useSearch } from "@/Composables/useSearch";
 import { router, usePage } from "@inertiajs/vue3";
-
 
 import { useConfirm } from "primevue/useconfirm";
 import { useToast } from "@/Composables/useToast";
+import { throttle } from "lodash";
 
 const confirm = useConfirm();
 const { toast } = useToast();
 
-let filter = ref(usePage().props.filter || "pending");
-
+let filter = ref(usePage().props.filters.currentFilter || "pending");
+let search = ref(usePage().props.filters.search);
 watch(filter, function (value) {
     router.get(
         route("orders-approval.index"),
-        { filter: value },
+        { currentFilter: value, search: search.value },
         {
             preserveState: true,
             replace: true,
         }
     );
 });
+
+watch(
+    search,
+    throttle(function (value) {
+        router.get(
+            route("orders-approval.index"),
+            { search: value, currentFilter: filter.value },
+            {
+                preserveState: true,
+                replace: true,
+            }
+        );
+    }, 500)
+);
 
 const changeFilter = (currentFilter) => {
     filter.value = currentFilter;
@@ -39,8 +52,6 @@ const props = defineProps({
     },
 });
 
-console.log(props);
-
 const statusBadgeColor = (status) => {
     switch (status.toUpperCase()) {
         case "APPROVED":
@@ -51,7 +62,6 @@ const statusBadgeColor = (status) => {
             return "bg-yellow-500 text-white";
     }
 };
-const { search } = useSearch("orders-approval.index");
 
 const approveOrder = (id) => {
     confirm.require({

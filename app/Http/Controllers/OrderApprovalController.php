@@ -17,7 +17,7 @@ class OrderApprovalController extends Controller
     public function index()
     {
         $search = request('search');
-        $filter = request('filter') ?? 'pending';
+        $filter = request('currentFilter') ?? 'pending';
 
         $query = StoreOrder::query()->with(['store_branch', 'supplier']);
 
@@ -35,11 +35,12 @@ class OrderApprovalController extends Controller
             $query->where('order_request_status', $filter);
 
         $orders = $query->latest()
-            ->paginate(10);
+            ->paginate(10)
+            ->withQueryString();
 
         return Inertia::render('OrderApproval/Index', [
             'orders' => $orders,
-            'filters' => request()->only(['search', 'filter']),
+            'filters' => request()->only(['search', 'currentFilter']),
             'counts' => $counts
         ]);
     }
@@ -82,7 +83,7 @@ class OrderApprovalController extends Controller
                 'remarks' => $validated['remarks']
             ]);
         }
-     
+
         DB::commit();
         return to_route('orders-approval.index');
     }
