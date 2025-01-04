@@ -3,6 +3,7 @@ import { ref } from "vue";
 import { useForm } from "@inertiajs/vue3";
 import { useToast } from "primevue/usetoast";
 import { router } from "@inertiajs/vue3";
+import { X } from "lucide-vue-next";
 
 import { useConfirm } from "primevue/useconfirm";
 import Camera from "@/Pages/Camera.vue";
@@ -214,6 +215,14 @@ const openViewModalForm = (id) => {
     selectedItem.value = history;
     isViewModalVisible.value = true;
 };
+
+const selectedImage = ref(null);
+const isEnlargedImageVisible = ref(false);
+
+const enlargeImage = (image) => {
+    selectedImage.value = image;
+    isEnlargedImageVisible.value = true;
+};
 </script>
 
 <template>
@@ -244,8 +253,8 @@ const openViewModalForm = (id) => {
                 <InputContainer>
                     <LabelXS>Approver: </LabelXS>
                     <SpanBold
-                        >{{ order.approver.first_name }}
-                        {{ order.approver.last_name }}</SpanBold
+                        >{{ order.approver?.first_name }}
+                        {{ order.approver?.last_name }}</SpanBold
                     >
                     <SpanBold v-if="!order.approver">N/a</SpanBold>
                 </InputContainer>
@@ -286,7 +295,8 @@ const openViewModalForm = (id) => {
                         <img
                             v-for="image in images"
                             :src="image.image_url"
-                            class="size-24"
+                            class="size-24 cursor-pointer hover:opacity-80 transition-opacity"
+                            @click="enlargeImage(image)"
                         />
                     </DivFlexCenter>
                     <SpanBold v-if="images.length < 1">None</SpanBold>
@@ -486,6 +496,24 @@ const openViewModalForm = (id) => {
                         </p>
                     </div>
                 </div>
+            </DialogContent>
+        </Dialog>
+
+        <!-- Image Viewer -->
+        <Dialog v-model:open="isEnlargedImageVisible">
+            <DialogContent
+                class="sm:max-w-[90vw] h-[90vh] p-0 flex items-center justify-center"
+            >
+                <button
+                    @click="isEnlargedImageVisible = false"
+                    class="absolute right-4 top-4 rounded-sm ring-offset-background transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 bg-white/80 p-2"
+                ></button>
+                <img
+                    v-if="selectedImage"
+                    :src="selectedImage.image_url"
+                    class="max-h-full max-w-full object-contain"
+                    alt="Enlarged image"
+                />
             </DialogContent>
         </Dialog>
 
