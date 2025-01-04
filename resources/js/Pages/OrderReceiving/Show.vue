@@ -7,6 +7,7 @@ import { X } from "lucide-vue-next";
 
 import { useConfirm } from "primevue/useconfirm";
 import Camera from "@/Pages/Camera.vue";
+import dayjs from "dayjs";
 const toast = useToast();
 const confirm = useConfirm();
 
@@ -54,6 +55,7 @@ const form = useForm({
 });
 
 const deliveryReceiptForm = useForm({
+    id: null,
     store_order_id: props.order.id,
     delivery_receipt_number: null,
     remarks: null,
@@ -98,27 +100,31 @@ const submitReceivingForm = () => {
 
 const submitDeliveryReceiptForm = () => {
     isLoading.value = true;
-    deliveryReceiptForm.post(
-        route("orders-receiving.add-delivery-receipt-number"),
-        {
-            onSuccess: () => {
-                toast.add({
-                    severity: "success",
-                    summary: "Success",
-                    detail: "Received Quantity Updated Successfully.",
-                    life: 5000,
-                });
-                showDeliveryReceiptForm.value = false;
-                isLoading.value = false;
-                deliveryReceiptForm.reset();
-            },
-            onError: (e) => {
-                console.log(e);
-                showDeliveryReceiptForm.value = false;
-                isLoading.value = false;
-            },
-        }
-    );
+    if (deliveryReceiptForm.id) {
+        updateDeliveryReceiptNumber();
+    } else {
+        deliveryReceiptForm.post(
+            route("orders-receiving.add-delivery-receipt-number"),
+            {
+                onSuccess: () => {
+                    toast.add({
+                        severity: "success",
+                        summary: "Success",
+                        detail: "Received Quantity Updated Successfully.",
+                        life: 5000,
+                    });
+                    showDeliveryReceiptForm.value = false;
+                    isLoading.value = false;
+                    deliveryReceiptForm.reset();
+                },
+                onError: (e) => {
+                    console.log(e);
+                    showDeliveryReceiptForm.value = false;
+                    isLoading.value = false;
+                },
+            }
+        );
+    }
 };
 const canReceive = props.order.order_status !== "received";
 
@@ -261,6 +267,39 @@ const deleteImage = () => {
         },
     });
 };
+
+const editDeliveryReceiptNumber = (id, number, remakrs) => {
+    deliveryReceiptForm.id = id;
+    deliveryReceiptForm.delivery_receipt_number = number;
+    deliveryReceiptForm.remarks = remakrs;
+    showDeliveryReceiptForm.value = true;
+};
+
+const updateDeliveryReceiptNumber = () => {
+    deliveryReceiptForm.put(
+        route(
+            "orders-receiving.update-delivery-receipt-number",
+            deliveryReceiptForm.id
+        ),
+        {
+            onSuccess: () => {
+                toast.add({
+                    severity: "success",
+                    summary: "Success",
+                    detail: "Delivery Receipt Updated Successfully.",
+                    life: 5000,
+                });
+                showDeliveryReceiptForm.value = false;
+                isLoading.value = false;
+                deliveryReceiptForm.reset();
+            },
+            onError: (e) => {
+                console.log(e);
+                isLoading.value = false;
+            },
+        }
+    );
+};
 </script>
 
 <template>
@@ -321,6 +360,7 @@ const deleteImage = () => {
                         <TH>Id</TH>
                         <TH>Number</TH>
                         <TH>Remarks</TH>
+                        <TH>Created at</TH>
                         <TH>Actions</TH>
                     </TableHead>
                     <TableBody>
@@ -328,7 +368,23 @@ const deleteImage = () => {
                             <TD>{{ receipt.id }}</TD>
                             <TD>{{ receipt.delivery_receipt_number }}</TD>
                             <TD>{{ receipt.remarks }}</TD>
-                            <TD> </TD>
+                            <TD>{{
+                                dayjs(receipt.created_at).format("MMMM D, YYYY")
+                            }}</TD>
+                            <TD>
+                                <DivFlexCenter class="gap-3">
+                                    <EditButton
+                                        @click="
+                                            editDeliveryReceiptNumber(
+                                                receipt.id,
+                                                receipt.delivery_receipt_number,
+                                                receipt.remarks
+                                            )
+                                        "
+                                    />
+                                    <DeleteButton />
+                                </DivFlexCenter>
+                            </TD>
                         </tr>
                     </TableBody>
                 </Table>
@@ -465,7 +521,7 @@ const deleteImage = () => {
                 </Table>
             </TableContainer>
         </DivFlexCol>
-
+        <!-- Dleivery receipt form -->
         <Dialog v-model:open="showDeliveryReceiptForm">
             <DialogContent class="sm:max-w-[600px]">
                 <DialogHeader>
@@ -499,7 +555,7 @@ const deleteImage = () => {
                         :disabled="isLoading"
                         class="gap-2"
                         @click="submitDeliveryReceiptForm"
-                        >Add <span><Loading v-if="isLoading" /></span
+                        >Submit <span v-if="isLoading"><Loading /></span
                     ></Button>
                 </DialogFooter>
             </DialogContent>

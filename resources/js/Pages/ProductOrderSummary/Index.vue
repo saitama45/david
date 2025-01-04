@@ -1,7 +1,6 @@
 <script setup>
 import { router, usePage } from "@inertiajs/vue3";
 import { throttle } from "lodash";
-
 import dayjs from "dayjs";
 
 let dateRange = ref(usePage().props.filters.dateRange);
@@ -29,7 +28,6 @@ watch(dateRange, (value) => {
         }
     );
 });
-
 
 watch(
     search,

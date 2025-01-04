@@ -142,6 +142,25 @@ class OrderReceivingController extends Controller
         ]);
     }
 
+    public function updateDeliveryReceiptNumber(Request $request, $id)
+    {
+        $validated = $request->validate([
+            'id' => ['required'],
+            'delivery_receipt_number' => ['required'],
+            'store_order_id' => ['required', 'exists:store_orders,id'],
+            'remarks' => ['sometimes']
+        ]);
+
+        $id = $validated['id'];
+        unset($validated['id']);
+
+        $receipt = DeliveryReceipt::findOrFail($id);
+
+        $receipt->update($validated);
+
+        return redirect()->back();
+    }
+
     public function deleteReceiveDateHistory($id)
     {
 

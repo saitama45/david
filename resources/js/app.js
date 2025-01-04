@@ -26,6 +26,7 @@ import TableHeader from "./Components/table/TableHeader.vue";
 import TableHead from "./Components/table/TableHead.vue";
 import TableBody from "./Components/table/TableBody.vue";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+
 import {
     Filter,
     Eye,
@@ -158,6 +159,7 @@ createInertiaApp({
             .component("RadioGroupItem", RadioGroupItem)
             .component("Download", Download)
             .component("DeleteButton", DeleteButton)
+
             .use(PrimeVue, {
                 theme: {
                     preset: Aura,
