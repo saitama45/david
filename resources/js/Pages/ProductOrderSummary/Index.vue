@@ -2,26 +2,50 @@
 import { router, usePage } from "@inertiajs/vue3";
 import { throttle } from "lodash";
 import dayjs from "dayjs";
+import { useSelectOptions } from "@/Composables/useSelectOptions";
 
 let dateRange = ref(usePage().props.filters.dateRange);
+let supplierId = ref(usePage().props.filters.supplierId);
 let search = ref(usePage().props.filters.search);
 const props = defineProps({
     items: {
         type: Object,
         required: true,
     },
+    suppliers: {
+        type: Object,
+        required: true,
+    },
 });
+
+const { options: suppliersOption } = useSelectOptions(props.suppliers);
 
 const showProductOrdersDetails = (id) => {
     router.get(`/product-orders-summary/show/${id}`, {
         dateRange: dateRange.value,
+        supplierId: supplierId.value,
     });
 };
 
 watch(dateRange, (value) => {
     router.get(
         route("product-orders-summary.index"),
-        { dateRange: value, search: search.value },
+        {
+            dateRange: value,
+            search: search.value,
+            supplierId: supplierId.value,
+        },
+        {
+            preserveState: true,
+            replace: true,
+        }
+    );
+});
+
+watch(supplierId, (value) => {
+    router.get(
+        route("product-orders-summary.index"),
+        { supplierId: value, dateRange: dateRange.value, search: search.value },
         {
             preserveState: true,
             replace: true,
@@ -34,7 +58,11 @@ watch(
     throttle(function (value) {
         router.get(
             route("product-orders-summary.index"),
-            { search: value, dateRange: dateRange.value },
+            {
+                search: value,
+                dateRange: dateRange.value,
+                supplierId: supplierId.value,
+            },
             {
                 preserveState: true,
                 replace: true,
@@ -80,13 +108,23 @@ onMounted(() => {
                         placeholder="Search..."
                     />
                 </SearchBar>
-                <DatePicker
-                    class="min-w-64"
-                    selectionMode="range"
-                    v-model="dateRange"
-                    :manualInput="false"
-                    :format="'YYYY-MM-DD'"
-                />
+                <DivFlexCenter class="gap-3">
+                    <Select
+                        placeholder="Filter By Supplier"
+                        :options="suppliersOption"
+                        optionLabel="label"
+                        optionValue="value"
+                        v-model="supplierId"
+                    >
+                    </Select>
+                    <DatePicker
+                        class="min-w-64"
+                        selectionMode="range"
+                        v-model="dateRange"
+                        :manualInput="false"
+                        :format="'YYYY-MM-DD'"
+                    />
+                </DivFlexCenter>
             </TableHeader>
             <Table>
                 <TableHead>

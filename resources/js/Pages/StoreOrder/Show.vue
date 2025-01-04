@@ -332,20 +332,12 @@ const openViewModalForm = (id) => {
 
                     <InputContainer>
                         <LabelXS>Received At</LabelXS>
-                        <SpanBold>{{
-                            dayjs(selectedItem.received_date).format(
-                                "MMMM d, YYYY"
-                            )
-                        }}</SpanBold>
+                        <SpanBold>{{ selectedItem.received_date }}</SpanBold>
                     </InputContainer>
 
                     <InputContainer>
                         <LabelXS>Expiry Date</LabelXS>
-                        <SpanBold>{{
-                            dayjs(selectedItem.expiry_date).format(
-                                "MMMM d, YYYY"
-                            )
-                        }}</SpanBold>
+                        <SpanBold>{{ selectedItem.expiry_date }}</SpanBold>
                     </InputContainer>
 
                     <InputContainer>
