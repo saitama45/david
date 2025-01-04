@@ -29,7 +29,9 @@ import { useSelectOptions } from "@/Composables/useSelectOptions";
 const { options: productsOption } = useSelectOptions(items);
 const { options: suppliersOptions } = useSelectOptions(suppliers);
 const { options: branchesOptions } = useSelectOptions(branches);
-
+console.log(suppliersOptions);
+console.log(productsOption);
+console.log(branchesOptions);
 const orderForm = useForm({
     branch_id: null,
     supplier_id: Object.keys(suppliers)[0] + "",
@@ -242,7 +244,6 @@ const removeItem = (id) => {
 };
 
 const store = () => {
-   
     if (orderForm.orders.length < 1) {
         toast.add({
             severity: "error",
@@ -484,5 +485,6 @@ const store = () => {
                 </CardFooter>
             </Card>
         </div>
+        <BackButton :routeName="route('dts-orders.index')"/>
     </Layout>
 </template>

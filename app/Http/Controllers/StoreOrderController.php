@@ -27,12 +27,11 @@ class StoreOrderController extends Controller
         $to = request('to') ? Carbon::parse(request('to'))->addDay() : Carbon::today()->addDay();
         $branchId = request('branchId');
         $search = request('search');
-        $filterQuery = request('filterQuery') ?? 'all';
+        $filterQuery = request('filterQuery') ?? 'pending';
 
         $query = StoreOrder::query()->with(['store_branch', 'supplier']);
 
         $user = Auth::user();
-
 
         if (in_array('so encoder', $user->roles->pluck('name')->toArray()) && !in_array('admin', $user->roles->pluck('name')->toArray())) {
 

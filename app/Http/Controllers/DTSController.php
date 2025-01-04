@@ -21,9 +21,9 @@ class DTSController extends Controller
     {
 
         $search = request('search');
-        $filter = request('filter') ?? 'all';
+        $filter = request('currentFilter') ?? 'pending';
 
-        $query = StoreOrder::query()->with(['store_branch', 'supplier']);
+        $query = StoreOrder::query()->with(['store_branch', 'supplier'])->whereNot('variant', 'regular');
         $user = Auth::user();
 
         if (in_array('so encoder', $user->roles->pluck('name')->toArray()) && !in_array('admin', $user->roles->pluck('name')->toArray())) {
@@ -32,32 +32,32 @@ class DTSController extends Controller
         }
 
         if ($search)
-            $query->where('order_number', 'like', '%' . $search . '%')
-                ->orWhereHas('store_branch', function ($query) use ($search) {
-                    $query->where('name', 'like', '%' . $search . '%');
-                });;
+            $query->where('order_number', 'like', '%' . $search . '%');
+        // ->whereHas('store_branch', function ($query) use ($search) {
+        //     $query->where('name', 'like', '%' . $search . '%');
+        // });
 
         if ($filter !== 'all')
             $query->where('order_request_status', $filter);
 
-        if ($search)
-            $query->where('order_number', 'like', '%' . $search . '%')
-                ->orWhereHas('store_branch', function ($query) use ($search) {
-                    $query->where('name', 'like', '%' . $search . '%');
-                });;
+        // if ($search)
+        //     $query->where('order_number', 'like', '%' . $search . '%')
+        //         ->orWhereHas('store_branch', function ($query) use ($search) {
+        //             $query->where('name', 'like', '%' . $search . '%');
+        //         });;
 
 
 
         $orders = $query
-            ->whereNot('variant', 'regular')
             ->latest()
-            ->paginate(10);
+            ->paginate(10)
+            ->withQueryString();
 
 
 
         return Inertia::render('DTSOrder/Index', [
             'orders' => $orders,
-            'filters' => request()->only(['from', 'to', 'branchId', 'search', 'filter'])
+            'filters' => request()->only(['from', 'to', 'branchId', 'search', 'currentFilter'])
         ]);
     }
 

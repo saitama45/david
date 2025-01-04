@@ -1,29 +1,33 @@
 <script setup>
-import { useSearch } from "@/Composables/useSearch";
-import {
-    Select,
-    SelectContent,
-    SelectGroup,
-    SelectItem,
-    SelectLabel,
-    SelectTrigger,
-    SelectValue,
-} from "@/components/ui/select";
-import { router } from "@inertiajs/vue3";
-import { usePage } from "@inertiajs/vue3";
+import { router, usePage } from "@inertiajs/vue3";
+import { throttle } from "lodash";
 
-let filter = ref(usePage().props.filter || "all");
-const { search } = useSearch("dts-orders.index");
+let filter = ref(usePage().props.filters.currentFilter || "pending");
+let search = ref(usePage().props.filters.search);
 const changeFilter = (currentFilter) => {
     filter.value = currentFilter;
 };
 const variant = ref("");
 const isLoading = false;
-
+console.log(usePage().props.filters);
 const isVariantChoicesVisible = ref(false);
 const showVariantChoices = () => {
     isVariantChoicesVisible.value = true;
 };
+
+watch(
+    search,
+    throttle(function (value) {
+        router.get(
+            route("dts-orders.index"),
+            { search: value, currentFilter: filter.value },
+            {
+                preserveState: true,
+                replace: true,
+            }
+        );
+    }, 500)
+);
 
 const proceed = () => {
     if (!variant.value) return;
@@ -48,7 +52,7 @@ const variants = [
 watch(filter, function (value) {
     router.get(
         route("dts-orders.index"),
-        { filter: value },
+        { currentFilter: value, search: search.value },
         {
             preserveState: true,
             replace: true,
@@ -210,7 +214,7 @@ const hasEditAccess = is_admin || roles.includes("so_encoder");
                         Please select an order variant to proceed.
                     </DialogDescription>
                 </DialogHeader>
-                <Select v-model="variant">
+                <SelectShad v-model="variant">
                     <SelectTrigger>
                         <SelectValue placeholder="Select a variant" />
                     </SelectTrigger>
@@ -225,7 +229,7 @@ const hasEditAccess = is_admin || roles.includes("so_encoder");
                             </SelectItem>
                         </SelectGroup>
                     </SelectContent>
-                </Select>
+                </SelectShad>
 
                 <DialogFooter>
                     <Button

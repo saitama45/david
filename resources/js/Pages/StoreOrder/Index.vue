@@ -28,7 +28,7 @@ const props = defineProps({
     },
 });
 
-let filterQuery = ref((usePage().props.filters.filterQuery || "all").toString());
+let filterQuery = ref((usePage().props.filters.filterQuery || "pending").toString());
 
 const { roles, is_admin } = usePage().props.auth;
 

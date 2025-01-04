@@ -41,6 +41,13 @@ const productId = ref(null);
 const visible = ref(false);
 const isLoading = ref(false);
 
+watch(visible, (newValue) => {
+    if (!newValue) {
+        excelFileForm.reset();
+        excelFileForm.clearErrors();
+    }
+});
+
 const productDetails = reactive({
     id: null,
     inventory_code: null,
@@ -643,7 +650,7 @@ if (previousOrder) {
                         class="gap-2"
                     >
                         Proceed
-                        <span><Loading v-if="isLoading" /></span>
+                        <span v-if="isLoading"><Loading /></span>
                     </Button>
                 </DialogFooter>
             </DialogContent>

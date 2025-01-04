@@ -52,7 +52,6 @@ import {
 } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import Textarea from "./Components/ui/textarea/Textarea.vue";
-import Select from "primevue/select";
 import InputContainer from "./Components/form/InputContainer.vue";
 import {
     Card,
@@ -82,6 +81,17 @@ import EditButton from "./Components/button/EditButton.vue";
 import InfolistLabel from "./Components/InfolistLabel.vue";
 import BackButton from "./Components/BackButton.vue";
 import DeleteButton from "./Components/button/DeleteButton.vue";
+import Select from "primevue/select";
+import {
+    Select as SelectShad,
+    SelectContent,
+    SelectGroup,
+    SelectItem,
+    SelectLabel,
+    SelectTrigger,
+    SelectValue,
+} from "@/components/ui/select";
+
 const appName = import.meta.env.VITE_APP_NAME || "Laravel";
 
 createInertiaApp({
@@ -159,7 +169,13 @@ createInertiaApp({
             .component("RadioGroupItem", RadioGroupItem)
             .component("Download", Download)
             .component("DeleteButton", DeleteButton)
-
+            .component("SelectContent", SelectContent)
+            .component("SelectGroup", SelectGroup)
+            .component("SelectItem", SelectItem)
+            .component("SelectLabel", SelectLabel)
+            .component("SelectTrigger", SelectTrigger)
+            .component("SelectValue", SelectValue)
+            .component("SelectShad", SelectShad)
             .use(PrimeVue, {
                 theme: {
                     preset: Aura,
