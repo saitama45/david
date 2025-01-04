@@ -1,6 +1,7 @@
 <script setup>
 import { useBackButton } from "@/Composables/useBackButton";
 import { router } from "@inertiajs/vue3";
+import dayjs from "dayjs";
 
 const { backButton } = useBackButton(route("store-orders.index"));
 const statusBadgeColor = (status) => {
@@ -74,7 +75,9 @@ const openViewModalForm = (id) => {
                 </InputContainer>
                 <InputContainer>
                     <LabelXS>Order Date: </LabelXS>
-                    <SpanBold>{{ order.order_date }}</SpanBold>
+                    <SpanBold>{{
+                        dayjs(order.order_date).format("MMMM d, YYYY")
+                    }}</SpanBold>
                 </InputContainer>
                 <InputContainer>
                     <LabelXS>Order Request Status: </LabelXS>
@@ -110,7 +113,11 @@ const openViewModalForm = (id) => {
                 <InputContainer>
                     <LabelXS>Approval Action Date: </LabelXS>
                     <SpanBold>{{
-                        order.approval_action_date ?? "N/a"
+                        order.approval_action_date
+                            ? dayjs(order.approval_action_date).format(
+                                  "MMMM d, YYYY"
+                              )
+                            : "N/a"
                     }}</SpanBold>
                 </InputContainer>
             </Card>
@@ -163,19 +170,29 @@ const openViewModalForm = (id) => {
                 </Table>
             </TableContainer>
 
-            <Card class="p-5">
-                <InputContainer>
-                    <LabelXS>Delivery Receipt Numbers: </LabelXS>
-                    <DivFlexCol class="flex-1 gap-2">
-                        <SpanBold v-for="receipt in order.delivery_receipts">{{
-                            receipt.delivery_receipt_number
-                        }}</SpanBold>
-                    </DivFlexCol>
-                    <SpanBold v-if="order.delivery_receipts.length < 1"
-                        >None</SpanBold
-                    >
-                </InputContainer>
-            </Card>
+            <TableContainer>
+                <TableHeader>
+                    <SpanBold>Delivery Receipts</SpanBold>
+                </TableHeader>
+                <Table>
+                    <TableHead>
+                        <TH>Id</TH>
+                        <TH>Number</TH>
+                        <TH>Remarks</TH>
+                        <TH>Created at</TH>
+                    </TableHead>
+                    <TableBody>
+                        <tr v-for="receipt in order.delivery_receipts">
+                            <TD>{{ receipt.id }}</TD>
+                            <TD>{{ receipt.delivery_receipt_number }}</TD>
+                            <TD>{{ receipt.remarks }}</TD>
+                            <TD>{{
+                                dayjs(receipt.created_at).format("MMMM D, YYYY")
+                            }}</TD>
+                        </tr>
+                    </TableBody>
+                </Table>
+            </TableContainer>
 
             <TableContainer>
                 <TableHeader>
@@ -200,7 +217,9 @@ const openViewModalForm = (id) => {
                                 {{ remarks.action.toUpperCase() }}
                             </TD>
                             <TD>{{ remarks.remarks }}</TD>
-                            <TD>{{ remarks.created_at }}</TD>
+                            <TD>{{
+                                dayjs(remarks.created_at).format("MMMM D, YYYY")
+                            }}</TD>
                         </tr>
                     </TableBody>
                 </Table>
@@ -251,7 +270,11 @@ const openViewModalForm = (id) => {
                                 {{ history.receiver.last_name }}
                             </TD> -->
                             <TD>{{ history.quantity_received }}</TD>
-                            <TD>{{ history.received_date }}</TD>
+                            <TD>{{
+                                dayjs(history.received_date).format(
+                                    "MMMM D, YYYY"
+                                )
+                            }}</TD>
                             <TD>{{
                                 history.is_approved === 1 ? "Yes" : "No"
                             }}</TD>
@@ -309,12 +332,20 @@ const openViewModalForm = (id) => {
 
                     <InputContainer>
                         <LabelXS>Received At</LabelXS>
-                        <SpanBold>{{ selectedItem.received_date }}</SpanBold>
+                        <SpanBold>{{
+                            dayjs(selectedItem.received_date).format(
+                                "MMMM d, YYYY"
+                            )
+                        }}</SpanBold>
                     </InputContainer>
 
                     <InputContainer>
                         <LabelXS>Expiry Date</LabelXS>
-                        <SpanBold>{{ selectedItem.expiry_date }}</SpanBold>
+                        <SpanBold>{{
+                            dayjs(selectedItem.expiry_date).format(
+                                "MMMM d, YYYY"
+                            )
+                        }}</SpanBold>
                     </InputContainer>
 
                     <InputContainer>
