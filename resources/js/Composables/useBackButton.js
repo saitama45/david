@@ -1,8 +1,8 @@
-import { router } from "@inertiajs/vue3";
-//
+import { usePage, router } from "@inertiajs/vue3";
+
 export function useBackButton(routeName) {
     const backButton = () => {
-        router.get(routeName);
+        router.get(usePage().props.previous);
     };
 
     return {

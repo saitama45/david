@@ -1,6 +1,7 @@
 <script setup>
 import { useBackButton } from "@/Composables/useBackButton";
 const { backButton } = useBackButton(route("product-orders-summary.index"));
+import { usePage } from "@inertiajs/vue3";
 const { item, orders } = defineProps({
     item: {
         type: Object,
@@ -11,6 +12,9 @@ const { item, orders } = defineProps({
         required: true,
     },
 });
+
+console.log(usePage().props);
+
 const heading = `Orders For Item ${item.name} (${item.inventory_code})`;
 </script>
 

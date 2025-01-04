@@ -27,7 +27,7 @@ class StoreOrderController extends Controller
         $to = request('to') ? Carbon::parse(request('to'))->addDay() : Carbon::today()->addDay();
         $branchId = request('branchId');
         $search = request('search');
-        $filter = request('filter') ?? 'all';
+        $filterQuery = request('filterQuery') ?? 'all';
 
         $query = StoreOrder::query()->with(['store_branch', 'supplier']);
 
@@ -39,8 +39,8 @@ class StoreOrderController extends Controller
             $query->whereIn('store_branch_id', $user->store_branches->pluck('id'));
         }
 
-        if ($filter !== 'all')
-            $query->where('order_request_status', $filter);
+        if ($filterQuery !== 'all')
+            $query->where('order_request_status', $filterQuery);
 
         if ($branchId)
             $query->where('store_branch_id', $branchId);
@@ -66,7 +66,7 @@ class StoreOrderController extends Controller
             [
                 'orders' => $orders,
                 'branches' => $branches,
-                'filters' => request()->only(['from', 'to', 'branchId', 'search', 'filter'])
+                'filters' => request()->only(['from', 'to', 'branchId', 'search', 'filterQuery'])
             ]
         );
     }

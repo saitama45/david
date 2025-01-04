@@ -21,10 +21,16 @@ const props = defineProps({
 const { options: suppliersOption } = useSelectOptions(props.suppliers);
 
 const showProductOrdersDetails = (id) => {
-    router.get(`/product-orders-summary/show/${id}`, {
-        dateRange: dateRange.value,
-        supplierId: supplierId.value,
-    });
+    router.get(
+        `/product-orders-summary/show/${id}`,
+        {
+            dateRange: dateRange.value,
+            supplierId: supplierId.value,
+        },
+        {
+            preserveState: true,
+        }
+    );
 };
 
 watch(dateRange, (value) => {

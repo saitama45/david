@@ -16,8 +16,6 @@ const handleClick = () => {
     router.get("/store-orders/create");
 };
 
-let filter = ref(usePage().props.filter || "all");
-
 const props = defineProps({
     orders: {
         type: Object,
@@ -29,6 +27,8 @@ const props = defineProps({
         type: Object,
     },
 });
+
+let filterQuery = ref((usePage().props.filters.filterQuery || "all").toString());
 
 const { roles, is_admin } = usePage().props.auth;
 
@@ -61,8 +61,8 @@ let to = ref(
         }).format(new Date())
 );
 
-let branchId = ref(usePage().props.branchId);
-let search = ref(usePage().props.search);
+let branchId = ref(usePage().props.filters.branchId);
+let search = ref(usePage().props.filters.search);
 
 watch(from, (value) => {
     router.get(
@@ -102,7 +102,7 @@ watch(
     throttle(function (value) {
         router.get(
             route("store-orders.index"),
-            { search: value, filter: filter.value },
+            { search: value, filterQuery: filterQuery.value },
             {
                 preserveState: true,
                 replace: true,
@@ -130,10 +130,10 @@ const resetFilter = () => {
         (search.value = null);
 };
 
-watch(filter, function (value) {
+watch(filterQuery, function (value) {
     router.get(
         route("store-orders.index"),
-        { filter: value, search: search.value },
+        { filterQuery: value, search: search.value },
         {
             preserveState: true,
             replace: true,
@@ -142,8 +142,10 @@ watch(filter, function (value) {
 });
 
 const changeFilter = (currentFilter) => {
-    filter.value = currentFilter;
+    filterQuery.value = currentFilter;
 };
+
+
 </script>
 
 <template>
@@ -157,25 +159,25 @@ const changeFilter = (currentFilter) => {
             <FilterTabButton
                 label="All"
                 filter="all"
-                :currentFilter="filter"
+                :currentFilter="filterQuery"
                 @click="changeFilter('all')"
             />
             <FilterTabButton
                 label="Approved"
                 filter="approved"
-                :currentFilter="filter"
+                :currentFilter="filterQuery"
                 @click="changeFilter('approved')"
             />
             <FilterTabButton
                 label="Pending"
                 filter="pending"
-                :currentFilter="filter"
+                :currentFilter="filterQuery"
                 @click="changeFilter('pending')"
             />
             <FilterTabButton
                 label="Rejected"
                 filter="rejected"
-                :currentFilter="filter"
+                :currentFilter="filterQuery"
                 @click="changeFilter('rejected')"
             />
         </FilterTab>
