@@ -29,6 +29,7 @@ const props = defineProps({
         type: Object,
     },
 });
+
 const { roles, is_admin } = usePage().props.auth;
 
 const hasCreateAccess = is_admin || roles.includes("so encoder");
@@ -41,6 +42,7 @@ const showOrderDetails = (id) => {
 const editOrderDetails = (id) => {
     router.get(`/store-orders/edit/${id}`);
 };
+
 let from = ref(
     usePage().props.from ??
         new Intl.DateTimeFormat("en-CA", {
@@ -58,6 +60,7 @@ let to = ref(
             day: "2-digit",
         }).format(new Date())
 );
+
 let branchId = ref(usePage().props.branchId);
 let search = ref(usePage().props.search);
 
@@ -99,7 +102,7 @@ watch(
     throttle(function (value) {
         router.get(
             route("store-orders.index"),
-            { search: value },
+            { search: value, filter: filter.value },
             {
                 preserveState: true,
                 replace: true,
@@ -130,7 +133,7 @@ const resetFilter = () => {
 watch(filter, function (value) {
     router.get(
         route("store-orders.index"),
-        { filter: value },
+        { filter: value, search: search.value },
         {
             preserveState: true,
             replace: true,

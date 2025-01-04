@@ -55,7 +55,8 @@ class StoreOrderController extends Controller
             ->whereBetween('created_at', [$from, $to])
             ->where('variant', 'regular')
             ->latest()
-            ->paginate(10);
+            ->paginate(10)
+            ->withQueryString();
 
         $branches = StoreBranch::options();
 
