@@ -312,19 +312,27 @@ const deleteImage = () => {
                 </InputContainer>
             </Card>
 
-            <Card class="p-5">
-                <InputContainer>
-                    <LabelXS>Delivery Receipt Numbers: </LabelXS>
-                    <DivFlexCol class="flex-1 gap-2">
-                        <SpanBold v-for="receipt in order.delivery_receipts">{{
-                            receipt.delivery_receipt_number
-                        }}</SpanBold>
-                    </DivFlexCol>
-                    <SpanBold v-if="order.delivery_receipts.length < 1"
-                        >None</SpanBold
-                    >
-                </InputContainer>
-            </Card>
+            <TableContainer>
+                <TableHeader>
+                    <SpanBold>Delivery Receipts</SpanBold>
+                </TableHeader>
+                <Table>
+                    <TableHead>
+                        <TH>Id</TH>
+                        <TH>Number</TH>
+                        <TH>Remarks</TH>
+                        <TH>Actions</TH>
+                    </TableHead>
+                    <TableBody>
+                        <tr v-for="receipt in order.delivery_receipts">
+                            <TD>{{ receipt.id }}</TD>
+                            <TD>{{ receipt.delivery_receipt_number }}</TD>
+                            <TD>{{ receipt.remarks }}</TD>
+                            <TD> </TD>
+                        </tr>
+                    </TableBody>
+                </Table>
+            </TableContainer>
 
             <Card class="p-5">
                 <InputContainer class="col-span-4">
