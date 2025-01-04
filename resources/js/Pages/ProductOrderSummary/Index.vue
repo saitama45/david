@@ -1,8 +1,11 @@
 <script setup>
 import { router, usePage } from "@inertiajs/vue3";
-import { useSearch } from "@/Composables/useSearch";
-const { search } = useSearch("product-orders-summary.index");
+import { throttle } from "lodash";
+
+import dayjs from "dayjs";
+
 let dateRange = ref(usePage().props.filters.dateRange);
+let search = ref(usePage().props.filters.search);
 const props = defineProps({
     items: {
         type: Object,
@@ -17,12 +20,51 @@ const showProductOrdersDetails = (id) => {
 watch(dateRange, (value) => {
     router.get(
         route("product-orders-summary.index"),
-        { dateRange: value },
+        { dateRange: value, search: search.value },
         {
             preserveState: true,
             replace: true,
         }
     );
+});
+
+watch(
+    search,
+    throttle(function (value) {
+        router.get(
+            route("product-orders-summary.index"),
+            { search: value, dateRange: dateRange.value },
+            {
+                preserveState: true,
+                replace: true,
+            }
+        );
+    }, 500)
+);
+
+onMounted(() => {
+    const filters = usePage().props.filters;
+    if (filters.dateRange) {
+        if (typeof filters.dateRange === "string") {
+            const [start, end] = filters.dateRange.split(",");
+            dateRange.value = [dayjs(start).toDate(), dayjs(end).toDate()];
+        } else {
+            dateRange.value = filters.dateRange.map((date) =>
+                dayjs(date).toDate()
+            );
+        }
+    } else {
+        const today = dayjs();
+        // dateRange.value = [
+        //     today.startOf("yesterday").toDate(),
+        //     today.endOf("yesterday").toDate(),
+        // ];
+        console.log("here");
+        dateRange.value = [
+            dayjs("2025-01-03").toDate(),
+            dayjs("2025-01-03").toDate(),
+        ];
+    }
 });
 </script>
 
@@ -42,6 +84,7 @@ watch(dateRange, (value) => {
                     selectionMode="range"
                     v-model="dateRange"
                     :manualInput="false"
+                    :format="'YYYY-MM-DD'"
                 />
             </TableHeader>
             <Table>
