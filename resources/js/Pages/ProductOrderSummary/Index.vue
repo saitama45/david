@@ -14,7 +14,9 @@ const props = defineProps({
 });
 
 const showProductOrdersDetails = (id) => {
-    router.get(`/product-orders-summary/show/${id}`);
+    router.get(`/product-orders-summary/show/${id}`, {
+        dateRange: dateRange.value,
+    });
 };
 
 watch(dateRange, (value) => {
