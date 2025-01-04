@@ -135,6 +135,8 @@ Route::middleware('auth')
 
             Route::post('/orders-receiving/delete-receiving-history/{id}', 'deleteReceiveDateHistory')->name('delete-receiving-history');
             Route::post('/orders-receiving/update-receiving-history', 'updateReceiveDateHistory')->name('update-receiving-history');
+
+            Route::delete('/orders-receiving/delete/{id}', 'destroyDeliveryReceiptNumber')->name('delete-delivery-receipt-number');
         });
 
         Route::controller(UserController::class)->name('users.')->group(function () {

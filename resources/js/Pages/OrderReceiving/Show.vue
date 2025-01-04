@@ -300,6 +300,47 @@ const updateDeliveryReceiptNumber = () => {
         }
     );
 };
+
+const deleteDeliveryReceiptNumber = (id) => {
+    confirm.require({
+        message: "Are you sure you want to delete this delivery receipt?",
+        header: "Confirmation",
+        icon: "pi pi-exclamation-triangle",
+        rejectProps: {
+            label: "Cancel",
+            severity: "secondary",
+            outlined: true,
+        },
+        acceptProps: {
+            label: "Remove",
+            severity: "danger",
+        },
+        accept: () => {
+            router.delete(
+                route("orders-receiving.delete-delivery-receipt-number", id),
+                {},
+                {
+                    onSuccess: () => {
+                        toast.add({
+                            severity: "success",
+                            summary: "Success",
+                            detail: "Delivery Receipt Deleted Successfully.",
+                            life: 5000,
+                        });
+                    },
+                    onError: (err) => {
+                        toast.add({
+                            severity: "error",
+                            summary: "Error",
+                            detail: err,
+                            life: 5000,
+                        });
+                    },
+                }
+            );
+        },
+    });
+};
 </script>
 
 <template>
@@ -382,7 +423,13 @@ const updateDeliveryReceiptNumber = () => {
                                             )
                                         "
                                     />
-                                    <DeleteButton />
+                                    <DeleteButton
+                                        @click="
+                                            deleteDeliveryReceiptNumber(
+                                                receipt.id
+                                            )
+                                        "
+                                    />
                                 </DivFlexCenter>
                             </TD>
                         </tr>

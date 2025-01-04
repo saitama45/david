@@ -161,6 +161,15 @@ class OrderReceivingController extends Controller
         return redirect()->back();
     }
 
+    public function destroyDeliveryReceiptNumber($id)
+    {
+        $receipt = DeliveryReceipt::findOrFail($id);
+
+        $receipt->delete();
+
+        return redirect()->back();
+    }
+
     public function deleteReceiveDateHistory($id)
     {
 
