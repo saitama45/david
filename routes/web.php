@@ -291,6 +291,7 @@ Route::middleware('auth')
         Route::controller(TestController::class)->group(function () {
             Route::get('/test', 'index')->name('test');
             Route::post('/uploadImage', 'store')->name('upload-image');
+            Route::post('/destroy', 'destroy')->name('destroy');
         });
 
 

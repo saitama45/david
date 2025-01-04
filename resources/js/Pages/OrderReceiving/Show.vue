@@ -223,6 +223,44 @@ const enlargeImage = (image) => {
     selectedImage.value = image;
     isEnlargedImageVisible.value = true;
 };
+
+const deleteImageForm = useForm({
+    id: null,
+});
+
+const deleteImage = () => {
+    confirm.require({
+        message: "Are you sure you want to delete this image?",
+        header: "Confirmation",
+        icon: "pi pi-exclamation-triangle",
+        rejectProps: {
+            label: "Cancel",
+            severity: "secondary",
+            outlined: true,
+        },
+        acceptProps: {
+            label: "Remove",
+            severity: "danger",
+        },
+        accept: () => {
+            deleteImageForm.post(route("destroy"), {
+                onSuccess: () => {
+                    toast.add({
+                        severity: "success",
+                        summary: "Success",
+                        detail: "Image deletd successfully.",
+                        life: 5000,
+                    });
+                    isLoading.value = false;
+                },
+                onError: (err) => {
+                    isLoading.value = false;
+                    console.log(err);
+                },
+            });
+        },
+    });
+};
 </script>
 
 <template>
@@ -291,13 +329,27 @@ const enlargeImage = (image) => {
             <Card class="p-5">
                 <InputContainer class="col-span-4">
                     <LabelXS>Image Attachments: </LabelXS>
-                    <DivFlexCenter class="gap-2">
-                        <img
+                    <DivFlexCenter class="gap-4">
+                        <div
                             v-for="image in images"
-                            :src="image.image_url"
-                            class="size-24 cursor-pointer hover:opacity-80 transition-opacity"
-                            @click="enlargeImage(image)"
-                        />
+                            :key="image.id"
+                            class="relative"
+                        >
+                            <button
+                                @click="
+                                    deleteImageForm.id = image.id;
+                                    deleteImage();
+                                "
+                                class="absolute -right-2 -top-2 text-white size-5 rounded-full bg-red-500"
+                            >
+                                <X class="size-5" />
+                            </button>
+                            <img
+                                :src="image.image_url"
+                                class="size-24 cursor-pointer hover:opacity-80 transition-opacity"
+                                @click="enlargeImage(image)"
+                            />
+                        </div>
                     </DivFlexCenter>
                     <SpanBold v-if="images.length < 1">None</SpanBold>
                 </InputContainer>

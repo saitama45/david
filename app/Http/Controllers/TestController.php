@@ -47,5 +47,25 @@ class TestController extends Controller
         return redirect()->back()->with('success', 'Image uploaded successfully');
     }
 
+    public function destroy()
+    {
+        $validated = request()->validate([
+            'id' => 'required',
+        ]);
+        try {
+            $image = ImageAttachment::findOrFail($validated['id']);
+
+            if (Storage::disk('public')->exists($image->file_path)) {
+                Storage::disk('public')->delete($image->file_path);
+            }
+
+            $image->delete();
+
+            return redirect()->back()->with('success', 'Image deleted successfully');
+        } catch (\Exception $e) {
+            return redirect()->back()->with('error', 'Failed to delete image');
+        }
+    }
+
     public function uploadImageToFolders() {}
 }
