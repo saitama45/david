@@ -40,7 +40,7 @@ const heading = `Orders For Item ${item.name} (${item.inventory_code})`;
                 </TableBody>
             </Table>
         </TableContainer>
-
+        <Pagination :data="items" />
         <Button variant="outline" class="text-lg px-7" @click="backButton">
             Back
         </Button>

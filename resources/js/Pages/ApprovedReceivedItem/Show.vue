@@ -26,7 +26,7 @@ const props = defineProps({
                     <TH>Is Approved?</TH>
                 </TableHead>
                 <TableBody>
-                    <tr v-for="item in items" :key="item.id">
+                    <tr v-for="item in items.data" :key="item.id">
                         <TD>{{
                             item.store_order_item.product_inventory.name
                         }}</TD>
@@ -40,6 +40,7 @@ const props = defineProps({
                     </tr>
                 </TableBody>
             </Table>
+            <Pagination :data="items" />
         </TableContainer>
         <Button variant="outline" class="text-lg px-7" @click="backButton">
             Back
