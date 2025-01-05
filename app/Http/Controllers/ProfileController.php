@@ -8,6 +8,7 @@ use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Redirect;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -43,6 +44,24 @@ class ProfileController extends Controller
 
     public function updatePassword(Request $request, $id)
     {
-        dd($request);
+        $validated = $request->validate([
+            'current_password' => ['required'],
+            'password' => ['required', 'min:8', 'confirmed'],
+        ], [
+            'password.confirmed' => 'New password and confirm password field needs to match'
+        ]);
+
+        $user = User::findOrFail($id);
+
+        if (!Hash::check($validated['current_password'], $user->password)) {
+            return back()->withErrors([
+                'current_password' => 'The provided password does not match your current password.',
+            ]);
+        }
+
+        $user->password = Hash::make($validated['password']);
+        $user->save();
+
+        return back()->with('status', 'Password updated successfully.');
     }
 }

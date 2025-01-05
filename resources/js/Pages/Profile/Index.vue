@@ -22,7 +22,7 @@ const form = useForm({
 const passwordForm = useForm({
     current_password: null,
     password: null,
-    confirm_password: null,
+    password_confirmation: null,
 });
 
 const updateDetails = () => {
@@ -57,6 +57,29 @@ const updateDetails = () => {
                         life: 5000,
                     });
                 },
+            });
+        },
+    });
+};
+
+const updatePassword = () => {
+    passwordForm.post(route("profile.update-password", user.id), {
+        onSuccess: () => {
+            toast.add({
+                severity: "success",
+                summary: "Success",
+                detail: "Password Updated Successfully.",
+                life: 5000,
+            });
+
+            passwordForm.reset();
+        },
+        onError: (e) => {
+            toast.add({
+                severity: "error",
+                summary: "Error",
+                detail: "Can't update password.",
+                life: 5000,
             });
         },
     });
@@ -168,26 +191,32 @@ const updateDetails = () => {
             <CardContent class="space-y-4">
                 <InputContainer>
                     <Label>Current Password</Label>
-                    <Input v-model="passwordForm.current_password" />
+                    <Input
+                        type="password"
+                        v-model="passwordForm.current_password"
+                    />
                     <FormError>{{
                         passwordForm.errors.current_password
                     }}</FormError>
                 </InputContainer>
                 <InputContainer>
                     <Label>New Password</Label>
-                    <Input v-model="passwordForm.password" />
+                    <Input type="password" v-model="passwordForm.password" />
                     <FormError>{{ passwordForm.errors.password }}</FormError>
                 </InputContainer>
                 <InputContainer>
                     <Label>Confirm Password</Label>
-                    <Input v-model="passwordForm.confirm_password" />
+                    <Input
+                        type="password"
+                        v-model="passwordForm.password_confirmation"
+                    />
                     <FormError>{{
-                        passwordForm.errors.confirm_password
+                        passwordForm.errors.password_confirmation
                     }}</FormError>
                 </InputContainer>
             </CardContent>
             <CardFooter class="justify-end gap-3">
-                <Button>Update</Button>
+                <Button @click="updatePassword">Update</Button>
             </CardFooter>
         </Card>
     </Layout>
