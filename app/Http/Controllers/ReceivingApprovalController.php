@@ -75,7 +75,7 @@ class ReceivingApprovalController extends Controller
                 $storeOrder->order_status = OrderStatus::RECEIVED->value;
                 foreach ($orderedItems as $itemOrdered) {
                     if ($itemOrdered->quantity_ordered > $itemOrdered->quantity_received) {
-                        $storeOrder->order_status = OrderStatus::PARTIALLY_RECEIVED->value;
+                        $storeOrder->order_status = OrderStatus::INCOMPLETE->value;
                     }
                 }
 
@@ -105,7 +105,7 @@ class ReceivingApprovalController extends Controller
             $storeOrder->order_status = OrderStatus::RECEIVED->value;
             foreach ($orderedItems as $itemOrdered) {
                 if ($itemOrdered->quantity_ordered > $itemOrdered->quantity_received) {
-                    $storeOrder->order_status = OrderStatus::PARTIALLY_RECEIVED->value;
+                    $storeOrder->order_status = OrderStatus::INCOMPLETE->value;
                 }
             }
 

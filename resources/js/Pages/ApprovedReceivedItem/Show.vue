@@ -19,6 +19,7 @@ const props = defineProps({
         <TableContainer>
             <Table>
                 <TableHead>
+                    <TH>Id</TH>
                     <TH>Item</TH>
                     <TH>Inventory Code</TH>
                     <TH>Received Date</TH>
@@ -27,6 +28,7 @@ const props = defineProps({
                 </TableHead>
                 <TableBody>
                     <tr v-for="item in items.data" :key="item.id">
+                        <TD>{{ item.id }}</TD>
                         <TD>{{
                             item.store_order_item.product_inventory.name
                         }}</TD>
