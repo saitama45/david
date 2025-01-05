@@ -77,6 +77,7 @@ watch(
         }
     }
 );
+
 const getNextMonday = () => {
     const today = new Date();
     const dayOfWeek = today.getDay();
@@ -288,6 +289,7 @@ const store = () => {
         },
     });
 };
+
 </script>
 <template>
     <Layout :heading="`DST Orders > ${variant.toUpperCase()} > Create`">

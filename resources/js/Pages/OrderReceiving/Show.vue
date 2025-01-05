@@ -84,7 +84,7 @@ const submitReceivingForm = () => {
             toast.add({
                 severity: "success",
                 summary: "Success",
-                detail: "Received Quantity Updated Successfully.",
+                detail: "Your receive request has been successfully submitted. Please wait for approval.",
                 life: 5000,
             });
             showReceiveForm.value = false;

@@ -30,7 +30,7 @@ class ReceivingApprovalController extends Controller
             $query->whereAny(['order_number'], 'like', "%$search%");
 
 
-        $orders = $query->paginate(10);
+        $orders = $query->paginate(10)->withQueryString();
         return Inertia::render('ReceivingApproval/Index', [
             'orders' => $orders,
             'filters' => request()->only(['search'])

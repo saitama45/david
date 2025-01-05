@@ -288,8 +288,13 @@ Route::middleware('auth')
 
 
 
-        Route::get('/profile', [ProfileController::class, 'index'])
-            ->name('profile.index');
+        Route::controller(ProfileController::class)->name('profile.')
+            ->prefix('profile')
+            ->group(function () {
+                Route::get('/', 'index')->name('index');
+                Route::post('/update-details/{id}', 'updateDetails')->name('update-details');
+                Route::post('/update-password/{id}', 'updatePassword')->name('update-password');
+            });
 
         Route::controller(TestController::class)->group(function () {
             Route::get('/test', 'index')->name('test');

@@ -1,6 +1,10 @@
 <script setup>
 import Logo from "../../../images/logo.png";
 import { useForm, router } from "@inertiajs/vue3";
+import { useConfirm } from "primevue/useconfirm";
+import { useToast } from "@/Composables/useToast";
+const confirm = useConfirm();
+const { toast } = useToast();
 const { user } = defineProps({
     user: {
         type: Object,
@@ -20,6 +24,43 @@ const passwordForm = useForm({
     password: null,
     confirm_password: null,
 });
+
+const updateDetails = () => {
+    confirm.require({
+        message: "Are you sure you want to update this details?",
+        header: "Confirmation",
+        icon: "pi pi-exclamation-triangle",
+        rejectProps: {
+            label: "Cancel",
+            severity: "secondary",
+            outlined: true,
+        },
+        acceptProps: {
+            label: "Confirm",
+            severity: "info",
+        },
+        accept: () => {
+            form.post(route("profile.update-details", user.id), {
+                onSuccess: () => {
+                    toast.add({
+                        severity: "success",
+                        summary: "Success",
+                        detail: "Details Updated Successfully.",
+                        life: 5000,
+                    });
+                },
+                onError: (e) => {
+                    toast.add({
+                        severity: "error",
+                        summary: "Error",
+                        detail: "Can't update details.",
+                        life: 5000,
+                    });
+                },
+            });
+        },
+    });
+};
 </script>
 
 <template>
@@ -79,8 +120,9 @@ const passwordForm = useForm({
         <Card>
             <CardHeader>
                 <CardTitle>Edit Profile Details</CardTitle>
-                <CardDesription class="text-xs"
-                    >Please input all the important information.</CardDesription
+                <CardDescription class="text-xs"
+                    >Please input all the important
+                    information.</CardDescription
                 >
             </CardHeader>
             <CardContent class="grid grid-cols-2 gap-5">
@@ -111,15 +153,16 @@ const passwordForm = useForm({
                 </InputContainer>
             </CardContent>
             <CardFooter class="justify-end gap-3">
-                <Button>Update</Button>
+                <Button @click="updateDetails">Update</Button>
             </CardFooter>
         </Card>
 
         <Card>
             <CardHeader>
                 <CardTitle>Update Password</CardTitle>
-                <CardDesription class="text-xs"
-                    >Please input all the important information.</CardDesription
+                <CardDescription class="text-xs"
+                    >Please input all the important
+                    information.</CardDescription
                 >
             </CardHeader>
             <CardContent class="space-y-4">

@@ -28,8 +28,8 @@ const { search } = useSearch("product-sales.index");
                     <TD>Product</TD>
                     <TD>Inventory Code</TD>
                     <TD>Cost</TD>
-                    <TD>Total Sold</TD>
-                    <TD>Total Sale</TD>
+                    <TD>Delivered Quantity</TD>
+                    <TD>Total Amount</TD>
                     <TD>Action</TD>
                 </TableHead>
                 <TableBody>
@@ -37,9 +37,15 @@ const { search } = useSearch("product-sales.index");
                         <TD>{{ item.name }}</TD>
                         <TD>{{ item.inventory_code }}</TD>
                         <TD>{{ item.cost }}</TD>
-                        <TD>{{ item.total_sold ?? 0 }}</TD>
                         <TD>{{
-                            parseFloat(item.cost * item.total_sold).toFixed(2)
+                            item.store_order_items_sum_quantity_received ?? 0
+                        }}</TD>
+                        <TD>{{
+                            parseFloat(
+                                item.cost *
+                                    (item.store_order_items_sum_quantity_received ??
+                                        0)
+                            ).toFixed(2)
                         }}</TD>
                         <TD>
                             <ShowButton

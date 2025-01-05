@@ -23,6 +23,7 @@ class ProductSalesController extends Controller
 
         $items = $query->paginate(10);
 
+
         return Inertia::render('ProductSales/Index', [
             'items' => $items,
             'filters' => request()->only(['search'])
