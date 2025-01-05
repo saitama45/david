@@ -26,6 +26,7 @@ class ProductOrderSummaryController extends Controller
         $search = request('search');
         $dateRange = request('dateRange');
         $supplierId = request('supplierId');
+        $branchId = request('branchId');
         $suppliers = Supplier::options();
         $startDate = $dateRange ? Carbon::parse($dateRange[0])->addDay()->format('Y-m-d') : Carbon::yesterday()->format('Y-m-d');
         $endDate = $dateRange ? Carbon::parse($dateRange[1])->addDay()->format('Y-m-d') : $startDate;
@@ -37,8 +38,8 @@ class ProductOrderSummaryController extends Controller
             $query->whereAny(['name', 'inventory_code'], 'like', "%$search%");
         }
 
-        $query->withSum(['store_order_items' => function ($query) use ($startDate, $endDate, $supplierId) {
-            $query->whereHas('store_order', function ($subQuery) use ($startDate, $endDate, $supplierId) {
+        $query->withSum(['store_order_items' => function ($query) use ($startDate, $endDate, $supplierId, $branchId) {
+            $query->whereHas('store_order', function ($subQuery) use ($startDate, $endDate, $supplierId, $branchId) {
                 $subQuery->whereBetween('order_date', [$startDate, $endDate]);
                 if ($supplierId) {
                     $subQuery->where('supplier_id', $supplierId);
@@ -48,10 +49,14 @@ class ProductOrderSummaryController extends Controller
                     $assignedBranches = $user->store_branches->pluck('id');
                     $subQuery->whereIn('store_branch_id', $assignedBranches);
                 }
+
+                if ($branchId) {
+                    $subQuery->where('store_branch_id', $branchId);
+                }
             });
         }], 'quantity_ordered')
-            ->withSum(['store_order_items' => function ($query) use ($startDate, $endDate, $supplierId) {
-                $query->whereHas('store_order', function ($subQuery) use ($startDate, $endDate, $supplierId) {
+            ->withSum(['store_order_items' => function ($query) use ($startDate, $endDate, $supplierId, $branchId) {
+                $query->whereHas('store_order', function ($subQuery) use ($startDate, $endDate, $supplierId, $branchId) {
                     $subQuery->whereBetween('order_date', [$startDate, $endDate]);
                     if ($supplierId) {
                         $subQuery->where('supplier_id', $supplierId);
@@ -61,9 +66,13 @@ class ProductOrderSummaryController extends Controller
                         $assignedBranches = $user->store_branches->pluck('id');
                         $subQuery->whereIn('store_branch_id', $assignedBranches);
                     }
+
+                    if ($branchId) {
+                        $subQuery->where('store_branch_id', $branchId);
+                    }
                 });
             }], 'quantity_received')
-            ->whereHas('store_order_items.store_order', function ($query) use ($startDate, $endDate, $supplierId) {
+            ->whereHas('store_order_items.store_order', function ($query) use ($startDate, $endDate, $supplierId, $branchId) {
                 $query->whereBetween('order_date', [$startDate, $endDate]);
                 if ($supplierId) {
                     $query->where('supplier_id', $supplierId);
@@ -73,6 +82,10 @@ class ProductOrderSummaryController extends Controller
                     $assignedBranches = $user->store_branches->pluck('id');
                     $query->whereIn('store_branch_id', $assignedBranches);
                 }
+
+                if ($branchId) {
+                    $query->where('store_branch_id', $branchId);
+                }
             });
 
         $items = $query->paginate(10)->withQueryString();
@@ -80,7 +93,8 @@ class ProductOrderSummaryController extends Controller
         return Inertia::render('ProductOrderSummary/Index', [
             'items' => $items,
             'suppliers' => $suppliers,
-            'filters' => request()->only(['search', 'dateRange', 'supplierId'])
+            'branches' => $branches,
+            'filters' => request()->only(['search', 'dateRange', 'supplierId', 'branchId'])
         ]);
     }
 
@@ -88,15 +102,19 @@ class ProductOrderSummaryController extends Controller
     {
         $dateRange = request('dateRange');
         $supplierId = request('supplierId');
+        $branchId = request('branchId');
         $startDate = $dateRange ? Carbon::parse($dateRange[0])->addDay()->format('Y-m-d') : Carbon::yesterday()->format('Y-m-d');
         $endDate = $dateRange ? Carbon::parse($dateRange[1])->addDay()->format('Y-m-d') : $startDate;
 
         $item = ProductInventory::with(['unit_of_measurement'])
-            ->with(['store_order_items' => function ($query) use ($startDate, $endDate, $supplierId) {
-                $query->whereHas('store_order', function ($subQuery) use ($startDate, $endDate, $supplierId) {
+            ->with(['store_order_items' => function ($query) use ($startDate, $endDate, $supplierId, $branchId) {
+                $query->whereHas('store_order', function ($subQuery) use ($startDate, $endDate, $supplierId, $branchId) {
                     $subQuery->whereBetween('order_date', [$startDate, $endDate]);
                     if ($supplierId) {
                         $subQuery->where('supplier_id', $supplierId);
+                    }
+                    if ($branchId) {
+                        $subQuery->where('store_branch_id', $branchId);
                     }
                 })->with(['store_order.store_branch', 'store_order.supplier']);
             }])

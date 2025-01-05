@@ -7,6 +7,7 @@ import { useSelectOptions } from "@/Composables/useSelectOptions";
 let dateRange = ref(usePage().props.filters.dateRange);
 let supplierId = ref(usePage().props.filters.supplierId);
 let search = ref(usePage().props.filters.search);
+let branchId = ref(usePage().props.filters.branchId);
 const props = defineProps({
     items: {
         type: Object,
@@ -16,9 +17,14 @@ const props = defineProps({
         type: Object,
         required: true,
     },
+    branches: {
+        type: Object,
+        required: true,
+    },
 });
 
 const { options: suppliersOption } = useSelectOptions(props.suppliers);
+const { options: branchesOption } = useSelectOptions(props.branches);
 
 const showProductOrdersDetails = (id) => {
     router.get(
@@ -26,12 +32,29 @@ const showProductOrdersDetails = (id) => {
         {
             dateRange: dateRange.value,
             supplierId: supplierId.value,
+            branchId: branchId.value
         },
         {
             preserveState: true,
         }
     );
 };
+
+watch(branchId, (value) => {
+    router.get(
+        route("product-orders-summary.index"),
+        {
+            dateRange: dateRange.value,
+            search: search.value,
+            supplierId: supplierId.value,
+            branchId: value,
+        },
+        {
+            preserveState: true,
+            replace: true,
+        }
+    );
+});
 
 watch(dateRange, (value) => {
     router.get(
@@ -40,6 +63,7 @@ watch(dateRange, (value) => {
             dateRange: value,
             search: search.value,
             supplierId: supplierId.value,
+            branchId: branchId.value,
         },
         {
             preserveState: true,
@@ -51,7 +75,12 @@ watch(dateRange, (value) => {
 watch(supplierId, (value) => {
     router.get(
         route("product-orders-summary.index"),
-        { supplierId: value, dateRange: dateRange.value, search: search.value },
+        {
+            supplierId: value,
+            dateRange: dateRange.value,
+            search: search.value,
+            branchId: branchId.value,
+        },
         {
             preserveState: true,
             replace: true,
@@ -68,6 +97,7 @@ watch(
                 search: value,
                 dateRange: dateRange.value,
                 supplierId: supplierId.value,
+                branchId: branchId.value,
             },
             {
                 preserveState: true,
@@ -115,6 +145,16 @@ onMounted(() => {
                     />
                 </SearchBar>
                 <DivFlexCenter class="gap-3">
+                    <Select
+                        filter
+                        placeholder="Filter By Store"
+                        :options="branchesOption"
+                        optionLabel="label"
+                        optionValue="value"
+                        v-model="branchId"
+                        showClear
+                    >
+                    </Select>
                     <Select
                         placeholder="Filter By Supplier"
                         :options="suppliersOption"
