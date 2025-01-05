@@ -272,7 +272,7 @@ const addQuantityApproved = (id) => {
             </DivFlexCenter>
 
             <TableHeader>
-                <SearchBar />
+                <!-- <SearchBar /> -->
             </TableHeader>
 
             <Table>
@@ -297,7 +297,10 @@ const addQuantityApproved = (id) => {
                                 itemsDetail.find((item) => item.id === order.id)
                                     ?.quantity_approved || 0
                             }}
-                            <DivFlexCenter class="gap-2">
+                            <DivFlexCenter
+                                v-if="order.order_request_status === 'pending'"
+                                class="gap-2"
+                            >
                                 <button @click="lessQuantityApproved(order.id)">
                                     <Minus class="size-4 text-red-500" />
                                 </button>
