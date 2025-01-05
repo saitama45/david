@@ -121,6 +121,7 @@ onMounted(() => {
                         optionLabel="label"
                         optionValue="value"
                         v-model="supplierId"
+                        showClear
                     >
                     </Select>
                     <DatePicker

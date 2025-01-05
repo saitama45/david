@@ -6,6 +6,7 @@ use App\Enum\UserRole;
 use App\Mail\OneTimePasswordMail;
 use App\Models\Branch;
 use App\Models\ProductInventory;
+use App\Models\StoreBranch;
 use App\Models\StoreOrder;
 use App\Models\User;
 use Exception;
@@ -19,7 +20,17 @@ class DashboardController extends Controller
 {
     public function index()
     {
+        
         $user = User::with(['roles', 'store_branches'])->findOrFail(Auth::user()->id);
+
+        if(in_array('admin', $user->roles->pluck('name')->toArray())){
+            return Inertia::render('Dashboard/Index');
+        }
+        if (in_array('so encoder', $user->roles->pluck('name')->toArray()) && !in_array('admin', $user->roles->pluck('name')->toArray())) {
+            $assignedBranches = $user->store_branches->pluck('id');
+            $branches = StoreBranch::whereIn('id', $assignedBranches)->options();
+        }
+
         $assignedBranches = $user->store_branches->pluck('id')->toArray();
         $userRoles = $user->roles->pluck('name')->toArray();
         $branches = $user->store_branches->pluck('name', 'id')->toArray();
@@ -33,7 +44,30 @@ class DashboardController extends Controller
         ')
             ->first();
 
-        $highStockproducts = ProductInventory::with(['inventory_stocks' => function ($query) use ($branchId) {
+        $highStockproducts = $this->getHighStockProducts($branchId);
+
+        $mostUsedProducts = $this->getMostUsedProducts($branchId);
+
+        $lowOnStockItems = $this->getLowOnStockItems($branchId);
+
+
+        return Inertia::render('StoreDashboard/Index', [
+            'branches' => $branches,
+            'orderCounts' => [
+                'pending' => $orderCounts->pending_count ?? 0,
+                'approved' => $orderCounts->approved_count ?? 0,
+                'rejected' => $orderCounts->rejected_count ?? 0
+            ],
+            'filters' => request()->only(['branchId']),
+            'highStockProducts' => $highStockproducts,
+            'mostUsedProducts' => $mostUsedProducts,
+            'lowOnStockItems' => $lowOnStockItems
+        ]);
+    }
+
+    public function getHighStockProducts($branchId)
+    {
+        return ProductInventory::with(['inventory_stocks' => function ($query) use ($branchId) {
             $query->where('store_branch_id', $branchId);
         }])
             ->whereHas('inventory_stocks', function ($query) use ($branchId) {
@@ -53,8 +87,11 @@ class DashboardController extends Controller
                     'stock' => $stock->quantity - $stock->used,
                 ];
             });
+    }
 
-        $mostUsedProducts = ProductInventory::with(['inventory_stocks' => function ($query) use ($branchId) {
+    public function getMostUsedProducts($branchId)
+    {
+        return ProductInventory::with(['inventory_stocks' => function ($query) use ($branchId) {
             $query->where('store_branch_id', $branchId);
         }])
             ->whereHas('inventory_stocks', function ($query) use ($branchId) {
@@ -67,31 +104,13 @@ class DashboardController extends Controller
             ->orderBy('total_used', 'desc')
             ->take(4)
             ->get()
-            ->map(function($item){
+            ->map(function ($item) {
                 return [
                     'name' => $item->name,
                     'used' => $item->total_used ?? 0
                 ];
             })
-            ;
-
-
-
-        $lowOnStockItems = $this->getLowOnStockItems($branchId);
-
-
-        return Inertia::render('StoreDashboard/Index', [
-            'branches' => $branches,
-            'orderCounts' => [
-                'pending' => $orderCounts->pending_count ?? 0,
-                'approved' => $orderCounts->approved_count ?? 0,
-                'rejected' => $orderCounts->rejected_count ?? 0
-            ],
-            'filters' => request()->only(['branchId']),
-            'highStockProducts' => $highStockproducts,
-            'mostUsedProducts' => $mostUsedProducts,
-            'lowOnStockItems' => $lowOnStockItems
-        ]);
+        ;
     }
 
     public function getLowOnStockItems($branchId)
