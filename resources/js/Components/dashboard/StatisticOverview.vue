@@ -1,14 +1,11 @@
 <script setup>
 import { DollarSign } from "lucide-vue-next";
-import {
-    Card,
-    CardContent,
-    CardHeader,
-    CardTitle,
-} from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 defineProps({
     heading: String,
-    value: String,
+    value: {
+        required: true,
+    },
     subheading: String,
 });
 </script>

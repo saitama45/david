@@ -1,8 +1,26 @@
 <script setup>
 import StatisticOverview from "../../Components/dashboard/StatisticOverview.vue";
-
-import Chart from "primevue/chart";
 import { router } from "@inertiajs/vue3";
+import Chart from "primevue/chart";
+
+const props = defineProps({
+    branches: {
+        type: Object,
+        required: true,
+    },
+    orderCounts: {
+        type: Object,
+        required: true,
+    },
+    filters: {
+        type: Object,
+        default: {},
+    },
+});
+console.log(props.orderCounts);
+import { useSelectOptions } from "@/Composables/useSelectOptions";
+
+const { options: branchesOption } = useSelectOptions(props.branches);
 
 onMounted(() => {
     chartData.value = setChartData();
@@ -52,24 +70,47 @@ const setChartOptions = () => {
         },
     };
 };
+
+const branchId = ref(Object.values(branchesOption.value)[0].value + "");
+
+watch(branchId, (value) => {
+    router.get(
+        route("dashboard"),
+        {
+            branchId: value,
+        },
+        {}
+    );
+});
 </script>
 
 <template>
     <Layout heading="Hello User">
+        <section>
+            <Select
+                filter
+                placeholder="Select a Supplier"
+                :options="branchesOption"
+                optionLabel="label"
+                optionValue="value"
+                v-model="branchId"
+            >
+            </Select>
+        </section>
         <section class="grid grid-cols-3 gap-5">
             <StatisticOverview
                 heading="Approved Orders"
-                value="0"
+                :value="orderCounts.approved"
                 subheading=""
             />
             <StatisticOverview
                 heading="Pending Orders"
-                value="0"
+                :value="orderCounts.pending"
                 subheading=""
             />
             <StatisticOverview
                 heading="Rejected Orders"
-                value="0"
+                :value="orderCounts.rejected"
                 subheading=""
             />
         </section>
