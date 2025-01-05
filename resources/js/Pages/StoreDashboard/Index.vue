@@ -28,6 +28,10 @@ const props = defineProps({
         type: Object,
         default: {},
     },
+    auth: {
+        type: Object,
+        required: true,
+    },
 });
 
 import { useSelectOptions } from "@/Composables/useSelectOptions";
@@ -139,7 +143,7 @@ watch(branchId, (value) => {
 </script>
 
 <template>
-    <Layout heading="Hello User">
+    <Layout :heading="`Hello, ${auth.user.first_name}.`">
         <section>
             <Select
                 filter

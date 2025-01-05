@@ -8,6 +8,7 @@ use App\Models\ProductInventoryStockUsed;
 use App\Models\StoreBranch;
 use App\Models\UsageRecord;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
 
@@ -16,7 +17,14 @@ class StockManagementController extends Controller
     public function index()
     {
         $search = request('search');
-        $branches = StoreBranch::options();
+        $user = Auth::user();
+
+        if (in_array('so encoder', $user->roles->pluck('name')->toArray()) && !in_array('admin', $user->roles->pluck('name')->toArray())) {
+            $assignedBranches = $user->store_branches->pluck('id');
+            $branches = StoreBranch::whereIn('id', $assignedBranches)->options();
+        } else {
+            $branches = StoreBranch::options();
+        }
         $branchId = request('branchId') ?? $branches->keys()->first();
 
         $usageRecords = DB::table('usage_records as ur')

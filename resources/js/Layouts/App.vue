@@ -55,22 +55,23 @@ const { roles, is_admin } = usePage().props.auth;
 const isAdmin = is_admin;
 
 const canViewOrderingGroup = is_admin || roles.includes("so encoder");
-const canViewReceivingGroup = is_admin || roles.includes("rec approver");
+const canViewReceivingGroup =
+    is_admin || roles.includes("rec approver") || roles.includes("so encoder");
 const canViewSalesGroup = is_admin;
 const canViewReportsGroup = is_admin || roles.includes("so encoder");
-const canViewInventoryGroup = is_admin;
+const canViewInventoryGroup = is_admin || roles.includes("so encoder");
 
 const canViewStoreOrderPage = is_admin || roles.includes("so encoder");
 const canViewOrderApprovals = is_admin;
 
 const canViewReceivingOrders = is_admin || roles.includes("so encoder");
 const canViewReceivingApprovals = is_admin || roles.includes("rec approver");
-const canViewApprovedReceivedItems = is_admin;
+const canViewApprovedReceivedItems = is_admin || roles.includes("so encoder");
 
 const canViewItems = is_admin;
 
 const canViewItemsOrderSummary = is_admin;
-
+const canViewStockManagement = is_admin || roles.includes("so encoder");
 const canViewStocks = is_admin || roles.includes("so encoder");
 
 const canViewCategories = is_admin;
@@ -181,7 +182,7 @@ const logout = () => {
                             Sales
                         </DropdownMenuLabel>
                         <NavLink
-                            v-if="true"
+                            v-if="is_admin"
                             href="/product-sales"
                             :icon="FileCheck"
                         >
@@ -212,7 +213,7 @@ const logout = () => {
                             Menu
                         </NavLink>
                         <NavLink
-                            v-if="canViewItems"
+                            v-if="canViewStockManagement"
                             href="/stock-management"
                             :icon="PackageSearch"
                         >

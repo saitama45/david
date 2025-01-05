@@ -25,7 +25,7 @@ class OrderReceivingController extends Controller
 
         $user = Auth::user();
 
-        if ($user->role === 'so_encoder') {
+        if (in_array('so encoder', $user->roles->pluck('name')->toArray()) && !in_array('admin', $user->roles->pluck('name')->toArray())) {
             $query->whereIn('store_branch_id', $user->store_branches->pluck('id'));
         }
 
