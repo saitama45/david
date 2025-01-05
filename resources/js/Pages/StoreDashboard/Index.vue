@@ -1,0 +1,111 @@
+<script setup>
+import StatisticOverview from "../../Components/dashboard/StatisticOverview.vue";
+
+import Chart from "primevue/chart";
+import { router } from "@inertiajs/vue3";
+
+onMounted(() => {
+    chartData.value = setChartData();
+    chartOptions.value = setChartOptions();
+});
+
+const chartData = ref();
+const chartOptions = ref();
+
+const setChartData = () => {
+    const documentStyle = getComputedStyle(document.body);
+
+    return {
+        labels: ["Apple Chie", "Almond Crunch", "Ice Cream", "Knorr"],
+        datasets: [
+            {
+                data: [540, 325, 702, 200],
+                backgroundColor: [
+                    documentStyle.getPropertyValue("--p-blue-500"),
+                    documentStyle.getPropertyValue("--p-yellow-500"),
+                    documentStyle.getPropertyValue("--p-green-500"),
+                    documentStyle.getPropertyValue("--p-orange-500"),
+                ],
+                hoverBackgroundColor: [
+                    documentStyle.getPropertyValue("--p-blue-400"),
+                    documentStyle.getPropertyValue("--p-yellow-400"),
+                    documentStyle.getPropertyValue("--p-green-400"),
+                    documentStyle.getPropertyValue("--p-orange-400"),
+                ],
+            },
+        ],
+    };
+};
+
+const setChartOptions = () => {
+    const documentStyle = getComputedStyle(document.documentElement);
+    const textColor = documentStyle.getPropertyValue("--p-text-color");
+
+    return {
+        plugins: {
+            legend: {
+                labels: {
+                    usePointStyle: true,
+                    color: textColor,
+                },
+            },
+        },
+    };
+};
+</script>
+
+<template>
+    <Layout heading="Hello User">
+        <section class="grid grid-cols-3 gap-5">
+            <StatisticOverview
+                heading="Approved Orders"
+                value="0"
+                subheading=""
+            />
+            <StatisticOverview
+                heading="Pending Orders"
+                value="0"
+                subheading=""
+            />
+            <StatisticOverview
+                heading="Rejected Orders"
+                value="0"
+                subheading=""
+            />
+        </section>
+        <section class="grid grid-cols-3 gap-5">
+            <DivFlexCol class="gap-3">
+                <SpanBold>Items Stock</SpanBold>
+                <Chart
+                    type="pie"
+                    :data="chartData"
+                    :options="chartOptions"
+                    class="w-full"
+                />
+            </DivFlexCol>
+            <DivFlexCol class="gap-3 col-span-2">
+                <SpanBold>Most Used Items</SpanBold>
+                <Chart type="bar" :data="chartData" :options="chartOptions" />
+            </DivFlexCol>
+        </section>
+        <section>
+            <TableContainer>
+                <TableHead>
+                    <SpanBold>Low on stock items</SpanBold>
+                </TableHead>
+                <Table>
+                    <TableHead>
+                        <TD>Name</TD>
+                        <TD>Inventory Code</TD>
+                        <TD>Stock On Hand</TD>
+                        <TD>System Estimated Used</TD>
+                        <TD>Recorded Used</TD>
+                    </TableHead>
+                    <TableBody>
+                        <tr></tr>
+                    </TableBody>
+                </Table>
+            </TableContainer>
+        </section>
+    </Layout>
+</template>
