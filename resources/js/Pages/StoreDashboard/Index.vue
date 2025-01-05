@@ -12,32 +12,46 @@ const props = defineProps({
         type: Object,
         required: true,
     },
+    highStockProducts: {
+        type: Object,
+        required: true,
+    },
+    mostUsedProducts: {
+        type: Object,
+        required: true,
+    },
     filters: {
         type: Object,
         default: {},
     },
+    lowOnStockItems: {
+        type: Object,
+        default: {},
+    },
 });
-console.log(props.orderCounts);
+
 import { useSelectOptions } from "@/Composables/useSelectOptions";
 
 const { options: branchesOption } = useSelectOptions(props.branches);
 
 onMounted(() => {
-    chartData.value = setChartData();
+    pieChartData.value = setPieChartData();
+    barChartData.value = setBarChartData();
     chartOptions.value = setChartOptions();
 });
 
-const chartData = ref();
+const pieChartData = ref();
+const barChartData = ref();
 const chartOptions = ref();
 
-const setChartData = () => {
+const setPieChartData = () => {
     const documentStyle = getComputedStyle(document.body);
 
     return {
-        labels: ["Apple Chie", "Almond Crunch", "Ice Cream", "Knorr"],
+        labels: props.highStockProducts.map((product) => product.name),
         datasets: [
             {
-                data: [540, 325, 702, 200],
+                data: props.highStockProducts.map((product) => product.stock),
                 backgroundColor: [
                     documentStyle.getPropertyValue("--p-blue-500"),
                     documentStyle.getPropertyValue("--p-yellow-500"),
@@ -50,6 +64,25 @@ const setChartData = () => {
                     documentStyle.getPropertyValue("--p-green-400"),
                     documentStyle.getPropertyValue("--p-orange-400"),
                 ],
+            },
+        ],
+    };
+};
+
+const setBarChartData = () => {
+    const documentStyle = getComputedStyle(document.body);
+
+    return {
+        labels: props.mostUsedProducts.map((product) => product.name),
+        datasets: [
+            {
+                label: "Usage Count",
+                data: props.mostUsedProducts.map(
+                    (product) => product.usage_count
+                ),
+                backgroundColor: documentStyle.getPropertyValue("--p-blue-500"),
+                hoverBackgroundColor:
+                    documentStyle.getPropertyValue("--p-blue-400"),
             },
         ],
     };
@@ -68,10 +101,31 @@ const setChartOptions = () => {
                 },
             },
         },
+        scales: {
+            y: {
+                beginAtZero: true,
+                ticks: {
+                    color: textColor,
+                },
+                grid: {
+                    color: documentStyle.getPropertyValue("--surface-border"),
+                },
+            },
+            x: {
+                ticks: {
+                    color: textColor,
+                },
+                grid: {
+                    color: documentStyle.getPropertyValue("--surface-border"),
+                },
+            },
+        },
     };
 };
 
-const branchId = ref(Object.values(branchesOption.value)[0].value + "");
+const branchId = ref(
+    props.filters.branchId ?? Object.values(branchesOption.value)[0].value + ""
+);
 
 watch(branchId, (value) => {
     router.get(
@@ -116,17 +170,21 @@ watch(branchId, (value) => {
         </section>
         <section class="grid grid-cols-3 gap-5">
             <DivFlexCol class="gap-3">
-                <SpanBold>Items Stock</SpanBold>
+                <SpanBold>High Stock Items</SpanBold>
                 <Chart
                     type="pie"
-                    :data="chartData"
+                    :data="pieChartData"
                     :options="chartOptions"
                     class="w-full"
                 />
             </DivFlexCol>
             <DivFlexCol class="gap-3 col-span-2">
                 <SpanBold>Most Used Items</SpanBold>
-                <Chart type="bar" :data="chartData" :options="chartOptions" />
+                <Chart
+                    type="bar"
+                    :data="barChartData"
+                    :options="chartOptions"
+                />
             </DivFlexCol>
         </section>
         <section>
@@ -136,16 +194,25 @@ watch(branchId, (value) => {
                 </TableHead>
                 <Table>
                     <TableHead>
-                        <TD>Name</TD>
-                        <TD>Inventory Code</TD>
-                        <TD>Stock On Hand</TD>
-                        <TD>System Estimated Used</TD>
-                        <TD>Recorded Used</TD>
+                        <TH>Name</TH>
+                        <TH>Inventory Code</TH>
+                        <TH>UOM</TH>
+                        <TH>Stock On Hand</TH>
+                        <TH>System Estimated Used</TH>
+                        <TH>Recorded Used</TH>
                     </TableHead>
                     <TableBody>
-                        <tr></tr>
+                        <tr v-for="item in lowOnStockItems.data">
+                            <TD>{{ item.name }}</TD>
+                            <TD>{{ item.inventory_code }}</TD>
+                            <TD>{{ item.uom }}</TD>
+                            <TD>{{ item.stock_on_hand }}</TD>
+                            <TD>{{ item.estimated_used }}</TD>
+                            <TD>{{ item.recorded_used }}</TD>
+                        </tr>
                     </TableBody>
                 </Table>
+                <Pagination :data="lowOnStockItems" />
             </TableContainer>
         </section>
     </Layout>

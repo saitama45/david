@@ -6,7 +6,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use OwenIt\Auditing\Contracts\Auditable;
 
-class ProductInventoryStock extends Model implements Auditable
+class  ProductInventoryStock extends Model implements Auditable
 {
     /** @use HasFactory<\Database\Factories\ProductInventoryStockFactory> */
     use HasFactory, \OwenIt\Auditing\Auditable;
