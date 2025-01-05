@@ -3,16 +3,26 @@
 namespace App\Http\Controllers;
 
 use App\Models\ProductInventory;
+use App\Models\StoreBranch;
 use App\Models\StoreOrderItem;
 use App\Models\Supplier;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 use Inertia\Inertia;
 
 class ProductOrderSummaryController extends Controller
 {
     public function index()
     {
+        $user = Auth::user();
+
+        if (in_array('so encoder', $user->roles->pluck('name')->toArray()) && !in_array('admin', $user->roles->pluck('name')->toArray())) {
+            $assignedBranches = $user->store_branches->pluck('id');
+            $branches = StoreBranch::whereIn('id', $assignedBranches)->options();
+        } else {
+            $branches = StoreBranch::options();
+        }
         $search = request('search');
         $dateRange = request('dateRange');
         $supplierId = request('supplierId');
@@ -33,6 +43,11 @@ class ProductOrderSummaryController extends Controller
                 if ($supplierId) {
                     $subQuery->where('supplier_id', $supplierId);
                 }
+                $user = Auth::user();
+                if (in_array('so encoder', $user->roles->pluck('name')->toArray()) && !in_array('admin', $user->roles->pluck('name')->toArray())) {
+                    $assignedBranches = $user->store_branches->pluck('id');
+                    $subQuery->whereIn('store_branch_id', $assignedBranches);
+                }
             });
         }], 'quantity_ordered')
             ->withSum(['store_order_items' => function ($query) use ($startDate, $endDate, $supplierId) {
@@ -41,12 +56,22 @@ class ProductOrderSummaryController extends Controller
                     if ($supplierId) {
                         $subQuery->where('supplier_id', $supplierId);
                     }
+                    $user = Auth::user();
+                    if (in_array('so encoder', $user->roles->pluck('name')->toArray()) && !in_array('admin', $user->roles->pluck('name')->toArray())) {
+                        $assignedBranches = $user->store_branches->pluck('id');
+                        $subQuery->whereIn('store_branch_id', $assignedBranches);
+                    }
                 });
             }], 'quantity_received')
             ->whereHas('store_order_items.store_order', function ($query) use ($startDate, $endDate, $supplierId) {
                 $query->whereBetween('order_date', [$startDate, $endDate]);
                 if ($supplierId) {
                     $query->where('supplier_id', $supplierId);
+                }
+                $user = Auth::user();
+                if (in_array('so encoder', $user->roles->pluck('name')->toArray()) && !in_array('admin', $user->roles->pluck('name')->toArray())) {
+                    $assignedBranches = $user->store_branches->pluck('id');
+                    $query->whereIn('store_branch_id', $assignedBranches);
                 }
             });
 

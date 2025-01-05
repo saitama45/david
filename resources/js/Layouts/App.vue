@@ -223,7 +223,7 @@ const logout = () => {
                             Reports
                         </DropdownMenuLabel>
                         <NavLink
-                            v-if="is_admin"
+                            v-if="true"
                             href="/product-orders-summary"
                             :icon="PackageSearch"
                         >
