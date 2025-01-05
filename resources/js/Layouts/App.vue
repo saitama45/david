@@ -223,28 +223,28 @@ const logout = () => {
                             Reports
                         </DropdownMenuLabel>
                         <NavLink
-                            v-if="canViewItemsOrderSummary"
+                            v-if="is_admin"
                             href="/product-orders-summary"
                             :icon="PackageSearch"
                         >
                             Item Orders Summary
                         </NavLink>
                         <NavLink
-                            v-if="canViewApprovedReceivedItems"
+                            v-if="is_admin"
                             href="/ice-cream-orders"
                             :icon="FileCheck"
                         >
                             Ice Cream Orders
                         </NavLink>
                         <NavLink
-                            v-if="canViewApprovedReceivedItems"
+                            v-if="is_admin"
                             href="/salmon-orders"
                             :icon="FileCheck"
                         >
                             Salmon Orders
                         </NavLink>
                         <NavLink
-                            v-if="canViewApprovedReceivedItems"
+                            v-if="is_admin"
                             href="/fruits-and-vegetables"
                             :icon="FileCheck"
                         >
@@ -253,7 +253,7 @@ const logout = () => {
                         <NavLink
                             href="/stocks"
                             :icon="PackageSearch"
-                            v-if="canViewStocks"
+                            v-if="is_admin"
                         >
                             Stocks
                         </NavLink>

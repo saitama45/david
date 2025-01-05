@@ -61,19 +61,21 @@ class DashboardController extends Controller
                 $query->where('store_branch_id', $branchId);
             })
             ->select('product_inventories.*')
-            ->selectRaw('(SELECT SUM(quantity - used) FROM product_inventory_stocks 
-                WHERE product_inventories.id = product_inventory_stocks.product_inventory_id 
-                AND store_branch_id = ?) as stock_on_hand', [$branchId])
-            ->orderBy('stock_on_hand')
+            ->selectRaw('(SELECT SUM(used) FROM product_inventory_stocks 
+                WHERE product_inventory_stocks.product_inventory_id = product_inventories.id 
+                AND store_branch_id = ?) as total_used', [$branchId])
+            ->orderBy('total_used', 'desc')
             ->take(4)
             ->get()
-            ->map(function ($product) {
-                $stock = $product->inventory_stocks->first();
+            ->map(function($item){
                 return [
-                    'name' => $product->name,
-                    'used' => $stock->used
+                    'name' => $item->name,
+                    'used' => $item->total_used ?? 0
                 ];
-            });
+            })
+            ;
+
+
 
         $lowOnStockItems = $this->getLowOnStockItems($branchId);
 

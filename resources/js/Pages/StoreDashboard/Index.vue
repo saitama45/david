@@ -34,6 +34,8 @@ const props = defineProps({
     },
 });
 
+console.log(props.mostUsedProducts);
+
 import { useSelectOptions } from "@/Composables/useSelectOptions";
 
 const { options: branchesOption } = useSelectOptions(props.branches);
@@ -82,7 +84,7 @@ const setBarChartData = () => {
             {
                 label: "Usage Count",
                 data: props.mostUsedProducts.map(
-                    (product) => product.usage_count
+                    (product) => product.used
                 ),
                 backgroundColor: documentStyle.getPropertyValue("--p-blue-500"),
                 hoverBackgroundColor:
