@@ -300,6 +300,7 @@ Route::middleware('auth')
             Route::get('/test', 'index')->name('test');
             Route::post('/uploadImage', 'store')->name('upload-image');
             Route::post('/destroy', 'destroy')->name('destroy');
+            Route::post('/approveImage/{id}', 'approveImage')->name('approveImage');
         });
 
 

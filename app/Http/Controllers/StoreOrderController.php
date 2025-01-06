@@ -151,7 +151,9 @@ class StoreOrderController extends Controller
             'ordered_item_receive_dates.receiver',
             'ordered_item_receive_dates.store_order_item',
             'ordered_item_receive_dates.store_order_item.product_inventory',
-            'image_attachments'
+            'image_attachments' => function ($query) {
+                $query->where('is_approved', true);
+            },
         ])->where('order_number', $id)->firstOrFail();
         $orderedItems = $order->store_order_items()->with(['product_inventory', 'product_inventory.unit_of_measurement'])->get();
 

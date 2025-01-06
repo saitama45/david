@@ -47,6 +47,15 @@ class TestController extends Controller
         return redirect()->back()->with('success', 'Image uploaded successfully');
     }
 
+    public function approveImage($id)
+    {
+        $image = ImageAttachment::findOrFail($id);
+        $image->update([
+            'is_approved' => true
+        ]);
+        return back();
+    }
+
     public function destroy()
     {
         $validated = request()->validate([

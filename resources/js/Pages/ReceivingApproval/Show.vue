@@ -3,7 +3,7 @@ import { useBackButton } from "@/Composables/useBackButton";
 
 import { useForm } from "@inertiajs/vue3";
 const { backButton } = useBackButton(route("receiving-approvals.index"));
-
+import { router } from "@inertiajs/vue3";
 import { useConfirm } from "primevue/useconfirm";
 import { useToast } from "primevue/usetoast";
 import { X } from "lucide-vue-next";
@@ -138,13 +138,9 @@ const enlargeImage = (image) => {
     isEnlargedImageVisible.value = true;
 };
 
-const deleteImageForm = useForm({
-    id: null,
-});
-
-const deleteImage = () => {
+const approveImage = () => {
     confirm.require({
-        message: "Are you sure you want to delete this image?",
+        message: "Are you sure you want to approve this image?",
         header: "Confirmation",
         icon: "pi pi-exclamation-triangle",
         rejectProps: {
@@ -153,25 +149,29 @@ const deleteImage = () => {
             outlined: true,
         },
         acceptProps: {
-            label: "Remove",
-            severity: "danger",
+            label: "Confirm",
+            severity: "success",
         },
         accept: () => {
-            deleteImageForm.post(route("destroy"), {
-                onSuccess: () => {
-                    toast.add({
-                        severity: "success",
-                        summary: "Success",
-                        detail: "Image deletd successfully.",
-                        life: 5000,
-                    });
-                    isLoading.value = false;
-                },
-                onError: (err) => {
-                    isLoading.value = false;
-                    console.log(err);
-                },
-            });
+            router.post(
+                route("approveImage", selectedImage.value.id),
+                {},
+                {
+                    onSuccess: () => {
+                        toast.add({
+                            severity: "success",
+                            summary: "Success",
+                            detail: "Image approved successfully.",
+                            life: 5000,
+                        });
+                        isLoading.value = false;
+                    },
+                    onError: (err) => {
+                        isLoading.value = false;
+                        console.log(err);
+                    },
+                }
+            );
         },
     });
 };
@@ -243,15 +243,6 @@ const deleteImage = () => {
                         :key="image.id"
                         class="relative"
                     >
-                        <button
-                            @click="
-                                deleteImageForm.id = image.id;
-                                deleteImage();
-                            "
-                            class="absolute -right-2 -top-2 text-white size-5 rounded-full bg-red-500"
-                        >
-                            <X class="size-5" />
-                        </button>
                         <img
                             :src="image.image_url"
                             class="size-24 cursor-pointer hover:opacity-80 transition-opacity"
@@ -270,12 +261,13 @@ const deleteImage = () => {
         <!-- Image Viewer -->
         <Dialog v-model:open="isEnlargedImageVisible">
             <DialogContent
-                class="sm:max-w-[90vw] h-[90vh] p-0 flex items-center justify-center"
+                class="sm:max-w-[90vw] h-[90vh] p-0 flex flex-col items-center justify-center"
             >
-                <button
-                    @click="isEnlargedImageVisible = false"
-                    class="absolute right-4 top-4 rounded-sm ring-offset-background transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 bg-white/80 p-2"
-                ></button>
+                <DialogHeader>
+                    <DialogTitle></DialogTitle>
+                    <DialogDescription></DialogDescription>
+                </DialogHeader>
+                <Button @click="approveImage">Approve Image</Button>
                 <img
                     v-if="selectedImage"
                     :src="selectedImage.image_url"
