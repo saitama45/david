@@ -16,6 +16,7 @@ return new class extends Migration
             $table->foreignId('store_order_id')->constrained('store_orders')->cascadeOnDelete();
             $table->string('file_path');
             $table->string('mime_type');
+            $table->boolean('is_approved')->default(false);
             $table->timestamps();
         });
     }

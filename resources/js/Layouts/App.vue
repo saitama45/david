@@ -54,19 +54,23 @@ const { roles, is_admin } = usePage().props.auth;
 
 const isAdmin = is_admin;
 
-const canViewOrderingGroup = is_admin || roles.includes("so encoder");
+const canViewOrderingGroup =
+    is_admin || roles.includes("so encoder") || roles.includes("rec approver");
 const canViewReceivingGroup =
     is_admin || roles.includes("rec approver") || roles.includes("so encoder");
 const canViewSalesGroup = is_admin;
-const canViewReportsGroup = is_admin || roles.includes("so encoder");
+const canViewReportsGroup =
+    is_admin || roles.includes("so encoder") || roles.includes("rec approver");
 const canViewInventoryGroup = is_admin || roles.includes("so encoder");
 
 const canViewStoreOrderPage = is_admin || roles.includes("so encoder");
-const canViewOrderApprovals = is_admin;
+const canViewOrderApprovals = is_admin || roles.includes("rec approver");
 
 const canViewReceivingOrders = is_admin || roles.includes("so encoder");
 const canViewReceivingApprovals = is_admin || roles.includes("rec approver");
 const canViewApprovedReceivedItems = is_admin || roles.includes("so encoder");
+
+const canViewDtsOrdersSummary = is_admin || roles.includes("rec approver");
 
 const canViewItems = is_admin;
 
@@ -230,21 +234,21 @@ const logout = () => {
                             Item Orders Summary
                         </NavLink>
                         <NavLink
-                            v-if="is_admin"
+                            v-if="canViewDtsOrdersSummary"
                             href="/ice-cream-orders"
                             :icon="FileCheck"
                         >
                             Ice Cream Orders
                         </NavLink>
                         <NavLink
-                            v-if="is_admin"
+                            v-if="canViewDtsOrdersSummary"
                             href="/salmon-orders"
                             :icon="FileCheck"
                         >
                             Salmon Orders
                         </NavLink>
                         <NavLink
-                            v-if="is_admin"
+                            v-if="canViewDtsOrdersSummary"
                             href="/fruits-and-vegetables"
                             :icon="FileCheck"
                         >

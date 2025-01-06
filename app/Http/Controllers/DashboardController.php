@@ -20,11 +20,15 @@ class DashboardController extends Controller
 {
     public function index()
     {
-        
+
         $user = User::with(['roles', 'store_branches'])->findOrFail(Auth::user()->id);
 
-        if(in_array('admin', $user->roles->pluck('name')->toArray())){
+        if (in_array('admin', $user->roles->pluck('name')->toArray())) {
             return Inertia::render('Dashboard/Index');
+        }
+
+        if (in_array('rec approver', $user->roles->pluck('name')->toArray())) {
+            return Inertia::render('SupplierDashboard/Index');
         }
         if (in_array('so encoder', $user->roles->pluck('name')->toArray()) && !in_array('admin', $user->roles->pluck('name')->toArray())) {
             $assignedBranches = $user->store_branches->pluck('id');

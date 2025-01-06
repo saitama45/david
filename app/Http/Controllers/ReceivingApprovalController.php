@@ -21,7 +21,8 @@ class ReceivingApprovalController extends Controller
             'store_branch',
             'ordered_item_receive_dates' => function ($query) {
                 $query->where('is_approved', false);
-            }
+            },
+            
         ])->whereHas('ordered_item_receive_dates', function ($query) {
             $query->where('is_approved', false);
         });
