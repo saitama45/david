@@ -124,6 +124,7 @@ Route::middleware('auth')
         Route::controller(ProductOrderSummaryController::class)->name('product-orders-summary.')->group(function () {
             Route::get('/product-orders-summary', 'index')->name('index');
             Route::get('/product-orders-summary/show/{id}', 'show')->name('show');
+            Route::get('/product-orders-summary/download-orders-summary-pdf', 'downloadOrdersPdf')->name('download-orders-summary-pdf');
         });
 
         Route::controller(OrderReceivingController::class)->name('orders-receiving.')->group(function () {

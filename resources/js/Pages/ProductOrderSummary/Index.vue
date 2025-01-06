@@ -32,7 +32,7 @@ const showProductOrdersDetails = (id) => {
         {
             dateRange: dateRange.value,
             supplierId: supplierId.value,
-            branchId: branchId.value
+            branchId: branchId.value,
         },
         {
             preserveState: true,
@@ -131,10 +131,33 @@ onMounted(() => {
         ];
     }
 });
+
+const downloadPdf = () => {
+    const data = {
+        data: {
+            dateRange: dateRange.value,
+            supplierId: supplierId.value,
+            branchId: branchId.value,
+        },
+        preserveState: true,
+        preserveScroll: true,
+        replace: true,
+    };
+
+    window.open(
+        route("product-orders-summary.download-orders-summary-pdf", data.data),
+        "_blank"
+    );
+};
 </script>
 
 <template>
-    <Layout heading="Item Orders Summary">
+    <Layout
+        heading="Item Orders Summary"
+        :hasButton="true"
+        buttonName="Export to PDF"
+        :handleClick="downloadPdf"
+    >
         <TableContainer>
             <TableHeader class="justify-between">
                 <SearchBar>
