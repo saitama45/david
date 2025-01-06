@@ -155,7 +155,7 @@ const downloadPdf = () => {
     <Layout
         heading="Item Orders Summary"
         :hasButton="true"
-        buttonName="Export to PDF"
+        buttonName="Export to Excel"
         :handleClick="downloadPdf"
     >
         <TableContainer>
