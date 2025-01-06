@@ -8,6 +8,7 @@ use App\Models\ProductInventoryStock;
 use App\Models\StoreOrder;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 use Inertia\Inertia;
 
 class ReceivingApprovalController extends Controller
@@ -22,16 +23,26 @@ class ReceivingApprovalController extends Controller
             'ordered_item_receive_dates' => function ($query) {
                 $query->where('is_approved', false);
             },
-            
-        ])->whereHas('ordered_item_receive_dates', function ($query) {
-            $query->where('is_approved', false);
-        });
+            'image_attachments' => function ($query) {
+                $query->where('is_approved', false);
+            },
+        ])
+            ->whereHas('image_attachments', function ($query) {
+                $query->where('is_approved', false);
+            })
+            ->orWhereHas('ordered_item_receive_dates', function ($query) {
+                $query->where('is_approved', false);
+            });
+
 
         if ($search)
             $query->whereAny(['order_number'], 'like', "%$search%");
 
 
         $orders = $query->paginate(10)->withQueryString();
+
+
+
         return Inertia::render('ReceivingApproval/Index', [
             'orders' => $orders,
             'filters' => request()->only(['search'])
@@ -40,11 +51,22 @@ class ReceivingApprovalController extends Controller
 
     public function show($id)
     {
-        $order = StoreOrder::where('order_number', $id)->firstOrFail();
+        $order = StoreOrder::with([
+            'image_attachments' => function ($query) {
+                $query->where('is_approved', false);
+            },
+        ])->where('order_number', $id)->firstOrFail();
         $items = $order->ordered_item_receive_dates()->with('store_order_item.product_inventory')->where('is_approved', false)->get();;
+        $images = $order->image_attachments->map(function ($image) {
+            return [
+                'id' => $image->id,
+                'image_url' => Storage::url($image->file_path),
+            ];
+        });
         return Inertia::render('ReceivingApproval/Show', [
             'order' => $order,
-            'items' => $items
+            'items' => $items,
+            'images' => $images
         ]);
     }
 

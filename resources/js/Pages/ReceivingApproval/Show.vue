@@ -6,6 +6,7 @@ const { backButton } = useBackButton(route("receiving-approvals.index"));
 
 import { useConfirm } from "primevue/useconfirm";
 import { useToast } from "primevue/usetoast";
+import { X } from "lucide-vue-next";
 const toast = useToast();
 const confirm = useConfirm();
 
@@ -15,6 +16,10 @@ const props = defineProps({
         required: true,
     },
     items: {
+        type: Object,
+        required: true,
+    },
+    images: {
         type: Object,
         required: true,
     },
@@ -124,11 +129,57 @@ const approveReceivedItem = (id) => {
         },
     });
 };
+
+const selectedImage = ref(null);
+const isEnlargedImageVisible = ref(false);
+
+const enlargeImage = (image) => {
+    selectedImage.value = image;
+    isEnlargedImageVisible.value = true;
+};
+
+const deleteImageForm = useForm({
+    id: null,
+});
+
+const deleteImage = () => {
+    confirm.require({
+        message: "Are you sure you want to delete this image?",
+        header: "Confirmation",
+        icon: "pi pi-exclamation-triangle",
+        rejectProps: {
+            label: "Cancel",
+            severity: "secondary",
+            outlined: true,
+        },
+        acceptProps: {
+            label: "Remove",
+            severity: "danger",
+        },
+        accept: () => {
+            deleteImageForm.post(route("destroy"), {
+                onSuccess: () => {
+                    toast.add({
+                        severity: "success",
+                        summary: "Success",
+                        detail: "Image deletd successfully.",
+                        life: 5000,
+                    });
+                    isLoading.value = false;
+                },
+                onError: (err) => {
+                    isLoading.value = false;
+                    console.log(err);
+                },
+            });
+        },
+    });
+};
 </script>
 
 <template>
     <Layout :heading="`Order Number ${order.order_number}`">
-        <TableContainer>
+        <TableContainer v-if="items.length > 0">
             <TableHeader class="justify-between">
                 <Button
                     v-if="selectedItems.length > 0"
@@ -182,8 +233,56 @@ const approveReceivedItem = (id) => {
                 </TableBody>
             </Table>
         </TableContainer>
+
+        <Card class="p-5">
+            <InputContainer class="col-span-4">
+                <LabelXS>Image Attachments: </LabelXS>
+                <DivFlexCenter class="gap-4">
+                    <div
+                        v-for="image in images"
+                        :key="image.id"
+                        class="relative"
+                    >
+                        <button
+                            @click="
+                                deleteImageForm.id = image.id;
+                                deleteImage();
+                            "
+                            class="absolute -right-2 -top-2 text-white size-5 rounded-full bg-red-500"
+                        >
+                            <X class="size-5" />
+                        </button>
+                        <img
+                            :src="image.image_url"
+                            class="size-24 cursor-pointer hover:opacity-80 transition-opacity"
+                            @click="enlargeImage(image)"
+                        />
+                    </div>
+                </DivFlexCenter>
+                <SpanBold v-if="images.length < 1">None</SpanBold>
+            </InputContainer>
+        </Card>
+
         <Button variant="outline" class="text-lg px-7" @click="backButton">
             Back
         </Button>
+
+        <!-- Image Viewer -->
+        <Dialog v-model:open="isEnlargedImageVisible">
+            <DialogContent
+                class="sm:max-w-[90vw] h-[90vh] p-0 flex items-center justify-center"
+            >
+                <button
+                    @click="isEnlargedImageVisible = false"
+                    class="absolute right-4 top-4 rounded-sm ring-offset-background transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 bg-white/80 p-2"
+                ></button>
+                <img
+                    v-if="selectedImage"
+                    :src="selectedImage.image_url"
+                    class="max-h-full max-w-full object-contain"
+                    alt="Enlarged image"
+                />
+            </DialogContent>
+        </Dialog>
     </Layout>
 </template>
