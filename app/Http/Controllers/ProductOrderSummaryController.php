@@ -107,7 +107,7 @@ class ProductOrderSummaryController extends Controller
     {
         ini_set('memory_limit', '1024M');
         set_time_limit(1000);
-
+        $search = request('search');
         $dateRange = request('dateRange');
         $supplierId = request('supplierId');
         $branchId = request('branchId');
@@ -117,8 +117,7 @@ class ProductOrderSummaryController extends Controller
 
         $branches = $branchId ? StoreBranch::whereIn('id', $branchId)->get() : StoreBranch::all();
 
-
-        $products = ProductInventory::with(['store_order_items' => function ($query) use ($startDate, $endDate, $supplierId, $branchId) {
+        $query = ProductInventory::query()->with(['store_order_items' => function ($query) use ($startDate, $endDate, $supplierId, $branchId) {
             $query->whereHas('store_order', function ($subQuery) use ($startDate, $endDate, $supplierId, $branchId) {
                 $subQuery->whereBetween('order_date', [$startDate, $endDate]);
                 if ($supplierId) $subQuery->where('supplier_id', $supplierId);
@@ -129,8 +128,13 @@ class ProductOrderSummaryController extends Controller
                 $query->whereHas('store_order', function ($subQuery) use ($startDate, $endDate) {
                     $subQuery->whereBetween('order_date', [$startDate, $endDate]);
                 });
-            })
-            ->get();
+            });
+
+        if ($search) {
+            $query->whereAny(['name', 'inventory_code'], 'like', "%$search%");
+        }
+
+        $products = $query->get();
 
         $formattedData = $products->map(function ($product) {
             $branchQuantities = $product->store_order_items

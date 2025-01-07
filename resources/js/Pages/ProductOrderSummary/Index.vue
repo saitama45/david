@@ -141,6 +141,7 @@ const downloadPdf = () => {
             dateRange: dateRange.value,
             supplierId: supplierId.value,
             branchId: branchId.value,
+            search: search.value,
         },
         preserveState: true,
         preserveScroll: true,
