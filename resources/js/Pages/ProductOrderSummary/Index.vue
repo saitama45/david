@@ -123,15 +123,7 @@ onMounted(() => {
         }
     } else {
         const today = dayjs();
-        // dateRange.value = [
-        //     today.startOf("yesterday").toDate(),
-        //     today.endOf("yesterday").toDate(),
-        // ];
-        console.log("here");
-        dateRange.value = [
-            dayjs("2025-01-03").toDate(),
-            dayjs("2025-01-03").toDate(),
-        ];
+        dateRange.value = [today.toDate(), today.toDate()];
     }
 });
 
@@ -240,7 +232,5 @@ const openExportModal = () => {
             </Table>
             <Pagination :data="items" />
         </TableContainer>
-
-        
     </Layout>
 </template>

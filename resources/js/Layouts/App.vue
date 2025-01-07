@@ -105,14 +105,14 @@ const logout = () => {
                         <img :src="Logo" alt="logo" class="size-20" />
                         <span class="font-bold">DAVID</span>
                     </a>
-                    <Button
+                    <!-- <Button
                         variant="outline"
                         size="icon"
                         class="ml-auto h-8 w-8"
                     >
                         <Bell class="h-4 w-4" />
                         <span class="sr-only">Toggle notifications</span>
-                    </Button>
+                    </Button> -->
                 </div>
                 <div
                     class="flex-1 overflow-y-auto scrollbar-thin scrollbar-track-gray-100 scrollbar-thumb-gray-300 hover:scrollbar-thumb-gray-400"
@@ -518,7 +518,6 @@ const logout = () => {
                             <Link href="/profile">My Profile</Link>
                         </DropdownMenuItem>
                         <DropdownMenuSeparator />
-                        <DropdownMenuItem>Settings</DropdownMenuItem>
                         <DropdownMenuItem>Support</DropdownMenuItem>
                         <DropdownMenuSeparator />
                         <DropdownMenuItem>
