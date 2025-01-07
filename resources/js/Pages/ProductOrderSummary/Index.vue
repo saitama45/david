@@ -3,11 +3,13 @@ import { router, usePage } from "@inertiajs/vue3";
 import { throttle } from "lodash";
 import dayjs from "dayjs";
 import { useSelectOptions } from "@/Composables/useSelectOptions";
+import Dialog from "primevue/dialog";
 
 let dateRange = ref(usePage().props.filters.dateRange);
 let supplierId = ref(usePage().props.filters.supplierId);
 let search = ref(usePage().props.filters.search);
-let branchId = ref(usePage().props.filters.branchId);
+let branchId = ref(usePage().props.filters.branchId ?? []);
+const isLoading = false;
 const props = defineProps({
     items: {
         type: Object,
@@ -41,6 +43,7 @@ const showProductOrdersDetails = (id) => {
 };
 
 watch(branchId, (value) => {
+    console.log(value);
     router.get(
         route("product-orders-summary.index"),
         {
@@ -149,6 +152,11 @@ const downloadPdf = () => {
         "_blank"
     );
 };
+
+const isExportModalVisible = ref(true);
+const openExportModal = () => {
+    isExportModalVisible.value = true;
+};
 </script>
 
 <template>
@@ -168,7 +176,7 @@ const downloadPdf = () => {
                     />
                 </SearchBar>
                 <DivFlexCenter class="gap-3">
-                    <Select
+                    <MultiSelect
                         filter
                         placeholder="Filter By Store"
                         :options="branchesOption"
@@ -176,8 +184,9 @@ const downloadPdf = () => {
                         optionValue="value"
                         v-model="branchId"
                         showClear
+                        class="max-w-64"
                     >
-                    </Select>
+                    </MultiSelect>
                     <Select
                         placeholder="Filter By Supplier"
                         :options="suppliersOption"

@@ -56,7 +56,7 @@ class ProductOrderSummaryController extends Controller
                 }
 
                 if ($branchId) {
-                    $subQuery->where('store_branch_id', $branchId);
+                    $subQuery->whereIn('store_branch_id', $branchId);
                 }
             });
         }], 'quantity_ordered')
@@ -64,7 +64,7 @@ class ProductOrderSummaryController extends Controller
                 $query->whereHas('store_order', function ($subQuery) use ($startDate, $endDate, $supplierId, $branchId) {
                     $subQuery->whereBetween('order_date', [$startDate, $endDate]);
                     if ($supplierId) {
-                        $subQuery->where('supplier_id', $supplierId);
+                        $subQuery->whereIn('supplier_id', $supplierId);
                     }
                     $user = Auth::user();
                     if (in_array('so encoder', $user->roles->pluck('name')->toArray()) && !in_array('admin', $user->roles->pluck('name')->toArray())) {
@@ -73,7 +73,7 @@ class ProductOrderSummaryController extends Controller
                     }
 
                     if ($branchId) {
-                        $subQuery->where('store_branch_id', $branchId);
+                        $subQuery->whereIn('store_branch_id', $branchId);
                     }
                 });
             }], 'quantity_received')
@@ -89,7 +89,7 @@ class ProductOrderSummaryController extends Controller
                 }
 
                 if ($branchId) {
-                    $query->where('store_branch_id', $branchId);
+                    $query->whereIn('store_branch_id', $branchId);
                 }
             });
 
@@ -115,14 +115,14 @@ class ProductOrderSummaryController extends Controller
         $endDate = $dateRange ? Carbon::parse($dateRange[1])->addDay()->format('Y-m-d') : $startDate;
 
 
-        $branches = $branchId ? StoreBranch::where('id', $branchId)->get() : StoreBranch::all();
+        $branches = $branchId ? StoreBranch::whereIn('id', $branchId)->get() : StoreBranch::all();
 
 
         $products = ProductInventory::with(['store_order_items' => function ($query) use ($startDate, $endDate, $supplierId, $branchId) {
             $query->whereHas('store_order', function ($subQuery) use ($startDate, $endDate, $supplierId, $branchId) {
                 $subQuery->whereBetween('order_date', [$startDate, $endDate]);
                 if ($supplierId) $subQuery->where('supplier_id', $supplierId);
-                if ($branchId) $subQuery->where('store_branch_id', $branchId);
+                if ($branchId) $subQuery->whereIn('store_branch_id', $branchId);
             })->with(['store_order.store_branch']);
         }])
             ->whereHas('store_order_items', function ($query) use ($startDate, $endDate) {
@@ -258,7 +258,7 @@ class ProductOrderSummaryController extends Controller
                         $subQuery->where('supplier_id', $supplierId);
                     }
                     if ($branchId) {
-                        $subQuery->where('store_branch_id', $branchId);
+                        $subQuery->whereIn('store_branch_id', $branchId);
                     }
                 })->with(['store_order.store_branch', 'store_order.supplier']);
             }])
