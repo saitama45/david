@@ -8,7 +8,7 @@ import Dialog from "primevue/dialog";
 let dateRange = ref(usePage().props.filters.dateRange);
 let supplierId = ref(usePage().props.filters.supplierId);
 let search = ref(usePage().props.filters.search);
-let branchId = ref(usePage().props.filters.branchId ?? []);
+let branchId = ref(usePage().props.filters.branchId);
 const isLoading = false;
 const props = defineProps({
     items: {
@@ -240,5 +240,7 @@ const openExportModal = () => {
             </Table>
             <Pagination :data="items" />
         </TableContainer>
+
+        
     </Layout>
 </template>
