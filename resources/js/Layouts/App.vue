@@ -25,6 +25,23 @@ import {
     Container,
     MonitorCog,
     UsersRound,
+    CalendarCheck2,
+    ShoppingBasket,
+    ClipboardList,
+    ClipboardCheck,
+    ArrowLeftRight,
+    ChartColumnBig,
+    FolderKanban,
+    Scroll,
+    List,
+    IceCreamCone,
+    FishSymbol,
+    Vegan,
+    ScanBarcode,
+    FolderDot,
+    FileSliders,
+    AppWindowMac,
+    Warehouse,
 } from "lucide-vue-next";
 import Toast from "primevue/toast";
 import { router } from "@inertiajs/vue3";
@@ -130,7 +147,7 @@ const logout = () => {
                         <NavLink
                             v-if="isAdmin"
                             href="/delivery-schedules"
-                            :icon="ShoppingCart"
+                            :icon="CalendarCheck2"
                         >
                             DTS Delivery Schedules
                         </NavLink>
@@ -147,7 +164,7 @@ const logout = () => {
                         <NavLink
                             v-if="canViewStoreOrderPage"
                             href="/dts-orders"
-                            :icon="ShoppingCart"
+                            :icon="ShoppingBasket"
                         >
                             DTS Orders
                         </NavLink>
@@ -164,14 +181,14 @@ const logout = () => {
                         <NavLink
                             v-if="canViewReceivingOrders"
                             href="/orders-receiving"
-                            :icon="Folders"
+                            :icon="ClipboardList"
                         >
                             Orders
                         </NavLink>
                         <NavLink
                             v-if="canViewReceivingApprovals"
                             href="/receiving-approvals"
-                            :icon="Folders"
+                            :icon="ClipboardCheck"
                         >
                             Approvals
                         </NavLink>
@@ -188,14 +205,14 @@ const logout = () => {
                         <NavLink
                             v-if="is_admin"
                             href="/product-sales"
-                            :icon="FileCheck"
+                            :icon="ChartColumnBig"
                         >
                             Product Sales
                         </NavLink>
                         <NavLink
                             v-if="canViewItems"
                             href="/usage-records"
-                            :icon="PackageSearch"
+                            :icon="ArrowLeftRight"
                         >
                             Store Transactions
                         </NavLink>
@@ -212,14 +229,14 @@ const logout = () => {
                         <NavLink
                             v-if="canViewItems"
                             href="/menu-list"
-                            :icon="PackageSearch"
+                            :icon="Scroll"
                         >
                             Menu
                         </NavLink>
                         <NavLink
                             v-if="canViewStockManagement"
                             href="/stock-management"
-                            :icon="PackageSearch"
+                            :icon="FolderKanban"
                         >
                             Stock Management
                         </NavLink>
@@ -229,34 +246,34 @@ const logout = () => {
                         <NavLink
                             v-if="true"
                             href="/product-orders-summary"
-                            :icon="PackageSearch"
+                            :icon="List"
                         >
                             Item Orders Summary
                         </NavLink>
                         <NavLink
                             v-if="canViewDtsOrdersSummary"
                             href="/ice-cream-orders"
-                            :icon="FileCheck"
+                            :icon="IceCreamCone"
                         >
                             Ice Cream Orders
                         </NavLink>
                         <NavLink
                             v-if="canViewDtsOrdersSummary"
                             href="/salmon-orders"
-                            :icon="FileCheck"
+                            :icon="FishSymbol"
                         >
                             Salmon Orders
                         </NavLink>
                         <NavLink
                             v-if="canViewDtsOrdersSummary"
                             href="/fruits-and-vegetables"
-                            :icon="FileCheck"
+                            :icon="Vegan"
                         >
                             Fruits And Vegetables Orders
                         </NavLink>
                         <NavLink
                             href="/stocks"
-                            :icon="PackageSearch"
+                            :icon="ScanBarcode"
                             v-if="is_admin"
                         >
                             Stocks
@@ -267,14 +284,14 @@ const logout = () => {
                         <NavLink
                             v-if="canViewCategories"
                             href="/category-list"
-                            :icon="ScrollText"
+                            :icon="FolderDot"
                         >
                             Categories
                         </NavLink>
                         <NavLink
                             v-if="canViewCategories"
                             href="/menu-categories"
-                            :icon="ScrollText"
+                            :icon="FileSliders"
                         >
                             Menu Categories
                         </NavLink>
@@ -288,14 +305,14 @@ const logout = () => {
                         <NavLink
                             v-if="canViewStoreBranch"
                             href="/store-branches"
-                            :icon="Store"
+                            :icon="AppWindowMac"
                         >
                             Store Branches
                         </NavLink>
                         <NavLink
                             v-if="canViewSupplier"
                             href="/suppliers"
-                            :icon="Container"
+                            :icon="Warehouse"
                         >
                             Suppliers
                         </NavLink>
@@ -397,7 +414,7 @@ const logout = () => {
                                 <NavLink
                                     v-if="true"
                                     href="/product-sales"
-                                    :icon="FileCheck"
+                                    :icon="ChartColumnBig"
                                 >
                                     Product Sales
                                 </NavLink>
