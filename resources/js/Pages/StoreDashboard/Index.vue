@@ -83,9 +83,7 @@ const setBarChartData = () => {
         datasets: [
             {
                 label: "Usage Count",
-                data: props.mostUsedProducts.map(
-                    (product) => product.used
-                ),
+                data: props.mostUsedProducts.map((product) => product.used),
                 backgroundColor: documentStyle.getPropertyValue("--p-blue-500"),
                 hoverBackgroundColor:
                     documentStyle.getPropertyValue("--p-blue-400"),
@@ -142,6 +140,8 @@ watch(branchId, (value) => {
         {}
     );
 });
+
+import { Check, ClockArrowUp, BookX } from "lucide-vue-next";
 </script>
 
 <template>
@@ -162,16 +162,19 @@ watch(branchId, (value) => {
                 heading="Approved Orders"
                 :value="orderCounts.approved"
                 subheading=""
+                :icon="Check"
             />
             <StatisticOverview
                 heading="Pending Orders"
                 :value="orderCounts.pending"
                 subheading=""
+                :icon="ClockArrowUp"
             />
             <StatisticOverview
                 heading="Rejected Orders"
                 :value="orderCounts.rejected"
                 subheading=""
+                :icon="BookX"
             />
         </section>
         <section class="grid grid-cols-3 gap-5">

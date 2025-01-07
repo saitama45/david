@@ -47,20 +47,22 @@ const editOrderDetails = (id) => {
 
 let from = ref(
     usePage().props.from ??
-        new Intl.DateTimeFormat("en-CA", {
-            year: "numeric",
-            month: "2-digit",
-            day: "2-digit",
-        }).format(new Date())
+        // new Intl.DateTimeFormat("en-CA", {
+        //     year: "numeric",
+        //     month: "2-digit",
+        //     day: "2-digit",
+        // }).format(new Date())
+        null
 );
 
 let to = ref(
     usePage().props.to ??
-        new Intl.DateTimeFormat("en-CA", {
-            year: "numeric",
-            month: "2-digit",
-            day: "2-digit",
-        }).format(new Date())
+        // new Intl.DateTimeFormat("en-CA", {
+        //     year: "numeric",
+        //     month: "2-digit",
+        //     day: "2-digit",
+        // }).format(new Date())
+        null
 );
 
 let branchId = ref(usePage().props.filters.branchId);
