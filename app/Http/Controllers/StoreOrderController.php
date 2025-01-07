@@ -23,8 +23,8 @@ class StoreOrderController extends Controller
 {
     public function index()
     {
-        $from = request('from') ? Carbon::parse(request('from')) : '1999-01-01';
-        $to = request('to') ? Carbon::parse(request('to'))->addDay() : Carbon::today()->addDay();
+        $from = request('from') ? Carbon::parse(request('from'))->format('Y-m-d') : '1999-01-01';
+        $to = request('to') ? Carbon::parse(request('to'))->addDay()->format('Y-m-d') : Carbon::today();
         $branchId = request('branchId');
         $search = request('search');
         $filterQuery = request('filterQuery') ?? 'pending';
@@ -38,11 +38,16 @@ class StoreOrderController extends Controller
             $query->whereIn('store_branch_id', $user->store_branches->pluck('id'));
         }
 
+        if ($from && $to) {
+            $query->whereBetween('order_date', [$from, $to]);
+        }
+
         if ($filterQuery !== 'all')
             $query->where('order_request_status', $filterQuery);
 
         if ($branchId)
             $query->where('store_branch_id', $branchId);
+
 
         if ($search)
             $query->where('order_number', 'like', '%' . $search . '%')
@@ -50,8 +55,10 @@ class StoreOrderController extends Controller
                     $query->where('name', 'like', '%' . $search . '%');
                 });;
 
+
+
+
         $orders = $query
-            ->whereBetween('created_at', [$from, $to])
             ->where('variant', 'regular')
             ->latest()
             ->paginate(10)

@@ -28,7 +28,9 @@ const props = defineProps({
     },
 });
 
-let filterQuery = ref((usePage().props.filters.filterQuery || "pending").toString());
+let filterQuery = ref(
+    (usePage().props.filters.filterQuery || "pending").toString()
+);
 
 const { roles, is_admin } = usePage().props.auth;
 
@@ -67,7 +69,13 @@ let search = ref(usePage().props.filters.search);
 watch(from, (value) => {
     router.get(
         route("store-orders.index"),
-        { from: value, to: to.value },
+        {
+            search: search.value,
+            filterQuery: filterQuery.value,
+            from: value,
+            to: to.value,
+            branchId: branchId.value,
+        },
         {
             preserveState: true,
             preserveScroll: true,
@@ -78,7 +86,13 @@ watch(from, (value) => {
 watch(to, (value) => {
     router.get(
         route("store-orders.index"),
-        { from: from.value, to: value },
+        {
+            search: search.value,
+            filterQuery: filterQuery.value,
+            from: from.value,
+            to: value,
+            branchId: branchId.value,
+        },
         {
             preserveState: true,
             preserveScroll: true,
@@ -89,7 +103,13 @@ watch(to, (value) => {
 watch(branchId, (value) => {
     router.get(
         route("store-orders.index"),
-        { branchId: value },
+        {
+            search: search.value,
+            filterQuery: filterQuery.value,
+            from: from.value,
+            to: to.value,
+            branchId: value,
+        },
         {
             preserveState: true,
             preserveScroll: true,
@@ -102,7 +122,13 @@ watch(
     throttle(function (value) {
         router.get(
             route("store-orders.index"),
-            { search: value, filterQuery: filterQuery.value },
+            {
+                search: value,
+                filterQuery: filterQuery.value,
+                from: from.value,
+                to: to.value,
+                branchId: branchId.value,
+            },
             {
                 preserveState: true,
                 replace: true,
@@ -144,8 +170,6 @@ watch(filterQuery, function (value) {
 const changeFilter = (currentFilter) => {
     filterQuery.value = currentFilter;
 };
-
-
 </script>
 
 <template>
