@@ -59,19 +59,6 @@ const setChartOptions = () => {
 };
 
 import { Check, ClockArrowUp, BookX } from "lucide-vue-next";
-
-defineOptions({
-    layout: {
-        props: {
-            heading: "My Page Title",
-            hasButton: true,
-            buttonName: "Add New",
-            handleClick: () => {
-                console.log("Button clicked!");
-            },
-        },
-    },
-});
 </script>
 <template>
     <Layout heading="Dashboard">
