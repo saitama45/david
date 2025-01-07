@@ -12,6 +12,7 @@ use App\Models\StoreBranch;
 use App\Models\StoreOrder;
 use App\Models\Supplier;
 use Carbon\Carbon;
+use Exception;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -24,7 +25,7 @@ class StoreOrderController extends Controller
     public function index()
     {
         $from = request('from') ? Carbon::parse(request('from'))->format('Y-m-d') : '1999-01-01';
-        $to = request('to') ? Carbon::parse(request('to'))->addDay()->format('Y-m-d') : Carbon::today();
+        $to = request('to') ? Carbon::parse(request('to'))->addDay()->format('Y-m-d') : Carbon::today()->addMonth();
         $branchId = request('branchId');
         $search = request('search');
         $filterQuery = request('filterQuery') ?? 'pending';
@@ -118,26 +119,31 @@ class StoreOrderController extends Controller
         $supplier = Supplier::find($validated['supplier_id'])->id;
 
 
-        DB::beginTransaction();
-        $order = StoreOrder::create([
-            'encoder_id' => Auth::user()->id,
-            'supplier_id' => $supplier,
-            'store_branch_id' => $validated['branch_id'],
-            'order_number' => $this->getOrderNumber($validated['branch_id']),
-            'order_date' => Carbon::parse($validated['order_date'])->addDays(1)->format('Y-m-d'),
-            'order_status' => OrderStatus::PENDING->value,
-            'order_request_status' => OrderRequestStatus::PENDING->value,
-        ]);
-
-
-        foreach ($validated['orders'] as $data) {
-            $order->store_order_items()->create([
-                'product_inventory_id' => $data['id'],
-                'quantity_ordered' => $data['quantity'],
-                'total_cost' => $data['total_cost'],
+        try {
+            DB::beginTransaction();
+            $order = StoreOrder::create([
+                'encoder_id' => Auth::user()->id,
+                'supplier_id' => $supplier,
+                'store_branch_id' => $validated['branch_id'],
+                'order_number' => $this->getOrderNumber($validated['branch_id']),
+                'order_date' => Carbon::parse($validated['order_date'])->addDays(1)->format('Y-m-d'),
+                'order_status' => OrderStatus::PENDING->value,
+                'order_request_status' => OrderRequestStatus::PENDING->value,
             ]);
+
+
+            foreach ($validated['orders'] as $data) {
+                $order->store_order_items()->create([
+                    'product_inventory_id' => $data['id'],
+                    'quantity_ordered' => $data['quantity'],
+                    'total_cost' => $data['total_cost'],
+                ]);
+            }
+            DB::commit();
+        } catch (Exception $e) {
+            DB::rollBack();
+            dd($e);
         }
-        DB::commit();
 
         return redirect()->route('store-orders.index');
     }
