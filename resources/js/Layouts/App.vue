@@ -202,12 +202,19 @@ const logout = () => {
                         <DropdownMenuLabel v-if="canViewSalesGroup">
                             Sales
                         </DropdownMenuLabel>
-                        <NavLink
-                            v-if="false"
+                        <!-- <NavLink
+                            v-if="true"
                             href="/product-sales"
                             :icon="ChartColumnBig"
                         >
                             Product Sales
+                        </NavLink> -->
+                        <NavLink
+                            v-if="true"
+                            href="/sales-orders"
+                            :icon="ChartColumnBig"
+                        >
+                            Sales Orders
                         </NavLink>
                         <NavLink
                             v-if="canViewItems"

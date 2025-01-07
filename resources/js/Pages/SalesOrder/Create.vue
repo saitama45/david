@@ -10,9 +10,9 @@ const showAddItemModal = () => {
 <template>
     <Layout heading="SO Items">
         <Card
-            class="grid grid-cols-1 p-3 gap-5 overflow-auto overflow-x-auto scrollbar-thin scrollbar-track-gray-100 scrollbar-thumb-gray-300 hover:scrollbar-thumb-gray-400"
+            class="grid grid-cols-3 p-3 gap-5 overflow-auto overflow-x-auto scrollbar-thin scrollbar-track-gray-100 scrollbar-thumb-gray-300 hover:scrollbar-thumb-gray-400 p-5"
         >
-            <DivFlexCol class="gap-3 min-w-[380px]">
+            <DivFlexCol class="gap-3 min-w-[180px]">
                 <DivFlexCol>
                     <LabelXS>Status:</LabelXS>
                     <SpanBold> ON PROCESS</SpanBold>
@@ -133,7 +133,7 @@ const showAddItemModal = () => {
                 </InputContainer>
             </DivFlexCol>
 
-            <TableContainer class="col-span-2 max-h-fit">
+            <TableContainer class="max-h-fit col-span-2">
                 <DivFlexCenter class="gap-3">
                     <Button @click="showAddItemModal">
                         <Plus class="size-5 mr-2" /> Add Item</Button
@@ -157,11 +157,6 @@ const showAddItemModal = () => {
                     </TableHead>
                 </Table>
             </TableContainer>
-
-            <DivFlexCenter class="justify-end gap-3">
-                <BackButton></BackButton>
-                <Button>Create</Button>
-            </DivFlexCenter>
         </Card>
 
         <Dialog v-model:open="isAddItemModalVisible">

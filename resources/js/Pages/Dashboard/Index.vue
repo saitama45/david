@@ -3,6 +3,12 @@ import StatisticOverview from "../../Components/dashboard/StatisticOverview.vue"
 import Chart from "primevue/chart";
 import { router } from "@inertiajs/vue3";
 
+const props = defineProps({
+    orderCounts: {
+        type: Object,
+        required: true,
+    },
+});
 onMounted(() => {
     chartData.value = setChartData();
     chartOptions.value = setChartOptions();
@@ -52,49 +58,41 @@ const setChartOptions = () => {
     };
 };
 
-const test = () => {
-    router.get("/test");
-};
+import { Check, ClockArrowUp, BookX } from "lucide-vue-next";
+
 </script>
 <template>
-    <Layout heading="Dashboard">
-        <section class="flex flex-col gap-5">
-            <div class="grid gap-4 md:grid-cols-2 md:gap-8 lg:grid-cols-4">
-                <StatisticOverview
-                    heading="Total Revenue"
-                    value="$45,231.89"
-                    subheading="+20.1% from last month"
-                />
-                <StatisticOverview
-                    heading="Total Revenue"
-                    value="$45,231.89"
-                    subheading="+20.1% from last month"
-                />
-                <StatisticOverview
-                    heading="Total Revenue"
-                    value="$45,231.89"
-                    subheading="+20.1% from last month"
-                />
-                <StatisticOverview
-                    heading="Total Revenue"
-                    value="$45,231.89"
-                    subheading="+20.1% from last month"
-                />
-            </div>
-            <div class="grid grid-cols-3">
-                <Chart
-                    type="pie"
-                    :data="chartData"
-                    :options="chartOptions"
-                    class="w-full"
-                />
-                <Chart
-                    type="bar"
-                    :data="chartData"
-                    :options="chartOptions"
-                    class="col-span-2"
-                />
-            </div>
-        </section>
-    </Layout>
+    <section class="flex flex-col gap-5">
+        <div class="grid gap-5 grid-cols-3">
+            <StatisticOverview
+                heading="Approved Orders"
+                :value="orderCounts.approved_count"
+                :icon="Check"
+            />
+            <StatisticOverview
+                heading="Pending Orders"
+                :value="orderCounts.pending_count"
+                :icon="ClockArrowUp"
+            />
+            <StatisticOverview
+                heading="Rejected Orders"
+                :value="orderCounts.rejected_count"
+                :icon="BookX"
+            />
+        </div>
+        <div class="grid grid-cols-3">
+            <Chart
+                type="pie"
+                :data="chartData"
+                :options="chartOptions"
+                class="w-full"
+            />
+            <Chart
+                type="bar"
+                :data="chartData"
+                :options="chartOptions"
+                class="col-span-2"
+            />
+        </div>
+    </section>
 </template>
