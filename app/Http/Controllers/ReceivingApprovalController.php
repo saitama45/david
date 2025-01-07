@@ -118,7 +118,7 @@ class ReceivingApprovalController extends Controller
             'store_branch_id' => $storeOrder->store_branch_id,
             'quantity' => $data->quantity_received,
             'action' => 'add_quantity',
-            'remarks' => 'From newly received items (Order Number: ' . $storeOrder->order_number . ')'
+            'remarks' => 'From newly received items. (Order Number: ' . $storeOrder->order_number . ')'
         ]);
 
         $data->store_order_item->quantity_received += $data->quantity_received;
