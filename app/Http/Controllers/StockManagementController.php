@@ -115,6 +115,13 @@ class StockManagementController extends Controller
 
         DB::beginTransaction();
         $product = ProductInventoryStock::where('product_inventory_id', $validated['id'])->where('store_branch_id', $validated['store_branch_id'])->first();
+
+        $stockOnHand = $product->quantity - $product->used;
+        if ($validated['quantity'] > $stockOnHand) {
+            return back()->withErrors([
+                "quantity" => "Quantity used can't be greater than stock on hand. (Stock on hand: $stockOnHand)"
+            ]);
+        }
         $product->used += $validated['quantity'];
         $product->save();
         ProductInventoryStockUsed::create([

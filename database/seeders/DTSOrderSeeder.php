@@ -108,7 +108,7 @@ class DTSOrderSeeder extends Seeder
             ->pluck('id', 'cost');
 
         $startDate = Carbon::create(2024, 11, 25);
-        $endDate = Carbon::create(2024, 12, 28);
+        $endDate = Carbon::now()->format('Y-m-d');
 
         $iceCreamId = ProductInventory::where('inventory_code', '359A2A')->first()->id;
         $salmon = ProductInventory::where('inventory_code', '269A2A')->first();

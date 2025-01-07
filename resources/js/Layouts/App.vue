@@ -203,7 +203,7 @@ const logout = () => {
                             Sales
                         </DropdownMenuLabel>
                         <NavLink
-                            v-if="is_admin"
+                            v-if="false"
                             href="/product-sales"
                             :icon="ChartColumnBig"
                         >
@@ -412,7 +412,7 @@ const logout = () => {
                                     Sales
                                 </DropdownMenuLabel>
                                 <NavLink
-                                    v-if="true"
+                                    v-if="false"
                                     href="/product-sales"
                                     :icon="ChartColumnBig"
                                 >
