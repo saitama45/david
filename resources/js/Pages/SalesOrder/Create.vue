@@ -10,7 +10,7 @@ const showAddItemModal = () => {
 <template>
     <Layout heading="SO Items">
         <Card
-            class="grid grid-cols-3 p-3 gap-5 overflow-auto overflow-x-auto scrollbar-thin scrollbar-track-gray-100 scrollbar-thumb-gray-300 hover:scrollbar-thumb-gray-400 p-5"
+            class="grid grid-cols-3 gap-5 overflow-auto overflow-x-auto scrollbar-thin scrollbar-track-gray-100 scrollbar-thumb-gray-300 hover:scrollbar-thumb-gray-400 p-5"
         >
             <DivFlexCol class="gap-3 min-w-[180px]">
                 <DivFlexCol>

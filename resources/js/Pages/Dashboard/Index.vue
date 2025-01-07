@@ -60,39 +60,53 @@ const setChartOptions = () => {
 
 import { Check, ClockArrowUp, BookX } from "lucide-vue-next";
 
+defineOptions({
+    layout: {
+        props: {
+            heading: "My Page Title",
+            hasButton: true,
+            buttonName: "Add New",
+            handleClick: () => {
+                console.log("Button clicked!");
+            },
+        },
+    },
+});
 </script>
 <template>
-    <section class="flex flex-col gap-5">
-        <div class="grid gap-5 grid-cols-3">
-            <StatisticOverview
-                heading="Approved Orders"
-                :value="orderCounts.approved_count"
-                :icon="Check"
-            />
-            <StatisticOverview
-                heading="Pending Orders"
-                :value="orderCounts.pending_count"
-                :icon="ClockArrowUp"
-            />
-            <StatisticOverview
-                heading="Rejected Orders"
-                :value="orderCounts.rejected_count"
-                :icon="BookX"
-            />
-        </div>
-        <div class="grid grid-cols-3">
-            <Chart
-                type="pie"
-                :data="chartData"
-                :options="chartOptions"
-                class="w-full"
-            />
-            <Chart
-                type="bar"
-                :data="chartData"
-                :options="chartOptions"
-                class="col-span-2"
-            />
-        </div>
-    </section>
+    <Layout heading="Dashboard">
+        <section class="flex flex-col gap-5">
+            <div class="grid gap-5 grid-cols-3">
+                <StatisticOverview
+                    heading="Approved Orders"
+                    :value="orderCounts.approved_count"
+                    :icon="Check"
+                />
+                <StatisticOverview
+                    heading="Pending Orders"
+                    :value="orderCounts.pending_count"
+                    :icon="ClockArrowUp"
+                />
+                <StatisticOverview
+                    heading="Rejected Orders"
+                    :value="orderCounts.rejected_count"
+                    :icon="BookX"
+                />
+            </div>
+            <div class="grid grid-cols-3">
+                <Chart
+                    type="pie"
+                    :data="chartData"
+                    :options="chartOptions"
+                    class="w-full"
+                />
+                <Chart
+                    type="bar"
+                    :data="chartData"
+                    :options="chartOptions"
+                    class="col-span-2"
+                />
+            </div>
+        </section>
+    </Layout>
 </template>
