@@ -176,10 +176,7 @@ class OrderReceivingController extends Controller
 
         $history = OrderedItemReceiveDate::with('store_order_item')->findOrFail($id);
 
-
         DB::beginTransaction();
-        $history->store_order_item->quantity_received -= $history->quantity_received;
-        $history->store_order_item->save();
         $history->delete();
         DB::commit();
 
