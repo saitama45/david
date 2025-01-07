@@ -64,7 +64,7 @@ class ProductOrderSummaryController extends Controller
                 $query->whereHas('store_order', function ($subQuery) use ($startDate, $endDate, $supplierId, $branchId) {
                     $subQuery->whereBetween('order_date', [$startDate, $endDate]);
                     if ($supplierId) {
-                        $subQuery->whereIn('supplier_id', $supplierId);
+                        $subQuery->where('supplier_id', $supplierId);
                     }
                     $user = Auth::user();
                     if (in_array('so encoder', $user->roles->pluck('name')->toArray()) && !in_array('admin', $user->roles->pluck('name')->toArray())) {

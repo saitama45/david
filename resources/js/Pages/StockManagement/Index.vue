@@ -64,6 +64,7 @@ watch(
 );
 
 const isLogUsageModalOpen = ref(false);
+const isAddQuantityModalOpen = ref(true);
 
 const form = useForm({
     id: null,
@@ -81,6 +82,12 @@ const openLogUsageModal = (id) => {
     form.id = id;
     form.store_branch_id = branchId.value;
     isLogUsageModalOpen.value = true;
+};
+
+const openAddQuantityModal = (id) => {
+    form.id = id;
+    form.store_branch_id = branchId.value;
+    isAddQuantityModalOpen.value = true;
 };
 
 const logUsage = () => {
@@ -167,6 +174,12 @@ const showDetails = (id) => {
                                     class="text-xs text-orange-500"
                                     >Log Usage</Button
                                 >
+                                <Button
+                                    @click="openAddQuantityModal(product.id)"
+                                    variant="link"
+                                    class="text-xs text-green-500"
+                                    >Add Quantity</Button
+                                >
                             </DivFlexCenter>
                         </TD>
                     </tr>
@@ -201,6 +214,47 @@ const showDetails = (id) => {
 
                     <InputContainer>
                         <LabelXS>Quantity Used</LabelXS>
+                        <Input type="number" v-model="form.quantity" />
+                        <FormError>{{ form.errors.quantity }}</FormError>
+                    </InputContainer>
+                    <InputContainer>
+                        <LabelXS>Remarks</LabelXS>
+                        <Textarea type="number" v-model="form.remarks" />
+                        <FormError>{{ form.errors.remarks }}</FormError>
+                    </InputContainer>
+                </DivFlexCol>
+                <DialogFooter class="justify-end">
+                    <Button @click="logUsage">Submit</Button>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
+
+        <Dialog v-model:open="isAddQuantityModalOpen">
+            <DialogContent class="sm:max-w-[600px]">
+                <DialogHeader>
+                    <DialogTitle>Add Quantity</DialogTitle>
+                    <DialogDescription>
+                        Please input all the required fields.
+                    </DialogDescription>
+                </DialogHeader>
+                <DivFlexCol class="gap-3">
+                    <InputContainer>
+                        <LabelXS>Store Branch</LabelXS>
+                        <Select
+                            filter
+                            class="min-w-72"
+                            placeholder="Select a Supplier"
+                            :options="branchesOptions"
+                            optionLabel="label"
+                            optionValue="value"
+                            v-model="form.store_branch_id"
+                        >
+                        </Select>
+                        <FormError>{{ form.errors.store_branch_id }}</FormError>
+                    </InputContainer>
+
+                    <InputContainer>
+                        <LabelXS>Quantity</LabelXS>
                         <Input type="number" v-model="form.quantity" />
                         <FormError>{{ form.errors.quantity }}</FormError>
                     </InputContainer>
