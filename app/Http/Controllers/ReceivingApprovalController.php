@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Enum\OrderStatus;
 use App\Models\OrderedItemReceiveDate;
 use App\Models\ProductInventoryStock;
+use App\Models\ProductInventoryStockManager;
 use App\Models\StoreOrder;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -80,31 +81,7 @@ class ReceivingApprovalController extends Controller
             foreach ($validated['id'] as $id) {
                 DB::beginTransaction();
                 $data = OrderedItemReceiveDate::with('store_order_item.product_inventory')->find($id);
-                $data->update(['is_approved' => true]);
-                $item = $data->store_order_item->product_inventory;
-
-                $orderedItems = $data->store_order_item->store_order->store_order_items;
-                $storeOrder = $data->store_order_item->store_order;
-
-
-                $stock = ProductInventoryStock::where('product_inventory_id', $item->id)->where('store_branch_id', $storeOrder->store_branch_id);
-                $stock->increment('quantity', $data->quantity_received);
-                $stock->update(['recently_added' => $data->quantity_received]);
-
-
-                $data->store_order_item->quantity_received += $data->quantity_received;
-
-
-                $storeOrder->order_status = OrderStatus::RECEIVED->value;
-                foreach ($orderedItems as $itemOrdered) {
-                    if ($itemOrdered->quantity_ordered > $itemOrdered->quantity_received) {
-                        $storeOrder->order_status = OrderStatus::INCOMPLETE->value;
-                    }
-                }
-
-
-                $storeOrder->save();
-                $item->save();
+                $this->extracted($data);
                 $data->save();
                 $data->store_order_item->save();
                 DB::commit();
@@ -112,28 +89,7 @@ class ReceivingApprovalController extends Controller
         } else {
             DB::beginTransaction();
             $data = OrderedItemReceiveDate::with(['store_order_item.store_order.store_order_items', 'store_order_item.product_inventory'])->find($validated['id']);
-            $data->update(['is_approved' => true]);
-            $item = $data->store_order_item->product_inventory;
-
-            $orderedItems = $data->store_order_item->store_order->store_order_items;
-            $storeOrder = $data->store_order_item->store_order;
-
-
-            $stock = ProductInventoryStock::where('product_inventory_id', $item->id)->where('store_branch_id', $storeOrder->store_branch_id);
-            $stock->increment('quantity', $data->quantity_received);
-            $stock->update(['recently_added' => $data->quantity_received]);
-
-            $data->store_order_item->quantity_received += $data->quantity_received;
-
-            $storeOrder->order_status = OrderStatus::RECEIVED->value;
-            foreach ($orderedItems as $itemOrdered) {
-                if ($itemOrdered->quantity_ordered > $itemOrdered->quantity_received) {
-                    $storeOrder->order_status = OrderStatus::INCOMPLETE->value;
-                }
-            }
-
-            $storeOrder->save();
-            $item->save();
+            $this->extracted($data);
             $data->store_order_item->save();
             $data->save();
 
@@ -141,8 +97,40 @@ class ReceivingApprovalController extends Controller
         }
 
 
-
-
         return back();
+    }
+
+    public function extracted($data): void
+    {
+        $data->update(['is_approved' => true]);
+        $item = $data->store_order_item->product_inventory;
+
+        $orderedItems = $data->store_order_item->store_order->store_order_items;
+        $storeOrder = $data->store_order_item->store_order;
+
+
+        $stock = ProductInventoryStock::where('product_inventory_id', $item->id)->where('store_branch_id', $storeOrder->store_branch_id);
+        $stock->increment('quantity', $data->quantity_received);
+        $stock->update(['recently_added' => $data->quantity_received]);
+
+        ProductInventoryStockManager::create([
+            'product_inventory_id' => $item->id,
+            'store_branch_id' => $storeOrder->store_branch_id,
+            'quantity' => $data->quantity_received,
+            'action' => 'add_quantity',
+            'remarks' => 'From newly received items (Order Number: ' . $storeOrder->order_number . ')'
+        ]);
+
+        $data->store_order_item->quantity_received += $data->quantity_received;
+
+        $storeOrder->order_status = OrderStatus::RECEIVED->value;
+        foreach ($orderedItems as $itemOrdered) {
+            if ($itemOrdered->quantity_ordered > $itemOrdered->quantity_received) {
+                $storeOrder->order_status = OrderStatus::INCOMPLETE->value;
+            }
+        }
+
+        $storeOrder->save();
+        $item->save();
     }
 }

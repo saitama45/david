@@ -67,7 +67,7 @@ class StoreBranch extends Model implements Auditable
 
     public function inventory_stock_used()
     {
-        return $this->belongsTo(ProductInventoryStockUsed::class);
+        return $this->belongsTo(ProductInventoryStockManager::class);
     }
 
 
@@ -82,6 +82,6 @@ class StoreBranch extends Model implements Auditable
         )
             ->withPivot('variant');
 
-          
+
     }
 }

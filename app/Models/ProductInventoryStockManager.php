@@ -5,15 +5,16 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
-class ProductInventoryStockUsed extends Model
+class ProductInventoryStockManager extends Model
 {
-    /** @use HasFactory<\Database\Factories\ProductInventoryStockUsedFactory> */
+    /** @use HasFactory<\Database\Factories\ProductInventoryStockManagerFactory> */
     use HasFactory;
 
     protected $fillable = [
         'product_inventory_id',
         'store_branch_id',
         'quantity',
+        'action',
         'remarks'
     ];
 

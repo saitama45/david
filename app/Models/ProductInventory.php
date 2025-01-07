@@ -90,7 +90,7 @@ class ProductInventory extends Model implements Auditable
 
     public function inventory_stocks_used()
     {
-        return $this->hasMany(ProductInventoryStockUsed::class);
+        return $this->hasMany(ProductInventoryStockManager::class);
     }
 
     protected static function booted()

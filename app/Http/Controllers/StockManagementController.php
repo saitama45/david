@@ -4,7 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\ProductInventory;
 use App\Models\ProductInventoryStock;
-use App\Models\ProductInventoryStockUsed;
+use App\Models\ProductInventoryStockManager;
 use App\Models\StoreBranch;
 use App\Models\UsageRecord;
 use Illuminate\Http\Request;
@@ -95,7 +95,7 @@ class StockManagementController extends Controller
         $branches = StoreBranch::options();
         $branchId = $request->only('branchId')['branchId'] ?? $branches->keys()->first();
 
-        $history = ProductInventoryStockUsed::where('product_inventory_id', $id)
+        $history = ProductInventoryStockManager::where('product_inventory_id', $id)
             ->where('store_branch_id', $branchId)->paginate(10);
 
         return Inertia::render('StockManagement/Show', [
@@ -124,10 +124,39 @@ class StockManagementController extends Controller
         }
         $product->used += $validated['quantity'];
         $product->save();
-        ProductInventoryStockUsed::create([
+        ProductInventoryStockManager::create([
             'product_inventory_id' => $validated['id'],
             'store_branch_id' => $validated['store_branch_id'],
             'quantity' => $validated['quantity'],
+            'action' => 'log_usage',
+            'remarks' => $validated['remarks']
+        ]);
+
+        DB::commit();
+    }
+
+    public function addQuantity(Request $request)
+    {
+        $validated = $request->validate([
+            'id' => ['required'],
+            'store_branch_id' => ['required'],
+            'quantity' => ['required', 'numeric', 'min:1'],
+            'remarks' => ['sometimes']
+        ]);
+
+
+        DB::beginTransaction();
+        $product = ProductInventoryStock::where('product_inventory_id', $validated['id'])->where('store_branch_id', $validated['store_branch_id'])->first();
+
+
+        $product->quantity += $validated['quantity'];
+        $product->recently_added = $validated['quantity'];
+        $product->save();
+        ProductInventoryStockManager::create([
+            'product_inventory_id' => $validated['id'],
+            'store_branch_id' => $validated['store_branch_id'],
+            'quantity' => $validated['quantity'],
+            'action' => 'add_quantity',
             'remarks' => $validated['remarks']
         ]);
 

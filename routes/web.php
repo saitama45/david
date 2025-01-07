@@ -275,6 +275,7 @@ Route::middleware('auth')
                 Route::get('/', 'index')->name('index');
                 Route::get('/show/{id}', 'show')->name('show');
                 Route::post('/log-usage', 'logUsage')->name('log-usage');
+                Route::post('/add-quantity', 'addQuantity')->name('add-quantity');
             });
 
 

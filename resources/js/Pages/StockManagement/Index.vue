@@ -64,7 +64,7 @@ watch(
 );
 
 const isLogUsageModalOpen = ref(false);
-const isAddQuantityModalOpen = ref(true);
+const isAddQuantityModalOpen = ref(false);
 
 const form = useForm({
     id: null,
@@ -73,6 +73,13 @@ const form = useForm({
     remarks: null,
 });
 watch(isLogUsageModalOpen, (value) => {
+    if (!value) {
+        form.reset();
+        form.clearErrors();
+    }
+});
+
+watch(isAddQuantityModalOpen, (value) => {
     if (!value) {
         form.reset();
         form.clearErrors();
@@ -100,6 +107,28 @@ const logUsage = () => {
                 life: 5000,
             });
             isLogUsageModalOpen.value = false;
+        },
+        onError: () => {
+            toast.add({
+                severity: "error",
+                summary: "Error",
+                detail: "An error occured while trying to log the usage.",
+                life: 5000,
+            });
+        },
+    });
+};
+
+const addQuantity = () => {
+    form.post(route("stock-management.add-quantity"), {
+        onSuccess: () => {
+            toast.add({
+                severity: "success",
+                summary: "Success",
+                detail: "Usaged logged Successfully.",
+                life: 5000,
+            });
+            isAddQuantityModalOpen.value = false;
         },
         onError: () => {
             toast.add({
@@ -265,7 +294,7 @@ const showDetails = (id) => {
                     </InputContainer>
                 </DivFlexCol>
                 <DialogFooter class="justify-end">
-                    <Button @click="logUsage">Submit</Button>
+                    <Button @click="addQuantity">Submit</Button>
                 </DialogFooter>
             </DialogContent>
         </Dialog>
