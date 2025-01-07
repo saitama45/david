@@ -1,6 +1,7 @@
 <script setup>
 import { router } from "@inertiajs/vue3";
 import { usePage } from "@inertiajs/vue3";
+import dayjs from "dayjs";
 import {
     Select,
     SelectContent,
@@ -277,7 +278,9 @@ const changeFilter = (currentFilter) => {
                         <TD>{{ order.supplier?.name ?? "N/A" }}</TD>
                         <TD>{{ order.store_branch?.name ?? "N/A" }}</TD>
                         <TD>{{ order.order_number }}</TD>
-                        <TD>{{ order.order_date }}</TD>
+                        <TD>{{
+                            dayjs(order.order_date).format("MMMM d, YYYY")
+                        }}</TD>
                         <TD>{{ order.created_at }}</TD>
                         <TD>
                             <Badge
