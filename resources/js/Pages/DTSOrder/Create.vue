@@ -1,6 +1,6 @@
 <script setup>
 import { useForm } from "@inertiajs/vue3";
-const { suppliers, items, branches, variant } = defineProps({
+const { suppliers, items, branches, variant, previousOrder } = defineProps({
     suppliers: {
         type: Object,
         required: true,
@@ -16,6 +16,10 @@ const { suppliers, items, branches, variant } = defineProps({
     variant: {
         required: true,
         type: String,
+    },
+    previousOrder: {
+        type: Object,
+        required: false,
     },
 });
 
@@ -33,7 +37,7 @@ console.log(suppliersOptions);
 console.log(productsOption);
 console.log(branchesOptions);
 const orderForm = useForm({
-    branch_id: null,
+    branch_id: previousOrder?.store_branch_id + "",
     supplier_id: Object.keys(suppliers)[0] + "",
     order_date: null,
     orders: [],
@@ -290,6 +294,27 @@ const store = () => {
     });
 };
 
+if (previousOrder) {
+    previousOrder.store_order_items.forEach((item) => {
+        const product = {
+            id: item.product_inventory.id,
+            inventory_code: item.product_inventory.inventory_code,
+            name: item.product_inventory.name,
+            unit_of_measurement:
+                item.product_inventory.unit_of_measurement.name,
+            quantity: item.quantity_ordered,
+            cost: item.product_inventory.cost,
+            total_cost: parseFloat(
+                item.quantity_ordered * item.product_inventory.cost
+            ).toFixed(2),
+        };
+        orderForm.orders.push(product);
+    });
+
+    const selectedBranch = Object.values(suppliersOptions.value).find(
+        (option) => option.value === orderForm.supplier_id + ""
+    );
+}
 </script>
 <template>
     <Layout :heading="`DST Orders > ${variant.toUpperCase()} > Create`">
@@ -487,6 +512,6 @@ const store = () => {
                 </CardFooter>
             </Card>
         </div>
-        <BackButton :routeName="route('dts-orders.index')"/>
+        <BackButton />
     </Layout>
 </template>

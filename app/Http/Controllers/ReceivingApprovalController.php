@@ -141,7 +141,6 @@ class ReceivingApprovalController extends Controller
                 $storeOrder->order_status = OrderStatus::INCOMPLETE->value;
             }
         }
-
         $storeOrder->save();
     }
 }

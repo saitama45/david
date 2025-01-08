@@ -5,7 +5,7 @@ import { useBackButton } from "@/Composables/useBackButton";
 const { routeName } = defineProps({
     routeName: {
         type: String,
-        required: true,
+        default: ""
     },
 });
 const { backButton } = useBackButton(route(routeName));

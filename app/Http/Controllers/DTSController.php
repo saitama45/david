@@ -61,8 +61,13 @@ class DTSController extends Controller
         ]);
     }
 
-    public function create($variant)
+    public function create(Request $request, $variant)
     {
+
+        if ($request->has('orderId')) {
+            $orderId = $request->input('orderId');
+            $previousOrder = StoreOrder::with(['store_order_items', 'store_order_items.product_inventory', 'store_order_items.product_inventory.unit_of_measurement'])->find($orderId);
+        }
         $suppliers = Supplier::where('supplier_code', 'DROPS')->options();
         if ($variant === 'fruits and vegetables') {
             $items = ProductInventory::where('inventory_category_id', 6)
@@ -95,6 +100,7 @@ class DTSController extends Controller
             'items' => $items,
             'branches' => $branches,
             'variant' => $variant,
+            'previousOrder' => $previousOrder
         ]);
     }
 
