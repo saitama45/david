@@ -84,6 +84,9 @@ class ReceivingApprovalController extends Controller
                 $this->extracted($data);
                 $data->save();
                 $data->store_order_item->save();
+
+                $this->getOrderStatus($data);
+
                 DB::commit();
             }
         } else {
@@ -92,6 +95,8 @@ class ReceivingApprovalController extends Controller
             $this->extracted($data);
             $data->store_order_item->save();
             $data->save();
+            $this->getOrderStatus($data);
+
 
             DB::commit();
         }
@@ -105,7 +110,6 @@ class ReceivingApprovalController extends Controller
         $data->update(['is_approved' => true]);
         $item = $data->store_order_item->product_inventory;
 
-        $orderedItems = $data->store_order_item->store_order->store_order_items;
         $storeOrder = $data->store_order_item->store_order;
 
 
@@ -123,6 +127,14 @@ class ReceivingApprovalController extends Controller
 
         $data->store_order_item->quantity_received += $data->quantity_received;
 
+
+        $item->save();
+    }
+
+    public function getOrderStatus($data)
+    {
+        $storeOrder = StoreOrder::with('store_order_items')->find($data->store_order_item->store_order_id);
+        $orderedItems = $storeOrder->store_order_items;
         $storeOrder->order_status = OrderStatus::RECEIVED->value;
         foreach ($orderedItems as $itemOrdered) {
             if ($itemOrdered->quantity_ordered > $itemOrdered->quantity_received) {
@@ -131,6 +143,5 @@ class ReceivingApprovalController extends Controller
         }
 
         $storeOrder->save();
-        $item->save();
     }
 }
