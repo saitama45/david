@@ -100,7 +100,7 @@ class DTSController extends Controller
             'items' => $items,
             'branches' => $branches,
             'variant' => $variant,
-            'previousOrder' => $previousOrder
+            'previousOrder' => $previousOrder ?? null
         ]);
     }
 
