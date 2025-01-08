@@ -33,9 +33,7 @@ import { useSelectOptions } from "@/Composables/useSelectOptions";
 const { options: productsOption } = useSelectOptions(items);
 const { options: suppliersOptions } = useSelectOptions(suppliers);
 const { options: branchesOptions } = useSelectOptions(branches);
-console.log(suppliersOptions);
-console.log(productsOption);
-console.log(branchesOptions);
+
 const orderForm = useForm({
     branch_id: previousOrder?.store_branch_id + "",
     supplier_id: Object.keys(suppliers)[0] + "",
@@ -151,6 +149,7 @@ const addToOrdersButton = () => {
         itemForm.setError("item", "Item field is required");
         return;
     }
+
     if (Number(productDetails.quantity) < 1) {
         itemForm.setError("quantity", "Quantity must be at least 1");
         return;

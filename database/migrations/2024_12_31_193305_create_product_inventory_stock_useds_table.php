@@ -15,7 +15,7 @@ return new class extends Migration
             $table->id();
             $table->foreignId('product_inventory_id')->constrained('product_inventories')->cascadeOnDelete();
             $table->foreignId('store_branch_id')->constrained('store_branches')->cascadeOnDelete();
-            $table->integer('quantity');
+            $table->float('quantity');
             $table->string('action');
             $table->text('remarks')->nullable();
             $table->timestamps();

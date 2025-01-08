@@ -15,9 +15,9 @@ return new class extends Migration
             $table->id();
             $table->foreignId('product_inventory_id')->constrained('product_inventories')->cascadeOnDelete();
             $table->foreignId('store_branch_id')->constrained('store_branches')->cascadeOnDelete();
-            $table->integer('quantity')->default(0);
-            $table->integer('recently_added')->default(0);
-            $table->integer('used')->default(0);
+            $table->float('quantity')->default(0);
+            $table->float('recently_added')->default(0);
+            $table->float('used')->default(0);
             $table->timestamps();
         });
     }
