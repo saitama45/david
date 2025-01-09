@@ -38,9 +38,9 @@ watch(filter, function (value) {
 
 <template>
     <Layout
-        heading="Products List"
+        heading="Items List"
         :hasButton="true"
-        buttonName="Create New Product"
+        buttonName="Create New Item"
         :handleClick="handleClick"
     >
         <FilterTab>

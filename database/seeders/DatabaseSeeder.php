@@ -24,30 +24,6 @@ class DatabaseSeeder extends Seeder
         ]);
 
         $admin->assignRole(['admin']);
-        $admin->givePermissionTo(Permission::all());
-
-        $user = User::factory()->create([
-            'email' => 'soencoder@gmail.com',
-            'password' => Hash::make('admin1234')
-        ]);
-
-        $user->assignRole(['so encoder']);
-
-        $user = User::factory()->create([
-            'email' => 'recencoder@gmail.com',
-            'password' => Hash::make('admin1234')
-        ]);
-
-        $user->assignRole(['rec encoder']);
-
-        $user = User::factory()->create([
-            'email' => 'recapprover@gmail.com',
-            'password' => Hash::make('admin1234')
-        ]);
-
-        $user->assignRole(['rec approver']);
-
-        // 269D9A  874A2C   392A2A 105A2A
 
         $this->call([
             UnitOfMeasurementSeeder::class,

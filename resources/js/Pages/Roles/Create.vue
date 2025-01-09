@@ -27,10 +27,8 @@ const createNewRoles = () => {
                 <Input v-model="form.name" />
                 <FormError>{{ form.errors.name }}</FormError>
             </InputContainer>
-            <div>
-                <label class="block text-sm font-medium text-gray-700 mb-3">
-                    Permissions
-                </label>
+            <InputContainer>
+                <LabelXS> Permissions </LabelXS>
                 <div
                     class="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-4"
                 >
@@ -53,7 +51,7 @@ const createNewRoles = () => {
                         </label>
                     </div>
                 </div>
-            </div>
+            </InputContainer>
             <DivFlexCenter class="justify-end">
                 <Button @click="createNewRoles">Create</Button>
             </DivFlexCenter>

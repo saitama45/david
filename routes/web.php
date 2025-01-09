@@ -71,31 +71,29 @@ Route::middleware('auth')
             ->name('store-orders.')
             ->group(function () {
 
-                Route::get('/', 'index')
-                    ->name('index');
+                Route::get('/', 'index')->name('index');
 
-                Route::middleware('role:admin|so encoder')->group(function () {
-                    Route::get('/show/{id}', 'show')
-                        ->name('show');
 
-                    Route::post('/store', 'store')
-                        ->name('store');
+                Route::get('/show/{id}', 'show')
+                    ->name('show');
 
-                    Route::get('/create', 'create')
-                        ->name('create');
+                Route::post('/store', 'store')
+                    ->name('store');
 
-                    Route::get('/edit/{id}', 'edit')
-                        ->name('edit');
+                Route::get('/create', 'create')
+                    ->name('create');
 
-                    Route::put('/update/{id}', 'update')
-                        ->name('update');
+                Route::get('/edit/{id}', 'edit')
+                    ->name('edit');
 
-                    Route::post('/orders-list', 'validateHeaderUpload')
-                        ->name('orders-list');
+                Route::put('/update/{id}', 'update')
+                    ->name('update');
 
-                    Route::post('/store-orders', 'getImportedOrders')
-                        ->name('imported-file');
-                });
+                Route::post('/orders-list', 'validateHeaderUpload')
+                    ->name('orders-list');
+
+                Route::post('/store-orders', 'getImportedOrders')
+                    ->name('imported-file');
             });
 
         Route::controller(OrderApprovalController::class)->name('orders-approval.')->group(function () {
