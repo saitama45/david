@@ -78,32 +78,32 @@ const { options: branchesOptions } = useSelectOptions(props.branches);
             </CardHeader>
             <CardContent class="grid grid-cols-2 gap-5">
                 <InputContainer>
-                    <Label>First Name</Label>
+                    <LabelXS>First Name</LabelXS>
                     <Input v-model="form.first_name" />
                     <FormError>{{ form.errors.first_name }}</FormError>
                 </InputContainer>
                 <InputContainer>
-                    <Label>Middle Name</Label>
+                    <LabelXS>Middle Name</LabelXS>
                     <Input v-model="form.middle_name" />
                     <FormError>{{ form.errors.middle_name }}</FormError>
                 </InputContainer>
                 <InputContainer>
-                    <Label>Last Name</Label>
+                    <LabelXS>Last Name</LabelXS>
                     <Input v-model="form.last_name" />
                     <FormError>{{ form.errors.last_name }}</FormError>
                 </InputContainer>
                 <InputContainer>
-                    <Label>Phone Number</Label>
+                    <LabelXS>Phone Number</LabelXS>
                     <Input v-model="form.phone_number" />
                     <FormError>{{ form.errors.phone_number }}</FormError>
                 </InputContainer>
                 <InputContainer>
-                    <Label>Email</Label>
+                    <LabelXS>Email</LabelXS>
                     <Input v-model="form.email" type="email" />
                     <FormError>{{ form.errors.email }}</FormError>
                 </InputContainer>
                 <InputContainer>
-                    <Label>Role</Label>
+                    <LabelXS>Role</LabelXS>
                     <MultiSelect
                         filter
                         placeholder="Assign Roles"
@@ -115,12 +115,12 @@ const { options: branchesOptions } = useSelectOptions(props.branches);
                     <FormError>{{ form.errors.roles }}</FormError>
                 </InputContainer>
                 <InputContainer>
-                    <Label>Remarks</Label>
+                    <LabelXS>Remarks</LabelXS>
                     <Textarea v-model="form.remarks" />
                     <FormError>{{ form.errors.remarks }}</FormError>
                 </InputContainer>
                 <InputContainer v-if="form.roles.includes('so encoder')">
-                    <Label>Assigned Branches</Label>
+                    <LabelXS>Assigned Branches</LabelXS>
                     <MultiSelect
                         filter
                         placeholder="Assign Branches"
@@ -131,6 +131,28 @@ const { options: branchesOptions } = useSelectOptions(props.branches);
                     >
                     </MultiSelect>
                     <FormError>{{ form.errors.remarksl }}</FormError>
+                </InputContainer>
+
+                <InputContainer class="col-span-2">
+                    <LabelXS> Assigned Branches </LabelXS>
+                    <div
+                        class="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-4"
+                    >
+                        <div
+                            v-for="branch in branchesOptions"
+                            :key="branch.value"
+                            class="flex items-center space-x-2"
+                        >
+                            <Checkbox
+                                v-model="form.selectedPermissions"
+                                :value="branch.value"
+                                name="assignedBranches[]"
+                            />
+                            <label class="text-sm text-gray-600">
+                                {{ branch.label }}
+                            </label>
+                        </div>
+                    </div>
                 </InputContainer>
             </CardContent>
             <CardFooter class="justify-end gap-3">
