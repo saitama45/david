@@ -42,7 +42,7 @@ class StoreOrderSeeder extends Seeder
         $suppliers = Supplier::all()->pluck('id')->toArray();
         $products = ProductInventory::all()->pluck('id')->toArray();
 
-        $startDate = Carbon::parse('2024-12-01');
+        $startDate = Carbon::parse('2024-12-27');
         $endDate = Carbon::now();
 
         // Create orders for each day

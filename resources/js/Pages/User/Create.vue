@@ -119,22 +119,9 @@ const { options: branchesOptions } = useSelectOptions(props.branches);
                     <Textarea v-model="form.remarks" />
                     <FormError>{{ form.errors.remarks }}</FormError>
                 </InputContainer>
-                <InputContainer v-if="form.roles.includes('so encoder')">
-                    <LabelXS>Assigned Branches</LabelXS>
-                    <MultiSelect
-                        filter
-                        placeholder="Assign Branches"
-                        v-model="form.assignedBranches"
-                        :options="branchesOptions"
-                        optionLabel="label"
-                        optionValue="value"
-                    >
-                    </MultiSelect>
-                    <FormError>{{ form.errors.remarksl }}</FormError>
-                </InputContainer>
 
                 <InputContainer class="col-span-2">
-                    <LabelXS> Assigned Branches </LabelXS>
+                    <LabelXS> Assign Branches </LabelXS>
                     <div
                         class="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-4"
                     >

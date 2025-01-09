@@ -101,7 +101,7 @@ Route::middleware('auth')
             Route::middleware('permission:view approved orders')->get('/orders-receiving', 'index')->name('index');
             Route::middleware('permission:view approved order')->get('/orders-receiving/show/{id}', 'show')->name('show');
 
-            Route::middleware('permission:receive-order')->group(function () {
+            Route::middleware('permission:receive order')->group(function () {
                 Route::post('/orders-receiving/receive/{id}', 'receive')->name('receive');
                 Route::post('/orders-receiving/add-delivery-receipt-number', 'addDeliveryReceiptNumber')->name('add-delivery-receipt-number');
                 Route::put('/orders-receiving/update-delivery-receipt-number/{id}', 'updateDeliveryReceiptNumber')->name('update-delivery-receipt-number');
@@ -265,7 +265,7 @@ Route::middleware('auth')
 
 
 
-        
+
         Route::controller(ProductSalesController::class)->prefix('product-sales')->name('product-sales.')->group(function () {
             Route::get('/', 'index')->name('index');
             Route::get('/show/{id}', 'show')->name('show');

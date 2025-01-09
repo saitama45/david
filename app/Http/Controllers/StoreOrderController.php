@@ -89,7 +89,7 @@ class StoreOrderController extends Controller
         $suppliers = Supplier::whereNot('supplier_code', 'DROPS')->options();
         $user = Auth::user();
 
-        if (in_array('so encoder', $user->roles->pluck('name')->toArray()) && !in_array('admin', $user->roles->pluck('name')->toArray())) {
+        if (!in_array('admin', $user->roles->pluck('name')->toArray())) {
             $assignedBranches = $user->store_branches->pluck('id');
             $branches = StoreBranch::whereIn('id', $assignedBranches)->options();
         } else {

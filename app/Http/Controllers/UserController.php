@@ -66,10 +66,6 @@ class UserController extends Controller
 
         ]);
 
-        // if (in_array('so encoder', $validated['roles']))
-        //     $validatedAssignedStoreBranches = $request->validate([
-        //         'assignedBranches' => ['required'],
-        //     ]);
 
 
         $validated['password'] = 'password';
@@ -78,13 +74,10 @@ class UserController extends Controller
         $user = User::create($validated);
         $roles = Role::whereIn('id', $validated['roles'])->get();
         $user->assignRole($roles);
-        // if (in_array('so encoder', $validated['roles'])) {
-        //     $validatedAssignedStoreBranches = $request->validate([
-        //         'assignedBranches' => ['required', 'array'],
-        //     ]);
-        //     $user->store_branches()->attach($validatedAssignedStoreBranches['assignedBranches']);
-        // }
-
+        $validatedAssignedStoreBranches = $request->validate([
+            'assignedBranches' => ['required', 'array'],
+        ]);
+        $user->store_branches()->attach($validatedAssignedStoreBranches['assignedBranches']);
         DB::commit();
 
         return redirect()->route('users.index');
@@ -118,16 +111,7 @@ class UserController extends Controller
             $roles = Role::whereIn('id', $validated['roles'])->get();
             $user->syncRoles($roles);
 
-            if (in_array('so encoder', $validated['roles'])) {
-
-                if (empty($validated['assignedBranches'])) {
-                    throw new \Exception('Assigned branches are required for SO encoder');
-                }
-
-                $user->store_branches()->sync($validated['assignedBranches']);
-            } else {
-                $user->store_branches()->detach();
-            }
+            $user->store_branches()->sync($validated['assignedBranches']);
 
             DB::commit();
 
