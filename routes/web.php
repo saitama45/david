@@ -122,8 +122,8 @@ Route::middleware('auth')
 
         // Approved Received Items
         Route::controller(ApprovedOrderController::class)->name('approved-orders.')->group(function () {
-            Route::middleware('view approved received items')->get('/approved-orders', 'index')->name('index');
-            Route::middleware('view approved received item')->get('/approved-orders/show/{id}', 'show')->name('show');
+            Route::middleware('permission:view approved received items')->get('/approved-orders', 'index')->name('index');
+            Route::middleware('permission:view approved received item')->get('/approved-orders/show/{id}', 'show')->name('show');
         });
 
         // Store Transactions 

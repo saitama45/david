@@ -20,16 +20,19 @@ const { branches, history } = defineProps({
                     <TH>Action</TH>
                     <TH>Remarks</TH>
                     <TH>Created at</TH>
-                    <TH>Actions</TH>
                 </TableHead>
                 <TableBody>
                     <tr v-for="data in history.data">
                         <TD>{{ data.id }}</TD>
-                        <TD>{{ data.quantity }}</TD>
-                        <TD>{{ data.action }}</TD>
+                        <TD
+                            ><span v-if="data.action == 'log_usage'">-</span
+                            >{{ data.quantity }}</TD
+                        >
+                        <TD>{{
+                            data.action.replace(/_/g, " ").toUpperCase()
+                        }}</TD>
                         <TD>{{ data.remarks ?? "None" }}</TD>
                         <TD>{{ data.created_at }}</TD>
-                        <TD><ShowButton /></TD>
                     </tr>
                 </TableBody>
             </Table>
