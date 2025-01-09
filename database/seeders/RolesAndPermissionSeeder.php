@@ -41,7 +41,6 @@ class RolesAndPermissionSeeder extends Seeder
         Permission::create(['name' => 'view orders for approval list']);
         Permission::create(['name' => 'view order for approval']);
         Permission::create(['name' => 'approve/decline order request']);
-        Permission::create(['name' => 'edit orders for approval']);
 
         // Approved Orders
         Permission::create(['name' => 'view approved orders']);
@@ -57,6 +56,7 @@ class RolesAndPermissionSeeder extends Seeder
         // Approved Received Items
         Permission::create(['name' => 'view approved received items']);
         Permission::create(['name' => 'view approved received item']);
+
         // Store Transactions
         Permission::create(['name' => 'view store transactions']);
         Permission::create(['name' => 'create store transaction']);
@@ -87,9 +87,10 @@ class RolesAndPermissionSeeder extends Seeder
         Permission::create(['name' => 'view fruits and vegetables orders']);
 
         // User
-        Permission::create(['name' => 'create user']);
+        Permission::create(['name' => 'create users']);
+        Permission::create(['name' => 'view users']);
+        Permission::create(['name' => 'edit users']);
         Permission::create(['name' => 'view user']);
-        Permission::create(['name' => 'edit user']);
 
         // Manage References
         Permission::create(['name' => 'manage references']);

@@ -43,6 +43,130 @@ Route::redirect('/', '/dashboard');
 Route::middleware('auth')
     ->group(function () {
 
+        // Roles 
+        Route::controller(RolesController::class)->name('roles.')->prefix('roles')->group(function () {
+            Route::middleware('permission:view roles')->get('/', 'index')->name('index');
+            Route::middleware('permission:create role')->get('/create', 'create')->name('create');
+            Route::middleware('permission:create role')->post('/store', 'store')->name('store');
+            Route::middleware('permission:edit role')->get('/edit/{id}', 'edit')->name('edit');
+        });
+
+        // DTS Delivery Schedules
+        Route::controller(DeliveryScheduleController::class)->name('delivery-schedules.')->prefix('delivery-schedules')->group(function () {
+            Route::middleware('permission:view dts delivery schedules')->get('/', 'index')->name('index');
+            Route::middleware('permission:edit dts delivery schedules')->get('/edit/{id}', 'edit')->name('edit');
+            Route::middleware('permission:edit dts delivery schedules')->post('/update/{id}', 'update')->name('update');
+        });
+
+        // DTS Orders
+        Route::controller(DTSController::class)->name('dts-orders.')->prefix('dts-orders')->group(function () {
+            Route::middleware('permission:view dts orders')->get('/', 'index')->name('index');
+            Route::middleware('permission:create dts orders')->get('/create/{variant}', 'create')->name('create');
+            Route::middleware('permission:create dts orders')->post('/store', 'store')->name('store');
+            Route::middleware('permission:view dts order')->get('/show/{id}', 'show')->name('show');
+            Route::middleware('permission:edit dts orders')->get('/edit/{id}', 'edit')->name('edit');
+            Route::middleware('permission:edit dts orders')->put('/update/{id}', 'update')->name('update');
+        });
+
+        // Store Orders
+        Route::controller(StoreOrderController::class)->prefix('store-orders')->name('store-orders.')->group(function () {
+            Route::middleware('permission:view store orders')->get('/', 'index')->name('index');
+            Route::middleware('permission:view store order')->get('/show/{id}', 'show')->name('show');
+            Route::middleware('permission:create store orders')->group(function () {
+                Route::get('/create', 'create')->name('create');
+                Route::post('/store', 'store')->name('store');
+                Route::post('/store-orders', 'getImportedOrders')->name('imported-file');
+            });
+            Route::middleware('permission:edit store orders')->group(function () {
+                Route::get('/edit/{id}', 'edit')->name('edit');
+                Route::put('/update/{id}', 'update')->name('update');
+            });
+        });
+
+        // Orders Approval
+        Route::controller(OrderApprovalController::class)->name('orders-approval.')->group(function () {
+            Route::middleware('permission:view orders for approval list')->get('/orders-approval', 'index')->name('index');
+            Route::middleware('permission:view order for approval')->get('/orders-approval/show/{id}', 'show')->name('show');
+            Route::middleware('permission:approve/decline order request')->group(function () {
+                Route::post('/orders-approval/approve', 'approve')->name('approve');
+                Route::post('/orders-approval/reject', 'reject')->name('reject');
+            });
+
+            // TBD
+            // Route::middleware('permission:edit orders for approval')->post('/orders-approval/add-remarks/{id}', 'addRemarks')->name('add-remarks');
+        });
+
+        // Approved Orders
+        Route::controller(OrderReceivingController::class)->name('orders-receiving.')->group(function () {
+            Route::middleware('permission:view approved orders')->get('/orders-receiving', 'index')->name('index');
+            Route::middleware('permission:view approved order')->get('/orders-receiving/show/{id}', 'show')->name('show');
+
+            Route::middleware('permission:receive-order')->group(function () {
+                Route::post('/orders-receiving/receive/{id}', 'receive')->name('receive');
+                Route::post('/orders-receiving/add-delivery-receipt-number', 'addDeliveryReceiptNumber')->name('add-delivery-receipt-number');
+                Route::put('/orders-receiving/update-delivery-receipt-number/{id}', 'updateDeliveryReceiptNumber')->name('update-delivery-receipt-number');
+
+                Route::post('/orders-receiving/delete-receiving-history/{id}', 'deleteReceiveDateHistory')->name('delete-receiving-history');
+                Route::post('/orders-receiving/update-receiving-history', 'updateReceiveDateHistory')->name('update-receiving-history');
+
+                Route::delete('/orders-receiving/delete/{id}', 'destroyDeliveryReceiptNumber')->name('delete-delivery-receipt-number');
+            });
+        });
+
+        // Approvals 
+        Route::controller(ReceivingApprovalController::class)->prefix('receiving-approvals')->name('receiving-approvals.')->group(function () {
+            Route::middleware('permission:view received orders for approval list')->get('/', 'index')->name('index');
+            Route::middleware('permission:view approved order for approval')->get('/show/{id}', 'show')->name('show');
+            Route::middleware('permission:approve received orders')->post('/approve', 'approveReceivedItem')->name('approve-received-item');
+        });
+
+        // Approved Received Items
+        Route::controller(ApprovedOrderController::class)->name('approved-orders.')->group(function () {
+            Route::middleware('view approved received items')->get('/approved-orders', 'index')->name('index');
+            Route::middleware('view approved received item')->get('/approved-orders/show/{id}', 'show')->name('show');
+        });
+
+        // Store Transactions 
+        Route::controller(StoreTransactionController::class)->name('store-transactions.')->prefix('store-transactions')->group(function () {
+            Route::middleware('permission:view store transactions')->get('/', 'index')->name('index');
+            Route::middleware('permission:view store transaction')->get('/show/{id}', 'show')->name('show');
+            Route::middleware('permission:create store transaction')->get('/create', 'create')->name('create');
+        });
+
+        // Items
+        Route::controller(ItemController::class)->name('items.')->group(function () {
+            Route::middleware('permission:view items list')->get('/items-list', 'index')->name('index');
+            Route::middleware('permission:view item')->get('/items-list/show/{id}', 'show')->name('show');
+            Route::middleware('permission:create new item')->group(function () {
+                Route::post('/items-list/store', 'store')->name('store');
+                Route::get('/items-list/create', 'create')->name('create');
+                Route::post('/items-list/import', 'import')->name('import');
+            });
+        });
+
+        // Menu
+        Route::controller(MenuController::class)->prefix('menu-list')->name('menu-list.')->group(function () {
+            Route::middleware('permission:view menu list')->get('/', 'index')->name('index');
+            Route::middleware('permission:view menu')->get('/show/{id}', 'show')->name('show');
+            Route::middleware('permission:create menu')->group(function () {
+                Route::post('/store', 'store')->name('store');
+                Route::get('/create', 'create')->name('create');
+            });
+            Route::middleware('permission:edit menu')->group(function () {
+                Route::put('/update/{id}', 'update')->name('update');
+                Route::get('/edit/{id}', 'edit')->name('edit');
+            });
+        });
+
+        // Stock Management 
+        Route::controller(StockManagementController::class)->prefix('stock-management')->name('stock-management.')->group(function () {
+            Route::middleware('permission:view stock management')->get('/', 'index')->name('index');
+            Route::middleware('permission:view stock management history')->get('/show/{id}', 'show')->name('show');
+            Route::middleware('permission:log stock usage')->post('/log-usage', 'logUsage')->name('log-usage');
+            Route::middleware('permission:add stock quantity')->post('/add-quantity', 'addQuantity')->name('add-quantity');
+        });
+
+        // Items Order Summary
         Route::get('/dashboard', [DashboardController::class, 'index'])
             ->name('dashboard');
 
@@ -66,92 +190,85 @@ Route::middleware('auth')
                     ->name('products-template');
             });
 
-        Route::controller(StoreOrderController::class)
-            ->prefix('store-orders')
-            ->name('store-orders.')
-            ->group(function () {
-
-                Route::get('/', 'index')->name('index');
-
-
-                Route::get('/show/{id}', 'show')
-                    ->name('show');
-
-                Route::post('/store', 'store')
-                    ->name('store');
-
-                Route::get('/create', 'create')
-                    ->name('create');
-
-                Route::get('/edit/{id}', 'edit')
-                    ->name('edit');
-
-                Route::put('/update/{id}', 'update')
-                    ->name('update');
-
-                Route::post('/orders-list', 'validateHeaderUpload')
-                    ->name('orders-list');
-
-                Route::post('/store-orders', 'getImportedOrders')
-                    ->name('imported-file');
-            });
-
-        Route::controller(OrderApprovalController::class)->name('orders-approval.')->group(function () {
-            Route::get('/orders-approval', 'index')->name('index');
-            Route::get('/orders-approval/show/{id}', 'show')->name('show');
-
-            Route::post('/orders-approval/approve', 'approve')->name('approve');
-
-            Route::post('/orders-approval/reject', 'reject')->name('reject');
-
-            Route::post('/orders-approval/add-remarks/{id}', 'addRemarks')->name('add-remarks');
-        });
-
-        Route::controller(CategoryController::class)->name('categories.')->group(function () {
-            Route::get('/category-list', 'index')->name('index');
-            Route::post('/category-list/update/{id}', 'update')->name('update');
-        });
-
-        Route::controller(ItemController::class)->name('items.')->group(function () {
-            Route::get('/items-list', 'index')->name('index');
-            Route::get('/items-list/create', 'create')->name('create');
-            Route::get('/items-list/show/{id}', 'show')->name('show');
-            Route::post('/items-list/store', 'store')->name('store');
-
-            Route::post('/items-list/import', 'import')->name('import');
-        });
-
-        Route::controller(ProductOrderSummaryController::class)->name('product-orders-summary.')->group(function () {
+        // Items Order Summary
+        Route::middleware('permission:view items order summary')->controller(ProductOrderSummaryController::class)->name('product-orders-summary.')->group(function () {
             Route::get('/product-orders-summary', 'index')->name('index');
             Route::get('/product-orders-summary/show/{id}', 'show')->name('show');
             Route::get('/product-orders-summary/download-orders-summary-pdf', 'downloadOrdersPdf')->name('download-orders-summary-pdf');
         });
-
-        Route::controller(OrderReceivingController::class)->name('orders-receiving.')->group(function () {
-            Route::get('/orders-receiving', 'index')->name('index');
-            Route::get('/orders-receiving/show/{id}', 'show')->name('show');
-            Route::post('/orders-receiving/receive/{id}', 'receive')->name('receive');
-            Route::post('/orders-receiving/add-delivery-receipt-number', 'addDeliveryReceiptNumber')->name('add-delivery-receipt-number');
-            Route::put('/orders-receiving/update-delivery-receipt-number/{id}', 'updateDeliveryReceiptNumber')->name('update-delivery-receipt-number');
-
-            Route::post('/orders-receiving/delete-receiving-history/{id}', 'deleteReceiveDateHistory')->name('delete-receiving-history');
-            Route::post('/orders-receiving/update-receiving-history', 'updateReceiveDateHistory')->name('update-receiving-history');
-
-            Route::delete('/orders-receiving/delete/{id}', 'destroyDeliveryReceiptNumber')->name('delete-delivery-receipt-number');
+        Route::middleware('permission:view ice cream orders')->controller(IceCreamOrderController::class)->name('ice-cream-orders.')->prefix('ice-cream-orders')->group(function () {
+            Route::get('/', 'index')->name('index');
+        });
+        Route::middleware('permission:view salmon orders')->controller(SalmonOrderController::class)->name('salmon-orders.')->prefix('salmon-orders')->group(function () {
+            Route::get('/', 'index')->name('index');
+        });
+        Route::middleware('permission:view fruits and vegetables orders')->controller(FruitAndVegetableController::class)->prefix('fruits-and-vegetables')->name('fruits-and-vegetables.')->group(function () {
+            Route::get('/', 'index')->name('index');
+            Route::get('/show/{id}', 'show')->name('show');
         });
 
+        // User
         Route::controller(UserController::class)->name('users.')->group(function () {
-            Route::get('/users', 'index')->name('index');
-            Route::get('/users/create', 'create')->name('create');
-            Route::post('/users/store', 'store')->name('store');
-            Route::get('/users/show/{id}', 'show')->name('show');
-            Route::get('/users/edit/{id}', 'edit')->name('edit');
-            Route::post('/users/update/{id}', 'update')->name('update');
+            Route::middleware('permission:view users')->get('/users', 'index')->name('index');
+            Route::middleware('permission:view user')->get('/users/show/{id}', 'show')->name('show');
+            Route::middleware('permission:create users')->group(function () {
+                Route::get('/users/create', 'create')->name('create');
+                Route::post('/users/store', 'store')->name('store');
+            });
+            Route::middleware('permission:edit users')->group(function () {
+                Route::get('/users/edit/{id}', 'edit')->name('edit');
+                Route::post('/users/update/{id}', 'update')->name('update');
+            });
         });
 
-        Route::controller(ApprovedOrderController::class)->name('approved-orders.')->group(function () {
-            Route::get('/approved-orders', 'index')->name('index');
-            Route::get('/approved-orders/show/{id}', 'show')->name('show');
+        // Manage References
+        Route::middleware('permission:manage references')->group(function () {
+            Route::controller(CategoryController::class)->name('categories.')->group(function () {
+                Route::get('/category-list', 'index')->name('index');
+                Route::post('/category-list/update/{id}', 'update')->name('update');
+            });
+
+            Route::controller(MenuCategoryController::class)->prefix('menu-categories')->name('menu-categories.')->group(function () {
+                Route::get('/', 'index')->name('index');
+                Route::get('/create', 'create')->name('create');
+                Route::post('/store', 'store')->name('store');
+                Route::get('/show/{id}', 'show')->name('show');
+                Route::get('/edit/{id}', 'edit')->name('edit');
+                Route::post('/update/{id}', 'update')->name('update');
+            });
+
+            Route::controller(InvetoryCategoryController::class)->name('inventory-categories.')->group(function () {
+                Route::get('/inventory-categories', 'index')->name('index');
+                Route::post('/inventory-categories/update/{id}', 'update')->name('update');
+            });
+
+            Route::controller(StoreBranchController::class)->name('store-branches.')->prefix('store-branches')->group(function () {
+                Route::get('/', 'index')->name('index');
+                Route::get('/create', 'create')->name('create');
+                Route::post('/store', 'store')->name('store');
+                Route::get('/show/{id}', 'show')->name('show');
+                Route::get('/edit/{id}', 'edit')->name('edit');
+                Route::post('/update/{id}', 'update')->name('update');
+            });
+
+            Route::controller(SupplierController::class)->name('suppliers.')->group(function () {
+                Route::get('/suppliers', 'index')->name('index');
+            });
+
+            Route::controller(UnitOfMeasurementController::class)->name('unit-of-measurements.')->group(function () {
+                Route::get('/unit-of-measurements', 'index')->name('index');
+                Route::post('/unit-of-measurements/update/{id}', 'update')->name('update');
+            });
+        });
+
+        Route::get('/audits', [AuditController::class, 'index']);
+
+
+
+        
+        Route::controller(ProductSalesController::class)->prefix('product-sales')->name('product-sales.')->group(function () {
+            Route::get('/', 'index')->name('index');
+            Route::get('/show/{id}', 'show')->name('show');
         });
 
         Route::controller(StockController::class)->name('stocks.')
@@ -160,83 +277,23 @@ Route::middleware('auth')
                 Route::get('/stocks/show/{id}', 'show')->name('show');
             });
 
-        Route::controller(StoreBranchController::class)->name('store-branches.')->prefix('store-branches')->group(function () {
+        // Route::controller(UsageRecordController::class)
+        //     ->prefix('usage-records')
+        //     ->name('usage-records.')
+        //     ->group(function () {
+        //         Route::get('/', 'index')->name('index');
+        //         Route::get('/create', 'create')->name('create');
+        //         Route::post('/store', 'store')->name('store');
+        //         Route::get('/show/{id}', 'show')->name('show');
+        //     });
+
+
+        Route::controller(PersmissionController::class)->name('permissions.')->prefix('permissions')->group(function () {
             Route::get('/', 'index')->name('index');
             Route::get('/create', 'create')->name('create');
             Route::post('/store', 'store')->name('store');
-            Route::get('/show/{id}', 'show')->name('show');
-            Route::get('/edit/{id}', 'edit')->name('edit');
-            Route::post('/update/{id}', 'update')->name('update');
-        });
-        Route::controller(SupplierController::class)->name('suppliers.')->group(function () {
-            Route::get('/suppliers', 'index')->name('index');
-        });
-
-        Route::controller(InvetoryCategoryController::class)->name('inventory-categories.')->group(function () {
-            Route::get('/inventory-categories', 'index')->name('index');
-            Route::post('/inventory-categories/update/{id}', 'update')->name('update');
-        });
-
-        Route::controller(UnitOfMeasurementController::class)->name('unit-of-measurements.')->group(function () {
-            Route::get('/unit-of-measurements', 'index')->name('index');
-            Route::post('/unit-of-measurements/update/{id}', 'update')->name('update');
-        });
-
-        Route::controller(DTSController::class)->name('dts-orders.')->prefix('dts-orders')->group(function () {
-            Route::get('/', 'index')->name('index');
-            Route::get('/create/{variant}', 'create')->name('create');
-            Route::get('/show/{id}', 'show')
-                ->name('show');
-            Route::post('/store', 'store')->name('store');
-            Route::get('/edit/{id}', 'edit')
-                ->name('edit');
-            Route::put('/update/{id}', 'update')
-                ->name('update');
-        });
-
-        Route::controller(DeliveryScheduleController::class)->name('delivery-schedules.')->prefix('delivery-schedules')->group(function () {
-            Route::get('/', 'index')->name('index');
-            Route::get('/edit/{id}', 'edit')->name('edit');
-            Route::post('/update/{id}', 'update')->name('update');
-        });
-
-        Route::controller(IceCreamOrderController::class)->name('ice-cream-orders.')->prefix('ice-cream-orders')->group(function () {
-            Route::get('/', 'index')->name('index');
-        });
-
-        Route::controller(SalmonOrderController::class)->name('salmon-orders.')->prefix('salmon-orders')->group(function () {
-            Route::get('/', 'index')->name('index');
-        });
-
-        Route::get('/audits', [AuditController::class, 'index']);
-
-        Route::controller(MenuController::class)->prefix('menu-list')->name('menu-list.')->group(function () {
-            Route::get('/', 'index')->name('index');
-            Route::get('/create', 'create')->name('create');
-            Route::get('/show/{id}', 'show')->name('show');
-            Route::post('/store', 'store')->name('store');
-            Route::put('/update/{id}', 'update')->name('update');
             Route::get('/edit/{id}', 'edit')->name('edit');
         });
-
-        Route::controller(ReceivingApprovalController::class)->prefix('receiving-approvals')->name('receiving-approvals.')->group(function () {
-            Route::get('/', 'index')->name('index');
-            Route::get('/show/{id}', 'show')->name('show');
-            Route::post('/approve', 'approveReceivedItem')->name('approve-received-item');
-        });
-
-        Route::controller(ProductSalesController::class)->prefix('product-sales')->name('product-sales.')->group(function () {
-            Route::get('/', 'index')->name('index');
-            Route::get('/show/{id}', 'show')->name('show');
-        });;
-
-        Route::controller(FruitAndVegetableController::class)
-            ->prefix('fruits-and-vegetables')
-            ->name('fruits-and-vegetables.')
-            ->group(function () {
-                Route::get('/', 'index')->name('index');
-                Route::get('/show/{id}', 'show')->name('show');
-            });
 
         Route::controller(SalesOrderController::class)
             ->prefix('sales-orders')
@@ -246,62 +303,6 @@ Route::middleware('auth')
                 Route::get('/create', 'create')->name('create');
                 Route::get('/show/{id}', 'show')->name('show');
             });
-
-        Route::controller(MenuCategoryController::class)->prefix('menu-categories')
-            ->name('menu-categories.')
-            ->group(function () {
-                Route::get('/', 'index')->name('index');
-                Route::get('/create', 'create')->name('create');
-                Route::post('/store', 'store')->name('store');
-                Route::get('/show/{id}', 'show')->name('show');
-                Route::get('/edit/{id}', 'edit')->name('edit');
-                Route::post('/update/{id}', 'update')->name('update');
-            });
-
-        Route::controller(UsageRecordController::class)
-            ->prefix('usage-records')
-            ->name('usage-records.')
-            ->group(function () {
-                Route::get('/', 'index')->name('index');
-                Route::get('/create', 'create')->name('create');
-                Route::post('/store', 'store')->name('store');
-                Route::get('/show/{id}', 'show')->name('show');
-            });
-
-        Route::controller(StockManagementController::class)
-            ->prefix('stock-management')
-            ->name('stock-management.')
-            ->group(function () {
-                Route::get('/', 'index')->name('index');
-                Route::get('/show/{id}', 'show')->name('show');
-                Route::post('/log-usage', 'logUsage')->name('log-usage');
-                Route::post('/add-quantity', 'addQuantity')->name('add-quantity');
-            });
-
-
-        Route::controller(StoreTransactionController::class)->name('store-transactions.')
-            ->prefix('store-transactions')
-            ->group(function () {
-                Route::get('/', 'index')->name('index');
-                Route::get('/show/{id}', 'show')->name('show');
-                Route::get('/create', 'create')->name('create');
-            });
-
-
-        Route::controller(RolesController::class)->name('roles.')->prefix('roles')->group(function () {
-            Route::get('/', 'index')->name('index');
-            Route::get('/create', 'create')->name('create');
-            Route::post('/store', 'store')->name('store');
-            Route::get('/edit/{id}', 'edit')->name('edit');
-        });
-
-        Route::controller(PersmissionController::class)->name('permissions.')->prefix('permissions')->group(function () {
-            Route::get('/', 'index')->name('index');
-            Route::get('/create', 'create')->name('create');
-            Route::post('/store', 'store')->name('store');
-            Route::get('/edit/{id}', 'edit')->name('edit');
-        });
-
 
 
         Route::controller(ProfileController::class)->name('profile.')
