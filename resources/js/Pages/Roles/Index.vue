@@ -11,6 +11,7 @@ const createNewRole = () => {
 };
 
 import { useSearch } from "@/Composables/useSearch";
+import TD from "@/Components/table/TD.vue";
 
 const { search } = useSearch("roles.index");
 </script>
@@ -36,11 +37,16 @@ const { search } = useSearch("roles.index");
                 <TableHead>
                     <TH>Id</TH>
                     <TH>Name</TH>
+                    <TH>Permissions</TH>
                     <TH>Actions</TH>
                 </TableHead>
                 <TableBody>
-                    <tr v-for="role in roles.data">
-                        <TD>{{ role.id }}</TD>
+                    <tr v-for="role in roles.data" class="h-full">
+                        <TD>
+                            <DivFlexCenter class="h-full">
+                                {{ role.id }}
+                            </DivFlexCenter>
+                        </TD>
                         <TD>{{ role.name }}</TD>
                         <TD>
                             <section class="max-w-[400px] space-x-3 space-y-3">

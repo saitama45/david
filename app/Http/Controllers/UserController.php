@@ -9,6 +9,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
 use Illuminate\Support\Str;
+use Spatie\Permission\Models\Role;
 
 class UserController extends Controller
 {
@@ -29,7 +30,7 @@ class UserController extends Controller
 
     public function create()
     {
-        $roles = UserRole::values();
+        $roles = Role::select(['id', 'name'])->pluck('name', 'id');
         $branches = StoreBranch::options();
         foreach ($roles as &$role) {
             $role = Str::headline($role);
@@ -43,7 +44,7 @@ class UserController extends Controller
     public function edit($id)
     {
         $user = User::with(['roles', 'store_branches'])->find($id);
-        $roles = UserRole::values();
+        $roles = Role::select(['id', 'name'])->pluck('name', 'id');
         $branches = StoreBranch::options();
         return Inertia::render('User/Edit', [
             'user' => $user,
@@ -65,26 +66,24 @@ class UserController extends Controller
 
         ]);
 
-        if (in_array('so encoder', $validated['roles']))
-            $validatedAssignedStoreBranches = $request->validate([
-                'assignedBranches' => ['required'],
-            ]);
+        // if (in_array('so encoder', $validated['roles']))
+        //     $validatedAssignedStoreBranches = $request->validate([
+        //         'assignedBranches' => ['required'],
+        //     ]);
 
 
         $validated['password'] = 'password';
 
         DB::beginTransaction();
         $user = User::create($validated);
-        $user->assignRole($validated['roles']);
-        if (in_array('so encoder', $validated['roles'])) {
-            $validatedAssignedStoreBranches = $request->validate([
-                'assignedBranches' => ['required', 'array'],
-            ]);
-
-
-
-            $user->store_branches()->attach($validatedAssignedStoreBranches['assignedBranches']);
-        }
+        $roles = Role::whereIn('id', $validated['roles'])->get();
+        $user->assignRole($roles);
+        // if (in_array('so encoder', $validated['roles'])) {
+        //     $validatedAssignedStoreBranches = $request->validate([
+        //         'assignedBranches' => ['required', 'array'],
+        //     ]);
+        //     $user->store_branches()->attach($validatedAssignedStoreBranches['assignedBranches']);
+        // }
 
         DB::commit();
 
@@ -116,8 +115,8 @@ class UserController extends Controller
                 'email' => $validated['email'],
                 'remarks' => $validated['remarks'] ?? null,
             ]);
-
-            $user->syncRoles($validated['roles']);
+            $roles = Role::whereIn('id', $validated['roles'])->get();
+            $user->syncRoles($roles);
 
             if (in_array('so encoder', $validated['roles'])) {
 

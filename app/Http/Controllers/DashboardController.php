@@ -21,6 +21,17 @@ class DashboardController extends Controller
     public function index()
     {
 
+        $orderCounts = StoreOrder::selectRaw('
+        COUNT(CASE WHEN order_request_status = "pending" THEN 1 END) as pending_count,
+        COUNT(CASE WHEN order_request_status = "approved" THEN 1 END) as approved_count,
+        COUNT(CASE WHEN order_request_status = "rejected" THEN 1 END) as rejected_count
+    ')
+            ->first();
+
+        return Inertia::render('Dashboard/Index', [
+            'orderCounts' => $orderCounts
+        ]);
+
         $user = User::with(['roles', 'store_branches'])->findOrFail(Auth::user()->id);
 
         if (in_array('admin', $user->roles->pluck('name')->toArray())) {
