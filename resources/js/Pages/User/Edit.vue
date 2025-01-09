@@ -20,7 +20,8 @@ const { user, roles, branches } = defineProps({
     },
 });
 
-const userCurrentRoles = user.roles.map((role) => role.name) ?? [];
+const userCurrentRoles = user.roles.map((role) => role.id + "") ?? [];
+
 const userCurrentAssignedBranches =
     user.store_branches.map((role) => role.id + "") ?? [];
 
@@ -36,6 +37,8 @@ const form = useForm({
 });
 const { options: rolesOptions } = useSelectOptions(roles);
 const { options: branchesOptions } = useSelectOptions(branches);
+
+console.log(rolesOptions);
 
 const handleUpdate = () => {
     confirm.require({
