@@ -138,6 +138,7 @@ const logout = () => {
                         <NavLink href="/dashboard" :icon="Home">
                             Dashboard
                         </NavLink>
+                        <NavLink href="/roles" :icon="Home"> Roles </NavLink>
                         <NavLink href="/audits" :icon="MonitorCog" v-if="false">
                             Audits
                         </NavLink>
@@ -183,7 +184,7 @@ const logout = () => {
                             href="/orders-receiving"
                             :icon="ClipboardList"
                         >
-                            Orders
+                            Approved Orders
                         </NavLink>
                         <NavLink
                             v-if="canViewReceivingApprovals"
@@ -399,7 +400,7 @@ const logout = () => {
                                     href="/orders-receiving"
                                     :icon="Folders"
                                 >
-                                    Orders
+                                    Approved Orders
                                 </NavLink>
                                 <NavLink
                                     v-if="canViewReceivingApprovals"

@@ -23,6 +23,7 @@ use App\Http\Controllers\SalmonOrderController;
 use App\Http\Controllers\StoreOrderController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\ReceivingApprovalController;
+use App\Http\Controllers\RolesController;
 use App\Http\Controllers\StockController;
 use App\Http\Controllers\StockManagementController;
 use App\Http\Controllers\StoreBranchController;
@@ -286,6 +287,13 @@ Route::middleware('auth')
                 Route::get('/show/{id}', 'show')->name('show');
                 Route::get('/create', 'create')->name('create');
             });
+
+
+        Route::controller(RolesController::class)->name('roles.')->prefix('roles')->group(function () {
+            Route::get('/', 'index')->name('index');
+            Route::get('/create', 'create')->name('create');
+            Route::get('/edit/{id}', 'edit')->name('edit');
+        });
 
 
 
