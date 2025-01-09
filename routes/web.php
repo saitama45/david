@@ -16,6 +16,7 @@ use App\Http\Controllers\MenuCategoryController;
 use App\Http\Controllers\MenuController;
 use App\Http\Controllers\OrderApprovalController;
 use App\Http\Controllers\OrderReceivingController;
+use App\Http\Controllers\PersmissionController;
 use App\Http\Controllers\ProductOrderSummaryController;
 use App\Http\Controllers\ProductSalesController;
 use App\Http\Controllers\SalesOrderController;
@@ -295,6 +296,12 @@ Route::middleware('auth')
             Route::get('/edit/{id}', 'edit')->name('edit');
         });
 
+        Route::controller(PersmissionController::class)->name('permissions.')->prefix('permissions')->group(function () {
+            Route::get('/', 'index')->name('index');
+            Route::get('/create', 'create')->name('create');
+            Route::post('/store', 'store')->name('store');
+            Route::get('/edit/{id}', 'edit')->name('edit');
+        });
 
 
 

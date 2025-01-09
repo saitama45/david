@@ -139,6 +139,9 @@ const logout = () => {
                             Dashboard
                         </NavLink>
                         <NavLink href="/roles" :icon="Home"> Roles </NavLink>
+                        <NavLink href="/permissions" :icon="Home">
+                            Permissions
+                        </NavLink>
                         <NavLink href="/audits" :icon="MonitorCog" v-if="false">
                             Audits
                         </NavLink>
