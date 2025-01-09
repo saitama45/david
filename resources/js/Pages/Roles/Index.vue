@@ -43,6 +43,16 @@ const { search } = useSearch("roles.index");
                         <TD>{{ role.id }}</TD>
                         <TD>{{ role.name }}</TD>
                         <TD>
+                            <section class="max-w-[400px] space-x-3 space-y-3">
+                                <Badge
+                                    v-for="permission in role.permissions"
+                                    class="w-fit"
+                                >
+                                    {{ permission.name }}
+                                </Badge>
+                            </section>
+                        </TD>
+                        <TD>
                             <EditButton />
                         </TD>
                     </tr>

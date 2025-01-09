@@ -55,10 +55,8 @@ class RolesAndPermissionSeeder extends Seeder
         Permission::create(['name' => 'approve image attachments']);
 
         // Approved Received Items
-        Permission::create(['name' => 'view received orders for approval list']);
-        Permission::create(['name' => 'view received order for approval']);
-        Permission::create(['name' => 'approve received items']);
-
+        Permission::create(['name' => 'view approved received items']);
+        Permission::create(['name' => 'view approved received item']);
         // Store Transactions
         Permission::create(['name' => 'view store transactions']);
         Permission::create(['name' => 'create store transaction']);
