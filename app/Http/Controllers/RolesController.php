@@ -4,12 +4,14 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
 use Inertia\Inertia;
+use Spatie\Permission\Models\Permission;
 use Spatie\Permission\Models\Role;
 
 class RolesController extends Controller
 {
     public function index()
     {
+
         $search = request('search');
         $query = Role::query();
 
@@ -31,6 +33,25 @@ class RolesController extends Controller
 
     public function create()
     {
-        return Inertia::render('Roles/Create');
+        $permissions = Permission::select('name', 'id')->pluck('name', 'id');
+
+        return Inertia::render('Roles/Create', [
+            'permissions' => $permissions
+        ]);
+    }
+
+    public function store(Request $request)
+    {
+        $validated = $request->validate([
+            'name' => ['required', 'string', 'max:255', 'unique:roles'],
+            'selectedPermissions' => ['required', 'array'],
+            'selectedPermissions.*' => ['exists:permissions,id'],
+        ]);
+
+        $role = Role::create(['name' => $validated['name']]);
+        $role->syncPermissions($validated['selectedPermissions']);
+
+        return redirect()->route('roles.index')
+            ->with('success', 'Role created successfully.');
     }
 }
