@@ -126,42 +126,14 @@ const { isCreateModalVisible, openCreateModal, store } = useReferenceStore();
         </Dialog>
 
         <!-- Create Modal -->
-        <Dialog v-model:open="isCreateModalVisible">
-            <DialogContent class="sm:max-w-[425px]">
-                <DialogHeader>
-                    <DialogTitle>Create Product Category</DialogTitle>
-                    <DialogDescription>
-                        Input all important fields.
-                    </DialogDescription>
-                </DialogHeader>
-                <div class="space-y-5">
-                    <div class="flex flex-col space-y-1">
-                        <Label class="text-xs">Name</Label>
-                        <Input v-model="form.name" />
-                        <FormError>{{ form.errors.name }}</FormError>
-                    </div>
-                    <div class="flex flex-col space-y-1">
-                        <Label class="text-xs">Remarks</Label>
-                        <Textarea v-model="form.remarks" />
-                        <FormError>{{ form.errors.remarks }}</FormError>
-                    </div>
-                    <div class="flex justify-end">
-                        <Button
-                            @click="
-                                store(
-                                    route('categories.store'),
-                                    form,
-                                    'Category'
-                                )
-                            "
-                            class="gap-2"
-                        >
-                            Create
-                            <span v-if="isLoading"><Loading /></span>
-                        </Button>
-                    </div>
-                </div>
-            </DialogContent>
-        </Dialog>
+        <CreateReferenceModal
+            v-model:isCreateModalVisible="isCreateModalVisible"
+            title="Create Product Category"
+            :form="form"
+            :isLoading="isLoading"
+            :handleCreate="
+                () => store(route('categories.store'), form, 'Category')
+            "
+        />
     </Layout>
 </template>

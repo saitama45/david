@@ -70,7 +70,6 @@ import { usePage } from "@inertiajs/vue3";
 
 const { roles, is_admin } = usePage().props.auth;
 const permissions = usePage().props.auth.permissions;
-console.log(permissions);
 const hasAccess = (access) => {
     return permissions.includes(access);
 };

@@ -26,7 +26,7 @@ import TableHeader from "./Components/table/TableHeader.vue";
 import TableHead from "./Components/table/TableHead.vue";
 import TableBody from "./Components/table/TableBody.vue";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-
+import CreateReferenceModal from "./Components/CreateReferenceModal.vue";
 import {
     Filter,
     Eye,
@@ -176,6 +176,7 @@ createInertiaApp({
             .component("SelectTrigger", SelectTrigger)
             .component("SelectValue", SelectValue)
             .component("SelectShad", SelectShad)
+            .component("CreateReferenceModal", CreateReferenceModal)
             .use(PrimeVue, {
                 theme: {
                     preset: Aura,

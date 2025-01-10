@@ -5,6 +5,7 @@ export function useReferenceStore() {
     const isCreateModalVisible = ref(false);
     const openCreateModal = () => {
         isCreateModalVisible.value = true;
+        console.log(isCreateModalVisible);
     };
 
     const store = (route, form, model) => {
