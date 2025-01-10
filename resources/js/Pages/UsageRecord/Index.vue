@@ -10,12 +10,16 @@ const { records } = defineProps({
 const handleClick = () => {
     router.get(route("usage-records.create"));
 };
+
+import { useAuth } from "@/Composables/useAuth";
+
+const { hasAccess } = useAuth();
 </script>
 
 <template>
     <Layout
         heading="Store Transactions"
-        :hasButton="true"
+        :hasButton="hasAccess('create store transactions')"
         buttonName="Create New Transaction"
         :handleClick="handleClick"
     >
@@ -43,6 +47,7 @@ const handleClick = () => {
                         <TD>{{ record.total_amount }}</TD>
                         <TD>
                             <ShowButton
+                                v-if="hasAccess('view store transaction')"
                                 :isLink="true"
                                 :href="route('usage-records.show', record.id)"
                             />

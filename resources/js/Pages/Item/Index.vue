@@ -15,7 +15,6 @@ const handleClick = () => {
 
 import { usePage } from "@inertiajs/vue3";
 
-
 let filter = ref(usePage().props.filter || "all");
 
 const { search } = useSearch("items.index");
@@ -34,12 +33,16 @@ watch(filter, function (value) {
         }
     );
 });
+
+import { useAuth } from "@/Composables/useAuth";
+
+const { hasAccess } = useAuth();
 </script>
 
 <template>
     <Layout
         heading="Items List"
-        :hasButton="true"
+        :hasButton="hasAccess('create new items')"
         buttonName="Create New Item"
         :handleClick="handleClick"
     >
@@ -96,10 +99,15 @@ watch(filter, function (value) {
                         <TD>{{ item.unit_of_measurement.name }}</TD>
                         <TD>{{ item.cost }}</TD>
                         <TD class="flex items-center gap-2">
-                            <button class="text-blue-500" variant="link">
+                            <button
+                                v-if="hasAccess('edit items')"
+                                class="text-blue-500"
+                                variant="link"
+                            >
                                 <Pencil class="size-6" />
                             </button>
                             <ShowButton
+                                v-if="hasAccess('view item')"
                                 :isLink="true"
                                 :href="`items-list/show/${item.inventory_code}`"
                             />

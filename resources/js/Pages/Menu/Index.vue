@@ -10,12 +10,16 @@ const props = defineProps({
 const createNewMenu = () => {
     router.get(route("menu-list.create"));
 };
+
+import { useAuth } from "@/Composables/useAuth";
+
+const { hasAccess } = useAuth();
 </script>
 
 <template>
     <Layout
         heading="Menu List"
-        :hasButton="true"
+        :hasButton="hasAccess('create menu')"
         :handleClick="createNewMenu"
         buttonName="Create New Menu"
     >
@@ -42,10 +46,12 @@ const createNewMenu = () => {
                         <TD>
                             <DivFlexCenter class="gap-3">
                                 <ShowButton
+                                    v-if="hasAccess('show menu')"
                                     :isLink="true"
                                     :href="route('menu-list.show', menu.id)"
                                 />
                                 <EditButton
+                                    v-if="hasAccess('edit menu')"
                                     :isLink="true"
                                     :href="route('menu-list.edit', menu.id)"
                                 />

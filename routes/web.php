@@ -46,10 +46,10 @@ Route::middleware('auth')
         // Roles 
         Route::controller(RolesController::class)->name('roles.')->prefix('roles')->group(function () {
             Route::middleware('permission:view roles')->get('/', 'index')->name('index');
-            Route::middleware('permission:create role')->get('/create', 'create')->name('create');
-            Route::middleware('permission:create role')->post('/store', 'store')->name('store');
-            Route::middleware('permission:edit role')->get('/edit/{id}', 'edit')->name('edit');
-            Route::middleware('permission:edit role')->post('/update/{id}', 'update')->name('update');
+            Route::middleware('permission:create roles')->get('/create', 'create')->name('create');
+            Route::middleware('permission:create roles')->post('/store', 'store')->name('store');
+            Route::middleware('permission:edit roles')->get('/edit/{id}', 'edit')->name('edit');
+            Route::middleware('permission:edit roles')->post('/update/{id}', 'update')->name('update');
         });
 
         // DTS Delivery Schedules
@@ -102,7 +102,7 @@ Route::middleware('auth')
             Route::middleware('permission:view approved orders')->get('/orders-receiving', 'index')->name('index');
             Route::middleware('permission:view approved order')->get('/orders-receiving/show/{id}', 'show')->name('show');
 
-            Route::middleware('permission:receive order')->group(function () {
+            Route::middleware('permission:receive orders')->group(function () {
                 Route::post('/orders-receiving/receive/{id}', 'receive')->name('receive');
                 Route::post('/orders-receiving/add-delivery-receipt-number', 'addDeliveryReceiptNumber')->name('add-delivery-receipt-number');
                 Route::put('/orders-receiving/update-delivery-receipt-number/{id}', 'updateDeliveryReceiptNumber')->name('update-delivery-receipt-number');
@@ -131,14 +131,14 @@ Route::middleware('auth')
         Route::controller(StoreTransactionController::class)->name('store-transactions.')->prefix('store-transactions')->group(function () {
             Route::middleware('permission:view store transactions')->get('/', 'index')->name('index');
             Route::middleware('permission:view store transaction')->get('/show/{id}', 'show')->name('show');
-            Route::middleware('permission:create store transaction')->get('/create', 'create')->name('create');
+            Route::middleware('permission:create store transactions')->get('/create', 'create')->name('create');
         });
 
         // Items
         Route::controller(ItemController::class)->name('items.')->group(function () {
             Route::middleware('permission:view items list')->get('/items-list', 'index')->name('index');
             Route::middleware('permission:view item')->get('/items-list/show/{id}', 'show')->name('show');
-            Route::middleware('permission:create new item')->group(function () {
+            Route::middleware('permission:create new items')->group(function () {
                 Route::post('/items-list/store', 'store')->name('store');
                 Route::get('/items-list/create', 'create')->name('create');
                 Route::post('/items-list/import', 'import')->name('import');

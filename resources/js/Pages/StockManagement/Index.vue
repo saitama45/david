@@ -150,6 +150,10 @@ const showDetails = (id) => {
         {}
     );
 };
+
+import { useAuth } from "@/Composables/useAuth";
+
+const { hasAccess } = useAuth();
 </script>
 <template>
     <Layout heading="Stock Management">
@@ -196,14 +200,23 @@ const showDetails = (id) => {
                         <TD>{{ product.recorded_used }}</TD>
                         <TD>
                             <DivFlexCenter class="gap-3">
-                                <ShowButton @click="showDetails(product.id)" />
+                                <ShowButton
+                                    v-if="
+                                        hasAccess(
+                                            'view stock management history'
+                                        )
+                                    "
+                                    @click="showDetails(product.id)"
+                                />
                                 <Button
+                                    v-if="hasAccess('log stock usage')"
                                     @click="openLogUsageModal(product.id)"
                                     variant="link"
                                     class="text-xs text-orange-500"
                                     >Log Usage</Button
                                 >
                                 <Button
+                                    v-if="hasAccess('add stock quantity')"
                                     @click="openAddQuantityModal(product.id)"
                                     variant="link"
                                     class="text-xs text-green-500"
