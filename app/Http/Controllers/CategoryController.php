@@ -5,12 +5,14 @@ namespace App\Http\Controllers;
 use App\Models\Classification;
 use App\Models\Product;
 use App\Models\ProductCategory;
+use App\Traits\traits\HasReferenceStoreAction;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
 
 class CategoryController extends Controller
 {
+    use HasReferenceStoreAction;
     public function index()
     {
         $search = request('search');
@@ -19,7 +21,7 @@ class CategoryController extends Controller
         if ($search)
             $query->where('name', 'like', "%$search%");
 
-        $categories = $query->paginate(10);
+        $categories = $query->latest()->paginate(10)->withQueryString();
         return Inertia::render('Category/Index', [
             'categories' => $categories,
             'filters' => request()->only(['search'])
@@ -40,14 +42,13 @@ class CategoryController extends Controller
         return to_route('categories.index');
     }
 
-    public function store(Request $request)
+    protected function getModel()
     {
-        $validated = $request->validate([
-            'name' => ['required'],
-            'remarks' => ['nullable']
-        ]);
+        return ProductCategory::class;
+    }
 
-        ProductCategory::create($validated);
-        return redirect()->route("categories.index");
+    protected function getRouteName()
+    {
+        return "categories.index";
     }
 }
