@@ -23,12 +23,25 @@ class SupplierController extends Controller
         ]);
     }
 
-    public function edit()
+    public function edit($id)
     {
-        return Inertia::render('Supplier/Edit');
+        $supplier = Supplier::findOrFail($id);
+        return Inertia::render('Supplier/Edit', [
+            'supplier' => $supplier
+        ]);
     }
 
-    public function update() {}
+    public function update(Request $request, $id)
+    {
+        $validated = $request->validate([
+            'name' => ['required'],
+            'supplier_code' => ['required'],
+            'remarks' => ['nullable']
+        ]);
+        $supplier = Supplier::findOrFail($id);
+        $supplier->update($validated);
+        return redirect()->route('suppliers.index');
+    }
 
     public function create()
     {

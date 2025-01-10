@@ -87,13 +87,10 @@ const createNewSupplier = () => {
                         <TD>{{ data.supplier_code }}</TD>
                         <TD>{{ data.remarks ?? "N/a" }}</TD>
                         <TD>
-                            <button
-                                @click="editCategoryDetails(data.id)"
-                                class="text-blue-500"
-                                variant="link"
-                            >
-                                <Pencil class="size-5" />
-                            </button>
+                            <EditButton
+                                :isLink="true"
+                                :href="route('suppliers.edit', data.id)"
+                            />
                         </TD>
                     </tr>
                 </TableBody>
@@ -130,5 +127,6 @@ const createNewSupplier = () => {
                 </div>
             </DialogContent>
         </Dialog>
+
     </Layout>
 </template>
