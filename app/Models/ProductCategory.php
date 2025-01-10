@@ -18,7 +18,7 @@ class ProductCategory extends Model implements Auditable
         'remarks'
     ];
 
-    public function productInventories(): BelongsToMany
+    public function product_inventories(): BelongsToMany
     {
         return $this->belongsToMany(
             ProductInventory::class,

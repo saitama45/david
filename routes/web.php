@@ -230,6 +230,8 @@ Route::middleware('auth')
                 Route::post('/update/{id}', 'update')->name('update');
 
                 Route::post('/store', 'store')->name('store');
+
+                Route::delete('/destroy/{id}', 'destroy')->name('destroy');
             });
 
             Route::controller(MenuCategoryController::class)->prefix('menu-categories')->name('menu-categories.')->group(function () {

@@ -1,11 +1,16 @@
 <script setup>
-import { useForm } from "@inertiajs/vue3";
-import { useToast } from "primevue/usetoast";
+import { useForm, router } from "@inertiajs/vue3";
+
 import { useSearch } from "@/Composables/useSearch";
+
+import { useConfirm } from "primevue/useconfirm";
+import { useToast } from "@/Composables/useToast";
+
+const confirm = useConfirm();
+const { toast } = useToast();
 
 const isEditModalVisible = ref(false);
 
-const toast = useToast();
 const isLoading = ref(false);
 
 const form = useForm({
@@ -51,6 +56,47 @@ const editCategoryDetails = (id) => {
 
 import { useReferenceStore } from "@/Composables/useReferenceStore";
 const { isCreateModalVisible, openCreateModal, store } = useReferenceStore();
+
+const deleteModel = (id) => {
+    confirm.require({
+        message: "Are you sure you want to delete this product category?",
+        header: "Confirmation",
+        icon: "pi pi-exclamation-triangle",
+        rejectProps: {
+            label: "Cancel",
+            severity: "secondary",
+            outlined: true,
+        },
+        acceptProps: {
+            label: "Confirm",
+            severity: "danger",
+        },
+        accept: () => {
+            router.delete(route("categories.destroy", id), {
+                preserveScroll: true,
+                onSuccess: () => {
+                    toast.add({
+                        severity: "success",
+                        summary: "Success",
+                        detail: "Category Deleted Successfully.",
+                        life: 5000,
+                    });
+                },
+                onError: (errors) => {
+                    console.log(errors);
+                    toast.add({
+                        severity: "error",
+                        summary: "Error",
+                        detail:
+                            errors.message ||
+                            "An error occurred while deleting the category.",
+                        life: 5000,
+                    });
+                },
+            });
+        },
+    });
+};
 </script>
 
 <template>
@@ -84,9 +130,10 @@ const { isCreateModalVisible, openCreateModal, store } = useReferenceStore();
                         <TD>{{ category.name }}</TD>
                         <TD>{{ category.remarks ?? "N/a" }}</TD>
                         <TD>
-                            <button @click="editCategoryDetails(category.id)">
-                                <Pencil class="size-5" />
-                            </button>
+                            <EditButton
+                                @click="editCategoryDetails(category.id)"
+                            />
+                            <DeleteButton @click="deleteModel(category.id)" />
                         </TD>
                     </tr>
                 </TableBody>

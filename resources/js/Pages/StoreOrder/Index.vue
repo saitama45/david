@@ -274,9 +274,7 @@ const { hasAccess } = useAuth();
                         <TD>{{ order.supplier?.name ?? "N/A" }}</TD>
                         <TD>{{ order.store_branch?.name ?? "N/A" }}</TD>
                         <TD>{{ order.order_number }}</TD>
-                        <TD>{{
-                            dayjs(order.order_date).format("MMMM d, YYYY")
-                        }}</TD>
+                        <TD>{{ order.order_date }}</TD>
                         <TD>{{ order.created_at }}</TD>
                         <TD>
                             <Badge

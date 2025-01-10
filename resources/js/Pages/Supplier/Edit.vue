@@ -27,7 +27,7 @@ const update = () => {
                 life: 5000,
             });
             form.reset();
-        },
+        }
     });
 };
 </script>

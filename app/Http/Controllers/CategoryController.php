@@ -51,4 +51,18 @@ class CategoryController extends Controller
     {
         return "categories.index";
     }
+
+    public function destroy($id)
+    {
+        $category = ProductCategory::with('product_inventories')->findOrFail($id);
+
+        if ($category->product_inventories->count() > 0) {
+            return back()->withErrors([
+                'message' => "Can't delete this category because there are products associated with it."
+            ]);
+        }
+
+        $category->delete();
+        return to_route('categories.index');
+    }
 }
