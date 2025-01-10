@@ -131,7 +131,7 @@ const { options: branchesOptions } = useSelectOptions(props.branches);
                             class="flex items-center space-x-2"
                         >
                             <Checkbox
-                                v-model="form.selectedPermissions"
+                                v-model="form.assignedBranches"
                                 :value="branch.value"
                                 name="assignedBranches[]"
                             />
@@ -140,6 +140,7 @@ const { options: branchesOptions } = useSelectOptions(props.branches);
                             </label>
                         </div>
                     </div>
+                    <FormError>{{ form.errors.assignedBranches }}</FormError>
                 </InputContainer>
             </CardContent>
             <CardFooter class="justify-end gap-3">

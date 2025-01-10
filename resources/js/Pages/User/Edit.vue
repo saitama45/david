@@ -143,6 +143,29 @@ const handleCancel = () => {
                     </MultiSelect>
                     <FormError>{{ form.errors.remarks }}</FormError>
                 </InputContainer>
+
+                <InputContainer class="col-span-2">
+                    <LabelXS> Assign Branches </LabelXS>
+                    <div
+                        class="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-4"
+                    >
+                        <div
+                            v-for="branch in branchesOptions"
+                            :key="branch.value"
+                            class="flex items-center space-x-2"
+                        >
+                            <Checkbox
+                                v-model="form.assignedBranches"
+                                :value="branch.value"
+                                name="assignedBranches[]"
+                            />
+                            <label class="text-sm text-gray-600">
+                                {{ branch.label }}
+                            </label>
+                        </div>
+                    </div>
+                    <FormError>{{ form.errors.assignedBranches }}</FormError>
+                </InputContainer>
             </CardContent>
             <CardFooter class="justify-end gap-3">
                 <Button @click="handleCancel" variant="outline">Cancel</Button>

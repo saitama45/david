@@ -63,10 +63,8 @@ class UserController extends Controller
             'email' => ['required', 'unique:users,email'],
             'roles' => ['required'],
             'remarks' => ['sometimes'],
-
+            'assignedBranches' => ['required', 'array'],
         ]);
-
-
 
         $validated['password'] = 'password';
 
@@ -78,6 +76,7 @@ class UserController extends Controller
             'assignedBranches' => ['required', 'array'],
         ]);
         $user->store_branches()->attach($validatedAssignedStoreBranches['assignedBranches']);
+
         DB::commit();
 
         return redirect()->route('users.index');
