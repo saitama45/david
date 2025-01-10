@@ -16,7 +16,7 @@ class SupplierController extends Controller
         if ($search)
             $query->where('name', 'like', "%$search%");
 
-        $suppliers = $query->paginate(10);
+        $suppliers = $query->latest()->paginate(10)->withQueryString();
         return Inertia::render('Supplier/Index', [
             'data' => $suppliers,
             'filters' => request()->only(['search'])
