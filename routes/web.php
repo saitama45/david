@@ -49,6 +49,7 @@ Route::middleware('auth')
             Route::middleware('permission:create role')->get('/create', 'create')->name('create');
             Route::middleware('permission:create role')->post('/store', 'store')->name('store');
             Route::middleware('permission:edit role')->get('/edit/{id}', 'edit')->name('edit');
+            Route::middleware('permission:edit role')->post('/update/{id}', 'update')->name('update');
         });
 
         // DTS Delivery Schedules
@@ -264,8 +265,6 @@ Route::middleware('auth')
         Route::get('/audits', [AuditController::class, 'index']);
 
 
-
-
         Route::controller(ProductSalesController::class)->prefix('product-sales')->name('product-sales.')->group(function () {
             Route::get('/', 'index')->name('index');
             Route::get('/show/{id}', 'show')->name('show');
@@ -276,7 +275,7 @@ Route::middleware('auth')
                 Route::get('/stocks', 'index')->name('index');
                 Route::get('/stocks/show/{id}', 'show')->name('show');
             });
-
+        // TBD
         Route::controller(UsageRecordController::class)
             ->prefix('usage-records')
             ->name('usage-records.')

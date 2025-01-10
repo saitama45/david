@@ -59,7 +59,10 @@ const { search } = useSearch("roles.index");
                             </section>
                         </TD>
                         <TD>
-                            <EditButton />
+                            <EditButton
+                                :isLink="true"
+                                :href="route('roles.edit', role.id)"
+                            />
                         </TD>
                     </tr>
                 </TableBody>

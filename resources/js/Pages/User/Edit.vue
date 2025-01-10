@@ -25,6 +25,8 @@ const userCurrentRoles = user.roles.map((role) => role.id + "") ?? [];
 const userCurrentAssignedBranches =
     user.store_branches.map((role) => role.id + "") ?? [];
 
+console.log(user.store_branches);
+
 const form = useForm({
     first_name: user.first_name,
     middle_name: user.middle_name,
