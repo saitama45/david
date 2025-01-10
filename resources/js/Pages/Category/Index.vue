@@ -15,7 +15,7 @@ const form = useForm({
 
 const targetId = ref(null);
 
-const store = () => {
+const update = () => {
     form.post(route("categories.update", targetId.value), {
         preserveScroll: true,
         onSuccess: () => {
@@ -48,10 +48,18 @@ const editCategoryDetails = (id) => {
     form.name = data.name;
     form.remarks = data.remarks;
 };
+
+import { useReferenceStore } from "@/Composables/useReferenceStore";
+const { isCreateModalVisible, openCreateModal, store } = useReferenceStore();
 </script>
 
 <template>
-    <Layout heading="Product Categories">
+    <Layout
+        heading="Product Categories"
+        :hasButton="true"
+        :handleClick="openCreateModal"
+        buttonName="Create New Category"
+    >
         <TableContainer>
             <TableHeader>
                 <SearchBar>
@@ -87,6 +95,7 @@ const editCategoryDetails = (id) => {
             <Pagination :data="categories" />
         </TableContainer>
 
+        <!-- Edit Modal -->
         <Dialog v-model:open="isEditModalVisible">
             <DialogContent class="sm:max-w-[425px]">
                 <DialogHeader>
@@ -107,9 +116,48 @@ const editCategoryDetails = (id) => {
                         <FormError>{{ form.errors.remarks }}</FormError>
                     </div>
                     <div class="flex justify-end">
-                        <Button @click="store" class="gap-2">
+                        <Button @click="update" class="gap-2">
                             Save Changes
                             <span><Loading v-if="isLoading" /></span>
+                        </Button>
+                    </div>
+                </div>
+            </DialogContent>
+        </Dialog>
+
+        <!-- Create Modal -->
+        <Dialog v-model:open="isCreateModalVisible">
+            <DialogContent class="sm:max-w-[425px]">
+                <DialogHeader>
+                    <DialogTitle>Create Product Category</DialogTitle>
+                    <DialogDescription>
+                        Input all important fields.
+                    </DialogDescription>
+                </DialogHeader>
+                <div class="space-y-5">
+                    <div class="flex flex-col space-y-1">
+                        <Label class="text-xs">Name</Label>
+                        <Input v-model="form.name" />
+                        <FormError>{{ form.errors.name }}</FormError>
+                    </div>
+                    <div class="flex flex-col space-y-1">
+                        <Label class="text-xs">Remarks</Label>
+                        <Textarea v-model="form.remarks" />
+                        <FormError>{{ form.errors.remarks }}</FormError>
+                    </div>
+                    <div class="flex justify-end">
+                        <Button
+                            @click="
+                                store(
+                                    route('categories.store'),
+                                    form,
+                                    'Category'
+                                )
+                            "
+                            class="gap-2"
+                        >
+                            Create
+                            <span v-if="isLoading"><Loading /></span>
                         </Button>
                     </div>
                 </div>

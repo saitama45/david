@@ -224,9 +224,12 @@ Route::middleware('auth')
 
         // Manage References
         Route::middleware('permission:manage references')->group(function () {
-            Route::controller(CategoryController::class)->name('categories.')->group(function () {
-                Route::get('/category-list', 'index')->name('index');
-                Route::post('/category-list/update/{id}', 'update')->name('update');
+
+            Route::controller(CategoryController::class)->prefix('category-list')->name('categories.')->group(function () {
+                Route::get('/', 'index')->name('index');
+                Route::post('/update/{id}', 'update')->name('update');
+
+                Route::post('/store', 'store')->name('store');
             });
 
             Route::controller(MenuCategoryController::class)->prefix('menu-categories')->name('menu-categories.')->group(function () {

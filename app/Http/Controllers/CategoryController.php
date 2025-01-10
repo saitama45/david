@@ -39,4 +39,15 @@ class CategoryController extends Controller
 
         return to_route('categories.index');
     }
+
+    public function store(Request $request)
+    {
+        $validated = $request->validate([
+            'name' => ['required'],
+            'remarks' => ['nullable']
+        ]);
+
+        ProductCategory::create($validated);
+        return redirect()->route("categories.index");
+    }
 }
