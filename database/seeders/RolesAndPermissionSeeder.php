@@ -18,8 +18,8 @@ class RolesAndPermissionSeeder extends Seeder
 
         // Roles
         Permission::create(['name' => 'view roles']);
-        Permission::create(['name' => 'create role']);
-        Permission::create(['name' => 'edit role']);
+        Permission::create(['name' => 'create roles']);
+        Permission::create(['name' => 'edit roles']);
 
         // DTS Delivery Schedules
         Permission::create(['name' => 'view dts delivery schedules']);

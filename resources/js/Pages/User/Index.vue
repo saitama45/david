@@ -1,6 +1,9 @@
 <script setup>
 import { router } from "@inertiajs/vue3";
 import { throttle } from "lodash";
+import { useAuth } from "@/Composables/useAuth";
+
+const { hasAccess } = useAuth();
 const props = defineProps({
     users: {
         type: Object,
@@ -11,6 +14,7 @@ const props = defineProps({
         required: true,
     },
 });
+
 let filter = ref(props.filters.search);
 const search = ref(filter.value);
 const handleClick = () => {
@@ -35,7 +39,7 @@ watch(
 <template>
     <Layout
         heading="Users"
-        :hasButton="true"
+        :hasButton="hasAccess('create users')"
         buttonName="Create New User"
         :handleClick="handleClick"
     >
@@ -71,10 +75,12 @@ watch(
                         <TD>
                             <DivFlexCenter class="gap-3">
                                 <ShowButton
+                                    v-if="hasAccess('show user')"
                                     :isLink="true"
                                     :href="`/users/show/${user.id}`"
                                 />
                                 <EditButton
+                                    v-if="hasAccess('edit users')"
                                     :isLink="true"
                                     :href="`/users/edit/${user.id}`"
                                 />
@@ -86,6 +92,5 @@ watch(
 
             <Pagination :data="users" />
         </TableContainer>
-
     </Layout>
 </template>

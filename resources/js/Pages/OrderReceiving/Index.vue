@@ -23,6 +23,10 @@ const viewDetails = (id) => {
     router.get(`/orders-receiving/show/${id}`);
 };
 const { search } = useSearch("orders-receiving.index");
+
+import { useAuth } from "@/Composables/useAuth";
+
+const { hasAccess } = useAuth();
 </script>
 
 <template>
@@ -47,7 +51,7 @@ const { search } = useSearch("orders-receiving.index");
                     <TH>Order Date</TH>
                     <TH>Order Placed Date</TH>
                     <TH>Receiving Status</TH>
-                    <TH>Actions</TH>
+                    <TH v-if="hasAccess('view approved order')">Actions</TH>
                 </TableHead>
                 <TableBody>
                     <tr v-for="order in orders.data">
@@ -69,7 +73,7 @@ const { search } = useSearch("orders-receiving.index");
                             >
                         </TD>
                         <TD>
-                            <Button
+                            <Button v-if="hasAccess('view approved order')"
                                 variant="outline"
                                 @click="viewDetails(order.order_number)"
                             >

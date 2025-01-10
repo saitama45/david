@@ -26,6 +26,10 @@ const showOrderDetails = (id) => {
     console.log(id);
     router.get(`/approved-orders/show/${id}`);
 };
+
+import { useAuth } from "@/Composables/useAuth";
+
+const { hasAccess } = useAuth();
 </script>
 
 <template>
@@ -50,7 +54,9 @@ const showOrderDetails = (id) => {
                     <TH>Order Date</TH>
                     <TH>Order Placed Date</TH>
                     <TH>Order Status</TH>
-                    <TH>Actions</TH>
+                    <TH v-if="hasAccess('view approved received item')"
+                        >Actions</TH
+                    >
                 </TableHead>
                 <TableBody>
                     <tr v-for="order in orders.data">
@@ -73,6 +79,7 @@ const showOrderDetails = (id) => {
                         </TD>
                         <TD>
                             <Button
+                                v-if="hasAccess('view approved received item')"
                                 variant="outline"
                                 @click="showOrderDetails(order.order_number)"
                             >

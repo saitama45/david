@@ -96,15 +96,15 @@ const editOrderDetails = (id) => {
 const { roles, is_admin } = usePage().props.auth;
 
 const now = new Date();
-const isCutOff = ref(now.getDay() >= 3 && now.getHours() > 12);
+const isCutOff = ref(now.getDay() >= 3);
+import { useAuth } from "@/Composables/useAuth";
 
-const hasCreateAccess = is_admin || (roles.includes("so encoder") && !isCutOff);
-const hasEditAccess = is_admin || roles.includes("so_encoder");
+const { hasAccess } = useAuth();
 </script>
 <template>
     <Layout
         heading="DTS Orders"
-        :hasButton="hasCreateAccess"
+        :hasButton="hasAccess('create dts orders')"
         :handleClick="showVariantChoices"
         buttonName="Create New Order"
     >
@@ -180,6 +180,7 @@ const hasEditAccess = is_admin || roles.includes("so_encoder");
                         <TD>
                             <DivFlexCenter class="gap-3">
                                 <button
+                                    v-if="hasAccess('view dts order')"
                                     @click="
                                         showOrderDetails(order.order_number)
                                     "
@@ -189,7 +190,8 @@ const hasEditAccess = is_admin || roles.includes("so_encoder");
                                 <button
                                     v-if="
                                         order.order_request_status ===
-                                            'pending' && hasEditAccess
+                                            'pending' &&
+                                        hasAccess('edit dts orders')
                                     "
                                     class="text-blue-500"
                                     @click="

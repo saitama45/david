@@ -101,28 +101,6 @@ const canViewReportsGroup =
 
 const canViewReferenceGroup = hasAccess("manage references");
 
-const canViewStoreOrderPage = is_admin || roles.includes("so encoder");
-const canViewOrderApprovals = is_admin || roles.includes("rec approver");
-
-const canViewReceivingOrders = is_admin || roles.includes("so encoder");
-const canViewReceivingApprovals = is_admin || roles.includes("rec approver");
-const canViewApprovedReceivedItems = is_admin || roles.includes("so encoder");
-
-const canViewDtsOrdersSummary = is_admin || roles.includes("rec approver");
-
-const canViewItems = is_admin;
-
-const canViewItemsOrderSummary = is_admin;
-const canViewStockManagement = is_admin || roles.includes("so encoder");
-const canViewStocks = is_admin || roles.includes("so encoder");
-
-const canViewCategories = is_admin;
-const canViewInventoryCategories = is_admin;
-const canViewStoreBranch = is_admin;
-const canViewSupplier = is_admin;
-
-const canViewUsers = is_admin;
-
 const logout = () => {
     router.post("/logout");
 };

@@ -134,6 +134,10 @@ const rejectOrder = (id) => {
 const showOrderDetails = (id) => {
     router.get(`/orders-approval/show/${id}`);
 };
+
+import { useAuth } from "@/Composables/useAuth";
+
+const { hasAccess } = useAuth();
 </script>
 <template>
     <Layout heading="Orders For Approval List">
@@ -217,6 +221,7 @@ const showOrderDetails = (id) => {
                         </TD>
                         <TD class="flex">
                             <Button
+                                v-if="hasAccess('view order for approval')"
                                 @click="showOrderDetails(order.order_number)"
                                 variant="link"
                             >

@@ -8,6 +8,9 @@ const { branches } = defineProps({
 import { useSearch } from "@/Composables/useSearch";
 
 const { search } = useSearch("delivery-schedules.index");
+import { useAuth } from "@/Composables/useAuth";
+
+const { hasAccess } = useAuth();
 </script>
 
 <template>
@@ -47,21 +50,17 @@ const { search } = useSearch("delivery-schedules.index");
                         </DivFlexCol>
                     </TH> -->
                     <TH>
-                        <DivFlexCol>
-                            Ice Cream
-                        </DivFlexCol>
+                        <DivFlexCol> Ice Cream </DivFlexCol>
                     </TH>
                     <TH>
-                        <DivFlexCol>
-                            Salmon
-                        </DivFlexCol>
+                        <DivFlexCol> Salmon </DivFlexCol>
                     </TH>
                     <TH>
-                        <DivFlexCol>
-                            Fruits and Vegetables
-                        </DivFlexCol>
+                        <DivFlexCol> Fruits and Vegetables </DivFlexCol>
                     </TH>
-                    <TH>Actions</TH>
+                    <TH v-if="hasAccess('edit dts delivery schedules')"
+                        >Actions</TH
+                    >
                 </TableHead>
 
                 <TableBody>
@@ -121,7 +120,7 @@ const { search } = useSearch("delivery-schedules.index");
                                 <SpanBold v-else>No Schedule</SpanBold>
                             </DivFlexCol>
                         </TD>
-                        <TD
+                        <TD v-if="hasAccess('edit dts delivery schedules')"
                             ><EditButton
                                 :isLink="true"
                                 :href="

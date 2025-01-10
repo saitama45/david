@@ -14,12 +14,16 @@ import { useSearch } from "@/Composables/useSearch";
 import TD from "@/Components/table/TD.vue";
 
 const { search } = useSearch("roles.index");
+
+import { useAuth } from "@/Composables/useAuth";
+
+const { hasAccess } = useAuth();
 </script>
 
 <template>
     <Layout
         heading="Roles"
-        :hasButton="true"
+        :hasButton="hasAccess('create roles')"
         buttonName="Create New Role"
         :handleClick="createNewRole"
     >
@@ -38,7 +42,7 @@ const { search } = useSearch("roles.index");
                     <TH>Id</TH>
                     <TH>Name</TH>
                     <TH>Permissions</TH>
-                    <TH>Actions</TH>
+                    <TH v-if="hasAccess('edit roles')">Actions</TH>
                 </TableHead>
                 <TableBody>
                     <tr v-for="role in roles.data" class="h-full">
@@ -58,7 +62,7 @@ const { search } = useSearch("roles.index");
                                 </Badge>
                             </section>
                         </TD>
-                        <TD>
+                        <TD v-if="hasAccess('edit roles')">
                             <EditButton
                                 :isLink="true"
                                 :href="route('roles.edit', role.id)"

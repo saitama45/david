@@ -24,19 +24,11 @@ const props = defineProps({
     branches: {
         type: Object,
     },
-    auth: {
-        type: Object,
-    },
 });
 
 let filterQuery = ref(
     (usePage().props.filters.filterQuery || "pending").toString()
 );
-
-const { roles, is_admin } = usePage().props.auth;
-
-const hasCreateAccess = is_admin || roles.includes("so encoder");
-const hasEditAccess = is_admin || roles.includes("so_encoder");
 
 const showOrderDetails = (id) => {
     router.get(`/store-orders/show/${id}`);
@@ -173,12 +165,16 @@ watch(filterQuery, function (value) {
 const changeFilter = (currentFilter) => {
     filterQuery.value = currentFilter;
 };
+
+import { useAuth } from "@/Composables/useAuth";
+
+const { hasAccess } = useAuth();
 </script>
 
 <template>
     <Layout
         heading="Store Orders"
-        :hasButton="hasCreateAccess"
+        :hasButton="hasAccess('create store orders')"
         buttonName="Create New Order"
         :handleClick="handleClick"
     >
@@ -296,6 +292,7 @@ const changeFilter = (currentFilter) => {
                         <TD>
                             <DivFlexCenter class="gap-3">
                                 <button
+                                    v-if="hasAccess('view store order')"
                                     @click="
                                         showOrderDetails(order.order_number)
                                     "
@@ -305,7 +302,8 @@ const changeFilter = (currentFilter) => {
                                 <button
                                     v-if="
                                         order.order_request_status ===
-                                            'pending' && hasEditAccess
+                                            'pending' &&
+                                        hasAccess('edit store orders')
                                     "
                                     class="text-blue-500"
                                     @click="

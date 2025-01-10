@@ -9,6 +9,10 @@ const props = defineProps({
 import { useSearch } from "@/Composables/useSearch";
 
 const { search } = useSearch("receiving-approvals.index");
+
+import { useAuth } from "@/Composables/useAuth";
+
+const { hasAccess } = useAuth();
 </script>
 
 <template>
@@ -29,7 +33,9 @@ const { search } = useSearch("receiving-approvals.index");
                     <TH>Supplier</TH>
                     <TH>Store Branch</TH>
                     <TH>Order Number</TH>
-                    <TH>Actions</TH>
+                    <TH v-if="hasAccess('view approved order for approval')"
+                        >Actions</TH
+                    >
                 </TableHead>
                 <TableBody>
                     <tr v-for="order in orders.data">
@@ -37,7 +43,9 @@ const { search } = useSearch("receiving-approvals.index");
                         <TD>{{ order.supplier.name }}</TD>
                         <TD>{{ order.store_branch.name }}</TD>
                         <TD>{{ order.order_number }}</TD>
-                        <TD>
+                        <TD
+                            v-if="hasAccess('view approved order for approval')"
+                        >
                             <ShowButton
                                 :isLink="true"
                                 :href="`/receiving-approvals/show/${order.order_number}`"
