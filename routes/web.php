@@ -241,9 +241,10 @@ Route::middleware('auth')
                 Route::post('/update/{id}', 'update')->name('update');
             });
 
-            Route::controller(InvetoryCategoryController::class)->name('inventory-categories.')->group(function () {
-                Route::get('/inventory-categories', 'index')->name('index');
-                Route::post('/inventory-categories/update/{id}', 'update')->name('update');
+            Route::controller(InvetoryCategoryController::class)->prefix('inventory-categories')->name('inventory-categories.')->group(function () {
+                Route::get('/', 'index')->name('index');
+                Route::post('/update/{id}', 'update')->name('update');
+                Route::post('/store', 'store')->name('store');
             });
 
             Route::controller(StoreBranchController::class)->name('store-branches.')->prefix('store-branches')->group(function () {

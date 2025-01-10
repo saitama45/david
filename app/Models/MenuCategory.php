@@ -25,4 +25,5 @@ class MenuCategory extends Model
     {
         return $query->select(['id', 'name'])->get()->pluck('name', 'id');
     }
+    
 }

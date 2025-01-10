@@ -15,7 +15,7 @@ const form = useForm({
 
 const targetId = ref(null);
 
-const store = () => {
+const update = () => {
     form.post(route("menu-categories.update", targetId.value), {
         preserveScroll: true,
         onSuccess: () => {
@@ -47,10 +47,18 @@ const editCategoryDetails = (id) => {
     form.name = data.name;
     form.remarks = data.remarks;
 };
+
+import { useReferenceStore } from "@/Composables/useReferenceStore";
+const { isCreateModalVisible, openCreateModal, store } = useReferenceStore();
 </script>
 
 <template>
-    <Layout heading="Menu Categories">
+    <Layout
+        heading="Menu Categories"
+        :hasButton="true"
+        :handleClick="openCreateModal"
+        buttonName="Create New Menu Category"
+    >
         <TableContainer>
             <TableHeader>
                 <SearchBar>
@@ -106,7 +114,7 @@ const editCategoryDetails = (id) => {
                         <FormError>{{ form.errors.remarks }}</FormError>
                     </div>
                     <div class="flex justify-end">
-                        <Button @click="store" class="gap-2">
+                        <Button @click="update" class="gap-2">
                             Save Changes
                             <span><Loading v-if="isLoading" /></span>
                         </Button>
@@ -114,5 +122,17 @@ const editCategoryDetails = (id) => {
                 </div>
             </DialogContent>
         </Dialog>
+
+        <!-- Create Modal -->
+        <CreateReferenceModal
+            v-model:isCreateModalVisible="isCreateModalVisible"
+            title="Create Menu Category"
+            :form="form"
+            :isLoading="isLoading"
+            :handleCreate="
+                () =>
+                    store(route('menu-categories.store'), form, 'Menu Category')
+            "
+        />
     </Layout>
 </template>

@@ -3,11 +3,13 @@
 namespace App\Http\Controllers;
 
 use App\Models\MenuCategory;
+use App\Traits\traits\HasReferenceStoreAction;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 
 class MenuCategoryController extends Controller
 {
+    use HasReferenceStoreAction;
     public function index()
     {
         $search = request('search');
@@ -33,5 +35,17 @@ class MenuCategoryController extends Controller
 
 
         return to_route('menu-categories.index');
+    }
+
+
+
+    protected function getModel()
+    {
+        return MenuCategory::class;
+    }
+
+    protected function getRouteName()
+    {
+        return "menu-categories.index";
     }
 }

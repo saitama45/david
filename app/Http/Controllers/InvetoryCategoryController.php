@@ -3,11 +3,13 @@
 namespace App\Http\Controllers;
 
 use App\Models\InventoryCategory;
+use App\Traits\traits\HasReferenceStoreAction;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 
 class InvetoryCategoryController extends Controller
 {
+    use HasReferenceStoreAction;
     public function index()
     {
         $search = request('search');
@@ -34,5 +36,15 @@ class InvetoryCategoryController extends Controller
         $category->update($validated);
 
         return to_route('categories.index');
+    }
+
+    protected function getModel()
+    {
+        return InventoryCategory::class;
+    }
+
+    protected function getRouteName()
+    {
+        return "menu-categories.index";
     }
 }
