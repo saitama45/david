@@ -103,7 +103,7 @@ const { options: branchesOptions } = useSelectOptions(props.branches);
                     <FormError>{{ form.errors.email }}</FormError>
                 </InputContainer>
                 <InputContainer>
-                    <LabelXS>Role</LabelXS>
+                    <LabelXS>Roles</LabelXS>
                     <MultiSelect
                         filter
                         placeholder="Assign Roles"

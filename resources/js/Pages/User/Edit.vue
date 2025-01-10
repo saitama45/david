@@ -114,7 +114,7 @@ const handleCancel = () => {
                     <FormError>{{ form.errors.email }}</FormError>
                 </InputContainer>
                 <InputContainer>
-                    <Label>Role</Label>
+                    <Label>Roles</Label>
                     <MultiSelect
                         filter
                         placeholder="Assign Roles"

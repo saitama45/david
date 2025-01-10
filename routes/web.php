@@ -277,15 +277,15 @@ Route::middleware('auth')
                 Route::get('/stocks/show/{id}', 'show')->name('show');
             });
 
-        // Route::controller(UsageRecordController::class)
-        //     ->prefix('usage-records')
-        //     ->name('usage-records.')
-        //     ->group(function () {
-        //         Route::get('/', 'index')->name('index');
-        //         Route::get('/create', 'create')->name('create');
-        //         Route::post('/store', 'store')->name('store');
-        //         Route::get('/show/{id}', 'show')->name('show');
-        //     });
+        Route::controller(UsageRecordController::class)
+            ->prefix('usage-records')
+            ->name('usage-records.')
+            ->group(function () {
+                Route::get('/', 'index')->name('index');
+                Route::get('/create', 'create')->name('create');
+                Route::post('/store', 'store')->name('store');
+                Route::get('/show/{id}', 'show')->name('show');
+            });
 
 
         Route::controller(PersmissionController::class)->name('permissions.')->prefix('permissions')->group(function () {
