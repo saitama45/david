@@ -2,6 +2,7 @@
 import { useForm } from "@inertiajs/vue3";
 import { useToast } from "primevue/usetoast";
 import { useSearch } from "@/Composables/useSearch";
+import { router } from "@inertiajs/vue3";
 
 const isEditModalVisible = ref(false);
 
@@ -15,7 +16,7 @@ const form = useForm({
 
 const targetId = ref(null);
 
-const store = () => {
+const update = () => {
     form.post(route("suppliers.update", targetId.value), {
         preserveScroll: true,
         onSuccess: () => {
@@ -47,10 +48,19 @@ const editCategoryDetails = (id) => {
     form.name = data.name;
     form.remarks = data.remarks;
 };
+
+const createNewSupplier = () => {
+    router.visit(route("suppliers.create"));
+};
 </script>
 
 <template>
-    <Layout heading="Suppliers">
+    <Layout
+        heading="Suppliers"
+        :hasButton="true"
+        buttonName="Create New Supplier"
+        :handleClick="createNewSupplier"
+    >
         <TableContainer>
             <TableHeader>
                 <SearchBar>
@@ -112,7 +122,7 @@ const editCategoryDetails = (id) => {
                         <FormError>{{ form.errors.remarks }}</FormError>
                     </div>
                     <div class="flex justify-end">
-                        <Button @click="store" class="gap-2">
+                        <Button @click="update" class="gap-2">
                             Save Changes
                             <span><Loading v-if="isLoading" /></span>
                         </Button>

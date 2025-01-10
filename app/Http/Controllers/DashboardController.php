@@ -21,19 +21,19 @@ class DashboardController extends Controller
     public function index()
     {
 
-        //     $orderCounts = StoreOrder::selectRaw('
-        //     COUNT(CASE WHEN order_request_status = "pending" THEN 1 END) as pending_count,
-        //     COUNT(CASE WHEN order_request_status = "approved" THEN 1 END) as approved_count,
-        //     COUNT(CASE WHEN order_request_status = "rejected" THEN 1 END) as rejected_count
-        // ')
-        //         ->first();
-
         $orderCounts = StoreOrder::selectRaw('
-    COUNT(IIF(order_request_status = \'pending\', 1, NULL)) as pending_count,
-    COUNT(IIF(order_request_status = \'approved\', 1, NULL)) as approved_count,
-    COUNT(IIF(order_request_status = \'rejected\', 1, NULL)) as rejected_count
-')
+            COUNT(CASE WHEN order_request_status = "pending" THEN 1 END) as pending_count,
+            COUNT(CASE WHEN order_request_status = "approved" THEN 1 END) as approved_count,
+            COUNT(CASE WHEN order_request_status = "rejected" THEN 1 END) as rejected_count
+        ')
             ->first();
+
+        //         $orderCounts = StoreOrder::selectRaw('
+        //     COUNT(IIF(order_request_status = \'pending\', 1, NULL)) as pending_count,
+        //     COUNT(IIF(order_request_status = \'approved\', 1, NULL)) as approved_count,
+        //     COUNT(IIF(order_request_status = \'rejected\', 1, NULL)) as rejected_count
+        // ')
+        //             ->first();
 
         return Inertia::render('Dashboard/Index', [
             'orderCounts' => $orderCounts

@@ -256,8 +256,12 @@ Route::middleware('auth')
                 Route::post('/update/{id}', 'update')->name('update');
             });
 
-            Route::controller(SupplierController::class)->name('suppliers.')->group(function () {
-                Route::get('/suppliers', 'index')->name('index');
+            Route::controller(SupplierController::class)->prefix('suppliers')->name('suppliers.')->group(function () {
+                Route::get('/', 'index')->name('index');
+                Route::get('/create', 'create')->name('create');
+                Route::post('/store', 'store')->name('store');
+                Route::get('/edit/{id}', 'edit')->name('edit');
+                Route::put('/update/{id}', 'update')->name('update');
             });
 
             Route::controller(UnitOfMeasurementController::class)->name('unit-of-measurements.')->group(function () {
@@ -322,6 +326,7 @@ Route::middleware('auth')
             Route::post('/destroy', 'destroy')->name('destroy');
             Route::post('/approveImage/{id}', 'approveImage')->name('approveImage');
         });
+
 
 
 

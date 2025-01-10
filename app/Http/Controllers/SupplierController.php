@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Supplier;
+use Illuminate\Http\Request;
 use Inertia\Inertia;
 
 class SupplierController extends Controller
@@ -20,5 +21,29 @@ class SupplierController extends Controller
             'data' => $suppliers,
             'filters' => request()->only(['search'])
         ]);
+    }
+
+    public function edit()
+    {
+        return Inertia::render('Supplier/Edit');
+    }
+
+    public function update() {}
+
+    public function create()
+    {
+        return Inertia::render('Supplier/Create');
+    }
+
+    public function store(Request $request)
+    {
+        $validated = $request->validate([
+            'name' => ['required'],
+            'supplier_code' => ['required'],
+            'remarks' => ['nullable']
+        ]);
+
+        Supplier::create($validated);
+        return redirect()->route('suppliers.index');
     }
 }
