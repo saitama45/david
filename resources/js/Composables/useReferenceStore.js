@@ -14,7 +14,7 @@ export function useReferenceStore() {
                 toast.add({
                     severity: "success",
                     summary: "Success",
-                    detail: "Category Create Successfully.",
+                    detail: model + " Create Successfully.",
                     life: 5000,
                 });
                 form.reset();
