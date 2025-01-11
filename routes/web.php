@@ -42,7 +42,9 @@ Route::redirect('/', '/dashboard');
 
 Route::middleware('auth')
     ->group(function () {
-
+        Route::get('/testonly', function () {
+            return 'hello there';
+        });
         // Roles 
         Route::controller(RolesController::class)->name('roles.')->prefix('roles')->group(function () {
             Route::middleware('permission:view roles')->get('/', 'index')->name('index');
