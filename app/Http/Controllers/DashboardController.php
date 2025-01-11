@@ -21,27 +21,10 @@ class DashboardController extends Controller
     public function index()
     {
 
-        $orderCounts = StoreOrder::selectRaw('
-            COUNT(CASE WHEN order_request_status = "pending" THEN 1 END) as pending_count,
-            COUNT(CASE WHEN order_request_status = "approved" THEN 1 END) as approved_count,
-            COUNT(CASE WHEN order_request_status = "rejected" THEN 1 END) as rejected_count
-        ')
-            ->first();
 
-        //         $orderCounts = StoreOrder::selectRaw('
-        //     COUNT(IIF(order_request_status = \'pending\', 1, NULL)) as pending_count,
-        //     COUNT(IIF(order_request_status = \'approved\', 1, NULL)) as approved_count,
-        //     COUNT(IIF(order_request_status = \'rejected\', 1, NULL)) as rejected_count
-        // ')
-        //             ->first();
+        $user = User::rolesAndAssignedBranches();
 
-        return Inertia::render('Dashboard/Index', [
-            'orderCounts' => $orderCounts
-        ]);
-
-        $user = User::with(['roles', 'store_branches'])->findOrFail(Auth::user()->id);
-
-        if (in_array('admin', $user->roles->pluck('name')->toArray())) {
+        if ($user['isAdmin']) {
             $orderCounts = StoreOrder::selectRaw('
             COUNT(CASE WHEN order_request_status = "pending" THEN 1 END) as pending_count,
             COUNT(CASE WHEN order_request_status = "approved" THEN 1 END) as approved_count,
@@ -54,17 +37,8 @@ class DashboardController extends Controller
             ]);
         }
 
-        if (in_array('rec approver', $user->roles->pluck('name')->toArray())) {
-            return Inertia::render('SupplierDashboard/Index');
-        }
-        if (in_array('so encoder', $user->roles->pluck('name')->toArray()) && !in_array('admin', $user->roles->pluck('name')->toArray())) {
-            $assignedBranches = $user->store_branches->pluck('id');
-            $branches = StoreBranch::whereIn('id', $assignedBranches)->options();
-        }
 
-        $assignedBranches = $user->store_branches->pluck('id')->toArray();
-        $userRoles = $user->roles->pluck('name')->toArray();
-        $branches = $user->store_branches->pluck('name', 'id')->toArray();
+        $branches = $user['user']->store_branches->pluck('name', 'id')->toArray();
         $branchId = request('branchId') ?? array_keys($branches)[0];
 
         $orderCounts = StoreOrder::where('store_branch_id', $branchId)

@@ -7,6 +7,7 @@ use App\Models\OrderedItemReceiveDate;
 use App\Models\ProductInventoryStock;
 use App\Models\ProductInventoryStockManager;
 use App\Models\StoreOrder;
+use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -36,14 +37,15 @@ class ReceivingApprovalController extends Controller
                 $query->where('is_approved', false);
             });
 
+        $user = User::rolesAndAssignedBranches();
+
+        if (!$user['isAdmin']) $query->whereIn('store_branch_id', $user['assignedBranches']);
 
         if ($search)
             $query->whereAny(['order_number'], 'like', "%$search%");
 
 
         $orders = $query->paginate(10)->withQueryString();
-
-
 
         return Inertia::render('ReceivingApproval/Index', [
             'orders' => $orders,

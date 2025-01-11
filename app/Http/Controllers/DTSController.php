@@ -75,24 +75,25 @@ class DTSController extends Controller
         } else {
             $items = ProductInventory::whereRaw('LOWER(name) LIKE ?', ['%' . strtolower($variant) . '%'])->options();
         }
-        if ($variant === 'ice cream') {
+        // if ($variant === 'ice cream') {
 
-            $branches = StoreBranch::whereHas('delivery_schedules', function ($query) {
-                $query->where('variant', 'ICE CREAM');
-            })->options();
-        }
-        if ($variant === 'salmon') {
-            $branches = StoreBranch::whereHas('delivery_schedules', function ($query) {
-                $query->where('variant', 'SALMON');
-            })->options();
-        }
-        if ($variant === 'fruits and vegetables') {
-            $branches = StoreBranch::whereHas('delivery_schedules', function ($query) {
-                $query->where('variant', 'FRUITS AND VEGETABLES');
-            })->options();
-        }
+        //     $branches = StoreBranch::whereHas('delivery_schedules', function ($query) {
+        //         $query->where('variant', 'ICE CREAM');
+        //     })->options();
+        // }
+        // if ($variant === 'salmon') {
+        //     $branches = StoreBranch::whereHas('delivery_schedules', function ($query) {
+        //         $query->where('variant', 'SALMON');
+        //     })->options();
+        // }
+        // if ($variant === 'fruits and vegetables') {
+        //     $branches = StoreBranch::whereHas('delivery_schedules', function ($query) {
+        //         $query->where('variant', 'FRUITS AND VEGETABLES');
+        //     })->options();
+        // }
 
 
+        $branches = StoreBranch::options();
         return Inertia::render('DTSOrder/Create', [
             'suppliers' => $suppliers,
             'items' => $items,

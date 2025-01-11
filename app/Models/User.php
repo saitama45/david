@@ -100,7 +100,8 @@ class User extends Authenticatable implements Auditable
         $assignedBranches = $user->store_branches->pluck('id')->toArray();
         return [
             'isAdmin' => $isAdmin,
-            'assignedBranches' => $assignedBranches
+            'assignedBranches' => $assignedBranches,
+            'user' => $user
         ];
     }
 

@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Enum\OrderRequestStatus;
 use App\Models\StoreOrder;
+use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Inertia\Inertia;
@@ -19,14 +20,9 @@ class ApprovedOrderController extends Controller
             $query->where('is_approved', true);
         });
 
-        $user = Auth::user();
+        $user = User::rolesAndAssignedBranches();
 
-        if (in_array('so encoder', $user->roles->pluck('name')->toArray()) && !in_array('admin', $user->roles->pluck('name')->toArray())) {
-
-            $query->whereIn('store_branch_id', $user->store_branches->pluck('id'));
-        }
-
-
+        if (!$user['isAdmin']) $query->whereIn('store_branch_id', $user['assignedBranches']);
 
         if ($search)
             $query->where('order_number', 'like', '%' . $search . '%');
