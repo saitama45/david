@@ -14,6 +14,7 @@ class OrderedItemReceiveDate extends Model implements Auditable
     protected $fillable = [
         'store_order_item_id',
         'received_by_user_id',
+        'approval_action_by',
         'quantity_received',
         'received_date',
         'expiry_date',
@@ -45,5 +46,4 @@ class OrderedItemReceiveDate extends Model implements Auditable
     {
         return $this->belongsTo(ProductInventory::class);
     }
-
 }

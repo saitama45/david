@@ -8,6 +8,7 @@ use App\Models\ProductInventoryStock;
 use App\Models\ProductInventoryStockManager;
 use App\Models\StoreOrder;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Inertia\Inertia;
@@ -107,7 +108,7 @@ class ReceivingApprovalController extends Controller
 
     public function extracted($data): void
     {
-        $data->update(['is_approved' => true]);
+        $data->update(['is_approved' => true, 'approval_action_by' => Auth::user()->id]);
         $item = $data->store_order_item->product_inventory;
 
         $storeOrder = $data->store_order_item->store_order;
