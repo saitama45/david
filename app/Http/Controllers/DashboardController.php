@@ -41,24 +41,26 @@ class DashboardController extends Controller
             ]);
         }
 
-
         $branches = $user['user']->store_branches->pluck('name', 'id')->toArray();
         $branchId = request('branchId') ?? array_keys($branches)[0];
 
         $orderCounts = StoreOrder::where('store_branch_id', $branchId)
-            ->selectRaw('
-            COUNT(CASE WHEN order_request_status = "pending" THEN 1 END) as pending_count,
-            COUNT(CASE WHEN order_request_status = "approved" THEN 1 END) as approved_count,
-            COUNT(CASE WHEN order_request_status = "rejected" THEN 1 END) as rejected_count
-        ')
+            ->selectRaw(DB::connection()->getDriverName() === 'sqlsrv'
+                ? "
+                SUM(CASE WHEN order_request_status = 'pending' THEN 1 ELSE 0 END) as pending_count,
+                SUM(CASE WHEN order_request_status = 'approved' THEN 1 ELSE 0 END) as approved_count,
+                SUM(CASE WHEN order_request_status = 'rejected' THEN 1 ELSE 0 END) as rejected_count
+            "
+                : "
+                COUNT(CASE WHEN order_request_status = 'pending' THEN 1 END) as pending_count,
+                COUNT(CASE WHEN order_request_status = 'approved' THEN 1 END) as approved_count,
+                COUNT(CASE WHEN order_request_status = 'rejected' THEN 1 END) as rejected_count
+            ")
             ->first();
 
         $highStockproducts = $this->getHighStockProducts($branchId);
-
         $mostUsedProducts = $this->getMostUsedProducts($branchId);
-
         $lowOnStockItems = $this->getLowOnStockItems($branchId);
-
 
         return Inertia::render('StoreDashboard/Index', [
             'branches' => $branches,
@@ -118,8 +120,7 @@ class DashboardController extends Controller
                     'name' => $item->name,
                     'used' => $item->total_used ?? 0
                 ];
-            })
-        ;
+            });
     }
 
     public function getLowOnStockItems($branchId)
@@ -131,11 +132,14 @@ class DashboardController extends Controller
             ->where('ur.store_branch_id', $branchId)
             ->select(
                 'mi.product_inventory_id',
-                'mi.product_inventory_id',
-                DB::raw('SUM(mi.quantity * uri.quantity) as total_quantity_used'),
                 DB::raw(
                     DB::connection()->getDriverName() === 'sqlsrv'
-                        ? "STRING_AGG(DISTINCT mi.unit, ',') as units"
+                        ? 'CAST(SUM(CAST(mi.quantity AS DECIMAL(10,2)) * CAST(uri.quantity AS DECIMAL(10,2))) AS DECIMAL(10,2)) as total_quantity_used'
+                        : 'SUM(mi.quantity * uri.quantity) as total_quantity_used'
+                ),
+                DB::raw(
+                    DB::connection()->getDriverName() === 'sqlsrv'
+                        ? "STRING_AGG(mi.unit, ',') WITHIN GROUP (ORDER BY mi.unit) as units"
                         : "GROUP_CONCAT(DISTINCT mi.unit) as units"
                 )
             )
@@ -148,7 +152,6 @@ class DashboardController extends Controller
                 ];
             })
             ->toArray();
-
 
         $query = ProductInventory::query()
             ->with(['unit_of_measurement'])
@@ -167,7 +170,7 @@ class DashboardController extends Controller
                     : '';
 
                 if ($item->inventory_stocks->first()->quantity - $item->inventory_stocks->first()->used > 10) {
-                    return;
+                    return null;
                 }
 
                 return [
