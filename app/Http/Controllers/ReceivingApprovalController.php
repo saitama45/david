@@ -57,7 +57,7 @@ class ReceivingApprovalController extends Controller
                 $query->where('is_approved', false);
             },
         ])->where('order_number', $id)->firstOrFail();
-        $items = $order->ordered_item_receive_dates()->with('store_order_item.product_inventory')->where('is_approved', false)->get();;
+        $items = $order->ordered_item_receive_dates()->with('store_order_item.product_inventory')->where('is_approved', false)->get();
         $images = $order->image_attachments->map(function ($image) {
             return [
                 'id' => $image->id,

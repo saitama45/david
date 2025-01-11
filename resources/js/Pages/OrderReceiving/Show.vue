@@ -682,6 +682,12 @@ const deleteDeliveryReceiptNumber = (id) => {
                         </p>
                     </div>
                     <div>
+                        <span class="text-xs">Quantity Approved</span>
+                        <p>
+                            {{ itemDetails.quantity_approved }}
+                        </p>
+                    </div>
+                    <div>
                         <span class="text-xs">Quantity Received</span>
                         <p>
                             {{ itemDetails.quantity_received }}

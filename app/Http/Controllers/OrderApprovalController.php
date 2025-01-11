@@ -62,6 +62,7 @@ class OrderApprovalController extends Controller
             'remarks' => ['sometimes'],
             'updatedOrderedItemDetails' => ['required']
         ]);
+
         DB::beginTransaction();
         $storeOrder = StoreOrder::findOrFail($validated['id']);
         $storeOrder->update([

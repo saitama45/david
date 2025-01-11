@@ -3,10 +3,8 @@ import { useForm, router } from "@inertiajs/vue3";
 
 import { useSearch } from "@/Composables/useSearch";
 
-import { useConfirm } from "primevue/useconfirm";
 import { useToast } from "@/Composables/useToast";
 
-const confirm = useConfirm();
 const { toast } = useToast();
 
 const isEditModalVisible = ref(false);
@@ -57,6 +55,8 @@ const editCategoryDetails = (id) => {
 import { useReferenceStore } from "@/Composables/useReferenceStore";
 const { isCreateModalVisible, openCreateModal, store } = useReferenceStore();
 
+import { useConfirm } from "primevue/useconfirm";
+const confirm = useConfirm(); 
 const deleteModel = (id) => {
     confirm.require({
         message: "Are you sure you want to delete this product category?",

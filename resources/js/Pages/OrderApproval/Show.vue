@@ -108,7 +108,6 @@ const itemRemarksForm = useForm({
 });
 
 const addRemarks = (id) => {
-    console.log(id);
     itemRemarksForm.post(route("orders-approval.add-remarks", id), {
         onSuccess: () => {
             console.log("success");
@@ -119,15 +118,24 @@ const addRemarks = (id) => {
 const copyOrderAndCreateAnother = (id) => {
     router.get("/store-orders/create", { orderId: id });
 };
+
 const isLoading = ref(false);
 const showApproveOrderForm = ref(false);
 const showRejectOrderForm = ref(false);
 
+watch(showApproveOrderForm, (value) => {
+    if (!value) {
+        isLoading.value = false;
+        remarksForm.reset();
+        remarksForm.clearErrors();
+    }
+});
 const remarksForm = useForm({
     id: null,
     remarks: null,
     updatedOrderedItemDetails: null,
 });
+
 const approveOrder = (id) => {
     showApproveOrderForm.value = true;
     remarksForm.id = id;
