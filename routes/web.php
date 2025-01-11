@@ -46,7 +46,7 @@ Route::middleware('auth')
         // Roles 
         Route::controller(RolesController::class)->name('roles.')->prefix('roles')->group(function () {
             Route::middleware('permission:view roles')->get('/', 'index')->name('index');
-            Route::middleware('permission:create role')->get('/create', 'create')->name('create');
+            Route::middleware('permission:create roles')->get('/create', 'create')->name('create');
             Route::middleware('permission:create roles')->post('/store', 'store')->name('store');
             Route::middleware('permission:edit roles')->get('/edit/{id}', 'edit')->name('edit');
             Route::middleware('permission:edit roles')->post('/update/{id}', 'update')->name('update');
