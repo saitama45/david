@@ -9,7 +9,7 @@ class ExcelTemplateController extends Controller
 {
     public function gsiBakeryTemplate()
     {
-        $path = 'storage\excel-templates\GSI_OT_BAKERY_SAMPLE_SO_UPLOAD.xlsx';
+        $path = 'storage\excel-templates\gsi_order_template.xlsx';
         return response()->download($path);
     }
 
@@ -27,7 +27,7 @@ class ExcelTemplateController extends Controller
 
     public function productsTemplate()
     {
-        $path = 'storage\excel-templates\GSI_PRODUCTS.xlsx';
+        $path = 'storage\excel-templates\product_template.xlsx';
         return response()->download($path);
     }
 }
