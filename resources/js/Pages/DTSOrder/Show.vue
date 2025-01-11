@@ -55,7 +55,7 @@ const openViewModalForm = (id) => {
 <template>
     <Layout
         heading="Order Details"
-        :hasButton="true"  
+        :hasButton="true"
         buttonName="Copy Order and Create Another"
         :handleClick="() => copyOrderAndCreateAnother(order.id)"
     >
@@ -141,7 +141,7 @@ const openViewModalForm = (id) => {
                         <TH> Ordered</TH>
                         <TH> Approved</TH>
                         <TH> Received</TH>
-                        <TH> Cost </TH>
+                        <TH> Approval Rate </TH>
                         <TH> Total Cost </TH>
                     </TableHead>
                     <TableBody>
@@ -156,7 +156,15 @@ const openViewModalForm = (id) => {
                             <TD>{{ order.quantity_ordered }}</TD>
                             <TD>{{ order.quantity_approved }}</TD>
                             <TD>{{ order.quantity_received }}</TD>
-                            <TD>{{ order.product_inventory.cost }}</TD>
+                            <TD
+                                >{{
+                                    parseFloat(
+                                        (order.quantity_approved /
+                                            order.quantity_ordered) *
+                                            100
+                                    ).toFixed(0, 2)
+                                }}%</TD
+                            >
                             <TD>{{ order.total_cost }}</TD>
                         </tr>
                     </TableBody>
