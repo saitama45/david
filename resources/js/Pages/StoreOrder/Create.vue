@@ -154,8 +154,8 @@ const addToOrdersButton = () => {
         itemForm.setError("item", "Item field is required");
         return;
     }
-    if (Number(productDetails.quantity) < 1) {
-        itemForm.setError("quantity", "Quantity must be at least 1");
+    if (Number(productDetails.quantity) < 0.1) {
+        itemForm.setError("quantity", "Quantity must be at least 0.1");
         return;
     }
 
@@ -254,7 +254,9 @@ const addImportedItemsToOrderList = () => {
 
 const addItemQuantity = (id) => {
     const index = orderForm.orders.findIndex((item) => item.id === id);
-    orderForm.orders[index].quantity += 1;
+    orderForm.orders[index].quantity = parseFloat(
+        (orderForm.orders[index].quantity + 0.1).toFixed(2)
+    );
     orderForm.orders[index].total_cost = parseFloat(
         orderForm.orders[index].quantity * orderForm.orders[index].cost
     ).toFixed(2);
@@ -262,8 +264,10 @@ const addItemQuantity = (id) => {
 
 const minusItemQuantity = (id) => {
     const index = orderForm.orders.findIndex((item) => item.id === id);
-    orderForm.orders[index].quantity -= 1;
-    if (orderForm.orders[index].quantity < 1) {
+    orderForm.orders[index].quantity = parseFloat(
+        (orderForm.orders[index].quantity - 0.1).toFixed(2)
+    );
+    if (orderForm.orders[index].quantity < 0.1) {
         orderForm.orders = orderForm.orders.filter((item) => item.id !== id);
         return;
     }
