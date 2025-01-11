@@ -20,16 +20,20 @@ class DashboardController extends Controller
 {
     public function index()
     {
-
-
         $user = User::rolesAndAssignedBranches();
 
         if ($user['isAdmin']) {
-            $orderCounts = StoreOrder::selectRaw('
-            COUNT(CASE WHEN order_request_status = "pending" THEN 1 END) as pending_count,
-            COUNT(CASE WHEN order_request_status = "approved" THEN 1 END) as approved_count,
-            COUNT(CASE WHEN order_request_status = "rejected" THEN 1 END) as rejected_count
-        ')
+            $orderCounts = StoreOrder::selectRaw(DB::connection()->getDriverName() === 'sqlsrv'
+                ? "
+                SUM(CASE WHEN order_request_status = 'pending' THEN 1 ELSE 0 END) as pending_count,
+                SUM(CASE WHEN order_request_status = 'approved' THEN 1 ELSE 0 END) as approved_count,
+                SUM(CASE WHEN order_request_status = 'rejected' THEN 1 ELSE 0 END) as rejected_count
+            "
+                : "
+                COUNT(CASE WHEN order_request_status = 'pending' THEN 1 END) as pending_count,
+                COUNT(CASE WHEN order_request_status = 'approved' THEN 1 END) as approved_count,
+                COUNT(CASE WHEN order_request_status = 'rejected' THEN 1 END) as rejected_count
+            ")
                 ->first();
 
             return Inertia::render('Dashboard/Index', [
@@ -127,8 +131,13 @@ class DashboardController extends Controller
             ->where('ur.store_branch_id', $branchId)
             ->select(
                 'mi.product_inventory_id',
+                'mi.product_inventory_id',
                 DB::raw('SUM(mi.quantity * uri.quantity) as total_quantity_used'),
-                DB::raw('GROUP_CONCAT(DISTINCT mi.unit) as units')
+                DB::raw(
+                    DB::connection()->getDriverName() === 'sqlsrv'
+                        ? "STRING_AGG(DISTINCT mi.unit, ',') as units"
+                        : "GROUP_CONCAT(DISTINCT mi.unit) as units"
+                )
             )
             ->groupBy('mi.product_inventory_id')
             ->get()
