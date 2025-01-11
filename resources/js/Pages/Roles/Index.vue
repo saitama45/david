@@ -53,7 +53,7 @@ const { hasAccess } = useAuth();
                         </TD>
                         <TD>{{ role.name }}</TD>
                         <TD>
-                            <section class="max-w-[400px] space-x-3 space-y-3">
+                            <section class="space-x-3 space-y-3">
                                 <Badge
                                     v-for="permission in role.permissions"
                                     class="w-fit"
