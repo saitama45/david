@@ -25,7 +25,7 @@ const heading = `Orders For Item ${item.name} (${item.inventory_code})`;
                 <TableHead>
                     <TH>Supplier</TH>
                     <TH>Store Branch</TH>
-                    <TH>Quantity Ordered</TH>
+                    <TH>Quantity Approved</TH>
                     <TH>Quantity Delivered</TH>
                     <TH>Order Date</TH>
                 </TableHead>
@@ -33,7 +33,7 @@ const heading = `Orders For Item ${item.name} (${item.inventory_code})`;
                     <tr v-for="order in orders" :key="order">
                         <TD>{{ order.store_order.supplier.name }}</TD>
                         <TD>{{ order.store_order.store_branch.name }}</TD>
-                        <TD>{{ order.quantity_ordered }}</TD>
+                        <TD>{{ order.quantity_approved }}</TD>
                         <TD>{{ order.quantity_received }}</TD>
                         <TD>{{ order.store_order.order_date }}</TD>
                     </tr>

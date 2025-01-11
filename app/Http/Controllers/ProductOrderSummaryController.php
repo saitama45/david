@@ -59,7 +59,7 @@ class ProductOrderSummaryController extends Controller
                     $subQuery->whereIn('store_branch_id', $branchId);
                 }
             });
-        }], 'quantity_ordered')
+        }], 'quantity_approved')
             ->withSum(['store_order_items' => function ($query) use ($startDate, $endDate, $supplierId, $branchId) {
                 $query->whereHas('store_order', function ($subQuery) use ($startDate, $endDate, $supplierId, $branchId) {
                     $subQuery->whereBetween('order_date', [$startDate, $endDate]);
@@ -139,7 +139,7 @@ class ProductOrderSummaryController extends Controller
         $formattedData = $products->map(function ($product) {
             $branchQuantities = $product->store_order_items
                 ->groupBy(fn($item) => $item->store_order->store_branch->id)
-                ->mapWithKeys(fn($items, $branchId) => [$branchId => $items->sum('quantity_ordered')]);
+                ->mapWithKeys(fn($items, $branchId) => [$branchId => $items->sum('quantity_approved')]);
 
             return [
                 'name' => $product->name,

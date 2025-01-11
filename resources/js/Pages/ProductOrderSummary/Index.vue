@@ -205,7 +205,7 @@ const openExportModal = () => {
                     <TH>Inventory Code</TH>
                     <TH>Conversion</TH>
                     <TH>UOM</TH>
-                    <TH>Quantity Ordered</TH>
+                    <TH>Quantity Approved</TH>
                     <TH>Quantity Delivered</TH>
                     <TH>Actions</TH>
                 </TableHead>
@@ -217,7 +217,7 @@ const openExportModal = () => {
                         <TD>{{ item.conversion }}</TD>
                         <TD>{{ item.unit_of_measurement.name }}</TD>
                         <TD>{{
-                            item.store_order_items_sum_quantity_ordered
+                            item.store_order_items_sum_quantity_approved
                         }}</TD>
                         <TD>{{
                             item.store_order_items_sum_quantity_received
