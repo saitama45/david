@@ -150,10 +150,22 @@ const addToOrdersButton = () => {
         return;
     }
 
-    if (Number(productDetails.quantity) < 1) {
+    if (
+        variant !== "fruits and vegetables" &&
+        Number(productDetails.quantity) < 1
+    ) {
         itemForm.setError("quantity", "Quantity must be at least 1");
         return;
     }
+
+    if (
+        variant === "fruits and vegetables" &&
+        Number(productDetails.quantity) < 0.1
+    ) {
+        itemForm.setError("quantity", "Quantity must be at least 0.1");
+        return;
+    }
+
     if (variant === "ice cream" && Number(productDetails.quantity) < 5) {
         itemForm.setError("quantity", "Quantity must be at least 5");
         return;
@@ -201,7 +213,14 @@ const addToOrdersButton = () => {
 
 const addItemQuantity = (id) => {
     const index = orderForm.orders.findIndex((item) => item.id === id);
-    orderForm.orders[index].quantity += 1;
+    if (orderForm.orders[index].quantity < 1) {
+        orderForm.orders[index].quantity = parseFloat(
+            (orderForm.orders[index].quantity + 0.1).toFixed(2)
+        );
+    } else {
+        orderForm.orders[index].quantity += 1;
+    }
+
     orderForm.orders[index].total_cost = parseFloat(
         orderForm.orders[index].quantity * orderForm.orders[index].cost
     ).toFixed(2);
