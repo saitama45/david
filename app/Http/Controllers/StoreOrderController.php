@@ -33,11 +33,9 @@ class StoreOrderController extends Controller
 
         $query = StoreOrder::query()->with(['store_branch', 'supplier']);
 
-        $user = User::with(['roles', 'store_branches'])->findOrFail(Auth::id());
-        $hasAdmin = $user->roles->contains('name', 'admin');
-        $assignedBranches = $user->store_branches->pluck('id')->toArray();
+        $user = User::rolesAndAssignedBranches();
 
-        if (!$hasAdmin)  $query->whereIn('store_branch_id', $assignedBranches);
+        if (!$user['isAdmin']) $query->whereIn('store_branch_id', $user['assignedBranches']);
 
         if ($from && $to) {
             $query->whereBetween('order_date', [$from, $to]);
@@ -204,13 +202,8 @@ class StoreOrderController extends Controller
         $orderedItems = $order->store_order_items()->with(['product_inventory', 'product_inventory.unit_of_measurement'])->get();
         $products = ProductInventory::options();
         $suppliers = Supplier::whereNot('supplier_code', 'DROPS')->options();
-        $user = Auth::user();
-        if ($user->role == 'so_encoder') {
-            $assignedBranches = $user->store_branches->pluck('id');
-            $branches = StoreBranch::whereIn('id', $assignedBranches)->options();
-        } else {
-            $branches = StoreBranch::options();
-        }
+
+        $branches = StoreBranch::options();
 
         return Inertia::render('StoreOrder/Edit', [
             'order' => $order,

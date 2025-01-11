@@ -94,7 +94,14 @@ class User extends Authenticatable implements Auditable
 
     public function scopeRolesAndAssignedBranches(Builder $query)
     {
-        return $query->with(['roles', 'store_branches'])->findOrFail(Auth::id());
+        $user = $query->with(['roles', 'store_branches'])->findOrFail(Auth::id());
+
+        $isAdmin = $user->roles->contains('name', 'admin');
+        $assignedBranches = $user->store_branches->pluck('id')->toArray();
+        return [
+            'isAdmin' => $isAdmin,
+            'assignedBranches' => $assignedBranches
+        ];
     }
 
     public function getFullNameAttribute()
