@@ -11,6 +11,7 @@ use App\Models\ProductInventory;
 use App\Models\StoreBranch;
 use App\Models\StoreOrder;
 use App\Models\Supplier;
+use App\Models\User;
 use Carbon\Carbon;
 use Exception;
 use Illuminate\Support\Facades\DB;
@@ -32,12 +33,11 @@ class StoreOrderController extends Controller
 
         $query = StoreOrder::query()->with(['store_branch', 'supplier']);
 
-        $user = Auth::user();
+        $user = User::with(['roles', 'store_branches'])->findOrFail(Auth::id());
+        $hasAdmin = $user->roles->contains('name', 'admin');
+        $assignedBranches = $user->store_branches->pluck('id')->toArray();
 
-        if (in_array('so encoder', $user->roles->pluck('name')->toArray()) && !in_array('admin', $user->roles->pluck('name')->toArray())) {
-
-            $query->whereIn('store_branch_id', $user->store_branches->pluck('id'));
-        }
+        if (!$hasAdmin)  $query->whereIn('store_branch_id', $assignedBranches);
 
         if ($from && $to) {
             $query->whereBetween('order_date', [$from, $to]);
@@ -87,14 +87,8 @@ class StoreOrderController extends Controller
 
         $products = ProductInventory::options();
         $suppliers = Supplier::whereNot('supplier_code', 'DROPS')->options();
-        $user = Auth::user();
 
-        if (!in_array('admin', $user->roles->pluck('name')->toArray())) {
-            $assignedBranches = $user->store_branches->pluck('id');
-            $branches = StoreBranch::whereIn('id', $assignedBranches)->options();
-        } else {
-            $branches = StoreBranch::options();
-        }
+        $branches = StoreBranch::options();
 
         return Inertia::render('StoreOrder/Create', [
             'products' => $products,

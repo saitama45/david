@@ -2,6 +2,8 @@
 import Checkbox from "primevue/checkbox";
 import Dialog from "primevue/dialog";
 
+import { CircleHelp } from "lucide-vue-next";
+
 import { useForm } from "@inertiajs/vue3";
 
 const form = useForm({
@@ -19,7 +21,7 @@ const createNewRoles = () => {
     form.post(route("roles.store"), {});
 };
 
-const isPermissionGuideModalVisible = ref(true);
+const isPermissionGuideModalVisible = ref(false);
 </script>
 
 <template>
@@ -31,7 +33,12 @@ const isPermissionGuideModalVisible = ref(true);
                 <FormError>{{ form.errors.name }}</FormError>
             </InputContainer>
             <InputContainer>
-                <LabelXS> Permissions </LabelXS>
+                <DivFlexCenter class="justify-between">
+                    <LabelXS> Permissions</LabelXS>
+                    <button @click="isPermissionGuideModalVisible = true">
+                        <CircleHelp />
+                    </button>
+                </DivFlexCenter>
                 <div
                     class="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-4"
                 >

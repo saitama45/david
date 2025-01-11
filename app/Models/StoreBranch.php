@@ -6,6 +6,7 @@ use App\Traits\HasSelections;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\Facades\Auth;
 use OwenIt\Auditing\Contracts\Auditable;
 
 class StoreBranch extends Model implements Auditable
@@ -46,6 +47,10 @@ class StoreBranch extends Model implements Auditable
 
     public function scopeOptions(Builder $query)
     {
+        $user = User::with(['roles', 'store_branches'])->findOrFail(Auth::id());
+        $hasAdmin = $user->roles->contains('name', 'admin');
+        $assignedBranches = $user->store_branches->pluck('id')->toArray();
+        if (!$hasAdmin)  $query->whereIn('id', $assignedBranches);
         return $query->where('is_active', true)->pluck('name', 'id');
     }
 
@@ -81,7 +86,5 @@ class StoreBranch extends Model implements Auditable
             'delivery_schedule_id'
         )
             ->withPivot('variant');
-
-
     }
 }

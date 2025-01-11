@@ -15,6 +15,8 @@ class RolesAndPermissionSeeder extends Seeder
     public function run(): void
     {
         $role = Role::create(['name' => 'admin']);
+        $role2 = Role::create(['name' => 'store representative']);
+        $role3 = Role::create(['name' => 'request approver']);
 
         // Roles
         Permission::create(['name' => 'view roles']);
@@ -96,5 +98,35 @@ class RolesAndPermissionSeeder extends Seeder
         Permission::create(['name' => 'manage references']);
 
         $role->syncPermissions(Permission::all());
+
+        $role2->syncPermissions([
+            'view store orders',
+            'create store orders',
+            'edit store orders',
+            'view store order',
+            'view dts orders',
+            'edit dts orders',
+            'view dts order',
+            'create dts orders',
+            'view approved orders',
+            'view approved order',
+            'receive orders',
+            'view stock management',
+            'log stock usage',
+            'add stock quantity',
+            'view stock management history',
+            'view items order summary',
+        ]);
+
+        $role3->syncPermissions([
+            'view orders for approval list',
+            'view order for approval',
+            'approve/decline order request',
+            'view approved received items',
+            'view approved received item',
+            'view received orders for approval list',
+            'view approved order for approval',
+            'approve image attachments'
+        ]);
     }
 }
