@@ -47,15 +47,15 @@ class DashboardController extends Controller
         $orderCounts = StoreOrder::where('store_branch_id', $branchId)
             ->selectRaw(DB::connection()->getDriverName() === 'sqlsrv'
                 ? "
-                SUM(CASE WHEN order_request_status = 'pending' THEN 1 ELSE 0 END) as pending_count,
-                SUM(CASE WHEN order_request_status = 'approved' THEN 1 ELSE 0 END) as approved_count,
-                SUM(CASE WHEN order_request_status = 'rejected' THEN 1 ELSE 0 END) as rejected_count
-            "
+        SUM(CASE WHEN order_request_status = 'pending' THEN 1 ELSE 0 END) as pending_count,
+        SUM(CASE WHEN order_request_status = 'approved' THEN 1 ELSE 0 END) as approved_count,
+        SUM(CASE WHEN order_request_status = 'rejected' THEN 1 ELSE 0 END) as rejected_count
+        "
                 : "
-                COUNT(CASE WHEN order_request_status = 'pending' THEN 1 END) as pending_count,
-                COUNT(CASE WHEN order_request_status = 'approved' THEN 1 END) as approved_count,
-                COUNT(CASE WHEN order_request_status = 'rejected' THEN 1 END) as rejected_count
-            ")
+        COUNT(CASE WHEN order_request_status = 'pending' THEN 1 END) as pending_count,
+        COUNT(CASE WHEN order_request_status = 'approved' THEN 1 END) as approved_count,
+        COUNT(CASE WHEN order_request_status = 'rejected' THEN 1 END) as rejected_count
+        ")
             ->first();
 
         $highStockproducts = $this->getHighStockProducts($branchId);
