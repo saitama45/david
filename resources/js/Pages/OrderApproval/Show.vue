@@ -200,7 +200,9 @@ const lessQuantityApproved = (id) => {
         const currentItem = itemsDetail.value[itemIndex];
 
         if (currentItem.quantity_approved > 0) {
-            currentItem.quantity_approved--;
+            currentItem.quantity_approved = Number(
+                parseFloat(currentItem.quantity_approved - 0.1).toFixed(2)
+            );
             currentItem.total_cost = parseFloat(
                 currentItem.item_cost * currentItem.quantity_approved
             ).toFixed(2);
@@ -213,7 +215,20 @@ const addQuantityApproved = (id) => {
 
     if (itemIndex !== -1) {
         const currentItem = itemsDetail.value[itemIndex];
-        currentItem.quantity_approved++;
+        currentItem.quantity_approved = Number(
+            parseFloat(currentItem.quantity_approved + 0.1).toFixed(2)
+        );
+        // if (
+        //     currentItem.quantity_approved < 1 &&
+        //     currentItem.quantity_approved >= 0
+        // ) {
+        //     currentItem.quantity_approved = Number(
+        //         parseFloat(currentItem.quantity_approved + 0.1).toFixed(2)
+        //     );
+        // } else {
+        //     currentItem.quantity_approved++;
+        // }
+
         currentItem.total_cost = parseFloat(
             currentItem.item_cost * currentItem.quantity_approved
         ).toFixed(2);
@@ -249,19 +264,19 @@ const addQuantityApproved = (id) => {
                 </DivFlexCenter>
 
                 <DivFlexCenter class="gap-5">
-                    <Button
+                    <!-- <Button
                         v-if="order.order_request_status === 'pending'"
                         variant="secondary"
                         @click="updateDetails(order.order_number)"
                     >
                         Update Details
-                    </Button>
-                    <Button
+                    </Button> -->
+                    <!-- <Button
                         class="bg-blue-500 hover:bg-blue-300"
                         @click="copyOrderAndCreateAnother(order.id)"
                     >
                         Copy Order And Create
-                    </Button>
+                    </Button> -->
                     <Button
                         v-if="order.order_request_status === 'pending'"
                         variant="destructive"
@@ -305,7 +320,10 @@ const addQuantityApproved = (id) => {
                                 itemsDetail.find((item) => item.id === order.id)
                                     ?.quantity_approved || 0
                             }}
-                            <DivFlexCenter class="gap-2">
+                            <DivFlexCenter
+                                class="gap-2"
+                                v-if="order.order_request_status === 'pending'"
+                            >
                                 <button @click="lessQuantityApproved(order.id)">
                                     <Minus class="size-4 text-red-500" />
                                 </button>
