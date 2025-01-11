@@ -36,7 +36,7 @@ class StockManagementController extends Controller
                 ),
                 DB::raw(
                     DB::connection()->getDriverName() === 'sqlsrv'
-                        ? "STRING_AGG(DISTINCT mi.unit, ',') as units"
+                        ? "STRING_AGG(DISTINCT mi.unit, ',') WITHIN GROUP (ORDER BY mi.unit) as units"
                         : "GROUP_CONCAT(DISTINCT mi.unit) as units"
                 )
             )
