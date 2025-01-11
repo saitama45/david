@@ -6,6 +6,7 @@ use App\Models\StoreBranch;
 use App\Models\StoreOrder;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Inertia\Inertia;
 
@@ -98,7 +99,7 @@ class IceCreamOrderController extends Controller
 
     public function getOrders($branchesId, $day)
     {
-        return StoreOrder::with([
+        $orders = StoreOrder::with([
             'store_branch',
             'store_order_items',
             'store_order_items.product_inventory'
@@ -106,7 +107,7 @@ class IceCreamOrderController extends Controller
             ->whereIn('store_branch_id', $branchesId)
             ->where('order_date', $day)
             ->whereHas('store_order_items.product_inventory', function ($query) {
-                $query->whereIn('inventory_code', ['359A2A']);
+                $query->whereIn('inventory_code', ['269A2A']);
             })
             ->get()
             ->flatMap(function ($order) {
@@ -117,7 +118,9 @@ class IceCreamOrderController extends Controller
                         'branch_key' => $order->store_branch->id,
                         'branch' => [
                             'display_name' => "{$order->store_branch->brand_code}-NONOS {$order->store_branch->location_code}",
-                            'quantity_ordered' => $item->quantity_ordered
+                            'quantity_ordered' => DB::connection()->getDriverName() === 'sqlsrv'
+                                ? (float)$item->quantity_ordered
+                                : $item->quantity_ordered
                         ]
                     ];
                 });
@@ -130,16 +133,22 @@ class IceCreamOrderController extends Controller
                     ->groupBy('branch_key')
                     ->map(function ($branchGroup) {
                         $first = $branchGroup->first();
+                        $quantity = $branchGroup->sum(function ($item) {
+                            return $item['branch']['quantity_ordered'];
+                        });
+
                         return [
                             'display_name' => $first['branch']['display_name'],
-                            'quantity_ordered' => $branchGroup->sum(function ($item) {
-                                return $item['branch']['quantity_ordered'];
-                            })
+                            'quantity_ordered' => DB::connection()->getDriverName() === 'sqlsrv'
+                                ? (float)$quantity
+                                : $quantity
                         ];
                     })
                     ->values();
 
-                $total_quantity = $branches->sum('quantity_ordered');
+                $total_quantity = DB::connection()->getDriverName() === 'sqlsrv'
+                    ? (float)$branches->sum('quantity_ordered')
+                    : $branches->sum('quantity_ordered');
 
                 return [
                     'item' => $firstItem['item'],
@@ -149,5 +158,7 @@ class IceCreamOrderController extends Controller
                 ];
             })
             ->values();
+
+        return $orders;
     }
 }

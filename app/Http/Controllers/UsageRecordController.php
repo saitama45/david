@@ -105,6 +105,10 @@ class UsageRecordController extends Controller
         ])->findOrFail($id);
         $itemsSold = $record->usage_record_items()->with('menu')->paginate(5);
 
+        $totalQuantitySQL = DB::connection()->getDriverName() === 'sqlsrv'
+            ? 'CAST(SUM(CAST(menu_ingredients.quantity AS DECIMAL(10,2)) * CAST(usage_record_items.quantity AS DECIMAL(10,2))) AS DECIMAL(10,2)) as total_quantity'
+            : 'SUM(menu_ingredients.quantity * usage_record_items.quantity) as total_quantity';
+
         $ingredients = UsageRecordItem::where('usage_record_id', $id)
             ->join('menus', 'usage_record_items.menu_id', '=', 'menus.id')
             ->join('menu_ingredients', 'menus.id', '=', 'menu_ingredients.menu_id')
@@ -114,7 +118,7 @@ class UsageRecordController extends Controller
                 'product_inventories.*',
                 'menu_ingredients.quantity as ingredient_quantity',
                 'usage_record_items.quantity as ordered_quantity',
-                DB::raw('SUM(menu_ingredients.quantity * usage_record_items.quantity) as total_quantity'),
+                DB::raw($totalQuantitySQL),
                 'unit_of_measurements.name as uom'
             ])
             ->groupBy('product_inventories.id')

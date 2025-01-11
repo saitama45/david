@@ -12,6 +12,7 @@ use Illuminate\Support\Facades\Auth;
 use Inertia\Inertia;
 use Spatie\Browsershot\Browsershot;
 use Barryvdh\DomPDF\Facade\Pdf;
+use Illuminate\Support\Facades\DB;
 use Illuminate\View\View;
 use Maatwebsite\Excel\Concerns\FromView;
 use Maatwebsite\Excel\Facades\Excel;
@@ -139,7 +140,11 @@ class ProductOrderSummaryController extends Controller
         $formattedData = $products->map(function ($product) {
             $branchQuantities = $product->store_order_items
                 ->groupBy(fn($item) => $item->store_order->store_branch->id)
-                ->mapWithKeys(fn($items, $branchId) => [$branchId => $items->sum('quantity_approved')]);
+                ->mapWithKeys(fn($items, $branchId) => [
+                    $branchId => DB::connection()->getDriverName() === 'sqlsrv'
+                        ? $items->sum(DB::raw('CAST(quantity_approved AS DECIMAL(10,2))'))
+                        : $items->sum('quantity_approved')
+                ]);
 
             return [
                 'name' => $product->name,

@@ -29,8 +29,16 @@ class StockManagementController extends Controller
             ->where('ur.store_branch_id', $branchId)
             ->select(
                 'mi.product_inventory_id',
-                DB::raw('SUM(mi.quantity * uri.quantity) as total_quantity_used'),
-                DB::raw('GROUP_CONCAT(DISTINCT mi.unit) as units')
+                DB::raw(
+                    DB::connection()->getDriverName() === 'sqlsrv'
+                        ? 'CAST(SUM(CAST(mi.quantity AS DECIMAL(10,2)) * CAST(uri.quantity AS DECIMAL(10,2))) AS DECIMAL(10,2)) as total_quantity_used'
+                        : 'SUM(mi.quantity * uri.quantity) as total_quantity_used'
+                ),
+                DB::raw(
+                    DB::connection()->getDriverName() === 'sqlsrv'
+                        ? "STRING_AGG(DISTINCT mi.unit, ',') as units"
+                        : "GROUP_CONCAT(DISTINCT mi.unit) as units"
+                )
             )
             ->groupBy('mi.product_inventory_id')
             ->get()

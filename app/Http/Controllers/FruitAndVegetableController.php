@@ -9,6 +9,7 @@ use App\Models\StoreOrderItem;
 use Carbon\Carbon;
 use Exception;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
 
 class FruitAndVegetableController extends Controller
@@ -199,7 +200,9 @@ class FruitAndVegetableController extends Controller
                             'branch_key' => $order->store_branch->id,
                             'branch' => [
                                 'display_name' => "{$order->store_branch->brand_code}-NONOS {$order->store_branch->location_code}",
-                                'quantity_ordered' => $item->quantity_ordered
+                                'quantity_ordered' => DB::connection()->getDriverName() === 'sqlsrv'
+                                    ? (float)$item->quantity_ordered
+                                    : $item->quantity_ordered
                             ]
                         ];
                     }
@@ -215,16 +218,22 @@ class FruitAndVegetableController extends Controller
                     ->groupBy('branch_key')
                     ->map(function ($branchGroup) {
                         $first = $branchGroup->first();
+                        $quantity = $branchGroup->sum(function ($item) {
+                            return $item['branch']['quantity_ordered'];
+                        });
+
                         return [
                             'display_name' => $first['branch']['display_name'],
-                            'quantity_ordered' => $branchGroup->sum(function ($item) {
-                                return $item['branch']['quantity_ordered'];
-                            })
+                            'quantity_ordered' => DB::connection()->getDriverName() === 'sqlsrv'
+                                ? (float)$quantity
+                                : $quantity
                         ];
                     })
                     ->values();
 
-                $total_quantity = $branches->sum('quantity_ordered');
+                $total_quantity = DB::connection()->getDriverName() === 'sqlsrv'
+                    ? (float)$branches->sum('quantity_ordered')
+                    : $branches->sum('quantity_ordered');
 
                 return [
                     'item' => $firstItem['item'],
