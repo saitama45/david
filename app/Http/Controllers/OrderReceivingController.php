@@ -9,6 +9,7 @@ use App\Models\OrderedItemReceiveDate;
 use App\Models\ProductInventoryStock;
 use App\Models\StoreOrder;
 use App\Models\StoreOrderItem;
+use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -23,11 +24,9 @@ class OrderReceivingController extends Controller
         $query = StoreOrder::query()->with(['store_branch', 'supplier'])->where('order_request_status', OrderRequestStatus::APRROVED->value);
 
 
-        $user = Auth::user();
+        $user = User::rolesAndAssignedBranches();
 
-        if (in_array('so encoder', $user->roles->pluck('name')->toArray()) && !in_array('admin', $user->roles->pluck('name')->toArray())) {
-            $query->whereIn('store_branch_id', $user->store_branches->pluck('id'));
-        }
+        if (!$user['isAdmin']) $query->whereIn('store_branch_id', $user['assignedBranches']);
 
         if ($search)
             $query->where('order_number', 'like', '%' . $search . '%');

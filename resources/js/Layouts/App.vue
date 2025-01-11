@@ -226,7 +226,7 @@ const logout = () => {
                             Product Sales
                         </NavLink> -->
                         <NavLink
-                            v-if="true"
+                            v-if="false"
                             href="/sales-orders"
                             :icon="ChartColumnBig"
                         >

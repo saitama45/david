@@ -8,6 +8,7 @@ use App\Models\ProductInventory;
 use App\Models\StoreBranch;
 use App\Models\StoreOrder;
 use App\Models\Supplier;
+use App\Models\User;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -24,13 +25,10 @@ class DTSController extends Controller
         $filter = request('currentFilter') ?? 'pending';
 
         $query = StoreOrder::query()->with(['store_branch', 'supplier'])->whereNot('variant', 'regular');
-        $user = Auth::user();
 
-        if (in_array('so encoder', $user->roles->pluck('name')->toArray()) && !in_array('admin', $user->roles->pluck('name')->toArray())) {
+        $user = User::rolesAndAssignedBranches();
 
-            $query->whereIn('store_branch_id', $user->store_branches->pluck('id'));
-        }
-
+        if (!$user['isAdmin']) $query->whereIn('store_branch_id', $user['assignedBranches']);
         if ($search)
             $query->where('order_number', 'like', '%' . $search . '%');
         // ->whereHas('store_branch', function ($query) use ($search) {

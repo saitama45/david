@@ -19,12 +19,7 @@ class StockManagementController extends Controller
         $search = request('search');
         $user = Auth::user();
 
-        if (in_array('so encoder', $user->roles->pluck('name')->toArray()) && !in_array('admin', $user->roles->pluck('name')->toArray())) {
-            $assignedBranches = $user->store_branches->pluck('id');
-            $branches = StoreBranch::whereIn('id', $assignedBranches)->options();
-        } else {
-            $branches = StoreBranch::options();
-        }
+        $branches = StoreBranch::options();
         $branchId = request('branchId') ?? $branches->keys()->first();
 
         $usageRecords = DB::table('usage_records as ur')
