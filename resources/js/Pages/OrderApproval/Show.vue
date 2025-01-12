@@ -309,33 +309,33 @@ const addQuantityApproved = (id) => {
                     <!-- <TH> Actions </TH> -->
                 </TableHead>
                 <TableBody>
-                    <tr v-for="order in orderedItems" :key="order.id">
-                        <TD>{{ order.product_inventory.inventory_code }}</TD>
-                        <TD>{{ order.product_inventory.name }}</TD>
+                    <tr v-for="item in orderedItems" :key="order.id">
+                        <TD>{{ item.product_inventory.inventory_code }}</TD>
+                        <TD>{{ item.product_inventory.name }}</TD>
                         <TD>{{
-                            order.product_inventory.unit_of_measurement.name
+                            item.product_inventory.unit_of_measurement.name
                         }}</TD>
                         <TD class="flex items-center gap-3">
                             {{
-                                itemsDetail.find((item) => item.id === order.id)
+                                itemsDetail.find((data) => data.id === item.id)
                                     ?.quantity_approved || 0
                             }}
                             <DivFlexCenter
                                 class="gap-2"
                                 v-if="order.order_request_status === 'pending'"
                             >
-                                <button @click="lessQuantityApproved(order.id)">
+                                <button @click="lessQuantityApproved(item.id)">
                                     <Minus class="size-4 text-red-500" />
                                 </button>
-                                <button @click="addQuantityApproved(order.id)">
+                                <button @click="addQuantityApproved(item.id)">
                                     <Plus class="size-4 text-green-500" />
                                 </button>
                             </DivFlexCenter>
                         </TD>
-                        <TD>{{ order.product_inventory.cost }}</TD>
+                        <TD>{{ item.product_inventory.cost }}</TD>
                         <TD>
                             {{
-                                itemsDetail.find((item) => item.id === order.id)
+                                itemsDetail.find((data) => data.id === item.id)
                                     ?.total_cost || 0
                             }}
                         </TD>
