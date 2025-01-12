@@ -102,3 +102,48 @@ main {
   scrollbar-width: thin;
   scrollbar-color: #888 #f1f1f1;
 }
+
+
+@media screen and (max-width: 768px) {
+  .p-toast {
+      width: 90vw !important;
+      right: 5vw !important;
+  }
+
+  .p-toast-top-right,
+  .p-toast-top-left,
+  .p-toast-top-center {
+      top: 1rem !important;
+  }
+
+  .p-toast-bottom-right,
+  .p-toast-bottom-left,
+  .p-toast-bottom-center {
+      bottom: 1rem !important;
+  }
+
+  .p-toast-message {
+      margin: 0 !important;
+      padding: 0.8rem !important;
+  }
+
+  .p-toast-message-content {
+      padding: 0.5rem !important;
+  }
+
+  /* Adjust text size for better readability */
+  .p-toast-message-text {
+      font-size: 0.875rem !important;
+  }
+
+  .p-toast-summary {
+      font-size: 1rem !important;
+  }
+
+  /* Make close button easier to tap */
+  .p-toast-icon-close {
+      padding: 0.5rem !important;
+      width: 2rem !important;
+      height: 2rem !important;
+  }
+}

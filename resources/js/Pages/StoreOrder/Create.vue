@@ -603,6 +603,42 @@ if (previousOrder) {
                             </tr>
                         </TableBody>
                     </Table>
+
+                    <MobileTableContainer>
+                        <MobileTableRow
+                            v-for="order in orderForm.orders"
+                            :key="order.item_code"
+                        >
+                            <MobileTableHeading
+                                :title="`${order.name} (${order.inventory_code})`"
+                            >
+                                <button
+                                    class="text-red-500 size-5"
+                                    @click="minusItemQuantity(order.id)"
+                                >
+                                    <Minus />
+                                </button>
+                                <button
+                                    class="text-green-500 size-5"
+                                    @click="addItemQuantity(order.id)"
+                                >
+                                    <Plus />
+                                </button>
+                                <button
+                                    @click="removeItem(order.id)"
+                                    variant="outline"
+                                    class="text-red-500 size-5"
+                                >
+                                    <Trash2 />
+                                </button>
+                            </MobileTableHeading>
+                            <LabelXS
+                                >UOM: {{ order.unit_of_measurement }}</LabelXS
+                            >
+                            <LabelXS>Quantity: {{ order.quantity }}</LabelXS>
+                            <LabelXS>Cost: {{ order.cost }}</LabelXS>
+                        </MobileTableRow>
+                    </MobileTableContainer>
                 </CardContent>
                 <CardFooter class="flex justify-end">
                     <Button @click="store">Place Order</Button>

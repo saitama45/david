@@ -31,6 +31,7 @@ class StoreOrder extends Model implements Auditable
         'created_at' => 'date:F d, Y',
         // 'order_date' => 'date:F d, Y',
         'order_approved_date' => 'date:F d, Y',
+        'approval_action_date' => 'date:F d, Y h:i a',
     ];
 
     public function encoder()
