@@ -61,7 +61,7 @@ class ItemController extends Controller
             ->whereHas('store_order_item', function ($query) use ($item) {
                 $query->where('product_inventory_id', $item->id);
             })
-            ->where('is_approved', true)
+            ->where('status', 'approved')
             ->get();
         return Inertia::render('Item/Show', [
             'item' => $item,

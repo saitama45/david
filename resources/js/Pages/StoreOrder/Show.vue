@@ -386,8 +386,8 @@ const enlargeImage = (image) => {
                         <LabelXS
                             >Status: {{ history.status.toUpperCase() }}</LabelXS
                         >
+                        <SpanBold v-if="history.length < 1">None</SpanBold>
                     </MobileTableRow>
-                    <SpanBold v-if="history.length < 1">None</SpanBold>
                 </MobileTableContainer>
             </TableContainer>
         </DivFlexCol>
