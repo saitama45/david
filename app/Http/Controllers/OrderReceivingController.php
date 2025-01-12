@@ -54,6 +54,8 @@ class OrderReceivingController extends Controller
             'store_branch',
             'supplier',
             'store_order_items',
+            'store_order_remarks',
+            'store_order_remarks.user',
             'ordered_item_receive_dates',
             'ordered_item_receive_dates.receiver',
             'ordered_item_receive_dates.store_order_item',

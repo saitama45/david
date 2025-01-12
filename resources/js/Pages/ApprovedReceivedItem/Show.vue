@@ -17,11 +17,16 @@ const form = useForm({
     id: null,
     remarks: null,
 });
-const isCancelModalVisible = ref(true);
+const isCancelModalVisible = ref(false);
 const openCancelModal = (id) => {
     form.id = id;
     isCancelModalVisible.value = true;
 };
+
+import { useConfirm } from "primevue/useconfirm";
+import { useToast } from "@/Composables/useToast";
+const confirm = useConfirm();
+const { toast } = useToast();
 
 const cancelApproveStatus = () => {
     form.put(route("approved-orders.cancel-approve-status"), {
@@ -32,6 +37,7 @@ const cancelApproveStatus = () => {
                 detail: "Cancelled Successfully.",
                 life: 3000,
             });
+            isCancelModalVisible.value = false;
         },
     });
 };

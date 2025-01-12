@@ -3,10 +3,13 @@
 namespace App\Http\Controllers;
 
 use App\Enum\OrderRequestStatus;
+use App\Models\OrderedItemReceiveDate;
 use App\Models\StoreOrder;
+use App\Models\StoreOrderItem;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
 
 class ApprovedOrderController extends Controller
@@ -41,6 +44,7 @@ class ApprovedOrderController extends Controller
     {
         $order = StoreOrder::where('order_number', $id)->firstOrFail();
         $items = $order->ordered_item_receive_dates()->with('store_order_item.product_inventory')->where('status', 'approved')->paginate(10);
+        dd($order);
         return Inertia::render('ApprovedReceivedItem/Show', [
             'order' => $order,
             'items' => $items
@@ -49,6 +53,27 @@ class ApprovedOrderController extends Controller
 
     public function cancelApproveStatus(Request $request)
     {
-        dd($request);
+        $validated = $request->validate([
+            'id' => ['required'],
+            'remarks' => ['required']
+        ]);
+
+        DB::beginTransaction();
+        $order = OrderedItemReceiveDate::with(['store_order_item', 'store_order_item.store_order'])->findOrFail($validated['id']);
+        $order->update([
+            'status' => 'pending',
+        ]);
+        $item = $order->store_order_item;
+        $item->update([
+            'quantity_received' => $item->quantity_received - $order->quantity_received,
+        ]);
+        $item->store_order->store_order_remarks()->create([
+            'user_id' => Auth::id(),
+            'action' => "Cancelled Approved Status for Received Item Request (ID: $order->id)",
+            'remarks' => $validated['remarks']
+        ]);
+        DB::commit();
+
+        return back();
     }
 }
