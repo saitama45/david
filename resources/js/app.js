@@ -91,6 +91,8 @@ import {
     SelectTrigger,
     SelectValue,
 } from "@/components/ui/select";
+import MobileTableContainer from "./Components/table/MobileTableContainer.vue";
+import MobileTableRow from "./Components/table/MobileTableRow.vue";
 
 const appName = import.meta.env.VITE_APP_NAME || "Laravel";
 
@@ -177,6 +179,8 @@ createInertiaApp({
             .component("SelectValue", SelectValue)
             .component("SelectShad", SelectShad)
             .component("CreateReferenceModal", CreateReferenceModal)
+            .component("MobileTableContainer", MobileTableContainer)
+            .component("MobileTableRow", MobileTableRow)
             .use(PrimeVue, {
                 theme: {
                     preset: Aura,

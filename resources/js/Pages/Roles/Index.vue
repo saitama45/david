@@ -73,23 +73,35 @@ const { hasAccess } = useAuth();
                 </TableBody>
             </Table>
             <DivFlexCol class="sm:hidden gap-3">
-                <DivFlexCol
-                    class="rounded-lg border min-h-20 p-3"
-                    v-for="role in roles.data"
-                >
-                    <DivFlexCenter class="justify-between">
-                        <SpanBold class="text-xs"
-                            >{{ role.first_name }}
-                            {{ role.last_name }}</SpanBold
-                        >
-                        <EditButton
-                            class="size-5"
-                            v-if="hasAccess('edit roles')"
-                            :isLink="true"
-                            :href="`/roles/edit/${role.id}`"
-                        />
-                    </DivFlexCenter>
-                    <LabelXS>{{ role.email }}</LabelXS>
+                <DivFlexCol class="sm:hidden gap-3">
+                    <DivFlexCol
+                        class="rounded-lg border min-h-20 p-3"
+                        v-for="role in roles.data"
+                    >
+                        <DivFlexCenter class="justify-between">
+                            <SpanBold class="text-xs">{{
+                                role.name.toUpperCase()
+                            }}</SpanBold>
+                            <EditButton
+                                class="size-5"
+                                v-if="hasAccess('edit roles')"
+                                :isLink="true"
+                                :href="`/roles/edit/${role.id}`"
+                            />
+                        </DivFlexCenter>
+                        <LabelXS class="text-[10px]">Roles</LabelXS>
+                        <LabelXS>
+                            {{
+                                role.permissions
+                                    .slice(0, 3)
+                                    .map((perm) => perm.name)
+                                    .join(", ") +
+                                (role.permissions.length > 3
+                                    ? ` and ${role.permissions.length - 3} more`
+                                    : "")
+                            }}
+                        </LabelXS>
+                    </DivFlexCol>
                 </DivFlexCol>
             </DivFlexCol>
             <Pagination :data="roles" />

@@ -45,7 +45,7 @@ const updateRole = () => {
             <InputContainer>
                 <LabelXS> Permissions </LabelXS>
                 <div
-                    class="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-4"
+                    class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4"
                 >
                     <div
                         v-for="(label, id) in permissions"
@@ -60,7 +60,7 @@ const updateRole = () => {
                         />
                         <label
                             :for="`permission-${id}`"
-                            class="text-sm text-gray-600"
+                            class="text-xs text-gray-600"
                         >
                             {{ label }}
                         </label>
