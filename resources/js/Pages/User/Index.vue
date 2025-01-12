@@ -54,7 +54,7 @@ watch(
                 </SearchBar>
             </TableHeader>
 
-            <Table>
+            <Table class="sm:table hidden">
                 <TableHead>
                     <TH> Id </TH>
                     <TH> Full Name</TH>
@@ -89,6 +89,27 @@ watch(
                     </tr>
                 </TableBody>
             </Table>
+
+            <DivFlexCol class="sm:hidden gap-3">
+                <DivFlexCol
+                    class="rounded-lg border min-h-20 p-3"
+                    v-for="user in users.data"
+                >
+                    <DivFlexCenter class="justify-between">
+                        <SpanBold class="text-xs"
+                            >{{ user.first_name }}
+                            {{ user.last_name }}</SpanBold
+                        >
+                        <EditButton
+                            class="size-5"
+                            v-if="hasAccess('edit users')"
+                            :isLink="true"
+                            :href="`/users/edit/${user.id}`"
+                        />
+                    </DivFlexCenter>
+                    <LabelXS>{{ user.email }}</LabelXS>
+                </DivFlexCol>
+            </DivFlexCol>
 
             <Pagination :data="users" />
         </TableContainer>
