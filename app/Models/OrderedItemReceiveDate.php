@@ -19,7 +19,7 @@ class OrderedItemReceiveDate extends Model implements Auditable
         'received_date',
         'expiry_date',
         'remarks',
-        'is_approved',
+        'status',
     ];
 
     protected $casts = [

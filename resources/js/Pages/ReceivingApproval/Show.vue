@@ -198,7 +198,7 @@ const approveImage = () => {
                     <TH>Inventory Code</TH>
                     <TH>Received Date</TH>
                     <TH>Quantity Received</TH>
-                    <TH>Is Approved?</TH>
+                    <TH>Status?</TH>
                     <TH>Actions</TH>
                 </TableHead>
                 <TableBody>
@@ -219,7 +219,7 @@ const approveImage = () => {
                         }}</TD>
                         <TD>{{ item.received_date }}</TD>
                         <TD>{{ item.quantity_received }}</TD>
-                        <TD>{{ item.is_approved == 1 ? "Yes" : "No" }}</TD>
+                        <TD>{{ item.status }}</TD>
                         <TD>
                             <Button
                                 @click="approveReceivedItem(item.id)"

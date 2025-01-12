@@ -15,9 +15,9 @@ class ApprovedOrderController extends Controller
     {
         $search = request('search');
         $query = StoreOrder::query()->with(['store_branch', 'supplier', 'ordered_item_receive_dates' => function ($query) {
-            $query->where('is_approved', true);
+            $query->where('status', 'approved');
         }])->whereHas('ordered_item_receive_dates', function ($query) {
-            $query->where('is_approved', true);
+            $query->where('status', 'approved');
         });
 
         $user = User::rolesAndAssignedBranches();
@@ -40,7 +40,7 @@ class ApprovedOrderController extends Controller
     public function show($id)
     {
         $order = StoreOrder::where('order_number', $id)->firstOrFail();
-        $items = $order->ordered_item_receive_dates()->with('store_order_item.product_inventory')->where('is_approved', true)->paginate(10);
+        $items = $order->ordered_item_receive_dates()->with('store_order_item.product_inventory')->where('status', 'approved')->paginate(10);
         return Inertia::render('ApprovedReceivedItem/Show', [
             'order' => $order,
             'items' => $items

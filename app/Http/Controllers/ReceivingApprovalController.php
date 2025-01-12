@@ -24,7 +24,7 @@ class ReceivingApprovalController extends Controller
             'supplier',
             'store_branch',
             'ordered_item_receive_dates' => function ($query) {
-                $query->where('is_approved', false);
+                $query->where('status', 'pending');
             },
             'image_attachments' => function ($query) {
                 $query->where('is_approved', false);
@@ -34,7 +34,7 @@ class ReceivingApprovalController extends Controller
                 $query->where('is_approved', false);
             })
             ->orWhereHas('ordered_item_receive_dates', function ($query) {
-                $query->where('is_approved', false);
+                $query->where('status', 'pending');
             });
 
         $user = User::rolesAndAssignedBranches();
@@ -60,7 +60,7 @@ class ReceivingApprovalController extends Controller
                 $query->where('is_approved', false);
             },
         ])->where('order_number', $id)->firstOrFail();
-        $items = $order->ordered_item_receive_dates()->with('store_order_item.product_inventory')->where('is_approved', false)->get();
+        $items = $order->ordered_item_receive_dates()->with('store_order_item.product_inventory')->where('status', 'pending')->get();
         $images = $order->image_attachments->map(function ($image) {
             return [
                 'id' => $image->id,
@@ -110,7 +110,7 @@ class ReceivingApprovalController extends Controller
 
     public function extracted($data): void
     {
-        $data->update(['is_approved' => true, 'approval_action_by' => Auth::user()->id]);
+        $data->update(['status' => 'approved', 'approval_action_by' => Auth::user()->id]);
         $item = $data->store_order_item->product_inventory;
 
         $storeOrder = $data->store_order_item->store_order;

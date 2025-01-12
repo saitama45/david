@@ -24,7 +24,7 @@ const props = defineProps({
                     <TH>Inventory Code</TH>
                     <TH>Received Date</TH>
                     <TH>Quantity Received</TH>
-                    <TH>Is Approved?</TH>
+                    <TH>Status?</TH>
                 </TableHead>
                 <TableBody>
                     <tr v-for="item in items.data" :key="item.id">
@@ -38,7 +38,7 @@ const props = defineProps({
                         }}</TD>
                         <TD>{{ item.received_date }}</TD>
                         <TD>{{ item.quantity_received }}</TD>
-                        <TD>{{ item.is_approved == 1 ? "Yes" : "No" }}</TD>
+                        <TD>{{ item.status }}</TD>
                     </tr>
                 </TableBody>
             </Table>
