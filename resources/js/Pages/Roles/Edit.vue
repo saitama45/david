@@ -23,7 +23,14 @@ const form = useForm({
 });
 
 const updateRole = () => {
-    form.post(route("roles.update", props.role), {});
+    form.put(route("roles.update", props.role.id), {
+        onSuccess: () => {
+            console.log("test");
+        },
+        onError: (e) => {
+            console.log(e);
+        },
+    });
 };
 </script>
 

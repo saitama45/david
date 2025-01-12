@@ -6,6 +6,7 @@ const props = defineProps({
         required: true,
     },
 });
+
 const createNewRole = () => {
     router.get(route("roles.create"));
 };
@@ -37,7 +38,7 @@ const { hasAccess } = useAuth();
                     />
                 </SearchBar>
             </TableHeader>
-            <Table>
+            <Table class="sm:table hidden">
                 <TableHead>
                     <TH>Id</TH>
                     <TH>Name</TH>
@@ -71,6 +72,26 @@ const { hasAccess } = useAuth();
                     </tr>
                 </TableBody>
             </Table>
+            <DivFlexCol class="sm:hidden gap-3">
+                <DivFlexCol
+                    class="rounded-lg border min-h-20 p-3"
+                    v-for="role in roles.data"
+                >
+                    <DivFlexCenter class="justify-between">
+                        <SpanBold class="text-xs"
+                            >{{ role.first_name }}
+                            {{ role.last_name }}</SpanBold
+                        >
+                        <EditButton
+                            class="size-5"
+                            v-if="hasAccess('edit roles')"
+                            :isLink="true"
+                            :href="`/roles/edit/${role.id}`"
+                        />
+                    </DivFlexCenter>
+                    <LabelXS>{{ role.email }}</LabelXS>
+                </DivFlexCol>
+            </DivFlexCol>
             <Pagination :data="roles" />
         </TableContainer>
     </Layout>

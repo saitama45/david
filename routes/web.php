@@ -51,7 +51,7 @@ Route::middleware('auth')
             Route::middleware('permission:create roles')->get('/create', 'create')->name('create');
             Route::middleware('permission:create roles')->post('/store', 'store')->name('store');
             Route::middleware('permission:edit roles')->get('/edit/{id}', 'edit')->name('edit');
-            Route::middleware('permission:edit roles')->post('/update/{id}', 'update')->name('update');
+            Route::middleware('permission:edit roles')->put('/update/{id}', 'update')->name('update');
         });
 
         // DTS Delivery Schedules

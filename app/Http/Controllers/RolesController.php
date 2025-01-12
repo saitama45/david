@@ -81,8 +81,6 @@ class RolesController extends Controller
         $permissions = Permission::whereIn('id', $validated['selectedPermissions'])->get();
         $role->syncPermissions($permissions);
         DB::commit();
-
-        
         return redirect()->route('roles.index')
             ->with('success', 'Role updated successfully.');
     }
