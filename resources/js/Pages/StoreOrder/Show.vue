@@ -361,9 +361,9 @@ const enlargeImage = (image) => {
                     </InputContainer>
 
                     <InputContainer>
-                        <LabelXS>Is approved?</LabelXS>
+                        <LabelXS>Status</LabelXS>
                         <SpanBold>{{
-                            selectedItem.is_approved ? "Yes" : "No"
+                            selectedItem.status
                         }}</SpanBold>
                     </InputContainer>
 

@@ -237,7 +237,7 @@ const openViewModalForm = (id) => {
                         <!-- <TH> Received By </TH> -->
                         <TH> Quantity Received</TH>
                         <TH> Received At</TH>
-                        <TH> Is Approved?</TH>
+                        <TH> Status</TH>
                         <TH>Actions</TH>
                     </TableHead>
                     <TableBody>
@@ -259,9 +259,7 @@ const openViewModalForm = (id) => {
                             </TD> -->
                             <TD>{{ history.quantity_received }}</TD>
                             <TD>{{ history.received_date }}</TD>
-                            <TD>{{
-                                history.is_approved === 1 ? "Yes" : "No"
-                            }}</TD>
+                            <TD>{{ history.status }}</TD>
                             <TD>
                                 <DivFlexCenter class="gap-3">
                                     <ShowButton
@@ -325,10 +323,8 @@ const openViewModalForm = (id) => {
                     </InputContainer>
 
                     <InputContainer>
-                        <LabelXS>Is approved?</LabelXS>
-                        <SpanBold>{{
-                            selectedItem.is_approved ? "Yes" : "No"
-                        }}</SpanBold>
+                        <LabelXS>Status</LabelXS>
+                        <SpanBold>{{ selectedItem.status }}</SpanBold>
                     </InputContainer>
 
                     <InputContainer>

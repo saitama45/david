@@ -365,6 +365,7 @@ const logout = () => {
                         side="left"
                         class="flex flex-col overflow-scroll"
                     >
+                        <!-- Phone Sidebar -->
                         <nav
                             class="grid gap-2 text-lg font-medium overflow-scroll"
                         >
@@ -376,24 +377,66 @@ const logout = () => {
                                 <span class="text-sm">Project David</span>
                             </a>
 
-                            <nav
-                                class="grid items-start pl-4 text-sm font-medium"
-                            >
+                            <nav class="grid items-start text-sm font-medium">
                                 <NavLink href="/dashboard" :icon="Home">
                                     Dashboard
+                                </NavLink>
+                                <NavLink
+                                    v-if="hasAccess('view users')"
+                                    href="/users"
+                                    :icon="UsersRound"
+                                >
+                                    Users
+                                </NavLink>
+                                <NavLink
+                                    href="/roles"
+                                    :icon="FileCog"
+                                    v-if="hasAccess('view roles')"
+                                >
+                                    Roles
+                                </NavLink>
+                                <NavLink
+                                    href="/audits"
+                                    :icon="MonitorCog"
+                                    v-if="false"
+                                >
+                                    Audits
+                                </NavLink>
+                                <DropdownMenuLabel v-if="isAdmin">
+                                    Schedules
+                                </DropdownMenuLabel>
+                                <NavLink
+                                    v-if="
+                                        hasAccess('view dts delivery schedules')
+                                    "
+                                    href="/delivery-schedules"
+                                    :icon="CalendarCheck2"
+                                >
+                                    DTS Delivery Schedules
                                 </NavLink>
                                 <DropdownMenuLabel v-if="canViewOrderingGroup">
                                     Ordering
                                 </DropdownMenuLabel>
                                 <NavLink
-                                    v-if="canViewStoreOrderPage"
+                                    v-if="hasAccess('view store orders')"
                                     href="/store-orders"
                                     :icon="ShoppingCart"
                                 >
                                     Store Orders
                                 </NavLink>
                                 <NavLink
-                                    v-if="canViewOrderApprovals"
+                                    v-if="hasAccess('view dts orders')"
+                                    href="/dts-orders"
+                                    :icon="ShoppingBasket"
+                                >
+                                    DTS Orders
+                                </NavLink>
+                                <NavLink
+                                    v-if="
+                                        hasAccess(
+                                            'view orders for approval list'
+                                        )
+                                    "
                                     href="/orders-approval"
                                     :icon="SquareChartGantt"
                                 >
@@ -403,21 +446,29 @@ const logout = () => {
                                     Receiving
                                 </DropdownMenuLabel>
                                 <NavLink
-                                    v-if="canViewReceivingOrders"
+                                    v-if="hasAccess('view approved orders')"
                                     href="/orders-receiving"
-                                    :icon="Folders"
+                                    :icon="ClipboardList"
                                 >
                                     Approved Orders
                                 </NavLink>
                                 <NavLink
-                                    v-if="canViewReceivingApprovals"
+                                    v-if="
+                                        hasAccess(
+                                            'view received orders for approval list'
+                                        )
+                                    "
                                     href="/receiving-approvals"
-                                    :icon="Folders"
+                                    :icon="ClipboardCheck"
                                 >
                                     Approvals
                                 </NavLink>
                                 <NavLink
-                                    v-if="canViewApprovedReceivedItems"
+                                    v-if="
+                                        hasAccess(
+                                            'view approved received items'
+                                        )
+                                    "
                                     href="/approved-orders"
                                     :icon="FileCheck"
                                 >
@@ -426,24 +477,24 @@ const logout = () => {
                                 <DropdownMenuLabel v-if="canViewSalesGroup">
                                     Sales
                                 </DropdownMenuLabel>
+                                <!-- <NavLink
+                            v-if="true"
+                            href="/product-sales"
+                            :icon="ChartColumnBig"
+                        >
+                            Product Sales
+                        </NavLink> -->
                                 <NavLink
                                     v-if="false"
-                                    href="/product-sales"
+                                    href="/sales-orders"
                                     :icon="ChartColumnBig"
                                 >
-                                    Product Sales
+                                    Sales Orders
                                 </NavLink>
                                 <NavLink
-                                    v-if="true"
-                                    href="/store-transactions"
-                                    :icon="FileCheck"
-                                >
-                                    Store Transactions
-                                </NavLink>
-                                <NavLink
-                                    v-if="true"
-                                    href="/store-transactions"
-                                    :icon="FileCheck"
+                                    v-if="hasAccess('view store transactions')"
+                                    href="/usage-records"
+                                    :icon="ArrowLeftRight"
                                 >
                                     Store Transactions
                                 </NavLink>
@@ -451,69 +502,105 @@ const logout = () => {
                                     Inventory
                                 </DropdownMenuLabel>
                                 <NavLink
-                                    v-if="canViewItems"
+                                    v-if="hasAccess('view items list')"
                                     href="/items-list"
                                     :icon="PackageSearch"
                                 >
                                     Items
                                 </NavLink>
+                                <NavLink
+                                    v-if="hasAccess('view menu list')"
+                                    href="/menu-list"
+                                    :icon="Scroll"
+                                >
+                                    Menu
+                                </NavLink>
+                                <NavLink
+                                    v-if="hasAccess('view stock management')"
+                                    href="/stock-management"
+                                    :icon="FolderKanban"
+                                >
+                                    Stock Management
+                                </NavLink>
                                 <DropdownMenuLabel v-if="canViewReportsGroup">
                                     Reports
                                 </DropdownMenuLabel>
                                 <NavLink
-                                    v-if="canViewItemsOrderSummary"
+                                    v-if="hasAccess('view items order summary')"
                                     href="/product-orders-summary"
-                                    :icon="PackageSearch"
+                                    :icon="List"
                                 >
                                     Item Orders Summary
                                 </NavLink>
                                 <NavLink
+                                    v-if="hasAccess('view ice cream orders')"
+                                    href="/ice-cream-orders"
+                                    :icon="IceCreamCone"
+                                >
+                                    Ice Cream Orders
+                                </NavLink>
+                                <NavLink
+                                    v-if="hasAccess('view salmon orders')"
+                                    href="/salmon-orders"
+                                    :icon="FishSymbol"
+                                >
+                                    Salmon Orders
+                                </NavLink>
+                                <NavLink
+                                    v-if="
+                                        hasAccess(
+                                            'view fruits and vegetables orders'
+                                        )
+                                    "
+                                    href="/fruits-and-vegetables"
+                                    :icon="Vegan"
+                                >
+                                    Fruits And Vegetables Orders
+                                </NavLink>
+                                <NavLink
                                     href="/stocks"
-                                    :icon="PackageSearch"
-                                    v-if="canViewStocks"
+                                    :icon="ScanBarcode"
+                                    v-if="is_admin"
                                 >
                                     Stocks
                                 </NavLink>
-                                <DropdownMenuLabel v-if="isAdmin">
+                                <DropdownMenuLabel v-if="canViewReferenceGroup">
                                     Reference
                                 </DropdownMenuLabel>
                                 <NavLink
-                                    v-if="canViewCategories"
+                                    v-if="hasAccess('manage references')"
                                     href="/category-list"
-                                    :icon="ScrollText"
+                                    :icon="FolderDot"
                                 >
                                     Categories
                                 </NavLink>
                                 <NavLink
-                                    v-if="canViewInventoryCategories"
+                                    v-if="hasAccess('manage references')"
+                                    href="/menu-categories"
+                                    :icon="FileSliders"
+                                >
+                                    Menu Categories
+                                </NavLink>
+                                <NavLink
+                                    v-if="hasAccess('manage references')"
                                     href="/inventory-categories"
                                     :icon="LayoutList"
                                 >
                                     Invetory Categories
                                 </NavLink>
                                 <NavLink
-                                    v-if="canViewStoreBranch"
+                                    v-if="hasAccess('manage references')"
                                     href="/store-branches"
-                                    :icon="Store"
+                                    :icon="AppWindowMac"
                                 >
                                     Store Branches
                                 </NavLink>
                                 <NavLink
-                                    v-if="canViewSupplier"
+                                    v-if="hasAccess('manage references')"
                                     href="/suppliers"
-                                    :icon="Container"
+                                    :icon="Warehouse"
                                 >
                                     Suppliers
-                                </NavLink>
-                                <DropdownMenuLabel v-if="isAdmin">
-                                    User
-                                </DropdownMenuLabel>
-                                <NavLink
-                                    v-if="canViewUsers"
-                                    href="/users"
-                                    :icon="UsersRound"
-                                >
-                                    Users
                                 </NavLink>
                             </nav>
                         </nav>
