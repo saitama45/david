@@ -121,12 +121,16 @@ Route::middleware('auth')
             Route::middleware('permission:view received orders for approval list')->get('/', 'index')->name('index');
             Route::middleware('permission:view approved order for approval')->get('/show/{id}', 'show')->name('show');
             Route::middleware('permission:approve received orders')->post('/approve', 'approveReceivedItem')->name('approve-received-item');
+            Route::middleware('permission:approve received orders')->post('/decline', 'declineReceivedItem')->name('decline-received-item');
         });
 
         // Approved Received Items
         Route::controller(ApprovedOrderController::class)->name('approved-orders.')->group(function () {
             Route::middleware('permission:view approved received items')->get('/approved-orders', 'index')->name('index');
             Route::middleware('permission:view approved received item')->get('/approved-orders/show/{id}', 'show')->name('show');
+
+
+            Route::middleware('permission:view approved received item')->put('/approved-orders/cancel-approve-status', 'cancelApproveStatus')->name('cancel-approve-status');
         });
 
         // Store Transactions 

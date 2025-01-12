@@ -10,6 +10,7 @@ use App\Models\ProductInventoryStock;
 use App\Models\StoreOrder;
 use App\Models\StoreOrderItem;
 use App\Models\User;
+use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -82,8 +83,6 @@ class OrderReceivingController extends Controller
     public function receive(Request $request, $id)
     {
         $orderedItem = StoreOrderItem::with('store_order')->findOrFail($id);
-        // $order = $orderedItem->store_order;
-        // $productInventoryStock = ProductInventoryStock::where('product_inventory_id', $orderedItem->product_inventory_id)->where('store_branch_id', $order->store_branch_id)->first(); 
 
 
         $validated = $request->validate([
@@ -91,7 +90,6 @@ class OrderReceivingController extends Controller
                 'required',
                 'numeric',
                 'min:1',
-                // "max:{$quantityToReceive}"
             ],
             'received_date' => [
                 'required',
@@ -101,27 +99,20 @@ class OrderReceivingController extends Controller
             'remarks' => ['sometimes'],
             'expiry_date' => ['required', 'date', 'after:today']
         ], [
-            // 'quantity_received.max' => "You can only receive up to {$quantityToReceive} items for this order.",
             'received_date.before_or_equal' => "Received date field must be a date before or equal to current time"
         ]);
-
-        // $order->order_status = OrderStatus::PARTIALLY_RECEIVED->value;
-        // if ($totalOrderedQuantity == $totalQuantityReceived + $validated['quantity_received']) $order->order_status = OrderStatus::RECEIVED->value;
 
         DB::beginTransaction();
         $orderedItem->ordered_item_receive_dates()->create([
             'received_by_user_id' => Auth::user()->id,
             'quantity_received' => $validated['quantity_received'],
-            'received_date' => $validated['received_date'],
-            'expiry_date' => $validated['expiry_date'],
+            'received_date' => Carbon::parse($validated['received_date'])->format('Y-m-d H:i:s'),
+            'expiry_date' => Carbon::parse($validated['expiry_date'])->format('Y-m-d'),
             'remarks' => $validated['remarks'],
         ]);
-        // $productInventoryStock->quantity += $validated['quantity_received'];
-        // $productInventoryStock->recently_added = $validated['quantity_received'];
-        // $orderedItem->quantity_received += $validated['quantity_received'];
-        // $productInventoryStock->save();
+
         $orderedItem->save();
-        // $order->save();
+
         DB::commit();
 
         return redirect()->back();

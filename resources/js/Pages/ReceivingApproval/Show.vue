@@ -130,6 +130,31 @@ const approveReceivedItem = (id) => {
     });
 };
 
+const declineReceivedItemForm = useForm({
+    id: null,
+    remarks: null,
+});
+const isDeclineReceiveItemModalVisible = ref(false);
+const openDeclineReceiveItemModal = (id) => {
+    declineReceivedItemForm.id = id;
+    isDeclineReceiveItemModalVisible.value = true;
+};
+const declineReceivedItem = () => {
+    declineReceivedItemForm.post(
+        route("receiving-approvals.decline-received-item"),
+        {
+            onSuccess: () => {
+                toast.add({
+                    severity: "success",
+                    summary: "Success",
+                    detail: "Received Item Status Declined.",
+                    life: 3000,
+                });
+            },
+        }
+    );
+};
+
 const selectedImage = ref(null);
 const isEnlargedImageVisible = ref(false);
 
@@ -224,9 +249,16 @@ const approveImage = () => {
                             <Button
                                 @click="approveReceivedItem(item.id)"
                                 variant="link"
-                                class="text-green-500 p-0"
+                                class="text-green-500 p-0 mr-3"
                             >
                                 Approve
+                            </Button>
+                            <Button
+                                @click="openDeclineReceiveItemModal(item.id)"
+                                variant="link"
+                                class="text-red-500 p-0 mr-3"
+                            >
+                                Decline
                             </Button>
                         </TD>
                     </tr>
@@ -274,6 +306,32 @@ const approveImage = () => {
                     class="max-h-full max-w-full object-contain"
                     alt="Enlarged image"
                 />
+            </DialogContent>
+        </Dialog>
+
+        <Dialog v-model:open="isDeclineReceiveItemModalVisible">
+            <DialogContent class="sm:max-w-[600px]">
+                <DialogHeader>
+                    <DialogTitle>Decline Request</DialogTitle>
+                    <DialogDescription>
+                        Please input all the required fields.
+                    </DialogDescription>
+                </DialogHeader>
+                <DivFlexCol class="gap-3">
+                    <InputContainer>
+                        <LabelXS>Remarks</LabelXS>
+                        <Textarea
+                            type="number"
+                            v-model="declineReceivedItemForm.remarks"
+                        />
+                        <FormError>{{
+                            declineReceivedItemForm.errors.remarks
+                        }}</FormError>
+                    </InputContainer>
+                </DivFlexCol>
+                <DialogFooter class="justify-end">
+                    <Button @click="declineReceivedItem">Submit</Button>
+                </DialogFooter>
             </DialogContent>
         </Dialog>
     </Layout>

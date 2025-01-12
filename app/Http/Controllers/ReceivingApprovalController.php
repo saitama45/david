@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Enum\OrderStatus;
 use App\Models\OrderedItemReceiveDate;
+use App\Models\OrderItemRemark;
 use App\Models\ProductInventoryStock;
 use App\Models\ProductInventoryStockManager;
 use App\Models\StoreOrder;
@@ -72,6 +73,24 @@ class ReceivingApprovalController extends Controller
             'items' => $items,
             'images' => $images
         ]);
+    }
+
+    public function declineReceivedItem(Request $request)
+    {
+        $validated = $request->validate([
+            'id' => ['required'],
+            'remarks' => ['required']
+        ]);
+
+        $data = OrderedItemReceiveDate::with('store_order_item.product_inventory')->find($validated['id']);
+        DB::beginTransaction();
+        $data->update([
+            'status' => 'declined',
+            'remarks' => $validated['remarks']
+        ]);
+        DB::commit();
+
+        return back();
     }
 
     public function approveReceivedItem(Request $request)

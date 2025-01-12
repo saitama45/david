@@ -46,4 +46,9 @@ class ApprovedOrderController extends Controller
             'items' => $items
         ]);
     }
+
+    public function cancelApproveStatus(Request $request)
+    {
+        dd($request);
+    }
 }

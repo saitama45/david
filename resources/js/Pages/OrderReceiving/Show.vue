@@ -581,11 +581,11 @@ const deleteDeliveryReceiptNumber = (id) => {
                                         @click="openViewModalForm(history.id)"
                                     />
                                     <EditButton
-                                        v-if="!history.is_approved"
+                                        v-if="history.status === 'pending'"
                                         @click="openEditModalForm(history.id)"
                                     />
                                     <DeleteButton
-                                        v-if="!history.is_approved"
+                                        v-if="history.status === 'pending'"
                                         @click="deleteReceiveDate(history.id)"
                                     />
                                 </DivFlexCenter>
@@ -834,10 +834,8 @@ const deleteDeliveryReceiptNumber = (id) => {
                     </InputContainer>
 
                     <InputContainer>
-                        <LabelXS>Is approved?</LabelXS>
-                        <SpanBold>{{
-                            selectedItem.is_approved ? "Yes" : "No"
-                        }}</SpanBold>
+                        <LabelXS>Status</LabelXS>
+                        <SpanBold>{{ selectedItem.status }}</SpanBold>
                     </InputContainer>
 
                     <InputContainer>

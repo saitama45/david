@@ -13,7 +13,7 @@ class OrderItemRemark extends Model implements Auditable
 
     protected $fillable = [
         'user_id',
-        'order_item_id',
+        'store_order_item_id',
         'action',
         'remarks'
     ];
