@@ -5,7 +5,7 @@ defineProps({
 </script>
 <template>
     <DivFlexCenter class="justify-between">
-        <SpanBold class="text-xs">
+        <SpanBold class="text-sm">
             {{ title }}
         </SpanBold>
         <DivFlexCenter class="gap-3">

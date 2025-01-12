@@ -63,7 +63,7 @@ import { Check, ClockArrowUp, BookX } from "lucide-vue-next";
 <template>
     <Layout heading="Dashboard">
         <section class="flex flex-col gap-5">
-            <div class="grid gap-5 SM:grid-cols-3">
+            <div class="grid gap-5 sm:grid-cols-3">
                 <StatisticOverview
                     heading="Approved Orders"
                     :value="orderCounts.approved_count"

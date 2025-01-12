@@ -17,6 +17,10 @@ class DeliveryReceipt extends Model implements Auditable
         'remarks'
     ];
 
+    protected $casts = [
+        'created_at' => 'datetime:F d, Y H:i a'
+    ];
+
     public function store_order()
     {
         return $this->belongsTo(StoreOrder::class);

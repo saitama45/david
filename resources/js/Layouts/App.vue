@@ -652,9 +652,12 @@ const logout = () => {
                     <h1 class="text-lg font-semibold md:text-2xl">
                         {{ heading }}
                     </h1>
-                    <Button v-show="hasButton" @click="handleClick">{{
-                        buttonName
-                    }}</Button>
+                    <Button
+                        class="sm:text-normal text-xs"
+                        v-show="hasButton"
+                        @click="handleClick"
+                        >{{ buttonName }}</Button
+                    >
                 </div>
                 <div class="space-y-5">
                     <slot />

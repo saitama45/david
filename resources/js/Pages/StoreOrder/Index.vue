@@ -204,6 +204,7 @@ const { hasAccess } = useAuth();
                 @click="changeFilter('rejected')"
             />
         </FilterTab>
+
         <TableContainer>
             <TableHeader>
                 <!-- Search Bar-->
@@ -213,7 +214,7 @@ const { hasAccess } = useAuth();
                         id="search"
                         type="text"
                         placeholder="Search for order number"
-                        class="pl-10"
+                        class="pl-10 sm:max-w-full max-w-64"
                     />
                 </SearchBar>
                 <!-- Filters -->
@@ -315,6 +316,34 @@ const { hasAccess } = useAuth();
                     </tr>
                 </TableBody>
             </Table>
+
+            <MobileTableContainer>
+                <MobileTableRow v-for="order in orders.data">
+                    <MobileTableHeading :title="order.order_number">
+                        <ShowButton
+                            class="size-5"
+                            v-if="hasAccess('view store order')"
+                            @click="showOrderDetails(order.order_number)"
+                        />
+                        <EditButton
+                            class="size-5"
+                            v-if="
+                                order.order_request_status === 'pending' &&
+                                hasAccess('edit store orders')
+                            "
+                            @click="editOrderDetails(order.order_number)"
+                        />
+                    </MobileTableHeading>
+                    <LabelXS>
+                        Status:
+                        {{ order.order_request_status.toUpperCase() }}</LabelXS
+                    >
+                    <LabelXS>
+                        Order Date:
+                        {{ order.order_date }}</LabelXS
+                    >
+                </MobileTableRow>
+            </MobileTableContainer>
             <Pagination :data="orders" />
         </TableContainer>
     </Layout>

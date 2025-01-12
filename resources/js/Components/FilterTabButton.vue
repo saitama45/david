@@ -24,17 +24,20 @@ const props = defineProps({
 
 const isFilterActive = computed(() => {
     return props.filter === props.currentFilter
-        ? "bg-primary text-white"
-        : "bg-white/10 text-gray-800";
+        ? "bg-primary text-white text-xs"
+        : "bg-white/10 text-gray-800 text-xs";
 });
 </script>
 
 <template>
-    <Button class="px-10 hover:text-white gap-3" :class="isFilterActive">
+    <Button
+        class="sm:px-10 px-5 hover:text-white gap-3"
+        :class="isFilterActive"
+    >
         {{ label }}
         <Badge
             v-if="hasBadge"
-            class="border border-gray"
+            class="border border-gray text-xs py-2"
             :class="{
                 'bg-transparent text-gray-900': !isFilterActive,
                 'text-white': isFilterActive,
