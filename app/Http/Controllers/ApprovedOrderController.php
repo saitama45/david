@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Enum\OrderRequestStatus;
+use App\Enum\OrderStatus;
 use App\Models\OrderedItemReceiveDate;
 use App\Models\StoreOrder;
 use App\Models\StoreOrderItem;
@@ -44,7 +45,7 @@ class ApprovedOrderController extends Controller
     {
         $order = StoreOrder::where('order_number', $id)->firstOrFail();
         $items = $order->ordered_item_receive_dates()->with('store_order_item.product_inventory')->where('status', 'approved')->paginate(10);
-        dd($order);
+
         return Inertia::render('ApprovedReceivedItem/Show', [
             'order' => $order,
             'items' => $items
@@ -72,8 +73,26 @@ class ApprovedOrderController extends Controller
             'action' => "Cancelled Approved Status for Received Item Request (ID: $order->id)",
             'remarks' => $validated['remarks']
         ]);
+        $this->getOrderStatus($order);
         DB::commit();
 
         return back();
+    }
+
+    public function getOrderStatus($data)
+    {
+        $storeOrder = StoreOrder::with('store_order_items')->find($data->store_order_item->store_order_id);
+        $orderedItems = $storeOrder->store_order_items;
+        $receivedCount = 0;
+        $storeOrder->order_status = OrderStatus::RECEIVED->value;
+        foreach ($orderedItems as $itemOrdered) {
+            $receivedCount += $itemOrdered->quantity_received;
+            if ($itemOrdered->quantity_approved > $itemOrdered->quantity_received) {
+                $storeOrder->order_status = OrderStatus::INCOMPLETE->value;
+            }
+        }
+        if ($receivedCount < 1) $storeOrder->order_status = OrderStatus::PENDING->value;
+
+        $storeOrder->save();
     }
 }
