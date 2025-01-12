@@ -89,85 +89,76 @@ const handleCancel = () => {
                     >Input all the important fields</CardDescription
                 >
             </CardHeader>
-            <CardContent class="grid grid-cols-2 gap-5">
-                <InputContainer>
-                    <Label>First Name</Label>
-                    <Input v-model="form.first_name" />
-                    <FormError>{{ form.errors.first_name }}</FormError>
-                </InputContainer>
-                <InputContainer>
-                    <Label>Middle Name</Label>
-                    <Input v-model="form.middle_name" />
-                    <FormError>{{ form.errors.middle_name }}</FormError>
-                </InputContainer>
-                <InputContainer>
-                    <Label>Last Name</Label>
-                    <Input v-model="form.last_name" />
-                    <FormError>{{ form.errors.last_name }}</FormError>
-                </InputContainer>
-                <InputContainer>
-                    <Label>Phone Number</Label>
-                    <Input v-model="form.phone_number" />
-                    <FormError>{{ form.errors.phone_number }}</FormError>
-                </InputContainer>
-                <InputContainer>
-                    <Label>Email</Label>
-                    <Input v-model="form.email" type="email" />
-                    <FormError>{{ form.errors.email }}</FormError>
-                </InputContainer>
-                <InputContainer>
-                    <Label>Roles</Label>
-                    <MultiSelect
-                        filter
-                        placeholder="Assign Roles"
-                        v-model="form.roles"
-                        :options="rolesOptions"
-                        optionLabel="label"
-                        optionValue="value"
-                    ></MultiSelect>
-                    <FormError>{{ form.errors.roles }}</FormError>
-                </InputContainer>
-                <InputContainer>
-                    <Label>Remarks</Label>
-                    <Textarea v-model="form.remarks" />
-                    <FormError>{{ form.errors.remarksl }}</FormError>
-                </InputContainer>
-                <InputContainer v-if="form.roles.includes('so encoder')">
-                    <Label>Assigned Branches</Label>
-                    <MultiSelect
-                        filter
-                        placeholder="Assign Branches"
-                        v-model="form.assignedBranches"
-                        :options="branchesOptions"
-                        optionLabel="label"
-                        optionValue="value"
-                    >
-                    </MultiSelect>
-                    <FormError>{{ form.errors.remarks }}</FormError>
-                </InputContainer>
+            <CardContent>
+                <section class="grid sm:grid-cols-2 grid-cols-1 sm:gap-5 gap-3">
+                    <InputContainer>
+                        <Label>First Name</Label>
+                        <Input v-model="form.first_name" />
+                        <FormError>{{ form.errors.first_name }}</FormError>
+                    </InputContainer>
+                    <InputContainer>
+                        <Label>Middle Name</Label>
+                        <Input v-model="form.middle_name" />
+                        <FormError>{{ form.errors.middle_name }}</FormError>
+                    </InputContainer>
+                    <InputContainer>
+                        <Label>Last Name</Label>
+                        <Input v-model="form.last_name" />
+                        <FormError>{{ form.errors.last_name }}</FormError>
+                    </InputContainer>
+                    <InputContainer>
+                        <Label>Phone Number</Label>
+                        <Input v-model="form.phone_number" />
+                        <FormError>{{ form.errors.phone_number }}</FormError>
+                    </InputContainer>
+                    <InputContainer>
+                        <Label>Email</Label>
+                        <Input v-model="form.email" type="email" />
+                        <FormError>{{ form.errors.email }}</FormError>
+                    </InputContainer>
+                    <InputContainer>
+                        <Label>Roles</Label>
+                        <MultiSelect
+                            filter
+                            placeholder="Assign Roles"
+                            v-model="form.roles"
+                            :options="rolesOptions"
+                            optionLabel="label"
+                            optionValue="value"
+                        ></MultiSelect>
+                        <FormError>{{ form.errors.roles }}</FormError>
+                    </InputContainer>
+                    <InputContainer>
+                        <Label>Remarks</Label>
+                        <Textarea v-model="form.remarks" />
+                        <FormError>{{ form.errors.remarksl }}</FormError>
+                    </InputContainer>
 
-                <InputContainer class="col-span-2">
-                    <LabelXS> Assign Branches </LabelXS>
-                    <div
-                        class="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-4"
-                    >
+                    <InputContainer class="sm:col-span-2">
+                        <LabelXS> Assign Branches </LabelXS>
                         <div
-                            v-for="branch in branchesOptions"
-                            :key="branch.value"
-                            class="flex items-center space-x-2"
+                            class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4"
                         >
-                            <Checkbox
-                                v-model="form.assignedBranches"
-                                :value="branch.value"
-                                name="assignedBranches[]"
-                            />
-                            <label class="text-sm text-gray-600">
-                                {{ branch.label }}
-                            </label>
+                            <div
+                                v-for="branch in branchesOptions"
+                                :key="branch.value"
+                                class="flex items-center space-x-2"
+                            >
+                                <Checkbox
+                                    v-model="form.assignedBranches"
+                                    :value="branch.value"
+                                    name="assignedBranches[]"
+                                />
+                                <label class="text-xs text-gray-600">
+                                    {{ branch.label }}
+                                </label>
+                            </div>
                         </div>
-                    </div>
-                    <FormError>{{ form.errors.assignedBranches }}</FormError>
-                </InputContainer>
+                        <FormError>{{
+                            form.errors.assignedBranches
+                        }}</FormError>
+                    </InputContainer>
+                </section>
             </CardContent>
             <CardFooter class="justify-end gap-3">
                 <Button @click="handleCancel" variant="outline">Cancel</Button>
