@@ -21,7 +21,7 @@ defineProps({
             :is="link.url ? 'Link' : 'span'"
             :href="link.url"
             v-html="link.label"
-            class="px-3 py-1 border border-gray-200 text-primary-font font-bold rounded-lg"
+            class="px-3 py-1 border border-gray-200 text-primary-font font-bold rounded-lg sm:text-sm text-xs"
             :class="{
                 'bg-primary text-white': link.active,
                 'hover:bg-primary/50 transition-colors transition-duration duration-300':

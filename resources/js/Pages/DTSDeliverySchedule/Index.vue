@@ -130,6 +130,20 @@ const { hasAccess } = useAuth();
                     </tr>
                 </TableBody>
             </Table>
+
+            <MobileTableContainer>
+                <MobileTableRow v-for="branch in branches.data">
+                    <MobileTableHeading :title="branch.name">
+                        <EditButton
+                            class="size-5"
+                            :isLink="true"
+                            :href="route('delivery-schedules.edit', branch.id)"
+                        />
+                    </MobileTableHeading>
+
+                    <LabelXS>{{ branch.location_code ?? "N/a" }}</LabelXS>
+                </MobileTableRow>
+            </MobileTableContainer>
             <Pagination :data="branches" />
         </TableContainer>
     </Layout>

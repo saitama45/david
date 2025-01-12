@@ -70,7 +70,7 @@ const update = (id) => {
 <template>
     <Layout heading="Edit Store Schedule">
         <DivFlexCol class="gap-5">
-            <Card class="p-5 grid grid-cols-2 gap-5">
+            <Card class="p-5 grid sm:grid-cols-2 gap-5">
                 <InputContainer>
                     <LabelXS>Branch Name</LabelXS>
                     <SpanBold>{{ branch.name }}</SpanBold>
@@ -139,7 +139,8 @@ const update = (id) => {
                 </CardContent>
             </Card>
 
-            <DivFlexCenter class="justify-end">
+            <DivFlexCenter class="justify-end gap-3">
+                <BackButton />
                 <Button @click="update">Update</Button>
             </DivFlexCenter>
         </DivFlexCol>

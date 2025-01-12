@@ -93,6 +93,7 @@ import {
 } from "@/components/ui/select";
 import MobileTableContainer from "./Components/table/MobileTableContainer.vue";
 import MobileTableRow from "./Components/table/MobileTableRow.vue";
+import MobileTableHeading from "./Components/table/MobileTableHeading.vue";
 
 const appName = import.meta.env.VITE_APP_NAME || "Laravel";
 
@@ -181,6 +182,7 @@ createInertiaApp({
             .component("CreateReferenceModal", CreateReferenceModal)
             .component("MobileTableContainer", MobileTableContainer)
             .component("MobileTableRow", MobileTableRow)
+            .component("MobileTableHeading", MobileTableHeading)
             .use(PrimeVue, {
                 theme: {
                     preset: Aura,
