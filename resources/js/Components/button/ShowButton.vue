@@ -9,7 +9,7 @@ const props = defineProps({
 <template>
     <Component
         :is="isLink ? 'Link' : 'button'"
-        class="cursor-pointer p-0 size-5"
+        class="cursor-pointer p-0 size-5 mr-3"
         variant="link"
     >
         <Eye />

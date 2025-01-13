@@ -264,6 +264,7 @@ Route::middleware('auth')
                 Route::get('/show/{id}', 'show')->name('show');
                 Route::get('/edit/{id}', 'edit')->name('edit');
                 Route::post('/update/{id}', 'update')->name('update');
+                Route::delete('/destroy/{id}', 'destroy')->name('destroy');
             });
 
             Route::controller(SupplierController::class)->prefix('suppliers')->name('suppliers.')->group(function () {
@@ -272,6 +273,7 @@ Route::middleware('auth')
                 Route::post('/store', 'store')->name('store');
                 Route::get('/edit/{id}', 'edit')->name('edit');
                 Route::put('/update/{id}', 'update')->name('update');
+                Route::delete('/destroy/{id}', 'destroy')->name('destroy');
             });
 
             Route::controller(UnitOfMeasurementController::class)->name('unit-of-measurements.')->group(function () {

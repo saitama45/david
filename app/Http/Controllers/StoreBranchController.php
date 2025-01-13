@@ -45,6 +45,20 @@ class StoreBranchController extends Controller
         return Inertia::render('StoreBranch/Create');
     }
 
+    public function destroy($id)
+    {
+        $category = StoreBranch::with(['store_orders', 'usage_records', 'users', 'inventory_stock', 'inventory_stock_used'])->findOrFail($id);
+
+        if ($category->store_orders->count() > 0 || $category->usage_records->count() > 0 || $category->users->count()) {
+            return back()->withErrors([
+                'message' => "Can't delete this store branch because there are data associated with it."
+            ]);
+        }
+
+        $category->delete();
+        return to_route('store-branches.index');
+    }
+
     public function store(Request $request)
     {
         $validated = $request->validate([

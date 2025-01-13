@@ -31,6 +31,20 @@ class SupplierController extends Controller
         ]);
     }
 
+    public function destroy($id)
+    {
+        $category = Supplier::with('store_orders')->findOrFail($id);
+
+        if ($category->store_orders->count() > 0) {
+            return back()->withErrors([
+                'message' => "Can't delete this supplier because there are data associated with it."
+            ]);
+        }
+
+        $category->delete();
+        return to_route('suppliers.index');
+    }
+
     public function update(Request $request, $id)
     {
         $validated = $request->validate([

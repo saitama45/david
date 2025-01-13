@@ -3,6 +3,7 @@ import { useForm } from "@inertiajs/vue3";
 import { useToast } from "primevue/usetoast";
 import { useSearch } from "@/Composables/useSearch";
 import { router } from "@inertiajs/vue3";
+import { useReferenceDelete } from "@/Composables/useReferenceDelete";
 
 const isEditModalVisible = ref(false);
 
@@ -52,6 +53,8 @@ const editCategoryDetails = (id) => {
 const createNewSupplier = () => {
     router.visit(route("suppliers.create"));
 };
+
+const { deleteModel } = useReferenceDelete();
 </script>
 
 <template>
@@ -87,10 +90,20 @@ const createNewSupplier = () => {
                         <TD>{{ data.supplier_code }}</TD>
                         <TD>{{ data.remarks ?? "N/a" }}</TD>
                         <TD>
-                            <EditButton
-                                :isLink="true"
-                                :href="route('suppliers.edit', data.id)"
-                            />
+                            <DivFlexCenter>
+                                <EditButton
+                                    :isLink="true"
+                                    :href="route('suppliers.edit', data.id)"
+                                />
+                                <DeleteButton
+                                    @click="
+                                        deleteModel(
+                                            route('suppliers.destroy', data.id),
+                                            'Supplier'
+                                        )
+                                    "
+                                />
+                            </DivFlexCenter>
                         </TD>
                     </tr>
                 </TableBody>

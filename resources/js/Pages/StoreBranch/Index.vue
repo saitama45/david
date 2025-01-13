@@ -3,7 +3,7 @@ import { useForm } from "@inertiajs/vue3";
 import { useToast } from "primevue/usetoast";
 import { useSearch } from "@/Composables/useSearch";
 import { router } from "@inertiajs/vue3";
-
+import { useReferenceDelete } from "@/Composables/useReferenceDelete";
 const isEditModalVisible = ref(false);
 
 const toast = useToast();
@@ -52,6 +52,8 @@ const viewDetails = (id) => {
 const createNewStoreBranch = () => {
     router.get("/store-branches/create");
 };
+
+const { deleteModel } = useReferenceDelete();
 </script>
 
 <template>
@@ -89,15 +91,21 @@ const createNewStoreBranch = () => {
                         <TD>{{ branch.brand_name ?? "N/a" }}</TD>
                         <TD>{{ branch.brand_code ?? "N/a" }}</TD>
                         <TD>
-                            <button
+                            <ShowButton @click="viewDetails(branch.id)" />
+                            <EditButton
                                 @click="editCategoryDetails(branch.id)"
-                                class="text-blue-500"
-                            >
-                                <Pencil class="size-5" />
-                            </button>
-                            <button @click="viewDetails(branch.id)">
-                                <ShowButton />
-                            </button>
+                            />
+                            <DeleteButton
+                                @click="
+                                    deleteModel(
+                                        route(
+                                            'store-branches.destroy',
+                                            branch.id
+                                        ),
+                                        'Branch'
+                                    )
+                                "
+                            />
                         </TD>
                     </tr>
                 </TableBody>
