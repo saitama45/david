@@ -80,7 +80,7 @@ import { Check, ClockArrowUp, BookX } from "lucide-vue-next";
                     :icon="BookX"
                 />
             </div>
-            <div class="grid sm:grid-cols-3">
+            <div class="sm:grid sm:grid-cols-3">
                 <Chart
                     type="pie"
                     :data="chartData"

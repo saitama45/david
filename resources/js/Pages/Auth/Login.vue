@@ -30,7 +30,7 @@ const submit = () => {
 
 <template>
     <div
-        class="grid lg:grid-cols-2 gap-10 max-h-screen items-center sm:p-20 p-5 grid-cols-1"
+        class="grid lg:grid-cols-2 gap-10 min-h-screen max-h-screen items-center sm:p-20 p-5 grid-cols-1"
     >
         <section class="lg:block hidden">
             <img :src="ImageBanner" alt="banner" />
@@ -92,13 +92,13 @@ const submit = () => {
                         </label>
                     </div>
 
-                    <Link
+                    <!-- <Link
                         v-if="canResetPassword"
                         :href="route('password.request')"
                         class="rounded-md sm:text-sm text-xs text-gray-600 underline hover:text-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
                     >
                         Forgot your password?
-                    </Link>
+                    </Link> -->
                 </div>
 
                 <Button
