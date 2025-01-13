@@ -60,7 +60,7 @@ const openViewModalForm = (id) => {
         :handleClick="() => copyOrderAndCreateAnother(order.id)"
     >
         <DivFlexCol class="gap-3">
-            <Card class="p-5 grid grid-cols-4 gap-5">
+            <Card class="p-5 grid sm:grid-cols-4 gap-5">
                 <InputContainer>
                     <LabelXS>Encoder: </LabelXS>
                     <SpanBold
@@ -110,12 +110,15 @@ const openViewModalForm = (id) => {
                 <InputContainer>
                     <LabelXS>Approval Action Date: </LabelXS>
                     <SpanBold>{{
-                        order.approval_action_date ?? "N/a"
+                        order.approval_action_date
+                            ? order.approval_action_date
+                            : "N/a"
                     }}</SpanBold>
                 </InputContainer>
             </Card>
 
-            <TableContainer class="h-fit">
+            <!-- Ordered Items -->
+            <TableContainer>
                 <!-- <DivFlexCenter class="justify-end">
                     <Button
                         class="bg-blue-500 hover:bg-blue-300"
@@ -131,7 +134,9 @@ const openViewModalForm = (id) => {
                     </SearchBar>
                 </TableHeader> -->
                 <TableHeader>
-                    <SpanBold>Ordered Items</SpanBold>
+                    <SpanBold class="sm:text-normal text-xs"
+                        >Ordered Items</SpanBold
+                    >
                 </TableHeader>
                 <Table>
                     <TableHead>
@@ -141,7 +146,7 @@ const openViewModalForm = (id) => {
                         <TH> Ordered</TH>
                         <TH> Approved</TH>
                         <TH> Received</TH>
-                        <TH> Approval Rate </TH>
+                        <TH> Approval Rate</TH>
                         <TH> Total Cost </TH>
                     </TableHead>
                     <TableBody>
@@ -169,24 +174,76 @@ const openViewModalForm = (id) => {
                         </tr>
                     </TableBody>
                 </Table>
+
+                <MobileTableContainer>
+                    <MobileTableRow
+                        v-for="order in orderedItems"
+                        :key="order.id"
+                    >
+                        <MobileTableHeading
+                            :title="`${order.product_inventory.name} (${order.product_inventory.inventory_code})`"
+                        >
+                            <ShowButton />
+                        </MobileTableHeading>
+                        <LabelXS>Ordered: {{ order.quantity_ordered }}</LabelXS>
+                        <LabelXS
+                            >Approved: {{ order.quantity_approved }}</LabelXS
+                        >
+                        <LabelXS
+                            >Received: {{ order.quantity_received }}</LabelXS
+                        >
+                    </MobileTableRow>
+                </MobileTableContainer>
             </TableContainer>
 
-            <Card class="p-5">
-                <InputContainer>
-                    <LabelXS>Delivery Receipt Numbers: </LabelXS>
-                    <DivFlexCol class="flex-1 gap-2">
-                        <SpanBold v-for="receipt in order.delivery_receipts">{{
-                            receipt.delivery_receipt_number
-                        }}</SpanBold>
-                    </DivFlexCol>
+            <!-- Delivery Receipts -->
+            <TableContainer>
+                <TableHeader>
+                    <SpanBold class="sm:text-normal text-xs"
+                        >Delivery Receipts</SpanBold
+                    >
+                </TableHeader>
+                <Table>
+                    <TableHead>
+                        <TH>Id</TH>
+                        <TH>Number</TH>
+                        <TH>Remarks</TH>
+                        <TH>Created at</TH>
+                    </TableHead>
+                    <TableBody>
+                        <tr v-for="receipt in order.delivery_receipts">
+                            <TD>{{ receipt.id }}</TD>
+                            <TD>{{ receipt.delivery_receipt_number }}</TD>
+                            <TD>{{ receipt.remarks }}</TD>
+                            <TD>{{
+                                dayjs(receipt.created_at).format("MMMM D, YYYY")
+                            }}</TD>
+                        </tr>
+                    </TableBody>
+                </Table>
+
+                <MobileTableContainer>
+                    <MobileTableRow
+                        v-for="receipt in order.delivery_receipts"
+                        :key="receipt.id"
+                    >
+                        <MobileTableHeading
+                            :title="`${receipt.delivery_receipt_number}`"
+                        >
+                            <ShowButton />
+                        </MobileTableHeading>
+                        <LabelXS>Remarks: {{ receipt.remarks }}</LabelXS>
+                        <LabelXS>Created at: {{ receipt.created_at }}</LabelXS>
+                    </MobileTableRow>
                     <SpanBold v-if="order.delivery_receipts.length < 1"
                         >None</SpanBold
                     >
-                </InputContainer>
-            </Card>
+                </MobileTableContainer>
+            </TableContainer>
+
             <TableContainer>
                 <TableHeader>
-                    <SpanBold>Remarks</SpanBold>
+                    <SpanBold class="sm:text-normal text-xs">Remarks</SpanBold>
                 </TableHeader>
                 <Table>
                     <TableHead>
@@ -207,28 +264,57 @@ const openViewModalForm = (id) => {
                                 {{ remarks.action.toUpperCase() }}
                             </TD>
                             <TD>{{ remarks.remarks }}</TD>
-                            <TD>{{ remarks.created_at }}</TD>
+                            <TD>{{
+                                dayjs(remarks.created_at).format("MMMM D, YYYY")
+                            }}</TD>
                         </tr>
                     </TableBody>
                 </Table>
+
+                <MobileTableContainer>
+                    <MobileTableRow
+                        v-for="remarks in order.store_order_remarks"
+                        :key="remarks.id"
+                    >
+                        <MobileTableHeading
+                            :title="`${remarks.action.toUpperCase()}`"
+                        >
+                            <ShowButton />
+                        </MobileTableHeading>
+                        <LabelXS>Remarks: {{ remarks.remarks }}</LabelXS>
+                    </MobileTableRow>
+                    <SpanBold v-if="order.delivery_receipts.length < 1"
+                        >None</SpanBold
+                    >
+                </MobileTableContainer>
             </TableContainer>
 
             <Card class="p-5">
                 <InputContainer class="col-span-4">
                     <LabelXS>Image Attachments: </LabelXS>
-                    <DivFlexCenter class="gap-2">
-                        <img
+                    <DivFlexCenter
+                        class="gap-4 overflow-auto overflow-x-auto scrollbar-thin scrollbar-track-gray-100 scrollbar-thumb-gray-300 hover:scrollbar-thumb-gray-400"
+                    >
+                        <div
                             v-for="image in images"
-                            :src="image.image_url"
-                            class="size-24"
-                        />
+                            :key="image.id"
+                            class="relative"
+                        >
+                            <img
+                                :src="image.image_url"
+                                class="size-24 min-w-24 cursor-pointer hover:opacity-80 transition-opacity"
+                                @click="enlargeImage(image)"
+                            />
+                        </div>
                     </DivFlexCenter>
                     <SpanBold v-if="images.length < 1">None</SpanBold>
                 </InputContainer>
             </Card>
 
             <TableContainer>
-                <CardTitle>Receive Dates History</CardTitle>
+                <CardTitle class="sm:text-normal text-xs"
+                    >Receive Dates History</CardTitle
+                >
                 <Table>
                     <TableHead>
                         <TH> Id </TH>
@@ -258,7 +344,11 @@ const openViewModalForm = (id) => {
                                 {{ history.receiver.last_name }}
                             </TD> -->
                             <TD>{{ history.quantity_received }}</TD>
-                            <TD>{{ history.received_date }}</TD>
+                            <TD>{{
+                                dayjs(history.received_date).format(
+                                    "MMMM D, YYYY"
+                                )
+                            }}</TD>
                             <TD>{{ history.status }}</TD>
                             <TD>
                                 <DivFlexCenter class="gap-3">
@@ -270,9 +360,28 @@ const openViewModalForm = (id) => {
                         </tr>
                     </TableBody>
                 </Table>
+
+                <MobileTableContainer>
+                    <MobileTableRow
+                        v-for="history in receiveDatesHistory"
+                        :key="history.id"
+                    >
+                        <MobileTableHeading
+                            :title="`${history.store_order_item.product_inventory.name} (${history.store_order_item.product_inventory.inventory_code})`"
+                        >
+                            <ShowButton />
+                        </MobileTableHeading>
+                        <LabelXS
+                            >Received: {{ history.quantity_received }}</LabelXS
+                        >
+                        <LabelXS
+                            >Status: {{ history.status.toUpperCase() }}</LabelXS
+                        >
+                        <SpanBold v-if="history.length < 1">None</SpanBold>
+                    </MobileTableRow>
+                </MobileTableContainer>
             </TableContainer>
         </DivFlexCol>
-
         <Button variant="outline" class="text-lg px-7" @click="backButton">
             Back
         </Button>

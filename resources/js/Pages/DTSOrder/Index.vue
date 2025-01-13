@@ -205,6 +205,34 @@ const { hasAccess } = useAuth();
                     </tr>
                 </TableBody>
             </Table>
+
+            <MobileTableContainer>
+                <MobileTableRow v-for="order in orders.data">
+                    <MobileTableHeading :title="order.order_number">
+                        <ShowButton
+                            class="size-5"
+                            v-if="hasAccess('view dts order')"
+                            @click="showOrderDetails(order.order_number)"
+                        />
+                        <EditButton
+                            class="size-5"
+                            v-if="
+                                order.order_request_status === 'pending' &&
+                                hasAccess('edit dts orders')
+                            "
+                            @click="editOrderDetails(order.order_number)"
+                        />
+                    </MobileTableHeading>
+                    <LabelXS>
+                        Status:
+                        {{ order.order_request_status.toUpperCase() }}</LabelXS
+                    >
+                    <LabelXS>
+                        Order Date:
+                        {{ order.order_date }}</LabelXS
+                    >
+                </MobileTableRow>
+            </MobileTableContainer>
             <Pagination :data="orders" />
         </TableContainer>
 

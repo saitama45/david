@@ -311,10 +311,29 @@ const getNextSaturday = () => {
     return nextSunday;
 };
 const heading = `Edit Order #${props.order.order_number}`;
+
+watch(productId, (newValue) => {
+    if (newValue) {
+        isLoading.value = true;
+        itemForm.item = newValue;
+        axios
+            .get(route("product.show", newValue))
+            .then((response) => response.data)
+            .then((result) => {
+                productDetails.id = result.id;
+                productDetails.name = result.name;
+                productDetails.inventory_code = result.inventory_code;
+                productDetails.unit_of_measurement = result.unit_of_measurement;
+                productDetails.cost = result.cost;
+            })
+            .catch((err) => console.log(err))
+            .finally(() => (isLoading.value = false));
+    }
+});
 </script>
 <template>
     <Layout :heading="heading">
-        <div class="grid grid-cols-3 gap-5">
+        <div class="grid sm:grid-cols-3 gap-5 grid-cols-1">
             <section class="grid gap-5">
                 <Card>
                     <CardHeader>
@@ -501,6 +520,42 @@ const heading = `Edit Order #${props.order.order_number}`;
                             </tr>
                         </TableBody>
                     </Table>
+
+                    <MobileTableContainer>
+                        <MobileTableRow
+                            v-for="order in orderForm.orders"
+                            :key="order.item_code"
+                        >
+                            <MobileTableHeading
+                                :title="`${order.name} (${order.inventory_code})`"
+                            >
+                                <button
+                                    class="text-red-500 size-5"
+                                    @click="minusItemQuantity(order.id)"
+                                >
+                                    <Minus />
+                                </button>
+                                <button
+                                    class="text-green-500 size-5"
+                                    @click="addItemQuantity(order.id)"
+                                >
+                                    <Plus />
+                                </button>
+                                <button
+                                    @click="removeItem(order.id)"
+                                    variant="outline"
+                                    class="text-red-500 size-5"
+                                >
+                                    <Trash2 />
+                                </button>
+                            </MobileTableHeading>
+                            <LabelXS
+                                >UOM: {{ order.unit_of_measurement }}</LabelXS
+                            >
+                            <LabelXS>Quantity: {{ order.quantity }}</LabelXS>
+                            <LabelXS>Cost: {{ order.cost }}</LabelXS>
+                        </MobileTableRow>
+                    </MobileTableContainer>
                 </CardContent>
 
                 <CardFooter class="flex justify-end">
