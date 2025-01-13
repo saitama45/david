@@ -345,16 +345,13 @@ const heading = `Edit Order #${props.order.order_number}`;
 </script>
 <template>
     <Layout :heading="heading">
-        <div class="grid grid-cols-3 gap-5">
+        <div class="grid sm:grid-cols-3 gap-5 grid-cols-1">
             <section class="grid gap-5">
                 <Card>
                     <CardHeader>
                         <CardTitle>Order Details</CardTitle>
                         <CardDescription
-                            >Status:
-                            <Badge>{{
-                                order.order_request_status.toUpperCase()
-                            }}</Badge></CardDescription
+                            >Please input all the fields</CardDescription
                         >
                     </CardHeader>
                     <CardContent class="space-y-3">
@@ -396,9 +393,9 @@ const heading = `Edit Order #${props.order.order_number}`;
                                 dateFormat="yy/mm/dd"
                                 v-model="orderForm.order_date"
                                 :showOnFocus="false"
+                                :manualInput="true"
                                 :minDate="orderRestrictionDate.minDate"
                                 :maxDate="orderRestrictionDate.maxDate"
-                                :manualInput="true"
                             />
                             <FormError>{{
                                 orderForm.errors.order_date
@@ -532,10 +529,45 @@ const heading = `Edit Order #${props.order.order_number}`;
                             </tr>
                         </TableBody>
                     </Table>
-                </CardContent>
 
+                    <MobileTableContainer>
+                        <MobileTableRow
+                            v-for="order in orderForm.orders"
+                            :key="order.item_code"
+                        >
+                            <MobileTableHeading
+                                :title="`${order.name} (${order.inventory_code})`"
+                            >
+                                <button
+                                    class="text-red-500 size-5"
+                                    @click="minusItemQuantity(order.id)"
+                                >
+                                    <Minus />
+                                </button>
+                                <button
+                                    class="text-green-500 size-5"
+                                    @click="addItemQuantity(order.id)"
+                                >
+                                    <Plus />
+                                </button>
+                                <button
+                                    @click="removeItem(order.id)"
+                                    variant="outline"
+                                    class="text-red-500 size-5"
+                                >
+                                    <Trash2 />
+                                </button>
+                            </MobileTableHeading>
+                            <LabelXS
+                                >UOM: {{ order.unit_of_measurement }}</LabelXS
+                            >
+                            <LabelXS>Quantity: {{ order.quantity }}</LabelXS>
+                            <LabelXS>Cost: {{ order.cost }}</LabelXS>
+                        </MobileTableRow>
+                    </MobileTableContainer>
+                </CardContent>
                 <CardFooter class="flex justify-end">
-                    <Button @click="update">Save Changes</Button>
+                    <Button @click="update">Place Order</Button>
                 </CardFooter>
             </Card>
         </div>
