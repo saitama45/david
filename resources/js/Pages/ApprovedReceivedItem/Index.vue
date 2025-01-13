@@ -84,7 +84,8 @@ const { hasAccess } = useAuth();
                                 @click="showOrderDetails(order.order_number)"
                             >
                                 <Eye />
-                            </Button>
+                            </Button>t Create.vue:89:60
+                            
                         </TD>
                     </tr>
                 </TableBody>

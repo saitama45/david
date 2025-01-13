@@ -21,6 +21,7 @@ const createNewRoles = () => {
     form.post(route("roles.store"), {});
 };
 
+
 const isPermissionGuideModalVisible = ref(false);
 </script>
 
@@ -40,26 +41,34 @@ const isPermissionGuideModalVisible = ref(false);
                     </button>
                 </DivFlexCenter>
                 <div
-                    class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4"
+                    class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-5"
                 >
-                    <div
+                    <DivFlexCol
                         v-for="(label, id) in permissions"
                         :key="id"
-                        class="flex items-center space-x-2"
+                        class="gap-3"
                     >
-                        <Checkbox
-                            :inputId="`permission-${id}`"
-                            v-model="form.selectedPermissions"
-                            :value="id"
-                            name="permissions[]"
-                        />
-                        <label
-                            :for="`permission-${id}`"
-                            class="text-xs text-gray-600"
+                        <SpanBold class="text-xs">{{
+                            id.toUpperCase().replace(/_/g, " ")
+                        }}</SpanBold>
+                        <DivFlexCenter
+                            class="gap-3"
+                            v-for="(data, id) in label"
                         >
-                            {{ label }}
-                        </label>
-                    </div>
+                            <Checkbox
+                                :inputId="`permission-${id}`"
+                                v-model="form.selectedPermissions"
+                                :value="id"
+                                name="permissions[]"
+                            />
+                            <label
+                                :for="`permission-${id}`"
+                                class="text-xs text-gray-600"
+                            >
+                                {{ data }}
+                            </label>
+                        </DivFlexCenter>
+                    </DivFlexCol>
                 </div>
             </InputContainer>
             <DivFlexCenter class="justify-end">
