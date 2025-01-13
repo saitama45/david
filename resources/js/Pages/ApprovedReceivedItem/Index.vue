@@ -83,9 +83,8 @@ const { hasAccess } = useAuth();
                                 variant="outline"
                                 @click="showOrderDetails(order.order_number)"
                             >
-                                <Eye />
-                            </Button>t Create.vue:89:60
-                            
+                                <Eye /> </Button
+                            >t Create.vue:89:60
                         </TD>
                     </tr>
                 </TableBody>
@@ -96,7 +95,6 @@ const { hasAccess } = useAuth();
                     <MobileTableHeading :title="order.order_number">
                         <ShowButton
                             v-if="hasAccess('view approved received item')"
-                            :isLink="true"
                             @click="showOrderDetails(order.order_number)"
                         />
                     </MobileTableHeading>

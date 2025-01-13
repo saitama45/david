@@ -27,14 +27,14 @@ const update = () => {
                 life: 5000,
             });
             form.reset();
-        }
+        },
     });
 };
 </script>
 
 <template>
     <Layout heading="Edit Supplier Details">
-        <Card class="grid grid-cols-2 gap-5 p-5">
+        <Card class="sm:grid sm:grid-cols-2 gap-5 p-5">
             <InputContainer>
                 <LabelXS>Name</LabelXS>
                 <Input v-model="form.name" />
@@ -50,7 +50,8 @@ const update = () => {
                 <Textarea v-model="form.remarks" />
                 <FormError>{{ form.errors.remarks }}</FormError>
             </InputContainer>
-            <DivFlexCenter class="justify-end col-span-2">
+            <DivFlexCenter class="justify-end col-span-2 gap-3">
+                <BackButton />
                 <Button @click="update">Update</Button>
             </DivFlexCenter>
         </Card>

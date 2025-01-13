@@ -96,6 +96,18 @@ const createNewSupplier = () => {
                 </TableBody>
             </Table>
 
+            <MobileTableContainer>
+                <MobileTableRow v-for="data in data.data">
+                    <MobileTableHeading :title="data.name">
+                        <EditButton
+                            :isLink="true"
+                            class="size-5"
+                            :href="route('suppliers.edit', data.id)"
+                        />
+                    </MobileTableHeading>
+                    <LabelXS>Supplier Code: {{ data.supplier_code }}</LabelXS>
+                </MobileTableRow>
+            </MobileTableContainer>
             <Pagination :data="data" />
         </TableContainer>
 
@@ -127,6 +139,5 @@ const createNewSupplier = () => {
                 </div>
             </DialogContent>
         </Dialog>
-
     </Layout>
 </template>

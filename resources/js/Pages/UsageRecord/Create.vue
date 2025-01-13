@@ -205,156 +205,146 @@ const paymentTypes = [
 
 <template>
     <Layout heading="Create New Transaction">
-        <Card class="p-5 grid grid-cols-3 gap-5">
-            <DivFlexCol class="gap-5">
-                <Card>
-                    <CardHeader>
-                        <CardTitle>Transaction Details</CardTitle>
-                        <CardDescription>
-                            Please input all the required fields.
-                        </CardDescription>
-                        <section class="space-y-3">
-                            <InputContainer>
-                                <LabelXS>Store Branch</LabelXS>
-                                <Select
-                                    filter
-                                    placeholder="Select a branch"
-                                    :options="branchesOptions"
-                                    optionLabel="label"
-                                    optionValue="value"
-                                    v-model="form.store_branch_id"
-                                ></Select>
-                                <FormError>{{
-                                    form.errors.store_branch_id
-                                }}</FormError>
-                            </InputContainer>
+        <Card class="p-5 grid sm:grid-cols-3 grid-cols-1 gap-5">
+            <Card class="sm:col-span-1 col-span-2">
+                <CardHeader>
+                    <CardTitle>Transaction Details</CardTitle>
+                    <CardDescription>
+                        Please input all the required fields.
+                    </CardDescription>
+                    <section class="space-y-3">
+                        <InputContainer>
+                            <LabelXS>Store Branch</LabelXS>
+                            <Select
+                                filter
+                                placeholder="Select a branch"
+                                :options="branchesOptions"
+                                optionLabel="label"
+                                optionValue="value"
+                                v-model="form.store_branch_id"
+                            ></Select>
+                            <FormError>{{
+                                form.errors.store_branch_id
+                            }}</FormError>
+                        </InputContainer>
 
-                            <InputContainer>
-                                <LabelXS>Order Number</LabelXS>
-                                <Input v-model="form.order_number" />
-                                <FormError>{{
-                                    form.errors.order_number
-                                }}</FormError>
-                            </InputContainer>
+                        <InputContainer>
+                            <LabelXS>Order Number</LabelXS>
+                            <Input v-model="form.order_number" />
+                            <FormError>{{
+                                form.errors.order_number
+                            }}</FormError>
+                        </InputContainer>
 
-                            <InputContainer>
-                                <LabelXS>Transaction Period</LabelXS>
-                                <Select
-                                    filter
-                                    placeholder="Select a period"
-                                    :options="transactionPeriods"
-                                    optionLabel="label"
-                                    optionValue="value"
-                                    v-model="form.transaction_period"
-                                ></Select>
-                                <FormError>{{
-                                    form.errors.transaction_period
-                                }}</FormError>
-                            </InputContainer>
+                        <InputContainer>
+                            <LabelXS>Transaction Period</LabelXS>
+                            <Select
+                                filter
+                                placeholder="Select a period"
+                                :options="transactionPeriods"
+                                optionLabel="label"
+                                optionValue="value"
+                                v-model="form.transaction_period"
+                            ></Select>
+                            <FormError>{{
+                                form.errors.transaction_period
+                            }}</FormError>
+                        </InputContainer>
 
-                            <InputContainer>
-                                <LabelXS>Transaction Date</LabelXS>
-                                <DatePicker v-model="form.transaction_date" />
-                                <FormError>{{
-                                    form.errors.transaction_date
-                                }}</FormError>
-                            </InputContainer>
+                        <InputContainer>
+                            <LabelXS>Transaction Date</LabelXS>
+                            <DatePicker v-model="form.transaction_date" />
+                            <FormError>{{
+                                form.errors.transaction_date
+                            }}</FormError>
+                        </InputContainer>
 
-                            <InputContainer>
-                                <LabelXS>Cashier Id</LabelXS>
-                                <Input v-model="form.cashier_id" />
-                                <FormError>{{
-                                    form.errors.cashier_id
-                                }}</FormError>
-                            </InputContainer>
+                        <InputContainer>
+                            <LabelXS>Cashier Id</LabelXS>
+                            <Input v-model="form.cashier_id" />
+                            <FormError>{{ form.errors.cashier_id }}</FormError>
+                        </InputContainer>
 
-                            <InputContainer>
-                                <LabelXS>Order Type</LabelXS>
-                                <Select
-                                    filter
-                                    placeholder="Select a type"
-                                    :options="orderTypes"
-                                    optionLabel="label"
-                                    optionValue="value"
-                                    v-model="form.order_type"
-                                ></Select>
-                                <FormError>{{
-                                    form.errors.order_type
-                                }}</FormError>
-                            </InputContainer>
+                        <InputContainer>
+                            <LabelXS>Order Type</LabelXS>
+                            <Select
+                                filter
+                                placeholder="Select a type"
+                                :options="orderTypes"
+                                optionLabel="label"
+                                optionValue="value"
+                                v-model="form.order_type"
+                            ></Select>
+                            <FormError>{{ form.errors.order_type }}</FormError>
+                        </InputContainer>
 
-                            <InputContainer>
-                                <LabelXS>Sub Total</LabelXS>
-                                <Input v-model="form.sub_total" />
-                                <FormError>{{
-                                    form.errors.sub_total
-                                }}</FormError>
-                            </InputContainer>
+                        <InputContainer>
+                            <LabelXS>Sub Total</LabelXS>
+                            <Input v-model="form.sub_total" />
+                            <FormError>{{ form.errors.sub_total }}</FormError>
+                        </InputContainer>
 
-                            <InputContainer>
-                                <LabelXS>Tax Amount</LabelXS>
-                                <Input v-model="form.tax_amount" />
-                                <FormError>{{
-                                    form.errors.tax_amount
-                                }}</FormError>
-                            </InputContainer>
+                        <InputContainer>
+                            <LabelXS>Tax Amount</LabelXS>
+                            <Input v-model="form.tax_amount" />
+                            <FormError>{{ form.errors.tax_amount }}</FormError>
+                        </InputContainer>
 
-                            <InputContainer>
-                                <LabelXS>Service Charge</LabelXS>
-                                <Input v-model="form.service_charge" />
-                                <FormError>{{
-                                    form.errors.service_charge
-                                }}</FormError>
-                            </InputContainer>
+                        <InputContainer>
+                            <LabelXS>Service Charge</LabelXS>
+                            <Input v-model="form.service_charge" />
+                            <FormError>{{
+                                form.errors.service_charge
+                            }}</FormError>
+                        </InputContainer>
 
-                            <InputContainer>
-                                <LabelXS>Discount Type</LabelXS>
-                                <Input v-model="form.discount_type" />
-                                <FormError>{{
-                                    form.errors.discount_type
-                                }}</FormError>
-                            </InputContainer>
+                        <InputContainer>
+                            <LabelXS>Discount Type</LabelXS>
+                            <Input v-model="form.discount_type" />
+                            <FormError>{{
+                                form.errors.discount_type
+                            }}</FormError>
+                        </InputContainer>
 
-                            <InputContainer>
-                                <LabelXS>Discount Amount</LabelXS>
-                                <Input v-model="form.discount_amount" />
-                                <FormError>{{
-                                    form.errors.discount_amount
-                                }}</FormError>
-                            </InputContainer>
+                        <InputContainer>
+                            <LabelXS>Discount Amount</LabelXS>
+                            <Input v-model="form.discount_amount" />
+                            <FormError>{{
+                                form.errors.discount_amount
+                            }}</FormError>
+                        </InputContainer>
 
-                            <InputContainer>
-                                <LabelXS>Total Amount</LabelXS>
-                                <Input v-model="form.total_amount" />
-                                <FormError>{{
-                                    form.errors.total_amount
-                                }}</FormError>
-                            </InputContainer>
+                        <InputContainer>
+                            <LabelXS>Total Amount</LabelXS>
+                            <Input v-model="form.total_amount" />
+                            <FormError>{{
+                                form.errors.total_amount
+                            }}</FormError>
+                        </InputContainer>
 
-                            <InputContainer>
-                                <LabelXS>Payment Type</LabelXS>
-                                <Select
-                                    filter
-                                    placeholder="Select a type"
-                                    :options="paymentTypes"
-                                    optionLabel="label"
-                                    optionValue="value"
-                                    v-model="form.payment_type"
-                                ></Select>
-                                <FormError>{{
-                                    form.errors.payment_type
-                                }}</FormError>
-                            </InputContainer>
+                        <InputContainer>
+                            <LabelXS>Payment Type</LabelXS>
+                            <Select
+                                filter
+                                placeholder="Select a type"
+                                :options="paymentTypes"
+                                optionLabel="label"
+                                optionValue="value"
+                                v-model="form.payment_type"
+                            ></Select>
+                            <FormError>{{
+                                form.errors.payment_type
+                            }}</FormError>
+                        </InputContainer>
 
-                            <InputContainer>
-                                <LabelXS>Remarks</LabelXS>
-                                <Textarea v-model="form.remarks" />
-                                <FormError>{{ form.errors.remarks }}</FormError>
-                            </InputContainer>
-                        </section>
-                    </CardHeader>
-                </Card>
-            </DivFlexCol>
+                        <InputContainer>
+                            <LabelXS>Remarks</LabelXS>
+                            <Textarea v-model="form.remarks" />
+                            <FormError>{{ form.errors.remarks }}</FormError>
+                        </InputContainer>
+                    </section>
+                </CardHeader>
+            </Card>
 
             <DivFlexCol class="gap-5 col-span-2">
                 <Card>
@@ -366,7 +356,7 @@ const paymentTypes = [
                         >
                     </CardHeader>
                     <CardContent class="space-y-3 w-full">
-                        <DivFlexCenter class="gap-3">
+                        <DivFlexCol class="sm:items-center gap-3">
                             <InputContainer class="w-full">
                                 <LabelXS>Item</LabelXS>
                                 <Select
@@ -390,7 +380,7 @@ const paymentTypes = [
                                     itemForm.errors.quantity
                                 }}</FormError>
                             </InputContainer>
-                        </DivFlexCenter>
+                        </DivFlexCol>
                     </CardContent>
                     <CardFooter class="justify-end">
                         <Button @click="addToItemsList">Add</Button>

@@ -77,7 +77,8 @@ const updateRole = () => {
                     </DivFlexCol>
                 </div>
             </InputContainer>
-            <DivFlexCenter class="justify-end">
+            <DivFlexCenter class="justify-end gap-3">
+                <BackButton />
                 <Button @click="updateRole">Update</Button>
             </DivFlexCenter>
         </Card>
