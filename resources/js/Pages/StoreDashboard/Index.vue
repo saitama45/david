@@ -177,7 +177,7 @@ import { Check, ClockArrowUp, BookX } from "lucide-vue-next";
                 :icon="BookX"
             />
         </section>
-        <section class="grid grid-cols-3 gap-5">
+        <section class="sm:grid sm:grid-cols-3 gap-5">
             <DivFlexCol class="gap-3">
                 <SpanBold>High Stock Items</SpanBold>
                 <Chart
@@ -221,6 +221,17 @@ import { Check, ClockArrowUp, BookX } from "lucide-vue-next";
                         </tr>
                     </TableBody>
                 </Table>
+                <MobileTableContainer>
+                    <MobileTableRow v-for="item in lowOnStockItems.data">
+                        <MobileTableHeading
+                            :title="`${item.name} (${item.inventory_code})`"
+                        >
+                        </MobileTableHeading>
+                        <LabelXS
+                            >Stock On Hand: {{ item.stock_on_hand }}</LabelXS
+                        >
+                    </MobileTableRow>
+                </MobileTableContainer>
                 <Pagination :data="lowOnStockItems" />
             </TableContainer>
         </section>
