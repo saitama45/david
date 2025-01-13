@@ -36,7 +36,7 @@ class StockManagementController extends Controller
                 ),
                 DB::raw(
                     DB::connection()->getDriverName() === 'sqlsrv'
-                        ? "STRING_AGG(mi.unit, ',') WITHIN GROUP (ORDER BY mi.unit) as units" 
+                        ? "STRING_AGG(mi.unit, ',') WITHIN GROUP (ORDER BY mi.unit) as units"
                         : "GROUP_CONCAT(DISTINCT mi.unit) as units"
                 )
             )
@@ -100,6 +100,7 @@ class StockManagementController extends Controller
 
         $history = ProductInventoryStockManager::where('product_inventory_id', $id)
             ->where('store_branch_id', $branchId)->paginate(10);
+  
 
         return Inertia::render('StockManagement/Show', [
             'branches' => $branches,

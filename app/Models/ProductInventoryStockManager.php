@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
@@ -18,9 +19,10 @@ class ProductInventoryStockManager extends Model
         'remarks'
     ];
 
-    protected $casts = [
-        // 'created_at' => 'date:F d, Y h:i a',
-    ];
+    public function getCreatedAtAttribute($value)
+    {
+        return Carbon::parse($value)->setTimezone('Asia/Manila')->format('F d, Y h:i a');
+    }
 
     public function product()
     {

@@ -41,6 +41,7 @@ const cancelApproveStatus = () => {
         },
     });
 };
+
 </script>
 
 <template>

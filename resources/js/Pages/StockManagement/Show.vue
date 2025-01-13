@@ -9,6 +9,8 @@ const { branches, history } = defineProps({
         required: true,
     },
 });
+
+console.log(history); 
 </script>
 <template>
     <Layout heading="Stock Details">
