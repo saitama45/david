@@ -54,6 +54,20 @@ const { hasAccess } = useAuth();
                     </tr>
                 </TableBody>
             </Table>
+            <MobileTableContainer>
+                <MobileTableRow v-for="order in orders.data">
+                    <MobileTableHeading :title="order.order_number">
+                        <ShowButton
+                            v-if="hasAccess('view approved order for approval')"
+                            :isLink="true"
+                            :href="`/receiving-approvals/show/${order.order_number}`"
+                        />
+                    </MobileTableHeading>
+                    <LabelXS
+                        >Store Branch: {{ order.store_branch.name }}</LabelXS
+                    >
+                </MobileTableRow>
+            </MobileTableContainer>
             <Pagination :data="orders" />
         </TableContainer>
     </Layout>

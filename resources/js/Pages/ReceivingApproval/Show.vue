@@ -264,12 +264,52 @@ const approveImage = () => {
                     </tr>
                 </TableBody>
             </Table>
+
+            <MobileTableContainer>
+                <MobileTableRow v-for="item in items" :key="item.id">
+                    <DivFlexCenter class="justify-between">
+                        <DivFlexCenter class="gap-3">
+                            <Checkbox
+                                v-model="selectedItems"
+                                :value="item.id"
+                                :inputId="`item-${item.id}`"
+                            />
+                            <SpanBold class="text-xs">
+                                {{
+                                    `${item.store_order_item.product_inventory.name} (${item.store_order_item.product_inventory.inventory_code})`
+                                }}
+                            </SpanBold>
+                        </DivFlexCenter>
+
+                        <DivFlexCenter>
+                            <Button
+                                @click="approveReceivedItem(item.id)"
+                                variant="link"
+                                class="text-green-500 text-xs p-0 mr-3"
+                            >
+                                Approve
+                            </Button>
+                            <Button
+                                @click="openDeclineReceiveItemModal(item.id)"
+                                variant="link"
+                                class="text-red-500 text-xs p-0 mr-3"
+                            >
+                                Decline
+                            </Button>
+                        </DivFlexCenter>
+                    </DivFlexCenter>
+                    <LabelXS>Received: {{ item.quantity_received }}</LabelXS>
+                    <LabelXS>Status: {{ item.status.toUpperCase() }}</LabelXS>
+                </MobileTableRow>
+            </MobileTableContainer>
         </TableContainer>
 
         <Card class="p-5">
             <InputContainer class="col-span-4">
                 <LabelXS>Image Attachments: </LabelXS>
-                <DivFlexCenter class="gap-4">
+                <DivFlexCenter
+                    class="gap-4 overflow-auto overflow-x-auto scrollbar-thin scrollbar-track-gray-100 scrollbar-thumb-gray-300 hover:scrollbar-thumb-gray-400"
+                >
                     <div
                         v-for="image in images"
                         :key="image.id"
