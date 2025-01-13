@@ -136,6 +136,23 @@ const computeSoldItemsTotal = () => {
                         </tr>
                     </TableBody>
                 </Table>
+
+                <MobileTableContainer>
+                    <MobileTableRow v-for="item in itemsSold.data">
+                        <MobileTableHeading :title="item.menu.name">
+                            <ShowButton />
+                        </MobileTableHeading>
+                        <LabelXS>Quantity: {{ item.quantity }}</LabelXS>
+                        <LabelXS>Price: {{ item.menu.price }}</LabelXS>
+                        <LabelXS
+                            >Total Price:
+                            {{
+                                parseFloat(item.quantity * item.menu.price)
+                            }}</LabelXS
+                        >
+                    </MobileTableRow>
+                </MobileTableContainer>
+
                 <Pagination :data="itemsSold" />
             </TableContainer>
 
@@ -175,6 +192,20 @@ const computeSoldItemsTotal = () => {
                         </tr>
                     </TableBody>
                 </Table>
+
+                <MobileTableContainer>
+                    <MobileTableRow v-for="item in ingredients">
+                        <MobileTableHeading
+                            :title="`${item.name} (${item.inventory_code})`"
+                        >
+                            <ShowButton />
+                        </MobileTableHeading>
+                        <LabelXS
+                            >Quantity Used: {{ item.total_quantity }}</LabelXS
+                        >
+                        <LabelXS>UOM: {{ item.uom }}</LabelXS>
+                    </MobileTableRow>
+                </MobileTableContainer>
             </TableContainer>
         </DivFlexCol>
     </Layout>
