@@ -346,7 +346,7 @@ const deleteDeliveryReceiptNumber = (id) => {
 <template>
     <Layout heading="Order Details">
         <DivFlexCol class="gap-3">
-            <Card class="p-5 grid grid-cols-4 gap-5">
+            <Card class="p-5 grid sm:grid-cols-4 gap-5">
                 <InputContainer>
                     <LabelXS>Encoder: </LabelXS>
                     <SpanBold
@@ -394,7 +394,7 @@ const deleteDeliveryReceiptNumber = (id) => {
 
             <TableContainer>
                 <TableHeader>
-                    <SpanBold>Delivery Receipts</SpanBold>
+                    <SpanBold class="text-xs">Delivery Receipts</SpanBold>
                 </TableHeader>
                 <Table>
                     <TableHead>
@@ -435,11 +435,38 @@ const deleteDeliveryReceiptNumber = (id) => {
                         </tr>
                     </TableBody>
                 </Table>
+
+                <MobileTableContainer>
+                    <MobileTableRow
+                        v-for="receipt in order.delivery_receipts"
+                        :key="receipt.id"
+                    >
+                        <MobileTableHeading
+                            :title="`${receipt.delivery_receipt_number}`"
+                        >
+                            <EditButton
+                                @click="
+                                    editDeliveryReceiptNumber(
+                                        receipt.id,
+                                        receipt.delivery_receipt_number,
+                                        receipt.remarks
+                                    )
+                                "
+                            />
+                            <DeleteButton
+                                @click="deleteDeliveryReceiptNumber(receipt.id)"
+                            />
+                        </MobileTableHeading>
+                        <LabelXS
+                            >Remarks: {{ receipt.remarks ?? "N/a" }}</LabelXS
+                        >
+                    </MobileTableRow>
+                </MobileTableContainer>
             </TableContainer>
 
             <TableContainer>
                 <TableHeader>
-                    <SpanBold>Remarks</SpanBold>
+                    <SpanBold class="text-xs">Remarks</SpanBold>
                 </TableHeader>
                 <Table>
                     <TableHead>
@@ -464,12 +491,31 @@ const deleteDeliveryReceiptNumber = (id) => {
                         </tr>
                     </TableBody>
                 </Table>
+
+                <MobileTableContainer>
+                    <MobileTableRow
+                        v-for="remarks in order.store_order_remarks"
+                        :key="remarks.id"
+                    >
+                        <MobileTableHeading
+                            :title="`${remarks.action.toUpperCase()}`"
+                        >
+                            <ShowButton />
+                        </MobileTableHeading>
+                        <LabelXS>Remarks: {{ remarks.remarks }}</LabelXS>
+                    </MobileTableRow>
+                    <SpanBold v-if="order.store_order_remarks.length < 1"
+                        >None</SpanBold
+                    >
+                </MobileTableContainer>
             </TableContainer>
 
             <Card class="p-5">
                 <InputContainer class="col-span-4">
                     <LabelXS>Image Attachments: </LabelXS>
-                    <DivFlexCenter class="gap-4">
+                    <DivFlexCenter
+                        class="gap-4 overflow-auto overflow-x-auto scrollbar-thin scrollbar-track-gray-100 scrollbar-thumb-gray-300 hover:scrollbar-thumb-gray-400"
+                    >
                         <div
                             v-for="image in images"
                             :key="image.id"
@@ -497,10 +543,16 @@ const deleteDeliveryReceiptNumber = (id) => {
 
             <TableContainer class="col-span-2 min-w-fit">
                 <DivFlexCenter class="justify-between">
-                    <SpanBold>Ordered Items</SpanBold>
+                    <SpanBold class="text-xs">Ordered Items</SpanBold>
                     <DivFlexCenter class="gap-3">
-                        <Button @click="openImageModal">Attach Image</Button>
-                        <Button @click="showDeliveryReceiptForm = true"
+                        <Button
+                            class="text-xs px-2 sm:px-4"
+                            @click="openImageModal"
+                            >Attach Image</Button
+                        >
+                        <Button
+                            class="text-xs px-2 sm:px-4"
+                            @click="showDeliveryReceiptForm = true"
                             >Add Delivery Number</Button
                         >
                     </DivFlexCenter>
@@ -593,6 +645,39 @@ const deleteDeliveryReceiptNumber = (id) => {
                         </tr>
                     </TableBody>
                 </Table>
+
+                <MobileTableContainer>
+                    <MobileTableRow
+                        v-for="history in receiveDatesHistory"
+                        :key="history.id"
+                    >
+                        <MobileTableHeading
+                            :title="`${history.store_order_item.product_inventory.name} (${history.store_order_item.product_inventory.inventory_code})`"
+                        >
+                            <ShowButton
+                                class="size-5 gap mr-0"
+                                @click="openViewModalForm(history.id)"
+                            />
+                            <EditButton
+                                class="size-5 gap mr-1"
+                                v-if="history.status === 'pending'"
+                                @click="openEditModalForm(history.id)"
+                            />
+                            <DeleteButton
+                                class="size-5 gap mr-1"
+                                v-if="history.status === 'pending'"
+                                @click="deleteReceiveDate(history.id)"
+                            />
+                        </MobileTableHeading>
+                        <LabelXS
+                            >Received: {{ history.quantity_received }}</LabelXS
+                        >
+                        <LabelXS
+                            >Status: {{ history.status.toUpperCase() }}</LabelXS
+                        >
+                        <SpanBold v-if="history.length < 1">None</SpanBold>
+                    </MobileTableRow>
+                </MobileTableContainer>
             </TableContainer>
         </DivFlexCol>
         <!-- Dleivery receipt form -->

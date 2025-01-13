@@ -73,7 +73,8 @@ const { hasAccess } = useAuth();
                             >
                         </TD>
                         <TD>
-                            <Button v-if="hasAccess('view approved order')"
+                            <Button
+                                v-if="hasAccess('view approved order')"
                                 variant="outline"
                                 @click="viewDetails(order.order_number)"
                             >
@@ -84,6 +85,21 @@ const { hasAccess } = useAuth();
                 </TableBody>
             </Table>
 
+            <MobileTableContainer>
+                <MobileTableRow v-for="order in orders.data">
+                    <MobileTableHeading :title="order.order_number">
+                        <ShowButton
+                            v-if="hasAccess('view approved order')"
+                            @click="viewDetails(order.order_number)"
+                        />
+                    </MobileTableHeading>
+                    <LabelXS
+                        >Receiving Status:
+                        {{ order.order_status.toUpperCase() }}</LabelXS
+                    >
+                    <LabelXS>Order Date: {{ order.order_date }}</LabelXS>
+                </MobileTableRow>
+            </MobileTableContainer>
             <Pagination :data="orders" />
         </TableContainer>
     </Layout>

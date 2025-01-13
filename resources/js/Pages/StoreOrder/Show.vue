@@ -292,7 +292,7 @@ const enlargeImage = (image) => {
                         </MobileTableHeading>
                         <LabelXS>Remarks: {{ remarks.remarks }}</LabelXS>
                     </MobileTableRow>
-                    <SpanBold v-if="order.delivery_receipts.length < 1"
+                    <SpanBold v-if="order.store_order_remarks.length < 1"
                         >None</SpanBold
                     >
                 </MobileTableContainer>
