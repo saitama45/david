@@ -102,7 +102,15 @@ const createNewStoreBranch = () => {
                     </tr>
                 </TableBody>
             </Table>
-
+            <MobileTableContainer>
+                <MobileTableRow v-for="branch in data.data">
+                    <MobileTableHeading :title="branch.name">
+                        <ShowButton @click="viewDetails(branch.id)" />
+                        <EditButton @click="editCategoryDetails(branch.id)" />
+                    </MobileTableHeading>
+                    <LabelXS>{{ branch.branch_code }}</LabelXS>
+                </MobileTableRow>
+            </MobileTableContainer>
             <Pagination :data="data" />
         </TableContainer>
 

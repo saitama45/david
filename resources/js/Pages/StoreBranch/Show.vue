@@ -12,7 +12,7 @@ const { backButton } = useBackButton(route("store-branches.index"));
 
 <template>
     <Layout heading="Store Branch Details">
-        <Card class="grid grid-cols-2 p-10 gap-5">
+        <Card class="sm:grid sm:grid-cols-2 p-10 gap-5">
             <InputContainer>
                 <InfolistLabel>Name</InfolistLabel>
                 <SpanBold>{{ branch.name }}</SpanBold>

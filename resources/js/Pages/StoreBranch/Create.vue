@@ -16,7 +16,7 @@ const form = useForm({
     aom: "",
     point_of_contact: "",
     contact_number: "",
-    is_active: 1, 
+    is_active: 1,
 });
 
 const store = () => {
@@ -40,9 +40,9 @@ const store = () => {
                     Please input all the required fields
                 </CardDescription>
             </CardHeader>
-            <CardContent class="grid grid-cols-2 gap-5">
+            <CardContent class="grid sm:grid-cols-2 gap-5">
                 <InputContainer>
-                    <Label>Branch Code</Label>
+                    <LabelXS>Branch Code</LabelXS>
                     <Input
                         v-model="form.branch_code"
                         placeholder="Enter branch code"
@@ -52,7 +52,7 @@ const store = () => {
                     </FormError>
                 </InputContainer>
                 <InputContainer>
-                    <Label>Name</Label>
+                    <LabelXS>Name</LabelXS>
                     <Input
                         v-model="form.name"
                         placeholder="Enter branch name"
@@ -62,7 +62,7 @@ const store = () => {
                     </FormError>
                 </InputContainer>
                 <InputContainer>
-                    <Label>Brand Name</Label>
+                    <LabelXS>Brand Name</LabelXS>
                     <Input
                         v-model="form.brand_name"
                         placeholder="Enter brand name"
@@ -72,7 +72,7 @@ const store = () => {
                     </FormError>
                 </InputContainer>
                 <InputContainer>
-                    <Label>Brand Code</Label>
+                    <LabelXS>Brand Code</LabelXS>
                     <Input
                         v-model="form.brand_code"
                         placeholder="Enter brand code"
@@ -82,7 +82,7 @@ const store = () => {
                     </FormError>
                 </InputContainer>
                 <InputContainer>
-                    <Label>Store Status</Label>
+                    <LabelXS>Store Status</LabelXS>
                     <Input
                         v-model="form.store_status"
                         placeholder="Enter store status"
@@ -92,14 +92,14 @@ const store = () => {
                     </FormError>
                 </InputContainer>
                 <InputContainer>
-                    <Label>TIN</Label>
+                    <LabelXS>TIN</LabelXS>
                     <Input v-model="form.tin" placeholder="Enter TIN" />
                     <FormError v-if="form.errors.tin">
                         {{ form.errors.tin }}
                     </FormError>
                 </InputContainer>
                 <InputContainer>
-                    <Label>Complete Address</Label>
+                    <LabelXS>Complete Address</LabelXS>
                     <Input
                         v-model="form.complete_address"
                         placeholder="Enter complete address"
@@ -109,7 +109,7 @@ const store = () => {
                     </FormError>
                 </InputContainer>
                 <InputContainer>
-                    <Label>Head Chef Email</Label>
+                    <LabelXS>Head Chef Email</LabelXS>
                     <Input
                         v-model="form.head_chef"
                         placeholder="Enter head chef email"
@@ -120,7 +120,7 @@ const store = () => {
                     </FormError>
                 </InputContainer>
                 <InputContainer>
-                    <Label>Director of Operations Email</Label>
+                    <LabelXS>Director of Operations Email</LabelXS>
                     <Input
                         v-model="form.director_operations"
                         placeholder="Enter director of operations"
@@ -131,7 +131,7 @@ const store = () => {
                     </FormError>
                 </InputContainer>
                 <InputContainer>
-                    <Label>VP of Operations Email</Label>
+                    <LabelXS>VP of Operations Email</LabelXS>
                     <Input
                         v-model="form.vp_operations"
                         placeholder="Enter VP of operations"
@@ -142,7 +142,7 @@ const store = () => {
                     </FormError>
                 </InputContainer>
                 <InputContainer>
-                    <Label>Store Representative</Label>
+                    <LabelXS>Store Representative</LabelXS>
                     <Input
                         v-model="form.store_representative"
                         placeholder="Enter store representative"
@@ -153,7 +153,7 @@ const store = () => {
                     </FormError>
                 </InputContainer>
                 <InputContainer>
-                    <Label>AOM Email</Label>
+                    <LabelXS>AOM Email</LabelXS>
                     <Input
                         v-model="form.aom"
                         placeholder="Enter AOM"
@@ -164,7 +164,7 @@ const store = () => {
                     </FormError>
                 </InputContainer>
                 <InputContainer>
-                    <Label>Point of Contact</Label>
+                    <LabelXS>Point of Contact</LabelXS>
                     <Input
                         v-model="form.point_of_contact"
                         placeholder="Enter point of contact"
@@ -174,7 +174,7 @@ const store = () => {
                     </FormError>
                 </InputContainer>
                 <InputContainer>
-                    <Label>Contact Number</Label>
+                    <LabelXS>Contact Number</LabelXS>
                     <Input
                         v-model="form.contact_number"
                         placeholder="Enter contact number"
@@ -184,7 +184,7 @@ const store = () => {
                     </FormError>
                 </InputContainer>
                 <InputContainer>
-                    <Label>Active Status</Label>
+                    <LabelXS>Active Status</LabelXS>
                     <Select v-model="form.is_active">
                         <option value="1">Active</option>
                         <option value="0">Inactive</option>
@@ -194,7 +194,8 @@ const store = () => {
                     </FormError>
                 </InputContainer>
             </CardContent>
-            <CardFooter class="flex justify-end">
+            <CardFooter class="flex justify-end gap-3">
+                <BackButton />
                 <Button @click="store">Create</Button>
             </CardFooter>
         </Card>
