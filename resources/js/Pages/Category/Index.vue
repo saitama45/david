@@ -3,10 +3,6 @@ import { useForm, router } from "@inertiajs/vue3";
 
 import { useSearch } from "@/Composables/useSearch";
 
-import { useToast } from "@/Composables/useToast";
-
-const { toast } = useToast();
-
 const isEditModalVisible = ref(false);
 
 const isLoading = ref(false);
@@ -55,6 +51,9 @@ const editCategoryDetails = (id) => {
 import { useReferenceStore } from "@/Composables/useReferenceStore";
 const { isCreateModalVisible, openCreateModal, store } = useReferenceStore();
 
+import { useToast } from "@/Composables/useToast";
+
+const { toast } = useToast();
 import { useConfirm } from "primevue/useconfirm";
 const confirm = useConfirm();
 const deleteModel = (id) => {

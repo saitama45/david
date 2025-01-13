@@ -38,6 +38,20 @@ class InvetoryCategoryController extends Controller
         return to_route('categories.index');
     }
 
+    public function destroy($id)
+    {
+        $category = InventoryCategory::with('product_inventories')->findOrFail($id);
+
+        if ($category->product_inventories->count() > 0) {
+            return back()->withErrors([
+                'message' => "Can't delete this inventory category because there are products associated with it."
+            ]);
+        }
+
+        $category->delete();
+        return to_route('inventory-categories.index');
+    }
+
     protected function getModel()
     {
         return InventoryCategory::class;

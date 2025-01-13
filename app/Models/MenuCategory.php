@@ -18,7 +18,7 @@ class MenuCategory extends Model
 
     public function menus()
     {
-        return $this->hasMany(Menu::class);
+        return $this->hasMany(Menu::class, 'category_id');
     }
 
     public function scopeOptions(Builder $query)

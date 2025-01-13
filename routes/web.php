@@ -247,12 +247,14 @@ Route::middleware('auth')
                 Route::get('/show/{id}', 'show')->name('show');
                 Route::get('/edit/{id}', 'edit')->name('edit');
                 Route::post('/update/{id}', 'update')->name('update');
+                Route::delete('/destroy/{id}', 'destroy')->name('destroy');
             });
 
             Route::controller(InvetoryCategoryController::class)->prefix('inventory-categories')->name('inventory-categories.')->group(function () {
                 Route::get('/', 'index')->name('index');
                 Route::post('/update/{id}', 'update')->name('update');
                 Route::post('/store', 'store')->name('store');
+                Route::delete('/destroy/{id}', 'destroy')->name('destroy');
             });
 
             Route::controller(StoreBranchController::class)->name('store-branches.')->prefix('store-branches')->group(function () {

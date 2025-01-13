@@ -37,6 +37,20 @@ class MenuCategoryController extends Controller
         return to_route('menu-categories.index');
     }
 
+    public function destroy($id)
+    {
+        $category = MenuCategory::with('menus')->findOrFail($id);
+
+        if ($category->menus->count() > 0) {
+            return back()->withErrors([
+                'message' => "Can't delete this menu category because there are menus associated with it."
+            ]);
+        }
+
+        $category->delete();
+        return to_route('menu-categories.index');
+    }
+
 
 
     protected function getModel()

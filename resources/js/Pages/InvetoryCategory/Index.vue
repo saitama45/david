@@ -2,6 +2,7 @@
 import { useForm } from "@inertiajs/vue3";
 import { useToast } from "primevue/usetoast";
 import { useSearch } from "@/Composables/useSearch";
+import { useReferenceDelete } from "@/Composables/useReferenceDelete";
 
 const isEditModalVisible = ref(false);
 
@@ -57,6 +58,8 @@ watch(isEditModalVisible, (value) => {
         form.clearErrors();
     }
 });
+
+const { deleteModel } = useReferenceDelete();
 </script>
 
 <template>
@@ -90,12 +93,20 @@ watch(isEditModalVisible, (value) => {
                         <TD>{{ category.name }}</TD>
                         <TD>{{ category.remarks ?? "N/a" }}</TD>
                         <TD>
-                            <button
+                            <EditButton
                                 @click="editCategoryDetails(category.id)"
-                                class="text-blue-500"
-                            >
-                                <Pencil class="size-5" />
-                            </button>
+                            />
+                            <DeleteButton
+                                @click="
+                                    deleteModel(
+                                        route(
+                                            'inventory-categories.destroy',
+                                            category.id
+                                        ),
+                                        'Menu Category'
+                                    )
+                                "
+                            />
                         </TD>
                     </tr>
                 </TableBody>
