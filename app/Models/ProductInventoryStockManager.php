@@ -19,7 +19,7 @@ class ProductInventoryStockManager extends Model
     ];
 
     protected $casts = [
-        'created_at' => 'date:F d, Y h:i a',
+        // 'created_at' => 'date:F d, Y h:i a',
     ];
 
     public function product()
