@@ -50,6 +50,13 @@ const editCategoryDetails = (id) => {
 
 import { useReferenceStore } from "@/Composables/useReferenceStore";
 const { isCreateModalVisible, openCreateModal, store } = useReferenceStore();
+
+watch(isEditModalVisible, (value) => {
+    if (!value) {
+        form.reset();
+        form.clearErrors();
+    }
+});
 </script>
 
 <template>
@@ -90,6 +97,15 @@ const { isCreateModalVisible, openCreateModal, store } = useReferenceStore();
                     </tr>
                 </TableBody>
             </Table>
+
+            <MobileTableContainer>
+                <MobileTableRow v-for="category in categories.data">
+                    <MobileTableHeading :title="category.name">
+                        <EditButton @click="editCategoryDetails(category.id)" />
+                    </MobileTableHeading>
+                    <LabelXS>Remarks: {{ category.remarks ?? "N/a" }}</LabelXS>
+                </MobileTableRow>
+            </MobileTableContainer>
 
             <Pagination :data="categories" />
         </TableContainer>
