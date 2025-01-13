@@ -41,7 +41,6 @@ const cancelApproveStatus = () => {
         },
     });
 };
-
 </script>
 
 <template>
@@ -82,6 +81,29 @@ const cancelApproveStatus = () => {
                     </tr>
                 </TableBody>
             </Table>
+
+            <MobileTableContainer>
+                <MobileTableRow v-for="item in items.data" :key="item.id">
+                    <MobileTableHeading
+                        :title="`${item.store_order_item.product_inventory.name} (${item.store_order_item.product_inventory.inventory_code})`"
+                        class="gap-3"
+                    >
+                        <Button
+                            @click="openCancelModal(item.id)"
+                            variant="link"
+                            class="text-yellow-500 p-0 text-xs"
+                        >
+                            Cancel Approve Status
+                        </Button>
+                    </MobileTableHeading>
+                    <LabelXS>Status: {{ item.status }}</LabelXS>
+                    <LabelXS
+                        >Quantity Received:
+                        {{ item.quantity_received }}</LabelXS
+                    >
+                    <LabelXS>Received Date: {{ item.received_date }}</LabelXS>
+                </MobileTableRow>
+            </MobileTableContainer>
             <Pagination :data="items" />
         </TableContainer>
         <Button variant="outline" class="text-lg px-7" @click="backButton">
