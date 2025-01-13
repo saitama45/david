@@ -239,8 +239,8 @@ const addQuantityApproved = (id) => {
 <template>
     <Layout heading="Order Details">
         <TableContainer>
-            <DivFlexCenter class="justify-between">
-                <DivFlexCenter class="gap-5">
+            <section class="flex flex-col gap-5">
+                <section class="sm:flex-row flex flex-col gap-5">
                     <span class="text-gray-700 text-sm">
                         Order Number:
                         <span class="font-bold"> {{ order.order_number }}</span>
@@ -261,7 +261,7 @@ const addQuantityApproved = (id) => {
                             {{ order.order_request_status.toUpperCase() }}
                         </Badge>
                     </span>
-                </DivFlexCenter>
+                </section>
 
                 <DivFlexCenter class="gap-5">
                     <!-- <Button
@@ -292,7 +292,7 @@ const addQuantityApproved = (id) => {
                         Approve Order
                     </Button>
                 </DivFlexCenter>
-            </DivFlexCenter>
+            </section>
 
             <TableHeader>
                 <!-- <SearchBar /> -->
@@ -349,6 +349,39 @@ const addQuantityApproved = (id) => {
                     </tr>
                 </TableBody>
             </Table>
+
+            <MobileTableContainer>
+                <MobileTableRow v-for="item in orderedItems" :key="order.id">
+                    <MobileTableHeading
+                        :title="`${item.product_inventory.name} (${item.product_inventory.inventory_code})`"
+                    >
+                        <DivFlexCenter
+                            class="gap-2"
+                            v-if="order.order_request_status === 'pending'"
+                        >
+                            <button @click="lessQuantityApproved(item.id)">
+                                <Minus class="size-4 text-red-500" />
+                            </button>
+                            <button @click="addQuantityApproved(item.id)">
+                                <Plus class="size-4 text-green-500" />
+                            </button>
+                        </DivFlexCenter>
+                    </MobileTableHeading>
+                    <LabelXS
+                        >UOM:
+                        {{
+                            item.product_inventory.unit_of_measurement.name
+                        }}</LabelXS
+                    >
+                    <LabelXS
+                        >Quantity:
+                        {{
+                            itemsDetail.find((data) => data.id === item.id)
+                                ?.quantity_approved || 0
+                        }}</LabelXS
+                    >
+                </MobileTableRow>
+            </MobileTableContainer>
         </TableContainer>
 
         <Button variant="outline" class="text-lg px-7" @click="backButton">

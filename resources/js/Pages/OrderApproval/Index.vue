@@ -141,43 +141,41 @@ const { hasAccess } = useAuth();
 </script>
 <template>
     <Layout heading="Orders For Approval List">
-        <DivFlexCenter
-            class="gap-2 w-fit mx-auto px-5 py-2 bg-white rounded-lg shadow-lg"
-        >
+        <FilterTab>
             <Button
-                class="px-10 bg-white/10 text-gray-800 hover:text-white gap-3"
+                class="sm:px-10 px-3 bg-white/10 text-gray-800 hover:text-white gap-5 sm:text-sm text-xs"
                 :class="isFilterActive('pending')"
                 @click="changeFilter('pending')"
                 >PENDING
                 <Badge
-                    class="border border-gray bg-transparent text-gray-900"
+                    class="sm:flex hidden border border-gray bg-transparent text-gray-900 px-2"
                     :class="isFilterActive('pending')"
                     >{{ counts.pending }}</Badge
                 >
             </Button>
             <Button
-                class="px-10 bg-white/10 text-gray-800 hover:text-white gap-5"
+                class="sm:px-10 px-3 bg-white/10 text-gray-800 hover:text-white gap-5 sm:text-sm text-xs"
                 :class="isFilterActive('approved')"
                 @click="changeFilter('approved')"
                 >APPROVED
                 <Badge
-                    class="border border-gray bg-transparent text-gray-900"
+                    class="sm:flex hidden border border-gray bg-transparent text-gray-900 px-2"
                     :class="isFilterActive('approved')"
                     >{{ counts.approved }}</Badge
                 ></Button
             >
             <Button
-                class="px-10 bg-white/10 text-gray-800 hover:text-white gap-5"
+                class="sm:px-10 px-3 bg-white/10 text-gray-800 hover:text-white gap-5 sm:text-sm text-xs"
                 :class="isFilterActive('rejected')"
                 @click="changeFilter('rejected')"
                 >REJECTED
                 <Badge
-                    class="border border-gray bg-transparent text-gray-900"
+                    class="sm:flex hidden border border-gray bg-transparent text-gray-900 px-2"
                     :class="isFilterActive('rejected')"
                     >{{ counts.rejected }}</Badge
                 ></Button
             >
-        </DivFlexCenter>
+        </FilterTab>
         <TableContainer>
             <TableHeader>
                 <SearchBar>
@@ -257,9 +255,23 @@ const { hasAccess } = useAuth();
                                 </PopoverContent>
                             </Popover> -->
                         </TD>
-                    </tr></TableBody
-                >
+                    </tr>
+                </TableBody>
             </Table>
+            <MobileTableContainer>
+                <MobileTableRow v-for="order in orders.data">
+                    <MobileTableHeading :title="order.order_number">
+                        <ShowButton
+                            v-if="hasAccess('view order for approval')"
+                            @click="showOrderDetails(order.order_number)"
+                        />
+                    </MobileTableHeading>
+                    <LabelXS
+                        >Order Status: {{ order.order_request_status }}</LabelXS
+                    >
+                    <LabelXS>Order Date: {{ order.order_date }}</LabelXS>
+                </MobileTableRow>
+            </MobileTableContainer>
             <Pagination :data="orders" />
         </TableContainer>
     </Layout>
