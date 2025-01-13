@@ -56,7 +56,7 @@ import { useReferenceStore } from "@/Composables/useReferenceStore";
 const { isCreateModalVisible, openCreateModal, store } = useReferenceStore();
 
 import { useConfirm } from "primevue/useconfirm";
-const confirm = useConfirm(); 
+const confirm = useConfirm();
 const deleteModel = (id) => {
     confirm.require({
         message: "Are you sure you want to delete this product category?",
@@ -97,6 +97,13 @@ const deleteModel = (id) => {
         },
     });
 };
+
+watch(isEditModalVisible, (value) => {
+    if (!value) {
+        form.reset();
+        form.clearErrors();
+    }
+});
 </script>
 
 <template>
@@ -138,6 +145,15 @@ const deleteModel = (id) => {
                     </tr>
                 </TableBody>
             </Table>
+
+            <MobileTableContainer>
+                <MobileTableRow v-for="category in categories.data">
+                    <MobileTableHeading :title="category.name">
+                        <EditButton @click="editCategoryDetails(category.id)" />
+                    </MobileTableHeading>
+                    <LabelXS>Remarks: {{ category.remarks ?? "N/a" }}</LabelXS>
+                </MobileTableRow>
+            </MobileTableContainer>
 
             <Pagination :data="categories" />
         </TableContainer>
