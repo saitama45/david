@@ -189,10 +189,24 @@ const store = () => {
         },
     });
 };
+
+const excelFileForm = useForm({
+    orders_file: null,
+});
+const isImportMenuModalOpen = ref(false);
+const openImportMenuModal = () => {
+    isImportMenuModalOpen.value = true;
+};
+const importMenu = () => {};
 </script>
 
 <template>
-    <Layout heading="Create New Menu">
+    <Layout
+        heading="Create New Menu"
+        :hasButton="true"
+        buttonName="Import Menu"
+        :handleClick="openImportMenuModal"
+    >
         <Card class="grid grid-cols-3 gap-5 p-5">
             <DivFlexCol class="gap-5">
                 <Card>
@@ -330,5 +344,31 @@ const store = () => {
                 </DivFlexCenter>
             </TableContainer>
         </Card>
+
+        <Dialog v-model:open="isImportMenuModalOpen">
+            <DialogContent class="sm:max-w-[600px]">
+                <DialogHeader>
+                    <DialogTitle>Import Menu List</DialogTitle>
+                    <DialogDescription>
+                        Import the excel file here.
+                    </DialogDescription>
+                </DialogHeader>
+                <InputContainer>
+                    <LabelXS> Menu List </LabelXS>
+                </InputContainer>
+                <Input
+                    :disabled="isLoading"
+                    type="file"
+                    @input="excelFileForm.orders_file = $event.target.files[0]"
+                />
+                <FormError>{{ excelFileForm.errors.orders_file }}</FormError>
+                <DialogFooter>
+                    <Button @click="importMenu" class="gap-2">
+                        Proceed
+                        <span v-if="isLoading"><Loading /></span>
+                    </Button>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
     </Layout>
 </template>
