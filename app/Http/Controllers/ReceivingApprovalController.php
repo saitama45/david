@@ -9,6 +9,7 @@ use App\Models\ProductInventoryStock;
 use App\Models\ProductInventoryStockManager;
 use App\Models\StoreOrder;
 use App\Models\User;
+use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -129,7 +130,7 @@ class ReceivingApprovalController extends Controller
 
     public function extracted($data): void
     {
-        $data->update(['status' => 'approved', 'approval_action_by' => Auth::user()->id]);
+        $data->update(['status' => 'approved', 'approval_action_by' => Auth::user()->id, 'received_date' => Carbon::today()->toDateTimeString()]);
         $item = $data->store_order_item->product_inventory;
 
         $storeOrder = $data->store_order_item->store_order;
