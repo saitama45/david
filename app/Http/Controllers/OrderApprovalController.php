@@ -76,6 +76,11 @@ class OrderApprovalController extends Controller
                 'total_cost' => $item['total_cost'],
                 'quantity_approved' => $item['quantity_approved'],
             ]);
+
+            $orderedItem->ordered_item_receive_dates()->create([
+                'received_by_user_id' => $storeOrder->encoder_id,
+                'quantity_received' => $item['quantity_approved'],
+            ]);
         }
         if (!empty($validated['remarks'])) {
             $storeOrder->store_order_remarks()->create([

@@ -17,8 +17,8 @@ return new class extends Migration
             $table->foreignId('received_by_user_id')->constrained('users');
             $table->foreignId('approval_action_by')->nullable()->constrained('users');
             $table->integer('quantity_received');
-            $table->dateTime('received_date');
-            $table->date('expiry_date');
+            $table->dateTime('received_date')->nullable();
+            $table->date('expiry_date')->nullable();
             $table->text('remarks')->nullable();
             $table->string('status')->default('pending');
             $table->timestamps();
