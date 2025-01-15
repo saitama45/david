@@ -2,7 +2,11 @@
 import { useSearch } from "@/Composables/useSearch";
 const { search } = useSearch("fruits-and-vegetables.index");
 import { router } from "@inertiajs/vue3";
-const { items, datesOption, filters } = defineProps({
+
+import { useSelectOptions } from "@/Composables/useSelectOptions";
+import { filter } from "lodash";
+
+const { items, datesOption, filters, branches } = defineProps({
     items: {
         type: Object,
         required: true,
@@ -15,7 +19,12 @@ const { items, datesOption, filters } = defineProps({
         type: Object,
         required: true,
     },
+    branches: {
+        type: Object,
+        rquired: true,
+    },
 });
+const { options: branchesOption } = useSelectOptions(branches);
 
 const getDefaultSelectedDate = () => {
     if (!datesOption || !Array.isArray(datesOption) || datesOption.length < 2) {
@@ -26,7 +35,7 @@ const getDefaultSelectedDate = () => {
 
 const defaultSelectedDate = getDefaultSelectedDate();
 const selectedDate = ref(filters.start_date_filter || defaultSelectedDate);
-
+const branchId = ref(filters.branchId || null);
 watch(selectedDate, function (value) {
     console.log(value);
     router.get(
@@ -38,6 +47,19 @@ watch(selectedDate, function (value) {
         }
     );
 });
+
+watch(branchId, (value) => {
+    console.log(value);
+    router.get(
+        route("fruits-and-vegetables.index"),
+        { branchId: value, start_date_filter: selectedDate.value },
+        {
+            preserveState: false,
+            replace: true,
+        }
+    );
+});
+
 </script>
 
 <template>
@@ -52,14 +74,24 @@ watch(selectedDate, function (value) {
                     />
                 </SearchBar>
 
-                <Select
-                    v-model="selectedDate"
-                    :options="datesOption"
-                    placeholder="No Available Options"
-                    class="min-w-96 w-fit"
-                    optionLabel="name"
-                    optionValue="code"
-                />
+                <DivFlexCenter class="gap-3">
+                    <Select
+                        filter
+                        optionLabel="label"
+                        optionValue="value"
+                        :options="branchesOption"
+                        placeholder="Select a Branch"
+                        v-model="branchId"
+                    />
+                    <Select
+                        v-model="selectedDate"
+                        :options="datesOption"
+                        placeholder="No Available Options"
+                        class="min-w-96 w-fit"
+                        optionLabel="name"
+                        optionValue="code"
+                    />
+                </DivFlexCenter>
             </TableHeader>
             <Table>
                 <TableHead>
@@ -93,5 +125,6 @@ watch(selectedDate, function (value) {
             </Table>
             <Pagination :data="items" />
         </TableContainer>
+ 
     </Layout>
 </template>

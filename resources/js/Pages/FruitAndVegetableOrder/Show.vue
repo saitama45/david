@@ -63,6 +63,8 @@ const getDefaultSelectedDate = () => {
 
 const defaultSelectedDate = getDefaultSelectedDate();
 const selectedDate = ref(filters.start_date_filter || defaultSelectedDate);
+const branchId = ref(filters.branchId || defaultSelectedDate);
+console.log(filters);
 
 const days = [
     { name: "Monday", orders: mondayOrders },
@@ -87,7 +89,7 @@ watch(selectedDate, function (value) {
 </script>
 
 <template>
-    <Layout :heading="`Orders Per Store Branch`">
+    <Layout :heading="`Orders Summary`">
         <TableContainer>
             <TableHeader>
                 <Select
@@ -136,5 +138,6 @@ watch(selectedDate, function (value) {
                 </TableContainer>
             </DivFlexCol>
         </TableContainer>
+        <BackButton />
     </Layout>
 </template>

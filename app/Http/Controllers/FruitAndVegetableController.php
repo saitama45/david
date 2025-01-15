@@ -18,13 +18,21 @@ class FruitAndVegetableController extends Controller
     public function index()
     {
         $search = request('search');
+        $branchId = request('branchId');
         $start_date_filter = request('start_date_filter');
         $startDate = $start_date_filter ? Carbon::parse($start_date_filter) : Carbon::now()->startOfWeek();
+        $branches = StoreBranch::options();
 
         if ($start_date_filter) {
             session(['fruit_veg_start_date' => $start_date_filter]);
         } else {
             session()->forget('fruit_veg_start_date');
+        }
+
+        if ($branchId) {
+            session(['fruit_veg_branchId' => $branchId]);
+        } else {
+            session()->forget('fruit_veg_branchId');
         }
 
         $inventoryIds = ProductInventory::where('inventory_category_id', 6)
@@ -48,8 +56,13 @@ class FruitAndVegetableController extends Controller
             ->whereBetween('order_date', [reset($dates), end($dates)])
             ->whereHas('store_order_items.product_inventory', function ($query) {
                 $query->where('inventory_category_id', 6);
-            })
-            ->get();
+            });
+
+        if ($branchId) {
+            $storeOrders->where('store_branch_id', $branchId);
+        }
+
+        $storeOrders = $storeOrders->get();
 
 
         $query = ProductInventory::query();
@@ -84,9 +97,10 @@ class FruitAndVegetableController extends Controller
             });
 
         return Inertia::render('FruitAndVegetableOrder/Index', [
-            'filters' => request()->only(['start_date_filter', 'search']),
+            'filters' => request()->only(['start_date_filter', 'search', 'branchId']),
             'items' => $formattedProducts,
-            'datesOption' => $datesOption
+            'datesOption' => $datesOption,
+            'branches' => $branches
         ]);
     }
 
@@ -94,7 +108,7 @@ class FruitAndVegetableController extends Controller
     public function show($id)
     {
         $start_date_filter = request('start_date_filter');
-
+        $branchId = request('branchId');
         $datesOption = $this->generateDateOptions([$id]);
 
         $startDate = $start_date_filter
@@ -103,6 +117,11 @@ class FruitAndVegetableController extends Controller
                 ? Carbon::parse(session('fruit_veg_start_date'))
                 : Carbon::now()->startOfWeek());
 
+        $branchId = $branchId ? $branchId : (session('fruit_veg_branchId')
+            ? session('fruit_veg_branchId')
+            : null);
+
+
         $monday = $startDate->toDateString();
         $tuesday = $startDate->copy()->addDays(1)->toDateString();
         $wednesday = $startDate->copy()->addDays(2)->toDateString();
@@ -110,13 +129,12 @@ class FruitAndVegetableController extends Controller
         $friday = $startDate->copy()->addDays(4)->toDateString();
         $saturday = $startDate->copy()->addDays(5)->toDateString();
 
-        $mondayOrders = $this->getOrders($this->getBranchesId(1), $monday, $id);
-
-        $tuesdayOrders =  $this->getOrders($this->getBranchesId(2), $tuesday, $id);
-        $wednesdayOrders =  $this->getOrders($this->getBranchesId(3), $wednesday, $id);
-        $thursdayOrders =  $this->getOrders($this->getBranchesId(4), $thursday, $id);
-        $fridayOrders =  $this->getOrders($this->getBranchesId(5), $friday, $id);
-        $saturdayOrders =  $this->getOrders($this->getBranchesId(6), $saturday, $id);
+        $mondayOrders = $this->getOrders($this->getBranchesId(1), $monday, $id, $branchId);
+        $tuesdayOrders = $this->getOrders($this->getBranchesId(2), $tuesday, $id, $branchId);
+        $wednesdayOrders = $this->getOrders($this->getBranchesId(3), $wednesday, $id, $branchId);
+        $thursdayOrders = $this->getOrders($this->getBranchesId(4), $thursday, $id, $branchId);
+        $fridayOrders = $this->getOrders($this->getBranchesId(5), $friday, $id, $branchId);
+        $saturdayOrders = $this->getOrders($this->getBranchesId(6), $saturday, $id, $branchId);
 
         return Inertia::render('FruitAndVegetableOrder/Show', [
             'mondayOrders' => $mondayOrders,
@@ -126,7 +144,7 @@ class FruitAndVegetableController extends Controller
             'fridayOrders' => $fridayOrders,
             'saturdayOrders' => $saturdayOrders,
             'datesOption' => $datesOption,
-            'filters' => request()->only(['start_date_filter']),
+            'filters' => request()->only(['start_date_filter', 'branchId']),
             'inventory_code' => $id,
             'currentFilter' => session('fruit_veg_start_date')
         ]);
@@ -178,19 +196,23 @@ class FruitAndVegetableController extends Controller
             ->pluck('id');
     }
 
-    public function getOrders($branchesId, $day, $id)
+    public function getOrders($branchesId, $day, $id, $branchId = null)
     {
-        return StoreOrder::with([
+        $query = StoreOrder::with([
             'store_branch',
             'store_order_items',
             'store_order_items.product_inventory'
         ])
-            // ->whereIn('store_branch_id', $branchesId)
             ->where('order_date', $day)
             ->whereHas('store_order_items.product_inventory', function ($query) use ($id) {
                 $query->where('inventory_code', $id);
-            })
-            ->get()
+            });
+
+        if ($branchId) {
+            $query->where('store_branch_id', $branchId);
+        }
+
+        return $query->get()
             ->flatMap(function ($order) use ($id) {
                 return $order->store_order_items->map(function ($item) use ($order, $id) {
                     if ($id === $item->product_inventory->inventory_code) {
