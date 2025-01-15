@@ -105,9 +105,9 @@ class UsageRecordController extends Controller
             ]
         ]);
 
-        Excel::import(new StoreTransactionsImport, $request->file('menu_file'));
+        Excel::import(new StoreTransactionsImport, $request->file('store_transactions_file'));
 
-        return to_route('store-transactions.index');
+        return to_route('usage-records.index');
     }
 
 

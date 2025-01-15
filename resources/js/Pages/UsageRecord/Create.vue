@@ -214,7 +214,7 @@ const importStoreTransactions = () => {
     excelFileForm.post(route("usage-records.import"), {
         onSuccess: () => {
             isLoading.value = false;
-            isImportMenuModalOpen.value = false;
+            isImportStoreTransactionModalOpen.value = false;
         },
         onError: () => {
             isLoading.value = false;
