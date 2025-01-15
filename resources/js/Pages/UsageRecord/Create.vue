@@ -201,10 +201,35 @@ const paymentTypes = [
     { value: "debit_card", label: "Debit Card" },
     { value: "gift_card", label: "Gift Card" },
 ];
+const excelFileForm = useForm({
+    store_transactions_file: null,
+});
+const isLoading = ref(false);
+const isImportStoreTransactionModalOpen = ref(false);
+const openStoreTransactionsModal = () => {
+    isImportStoreTransactionModalOpen.value = true;
+};
+const importStoreTransactions = () => {
+    isLoading.value = true;
+    excelFileForm.post(route("usage-records.import"), {
+        onSuccess: () => {
+            isLoading.value = false;
+            isImportMenuModalOpen.value = false;
+        },
+        onError: () => {
+            isLoading.value = false;
+        },
+    });
+};
 </script>
 
 <template>
-    <Layout heading="Create New Transaction">
+    <Layout
+        heading="Create New Transaction"
+        :hasButton="true"
+        buttonName="Import Store Transactions"
+        :handleClick="openStoreTransactionsModal"
+    >
         <Card class="p-5 grid sm:grid-cols-3 grid-cols-1 gap-5">
             <Card class="sm:col-span-1 col-span-2">
                 <CardHeader>
@@ -437,5 +462,40 @@ const paymentTypes = [
                 </TableContainer>
             </DivFlexCol>
         </Card>
+
+        <Dialog v-model:open="isImportStoreTransactionModalOpen">
+            <DialogContent class="sm:max-w-[600px]">
+                <DialogHeader>
+                    <DialogTitle>Import Store Transactions</DialogTitle>
+                    <DialogDescription>
+                        Import the excel file here.
+                    </DialogDescription>
+                </DialogHeader>
+                <InputContainer>
+                    <LabelXS> Store Transactions </LabelXS>
+                </InputContainer>
+                <Input
+                    :disabled="isLoading"
+                    type="file"
+                    @input="
+                        excelFileForm.store_transactions_file =
+                            $event.target.files[0]
+                    "
+                />
+                <FormError>{{
+                    excelFileForm.errors.store_transactions_file
+                }}</FormError>
+                <DialogFooter>
+                    <Button
+                        :disabled="isLoading"
+                        @click="importStoreTransactions"
+                        class="gap-2"
+                    >
+                        Proceed
+                        <span v-if="isLoading"><Loading /></span>
+                    </Button>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
     </Layout>
 </template>

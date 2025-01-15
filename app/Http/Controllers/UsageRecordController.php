@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Imports\StoreTransactionsImport;
 use App\Models\Menu;
 use App\Models\StoreBranch;
 use App\Models\UsageRecord;
@@ -12,6 +13,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
+use Maatwebsite\Excel\Facades\Excel;
 
 class UsageRecordController extends Controller
 {
@@ -92,6 +94,22 @@ class UsageRecordController extends Controller
         DB::commit();
         return redirect()->route('usage-records.index');
     }
+
+    public  function import(Request $request)
+    {
+        $request->validate([
+            'store_transactions_file' => [
+                'required',
+                'file',
+                'mimes:xlsx,xls,csv',
+            ]
+        ]);
+
+        Excel::import(new StoreTransactionsImport, $request->file('menu_file'));
+
+        return to_route('store-transactions.index');
+    }
+
 
     public function show($id)
     {
