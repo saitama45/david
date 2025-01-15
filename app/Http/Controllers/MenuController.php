@@ -2,12 +2,14 @@
 
 namespace App\Http\Controllers;
 
+use App\Imports\MenusImport;
 use App\Models\Menu;
 use App\Models\MenuCategory;
 use App\Models\ProductInventory;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
+use Maatwebsite\Excel\Facades\Excel;
 
 class MenuController extends Controller
 {
@@ -65,6 +67,21 @@ class MenuController extends Controller
         DB::commit();
 
         return redirect()->route('menu-list.index');
+    }
+    public  function import(Request $request)
+    {
+
+        $request->validate([
+            'menu_file' => [
+                'required',
+                'file',
+                'mimes:xlsx,xls,csv',
+            ]
+        ]);
+
+        Excel::import(new MenusImport, $request->file('menu_file'));
+
+        return to_route('menu-list.index');
     }
 
     public function show($id)

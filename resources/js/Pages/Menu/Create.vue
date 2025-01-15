@@ -191,13 +191,24 @@ const store = () => {
 };
 
 const excelFileForm = useForm({
-    orders_file: null,
+    menu_file: null,
 });
 const isImportMenuModalOpen = ref(false);
 const openImportMenuModal = () => {
     isImportMenuModalOpen.value = true;
 };
-const importMenu = () => {};
+const importMenu = () => {
+    isLoading.value = true;
+    excelFileForm.post(route("menu-list.import"), {
+        onSuccess: () => {
+            isLoading.value = false;
+            isImportMenuModalOpen.value = false;
+        },
+        onError: () => {
+            isLoading.value = false;
+        },
+    });
+};
 </script>
 
 <template>
@@ -359,11 +370,15 @@ const importMenu = () => {};
                 <Input
                     :disabled="isLoading"
                     type="file"
-                    @input="excelFileForm.orders_file = $event.target.files[0]"
+                    @input="excelFileForm.menu_file = $event.target.files[0]"
                 />
-                <FormError>{{ excelFileForm.errors.orders_file }}</FormError>
+                <FormError>{{ excelFileForm.errors.menu_file }}</FormError>
                 <DialogFooter>
-                    <Button @click="importMenu" class="gap-2">
+                    <Button
+                        :disabled="isLoading"
+                        @click="importMenu"
+                        class="gap-2"
+                    >
                         Proceed
                         <span v-if="isLoading"><Loading /></span>
                     </Button>

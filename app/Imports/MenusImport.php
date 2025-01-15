@@ -16,7 +16,7 @@ class MenusImport implements ToCollection, WithHeadingRow
         foreach ($rows as $row) {
 
             $menu = Menu::create([
-                'category_id' => ['category_id'],
+                'category_id' => $row['category_id'],
                 'name' => $row['name'],
                 'price' => $row['price'],
                 'remarks' => $row['remarks'] ?? null,
@@ -40,7 +40,7 @@ class MenusImport implements ToCollection, WithHeadingRow
 
                 $ingredient = ProductInventory::select('id')->where('inventory_code', $ingredientCode)->first();
 
-                $menu->ingredients()->attach($ingredient->id, [
+                $menu->product_inventories()->attach($ingredient->id, [
                     'quantity' => $quantity,
                     'unit' => $unit,
                 ]);

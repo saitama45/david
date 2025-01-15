@@ -158,6 +158,7 @@ Route::middleware('auth')
             Route::middleware('permission:create menu')->group(function () {
                 Route::post('/store', 'store')->name('store');
                 Route::get('/create', 'create')->name('create');
+                Route::post('/import', 'import')->name('import');
             });
             Route::middleware('permission:edit menu')->group(function () {
                 Route::put('/update/{id}', 'update')->name('update');
