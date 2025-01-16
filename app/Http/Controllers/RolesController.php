@@ -113,6 +113,20 @@ class RolesController extends Controller
         ]);
     }
 
+
+    public function destroy($id)
+    {
+        $role = Role::with('users')->findOrFail($id);
+        if ($role->users->count() > 0) {
+            return back()->withErrors([
+                'message' => "Can't delete this category because there are users associated with it."
+            ]);
+        }
+        $role->delete();
+        return to_route('roles.index');
+    }
+
+
     public function create()
     {
         $permissions = Permission::all();

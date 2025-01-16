@@ -19,6 +19,9 @@ const { search } = useSearch("roles.index");
 import { useAuth } from "@/Composables/useAuth";
 
 const { hasAccess } = useAuth();
+
+import { useReferenceDelete } from "@/Composables/useReferenceDelete";
+const { deleteModel } = useReferenceDelete();
 </script>
 
 <template>
@@ -63,10 +66,21 @@ const { hasAccess } = useAuth();
                                 </Badge>
                             </section>
                         </TD>
-                        <TD v-if="hasAccess('edit roles')">
+                        <TD
+                            class="items-center flex"
+                            v-if="hasAccess('edit roles')"
+                        >
                             <EditButton
                                 :isLink="true"
                                 :href="route('roles.edit', role.id)"
+                            />
+                            <DeleteButton
+                                @click="
+                                    deleteModel(
+                                        route('roles.destroy', role.id),
+                                        'Role'
+                                    )
+                                "
                             />
                         </TD>
                     </tr>
