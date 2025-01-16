@@ -461,6 +461,9 @@ const deleteDeliveryReceiptNumber = (id) => {
                             >Remarks: {{ receipt.remarks ?? "N/a" }}</LabelXS
                         >
                     </MobileTableRow>
+                    <SpanBold v-if="order.delivery_receipts.length < 1"
+                        >None</SpanBold
+                    >
                 </MobileTableContainer>
             </TableContainer>
 
@@ -592,6 +595,30 @@ const deleteDeliveryReceiptNumber = (id) => {
                         </tr>
                     </TableBody>
                 </Table>
+
+                <MobileTableContainer>
+                    <MobileTableRow
+                        v-for="order in orderedItems"
+                        :key="order.id"
+                    >
+                        <MobileTableHeading
+                            :title="`${order.product_inventory.name} (${order.product_inventory.inventory_code})`"
+                        >
+                            <Button
+                                v-if="canReceive"
+                                @click="openReceiveForm(order.id)"
+                                class="text-green-500"
+                                variant="link"
+                            >
+                                Receive
+                            </Button>
+                        </MobileTableHeading>
+                        <LabelXS
+                            >Quantity Received:
+                            {{ order.quantity_received }}</LabelXS
+                        >
+                    </MobileTableRow>
+                </MobileTableContainer>
             </TableContainer>
 
             <TableContainer>
@@ -675,8 +702,10 @@ const deleteDeliveryReceiptNumber = (id) => {
                         <LabelXS
                             >Status: {{ history.status.toUpperCase() }}</LabelXS
                         >
-                        <SpanBold v-if="history.length < 1">None</SpanBold>
                     </MobileTableRow>
+                    <SpanBold v-if="receiveDatesHistory.length < 1"
+                        >None</SpanBold
+                    >
                 </MobileTableContainer>
             </TableContainer>
         </DivFlexCol>

@@ -21,7 +21,6 @@ const createNewRoles = () => {
     form.post(route("roles.store"), {});
 };
 
-
 const isPermissionGuideModalVisible = ref(false);
 </script>
 
@@ -71,7 +70,8 @@ const isPermissionGuideModalVisible = ref(false);
                     </DivFlexCol>
                 </div>
             </InputContainer>
-            <DivFlexCenter class="justify-end">
+            <DivFlexCenter class="justify-end gap-3">
+                <BackButton />
                 <Button @click="createNewRoles">Create</Button>
             </DivFlexCenter>
         </Card>

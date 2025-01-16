@@ -192,7 +192,7 @@ const enlargeImage = (image) => {
                         <MobileTableHeading
                             :title="`${order.product_inventory.name} (${order.product_inventory.inventory_code})`"
                         >
-                            <ShowButton />
+
                         </MobileTableHeading>
                         <LabelXS>Ordered: {{ order.quantity_ordered }}</LabelXS>
                         <LabelXS
@@ -239,7 +239,7 @@ const enlargeImage = (image) => {
                         <MobileTableHeading
                             :title="`${receipt.delivery_receipt_number}`"
                         >
-                            <ShowButton />
+
                         </MobileTableHeading>
                         <LabelXS>Remarks: {{ receipt.remarks }}</LabelXS>
                         <LabelXS>Created at: {{ receipt.created_at }}</LabelXS>
@@ -288,7 +288,6 @@ const enlargeImage = (image) => {
                         <MobileTableHeading
                             :title="`${remarks.action.toUpperCase()}`"
                         >
-                            <ShowButton />
                         </MobileTableHeading>
                         <LabelXS>Remarks: {{ remarks.remarks }}</LabelXS>
                     </MobileTableRow>
@@ -378,7 +377,7 @@ const enlargeImage = (image) => {
                         <MobileTableHeading
                             :title="`${history.store_order_item.product_inventory.name} (${history.store_order_item.product_inventory.inventory_code})`"
                         >
-                            <ShowButton />
+
                         </MobileTableHeading>
                         <LabelXS
                             >Received: {{ history.quantity_received }}</LabelXS
