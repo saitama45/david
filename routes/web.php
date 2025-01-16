@@ -231,6 +231,8 @@ Route::middleware('auth')
                 Route::get('/users/edit/{id}', 'edit')->name('edit');
                 Route::post('/users/update/{id}', 'update')->name('update');
             });
+
+            Route::delete('/users/destroy/{id}', 'destroy')->name('destroy');
         });
 
         // Manage References

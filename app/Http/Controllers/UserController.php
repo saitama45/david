@@ -82,6 +82,17 @@ class UserController extends Controller
         return redirect()->route('users.index');
     }
 
+    public function destroy($id)
+    {
+        $user = User::with(['usage_records', 'store_orders'])->findOrFail($id);
+        if ($user->usage_records->count() > 0 || $user->store_orders->count() > 0) {
+            return back()->withErrors([
+                'message' => "Can't delete this category because there are data associated with it."
+            ]);
+        }
+        return to_route('users.index');
+    }
+
     public function update(Request $request, $id)
     {
         $validated = $request->validate([

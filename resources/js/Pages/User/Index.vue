@@ -34,6 +34,9 @@ watch(
         );
     }, 500)
 );
+
+import { useReferenceDelete } from "@/Composables/useReferenceDelete";
+const { deleteModel } = useReferenceDelete();
 </script>
 
 <template>
@@ -75,7 +78,7 @@ watch(
                         <TD>
                             <DivFlexCenter class="gap-3">
                                 <ShowButton
-                                    v-if="hasAccess('show user')"
+                                    v-if="hasAccess('view user')"
                                     :isLink="true"
                                     :href="`/users/show/${user.id}`"
                                 />
@@ -83,6 +86,14 @@ watch(
                                     v-if="hasAccess('edit users')"
                                     :isLink="true"
                                     :href="`/users/edit/${user.id}`"
+                                />
+                                <DeleteButton
+                                    @click="
+                                        deleteModel(
+                                            route('users.destroy', user.id),
+                                            'user'
+                                        )
+                                    "
                                 />
                             </DivFlexCenter>
                         </TD>

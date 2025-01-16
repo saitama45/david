@@ -59,11 +59,11 @@ class User extends Authenticatable implements Auditable
 
     public function store_orders()
     {
-        return $this->hasMany(StoreOrder::class);
+        return $this->hasMany(StoreOrder::class, 'encoder_id');
     }
     public function usage_records()
     {
-        return $this->hasMany(UsageRecord::class);
+        return $this->hasMany(UsageRecord::class, 'encoder_id');
     }
 
     public function store_order_remarks()
