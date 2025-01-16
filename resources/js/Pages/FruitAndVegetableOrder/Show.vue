@@ -136,6 +136,23 @@ watch(selectedDate, function (value) {
                         </TableBody>
                     </Table>
                 </TableContainer>
+
+                <MobileTableContainer
+                    v-for="data in day.orders"
+                    :key="data.item_code"
+                >
+                    <MobileTableRow
+                        v-for="item in data.branches"
+                        :key="item.display_name"
+                    >
+                        <MobileTableHeading :title="item.display_name">
+                        </MobileTableHeading>
+                        <LabelXS
+                            >Quantity Ordered:
+                            {{ item.quantity_ordered }}</LabelXS
+                        >
+                    </MobileTableRow>
+                </MobileTableContainer>
             </DivFlexCol>
         </TableContainer>
         <BackButton />

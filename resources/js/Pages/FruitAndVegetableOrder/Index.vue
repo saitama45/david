@@ -59,22 +59,50 @@ watch(branchId, (value) => {
         }
     );
 });
-
 </script>
 
 <template>
     <Layout heading="Fruits And Vegetables Orders">
         <TableContainer>
-            <TableHeader>
-                <SearchBar>
-                    <Input
-                        class="pl-10"
-                        v-model="search"
-                        placeholder="Search..."
+            <TableHeader class="gap-3 sm:flex-row flex-col">
+                <DivFlexCenter class="gap-5 w-full">
+                    <SearchBar>
+                        <Input
+                            class="pl-10"
+                            v-model="search"
+                            placeholder="Search..."
+                        />
+                    </SearchBar>
+                    <section class="sm:hidden">
+                        <Popover class="w-fit">
+                            <PopoverTrigger> <Filter /> </PopoverTrigger>
+                            <PopoverContent>
+                                <DivFlexCol class="gap-3">
+                                    <Select
+                                        filter
+                                        optionLabel="label"
+                                        optionValue="value"
+                                        :options="branchesOption"
+                                        placeholder="Select a Branch"
+                                        v-model="branchId"
+                                    />
+                                </DivFlexCol>
+                            </PopoverContent>
+                        </Popover>
+                    </section>
+                </DivFlexCenter>
+                <section class="sm:hidden">
+                    <Select
+                        v-model="selectedDate"
+                        :options="datesOption"
+                        placeholder="No Available Options"
+                        class="min-w-fit w-fit"
+                        optionLabel="name"
+                        optionValue="code"
                     />
-                </SearchBar>
+                </section>
 
-                <DivFlexCenter class="gap-3">
+                <DivFlexCenter class="sm:flex hidden gap-3">
                     <Select
                         filter
                         optionLabel="label"
@@ -87,7 +115,7 @@ watch(branchId, (value) => {
                         v-model="selectedDate"
                         :options="datesOption"
                         placeholder="No Available Options"
-                        class="min-w-96 w-fit"
+                        class="max-w-72 w-fit"
                         optionLabel="name"
                         optionValue="code"
                     />
@@ -123,8 +151,39 @@ watch(branchId, (value) => {
                     </tr>
                 </TableBody>
             </Table>
+
+            <MobileTableContainer>
+                <MobileTableRow v-for="item in items.data">
+                    <MobileTableHeading
+                        :title="`${item.name} (${item.inventory_code})`"
+                    >
+                        <ShowButton
+                            :isLink="true"
+                            :href="`/fruits-and-vegetables/show/${item.inventory_code}`"
+                        />
+                    </MobileTableHeading>
+                    <LabelXS
+                        >Monday: {{ item.quantity_ordered.monday }}</LabelXS
+                    >
+                    <LabelXS
+                        >Tuesday: {{ item.quantity_ordered.tuesday }}</LabelXS
+                    >
+                    <LabelXS
+                        >Wednesday:
+                        {{ item.quantity_ordered.wednesday }}</LabelXS
+                    >
+                    <LabelXS
+                        >Thursday: {{ item.quantity_ordered.thursday }}</LabelXS
+                    >
+                    <LabelXS
+                        >Friday: {{ item.quantity_ordered.friday }}</LabelXS
+                    >
+                    <LabelXS
+                        >Saturday: {{ item.quantity_ordered.saturday }}</LabelXS
+                    >
+                </MobileTableRow>
+            </MobileTableContainer>
             <Pagination :data="items" />
         </TableContainer>
- 
     </Layout>
 </template>
