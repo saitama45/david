@@ -45,6 +45,19 @@ defineProps({
                     <LabelXS>Remarks</LabelXS>
                     <SpanBold>{{ user.remarks ?? "N/a" }}</SpanBold>
                 </InputContainer>
+                <InputContainer class="col-span-2">
+                    <LabelXS>Assinged Branches</LabelXS>
+                    <SpanBold v-if="user.roles.contains('admin')"
+                        >All Branches</SpanBold
+                    >
+                    <SpanBold v-if="!user.roles.contains('admin')">
+                        {{
+                            user.store_branches
+                                .map((branch) => branch.name)
+                                .join(",")
+                        }}
+                    </SpanBold>
+                </InputContainer>
             </section>
         </Card>
         <BackButton routeName="users.index" />

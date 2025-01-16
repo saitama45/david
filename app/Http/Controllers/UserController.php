@@ -134,7 +134,7 @@ class UserController extends Controller
 
     public function show($id)
     {
-        $user = User::with('roles')->find($id);
+        $user = User::with(relations: ['roles', 'store_branches'])->find($id);
         return Inertia::render('User/Show', [
             'user' => $user
         ]);
