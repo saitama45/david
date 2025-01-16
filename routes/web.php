@@ -152,6 +152,7 @@ Route::middleware('auth')
                 Route::post('/items-list/import', 'import')->name('import');
 
                 Route::get('/items-list/edit/{id}', 'edit')->name('edit');
+                Route::put('/items-list/update/{id}', 'update')->name('update');
             });
         });
 

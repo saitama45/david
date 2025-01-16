@@ -63,7 +63,7 @@ const { options: productCategoriesOptions } = useSelectOptions(
 
 const handleCreate = () => {
     confirm.require({
-        message: "Are you sure you want to create this product?",
+        message: "Are you sure you want to update this product?",
         header: "Confirmation",
         icon: "pi pi-exclamation-triangle",
         rejectProps: {
@@ -72,17 +72,17 @@ const handleCreate = () => {
             outlined: true,
         },
         acceptProps: {
-            label: "Create",
+            label: "Confirm",
             severity: "success",
         },
         accept: () => {
-            form.post(route("items.store"), {
+            form.post(route("items.update", item.id), {
                 preserveScroll: true,
                 onSuccess: () => {
                     toast.add({
                         severity: "success",
                         summary: "Success",
-                        detail: "New Product Successfully Created",
+                        detail: "Product Successfully Updated",
                         life: 3000,
                     });
                 },
@@ -95,7 +95,6 @@ const handleCreate = () => {
 };
 const isLoading = ref(false);
 
-
 watch(isImportModalVisible, (value) => {
     if (!value) {
         importForm.reset();
@@ -103,6 +102,7 @@ watch(isImportModalVisible, (value) => {
         isLoading.value = false;
     }
 });
+
 const item = props.item;
 const form = useForm({
     inventory_category_id: item.inventory_category_id?.toString() ?? null,
@@ -112,8 +112,43 @@ const form = useForm({
     inventory_code: item.inventory_code ?? null,
     brand: item.brand,
     cost: item.cost,
-    categories: null,
+    categories:
+        item?.product_categories.map((item) => item.id.toString()) ?? [],
 });
+console.log(item?.product_categories.map((item) => item.id.toString()) ?? []);
+console.log(item.product_categories);
+const handleUpdate = () => {
+    confirm.require({
+        message: "Are you sure you want to update this product?",
+        header: "Confirmation",
+        icon: "pi pi-exclamation-triangle",
+        rejectProps: {
+            label: "Cancel",
+            severity: "secondary",
+            outlined: true,
+        },
+        acceptProps: {
+            label: "Confirm",
+            severity: "success",
+        },
+        accept: () => {
+            form.put(route("items.update", item.id), {
+                preserveScroll: true,
+                onSuccess: () => {
+                    toast.add({
+                        severity: "success",
+                        summary: "Success",
+                        detail: "Product Successfully Updated",
+                        life: 3000,
+                    });
+                },
+                onError: (e) => {
+                    console.log(e);
+                },
+            });
+        },
+    });
+};
 </script>
 
 <template>
@@ -197,7 +232,7 @@ const form = useForm({
             </CardContent>
             <CardFooter class="justify-end gap-3">
                 <BackButton />
-                <Button @click="handleCreate">Update</Button>
+                <Button @click="handleUpdate">Update</Button>
             </CardFooter>
         </Card>
     </Layout>

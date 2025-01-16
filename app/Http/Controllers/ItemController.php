@@ -55,7 +55,7 @@ class ItemController extends Controller
 
     public function edit($id)
     {
-        $item = ProductInventory::findOrFail($id);
+        $item = ProductInventory::with('product_categories')->findOrFail($id);
         $unitOfMeasurements = UnitOfMeasurement::options();
         $inventoryCategories = InventoryCategory::options();
         $productCategories = ProductCategory::options();
@@ -100,6 +100,29 @@ class ItemController extends Controller
         DB::transaction(function () use ($validated) {
             $product = ProductInventory::create(Arr::except($validated, ['categories']));
             $product->product_categories()->attach($validated['categories']);
+        });
+
+        return redirect()->route('items.index');
+    }
+
+    public function update(Request $request, $id)
+    {
+        $validated = $request->validate([
+            'inventory_category_id' => ['required', 'exists:inventory_categories,id'],
+            'unit_of_measurement_id' => ['required', 'exists:unit_of_measurements,id'],
+            'conversion' => ['required', 'numeric', 'min:1'],
+            'name' => ['required'],
+            'brand' => ['sometimes'],
+            'inventory_code' => ['required'],
+            'cost' => ['required'],
+            'categories' => ['required', 'array'],
+            'categories.*' => ['exists:product_categories,id']
+        ]);
+
+        DB::transaction(function () use ($validated, $id) {
+            $product = ProductInventory::findOrFail($id);
+            $product->update(Arr::except($validated, ['categories']));
+            $product->product_categories()->sync($validated['categories']);
         });
 
         return redirect()->route('items.index');
