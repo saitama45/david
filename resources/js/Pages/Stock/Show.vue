@@ -47,6 +47,16 @@ const heading = `${product.name} (${product.inventory_code}) Stock Per Store`;
                     </tr>
                 </TableBody>
             </Table>
+
+            <MobileTableContainer>
+                <MobileTableRow v-for="item in data.data">
+                    <MobileTableHeading
+                        :title="`${item.store_branch.name} (${item.store_branch.branch_code})`"
+                    >
+                    </MobileTableHeading>
+                    <LabelXS>SOH: {{ item.quantity }}</LabelXS>
+                </MobileTableRow>
+            </MobileTableContainer>
             <Pagination :data="data" />
         </TableContainer>
         <BackButton routeName="stocks.index" />

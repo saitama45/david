@@ -54,6 +54,21 @@ const { search } = useSearch("stocks.index");
                     </tr>
                 </TableBody>
             </Table>
+
+            <MobileTableContainer>
+                <MobileTableRow v-for="item in items.data">
+                    <MobileTableHeading
+                        :title="`${item.name} (${item.inventory_code})`"
+                    >
+                        <ShowButton
+                            :isLink="true"
+                            :href="`/stocks/show/${item.id}`"
+                        />
+                    </MobileTableHeading>
+                    <LabelXS>UOM: {{ item.unit_of_measurement.name }}</LabelXS>
+                    <LabelXS>Cost: {{ item.cost }}</LabelXS>
+                </MobileTableRow>
+            </MobileTableContainer>
             <Pagination :data="items" />
         </TableContainer>
     </Layout>
