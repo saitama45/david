@@ -107,7 +107,7 @@ class IceCreamOrderController extends Controller
             ->whereIn('store_branch_id', $branchesId)
             ->where('order_date', $day)
             ->whereHas('store_order_items.product_inventory', function ($query) {
-                $query->whereIn('inventory_code', ['269A2A']);
+                $query->whereIn('inventory_code', ['359A2A']);
             })
             ->get()
             ->flatMap(function ($order) {

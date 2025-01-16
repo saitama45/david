@@ -13,8 +13,6 @@ const { item, orders } = defineProps({
     },
 });
 
-console.log(usePage().props);
-
 const heading = `Orders For Item ${item.name} (${item.inventory_code})`;
 </script>
 
@@ -39,6 +37,24 @@ const heading = `Orders For Item ${item.name} (${item.inventory_code})`;
                     </tr>
                 </TableBody>
             </Table>
+
+            <MobileTableContainer>
+                <MobileTableRow v-for="order in orders" :key="order">
+                    <MobileTableHeading
+                        :title="order.store_order.store_branch.name"
+                    >
+                    </MobileTableHeading>
+                    <LabelXS
+                        >Supplier:
+                        {{ order.store_order.supplier.name }}</LabelXS
+                    >
+                    <LabelXS
+                        >Order Date: {{ order.store_order.order_date }}</LabelXS
+                    >
+                    <LabelXS>Ordered: {{ order.quantity_approved }}</LabelXS>
+                    <LabelXS>Delivered: {{ order.quantity_received }}</LabelXS>
+                </MobileTableRow>
+            </MobileTableContainer>
         </TableContainer>
 
         <Button variant="outline" class="text-lg px-7" @click="backButton">

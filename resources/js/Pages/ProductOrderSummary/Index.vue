@@ -160,7 +160,7 @@ const openExportModal = () => {
         :handleClick="downloadPdf"
     >
         <TableContainer>
-            <TableHeader class="justify-between">
+            <TableHeader class="justify-between gap-5">
                 <SearchBar>
                     <Input
                         v-model="search"
@@ -168,7 +168,41 @@ const openExportModal = () => {
                         placeholder="Search..."
                     />
                 </SearchBar>
-                <DivFlexCenter class="gap-3">
+                <Popover class="sm:hidden">
+                    <PopoverTrigger> <Filter /> </PopoverTrigger>
+                    <PopoverContent>
+                        <DivFlexCol class="gap-3">
+                            <MultiSelect
+                                filter
+                                placeholder="Filter By Store"
+                                :options="branchesOption"
+                                optionLabel="label"
+                                optionValue="value"
+                                v-model="branchId"
+                                showClear
+                                class="max-w-64"
+                            >
+                            </MultiSelect>
+                            <Select
+                                placeholder="Filter By Supplier"
+                                :options="suppliersOption"
+                                optionLabel="label"
+                                optionValue="value"
+                                v-model="supplierId"
+                                showClear
+                            >
+                            </Select>
+                            <DatePicker
+                                class="min-w-64"
+                                selectionMode="range"
+                                v-model="dateRange"
+                                :manualInput="false"
+                                :format="'YYYY-MM-DD'"
+                            />
+                        </DivFlexCol>
+                    </PopoverContent>
+                </Popover>
+                <DivFlexCenter class="sm:flex hidden gap-3">
                     <MultiSelect
                         filter
                         placeholder="Filter By Store"
@@ -205,7 +239,7 @@ const openExportModal = () => {
                     <TH>Inventory Code</TH>
                     <TH>Conversion</TH>
                     <TH>UOM</TH>
-                    <TH>Quantity Approved</TH>
+                    <TH>Quantity Ordered</TH>
                     <TH>Quantity Delivered</TH>
                     <TH>Actions</TH>
                 </TableHead>
@@ -230,6 +264,29 @@ const openExportModal = () => {
                     </tr>
                 </TableBody>
             </Table>
+            <MobileTableContainer>
+                <MobileTableRow v-for="item in items.data">
+                    <MobileTableHeading
+                        :title="`${item.name} (${item.inventory_code})`"
+                    >
+                        <ShowButton
+                            @click="showProductOrdersDetails(item.id)"
+                        />
+                    </MobileTableHeading>
+                    <LabelXS
+                        >Quantity Ordered:
+                        {{
+                            item.store_order_items_sum_quantity_approved
+                        }}</LabelXS
+                    >
+                    <LabelXS
+                        >Quantity Received:
+                        {{
+                            item.store_order_items_sum_quantity_received
+                        }}</LabelXS
+                    >
+                </MobileTableRow>
+            </MobileTableContainer>
             <Pagination :data="items" />
         </TableContainer>
     </Layout>

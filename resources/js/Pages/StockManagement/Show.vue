@@ -10,7 +10,7 @@ const { branches, history } = defineProps({
     },
 });
 
-console.log(history);
+
 </script>
 <template>
     <Layout heading="Stock Details">
