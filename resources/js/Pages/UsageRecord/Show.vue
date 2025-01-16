@@ -140,7 +140,6 @@ const computeSoldItemsTotal = () => {
                 <MobileTableContainer>
                     <MobileTableRow v-for="item in itemsSold.data">
                         <MobileTableHeading :title="item.menu.name">
-                            <ShowButton />
                         </MobileTableHeading>
                         <LabelXS>Quantity: {{ item.quantity }}</LabelXS>
                         <LabelXS>Price: {{ item.menu.price }}</LabelXS>
@@ -198,7 +197,6 @@ const computeSoldItemsTotal = () => {
                         <MobileTableHeading
                             :title="`${item.name} (${item.inventory_code})`"
                         >
-                            <ShowButton />
                         </MobileTableHeading>
                         <LabelXS
                             >Quantity Used: {{ item.total_quantity }}</LabelXS

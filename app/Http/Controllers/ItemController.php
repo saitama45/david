@@ -53,6 +53,20 @@ class ItemController extends Controller
         ]);
     }
 
+    public function edit($id)
+    {
+        $item = ProductInventory::findOrFail($id);
+        $unitOfMeasurements = UnitOfMeasurement::options();
+        $inventoryCategories = InventoryCategory::options();
+        $productCategories = ProductCategory::options();
+        return Inertia::render('Item/Edit', [
+            'unitOfMeasurements' => $unitOfMeasurements,
+            'inventoryCategories' => $inventoryCategories,
+            'productCategories' => $productCategories,
+            'item' => $item
+        ]);
+    }
+
     public function show($id)
     {
         $item = ProductInventory::with(['inventory_category', 'unit_of_measurement'])->where('inventory_code', $id)->first();

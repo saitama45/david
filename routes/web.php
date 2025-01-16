@@ -150,6 +150,8 @@ Route::middleware('auth')
                 Route::post('/items-list/store', 'store')->name('store');
                 Route::get('/items-list/create', 'create')->name('create');
                 Route::post('/items-list/import', 'import')->name('import');
+
+                Route::get('/items-list/edit/{id}', 'edit')->name('edit');
             });
         });
 

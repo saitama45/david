@@ -99,13 +99,11 @@ const { hasAccess } = useAuth();
                         <TD>{{ item.unit_of_measurement.name }}</TD>
                         <TD>{{ item.cost }}</TD>
                         <TD class="flex items-center gap-2">
-                            <button
+                            <EditButton
                                 v-if="hasAccess('edit items')"
-                                class="text-blue-500"
-                                variant="link"
-                            >
-                                <Pencil class="size-6" />
-                            </button>
+                                :isLink="true"
+                                :href="route('items.edit', item.id)"
+                            />
                             <ShowButton
                                 v-if="hasAccess('view item')"
                                 :isLink="true"
