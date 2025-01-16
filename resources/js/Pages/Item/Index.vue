@@ -113,6 +113,27 @@ const { hasAccess } = useAuth();
                     </tr>
                 </TableBody>
             </Table>
+
+            <MobileTableContainer>
+                <MobileTableRow v-for="item in items.data">
+                    <MobileTableHeading
+                        :title="`${item.name} (${item.inventory_code})`"
+                    >
+                        <ShowButton
+                            v-if="hasAccess('view item')"
+                            :isLink="true"
+                            :href="`items-list/show/${item.inventory_code}`"
+                        />
+                        <EditButton
+                            v-if="hasAccess('edit items')"
+                            :isLink="true"
+                            :href="route('items.edit', item.id)"
+                        />
+                    </MobileTableHeading>
+                    <LabelXS>UOM: {{ item.unit_of_measurement.name }}</LabelXS>
+                    <LabelXS>Cost: {{ item.cost }}</LabelXS>
+                </MobileTableRow>
+            </MobileTableContainer>
             <Pagination :data="items" />
         </TableContainer>
     </Layout>

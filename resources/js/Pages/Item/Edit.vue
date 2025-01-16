@@ -160,7 +160,7 @@ const handleUpdate = () => {
                     >Input all the important fields</CardDescription
                 >
             </CardHeader>
-            <CardContent class="grid grid-cols-2 gap-5">
+            <CardContent class="grid sm:grid-cols-2 gap-5">
                 <InputContainer>
                     <Label>Inventory Category</Label>
                     <Select
