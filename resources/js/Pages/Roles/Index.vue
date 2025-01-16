@@ -92,17 +92,22 @@ const { deleteModel } = useReferenceDelete();
                         class="rounded-lg border min-h-20 p-3"
                         v-for="role in roles.data"
                     >
-                        <DivFlexCenter class="justify-between">
-                            <SpanBold class="text-xs">{{
-                                role.name.toUpperCase()
-                            }}</SpanBold>
+                        <MobileTableHeading :title="role.name.toUpperCase()">
                             <EditButton
                                 class="size-5"
                                 v-if="hasAccess('edit roles')"
                                 :isLink="true"
                                 :href="`/roles/edit/${role.id}`"
                             />
-                        </DivFlexCenter>
+                            <DeleteButton
+                                @click="
+                                    deleteModel(
+                                        route('roles.destroy', role.id),
+                                        'Role'
+                                    )
+                                "
+                            />
+                        </MobileTableHeading>
                         <LabelXS class="text-[10px]">Roles</LabelXS>
                         <LabelXS>
                             {{
