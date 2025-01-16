@@ -78,13 +78,10 @@ const { hasAccess } = useAuth();
                             >
                         </TD>
                         <TD>
-                            <Button
+                            <ShowButton
                                 v-if="hasAccess('view approved received item')"
-                                variant="outline"
                                 @click="showOrderDetails(order.order_number)"
-                            >
-                                <Eye /> </Button
-                            >t Create.vue:89:60
+                            />
                         </TD>
                     </tr>
                 </TableBody>
