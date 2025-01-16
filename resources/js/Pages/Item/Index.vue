@@ -37,6 +37,8 @@ watch(filter, function (value) {
 import { useAuth } from "@/Composables/useAuth";
 
 const { hasAccess } = useAuth();
+import { useReferenceDelete } from "@/Composables/useReferenceDelete";
+const { deleteModel } = useReferenceDelete();
 </script>
 
 <template>
@@ -82,8 +84,6 @@ const { hasAccess } = useAuth();
                     <TH>Id</TH>
                     <TH>Name</TH>
                     <TH>Inventory Code</TH>
-                    <TH>Brand</TH>
-                    <TH>Conversion</TH>
                     <TH>UOM</TH>
                     <TH>Cost</TH>
                     <TH>Actions</TH>
@@ -94,20 +94,26 @@ const { hasAccess } = useAuth();
                         <TD>{{ item.id }}</TD>
                         <TD>{{ item.name }}</TD>
                         <TD>{{ item.inventory_code }}</TD>
-                        <TD>{{ item.brand }}</TD>
-                        <TD>{{ item.conversion }}</TD>
                         <TD>{{ item.unit_of_measurement.name }}</TD>
                         <TD>{{ item.cost }}</TD>
                         <TD class="flex items-center gap-2">
+                            <ShowButton
+                                v-if="hasAccess('view item')"
+                                :isLink="true"
+                                :href="`items-list/show/${item.inventory_code}`"
+                            />
                             <EditButton
                                 v-if="hasAccess('edit items')"
                                 :isLink="true"
                                 :href="route('items.edit', item.id)"
                             />
-                            <ShowButton
-                                v-if="hasAccess('view item')"
-                                :isLink="true"
-                                :href="`items-list/show/${item.inventory_code}`"
+                            <DeleteButton
+                                @click="
+                                    deleteModel(
+                                        route('items.destroy', item.id),
+                                        'Product'
+                                    )
+                                "
                             />
                         </TD>
                     </tr>
@@ -128,6 +134,14 @@ const { hasAccess } = useAuth();
                             v-if="hasAccess('edit items')"
                             :isLink="true"
                             :href="route('items.edit', item.id)"
+                        />
+                        <DeleteButton
+                            @click="
+                                deleteModel(
+                                    route('items.destroy', item.id),
+                                    'Product'
+                                )
+                            "
                         />
                     </MobileTableHeading>
                     <LabelXS>UOM: {{ item.unit_of_measurement.name }}</LabelXS>

@@ -31,7 +31,6 @@ export function useReferenceDelete() {
                         });
                     },
                     onError: (errors) => {
-                        console.log(errors);
                         toast.add({
                             severity: "error",
                             summary: "Error",

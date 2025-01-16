@@ -105,6 +105,20 @@ class ItemController extends Controller
         return redirect()->route('items.index');
     }
 
+    public function destroy($id)
+    {
+        $category = ProductInventory::with(['menus', 'store_order_items'])->findOrFail($id);
+
+        if ($category->store_order_items->count() > 0 || $category->store_order_items->count() > 0) {
+            return back()->withErrors([
+                'message' => "Can't delete this product because there are data associated with it."
+            ]);
+        }
+
+        $category->delete();
+        return to_route('items.index');
+    }
+
     public function update(Request $request, $id)
     {
         $validated = $request->validate([

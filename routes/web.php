@@ -153,6 +153,8 @@ Route::middleware('auth')
 
                 Route::get('/items-list/edit/{id}', 'edit')->name('edit');
                 Route::put('/items-list/update/{id}', 'update')->name('update');
+
+                Route::delete('/items-list/destroy/{id}', 'destroy')->name('destroy');
             });
         });
 
