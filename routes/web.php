@@ -306,6 +306,7 @@ Route::middleware('auth')
                 Route::post('/store', 'store')->name('store');
                 Route::get('/show/{id}', 'show')->name('show');
                 Route::post('/import', 'import')->name('import');
+                Route::delete('/destroy/{id}', 'destroy')->name('destroy');
             });
 
 

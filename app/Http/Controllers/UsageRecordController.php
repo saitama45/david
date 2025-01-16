@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Imports\StoreTransactionsImport;
 use App\Models\Menu;
 use App\Models\StoreBranch;
+use App\Models\StoreTransaction;
 use App\Models\UsageRecord;
 use App\Models\UsageRecordItem;
 use Carbon\Carbon;
@@ -107,6 +108,13 @@ class UsageRecordController extends Controller
 
         Excel::import(new StoreTransactionsImport, $request->file('store_transactions_file'));
 
+        return to_route('usage-records.index');
+    }
+
+    public function destroy($id)
+    {
+        $transaction = UsageRecord::findOrFail($id);
+        $transaction->delete();
         return to_route('usage-records.index');
     }
 

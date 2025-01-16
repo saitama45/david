@@ -14,6 +14,10 @@ const handleClick = () => {
 import { useAuth } from "@/Composables/useAuth";
 
 const { hasAccess } = useAuth();
+
+import { useReferenceDelete } from "@/Composables/useReferenceDelete";
+
+const { deleteModel } = useReferenceDelete();
 </script>
 
 <template>
@@ -45,11 +49,22 @@ const { hasAccess } = useAuth();
                         <TD>{{ record.branch.name }}</TD>
                         <TD>{{ record.transaction_date }}</TD>
                         <TD>{{ record.total_amount }}</TD>
-                        <TD>
+                        <TD class="flex items-center">
                             <ShowButton
                                 v-if="hasAccess('view store transaction')"
                                 :isLink="true"
                                 :href="route('usage-records.show', record.id)"
+                            />
+                            <DeleteButton
+                                @click="
+                                    deleteModel(
+                                        route(
+                                            'usage-records.destroy',
+                                            record.id
+                                        ),
+                                        'Store transaction'
+                                    )
+                                "
                             />
                         </TD>
                     </tr>

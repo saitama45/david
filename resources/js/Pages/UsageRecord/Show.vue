@@ -208,5 +208,6 @@ const computeSoldItemsTotal = () => {
                 </MobileTableContainer>
             </TableContainer>
         </DivFlexCol>
+        <BackButton />
     </Layout>
 </template>
