@@ -94,7 +94,7 @@ const updatePassword = () => {
                     <img
                         :src="Logo"
                         alt="logo"
-                        class="sm:img size-56 rounded-lg shadow-lg hidden"
+                        class="sm:flex size-56 rounded-lg shadow-lg hidden"
                     />
 
                     <DivFlexCol class="gap-5 h-auto">
