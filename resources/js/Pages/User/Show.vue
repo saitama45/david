@@ -46,15 +46,21 @@ defineProps({
                     <SpanBold>{{ user.remarks ?? "N/a" }}</SpanBold>
                 </InputContainer>
                 <InputContainer class="col-span-2">
-                    <LabelXS>Assinged Branches</LabelXS>
-                    <SpanBold v-if="user.roles.contains('admin')"
-                        >All Branches</SpanBold
+                    <LabelXS>Assigned Branches</LabelXS>
+                    <SpanBold
+                        v-if="
+                            user.roles
+                                .map((role) => role.name)
+                                .includes('admin')
+                        "
                     >
-                    <SpanBold v-if="!user.roles.contains('admin')">
+                        All Branches
+                    </SpanBold>
+                    <SpanBold v-else>
                         {{
                             user.store_branches
                                 .map((branch) => branch.name)
-                                .join(",")
+                                .join(", ")
                         }}
                     </SpanBold>
                 </InputContainer>

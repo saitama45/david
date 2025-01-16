@@ -76,7 +76,7 @@ const { deleteModel } = useReferenceDelete();
                         }}</TD>
                         <TD>{{ user.is_active == 1 ? "Yes" : "No" }}</TD>
                         <TD>
-                            <DivFlexCenter class="gap-3">
+                            <DivFlexCol class="sm:gap-3">
                                 <ShowButton
                                     v-if="hasAccess('view user')"
                                     :isLink="true"
@@ -95,7 +95,7 @@ const { deleteModel } = useReferenceDelete();
                                         )
                                     "
                                 />
-                            </DivFlexCenter>
+                            </DivFlexCol>
                         </TD>
                     </tr>
                 </TableBody>
@@ -106,18 +106,28 @@ const { deleteModel } = useReferenceDelete();
                     class="rounded-lg border min-h-20 p-3"
                     v-for="user in users.data"
                 >
-                    <DivFlexCenter class="justify-between">
-                        <SpanBold class="text-xs"
-                            >{{ user.first_name }}
-                            {{ user.last_name }}</SpanBold
-                        >
+                    <MobileTableHeading
+                        :title="user.first_name + ' ' + user.last_name"
+                    >
+                        <ShowButton
+                            v-if="hasAccess('view user')"
+                            :isLink="true"
+                            :href="`/users/show/${user.id}`"
+                        />
                         <EditButton
-                            class="size-5"
                             v-if="hasAccess('edit users')"
                             :isLink="true"
                             :href="`/users/edit/${user.id}`"
                         />
-                    </DivFlexCenter>
+                        <DeleteButton
+                            @click="
+                                deleteModel(
+                                    route('users.destroy', user.id),
+                                    'user'
+                                )
+                            "
+                        />
+                    </MobileTableHeading>
                     <LabelXS>{{ user.email }}</LabelXS>
                 </DivFlexCol>
             </DivFlexCol>
