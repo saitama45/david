@@ -76,7 +76,7 @@ const { deleteModel } = useReferenceDelete();
                         }}</TD>
                         <TD>{{ user.is_active == 1 ? "Yes" : "No" }}</TD>
                         <TD>
-                            <DivFlexCol class="sm:gap-3">
+                            <DivFlexCenter class="sm:gap-3">
                                 <ShowButton
                                     v-if="hasAccess('view user')"
                                     :isLink="true"
@@ -95,7 +95,7 @@ const { deleteModel } = useReferenceDelete();
                                         )
                                     "
                                 />
-                            </DivFlexCol>
+                            </DivFlexCenter>
                         </TD>
                     </tr>
                 </TableBody>
