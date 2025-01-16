@@ -14,6 +14,9 @@ const createNewMenu = () => {
 import { useAuth } from "@/Composables/useAuth";
 
 const { hasAccess } = useAuth();
+
+import { useReferenceDelete } from "@/Composables/useReferenceDelete";
+const { deleteModel } = useReferenceDelete();
 </script>
 
 <template>
@@ -54,6 +57,14 @@ const { hasAccess } = useAuth();
                                     v-if="hasAccess('edit menu')"
                                     :isLink="true"
                                     :href="route('menu-list.edit', menu.id)"
+                                />
+                                <DeleteButton
+                                    @click="
+                                        deleteModel(
+                                            route('menu-list.destroy', menu.id),
+                                            'Menu'
+                                        )
+                                    "
                                 />
                             </DivFlexCenter>
                         </TD>

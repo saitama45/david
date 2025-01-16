@@ -84,6 +84,20 @@ class MenuController extends Controller
         return to_route('menu-list.index');
     }
 
+    public function destroy($id)
+    {
+        $menu = Menu::with('usage_record_items')->findOrFail($id);
+
+        if ($menu->usage_record_items->count() > 0) {
+            return back()->withErrors([
+                'message' => "Can't delete this menu because there are data associated with it."
+            ]);
+        }
+
+        $menu->delete();
+        return to_route('menu-list.index');
+    }
+
     public function show($id)
     {
         $menu = Menu::with(['product_inventories', 'product_inventories.unit_of_measurement'])->findOrFail($id);
