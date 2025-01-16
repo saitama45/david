@@ -35,7 +35,7 @@ const { deleteModel } = useReferenceDelete();
             <Table>
                 <TableHead>
                     <TH>Id</TH>
-                    <TH>Item</TH>
+                    <TH>Name</TH>
                     <TH>Category</TH>
                     <TH>Price</TH>
                     <TH>Actions</TH>
@@ -71,6 +71,33 @@ const { deleteModel } = useReferenceDelete();
                     </tr>
                 </TableBody>
             </Table>
+
+            <MobileTableContainer>
+                <MobileTableRow v-for="menu in menus.data" :key="menu.id">
+                    <MobileTableHeading :title="`${menu.name}`">
+                        <ShowButton
+                            v-if="hasAccess('show menu')"
+                            :isLink="true"
+                            :href="route('menu-list.show', menu.id)"
+                        />
+                        <EditButton
+                            v-if="hasAccess('edit menu')"
+                            :isLink="true"
+                            :href="route('menu-list.edit', menu.id)"
+                        />
+                        <DeleteButton
+                            @click="
+                                deleteModel(
+                                    route('menu-list.destroy', menu.id),
+                                    'Menu'
+                                )
+                            "
+                        />
+                    </MobileTableHeading>
+                    <LabelXS>Category: {{ menu.category }}</LabelXS>
+                    <LabelXS>Price: {{ menu.price }}</LabelXS>
+                </MobileTableRow>
+            </MobileTableContainer>
             <Pagination :data="menus" />
         </TableContainer>
     </Layout>

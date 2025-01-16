@@ -218,7 +218,7 @@ const importMenu = () => {
         buttonName="Import Menu"
         :handleClick="openImportMenuModal"
     >
-        <Card class="grid grid-cols-3 gap-5 p-5">
+        <Card class="grid sm:grid-cols-3 gap-5 p-5">
             <DivFlexCol class="gap-5">
                 <Card>
                     <CardHeader>
@@ -228,7 +228,7 @@ const importMenu = () => {
                             fields.</CardDescription
                         >
                     </CardHeader>
-                    <CardContent class="grid grid-cols-2 gap-5">
+                    <CardContent class="grid sm:grid-cols-2 gap-5">
                         <InputContainer>
                             <Label>Name</Label>
                             <Input v-model="form.name" />
@@ -308,7 +308,7 @@ const importMenu = () => {
                 </Card>
             </DivFlexCol>
 
-            <TableContainer class="col-span-2">
+            <TableContainer class="sm:col-span-2">
                 <TableHeader>
                     <SpanBold>Ingredients</SpanBold>
                 </TableHeader>
@@ -350,6 +350,33 @@ const importMenu = () => {
                         </tr>
                     </TableBody>
                 </Table>
+                <MobileTableContainer>
+                    <MobileTableRow v-for="ingredient in form.ingredients">
+                        <MobileTableHeading
+                            :title="`${ingredient.name} (${ingredient.inventory_code})`"
+                        >
+                            <button
+                                class="text-red-500 size-5"
+                                @click="minusItemQuantity(ingredient.id)"
+                            >
+                                <Minus />
+                            </button>
+                            <button
+                                class="text-green-500 size-5"
+                                @click="addItemQuantity(ingredient.id)"
+                            >
+                                <Plus />
+                            </button>
+                            <DeleteButton
+                                @click="removeItem(ingredient.id)"
+                                variant="outline"
+                                class="text-red-500"
+                            />
+                        </MobileTableHeading>
+                        <LabelXS>UOM: {{ ingredient.unit }}</LabelXS>
+                        <LabelXS>Quantity: {{ ingredient.quantity }}</LabelXS>
+                    </MobileTableRow>
+                </MobileTableContainer>
                 <DivFlexCenter class="justify-end">
                     <Button @click="store">Create</Button>
                 </DivFlexCenter>
