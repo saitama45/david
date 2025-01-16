@@ -393,13 +393,29 @@ const importMenu = () => {
                 </DialogHeader>
                 <InputContainer>
                     <LabelXS> Menu List </LabelXS>
+                    <Input
+                        :disabled="isLoading"
+                        type="file"
+                        @input="
+                            excelFileForm.menu_file = $event.target.files[0]
+                        "
+                    />
+                    <FormError>{{ excelFileForm.errors.menu_file }}</FormError>
                 </InputContainer>
-                <Input
-                    :disabled="isLoading"
-                    type="file"
-                    @input="excelFileForm.menu_file = $event.target.files[0]"
-                />
-                <FormError>{{ excelFileForm.errors.menu_file }}</FormError>
+
+                <InputContainer>
+                    <LabelXS>Menu Template</LabelXS>
+                    <ul>
+                        <li class="text-xs">
+                            Template:
+                            <a
+                                class="text-blue-500 underline"
+                                href="/excel/menu-template"
+                                >Click to download</a
+                            >
+                        </li>
+                    </ul>
+                </InputContainer>
                 <DialogFooter>
                     <Button
                         :disabled="isLoading"

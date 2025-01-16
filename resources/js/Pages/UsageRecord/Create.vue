@@ -473,18 +473,32 @@ const importStoreTransactions = () => {
                 </DialogHeader>
                 <InputContainer>
                     <LabelXS> Store Transactions </LabelXS>
+                    <Input
+                        :disabled="isLoading"
+                        type="file"
+                        @input="
+                            excelFileForm.store_transactions_file =
+                                $event.target.files[0]
+                        "
+                    />
+                    <FormError>{{
+                        excelFileForm.errors.store_transactions_file
+                    }}</FormError>
                 </InputContainer>
-                <Input
-                    :disabled="isLoading"
-                    type="file"
-                    @input="
-                        excelFileForm.store_transactions_file =
-                            $event.target.files[0]
-                    "
-                />
-                <FormError>{{
-                    excelFileForm.errors.store_transactions_file
-                }}</FormError>
+
+                <InputContainer>
+                    <LabelXS>Store Transactions Template</LabelXS>
+                    <ul>
+                        <li class="text-xs">
+                            Template:
+                            <a
+                                class="text-blue-500 underline"
+                                href="/excel/store-transactions-template"
+                                >Click to download</a
+                            >
+                        </li>
+                    </ul>
+                </InputContainer>
                 <DialogFooter>
                     <Button
                         :disabled="isLoading"

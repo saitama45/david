@@ -30,4 +30,16 @@ class ExcelTemplateController extends Controller
         $path = 'storage\excel-templates\product_template.xlsx';
         return response()->download($path);
     }
+
+    public function storeTransactionsTemplate()
+    {
+        $path = 'storage\excel-templates\store_transactions_template.xlsx';
+        return response()->download($path);
+    }
+
+    public function menuTemplate()
+    {
+        $path = 'storage\excel-templates\menu_template.xlsx';
+        return response()->download($path);
+    }
 }

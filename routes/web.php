@@ -205,6 +205,12 @@ Route::middleware('auth')
 
                 Route::get('/products-template', 'productsTemplate')
                     ->name('products-template');
+
+                Route::get('/store-transactions-template', 'storeTransactionsTemplate')
+                    ->name('store-transactions-template');
+
+                Route::get('/menu-template', 'menuTemplate')
+                    ->name('menu-template');
             });
 
         // Items Order Summary
