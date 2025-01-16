@@ -158,7 +158,7 @@ const { hasAccess } = useAuth();
 <template>
     <Layout heading="Stock Management">
         <TableContainer>
-            <DivFlexCenter class="justify-between">
+            <DivFlexCenter class="justify-between sm:flex-row flex-col gap-3">
                 <SearchBar>
                     <Input
                         class="pl-10"
@@ -227,6 +227,44 @@ const { hasAccess } = useAuth();
                     </tr>
                 </TableBody>
             </Table>
+
+            <MobileTableContainer>
+                <MobileTableRow v-for="product in products.data">
+                    <MobileTableHeading
+                        :title="`${product.name} (${product.inventory_code})`"
+                    >
+                        <ShowButton
+                            v-if="hasAccess('view stock management history')"
+                            @click="showDetails(product.id)"
+                        />
+                    </MobileTableHeading>
+                    <LabelXS>UOM: {{ product.uom }}</LabelXS>
+                    <LabelXS>SOH: {{ product.stock_on_hand }}</LabelXS>
+                    <LabelXS
+                        >Estimated Used: {{ product.estimated_used }}
+                        {{ product.ingredient_units }}</LabelXS
+                    >
+                    <LabelXS
+                        >Recorded Used: {{ product.recorded_used }}</LabelXS
+                    >
+                    <DivFlexCenter class="gap-3">
+                        <Button
+                            v-if="hasAccess('log stock usage')"
+                            @click="openLogUsageModal(product.id)"
+                            variant="link"
+                            class="text-xs text-orange-500 p-0"
+                            >Log Usage</Button
+                        >
+                        <Button
+                            v-if="hasAccess('add stock quantity')"
+                            @click="openAddQuantityModal(product.id)"
+                            variant="link"
+                            class="text-xs text-green-500 p-0"
+                            >Add Quantity</Button
+                        >
+                    </DivFlexCenter>
+                </MobileTableRow>
+            </MobileTableContainer>
             <Pagination :data="products" />
         </TableContainer>
 

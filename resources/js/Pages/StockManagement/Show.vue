@@ -10,7 +10,7 @@ const { branches, history } = defineProps({
     },
 });
 
-console.log(history); 
+console.log(history);
 </script>
 <template>
     <Layout heading="Stock Details">
@@ -38,6 +38,18 @@ console.log(history);
                     </tr>
                 </TableBody>
             </Table>
+            <MobileTableContainer>
+                <MobileTableRow v-for="data in history.data">
+                    <MobileTableHeading
+                        :title="`${data.action
+                            .replace(/_/g, ' ')
+                            .toUpperCase()}`"
+                    ></MobileTableHeading>
+                    <LabelXS>Quantity: {{ data.quantity }}</LabelXS>
+                    <LabelXS>Created At: {{ data.created_at }}</LabelXS>
+                    <LabelXS>Remarks: {{ data.remarks ?? "None" }}</LabelXS>
+                </MobileTableRow>
+            </MobileTableContainer>
             <Pagination :data="history" />
         </TableContainer>
         <BackButton routeName="stock-management.index" />
