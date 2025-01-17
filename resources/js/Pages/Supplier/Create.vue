@@ -15,10 +15,18 @@ const store = () => {
             toast.add({
                 severity: "success",
                 summary: "Success",
-                detail: "Supplier Create Successfully.",
+                detail: "Supplier Created Successfully.",
                 life: 5000,
             });
             form.reset();
+        },
+        onError: () => {
+            toast.add({
+                severity: "error",
+                summary: "Error",
+                detail: "An error occured while trying to update the supplier details.",
+                life: 5000,
+            });
         },
     });
 };

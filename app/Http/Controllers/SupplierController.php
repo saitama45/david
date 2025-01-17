@@ -48,8 +48,8 @@ class SupplierController extends Controller
     public function update(Request $request, $id)
     {
         $validated = $request->validate([
-            'name' => ['required'],
-            'supplier_code' => ['required'],
+            'name' => ['required', 'unique:suppliers,name,' . $id],
+            'supplier_code' => ['required', 'unique:suppliers,supplier_code,' . $id],
             'remarks' => ['nullable']
         ]);
         $supplier = Supplier::findOrFail($id);
@@ -65,8 +65,8 @@ class SupplierController extends Controller
     public function store(Request $request)
     {
         $validated = $request->validate([
-            'name' => ['required'],
-            'supplier_code' => ['required'],
+            'name' => ['required', 'unique:suppliers,name'],
+            'supplier_code' => ['required', 'unique:suppliers,supplier_code'],
             'remarks' => ['nullable']
         ]);
 

@@ -61,10 +61,24 @@ class StoreBranchController extends Controller
 
     public function store(Request $request)
     {
+
         $validated = $request->validate([
-            'branch_code' => ['required'],
-            'name' => ['required'],
-            'store_status' => ['required']
+            'branch_code' => ['required', 'unique:store_branches,branch_code'],
+            'name' => ['required', 'unique:store_branches,name'],
+            'brand_name' => ['nullable'],
+            'brand_code' => ['nullable', 'unique:store_branches,brand_code'],
+            'location_code' => ['nullable', 'unique:store_branches,location_code'],
+            'store_status' => ['required'],
+            'tin' => ['nullable'],
+            'complete_address' => ['nullable'],
+            'head_chef' => ['nullable'],
+            'director_operations' => ['nullable'],
+            'vp_operations' => ['nullable'],
+            'store_representative' => ['nullable'],
+            'aom' => ['nullable'],
+            'point_of_contact' => ['nullable'],
+            'contact_number' => ['nullable'],
+            'is_active' => ['nullable'],
         ]);
 
         StoreBranch::create($validated);
@@ -75,8 +89,8 @@ class StoreBranchController extends Controller
     {
         $branch = StoreBranch::findOrFail($id);
         $validated = $request->validate([
-            'branch_code' => ['required'],
-            'name' => ['required'],
+            'branch_code' => ['required', 'unique:store_branches,branch_code,' . $id],
+            'name' => ['required', 'unique:store_branches,name,' . $id],
             'store_status' => ['required']
         ]);
         $branch->update($validated);

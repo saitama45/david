@@ -3,9 +3,10 @@ import { useForm } from "@inertiajs/vue3";
 
 const form = useForm({
     branch_code: "",
+    brand_code: "",
     name: "",
     brand_name: "",
-    brand_code: "",
+    location_code: "",
     store_status: "",
     tin: "",
     complete_address: "",
@@ -76,6 +77,16 @@ const store = () => {
                     <Input
                         v-model="form.brand_code"
                         placeholder="Enter brand code"
+                    />
+                    <FormError v-if="form.errors.brand_code">
+                        {{ form.errors.brand_code }}
+                    </FormError>
+                </InputContainer>
+                <InputContainer>
+                    <LabelXS>Location Code</LabelXS>
+                    <Input
+                        v-model="form.location_code"
+                        placeholder="Enter location code"
                     />
                     <FormError v-if="form.errors.brand_code">
                         {{ form.errors.brand_code }}
