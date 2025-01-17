@@ -74,12 +74,12 @@ class OrderApprovalController extends Controller
             $orderedItem = StoreOrderItem::find($item['id']);
             $orderedItem->update([
                 'total_cost' => $item['total_cost'],
-                'quantity_approved' => (int)$item['quantity_approved'],
+                'quantity_approved' => $item['quantity_approved'],
             ]);
 
             $orderedItem->ordered_item_receive_dates()->create([
                 'received_by_user_id' => $storeOrder->encoder_id,
-                'quantity_received' => $item['quantity_approved'],
+                'quantity_received' => (int)$item['quantity_approved'],
             ]);
         }
         if (!empty($validated['remarks'])) {
