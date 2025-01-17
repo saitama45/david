@@ -245,19 +245,25 @@ class RolesController extends Controller
     public function update(Request $request, $id)
     {
         $validated = $request->validate([
-            'name' => ['required', 'string', 'max:255'],
+            'name' => ['required', 'string', 'unique:roles,' . $id],
             'selectedPermissions' => ['required', 'array'],
             'selectedPermissions.*' => ['exists:permissions,id'],
         ]);
 
         DB::beginTransaction();
-        $role = Role::findOrFail($id);
-        $role->update([
-            'name' => $validated['name']
-        ]);
-        $permissions = Permission::whereIn('id', $validated['selectedPermissions'])->get();
-        $role->syncPermissions($permissions);
-        DB::commit();
+        try {
+            $role = Role::findOrFail($id);
+            $role->update([
+                'name' => $validated['name']
+            ]);
+            $permissions = Permission::whereIn('id', $validated['selectedPermissions'])->get();
+            $role->syncPermissions($permissions);
+            DB::commit();
+        } catch (Exception $e) {
+            return back()->withErrors([
+                'error' => $e->getMessage()
+            ]);
+        }
         return redirect()->route('roles.index')
             ->with('success', 'Role updated successfully.');
     }

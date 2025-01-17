@@ -76,10 +76,10 @@ class OrderApprovalController extends Controller
                 'total_cost' => $item['total_cost'],
                 'quantity_approved' => $item['quantity_approved'],
             ]);
-
+            $quantity = floor(floatval($item['quantity_approved']));
             $orderedItem->ordered_item_receive_dates()->create([
                 'received_by_user_id' => $storeOrder->encoder_id,
-                'quantity_received' => (int)$item['quantity_approved'],
+                'quantity_received' => $quantity,
             ]);
         }
         if (!empty($validated['remarks'])) {
