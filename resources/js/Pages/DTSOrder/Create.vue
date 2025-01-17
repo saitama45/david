@@ -83,8 +83,8 @@ watch(
 const getNextMonday = () => {
     const today = new Date();
     const dayOfWeek = today.getDay();
-    const daysUntilNextSunday = (7 - dayOfWeek) % 7 || 7;
-
+    let daysUntilNextSunday = (7 - dayOfWeek) % 7 || 7;
+    daysUntilNextSunday += 7;
     const nextSunday = new Date(today);
     nextSunday.setDate(today.getDate() + daysUntilNextSunday + 1);
     return nextSunday;
@@ -93,8 +93,8 @@ const getNextMonday = () => {
 const getNextSaturday = () => {
     const today = new Date();
     const dayOfWeek = today.getDay();
-    const daysUntilNextSunday = (7 - dayOfWeek) % 7 || 7;
-
+    let daysUntilNextSunday = (7 - dayOfWeek) % 7 || 7;
+    daysUntilNextSunday += 7;
     const nextSunday = new Date(today);
     nextSunday.setDate(today.getDate() + daysUntilNextSunday + 6);
     return nextSunday;
