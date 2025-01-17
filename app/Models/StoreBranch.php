@@ -51,7 +51,7 @@ class StoreBranch extends Model implements Auditable
         $hasAdmin = $user->roles->contains('name', 'admin');
         $assignedBranches = $user->store_branches->pluck('id')->toArray();
         if (!$hasAdmin)  $query->whereIn('id', $assignedBranches);
-        return $query->where('is_active', true)->pluck('name', 'id');
+        return $query->where('is_active', true)->get()->pluck('display_name', 'id');
     }
 
     public function users()
@@ -62,6 +62,11 @@ class StoreBranch extends Model implements Auditable
             'store_branch_id',
             'user_id'
         );
+    }
+
+    public function getDisplayNameAttribute()
+    {
+        return "{$this->name} ($this->branch_code)";
     }
 
 
