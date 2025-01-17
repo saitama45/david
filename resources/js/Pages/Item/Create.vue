@@ -25,6 +25,12 @@ const importFile = () => {
         },
         onError: (e) => {
             isLoading.value = false;
+            toast.add({
+                severity: "error",
+                summary: "Error",
+                detail: "An error occured while trying to create new products. Please make sure that you are using the correct format.",
+                life: 3000,
+            });
         },
     });
 };

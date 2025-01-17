@@ -6,16 +6,21 @@ use App\Models\InventoryCategory;
 use App\Models\ProductCategory;
 use App\Models\ProductInventory;
 use App\Models\UnitOfMeasurement;
+use Illuminate\Support\Collection;
+use Maatwebsite\Excel\Concerns\Importable;
+use Maatwebsite\Excel\Concerns\SkipsOnFailure;
 use Maatwebsite\Excel\Concerns\ToModel;
 use Maatwebsite\Excel\Concerns\WithHeadingRow;
+use Maatwebsite\Excel\Concerns\WithValidation;
 
-class ProductInventoryImport implements ToModel, WithHeadingRow
+class ProductInventoryImport implements ToModel, WithHeadingRow, WithValidation
 {
-
+    use Importable;
     private $productCategories;
     private $unitOfMeasurements;
     private $inventoryCategories;
     private $statuses;
+    private $errors;
 
     public function __construct()
     {
@@ -34,18 +39,44 @@ class ProductInventoryImport implements ToModel, WithHeadingRow
      */
     public function model(array $row)
     {
+        try {
+            return ProductInventory::updateOrCreate(
+                ['inventory_code' => $row['inventory_code']],
+                [
+                    'inventory_category_id' => $this->getInventoryCategoryId($row['inventory_category']),
+                    'unit_of_measurement_id' => $this->getUnitOfMeasuremntId($row['uom']),
+                    'name' => $row['name'],
+                    'brand' => $row['brand'],
+                    'conversion' => $row['conversion'],
+                    'cost' => $this->getCost($row['cost']),
+                    'is_active' => $this->getStatus($row['status'])
+                ]
+            );
+        } catch (\Exception $e) {
+            $this->errors->push([
+                'row' => $row,
+                'error' => $e->getMessage()
+            ]);
+            return null;
+        }
+    }
 
-        $product = ProductInventory::updateOrCreate([
-            'inventory_category_id' => $this->getInventoryCategoryId($row['inventory_category']),
-            'unit_of_measurement_id' => $this->getUnitOfMeasuremntId($row['uom']),
-            'name' => $row['name'],
-            'inventory_code' => $row['inventory_code'],
-            'brand' => $row['brand'],
-            'conversion' => $row['conversion'],
-            'cost' => $this->getCost($row['cost']),
-            'is_active' => $this->getStatus($row['status'])
-        ]);
-        return $product;
+    public function getErrors(): Collection
+    {
+        return $this->errors;
+    }
+
+    public function rules(): array
+    {
+        return [
+            'inventory_code' => ['required', 'string'],
+            'name' => ['required', 'string'],
+            'inventory_category' => ['required', 'string'],
+            'uom' => ['required', 'string'],
+            'conversion' => ['required', 'numeric'],
+            'cost' => ['required'],
+            'status' => ['required', 'string']
+        ];
     }
 
     public function getCost($cost)

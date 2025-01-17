@@ -247,6 +247,12 @@ const addImportedItemsToOrderList = () => {
             excelFileForm.orders_file = null;
         })
         .catch((error) => {
+            toast.add({
+                severity: "error",
+                summary: "Error",
+                detail: "An error occured while trying to get the imported orders. Please make sure that you are using the correct format.",
+                life: 5000,
+            });
             excelFileForm.setError("orders_file", error.response.data.message);
         })
         .finally(() => (isLoading.value = false));

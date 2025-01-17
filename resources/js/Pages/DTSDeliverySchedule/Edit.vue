@@ -61,7 +61,12 @@ const update = (id) => {
             });
         },
         onError: (e) => {
-            console.log(e);
+            toast.add({
+                severity: "error",
+                summary: "Error",
+                detail: "An error occured while trying to update the store schedule.",
+                life: 3000,
+            });
         },
     });
 };

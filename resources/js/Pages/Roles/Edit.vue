@@ -1,6 +1,7 @@
 <script setup>
 import Checkbox from "primevue/checkbox";
-
+import { useToast } from "primevue/usetoast";
+const toast = useToast();
 import { useForm } from "@inertiajs/vue3";
 const props = defineProps({
     permissions: {
@@ -25,10 +26,20 @@ const form = useForm({
 const updateRole = () => {
     form.put(route("roles.update", props.role.id), {
         onSuccess: () => {
-            console.log("test");
+            toast.add({
+                severity: "success",
+                summary: "Success",
+                detail: "Role Updated Successfully.",
+                life: 3000,
+            });
         },
         onError: (e) => {
-            console.log(e);
+            toast.add({
+                severity: "error",
+                summary: "Success",
+                detail: "An error occured while trying to updated the role.",
+                life: 3000,
+            });
         },
     });
 };

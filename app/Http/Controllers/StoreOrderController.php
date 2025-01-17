@@ -186,7 +186,6 @@ class StoreOrderController extends Controller
         Excel::import($import, $storeOrderRequest->file('orders_file'));
         $importedCollection = $import->getImportedData();
         return response()->json([
-
             'orders' => $importedCollection
         ]);
     }

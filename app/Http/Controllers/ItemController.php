@@ -92,7 +92,7 @@ class ItemController extends Controller
             'name' => ['required'],
             'brand' => ['sometimes'],
             'inventory_code' => ['required', 'unique:product_inventories,inventory_code'],
-            'cost' => ['required'],
+            'cost' => ['required', 'numeric'],
             'categories' => ['required', 'array'],
             'categories.*' => ['exists:product_categories,id']
         ]);
@@ -127,8 +127,8 @@ class ItemController extends Controller
             'conversion' => ['required', 'numeric', 'min:1'],
             'name' => ['required'],
             'brand' => ['sometimes'],
-            'inventory_code' => ['required'],
-            'cost' => ['required'],
+            'inventory_code' => ['required', 'unique:product_inventories,inventory_code,' . $id],
+            'cost' => ['required', 'numeric'],
             'categories' => ['required', 'array'],
             'categories.*' => ['exists:product_categories,id']
         ]);
@@ -148,7 +148,6 @@ class ItemController extends Controller
         $request->validate([
             'products_file' => 'required|mimes:xlsx,xls,csv'
         ]);
-
         Excel::import(new ProductInventoryImport, $request->file('products_file'));
         return redirect()->route('items.index')->with('success', 'Import successful');
     }
