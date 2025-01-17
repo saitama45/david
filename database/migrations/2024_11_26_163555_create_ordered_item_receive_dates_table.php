@@ -16,7 +16,7 @@ return new class extends Migration
             $table->foreignId('store_order_item_id')->constrained('store_order_items')->cascadeOnDelete();
             $table->foreignId('received_by_user_id')->constrained('users');
             $table->foreignId('approval_action_by')->nullable()->constrained('users');
-            $table->integer('quantity_received');
+            $table->float('quantity_received');
             $table->dateTime('received_date')->nullable();
             $table->date('expiry_date')->nullable();
             $table->text('remarks')->nullable();

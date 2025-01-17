@@ -74,8 +74,7 @@ class OrderApprovalController extends Controller
             $orderedItem = StoreOrderItem::find($item['id']);
             $orderedItem->update([
                 'total_cost' => $item['total_cost'],
-                // test
-                'quantity_approved' => $item['quantity_approved'],
+                'quantity_approved' => (int)$item['quantity_approved'],
             ]);
 
             $orderedItem->ordered_item_receive_dates()->create([
