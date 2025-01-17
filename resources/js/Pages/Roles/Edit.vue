@@ -76,6 +76,7 @@ const updateRole = () => {
                         </DivFlexCenter>
                     </DivFlexCol>
                 </div>
+                <FormError>{{ form.errors.selectedPermissions }}</FormError>
             </InputContainer>
             <DivFlexCenter class="justify-end gap-3">
                 <BackButton />

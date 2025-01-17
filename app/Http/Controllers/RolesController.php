@@ -221,7 +221,6 @@ class RolesController extends Controller
 
     public function store(Request $request)
     {
-
         $validated = $request->validate([
             'name' => ['required', 'string', 'max:255', 'unique:roles'],
             'selectedPermissions' => ['required', 'array'],
@@ -244,15 +243,15 @@ class RolesController extends Controller
 
     public function update(Request $request, $id)
     {
+        $role = Role::findOrFail($id);
         $validated = $request->validate([
-            'name' => ['required', 'string', 'unique:roles,' . $id],
+            'name' => ['required', 'string', 'unique:roles,name,' . $role->id],
             'selectedPermissions' => ['required', 'array'],
             'selectedPermissions.*' => ['exists:permissions,id'],
         ]);
 
         DB::beginTransaction();
         try {
-            $role = Role::findOrFail($id);
             $role->update([
                 'name' => $validated['name']
             ]);

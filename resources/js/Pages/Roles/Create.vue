@@ -1,6 +1,8 @@
 <script setup>
 import Checkbox from "primevue/checkbox";
 import Dialog from "primevue/dialog";
+import { useToast } from "primevue/usetoast";
+const toast = useToast();
 
 import { CircleHelp } from "lucide-vue-next";
 
@@ -29,7 +31,7 @@ const createNewRoles = () => {
         },
         onError: (e) => {
             toast.add({
-                severity: "danger",
+                severity: "error",
                 summary: "Error",
                 detail: "An error occured while trying create a new role.",
                 life: 3000,
@@ -86,6 +88,7 @@ const isPermissionGuideModalVisible = ref(false);
                         </DivFlexCenter>
                     </DivFlexCol>
                 </div>
+                <FormError>{{ form.errors.selectedPermissions }}</FormError>
             </InputContainer>
             <DivFlexCenter class="justify-end gap-3">
                 <BackButton />
