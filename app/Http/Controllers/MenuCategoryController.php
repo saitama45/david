@@ -17,7 +17,7 @@ class MenuCategoryController extends Controller
 
         if ($search)
             $query->where('name', 'like', "%$search%");
-        $categories = $query->paginate(10);
+        $categories = $query->latest()->paginate(10)->withQueryString();
         return Inertia::render('MenuCategory/Index', [
             'categories' => $categories,
             'filters' => request()->only(['search'])
@@ -27,7 +27,7 @@ class MenuCategoryController extends Controller
     public function update(Request $request, $id)
     {
         $validated = $request->validate([
-            'name' => 'required',
+            'name' => ['required', 'unique:menu_categories,name,' . $id],
         ]);
 
         $category = MenuCategory::findOrFail($id);
@@ -51,7 +51,10 @@ class MenuCategoryController extends Controller
         return to_route('menu-categories.index');
     }
 
-
+    protected function getTableName()
+    {
+        return 'menu_categories';
+    }
 
     protected function getModel()
     {

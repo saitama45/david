@@ -31,8 +31,8 @@ class CategoryController extends Controller
     public function update(Request $request, $id)
     {
         $validated = $request->validate([
-            'name' => 'required',
-            'remarks' => 'required',
+            'name' => ['required', 'unique:product_categories,name,' . $id],
+            'remarks' => 'nullable',
         ]);
 
         $category = ProductCategory::findOrFail($id);
@@ -40,6 +40,11 @@ class CategoryController extends Controller
 
 
         return to_route('categories.index');
+    }
+
+    protected function getTableName()
+    {
+        return 'product_categories';
     }
 
     protected function getModel()
