@@ -1,6 +1,8 @@
 <script setup>
 import { useForm } from "@inertiajs/vue3";
+import { useToast } from "@/Composables/useToast";
 
+const { toast } = useToast();
 const form = useForm({
     branch_code: "",
     brand_code: "",
@@ -23,13 +25,29 @@ const form = useForm({
 const store = () => {
     form.post(route("store-branches.store"), {
         onSuccess: () => {
-            console.log("Success");
+            toast.add({
+                severity: "success",
+                summary: "Success",
+                detail: "Store Branch Created Successfully.",
+                life: 5000,
+            });
+            form.reset();
         },
         onError: () => {
-            console.log("Error");
+            toast.add({
+                severity: "error",
+                summary: "Error",
+                detail: "An error occured while trying to create the store branch.",
+                life: 5000,
+            });
         },
     });
 };
+
+const activeStatuses = ref([
+    { label: "Active", value: 1 },
+    { label: "Inactive", value: 0 },
+]);
 </script>
 
 <template>
@@ -196,10 +214,13 @@ const store = () => {
                 </InputContainer>
                 <InputContainer>
                     <LabelXS>Active Status</LabelXS>
-                    <Select v-model="form.is_active">
-                        <option value="1">Active</option>
-                        <option value="0">Inactive</option>
-                    </Select>
+                    <Select
+                        v-model="form.is_active"
+                        :options="activeStatuses"
+                        optionLabel="label"
+                        optionValue="value"
+                        placeholder="Select a Status"
+                    />
                     <FormError v-if="form.errors.is_active">
                         {{ form.errors.is_active }}
                     </FormError>

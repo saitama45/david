@@ -1,7 +1,9 @@
 sm:
 <script setup>
 import { useForm } from "@inertiajs/vue3";
+import { useToast } from "@/Composables/useToast";
 
+const { toast } = useToast();
 const { branch } = defineProps({
     branch: {
         type: Object,
@@ -13,6 +15,7 @@ const form = useForm({
     name: branch.name || "",
     brand_name: branch.brand_name || "",
     brand_code: branch.brand_code || "",
+    location_code: branch.location_code || "",
     store_status: branch.store_status || "",
     tin: branch.tin || "",
     complete_address: branch.complete_address || "",
@@ -23,19 +26,35 @@ const form = useForm({
     aom: branch.aom || "",
     point_of_contact: branch.point_of_contact || "",
     contact_number: branch.contact_number || "",
-    is_active: branch.is_active !== undefined ? branch.is_active : 1,
+    is_active: branch.is_active ?? null,
 });
 
 const update = (id) => {
     form.post(route("store-branches.update", id), {
         onSuccess: () => {
-            console.log("Success");
+            toast.add({
+                severity: "success",
+                summary: "Success",
+                detail: "Store Branch Updated Successfully.",
+                life: 5000,
+            });
+            form.reset();
         },
         onError: () => {
-            console.log("Error");
+            toast.add({
+                severity: "error",
+                summary: "Error",
+                detail: "An error occured while trying to update the store branch details.",
+                life: 5000,
+            });
         },
     });
 };
+
+const activeStatuses = ref([
+    { label: "Active", value: 1 },
+    { label: "Inactive", value: 0 },
+]);
 </script>
 
 <template>
@@ -83,6 +102,16 @@ const update = (id) => {
                     <Input
                         v-model="form.brand_code"
                         placeholder="Enter brand code"
+                    />
+                    <FormError v-if="form.errors.brand_code">
+                        {{ form.errors.brand_code }}
+                    </FormError>
+                </InputContainer>
+                <InputContainer>
+                    <LabelXS>Location Code</LabelXS>
+                    <Input
+                        v-model="form.location_code"
+                        placeholder="Enter location code"
                     />
                     <FormError v-if="form.errors.brand_code">
                         {{ form.errors.brand_code }}
@@ -192,10 +221,13 @@ const update = (id) => {
                 </InputContainer>
                 <InputContainer>
                     <LabelXS>Active Status</LabelXS>
-                    <Select v-model="form.is_active">
-                        <option value="1">Active</option>
-                        <option value="0">Inactive</option>
-                    </Select>
+                    <Select
+                        v-model="form.is_active"
+                        :options="activeStatuses"
+                        optionLabel="label"
+                        optionValue="value"
+                        placeholder="Select a Status"
+                    />
                     <FormError v-if="form.errors.is_active">
                         {{ form.errors.is_active }}
                     </FormError>

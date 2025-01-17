@@ -16,7 +16,7 @@ class StoreBranchController extends Controller
         if ($search)
             $query->whereAny(['name', 'location_code'], 'like', "%$search%");
 
-        $branches = $query->paginate(10);
+        $branches = $query->latest()->paginate(10)->withQueryString();
         return Inertia::render('StoreBranch/Index', [
             'data' => $branches,
             'filters' => request()->only(['search'])
@@ -91,7 +91,20 @@ class StoreBranchController extends Controller
         $validated = $request->validate([
             'branch_code' => ['required', 'unique:store_branches,branch_code,' . $id],
             'name' => ['required', 'unique:store_branches,name,' . $id],
-            'store_status' => ['required']
+            'brand_name' => ['nullable'],
+            'brand_code' => ['nullable', 'unique:store_branches,brand_code,' . $id],
+            'location_code' => ['nullable', 'unique:store_branches,location_code,' . $id],
+            'store_status' => ['required'],
+            'tin' => ['nullable'],
+            'complete_address' => ['nullable'],
+            'head_chef' => ['nullable'],
+            'director_operations' => ['nullable'],
+            'vp_operations' => ['nullable'],
+            'store_representative' => ['nullable'],
+            'aom' => ['nullable'],
+            'point_of_contact' => ['nullable'],
+            'contact_number' => ['nullable'],
+            'is_active' => ['nullable'],
         ]);
         $branch->update($validated);
         return to_route("store-branches.index");

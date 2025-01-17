@@ -30,6 +30,7 @@ const store = () => {
         },
     });
 };
+
 </script>
 
 <template>
