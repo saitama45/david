@@ -96,7 +96,10 @@ import MobileTableRow from "./Components/table/MobileTableRow.vue";
 import MobileTableHeading from "./Components/table/MobileTableHeading.vue";
 
 const appName = import.meta.env.VITE_APP_NAME || "Laravel";
+import axios from "axios";
 
+axios.defaults.withCredentials = true;
+axios.defaults.headers.common["X-Requested-With"] = "XMLHttpRequest";
 createInertiaApp({
     title: (title) => `DAVID`,
     resolve: (name) =>

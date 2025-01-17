@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use Exception;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
@@ -119,10 +120,16 @@ class RolesController extends Controller
         $role = Role::with('users')->findOrFail($id);
         if ($role->users->count() > 0) {
             return back()->withErrors([
-                'message' => "Can't delete this category because there are users associated with it."
+                'message' => "Can't delete this role because there are users associated with it."
             ]);
         }
-        $role->delete();
+        try {
+            $role->delete();
+        } catch (Exception $e) {
+            return back()->withErrors([
+                'error' => $e->getMessage()
+            ]);
+        }
         return to_route('roles.index');
     }
 
@@ -222,9 +229,13 @@ class RolesController extends Controller
         ]);
 
         DB::beginTransaction();
-        $role = Role::create(['name' => $validated['name']]);
-        $permissions = Permission::whereIn('id', $validated['selectedPermissions'])->get();
-        $role->syncPermissions($permissions);
+        try {
+            $role = Role::create(['name' => $validated['name']]);
+            $permissions = Permission::whereIn('id', $validated['selectedPermissions'])->get();
+            $role->syncPermissions($permissions);
+        } catch (Exception $e) {
+            return back()->withErrors(['error' => $e->getMessage()]);
+        }
         DB::commit();
 
         return redirect()->route('roles.index')

@@ -20,47 +20,51 @@ class DashboardController extends Controller
 {
     public function index()
     {
-        $user = User::rolesAndAssignedBranches();
+        try {
+            $user = User::rolesAndAssignedBranches();
 
-        if ($user['isAdmin']) {
-            $orderCounts = StoreOrder::selectRaw(DB::connection()->getDriverName() === 'sqlsrv'
-                ? "
+            if ($user['isAdmin']) {
+                $orderCounts = StoreOrder::selectRaw(DB::connection()->getDriverName() === 'sqlsrv'
+                    ? "
                 SUM(CASE WHEN order_request_status = 'pending' THEN 1 ELSE 0 END) as pending_count,
                 SUM(CASE WHEN order_request_status = 'approved' THEN 1 ELSE 0 END) as approved_count,
                 SUM(CASE WHEN order_request_status = 'rejected' THEN 1 ELSE 0 END) as rejected_count
             "
-                : "
+                    : "
                 COUNT(CASE WHEN order_request_status = 'pending' THEN 1 END) as pending_count,
                 COUNT(CASE WHEN order_request_status = 'approved' THEN 1 END) as approved_count,
                 COUNT(CASE WHEN order_request_status = 'rejected' THEN 1 END) as rejected_count
             ")
+                    ->first();
+
+                return Inertia::render('Dashboard/Index', [
+                    'orderCounts' => $orderCounts
+                ]);
+            }
+
+            $branches = $user['user']->store_branches->pluck('name', 'id')->toArray();
+            $branchId = request('branchId') ?? array_keys($branches)[0];
+
+            $orderCounts = StoreOrder::where('store_branch_id', $branchId)
+                ->selectRaw(DB::connection()->getDriverName() === 'sqlsrv'
+                    ? "
+                SUM(CASE WHEN order_request_status = 'pending' THEN 1 ELSE 0 END) as pending_count,
+                SUM(CASE WHEN order_request_status = 'approved' THEN 1 ELSE 0 END) as approved_count,
+                SUM(CASE WHEN order_request_status = 'rejected' THEN 1 ELSE 0 END) as rejected_count
+                "
+                    : "
+                COUNT(CASE WHEN order_request_status = 'pending' THEN 1 END) as pending_count,
+                COUNT(CASE WHEN order_request_status = 'approved' THEN 1 END) as approved_count,
+                COUNT(CASE WHEN order_request_status = 'rejected' THEN 1 END) as rejected_count
+        ")
                 ->first();
 
-            return Inertia::render('Dashboard/Index', [
-                'orderCounts' => $orderCounts
-            ]);
+            $highStockproducts = $this->getHighStockProducts($branchId);
+            $mostUsedProducts = $this->getMostUsedProducts($branchId);
+            $lowOnStockItems = $this->getLowOnStockItems($branchId);
+        } catch (Exception $e) {
+            throw $e;
         }
-
-        $branches = $user['user']->store_branches->pluck('name', 'id')->toArray();
-        $branchId = request('branchId') ?? array_keys($branches)[0];
-
-        $orderCounts = StoreOrder::where('store_branch_id', $branchId)
-            ->selectRaw(DB::connection()->getDriverName() === 'sqlsrv'
-                ? "
-        SUM(CASE WHEN order_request_status = 'pending' THEN 1 ELSE 0 END) as pending_count,
-        SUM(CASE WHEN order_request_status = 'approved' THEN 1 ELSE 0 END) as approved_count,
-        SUM(CASE WHEN order_request_status = 'rejected' THEN 1 ELSE 0 END) as rejected_count
-        "
-                : "
-        COUNT(CASE WHEN order_request_status = 'pending' THEN 1 END) as pending_count,
-        COUNT(CASE WHEN order_request_status = 'approved' THEN 1 END) as approved_count,
-        COUNT(CASE WHEN order_request_status = 'rejected' THEN 1 END) as rejected_count
-        ")
-            ->first();
-
-        $highStockproducts = $this->getHighStockProducts($branchId);
-        $mostUsedProducts = $this->getMostUsedProducts($branchId);
-        $lowOnStockItems = $this->getLowOnStockItems($branchId);
 
         return Inertia::render('StoreDashboard/Index', [
             'branches' => $branches,

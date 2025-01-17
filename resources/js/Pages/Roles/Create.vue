@@ -18,7 +18,24 @@ const props = defineProps({
 });
 
 const createNewRoles = () => {
-    form.post(route("roles.store"), {});
+    form.post(route("roles.store"), {
+        onSuccess: () => {
+            toast.add({
+                severity: "success",
+                summary: "Success",
+                detail: "New User Successfully Created",
+                life: 3000,
+            });
+        },
+        onError: (e) => {
+            toast.add({
+                severity: "danger",
+                summary: "Error",
+                detail: "An error occured while trying create a new role.",
+                life: 3000,
+            });
+        },
+    });
 };
 
 const isPermissionGuideModalVisible = ref(false);

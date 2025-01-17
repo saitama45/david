@@ -5,8 +5,10 @@ namespace App\Http\Controllers;
 use App\Enum\UserRole;
 use App\Models\StoreBranch;
 use App\Models\User;
+use Exception;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Inertia\Inertia;
 use Illuminate\Support\Str;
 use Spatie\Permission\Models\Role;
@@ -16,11 +18,18 @@ class UserController extends Controller
     public function index()
     {
         $search = request('search');
-        $query = User::query()->with('roles');
-        if ($search) {
-            $query->whereAny(['first_name', 'last_name', 'email'], 'like', "%$search%");
+        try {
+            $query = User::query()->with('roles');
+            if ($search) {
+                $query->whereAny(['first_name', 'last_name', 'email'], 'like', "%$search%");
+            }
+            $users = $query->paginate(10)->withQueryString();
+        } catch (Exception $e) {
+            report($e);
+            return back()->withErrors([
+                'error' => $e->getMessage()
+            ]);
         }
-        $users = $query->paginate(10);
 
         return Inertia::render('User/Index', [
             'users' => $users,
@@ -30,10 +39,14 @@ class UserController extends Controller
 
     public function create()
     {
-        $roles = Role::select(['id', 'name'])->pluck('name', 'id');
-        $branches = StoreBranch::options();
-        foreach ($roles as &$role) {
-            $role = Str::headline($role);
+        try {
+            $roles = Role::select(['id', 'name'])->pluck('name', 'id');
+            $branches = StoreBranch::options();
+            foreach ($roles as &$role) {
+                $role = Str::headline($role);
+            }
+        } catch (Exception $e) {
+            throw $e;
         }
         return Inertia::render('User/Create', [
             'roles' => $roles,
@@ -59,25 +72,30 @@ class UserController extends Controller
             'first_name' => ['required'],
             'middle_name' => ['sometimes'],
             'last_name' => ['required'],
-            'phone_number' => ['required'],
+            'phone_number' => ['required', 'regex:/^09\d{9}$/'],
             'email' => ['required', 'unique:users,email'],
             'roles' => ['required'],
-            'remarks' => ['sometimes'],
+            'remarks' => ['nullable'],
             'assignedBranches' => ['required', 'array'],
         ]);
 
         $validated['password'] = 'password';
 
         DB::beginTransaction();
-        $user = User::create($validated);
-        $roles = Role::whereIn('id', $validated['roles'])->get();
-        $user->assignRole($roles);
-        $validatedAssignedStoreBranches = $request->validate([
-            'assignedBranches' => ['required', 'array'],
-        ]);
-        $user->store_branches()->attach($validatedAssignedStoreBranches['assignedBranches']);
+        try {
+            $user = User::create($validated);
+            $roles = Role::whereIn('id', $validated['roles'])->get();
+            $user->assignRole($roles);
+            $validatedAssignedStoreBranches = $request->validate([
+                'assignedBranches' => ['required', 'array'],
+            ]);
+            $user->store_branches()->attach($validatedAssignedStoreBranches['assignedBranches']);
 
-        DB::commit();
+            DB::commit();
+        } catch (Exception $e) {
+            DB::rollBack();
+            return back()->withErrors(['error' => $e->getMessage()]);
+        }
 
         return redirect()->route('users.index');
     }
@@ -87,8 +105,13 @@ class UserController extends Controller
         $user = User::with(['usage_records', 'store_orders'])->findOrFail($id);
         if ($user->usage_records->count() > 0 || $user->store_orders->count() > 0) {
             return back()->withErrors([
-                'message' => "Can't delete this category because there are data associated with it."
+                'message' => "Can't delete this user because there are data associated with it."
             ]);
+        }
+        try {
+            $user->delete();
+        } catch (Exception $e) {
+            return back()->withErrors(['error' => $e->getMessage()]);
         }
         return to_route('users.index');
     }
@@ -97,13 +120,13 @@ class UserController extends Controller
     {
         $validated = $request->validate([
             'first_name' => ['required'],
-            'middle_name' => ['sometimes'],
+            'middle_name' => ['nullable'],
             'last_name' => ['required'],
-            'phone_number' => ['required'],
+            'phone_number' => ['required', 'regex:/^09\d{9}$/'],
             'email' => ['required', 'unique:users,email,' . $id],
             'roles' => ['required', 'array'],
-            'remarks' => ['sometimes'],
-            'assignedBranches' => ['sometimes', 'array'],
+            'remarks' => ['nullable'],
+            'assignedBranches' => ['required', 'array'],
         ]);
 
         DB::beginTransaction();
@@ -126,7 +149,7 @@ class UserController extends Controller
             DB::commit();
 
             return redirect()->route('users.index');
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             DB::rollBack();
             return back()->withErrors(['error' => $e->getMessage()]);
         }
