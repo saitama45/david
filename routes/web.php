@@ -221,6 +221,7 @@ Route::middleware('auth')
         });
         Route::middleware('permission:view ice cream orders')->controller(IceCreamOrderController::class)->name('ice-cream-orders.')->prefix('ice-cream-orders')->group(function () {
             Route::get('/', 'index')->name('index');
+            Route::get('/excel', 'excel')->name('excel');
         });
         Route::middleware('permission:view salmon orders')->controller(SalmonOrderController::class)->name('salmon-orders.')->prefix('salmon-orders')->group(function () {
             Route::get('/', 'index')->name('index');

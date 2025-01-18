@@ -5,10 +5,13 @@ namespace App\Http\Controllers;
 use App\Models\StoreBranch;
 use App\Models\StoreOrder;
 use Carbon\Carbon;
+use Illuminate\Contracts\View\View;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Inertia\Inertia;
+use Maatwebsite\Excel\Concerns\FromView;
+use Maatwebsite\Excel\Facades\Excel;
 
 class IceCreamOrderController extends Controller
 {
@@ -95,6 +98,95 @@ class IceCreamOrderController extends Controller
                     ->where('delivery_schedule_id', $scheduleId);
             })
             ->pluck('id');
+    }
+
+    public function excel()
+    {
+        $start_date_filter = request('start_date_filter');
+
+        $startDate = $start_date_filter
+            ? Carbon::parse($start_date_filter)
+            : Carbon::now()->startOfWeek();
+
+
+        $monday = $startDate->toDateString();
+        $tuesday = $startDate->copy()->addDays(1)->toDateString();
+        $wednesday = $startDate->copy()->addDays(2)->toDateString();
+        $thursday = $startDate->copy()->addDays(3)->toDateString();
+        $friday = $startDate->copy()->addDays(4)->toDateString();
+        $saturday = $startDate->copy()->addDays(5)->toDateString();
+
+        // Get orders for each day
+        $mondayOrders = $this->getOrders($this->getBranchesId(1), $monday);
+        $tuesdayOrders = $this->getOrders($this->getBranchesId(2), $tuesday);
+        $wednesdayOrders = $this->getOrders($this->getBranchesId(3), $wednesday);
+        $thursdayOrders = $this->getOrders($this->getBranchesId(4), $thursday);
+        $fridayOrders = $this->getOrders($this->getBranchesId(5), $friday);
+        $saturdayOrders = $this->getOrders($this->getBranchesId(6), $saturday);
+
+        // Get unique branch names from all orders
+        $branches = collect([
+            $mondayOrders,
+            $tuesdayOrders,
+            $wednesdayOrders,
+            $thursdayOrders,
+            $fridayOrders,
+            $saturdayOrders
+        ])
+            ->flatMap(function ($dayOrders) {
+                return $dayOrders->flatMap(function ($order) {
+                    return $order['branches']->pluck('display_name');
+                });
+            })
+            ->unique()
+            ->values();
+
+        return Excel::download(new class(
+            $mondayOrders,
+            $tuesdayOrders,
+            $wednesdayOrders,
+            $thursdayOrders,
+            $fridayOrders,
+            $saturdayOrders,
+            $branches,
+            $startDate
+        ) implements FromView {
+            private $mondayOrders;
+            private $tuesdayOrders;
+            private $wednesdayOrders;
+            private $thursdayOrders;
+            private $fridayOrders;
+            private $saturdayOrders;
+            private $branches;
+            private $startDate;
+
+            public function __construct($mon, $tue, $wed, $thu, $fri, $sat, $branches, $startDate)
+            {
+                $this->mondayOrders = $mon;
+                $this->tuesdayOrders = $tue;
+                $this->wednesdayOrders = $wed;
+                $this->thursdayOrders = $thu;
+                $this->fridayOrders = $fri;
+                $this->saturdayOrders = $sat;
+                $this->branches = $branches;
+                $this->startDate = $startDate;
+            }
+
+            public function view(): View
+            {
+                return view('ice-cream-orders-summary', [
+                    'mondayOrders' => $this->mondayOrders,
+                    'tuesdayOrders' => $this->tuesdayOrders,
+                    'wednesdayOrders' => $this->wednesdayOrders,
+                    'thursdayOrders' => $this->thursdayOrders,
+                    'fridayOrders' => $this->fridayOrders,
+                    'saturdayOrders' => $this->saturdayOrders,
+                    'branches' => $this->branches,
+                    'startDate' => $this->startDate,
+                    'endDate' => $this->startDate->copy()->addDays(5)
+                ]);
+            }
+        }, 'ice-cream-orders-summay.xlsx');
     }
 
     public function getOrders($branchesId, $day)

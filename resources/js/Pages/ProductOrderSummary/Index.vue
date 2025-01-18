@@ -168,40 +168,43 @@ const openExportModal = () => {
                         placeholder="Search..."
                     />
                 </SearchBar>
-                <Popover class="sm:hidden">
-                    <PopoverTrigger> <Filter /> </PopoverTrigger>
-                    <PopoverContent>
-                        <DivFlexCol class="gap-3">
-                            <MultiSelect
-                                filter
-                                placeholder="Filter By Store"
-                                :options="branchesOption"
-                                optionLabel="label"
-                                optionValue="value"
-                                v-model="branchId"
-                                showClear
-                                class="max-w-64"
-                            >
-                            </MultiSelect>
-                            <Select
-                                placeholder="Filter By Supplier"
-                                :options="suppliersOption"
-                                optionLabel="label"
-                                optionValue="value"
-                                v-model="supplierId"
-                                showClear
-                            >
-                            </Select>
-                            <DatePicker
-                                class="min-w-64"
-                                selectionMode="range"
-                                v-model="dateRange"
-                                :manualInput="false"
-                                :format="'YYYY-MM-DD'"
-                            />
-                        </DivFlexCol>
-                    </PopoverContent>
-                </Popover>
+                <section class="sm:hidden">
+                    <Popover>
+                        <PopoverTrigger> <Filter /> </PopoverTrigger>
+                        <PopoverContent>
+                            <DivFlexCol class="gap-3">
+                                <MultiSelect
+                                    filter
+                                    placeholder="Filter By Store"
+                                    :options="branchesOption"
+                                    optionLabel="label"
+                                    optionValue="value"
+                                    v-model="branchId"
+                                    showClear
+                                    class="max-w-64"
+                                >
+                                </MultiSelect>
+                                <Select
+                                    placeholder="Filter By Supplier"
+                                    :options="suppliersOption"
+                                    optionLabel="label"
+                                    optionValue="value"
+                                    v-model="supplierId"
+                                    showClear
+                                >
+                                </Select>
+                                <DatePicker
+                                    class="min-w-64"
+                                    selectionMode="range"
+                                    v-model="dateRange"
+                                    :manualInput="false"
+                                    :format="'YYYY-MM-DD'"
+                                />
+                            </DivFlexCol>
+                        </PopoverContent>
+                    </Popover>
+                </section>
+
                 <DivFlexCenter class="sm:flex hidden gap-3">
                     <MultiSelect
                         filter

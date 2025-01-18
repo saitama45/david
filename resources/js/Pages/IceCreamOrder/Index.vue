@@ -64,7 +64,6 @@ const days = [
 ];
 
 watch(selectedDate, function (value) {
-    console.log(value);
     router.get(
         route("ice-cream-orders.index"),
         { start_date_filter: value },
@@ -74,10 +73,27 @@ watch(selectedDate, function (value) {
         }
     );
 });
+
+const exportToExcel = () => {
+    const data = {
+        data: {
+            start_date_filter: selectedDate.value,
+        },
+        preserveState: true,
+        preserveScroll: true,
+        replace: true,
+    };
+    window.open(route("ice-cream-orders.excel", data.data), "_blank");
+};
 </script>
 
 <template>
-    <Layout heading="Ice Cream Orders">
+    <Layout
+        heading="Ice Cream Orders"
+        :hasButton="true"
+        buttonName="Export to Excel"
+        :handleClick="exportToExcel"
+    >
         <TableContainer>
             <TableHeader>
                 <Select
