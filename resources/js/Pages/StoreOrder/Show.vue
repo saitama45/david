@@ -156,7 +156,8 @@ const enlargeImage = (image) => {
                         <TH> Approved</TH>
                         <TH> Received</TH>
                         <TH> Approval Rate</TH>
-                        <TH> Total Cost </TH>
+                        <!-- <TH> Total Cost </TH> -->
+                        <TH>Variance</TH>
                     </TableHead>
                     <TableBody>
                         <tr v-for="order in orderedItems" :key="order.id">
@@ -179,7 +180,11 @@ const enlargeImage = (image) => {
                                     ).toFixed(0, 2)
                                 }}%</TD
                             >
-                            <TD>{{ order.total_cost }}</TD>
+                            <!-- <TD>{{ order.total_cost }}</TD> -->
+                            <TD>{{
+                                order.quantity_approved -
+                                order.quantity_received
+                            }}</TD>
                         </tr>
                     </TableBody>
                 </Table>
@@ -192,7 +197,6 @@ const enlargeImage = (image) => {
                         <MobileTableHeading
                             :title="`${order.product_inventory.name} (${order.product_inventory.inventory_code})`"
                         >
-
                         </MobileTableHeading>
                         <LabelXS>Ordered: {{ order.quantity_ordered }}</LabelXS>
                         <LabelXS
@@ -239,7 +243,6 @@ const enlargeImage = (image) => {
                         <MobileTableHeading
                             :title="`${receipt.delivery_receipt_number}`"
                         >
-
                         </MobileTableHeading>
                         <LabelXS>Remarks: {{ receipt.remarks }}</LabelXS>
                         <LabelXS>Created at: {{ receipt.created_at }}</LabelXS>
@@ -377,7 +380,6 @@ const enlargeImage = (image) => {
                         <MobileTableHeading
                             :title="`${history.store_order_item.product_inventory.name} (${history.store_order_item.product_inventory.inventory_code})`"
                         >
-
                         </MobileTableHeading>
                         <LabelXS
                             >Received: {{ history.quantity_received }}</LabelXS
