@@ -293,6 +293,28 @@ const { hasAccess } = useAuth();
                     </InputContainer>
 
                     <InputContainer>
+                        <LabelXS>Cost Center</LabelXS>
+                        <SelectShad>
+                            <SelectTrigger>
+                                <SelectValue
+                                    placeholder="Select from choices"
+                                />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <!-- <SelectGroup>
+                                    <SelectLabel>Variants</SelectLabel>
+                                    <SelectItem
+                                        v-for="variant in variants"
+                                        :value="variant.value"
+                                    >
+                                        {{ variant.label }}
+                                    </SelectItem>
+                                </SelectGroup> -->
+                            </SelectContent>
+                        </SelectShad>
+                    </InputContainer>
+
+                    <InputContainer>
                         <LabelXS>Quantity Used</LabelXS>
                         <Input type="number" v-model="form.quantity" />
                         <FormError>{{ form.errors.quantity }}</FormError>
