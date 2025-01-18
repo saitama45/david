@@ -15,13 +15,13 @@ class ExcelTemplateController extends Controller
 
     public function gsiPrTemplate()
     {
-        $path = 'storage\excel-templates\GSI_OT_PR_SAMPLE_SO_UPLOAD.xlsx';
+        $path = 'storage\excel-templates\gsi_ot_order_template.xlsx';
         return response()->download($path);
     }
 
     public function pulTemplate()
     {
-        $path = 'storage\excel-templates\PUL_SAMPLE_SO_UPLOAD.xlsx';
+        $path = 'storage\excel-templates\pul_order_template.xlsx';
         return response()->download($path);
     }
 

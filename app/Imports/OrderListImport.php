@@ -4,10 +4,12 @@ namespace App\Imports;
 
 use App\Models\ProductInventory;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Number;
 use Maatwebsite\Excel\Concerns\ToCollection;
+use Maatwebsite\Excel\Concerns\WithHeadingRow;
 
-class OrderListImport implements ToCollection
+class OrderListImport implements ToCollection, WithHeadingRow
 {
     protected $importedData;
 
@@ -16,13 +18,13 @@ class OrderListImport implements ToCollection
      */
     public function collection(Collection $collection)
     {
-        $this->importedData = $collection->skip(1)
+        $this->importedData = $collection
             ->filter(function ($row) {
-                return $row[6] > 0;
+                return $row['qty'] > 0;
             })
             ->map(function ($row, $key) {
-                $product = ProductInventory::with('unit_of_measurement')->where('inventory_code', $row[2])->first();
-                $totalCost = $product->cost * $row[6];
+                $product = ProductInventory::with('unit_of_measurement')->where('inventory_code', $row['item_code'])->first();
+                $totalCost = $product->cost * $row['qty'];
                 return [
                     'id' => $product->id,
                     'inventory_code' => $product->inventory_code,
@@ -30,7 +32,7 @@ class OrderListImport implements ToCollection
                     'cost' => $product->cost,
                     'unit_of_measurement' => $product->unit_of_measurement?->name,
                     'total_cost' => $totalCost,
-                    'quantity' => $row[6]
+                    'quantity' => $row['qty']
                 ];
             })
             ->values();

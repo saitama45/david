@@ -254,6 +254,7 @@ const addImportedItemsToOrderList = () => {
                 life: 5000,
             });
             excelFileForm.setError("orders_file", error.response.data.message);
+            console.log(error)
         })
         .finally(() => (isLoading.value = false));
 };
@@ -682,6 +683,22 @@ if (previousOrder) {
                                 <a
                                     class="text-blue-500 underline"
                                     href="/excel/gsi-bakery-template"
+                                    >Click to download</a
+                                >
+                            </li>
+                            <li class="text-xs">
+                                GSI OT:
+                                <a
+                                    class="text-blue-500 underline"
+                                    href="/excel/gsi-pr-template"
+                                    >Click to download</a
+                                >
+                            </li>
+                            <li class="text-xs">
+                                PUL:
+                                <a
+                                    class="text-blue-500 underline"
+                                    href="/excel/pul-template"
                                     >Click to download</a
                                 >
                             </li>
