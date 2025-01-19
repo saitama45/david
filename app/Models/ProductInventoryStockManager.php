@@ -14,6 +14,7 @@ class ProductInventoryStockManager extends Model
     protected $fillable = [
         'product_inventory_id',
         'store_branch_id',
+        'cost_center_id',
         'quantity',
         'action',
         'remarks'

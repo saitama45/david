@@ -4,6 +4,7 @@ use App\Http\Controllers\ApprovedReceivedItem;
 use App\Http\Controllers\ApprovedOrderController;
 use App\Http\Controllers\AuditController;
 use App\Http\Controllers\CategoryController;
+use App\Http\Controllers\CostCenterController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\DeliveryScheduleController;
 use App\Http\Controllers\DTSController;
@@ -358,6 +359,11 @@ Route::middleware('auth')
             Route::post('/uploadImage', 'store')->name('upload-image');
             Route::post('/destroy', 'destroy')->name('destroy');
             Route::post('/approveImage/{id}', 'approveImage')->name('approveImage');
+        });
+
+        Route::controller(CostCenterController::class)->name('
+        cost-centers.')->prefix('cost-centers')->group(function () {
+            Route::get('/', 'index')->name('index');
         });
 
 

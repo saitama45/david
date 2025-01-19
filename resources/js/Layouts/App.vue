@@ -341,6 +341,13 @@ const logout = () => {
                         >
                             Suppliers
                         </NavLink>
+                        <NavLink
+                            v-if="hasAccess('manage references')"
+                            href="/cost-centers"
+                            :icon="Warehouse"
+                        >
+                            Cost Centers
+                        </NavLink>
                     </nav>
                 </div>
             </div>
