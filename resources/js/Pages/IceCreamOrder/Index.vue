@@ -121,6 +121,7 @@ const exportToExcel = () => {
                         class="w-fit min-w-72"
                         optionLabel="label"
                         optionValue="value"
+                        showClear
                     />
                     <Select
                         placeholder="Select Date"
@@ -129,6 +130,7 @@ const exportToExcel = () => {
                         class="w-fit min-w-72"
                         optionLabel="name"
                         optionValue="code"
+                        showClear
                     />
                 </DivFlexCenter>
             </TableHeader>

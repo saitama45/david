@@ -66,7 +66,7 @@ class StoreBranch extends Model implements Auditable
 
     public function getDisplayNameAttribute()
     {
-        return "{$this->name} ($this->branch_code)";
+        return "[$this->branch_code] - [$this->name]";
     }
 
 
