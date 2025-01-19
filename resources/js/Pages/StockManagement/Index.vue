@@ -8,7 +8,7 @@ import { useConfirm } from "primevue/useconfirm";
 import { useToast } from "@/Composables/useToast";
 const confirm = useConfirm();
 const { toast } = useToast();
-const { products, branches } = defineProps({
+const { products, branches, costCenters } = defineProps({
     products: {
         type: Object,
         required: true,
@@ -17,9 +17,14 @@ const { products, branches } = defineProps({
         type: Object,
         required: true,
     },
+    costCenters: {
+        type: Object,
+        required: true,
+    },
 });
 
 const { options: branchesOptions } = useSelectOptions(branches);
+const { options: costCentersOptions } = useSelectOptions(costCenters);
 
 const branchId = ref(
     usePage().props.filters.branchId || branchesOptions.value[0].value
@@ -69,6 +74,7 @@ const isAddQuantityModalOpen = ref(false);
 const form = useForm({
     id: null,
     store_branch_id: null,
+    cost_center_id: null,
     quantity: null,
     remarks: null,
 });
@@ -294,24 +300,24 @@ const { hasAccess } = useAuth();
 
                     <InputContainer>
                         <LabelXS>Cost Center</LabelXS>
-                        <SelectShad>
+                        <SelectShad v-model="form.cost_center_id">
                             <SelectTrigger>
                                 <SelectValue
                                     placeholder="Select from choices"
                                 />
                             </SelectTrigger>
                             <SelectContent>
-                                <!-- <SelectGroup>
-                                    <SelectLabel>Variants</SelectLabel>
+                                <SelectGroup>
                                     <SelectItem
-                                        v-for="variant in variants"
-                                        :value="variant.value"
+                                        v-for="costCenter in costCentersOptions"
+                                        :value="costCenter.value"
                                     >
-                                        {{ variant.label }}
+                                        {{ costCenter.label }}
                                     </SelectItem>
-                                </SelectGroup> -->
+                                </SelectGroup>
                             </SelectContent>
                         </SelectShad>
+                        <FormError>{{ form.errors.cost_center_id }}</FormError>
                     </InputContainer>
 
                     <InputContainer>

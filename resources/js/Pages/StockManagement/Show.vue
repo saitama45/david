@@ -9,8 +9,6 @@ const { branches, history } = defineProps({
         required: true,
     },
 });
-
-
 </script>
 <template>
     <Layout heading="Stock Details">
@@ -20,6 +18,7 @@ const { branches, history } = defineProps({
                     <TH>Id</TH>
                     <TH>Quantity</TH>
                     <TH>Action</TH>
+                    <TH>Cost Center</TH>
                     <TH>Remarks</TH>
                     <TH>Created at</TH>
                 </TableHead>
@@ -33,6 +32,7 @@ const { branches, history } = defineProps({
                         <TD>{{
                             data.action.replace(/_/g, " ").toUpperCase()
                         }}</TD>
+                        <TD>{{ data.cost_center?.name ?? "N/a" }}</TD>
                         <TD>{{ data.remarks ?? "None" }}</TD>
                         <TD>{{ data.created_at }}</TD>
                     </tr>

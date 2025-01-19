@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\CostCenter;
 use App\Models\ProductInventory;
 use App\Models\ProductInventoryStock;
 use App\Models\ProductInventoryStockManager;
@@ -17,7 +18,7 @@ class StockManagementController extends Controller
     public function index()
     {
         $search = request('search');
-        $user = Auth::user();
+        $costCenters = CostCenter::select(['name', 'id'])->get()->pluck('name', 'id');
 
         $branches = StoreBranch::options();
         $branchId = request('branchId') ?? $branches->keys()->first();
@@ -89,7 +90,8 @@ class StockManagementController extends Controller
         return Inertia::render('StockManagement/Index', [
             'products' => $products,
             'branches' => $branches,
-            'filters' => request()->only(['search', 'branchId'])
+            'filters' => request()->only(['search', 'branchId']),
+            'costCenters' => $costCenters
         ]);
     }
 
@@ -98,9 +100,9 @@ class StockManagementController extends Controller
         $branches = StoreBranch::options();
         $branchId = $request->only('branchId')['branchId'] ?? $branches->keys()->first();
 
-        $history = ProductInventoryStockManager::where('product_inventory_id', $id)
+        $history = ProductInventoryStockManager::with('cost_center')->where('product_inventory_id', $id)
             ->where('store_branch_id', $branchId)->paginate(10);
-  
+
 
         return Inertia::render('StockManagement/Show', [
             'branches' => $branches,
@@ -112,8 +114,11 @@ class StockManagementController extends Controller
         $validated = $request->validate([
             'id' => ['required'],
             'store_branch_id' => ['required'],
+            'cost_center_id' => ['required'],
             'quantity' => ['required', 'numeric', 'min:1'],
             'remarks' => ['sometimes']
+        ], [
+            'cost_center_id.required' => 'Cost Center is required.'
         ]);
 
 
@@ -131,6 +136,7 @@ class StockManagementController extends Controller
         ProductInventoryStockManager::create([
             'product_inventory_id' => $validated['id'],
             'store_branch_id' => $validated['store_branch_id'],
+            'cost_center_id' => $validated['cost_center_id'],
             'quantity' => $validated['quantity'],
             'action' => 'log_usage',
             'remarks' => $validated['remarks']
