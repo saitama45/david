@@ -43,7 +43,15 @@ const createNewTransaction = () => {
                         <TD>{{ transaction.posted }}</TD>
                         <TD>{{ transaction.order_date }}</TD>
                         <TD class="flex items-center">
-                            <ShowButton />
+                            <ShowButton
+                                :isLink="true"
+                                :href="
+                                    route(
+                                        'store-transactions.show',
+                                        transaction.id
+                                    )
+                                "
+                            />
                         </TD>
                     </tr>
                 </TableBody>

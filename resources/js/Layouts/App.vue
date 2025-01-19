@@ -234,7 +234,7 @@ const logout = () => {
                         </NavLink>
                         <NavLink
                             v-if="hasAccess('view store transactions')"
-                            href="/usage-records"
+                            href="/store-transactions"
                             :icon="ArrowLeftRight"
                         >
                             Store Transactions
@@ -500,7 +500,7 @@ const logout = () => {
                                 </NavLink>
                                 <NavLink
                                     v-if="hasAccess('view store transactions')"
-                                    href="/usage-records"
+                                    href="/store-transactions"
                                     :icon="ArrowLeftRight"
                                 >
                                     Store Transactions

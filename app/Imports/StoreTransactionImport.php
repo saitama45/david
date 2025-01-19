@@ -7,7 +7,6 @@ use App\Models\StoreBranch;
 use App\Models\StoreTransaction;
 use Exception;
 use Illuminate\Support\Carbon;
-use Illuminate\Support\Facades\Date;
 use Illuminate\Support\Facades\Log;
 use Maatwebsite\Excel\Concerns\ToModel;
 use Maatwebsite\Excel\Concerns\WithHeadingRow;
@@ -21,7 +20,7 @@ class StoreTransactionImport implements ToModel, WithStartRow, WithHeadingRow
 
     public function startRow(): int
     {
-        return 6;
+        return 7; // Increment by 1 to skip the header row
     }
 
     public function headingRow(): int
@@ -37,7 +36,6 @@ class StoreTransactionImport implements ToModel, WithStartRow, WithHeadingRow
             'headers_found' => array_keys($row)
         ]);
 
-
         foreach ($row as $value) {
             if (is_string($value) && stripos($value, 'NOTHING FOLLOWS') !== false) {
                 Log::info('Found "NOTHING FOLLOWS". Ending import.', [
@@ -45,6 +43,10 @@ class StoreTransactionImport implements ToModel, WithStartRow, WithHeadingRow
                 ]);
                 return null;
             }
+        }
+
+        if (is_string($row['product_name']) && stripos($row['product_name'], 'SUBTOTAL:') !== false) {
+            return null;
         }
 
         if (empty($row['product_id'])) {
@@ -68,6 +70,18 @@ class StoreTransactionImport implements ToModel, WithStartRow, WithHeadingRow
                 return null;
             }
 
+            $menu = Menu::firstOrNew([
+                'product_id' => $row['product_id']
+            ], [
+                'category_id' => 1,
+                'name' => $row['product_name'],
+                'price' => $row['price']
+            ]);
+
+            if (!$menu->exists) {
+                $menu->save();
+            }
+
             $transaction = StoreTransaction::updateOrCreate([
                 'store_branch_id' => $branch->id,
                 'order_date' => $this->transformDate($row['date']),
@@ -76,15 +90,7 @@ class StoreTransactionImport implements ToModel, WithStartRow, WithHeadingRow
                 'receipt_number' => $row['receipt_no'],
             ]);
 
-            $menu = Menu::firstOrCreate([
-                'category_id' => 1,
-                'product_id' => $row['product_id'],
-                'name' => 'product_name',
-                'price' => $row['price']
-            ]);
-
-
-            $transaction->store_transaction_items()->create([
+            $transaction->store_transaction_items()->updateOrCreate([
                 'product_id' => $menu->id,
                 'base_quantity' => $row['base_qty'],
                 'quantity' => $row['qty'],
@@ -100,7 +106,7 @@ class StoreTransactionImport implements ToModel, WithStartRow, WithHeadingRow
                 'row_number' => $this->rowNumber,
                 'error' => $e->getMessage()
             ]);
-            return null; 
+            return null;
         }
     }
 
