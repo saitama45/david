@@ -103,7 +103,7 @@ const { deleteModel } = useReferenceDelete();
                                             'cost-centers.destroy',
                                             costCenter.id
                                         ),
-                                        'Menu Category'
+                                        'Cost Center'
                                     )
                                 "
                             />
@@ -164,7 +164,7 @@ const { deleteModel } = useReferenceDelete();
             :form="form"
             :isLoading="isLoading"
             :handleCreate="
-                () => store(route('cost-centers.store'), form, 'Menu Category')
+                () => store(route('cost-centers.store'), form, 'Cost Center')
             "
         />
     </Layout>

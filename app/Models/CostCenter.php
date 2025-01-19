@@ -14,4 +14,9 @@ class CostCenter extends Model
         'name',
         'remarks'
     ];
+
+    public function stock_managements()
+    {
+        return $this->hasMany(ProductInventoryStockManager::class);
+    }
 }

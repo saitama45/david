@@ -25,6 +25,11 @@ class ProductInventoryStockManager extends Model
         return Carbon::parse($value)->setTimezone('Asia/Manila')->format('F d, Y h:i a');
     }
 
+    public function cost_center()
+    {
+        return $this->belongsTo(CostCenter::class);
+    }
+
     public function product()
     {
         return $this->belongsTo(ProductInventory::class, 'product_inventory_id');

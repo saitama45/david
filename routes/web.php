@@ -361,9 +361,11 @@ Route::middleware('auth')
             Route::post('/approveImage/{id}', 'approveImage')->name('approveImage');
         });
 
-        Route::controller(CostCenterController::class)->name('
-        cost-centers.')->prefix('cost-centers')->group(function () {
+        Route::controller(CostCenterController::class)->name('cost-centers.')->prefix('cost-centers')->group(function () {
             Route::get('/', 'index')->name('index');
+            Route::post('/store', 'store')->name('store');
+            Route::post('/update/{id}', 'update')->name('update');
+            Route::delete('/destroy/{id}', 'destroy')->name('destroy');
         });
 
 
