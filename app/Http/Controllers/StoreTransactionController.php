@@ -3,6 +3,8 @@
 namespace App\Http\Controllers;
 
 use App\Imports\StoreTransactionImport;
+use App\Models\Menu;
+use App\Models\StoreBranch;
 use App\Models\StoreTransaction;
 use Exception;
 use Illuminate\Http\Request;
@@ -47,7 +49,12 @@ class StoreTransactionController extends Controller
 
     public function create()
     {
-        return Inertia::render('StoreTransaction/Create');
+        $menus = Menu::options();
+        $branches = StoreBranch::options();
+        return Inertia::render('StoreTransaction/Create', [
+            'menus' => $menus,
+            'branches' => $branches
+        ]);
     }
 
     public function show($id)

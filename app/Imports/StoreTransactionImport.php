@@ -20,7 +20,7 @@ class StoreTransactionImport implements ToModel, WithStartRow, WithHeadingRow
 
     public function startRow(): int
     {
-        return 7; // Increment by 1 to skip the header row
+        return 7;
     }
 
     public function headingRow(): int
