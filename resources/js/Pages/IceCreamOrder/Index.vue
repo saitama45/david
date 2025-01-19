@@ -1,5 +1,6 @@
 <script setup>
 import { router } from "@inertiajs/vue3";
+import { useSelectOptions } from "@/Composables/useSelectOptions";
 const {
     mondayOrders,
     tuesdayOrders,
@@ -9,6 +10,7 @@ const {
     saturdayOrders,
     datesOption,
     filters,
+    branches,
 } = defineProps({
     mondayOrders: {
         type: Object,
@@ -42,6 +44,10 @@ const {
         type: Object,
         required: true,
     },
+    branches: {
+        type: Object,
+        required: true,
+    },
 });
 
 const getDefaultSelectedDate = () => {
@@ -50,9 +56,10 @@ const getDefaultSelectedDate = () => {
     }
     return datesOption[1]?.code || null;
 };
-
+const { options: branchesOptions } = useSelectOptions(branches);
 const defaultSelectedDate = getDefaultSelectedDate();
 const selectedDate = ref(filters.start_date_filter || defaultSelectedDate);
+const branchId = ref(filters.branchId || null);
 
 const days = [
     { name: "Monday", orders: mondayOrders },
@@ -66,7 +73,7 @@ const days = [
 watch(selectedDate, function (value) {
     router.get(
         route("ice-cream-orders.index"),
-        { start_date_filter: value },
+        { start_date_filter: value, branchId: branchId.value },
         {
             preserveState: false,
             replace: true,
@@ -74,6 +81,16 @@ watch(selectedDate, function (value) {
     );
 });
 
+watch(branchId, function (value) {
+    router.get(
+        route("ice-cream-orders.index"),
+        { branchId: value, start_date_filter: selectedDate.value },
+        {
+            preserveState: false,
+            replace: true,
+        }
+    );
+});
 const exportToExcel = () => {
     const data = {
         data: {
@@ -96,14 +113,24 @@ const exportToExcel = () => {
     >
         <TableContainer>
             <TableHeader>
-                <Select
-                    placeholder="Select Date"
-                    v-model="selectedDate"
-                    :options="datesOption"
-                    class="w-fit min-w-72"
-                    optionLabel="name"
-                    optionValue="code"
-                />
+                <DivFlexCenter class="gap-3">
+                    <Select
+                        placeholder="Select Branch"
+                        v-model="branchId"
+                        :options="branchesOptions"
+                        class="w-fit min-w-72"
+                        optionLabel="label"
+                        optionValue="value"
+                    />
+                    <Select
+                        placeholder="Select Date"
+                        v-model="selectedDate"
+                        :options="datesOption"
+                        class="w-fit min-w-72"
+                        optionLabel="name"
+                        optionValue="code"
+                    />
+                </DivFlexCenter>
             </TableHeader>
 
             <DivFlexCol v-for="day in days" :key="day.name" class="gap-2">

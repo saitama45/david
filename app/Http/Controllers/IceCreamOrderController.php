@@ -18,9 +18,9 @@ class IceCreamOrderController extends Controller
     public function index()
     {
         $start_date_filter = request('start_date_filter');
-
+        $branch_id_filter = request('branchId');
         $datesOption = $this->generateDateOptions();
-
+        $branches = StoreBranch::options();
         $startDate = $start_date_filter
             ? Carbon::parse($start_date_filter)
             : Carbon::now()->startOfWeek();
@@ -35,12 +35,20 @@ class IceCreamOrderController extends Controller
         $friday = $startDate->copy()->addDays(4)->toDateString();
         $saturday = $startDate->copy()->addDays(5)->toDateString();
 
-        $mondayOrders = $this->getOrders($this->getBranchesId(1), $monday);
-        $tuesdayOrders =  $this->getOrders($this->getBranchesId(2), $tuesday);
-        $wednesdayOrders =  $this->getOrders($this->getBranchesId(3), $wednesday);
-        $thursdayOrders =  $this->getOrders($this->getBranchesId(4), $thursday);
-        $fridayOrders =  $this->getOrders($this->getBranchesId(5), $friday);
-        $saturdayOrders =  $this->getOrders($this->getBranchesId(6), $saturday);
+        $mondayBranches = $this->getBranchesId(1, $branch_id_filter);
+        $tuesdayBranches = $this->getBranchesId(2, $branch_id_filter);
+        $wednesdayBranches = $this->getBranchesId(3, $branch_id_filter);
+        $thursdayBranches = $this->getBranchesId(4, $branch_id_filter);
+        $fridayBranches = $this->getBranchesId(5, $branch_id_filter);
+        $saturdayBranches = $this->getBranchesId(6, $branch_id_filter);
+
+        $mondayOrders = $this->getOrders($mondayBranches, $monday);
+        $tuesdayOrders =  $this->getOrders($tuesdayBranches, $tuesday);
+        $wednesdayOrders =  $this->getOrders($wednesdayBranches, $wednesday);
+        $wednesdayOrders =  $this->getOrders($wednesdayBranches, $wednesday);
+        $thursdayOrders =  $this->getOrders($thursdayBranches, $thursday);
+        $fridayOrders =  $this->getOrders($fridayBranches, $friday);
+        $saturdayOrders =  $this->getOrders($saturdayBranches, $saturday);
 
         return Inertia::render('IceCreamOrder/Index', [
             'mondayOrders' => $mondayOrders,
@@ -50,8 +58,24 @@ class IceCreamOrderController extends Controller
             'fridayOrders' => $fridayOrders,
             'saturdayOrders' => $saturdayOrders,
             'datesOption' => $datesOption,
-            'filters' => request()->only(['start_date_filter'])
+            'filters' => request()->only(['start_date_filter', 'branchId']),
+            'branches' => $branches
         ]);
+    }
+
+    public function getBranchesId($scheduleId, $branchId = null)
+    {
+        $query = StoreBranch::with(['delivery_schedules'])
+            ->whereHas('delivery_schedules', function ($query) use ($scheduleId) {
+                $query->where('variant', 'ICE CREAM')
+                    ->where('delivery_schedule_id', $scheduleId);
+            });
+
+        if ($branchId) {
+            $query->where('id', $branchId);
+        }
+
+        return $query->pluck('id');
     }
 
     public function generateDateOptions()
@@ -88,17 +112,6 @@ class IceCreamOrderController extends Controller
         return array_reverse($dateOptions);
     }
 
-    public function getBranchesId($scheduleId)
-    {
-        return StoreBranch::with([
-            'delivery_schedules'
-        ])
-            ->whereHas('delivery_schedules', function ($query) use ($scheduleId) {
-                $query->where('variant', 'ICE CREAM')
-                    ->where('delivery_schedule_id', $scheduleId);
-            })
-            ->pluck('id');
-    }
 
     public function excel()
     {
