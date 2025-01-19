@@ -35,7 +35,7 @@ const getDefaultSelectedDate = () => {
 
 const defaultSelectedDate = getDefaultSelectedDate();
 const selectedDate = ref(filters.start_date_filter || defaultSelectedDate);
-const branchId = ref(filters.branchId || null);
+const branchId = ref(filters.branchId || []);
 watch(selectedDate, function (value) {
     console.log(value);
     router.get(
@@ -78,8 +78,9 @@ watch(branchId, (value) => {
                             <PopoverTrigger> <Filter /> </PopoverTrigger>
                             <PopoverContent>
                                 <DivFlexCol class="gap-3">
-                                    <Select
+                                    <MultiSelect
                                         filter
+                                        showClear
                                         optionLabel="label"
                                         optionValue="value"
                                         :options="branchesOption"
@@ -103,11 +104,13 @@ watch(branchId, (value) => {
                 </section>
 
                 <DivFlexCenter class="sm:flex hidden gap-3">
-                    <Select
+                    <MultiSelect
+                        showClear
                         filter
                         optionLabel="label"
                         optionValue="value"
                         :options="branchesOption"
+                        class="max-w-72"
                         placeholder="Select a Branch"
                         v-model="branchId"
                     />

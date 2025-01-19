@@ -59,7 +59,7 @@ class FruitAndVegetableController extends Controller
             });
 
         if ($branchId) {
-            $storeOrders->where('store_branch_id', $branchId);
+            $storeOrders->whereIn('store_branch_id', $branchId);
         }
 
         $storeOrders = $storeOrders->get();
@@ -209,7 +209,7 @@ class FruitAndVegetableController extends Controller
             });
 
         if ($branchId) {
-            $query->where('store_branch_id', $branchId);
+            $query->whereIn('store_branch_id', $branchId);
         }
 
         return $query->get()
