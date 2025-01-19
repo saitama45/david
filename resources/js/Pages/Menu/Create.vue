@@ -33,6 +33,7 @@ const isLoading = ref(false);
 
 const ingredientsForm = useForm({
     id: "",
+    product_id: "",
     inventory_code: "",
     name: "",
     quantity: "",
@@ -233,6 +234,11 @@ const importMenu = () => {
                             <Label>Name</Label>
                             <Input v-model="form.name" />
                             <FormError>{{ form.errors.name }}</FormError>
+                        </InputContainer>
+                        <InputContainer>
+                            <Label>Product Id</Label>
+                            <Input v-model="form.product_id" />
+                            <FormError>{{ form.errors.product_id }}</FormError>
                         </InputContainer>
                         <InputContainer>
                             <Label>Price</Label>

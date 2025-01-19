@@ -11,19 +11,26 @@ class StoreTransaction extends Model
     use HasFactory;
 
     protected $fillable = [
-        'encoder_id',
-        'order_number',
-        'transaction_period',
-        'transaction_date',
-        'cashier_id',
-        'order_type',
-        'sub_total',
-        'total_amount',
-        'tax_amount',
-        'payment_type',
-        'discount_amount',
-        'discount_type',
-        'service_charge',
-        'remarks',
+        'store_branch_id',
+        'order_date',
+        'posted',
+        'tim_number',
+        'receipt_number',
+        'lot_serial', // Nullable
+        'customer_id', // Nullable
+        'customer', // Nullable,
+        'cancel_reason', // Nullable,
+        'reference_number', // Nullable
+        'remarks' // Nullable
     ];
+
+    public function store_branch()
+    {
+        return $this->belongsTo(StoreBranch::class);
+    }
+
+    public function store_transaction_items()
+    {
+        return $this->hasMany(StoreTransactionItem::class);
+    }
 }

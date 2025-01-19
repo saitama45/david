@@ -141,6 +141,8 @@ Route::middleware('auth')
             Route::middleware('permission:view store transactions')->get('/', 'index')->name('index');
             Route::middleware('permission:view store transaction')->get('/show/{id}', 'show')->name('show');
             Route::middleware('permission:create store transactions')->get('/create', 'create')->name('create');
+
+            Route::post('/import', 'import')->name('import');
         });
 
         // Items

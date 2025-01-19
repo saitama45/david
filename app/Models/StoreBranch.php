@@ -92,4 +92,9 @@ class StoreBranch extends Model implements Auditable
         )
             ->withPivot('variant');
     }
+
+    public function store_transactions()
+    {
+        return $this->hasMany(StoreTransaction::class);
+    }
 }

@@ -13,6 +13,7 @@ class Menu extends Model
 
     protected $fillable = [
         'category_id',
+        'product_id',
         'name',
         'price',
         'remarks'
@@ -51,5 +52,10 @@ class Menu extends Model
         return $this->belongsToMany(ProductInventory::class, 'menu_ingredients')
             ->withPivot('quantity')
             ->withTimestamps();
+    }
+
+    public function store_transaction_items()
+    {
+        return $this->hasMany(StoreTransactionItem::class);
     }
 }

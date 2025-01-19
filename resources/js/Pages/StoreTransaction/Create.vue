@@ -1,69 +1,76 @@
-<script setup></script>
+<script setup>
+import { useForm } from "@inertiajs/vue3";
+const excelFileForm = useForm({
+    store_transactions_file: null,
+});
+const isLoading = ref(false);
+const isImportStoreTransactionModalOpen = ref(true);
+const openImportStoreTransactionModal = () => {
+    isImportStoreTransactionModalOpen.value = true;
+};
+
+watch(isImportStoreTransactionModalOpen, (value) => {
+    if (!value) {
+        isLoading.value = false;
+    }
+});
+const importTransactions = () => {
+    isLoading.value = true;
+    excelFileForm.post(route("store-transactions.import"), {
+        onSuccess: () => {
+            isLoading.value = false;
+            isImportStoreTransactionModalOpen.value = false;
+        },
+        onError: () => {
+            isLoading.value = false;
+        },
+    });
+};
+</script>
 <template>
-    <Layout heading="Create Store Transactions">
-        <section class="grid grid-cols-3 gap-3">
-            <Card>
-                <CardHeader>
-                    <CardTitle>Transaction Details</CardTitle>
-                    <CardDescription
-                        >Please input all the required fields.</CardDescription
+    <Layout
+        heading="Create Store Transactions"
+        buttonName="Import Store Transactions"
+        :hasButton="true"
+        :handleClick="openImportStoreTransactionModal"
+    >
+        <section class="grid grid-cols-3 gap-3"></section>
+
+        <Dialog v-model:open="isImportStoreTransactionModalOpen">
+            <DialogContent class="sm:max-w-[600px]">
+                <DialogHeader>
+                    <DialogTitle>Import Store Transactions List</DialogTitle>
+                    <DialogDescription>
+                        Import the excel file here.
+                    </DialogDescription>
+                </DialogHeader>
+
+                <InputContainer>
+                    <LabelXS> Store Transactions List </LabelXS>
+                    <Input
+                        :disabled="isLoading"
+                        type="file"
+                        @input="
+                            excelFileForm.store_transactions_file =
+                                $event.target.files[0]
+                        "
+                    />
+                    <FormError>{{
+                        excelFileForm.errors.store_transactions_file
+                    }}</FormError>
+                </InputContainer>
+
+                <DialogFooter>
+                    <Button
+                        :disabled="isLoading"
+                        @click="importTransactions"
+                        class="gap-2"
                     >
-                    <section class="space-y-3">
-                        <InputContainer>
-                            <LabelXS>Order Number</LabelXS>
-                            <Input />
-                        </InputContainer>
-                        <InputContainer>
-                            <LabelXS>Transaction Period</LabelXS>
-                            <Input />
-                        </InputContainer>
-                        <InputContainer>
-                            <LabelXS>Transaction Date</LabelXS>
-                            <Input />
-                        </InputContainer>
-                        <InputContainer>
-                            <LabelXS>Cashier Id</LabelXS>
-                            <Input />
-                        </InputContainer>
-                        <InputContainer>
-                            <LabelXS>Order Type</LabelXS>
-                            <Input />
-                        </InputContainer>
-                        <InputContainer>
-                            <LabelXS>Sub Total</LabelXS>
-                            <Input />
-                        </InputContainer>
-                        <InputContainer>
-                            <LabelXS>Tax Amount</LabelXS>
-                            <Input />
-                        </InputContainer>
-                        <InputContainer>
-                            <LabelXS>Service Charge</LabelXS>
-                            <Input />
-                        </InputContainer>
-                        <InputContainer>
-                            <LabelXS>Discount Type</LabelXS>
-                            <Input />
-                        </InputContainer>
-                        <InputContainer>
-                            <LabelXS>Discount Amount</LabelXS>
-                            <Input />
-                        </InputContainer>
-                        <InputContainer>
-                            <LabelXS>Total Amount</LabelXS>
-                            <Input />
-                        </InputContainer>
-                        <InputContainer>
-                            <LabelXS>Payment Type</LabelXS>
-                            <Input />
-                        </InputContainer>
-                        <InputContainer>
-                            <LabelXS>Remarks</LabelXS>
-                            <Textarea />
-                        </InputContainer>
-                    </section>
-                </CardHeader>
-            </Card>
-        </section>
+                        Proceed
+                        <span v-if="isLoading"><Loading /></span>
+                    </Button>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
     </Layout>
 </template>

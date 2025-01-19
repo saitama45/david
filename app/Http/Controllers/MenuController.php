@@ -45,6 +45,7 @@ class MenuController extends Controller
 
         $validated = $request->validate([
             'name' => ['required'],
+            'product_id' => ['required'],
             'price' => ['required', 'numeric'],
             'category_id' => ['required', 'exists:menu_categories,id'],
             'remarks' => ['nullable'],
@@ -78,7 +79,6 @@ class MenuController extends Controller
                 'mimes:xlsx,xls,csv',
             ]
         ]);
-
         Excel::import(new MenusImport, $request->file('menu_file'));
 
         return to_route('menu-list.index');

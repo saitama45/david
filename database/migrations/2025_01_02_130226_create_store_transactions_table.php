@@ -13,20 +13,17 @@ return new class extends Migration
     {
         Schema::create('store_transactions', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('encoder_id')->constrained('users');
-            $table->string('order_number');
-            $table->string('transaction_period');
-            $table->date('transaction_date');
-            $table->string('cashier_id');
-            $table->string('order_type');
-            $table->decimal('sub_total', 10, 2);
-            $table->decimal('total_amount', 10, 2);
-            $table->decimal('tax_amount', 10, 2);
-            $table->string('payment_type');
-            $table->decimal('discount_amount', 10, 2);
-            $table->string('discount_type');
-            $table->decimal('service_charge', 10, 2);
-            $table->string('remarks')->nullable();
+            $table->foreignId('store_branch_id')->constrained('store_branches');
+            $table->date('order_date');
+            $table->string('posted');
+            $table->string('tim_number');
+            $table->string('receipt_number');
+            $table->string('lost_serial')->nullable();
+            $table->string('customer_id')->nullable();
+            $table->string('customer')->nullable();
+            $table->string('cancel_reason')->nullable();
+            $table->string('reference_number')->nullable();
+            $table->text('remarks')->nullable();
             $table->timestamps();
         });
     }
