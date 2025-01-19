@@ -72,7 +72,7 @@ class IceCreamOrderController extends Controller
             });
 
         if ($branchId) {
-            $query->where('id', $branchId);
+            $query->whereIn('id', $branchId);
         }
 
         return $query->pluck('id');
@@ -116,11 +116,11 @@ class IceCreamOrderController extends Controller
     public function excel()
     {
         $start_date_filter = request('start_date_filter');
+        $branch_id_filter = request('branchId');
 
         $startDate = $start_date_filter
             ? Carbon::parse($start_date_filter)
             : Carbon::now()->startOfWeek();
-
 
         $monday = $startDate->toDateString();
         $tuesday = $startDate->copy()->addDays(1)->toDateString();
@@ -129,15 +129,21 @@ class IceCreamOrderController extends Controller
         $friday = $startDate->copy()->addDays(4)->toDateString();
         $saturday = $startDate->copy()->addDays(5)->toDateString();
 
-        // Get orders for each day
-        $mondayOrders = $this->getOrders($this->getBranchesId(1), $monday);
-        $tuesdayOrders = $this->getOrders($this->getBranchesId(2), $tuesday);
-        $wednesdayOrders = $this->getOrders($this->getBranchesId(3), $wednesday);
-        $thursdayOrders = $this->getOrders($this->getBranchesId(4), $thursday);
-        $fridayOrders = $this->getOrders($this->getBranchesId(5), $friday);
-        $saturdayOrders = $this->getOrders($this->getBranchesId(6), $saturday);
+        $mondayOrders = $this->getOrders($this->getBranchesId(1, $branch_id_filter), $monday);
+        $tuesdayOrders = $this->getOrders($this->getBranchesId(2, $branch_id_filter), $tuesday);
+        $wednesdayOrders = $this->getOrders($this->getBranchesId(3, $branch_id_filter), $wednesday);
+        $thursdayOrders = $this->getOrders($this->getBranchesId(4, $branch_id_filter), $thursday);
+        $fridayOrders = $this->getOrders($this->getBranchesId(5, $branch_id_filter), $friday);
+        $saturdayOrders = $this->getOrders($this->getBranchesId(6, $branch_id_filter), $saturday);
 
-        // Get unique branch names from all orders
+        $branchNames = empty($branch_ids_filter) ? 'All Branches' :
+            StoreBranch::whereIn('id', $branch_ids_filter)
+            ->get()
+            ->map(function ($branch) {
+                return "{$branch->brand_code}-NONOS {$branch->location_code}";
+            })
+            ->join(', ');
+
         $branches = collect([
             $mondayOrders,
             $tuesdayOrders,
@@ -146,13 +152,17 @@ class IceCreamOrderController extends Controller
             $fridayOrders,
             $saturdayOrders
         ])
+            ->filter()
             ->flatMap(function ($dayOrders) {
                 return $dayOrders->flatMap(function ($order) {
-                    return $order['branches']->pluck('display_name');
+                    return $order['branches']->filter(function ($branch) {
+                        return $branch['quantity_ordered'] > 0;
+                    })->pluck('display_name');
                 });
             })
             ->unique()
             ->values();
+
 
         return Excel::download(new class(
             $mondayOrders,
@@ -162,7 +172,8 @@ class IceCreamOrderController extends Controller
             $fridayOrders,
             $saturdayOrders,
             $branches,
-            $startDate
+            $startDate,
+            $branchNames
         ) implements FromView {
             private $mondayOrders;
             private $tuesdayOrders;
@@ -172,8 +183,9 @@ class IceCreamOrderController extends Controller
             private $saturdayOrders;
             private $branches;
             private $startDate;
+            private $branchNames;
 
-            public function __construct($mon, $tue, $wed, $thu, $fri, $sat, $branches, $startDate)
+            public function __construct($mon, $tue, $wed, $thu, $fri, $sat, $branches, $startDate, $branchNames)
             {
                 $this->mondayOrders = $mon;
                 $this->tuesdayOrders = $tue;
@@ -183,6 +195,7 @@ class IceCreamOrderController extends Controller
                 $this->saturdayOrders = $sat;
                 $this->branches = $branches;
                 $this->startDate = $startDate;
+                $this->branchNames = $branchNames;
             }
 
             public function view(): View
@@ -196,10 +209,11 @@ class IceCreamOrderController extends Controller
                     'saturdayOrders' => $this->saturdayOrders,
                     'branches' => $this->branches,
                     'startDate' => $this->startDate,
-                    'endDate' => $this->startDate->copy()->addDays(5)
+                    'endDate' => $this->startDate->copy()->addDays(5),
+                    'branchFilter' => $this->branchNames
                 ]);
             }
-        }, 'ice-cream-orders-summay.xlsx');
+        }, 'ice-cream-orders-summary.xlsx');
     }
 
     public function getOrders($branchesId, $day)
@@ -213,6 +227,9 @@ class IceCreamOrderController extends Controller
             ->where('order_date', $day)
             ->whereHas('store_order_items.product_inventory', function ($query) {
                 $query->whereIn('inventory_code', ['359A2A']);
+            })
+            ->whereHas('store_order_items', function ($query) {
+                $query->where('quantity_ordered', '>', 0);
             })
             ->get()
             ->flatMap(function ($order) {
@@ -249,6 +266,9 @@ class IceCreamOrderController extends Controller
                                 : $quantity
                         ];
                     })
+                    ->filter(function ($branch) {
+                        return $branch['quantity_ordered'] > 0;
+                    })
                     ->values();
 
                 $total_quantity = DB::connection()->getDriverName() === 'sqlsrv'
@@ -261,6 +281,9 @@ class IceCreamOrderController extends Controller
                     'total_quantity' => $total_quantity,
                     'branches' => $branches
                 ];
+            })
+            ->filter(function ($item) {
+                return $item['total_quantity'] > 0 && $item['branches']->isNotEmpty();
             })
             ->values();
 

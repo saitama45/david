@@ -59,7 +59,7 @@ const getDefaultSelectedDate = () => {
 const { options: branchesOptions } = useSelectOptions(branches);
 const defaultSelectedDate = getDefaultSelectedDate();
 const selectedDate = ref(filters.start_date_filter || defaultSelectedDate);
-const branchId = ref(filters.branchId || null);
+const branchId = ref(filters.branchId || []);
 
 const days = [
     { name: "Monday", orders: mondayOrders },
@@ -76,7 +76,7 @@ watch(selectedDate, function (value) {
         { start_date_filter: value, branchId: branchId.value },
         {
             preserveState: false,
-            replace: true,
+            replace: false,
         }
     );
 });
@@ -87,7 +87,7 @@ watch(branchId, function (value) {
         { branchId: value, start_date_filter: selectedDate.value },
         {
             preserveState: false,
-            replace: true,
+            replace: false,
         }
     );
 });
@@ -95,6 +95,7 @@ const exportToExcel = () => {
     const data = {
         data: {
             start_date_filter: selectedDate.value,
+            branchId: branchId.value,
         },
         preserveState: true,
         preserveScroll: true,
@@ -114,14 +115,15 @@ const exportToExcel = () => {
         <TableContainer>
             <TableHeader>
                 <DivFlexCenter class="gap-3">
-                    <Select
+                    <MultiSelect
                         placeholder="Select Branch"
                         v-model="branchId"
                         :options="branchesOptions"
-                        class="w-fit min-w-72"
+                        class="w-fit min-w-72 max-w-72"
                         optionLabel="label"
                         optionValue="value"
                         showClear
+                        filter
                     />
                     <Select
                         placeholder="Select Date"
@@ -130,7 +132,6 @@ const exportToExcel = () => {
                         class="w-fit min-w-72"
                         optionLabel="name"
                         optionValue="code"
-                        showClear
                     />
                 </DivFlexCenter>
             </TableHeader>
