@@ -142,12 +142,23 @@ const openViewModalForm = (id) => {
                     <TableHead>
                         <TH> Item Code </TH>
                         <TH> Name </TH>
-                        <TH> Unit </TH>
                         <TH> Ordered</TH>
-                        <TH> Approved</TH>
+                        <TH> Comitted</TH>
+                        <TH> Delivered</TH>
                         <TH> Received</TH>
-                        <TH> Approval Rate</TH>
-                        <TH> Total Cost </TH>
+                        <!-- <TH> Total Cost </TH> -->
+                        <TH>
+                            <DivFlexCol>
+                                Variance
+                                <LabelXS>(Ordered vs Committed)</LabelXS>
+                            </DivFlexCol>
+                        </TH>
+                        <TH>
+                            <DivFlexCol>
+                                Variance
+                                <LabelXS>(Committed vs Received)</LabelXS>
+                            </DivFlexCol>
+                        </TH>
                     </TableHead>
                     <TableBody>
                         <tr v-for="order in orderedItems" :key="order.id">
@@ -155,22 +166,26 @@ const openViewModalForm = (id) => {
                                 order.product_inventory.inventory_code
                             }}</TD>
                             <TD>{{ order.product_inventory.name }}</TD>
-                            <TD>{{
-                                order.product_inventory.unit_of_measurement.name
-                            }}</TD>
                             <TD>{{ order.quantity_ordered }}</TD>
                             <TD>{{ order.quantity_approved }}</TD>
                             <TD>{{ order.quantity_received }}</TD>
-                            <TD
+                            <TD>{{ order.quantity_received }}</TD>
+                            <!-- <TD
                                 >{{
                                     parseFloat(
                                         (order.quantity_approved /
                                             order.quantity_ordered) *
                                             100
                                     ).toFixed(0, 2)
-                                }}%</TD
-                            >
-                            <TD>{{ order.total_cost }}</TD>
+                                }}%</TD -->
+                            <TD>{{
+                                order.quantity_ordered - order.quantity_approved
+                            }}</TD>
+                            <!-- <TD>{{ order.total_cost }}</TD> -->
+                            <TD>{{
+                                order.quantity_approved -
+                                order.quantity_received
+                            }}</TD>
                         </tr>
                     </TableBody>
                 </Table>

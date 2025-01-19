@@ -112,7 +112,6 @@ class ProductOrderSummaryController extends Controller
         $dateRange = request('dateRange');
         $supplierId = request('supplierId');
         $branchId = request('branchId');
-        dd(request());
         $startDate = $dateRange ? Carbon::parse($dateRange[0])->addDay()->format('Y-m-d') : Carbon::today()->format('Y-m-d');
         $endDate = $dateRange ? Carbon::parse($dateRange[1])->addDay()->format('Y-m-d') : $startDate;
 
@@ -275,6 +274,7 @@ class ProductOrderSummaryController extends Controller
             ->findOrFail($id);
 
         $orders = $item->store_order_items;
+
 
         return Inertia::render('ProductOrderSummary/Show', [
             'item' => $item,

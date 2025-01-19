@@ -23,7 +23,7 @@ const heading = `Orders For Item ${item.name} (${item.inventory_code})`;
                 <TableHead>
                     <TH>Supplier</TH>
                     <TH>Store Branch</TH>
-                    <TH>Quantity Approved</TH>
+                    <TH>Quantity Commited</TH>
                     <TH>Quantity Delivered</TH>
                     <TH>Order Date</TH>
                 </TableHead>
