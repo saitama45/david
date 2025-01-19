@@ -226,6 +226,7 @@ Route::middleware('auth')
         });
         Route::middleware('permission:view salmon orders')->controller(SalmonOrderController::class)->name('salmon-orders.')->prefix('salmon-orders')->group(function () {
             Route::get('/', 'index')->name('index');
+            Route::get('/excel', 'excel')->name('excel');
         });
         Route::middleware('permission:view fruits and vegetables orders')->controller(FruitAndVegetableController::class)->prefix('fruits-and-vegetables')->name('fruits-and-vegetables.')->group(function () {
             Route::get('/', 'index')->name('index');
@@ -541,7 +542,7 @@ require __DIR__ . '/auth.php';
 //         Route::get('/test', [DashboardController::class, 'test'])
 //             ->name('test');
 
-//         // Excel Templates
+//         // Excel Templatese
 //         Route::controller(ExcelTemplateController::class)
 //             ->name('excel.')
 //             ->prefix('excel')

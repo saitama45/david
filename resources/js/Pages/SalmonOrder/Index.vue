@@ -1,5 +1,6 @@
 <script setup>
 import { router } from "@inertiajs/vue3";
+import { useSelectOptions } from "@/Composables/useSelectOptions";
 const {
     mondayOrders,
     tuesdayOrders,
@@ -9,6 +10,7 @@ const {
     saturdayOrders,
     datesOption,
     filters,
+    branches,
 } = defineProps({
     mondayOrders: {
         type: Object,
@@ -42,6 +44,10 @@ const {
         type: Object,
         required: true,
     },
+    branches: {
+        type: Object,
+        required: true,
+    },
 });
 
 const getDefaultSelectedDate = () => {
@@ -50,10 +56,10 @@ const getDefaultSelectedDate = () => {
     }
     return datesOption[1]?.code || null;
 };
-
+const { options: branchesOptions } = useSelectOptions(branches);
 const defaultSelectedDate = getDefaultSelectedDate();
 const selectedDate = ref(filters.start_date_filter || defaultSelectedDate);
-
+const branchId = ref(filters.branchId || []);
 const days = [
     { name: "Monday", orders: mondayOrders },
     { name: "Tuesday", orders: tuesdayOrders },
@@ -67,27 +73,68 @@ watch(selectedDate, function (value) {
     console.log(value);
     router.get(
         route("salmon-orders.index"),
-        { start_date_filter: value },
+        { start_date_filter: value, branchId: branchId.value },
         {
             preserveState: false,
             replace: true,
         }
     );
 });
+
+watch(branchId, function (value) {
+    router.get(
+        route("salmon-orders.index"),
+        { branchId: value, start_date_filter: selectedDate.value },
+        {
+            preserveState: false,
+            replace: false,
+        }
+    );
+});
+
+const exportToExcel = () => {
+    const data = {
+        data: {
+            start_date_filter: selectedDate.value,
+            branchId: branchId.value,
+        },
+        preserveState: true,
+        preserveScroll: true,
+        replace: true,
+    };
+    window.open(route("salmon-orders.excel", data.data), "_blank");
+};
 </script>
 
 <template>
-    <Layout heading="Salmon Orders">
+    <Layout
+        heading="Salmon Orders"
+        :hasButton="true"
+        buttonName="Export to Excel"
+        :handleClick="exportToExcel"
+    >
         <TableContainer>
             <TableHeader>
-                <Select
-                    placeholder="Select Date"
-                    v-model="selectedDate"
-                    :options="datesOption"
-                    class="w-fit min-w-72"
-                    optionLabel="name"
-                    optionValue="code"
-                />
+                <DivFlexCenter class="gap-3">
+                    <MultiSelect
+                        placeholder="Select Branch"
+                        v-model="branchId"
+                        :options="branchesOptions"
+                        class="w-fit min-w-72 max-w-72"
+                        optionLabel="label"
+                        optionValue="value"
+                        showClear
+                        filter
+                    />
+                    <Select
+                        placeholder="Select Date"
+                        v-model="selectedDate"
+                        :options="datesOption"
+                        class="w-fit min-w-72"
+                        optionLabel="name"
+                        optionValue="code"
+                    />
+                </DivFlexCenter>
             </TableHeader>
 
             <DivFlexCol v-for="day in days" :key="day.name" class="gap-2">

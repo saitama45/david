@@ -5,17 +5,20 @@ namespace App\Http\Controllers;
 use App\Models\StoreBranch;
 use App\Models\StoreOrder;
 use Carbon\Carbon;
+use Illuminate\Contracts\View\View;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
+use Maatwebsite\Excel\Concerns\FromView;
+use Maatwebsite\Excel\Facades\Excel;
 
 class SalmonOrderController extends Controller
 {
     public function index()
     {
         $start_date_filter = request('start_date_filter');
-
+        $branch_id_filter = request('branchId');
         $datesOption = $this->generateDateOptions();
-
+        $branches = StoreBranch::options();
         $startDate = $start_date_filter
             ? Carbon::parse($start_date_filter)
             : Carbon::now()->startOfWeek();
@@ -27,12 +30,20 @@ class SalmonOrderController extends Controller
         $friday = $startDate->copy()->addDays(4)->toDateString();
         $saturday = $startDate->copy()->addDays(5)->toDateString();
 
-        $mondayOrders = $this->getOrders($this->getBranchesId(1), $monday);
-        $tuesdayOrders =  $this->getOrders($this->getBranchesId(2), $tuesday);
-        $wednesdayOrders =  $this->getOrders($this->getBranchesId(3), $wednesday);
-        $thursdayOrders =  $this->getOrders($this->getBranchesId(4), $thursday);
-        $fridayOrders =  $this->getOrders($this->getBranchesId(5), $friday);
-        $saturdayOrders =  $this->getOrders($this->getBranchesId(6), $saturday);
+        $mondayBranches = $this->getBranchesId(1, $branch_id_filter);
+        $tuesdayBranches = $this->getBranchesId(2, $branch_id_filter);
+        $wednesdayBranches = $this->getBranchesId(3, $branch_id_filter);
+        $thursdayBranches = $this->getBranchesId(4, $branch_id_filter);
+        $fridayBranches = $this->getBranchesId(5, $branch_id_filter);
+        $saturdayBranches = $this->getBranchesId(6, $branch_id_filter);
+
+        $mondayOrders = $this->getOrders($mondayBranches, $monday);
+        $tuesdayOrders =  $this->getOrders($tuesdayBranches, $tuesday);
+        $wednesdayOrders =  $this->getOrders($wednesdayBranches, $wednesday);
+        $wednesdayOrders =  $this->getOrders($wednesdayBranches, $wednesday);
+        $thursdayOrders =  $this->getOrders($thursdayBranches, $thursday);
+        $fridayOrders =  $this->getOrders($fridayBranches, $friday);
+        $saturdayOrders =  $this->getOrders($saturdayBranches, $saturday);
 
         return Inertia::render('SalmonOrder/Index', [
             'mondayOrders' => $mondayOrders,
@@ -42,7 +53,8 @@ class SalmonOrderController extends Controller
             'fridayOrders' => $fridayOrders,
             'saturdayOrders' => $saturdayOrders,
             'datesOption' => $datesOption,
-            'filters' => request()->only(['start_date_filter'])
+            'filters' => request()->only(['start_date_filter', 'branchId']),
+            'branches' => $branches
         ]);
     }
 
@@ -80,16 +92,19 @@ class SalmonOrderController extends Controller
         return array_reverse($dateOptions);
     }
 
-    public function getBranchesId($scheduleId)
+    public function getBranchesId($scheduleId, $branchId = null)
     {
-        return StoreBranch::with([
-            'delivery_schedules'
-        ])
+        $query = StoreBranch::with(['delivery_schedules'])
             ->whereHas('delivery_schedules', function ($query) use ($scheduleId) {
-                $query->where('variant', 'SALMON')
+                $query->where('variant', 'ICE CREAM')
                     ->where('delivery_schedule_id', $scheduleId);
-            })
-            ->pluck('id');
+            });
+
+        if ($branchId) {
+            $query->whereIn('id', $branchId);
+        }
+
+        return $query->pluck('id');
     }
 
     public function getOrders($branchesId, $day)
@@ -145,5 +160,108 @@ class SalmonOrderController extends Controller
                 ];
             })
             ->values();
+    }
+
+    public function excel()
+    {
+        $start_date_filter = request('start_date_filter');
+        $branch_id_filter = request('branchId');
+
+        $startDate = $start_date_filter
+            ? Carbon::parse($start_date_filter)
+            : Carbon::now()->startOfWeek();
+
+        $monday = $startDate->toDateString();
+        $tuesday = $startDate->copy()->addDays(1)->toDateString();
+        $wednesday = $startDate->copy()->addDays(2)->toDateString();
+        $thursday = $startDate->copy()->addDays(3)->toDateString();
+        $friday = $startDate->copy()->addDays(4)->toDateString();
+        $saturday = $startDate->copy()->addDays(5)->toDateString();
+
+        $mondayOrders = $this->getOrders($this->getBranchesId(1, $branch_id_filter), $monday);
+        $tuesdayOrders = $this->getOrders($this->getBranchesId(2, $branch_id_filter), $tuesday);
+        $wednesdayOrders = $this->getOrders($this->getBranchesId(3, $branch_id_filter), $wednesday);
+        $thursdayOrders = $this->getOrders($this->getBranchesId(4, $branch_id_filter), $thursday);
+        $fridayOrders = $this->getOrders($this->getBranchesId(5, $branch_id_filter), $friday);
+        $saturdayOrders = $this->getOrders($this->getBranchesId(6, $branch_id_filter), $saturday);
+
+        $branchNames = empty($branch_ids_filter) ? 'All Branches' :
+            StoreBranch::whereIn('id', $branch_ids_filter)
+            ->get()
+            ->map(function ($branch) {
+                return "{$branch->brand_code}-NONOS {$branch->location_code}";
+            })
+            ->join(', ');
+
+        $branches = collect([
+            $mondayOrders,
+            $tuesdayOrders,
+            $wednesdayOrders,
+            $thursdayOrders,
+            $fridayOrders,
+            $saturdayOrders
+        ])
+            ->filter()
+            ->flatMap(function ($dayOrders) {
+                return $dayOrders->flatMap(function ($order) {
+                    return $order['branches']->filter(function ($branch) {
+                        return $branch['quantity_ordered'] > 0;
+                    })->pluck('display_name');
+                });
+            })
+            ->unique()
+            ->values();
+
+
+        return Excel::download(new class( 
+            $mondayOrders,
+            $tuesdayOrders,
+            $wednesdayOrders,
+            $thursdayOrders,
+            $fridayOrders,
+            $saturdayOrders,
+            $branches,
+            $startDate,
+            $branchNames
+        ) implements FromView {
+            private $mondayOrders;
+            private $tuesdayOrders;
+            private $wednesdayOrders;
+            private $thursdayOrders;
+            private $fridayOrders;
+            private $saturdayOrders;
+            private $branches;
+            private $startDate;
+            private $branchNames;
+
+            public function __construct($mon, $tue, $wed, $thu, $fri, $sat, $branches, $startDate, $branchNames)
+            {
+                $this->mondayOrders = $mon;
+                $this->tuesdayOrders = $tue;
+                $this->wednesdayOrders = $wed;
+                $this->thursdayOrders = $thu;
+                $this->fridayOrders = $fri;
+                $this->saturdayOrders = $sat;
+                $this->branches = $branches;
+                $this->startDate = $startDate;
+                $this->branchNames = $branchNames;
+            }
+
+            public function view(): View
+            {
+                return view('salmon-orders-summary', [
+                    'mondayOrders' => $this->mondayOrders,
+                    'tuesdayOrders' => $this->tuesdayOrders,
+                    'wednesdayOrders' => $this->wednesdayOrders,
+                    'thursdayOrders' => $this->thursdayOrders,
+                    'fridayOrders' => $this->fridayOrders,
+                    'saturdayOrders' => $this->saturdayOrders,
+                    'branches' => $this->branches,
+                    'startDate' => $this->startDate,
+                    'endDate' => $this->startDate->copy()->addDays(5),
+                    'branchFilter' => $this->branchNames
+                ]);
+            }
+        }, 'salmon-orders-summary.xlsx');
     }
 }
