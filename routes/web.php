@@ -249,6 +249,8 @@ Route::middleware('auth')
             });
 
             Route::delete('/users/destroy/{id}', 'destroy')->name('destroy');
+
+            Route::get('/export', 'export')->name('export');
         });
 
         // Manage References

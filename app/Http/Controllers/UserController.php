@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Enum\UserRole;
+use App\Exports\UsersExport;
 use App\Models\StoreBranch;
 use App\Models\User;
 use Exception;
@@ -11,6 +12,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Inertia\Inertia;
 use Illuminate\Support\Str;
+use Maatwebsite\Excel\Facades\Excel;
 use Spatie\Permission\Models\Role;
 
 class UserController extends Controller
@@ -64,6 +66,16 @@ class UserController extends Controller
             'roles' => $roles,
             'branches' => $branches
         ]);
+    }
+
+    public function export(Request $request)
+    {
+        $search = $request->input('search');
+
+        return Excel::download(
+            new UsersExport($search),
+            'users-' . now()->format('Y-m-d') . '.xlsx'
+        );
     }
 
     public function store(Request $request)

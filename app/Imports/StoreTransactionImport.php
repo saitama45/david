@@ -60,11 +60,11 @@ class StoreTransactionImport implements ToModel, WithStartRow, WithHeadingRow
         $this->emptyRowCount = 0;
 
         try {
-            $branch = StoreBranch::where('location_code', 'UTC')->first();
+            $branch = StoreBranch::where('location_code', $row['branch'])->first();
 
             if (!$branch) {
                 Log::error('Branch not found', [
-                    'location_code' => 'UTC',
+                    'location_code' => $row['branch'],
                     'row_number' => $this->rowNumber
                 ]);
                 return null;

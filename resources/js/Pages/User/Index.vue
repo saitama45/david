@@ -37,6 +37,9 @@ watch(
 
 import { useReferenceDelete } from "@/Composables/useReferenceDelete";
 const { deleteModel } = useReferenceDelete();
+const exportRoute = route("users.export", { search: search.value });
+
+console.log(exportRoute);
 </script>
 
 <template>
@@ -45,6 +48,8 @@ const { deleteModel } = useReferenceDelete();
         :hasButton="hasAccess('create users')"
         buttonName="Create New User"
         :handleClick="handleClick"
+        :hasExcelDownload="true"
+        :exportRoute="exportRoute"
     >
         <TableContainer>
             <TableHeader>

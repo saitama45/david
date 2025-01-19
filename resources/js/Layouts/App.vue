@@ -50,7 +50,7 @@ import ConfirmDialog from "primevue/confirmdialog";
 
 import NavLink from "../Components/NavLink.vue";
 
-defineProps({
+const props = defineProps({
     heading: String,
     handleClick: {
         type: Function,
@@ -62,6 +62,15 @@ defineProps({
         required: false,
     },
     buttonName: {
+        type: String,
+        required: false,
+    },
+    hasExcelDownload: {
+        type: Boolean,
+        default: false,
+        required: false,
+    },
+    exportRoute: {
         type: String,
         required: false,
     },
@@ -102,6 +111,10 @@ const canViewReferenceGroup = hasAccess("manage references");
 
 const logout = () => {
     router.post("/logout");
+};
+
+const exportExcel = () => {
+    window.open(props.exportRoute, "_blank");
 };
 </script>
 
@@ -659,12 +672,20 @@ const logout = () => {
                     <h1 class="text-lg font-semibold md:text-2xl">
                         {{ heading }}
                     </h1>
-                    <Button
-                        class="sm:text-normal text-xs"
-                        v-show="hasButton"
-                        @click="handleClick"
-                        >{{ buttonName }}</Button
-                    >
+                    <DivFlexCenter class="gap-3">
+                        <Button
+                            v-show="hasExcelDownload"
+                            @click="exportExcel"
+                            class="sm:text-normal text-xs"
+                            >Export to Excel</Button
+                        >
+                        <Button
+                            class="sm:text-normal text-xs"
+                            v-show="hasButton"
+                            @click="handleClick"
+                            >{{ buttonName }}</Button
+                        >
+                    </DivFlexCenter>
                 </div>
                 <div class="space-y-5">
                     <slot />

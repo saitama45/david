@@ -1,4 +1,5 @@
 <script setup>
+
 const { transaction } = defineProps({
     transaction: {
         type: Object,
@@ -16,6 +17,7 @@ const subtotals = computed(() => {
         { lineTotal: 0, netTotal: 0, totalDiscount: 0 }
     );
 });
+
 </script>
 <template>
     <Layout heading="Store Transaction Details">

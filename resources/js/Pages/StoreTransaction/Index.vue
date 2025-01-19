@@ -10,6 +10,9 @@ const { transactions } = defineProps({
 const createNewTransaction = () => {
     router.get(route("store-transactions.create"));
 };
+
+import { useSearch } from "@/Composables/useSearch";
+const { search } = useSearch("store-transactions.index");
 </script>
 <template>
     <Layout
@@ -21,7 +24,11 @@ const createNewTransaction = () => {
         <TableContainer>
             <TableHeader>
                 <SearchBar>
-                    <Input class="pl-10" placeholder="Search..." />
+                    <Input
+                        class="pl-10"
+                        placeholder="Search..."
+                        v-model="search"
+                    />
                 </SearchBar>
             </TableHeader>
             <Table>
