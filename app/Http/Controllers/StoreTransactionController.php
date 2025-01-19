@@ -14,13 +14,13 @@ class StoreTransactionController extends Controller
     public function index()
     {
         $search = request('search');
-        $query = StoreTransaction::query()->with('store_transaction_items');
+        $query = StoreTransaction::query()->with(['store_transaction_items', 'store_branch']);
 
         if ($search)
             $query->where('name', 'like', "%$search%");
 
-        $transactions = $query->paginate(10);
-        dd($transactions);
+        $transactions = $query->latest()->paginate(10);
+
         return Inertia::render('StoreTransaction/Index', [
             'transactions' => $transactions,
             'filters' => request()->only(['search'])
