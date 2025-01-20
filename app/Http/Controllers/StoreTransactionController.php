@@ -6,6 +6,7 @@ use App\Imports\StoreTransactionImport;
 use App\Models\Menu;
 use App\Models\StoreBranch;
 use App\Models\StoreTransaction;
+use Carbon\Carbon;
 use Exception;
 use Illuminate\Http\Request;
 use Illuminate\Support\Arr;
@@ -72,7 +73,7 @@ class StoreTransactionController extends Controller
             'customer' => ['nullable'],
             'items' => ['required', 'array'],
         ]);
-
+        $validated['order_date'] = Carbon::parse($validated['order_date'])->addDay();
         DB::beginTransaction();
         $transaction = StoreTransaction::create(Arr::except($validated, ['items']));
 
