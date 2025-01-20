@@ -233,6 +233,7 @@ Route::middleware('auth')
         Route::middleware('permission:view fruits and vegetables orders')->controller(FruitAndVegetableController::class)->prefix('fruits-and-vegetables')->name('fruits-and-vegetables.')->group(function () {
             Route::get('/', 'index')->name('index');
             Route::get('/show/{id}', 'show')->name('show');
+            Route::get('/export', 'export')->name('export');
         });
 
         // User

@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Exports\FruitsAndVegetablesExport;
 use App\Models\ProductInventory;
 use App\Models\StoreBranch;
 use App\Models\StoreOrder;
@@ -11,6 +12,7 @@ use Exception;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
+use Maatwebsite\Excel\Facades\Excel;
 
 class FruitAndVegetableController extends Controller
 {
@@ -102,6 +104,19 @@ class FruitAndVegetableController extends Controller
             'datesOption' => $datesOption,
             'branches' => $branches
         ]);
+    }
+
+
+    public function export()
+    {
+        return Excel::download(
+            new FruitsAndVegetablesExport(
+                request('search'),
+                request('branchId'),
+                request('start_date_filter')
+            ),
+            'fruit-vegetable-orders.xlsx'
+        );
     }
 
 
