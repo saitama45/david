@@ -18,13 +18,17 @@ class StoreOrder extends Model implements Auditable
         'supplier_id',
         'store_branch_id',
         'approver_id',
+        'commiter_id', // New
         'order_number',
         'order_date',
         'order_status',
         'order_request_status',
+        'manager_approval_status', // New
         'remarks',
         'variant',
         'approval_action_date',
+        'commited_action_date', // New
+
     ];
 
     protected $casts = [
