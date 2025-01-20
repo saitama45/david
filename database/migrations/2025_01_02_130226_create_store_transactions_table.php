@@ -18,7 +18,7 @@ return new class extends Migration
             $table->string('posted');
             $table->string('tim_number');
             $table->string('receipt_number');
-            $table->string('lost_serial')->nullable();
+            $table->string('lot_serial')->nullable();
             $table->string('customer_id')->nullable();
             $table->string('customer')->nullable();
             $table->string('cancel_reason')->nullable();

@@ -24,7 +24,7 @@ class StoreTransactionItem extends Model
 
     public function menu()
     {
-        return $this->belongsTo(Menu::class, 'product_id');
+        return $this->belongsTo(Menu::class, 'product_id', 'product_id');
     }
 
     public function store_transaction()

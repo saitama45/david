@@ -16,6 +16,7 @@ class MenuController extends Controller
             'id' => $item->id,
             'name' => $item->name,
             'price' => $item->price,
+            'product_id' => $item->product_id
         ];
 
         return response()->json($item);

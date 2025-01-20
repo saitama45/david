@@ -91,7 +91,7 @@ class StoreTransactionImport implements ToModel, WithStartRow, WithHeadingRow
             ]);
 
             $transaction->store_transaction_items()->updateOrCreate([
-                'product_id' => $menu->id,
+                'product_id' => $row['product_id'],
                 'base_quantity' => $row['base_qty'],
                 'quantity' => $row['qty'],
                 'price' => $row['price'],

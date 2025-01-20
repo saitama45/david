@@ -8,6 +8,8 @@ use App\Models\StoreBranch;
 use App\Models\StoreTransaction;
 use Exception;
 use Illuminate\Http\Request;
+use Illuminate\Support\Arr;
+use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
 use Maatwebsite\Excel\Facades\Excel;
 
@@ -55,6 +57,39 @@ class StoreTransactionController extends Controller
             'menus' => $menus,
             'branches' => $branches
         ]);
+    }
+
+    public function store(Request $request)
+    {
+        $validated = $request->validate([
+            'order_date' => ['required'],
+            'lot_serial' => ['nullable'],
+            'posted' => ['required'],
+            'tim_number' => ['required'],
+            'receipt_number' => ['required'],
+            'store_branch_id' => ['required'],
+            'customer_id' => ['nullable'],
+            'customer' => ['nullable'],
+            'items' => ['required', 'array'],
+        ]);
+
+        DB::beginTransaction();
+        $transaction = StoreTransaction::create(Arr::except($validated, ['items']));
+
+        foreach ($validated['items'] as $item) {
+            $transaction->store_transaction_items()->create([
+                'product_id' => $item['product_id'],
+                'base_quantity' => $item['quantity'],
+                'quantity' => $item['quantity'],
+                'price' => $item['price'],
+                'discount' => $item['discount'],
+                'line_total' => $item['line_total'],
+                'net_total' => $item['net_total'],
+            ]);
+        }
+        DB::commit();
+
+        return to_route('store-transactions.index');
     }
 
     public function show($id)

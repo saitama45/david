@@ -14,7 +14,8 @@ return new class extends Migration
         Schema::create('store_transaction_items', function (Blueprint $table) {
             $table->id();
             $table->foreignId('store_transaction_id')->constrained('store_transactions');
-            $table->foreignId('product_id')->constrained('menus');
+            $table->string('product_id');
+            $table->foreign('product_id')->references('product_id')->on('menus');
             $table->integer('base_quantity');
             $table->integer('quantity');
             $table->double('price');

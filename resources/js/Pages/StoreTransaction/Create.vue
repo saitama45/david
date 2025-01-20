@@ -2,6 +2,8 @@
 import { useSelectOptions } from "@/Composables/useSelectOptions";
 import { useToast } from "@/Composables/useToast";
 const { toast } = useToast();
+import { useConfirm } from "primevue/useconfirm";
+const confirm = useConfirm();
 import { useForm } from "@inertiajs/vue3";
 
 const { menus, branches } = defineProps({
@@ -56,6 +58,7 @@ const importTransactions = () => {
 
 const itemForm = useForm({
     id: null,
+    product_id: null,
     name: null,
     quantity: null,
     discount: 0,
@@ -65,6 +68,14 @@ const itemForm = useForm({
 });
 
 const form = useForm({
+    order_date: null,
+    lot_serial: null,
+    posted: null,
+    tim_number: null,
+    receipt_number: null,
+    store_branch_id: null,
+    customer_id: null,
+    customer: null,
     items: [],
 });
 
@@ -77,8 +88,10 @@ watch(
             .get(route("menu-item.show", newValue))
             .then((res) => res.data)
             .then((result) => {
+                console.log(result);
                 itemForm.name = result.name;
                 itemForm.price = result.price;
+                itemForm.product_id = result.product_id;
             })
             .catch((err) => console.log(err));
     }
@@ -93,7 +106,7 @@ const addToItemsList = () => {
         itemForm.setError("quantity", "Quantity must be atleast 1");
         return;
     }
-    console.log(itemForm.id);
+    console.log(itemForm);
     const existingItemIndex = form.items.findIndex(
         (item) => item.id === itemForm.id
     );
@@ -137,6 +150,52 @@ watch(
         }
     }
 );
+
+const store = () => {
+    if (form.items.length < 1) {
+        toast.add({
+            severity: "error",
+            summary: "Error",
+            detail: "Please select at least one item before proceeding.",
+            life: 5000,
+        });
+        return;
+    }
+    confirm.require({
+        message: "Are you sure you want to create this store transaction?",
+        header: "Confirmation",
+        icon: "pi pi-exclamation-triangle",
+        rejectProps: {
+            label: "Cancel",
+            severity: "secondary",
+            outlined: true,
+        },
+        acceptProps: {
+            label: "Confirm",
+            severity: "info",
+        },
+        accept: () => {
+            form.post(route("store-transactions.store"), {
+                onSuccess: () => {
+                    toast.add({
+                        severity: "success",
+                        summary: "Success",
+                        detail: "Store transaction Created Successfully.",
+                        life: 5000,
+                    });
+                },
+                onError: (e) => {
+                    toast.add({
+                        severity: "error",
+                        summary: "Error",
+                        detail: "Something went wrong while trying to create the store transaction.",
+                        life: 5000,
+                    });
+                },
+            });
+        },
+    });
+};
 </script>
 <template>
     <Layout
@@ -157,42 +216,55 @@ watch(
                 <CardContent>
                     <DivFlexCol class="gap-3">
                         <InputContainer>
+                            <LabelXS>Date</LabelXS>
+                            <DatePicker v-model="form.order_date" showIcon />
+                            <FormError>{{ form.errors.order_date }}</FormError>
+                        </InputContainer>
+                        <InputContainer>
                             <LabelXS>Lot/Serial</LabelXS>
-                            <Input />
+                            <Input v-model="form.lot_serial" />
+                            <FormError>{{ form.errors.lot_serial }}</FormError>
                         </InputContainer>
                         <InputContainer>
                             <LabelXS>Posted</LabelXS>
-                            <Input />
+                            <Input v-model="form.posted" />
+                            <FormError>{{ form.errors.posted }}</FormError>
                         </InputContainer>
                         <InputContainer>
                             <LabelXS>TM#</LabelXS>
-                            <Input />
+                            <Input v-model="form.tim_number" />
+                            <FormError>{{ form.errors.tim_number }}</FormError>
                         </InputContainer>
                         <InputContainer>
                             <LabelXS>Receipt No.</LabelXS>
-                            <Input />
+                            <Input v-model="form.receipt_number" />
+                            <FormError>{{
+                                form.errors.receipt_number
+                            }}</FormError>
                         </InputContainer>
                         <InputContainer>
                             <LabelXS>Branch</LabelXS>
                             <Select
+                                v-model="form.store_branch_id"
                                 filter
                                 placeholder="Select a branch"
                                 :options="branchesOptions"
                                 optionLabel="label"
                                 optionValue="value"
                             ></Select>
-                        </InputContainer>
-                        <InputContainer>
-                            <LabelXS>Lot/Serial</LabelXS>
-                            <Input />
+                            <FormError>{{
+                                form.errors.store_branch_id
+                            }}</FormError>
                         </InputContainer>
                         <InputContainer>
                             <LabelXS>Customer ID</LabelXS>
-                            <Input />
+                            <Input v-model="form.customer_id" />
+                            <FormError>{{ form.errors.customer_id }}</FormError>
                         </InputContainer>
                         <InputContainer>
                             <LabelXS>Customer</LabelXS>
-                            <Input />
+                            <Input v-model="form.customer" />
+                            <FormError>{{ form.errors.customer }}</FormError>
                         </InputContainer>
                     </DivFlexCol>
                 </CardContent>
@@ -311,7 +383,7 @@ watch(
                         </TableBody>
                     </Table>
                     <DivFlexCenter class="justify-end">
-                        <Button>Proceed</Button>
+                        <Button @click="store">Proceed</Button>
                     </DivFlexCenter>
                 </TableContainer>
             </DivFlexCol>

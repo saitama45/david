@@ -54,8 +54,8 @@ class Menu extends Model
             ->withTimestamps();
     }
 
-    public function store_transaction_items()
+    public function transactionItems()
     {
-        return $this->hasMany(StoreTransactionItem::class);
+        return $this->hasMany(StoreTransactionItem::class, 'product_id', 'product_id');
     }
 }
