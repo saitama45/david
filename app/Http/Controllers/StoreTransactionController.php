@@ -60,6 +60,40 @@ class StoreTransactionController extends Controller
         ]);
     }
 
+    public function update(Request $request, $id)
+    {
+        $validated = $request->validate([
+            'order_date' => ['required'],
+            'lot_serial' => ['nullable'],
+            'posted' => ['required'],
+            'tim_number' => ['required'],
+            'receipt_number' => ['required'],
+            'store_branch_id' => ['required'],
+            'customer_id' => ['nullable'],
+            'customer' => ['nullable'],
+            'items' => ['required', 'array'],
+        ]);
+        DB::beginTransaction();
+        $transaction = StoreTransaction::findOrFail($id);
+        $transaction->update(Arr::except($validated, ['items']));
+        $transaction->store_transaction_items()->delete();
+        foreach ($validated['items'] as $item) {
+            $transaction->store_transaction_items()->create([
+                'product_id' => $item['product_id'],
+                'base_quantity' => $item['quantity'],
+                'quantity' => $item['quantity'],
+                'price' => $item['price'],
+                'discount' => $item['discount'],
+                'line_total' => $item['line_total'],
+                'net_total' => $item['net_total'],
+            ]);
+        }
+
+        DB::commit();
+
+        return to_route('store-transactions.index');
+    }
+
     public function store(Request $request)
     {
         $validated = $request->validate([
@@ -91,6 +125,18 @@ class StoreTransactionController extends Controller
         DB::commit();
 
         return to_route('store-transactions.index');
+    }
+
+    public function edit($id)
+    {
+        $menus = Menu::options();
+        $branches = StoreBranch::options();
+        $transaction = StoreTransaction::with(['store_transaction_items.menu'])->findOrFail($id);
+        return Inertia::render('StoreTransaction/Edit', [
+            'transaction' => $transaction,
+            'menus' => $menus,
+            'branches' => $branches
+        ]);
     }
 
     public function show($id)

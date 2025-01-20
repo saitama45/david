@@ -6,7 +6,11 @@ import { useConfirm } from "primevue/useconfirm";
 const confirm = useConfirm();
 import { useForm } from "@inertiajs/vue3";
 
-const { menus, branches } = defineProps({
+const { menus, branches, transaction } = defineProps({
+    transaction: {
+        type: Object,
+        required: true,
+    },
     menus: {
         type: Object,
         required: true,
@@ -16,6 +20,7 @@ const { menus, branches } = defineProps({
         required: true,
     },
 });
+
 const { options: menusOptions } = useSelectOptions(menus);
 const { options: branchesOptions } = useSelectOptions(branches);
 const excelFileForm = useForm({
@@ -68,15 +73,29 @@ const itemForm = useForm({
 });
 
 const form = useForm({
-    order_date: null,
-    lot_serial: null,
-    posted: null,
-    tim_number: null,
-    receipt_number: null,
-    store_branch_id: null,
-    customer_id: null,
-    customer: null,
+    order_date: transaction.order_date,
+    lot_serial: transaction.lot_serial,
+    posted: transaction.posted,
+    tim_number: transaction.tim_number,
+    receipt_number: transaction.receipt_number,
+    store_branch_id: transaction.store_branch_id.toString(),
+    customer_id: transaction.customer_id,
+    customer: transaction.customer,
     items: [],
+});
+
+transaction.store_transaction_items.forEach((item) => {
+    const product = {
+        id: item.menu.id,
+        product_id: item.product_id,
+        name: item.menu.name,
+        quantity: item.quantity,
+        discount: item.discount,
+        price: item.price,
+        line_total: item.line_total,
+        net_total: item.net_total,
+    };
+    form.items.push(product);
 });
 
 watch(
@@ -151,7 +170,7 @@ watch(
     }
 );
 
-const store = () => {
+const update = () => {
     if (form.items.length < 1) {
         toast.add({
             severity: "error",
@@ -162,7 +181,7 @@ const store = () => {
         return;
     }
     confirm.require({
-        message: "Are you sure you want to create this store transaction?",
+        message: "Are you sure you want to update this store transaction?",
         header: "Confirmation",
         icon: "pi pi-exclamation-triangle",
         rejectProps: {
@@ -175,12 +194,12 @@ const store = () => {
             severity: "info",
         },
         accept: () => {
-            form.post(route("store-transactions.store"), {
+            form.put(route("store-transactions.update", transaction.id), {
                 onSuccess: () => {
                     toast.add({
                         severity: "success",
                         summary: "Success",
-                        detail: "Store transaction Created Successfully.",
+                        detail: "Store transaction Updated Successfully.",
                         life: 5000,
                     });
                 },
@@ -188,7 +207,7 @@ const store = () => {
                     toast.add({
                         severity: "error",
                         summary: "Error",
-                        detail: "Something went wrong while trying to create the store transaction.",
+                        detail: "Something went wrong while trying to update the store transaction.",
                         life: 5000,
                     });
                 },
@@ -198,12 +217,7 @@ const store = () => {
 };
 </script>
 <template>
-    <Layout
-        heading="Create Store Transaction"
-        buttonName="Import Store Transactions"
-        :hasButton="true"
-        :handleClick="openImportStoreTransactionModal"
-    >
+    <Layout heading="Edit Store Transaction">
         <Card class="grid grid-cols-3 gap-3 p-5">
             <Card>
                 <CardHeader>
@@ -383,7 +397,7 @@ const store = () => {
                         </TableBody>
                     </Table>
                     <DivFlexCenter class="justify-end">
-                        <Button @click="store">Proceed</Button>
+                        <Button @click="update">Proceed</Button>
                     </DivFlexCenter>
                 </TableContainer>
             </DivFlexCol>

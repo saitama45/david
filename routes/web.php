@@ -143,6 +143,8 @@ Route::middleware('auth')
             Route::middleware('permission:view store transactions')->get('/', 'index')->name('index');
             Route::middleware('permission:view store transaction')->get('/show/{id}', 'show')->name('show');
             Route::middleware('permission:create store transactions')->get('/create', 'create')->name('create');
+            Route::get('/edit/{id}', 'edit')->name('edit');
+            Route::put('/update/{id}', 'update')->name('update');
             Route::post('/store', 'store')->name('store');
             Route::post('/import', 'import')->name('import');
         });

@@ -119,7 +119,6 @@ class FruitAndVegetableController extends Controller
         );
     }
 
-
     public function show($id)
     {
         $start_date_filter = request('start_date_filter');

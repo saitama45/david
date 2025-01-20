@@ -59,6 +59,15 @@ const { search } = useSearch("store-transactions.index");
                                     )
                                 "
                             />
+                            <EditButton
+                                :isLink="true"
+                                :href="
+                                    route(
+                                        'store-transactions.edit',
+                                        transaction.id
+                                    )
+                                "
+                            />
                         </TD>
                     </tr>
                 </TableBody>
