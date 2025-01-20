@@ -169,6 +169,14 @@ const changeFilter = (currentFilter) => {
 import { useAuth } from "@/Composables/useAuth";
 
 const { hasAccess } = useAuth();
+
+const exportRoute = route("store-orders.export", {
+    search: search.value,
+    branchId: branchId.value,
+    filterQuery: filterQuery.value,
+    from: from.value,
+    to: to.value,
+});
 </script>
 
 <template>
@@ -177,6 +185,8 @@ const { hasAccess } = useAuth();
         :hasButton="hasAccess('create store orders')"
         buttonName="Create New Order"
         :handleClick="handleClick"
+        :hasExcelDownload="true"
+        :exportRoute="exportRoute"
     >
         <FilterTab>
             <FilterTabButton

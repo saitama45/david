@@ -39,7 +39,7 @@ import { useReferenceDelete } from "@/Composables/useReferenceDelete";
 const { deleteModel } = useReferenceDelete();
 const exportRoute = route("users.export", { search: search.value });
 
-console.log(exportRoute);
+
 </script>
 
 <template>

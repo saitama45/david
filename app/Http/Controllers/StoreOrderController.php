@@ -4,6 +4,8 @@ namespace App\Http\Controllers;
 
 use App\Enum\OrderRequestStatus;
 use App\Enum\OrderStatus;
+use App\Exports\StoreOrdersExport;
+use App\Exports\UsersExport;
 use App\Http\Requests\Api\StoreOrderRequest;
 use App\Imports\OrderListImport;
 use Inertia\Inertia;
@@ -52,10 +54,7 @@ class StoreOrderController extends Controller
             $query->where('order_number', 'like', '%' . $search . '%')
                 ->orWhereHas('store_branch', function ($query) use ($search) {
                     $query->where('name', 'like', '%' . $search . '%');
-                });;
-
-
-
+                });
 
         $orders = $query
             ->where('variant', 'regular')
@@ -65,7 +64,6 @@ class StoreOrderController extends Controller
 
         $branches = StoreBranch::options();
 
-
         return Inertia::render(
             'StoreOrder/Index',
             [
@@ -73,6 +71,20 @@ class StoreOrderController extends Controller
                 'branches' => $branches,
                 'filters' => request()->only(['from', 'to', 'branchId', 'search', 'filterQuery'])
             ]
+        );
+    }
+
+    public function export()
+    {
+        $from = request('from') ? Carbon::parse(request('from'))->format('Y-m-d') : '1999-01-01';
+        $to = request('to') ? Carbon::parse(request('to'))->addDay()->format('Y-m-d') : Carbon::today()->addMonth();
+        $branchId = request('branchId');
+        $search = request('search');
+        $filterQuery = request('filterQuery') ?? 'pending';
+
+        return Excel::download(
+            new StoreOrdersExport($search, $branchId, $filterQuery, $from, $to),
+            'store-orders-' . now()->format('Y-m-d') . '.xlsx'
         );
     }
 

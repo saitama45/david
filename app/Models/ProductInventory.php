@@ -36,6 +36,11 @@ class ProductInventory extends Model implements Auditable
         return '₱' . number_format($this->cost, 2);
     }
 
+    public function history()
+    {
+        return $this->hasMany(ProductInventoryHistory::class);
+    }
+
     public function menus()
     {
         return $this->belongsToMany(Menu::class, 'menu_ingredients')
@@ -104,6 +109,21 @@ class ProductInventory extends Model implements Auditable
                     'store_branch_id' => $branch->id,
                 ]);
             }
+        });
+
+
+        static::updated(function ($product) {
+            $product->history()->create([
+                'inventory_category_id' => $product->getOriginal('inventory_category_id'),
+                'unit_of_measurement_id' => $product->getOriginal('unit_of_measurement_id'),
+                'name' => $product->getOriginal('name'),
+                'barcode' => $product->getOriginal('barcode'),
+                'inventory_code' => $product->getOriginal('inventory_code'),
+                'brand' => $product->getOriginal('brand'),
+                'conversion' => $product->getOriginal('conversion'),
+                'cost' => $product->getOriginal('cost'),
+                'is_active' => $product->getOriginal('is_active'),
+            ]);
         });
     }
 }

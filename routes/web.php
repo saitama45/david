@@ -87,6 +87,8 @@ Route::middleware('auth')
                 Route::get('/edit/{id}', 'edit')->name('edit');
                 Route::put('/update/{id}', 'update')->name('update');
             });
+
+            Route::get('/export', 'export')->name('export');
         });
 
         // Orders Approval
