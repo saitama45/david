@@ -270,13 +270,6 @@ const exportExcel = () => {
                             Items
                         </NavLink>
                         <NavLink
-                            href="/stocks"
-                            :icon="ScanBarcode"
-                            v-if="is_admin"
-                        >
-                            Stocks
-                        </NavLink>
-                        <NavLink
                             v-if="hasAccess('view menu list')"
                             href="/menu-list"
                             :icon="Scroll"
