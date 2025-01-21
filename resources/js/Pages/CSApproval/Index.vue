@@ -143,6 +143,8 @@ const exportRoute = route("cs-approvals.export", {
     search: search.value,
     currentFilter: filter.value,
 });
+
+
 </script>
 <template>
     <Layout

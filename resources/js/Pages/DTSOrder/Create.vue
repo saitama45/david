@@ -349,7 +349,19 @@ const excelFileForm = useForm({
 });
 
 const addImportedItemsToOrderList = () => {
+    console.log(variant.replace(/ /g, "-"));
     isLoading.value = true;
+    console.log(variant + " " + excelFileForm.orders_file.name);
+    if (!excelFileForm.orders_file.name.includes(variant.replace(/ /g, "-"))) {
+        toast.add({
+            severity: "error",
+            summary: "Error",
+            detail: "Please make sure that you are using the correct order template for the order variant.",
+            life: 5000,
+        });
+        isLoading.value = false;
+        return;
+    }
     const formData = new FormData();
     formData.append("orders_file", excelFileForm.orders_file);
 
