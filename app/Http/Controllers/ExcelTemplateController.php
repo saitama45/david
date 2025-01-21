@@ -42,4 +42,10 @@ class ExcelTemplateController extends Controller
         $path = 'storage\excel-templates\menu_template.xlsx';
         return response()->download($path);
     }
+
+    public function fruitsAndVegetablesTemplate()
+    {
+        $path = 'storage\excel-templates\fruits-and-vegetables-template.xlsx';
+        return response()->download($path);
+    }
 }

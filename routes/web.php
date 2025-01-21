@@ -229,6 +229,9 @@ Route::middleware('auth')
 
                 Route::get('/menu-template', 'menuTemplate')
                     ->name('menu-template');
+
+                    Route::get('/fruits-and-vegetables-template', 'fruitsAndVegetablesTemplate')
+                    ->name('fruits-and-vegetables-template');
             });
 
         // Items Order Summary
