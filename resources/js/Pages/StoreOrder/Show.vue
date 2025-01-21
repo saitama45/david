@@ -152,6 +152,7 @@ const enlargeImage = (image) => {
                         <TH> Item Code </TH>
                         <TH> Name </TH>
                         <TH> Ordered</TH>
+                        <TH> Approved</TH>
                         <TH> Comitted</TH>
                         <TH> Delivered</TH>
                         <TH> Received</TH>
@@ -177,6 +178,7 @@ const enlargeImage = (image) => {
                             <TD>{{ order.product_inventory.name }}</TD>
                             <TD>{{ order.quantity_ordered }}</TD>
                             <TD>{{ order.quantity_approved }}</TD>
+                            <TD>{{ order.quantity_commited }}</TD>
                             <TD>{{ order.quantity_received }}</TD>
                             <TD>{{ order.quantity_received }}</TD>
                             <!-- <TD
@@ -188,11 +190,12 @@ const enlargeImage = (image) => {
                                     ).toFixed(0, 2)
                                 }}%</TD -->
                             <TD>{{
-                                order.quantity_ordered - order.quantity_approved
+                                order.quantity_approved -
+                                order.quantity_commited
                             }}</TD>
                             <!-- <TD>{{ order.total_cost }}</TD> -->
                             <TD>{{
-                                order.quantity_approved -
+                                order.quantity_commited -
                                 order.quantity_received
                             }}</TD>
                         </tr>

@@ -12,7 +12,7 @@ let filter = ref(usePage().props.filters.currentFilter || "pending");
 let search = ref(usePage().props.filters.search);
 watch(filter, function (value) {
     router.get(
-        route("orders-approval.index"),
+        route("cs-approvals.index"),
         { currentFilter: value, search: search.value },
         {
             preserveState: true,
@@ -25,7 +25,7 @@ watch(
     search,
     throttle(function (value) {
         router.get(
-            route("orders-approval.index"),
+            route("cs-approvals.index"),
             { search: value, currentFilter: filter.value },
             {
                 preserveState: true,
@@ -79,7 +79,7 @@ const approveOrder = (id) => {
         },
         accept: () => {
             router.post(
-                route("orders-approval.approve", id),
+                route("cs-approvals.approve", id),
                 {},
                 {
                     preserveScroll: true,
@@ -113,7 +113,7 @@ const rejectOrder = (id) => {
         },
         accept: () => {
             router.post(
-                route("orders-approval.reject", id),
+                route("cs-approvals.reject", id),
                 {},
                 {
                     preserveScroll: true,
@@ -132,7 +132,7 @@ const rejectOrder = (id) => {
 };
 
 const showOrderDetails = (id) => {
-    router.get(`/orders-approval/show/${id}`);
+    router.get(`/cs-approvals/show/${id}`);
 };
 
 import { useAuth } from "@/Composables/useAuth";
@@ -140,7 +140,7 @@ import { useAuth } from "@/Composables/useAuth";
 const { hasAccess } = useAuth();
 </script>
 <template>
-    <Layout heading="Orders For Approval List">
+    <Layout heading="CS Approval List">
         <FilterTab>
             <Button
                 class="sm:px-10 px-3 bg-white/10 text-gray-800 hover:text-white gap-5 sm:text-sm text-xs"
@@ -195,7 +195,7 @@ const { hasAccess } = useAuth();
                     <TH>Order #</TH>
                     <TH>Order Date</TH>
                     <TH>Order Placed Date</TH>
-                    <TH>Manager Approval Status</TH>
+                    <TH>Order Status</TH>
                     <TH>Actions</TH>
                 </TableHead>
                 <TableBody>
@@ -209,13 +209,11 @@ const { hasAccess } = useAuth();
                         <TD>
                             <Badge
                                 :class="
-                                    statusBadgeColor(
-                                        order.manager_approval_status
-                                    )
+                                    statusBadgeColor(order.order_request_status)
                                 "
                                 class="font-bold"
                                 >{{
-                                    order.manager_approval_status.toUpperCase()
+                                    order.order_request_status.toUpperCase()
                                 }}</Badge
                             >
                         </TD>

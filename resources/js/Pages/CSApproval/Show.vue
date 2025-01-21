@@ -148,7 +148,7 @@ const rejectOrder = (id) => {
 const confirmApproveOrder = () => {
     isLoading.value = true;
     remarksForm.updatedOrderedItemDetails = itemsDetail.value;
-    remarksForm.post(route("orders-approval.approve"), {
+    remarksForm.post(route("cs-approvals.approve"), {
         onSuccess: () => {
             toast.add({
                 severity: "success",
@@ -166,7 +166,7 @@ const confirmApproveOrder = () => {
 
 const confirmRejectOrder = () => {
     isLoading.value = true;
-    remarksForm.post(route("orders-approval.reject"), {
+    remarksForm.post(route("cs-approvals.reject"), {
         onSuccess: () => {
             toast.add({
                 severity: "success",
@@ -187,7 +187,7 @@ props.orderedItems.forEach((item) =>
     itemsDetail.value.push({
         id: item.id,
         quantity_ordered: item.quantity_ordered,
-        quantity_approved: item.quantity_ordered,
+        quantity_approved: item.quantity_approved,
         item_cost: item.product_inventory.cost,
         total_cost: item.total_cost,
     })
@@ -254,11 +254,11 @@ const addQuantityApproved = (id) => {
                         <Badge
                             :class="
                                 statusBadgeColor(
-                                    order.manager_approval_status.toUpperCase()
+                                    order.order_request_status.toUpperCase()
                                 )
                             "
                         >
-                            {{ order.manager_approval_status.toUpperCase() }}
+                            {{ order.order_request_status.toUpperCase() }}
                         </Badge>
                     </span>
                 </section>
@@ -278,14 +278,14 @@ const addQuantityApproved = (id) => {
                         Copy Order And Create
                     </Button> -->
                     <Button
-                        v-if="order.manager_approval_status === 'pending'"
+                        v-if="order.order_request_status === 'pending'"
                         variant="destructive"
                         @click="rejectOrder(order.id)"
                     >
                         Decline Order
                     </Button>
                     <Button
-                        v-if="order.manager_approval_status === 'pending'"
+                        v-if="order.order_request_status === 'pending'"
                         class="bg-green-500 hover:bg-green-300"
                         @click="approveOrder(order.id)"
                     >
@@ -322,9 +322,7 @@ const addQuantityApproved = (id) => {
                             }}
                             <DivFlexCenter
                                 class="gap-2"
-                                v-if="
-                                    order.manager_approval_status === 'pending'
-                                "
+                                v-if="order.order_request_status === 'pending'"
                             >
                                 <button @click="lessQuantityApproved(item.id)">
                                     <Minus class="size-4 text-red-500" />
@@ -359,7 +357,7 @@ const addQuantityApproved = (id) => {
                     >
                         <DivFlexCenter
                             class="gap-2"
-                            v-if="order.manager_approval_status === 'pending'"
+                            v-if="order.order_request_status === 'pending'"
                         >
                             <button @click="lessQuantityApproved(item.id)">
                                 <Minus class="size-4 text-red-500" />

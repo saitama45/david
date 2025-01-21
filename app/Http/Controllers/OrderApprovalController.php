@@ -22,9 +22,9 @@ class OrderApprovalController extends Controller
         $query = StoreOrder::query()->with(['store_branch', 'supplier']);
 
         $counts = [
-            'pending' => (clone $query)->where('order_request_status', 'pending')->count(),
-            'approved' => (clone $query)->where('order_request_status', 'approved')->count(),
-            'rejected' => (clone $query)->where('order_request_status', 'rejected')->count(),
+            'pending' => (clone $query)->where('manager_approval_status', 'pending')->count(),
+            'approved' => (clone $query)->where('manager_approval_status', 'approved')->count(),
+            'rejected' => (clone $query)->where('manager_approval_status', 'rejected')->count(),
         ];
 
 
@@ -32,7 +32,7 @@ class OrderApprovalController extends Controller
             $query->where('order_number', 'like', '%' . $search . '%');
 
         if ($filter)
-            $query->where('order_request_status', $filter);
+            $query->where('manager_approval_status', $filter);
 
         $orders = $query->latest()
             ->paginate(10)
@@ -66,10 +66,11 @@ class OrderApprovalController extends Controller
         DB::beginTransaction();
         $storeOrder = StoreOrder::findOrFail($validated['id']);
         $storeOrder->update([
-            'order_request_status' => OrderRequestStatus::APRROVED->value,
+            'manager_approval_status' => OrderRequestStatus::APRROVED->value,
             'approver_id' => Auth::user()->id,
             'approval_action_date' => Carbon::now()
         ]);
+
         foreach ($validated['updatedOrderedItemDetails'] as $item) {
             $orderedItem = StoreOrderItem::find($item['id']);
             $orderedItem->update([
@@ -77,15 +78,15 @@ class OrderApprovalController extends Controller
                 'quantity_approved' => $item['quantity_approved'],
             ]);
 
-            $orderedItem->ordered_item_receive_dates()->create([
-                'received_by_user_id' => $storeOrder->encoder_id,
-                'quantity_received' => $item['quantity_approved'],
-            ]);
+            // $orderedItem->ordered_item_receive_dates()->create([
+            //     'received_by_user_id' => $storeOrder->encoder_id,
+            //     'quantity_received' => $item['quantity_approved'],
+            // ]);
         }
         if (!empty($validated['remarks'])) {
             $storeOrder->store_order_remarks()->create([
                 'user_id' => Auth::user()->id,
-                'action' => 'approve order',
+                'action' => 'manager approved order',
                 'remarks' => $validated['remarks']
             ]);
         }
@@ -102,14 +103,14 @@ class OrderApprovalController extends Controller
         ]);
         $storeOrder = StoreOrder::findOrFail($validated['id']);
         $storeOrder->update([
-            'order_request_status' => OrderRequestStatus::REJECTED->value,
+            'manager_approval_status' => OrderRequestStatus::REJECTED->value,
             'approver_id' => Auth::user()->id,
             'approval_action_date' => Carbon::now()
         ]);
         if (!empty($validated['remarks'])) {
             $storeOrder->store_order_remarks()->create([
                 'user_id' => Auth::user()->id,
-                'action' => 'reject order',
+                'action' => 'manager rejected order',
                 'remarks' => $validated['remarks']
             ]);
         }

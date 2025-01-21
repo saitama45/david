@@ -61,6 +61,7 @@ class User extends Authenticatable implements Auditable
     {
         return $this->hasMany(StoreOrder::class, 'encoder_id');
     }
+
     public function usage_records()
     {
         return $this->hasMany(UsageRecord::class, 'encoder_id');

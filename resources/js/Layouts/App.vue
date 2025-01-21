@@ -200,6 +200,13 @@ const exportExcel = () => {
                         >
                             Orders Approval
                         </NavLink>
+                        <NavLink
+                            v-if="hasAccess('view orders for approval list')"
+                            href="/cs-approvals"
+                            :icon="SquareChartGantt"
+                        >
+                            CS Approval
+                        </NavLink>
                         <DropdownMenuLabel v-if="canViewReceivingGroup">
                             Receiving
                         </DropdownMenuLabel>

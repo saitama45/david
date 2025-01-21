@@ -5,6 +5,7 @@ use App\Http\Controllers\ApprovedOrderController;
 use App\Http\Controllers\AuditController;
 use App\Http\Controllers\CategoryController;
 use App\Http\Controllers\CostCenterController;
+use App\Http\Controllers\CSApprovalController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\DeliveryScheduleController;
 use App\Http\Controllers\DTSController;
@@ -102,6 +103,14 @@ Route::middleware('auth')
 
             // TBD
             // Route::middleware('permission:edit orders for approval')->post('/orders-approval/add-remarks/{id}', 'addRemarks')->name('add-remarks');
+        });
+
+
+        Route::controller(CSApprovalController::class)->name('cs-approvals.')->prefix('cs-approvals')->group(function () {
+            Route::get('', 'index')->name('index');
+            Route::get('/show/{id}', 'show')->name('show');
+            Route::post('/approve', 'approve')->name('approve');
+            Route::post('/reject', 'reject')->name('reject');
         });
 
         // Approved Orders
