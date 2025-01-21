@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Exports\ProductInventoryExport;
 use App\Imports\ProductInventoryImport;
 use App\Models\InventoryCategory;
 use App\Models\OrderedItemReceiveDate;
@@ -51,6 +52,17 @@ class ItemController extends Controller
             'inventoryCategories' => $inventoryCategories,
             'productCategories' => $productCategories
         ]);
+    }
+
+    public function export()
+    {
+        $search = request('search');
+        $filter = request('filter');
+
+        return Excel::download(
+            new ProductInventoryExport($search, $filter),
+            'product-inventory-' . now()->format('Y-m-d') . '.xlsx'
+        );
     }
 
     public function edit($id)

@@ -182,6 +182,8 @@ Route::middleware('auth')
                 Route::put('/items-list/update/{id}', 'update')->name('update');
 
                 Route::delete('/items-list/destroy/{id}', 'destroy')->name('destroy');
+
+                Route::get('/items-list/export', 'export')->name('export');
             });
         });
 

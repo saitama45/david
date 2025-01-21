@@ -6,6 +6,7 @@ use App\Imports\StoreTransactionImport;
 use App\Models\Menu;
 use App\Models\StoreBranch;
 use App\Models\StoreTransaction;
+use App\Models\StoreTransactionItem;
 use App\Models\User;
 use Carbon\Carbon;
 use Exception;
@@ -41,6 +42,12 @@ class StoreTransactionController extends Controller
             $query->where('receipt_number', 'like', "%$search%");
 
         $transactions = $query->latest()->paginate(10);
+
+        // $items = StoreTransactionItem::with(['store_transaction.branch', 'menu'])->whereHas('store_transaction', function ($query) {
+        //     $query->where('store_branch_id', 16);
+        // })->get();
+
+
 
         return Inertia::render('StoreTransaction/Index', [
             'transactions' => $transactions,

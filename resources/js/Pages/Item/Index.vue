@@ -39,6 +39,11 @@ import { useAuth } from "@/Composables/useAuth";
 const { hasAccess } = useAuth();
 import { useReferenceDelete } from "@/Composables/useReferenceDelete";
 const { deleteModel } = useReferenceDelete();
+
+const exportRoute = route("items.export", {
+    search: search.value,
+    filter: filter.value,
+});
 </script>
 
 <template>
@@ -47,6 +52,8 @@ const { deleteModel } = useReferenceDelete();
         :hasButton="hasAccess('create new items')"
         buttonName="Create New Item"
         :handleClick="handleClick"
+        :hasExcelDownload="true"
+        :exportRoute="exportRoute"
     >
         <FilterTab>
             <FilterTabButton
