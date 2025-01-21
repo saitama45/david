@@ -23,6 +23,7 @@ const { options: categoriesOption } = useSelectOptions(props.categories);
 
 const form = useForm({
     name: "",
+    product_id: "",
     price: "",
     category_id: "",
     remarks: "",

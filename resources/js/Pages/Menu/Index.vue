@@ -35,6 +35,7 @@ const { deleteModel } = useReferenceDelete();
             <Table>
                 <TableHead>
                     <TH>Id</TH>
+                    <TH>Product Id</TH>
                     <TH>Name</TH>
                     <TH>Category</TH>
                     <TH>Price</TH>
@@ -43,6 +44,7 @@ const { deleteModel } = useReferenceDelete();
                 <TableBody>
                     <tr v-for="menu in menus.data" :key="menu.id">
                         <TD>{{ menu.id }}</TD>
+                        <TD>{{ menu.product_id }}</TD>
                         <TD>{{ menu.name }}</TD>
                         <TD>{{ menu.category }}</TD>
                         <TD>{{ menu.price }}</TD>

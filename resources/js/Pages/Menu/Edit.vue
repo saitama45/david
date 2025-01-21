@@ -30,6 +30,7 @@ const { menu, ingredients, categories, products } = defineProps({
 
 const form = useForm({
     name: menu.name,
+    product_id: menu.product_id,
     price: menu.price,
     category_id: menu.category_id + "",
     remarks: menu.remarks,
@@ -233,6 +234,11 @@ const update = () => {
                             <FormError>{{ form.errors.category_id }}</FormError>
                         </InputContainer>
                         <InputContainer>
+                            <Label>Product Id</Label>
+                            <Input v-model="form.product_id" />
+                            <FormError>{{ form.errors.product_id }}</FormError>
+                        </InputContainer>
+                        <InputContainer>
                             <Label>Remarks</Label>
                             <Textarea v-model="form.remarks" />
                         </InputContainer>
@@ -326,39 +332,35 @@ const update = () => {
                             </TD>
                         </tr>
                     </TableBody>
-
-                   
                 </Table>
 
                 <MobileTableContainer>
-                        <MobileTableRow v-for="ingredient in form.ingredients">
-                            <MobileTableHeading
-                                :title="`${ingredient.name} (${ingredient.inventory_code})`"
+                    <MobileTableRow v-for="ingredient in form.ingredients">
+                        <MobileTableHeading
+                            :title="`${ingredient.name} (${ingredient.inventory_code})`"
+                        >
+                            <button
+                                class="text-red-500 size-5"
+                                @click="minusItemQuantity(ingredient.id)"
                             >
-                                <button
-                                    class="text-red-500 size-5"
-                                    @click="minusItemQuantity(ingredient.id)"
-                                >
-                                    <Minus />
-                                </button>
-                                <button
-                                    class="text-green-500 size-5"
-                                    @click="addItemQuantity(ingredient.id)"
-                                >
-                                    <Plus />
-                                </button>
-                                <DeleteButton
-                                    @click="removeItem(ingredient.id)"
-                                    variant="outline"
-                                    class="text-red-500"
-                                />
-                            </MobileTableHeading>
-                            <LabelXS>UOM: {{ ingredient.unit }}</LabelXS>
-                            <LabelXS
-                                >Quantity: {{ ingredient.quantity }}</LabelXS
+                                <Minus />
+                            </button>
+                            <button
+                                class="text-green-500 size-5"
+                                @click="addItemQuantity(ingredient.id)"
                             >
-                        </MobileTableRow>
-                    </MobileTableContainer>
+                                <Plus />
+                            </button>
+                            <DeleteButton
+                                @click="removeItem(ingredient.id)"
+                                variant="outline"
+                                class="text-red-500"
+                            />
+                        </MobileTableHeading>
+                        <LabelXS>UOM: {{ ingredient.unit }}</LabelXS>
+                        <LabelXS>Quantity: {{ ingredient.quantity }}</LabelXS>
+                    </MobileTableRow>
+                </MobileTableContainer>
                 <DivFlexCenter class="justify-end">
                     <Button @click="update">Update</Button>
                 </DivFlexCenter>

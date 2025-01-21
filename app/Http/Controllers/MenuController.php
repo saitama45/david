@@ -20,6 +20,7 @@ class MenuController extends Controller
             ->through(function ($menu) {
                 return [
                     'id' => $menu->id,
+                    'product_id' => $menu->product_id,
                     'name' => $menu->name,
                     'price' => $menu->price,
                     'category' => $menu->category->name,
@@ -45,7 +46,7 @@ class MenuController extends Controller
 
         $validated = $request->validate([
             'name' => ['required'],
-            'product_id' => ['required'],
+            'product_id' => ['required', 'unique:menus,product_id'],
             'price' => ['required', 'numeric'],
             'category_id' => ['required', 'exists:menu_categories,id'],
             'remarks' => ['nullable'],
@@ -144,6 +145,7 @@ class MenuController extends Controller
     {
         $validated = $request->validate([
             'name' => ['required'],
+            'product_id' => ['required', 'unique:menus,product_id,' . $id],
             'price' => ['required', 'numeric'],
             'category_id' => ['required', 'exists:menu_categories,id'],
             'remarks' => ['nullable'],
@@ -158,6 +160,7 @@ class MenuController extends Controller
 
             $menu->update([
                 'name' => $validated['name'],
+                'product_id' => $validated['product_id'],
                 'price' => $validated['price'],
                 'category_id' => $validated['category_id'],
                 'remarks' => $validated['remarks'],
