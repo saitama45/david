@@ -21,10 +21,10 @@ const { deleteModel } = useReferenceDelete();
 
 <template>
     <Layout
-        heading="Menu List"
+        heading="BOM List"
         :hasButton="hasAccess('create menu')"
         :handleClick="createNewMenu"
-        buttonName="Create New Menu"
+        buttonName="Create New BOM"
     >
         <TableContainer>
             <TableHeader>

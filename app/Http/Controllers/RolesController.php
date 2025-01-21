@@ -2,10 +2,12 @@
 
 namespace App\Http\Controllers;
 
+use App\Exports\RolesExport;
 use Exception;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
+use Maatwebsite\Excel\Facades\Excel;
 use Spatie\Permission\Models\Permission;
 use Spatie\Permission\Models\Role;
 
@@ -15,7 +17,7 @@ class RolesController extends Controller
     {
 
         $search = request('search');
-        $query = Role::query()->with(with('permissions'));
+        $query = Role::query()->with('permissions');
 
         if ($search)
             $query->where('name', 'like', "%$search%");
@@ -239,6 +241,16 @@ class RolesController extends Controller
 
         return redirect()->route('roles.index')
             ->with('success', 'Role created successfully.');
+    }
+
+    public function export(Request $request)
+    {
+        $search = $request->input('search');
+
+        return Excel::download(
+            new RolesExport($search),
+            'roles-' . now()->format('Y-m-d') . '.xlsx'
+        );
     }
 
     public function update(Request $request, $id)

@@ -281,7 +281,7 @@ const exportExcel = () => {
                             href="/menu-list"
                             :icon="Scroll"
                         >
-                            Menu
+                            BOM
                         </NavLink>
                         <NavLink
                             v-if="hasAccess('view stock management')"

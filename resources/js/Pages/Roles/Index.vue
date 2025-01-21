@@ -22,6 +22,8 @@ const { hasAccess } = useAuth();
 
 import { useReferenceDelete } from "@/Composables/useReferenceDelete";
 const { deleteModel } = useReferenceDelete();
+
+const exportRoute = route("roles.export", { search: search.value });
 </script>
 
 <template>
@@ -30,6 +32,8 @@ const { deleteModel } = useReferenceDelete();
         :hasButton="hasAccess('create roles')"
         buttonName="Create New Role"
         :handleClick="createNewRole"
+        :hasExcelDownload="true"
+        :exportRoute="exportRoute"
     >
         <TableContainer>
             <TableHeader>

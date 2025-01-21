@@ -56,6 +56,8 @@ Route::middleware('auth')
             Route::middleware('permission:edit roles')->put('/update/{id}', 'update')->name('update');
 
             Route::middleware('permission:edit roles')->delete('/destroy/{id}', 'destroy')->name('destroy');
+
+            Route::get('/export', 'export')->name('export');
         });
 
         // DTS Delivery Schedules

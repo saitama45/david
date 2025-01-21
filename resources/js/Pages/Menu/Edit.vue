@@ -198,7 +198,7 @@ const update = () => {
 };
 </script>
 <template>
-    <Layout heading="Edit Menu">
+    <Layout heading="Edit BOM">
         <Card class="grid sm:grid-cols-3 gap-5 p-5">
             <DivFlexCol class="gap-5">
                 <Card>

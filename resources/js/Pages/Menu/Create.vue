@@ -214,9 +214,9 @@ const importMenu = () => {
 
 <template>
     <Layout
-        heading="Create New Menu"
+        heading="Create New BOM"
         :hasButton="true"
-        buttonName="Import Menu"
+        buttonName="Import BOM"
         :handleClick="openImportMenuModal"
     >
         <Card class="grid sm:grid-cols-3 gap-5 p-5">
