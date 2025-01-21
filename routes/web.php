@@ -230,8 +230,14 @@ Route::middleware('auth')
                 Route::get('/menu-template', 'menuTemplate')
                     ->name('menu-template');
 
-                    Route::get('/fruits-and-vegetables-template', 'fruitsAndVegetablesTemplate')
+                Route::get('/fruits-and-vegetables-template', 'fruitsAndVegetablesTemplate')
                     ->name('fruits-and-vegetables-template');
+
+                Route::get('/ice-cream-template', 'iceCreamTemplate')
+                    ->name('ice-cream-template');
+
+                Route::get('/salmon-template', 'salmonTemplate')
+                    ->name('salmon-template');
             });
 
         // Items Order Summary

@@ -43,9 +43,15 @@ class ExcelTemplateController extends Controller
         return response()->download($path);
     }
 
-    public function fruitsAndVegetablesTemplate()
+    public function iceCreamTemplate()
     {
-        $path = 'storage\excel-templates\fruits-and-vegetables-template.xlsx';
+        $path = 'storage\excel-templates\ice-cream-template.xlsx';
+        return response()->download($path);
+    }
+
+    public function salmonTemplate()
+    {
+        $path = 'storage\excel-templates\salmon-template.xlsx';
         return response()->download($path);
     }
 }

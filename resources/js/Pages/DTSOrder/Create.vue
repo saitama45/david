@@ -685,6 +685,22 @@ const importOrdersButton = () => {
                                     >Click to download</a
                                 >
                             </li>
+                            <li class="text-xs">
+                                Salmon:
+                                <a
+                                    class="text-blue-500 underline"
+                                    href="/excel/salmon-template"
+                                    >Click to download</a
+                                >
+                            </li>
+                            <li class="text-xs">
+                                Ice Cream:
+                                <a
+                                    class="text-blue-500 underline"
+                                    href="/excel/ice-cream-template"
+                                    >Click to download</a
+                                >
+                            </li>
                         </ul>
                     </div>
                 </div>
