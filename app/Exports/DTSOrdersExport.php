@@ -10,7 +10,7 @@ use Maatwebsite\Excel\Concerns\FromQuery;
 use Maatwebsite\Excel\Concerns\WithHeadings;
 use Maatwebsite\Excel\Concerns\WithMapping;
 
-class StoreOrdersExport implements FromQuery, WithHeadings, WithMapping
+class DTSOrdersExport implements FromQuery, WithHeadings, WithMapping
 {
     use Exportable;
 
@@ -27,6 +27,7 @@ class StoreOrdersExport implements FromQuery, WithHeadings, WithMapping
         $this->from = $from;
         $this->to = $to;
     }
+
     public function query()
     {
         $query = StoreOrder::query()->with(['encoder', 'approver', 'commiter', 'store_branch', 'supplier']);
@@ -52,7 +53,7 @@ class StoreOrdersExport implements FromQuery, WithHeadings, WithMapping
                 });
 
         $query
-            ->where('variant', 'regular')
+            ->whereNot('variant', 'regular')
             ->latest();
 
         return $query;
@@ -81,9 +82,9 @@ class StoreOrdersExport implements FromQuery, WithHeadings, WithMapping
     {
         return [
             $order->encoder?->full_name ?? 'N/a',
-            $order->supplier?->name ?? 'N/a',
+            $order->supplier->name,
             $order->store_branch->name,
-            $order->commiter->full_name,
+            $order->commiter?->full_name ?? 'N/a',
             $order->approver?->full_name ?? 'N/a',
             $order->order_number,
             $order->order_date,
@@ -95,4 +96,4 @@ class StoreOrdersExport implements FromQuery, WithHeadings, WithMapping
             $order->approval_action_date ?? 'N/a'
         ];
     }
-}
+} 

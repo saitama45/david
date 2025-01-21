@@ -75,6 +75,8 @@ Route::middleware('auth')
             Route::middleware('permission:view dts order')->get('/show/{id}', 'show')->name('show');
             Route::middleware('permission:edit dts orders')->get('/edit/{id}', 'edit')->name('edit');
             Route::middleware('permission:edit dts orders')->put('/update/{id}', 'update')->name('update');
+
+            Route::get('/export', 'export')->name('export');
         });
 
         // Store Orders

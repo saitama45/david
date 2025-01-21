@@ -154,7 +154,13 @@ const resetFilter = () => {
 watch(filterQuery, function (value) {
     router.get(
         route("store-orders.index"),
-        { filterQuery: value, search: search.value },
+        {
+            search: search.value,
+            filterQuery: value,
+            from: from.value,
+            to: to.value,
+            branchId: branchId.value,
+        },
         {
             preserveState: true,
             replace: true,

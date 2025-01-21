@@ -1,15 +1,30 @@
 <script setup>
 import { router, usePage } from "@inertiajs/vue3";
 import { throttle } from "lodash";
+import {
+    Select,
+    SelectContent,
+    SelectGroup,
+    SelectItem,
+    SelectLabel,
+    SelectTrigger,
+    SelectValue,
+} from "@/components/ui/select";
 
-let filter = ref(usePage().props.filters.currentFilter || "pending");
+let filterQuery = ref(usePage().props.filters.filterQuery || "pending");
 let search = ref(usePage().props.filters.search);
 const changeFilter = (currentFilter) => {
-    filter.value = currentFilter;
+    filterQuery.value = currentFilter;
 };
+let branchId = ref(usePage().props.filters.branchId);
+
+let from = ref(usePage().props.from ?? null);
+
+let to = ref(usePage().props.to ?? null);
+
 const variant = ref("");
 const isLoading = false;
-console.log(usePage().props.filters);
+
 const isVariantChoicesVisible = ref(false);
 const showVariantChoices = () => {
     isVariantChoicesVisible.value = true;
@@ -19,8 +34,14 @@ watch(
     search,
     throttle(function (value) {
         router.get(
-            route("dts-orders.index"),
-            { search: value, currentFilter: filter.value },
+            route("store-orders.index"),
+            {
+                search: value,
+                filterQuery: filterQuery.value,
+                from: from.value,
+                to: to.value,
+                branchId: branchId.value,
+            },
             {
                 preserveState: true,
                 replace: true,
@@ -28,6 +49,57 @@ watch(
         );
     }, 500)
 );
+
+watch(filterQuery, function (value) {
+    router.get(
+        route("dts-orders.index"),
+        {
+            search: search.value,
+            filterQuery: value,
+            from: from.value,
+            to: to.value,
+            branchId: branchId.value,
+        },
+        {
+            preserveState: true,
+            replace: true,
+        }
+    );
+});
+
+watch(from, (value) => {
+    router.get(
+        route("dts-orders.index"),
+        {
+            search: search.value,
+            filterQuery: filterQuery.value,
+            from: value,
+            to: to.value,
+            branchId: branchId.value,
+        },
+        {
+            preserveState: true,
+            preserveScroll: true,
+        }
+    );
+});
+
+watch(to, (value) => {
+    router.get(
+        route("dts-orders.index"),
+        {
+            search: search.value,
+            filterQuery: filterQuery.value,
+            from: from.value,
+            to: value,
+            branchId: branchId.value,
+        },
+        {
+            preserveState: true,
+            preserveScroll: true,
+        }
+    );
+});
 
 const proceed = () => {
     if (!variant.value) return;
@@ -49,17 +121,6 @@ const variants = [
     },
 ];
 
-watch(filter, function (value) {
-    router.get(
-        route("dts-orders.index"),
-        { currentFilter: value, search: search.value },
-        {
-            preserveState: true,
-            replace: true,
-        }
-    );
-});
-
 const props = defineProps({
     orders: {
         type: Object,
@@ -71,6 +132,13 @@ const props = defineProps({
         type: Object,
     },
 });
+
+const resetFilter = () => {
+    (from.value = null),
+        (to.value = null),
+        (branchId.value = null),
+        (search.value = null);
+};
 
 const statusBadgeColor = (status) => {
     switch (status.toUpperCase()) {
@@ -100,6 +168,14 @@ const isCutOff = ref(now.getDay() >= 3);
 import { useAuth } from "@/Composables/useAuth";
 
 const { hasAccess } = useAuth();
+
+const exportRoute = route("dts-orders.export", {
+    search: search.value,
+    branchId: branchId.value,
+    filterQuery: filterQuery.value,
+    from: from.value,
+    to: to.value,
+});
 </script>
 <template>
     <Layout
@@ -107,44 +183,87 @@ const { hasAccess } = useAuth();
         :hasButton="hasAccess('create dts orders')"
         :handleClick="showVariantChoices"
         buttonName="Create New Order"
+        :hasExcelDownload="true"
+        :exportRoute="exportRoute"
     >
         <FilterTab>
             <FilterTabButton
                 label="All"
                 filter="all"
-                :currentFilter="filter"
+                :currentFilter="filterQuery"
                 @click="changeFilter('all')"
             />
             <FilterTabButton
                 label="Approved"
                 filter="approved"
-                :currentFilter="filter"
+                :currentFilter="filterQuery"
                 @click="changeFilter('approved')"
             />
             <FilterTabButton
                 label="Pending"
                 filter="pending"
-                :currentFilter="filter"
+                :currentFilter="filterQuery"
                 @click="changeFilter('pending')"
             />
             <FilterTabButton
                 label="Rejected"
                 filter="rejected"
-                :currentFilter="filter"
+                :currentFilter="filterQuery"
                 @click="changeFilter('rejected')"
             />
         </FilterTab>
 
         <TableContainer>
             <TableHeader>
+                <!-- Search Bar-->
                 <SearchBar>
                     <Input
                         v-model="search"
                         id="search"
-                        placeholder="Search..."
-                        class="pl-10"
+                        type="text"
+                        placeholder="Search for order number"
+                        class="pl-10 sm:max-w-full max-w-64"
                     />
                 </SearchBar>
+                <!-- Filters -->
+                <DivFlexCenter class="gap-5">
+                    <Popover>
+                        <PopoverTrigger> <Filter /> </PopoverTrigger>
+                        <PopoverContent>
+                            <div class="flex justify-end">
+                                <Button
+                                    @click="resetFilter"
+                                    variant="link"
+                                    class="text-end text-red-500 text-xs"
+                                >
+                                    Reset Filter
+                                </Button>
+                            </div>
+                            <label class="text-xs">From</label>
+                            <Input type="date" v-model="from" />
+                            <label class="text-xs">To</label>
+                            <Input type="date" v-model="to" />
+                            <label class="text-xs">Store</label>
+                            <Select v-model="branchId">
+                                <SelectTrigger>
+                                    <SelectValue placeholder="Select a store" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectGroup>
+                                        <SelectLabel>Stores</SelectLabel>
+                                        <SelectItem
+                                            v-for="(value, key) in branches"
+                                            :key="key"
+                                            :value="key"
+                                        >
+                                            {{ value }}
+                                        </SelectItem>
+                                    </SelectGroup>
+                                </SelectContent>
+                            </Select>
+                        </PopoverContent>
+                    </Popover>
+                </DivFlexCenter>
             </TableHeader>
 
             <Table>

@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Enum\OrderRequestStatus;
 use App\Enum\OrderStatus;
+use App\Exports\DTSOrdersExport;
 use App\Models\ProductInventory;
 use App\Models\StoreBranch;
 use App\Models\StoreOrder;
@@ -15,14 +16,19 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Inertia\Inertia;
+use Maatwebsite\Excel\Facades\Excel;
 
 class DTSController extends Controller
 {
     public function index()
     {
-
+        $from = request('from') ? Carbon::parse(request('from'))->format('Y-m-d') : '1999-01-01';
+        $to = request('to') ? Carbon::parse(request('to'))->addDay()->format('Y-m-d') : Carbon::today()->addMonth();
         $search = request('search');
-        $filter = request('currentFilter') ?? 'pending';
+        $filter = request('filterQuery') ?? 'pending';
+        $branchId = request('branchId');
+
+
 
         $query = StoreOrder::query()->with(['store_branch', 'supplier'])->whereNot('variant', 'regular');
 
@@ -31,18 +37,18 @@ class DTSController extends Controller
         if (!$user['isAdmin']) $query->whereIn('store_branch_id', $user['assignedBranches']);
         if ($search)
             $query->where('order_number', 'like', '%' . $search . '%');
-        // ->whereHas('store_branch', function ($query) use ($search) {
-        //     $query->where('name', 'like', '%' . $search . '%');
-        // });
+
+        if ($from && $to) {
+            $query->whereBetween('order_date', [$from, $to]);
+        }
 
         if ($filter !== 'all')
+
             $query->where('order_request_status', $filter);
 
-        // if ($search)
-        //     $query->where('order_number', 'like', '%' . $search . '%')
-        //         ->orWhereHas('store_branch', function ($query) use ($search) {
-        //             $query->where('name', 'like', '%' . $search . '%');
-        //         });;
+        if ($branchId)
+            $query->where('store_branch_id', $branchId);
+
 
 
 
@@ -53,9 +59,11 @@ class DTSController extends Controller
 
 
 
+        $branches = StoreBranch::options();
         return Inertia::render('DTSOrder/Index', [
             'orders' => $orders,
-            'filters' => request()->only(['from', 'to', 'branchId', 'search', 'currentFilter'])
+            'branches' => $branches,
+            'filters' => request()->only(['from', 'to', 'branchId', 'search', 'filterQuery'])
         ]);
     }
 
@@ -101,6 +109,20 @@ class DTSController extends Controller
             'variant' => $variant,
             'previousOrder' => $previousOrder ?? null
         ]);
+    }
+
+    public function export()
+    {
+        $from = request('from') ? Carbon::parse(request('from'))->format('Y-m-d') : '1999-01-01';
+        $to = request('to') ? Carbon::parse(request('to'))->addDay()->format('Y-m-d') : Carbon::today()->addMonth();
+        $branchId = request('branchId');
+        $search = request('search');
+        $filterQuery = request('filterQuery') ?? 'pending';
+
+        return Excel::download(
+            new DTSOrdersExport($search, $branchId, $filterQuery, $from, $to),
+            'dts-orders-' . now()->format('Y-m-d') . '.xlsx'
+        );
     }
 
     public function store(Request $request)
