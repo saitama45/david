@@ -6,6 +6,7 @@ use App\Imports\StoreTransactionImport;
 use App\Models\Menu;
 use App\Models\StoreBranch;
 use App\Models\StoreTransaction;
+use App\Models\User;
 use Carbon\Carbon;
 use Exception;
 use Illuminate\Http\Request;
@@ -18,9 +19,24 @@ class StoreTransactionController extends Controller
 {
     public function index()
     {
+        $from = request('from') ? Carbon::parse(request('from'))->format('Y-m-d') : '1999-01-01';
+        $to = request('to') ? Carbon::parse(request('to'))->addDay()->format('Y-m-d') : Carbon::today()->addMonth();
         $search = request('search');
+        $branchId = request('branchId');
+
         $query = StoreTransaction::query()->with(['store_transaction_items', 'store_branch']);
 
+        $user = User::rolesAndAssignedBranches();
+        if (!$user['isAdmin']) $query->whereIn('store_branch_id', $user['assignedBranches']);
+
+        if ($from && $to) {
+            $query->whereBetween('order_date', [$from, $to]);
+        }
+
+        if ($branchId)
+            $query->where('store_branch_id', $branchId);
+
+        $branches = StoreBranch::options();
         if ($search)
             $query->where('receipt_number', 'like', "%$search%");
 
@@ -28,7 +44,8 @@ class StoreTransactionController extends Controller
 
         return Inertia::render('StoreTransaction/Index', [
             'transactions' => $transactions,
-            'filters' => request()->only(['search'])
+            'filters' => request()->only(['from', 'to', 'branchId', 'search']),
+            'branches' => $branches
         ]);
     }
 

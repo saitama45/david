@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Enum\OrderRequestStatus;
 use App\Enum\OrderStatus;
+use App\Exports\ApprovedOrdersExport;
 use App\Models\DeliveryReceipt;
 use App\Models\OrderedItemReceiveDate;
 use App\Models\ProductInventoryStock;
@@ -16,6 +17,7 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Inertia\Inertia;
+use Maatwebsite\Excel\Facades\Excel;
 
 class OrderReceivingController extends Controller
 {
@@ -80,6 +82,16 @@ class OrderReceivingController extends Controller
             'receiveDatesHistory' => $receiveDatesHistory,
             'images' => $images
         ]);
+    }
+
+    public function export()
+    {
+        $search = request('search');
+
+        return Excel::download(
+            new ApprovedOrdersExport($search),
+            'approved-orders-' . now()->format('Y-m-d') . '.xlsx'
+        );
     }
 
     public function receive(Request $request, $id)

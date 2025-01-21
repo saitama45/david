@@ -135,6 +135,9 @@ Route::middleware('auth')
                 Route::post('/orders-receiving/update-receiving-history', 'updateReceiveDateHistory')->name('update-receiving-history');
 
                 Route::delete('/orders-receiving/delete/{id}', 'destroyDeliveryReceiptNumber')->name('delete-delivery-receipt-number');
+
+
+                Route::get('/orders-receiving/export', 'export')->name('export');
             });
         });
 

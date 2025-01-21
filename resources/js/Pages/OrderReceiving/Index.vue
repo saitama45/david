@@ -27,10 +27,18 @@ const { search } = useSearch("orders-receiving.index");
 import { useAuth } from "@/Composables/useAuth";
 
 const { hasAccess } = useAuth();
+
+const exportRoute = route("orders-receiving.export", {
+    search: search.value,
+});
 </script>
 
 <template>
-    <Layout heading="Approved Orders">
+    <Layout
+        heading="Approved Orders"
+        :hasExcelDownload="true"
+        :exportRoute="exportRoute"
+    >
         <TableContainer>
             <TableHeader>
                 <SearchBar>
