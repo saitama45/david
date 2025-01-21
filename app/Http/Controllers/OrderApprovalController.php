@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Enum\OrderRequestStatus;
+use App\Exports\OrderApprovalsExport;
 use App\Models\Order;
 use App\Models\StoreOrder;
 use App\Models\StoreOrderItem;
@@ -11,6 +12,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
+use Maatwebsite\Excel\Facades\Excel;
 
 class OrderApprovalController extends Controller
 {
@@ -43,6 +45,17 @@ class OrderApprovalController extends Controller
             'filters' => request()->only(['search', 'currentFilter']),
             'counts' => $counts
         ]);
+    }
+
+    public function export()
+    {
+        $search = request('search');
+        $filter = request('currentFilter') ?? 'pending';
+
+        return Excel::download(
+            new OrderApprovalsExport($search, $filter),
+            'orders-approval-' . now()->format('Y-m-d') . '.xlsx'
+        );
     }
 
     public function show($id)

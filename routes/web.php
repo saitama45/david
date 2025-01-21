@@ -105,6 +105,8 @@ Route::middleware('auth')
                 Route::post('/orders-approval/reject', 'reject')->name('reject');
             });
 
+            Route::get('/orders-approval/export', 'export')->name('export');
+
             // TBD
             // Route::middleware('permission:edit orders for approval')->post('/orders-approval/add-remarks/{id}', 'addRemarks')->name('add-remarks');
         });
@@ -115,6 +117,8 @@ Route::middleware('auth')
             Route::get('/show/{id}', 'show')->name('show');
             Route::post('/approve', 'approve')->name('approve');
             Route::post('/reject', 'reject')->name('reject');
+
+            Route::get('/export', 'export')->name('export');
         });
 
         // Approved Orders

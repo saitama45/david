@@ -3,58 +3,33 @@
 namespace App\Exports;
 
 use App\Models\StoreOrder;
-use App\Models\User;
 use Maatwebsite\Excel\Concerns\Exportable;
 use Maatwebsite\Excel\Concerns\FromCollection;
 use Maatwebsite\Excel\Concerns\FromQuery;
 use Maatwebsite\Excel\Concerns\WithHeadings;
 use Maatwebsite\Excel\Concerns\WithMapping;
+use Pest\Concerns\Expectable;
 
-class DTSOrdersExport implements FromQuery, WithHeadings, WithMapping
+class OrderApprovalsExport implements FromQuery, WithHeadings, WithMapping
 {
     use Exportable;
 
     protected $search;
-    protected $branchId;
-    protected $filterQuery;
-    protected $from;
-    protected $to;
-    public function __construct($search = null, $branchId = null, $filterQuery = null, $from = null, $to = null)
+    protected $filter;
+
+    public function __construct($search = null, $filter = null)
     {
         $this->search = $search;
-        $this->branchId = $branchId;
-        $this->filterQuery = $filterQuery;
-        $this->from = $from;
-        $this->to = $to;
+        $this->filter = $filter;
     }
-
     public function query()
     {
-        $query = StoreOrder::query()->with(['encoder', 'approver', 'commiter', 'store_branch', 'supplier']);
-
-        $user = User::rolesAndAssignedBranches();
-
-        if (!$user['isAdmin']) $query->whereIn('store_branch_id', $user['assignedBranches']);
-
-        if ($this->from && $this->to) {
-            $query->whereBetween('order_date', [$this->from, $this->to]);
-        }
-
-        if ($this->filterQuery !== 'all')
-            $query->where('order_request_status', $this->filterQuery);
-
-        if ($this->branchId)
-            $query->where('store_branch_id', $this->branchId);
-
+        $query = StoreOrder::query()->with(['store_branch', 'supplier']);
         if ($this->search)
-            $query->where('order_number', 'like', '%' . $this->search . '%')
-                ->orWhereHas('store_branch', function ($query) {
-                    $query->where('name', 'like', '%' . $this->search . '%');
-                });
+            $query->where('order_number', 'like', '%' . $this->search . '%');
 
-        $query
-            ->whereNot('variant', 'regular')
-            ->latest();
+        if ($this->filter)
+            $query->where('manager_approval_status', $this->filter);
 
         return $query;
     }
@@ -78,8 +53,6 @@ class DTSOrdersExport implements FromQuery, WithHeadings, WithMapping
         ];
     }
 
-    
-
     public function map($order): array
     {
         return [
@@ -98,4 +71,4 @@ class DTSOrdersExport implements FromQuery, WithHeadings, WithMapping
             $order->approval_action_date ?? 'N/a'
         ];
     }
-} 
+}

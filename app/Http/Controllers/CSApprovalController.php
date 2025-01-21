@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Enum\OrderRequestStatus;
+use App\Exports\CSApprovalExport;
 use App\Models\StoreOrder;
 use App\Models\StoreOrderItem;
 use Carbon\Carbon;
@@ -10,6 +11,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
+use Maatwebsite\Excel\Facades\Excel;
 
 class CSApprovalController extends Controller
 {
@@ -44,6 +46,17 @@ class CSApprovalController extends Controller
             'filters' => request()->only(['search', 'currentFilter']),
             'counts' => $counts
         ]);
+    }
+
+    public function export()
+    {
+        $search = request('search');
+        $filter = request('currentFilter') ?? 'pending';
+
+        return Excel::download(
+            new CSApprovalExport($search, $filter),
+            'cs-approvals-' . now()->format('Y-m-d') . '.xlsx'
+        );
     }
 
 

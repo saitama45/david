@@ -138,9 +138,18 @@ const showOrderDetails = (id) => {
 import { useAuth } from "@/Composables/useAuth";
 
 const { hasAccess } = useAuth();
+
+const exportRoute = route("cs-approvals.export", {
+    search: search.value,
+    currentFilter: filter.value,
+});
 </script>
 <template>
-    <Layout heading="CS Approval List">
+    <Layout
+        heading="CS Approval List"
+        :hasExcelDownload="true"
+        :exportRoute="exportRoute"
+    >
         <FilterTab>
             <Button
                 class="sm:px-10 px-3 bg-white/10 text-gray-800 hover:text-white gap-5 sm:text-sm text-xs"
