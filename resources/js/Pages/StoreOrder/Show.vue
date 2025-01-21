@@ -124,6 +124,27 @@ const enlargeImage = (image) => {
                             : "N/a"
                     }}</SpanBold>
                 </InputContainer>
+
+                <InputContainer>
+                    <LabelXS>Commiter: </LabelXS>
+                    <SpanBold
+                        >{{ order.commiter?.first_name }}
+                        {{ order.commiter?.last_name }}</SpanBold
+                    >
+                </InputContainer>
+
+                <InputContainer>
+                    <LabelXS>Manager Approval Status: </LabelXS>
+                    <Badge
+                        class="w-fit"
+                        :class="statusBadgeColor(order.manager_approval_status)"
+                        >{{
+                            order.manager_approval_status
+                                .toUpperCase()
+                                .replace("_", " ")
+                        }}</Badge
+                    >
+                </InputContainer>
             </Card>
 
             <!-- Ordered Items -->

@@ -153,6 +153,7 @@ class DTSController extends Controller
         $order = StoreOrder::with([
             'encoder',
             'approver',
+            'commiter',
             'delivery_receipts',
             'store_branch',
             'supplier',

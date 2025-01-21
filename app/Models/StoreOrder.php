@@ -47,6 +47,10 @@ class StoreOrder extends Model implements Auditable
     {
         return $this->belongsTo(User::class, 'approver_id');
     }
+    public function commiter()
+    {
+        return $this->belongsTo(User::class, 'commiter_id');
+    }
 
     public function store_branch()
     {

@@ -115,6 +115,27 @@ const openViewModalForm = (id) => {
                             : "N/a"
                     }}</SpanBold>
                 </InputContainer>
+
+                <InputContainer>
+                    <LabelXS>Commiter: </LabelXS>
+                    <SpanBold
+                        >{{ order.commiter?.first_name }}
+                        {{ order.commiter?.last_name }}</SpanBold
+                    >
+                </InputContainer>
+
+                <InputContainer>
+                    <LabelXS>Manager Approval Status: </LabelXS>
+                    <Badge
+                        class="w-fit"
+                        :class="statusBadgeColor(order.manager_approval_status)"
+                        >{{
+                            order.manager_approval_status
+                                .toUpperCase()
+                                .replace("_", " ")
+                        }}</Badge
+                    >
+                </InputContainer>
             </Card>
 
             <!-- Ordered Items -->
@@ -143,6 +164,7 @@ const openViewModalForm = (id) => {
                         <TH> Item Code </TH>
                         <TH> Name </TH>
                         <TH> Ordered</TH>
+                        <TH> Approved</TH>
                         <TH> Comitted</TH>
                         <TH> Delivered</TH>
                         <TH> Received</TH>
@@ -168,6 +190,7 @@ const openViewModalForm = (id) => {
                             <TD>{{ order.product_inventory.name }}</TD>
                             <TD>{{ order.quantity_ordered }}</TD>
                             <TD>{{ order.quantity_approved }}</TD>
+                            <TD>{{ order.quantity_commited }}</TD>
                             <TD>{{ order.quantity_received }}</TD>
                             <TD>{{ order.quantity_received }}</TD>
                             <!-- <TD
@@ -179,11 +202,12 @@ const openViewModalForm = (id) => {
                                     ).toFixed(0, 2)
                                 }}%</TD -->
                             <TD>{{
-                                order.quantity_ordered - order.quantity_approved
+                                order.quantity_approved -
+                                order.quantity_commited
                             }}</TD>
                             <!-- <TD>{{ order.total_cost }}</TD> -->
                             <TD>{{
-                                order.quantity_approved -
+                                order.quantity_commited -
                                 order.quantity_received
                             }}</TD>
                         </tr>
