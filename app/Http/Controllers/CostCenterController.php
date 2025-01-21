@@ -2,10 +2,12 @@
 
 namespace App\Http\Controllers;
 
+use App\Exports\CostCentersExport;
 use App\Models\CostCenter;
 use App\Traits\traits\HasReferenceStoreAction;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
+use Maatwebsite\Excel\Facades\Excel;
 
 class CostCenterController extends Controller
 {
@@ -23,6 +25,16 @@ class CostCenterController extends Controller
             'costCenters' => $costCenters,
             'filters' => request()->only(['search'])
         ]);
+    }
+
+    public function export(Request $request)
+    {
+        $search = $request->input('search');
+
+        return Excel::download(
+            new CostCentersExport($search),
+            'cost-centers-' . now()->format('Y-m-d') . '.xlsx'
+        );
     }
 
     public function destroy($id)

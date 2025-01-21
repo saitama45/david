@@ -58,7 +58,7 @@ watch(isEditModalVisible, (value) => {
         form.clearErrors();
     }
 });
-
+const exportRoute = route("cost-centers.export", { search: search.value });
 const { deleteModel } = useReferenceDelete();
 </script>
 
@@ -68,6 +68,8 @@ const { deleteModel } = useReferenceDelete();
         :hasButton="true"
         :handleClick="openCreateModal"
         buttonName="Create New Cost Center"
+        :hasExcelDownload="true"
+        :exportRoute="exportRoute"
     >
         <TableContainer>
             <TableHeader>

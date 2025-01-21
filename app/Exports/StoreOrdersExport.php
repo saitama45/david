@@ -29,7 +29,7 @@ class StoreOrdersExport implements FromQuery, WithHeadings, WithMapping
     }
     public function query()
     {
-        $query = StoreOrder::query()->with(['encoder', 'approver', 'store_branch', 'supplier']);
+        $query = StoreOrder::query()->with(['encoder', 'approver', 'commiter', 'store_branch', 'supplier']);
 
         $user = User::rolesAndAssignedBranches();
 
@@ -64,11 +64,13 @@ class StoreOrdersExport implements FromQuery, WithHeadings, WithMapping
             'Encoder',
             'Supplier',
             'Store Branch',
+            'Commiter',
             'Approver',
             'Order Number',
             'Order Date',
             'Order Status',
             'Order Request Status',
+            'Manager Approval Status',
             'Remarks',
             'Variant',
             'Approval Action Date'
@@ -81,11 +83,13 @@ class StoreOrdersExport implements FromQuery, WithHeadings, WithMapping
             $order->encoder->full_name,
             $order->supplier->name,
             $order->store_branch->name,
+            $order->commiter->full_name,
             $order->approver?->full_name ?? 'N/a',
             $order->order_number,
             $order->order_date,
             $order->order_status,
             $order->order_request_status,
+            $order->manager_approval_status,
             $order->remarks,
             $order->variant,
             $order->approval_action_date ?? 'N/a'

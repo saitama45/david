@@ -387,6 +387,8 @@ Route::middleware('auth')
             Route::post('/store', 'store')->name('store');
             Route::post('/update/{id}', 'update')->name('update');
             Route::delete('/destroy/{id}', 'destroy')->name('destroy');
+
+            Route::get('/export', 'export')->name('export');
         });
 
 
