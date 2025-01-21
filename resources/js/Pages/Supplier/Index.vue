@@ -55,6 +55,8 @@ const createNewSupplier = () => {
 };
 
 const { deleteModel } = useReferenceDelete();
+
+const exportRoute = route("suppliers.export", { search: search.value });
 </script>
 
 <template>
@@ -63,6 +65,8 @@ const { deleteModel } = useReferenceDelete();
         :hasButton="true"
         buttonName="Create New Supplier"
         :handleClick="createNewSupplier"
+        :hasExcelDownload="true"
+        :exportRoute="exportRoute"
     >
         <TableContainer>
             <TableHeader>

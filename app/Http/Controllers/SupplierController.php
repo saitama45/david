@@ -2,9 +2,11 @@
 
 namespace App\Http\Controllers;
 
+use App\Exports\SuppliersExport;
 use App\Models\Supplier;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
+use Maatwebsite\Excel\Facades\Excel;
 
 class SupplierController extends Controller
 {
@@ -29,6 +31,16 @@ class SupplierController extends Controller
         return Inertia::render('Supplier/Edit', [
             'supplier' => $supplier
         ]);
+    }
+
+    public function export(Request $request)
+    {
+        $search = $request->input('search');
+
+        return Excel::download(
+            new SuppliersExport($search),
+            'suppliers-' . now()->format('Y-m-d') . '.xlsx'
+        );
     }
 
     public function destroy($id)

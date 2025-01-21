@@ -103,6 +103,8 @@ watch(isEditModalVisible, (value) => {
         form.clearErrors();
     }
 });
+
+const exportRoute = route("categories.export", { search: search.value });
 </script>
 
 <template>
@@ -111,6 +113,8 @@ watch(isEditModalVisible, (value) => {
         :hasButton="true"
         :handleClick="openCreateModal"
         buttonName="Create New Category"
+        :hasExcelDownload="true"
+        :exportRoute="exportRoute"
     >
         <TableContainer>
             <TableHeader>

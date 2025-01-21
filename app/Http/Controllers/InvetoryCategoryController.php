@@ -2,10 +2,12 @@
 
 namespace App\Http\Controllers;
 
+use App\Exports\InventoryCategoriesExport;
 use App\Models\InventoryCategory;
 use App\Traits\traits\HasReferenceStoreAction;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
+use Maatwebsite\Excel\Facades\Excel;
 
 class InvetoryCategoryController extends Controller
 {
@@ -23,6 +25,16 @@ class InvetoryCategoryController extends Controller
             'categories' => $categories,
             'filters' => request()->only(['search'])
         ]);
+    }
+
+    public function export(Request $request)
+    {
+        $search = $request->input('search');
+
+        return Excel::download(
+            new InventoryCategoriesExport($search),
+            'inventory-categories-' . now()->format('Y-m-d') . '.xlsx'
+        );
     }
 
     public function update(Request $request, $id)

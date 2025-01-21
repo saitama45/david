@@ -54,6 +54,8 @@ const createNewStoreBranch = () => {
 };
 
 const { deleteModel } = useReferenceDelete();
+
+const exportRoute = route("store-branches.export", { search: search.value });
 </script>
 
 <template>
@@ -62,6 +64,8 @@ const { deleteModel } = useReferenceDelete();
         :hasButton="true"
         :handleClick="createNewStoreBranch"
         buttonName="Create New Store Branch"
+        :hasExcelDownload="true"
+        :exportRoute="exportRoute"
     >
         <TableContainer>
             <TableHeader>

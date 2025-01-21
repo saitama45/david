@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Exports\ProductCategoriesExport;
 use App\Models\Classification;
 use App\Models\Product;
 use App\Models\ProductCategory;
@@ -9,6 +10,7 @@ use App\Traits\traits\HasReferenceStoreAction;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
+use Maatwebsite\Excel\Facades\Excel;
 
 class CategoryController extends Controller
 {
@@ -40,6 +42,16 @@ class CategoryController extends Controller
 
 
         return to_route('categories.index');
+    }
+
+    public function export(Request $request)
+    {
+        $search = $request->input('search');
+
+        return Excel::download(
+            new ProductCategoriesExport($search),
+            'product-categories-' . now()->format('Y-m-d') . '.xlsx'
+        );
     }
 
     protected function getTableName()

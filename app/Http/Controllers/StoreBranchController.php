@@ -2,9 +2,11 @@
 
 namespace App\Http\Controllers;
 
+use App\Exports\StoreBranchesExport;
 use App\Models\StoreBranch;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
+use Maatwebsite\Excel\Facades\Excel;
 
 class StoreBranchController extends Controller
 {
@@ -21,6 +23,16 @@ class StoreBranchController extends Controller
             'data' => $branches,
             'filters' => request()->only(['search'])
         ]);
+    }
+
+    public function export(Request $request)
+    {
+        $search = $request->input('search');
+
+        return Excel::download(
+            new StoreBranchesExport($search),
+            'store-branches-' . now()->format('Y-m-d') . '.xlsx'
+        );
     }
 
     public function show($id)

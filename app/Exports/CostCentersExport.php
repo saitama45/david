@@ -12,7 +12,6 @@ use Maatwebsite\Excel\Concerns\WithMapping;
 
 class CostCentersExport implements FromQuery, WithHeadings, WithMapping
 {
-    use Exportable;
     use UseReferenceExport;
 
     protected function getModel()

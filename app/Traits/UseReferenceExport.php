@@ -2,8 +2,11 @@
 
 namespace App\Traits;
 
+use Maatwebsite\Excel\Concerns\Exportable;
+
 trait UseReferenceExport
 {
+    use Exportable;
     protected $search;
 
     public function __construct($search = null)

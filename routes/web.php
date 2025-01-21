@@ -279,6 +279,8 @@ Route::middleware('auth')
                 Route::post('/store', 'store')->name('store');
 
                 Route::delete('/destroy/{id}', 'destroy')->name('destroy');
+
+                Route::get('/export', 'export')->name('export');
             });
 
             Route::controller(MenuCategoryController::class)->prefix('menu-categories')->name('menu-categories.')->group(function () {
@@ -289,6 +291,7 @@ Route::middleware('auth')
                 Route::get('/edit/{id}', 'edit')->name('edit');
                 Route::post('/update/{id}', 'update')->name('update');
                 Route::delete('/destroy/{id}', 'destroy')->name('destroy');
+                Route::get('/export', 'export')->name('export');
             });
 
             Route::controller(InvetoryCategoryController::class)->prefix('inventory-categories')->name('inventory-categories.')->group(function () {
@@ -296,6 +299,7 @@ Route::middleware('auth')
                 Route::post('/update/{id}', 'update')->name('update');
                 Route::post('/store', 'store')->name('store');
                 Route::delete('/destroy/{id}', 'destroy')->name('destroy');
+                Route::get('/export', 'export')->name('export');
             });
 
             Route::controller(StoreBranchController::class)->name('store-branches.')->prefix('store-branches')->group(function () {
@@ -306,6 +310,7 @@ Route::middleware('auth')
                 Route::get('/edit/{id}', 'edit')->name('edit');
                 Route::post('/update/{id}', 'update')->name('update');
                 Route::delete('/destroy/{id}', 'destroy')->name('destroy');
+                Route::get('/export', 'export')->name('export');
             });
 
             Route::controller(SupplierController::class)->prefix('suppliers')->name('suppliers.')->group(function () {
@@ -315,6 +320,8 @@ Route::middleware('auth')
                 Route::get('/edit/{id}', 'edit')->name('edit');
                 Route::put('/update/{id}', 'update')->name('update');
                 Route::delete('/destroy/{id}', 'destroy')->name('destroy');
+
+                Route::get('/export', 'export')->name('export');
             });
 
             Route::controller(UnitOfMeasurementController::class)->name('unit-of-measurements.')->group(function () {

@@ -60,6 +60,8 @@ watch(isEditModalVisible, (value) => {
 });
 
 const { deleteModel } = useReferenceDelete();
+
+const exportRoute = route("menu-categories.export", { search: search.value });
 </script>
 
 <template>
@@ -68,6 +70,8 @@ const { deleteModel } = useReferenceDelete();
         :hasButton="true"
         :handleClick="openCreateModal"
         buttonName="Create New Menu Category"
+        :hasExcelDownload="true"
+        :exportRoute="exportRoute"
     >
         <TableContainer>
             <TableHeader>

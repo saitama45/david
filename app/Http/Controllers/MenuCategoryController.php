@@ -2,10 +2,12 @@
 
 namespace App\Http\Controllers;
 
+use App\Exports\MenuCategoriesExport;
 use App\Models\MenuCategory;
 use App\Traits\traits\HasReferenceStoreAction;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
+use Maatwebsite\Excel\Facades\Excel;
 
 class MenuCategoryController extends Controller
 {
@@ -36,6 +38,17 @@ class MenuCategoryController extends Controller
 
         return to_route('menu-categories.index');
     }
+
+    public function export(Request $request)
+    {
+        $search = $request->input('search');
+
+        return Excel::download(
+            new MenuCategoriesExport($search),
+            'menu-categories-' . now()->format('Y-m-d') . '.xlsx'
+        );
+    }
+
 
     public function destroy($id)
     {

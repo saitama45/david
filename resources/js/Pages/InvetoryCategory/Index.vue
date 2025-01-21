@@ -60,6 +60,9 @@ watch(isEditModalVisible, (value) => {
 });
 
 const { deleteModel } = useReferenceDelete();
+const exportRoute = route("inventory-categories.export", {
+    search: search.value,
+});
 </script>
 
 <template>
@@ -68,6 +71,8 @@ const { deleteModel } = useReferenceDelete();
         :hasButton="true"
         buttonName="Create New Category"
         :handleClick="openCreateModal"
+        :hasExcelDownload="true"
+        :exportRoute="exportRoute"
     >
         <TableContainer>
             <TableHeader>
