@@ -204,7 +204,7 @@ const update = () => {
             <DivFlexCol class="gap-5">
                 <Card>
                     <CardHeader>
-                        <CardTitle>Menu Details</CardTitle>
+                        <CardTitle>BOM Details</CardTitle>
                         <CardDescription
                             >Please input all the required
                             fields.</CardDescription

@@ -286,6 +286,7 @@ const { hasAccess } = useAuth();
                     <InputContainer>
                         <LabelXS>Store Branch</LabelXS>
                         <Select
+                            disabled
                             filter
                             class="min-w-72"
                             placeholder="Select a Supplier"
@@ -349,6 +350,7 @@ const { hasAccess } = useAuth();
                     <InputContainer>
                         <LabelXS>Store Branch</LabelXS>
                         <Select
+                            disabled
                             filter
                             class="min-w-72"
                             placeholder="Select a Supplier"
