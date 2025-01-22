@@ -253,9 +253,7 @@ const openViewModalForm = (id) => {
                             <TD>{{ receipt.id }}</TD>
                             <TD>{{ receipt.delivery_receipt_number }}</TD>
                             <TD>{{ receipt.remarks }}</TD>
-                            <TD>{{
-                                dayjs(receipt.created_at).format("MMMM D, YYYY")
-                            }}</TD>
+                            <TD>{{ receipt.created_at }}</TD>
                         </tr>
                     </TableBody>
                 </Table>
@@ -301,9 +299,7 @@ const openViewModalForm = (id) => {
                                 {{ remarks.action.toUpperCase() }}
                             </TD>
                             <TD>{{ remarks.remarks }}</TD>
-                            <TD>{{
-                                dayjs(remarks.created_at).format("MMMM D, YYYY")
-                            }}</TD>
+                            <TD>{{ remarks.created_at }}</TD>
                         </tr>
                     </TableBody>
                 </Table>
@@ -381,9 +377,7 @@ const openViewModalForm = (id) => {
                             </TD> -->
                             <TD>{{ history.quantity_received }}</TD>
                             <TD>{{
-                                dayjs(history.received_date).format(
-                                    "MMMM D, YYYY"
-                                )
+                                history.received_date
                             }}</TD>
                             <TD>{{ history.status }}</TD>
                             <TD>
