@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Exports\BOMListExport;
 use App\Imports\MenusImport;
 use App\Models\Menu;
 use App\Models\MenuCategory;
@@ -15,6 +16,7 @@ class MenuController extends Controller
 {
     public function index()
     {
+        $search = request('search');
         $menus = Menu::with('category')
             ->paginate(10)
             ->through(function ($menu) {
@@ -27,8 +29,19 @@ class MenuController extends Controller
                 ];
             });
         return Inertia::render('Menu/Index', [
-            'menus' => $menus
+            'menus' => $menus,
+            'filters' => request()->only(['search'])
         ]);
+    }
+
+    public function export()
+    {
+        $search = request('search');
+
+        return Excel::download(
+            new BOMListExport($search),
+            'bom-list-' . now()->format('Y-m-d') . '.xlsx'
+        );
     }
 
     public function create()

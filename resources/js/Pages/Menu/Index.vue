@@ -12,11 +12,16 @@ const createNewMenu = () => {
 };
 
 import { useAuth } from "@/Composables/useAuth";
-
+import { usePage } from "@inertiajs/vue3";
 const { hasAccess } = useAuth();
 
 import { useReferenceDelete } from "@/Composables/useReferenceDelete";
 const { deleteModel } = useReferenceDelete();
+let search = ref(usePage().props.filters.search);
+
+const exportRoute = route("menu-list.export", {
+    search: search.value,
+});
 </script>
 
 <template>
@@ -25,11 +30,17 @@ const { deleteModel } = useReferenceDelete();
         :hasButton="hasAccess('create menu')"
         :handleClick="createNewMenu"
         buttonName="Create New BOM"
+        :hasExcelDownload="true"
+        :exportRoute="exportRoute"
     >
         <TableContainer>
             <TableHeader>
                 <SearchBar>
-                    <Input class="pl-10" placeholder="Search..." />
+                    <Input
+                        class="pl-10"
+                        placeholder="Search..."
+                        v-model="search"
+                    />
                 </SearchBar>
             </TableHeader>
             <Table>

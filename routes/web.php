@@ -202,6 +202,8 @@ Route::middleware('auth')
             });
 
             Route::delete('/destroy/{id}', 'destroy')->name('destroy');
+
+            Route::get('/orders-receiving/export', 'export')->name('export');
         });
 
         // Stock Management 
