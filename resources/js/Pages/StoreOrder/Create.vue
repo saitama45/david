@@ -254,7 +254,7 @@ const addImportedItemsToOrderList = () => {
                 life: 5000,
             });
             excelFileForm.setError("orders_file", error.response.data.message);
-            console.log(error)
+            console.log(error);
         })
         .finally(() => (isLoading.value = false));
 };
@@ -417,6 +417,43 @@ if (previousOrder) {
         calculatePULILANOrderDate();
     }
 }
+
+const isEditQuantityModalOpen = ref(false);
+const formQuantity = useForm({
+    id: null,
+    quantity: 0,
+});
+
+const openEditQuantityModal = (id, quantity) => {
+    formQuantity.id = id;
+    formQuantity.quantity = quantity;
+    isEditQuantityModalOpen.value = true;
+};
+const editQuantity = () => {
+    if (formQuantity.quantity < 0.1) {
+        formQuantity.setError("quantity", "Quantity should be more than 0");
+    }
+
+    const index = orderForm.orders.findIndex(
+        (item) => item.id === formQuantity.id
+    );
+    console.log(formQuantity.quantity);
+    orderForm.orders[index].quantity = formQuantity.quantity;
+    orderForm.orders[index].total_cost = parseFloat(
+        orderForm.orders[index].quantity * orderForm.orders[index].cost
+    ).toFixed(2);
+
+    toast.add({
+        severity: "success",
+        summary: "Success",
+        detail: "Quantity Updated",
+        life: 3000,
+    });
+
+    formQuantity.reset();
+    formQuantity.clearErrors();
+    isEditQuantityModalOpen.value = false;
+};
 </script>
 
 <template>
@@ -587,7 +624,7 @@ if (previousOrder) {
                                     {{ order.total_cost }}
                                 </TD>
                                 <TD class="flex gap-3">
-                                    <button
+                                    <!-- <button
                                         class="text-red-500"
                                         @click="minusItemQuantity(order.id)"
                                     >
@@ -598,7 +635,17 @@ if (previousOrder) {
                                         @click="addItemQuantity(order.id)"
                                     >
                                         <Plus />
-                                    </button>
+                                    </button> -->
+                                    <LinkButton
+                                        @click="
+                                            openEditQuantityModal(
+                                                order.id,
+                                                order.quantity
+                                            )
+                                        "
+                                    >
+                                        Edit Quantity
+                                    </LinkButton>
                                     <button
                                         @click="removeItem(order.id)"
                                         variant="outline"
@@ -653,6 +700,33 @@ if (previousOrder) {
             </Card>
         </div>
 
+        <Dialog v-model:open="isEditQuantityModalOpen">
+            <DialogContent class="sm:max-w-[600px]">
+                <DialogHeader>
+                    <DialogTitle>Edit Quantity</DialogTitle>
+                    <DialogDescription>
+                        Please input all the required fields.
+                    </DialogDescription>
+                </DialogHeader>
+                <InputContainer>
+                    <LabelXS>Quantity</LabelXS>
+                    <Input type="number" v-model="formQuantity.quantity" />
+                    <FormError>{{ formQuantity.errors.quantity }}</FormError>
+                </InputContainer>
+
+                <DialogFooter>
+                    <Button
+                        @click="editQuantity"
+                        :disabled="isLoading"
+                        type="submit"
+                        class="gap-2"
+                    >
+                        Confirm
+                        <span v-if="isLoading"><Loading /></span>
+                    </Button>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
         <Dialog v-model:open="visible">
             <DialogContent class="sm:max-w-[600px]">
                 <DialogHeader>
