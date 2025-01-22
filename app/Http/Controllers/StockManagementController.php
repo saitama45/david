@@ -101,7 +101,6 @@ class StockManagementController extends Controller
     {
         $search = request('search');
         $branchId = request('branchId');
-    
         return Excel::download(
             new StockManagementListExport($search, $branchId),
             'stock-management-list-' . now()->format('Y-m-d') . '.xlsx'

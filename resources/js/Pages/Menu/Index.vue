@@ -1,5 +1,8 @@
 <script setup>
 import { router } from "@inertiajs/vue3";
+import { useSearch } from "@/Composables/useSearch";
+
+const { search } = useSearch("menu-list.index");
 const props = defineProps({
     menus: {
         type: Object,
@@ -12,12 +15,11 @@ const createNewMenu = () => {
 };
 
 import { useAuth } from "@/Composables/useAuth";
-import { usePage } from "@inertiajs/vue3";
+
 const { hasAccess } = useAuth();
 
 import { useReferenceDelete } from "@/Composables/useReferenceDelete";
 const { deleteModel } = useReferenceDelete();
-let search = ref(usePage().props.filters.search);
 
 const exportRoute = route("menu-list.export", {
     search: search.value,

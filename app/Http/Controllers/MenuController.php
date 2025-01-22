@@ -17,7 +17,13 @@ class MenuController extends Controller
     public function index()
     {
         $search = request('search');
-        $menus = Menu::with('category')
+
+        $query = Menu::query()->with('category');
+
+        if ($query)
+            $query->whereAny(['product_id', 'name'], 'like', "%{$search}%");
+        $menus = $query
+            ->latest()
             ->paginate(10)
             ->through(function ($menu) {
                 return [

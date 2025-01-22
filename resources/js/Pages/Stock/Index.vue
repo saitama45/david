@@ -12,6 +12,8 @@ const props = defineProps({
 });
 
 const { search } = useSearch("stocks.index");
+
+
 </script>
 <template>
     <Layout heading="Stocks">
