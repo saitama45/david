@@ -215,6 +215,32 @@ const update = () => {
         },
     });
 };
+
+const removeItem = (id) => {
+    confirm.require({
+        message: "Are you sure you want to remove this item from your orders?",
+        header: "Confirmation",
+        icon: "pi pi-exclamation-triangle",
+        rejectProps: {
+            label: "Cancel",
+            severity: "secondary",
+            outlined: true,
+        },
+        acceptProps: {
+            label: "Remove",
+            severity: "danger",
+        },
+        accept: () => {
+            form.items = form.items.filter((item) => item.id !== id);
+            toast.add({
+                severity: "success",
+                summary: "Confirmed",
+                detail: "Item Removed",
+                life: 3000,
+            });
+        },
+    });
+};
 </script>
 <template>
     <Layout heading="Edit Store Transaction">
@@ -393,6 +419,7 @@ const update = () => {
                                 <TD>{{ item.discount }}</TD>
                                 <TD>{{ item.line_total }}</TD>
                                 <TD>{{ item.net_total }}</TD>
+                                <DeleteButton @click="removeItem(item.id)" />
                             </tr>
                         </TableBody>
                     </Table>
