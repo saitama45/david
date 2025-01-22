@@ -79,6 +79,32 @@ const form = useForm({
     items: [],
 });
 
+const removeItem = (id) => {
+    confirm.require({
+        message: "Are you sure you want to remove this item from your orders?",
+        header: "Confirmation",
+        icon: "pi pi-exclamation-triangle",
+        rejectProps: {
+            label: "Cancel",
+            severity: "secondary",
+            outlined: true,
+        },
+        acceptProps: {
+            label: "Remove",
+            severity: "danger",
+        },
+        accept: () => {
+            form.items = form.items.filter((item) => item.id !== id);
+            toast.add({
+                severity: "success",
+                summary: "Confirmed",
+                detail: "Item Removed",
+                life: 3000,
+            });
+        },
+    });
+};
+
 watch(
     () => itemForm.id,
     (newValue) => {
@@ -195,6 +221,35 @@ const store = () => {
             });
         },
     });
+};
+
+import { useEditQuantity } from "@/Composables/useEditQuantity";
+const { isEditQuantityModalOpen, formQuantity, openEditQuantityModal } =
+    useEditQuantity();
+
+const editQuantity = () => {
+    if (formQuantity.quantity < 0.1) {
+        formQuantity.setError("quantity", "Quantity should be more than 0");
+        return;
+    }
+
+    const index = form.items.findIndex((item) => item.id === formQuantity.id);
+
+    form.items[index].quantity = formQuantity.quantity;
+    form.items[index].total_cost = parseFloat(
+        form.items[index].quantity * form.items[index].cost
+    ).toFixed(2);
+
+    toast.add({
+        severity: "success",
+        summary: "Success",
+        detail: "Quantity Updated",
+        life: 3000,
+    });
+
+    formQuantity.reset();
+    formQuantity.clearErrors();
+    isEditQuantityModalOpen.value = false;
 };
 </script>
 <template>
@@ -379,6 +434,21 @@ const store = () => {
                                 <TD>{{ item.discount }}</TD>
                                 <TD>{{ item.line_total }}</TD>
                                 <TD>{{ item.net_total }}</TD>
+                                <TD class="flex gap-3 items-center">
+                                    <!-- <LinkButton
+                                        @click="
+                                            openEditQuantityModal(
+                                                item.id,
+                                                item.quantity
+                                            )
+                                        "
+                                    >
+                                        Edit Quantity
+                                    </LinkButton> -->
+                                    <DeleteButton
+                                        @click="removeItem(item.id)"
+                                    />
+                                </TD>
                             </tr>
                         </TableBody>
                     </Table>
@@ -388,6 +458,34 @@ const store = () => {
                 </TableContainer>
             </DivFlexCol>
         </Card>
+
+        <Dialog v-model:open="isEditQuantityModalOpen">
+            <DialogContent class="sm:max-w-[600px]">
+                <DialogHeader>
+                    <DialogTitle>Edit Quantity</DialogTitle>
+                    <DialogDescription>
+                        Please input all the required fields.
+                    </DialogDescription>
+                </DialogHeader>
+                <InputContainer>
+                    <LabelXS>Quantity</LabelXS>
+                    <Input type="number" v-model="formQuantity.quantity" />
+                    <FormError>{{ formQuantity.errors.quantity }}</FormError>
+                </InputContainer>
+
+                <DialogFooter>
+                    <Button
+                        @click="editQuantity"
+                        :disabled="isLoading"
+                        type="submit"
+                        class="gap-2"
+                    >
+                        Confirm
+                        <span v-if="isLoading"><Loading /></span>
+                    </Button>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
 
         <Dialog v-model:open="isImportStoreTransactionModalOpen">
             <DialogContent class="sm:max-w-[600px]">
