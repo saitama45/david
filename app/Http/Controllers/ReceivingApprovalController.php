@@ -160,7 +160,7 @@ class ReceivingApprovalController extends Controller
         $orderedItems = $storeOrder->store_order_items;
         $storeOrder->order_status = OrderStatus::RECEIVED->value;
         foreach ($orderedItems as $itemOrdered) {
-            if ($itemOrdered->quantity_approved > $itemOrdered->quantity_received) {
+            if ($itemOrdered->quantity_commited > $itemOrdered->quantity_received) {
                 $storeOrder->order_status = OrderStatus::INCOMPLETE->value;
             }
         }

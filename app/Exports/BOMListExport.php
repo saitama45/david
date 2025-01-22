@@ -13,9 +13,14 @@ class BOMListExport implements FromQuery, WithHeadings, WithMapping
     use Exportable;
 
     protected $search;
+
+    public function __construct($search = null)
+    {
+        $this->search = $search;
+    }
     public function query()
     {
-        //
+        
     }
 
     public function headings(): array
