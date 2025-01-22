@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Exports\StockManagementListExport;
 use App\Models\CostCenter;
 use App\Models\ProductInventory;
 use App\Models\ProductInventoryStock;
@@ -12,6 +13,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
+use Maatwebsite\Excel\Facades\Excel;
 
 class StockManagementController extends Controller
 {
@@ -93,6 +95,17 @@ class StockManagementController extends Controller
             'filters' => request()->only(['search', 'branchId']),
             'costCenters' => $costCenters
         ]);
+    }
+
+    public function export()
+    {
+        $search = request('search');
+        $branchId = request('branchId');
+    
+        return Excel::download(
+            new StockManagementListExport($search, $branchId),
+            'stock-management-list-' . now()->format('Y-m-d') . '.xlsx'
+        );
     }
 
     public function show(Request $request, $id)

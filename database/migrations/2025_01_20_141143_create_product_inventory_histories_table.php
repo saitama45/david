@@ -16,9 +16,9 @@ return new class extends Migration
 
             $table->foreignId('product_inventory_id')->constrained('product_inventories')->cascadeOnDelete();
 
-            $table->foreignId('inventory_category_id')->constrained('inventory_categories')->cascadeOnDelete();
+            $table->foreignId('inventory_category_id')->constrained('inventory_categories')->onDelete('no action');
 
-            $table->foreignId('unit_of_measurement_id')->constrained('unit_of_measurements')->cascadeOnDelete();
+            $table->foreignId('unit_of_measurement_id')->constrained('unit_of_measurements')->onDelete('no action');
 
             $table->string('name');
 

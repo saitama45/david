@@ -160,9 +160,22 @@ const showDetails = (id) => {
 import { useAuth } from "@/Composables/useAuth";
 
 const { hasAccess } = useAuth();
+
+const exportRoute = route("stock-management.export", {
+    search: search.value,
+    branchId: branchId.value,
+});
+
+watch(branchId, (value) => {
+    console.log(exportRoute);
+});
 </script>
 <template>
-    <Layout heading="Stock Management">
+    <Layout
+        heading="Stock Management"
+        :hasExcelDownload="true"
+        :exportRoute="exportRoute"
+    >
         <TableContainer>
             <DivFlexCenter class="justify-between sm:flex-row flex-col gap-3">
                 <SearchBar>

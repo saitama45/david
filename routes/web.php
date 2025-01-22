@@ -212,6 +212,8 @@ Route::middleware('auth')
             Route::middleware('permission:view stock management history')->get('/show/{id}', 'show')->name('show');
             Route::middleware('permission:log stock usage')->post('/log-usage', 'logUsage')->name('log-usage');
             Route::middleware('permission:add stock quantity')->post('/add-quantity', 'addQuantity')->name('add-quantity');
+
+            Route::get('export', 'export')->name('export');
         });
 
         // Items Order Summary
