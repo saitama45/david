@@ -341,6 +341,14 @@ onMounted(() => {
     }
 });
 
+import { useEditQuantity } from "@/Composables/useEditQuantity";
+const {
+    isEditQuantityModalOpen,
+    formQuantity,
+    openEditQuantityModal,
+    editQuantity,
+} = useEditQuantity(orderForm);
+
 const heading = `Edit Order #${props.order.order_number}`;
 </script>
 <template>
@@ -506,7 +514,7 @@ const heading = `Edit Order #${props.order.order_number}`;
                                     {{ order.total_cost }}
                                 </TD>
                                 <TD class="flex gap-3">
-                                    <button
+                                    <!-- <button
                                         class="text-red-500"
                                         @click="minusItemQuantity(order.id)"
                                     >
@@ -517,7 +525,17 @@ const heading = `Edit Order #${props.order.order_number}`;
                                         @click="addItemQuantity(order.id)"
                                     >
                                         <Plus />
-                                    </button>
+                                    </button> -->
+                                    <LinkButton
+                                        @click="
+                                            openEditQuantityModal(
+                                                order.id,
+                                                order.quantity
+                                            )
+                                        "
+                                    >
+                                        Edit Quantity
+                                    </LinkButton>
                                     <button
                                         @click="removeItem(order.id)"
                                         variant="outline"
@@ -571,6 +589,34 @@ const heading = `Edit Order #${props.order.order_number}`;
                 </CardFooter>
             </Card>
         </div>
+
+        <Dialog v-model:open="isEditQuantityModalOpen">
+            <DialogContent class="sm:max-w-[600px]">
+                <DialogHeader>
+                    <DialogTitle>Edit Quantity</DialogTitle>
+                    <DialogDescription>
+                        Please input all the required fields.
+                    </DialogDescription>
+                </DialogHeader>
+                <InputContainer>
+                    <LabelXS>Quantity</LabelXS>
+                    <Input type="number" v-model="formQuantity.quantity" />
+                    <FormError>{{ formQuantity.errors.quantity }}</FormError>
+                </InputContainer>
+
+                <DialogFooter>
+                    <Button
+                        @click="editQuantity"
+                        :disabled="isLoading"
+                        type="submit"
+                        class="gap-2"
+                    >
+                        Confirm
+                        <span v-if="isLoading"><Loading /></span>
+                    </Button>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
 
         <Button variant="outline" class="text-lg px-7" @click="backButton">
             Back

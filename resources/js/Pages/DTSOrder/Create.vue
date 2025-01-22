@@ -424,6 +424,14 @@ const visible = ref(false);
 const importOrdersButton = () => {
     visible.value = true;
 };
+
+import { useEditQuantity } from "@/Composables/useEditQuantity";
+const {
+    isEditQuantityModalOpen,
+    formQuantity,
+    openEditQuantityModal,
+    editQuantity,
+} = useEditQuantity(orderForm);
 </script>
 <template>
     <Layout
@@ -593,22 +601,16 @@ const importOrdersButton = () => {
                                     {{ order.total_cost }}
                                 </TD>
                                 <TD class="flex gap-3">
-                                    <button
-                                        :disabled="
-                                            variant === 'ice cream' &&
-                                            order.quantity < 6
+                                    <LinkButton
+                                        @click="
+                                            openEditQuantityModal(
+                                                order.id,
+                                                order.quantity
+                                            )
                                         "
-                                        class="text-red-500"
-                                        @click="minusItemQuantity(order.id)"
                                     >
-                                        <Minus />
-                                    </button>
-                                    <button
-                                        class="text-green-500"
-                                        @click="addItemQuantity(order.id)"
-                                    >
-                                        <Plus />
-                                    </button>
+                                        Edit Quantity
+                                    </LinkButton>
                                     <button
                                         @click="removeItem(order.id)"
                                         variant="outline"
@@ -724,6 +726,34 @@ const importOrdersButton = () => {
                         class="gap-2"
                     >
                         Proceed
+                        <span v-if="isLoading"><Loading /></span>
+                    </Button>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
+
+        <Dialog v-model:open="isEditQuantityModalOpen">
+            <DialogContent class="sm:max-w-[600px]">
+                <DialogHeader>
+                    <DialogTitle>Edit Quantity</DialogTitle>
+                    <DialogDescription>
+                        Please input all the required fields.
+                    </DialogDescription>
+                </DialogHeader>
+                <InputContainer>
+                    <LabelXS>Quantity</LabelXS>
+                    <Input type="number" v-model="formQuantity.quantity" />
+                    <FormError>{{ formQuantity.errors.quantity }}</FormError>
+                </InputContainer>
+
+                <DialogFooter>
+                    <Button
+                        @click="editQuantity"
+                        :disabled="isLoading"
+                        type="submit"
+                        class="gap-2"
+                    >
+                        Confirm
                         <span v-if="isLoading"><Loading /></span>
                     </Button>
                 </DialogFooter>

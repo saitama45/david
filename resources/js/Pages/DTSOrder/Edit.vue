@@ -330,6 +330,14 @@ watch(productId, (newValue) => {
             .finally(() => (isLoading.value = false));
     }
 });
+
+import { useEditQuantity } from "@/Composables/useEditQuantity";
+const {
+    isEditQuantityModalOpen,
+    formQuantity,
+    openEditQuantityModal,
+    editQuantity,
+} = useEditQuantity(orderForm);
 </script>
 <template>
     <Layout :heading="heading">
@@ -497,18 +505,16 @@ watch(productId, (newValue) => {
                                     {{ order.total_cost }}
                                 </TD>
                                 <TD class="flex gap-3">
-                                    <button
-                                        class="text-red-500"
-                                        @click="minusItemQuantity(order.id)"
+                                    <LinkButton
+                                        @click="
+                                            openEditQuantityModal(
+                                                order.id,
+                                                order.quantity
+                                            )
+                                        "
                                     >
-                                        <Minus />
-                                    </button>
-                                    <button
-                                        class="text-green-500"
-                                        @click="addItemQuantity(order.id)"
-                                    >
-                                        <Plus />
-                                    </button>
+                                        Edit Quantity
+                                    </LinkButton>
                                     <button
                                         @click="removeItem(order.id)"
                                         variant="outline"
@@ -563,6 +569,34 @@ watch(productId, (newValue) => {
                 </CardFooter>
             </Card>
         </div>
+
+        <Dialog v-model:open="isEditQuantityModalOpen">
+            <DialogContent class="sm:max-w-[600px]">
+                <DialogHeader>
+                    <DialogTitle>Edit Quantity</DialogTitle>
+                    <DialogDescription>
+                        Please input all the required fields.
+                    </DialogDescription>
+                </DialogHeader>
+                <InputContainer>
+                    <LabelXS>Quantity</LabelXS>
+                    <Input type="number" v-model="formQuantity.quantity" />
+                    <FormError>{{ formQuantity.errors.quantity }}</FormError>
+                </InputContainer>
+
+                <DialogFooter>
+                    <Button
+                        @click="editQuantity"
+                        :disabled="isLoading"
+                        type="submit"
+                        class="gap-2"
+                    >
+                        Confirm
+                        <span v-if="isLoading"><Loading /></span>
+                    </Button>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
 
         <Button variant="outline" class="text-lg px-7" @click="backButton">
             Back

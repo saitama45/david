@@ -38,6 +38,7 @@ import {
     MonitorCog,
     Download,
 } from "lucide-vue-next";
+import QuantityEditorDialog from "../js/Components/QuantityEditorDialog.vue";
 import ConfirmationService from "primevue/confirmationservice";
 import { Label } from "@/components/ui/label";
 import FormError from "@/Components/FormError.vue";
@@ -186,6 +187,7 @@ createInertiaApp({
             .component("MobileTableContainer", MobileTableContainer)
             .component("MobileTableRow", MobileTableRow)
             .component("MobileTableHeading", MobileTableHeading)
+            .component("QuantityEditorDialog", QuantityEditorDialog)
             .use(PrimeVue, {
                 theme: {
                     preset: Aura,

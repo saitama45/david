@@ -418,42 +418,13 @@ if (previousOrder) {
     }
 }
 
-const isEditQuantityModalOpen = ref(false);
-const formQuantity = useForm({
-    id: null,
-    quantity: 0,
-});
-
-const openEditQuantityModal = (id, quantity) => {
-    formQuantity.id = id;
-    formQuantity.quantity = quantity;
-    isEditQuantityModalOpen.value = true;
-};
-const editQuantity = () => {
-    if (formQuantity.quantity < 0.1) {
-        formQuantity.setError("quantity", "Quantity should be more than 0");
-    }
-
-    const index = orderForm.orders.findIndex(
-        (item) => item.id === formQuantity.id
-    );
-    console.log(formQuantity.quantity);
-    orderForm.orders[index].quantity = formQuantity.quantity;
-    orderForm.orders[index].total_cost = parseFloat(
-        orderForm.orders[index].quantity * orderForm.orders[index].cost
-    ).toFixed(2);
-
-    toast.add({
-        severity: "success",
-        summary: "Success",
-        detail: "Quantity Updated",
-        life: 3000,
-    });
-
-    formQuantity.reset();
-    formQuantity.clearErrors();
-    isEditQuantityModalOpen.value = false;
-};
+import { useEditQuantity } from "@/Composables/useEditQuantity";
+const {
+    isEditQuantityModalOpen,
+    formQuantity,
+    openEditQuantityModal,
+    editQuantity,
+} = useEditQuantity(orderForm);
 </script>
 
 <template>
