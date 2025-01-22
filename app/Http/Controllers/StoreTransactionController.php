@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Exports\StoreTransactionExport;
 use App\Imports\StoreTransactionImport;
 use App\Models\Menu;
 use App\Models\StoreBranch;
@@ -46,15 +47,26 @@ class StoreTransactionController extends Controller
         // $items = StoreTransactionItem::with(['store_transaction.branch', 'menu'])->whereHas('store_transaction', function ($query) {
         //     $query->where('store_branch_id', 16);
         // })->get();
-
-
-
         return Inertia::render('StoreTransaction/Index', [
             'transactions' => $transactions,
             'filters' => request()->only(['from', 'to', 'branchId', 'search']),
             'branches' => $branches
         ]);
     }
+
+    public function export()
+    {
+        $from = request('from') ? Carbon::parse(request('from'))->format('Y-m-d') : '1999-01-01';
+        $to = request('to') ? Carbon::parse(request('to'))->addDay()->format('Y-m-d') : Carbon::today()->addMonth();
+        $branchId = request('branchId');
+        $search = request('search');
+
+        return Excel::download(
+            new StoreTransactionExport($search, $branchId, $from, $to),
+            'store-transactions-' . now()->format('Y-m-d') . '.xlsx'
+        );
+    }
+
 
     public function import(Request $request)
     {

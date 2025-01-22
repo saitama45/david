@@ -167,6 +167,7 @@ Route::middleware('auth')
             Route::put('/update/{id}', 'update')->name('update');
             Route::post('/store', 'store')->name('store');
             Route::post('/import', 'import')->name('import');
+            Route::get('export', 'export')->name('export');
         });
 
         // Items

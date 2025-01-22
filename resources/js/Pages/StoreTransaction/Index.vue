@@ -106,6 +106,13 @@ const resetFilter = () => {
         (branchId.value = null),
         (search.value = null);
 };
+
+const exportRoute = route("store-transactions.export", {
+    search: search.value,
+    branchId: branchId.value,
+    from: from.value,
+    to: to.value,
+});
 </script>
 <template>
     <Layout
@@ -113,6 +120,8 @@ const resetFilter = () => {
         :hasButton="true"
         buttonName="Create New Transaction"
         :handleClick="createNewTransaction"
+        :hasExcelDownload="true"
+        :exportRoute="exportRoute"
     >
         <TableContainer>
             <TableHeader>

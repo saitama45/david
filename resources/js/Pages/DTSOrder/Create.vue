@@ -84,7 +84,7 @@ const getNextMonday = () => {
     const today = new Date();
     const dayOfWeek = today.getDay();
     let daysUntilNextSunday = (7 - dayOfWeek) % 7 || 7;
-    if (dayOfWeek > 3 || (dayOfWeek === 3 && currentHour >= 7)) {
+    if (dayOfWeek > 3 || (dayOfWeek === 3 && today.getHours() >= 7)) {
         daysUntilNextSunday += 7;
     }
     const nextSunday = new Date(today);
@@ -96,7 +96,7 @@ const getNextSaturday = () => {
     const today = new Date();
     const dayOfWeek = today.getDay();
     let daysUntilNextSunday = (7 - dayOfWeek) % 7 || 7;
-    if (dayOfWeek > 3 || (dayOfWeek === 3 && currentHour >= 7)) {
+    if (dayOfWeek > 3 || (dayOfWeek === 3 && today.getHours() >= 7)) {
         daysUntilNextSunday += 7;
     }
     const nextSunday = new Date(today);
