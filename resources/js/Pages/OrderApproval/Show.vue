@@ -312,6 +312,9 @@ const {
                     <TH> Name </TH>
                     <TH> Unit </TH>
                     <TH> Quantity </TH>
+                    <TH v-if="order.manager_approval_status === 'approved'"
+                        >Approved</TH
+                    >
                     <TH> Cost </TH>
                     <TH> Total Cost </TH>
                     <!-- <TH> Actions </TH> -->
@@ -329,6 +332,9 @@ const {
                                     ?.quantity_approved || 0
                             }}
                             <LinkButton
+                                v-if="
+                                    order.manager_approval_status === 'pending'
+                                "
                                 @click="
                                     openEditQuantityModal(
                                         item.id,
@@ -338,6 +344,9 @@ const {
                             >
                                 Edit Quantity
                             </LinkButton>
+                        </TD>
+                        <TD v-if="order.manager_approval_status === 'approved'">
+                            {{ item.quantity_approved }}
                         </TD>
                         <TD>{{ item.product_inventory.cost }}</TD>
                         <TD>
