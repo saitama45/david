@@ -36,6 +36,10 @@ class RolesController extends Controller
         $permissions = Permission::all();
 
         $groupedPermissions = [
+            'user' => $permissions->filter(function ($permission) {
+                return str_contains($permission->name, 'users');
+            }),
+
             'roles' => $permissions->filter(function ($permission) {
                 return str_contains($permission->name, 'roles');
             }),
@@ -53,9 +57,14 @@ class RolesController extends Controller
             }),
 
             'orders_approval' => $permissions->filter(function ($permission) {
-                return str_contains($permission->name, 'order for approval') ||
-                    str_contains($permission->name, 'orders for approval list') ||
+                return str_contains($permission->name, 'order for approval list') ||
+                    str_contains($permission->name, 'order for approval') ||
                     str_contains($permission->name, 'approve/decline order request');
+            }),
+
+            'cs_orders_approval' => $permissions->filter(function ($permission) {
+                return str_contains($permission->name, 'orders for cs approval') ||
+                    str_contains($permission->name, 'cs approve/decline order request');
             }),
 
             'approved_orders' => $permissions->filter(function ($permission) {
@@ -78,12 +87,12 @@ class RolesController extends Controller
             }),
 
             'items' => $permissions->filter(function ($permission) {
-                return str_contains($permission->name, 'item') &&
-                    !str_contains($permission->name, 'received item');
+                return str_contains($permission->name, 'items') ||
+                    str_contains($permission->name, 'item');
             }),
 
-            'menu' => $permissions->filter(function ($permission) {
-                return str_contains($permission->name, 'menu');
+            'bom' => $permissions->filter(function ($permission) {
+                return str_contains($permission->name, 'bom');
             }),
 
             'stock_management' => $permissions->filter(function ($permission) {
@@ -97,19 +106,17 @@ class RolesController extends Controller
                     str_contains($permission->name, 'fruits and vegetables orders');
             }),
 
-            'user' => $permissions->filter(function ($permission) {
-                return str_contains($permission->name, 'user');
-            }),
-
             'manage_references' => $permissions->filter(function ($permission) {
                 return str_contains($permission->name, 'references');
             })
         ];
 
-        // Transform each permission collection to array of [id => name]
+
         $groupedPermissions = collect($groupedPermissions)->map(function ($permissions) {
             return $permissions->pluck('name', 'id');
         });
+
+
         return Inertia::render('Roles/Edit', [
             'permissions' => $groupedPermissions,
             'role' => $role
@@ -141,6 +148,10 @@ class RolesController extends Controller
         $permissions = Permission::all();
 
         $groupedPermissions = [
+            'user' => $permissions->filter(function ($permission) {
+                return str_contains($permission->name, 'users');
+            }),
+
             'roles' => $permissions->filter(function ($permission) {
                 return str_contains($permission->name, 'roles');
             }),
@@ -158,9 +169,14 @@ class RolesController extends Controller
             }),
 
             'orders_approval' => $permissions->filter(function ($permission) {
-                return str_contains($permission->name, 'order for approval') ||
-                    str_contains($permission->name, 'orders for approval list') ||
+                return str_contains($permission->name, 'order for approval list') ||
+                    str_contains($permission->name, 'order for approval') ||
                     str_contains($permission->name, 'approve/decline order request');
+            }),
+
+            'cs_orders_approval' => $permissions->filter(function ($permission) {
+                return str_contains($permission->name, 'orders for cs approval') ||
+                    str_contains($permission->name, 'cs approve/decline order request');
             }),
 
             'approved_orders' => $permissions->filter(function ($permission) {
@@ -183,12 +199,12 @@ class RolesController extends Controller
             }),
 
             'items' => $permissions->filter(function ($permission) {
-                return str_contains($permission->name, 'item') &&
-                    !str_contains($permission->name, 'received item');
+                return str_contains($permission->name, 'items') ||
+                    str_contains($permission->name, 'item');
             }),
 
-            'menu' => $permissions->filter(function ($permission) {
-                return str_contains($permission->name, 'menu');
+            'bom' => $permissions->filter(function ($permission) {
+                return str_contains($permission->name, 'bom');
             }),
 
             'stock_management' => $permissions->filter(function ($permission) {
@@ -202,16 +218,12 @@ class RolesController extends Controller
                     str_contains($permission->name, 'fruits and vegetables orders');
             }),
 
-            'user' => $permissions->filter(function ($permission) {
-                return str_contains($permission->name, 'user');
-            }),
-
             'manage_references' => $permissions->filter(function ($permission) {
                 return str_contains($permission->name, 'references');
             })
         ];
 
-        // Transform each permission collection to array of [id => name]
+
         $groupedPermissions = collect($groupedPermissions)->map(function ($permissions) {
             return $permissions->pluck('name', 'id');
         });
@@ -220,7 +232,6 @@ class RolesController extends Controller
             'permissions' => $groupedPermissions
         ]);
     }
-
     public function store(Request $request)
     {
         $validated = $request->validate([
