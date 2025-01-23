@@ -347,12 +347,8 @@ Route::middleware('auth')
             });
 
             Route::controller(UnitOfMeasurementController::class)->prefix('unit-of-measurements')->name('unit-of-measurements.')->group(function () {
-                Route::get('/', 'index')->name('index');
-                Route::post('/store', 'store')->name('store');
-                Route::post('/update/{id}', 'update')->name('update');
-                Route::delete('/destroy/{id}', 'destroy')->name('destroy');
-
-                Route::get('/export', 'export')->name('export');
+                Route::get('/unit-of-measurements', 'index')->name('index');
+                Route::post('/unit-of-measurements/update/{id}', 'update')->name('update');
             });
 
             Route::controller(CostCenterController::class)->name('cost-centers.')->prefix('cost-centers')->group(function () {

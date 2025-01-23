@@ -230,7 +230,7 @@ const exportRoute = route("cs-approvals.export", {
                         </TD>
                         <TD class="flex">
                             <Button
-                                v-if="hasAccess('view order for approval')"
+                                v-if="hasAccess('view cs order for approval')"
                                 @click="showOrderDetails(order.order_number)"
                                 variant="link"
                             >
