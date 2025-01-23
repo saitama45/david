@@ -25,7 +25,7 @@ class UserController extends Controller
             if ($search) {
                 $query->whereAny(['first_name', 'last_name', 'email'], 'like', "%$search%");
             }
-            $users = $query->paginate(10)->withQueryString();
+            $users = $query->latest()->paginate(10)->withQueryString();
         } catch (Exception $e) {
             report($e);
             return back()->withErrors([

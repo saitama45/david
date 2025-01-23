@@ -18,7 +18,7 @@ class DeliveryScheduleController extends Controller
         if ($search)
             $query->where('name', 'like', "%$search%");
 
-        $branches = $query->paginate(10);
+        $branches = $query->latest()->paginate(10);
 
         $formattedResult = $branches->through(function ($branch) {
             $result = [

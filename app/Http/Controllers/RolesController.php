@@ -21,7 +21,7 @@ class RolesController extends Controller
 
         if ($search)
             $query->where('name', 'like', "%$search%");
-        $roles = $query->paginate(10);
+        $roles = $query->latest()->paginate(10);
 
         return Inertia::render('Roles/Index', [
             'roles' => $roles,
