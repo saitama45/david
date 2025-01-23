@@ -3,11 +3,13 @@
 namespace App\Http\Controllers;
 
 use App\Models\UnitOfMeasurement;
+use App\Traits\traits\HasReferenceStoreAction;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 
 class UnitOfMeasurementController extends Controller
 {
+    use HasReferenceStoreAction;
     public function index()
     {
         $search = request('search');
@@ -16,7 +18,7 @@ class UnitOfMeasurementController extends Controller
         if ($search)
             $query->where('name', 'like', "%$search%");
 
-        $items = $query->paginate(10);
+        $items = $query->latest()->paginate(10)->withQueryString();
 
         return Inertia::render('UnitOfMeasurement/Index', [
             'items' => $items,
@@ -27,14 +29,43 @@ class UnitOfMeasurementController extends Controller
     public function update(Request $request, $id)
     {
         $validated = $request->validate([
-            'name' => 'required',
-            'remarks' => 'required',
+            'name' => ['required', 'unique:unit_of_measurements,name,' . $id],
+            'remarks' => 'nullable',
         ]);
 
         $category = UnitOfMeasurement::findOrFail($id);
         $category->update($validated);
 
 
-        return to_route('categories.index');
+        return to_route('unit-of-measurements.index');
+    }
+
+    protected function getTableName()
+    {
+        return 'unit_of_measurements';
+    }
+
+    protected function getModel()
+    {
+        return UnitOfMeasurement::class;
+    }
+
+    protected function getRouteName()
+    {
+        return "unit-of-measurements.index";
+    }
+
+    public function destroy($id)
+    {
+        $category = UnitOfMeasurement::with('product_inventories')->findOrFail($id);
+
+        if ($category->product_inventories->count() > 0) {
+            return back()->withErrors([
+                'message' => "Can't delete this uom because there are products associated with it."
+            ]);
+        }
+
+        $category->delete();
+        return to_route('unit-of-measurements.index');
     }
 }

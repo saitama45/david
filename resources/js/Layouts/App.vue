@@ -342,6 +342,13 @@ const exportExcel = () => {
                         </NavLink>
                         <NavLink
                             v-if="hasAccess('manage references')"
+                            href="/unit-of-measurements"
+                            :icon="LayoutList"
+                        >
+                            Unit of Measurements
+                        </NavLink>
+                        <NavLink
+                            v-if="hasAccess('manage references')"
                             href="/store-branches"
                             :icon="AppWindowMac"
                         >
