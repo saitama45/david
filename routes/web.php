@@ -42,8 +42,14 @@ use Illuminate\Support\Facades\Route;
 
 Route::redirect('/', '/dashboard');
 
+
 Route::middleware('auth')
     ->group(function () {
+
+        // Dashboard
+        Route::get('/dashboard', [DashboardController::class, 'index'])
+            ->name('dashboard');
+
         // User
         Route::controller(UserController::class)->name('users.')->group(function () {
             Route::middleware('permission:view users')->get('/users', 'index')->name('index');
