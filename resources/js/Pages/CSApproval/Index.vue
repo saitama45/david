@@ -143,8 +143,6 @@ const exportRoute = route("cs-approvals.export", {
     search: search.value,
     currentFilter: filter.value,
 });
-
-
 </script>
 <template>
     <Layout
@@ -230,7 +228,7 @@ const exportRoute = route("cs-approvals.export", {
                         </TD>
                         <TD class="flex">
                             <Button
-                                v-if="hasAccess('view cs order for approval')"
+                                v-if="hasAccess('view order for cs approval')"
                                 @click="showOrderDetails(order.order_number)"
                                 variant="link"
                             >
@@ -273,7 +271,7 @@ const exportRoute = route("cs-approvals.export", {
                 <MobileTableRow v-for="order in orders.data">
                     <MobileTableHeading :title="order.order_number">
                         <ShowButton
-                            v-if="hasAccess('view order for approval')"
+                            v-if="hasAccess('view cs order for approval')"
                             @click="showOrderDetails(order.order_number)"
                         />
                     </MobileTableHeading>
