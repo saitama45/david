@@ -164,6 +164,26 @@ class IceCreamOrderController extends Controller
             ->values();
 
 
+        $mondayTotal = $mondayOrders->sum(function ($order) {
+            return $order['branches']->sum('quantity_ordered');
+        });
+        $tuesdayTotal = $tuesdayOrders->sum(function ($order) {
+            return $order['branches']->sum('quantity_ordered');
+        });
+        $wednesdayTotal = $wednesdayOrders->sum(function ($order) {
+            return $order['branches']->sum('quantity_ordered');
+        });
+        $thursdayTotal = $thursdayOrders->sum(function ($order) {
+            return $order['branches']->sum('quantity_ordered');
+        });
+        $fridayTotal = $fridayOrders->sum(function ($order) {
+            return $order['branches']->sum('quantity_ordered');
+        });
+        $saturdayTotal = $saturdayOrders->sum(function ($order) {
+            return $order['branches']->sum('quantity_ordered');
+        });
+
+
         return Excel::download(new class(
             $mondayOrders,
             $tuesdayOrders,
@@ -173,7 +193,14 @@ class IceCreamOrderController extends Controller
             $saturdayOrders,
             $branches,
             $startDate,
-            $branchNames
+            $branchNames,
+
+            $mondayTotal,
+            $tuesdayTotal,
+            $wednesdayTotal,
+            $thursdayTotal,
+            $fridayTotal,
+            $saturdayTotal
         ) implements FromView {
             private $mondayOrders;
             private $tuesdayOrders;
@@ -185,8 +212,30 @@ class IceCreamOrderController extends Controller
             private $startDate;
             private $branchNames;
 
-            public function __construct($mon, $tue, $wed, $thu, $fri, $sat, $branches, $startDate, $branchNames)
-            {
+            private $mondayTotal;
+            private $tuesdayTotal;
+            private $wednesdayTotal;
+            private $thursdayTotal;
+            private $fridayTotal;
+            private $saturdayTotal;
+
+            public function __construct(
+                $mon,
+                $tue,
+                $wed,
+                $thu,
+                $fri,
+                $sat,
+                $branches,
+                $startDate,
+                $branchNames,
+                $mondayTotal,
+                $tuesdayTotal,
+                $wednesdayTotal,
+                $thursdayTotal,
+                $fridayTotal,
+                $saturdayTotal
+            ) {
                 $this->mondayOrders = $mon;
                 $this->tuesdayOrders = $tue;
                 $this->wednesdayOrders = $wed;
@@ -196,6 +245,12 @@ class IceCreamOrderController extends Controller
                 $this->branches = $branches;
                 $this->startDate = $startDate;
                 $this->branchNames = $branchNames;
+                $this->mondayTotal = $mondayTotal;
+                $this->tuesdayTotal = $tuesdayTotal;
+                $this->wednesdayTotal = $wednesdayTotal;
+                $this->thursdayTotal = $thursdayTotal;
+                $this->fridayTotal = $fridayTotal;
+                $this->saturdayTotal = $saturdayTotal;
             }
 
             public function view(): View
@@ -210,7 +265,13 @@ class IceCreamOrderController extends Controller
                     'branches' => $this->branches,
                     'startDate' => $this->startDate,
                     'endDate' => $this->startDate->copy()->addDays(5),
-                    'branchFilter' => $this->branchNames
+                    'branchFilter' => $this->branchNames,
+                    'mondayTotal' => $this->mondayTotal,
+                    'tuesdayTotal' => $this->tuesdayTotal,
+                    'wednesdayTotal' => $this->wednesdayTotal,
+                    'thursdayTotal' => $this->thursdayTotal,
+                    'fridayTotal' => $this->fridayTotal,
+                    'saturdayTotal' => $this->saturdayTotal
                 ]);
             }
         }, 'ice-cream-orders-summary-' . now()->format('Y-m-d') . '.xlsx');
