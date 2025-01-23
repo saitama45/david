@@ -93,6 +93,10 @@ const deleteModel = (id) => {
 
 import { useReferenceStore } from "@/Composables/useReferenceStore";
 const { isCreateModalVisible, openCreateModal, store } = useReferenceStore();
+
+const exportRoute = route("unit-of-measurements.export", {
+    search: search.value,
+});
 </script>
 
 <template>
@@ -101,6 +105,8 @@ const { isCreateModalVisible, openCreateModal, store } = useReferenceStore();
         :hasButton="true"
         :handleClick="openCreateModal"
         buttonName="Create New UOM"
+        :hasExcelDownload="true"
+        :exportRoute="exportRoute"
     >
         <TableContainer>
             <TableHeader>
