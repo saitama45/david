@@ -8,26 +8,31 @@
     </thead>
     <tbody>
         @foreach([
-        'Monday' => $mondayOrders,
-        'Tuesday' => $tuesdayOrders,
-        'Wednesday' => $wednesdayOrders,
-        'Thursday' => $thursdayOrders,
-        'Friday' => $fridayOrders,
-        'Saturday' => $saturdayOrders
-        ] as $day => $orders)
+        'Monday' => [$mondayOrders, $mondayTotal],
+        'Tuesday' => [$tuesdayOrders, $tuesdayTotal],
+        'Wednesday' => [$wednesdayOrders, $wednesdayTotal],
+        'Thursday' => [$thursdayOrders, $thursdayTotal],
+        'Friday' => [$fridayOrders, $fridayTotal],
+        'Saturday' => [$saturdayOrders, $saturdayTotal]
+        ] as $day => $dayData)
+
+        @php
+        $orders = $dayData[0];
+        $dayTotal = $dayData[1];
+        @endphp
+
         @if($orders->isNotEmpty())
-        {{-- Day Header --}}
         <tr>
-            <th colspan="{{ count($branches) }}">{{ $day }}</th>
+            <th colspan="{{ count($branches) }}">
+                {{ $day }} (Total Orders: {{ $dayTotal }})
+            </th>
         </tr>
 
         @foreach($orders as $order)
-        {{-- Product Name --}}
         <tr>
             <td colspan="{{ count($branches) }}">{{ $order['item'] }} ({{ $order['item_code'] }})</td>
         </tr>
 
-        {{-- Branch Headers and Quantities --}}
         <tr>
             @foreach($branches as $branchName)
             @if($order['branches']->where('display_name', $branchName)->where('quantity_ordered', '>', 0)->isNotEmpty())
@@ -48,7 +53,6 @@
         </tr>
         @endforeach
 
-        {{-- Empty row between days --}}
         <tr>
             <td colspan="{{ count($branches) }}">&nbsp;</td>
         </tr>
