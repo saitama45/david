@@ -54,9 +54,9 @@ const isPermissionGuideModalVisible = ref(false);
             <InputContainer>
                 <DivFlexCenter class="justify-between">
                     <LabelXS> Permissions</LabelXS>
-                    <button @click="isPermissionGuideModalVisible = true">
+                    <!-- <button @click="isPermissionGuideModalVisible = true">
                         <CircleHelp />
-                    </button>
+                    </button> -->
                 </DivFlexCenter>
                 <div
                     class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-5"
