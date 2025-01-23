@@ -72,6 +72,7 @@ class CSApprovalController extends Controller
 
     public function approve(Request $request)
     {
+        //
         $validated = $request->validate([
             'id' => ['required'],
             'remarks' => ['sometimes'],
