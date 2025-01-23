@@ -24,7 +24,7 @@ class RolesAndPermissionSeeder extends Seeder
         Permission::create(['name' => 'view users']);
         Permission::create(['name' => 'edit users']);
         Permission::create(['name' => 'view user']);
-        Permission::create(['name' => 'delete user']);
+        Permission::create(['name' => 'delete users']);
 
         // Roles
         Permission::create(['name' => 'view roles']);
@@ -92,6 +92,7 @@ class RolesAndPermissionSeeder extends Seeder
         Permission::create(['name' => 'view bom']);
         Permission::create(['name' => 'create bom']);
         Permission::create(['name' => 'edit bom']);
+        Permission::create(['name' => 'delete bom']);
 
         // Stock Management
         Permission::create(['name' => 'view stock management']);
