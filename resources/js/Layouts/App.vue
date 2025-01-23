@@ -201,7 +201,7 @@ const exportExcel = () => {
                             Orders Approval
                         </NavLink>
                         <NavLink
-                            v-if="hasAccess('view orders for approval list')"
+                            v-if="hasAccess('view orders for cs approval list')"
                             href="/cs-approvals"
                             :icon="SquareChartGantt"
                         >

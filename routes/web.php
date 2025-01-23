@@ -129,12 +129,14 @@ Route::middleware('auth')
 
 
         Route::controller(CSApprovalController::class)->name('cs-approvals.')->prefix('cs-approvals')->group(function () {
-            Route::get('', 'index')->name('index');
-            Route::get('/show/{id}', 'show')->name('show');
-            Route::post('/approve', 'approve')->name('approve');
-            Route::post('/reject', 'reject')->name('reject');
-            Route::middleware('cs approve/decline order request')->group(function () {});
-            Route::get('/export', 'export')->name('export');
+            Route::middleware('permission:view orders for cs approval list')->get('', 'index')->name('index');
+            Route::middleware('permission:view order for cs approval')->get('/show/{id}', 'show')->name('show');
+
+            Route::middleware('cs approve/decline order request')->group(function () {
+                Route::post('/approve', 'approve')->name('approve');
+                Route::post('/reject', 'reject')->name('reject');
+            });
+            Route::middleware('permission:view orders for cs approval list')->get('/export', 'export')->name('export');
         });
 
         // Approved Orders
