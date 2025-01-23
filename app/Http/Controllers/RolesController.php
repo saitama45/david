@@ -64,7 +64,8 @@ class RolesController extends Controller
 
             'cs_orders_approval' => $permissions->filter(function ($permission) {
                 return str_contains($permission->name, 'orders for cs approval') ||
-                    str_contains($permission->name, 'cs approve/decline order request');
+                    str_contains($permission->name, 'cs approve/decline order request') ||
+                    str_contains($permission->name, 'order for cs approval');
             }),
 
             'approved_orders' => $permissions->filter(function ($permission) {
@@ -176,7 +177,8 @@ class RolesController extends Controller
 
             'cs_orders_approval' => $permissions->filter(function ($permission) {
                 return str_contains($permission->name, 'orders for cs approval') ||
-                    str_contains($permission->name, 'cs approve/decline order request');
+                    str_contains($permission->name, 'cs approve/decline order request') ||
+                    str_contains($permission->name, 'order for cs approval');
             }),
 
             'approved_orders' => $permissions->filter(function ($permission) {
