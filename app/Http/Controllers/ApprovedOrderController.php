@@ -4,6 +4,8 @@ namespace App\Http\Controllers;
 
 use App\Enum\OrderRequestStatus;
 use App\Enum\OrderStatus;
+use App\Exports\ApprovedOrdersExport;
+use App\Exports\ApprovedReceivedItemsExport;
 use App\Models\OrderedItemReceiveDate;
 use App\Models\StoreOrder;
 use App\Models\StoreOrderItem;
@@ -12,6 +14,8 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
+use Maatwebsite\Excel\Excel;
+use Maatwebsite\Excel\Facades\Excel as FacadesExcel;
 
 class ApprovedOrderController extends Controller
 {
@@ -51,6 +55,18 @@ class ApprovedOrderController extends Controller
             'items' => $items
         ]);
     }
+
+    public function export()
+    {
+        $search = request('search');
+
+
+        return FacadesExcel::download(
+            new ApprovedReceivedItemsExport($search),
+            'approved-orders-' . now()->format('Y-m-d') . '.xlsx'
+        );
+    }
+
 
     public function cancelApproveStatus(Request $request)
     {

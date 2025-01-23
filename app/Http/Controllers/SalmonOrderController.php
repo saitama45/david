@@ -213,7 +213,7 @@ class SalmonOrderController extends Controller
             ->values();
 
 
-        return Excel::download(new class( 
+        return Excel::download(new class(
             $mondayOrders,
             $tuesdayOrders,
             $wednesdayOrders,
@@ -262,6 +262,6 @@ class SalmonOrderController extends Controller
                     'branchFilter' => $this->branchNames
                 ]);
             }
-        }, 'salmon-orders-summary.xlsx');
+        }, 'salmon-orders-summary' . now()->format('Y-m-d') . '.xlsx');
     }
 }

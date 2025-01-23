@@ -213,7 +213,7 @@ class IceCreamOrderController extends Controller
                     'branchFilter' => $this->branchNames
                 ]);
             }
-        }, 'ice-cream-orders-summary.xlsx');
+        }, 'ice-cream-orders-summary-' . now()->format('Y-m-d') . '.xlsx');
     }
 
     public function getOrders($branchesId, $day)

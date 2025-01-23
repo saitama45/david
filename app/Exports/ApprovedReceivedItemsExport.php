@@ -55,6 +55,7 @@ class ApprovedReceivedItemsExport implements FromQuery, WithHeadings, WithMappin
     public function map($order): array
     {
         return [
+            $order->id,
             $order->supplier->name,
             $order->store_branch->name,
             $order->order_number,

@@ -156,6 +156,7 @@ Route::middleware('auth')
 
 
             Route::middleware('permission:view approved received item')->put('/approved-orders/cancel-approve-status', 'cancelApproveStatus')->name('cancel-approve-status');
+            Route::get('/approved-orders/export', 'export')->name('export');
         });
 
         // Store Transactions 

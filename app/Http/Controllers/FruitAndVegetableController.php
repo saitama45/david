@@ -115,7 +115,7 @@ class FruitAndVegetableController extends Controller
                 request('branchId'),
                 request('start_date_filter')
             ),
-            'fruit-vegetable-orders.xlsx'
+            'fruit-vegetable-orders' . now()->format('Y-m-d') . '.xlsx'
         );
     }
 
