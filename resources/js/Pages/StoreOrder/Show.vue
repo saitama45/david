@@ -211,13 +211,17 @@ const enlargeImage = (image) => {
                                     ).toFixed(0, 2)
                                 }}%</TD -->
                             <TD>{{
-                                order.quantity_approved -
-                                order.quantity_commited
+                                abs(
+                                    order.quantity_approved -
+                                        order.quantity_commited
+                                )
                             }}</TD>
                             <!-- <TD>{{ order.total_cost }}</TD> -->
                             <TD>{{
-                                order.quantity_commited -
-                                order.quantity_received
+                                abs(
+                                    order.quantity_commited -
+                                        order.quantity_received
+                                )
                             }}</TD>
                         </tr>
                     </TableBody>
