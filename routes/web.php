@@ -346,9 +346,10 @@ Route::middleware('auth')
                 Route::get('/export', 'export')->name('export');
             });
 
-            Route::controller(UnitOfMeasurementController::class)->prefix('unit-of-measurements')->name('unit-of-measurements.')->group(function () {
+            Route::controller(UnitOfMeasurementController::class)->name('unit-of-measurements.')->group(function () {
                 Route::get('/unit-of-measurements', 'index')->name('index');
                 Route::post('/unit-of-measurements/update/{id}', 'update')->name('update');
+                Route::get('/unit-of-measurements/export', 'export')->name('export');
             });
 
             Route::controller(CostCenterController::class)->name('cost-centers.')->prefix('cost-centers')->group(function () {

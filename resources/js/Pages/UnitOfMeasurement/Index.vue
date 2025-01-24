@@ -139,6 +139,15 @@ const exportRoute = route("unit-of-measurements.export", {
                 </TableBody>
             </Table>
 
+            <MobileTableContainer>
+                <MobileTableRow v-for="item in items.data">
+                    <MobileTableHeading :title="`${item.name}`">
+                        <EditButton @click="editCategoryDetails(item.id)" />
+                        <DeleteButton @click="deleteModel(item.id)" />
+                    </MobileTableHeading>
+                    <LabelXS>Remarks: {{ item.remarks ?? "N/a" }}</LabelXS>
+                </MobileTableRow>
+            </MobileTableContainer>
             <Pagination :data="items" />
         </TableContainer>
 

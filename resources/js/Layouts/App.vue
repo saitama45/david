@@ -469,6 +469,17 @@ const exportExcel = () => {
                                 >
                                     Orders Approval
                                 </NavLink>
+                                <NavLink
+                                    v-if="
+                                        hasAccess(
+                                            'view orders for cs approval list'
+                                        )
+                                    "
+                                    href="/cs-approvals"
+                                    :icon="SquareChartGantt"
+                                >
+                                    CS Approval
+                                </NavLink>
                                 <DropdownMenuLabel v-if="canViewReceivingGroup">
                                     Receiving
                                 </DropdownMenuLabel>
@@ -540,7 +551,7 @@ const exportExcel = () => {
                                     href="/menu-list"
                                     :icon="Scroll"
                                 >
-                                    Menu
+                                    BOM
                                 </NavLink>
                                 <NavLink
                                     v-if="hasAccess('view stock management')"
@@ -584,13 +595,6 @@ const exportExcel = () => {
                                 >
                                     Fruits And Vegetables Orders
                                 </NavLink>
-                                <NavLink
-                                    href="/stocks"
-                                    :icon="ScanBarcode"
-                                    v-if="is_admin"
-                                >
-                                    Stocks
-                                </NavLink>
                                 <DropdownMenuLabel v-if="canViewReferenceGroup">
                                     Reference
                                 </DropdownMenuLabel>
@@ -617,6 +621,13 @@ const exportExcel = () => {
                                 </NavLink>
                                 <NavLink
                                     v-if="hasAccess('manage references')"
+                                    href="/unit-of-measurements"
+                                    :icon="LayoutList"
+                                >
+                                    Unit of Measurements
+                                </NavLink>
+                                <NavLink
+                                    v-if="hasAccess('manage references')"
                                     href="/store-branches"
                                     :icon="AppWindowMac"
                                 >
@@ -628,6 +639,13 @@ const exportExcel = () => {
                                     :icon="Warehouse"
                                 >
                                     Suppliers
+                                </NavLink>
+                                <NavLink
+                                    v-if="hasAccess('manage references')"
+                                    href="/cost-centers"
+                                    :icon="Warehouse"
+                                >
+                                    Cost Centers
                                 </NavLink>
                             </nav>
                         </nav>
@@ -675,7 +693,7 @@ const exportExcel = () => {
             <main
                 class="flex-1 flex flex-col gap-4 p-4 lg:gap-6 lg:p-6 overflow-y-scroll scrollbar-thin scrollbar-track-gray-100 scrollbar-thumb-gray-300 hover:scrollbar-thumb-gray-400"
             >
-                <div class="flex items-center justify-between">
+                <div class="flex items-center justify-between gap-2">
                     <h1 class="text-lg font-semibold md:text-2xl">
                         {{ heading }}
                     </h1>
