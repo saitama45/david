@@ -1,13 +1,14 @@
 <script setup>
-import { useBackButton } from "@/Composables/useBackButton";
-
+import { usePage, router } from "@inertiajs/vue3";
 const { routeName } = defineProps({
     routeName: {
         type: String,
         default: "",
     },
 });
-const { backButton } = useBackButton(route(routeName));
+const backButton = () => {
+    router.get(usePage().props.previous);
+};
 </script>
 <template>
     <Button
