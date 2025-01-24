@@ -153,7 +153,7 @@ const confirmApproveOrder = () => {
             toast.add({
                 severity: "success",
                 summary: "Success",
-                detail: "Order Approved Successfully.",
+                detail: "Order Confirmed Successfully.",
                 life: 3000,
             });
             isLoading.value = false;
@@ -285,19 +285,19 @@ const {
                     >
                         Copy Order And Create
                     </Button> -->
-                    <Button
+                    <!-- <Button
                         v-if="order.order_request_status === 'pending'"
                         variant="destructive"
                         @click="rejectOrder(order.id)"
                     >
                         Decline Order
-                    </Button>
+                    </Button> -->
                     <Button
                         v-if="order.order_request_status === 'pending'"
                         class="bg-green-500 hover:bg-green-300"
                         @click="approveOrder(order.id)"
                     >
-                        Approve Order
+                        Confirm Order
                     </Button>
                 </DivFlexCenter>
             </section>
