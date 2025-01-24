@@ -564,6 +564,8 @@ const deleteDeliveryReceiptNumber = (id) => {
                     <TableHead>
                         <TH> Item Code </TH>
                         <TH> Name </TH>
+                        <TH> Ordered </TH>
+                        <TH>Approved</TH>
                         <TH> Commited</TH>
                         <TH> Received</TH>
                         <TH> Actions </TH>
@@ -575,7 +577,10 @@ const deleteDeliveryReceiptNumber = (id) => {
                                 order.product_inventory.inventory_code
                             }}</TD>
                             <TD>{{ order.product_inventory.name }}</TD>
+                            <TD>{{ order.quantity_ordered }}</TD>
+                            <TD>{{ order.quantity_approved }}</TD>
                             <TD>{{ order.quantity_commited }}</TD>
+
                             <TD>{{ order.quantity_received }}</TD>
                             <TD class="w-[90px]">
                                 <DivFlexCenter class="gap-1">

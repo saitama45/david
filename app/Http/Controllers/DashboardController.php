@@ -8,6 +8,7 @@ use App\Models\Branch;
 use App\Models\ProductInventory;
 use App\Models\StoreBranch;
 use App\Models\StoreOrder;
+use App\Models\StoreTransaction;
 use App\Models\User;
 use Exception;
 use Illuminate\Http\Request;
@@ -20,6 +21,8 @@ class DashboardController extends Controller
 {
     public function index()
     {
+
+        $data = StoreTransaction::where('store_branch_id', 16)->get();
         try {
             $user = User::rolesAndAssignedBranches();
 
