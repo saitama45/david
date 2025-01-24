@@ -202,13 +202,17 @@ const openViewModalForm = (id) => {
                                     ).toFixed(0, 2)
                                 }}%</TD -->
                             <TD>{{
-                                order.quantity_approved -
-                                order.quantity_commited
+                                Math.abs(
+                                    order.quantity_approved -
+                                        order.quantity_commited
+                                )
                             }}</TD>
                             <!-- <TD>{{ order.total_cost }}</TD> -->
                             <TD>{{
-                                order.quantity_commited -
-                                order.quantity_received
+                                Math.abs(
+                                    order.quantity_commited -
+                                        order.quantity_received
+                                )
                             }}</TD>
                         </tr>
                     </TableBody>
@@ -376,9 +380,7 @@ const openViewModalForm = (id) => {
                                 {{ history.receiver.last_name }}
                             </TD> -->
                             <TD>{{ history.quantity_received }}</TD>
-                            <TD>{{
-                                history.received_date
-                            }}</TD>
+                            <TD>{{ history.received_date }}</TD>
                             <TD>{{ history.status }}</TD>
                             <TD>
                                 <DivFlexCenter class="gap-3">
