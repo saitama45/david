@@ -41,6 +41,9 @@ const confirm = useConfirm();
 const form = useForm({
     inventory_category_id: null,
     unit_of_measurement_id: null,
+    category_a: null,
+    category_b: null,
+    packaging: null,
     conversion: null,
     name: null,
     inventory_code: null,
@@ -170,6 +173,11 @@ watch(isImportModalVisible, (value) => {
                     <FormError>{{ form.errors.brand }}</FormError>
                 </InputContainer>
                 <InputContainer>
+                    <Label>Packaging</Label>
+                    <Input v-model="form.packaging" />
+                    <FormError>{{ form.errors.packaging }}</FormError>
+                </InputContainer>
+                <InputContainer>
                     <Label>Conversion</Label>
                     <Input v-model="form.conversion" type="number" />
                     <FormError>{{ form.errors.conversion }}</FormError>
@@ -190,11 +198,21 @@ watch(isImportModalVisible, (value) => {
                     }}</FormError>
                 </InputContainer>
                 <InputContainer>
+                    <Label>Category - A</Label>
+                    <Input v-model="form.category_a"  />
+                    <FormError>{{ form.errors.category_a }}</FormError>
+                </InputContainer>
+                <InputContainer>
+                    <Label>Category - B</Label>
+                    <Input v-model="form.category_b"  />
+                    <FormError>{{ form.errors.category_b }}</FormError>
+                </InputContainer>
+                <InputContainer>
                     <Label>Cost</Label>
                     <Input v-model="form.cost" type="number" />
                     <FormError>{{ form.errors.cost }}</FormError>
                 </InputContainer>
-                <InputContainer>
+                <!-- <InputContainer>
                     <Label>Product Category</Label>
                     <MultiSelect
                         filter
@@ -206,7 +224,7 @@ watch(isImportModalVisible, (value) => {
                     >
                     </MultiSelect>
                     <FormError>{{ form.errors.categories }}</FormError>
-                </InputContainer>
+                </InputContainer> -->
             </CardContent>
             <CardFooter class="justify-end gap-3">
                 <Button @click="handleCancel" variant="outline">Cancel</Button>

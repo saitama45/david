@@ -34,7 +34,7 @@ class ItemController extends Controller
 
         if ($search)
             $query->whereAny(['name', 'inventory_code'], 'like', "%$search%");
-        $items = $query->paginate(10);
+        $items = $query->latest()->paginate(10)->withQueryString();
 
         return Inertia::render('Item/Index', [
             'items' => $items,
@@ -103,16 +103,21 @@ class ItemController extends Controller
             'conversion' => ['required', 'numeric', 'min:1'],
             'name' => ['required'],
             'brand' => ['sometimes'],
+            'packaging' => ['nullable'],
+            'category_a' => ['nullable'],
+            'category_b' => ['nullable'],
             'inventory_code' => ['required', 'unique:product_inventories,inventory_code'],
             'cost' => ['required', 'numeric'],
-            'categories' => ['required', 'array'],
-            'categories.*' => ['exists:product_categories,id']
+            // 'categories' => ['required', 'array'],
+            // 'categories.*' => ['exists:product_categories,id']
         ]);
 
-        DB::transaction(function () use ($validated) {
-            $product = ProductInventory::create(Arr::except($validated, ['categories']));
-            $product->product_categories()->attach($validated['categories']);
-        });
+        ProductInventory::create($validated);
+
+        // DB::transaction(function () use ($validated) {
+        //     $product = ProductInventory::create(Arr::except($validated, ['categories']));
+        //     $product->product_categories()->attach($validated['categories']);
+        // });
 
         return redirect()->route('items.index');
     }
@@ -139,17 +144,23 @@ class ItemController extends Controller
             'conversion' => ['required', 'numeric', 'min:1'],
             'name' => ['required'],
             'brand' => ['sometimes'],
+            'packaging' => ['nullable'],
+            'category_a' => ['nullable'],
+            'category_b' => ['nullable'],
             'inventory_code' => ['required', 'unique:product_inventories,inventory_code,' . $id],
             'cost' => ['required', 'numeric'],
-            'categories' => ['required', 'array'],
-            'categories.*' => ['exists:product_categories,id']
+            // 'categories' => ['required', 'array'],
+            // 'categories.*' => ['exists:product_categories,id']
         ]);
 
-        DB::transaction(function () use ($validated, $id) {
-            $product = ProductInventory::findOrFail($id);
-            $product->update(Arr::except($validated, ['categories']));
-            $product->product_categories()->sync($validated['categories']);
-        });
+        $product = ProductInventory::findOrFail($id);
+        $product->update($validated);
+
+        // DB::transaction(function () use ($validated, $id) {
+        //     $product = ProductInventory::findOrFail($id);
+        //     $product->update(Arr::except($validated, ['categories']));
+        //     $product->product_categories()->sync($validated['categories']);
+        // });
 
         return redirect()->route('items.index');
     }

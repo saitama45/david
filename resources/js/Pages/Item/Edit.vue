@@ -108,6 +108,9 @@ const form = useForm({
     inventory_category_id: item.inventory_category_id?.toString() ?? null,
     unit_of_measurement_id: item.unit_of_measurement_id?.toString() ?? null,
     conversion: item.conversion ?? null,
+    packaging: item.packaging ?? null,
+    category_a: item.category_a ?? null,
+    category_b: item.category_b ?? null,
     name: item.name ?? null,
     inventory_code: item.inventory_code ?? null,
     brand: item.brand,
@@ -192,6 +195,11 @@ const handleUpdate = () => {
                     <FormError>{{ form.errors.brand }}</FormError>
                 </InputContainer>
                 <InputContainer>
+                    <Label>Packaging</Label>
+                    <Input v-model="form.packaging" />
+                    <FormError>{{ form.errors.packaging }}</FormError>
+                </InputContainer>
+                <InputContainer>
                     <Label>Conversion</Label>
                     <Input v-model="form.conversion" type="number" />
                     <FormError>{{ form.errors.conversion }}</FormError>
@@ -212,22 +220,19 @@ const handleUpdate = () => {
                     }}</FormError>
                 </InputContainer>
                 <InputContainer>
+                    <Label>Category - A</Label>
+                    <Input v-model="form.category_a" />
+                    <FormError>{{ form.errors.category_a }}</FormError>
+                </InputContainer>
+                <InputContainer>
+                    <Label>Category - B</Label>
+                    <Input v-model="form.category_b" />
+                    <FormError>{{ form.errors.category_b }}</FormError>
+                </InputContainer>
+                <InputContainer>
                     <Label>Cost</Label>
                     <Input v-model="form.cost" type="number" />
                     <FormError>{{ form.errors.cost }}</FormError>
-                </InputContainer>
-                <InputContainer>
-                    <Label>Product Category</Label>
-                    <MultiSelect
-                        filter
-                        placeholder="Select product category"
-                        v-model="form.categories"
-                        :options="productCategoriesOptions"
-                        optionLabel="label"
-                        optionValue="value"
-                    >
-                    </MultiSelect>
-                    <FormError>{{ form.errors.categories }}</FormError>
                 </InputContainer>
             </CardContent>
             <CardFooter class="justify-end gap-3">
