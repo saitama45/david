@@ -33,84 +33,8 @@ class RolesController extends Controller
     public function edit($id)
     {
         $role = Role::with('permissions')->findOrFail($id);
-        $permissions = Permission::all();
 
-        $groupedPermissions = [
-            'user' => $permissions->filter(function ($permission) {
-                return str_contains($permission->name, 'users');
-            }),
-
-            'roles' => $permissions->filter(function ($permission) {
-                return str_contains($permission->name, 'roles');
-            }),
-
-            'dts_delivery_schedules' => $permissions->filter(function ($permission) {
-                return str_contains($permission->name, 'dts delivery schedules');
-            }),
-
-            'store_orders' => $permissions->filter(function ($permission) {
-                return str_contains($permission->name, 'store order');
-            }),
-
-            'dts_orders' => $permissions->filter(function ($permission) {
-                return str_contains($permission->name, 'dts order');
-            }),
-
-            'orders_approval' => $permissions->filter(function ($permission) {
-                return str_contains($permission->name, 'order for approval list') ||
-                    str_contains($permission->name, 'order for approval') ||
-                    str_contains($permission->name, 'approve/decline order request') &&  !str_contains($permission->name, 'cs');
-            }),
-
-            'cs_orders_approval' => $permissions->filter(function ($permission) {
-                return str_contains($permission->name, 'orders for cs approval') ||
-                    str_contains($permission->name, 'cs approve/decline order request') ||
-                    str_contains($permission->name, 'order for cs approval');
-            }),
-
-            'approved_orders' => $permissions->filter(function ($permission) {
-                return str_contains($permission->name, 'approved order') &&
-                    !str_contains($permission->name, 'for approval');
-            }),
-
-            'approvals' => $permissions->filter(function ($permission) {
-                return str_contains($permission->name, 'received orders for approval') ||
-                    str_contains($permission->name, 'approve received orders') ||
-                    str_contains($permission->name, 'approve image attachments');
-            }),
-
-            'approved_received_items' => $permissions->filter(function ($permission) {
-                return str_contains($permission->name, 'approved received item');
-            }),
-
-            'store_transactions' => $permissions->filter(function ($permission) {
-                return str_contains($permission->name, 'store transaction');
-            }),
-
-            'items' => $permissions->filter(function ($permission) {
-                return str_contains($permission->name, 'items') ||
-                    str_contains($permission->name, 'item');
-            }),
-
-            'bom' => $permissions->filter(function ($permission) {
-                return str_contains($permission->name, 'bom');
-            }),
-
-            'stock_management' => $permissions->filter(function ($permission) {
-                return str_contains($permission->name, 'stock');
-            }),
-
-            'items_order_summary' => $permissions->filter(function ($permission) {
-                return str_contains($permission->name, 'items order summary') ||
-                    str_contains($permission->name, 'ice cream orders') ||
-                    str_contains($permission->name, 'salmon orders') ||
-                    str_contains($permission->name, 'fruits and vegetables orders');
-            }),
-
-            'manage_references' => $permissions->filter(function ($permission) {
-                return str_contains($permission->name, 'references');
-            })
-        ];
+        $groupedPermissions = $this->getPermissionsGroup();
 
 
         $groupedPermissions = collect($groupedPermissions)->map(function ($permissions) {
@@ -146,84 +70,9 @@ class RolesController extends Controller
 
     public function create()
     {
-        $permissions = Permission::all();
 
-        $groupedPermissions = [
-            'user' => $permissions->filter(function ($permission) {
-                return str_contains($permission->name, 'users');
-            }),
 
-            'roles' => $permissions->filter(function ($permission) {
-                return str_contains($permission->name, 'roles');
-            }),
-
-            'dts_delivery_schedules' => $permissions->filter(function ($permission) {
-                return str_contains($permission->name, 'dts delivery schedules');
-            }),
-
-            'store_orders' => $permissions->filter(function ($permission) {
-                return str_contains($permission->name, 'store order');
-            }),
-
-            'dts_orders' => $permissions->filter(function ($permission) {
-                return str_contains($permission->name, 'dts order');
-            }),
-
-            'orders_approval' => $permissions->filter(function ($permission) {
-                return str_contains($permission->name, 'order for approval list') ||
-                    str_contains($permission->name, 'order for approval') ||
-                    str_contains($permission->name, 'approve/decline order request') &&  !str_contains($permission->name, 'cs');
-            }),
-
-            'cs_orders_approval' => $permissions->filter(function ($permission) {
-                return str_contains($permission->name, 'orders for cs approval') ||
-                    str_contains($permission->name, 'cs approve/decline order request') ||
-                    str_contains($permission->name, 'order for cs approval');
-            }),
-
-            'approved_orders' => $permissions->filter(function ($permission) {
-                return str_contains($permission->name, 'approved order') &&
-                    !str_contains($permission->name, 'for approval');
-            }),
-
-            'approvals' => $permissions->filter(function ($permission) {
-                return str_contains($permission->name, 'received orders for approval') ||
-                    str_contains($permission->name, 'approve received orders') ||
-                    str_contains($permission->name, 'approve image attachments');
-            }),
-
-            'approved_received_items' => $permissions->filter(function ($permission) {
-                return str_contains($permission->name, 'approved received item');
-            }),
-
-            'store_transactions' => $permissions->filter(function ($permission) {
-                return str_contains($permission->name, 'store transaction');
-            }),
-
-            'items' => $permissions->filter(function ($permission) {
-                return str_contains($permission->name, 'items') ||
-                    str_contains($permission->name, 'item');
-            }),
-
-            'bom' => $permissions->filter(function ($permission) {
-                return str_contains($permission->name, 'bom');
-            }),
-
-            'stock_management' => $permissions->filter(function ($permission) {
-                return str_contains($permission->name, 'stock');
-            }),
-
-            'items_order_summary' => $permissions->filter(function ($permission) {
-                return str_contains($permission->name, 'items order summary') ||
-                    str_contains($permission->name, 'ice cream orders') ||
-                    str_contains($permission->name, 'salmon orders') ||
-                    str_contains($permission->name, 'fruits and vegetables orders');
-            }),
-
-            'manage_references' => $permissions->filter(function ($permission) {
-                return str_contains($permission->name, 'references');
-            })
-        ];
+        $groupedPermissions = $this->getPermissionsGroup();
 
 
         $groupedPermissions = collect($groupedPermissions)->map(function ($permissions) {
@@ -290,5 +139,86 @@ class RolesController extends Controller
         }
         return redirect()->route('roles.index')
             ->with('success', 'Role updated successfully.');
+    }
+
+    public function getPermissionsGroup()
+    {
+        $permissions = Permission::all();
+        return [
+            'user' => $permissions->filter(function ($permission) {
+                return str_contains($permission->name, 'users');
+            }),
+
+            'roles' => $permissions->filter(function ($permission) {
+                return str_contains($permission->name, 'roles');
+            }),
+
+            'dts_delivery_schedules' => $permissions->filter(function ($permission) {
+                return str_contains($permission->name, 'dts delivery schedules');
+            }),
+
+            'store_orders' => $permissions->filter(function ($permission) {
+                return str_contains($permission->name, 'store order');
+            }),
+
+            'dts_orders' => $permissions->filter(function ($permission) {
+                return str_contains($permission->name, 'dts order');
+            }),
+
+            'orders_approval' => $permissions->filter(function ($permission) {
+                return str_contains($permission->name, 'order for approval list') ||
+                    str_contains($permission->name, 'order for approval') ||
+                    str_contains($permission->name, 'approve/decline order request') &&  !str_contains($permission->name, 'cs');
+            }),
+
+            'cs_orders_approval' => $permissions->filter(function ($permission) {
+                return str_contains($permission->name, 'orders for cs approval') ||
+                    str_contains($permission->name, 'cs approve/decline order request') ||
+                    str_contains($permission->name, 'order for cs approval');
+            }),
+
+            'approved_orders' => $permissions->filter(function ($permission) {
+                return str_contains($permission->name, 'approved order') &&
+                    !str_contains($permission->name, 'for approval');
+            }),
+
+            'approvals' => $permissions->filter(function ($permission) {
+                return str_contains($permission->name, 'received orders for approval') ||
+                    str_contains($permission->name, 'approve received orders') ||
+                    str_contains($permission->name, 'approve image attachments');
+            }),
+
+            'approved_received_items' => $permissions->filter(function ($permission) {
+                return str_contains($permission->name, 'approved received item');
+            }),
+
+            'store_transactions' => $permissions->filter(function ($permission) {
+                return str_contains($permission->name, 'store transaction');
+            }),
+
+            'items' => $permissions->filter(function ($permission) {
+                return !str_contains($permission->name, 'approved received item') && (str_contains($permission->name, 'items') ||
+                    str_contains($permission->name, 'item')) && !str_contains($permission->name, 'order');
+            }),
+
+            'bom' => $permissions->filter(function ($permission) {
+                return str_contains($permission->name, 'bom');
+            }),
+
+            'stock_management' => $permissions->filter(function ($permission) {
+                return str_contains($permission->name, 'stock');
+            }),
+
+            'items_order_summary' => $permissions->filter(function ($permission) {
+                return str_contains($permission->name, 'items order summary') ||
+                    str_contains($permission->name, 'ice cream orders') ||
+                    str_contains($permission->name, 'salmon orders') ||
+                    str_contains($permission->name, 'fruits and vegetables orders');
+            }),
+
+            'manage_references' => $permissions->filter(function ($permission) {
+                return str_contains($permission->name, 'references');
+            })
+        ];
     }
 }
