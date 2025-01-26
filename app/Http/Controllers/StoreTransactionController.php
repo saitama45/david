@@ -22,7 +22,7 @@ class StoreTransactionController extends Controller
     public function index()
     {
         $from = request('from') ? Carbon::parse(request('from'))->format('Y-m-d') : '1999-01-01';
-        $to = request('to') ? Carbon::parse(request('to'))->addDay()->format('Y-m-d') : Carbon::today()->addMonth();
+        $to = request('to') ? Carbon::parse(request('to'))->format('Y-m-d') : Carbon::today()->addMonth();
         $search = request('search');
         $branchId = request('branchId');
 
@@ -42,7 +42,7 @@ class StoreTransactionController extends Controller
         if ($search)
             $query->where('receipt_number', 'like', "%$search%");
 
-        $transactions = $query->latest()->paginate(10);
+        $transactions = $query->latest()->paginate(10)->withQueryString();
 
         // $items = StoreTransactionItem::with(['store_transaction.branch', 'menu'])->whereHas('store_transaction', function ($query) {
         //     $query->where('store_branch_id', 16);
@@ -71,6 +71,7 @@ class StoreTransactionController extends Controller
     public function import(Request $request)
     {
         ini_set('memory_limit', '512M');
+        set_time_limit(1000900000000000000);
         $request->validate([
             'store_transactions_file' => [
                 'required',
