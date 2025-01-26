@@ -74,7 +74,7 @@ const { item } = defineProps({
             </Card>
         </section>
 
-        <!-- <Card class="p-5">
+        <Card class="p-5">
             <CardHeader>
                 <CardTitle>Orders History</CardTitle>
             </CardHeader>
@@ -114,7 +114,7 @@ const { item } = defineProps({
                     </TableBody>
                 </Table>
             </CardContent>
-        </Card> -->
+        </Card>
 
         <Button variant="outline" class="text-lg px-7" @click="backButton">
             Back

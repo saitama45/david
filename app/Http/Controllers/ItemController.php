@@ -11,6 +11,7 @@ use App\Models\ProductCategory;
 use App\Models\ProductInventory;
 use App\Models\StoreOrder;
 use App\Models\UnitOfMeasurement;
+use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\DB;
@@ -83,9 +84,14 @@ class ItemController extends Controller
     {
         $item = ProductInventory::with(['inventory_category', 'unit_of_measurement'])->where('inventory_code', $id)->first();
 
+        $user = User::rolesAndAssignedBranches();
+
         $orders = OrderedItemReceiveDate::with(['store_order_item', 'store_order_item.store_order', 'store_order_item.store_order.store_branch', 'store_order_item.store_order.supplier'])
-            ->whereHas('store_order_item', function ($query) use ($item) {
+            ->whereHas('store_order_item', function ($query) use ($item, $user) {
                 $query->where('product_inventory_id', $item->id);
+            })
+            ->whereHas('store_order_item.store_order', function ($query) use ($user) {
+                $query->whereIn('store_branch_id', $user['assignedBranches']);
             })
             ->where('status', 'approved')
             ->get();
