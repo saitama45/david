@@ -84,6 +84,7 @@ const exportRoute = route("items.export", {
                         placeholder="Search..."
                     />
                 </SearchBar>
+                <Button>Update List</Button>
             </TableHeader>
 
             <Table>
