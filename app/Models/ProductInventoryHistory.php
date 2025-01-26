@@ -17,7 +17,10 @@ class ProductInventoryHistory extends Model
         'name',
         'barcode',
         'inventory_code',
+        'category_a', // new
+        'category_b', // new
         'brand',
+        'packaging', // new
         'conversion',
         'cost',
         'is_active'

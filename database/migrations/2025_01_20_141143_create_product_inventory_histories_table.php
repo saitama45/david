@@ -24,6 +24,13 @@ return new class extends Migration
 
             $table->string('inventory_code');
 
+
+            $table->string('category_a')->nullable();
+
+            $table->string('category_b')->nullable();
+
+            $table->string('packaging')->nullable();
+
             $table->string('barcode')->nullable();
 
             $table->string('brand')->nullable();
