@@ -107,15 +107,16 @@ class ProductInventory extends Model implements Auditable
         static::created(function ($product) {
             $storeBranches = StoreBranch::all();
 
-            DB::beginTransaction();
-
             foreach ($storeBranches as $branch) {
                 ProductInventoryStock::create([
                     'product_inventory_id' => $product->id,
                     'store_branch_id' => $branch->id,
                 ]);
             }
+        });
 
+
+        static::updated(function ($product) {
             $product->history()->create([
                 'inventory_category_id' => $product->getOriginal('inventory_category_id'),
                 'unit_of_measurement_id' => $product->getOriginal('unit_of_measurement_id'),
@@ -129,28 +130,8 @@ class ProductInventory extends Model implements Auditable
                 'conversion' => $product->getOriginal('conversion'),
                 'cost' => $product->getOriginal('cost'),
                 'is_active' => $product->getOriginal('is_active'),
-                'effective_date' => now()
+                'effective_date' => $product->getOriginal('created_at')
             ]);
-
-            DB::commit();
         });
-
-
-        // static::updated(function ($product) {
-        //     $product->history()->create([
-        //         'inventory_category_id' => $product->getOriginal('inventory_category_id'),
-        //         'unit_of_measurement_id' => $product->getOriginal('unit_of_measurement_id'),
-        //         'name' => $product->getOriginal('name'),
-        //         'barcode' => $product->getOriginal('barcode'),
-        //         'inventory_code' => $product->getOriginal('inventory_code'),
-        //         'category_a' => $product->getOriginal('category_a'),
-        //         'category_b' => $product->getOriginal('category_b'),
-        //         'packaging' => $product->getOriginal('packaging'),
-        //         'brand' => $product->getOriginal('brand'),
-        //         'conversion' => $product->getOriginal('conversion'),
-        //         'cost' => $product->getOriginal('cost'),
-        //         'is_active' => $product->getOriginal('is_active'),
-        //     ]);
-        // });
     }
 }
