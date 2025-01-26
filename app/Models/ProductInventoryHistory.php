@@ -23,7 +23,8 @@ class ProductInventoryHistory extends Model
         'packaging', // new
         'conversion',
         'cost',
-        'is_active'
+        'is_active',
+        'effective_date'
     ];
 
     public function product_inventory()
