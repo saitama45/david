@@ -1,5 +1,12 @@
 <script setup>
 import { useSearch } from "@/Composables/useSearch";
+import { useForm } from "@inertiajs/vue3";
+import { useConfirm } from "primevue/useconfirm";
+import { useToast } from "primevue/usetoast";
+
+const toast = useToast();
+
+const confirm = useConfirm();
 
 const props = defineProps({
     items: {
@@ -44,6 +51,43 @@ const exportRoute = route("items.export", {
     search: search.value,
     filter: filter.value,
 });
+
+const isImportModalVisible = ref(false);
+
+const importForm = useForm({
+    products_file: null,
+});
+
+const importFile = () => {
+    isLoading.value = true;
+    importForm.post(route("items.import"), {
+        onSuccess: () => {
+            toast.add({
+                severity: "success",
+                summary: "Success",
+                detail: "Products Updated Successfully.",
+                life: 3000,
+            });
+            isLoading.value = false;
+            isImportModalVisible.value = false;
+        },
+        onError: (e) => {
+            isLoading.value = false;
+            toast.add({
+                severity: "error",
+                summary: "Error",
+                detail: "An error occured while trying to update products. Please make sure that you are using the correct format.",
+                life: 3000,
+            });
+        },
+    });
+};
+
+const openFormModal = () => {
+    return (isImportModalVisible.value = true);
+};
+
+const isLoading = ref(false);
 </script>
 
 <template>
@@ -84,7 +128,7 @@ const exportRoute = route("items.export", {
                         placeholder="Search..."
                     />
                 </SearchBar>
-                <Button>Update List</Button>
+                <Button @click="openFormModal">Update List</Button>
             </TableHeader>
 
             <Table>
@@ -158,5 +202,55 @@ const exportRoute = route("items.export", {
             </MobileTableContainer>
             <Pagination :data="items" />
         </TableContainer>
+
+        <Dialog v-model:open="isImportModalVisible">
+            <DialogContent class="sm:max-w-[600px]">
+                <DialogHeader>
+                    <DialogTitle>Import Products</DialogTitle>
+                    <DialogDescription>
+                        Import the excel file of the products.
+                    </DialogDescription>
+                </DialogHeader>
+                <div class="space-y-5">
+                    <div class="flex flex-col space-y-1">
+                        <Input
+                            type="file"
+                            @input="
+                                importForm.products_file =
+                                    $event.target.files[0]
+                            "
+                        />
+                        <FormError>{{
+                            importForm.errors.products_file
+                        }}</FormError>
+                    </div>
+                    <div class="flex flex-col space-y-1">
+                        <Label class="text-xs"
+                            >Accepted Products File Format</Label
+                        >
+                        <ul>
+                            <li class="text-xs">
+                                <a
+                                    class="text-blue-500 underline"
+                                    href="/excel/products-template"
+                                    >Click to download</a
+                                >
+                            </li>
+                        </ul>
+                    </div>
+                </div>
+                <DialogFooter>
+                    <Button
+                        :disabled="isLoading"
+                        @click="importFile"
+                        type="submit"
+                        class="gap-2"
+                    >
+                        Proceed
+                        <span><Loading v-if="isLoading" /></span>
+                    </Button>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
     </Layout>
 </template>
