@@ -56,8 +56,10 @@ class StoreTransactionController extends Controller
 
     public function export()
     {
+
         $from = request('from') ? Carbon::parse(request('from'))->format('Y-m-d') : '1999-01-01';
-        $to = request('to') ? Carbon::parse(request('to'))->addDay()->format('Y-m-d') : Carbon::today()->addMonth();
+
+        $to = request('to') ? Carbon::parse(request('to'))->format('Y-m-d') : Carbon::today()->addMonth();
         $branchId = request('branchId');
         $search = request('search');
 

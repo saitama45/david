@@ -13,7 +13,6 @@ trait HasReferenceStoreAction
             'name' => ['required', $rules],
             'remarks' => ['nullable']
         ]);
-
         $this->getModel()::create($validated);
         return redirect()->route($this->getRouteName());
     }

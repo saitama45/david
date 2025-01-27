@@ -107,12 +107,14 @@ const resetFilter = () => {
         (search.value = null);
 };
 
-const exportRoute = route("store-transactions.export", {
-    search: search.value,
-    branchId: branchId.value,
-    from: from.value,
-    to: to.value,
-});
+const exportRoute = computed(() =>
+    route("store-transactions.export", {
+        search: search.value,
+        branchId: branchId.value,
+        from: from.value,
+        to: to.value,
+    })
+);
 </script>
 <template>
     <Layout
