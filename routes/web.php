@@ -186,7 +186,7 @@ Route::middleware('auth')
                 Route::post('/import', 'import')->name('import');
             });
 
-            Route::middleware('edit store transactions')->group(function () {
+            Route::middleware('permission:edit store transactions')->group(function () {
                 Route::get('/edit/{id}', 'edit')->name('edit');
                 Route::put('/update/{id}', 'update')->name('update');
             });
