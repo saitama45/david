@@ -34,6 +34,8 @@ class User extends Authenticatable implements Auditable
         'is_active'
     ];
 
+    protected $append = ['full_name'];
+
     /**
      * The attributes that should be hidden for serialization.
      *

@@ -2,10 +2,16 @@
 import { router } from "@inertiajs/vue3";
 import { throttle } from "lodash";
 import { useAuth } from "@/Composables/useAuth";
+import Dialog from "primevue/dialog";
+import { useSelectOptions } from "@/Composables/useSelectOptions";
 
 const { hasAccess } = useAuth();
 const props = defineProps({
     users: {
+        type: Object,
+        required: true,
+    },
+    usersList: {
         type: Object,
         required: true,
     },
@@ -18,7 +24,16 @@ const props = defineProps({
 let filter = ref(props.filters.search);
 const search = ref(filter.value);
 const handleClick = () => {
-    router.get("/users/create");
+    console.log(templateId.value);
+    router.get("/users/create", { templateId: templateId.value });
+};
+
+const { options: usersOption } = useSelectOptions(props.usersList);
+
+const isTemplateModalVisible = ref(false);
+
+const openTemplateModal = () => {
+    isTemplateModalVisible.value = true;
 };
 
 watch(
@@ -37,9 +52,8 @@ watch(
 
 import { useReferenceDelete } from "@/Composables/useReferenceDelete";
 const { deleteModel } = useReferenceDelete();
+const templateId = ref(null);
 const exportRoute = route("users.export", { search: search.value });
-
-
 </script>
 
 <template>
@@ -47,7 +61,7 @@ const exportRoute = route("users.export", { search: search.value });
         heading="Users"
         :hasButton="hasAccess('create users')"
         buttonName="Create New User"
-        :handleClick="handleClick"
+        :handleClick="openTemplateModal"
         :hasExcelDownload="true"
         :exportRoute="exportRoute"
     >
@@ -139,5 +153,39 @@ const exportRoute = route("users.export", { search: search.value });
 
             <Pagination :data="users" />
         </TableContainer>
+
+        <Dialog
+            v-model:visible="isTemplateModalVisible"
+            modal
+            :style="{ width: '30rem' }"
+        >
+            <template #header>
+                <DivFlexCol>
+                    <SpanBold>Create New User</SpanBold>
+                    <LabelXS
+                        >Copy the roles and assigned branches from existing
+                        users</LabelXS
+                    >
+                </DivFlexCol>
+            </template>
+
+            <DivFlexCol>
+                <InputContainer>
+                    <LabelXS>Users</LabelXS>
+                    <Select
+                        filter
+                        placeholder="No Template"
+                        v-model="templateId"
+                        optionLabel="label"
+                        optionValue="value"
+                        :options="usersOption"
+                    />
+                </InputContainer>
+
+                <DivFlexCenter class="justify-end mt-5">
+                    <Button @click="handleClick">Continue</Button>
+                </DivFlexCenter>
+            </DivFlexCol>
+        </Dialog>
     </Layout>
 </template>

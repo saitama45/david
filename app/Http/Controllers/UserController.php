@@ -21,6 +21,7 @@ class UserController extends Controller
     {
         $search = request('search');
         try {
+            $usersList = User::select(['id', 'first_name', 'last_name'])->get()->pluck('full_name', 'id');
             $query = User::query()->with('roles');
             if ($search) {
                 $query->whereAny(['first_name', 'last_name', 'email'], 'like', "%$search%");
@@ -35,13 +36,16 @@ class UserController extends Controller
 
         return Inertia::render('User/Index', [
             'users' => $users,
-            'filters' => request()->only(['search'])
+            'filters' => request()->only(['search']),
+            'usersList' => $usersList
         ]);
     }
 
     public function create()
     {
+        $templateId = request('templateId');
         try {
+            $user = $templateId ? User::with(['roles', 'store_branches'])->findOrFail($templateId) : null;
             $roles = Role::select(['id', 'name'])->pluck('name', 'id');
             $branches = StoreBranch::options();
             foreach ($roles as &$role) {
@@ -50,9 +54,11 @@ class UserController extends Controller
         } catch (Exception $e) {
             throw $e;
         }
+        dd($user);
         return Inertia::render('User/Create', [
             'roles' => $roles,
-            'branches' => $branches
+            'branches' => $branches,
+            'user' => $user ?? null
         ]);
     }
 

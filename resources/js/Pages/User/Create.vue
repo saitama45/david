@@ -66,6 +66,8 @@ const handleCancel = () => {
 };
 const { options: rolesOptions } = useSelectOptions(props.roles);
 const { options: branchesOptions } = useSelectOptions(props.branches);
+
+console.log(props.branches);
 </script>
 <template>
     <Layout heading="Create New User">

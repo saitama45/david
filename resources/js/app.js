@@ -96,6 +96,7 @@ import MobileTableContainer from "./Components/table/MobileTableContainer.vue";
 import MobileTableRow from "./Components/table/MobileTableRow.vue";
 import MobileTableHeading from "./Components/table/MobileTableHeading.vue";
 
+
 const appName = import.meta.env.VITE_APP_NAME || "Laravel";
 import axios from "axios";
 
