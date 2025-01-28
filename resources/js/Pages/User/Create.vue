@@ -6,18 +6,6 @@ import { useToast } from "primevue/usetoast";
 const toast = useToast();
 const confirm = useConfirm();
 
-const form = useForm({
-    first_name: null,
-    middle_name: null,
-    last_name: null,
-    phone_number: null,
-    email: null,
-    password: null,
-    roles: [],
-    remarks: null,
-    assignedBranches: [],
-});
-
 const handleCreate = () => {
     confirm.require({
         message: "Are you sure you want to create this user?",
@@ -60,6 +48,10 @@ const props = defineProps({
         type: Object,
         required: true,
     },
+    user: {
+        type: Object,
+        required: false,
+    },
 });
 const handleCancel = () => {
     router.get(route("users.index"));
@@ -67,7 +59,20 @@ const handleCancel = () => {
 const { options: rolesOptions } = useSelectOptions(props.roles);
 const { options: branchesOptions } = useSelectOptions(props.branches);
 
-console.log(props.branches);
+const form = useForm({
+    first_name: null,
+    middle_name: null,
+    last_name: null,
+    phone_number: null,
+    email: null,
+    password: null,
+    roles: props.user?.roles.map((item) => item.id.toString()) ?? [],
+    remarks: null,
+    assignedBranches:
+        props.user?.store_branches.map((item) => item.id.toString()) ?? [],
+});
+
+console.log(props.user?.store_branches.map((item) => item.id.toString()) ?? []);
 </script>
 <template>
     <Layout heading="Create New User">

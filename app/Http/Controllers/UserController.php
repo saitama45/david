@@ -54,7 +54,6 @@ class UserController extends Controller
         } catch (Exception $e) {
             throw $e;
         }
-        dd($user);
         return Inertia::render('User/Create', [
             'roles' => $roles,
             'branches' => $branches,
