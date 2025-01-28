@@ -236,12 +236,14 @@ const addQuantityApproved = (id) => {
 };
 
 import { useEditQuantity } from "@/Composables/useEditQuantity";
-const {
-    isEditQuantityModalOpen,
-    formQuantity,
-    openEditQuantityModal,
-    editOrderQuantity,
-} = useEditQuantity(null, itemsDetail, props.order);
+const { isEditQuantityModalOpen, formQuantity, editOrderQuantity } =
+    useEditQuantity(null, itemsDetail, props.order);
+
+const openEditQuantityModal = (id, quantity) => {
+    formQuantity.id = id;
+    formQuantity.quantity = quantity;
+    isEditQuantityModalOpen.value = true;
+};
 </script>
 
 <template>
@@ -336,7 +338,7 @@ const {
                                 @click="
                                     openEditQuantityModal(
                                         item.id,
-                                        item.quantity_ordered
+                                        item.quantity_approved
                                     )
                                 "
                             >
