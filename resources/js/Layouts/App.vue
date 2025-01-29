@@ -205,7 +205,7 @@ const exportExcel = () => {
                             href="/cs-approvals"
                             :icon="SquareChartGantt"
                         >
-                            CS Approval
+                            CS Review List
                         </NavLink>
                         <DropdownMenuLabel v-if="canViewReceivingGroup">
                             Receiving

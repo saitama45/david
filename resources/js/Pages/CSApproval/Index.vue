@@ -146,7 +146,7 @@ const exportRoute = route("cs-approvals.export", {
 </script>
 <template>
     <Layout
-        heading="CS Approval List"
+        heading="CS Review List"
         :hasExcelDownload="true"
         :exportRoute="exportRoute"
     >

@@ -407,7 +407,7 @@ const openEditQuantityModal = (id, quantity) => {
         <Dialog v-model:open="showApproveOrderForm">
             <DialogContent class="sm:max-w-[600px]">
                 <DialogHeader>
-                    <DialogTitle>Approve Order</DialogTitle>
+                    <DialogTitle>Confirm Order</DialogTitle>
                     <DialogDescription> </DialogDescription>
                 </DialogHeader>
                 <InputContainer>
@@ -421,7 +421,7 @@ const openEditQuantityModal = (id, quantity) => {
                         type="submit"
                         class="gap-2"
                     >
-                        Approve
+                        Commit
                         <span><Loading v-if="isLoading" /></span>
                     </Button>
                 </DialogFooter>

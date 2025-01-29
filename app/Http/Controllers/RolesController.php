@@ -171,7 +171,7 @@ class RolesController extends Controller
                     str_contains($permission->name, 'approve/decline order request') &&  !str_contains($permission->name, 'cs');
             }),
 
-            'cs_orders_approval' => $permissions->filter(function ($permission) {
+            'cs_review_list' => $permissions->filter(function ($permission) {
                 return str_contains($permission->name, 'orders for cs approval') ||
                     str_contains($permission->name, 'cs approve/decline order request') ||
                     str_contains($permission->name, 'order for cs approval');
