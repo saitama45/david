@@ -47,7 +47,7 @@ class ReceivingApprovalController extends Controller
             $query->whereAny(['order_number'], 'like', "%$search%");
 
 
-        $orders = $query->paginate(10)->withQueryString();
+        $orders = $query->latest()->paginate(10)->withQueryString();
 
         return Inertia::render('ReceivingApproval/Index', [
             'orders' => $orders,
@@ -167,5 +167,3 @@ class ReceivingApprovalController extends Controller
         $storeOrder->save();
     }
 }
-
-
