@@ -161,9 +161,11 @@ import { useAuth } from "@/Composables/useAuth";
 
 const { hasAccess } = useAuth();
 
-const exportRoute = route("stock-management.export", {
-    search: search.value,
-    branchId: branchId.value,
+const exportRoute = computed(() => {
+    route("stock-management.export", {
+        search: search.value,
+        branchId: branchId.value,
+    });
 });
 
 watch(branchId, (value) => {

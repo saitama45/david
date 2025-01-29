@@ -47,9 +47,11 @@ const { hasAccess } = useAuth();
 import { useReferenceDelete } from "@/Composables/useReferenceDelete";
 const { deleteModel } = useReferenceDelete();
 
-const exportRoute = route("items.export", {
-    search: search.value,
-    filter: filter.value,
+const exportRoute = computed(() => {
+    route("items.export", {
+        search: search.value,
+        filter: filter.value,
+    });
 });
 
 const isImportModalVisible = ref(false);

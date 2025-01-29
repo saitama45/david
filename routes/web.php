@@ -273,7 +273,7 @@ Route::middleware('auth')
         Route::middleware('permission:view items order summary')->controller(ProductOrderSummaryController::class)->name('product-orders-summary.')->group(function () {
             Route::get('/product-orders-summary', 'index')->name('index');
             Route::get('/product-orders-summary/show/{id}', 'show')->name('show');
-            Route::get('/product-orders-summary/download-orders-summary-pdf', 'downloadOrdersPdf')->name('download-orders-summary-pdf');
+            Route::get('/product-orders-summary/download-orders-summary-pdf', 'downloadOrdersPdf')->name('export');
         });
         Route::middleware('permission:view ice cream orders')->controller(IceCreamOrderController::class)->name('ice-cream-orders.')->prefix('ice-cream-orders')->group(function () {
             Route::get('/', 'index')->name('index');

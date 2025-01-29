@@ -104,7 +104,9 @@ watch(isEditModalVisible, (value) => {
     }
 });
 
-const exportRoute = route("categories.export", { search: search.value });
+const exportRoute = computed(() => {
+    route("categories.export", { search: search.value });
+});
 </script>
 
 <template>

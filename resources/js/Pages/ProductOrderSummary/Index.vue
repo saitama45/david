@@ -127,25 +127,14 @@ onMounted(() => {
     }
 });
 
-const downloadPdf = () => {
-    const data = {
-        data: {
-            dateRange: dateRange.value,
-            supplierId: supplierId.value,
-            branchId: branchId.value,
-            search: search.value,
-        },
-        preserveState: true,
-        preserveScroll: true,
-        replace: true,
-    };
-
-    window.open(
-        route("product-orders-summary.download-orders-summary-pdf", data.data),
-        "_blank"
-    );
-};
-
+const exportRoute = computed(() => {
+    return route("product-orders-summary.export", {
+        dateRange: dateRange.value,
+        supplierId: supplierId.value,
+        branchId: branchId.value,
+        search: search.value,
+    });
+});
 const isExportModalVisible = ref(true);
 const openExportModal = () => {
     isExportModalVisible.value = true;
@@ -155,9 +144,8 @@ const openExportModal = () => {
 <template>
     <Layout
         heading="Item Orders Summary"
-        :hasButton="true"
-        buttonName="Export to Excel"
-        :handleClick="downloadPdf"
+        :hasExcelDownload="true"
+        :exportRoute="exportRoute"
     >
         <TableContainer>
             <TableHeader class="justify-between gap-5">

@@ -60,26 +60,19 @@ watch(branchId, (value) => {
     );
 });
 
-const exportToExcel = () => {
-    const data = {
-        data: {
-            start_date_filter: selectedDate.value,
-            branchId: branchId.value,
-        },
-        preserveState: true,
-        preserveScroll: true,
-        replace: true,
-    };
-    window.open(route("fruits-and-vegetables.export", data.data), "_blank");
-};
+const exportRoute = computed(() => {
+    return route("fruits-and-vegetables.export", {
+        start_date_filter: selectedDate.value,
+        branchId: branchId.value,
+    });
+});
 </script>
 
 <template>
     <Layout
         heading="Fruits And Vegetables Orders"
-        :hasButton="true"
-        buttonName="Export to Excel"
-        :handleClick="exportToExcel"
+        :hasExcelDownload="true"
+        :exportRoute="exportRoute"
     >
         <TableContainer>
             <TableHeader class="gap-3 sm:flex-row flex-col">

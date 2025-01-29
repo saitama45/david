@@ -94,8 +94,10 @@ const deleteModel = (id) => {
 import { useReferenceStore } from "@/Composables/useReferenceStore";
 const { isCreateModalVisible, openCreateModal, store } = useReferenceStore();
 
-const exportRoute = route("unit-of-measurements.export", {
-    search: search.value,
+const exportRoute = computed(() => {
+    route("unit-of-measurements.export", {
+        search: search.value,
+    });
 });
 </script>
 

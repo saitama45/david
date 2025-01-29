@@ -92,26 +92,19 @@ watch(branchId, function (value) {
     );
 });
 
-const exportToExcel = () => {
-    const data = {
-        data: {
-            start_date_filter: selectedDate.value,
-            branchId: branchId.value,
-        },
-        preserveState: true,
-        preserveScroll: true,
-        replace: true,
-    };
-    window.open(route("salmon-orders.excel", data.data), "_blank");
-};
+const exportRoute = computed(() => {
+    return route("salmon-orders.excel", {
+        start_date_filter: selectedDate.value,
+        branchId: branchId.value,
+    });
+});
 </script>
 
 <template>
     <Layout
         heading="Salmon Orders"
-        :hasButton="true"
-        buttonName="Export to Excel"
-        :handleClick="exportToExcel"
+        :hasExcelDownload="true"
+        :exportRoute="exportRoute"
     >
         <TableContainer>
             <TableHeader>

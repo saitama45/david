@@ -53,7 +53,9 @@ watch(
 import { useReferenceDelete } from "@/Composables/useReferenceDelete";
 const { deleteModel } = useReferenceDelete();
 const templateId = ref(null);
-const exportRoute = route("users.export", { search: search.value });
+const exportRoute = computed(() => {
+    route("users.export", { search: search.value });
+});
 </script>
 
 <template>
