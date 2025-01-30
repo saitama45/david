@@ -4,11 +4,12 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use OwenIt\Auditing\Contracts\Auditable;
 
-class MenuIngredient extends Model
+class MenuIngredient extends Model implements Auditable
 {
     /** @use HasFactory<\Database\Factories\MenuIngredientFactory> */
-    use HasFactory;
+    use HasFactory, \OwenIt\Auditing\Auditable;
 
     protected $fillable = ['menu_id', 'product_inventory_id', 'quantity', 'unit'];
 

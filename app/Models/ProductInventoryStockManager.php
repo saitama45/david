@@ -5,11 +5,12 @@ namespace App\Models;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use OwenIt\Auditing\Contracts\Auditable;
 
-class ProductInventoryStockManager extends Model
+class ProductInventoryStockManager extends Model implements Auditable
 {
     /** @use HasFactory<\Database\Factories\ProductInventoryStockManagerFactory> */
-    use HasFactory;
+    use HasFactory, \OwenIt\Auditing\Auditable;
 
     protected $fillable = [
         'product_inventory_id',

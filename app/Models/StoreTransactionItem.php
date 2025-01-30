@@ -4,11 +4,12 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use OwenIt\Auditing\Contracts\Auditable;
 
-class StoreTransactionItem extends Model
+class StoreTransactionItem extends Model implements Auditable
 {
     /** @use HasFactory<\Database\Factories\StoreTransactionItemFactory> */
-    use HasFactory;
+    use HasFactory, \OwenIt\Auditing\Auditable;
 
     protected $fillable = [
         'store_transaction_id',
