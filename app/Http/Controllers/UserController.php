@@ -119,23 +119,9 @@ class UserController extends Controller
     {
         $validated = $request->validated();
 
-        DB::beginTransaction();
+
         try {
-            $user->update([
-                'first_name' => $validated['first_name'],
-                'middle_name' => $validated['middle_name'] ?? null,
-                'last_name' => $validated['last_name'],
-                'phone_number' => $validated['phone_number'],
-                'email' => $validated['email'],
-                'remarks' => $validated['remarks'] ?? null,
-            ]);
-            $roles = Role::whereIn('id', $validated['roles'])->get();
-            $user->syncRoles($roles);
-
-            $user->store_branches()->sync($validated['assignedBranches']);
-
-            DB::commit();
-
+            $this->userService->updateUser($validated, $user);
             return redirect()->route('users.index');
         } catch (Exception $e) {
             DB::rollBack();

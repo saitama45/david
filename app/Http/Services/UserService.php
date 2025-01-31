@@ -18,4 +18,23 @@ class UserService
         $user->store_branches()->attach($data['assignedBranches']);
         DB::commit();
     }
+
+    public function updateUser(array $data, User $user)
+    {
+        DB::beginTransaction();
+        $user->update([
+            'first_name' => $data['first_name'],
+            'middle_name' => $data['middle_name'] ?? null,
+            'last_name' => $data['last_name'],
+            'phone_number' => $data['phone_number'],
+            'email' => $data['email'],
+            'remarks' => $data['remarks'] ?? null,
+        ]);
+
+        $roles = Role::whereIn('id', $data['roles'])->get();
+        $user->syncRoles($roles);
+        $user->store_branches()->sync($data['assignedBranches']);
+
+        DB::commit();
+    }
 }
