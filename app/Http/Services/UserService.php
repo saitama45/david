@@ -37,4 +37,15 @@ class UserService
 
         DB::commit();
     }
+
+    public function deleteUser(User $user)
+    {
+        $user->load(['usage_records', 'store_orders']);
+        if ($user->usage_records->count() > 0 || $user->store_orders->count() > 0) {
+            return back()->withErrors([
+                'message' => "Can't delete this user because there are data associated with it."
+            ]);
+        }
+        $user->delete();
+    }
 }

@@ -94,21 +94,19 @@ class UserController extends Controller
 
     public function store(StoreUserRequest $request)
     {
-        $validated = $request->validated();
-        $this->userService->createUser($validated);
-        return redirect()->route('users.index');
+        try {
+            $this->userService->createUser($request->validated());
+            return redirect()->route('users.index');
+        } catch (Exception $e) {
+            DB::rollBack();
+            return back()->withErrors(['error' => $e->getMessage()]);
+        }
     }
 
-    public function destroy($id)
+    public function destroy(User $user)
     {
-        $user = User::with(['usage_records', 'store_orders'])->findOrFail($id);
-        if ($user->usage_records->count() > 0 || $user->store_orders->count() > 0) {
-            return back()->withErrors([
-                'message' => "Can't delete this user because there are data associated with it."
-            ]);
-        }
         try {
-            $user->delete();
+            $this->userService->deleteUser($user);
         } catch (Exception $e) {
             return back()->withErrors(['error' => $e->getMessage()]);
         }
@@ -117,11 +115,8 @@ class UserController extends Controller
 
     public function update(UpdateUserRequest $request, User $user)
     {
-        $validated = $request->validated();
-
-
         try {
-            $this->userService->updateUser($validated, $user);
+            $this->userService->updateUser($request->validated(), $user);
             return redirect()->route('users.index');
         } catch (Exception $e) {
             DB::rollBack();
