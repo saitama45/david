@@ -6,6 +6,7 @@ use App\Enum\UserRole;
 use App\Exports\UsersExport;
 use App\Http\Requests\User\StoreUserRequest;
 use App\Http\Requests\User\UpdateUserRequest;
+use App\Http\Services\UserService;
 use App\Models\StoreBranch;
 use App\Models\User;
 use Exception;
@@ -19,6 +20,12 @@ use Spatie\Permission\Models\Role;
 
 class UserController extends Controller
 {
+    protected $userService;
+
+    public function __construct(UserService $userService)
+    {
+        $this->userService = $userService;
+    }
     public function index()
     {
         $search = request('search');
@@ -88,25 +95,7 @@ class UserController extends Controller
     public function store(StoreUserRequest $request)
     {
         $validated = $request->validated();
-
-        $validated['password'] = 'password';
-
-        DB::beginTransaction();
-        try {
-            $user = User::create($validated);
-            $roles = Role::whereIn('id', $validated['roles'])->get();
-            $user->assignRole($roles);
-            $validatedAssignedStoreBranches = $request->validate([
-                'assignedBranches' => ['required', 'array'],
-            ]);
-            $user->store_branches()->attach($validatedAssignedStoreBranches['assignedBranches']);
-
-            DB::commit();
-        } catch (Exception $e) {
-            DB::rollBack();
-            return back()->withErrors(['error' => $e->getMessage()]);
-        }
-
+        $this->userService->createUser($validated);
         return redirect()->route('users.index');
     }
 
