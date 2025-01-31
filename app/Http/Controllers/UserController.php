@@ -4,6 +4,8 @@ namespace App\Http\Controllers;
 
 use App\Enum\UserRole;
 use App\Exports\UsersExport;
+use App\Http\Requests\User\StoreUserRequest;
+use App\Http\Requests\User\UpdateUserRequest;
 use App\Models\StoreBranch;
 use App\Models\User;
 use Exception;
@@ -61,9 +63,9 @@ class UserController extends Controller
         ]);
     }
 
-    public function edit($id)
+    public function edit(User $user)
     {
-        $user = User::with(['roles', 'store_branches'])->find($id);
+        $user->load(['roles', 'store_branches']);
         $roles = Role::select(['id', 'name'])->pluck('name', 'id');
         $branches = StoreBranch::options();
         return Inertia::render('User/Edit', [
@@ -83,18 +85,9 @@ class UserController extends Controller
         );
     }
 
-    public function store(Request $request)
+    public function store(StoreUserRequest $request)
     {
-        $validated = $request->validate([
-            'first_name' => ['required'],
-            'middle_name' => ['sometimes'],
-            'last_name' => ['required'],
-            'phone_number' => ['required', 'regex:/^09\d{9}$/'],
-            'email' => ['required', 'unique:users,email'],
-            'roles' => ['required'],
-            'remarks' => ['nullable'],
-            'assignedBranches' => ['required', 'array'],
-        ]);
+        $validated = $request->validated();
 
         $validated['password'] = 'password';
 
@@ -133,23 +126,12 @@ class UserController extends Controller
         return to_route('users.index');
     }
 
-    public function update(Request $request, $id)
+    public function update(UpdateUserRequest $request, User $user)
     {
-        $validated = $request->validate([
-            'first_name' => ['required'],
-            'middle_name' => ['nullable'],
-            'last_name' => ['required'],
-            'phone_number' => ['required', 'regex:/^09\d{9}$/'],
-            'email' => ['required', 'unique:users,email,' . $id],
-            'roles' => ['required', 'array'],
-            'remarks' => ['nullable'],
-            'assignedBranches' => ['required', 'array'],
-        ]);
+        $validated = $request->validated();
 
         DB::beginTransaction();
         try {
-            $user = User::findOrFail($id);
-
             $user->update([
                 'first_name' => $validated['first_name'],
                 'middle_name' => $validated['middle_name'] ?? null,

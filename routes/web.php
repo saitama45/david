@@ -59,8 +59,8 @@ Route::middleware('auth')
                 Route::post('/users/store', 'store')->name('store');
             });
             Route::middleware('permission:edit users')->group(function () {
-                Route::get('/users/edit/{id}', 'edit')->name('edit');
-                Route::post('/users/update/{id}', 'update')->name('update');
+                Route::get('/users/edit/{user}', 'edit')->name('edit');
+                Route::post('/users/update/{user}', 'update')->name('update');
             });
             Route::middleware('permission:delete users')->delete('/users/destroy/{id}', 'destroy')->name('destroy');
             Route::middleware('permission:view users')->get('/export', 'export')->name('export');
