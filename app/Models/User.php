@@ -104,6 +104,11 @@ class User extends Authenticatable implements Auditable
         ];
     }
 
+    public function scopeUsersOption(Builder $query)
+    {
+        return $query->select(['id', 'first_name', 'last_name'])->get()->pluck('full_name', 'id');
+    }
+
     public function getFullNameAttribute()
     {
         return $this->first_name . " " . $this->last_name;

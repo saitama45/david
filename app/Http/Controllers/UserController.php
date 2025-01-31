@@ -30,19 +30,14 @@ class UserController extends Controller
     {
         $search = request('search');
         try {
-            $usersList = User::select(['id', 'first_name', 'last_name'])->get()->pluck('full_name', 'id');
-            $query = User::query()->with('roles');
-            if ($search) {
-                $query->whereAny(['first_name', 'last_name', 'email'], 'like', "%$search%");
-            }
-            $users = $query->latest()->paginate(10)->withQueryString();
+            $usersList = User::usersOption();
+            $users = $this->userService->getUsersList($search);
         } catch (Exception $e) {
             report($e);
             return back()->withErrors([
                 'error' => $e->getMessage()
             ]);
         }
-
         return Inertia::render('User/Index', [
             'users' => $users,
             'filters' => request()->only(['search']),

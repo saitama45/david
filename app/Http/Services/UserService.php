@@ -48,4 +48,15 @@ class UserService
         }
         $user->delete();
     }
+
+    public function getUsersList(?string $search = null)
+    {
+        $query = User::query()
+            ->select(['id', 'first_name', 'last_name', 'email', 'is_active'])
+            ->withOnly(['roles:name']);
+        if ($search) {
+            $query->whereAny(['first_name', 'last_name', 'email'], 'like', "%$search%");
+        }
+        return $query->latest()->paginate(10)->withQueryString();
+    }
 }
