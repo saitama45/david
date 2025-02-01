@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Exports\RolesExport;
 use App\Http\Requests\Role\StoreRoleRequest;
+use App\Http\Requests\Role\UpdateRoleRequest;
 use Exception;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -71,11 +72,7 @@ class RolesController extends Controller
 
     public function create()
     {
-
-
         $groupedPermissions = $this->getPermissionsGroup();
-
-
         $groupedPermissions = collect($groupedPermissions)->map(function ($permissions) {
             return $permissions->pluck('name', 'id');
         });
@@ -112,15 +109,9 @@ class RolesController extends Controller
         );
     }
 
-    public function update(Request $request, $id)
+    public function update(UpdateRoleRequest $request, Role $role)
     {
-        $role = Role::findOrFail($id);
-        $validated = $request->validate([
-            'name' => ['required', 'string', 'unique:roles,name,' . $role->id],
-            'selectedPermissions' => ['required', 'array'],
-            'selectedPermissions.*' => ['exists:permissions,id'],
-        ]);
-
+        $validated = $request->validated();
         DB::beginTransaction();
         try {
             $role->update([

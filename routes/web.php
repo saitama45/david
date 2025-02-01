@@ -71,9 +71,9 @@ Route::middleware('auth')
             Route::middleware('permission:view roles')->get('/', 'index')->name('index');
             Route::middleware('permission:create roles')->get('/create', 'create')->name('create');
             Route::middleware('permission:create roles')->post('/store', 'store')->name('store');
-            Route::middleware('permission:edit roles')->get('/edit/{id}', 'edit')->name('edit');
-            Route::middleware('permission:edit roles')->put('/update/{id}', 'update')->name('update');
-            Route::middleware('permission:delete roles')->delete('/destroy/{id}', 'destroy')->name('destroy');
+            Route::middleware('permission:edit roles')->get('/edit/{role}', 'edit')->name('edit');
+            Route::middleware('permission:edit roles')->put('/update/{role}', 'update')->name('update');
+            Route::middleware('permission:delete roles')->delete('/destroy/{role}', 'destroy')->name('destroy');
             Route::middleware('permission:view roles')->get('/export', 'export')->name('export');
         });
 
