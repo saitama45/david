@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Exports\RolesExport;
+use App\Http\Requests\Role\StoreRoleRequest;
 use Exception;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -83,13 +84,9 @@ class RolesController extends Controller
             'permissions' => $groupedPermissions
         ]);
     }
-    public function store(Request $request)
+    public function store(StoreRoleRequest $request)
     {
-        $validated = $request->validate([
-            'name' => ['required', 'string', 'max:255', 'unique:roles'],
-            'selectedPermissions' => ['required', 'array'],
-            'selectedPermissions.*' => ['exists:permissions,id'],
-        ]);
+        $validated = $request->validated();
 
         DB::beginTransaction();
         try {
