@@ -27,6 +27,6 @@ class Supplier extends Model implements Auditable
 
     public function scopeOptions(Builder $query)
     {
-        return $query->where('is_active', true)->pluck('name', 'id');
+        return $query->whereNot('supplier_code', 'DROPS')->where('is_active', true)->pluck('name', 'id');
     }
 }

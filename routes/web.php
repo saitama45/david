@@ -106,8 +106,8 @@ Route::middleware('auth')
                 Route::post('/store-orders', 'getImportedOrders')->name('imported-file');
             });
             Route::middleware('permission:edit store orders')->group(function () {
-                Route::get('/edit/{id}', 'edit')->name('edit');
-                Route::put('/update/{id}', 'update')->name('update');
+                Route::get('/edit/{store_order}', 'edit')->name('edit');
+                Route::put('/update/{store_order}', 'update')->name('update');
             });
 
             Route::middleware('permission:view dts orders')->get('/export', 'export')->name('export');

@@ -6,7 +6,9 @@ use App\Enum\OrderRequestStatus;
 use App\Enum\OrderStatus;
 use App\Exports\StoreOrdersExport;
 use App\Exports\UsersExport;
-use App\Http\Requests\Api\StoreOrderRequest;
+use App\Http\Requests\StoreOrder\StoreOrderRequest;
+use App\Http\Requests\StoreOrder\UpdateOrderRequest;
+use App\Http\Services\StoreOrderService;
 use App\Imports\OrderListImport;
 use Inertia\Inertia;
 use App\Models\ProductInventory;
@@ -25,45 +27,16 @@ use Maatwebsite\Excel\Facades\Excel;
 
 class StoreOrderController extends Controller
 {
+    protected $storeOrderService;
+
+    public function __construct(StoreOrderService $storeOrderService)
+    {
+        $this->storeOrderService = $storeOrderService;
+    }
     public function index()
     {
-        $from = request('from') ? Carbon::parse(request('from'))->format('Y-m-d') : '1999-01-01';
-        $to = request('to') ? Carbon::parse(request('to'))->addDay()->format('Y-m-d') : Carbon::today()->addMonth();
-        $branchId = request('branchId');
-        $search = request('search');
-        $filterQuery = request('filterQuery') ?? 'pending';
-
-        $query = StoreOrder::query()->with(['store_branch', 'supplier']);
-
-        $user = User::rolesAndAssignedBranches();
-
-        if (!$user['isAdmin']) $query->whereIn('store_branch_id', $user['assignedBranches']);
-
-        if ($from && $to) {
-            $query->whereBetween('order_date', [$from, $to]);
-        }
-
-        if ($filterQuery !== 'all')
-            $query->where('order_request_status', $filterQuery);
-
-        if ($branchId)
-            $query->where('store_branch_id', $branchId);
-
-
-        if ($search)
-            $query->where('order_number', 'like', '%' . $search . '%')
-                ->orWhereHas('store_branch', function ($query) use ($search) {
-                    $query->where('name', 'like', '%' . $search . '%');
-                });
-
-        $orders = $query
-            ->where('variant', 'regular')
-            ->latest()
-            ->paginate(10)
-            ->withQueryString();
-
+        $orders = $this->storeOrderService->getOrdersList();
         $branches = StoreBranch::options();
-
         return Inertia::render(
             'StoreOrder/Index',
             [
@@ -88,65 +61,26 @@ class StoreOrderController extends Controller
         );
     }
 
-    public function create(Request $request)
+    public function create()
     {
-        if ($request->has('orderId')) {
-            $orderId = $request->input('orderId');
-            $previousOrder = StoreOrder::with(['store_order_items', 'store_order_items.product_inventory', 'store_order_items.product_inventory.unit_of_measurement'])->find($orderId);
-        }
-
         $products = ProductInventory::options();
         $suppliers = Supplier::whereNot('supplier_code', 'DROPS')->options();
-
         $branches = StoreBranch::options();
 
         return Inertia::render('StoreOrder/Create', [
             'products' => $products,
             'branches' => $branches,
             'suppliers' => $suppliers,
-            'previousOrder' => $previousOrder ?? null
+            'previousOrder' => $this->storeOrderService->getPreviousOrderReference()
         ]);
     }
 
-    public function store(Request $request)
+    public function store(StoreOrderRequest $request)
     {
-        $validated = $request->validate([
-            'branch_id' => ['required', 'exists:store_branches,id'],
-            'supplier_id' => ['required', 'exists:suppliers,id'],
-            'order_date' => ['required'],
-            'orders' => ['required', 'array']
-        ], [
-            'branch_id.required' => 'Store field branch is required',
-            'supplier_id.required' => 'Supplier field is required'
-        ]);
-
-        $supplier = Supplier::find($validated['supplier_id'])->id;
-
-
         try {
-            DB::beginTransaction();
-            $order = StoreOrder::create([
-                'encoder_id' => Auth::user()->id,
-                'supplier_id' => $supplier,
-                'store_branch_id' => $validated['branch_id'],
-                'order_number' => $this->getOrderNumber($validated['branch_id']),
-                'order_date' => Carbon::parse($validated['order_date'])->addDays(1)->format('Y-m-d'),
-                'order_status' => OrderStatus::PENDING->value,
-                'order_request_status' => OrderRequestStatus::PENDING->value,
-            ]);
-
-
-            foreach ($validated['orders'] as $data) {
-                $order->store_order_items()->create([
-                    'product_inventory_id' => $data['id'],
-                    'quantity_ordered' => $data['quantity'],
-                    'total_cost' => $data['total_cost'],
-                ]);
-            }
-            DB::commit();
+            $this->storeOrderService->createStoreOrder($request->validated());
         } catch (Exception $e) {
             DB::rollBack();
-            dd($e);
         }
 
         return redirect()->route('store-orders.index');
@@ -154,42 +88,13 @@ class StoreOrderController extends Controller
 
     public function show($id)
     {
-
-        $order = StoreOrder::with([
-            'encoder',
-            'approver',
-            'commiter',
-            'delivery_receipts',
-            'store_branch',
-            'supplier',
-            'store_order_items',
-            'store_order_remarks',
-            'store_order_remarks.user',
-            'ordered_item_receive_dates',
-            'ordered_item_receive_dates.receiver',
-            'ordered_item_receive_dates.store_order_item',
-            'ordered_item_receive_dates.store_order_item.product_inventory',
-            'image_attachments' => function ($query) {
-                $query->where('is_approved', true);
-            },
-        ])->where('order_number', $id)->firstOrFail();
-        $orderedItems = $order->store_order_items()->with(['product_inventory', 'product_inventory.unit_of_measurement'])->get();
-
-
-        $images = $order->image_attachments->map(function ($image) {
-            return [
-                'id' => $image->id,
-                'image_url' => Storage::url($image->file_path),
-            ];
-        });
-
-        $receiveDatesHistory = $order->ordered_item_receive_dates;
+        $order = $this->storeOrderService->getOrderDetails($id);
 
         return Inertia::render('StoreOrder/Show', [
             'order' => $order,
-            'orderedItems' => $orderedItems,
-            'receiveDatesHistory' => $receiveDatesHistory,
-            'images' => $images
+            'orderedItems' => $this->storeOrderService->getOrderItems($order),
+            'receiveDatesHistory' => $order->ordered_item_receive_dates,
+            'images' =>  $this->storeOrderService->getImageAttachments($order)
         ]);
     }
 
@@ -206,15 +111,10 @@ class StoreOrderController extends Controller
 
     public function edit($id)
     {
-        $order = StoreOrder::with(['store_branch', 'supplier', 'store_order_items'])
-            ->where('order_number', $id)->firstOrFail();
-
-        if ($order->order_request_status !== OrderRequestStatus::PENDING->value)
-            abort(401, 'Order can no longer be updated');
-        $orderedItems = $order->store_order_items()->with(['product_inventory', 'product_inventory.unit_of_measurement'])->get();
+        $order = $this->storeOrderService->getOrder($id);
+        $orderedItems = $this->storeOrderService->getOrderItems($order);
         $products = ProductInventory::options();
-        $suppliers = Supplier::whereNot('supplier_code', 'DROPS')->options();
-
+        $suppliers = Supplier::options();
         $branches = StoreBranch::options();
 
         return Inertia::render('StoreOrder/Edit', [
@@ -226,73 +126,13 @@ class StoreOrderController extends Controller
         ]);
     }
 
-    public function update(Request $request, $id)
+    public function update(UpdateOrderRequest $request, StoreOrder $storeOrder)
     {
-
-
-        $validated = $request->validate([
-            'supplier_id' => ['required'],
-            'branch_id' => ['required', 'exists:store_branches,id'],
-            'order_date' => ['required'],
-            'orders' => ['required', 'array']
-        ], [
-            'branch_id.required' => 'Store branch is required'
-        ]);
-
-
-
-        $order = StoreOrder::with('store_order_items')->findOrFail($id);
-
-
-        DB::beginTransaction();
-
-        if ($order->store_branch_id !== $validated['branch_id'])
-            $order->order_number = $this->getOrderNumber($validated['branch_id']);
-
-
-        $order->update([
-            'supplier_id' => $validated['supplier_id'],
-            'store_branch_id' => $validated['branch_id'],
-            'order_date' => Carbon::parse($validated['order_date'])->addDays(1)->format('Y-m-d'),
-        ]);
-
-        $updatedProductIds = collect($validated['orders'])->pluck('id')->toArray();
-
-        $order->store_order_items()
-            ->whereNotIn('product_inventory_id', $updatedProductIds)
-            ->delete();
-
-        foreach ($validated['orders'] as $data) {
-            $order->store_order_items()->updateOrCreate(
-                [
-                    'store_order_id' => $order->id,
-                    'product_inventory_id' => $data['id'],
-                ],
-                [
-                    'quantity_ordered' => $data['quantity'],
-                    'total_cost' => $data['total_cost'],
-                ]
-            );
-        }
-
-        $order->save();
-        DB::commit();
+        $order =  $storeOrder->load('store_order_items');
+        $this->storeOrderService->updateOrder($order, $request->validated());
 
         return redirect()->route('store-orders.index');
     }
 
-    public function getOrderNumber($id)
-    {
-        $branchId = $id;
-        $branchCode = StoreBranch::select('branch_code')->findOrFail($branchId)->branch_code;
-        $orderCount = StoreOrder::where('store_branch_id', $branchId)->count() + 1;
-        while (true) {
-            $orderNumber = str_pad($orderCount, 5, '0', STR_PAD_LEFT);
-            $store_order_number = "$branchCode-$orderNumber";
-            $result = StoreOrder::where('order_number', $store_order_number)->first();
-            $orderCount++;
-            if (!$result) break;
-        }
-        return $store_order_number;
-    }
+
 }
