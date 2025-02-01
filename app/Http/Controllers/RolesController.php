@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Exports\RolesExport;
 use App\Http\Requests\Role\StoreRoleRequest;
 use App\Http\Requests\Role\UpdateRoleRequest;
+use App\Http\Services\RoleService;
 use Exception;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -15,9 +16,14 @@ use Spatie\Permission\Models\Role;
 
 class RolesController extends Controller
 {
+    protected $roleService;
+
+    public function __construct(RoleService $roleService)
+    {
+        $this->roleService = $roleService;
+    }
     public function index()
     {
-
         $search = request('search');
         $query = Role::query()->with('permissions');
 
@@ -83,13 +89,9 @@ class RolesController extends Controller
     }
     public function store(StoreRoleRequest $request)
     {
-        $validated = $request->validated();
-
         DB::beginTransaction();
         try {
-            $role = Role::create(['name' => $validated['name']]);
-            $permissions = Permission::whereIn('id', $validated['selectedPermissions'])->get();
-            $role->syncPermissions($permissions);
+            $this->roleService->createRole($request->validated());
         } catch (Exception $e) {
             return back()->withErrors(['error' => $e->getMessage()]);
         }
