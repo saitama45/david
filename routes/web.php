@@ -53,7 +53,7 @@ Route::middleware('auth')
         // User
         Route::controller(UserController::class)->name('users.')->group(function () {
             Route::middleware('permission:view users')->get('/users', 'index')->name('index');
-            Route::middleware('permission:view user')->get('/users/show/{id}', 'show')->name('show');
+            Route::middleware('permission:view user')->get('/users/show/{user}', 'show')->name('show');
             Route::middleware('permission:create users')->group(function () {
                 Route::get('/users/create', 'create')->name('create');
                 Route::post('/users/store', 'store')->name('store');

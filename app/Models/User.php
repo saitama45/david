@@ -128,4 +128,9 @@ class User extends Authenticatable implements Auditable
             'created_at'     => now(),
         ]);
     }
+
+    public function scopeUserWithRolesAndBranches(Builder $query, $id)
+    {
+        return $query->with(['roles', 'store_branches'])->find($id);
+    }
 }

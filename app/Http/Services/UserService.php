@@ -49,8 +49,9 @@ class UserService
         $user->delete();
     }
 
-    public function getUsersList(?string $search = null)
+    public function getUsersList()
     {
+        $search = request('search');
         $query = User::query()
             ->select(['id', 'first_name', 'last_name', 'email', 'is_active'])
             ->withOnly(['roles:name']);
@@ -58,5 +59,12 @@ class UserService
             $query->whereAny(['first_name', 'last_name', 'email'], 'like', "%$search%");
         }
         return $query->latest()->paginate(10)->withQueryString();
+    }
+
+    public function getUserFromTemplate()
+    {
+        
+        $templateId = request('templateId');
+        return $templateId ? User::with(['roles', 'store_branches'])->findOrFail($templateId) : null;
     }
 }

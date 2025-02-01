@@ -17,6 +17,7 @@ use Inertia\Inertia;
 use Illuminate\Support\Str;
 use Maatwebsite\Excel\Facades\Excel;
 use Spatie\Permission\Models\Role;
+use App\Models\Role as ExtendedRole;
 
 class UserController extends Controller
 {
@@ -26,18 +27,12 @@ class UserController extends Controller
     {
         $this->userService = $userService;
     }
+    
     public function index()
     {
-        $search = request('search');
-        try {
-            $usersList = User::usersOption();
-            $users = $this->userService->getUsersList($search);
-        } catch (Exception $e) {
-            report($e);
-            return back()->withErrors([
-                'error' => $e->getMessage()
-            ]);
-        }
+        $usersList = User::usersOption();
+        $users = $this->userService->getUsersList();
+
         return Inertia::render('User/Index', [
             'users' => $users,
             'filters' => request()->only(['search']),
@@ -47,17 +42,11 @@ class UserController extends Controller
 
     public function create()
     {
-        $templateId = request('templateId');
-        try {
-            $user = $templateId ? User::with(['roles', 'store_branches'])->findOrFail($templateId) : null;
-            $roles = Role::select(['id', 'name'])->pluck('name', 'id');
-            $branches = StoreBranch::options();
-            foreach ($roles as &$role) {
-                $role = Str::headline($role);
-            }
-        } catch (Exception $e) {
-            throw $e;
-        }
+
+        $user = $this->userService->getUserFromTemplate();
+        $roles = ExtendedRole::rolesOption();
+        $branches = StoreBranch::options();
+
         return Inertia::render('User/Create', [
             'roles' => $roles,
             'branches' => $branches,
@@ -119,9 +108,9 @@ class UserController extends Controller
         }
     }
 
-    public function show($id)
+    public function show(User $user)
     {
-        $user = User::with(relations: ['roles', 'store_branches'])->find($id);
+        $user->load(['roles', 'store_branches']);
         return Inertia::render('User/Show', [
             'user' => $user
         ]);
