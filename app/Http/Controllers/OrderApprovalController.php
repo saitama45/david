@@ -4,6 +4,9 @@ namespace App\Http\Controllers;
 
 use App\Enum\OrderRequestStatus;
 use App\Exports\OrderApprovalsExport;
+use App\Http\Requests\OrderApproval\ApproveOrderRequest;
+use App\Http\Requests\OrderApproval\RejectOrderRequest;
+use App\Http\Services\OrderApprovalService;
 use App\Models\Order;
 use App\Models\StoreOrder;
 use App\Models\StoreOrderItem;
@@ -14,36 +17,24 @@ use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
 use Maatwebsite\Excel\Facades\Excel;
 
+
 class OrderApprovalController extends Controller
 {
+    protected $orderApprovalService;
+
+    public function __construct(OrderApprovalService $orderApprovalService)
+    {
+        $this->orderApprovalService = $orderApprovalService;
+    }
+
     public function index()
     {
-        $search = request('search');
-        $filter = request('currentFilter') ?? 'pending';
-
-        $query = StoreOrder::query()->with(['store_branch', 'supplier']);
-
-        $counts = [
-            'pending' => (clone $query)->where('manager_approval_status', 'pending')->count(),
-            'approved' => (clone $query)->where('manager_approval_status', 'approved')->count(),
-            'rejected' => (clone $query)->where('manager_approval_status', 'rejected')->count(),
-        ];
-
-
-        if ($search)
-            $query->where('order_number', 'like', '%' . $search . '%');
-
-        if ($filter)
-            $query->where('manager_approval_status', $filter);
-
-        $orders = $query->latest()
-            ->paginate(10)
-            ->withQueryString();
+        $data = $this->orderApprovalService->getOrdersAndCounts();
 
         return Inertia::render('OrderApproval/Index', [
-            'orders' => $orders,
+            'orders' =>  $data['orders'],
             'filters' => request()->only(['search', 'currentFilter']),
-            'counts' => $counts
+            'counts' => $data['counts']
         ]);
     }
 
@@ -60,78 +51,24 @@ class OrderApprovalController extends Controller
 
     public function show($id)
     {
-        $order = StoreOrder::with(['store_branch', 'supplier', 'store_order_items'])->where('order_number', $id)->firstOrFail();
-        $orderedItems = $order->store_order_items()->with(['product_inventory', 'product_inventory.unit_of_measurement'])->get();
+        $order =  $this->orderApprovalService->getOrder($id);
+        $orderedItems = $this->orderApprovalService->getOrderItems($order);
         return Inertia::render('OrderApproval/Show', [
             'order' => $order,
             'orderedItems' => $orderedItems
         ]);
     }
 
-    public function approve(Request $request)
+    public function approve(ApproveOrderRequest $request)
     {
-        $validated = $request->validate([
-            'id' => ['required'],
-            'remarks' => ['sometimes'],
-            'updatedOrderedItemDetails' => ['required']
-        ]);
+        $this->orderApprovalService->approveOrder($request->validated());
 
-        DB::beginTransaction();
-        $storeOrder = StoreOrder::findOrFail($validated['id']);
-        $storeOrder->update([
-            'manager_approval_status' => OrderRequestStatus::APRROVED->value,
-            'approver_id' => Auth::user()->id,
-            'approval_action_date' => Carbon::now()
-        ]);
-
-        foreach ($validated['updatedOrderedItemDetails'] as $item) {
-            $orderedItem = StoreOrderItem::find($item['id']);
-            $orderedItem->update([
-                'total_cost' => $item['total_cost'],
-                'quantity_approved' => $item['quantity_approved'],
-            ]);
-
-            // $orderedItem->ordered_item_receive_dates()->create([
-            //     'received_by_user_id' => $storeOrder->encoder_id,
-            //     'quantity_received' => $item['quantity_approved'],
-            // ]);
-        }
-        if (!empty($validated['remarks'])) {
-            $storeOrder->store_order_remarks()->create([
-                'user_id' => Auth::user()->id,
-                'action' => 'manager approved order',
-                'remarks' => $validated['remarks']
-            ]);
-        }
-
-        DB::commit();
         return to_route('orders-approval.index');
     }
 
-    public function reject(Request $request)
+    public function reject(RejectOrderRequest $request)
     {
-        $validated = $request->validate([
-            'id' => ['required'],
-            'remarks' => ['sometimes']
-        ]);
-        $storeOrder = StoreOrder::findOrFail($validated['id']);
-        $storeOrder->update([
-            'manager_approval_status' => OrderRequestStatus::REJECTED->value,
-            'approver_id' => Auth::user()->id,
-            'approval_action_date' => Carbon::now()
-        ]);
-        if (!empty($validated['remarks'])) {
-            $storeOrder->store_order_remarks()->create([
-                'user_id' => Auth::user()->id,
-                'action' => 'manager rejected order',
-                'remarks' => $validated['remarks']
-            ]);
-        }
+        $this->orderApprovalService->rejectOrder($request->validated());
         return to_route('orders-approval.index');
-    }
-
-    public function addRemarks($id)
-    {
-        dd($id);
     }
 }
