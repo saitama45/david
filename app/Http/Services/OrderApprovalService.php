@@ -11,18 +11,23 @@ use Illuminate\Support\Facades\DB;
 
 class OrderApprovalService extends StoreOrderService
 {
-    public function getOrdersAndCounts()
+    public function getOrdersAndCounts($condition = null)
     {
+        $condition = $condition ?: 'manager_approval_status';
         $search = request('search');
         $filter = request('currentFilter') ?? 'pending';
 
         $query = StoreOrder::query()->with(['store_branch', 'supplier']);
-        $counts = $this->getCounts($query);
+
+        if ($condition != 'manager_approval_status')
+            $query->where('manager_approval_status', 'approved');
+
+        $counts = $this->getCounts($query, $condition);
         if ($search)
             $query->where('order_number', 'like', '%' . $search . '%');
 
         if ($filter)
-            $query->where('manager_approval_status', $filter);
+            $query->where($condition, $filter);
 
         return [
             'orders' => $query->latest()
@@ -32,12 +37,12 @@ class OrderApprovalService extends StoreOrderService
         ];
     }
 
-    public function getCounts($query)
+    public function getCounts($query, $condition)
     {
         return [
-            'pending' => (clone $query)->where('manager_approval_status', 'pending')->count(),
-            'approved' => (clone $query)->where('manager_approval_status', 'approved')->count(),
-            'rejected' => (clone $query)->where('manager_approval_status', 'rejected')->count(),
+            'pending' => (clone $query)->where($condition, 'pending')->count(),
+            'approved' => (clone $query)->where($condition, 'approved')->count(),
+            'rejected' => (clone $query)->where($condition, 'rejected')->count(),
         ];
     }
 
