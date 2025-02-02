@@ -91,7 +91,7 @@ Route::middleware('auth')
             Route::middleware('permission:create dts orders')->post('/store', 'store')->name('store');
             Route::middleware('permission:view dts order')->get('/show/{id}', 'show')->name('show');
             Route::middleware('permission:edit dts orders')->get('/edit/{id}', 'edit')->name('edit');
-            Route::middleware('permission:edit dts orders')->put('/update/{id}', 'update')->name('update');
+            Route::middleware('permission:edit dts orders')->put('/update/{store_order}', 'update')->name('update');
 
             Route::get('/export', 'export')->name('export');
         });

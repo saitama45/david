@@ -39,7 +39,7 @@ const productId = ref(null);
 const isLoading = ref(false);
 console.log(props.order);
 const orderForm = useForm({
-    supplier_id: props.order.supplier_id + "",
+    supplier_id: props.order.supplier_id.toString(),
     branch_id: props.order.store_branch_id + "",
     order_date: props.order.order_date,
     orders: [],

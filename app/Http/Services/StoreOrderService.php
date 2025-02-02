@@ -14,6 +14,7 @@ use Illuminate\Support\Facades\Storage;
 
 class StoreOrderService
 {
+    
     public function getOrderNumber($id)
     {
         $branchId = $id;

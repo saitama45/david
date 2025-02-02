@@ -134,5 +134,7 @@ class StoreOrderController extends Controller
         return redirect()->route('store-orders.index');
     }
 
+    
+
 
 }
