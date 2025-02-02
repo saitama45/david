@@ -5,7 +5,7 @@ namespace App\Http\Requests\StoreTransaction;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Support\Facades\Auth;
 
-class StoreStoreTransactionRequest extends FormRequest
+class UpdateStoreTransactionRequest extends FormRequest
 {
     /**
      * Determine if the user is authorized to make this request.

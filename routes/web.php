@@ -178,7 +178,7 @@ Route::middleware('auth')
         // Store Transactions 
         Route::controller(StoreTransactionController::class)->name('store-transactions.')->prefix('store-transactions')->group(function () {
             Route::middleware('permission:view store transactions')->get('/', 'index')->name('index');
-            Route::middleware('permission:view store transaction')->get('/show/{id}', 'show')->name('show');
+            Route::middleware('permission:view store transaction')->get('/show/{store_transaction}', 'show')->name('show');
 
             Route::middleware('permission:create store transactions')->group(function () {
                 Route::get('/create', 'create')->name('create');
@@ -187,8 +187,8 @@ Route::middleware('auth')
             });
 
             Route::middleware('permission:edit store transactions')->group(function () {
-                Route::get('/edit/{id}', 'edit')->name('edit');
-                Route::put('/update/{id}', 'update')->name('update');
+                Route::get('/edit/{store_transaction}', 'edit')->name('edit');
+                Route::put('/update/{store_transaction}', 'update')->name('update');
             });
 
             Route::middleware('permission:view store transactions')->get('export', 'export')->name('export');
