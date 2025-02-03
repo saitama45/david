@@ -33,6 +33,9 @@ const props = defineProps({
     },
 });
 
+const orderStatus = ref(props.order.order_status);
+console.log(orderStatus.value);
+
 const isImageModalVisible = ref(false);
 const openImageModal = () => {
     isImageModalVisible.value = true;
@@ -590,7 +593,10 @@ const deleteDeliveryReceiptNumber = (id) => {
                                         <Eye />
                                     </ShowButton>
                                     <Button
-                                        v-if="canReceive"
+                                        v-if="
+                                            canReceive &&
+                                            orderStatus === 'incomplete'
+                                        "
                                         @click="openReceiveForm(order.id)"
                                         class="text-green-500"
                                         variant="link"

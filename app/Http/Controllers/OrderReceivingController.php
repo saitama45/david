@@ -68,7 +68,7 @@ class OrderReceivingController extends Controller
 
     public function receive(ReceiveOrderRequest $request, $id)
     {
-        $this->orderReceivingService->receiveOrder($id, $request->validated);
+        $this->orderReceivingService->receiveOrder($id, $request->validated());
         return redirect()->back();
     }
 
