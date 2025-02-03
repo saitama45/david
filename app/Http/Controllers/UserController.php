@@ -27,7 +27,7 @@ class UserController extends Controller
     {
         $this->userService = $userService;
     }
-    
+
     public function index()
     {
         $usersList = User::usersOption();
@@ -68,6 +68,7 @@ class UserController extends Controller
 
     public function export(Request $request)
     {
+        dd($request);
         $search = $request->input('search');
 
         return Excel::download(

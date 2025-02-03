@@ -79,17 +79,17 @@ class OrderApprovalService extends StoreOrderService
             'approval_action_date' => Carbon::now()
         ]);
 
-        $this->addRemarks($storeOrder, $data['remarks']);
+        $this->addRemarks($storeOrder, $data['remarks'], 'reject');
 
         DB::commit();
     }
 
-    public function addRemarks($storeOrder, $remarks)
+    public function addRemarks($storeOrder, $remarks, $action = 'approve')
     {
         if (!empty($remarks)) {
             $storeOrder->store_order_remarks()->create([
                 'user_id' => Auth::user()->id,
-                'action' => 'manager rejected order',
+                'action' => $action,
                 'remarks' => $remarks
             ]);
         }
