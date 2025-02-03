@@ -58,9 +58,9 @@ watch(isEditModalVisible, (value) => {
         form.clearErrors();
     }
 });
-const exportRoute = computed(() => {
-    route("cost-centers.export", { search: search.value });
-});
+const exportRoute = computed(() =>
+    route("cost-centers.export", { search: search.value })
+);
 const { deleteModel } = useReferenceDelete();
 </script>
 

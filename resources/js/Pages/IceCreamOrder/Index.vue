@@ -92,12 +92,12 @@ watch(branchId, function (value) {
     );
 });
 
-const exportRoute = computed(() => {
-    return route("ice-cream-orders.excel", {
+const exportRoute = computed(() => 
+    route("ice-cream-orders.excel", {
         start_date_filter: selectedDate.value,
         branchId: branchId.value,
-    });
-});
+    })
+);
 </script>
 
 <template>

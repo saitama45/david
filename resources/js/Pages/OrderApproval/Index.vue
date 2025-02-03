@@ -139,12 +139,12 @@ import { useAuth } from "@/Composables/useAuth";
 
 const { hasAccess } = useAuth();
 
-const exportRoute = computed(() => {
+const exportRoute = computed(() => 
     route("orders-approval.export", {
         search: search.value,
         filter: filter.value,
-    });
-});
+    })
+);
 </script>
 <template>
     <Layout

@@ -127,14 +127,14 @@ onMounted(() => {
     }
 });
 
-const exportRoute = computed(() => {
-    return route("product-orders-summary.export", {
+const exportRoute = computed(() =>
+    route("product-orders-summary.export", {
         dateRange: dateRange.value,
         supplierId: supplierId.value,
         branchId: branchId.value,
         search: search.value,
-    });
-});
+    })
+);
 const isExportModalVisible = ref(true);
 const openExportModal = () => {
     isExportModalVisible.value = true;

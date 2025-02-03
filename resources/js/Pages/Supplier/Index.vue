@@ -56,9 +56,9 @@ const createNewSupplier = () => {
 
 const { deleteModel } = useReferenceDelete();
 
-const exportRoute = computed(() => {
-    route("suppliers.export", { search: search.value });
-});
+const exportRoute = computed(() => 
+    route("suppliers.export", { search: search.value })
+);
 </script>
 
 <template>

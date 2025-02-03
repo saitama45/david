@@ -23,9 +23,9 @@ const { hasAccess } = useAuth();
 import { useReferenceDelete } from "@/Composables/useReferenceDelete";
 const { deleteModel } = useReferenceDelete();
 
-const exportRoute = computed(() => {
-    route("roles.export", { search: search.value });
-});
+const exportRoute = computed(() => 
+    route("roles.export", { search: search.value })
+);
 </script>
 
 <template>

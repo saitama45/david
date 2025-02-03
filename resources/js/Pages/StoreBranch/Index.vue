@@ -55,9 +55,9 @@ const createNewStoreBranch = () => {
 
 const { deleteModel } = useReferenceDelete();
 
-const exportRoute = computed(() => {
-    route("store-branches.export", { search: search.value });
-});
+const exportRoute = computed(() => 
+    route("store-branches.export", { search: search.value })
+);
 </script>
 
 <template>

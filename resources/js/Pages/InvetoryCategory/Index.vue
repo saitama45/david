@@ -60,11 +60,11 @@ watch(isEditModalVisible, (value) => {
 });
 
 const { deleteModel } = useReferenceDelete();
-const exportRoute = computed(() => {
+const exportRoute = computed(() => 
     route("inventory-categories.export", {
         search: search.value,
-    });
-});
+    })
+);
 </script>
 
 <template>

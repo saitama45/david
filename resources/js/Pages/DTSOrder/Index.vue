@@ -169,15 +169,15 @@ import { useAuth } from "@/Composables/useAuth";
 
 const { hasAccess } = useAuth();
 
-const exportRoute = computed(() => {
+const exportRoute = computed(() =>
     route("dts-orders.export", {
         search: search.value,
         branchId: branchId.value,
         filterQuery: filterQuery.value,
         from: from.value,
         to: to.value,
-    });
-});
+    })
+);
 </script>
 <template>
     <Layout

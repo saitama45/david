@@ -60,12 +60,12 @@ watch(branchId, (value) => {
     );
 });
 
-const exportRoute = computed(() => {
-    return route("fruits-and-vegetables.export", {
+const exportRoute = computed(() => 
+    route("fruits-and-vegetables.export", {
         start_date_filter: selectedDate.value,
         branchId: branchId.value,
-    });
-});
+    })
+);
 </script>
 
 <template>
