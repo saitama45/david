@@ -3,6 +3,7 @@
 namespace App\Http\Services;
 
 use App\Enum\OrderRequestStatus;
+use App\Enum\OrderStatus;
 use App\Models\StoreOrder;
 use App\Models\StoreOrderItem;
 use Carbon\Carbon;
@@ -16,7 +17,7 @@ class CSCommitService extends OrderApprovalService
         DB::beginTransaction();
         $storeOrder = StoreOrder::findOrFail($data['id']);
         $storeOrder->update([
-            'order_request_status' => OrderRequestStatus::APRROVED->value,
+            'order_status' => OrderStatus::COMMITED->value,
             'commiter_id' => Auth::user()->id,
             'commited_action_date' => Carbon::now()
         ]);
@@ -37,5 +38,4 @@ class CSCommitService extends OrderApprovalService
 
         DB::commit();
     }
-
 }

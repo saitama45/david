@@ -176,7 +176,7 @@ import { useAuth } from "@/Composables/useAuth";
 
 const { hasAccess } = useAuth();
 
-const exportRoute = computed(() => 
+const exportRoute = computed(() =>
     route("store-orders.export", {
         search: search.value,
         branchId: branchId.value,
@@ -284,7 +284,7 @@ const exportRoute = computed(() =>
                     <TH>Order #</TH>
                     <TH>Order Date</TH>
                     <TH>Order Placed Date</TH>
-                    <TH>Order Approval Status</TH>
+                    <TH>Order Status</TH>
                     <TH>Actions</TH>
                 </TableHead>
                 <TableBody>
@@ -297,13 +297,9 @@ const exportRoute = computed(() =>
                         <TD>{{ order.created_at }}</TD>
                         <TD>
                             <Badge
-                                :class="
-                                    statusBadgeColor(order.order_request_status)
-                                "
+                                :class="statusBadgeColor(order.order_status)"
                                 class="font-bold"
-                                >{{
-                                    order.order_request_status.toUpperCase()
-                                }}</Badge
+                                >{{ order.order_status.toUpperCase() }}</Badge
                             >
                         </TD>
                         <TD>

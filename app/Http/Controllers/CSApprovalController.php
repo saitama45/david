@@ -25,7 +25,7 @@ class CSApprovalController extends Controller
     }
     public function index()
     {
-        $data = $this->csCommitService->getOrdersAndCounts('order_request_status');
+        $data = $this->csCommitService->getOrdersAndCounts('order_status');
         return Inertia::render('CSApproval/Index', [
             'orders' =>  $data['orders'],
             'filters' => request()->only(['search', 'currentFilter']),

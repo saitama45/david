@@ -3,6 +3,7 @@
 namespace App\Http\Services;
 
 use App\Enum\OrderRequestStatus;
+use App\Enum\OrderStatus;
 use App\Models\StoreOrder;
 use App\Models\StoreOrderItem;
 use Carbon\Carbon;
@@ -20,7 +21,7 @@ class OrderApprovalService extends StoreOrderService
         $query = StoreOrder::query()->with(['store_branch', 'supplier']);
 
         if ($condition != 'manager_approval_status')
-            $query->where('manager_approval_status', 'approved');
+            $query->where('order_status', 'approved');
 
         $counts = $this->getCounts($query, $condition);
         if ($search)
@@ -51,7 +52,7 @@ class OrderApprovalService extends StoreOrderService
         DB::beginTransaction();
         $storeOrder = StoreOrder::findOrFail($data['id']);
         $storeOrder->update([
-            'manager_approval_status' => OrderRequestStatus::APRROVED->value,
+            'order_status' => OrderStatus::APPROVED->value,
             'approver_id' => Auth::user()->id,
             'approval_action_date' => Carbon::now()
         ]);
