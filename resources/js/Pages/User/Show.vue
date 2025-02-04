@@ -5,6 +5,7 @@ defineProps({
         required: true,
     },
 });
+// Test 1
 </script>
 
 <template>
