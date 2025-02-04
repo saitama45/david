@@ -61,6 +61,7 @@ class RolesController extends Controller
             'permissions' => $groupedPermissions
         ]);
     }
+    
     public function store(StoreRoleRequest $request)
     {
         try {

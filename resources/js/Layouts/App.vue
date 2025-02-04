@@ -713,6 +713,7 @@ const exportExcel = () => {
                     </DivFlexCenter>
                 </div>
                 <div class="space-y-5">
+                    <!-- MainView -->
                     <slot />
                 </div>
             </main>

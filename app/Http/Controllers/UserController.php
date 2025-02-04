@@ -68,7 +68,6 @@ class UserController extends Controller
 
     public function export(Request $request)
     {
-        dd($request);
         $search = $request->input('search');
 
         return Excel::download(
