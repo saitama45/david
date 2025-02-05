@@ -53,11 +53,13 @@ const props = defineProps({
 });
 
 const statusBadgeColor = (status) => {
-    switch (status.toUpperCase()) {
+    switch (status) {
         case "APPROVED":
             return "bg-green-500 text-white";
+        case "PENDING":
+            return "bg-yellow-500 text-white";
         case "REJECTED":
-            return "bg-red-400 text-white";
+            return "bg-red-500 text-white";
         default:
             return "bg-yellow-500 text-white";
     }
@@ -152,7 +154,7 @@ const exportRoute = computed(() =>
         :hasExcelDownload="true"
         :exportRoute="exportRoute"
     >
-        <FilterTab>
+        <!-- <FilterTab>
             <Button
                 class="sm:px-10 px-3 bg-white/10 text-gray-800 hover:text-white gap-5 sm:text-sm text-xs"
                 :class="isFilterActive('pending')"
@@ -186,7 +188,7 @@ const exportRoute = computed(() =>
                     >{{ counts.rejected }}</Badge
                 ></Button
             >
-        </FilterTab>
+        </FilterTab> -->
         <TableContainer>
             <TableHeader>
                 <SearchBar>
@@ -219,13 +221,9 @@ const exportRoute = computed(() =>
                         <TD>{{ order.created_at }}</TD>
                         <TD>
                             <Badge
-                                :class="
-                                    statusBadgeColor(order.order_request_status)
-                                "
+                                :class="statusBadgeColor(order.order_status)"
                                 class="font-bold"
-                                >{{
-                                    order.order_request_status.toUpperCase()
-                                }}</Badge
+                                >{{ order.order_status.toUpperCase() }}</Badge
                             >
                         </TD>
                         <TD class="flex">
