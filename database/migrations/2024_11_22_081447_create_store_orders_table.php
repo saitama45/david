@@ -26,8 +26,6 @@ return new class extends Migration
             $table->string('order_number')->unique();
             $table->date('order_date');
             $table->enum('order_status', OrderStatus::values())->default(OrderStatus::PENDING->value);
-            $table->enum('order_request_status', OrderRequestStatus::values())->default(OrderStatus::PENDING->value);
-            $table->enum('manager_approval_status', OrderRequestStatus::values())->default(OrderStatus::PENDING->value);
             $table->string('variant')->default('regular');
             $table->text('remarks')->nullable();
             $table->dateTime('approval_action_date')->nullable();
