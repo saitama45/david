@@ -14,7 +14,7 @@ class OrderApprovalService extends StoreOrderService
 {
     public function getOrdersAndCounts($condition = null)
     {
-        $condition = $condition ?: 'manager_approval_status';
+        $condition = $condition ?: 'order_status';
         $search = request('search');
         $filter = request('currentFilter') ?? 'pending';
 

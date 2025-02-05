@@ -53,11 +53,14 @@ const props = defineProps({
 });
 
 const statusBadgeColor = (status) => {
+    console.log(status.toUpperCase());
     switch (status.toUpperCase()) {
         case "APPROVED":
             return "bg-green-500 text-white";
         case "REJECTED":
             return "bg-red-400 text-white";
+        case "COMMITED":
+            return "bg-blue-400 text-white";
         default:
             return "bg-yellow-500 text-white";
     }
@@ -164,7 +167,7 @@ const exportRoute = computed(() =>
                     >{{ counts.pending }}</Badge
                 >
             </Button>
-            <Button
+            <!-- <Button
                 class="sm:px-10 px-3 bg-white/10 text-gray-800 hover:text-white gap-5 sm:text-sm text-xs"
                 :class="isFilterActive('approved')"
                 @click="changeFilter('approved')"
@@ -174,7 +177,7 @@ const exportRoute = computed(() =>
                     :class="isFilterActive('approved')"
                     >{{ counts.approved }}</Badge
                 ></Button
-            >
+            > -->
             <Button
                 class="sm:px-10 px-3 bg-white/10 text-gray-800 hover:text-white gap-5 sm:text-sm text-xs"
                 :class="isFilterActive('rejected')"

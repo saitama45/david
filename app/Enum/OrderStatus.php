@@ -9,7 +9,7 @@ enum OrderStatus: string
     case PENDING = 'pending';
     case RECEIVED = 'received';
     case APPROVED = 'approved';
-    case COMMITED = 'commmited';
+    case COMMITED = 'commited';
     case REJECTED = 'rejected';
     public static function values()
     {
