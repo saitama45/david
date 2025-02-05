@@ -55,8 +55,8 @@ class RoleService
             }),
 
             'orders_approval' => $permissions->filter(function ($permission) {
-                return str_contains($permission->name, 'order for approval list') ||
-                    str_contains($permission->name, 'order for approval') ||
+                return str_contains($permission->name, 'view order for approval') ||
+                    str_contains($permission->name, 'view orders for approval list') ||
                     str_contains($permission->name, 'approve/decline order request') &&  !str_contains($permission->name, 'cs');
             }),
 

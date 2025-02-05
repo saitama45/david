@@ -143,7 +143,7 @@ class StoreOrderService
         $order = StoreOrder::with(['store_branch', 'supplier', 'store_order_items'])
             ->where('order_number', $id)->firstOrFail();
 
-        if ($order->order_request_status !== OrderRequestStatus::PENDING->value)
+        if ($order->order_status !== OrderRequestStatus::PENDING->value)
             abort(401, 'Order can no longer be updated');
 
         return $order;

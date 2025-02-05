@@ -312,8 +312,7 @@ const exportRoute = computed(() =>
                                 </button>
                                 <button
                                     v-if="
-                                        order.order_request_status ===
-                                            'pending' &&
+                                        order.order_status === 'pending' &&
                                         hasAccess('edit store orders')
                                     "
                                     class="text-blue-500"
@@ -348,7 +347,7 @@ const exportRoute = computed(() =>
                     </MobileTableHeading>
                     <LabelXS>
                         Status:
-                        {{ order.order_request_status.toUpperCase() }}</LabelXS
+                        {{ order.order_status.toUpperCase() }}</LabelXS
                     >
                     <LabelXS>
                         Order Date:
