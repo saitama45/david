@@ -262,11 +262,11 @@ const {
                         <Badge
                             :class="
                                 statusBadgeColor(
-                                    order.manager_approval_status.toUpperCase()
+                                    order.order_status.toUpperCase()
                                 )
                             "
                         >
-                            {{ order.manager_approval_status.toUpperCase() }}
+                            {{ order.order_status.toUpperCase() }}
                         </Badge>
                     </span>
                 </section>
@@ -286,14 +286,14 @@ const {
                         Copy Order And Create
                     </Button> -->
                     <Button
-                        v-if="order.manager_approval_status === 'pending'"
+                        v-if="order.order_status === 'pending'"
                         variant="destructive"
                         @click="rejectOrder(order.id)"
                     >
                         Decline Order
                     </Button>
                     <Button
-                        v-if="order.manager_approval_status === 'pending'"
+                        v-if="order.order_status === 'pending'"
                         class="bg-green-500 hover:bg-green-300"
                         @click="approveOrder(order.id)"
                     >
@@ -312,9 +312,7 @@ const {
                     <TH> Name </TH>
                     <TH> Unit </TH>
                     <TH> Quantity </TH>
-                    <TH v-if="order.manager_approval_status === 'approved'"
-                        >Approved</TH
-                    >
+                    <TH v-if="order.order_status === 'approved'">Approved</TH>
                     <TH> Cost </TH>
                     <TH> Total Cost </TH>
                     <!-- <TH> Actions </TH> -->
@@ -332,9 +330,7 @@ const {
                                     ?.quantity_approved || 0
                             }}
                             <LinkButton
-                                v-if="
-                                    order.manager_approval_status === 'pending'
-                                "
+                                v-if="order.order_status === 'pending'"
                                 @click="
                                     openEditQuantityModal(
                                         item.id,
@@ -345,7 +341,7 @@ const {
                                 Edit Quantity
                             </LinkButton>
                         </TD>
-                        <TD v-if="order.manager_approval_status === 'approved'">
+                        <TD v-if="order.order_status === 'approved'">
                             {{ item.quantity_approved }}
                         </TD>
                         <TD>{{ item.product_inventory.cost }}</TD>
@@ -373,7 +369,7 @@ const {
                     >
                         <DivFlexCenter
                             class="gap-2"
-                            v-if="order.manager_approval_status === 'pending'"
+                            v-if="order.order_status === 'pending'"
                         >
                             <button @click="lessQuantityApproved(item.id)">
                                 <Minus class="size-4 text-red-500" />

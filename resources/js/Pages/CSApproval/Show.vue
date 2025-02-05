@@ -296,7 +296,7 @@ const openEditQuantityModal = (id, quantity) => {
                         Decline Order
                     </Button> -->
                     <Button
-                        v-if="order.order_request_status === 'pending'"
+                        v-if="order.order_status === 'approved'"
                         class="bg-green-500 hover:bg-green-300"
                         @click="approveOrder(order.id)"
                     >

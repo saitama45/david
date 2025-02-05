@@ -46,7 +46,7 @@ class CSApprovalController extends Controller
 
     public function show($id)
     {
-        $order =  $this->csCommitService->getOrder($id);
+        $order =  $this->csCommitService->getOrder($id, 'cs');
         $orderedItems = $this->csCommitService->getOrderItems($order);
         return Inertia::render('CSApproval/Show', [
             'order' => $order,
