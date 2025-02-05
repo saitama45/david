@@ -265,11 +265,11 @@ const openEditQuantityModal = (id, quantity) => {
                         <Badge
                             :class="
                                 statusBadgeColor(
-                                    order.order_request_status.toUpperCase()
+                                    order.order_status.toUpperCase()
                                 )
                             "
                         >
-                            {{ order.order_request_status.toUpperCase() }}
+                            {{ order.order_status.toUpperCase() }}
                         </Badge>
                     </span>
                 </section>
