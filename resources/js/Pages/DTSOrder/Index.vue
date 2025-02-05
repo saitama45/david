@@ -196,12 +196,6 @@ const exportRoute = computed(() =>
                 @click="changeFilter('all')"
             />
             <FilterTabButton
-                label="Approved"
-                filter="approved"
-                :currentFilter="filterQuery"
-                @click="changeFilter('approved')"
-            />
-            <FilterTabButton
                 label="Pending"
                 filter="pending"
                 :currentFilter="filterQuery"

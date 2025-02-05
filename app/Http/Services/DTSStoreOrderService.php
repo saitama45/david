@@ -73,7 +73,7 @@ class DTSStoreOrderService extends StoreOrderService
 
         if ($filter !== 'all')
 
-            $query->where('order_request_status', $filter);
+            $query->where('order_status', $filter);
 
         if ($branchId)
             $query->where('store_branch_id', $branchId);
