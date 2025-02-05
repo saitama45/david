@@ -14,7 +14,7 @@ use Illuminate\Support\Facades\Storage;
 
 class StoreOrderService
 {
-    
+
     public function getOrderNumber($id)
     {
         $branchId = $id;
@@ -49,7 +49,7 @@ class StoreOrderService
         }
 
         if ($filterQuery !== 'all')
-            $query->where('order_request_status', $filterQuery);
+            $query->where('order_status', $filterQuery);
 
         if ($branchId)
             $query->where('store_branch_id', $branchId);

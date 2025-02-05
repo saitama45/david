@@ -20,8 +20,6 @@ class OrderApprovalService extends StoreOrderService
         $query = StoreOrder::query()->with(['store_branch', 'supplier']);
 
 
-
-
         $counts = $this->getCounts($query, $condition);
         if ($search)
             $query->where('order_number', 'like', '%' . $search . '%');
