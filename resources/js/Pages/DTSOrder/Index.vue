@@ -144,8 +144,12 @@ const statusBadgeColor = (status) => {
     switch (status.toUpperCase()) {
         case "APPROVED":
             return "bg-green-500 text-white";
+        case "RECEIVED":
+            return "bg-green-500 text-white";
         case "PENDING":
             return "bg-yellow-500 text-white";
+        case "COMMITED":
+            return "bg-blue-500 text-white";
         case "REJECTED":
             return "bg-red-400 text-white";
         default:
@@ -270,7 +274,7 @@ const exportRoute = computed(() =>
                     <TH>Order #</TH>
                     <TH>Order Date</TH>
                     <TH>Order Placed Date</TH>
-                    <TH>Order Approval Status</TH>
+                    <TH>Order Status</TH>
                     <TH>Actions</TH>
                 </TableHead>
                 <TableBody>
@@ -283,13 +287,9 @@ const exportRoute = computed(() =>
                         <TD>{{ order.created_at }}</TD>
                         <TD>
                             <Badge
-                                :class="
-                                    statusBadgeColor(order.order_request_status)
-                                "
+                                :class="statusBadgeColor(order.order_status)"
                                 class="font-bold"
-                                >{{
-                                    order.order_request_status.toUpperCase()
-                                }}</Badge
+                                >{{ order.order_status.toUpperCase() }}</Badge
                             >
                         </TD>
                         <TD>

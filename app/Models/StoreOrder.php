@@ -22,8 +22,6 @@ class StoreOrder extends Model implements Auditable
         'order_number',
         'order_date',
         'order_status',
-        'order_request_status',
-        'manager_approval_status', // New
         'remarks',
         'variant',
         'approval_action_date',
