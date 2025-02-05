@@ -15,7 +15,7 @@ class OrderReceivingService extends StoreOrderService
     public function getOrdersList()
     {
         $search = request('search');
-        $query = StoreOrder::query()->with(['store_branch', 'supplier'])->where('order_request_status', OrderRequestStatus::APRROVED->value);
+        $query = StoreOrder::query()->with(['store_branch', 'supplier'])->whereNotIn('order_status', ['pending', 'rejected', 'approved']);
         $user = User::rolesAndAssignedBranches();
 
         if (!$user['isAdmin']) $query->whereIn('store_branch_id', $user['assignedBranches']);

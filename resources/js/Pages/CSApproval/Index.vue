@@ -53,13 +53,17 @@ const props = defineProps({
 });
 
 const statusBadgeColor = (status) => {
-    switch (status) {
+    switch (status.toUpperCase()) {
         case "APPROVED":
+            return "bg-green-500 text-white";
+        case "RECEIVED":
             return "bg-green-500 text-white";
         case "PENDING":
             return "bg-yellow-500 text-white";
+        case "COMMITED":
+            return "bg-blue-500 text-white";
         case "REJECTED":
-            return "bg-red-500 text-white";
+            return "bg-red-400 text-white";
         default:
             return "bg-yellow-500 text-white";
     }
