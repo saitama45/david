@@ -86,31 +86,12 @@ const enlargeImage = (image) => {
                     <SpanBold>{{ order.order_date }}</SpanBold>
                 </InputContainer>
                 <InputContainer>
-                    <LabelXS>Order Request Status: </LabelXS>
-                    <Badge
-                        class="w-fit"
-                        :class="statusBadgeColor(order.order_request_status)"
-                        >{{ order.order_request_status.toUpperCase() }}</Badge
-                    >
-                </InputContainer>
-                <InputContainer>
                     <LabelXS>Approver: </LabelXS>
                     <SpanBold v-if="order.approver"
                         >{{ order.approver.first_name }}
                         {{ order.approver.last_name }}</SpanBold
                     >
                     <SpanBold v-if="!order.approver">N/a</SpanBold>
-                </InputContainer>
-                <InputContainer>
-                    <LabelXS>Order Receiving Status: </LabelXS>
-                    <Badge
-                        class="w-fit"
-                        :class="statusBadgeColor(order.order_status)"
-                        >{{
-                            order.order_status.toUpperCase().replace("_", " ")
-                        }}</Badge
-                    >
-                    <SpanBold>{{}}</SpanBold>
                 </InputContainer>
                 <InputContainer>
                     <LabelXS>Variant: </LabelXS>
@@ -134,14 +115,12 @@ const enlargeImage = (image) => {
                 </InputContainer>
 
                 <InputContainer>
-                    <LabelXS>Manager Approval Status: </LabelXS>
+                    <LabelXS>Order Status: </LabelXS>
                     <Badge
                         class="w-fit"
-                        :class="statusBadgeColor(order.manager_approval_status)"
+                        :class="statusBadgeColor(order.order_status)"
                         >{{
-                            order.manager_approval_status
-                                .toUpperCase()
-                                .replace("_", " ")
+                            order.order_status.toUpperCase().replace("_", " ")
                         }}</Badge
                     >
                 </InputContainer>
