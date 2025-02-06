@@ -98,10 +98,10 @@ class StoreOrderController extends Controller
         ]);
     }
 
-    public function getImportedOrders(StoreOrderRequest $storeOrderRequest)
+    public function getImportedOrders(Request $request)
     {
         $import = new OrderListImport();
-        Excel::import($import, $storeOrderRequest->file('orders_file'));
+        Excel::import($import, $request->file('orders_file'));
         $importedCollection = $import->getImportedData();
         return response()->json([
             'orders' => $importedCollection
@@ -133,8 +133,4 @@ class StoreOrderController extends Controller
 
         return redirect()->route('store-orders.index');
     }
-
-    
-
-
 }
