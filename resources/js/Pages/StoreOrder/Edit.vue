@@ -18,6 +18,7 @@ onBeforeMount(() => {
 });
 
 onMounted(() => {
+    console.log(drafts.value);
     if (drafts.value) {
         confirm.require({
             message:
@@ -452,8 +453,10 @@ const addImportedItemsToOrderList = () => {
         .finally(() => (isLoading.value = false));
 };
 
+// This one is triggered even nothing is changed how can i only trigger this when something is changed on orderForm but not the first one
 watch(orderForm, (value) => {
     localStorage.setItem("editStoreOrderDraft", JSON.stringify(value));
+    console.log(value);
 });
 </script>
 <template>
