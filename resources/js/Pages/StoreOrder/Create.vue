@@ -18,31 +18,31 @@ onBeforeMount(() => {
     }
 });
 
-// onMounted(() => {
-//     console.log(drafts.value);
-//     if (drafts.value != null) {
-//         confirm.require({
-//             message:
-//                 "You have an unfinished draft. Would you like to continue where you left off or discard the draft?",
-//             header: "Unfinished Draft Detected",
-//             icon: "pi pi-exclamation-triangle",
-//             rejectProps: {
-//                 label: "Discard",
-//                 severity: "danger",
-//             },
-//             acceptProps: {
-//                 label: "Continue",
-//                 severity: "primary",
-//             },
-//             accept: () => {
-//                 orderForm.supplier_id = drafts.value.supplier_id;
-//                 orderForm.branch_id = drafts.value.branch_id;
-//                 orderForm.order_date = drafts.value.order_date;
-//                 orderForm.orders = drafts.value.orders;
-//             },
-//         });
-//     }
-// });
+onMounted(() => {
+    console.log(drafts.value);
+    if (drafts.value != null) {
+        confirm.require({
+            message:
+                "You have an unfinished draft. Would you like to continue where you left off or discard the draft?",
+            header: "Unfinished Draft Detected",
+            icon: "pi pi-exclamation-triangle",
+            rejectProps: {
+                label: "Discard",
+                severity: "danger",
+            },
+            acceptProps: {
+                label: "Continue",
+                severity: "primary",
+            },
+            accept: () => {
+                orderForm.supplier_id = drafts.value.supplier_id;
+                orderForm.branch_id = drafts.value.branch_id;
+                orderForm.order_date = drafts.value.order_date;
+                orderForm.orders = drafts.value.orders;
+            },
+        });
+    }
+});
 
 const props = defineProps({
     products: {

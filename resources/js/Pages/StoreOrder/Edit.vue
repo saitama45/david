@@ -30,7 +30,7 @@ const props = defineProps({
         type: Object,
         required: true,
     },
-});
+});C
 
 const drafts = ref(null);
 const previousStoreOrderNumber = ref(null);
@@ -51,33 +51,33 @@ watch(orderForm, (value) => {
     localStorage.setItem("previoustoreOrderNumber", props.order.order_number);
 });
 
-// onMounted(() => {
-//     if (
-//         drafts.value &&
-//         previousStoreOrderNumber.value === props.order.order_number
-//     ) {
-//         confirm.require({
-//             message:
-//                 "You have an unfinished draft. Would you like to continue where you left off or discard the draft?",
-//             header: "Unfinished Draft Detected",
-//             icon: "pi pi-exclamation-triangle",
-//             rejectProps: {
-//                 label: "Discard",
-//                 severity: "danger",
-//             },
-//             acceptProps: {
-//                 label: "Continue",
-//                 severity: "primary",
-//             },
-//             accept: () => {
-//                 orderForm.supplier_id = drafts.value.supplier_id;
-//                 orderForm.branch_id = drafts.value.branch_id;
-//                 orderForm.order_date = drafts.value.order_date;
-//                 orderForm.orders = drafts.value.orders;
-//             },
-//         });
-//     }
-// });
+onMounted(() => {
+    if (
+        drafts.value &&
+        previousStoreOrderNumber.value === props.order.order_number
+    ) {
+        confirm.require({
+            message:
+                "You have an unfinished draft. Would you like to continue where you left off or discard the draft?",
+            header: "Unfinished Draft Detected",
+            icon: "pi pi-exclamation-triangle",
+            rejectProps: {
+                label: "Discard",
+                severity: "danger",
+            },
+            acceptProps: {
+                label: "Continue",
+                severity: "primary",
+            },
+            accept: () => {
+                orderForm.supplier_id = drafts.value.supplier_id;
+                orderForm.branch_id = drafts.value.branch_id;
+                orderForm.order_date = drafts.value.order_date;
+                orderForm.orders = drafts.value.orders;
+            },
+        });
+    }
+});
 
 const { options: branchesOptions } = useSelectOptions(props.branches);
 const { options: productsOptions } = useSelectOptions(props.products);
