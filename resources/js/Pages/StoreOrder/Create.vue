@@ -12,14 +12,15 @@ const { toast } = useToast();
 
 const drafts = ref(null);
 onBeforeMount(() => {
-    const previousData = localStorage.getItem("editStoreOrderDraft");
+    const previousData = localStorage.getItem("storeStoreOrderDraft");
     if (previousData) {
         drafts.value = JSON.parse(previousData);
     }
 });
 
 onMounted(() => {
-    if (drafts) {
+    console.log(drafts.value);
+    if (drafts.value != null) {
         confirm.require({
             message:
                 "You have an unfinished draft. Would you like to continue where you left off or discard the draft?",

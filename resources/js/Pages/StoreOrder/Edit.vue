@@ -18,7 +18,7 @@ onBeforeMount(() => {
 });
 
 onMounted(() => {
-    if (drafts) {
+    if (drafts.value) {
         confirm.require({
             message:
                 "You have an unfinished draft. Would you like to continue where you left off or discard the draft?",
@@ -454,7 +454,6 @@ const addImportedItemsToOrderList = () => {
 
 watch(orderForm, (value) => {
     localStorage.setItem("editStoreOrderDraft", JSON.stringify(value));
-
 });
 </script>
 <template>
