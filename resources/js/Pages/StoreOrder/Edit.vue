@@ -454,7 +454,7 @@ const addImportedItemsToOrderList = () => {
 
 watch(orderForm, (value) => {
     localStorage.setItem("editStoreOrderDraft", JSON.stringify(value));
-    console.log("set");
+
 });
 </script>
 <template>
