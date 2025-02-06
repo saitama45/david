@@ -9,6 +9,19 @@ const { backButton } = useBackButton(route("store-orders.index"));
 const confirm = useConfirm();
 const { toast } = useToast();
 
+const drafts = ref(null);
+onBeforeMount(() => {
+    const previousData = localStorage.getItem("editStoreOrderDraft");
+    console.log("get");
+    if (previousData) {
+        drafts.value = JSON.parse(previousData);
+        orderForm.supplier_id = drafts.value.supplier_id;
+        orderForm.branch_id = drafts.value.branch_id;
+        orderForm.order_date = drafts.value.order_date;
+        orderForm.orders = drafts.value.orders;
+    }
+});
+
 const props = defineProps({
     order: {
         type: Object,
@@ -209,6 +222,8 @@ const update = () => {
                         detail: "Order Updated Successfully.",
                         life: 5000,
                     });
+
+                    localStorage.removeItem("editStoreOrderDraft");
                 },
                 onError: (e) => {
                     toast.add({
@@ -416,6 +431,11 @@ const addImportedItemsToOrderList = () => {
         })
         .finally(() => (isLoading.value = false));
 };
+
+watch(orderForm, (value) => {
+    localStorage.setItem("editStoreOrderDraft", JSON.stringify(value));
+    console.log("set");
+});
 </script>
 <template>
     <Layout
