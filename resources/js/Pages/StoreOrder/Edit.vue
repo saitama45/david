@@ -9,40 +9,6 @@ const { backButton } = useBackButton(route("store-orders.index"));
 const confirm = useConfirm();
 const { toast } = useToast();
 
-const drafts = ref(null);
-onBeforeMount(() => {
-    const previousData = localStorage.getItem("editStoreOrderDraft");
-    if (previousData) {
-        drafts.value = JSON.parse(previousData);
-    }
-});
-
-onMounted(() => {
-    console.log(drafts.value);
-    if (drafts.value) {
-        confirm.require({
-            message:
-                "You have an unfinished draft. Would you like to continue where you left off or discard the draft?",
-            header: "Unfinished Draft Detected",
-            icon: "pi pi-exclamation-triangle",
-            rejectProps: {
-                label: "Discard",
-                severity: "danger",
-            },
-            acceptProps: {
-                label: "Continue",
-                severity: "primary",
-            },
-            accept: () => {
-                orderForm.supplier_id = drafts.value.supplier_id;
-                orderForm.branch_id = drafts.value.branch_id;
-                orderForm.order_date = drafts.value.order_date;
-                orderForm.orders = drafts.value.orders;
-            },
-        });
-    }
-});
-
 const props = defineProps({
     order: {
         type: Object,
@@ -65,6 +31,53 @@ const props = defineProps({
         required: true,
     },
 });
+
+const drafts = ref(null);
+const previousStoreOrderNumber = ref(null);
+onBeforeMount(() => {
+    const previousData = localStorage.getItem("editStoreOrderDraft");
+    const previoustoreOrderNumber = localStorage.getItem(
+        "previoustoreOrderNumber"
+    );
+
+    if (previousData) {
+        drafts.value = JSON.parse(previousData);
+        previousStoreOrderNumber.value = previoustoreOrderNumber;
+    }
+});
+
+watch(orderForm, (value) => {
+    localStorage.setItem("editStoreOrderDraft", JSON.stringify(value));
+    localStorage.setItem("previoustoreOrderNumber", props.order.order_number);
+});
+
+// onMounted(() => {
+//     if (
+//         drafts.value &&
+//         previousStoreOrderNumber.value === props.order.order_number
+//     ) {
+//         confirm.require({
+//             message:
+//                 "You have an unfinished draft. Would you like to continue where you left off or discard the draft?",
+//             header: "Unfinished Draft Detected",
+//             icon: "pi pi-exclamation-triangle",
+//             rejectProps: {
+//                 label: "Discard",
+//                 severity: "danger",
+//             },
+//             acceptProps: {
+//                 label: "Continue",
+//                 severity: "primary",
+//             },
+//             accept: () => {
+//                 orderForm.supplier_id = drafts.value.supplier_id;
+//                 orderForm.branch_id = drafts.value.branch_id;
+//                 orderForm.order_date = drafts.value.order_date;
+//                 orderForm.orders = drafts.value.orders;
+//             },
+//         });
+//     }
+// });
 
 const { options: branchesOptions } = useSelectOptions(props.branches);
 const { options: productsOptions } = useSelectOptions(props.products);
@@ -454,10 +467,6 @@ const addImportedItemsToOrderList = () => {
 };
 
 // This one is triggered even nothing is changed how can i only trigger this when something is changed on orderForm but not the first one
-watch(orderForm, (value) => {
-    localStorage.setItem("editStoreOrderDraft", JSON.stringify(value));
-    console.log(value);
-});
 </script>
 <template>
     <Layout

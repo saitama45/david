@@ -39,7 +39,7 @@ jobs:
         with:
           server: win8203.site4now.net
           username: tix_bok
-          password: superadmin2024
+          password: superadmin2024  
           protocol: ftps
           port: 21
           timeout: 60000
