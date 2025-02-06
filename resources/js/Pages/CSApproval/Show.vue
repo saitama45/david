@@ -315,7 +315,7 @@ const openEditQuantityModal = (id, quantity) => {
                     <TH> Name </TH>
                     <TH> Unit </TH>
                     <TH> Quantity </TH>
-                    <TH v-if="order.order_status === 'approved'">Approved</TH>
+                    <TH v-if="order.order_status === 'commited'">Commited</TH>
                     <TH> Cost </TH>
                     <TH> Total Cost </TH>
                     <!-- <TH> Actions </TH> -->
@@ -333,7 +333,7 @@ const openEditQuantityModal = (id, quantity) => {
                                     ?.quantity_approved || 0
                             }}
                             <LinkButton
-                                v-if="order.order_request_status === 'pending'"
+                                v-if="order.order_status === 'approved'"
                                 @click="
                                     openEditQuantityModal(
                                         item.id,
