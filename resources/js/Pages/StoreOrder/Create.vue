@@ -145,6 +145,7 @@ const store = () => {
                         detail: "Order Created Successfully.",
                         life: 5000,
                     });
+                    localStorage.removeItem("storeStoreOrderDraft");
                 },
                 onError: (e) => {
                     toast.add({

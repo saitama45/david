@@ -42,7 +42,7 @@ jobs:
           password: superadmin2024  
           protocol: ftps
           port: 21
-          timeout: 60000
+          timeout: 120000
           exclude: |
             **/.git*
             **/.git*/**
