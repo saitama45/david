@@ -28,6 +28,40 @@ import { useToast } from "@/Composables/useToast";
 const confirm = useConfirm();
 const { toast } = useToast();
 
+const drafts = ref(null);
+onBeforeMount(() => {
+    const previousData = localStorage.getItem("dtsStoreStoreOrderDraft");
+    if (previousData) {
+        drafts.value = JSON.parse(previousData);
+    }
+});
+
+onMounted(() => {
+    console.log(drafts.value);
+    if (drafts.value != null) {
+        confirm.require({
+            message:
+                "You have an unfinished draft. Would you like to continue where you left off or discard the draft?",
+            header: "Unfinished Draft Detected",
+            icon: "pi pi-exclamation-triangle",
+            rejectProps: {
+                label: "Discard",
+                severity: "danger",
+            },
+            acceptProps: {
+                label: "Continue",
+                severity: "primary",
+            },
+            accept: () => {
+                orderForm.supplier_id = drafts.value.supplier_id;
+                orderForm.branch_id = drafts.value.branch_id;
+                orderForm.order_date = drafts.value.order_date;
+                orderForm.orders = drafts.value.orders;
+            },
+        });
+    }
+});
+
 import { useSelectOptions } from "@/Composables/useSelectOptions";
 
 const { options: productsOption } = useSelectOptions(items);
@@ -308,6 +342,7 @@ const store = () => {
                         detail: "Order Created Successfully.",
                         life: 5000,
                     });
+                    localStorage.removeItem("dtsStoreStoreOrderDraft");
                 },
                 onError: (e) => {
                     toast.add({
@@ -432,6 +467,10 @@ const {
     openEditQuantityModal,
     editQuantity,
 } = useEditQuantity(orderForm);
+
+watch(orderForm, (value) => {
+    localStorage.setItem("dtsStoreStoreOrderDraft", JSON.stringify(value));
+});
 </script>
 <template>
     <Layout
