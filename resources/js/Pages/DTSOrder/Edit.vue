@@ -32,6 +32,48 @@ const props = defineProps({
     },
 });
 
+const drafts = ref(null);
+const previousStoreOrderNumber = ref(null);
+onBeforeMount(() => {
+    const previousData = localStorage.getItem("editDtsStoreOrderDraft");
+    const previousDtsStoreOrderNumber = localStorage.getItem(
+        "previousDtsStoreOrderNumber"
+    );
+
+    if (previousData) {
+        drafts.value = JSON.parse(previousData);
+        previousStoreOrderNumber.value = previousDtsStoreOrderNumber;
+    }
+});
+
+onMounted(() => {
+    if (
+        drafts.value &&
+        previousStoreOrderNumber.value === props.order.order_number
+    ) {
+        confirm.require({
+            message:
+                "You have an unfinished draft. Would you like to continue where you left off or discard the draft?",
+            header: "Unfinished Draft Detected",
+            icon: "pi pi-exclamation-triangle",
+            rejectProps: {
+                label: "Discard",
+                severity: "danger",
+            },
+            acceptProps: {
+                label: "Continue",
+                severity: "primary",
+            },
+            accept: () => {
+                orderForm.supplier_id = drafts.value.supplier_id;
+                orderForm.branch_id = drafts.value.branch_id;
+                orderForm.order_date = drafts.value.order_date;
+                orderForm.orders = drafts.value.orders;
+            },
+        });
+    }
+});
+
 const { options: branchesOptions } = useSelectOptions(props.branches);
 const { options: productsOptions } = useSelectOptions(props.products);
 const { options: suppliersOptions } = useSelectOptions(props.suppliers);
@@ -44,6 +86,11 @@ const orderForm = useForm({
     order_date: props.order.order_date,
     orders: [],
     variant: props.order.variant,
+});
+
+watch(orderForm, (value) => {
+    localStorage.setItem("editDtsStoreOrderDraft", JSON.stringify(value));
+    localStorage.setItem("previousDtsStoreOrderNumber", props.order.order_number);
 });
 
 const itemForm = useForm({
@@ -220,6 +267,8 @@ const update = () => {
                         detail: "Order Updated Successfully.",
                         life: 5000,
                     });
+                    localStorage.removeItem("editDtsStoreOrderDraft");
+                    localStorage.removeItem("previousDtsStoreOrderNumber");
                 },
                 onError: (e) => {
                     toast.add({
