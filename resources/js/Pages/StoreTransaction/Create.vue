@@ -511,6 +511,19 @@ const editQuantity = () => {
                     }}</FormError>
                 </InputContainer>
 
+                <InputContainer>
+                    <Label class="text-xs">Store Transaction Template</Label>
+                    <ul>
+                        <li class="text-xs">
+                            Template:
+                            <a
+                                class="text-blue-500 underline"
+                                href="/excel/store-transactions-template"
+                                >Click to download</a
+                            >
+                        </li>
+                    </ul>
+                </InputContainer>
                 <DialogFooter>
                     <Button
                         :disabled="isLoading"
