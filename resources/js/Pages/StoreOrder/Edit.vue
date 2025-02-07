@@ -30,7 +30,7 @@ const props = defineProps({
         type: Object,
         required: true,
     },
-});C
+});
 
 const drafts = ref(null);
 const previousStoreOrderNumber = ref(null);
@@ -44,11 +44,6 @@ onBeforeMount(() => {
         drafts.value = JSON.parse(previousData);
         previousStoreOrderNumber.value = previoustoreOrderNumber;
     }
-});
-
-watch(orderForm, (value) => {
-    localStorage.setItem("editStoreOrderDraft", JSON.stringify(value));
-    localStorage.setItem("previoustoreOrderNumber", props.order.order_number);
 });
 
 onMounted(() => {
@@ -90,6 +85,11 @@ const orderForm = useForm({
     branch_id: props.order.store_branch_id + "",
     order_date: props.order.order_date,
     orders: [],
+});
+
+watch(orderForm, (value) => {
+    localStorage.setItem("editStoreOrderDraft", JSON.stringify(value));
+    localStorage.setItem("previoustoreOrderNumber", props.order.order_number);
 });
 
 const itemForm = useForm({
@@ -258,6 +258,7 @@ const update = () => {
                     });
 
                     localStorage.removeItem("editStoreOrderDraft");
+                    localStorage.removeItem("previoustoreOrderNumber");
                 },
                 onError: (e) => {
                     toast.add({
