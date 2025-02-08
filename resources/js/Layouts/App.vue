@@ -43,6 +43,7 @@ import {
     FileSliders,
     AppWindowMac,
     Warehouse,
+    TextSelect,
 } from "lucide-vue-next";
 import Toast from "primevue/toast";
 import { router } from "@inertiajs/vue3";
@@ -364,7 +365,7 @@ const exportExcel = () => {
                         <NavLink
                             v-if="hasAccess('manage references')"
                             href="/cost-centers"
-                            :icon="Warehouse"
+                            :icon="TextSelect"
                         >
                             Cost Centers
                         </NavLink>
@@ -643,7 +644,7 @@ const exportExcel = () => {
                                 <NavLink
                                     v-if="hasAccess('manage references')"
                                     href="/cost-centers"
-                                    :icon="Warehouse"
+                                    :icon="TextSelect"
                                 >
                                     Cost Centers
                                 </NavLink>
