@@ -317,8 +317,7 @@ const exportRoute = computed(() =>
                                 </button>
                                 <button
                                     v-if="
-                                        order.order_request_status ===
-                                            'pending' &&
+                                        order.order_status === 'pending' &&
                                         hasAccess('edit dts orders')
                                     "
                                     class="text-blue-500"

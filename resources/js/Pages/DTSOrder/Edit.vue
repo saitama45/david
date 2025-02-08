@@ -32,6 +32,77 @@ const props = defineProps({
     },
 });
 
+const addImportedItemsToOrderList = () => {
+    console.log(variant.replace(/ /g, "-"));
+    isLoading.value = true;
+    console.log(variant + " " + excelFileForm.orders_file.name);
+    if (!excelFileForm.orders_file.name.includes(variant.replace(/ /g, "-"))) {
+        toast.add({
+            severity: "error",
+            summary: "Error",
+            detail: "Please make sure that you are using the correct order template for the order variant.",
+            life: 5000,
+        });
+        isLoading.value = false;
+        return;
+    }
+    const formData = new FormData();
+    formData.append("orders_file", excelFileForm.orders_file);
+
+    axios
+        .post(route("store-orders.imported-file"), formData, {
+            headers: {
+                "Content-Type": "multipart/form-data",
+            },
+        })
+        .then((response) => {
+            response.data.orders.forEach((importedOrder) => {
+                const existingItemIndex = orderForm.orders.findIndex(
+                    (order) => order.id === importedOrder.id
+                );
+
+                if (existingItemIndex !== -1) {
+                    const updatedQuantity =
+                        orderForm.orders[existingItemIndex].quantity +
+                        Number(importedOrder.quantity);
+                    orderForm.orders[existingItemIndex].quantity =
+                        updatedQuantity;
+                    orderForm.orders[existingItemIndex].total_cost = parseFloat(
+                        updatedQuantity *
+                            orderForm.orders[existingItemIndex].cost
+                    ).toFixed(2);
+                } else {
+                    orderForm.orders.push({
+                        ...importedOrder,
+                        total_cost: parseFloat(
+                            importedOrder.quantity * importedOrder.cost
+                        ).toFixed(2),
+                    });
+                }
+            });
+
+            visible.value = false;
+            toast.add({
+                severity: "success",
+                summary: "Success",
+                detail: "Items added successfully.",
+                life: 5000,
+            });
+            excelFileForm.orders_file = null;
+        })
+        .catch((error) => {
+            toast.add({
+                severity: "error",
+                summary: "Error",
+                detail: "An error occured while trying to get the imported orders. Please make sure that you are using the correct format.",
+                life: 5000,
+            });
+            excelFileForm.setError("orders_file", error.response.data.message);
+            console.log(error);
+        })
+        .finally(() => (isLoading.value = false));
+};
+
 const drafts = ref(null);
 const previousStoreOrderNumber = ref(null);
 onBeforeMount(() => {
@@ -44,6 +115,9 @@ onBeforeMount(() => {
         drafts.value = JSON.parse(previousData);
         previousStoreOrderNumber.value = previousDtsStoreOrderNumber;
     }
+});
+const excelFileForm = useForm({
+    orders_file: null,
 });
 
 onMounted(() => {
@@ -90,7 +164,10 @@ const orderForm = useForm({
 
 watch(orderForm, (value) => {
     localStorage.setItem("editDtsStoreOrderDraft", JSON.stringify(value));
-    localStorage.setItem("previousDtsStoreOrderNumber", props.order.order_number);
+    localStorage.setItem(
+        "previousDtsStoreOrderNumber",
+        props.order.order_number
+    );
 });
 
 const itemForm = useForm({
@@ -387,9 +464,20 @@ const {
     openEditQuantityModal,
     editQuantity,
 } = useEditQuantity(orderForm);
+
+const visible = ref(false);
+
+const importOrdersButton = () => {
+    visible.value = true;
+};
 </script>
 <template>
-    <Layout :heading="heading">
+    <Layout
+        :heading="heading"
+        :hasButton="true"
+        buttonName="Import Orders"
+        :handleClick="importOrdersButton"
+    >
         <div class="grid sm:grid-cols-3 gap-5 grid-cols-1">
             <section class="grid gap-5">
                 <Card>
@@ -398,7 +486,7 @@ const {
                         <CardDescription
                             >Status:
                             <Badge>{{
-                                order.order_request_status.toUpperCase()
+                                order.order_status.toUpperCase()
                             }}</Badge></CardDescription
                         >
                     </CardHeader>
@@ -618,6 +706,72 @@ const {
                 </CardFooter>
             </Card>
         </div>
+
+        <Dialog v-model:open="visible">
+            <DialogContent class="sm:max-w-[600px]">
+                <DialogHeader>
+                    <DialogTitle>Import Orders</DialogTitle>
+                    <DialogDescription>
+                        Import the excel file of your orders.
+                    </DialogDescription>
+                </DialogHeader>
+                <div class="space-y-5">
+                    <div class="flex flex-col space-y-1">
+                        <Label>Orders</Label>
+                        <Input
+                            type="file"
+                            @input="
+                                excelFileForm.orders_file =
+                                    $event.target.files[0]
+                            "
+                        />
+                        <FormError>{{
+                            excelFileForm.errors.orders_file
+                        }}</FormError>
+                    </div>
+                    <div class="flex flex-col space-y-1">
+                        <Label class="text-xs">Order Templates</Label>
+                        <ul>
+                            <li class="text-xs">
+                                Fruits And Vegetables:
+                                <a
+                                    class="text-blue-500 underline"
+                                    href="/excel/fruits-and-vegetables-template"
+                                    >Click to download</a
+                                >
+                            </li>
+                            <li class="text-xs">
+                                Salmon:
+                                <a
+                                    class="text-blue-500 underline"
+                                    href="/excel/salmon-template"
+                                    >Click to download</a
+                                >
+                            </li>
+                            <li class="text-xs">
+                                Ice Cream:
+                                <a
+                                    class="text-blue-500 underline"
+                                    href="/excel/ice-cream-template"
+                                    >Click to download</a
+                                >
+                            </li>
+                        </ul>
+                    </div>
+                </div>
+                <DialogFooter>
+                    <Button
+                        :disabled="isLoading"
+                        @click="addImportedItemsToOrderList"
+                        type="submit"
+                        class="gap-2"
+                    >
+                        Proceed
+                        <span v-if="isLoading"><Loading /></span>
+                    </Button>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
 
         <Dialog v-model:open="isEditQuantityModalOpen">
             <DialogContent class="sm:max-w-[600px]">
