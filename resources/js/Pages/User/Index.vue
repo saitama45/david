@@ -24,7 +24,7 @@ const props = defineProps({
 let filter = ref(props.filters.search);
 const search = ref(filter.value);
 const handleClick = () => {
-    console.log(templateId.value);
+    isLoading.value = true;
     router.get("/users/create", { templateId: templateId.value });
 };
 
@@ -56,6 +56,8 @@ const templateId = ref(null);
 const exportRoute = computed(() =>
     route("users.export", { search: search.value })
 );
+
+const isLoading = ref(false);
 </script>
 
 <template>
@@ -185,7 +187,9 @@ const exportRoute = computed(() =>
                 </InputContainer>
 
                 <DivFlexCenter class="justify-end mt-5">
-                    <Button @click="handleClick">Continue</Button>
+                    <Button :disabled="isLoading" @click="handleClick">
+                        Continue <span v-if="isLoading"><Loading /></span>
+                    </Button>
                 </DivFlexCenter>
             </DivFlexCol>
         </Dialog>
