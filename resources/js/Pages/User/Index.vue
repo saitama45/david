@@ -188,7 +188,8 @@ const isLoading = ref(false);
 
                 <DivFlexCenter class="justify-end mt-5">
                     <Button :disabled="isLoading" @click="handleClick">
-                        Continue <span v-if="isLoading"><Loading /></span>
+                        Continue
+                        <span v-if="isLoading"><Loading /></span>
                     </Button>
                 </DivFlexCenter>
             </DivFlexCol>

@@ -49,9 +49,10 @@ const importTransactions = () => {
             toast.add({
                 severity: "error",
                 summary: "Error",
-                detail: e,
+                detail: "An error occured while trying to import store transactions.",
                 life: 3000,
             });
+            isLoading.value = false;
         },
     });
 };
