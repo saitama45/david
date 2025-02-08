@@ -33,10 +33,22 @@ const props = defineProps({
 });
 
 const addImportedItemsToOrderList = () => {
-    console.log(variant.replace(/ /g, "-"));
     isLoading.value = true;
-    console.log(variant + " " + excelFileForm.orders_file.name);
-    if (!excelFileForm.orders_file.name.includes(variant.replace(/ /g, "-"))) {
+    if (!excelFileForm.orders_file) {
+        toast.add({
+            severity: "error",
+            summary: "Error",
+            detail: "The order file is required.",
+            life: 5000,
+        });
+        isLoading.value = false;
+        return;
+    }
+    if (
+        !excelFileForm.orders_file.name.includes(
+            props.order.variant.replace(/ /g, "-")
+        )
+    ) {
         toast.add({
             severity: "error",
             summary: "Error",
