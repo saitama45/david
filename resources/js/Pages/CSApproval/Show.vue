@@ -412,6 +412,7 @@ const openEditQuantityModal = (id, quantity) => {
                 <InputContainer>
                     <Label class="text-xs">Remarks</Label>
                     <Textarea v-model="remarksForm.remarks" />
+                    <FormError>{{ remarksForm.errors.remarks }}</FormError>
                 </InputContainer>
                 <DialogFooter>
                     <Button
@@ -437,6 +438,7 @@ const openEditQuantityModal = (id, quantity) => {
                 <InputContainer>
                     <Label class="text-xs">Remarks</Label>
                     <Textarea v-model="remarksForm.remarks" />
+                    <FormError>{{ remarksForm.errors.remarks }}</FormError>
                 </InputContainer>
                 <DialogFooter>
                     <Button

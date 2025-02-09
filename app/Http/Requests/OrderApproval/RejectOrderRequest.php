@@ -24,7 +24,7 @@ class RejectOrderRequest extends FormRequest
     {
         return [
             'id' => ['required'],
-            'remarks' => ['sometimes']
+            'remarks' => ['required']
         ];
     }
 }

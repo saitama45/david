@@ -112,6 +112,7 @@ const addRemarks = (id) => {
         onSuccess: () => {
             console.log("success");
         },
+        onError: (e) => {},
     });
 };
 
@@ -158,7 +159,8 @@ const confirmApproveOrder = () => {
             });
             isLoading.value = false;
         },
-        onError: () => {
+        onError: (e) => {
+            console.log(e);
             isLoading.value = false;
         },
     });
@@ -409,6 +411,7 @@ const {
                 <InputContainer>
                     <Label class="text-xs">Remarks</Label>
                     <Textarea v-model="remarksForm.remarks" />
+                    <FormError>{{ remarksForm.errors.remarks }}</FormError>
                 </InputContainer>
                 <DialogFooter>
                     <Button
@@ -418,7 +421,7 @@ const {
                         class="gap-2"
                     >
                         Approve
-                        <span><Loading v-if="isLoading" /></span>
+                        <span v-if="isLoading"><Loading /></span>
                     </Button>
                 </DialogFooter>
             </DialogContent>
@@ -434,6 +437,7 @@ const {
                 <InputContainer>
                     <Label class="text-xs">Remarks</Label>
                     <Textarea v-model="remarksForm.remarks" />
+                    <FormError>{{ remarksForm.errors.remarks }}</FormError>
                 </InputContainer>
                 <DialogFooter>
                     <Button

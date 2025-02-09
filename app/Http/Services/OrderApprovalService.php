@@ -76,7 +76,7 @@ class OrderApprovalService extends StoreOrderService
         $storeOrder = StoreOrder::findOrFail($data['id']);
 
         $storeOrder->update([
-            'manager_approval_status' => OrderRequestStatus::REJECTED->value,
+            'order_status' => OrderRequestStatus::REJECTED->value,
             'approver_id' => Auth::user()->id,
             'approval_action_date' => Carbon::now()
         ]);
