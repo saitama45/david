@@ -226,6 +226,12 @@ const exportRoute = computed(() =>
                 @click="changeFilter('commited')"
             />
             <FilterTabButton
+                label="Received"
+                filter="received"
+                :currentFilter="filterQuery"
+                @click="changeFilter('received')"
+            />
+            <FilterTabButton
                 label="Rejected"
                 filter="rejected"
                 :currentFilter="filterQuery"
