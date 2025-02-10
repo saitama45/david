@@ -176,6 +176,14 @@ const deleteReceiveDate = (id) => {
 };
 
 const isEditModalVisible = ref(false);
+
+watch(isEditModalVisible, (value) => {
+    if (!value) {
+        editReceiveDetailsForm.reset();
+        editReceiveDetailsForm.clearErrors();
+        isLoading.value = false;
+    }
+});
 const editReceiveDetailsForm = useForm({
     id: null,
     quantity_received: null,
@@ -1001,7 +1009,7 @@ const deleteDeliveryReceiptNumber = (id) => {
 
                     <InputContainer>
                         <Label>Remarks</Label>
-                        <Textarea v-model="editReceiveDetailsForm.remarks"/>
+                        <Textarea v-model="editReceiveDetailsForm.remarks" />
                         <FormError>{{
                             editReceiveDetailsForm.errors.remarks
                         }}</FormError>
