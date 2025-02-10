@@ -180,6 +180,7 @@ const editReceiveDetailsForm = useForm({
     id: null,
     quantity_received: null,
     expiry_date: null,
+    remarks: null,
 });
 
 const openEditModalForm = (id) => {
@@ -366,10 +367,8 @@ const deleteDeliveryReceiptNumber = (id) => {
                     <SpanBold>{{ order.order_date }}</SpanBold>
                 </InputContainer>
                 <InputContainer>
-                    <LabelXS>Order Request Status: </LabelXS>
-                    <SpanBold>{{
-                        order.order_request_status.toUpperCase()
-                    }}</SpanBold>
+                    <LabelXS>Order Status: </LabelXS>
+                    <SpanBold>{{ order.order_status.toUpperCase() }}</SpanBold>
                 </InputContainer>
                 <InputContainer>
                     <LabelXS>Approver: </LabelXS>
@@ -378,12 +377,6 @@ const deleteDeliveryReceiptNumber = (id) => {
                         {{ order.approver?.last_name }}</SpanBold
                     >
                     <SpanBold v-if="!order.approver">N/a</SpanBold>
-                </InputContainer>
-                <InputContainer>
-                    <LabelXS>Order Receiving Status: </LabelXS>
-                    <SpanBold>{{
-                        order.order_status.toUpperCase().replace("_", " ")
-                    }}</SpanBold>
                 </InputContainer>
                 <InputContainer>
                     <LabelXS>Variant: </LabelXS>
@@ -1003,6 +996,14 @@ const deleteDeliveryReceiptNumber = (id) => {
                         />
                         <FormError>{{
                             editReceiveDetailsForm.errors.expiry_date
+                        }}</FormError>
+                    </InputContainer>
+
+                    <InputContainer>
+                        <Label>Remarks</Label>
+                        <Textarea v-model="editReceiveDetailsForm.remarks"/>
+                        <FormError>{{
+                            editReceiveDetailsForm.errors.remarks
                         }}</FormError>
                     </InputContainer>
                 </div>

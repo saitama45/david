@@ -185,7 +185,7 @@ const canViewReferenceGroup = hasAccess("manage references");
             Items
         </NavLink>
         <NavLink
-            v-if="hasAccess('view menu list')"
+            v-if="hasAccess('view bom list')"
             href="/menu-list"
             :icon="Scroll"
         >

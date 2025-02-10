@@ -113,6 +113,7 @@ const exportExcel = () => {
                 <div
                     class="flex-1 overflow-y-auto scrollbar-thin scrollbar-track-gray-100 scrollbar-thumb-gray-300 hover:scrollbar-thumb-gray-400"
                 >
+                    <!-- Desktop Sidebar -->
                     <Sidebar />
                 </div>
             </div>

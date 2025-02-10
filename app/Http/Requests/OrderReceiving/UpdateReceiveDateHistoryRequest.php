@@ -25,7 +25,8 @@ class UpdateReceiveDateHistoryRequest extends FormRequest
         return [
             'id' => ['required'],
             'quantity_received' => ['required', 'numeric', 'min:1'],
-            'expiry_date' => ['required']
+            'expiry_date' => ['required'],
+            'remarks' => ['required']
         ];
     }
 }
