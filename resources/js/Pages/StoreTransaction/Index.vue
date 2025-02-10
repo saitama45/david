@@ -179,18 +179,18 @@ const exportRoute = computed(() =>
                     <TH>Id</TH>
                     <TH>Store Branch</TH>
                     <TH>Receipt No.</TH>
-                    <TH>TM#</TH>
-                    <TH>Posted</TH>
+                    <TH>Item Count</TH>
+                    <TH>Overall Net Total</TH>
                     <TH>Date</TH>
                     <TH>Actions</TH>
                 </TableHead>
                 <TableBody>
                     <tr v-for="transaction in transactions.data">
                         <TD>{{ transaction.id }}</TD>
-                        <TD>{{ transaction.store_branch.name }}</TD>
+                        <TD>{{ transaction.store_branch }}</TD>
                         <TD>{{ transaction.receipt_number }}</TD>
-                        <TD>{{ transaction.tim_number }}</TD>
-                        <TD>{{ transaction.posted }}</TD>
+                        <TD>{{ transaction.item_count }}</TD>
+                        <TD>{{ transaction.net_total }}</TD>
                         <TD>{{ transaction.order_date }}</TD>
                         <TD class="flex items-center">
                             <ShowButton

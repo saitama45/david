@@ -84,7 +84,18 @@ class StoreTransactionService
         if ($search)
             $query->where('receipt_number', 'like', "%$search%");
 
-        return $query->latest()->paginate(10)->withQueryString();
+        $result = $query->latest()->paginate(10)->withQueryString()->through(function ($item) {
+            return [
+                'id' => $item->id,
+                'store_branch' => $item->store_branch->name,
+                'receipt_number' => $item->receipt_number,
+                'item_count' => $item->store_transaction_items->count(),
+                'net_total' => str_pad($item->store_transaction_items->sum('net_total'), 2),
+                'order_date' => $item->order_date
+            ];
+        });
+
+        return $result;
     }
 
     public function updateStoreTransaction(StoreTransaction $transaction, array $data)
