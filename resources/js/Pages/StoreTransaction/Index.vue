@@ -11,13 +11,17 @@ import {
     SelectTrigger,
     SelectValue,
 } from "@/components/ui/select";
-const { transactions } = defineProps({
+const { transactions, order_date } = defineProps({
     transactions: {
         type: Object,
         required: true,
     },
     branches: {
         type: Object,
+        required: true,
+    },
+    order_date: {
+        type: String,
         required: true,
     },
 });
@@ -35,7 +39,7 @@ let branchId = ref(usePage().props.filters.branchId);
 
 watch(from, (value) => {
     router.get(
-        route("store-transactions.index"),
+        route("store-transactions.index", order_date),
         {
             search: search.value,
             from: value,
@@ -51,7 +55,7 @@ watch(from, (value) => {
 
 watch(to, (value) => {
     router.get(
-        route("store-transactions.index"),
+        route("store-transactions.index", order_date),
         {
             search: search.value,
             from: from.value,
@@ -67,7 +71,7 @@ watch(to, (value) => {
 
 watch(branchId, (value) => {
     router.get(
-        route("store-transactions.index"),
+        route("store-transactions.index", order_date),
         {
             search: search.value,
             from: from.value,
@@ -85,7 +89,7 @@ watch(
     search,
     throttle(function (value) {
         router.get(
-            route("store-transactions.index"),
+            route("store-transactions.index", order_date),
             {
                 search: value,
                 from: from.value,

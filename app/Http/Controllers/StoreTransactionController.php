@@ -64,6 +64,7 @@ class StoreTransactionController extends Controller
             'transactions' => $transactions,
             'filters' => request()->only(['from', 'to', 'branchId', 'search']),
             'branches' => $branches,
+            'order_date' => $order_date
         ]);
     }
 
