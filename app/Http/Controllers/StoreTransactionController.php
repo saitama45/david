@@ -29,15 +29,58 @@ class StoreTransactionController extends Controller
     {
         $this->storeTransactionService = $storeTransactionService;
     }
+
+    public function mainIndex()
+    {
+        $transactions = StoreTransaction::with('store_transaction_items')
+            ->select('order_date')
+            ->selectRaw('COUNT(*) as transaction_count')
+            ->selectRaw('(SELECT SUM(net_total) FROM store_transaction_items WHERE store_transaction_items.store_transaction_id = store_transactions.id) as net_total')
+            ->groupBy('order_date')
+            ->orderBy('order_date', 'desc')
+            ->paginate(10)
+            ->through(function ($transaction) {
+                return [
+                    'order_date' =>   $transaction->order_date,
+                    'transaction_count' => $transaction->transaction_count,
+                    'net_total' => str_pad($transaction->net_total, 2, 0)
+                ];
+            });
+
+        $branches = StoreBranch::options();
+        return Inertia::render('StoreTransaction/MainIndex', [
+
+            'filters' => request()->only(['from', 'to', 'branchId', 'search']),
+            'branches' => $branches,
+            'transactions' => $transactions
+        ]);
+    }
     public function index()
     {
+        $results = StoreTransaction::with('store_transaction_items')
+            ->select('order_date')
+            ->selectRaw('COUNT(*) as transaction_count')
+            ->selectRaw('(SELECT SUM(net_total) FROM store_transaction_items WHERE store_transaction_items.store_transaction_id = store_transactions.id) as net_total')
+            ->groupBy('order_date')
+            ->orderBy('order_date', 'desc')
+            ->paginate(10)
+            ->through(function ($transaction) {
+                return [
+                    'order_date' =>   $transaction->order_date,
+                    'transaction_count' => $transaction->transaction_count,
+                    'net_total' => str_pad($transaction->net_total, 2, 0)
+                ];
+            });
+
+
         $transactions = $this->storeTransactionService->getStoreTransactionsList();
         $branches = StoreBranch::options();
 
         return Inertia::render('StoreTransaction/Index', [
             'transactions' => $transactions,
             'filters' => request()->only(['from', 'to', 'branchId', 'search']),
-            'branches' => $branches
+            'branches' => $branches,
+            'results' => $results
         ]);
     }
 
