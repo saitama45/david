@@ -32,7 +32,16 @@ class StoreTransactionController extends Controller
 
     public function mainIndex()
     {
-        $transactions = StoreTransaction::with('store_transaction_items')
+        $from = request('from') ? Carbon::parse(request('from'))->format('Y-m-d') : '1999-01-01';
+        $to = request('to') ? Carbon::parse(request('to'))->format('Y-m-d') : Carbon::today()->addMonth();
+
+        $query = StoreTransaction::with('store_transaction_items');
+
+        if ($from && $to) {
+            $query->whereBetween('order_date', [$from, $to]);
+        }
+
+        $transactions = $query
             ->select('order_date')
             ->selectRaw('COUNT(*) as transaction_count')
             ->selectRaw('(SELECT SUM(net_total) FROM store_transaction_items WHERE store_transaction_items.store_transaction_id = store_transactions.id) as net_total')

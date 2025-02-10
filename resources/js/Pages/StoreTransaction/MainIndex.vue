@@ -35,7 +35,7 @@ let branchId = ref(usePage().props.filters.branchId);
 
 watch(from, (value) => {
     router.get(
-        route("store-transactions.index"),
+        route("store-transactions.main-index"),
         {
             search: search.value,
             from: value,
@@ -51,7 +51,7 @@ watch(from, (value) => {
 
 watch(to, (value) => {
     router.get(
-        route("store-transactions.index"),
+        route("store-transactions.main-index"),
         {
             search: search.value,
             from: from.value,
@@ -65,46 +65,45 @@ watch(to, (value) => {
     );
 });
 
-watch(branchId, (value) => {
-    router.get(
-        route("store-transactions.index"),
-        {
-            search: search.value,
-            from: from.value,
-            to: to.value,
-            branchId: value,
-        },
-        {
-            preserveState: true,
-            preserveScroll: true,
-        }
-    );
-});
+// watch(branchId, (value) => {
+//     router.get(
+//         route("store-transactions.index"),
+//         {
+//             search: search.value,
+//             from: from.value,
+//             to: to.value,
+//             branchId: value,
+//         },
+//         {
+//             preserveState: true,
+//             preserveScroll: true,
+//         }
+//     );
+// });
 
-watch(
-    search,
-    throttle(function (value) {
-        router.get(
-            route("store-transactions.index"),
-            {
-                search: value,
-                from: from.value,
-                to: to.value,
-                branchId: branchId.value,
-            },
-            {
-                preserveState: true,
-                replace: true,
-            }
-        );
-    }, 500)
-);
+// watch(
+//     search,
+//     throttle(function (value) {
+//         router.get(
+//             route("store-transactions.index"),
+//             {
+//                 search: value,
+//                 from: from.value,
+//                 to: to.value,
+//                 branchId: branchId.value,
+//             },
+//             {
+//                 preserveState: true,
+//                 replace: true,
+//             }
+//         );
+//     }, 500)
+// );
 
 const resetFilter = () => {
-    (from.value = null),
-        (to.value = null),
-        (branchId.value = null),
-        (search.value = null);
+    (from.value = null), (to.value = null);
+    // (branchId.value = null),
+    // (search.value = null)
 };
 
 const exportRoute = computed(() =>
@@ -127,13 +126,14 @@ const exportRoute = computed(() =>
     >
         <TableContainer>
             <TableHeader>
-                <SearchBar>
+                <!-- <SearchBar>
                     <Input
                         class="pl-10"
                         placeholder="Search..."
                         v-model="search"
                     />
-                </SearchBar>
+                </SearchBar> -->
+                <InputContainer></InputContainer>
 
                 <DivFlexCenter class="gap-5">
                     <Popover>
@@ -153,7 +153,7 @@ const exportRoute = computed(() =>
                             <label class="text-xs">To</label>
                             <Input type="date" v-model="to" />
                             <label class="text-xs">Store</label>
-                            <Select v-model="branchId">
+                            <!-- <Select v-model="branchId">
                                 <SelectTrigger>
                                     <SelectValue placeholder="Select a store" />
                                 </SelectTrigger>
@@ -169,7 +169,7 @@ const exportRoute = computed(() =>
                                         </SelectItem>
                                     </SelectGroup>
                                 </SelectContent>
-                            </Select>
+                            </Select> -->
                         </PopoverContent>
                     </Popover>
                 </DivFlexCenter>
