@@ -61,14 +61,14 @@ class StoreTransactionService
         ];
     }
 
-    public function getStoreTransactionsList()
+    public function getStoreTransactionsList($order_date)
     {
         $from = request('from') ? Carbon::parse(request('from'))->format('Y-m-d') : '1999-01-01';
         $to = request('to') ? Carbon::parse(request('to'))->format('Y-m-d') : Carbon::today()->addMonth();
         $search = request('search');
         $branchId = request('branchId');
 
-        $query = StoreTransaction::query()->with(['store_transaction_items', 'store_branch']);
+        $query = StoreTransaction::query()->with(['store_transaction_items', 'store_branch'])->where('order_date', $order_date);
 
         $user = User::rolesAndAssignedBranches();
         if (!$user['isAdmin']) $query->whereIn('store_branch_id', $user['assignedBranches']);

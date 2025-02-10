@@ -186,7 +186,17 @@ const exportRoute = computed(() =>
                         <TD>{{ transaction.order_date }}</TD>
                         <TD>{{ transaction.transaction_count }}</TD>
                         <TD>{{ transaction.net_total }}</TD>
-                        <TD class="flex items-center"> </TD>
+                        <TD class="flex items-center">
+                            <ShowButton
+                                :isLink="true"
+                                :href="
+                                    route(
+                                        'store-transactions.index',
+                                        transaction.order_date
+                                    )
+                                "
+                            />
+                        </TD>
                     </tr>
                 </TableBody>
             </Table>

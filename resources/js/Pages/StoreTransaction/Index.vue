@@ -217,5 +217,6 @@ const exportRoute = computed(() =>
             </Table>
             <Pagination :data="transactions" />
         </TableContainer>
+        <BackButton />
     </Layout>
 </template>
