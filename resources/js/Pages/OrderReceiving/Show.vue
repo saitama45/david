@@ -199,6 +199,7 @@ const openEditModalForm = (id) => {
     editReceiveDetailsForm.id = history.id;
     editReceiveDetailsForm.quantity_received = history.quantity_received;
     editReceiveDetailsForm.expiry_date = history.expiry_date;
+    editReceiveDetailsForm.remarks = history.remarks;
     isEditModalVisible.value = true;
 };
 
