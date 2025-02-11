@@ -44,21 +44,32 @@ class StoreTransactionController extends Controller
         $transactions = $query
             ->select('order_date')
             ->selectRaw('COUNT(*) as transaction_count')
-            ->selectRaw('(SELECT SUM(net_total) FROM store_transaction_items WHERE store_transaction_items.store_transaction_id = store_transactions.id) as net_total')
+            ->selectRaw(
+                DB::connection()->getDriverName() === 'sqlsrv'
+                    ? 'SUM(ISNULL((
+                    SELECT SUM(CAST(net_total AS DECIMAL(10,2))) 
+                    FROM store_transaction_items 
+                    WHERE store_transaction_items.store_transaction_id = store_transactions.id
+                ), 0)) as net_total'
+                    : 'COALESCE((
+                    SELECT SUM(net_total) 
+                    FROM store_transaction_items 
+                    WHERE store_transaction_items.store_transaction_id = store_transactions.id
+                ), 0) as net_total'
+            )
             ->groupBy('order_date')
             ->orderBy('order_date', 'desc')
             ->paginate(10)
             ->through(function ($transaction) {
                 return [
-                    'order_date' =>   $transaction->order_date,
+                    'order_date' => $transaction->order_date,
                     'transaction_count' => $transaction->transaction_count,
-                    'net_total' => str_pad($transaction->net_total, 2, 0)
+                    'net_total' => str_pad($transaction->net_total ?? 0, 2, '0', STR_PAD_RIGHT)
                 ];
             });
 
         $branches = StoreBranch::options();
         return Inertia::render('StoreTransaction/MainIndex', [
-
             'filters' => request()->only(['from', 'to', 'branchId', 'search']),
             'branches' => $branches,
             'transactions' => $transactions
