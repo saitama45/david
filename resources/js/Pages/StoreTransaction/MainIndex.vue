@@ -2,6 +2,7 @@
 import { router } from "@inertiajs/vue3";
 import { usePage } from "@inertiajs/vue3";
 import { throttle } from "lodash";
+import { useSelectOptions } from "@/Composables/useSelectOptions";
 import {
     Select,
     SelectContent,
@@ -11,7 +12,7 @@ import {
     SelectTrigger,
     SelectValue,
 } from "@/components/ui/select";
-const { transactions } = defineProps({
+const { transactions, branches } = defineProps({
     transactions: {
         type: Object,
         required: true,
@@ -21,6 +22,8 @@ const { transactions } = defineProps({
         required: true,
     },
 });
+const { options: branchesOptions } = useSelectOptions(branches);
+
 const createNewTransaction = () => {
     router.get(route("store-transactions.create"));
 };
@@ -31,7 +34,9 @@ let from = ref(usePage().props.from ?? null);
 
 let to = ref(usePage().props.to ?? null);
 
-let branchId = ref(usePage().props.filters.branchId);
+const branchId = ref(
+    usePage().props.filters.branchId || branchesOptions.value[0].value
+);
 
 watch(from, (value) => {
     router.get(
@@ -65,21 +70,21 @@ watch(to, (value) => {
     );
 });
 
-// watch(branchId, (value) => {
-//     router.get(
-//         route("store-transactions.index"),
-//         {
-//             search: search.value,
-//             from: from.value,
-//             to: to.value,
-//             branchId: value,
-//         },
-//         {
-//             preserveState: true,
-//             preserveScroll: true,
-//         }
-//     );
-// });
+watch(branchId, (value) => {
+    router.get(
+        route("store-transactions.main-index"),
+        {
+            search: search.value,
+            from: from.value,
+            to: to.value,
+            branchId: value,
+        },
+        {
+            preserveState: true,
+            preserveScroll: true,
+        }
+    );
+});
 
 // watch(
 //     search,
@@ -153,7 +158,7 @@ const exportRoute = computed(() =>
                             <label class="text-xs">To</label>
                             <Input type="date" v-model="to" />
                             <label class="text-xs">Store</label>
-                            <!-- <Select v-model="branchId">
+                            <Select v-model="branchId">
                                 <SelectTrigger>
                                     <SelectValue placeholder="Select a store" />
                                 </SelectTrigger>
@@ -169,7 +174,7 @@ const exportRoute = computed(() =>
                                         </SelectItem>
                                     </SelectGroup>
                                 </SelectContent>
-                            </Select> -->
+                            </Select>
                         </PopoverContent>
                     </Popover>
                 </DivFlexCenter>

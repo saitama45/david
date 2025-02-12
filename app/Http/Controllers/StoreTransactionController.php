@@ -35,6 +35,9 @@ class StoreTransactionController extends Controller
         $from = request('from') ? Carbon::parse(request('from'))->format('Y-m-d') : '1999-01-01';
         $to = request('to') ? Carbon::parse(request('to'))->format('Y-m-d') : Carbon::today()->addMonth();
 
+        $branches = StoreBranch::options();
+        $branchId = request('branchId') ?? $branches->keys()->first();
+
         $transactions = StoreTransaction::query()
             ->leftJoin('store_transaction_items', 'store_transactions.id', '=', 'store_transaction_items.store_transaction_id')
             ->whereBetween('order_date', [$from, $to])
@@ -43,6 +46,7 @@ class StoreTransactionController extends Controller
                 DB::raw('COUNT(DISTINCT store_transactions.id) as transaction_count'),
                 DB::raw('SUM(store_transaction_items.net_total) as net_total')
             )
+            ->where('store_transactions.store_branch_id', $branchId)
             ->groupBy('store_transactions.order_date')
             ->orderBy('store_transactions.order_date', 'desc')
             ->paginate(10)
