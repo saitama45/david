@@ -68,7 +68,9 @@ class StoreTransactionService
         $search = request('search');
         $branchId = request('branchId');
 
-        $query = StoreTransaction::query()->with(['store_transaction_items', 'store_branch'])->where('order_date', $order_date);
+
+        $query = StoreTransaction::query()->with(['store_transaction_items', 'store_branch'])->where('order_date', $order_date)
+            ->where('store_branch_id', $branchId);
 
         $user = User::rolesAndAssignedBranches();
         if (!$user['isAdmin']) $query->whereIn('store_branch_id', $user['assignedBranches']);

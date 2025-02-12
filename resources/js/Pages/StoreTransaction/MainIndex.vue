@@ -106,8 +106,9 @@ watch(branchId, (value) => {
 // );
 
 const resetFilter = () => {
-    (from.value = null), (to.value = null);
-    // (branchId.value = null),
+    (from.value = null),
+        (to.value = null),
+        (branchId.value = branchesOptions.value[0].value);
     // (search.value = null)
 };
 
@@ -195,10 +196,10 @@ const exportRoute = computed(() =>
                             <ShowButton
                                 :isLink="true"
                                 :href="
-                                    route(
-                                        'store-transactions.index',
-                                        transaction.order_date
-                                    )
+                                    route('store-transactions.index', {
+                                        order_date: transaction.order_date,
+                                        branchId: branchId,
+                                    })
                                 "
                             />
                         </TD>
