@@ -39,7 +39,7 @@ let branchId = ref(usePage().props.filters.branchId);
 
 watch(from, (value) => {
     router.get(
-        route("store-transactions.index", order_date),
+        route("store-transactions.index"),
         {
             search: search.value,
             from: value,
@@ -55,7 +55,7 @@ watch(from, (value) => {
 
 watch(to, (value) => {
     router.get(
-        route("store-transactions.index", order_date),
+        route("store-transactions.index"),
         {
             search: search.value,
             from: from.value,
@@ -71,7 +71,7 @@ watch(to, (value) => {
 
 watch(branchId, (value) => {
     router.get(
-        route("store-transactions.index", order_date),
+        route("store-transactions.index"),
         {
             search: search.value,
             from: from.value,
@@ -89,7 +89,7 @@ watch(
     search,
     throttle(function (value) {
         router.get(
-            route("store-transactions.index", order_date),
+            route("store-transactions.index"),
             {
                 search: value,
                 from: from.value,
@@ -140,7 +140,7 @@ const exportRoute = computed(() =>
                 </SearchBar>
 
                 <DivFlexCenter class="gap-5">
-                    <!-- <Popover>
+                    <Popover>
                         <PopoverTrigger> <Filter /> </PopoverTrigger>
                         <PopoverContent>
                             <div class="flex justify-end">
@@ -156,7 +156,7 @@ const exportRoute = computed(() =>
                             <Input type="date" v-model="from" />
                             <label class="text-xs">To</label>
                             <Input type="date" v-model="to" />
-                            <label class="text-xs">Store</label>
+                            <!-- <label class="text-xs">Store</label>
                             <Select v-model="branchId">
                                 <SelectTrigger>
                                     <SelectValue placeholder="Select a store" />
@@ -173,9 +173,9 @@ const exportRoute = computed(() =>
                                         </SelectItem>
                                     </SelectGroup>
                                 </SelectContent>
-                            </Select>
+                            </Select> -->
                         </PopoverContent>
-                    </Popover> -->
+                    </Popover>
                 </DivFlexCenter>
             </TableHeader>
             <Table>

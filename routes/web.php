@@ -177,9 +177,9 @@ Route::middleware('auth')
 
         // Store Transactions 
         Route::controller(StoreTransactionController::class)->name('store-transactions.')->prefix('store-transactions')->group(function () {
-            Route::middleware('permission:view store transactions')->get('/', 'mainIndex')->name('main-index');
+            Route::middleware('permission:view store transactions')->get('/summary', 'mainIndex')->name('main-index');
 
-            Route::middleware('permission:view store transactions')->get('/{order_date}', 'index')->name('index');
+            Route::middleware('permission:view store transactions')->get('/', 'index')->name('index');
             Route::middleware('permission:view store transaction')->get('/show/{store_transaction}', 'show')->name('show');
 
             Route::middleware('permission:create store transactions')->group(function () {

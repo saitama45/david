@@ -67,16 +67,16 @@ class StoreTransactionController extends Controller
             'transactions' => $transactions
         ]);
     }
-    public function index($order_date)
+    public function index()
     {
-        $transactions = $this->storeTransactionService->getStoreTransactionsList($order_date);
+        $transactions = $this->storeTransactionService->getStoreTransactionsList();
         $branches = StoreBranch::options();
 
         return Inertia::render('StoreTransaction/Index', [
             'transactions' => $transactions,
             'filters' => request()->only(['from', 'to', 'branchId', 'search']),
             'branches' => $branches,
-            'order_date' => $order_date
+            'order_date' => request('order_date')
         ]);
     }
 
