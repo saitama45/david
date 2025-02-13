@@ -183,7 +183,7 @@ Route::middleware('auth')
             Route::middleware('permission:view store transaction')->get('/show/{store_transaction}', 'show')->name('show');
 
             Route::middleware('permission:create store transactions')->group(function () {
-                Route::get('/create', 'create')->name('create');
+                Route::get('/create/new', 'create')->name('create');
                 Route::post('/store', 'store')->name('store');
                 Route::post('/import', 'import')->name('import');
             });
