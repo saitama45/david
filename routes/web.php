@@ -194,6 +194,7 @@ Route::middleware('auth')
             });
 
             Route::middleware('permission:view store transactions')->get('export', 'export')->name('export');
+            Route::middleware('permission:view store transactions')->get('main-index/export', 'exportMainIndex')->name('export-main-index');
         });
 
         // Items

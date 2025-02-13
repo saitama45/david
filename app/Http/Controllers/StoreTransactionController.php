@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Exports\StoreTransactionExport;
+use App\Exports\StoreTransactionsSummaryExport;
 use App\Http\Requests\StoreTransaction\StoreStoreTransactionRequest;
 use App\Http\Requests\StoreTransaction\UpdateStoreTransactionRequest;
 use App\Http\Services\StoreTransactionService;
@@ -77,6 +78,19 @@ class StoreTransactionController extends Controller
             'branches' => $branches,
             'order_date' => $order_date
         ]);
+    }
+
+    public function exportMainIndex()
+    {
+        $from = request('from') ? Carbon::parse(request('from'))->format('Y-m-d') : '1999-01-01';
+        $to = request('to') ? Carbon::parse(request('to'))->format('Y-m-d') : Carbon::today()->addMonth()->format('Y-m-d');
+        $branchId = request('branchId');
+
+
+        return Excel::download(
+            new StoreTransactionsSummaryExport($to, $from, $branchId),
+            'store-transactions-summary-' . now()->format('Y-m-d') . '.xlsx'
+        );
     }
 
     public function export()

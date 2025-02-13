@@ -113,8 +113,7 @@ const resetFilter = () => {
 };
 
 const exportRoute = computed(() =>
-    route("store-transactions.export", {
-        search: search.value,
+    route("store-transactions.export-main-index", {
         branchId: branchId.value,
         from: from.value,
         to: to.value,
