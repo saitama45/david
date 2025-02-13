@@ -140,7 +140,7 @@ const exportRoute = computed(() =>
                 </SearchBar>
 
                 <DivFlexCenter class="gap-5">
-                    <Popover>
+                    <!-- <Popover>
                         <PopoverTrigger> <Filter /> </PopoverTrigger>
                         <PopoverContent>
                             <div class="flex justify-end">
@@ -175,7 +175,7 @@ const exportRoute = computed(() =>
                                 </SelectContent>
                             </Select>
                         </PopoverContent>
-                    </Popover>
+                    </Popover> -->
                 </DivFlexCenter>
             </TableHeader>
             <Table>
