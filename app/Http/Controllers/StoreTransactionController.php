@@ -72,6 +72,7 @@ class StoreTransactionController extends Controller
         $transactions = $this->storeTransactionService->getStoreTransactionsList();
         $branches = StoreBranch::options();
 
+
         return Inertia::render('StoreTransaction/Index', [
             'transactions' => $transactions,
             'filters' => request()->only(['from', 'to', 'branchId', 'search']),
@@ -96,14 +97,14 @@ class StoreTransactionController extends Controller
     public function export()
     {
 
-        $from = request('from') ? Carbon::parse(request('from'))->format('Y-m-d') : '1999-01-01';
+        $from = request('from') ? Carbon::parse(request('from'))->format('Y-m-d') : null;
 
-        $to = request('to') ? Carbon::parse(request('to'))->format('Y-m-d') : Carbon::today()->addMonth();
+        $to = request('to') ? Carbon::parse(request('to'))->format('Y-m-d') : null;
         $branchId = request('branchId');
         $search = request('search');
 
         return Excel::download(
-            new StoreTransactionExport($search, $branchId, $from, $to),
+            new StoreTransactionExport($search, $branchId, $from, $to, request('order_date')),
             'store-transactions-' . now()->format('Y-m-d') . '.xlsx'
         );
     }

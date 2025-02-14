@@ -22,7 +22,7 @@ const { transactions, order_date } = defineProps({
     },
     order_date: {
         type: String,
-        required: true,
+        required: false,
     },
 });
 const createNewTransaction = () => {
@@ -117,8 +117,11 @@ const exportRoute = computed(() =>
         branchId: branchId.value,
         from: from.value,
         to: to.value,
+        order_date: order_date,
     })
 );
+
+console.log(order_date);
 </script>
 <template>
     <Layout

@@ -18,17 +18,19 @@ class StoreTransactionExport implements FromQuery, WithHeadings, WithMapping, Wi
     protected $from;
     protected $to;
     protected $branchId;
+    protected $order_date;
     protected $search;
     protected $totalDiscount = 0;
     protected $totalLineTotal = 0;
     protected $totalNetTotal = 0;
 
-    public function __construct($search = null, $branchId = null, $from = null, $to = null)
+    public function __construct($search = null, $branchId = null, $from = null, $to = null, $order_date = null)
     {
         $this->search = $search;
         $this->branchId = $branchId;
         $this->from = $from;
         $this->to = $to;
+        $this->order_date = $order_date;
     }
 
     public function query()
@@ -37,6 +39,10 @@ class StoreTransactionExport implements FromQuery, WithHeadings, WithMapping, Wi
 
         $user = User::rolesAndAssignedBranches();
         if (!$user['isAdmin']) $query->whereIn('store_branch_id', $user['assignedBranches']);
+
+        if (!$this->from && !$this->to) {
+            $query->where('order_date', $this->order_date);
+        }
 
         if ($this->from && $this->to) {
             $query->whereBetween('order_date', [$this->from, $this->to]);
