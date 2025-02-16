@@ -159,7 +159,7 @@ console.log(order_date);
                             <Input type="date" v-model="from" />
                             <label class="text-xs">To</label>
                             <Input type="date" v-model="to" />
-                            <!-- <label class="text-xs">Store</label>
+                            <label class="text-xs">Store</label>
                             <Select v-model="branchId">
                                 <SelectTrigger>
                                     <SelectValue placeholder="Select a store" />
@@ -176,7 +176,7 @@ console.log(order_date);
                                         </SelectItem>
                                     </SelectGroup>
                                 </SelectContent>
-                            </Select> -->
+                            </Select>
                         </PopoverContent>
                     </Popover>
                 </DivFlexCenter>

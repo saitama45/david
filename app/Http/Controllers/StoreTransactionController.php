@@ -72,7 +72,6 @@ class StoreTransactionController extends Controller
         $transactions = $this->storeTransactionService->getStoreTransactionsList();
         $branches = StoreBranch::options();
 
-
         return Inertia::render('StoreTransaction/Index', [
             'transactions' => $transactions,
             'filters' => request()->only(['from', 'to', 'branchId', 'search']),
