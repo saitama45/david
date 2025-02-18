@@ -229,6 +229,8 @@ Route::middleware('auth')
                 Route::get('/edit/{id}', 'edit')->name('edit');
             });
 
+            Route::get('/export', 'export')->name('export');
+
             Route::middleware('permission:delete bom')->delete('/destroy/{id}', 'destroy')->name('destroy');
         });
 
