@@ -56,5 +56,6 @@ const props = defineProps({
                 </Table>
             </TableContainer>
         </DivFlexCol>
+        <BackButton />
     </Layout>
 </template>
