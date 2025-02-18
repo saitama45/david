@@ -29,7 +29,7 @@ const exportRoute = route("menu-list.export", {
 <template>
     <Layout
         heading="BOM List"
-        :hasButton="hasAccess('create menu')"
+        :hasButton="hasAccess('create bom')"
         :handleClick="createNewMenu"
         buttonName="Create New BOM"
         :hasExcelDownload="true"
@@ -64,12 +64,12 @@ const exportRoute = route("menu-list.export", {
                         <TD>
                             <DivFlexCenter class="gap-3">
                                 <ShowButton
-                                    v-if="hasAccess('show menu')"
+                                    v-if="hasAccess('view bom')"
                                     :isLink="true"
                                     :href="route('menu-list.show', menu.id)"
                                 />
                                 <EditButton
-                                    v-if="hasAccess('edit menu')"
+                                    v-if="hasAccess('edit bom')"
                                     :isLink="true"
                                     :href="route('menu-list.edit', menu.id)"
                                 />
@@ -91,7 +91,7 @@ const exportRoute = route("menu-list.export", {
                 <MobileTableRow v-for="menu in menus.data" :key="menu.id">
                     <MobileTableHeading :title="`${menu.name}`">
                         <ShowButton
-                            v-if="hasAccess('show menu')"
+                            v-if="hasAccess('view menu')"
                             :isLink="true"
                             :href="route('menu-list.show', menu.id)"
                         />
