@@ -12,37 +12,132 @@ const props = defineProps({
 onMounted(() => {
     chartData.value = setChartData();
     chartOptions.value = setChartOptions();
+
+    chartDataDoughnut.value = setChartDataDoughnut();
+    chartOptionsDoughnut.value = setChartOptionsDoughnut();
+
+    chartDataHorizontal.value = setChartDataHorizontal();
+    chartOptionsHorizontal.value = setChartOptionsHorizontal();
+
+    chartDataLine.value = setChartDataLine();
+    chartOptionsLine.value = setChartOptionsLine();
+
+    chartDataStacked.value = setChartDataStacked();
+    chartOptionsStacked.value = setChartOptionsStacked();
 });
 
 const chartData = ref();
 const chartOptions = ref();
 
 const setChartData = () => {
+    const documentStyle = getComputedStyle(document.documentElement);
+
+    return {
+        labels: [
+            "January",
+            "February",
+            "March",
+            "April",
+            "May",
+            "June",
+            "July",
+        ],
+        datasets: [
+            {
+                type: "line",
+                label: "Dataset 1",
+                borderColor: documentStyle.getPropertyValue("--p-orange-500"),
+                borderWidth: 2,
+                fill: false,
+                tension: 0.4,
+                data: [50, 25, 12, 48, 56, 76, 42],
+            },
+            {
+                type: "bar",
+                label: "Dataset 2",
+                backgroundColor: documentStyle.getPropertyValue("--p-gray-500"),
+                data: [21, 84, 24, 75, 37, 65, 34],
+                borderColor: "white",
+                borderWidth: 2,
+            },
+            {
+                type: "bar",
+                label: "Dataset 3",
+                backgroundColor: documentStyle.getPropertyValue("--p-cyan-500"),
+                data: [41, 52, 24, 74, 23, 21, 32],
+            },
+        ],
+    };
+};
+const setChartOptions = () => {
+    const documentStyle = getComputedStyle(document.documentElement);
+    const textColor = documentStyle.getPropertyValue("--p-text-color");
+    const textColorSecondary = documentStyle.getPropertyValue(
+        "--p-text-muted-color"
+    );
+    const surfaceBorder = documentStyle.getPropertyValue(
+        "--p-content-border-color"
+    );
+
+    return {
+        maintainAspectRatio: false,
+        aspectRatio: 0.6,
+        plugins: {
+            legend: {
+                labels: {
+                    color: textColor,
+                },
+            },
+        },
+        scales: {
+            x: {
+                ticks: {
+                    color: textColorSecondary,
+                },
+                grid: {
+                    color: surfaceBorder,
+                },
+            },
+            y: {
+                ticks: {
+                    color: textColorSecondary,
+                },
+                grid: {
+                    color: surfaceBorder,
+                },
+            },
+        },
+    };
+};
+
+// Doughnut
+const chartDataDoughnut = ref();
+const chartOptionsDoughnut = ref(null);
+
+const setChartDataDoughnut = () => {
     const documentStyle = getComputedStyle(document.body);
 
     return {
-        labels: ["Apple Chie", "Almond Crunch", "Ice Cream", "Knorr"],
+        labels: ["A", "B", "C"],
         datasets: [
             {
-                data: [540, 325, 702, 200],
+                data: [540, 325, 702],
                 backgroundColor: [
-                    documentStyle.getPropertyValue("--p-blue-500"),
-                    documentStyle.getPropertyValue("--p-yellow-500"),
-                    documentStyle.getPropertyValue("--p-green-500"),
+                    documentStyle.getPropertyValue("--p-cyan-500"),
                     documentStyle.getPropertyValue("--p-orange-500"),
+                    documentStyle.getPropertyValue("--p-gray-500"),
                 ],
                 hoverBackgroundColor: [
-                    documentStyle.getPropertyValue("--p-blue-400"),
-                    documentStyle.getPropertyValue("--p-yellow-400"),
-                    documentStyle.getPropertyValue("--p-green-400"),
+                    documentStyle.getPropertyValue("--p-cyan-400"),
                     documentStyle.getPropertyValue("--p-orange-400"),
+                    documentStyle.getPropertyValue("--p-gray-400"),
                 ],
             },
         ],
     };
 };
 
-const setChartOptions = () => {
+const setChartOptionsDoughnut = () => {
     const documentStyle = getComputedStyle(document.documentElement);
     const textColor = documentStyle.getPropertyValue("--p-text-color");
 
@@ -50,8 +145,254 @@ const setChartOptions = () => {
         plugins: {
             legend: {
                 labels: {
-                    usePointStyle: true,
+                    cutout: "60%",
                     color: textColor,
+                },
+            },
+        },
+    };
+};
+
+// Horizontal
+
+const chartDataHorizontal = ref();
+const chartOptionsHorizontal = ref();
+
+const setChartDataHorizontal = () => {
+    const documentStyle = getComputedStyle(document.documentElement);
+
+    return {
+        labels: [
+            "January",
+            "February",
+            "March",
+            "April",
+            "May",
+            "June",
+            "July",
+        ],
+        datasets: [
+            {
+                label: "My First dataset",
+                backgroundColor: documentStyle.getPropertyValue("--p-cyan-500"),
+                borderColor: documentStyle.getPropertyValue("--p-cyan-500"),
+                data: [65, 59, 80, 81, 56, 55, 40],
+            },
+            {
+                label: "My Second dataset",
+                backgroundColor: documentStyle.getPropertyValue("--p-gray-500"),
+                borderColor: documentStyle.getPropertyValue("--p-gray-500"),
+                data: [28, 48, 40, 19, 86, 27, 90],
+            },
+        ],
+    };
+};
+
+const setChartOptionsHorizontal = () => {
+    const documentStyle = getComputedStyle(document.documentElement);
+    const textColor = documentStyle.getPropertyValue("--p-text-color");
+    const textColorSecondary = documentStyle.getPropertyValue(
+        "--p-text-muted-color"
+    );
+    const surfaceBorder = documentStyle.getPropertyValue(
+        "--p-content-border-color"
+    );
+
+    return {
+        indexAxis: "y",
+        maintainAspectRatio: false,
+        aspectRatio: 0.8,
+        plugins: {
+            legend: {
+                labels: {
+                    color: textColor,
+                },
+            },
+        },
+        scales: {
+            x: {
+                ticks: {
+                    color: textColorSecondary,
+                    font: {
+                        weight: 500,
+                    },
+                },
+                grid: {
+                    display: false,
+                    drawBorder: false,
+                },
+            },
+            y: {
+                ticks: {
+                    color: textColorSecondary,
+                },
+                grid: {
+                    color: surfaceBorder,
+                    drawBorder: false,
+                },
+            },
+        },
+    };
+};
+
+// Line
+const chartDataLine = ref();
+const chartOptionsLine = ref();
+
+const setChartDataLine = () => {
+    const documentStyle = getComputedStyle(document.documentElement);
+
+    return {
+        labels: [
+            "January",
+            "February",
+            "March",
+            "April",
+            "May",
+            "June",
+            "July",
+        ],
+        datasets: [
+            {
+                label: "First Dataset",
+                data: [65, 59, 80, 81, 56, 55, 40],
+                fill: false,
+                borderColor: documentStyle.getPropertyValue("--p-cyan-500"),
+                tension: 0.4,
+            },
+            {
+                label: "Second Dataset",
+                data: [28, 48, 40, 19, 86, 27, 90],
+                fill: false,
+                borderColor: documentStyle.getPropertyValue("--p-gray-500"),
+                tension: 0.4,
+            },
+        ],
+    };
+};
+const setChartOptionsLine = () => {
+    const documentStyle = getComputedStyle(document.documentElement);
+    const textColor = documentStyle.getPropertyValue("--p-text-color");
+    const textColorSecondary = documentStyle.getPropertyValue(
+        "--p-text-muted-color"
+    );
+    const surfaceBorder = documentStyle.getPropertyValue(
+        "--p-content-border-color"
+    );
+
+    return {
+        maintainAspectRatio: false,
+        aspectRatio: 0.6,
+        plugins: {
+            legend: {
+                labels: {
+                    color: textColor,
+                },
+            },
+        },
+        scales: {
+            x: {
+                ticks: {
+                    color: textColorSecondary,
+                },
+                grid: {
+                    color: surfaceBorder,
+                },
+            },
+            y: {
+                ticks: {
+                    color: textColorSecondary,
+                },
+                grid: {
+                    color: surfaceBorder,
+                },
+            },
+        },
+    };
+};
+
+// Stacked
+
+const chartDataStacked = ref();
+const chartOptionsStacked = ref();
+
+const setChartDataStacked = () => {
+    const documentStyle = getComputedStyle(document.documentElement);
+
+    return {
+        labels: [
+            "January",
+            "February",
+            "March",
+            "April",
+            "May",
+            "June",
+            "July",
+        ],
+        datasets: [
+            {
+                type: "bar",
+                label: "Dataset 1",
+                backgroundColor: documentStyle.getPropertyValue("--p-cyan-500"),
+                data: [50, 25, 12, 48, 90, 76, 42],
+            },
+            {
+                type: "bar",
+                label: "Dataset 2",
+                backgroundColor: documentStyle.getPropertyValue("--p-gray-500"),
+                data: [21, 84, 24, 75, 37, 65, 34],
+            },
+            {
+                type: "bar",
+                label: "Dataset 3",
+                backgroundColor:
+                    documentStyle.getPropertyValue("--p-orange-500"),
+                data: [41, 52, 24, 74, 23, 21, 32],
+            },
+        ],
+    };
+};
+const setChartOptionsStacked = () => {
+    const documentStyle = getComputedStyle(document.documentElement);
+    const textColor = documentStyle.getPropertyValue("--p-text-color");
+    const textColorSecondary = documentStyle.getPropertyValue(
+        "--p-text-muted-color"
+    );
+    const surfaceBorder = documentStyle.getPropertyValue(
+        "--p-content-border-color"
+    );
+
+    return {
+        maintainAspectRatio: false,
+        aspectRatio: 0.8,
+        plugins: {
+            tooltips: {
+                mode: "index",
+                intersect: false,
+            },
+            legend: {
+                labels: {
+                    color: textColor,
+                },
+            },
+        },
+        scales: {
+            x: {
+                stacked: true,
+                ticks: {
+                    color: textColorSecondary,
+                },
+                grid: {
+                    color: surfaceBorder,
+                },
+            },
+            y: {
+                stacked: true,
+                ticks: {
+                    color: textColorSecondary,
+                },
+                grid: {
+                    color: surfaceBorder,
                 },
             },
         },
@@ -63,35 +404,73 @@ import { Check, ClockArrowUp, BookX } from "lucide-vue-next";
 <template>
     <Layout heading="Dashboard">
         <section class="flex flex-col gap-5">
-            <div class="grid gap-5 sm:grid-cols-3">
+            <div class="grid gap-5 sm:grid-cols-5">
+                <StatisticOverview heading="SALES" value="0" :icon="Check" />
                 <StatisticOverview
-                    heading="Approved Orders"
-                    :value="orderCounts.approved_count"
-                    :icon="Check"
-                />
-                <StatisticOverview
-                    heading="Pending Orders"
-                    :value="orderCounts.pending_count"
+                    heading="INVENTORIES"
+                    value="0"
                     :icon="ClockArrowUp"
                 />
                 <StatisticOverview
-                    heading="Rejected Orders"
+                    heading="UPCOMING INVENTORIES"
+                    :value="orderCounts.rejected_count"
+                    :icon="BookX"
+                />
+                <StatisticOverview
+                    heading="LIST OF SUPPLIERS"
+                    :value="orderCounts.rejected_count"
+                    :icon="BookX"
+                />
+                <StatisticOverview
+                    heading="ACCOUNT PAYABLE"
                     :value="orderCounts.rejected_count"
                     :icon="BookX"
                 />
             </div>
-            <div class="sm:grid sm:grid-cols-3">
-                <Chart
-                    type="pie"
-                    :data="chartData"
-                    :options="chartOptions"
-                    class="w-full"
-                />
+            <div class="sm:grid sm:grid-cols-3 sm:grid-rows-3 gap-4">
+                <!-- Full width chart -->
                 <Chart
                     type="bar"
                     :data="chartData"
                     :options="chartOptions"
-                    class="col-span-2"
+                    class="h-[30rem] col-span-3"
+                />
+
+                <!-- First row after full width -->
+                <Chart
+                    type="doughnut"
+                    :data="chartDataDoughnut"
+                    :options="chartOptionsDoughnut"
+                    class="h-[30rem]"
+                />
+
+                <Chart
+                    type="bar"
+                    :data="chartDataHorizontal"
+                    :options="chartOptionsHorizontal"
+                    class="row-span-2"
+                />
+
+                <Chart
+                    type="doughnut"
+                    :data="chartDataDoughnut"
+                    :options="chartOptionsDoughnut"
+                    class="h-[30rem]"
+                />
+
+                <!-- Last row -->
+                <Chart
+                    type="line"
+                    :data="chartDataLine"
+                    :options="chartOptionsLine"
+                    class="h-[30rem]"
+                />
+
+                <Chart
+                    type="bar"
+                    :data="chartDataStacked"
+                    :options="chartOptionsStacked"
+                    class="h-[30rem]"
                 />
             </div>
         </section>
