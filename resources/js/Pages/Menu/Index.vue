@@ -56,7 +56,7 @@ const exportRoute = route("menu-list.export", {
                     <tr v-for="menu in menus.data" :key="menu.id">
                         <TD>{{ menu.id }}</TD>
                         <TD>{{ menu.product_id }}</TD>
-                        <TD>{{ menu.remarks }}</TD>
+                        <TD>{{ menu.remarks ?? "None" }}</TD>
                         <TD>
                             <DivFlexCenter class="gap-3">
                                 <ShowButton

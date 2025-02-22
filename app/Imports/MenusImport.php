@@ -26,9 +26,6 @@ class MenusImport implements ToCollection, WithStartRow
     public function collection(Collection $rows)
     {
         foreach ($rows as $row) {
-            Log::info('Processing row ', [
-                'raw_data' => $row[0],
-            ]);
             if (!empty($row[0])) {
                 if (!$this->menu) {
                     $this->menu = Menu::create([
@@ -41,11 +38,19 @@ class MenusImport implements ToCollection, WithStartRow
                     // Log::info('Processing row ', [
                     //     'raw_data' => 'if this menu',
                     // ]);
-                    if (trim($row[0]) != 'SAP CODE') {
-                        $this->menu->product_inventories()->attach($row['0'], [
-                            'quantity' => $row['2'],
-                            'unit' => $row['3']
-                        ]);
+                    if (trim($row['0']) != 'SAP CODE') {
+                        $item = ProductInventory::where('inventory_code', $row['0'])->first();
+                        if ($item) {
+                            $this->menu->product_inventories()->attach($item->id, [
+                                'quantity' => $row['2'],
+                                'unit' => $row['3']
+                            ]);
+
+                            Log::info('Processing row ', [
+                                'raw_data' => $row['0'],
+                                'item' => $item
+                            ]);
+                        }
                     }
                 }
             } else {
