@@ -12,6 +12,10 @@ import {
     SelectTrigger,
     SelectValue,
 } from "@/components/ui/select";
+import { useToast } from "@/Composables/useToast";
+const { toast } = useToast();
+import { useConfirm } from "primevue/useconfirm";
+const confirm = useConfirm();
 const { transactions, branches } = defineProps({
     transactions: {
         type: Object,
@@ -119,13 +123,54 @@ const exportRoute = computed(() =>
         to: to.value,
     })
 );
+
+import { useForm } from "@inertiajs/vue3";
+const excelFileForm = useForm({
+    store_transactions_file: null,
+});
+const isLoading = ref(false);
+const isImportStoreTransactionModalOpen = ref(false);
+const openImportStoreTransactionModal = () => {
+    isImportStoreTransactionModalOpen.value = true;
+};
+
+watch(isImportStoreTransactionModalOpen, (value) => {
+    if (!value) {
+        isLoading.value = false;
+    }
+});
+
+const importTransactions = () => {
+    isLoading.value = true;
+    excelFileForm.post(route("store-transactions.import"), {
+        onSuccess: () => {
+            isLoading.value = false;
+            isImportStoreTransactionModalOpen.value = false;
+            toast.add({
+                severity: "success",
+                summary: "Success",
+                detail: "Store transactions created successfully",
+                life: 3000,
+            });
+        },
+        onError: (e) => {
+            toast.add({
+                severity: "error",
+                summary: "Error",
+                detail: "An error occured while trying to import store transactions.",
+                life: 3000,
+            });
+            isLoading.value = false;
+        },
+    });
+};
 </script>
 <template>
     <Layout
         heading="Store Transactions"
         :hasButton="true"
-        buttonName="Create New Transaction"
-        :handleClick="createNewTransaction"
+        buttonName="Import Store Transactions"
+        :handleClick="openImportStoreTransactionModal"
         :hasExcelDownload="true"
         :exportRoute="exportRoute"
     >
@@ -207,5 +252,55 @@ const exportRoute = computed(() =>
             </Table>
             <Pagination :data="transactions" />
         </TableContainer>
+
+        <Dialog v-model:open="isImportStoreTransactionModalOpen">
+            <DialogContent class="sm:max-w-[600px]">
+                <DialogHeader>
+                    <DialogTitle>Import Store Transactions List</DialogTitle>
+                    <DialogDescription>
+                        Import the excel file here.
+                    </DialogDescription>
+                </DialogHeader>
+
+                <InputContainer>
+                    <LabelXS> Store Transactions List </LabelXS>
+                    <Input
+                        :disabled="isLoading"
+                        type="file"
+                        @input="
+                            excelFileForm.store_transactions_file =
+                                $event.target.files[0]
+                        "
+                    />
+                    <FormError>{{
+                        excelFileForm.errors.store_transactions_file
+                    }}</FormError>
+                </InputContainer>
+
+                <InputContainer>
+                    <Label class="text-xs">Store Transaction Template</Label>
+                    <ul>
+                        <li class="text-xs">
+                            Template:
+                            <a
+                                class="text-blue-500 underline"
+                                href="/excel/store-transactions-template"
+                                >Click to download</a
+                            >
+                        </li>
+                    </ul>
+                </InputContainer>
+                <DialogFooter>
+                    <Button
+                        :disabled="isLoading"
+                        @click="importTransactions"
+                        class="gap-2"
+                    >
+                        Proceed
+                        <span v-if="isLoading"><Loading /></span>
+                    </Button>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
     </Layout>
 </template>
