@@ -8,42 +8,34 @@ use Illuminate\Support\Collection;
 use Maatwebsite\Excel\Concerns\ToCollection;
 use Maatwebsite\Excel\Concerns\ToModel;
 use Maatwebsite\Excel\Concerns\WithHeadingRow;
+use Maatwebsite\Excel\Concerns\WithStartRow;
 
-class MenusImport implements ToCollection, WithHeadingRow
+class MenusImport implements ToCollection, WithHeadingRow, WithStartRow
 {
+    private Menu $menu;
+    public function startRow(): int
+    {
+        return 1;
+    }
     public function collection(Collection $rows)
     {
         foreach ($rows as $row) {
 
-            $menu = Menu::create([
-                'category_id' => $row['category_id'],
-                'name' => $row['name'],
-                'price' => $row['price'],
-                'remarks' => $row['remarks'] ?? null,
-            ]);
-
-            $ingredientsList = explode(',', $row['ingredients']);
-
-            foreach ($ingredientsList as $ingredientInfo) {
-                $ingredientInfo = trim($ingredientInfo);
-
-                list($ingredientCode, $quantity, $unit) = array_pad(
-                    explode(':', $ingredientInfo),
-                    3,
-                    null
-                );
-
-                $ingredientCode = trim($ingredientCode);
-                $quantity = trim($quantity);
-                $unit = trim($unit);
-
-
-                $ingredient = ProductInventory::select('id')->where('inventory_code', $ingredientCode)->first();
-
-                $menu->product_inventories()->attach($ingredient->id, [
-                    'quantity' => $quantity,
-                    'unit' => $unit,
-                ]);
+            if (!empty($row[0])) {
+                if (!$this->menu) {
+                    $this->menu = Menu::create([
+                        'product_id' => $row[0]
+                    ]);
+                } else {
+                    if (trim($row[0]) != 'SAP CODE') {
+                        $this->menu->product_inventories()->attach($row['0'], [
+                            'quantity' => $row['2'],
+                            'unit' => $row['3']
+                        ]);
+                    }
+                }
+            } else {
+                unset($this->menu);
             }
         }
     }
