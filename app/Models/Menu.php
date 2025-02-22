@@ -13,10 +13,7 @@ class Menu extends Model implements Auditable
     use HasFactory, \OwenIt\Auditing\Auditable;
 
     protected $fillable = [
-        'category_id',
         'product_id',
-        'name',
-        'price',
         'remarks'
     ];
 
