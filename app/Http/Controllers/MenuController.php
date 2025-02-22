@@ -21,7 +21,7 @@ class MenuController extends Controller
         $query = Menu::query()->with('category');
 
         if ($query)
-            $query->whereAny(['product_id', 'name'], 'like', "%{$search}%");
+            $query->whereAny(['product_id'], 'like', "%{$search}%");
         $menus = $query
             ->latest()
             ->paginate(10)
@@ -29,9 +29,7 @@ class MenuController extends Controller
                 return [
                     'id' => $menu->id,
                     'product_id' => $menu->product_id,
-                    'name' => $menu->name,
-                    'price' => $menu->price,
-                    'category' => $menu->category->name,
+                    'remarks' => $menu->remarks
                 ];
             });
         return Inertia::render('Menu/Index', [
