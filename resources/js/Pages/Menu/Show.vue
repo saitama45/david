@@ -19,12 +19,8 @@ const props = defineProps({
                     <SpanBold>{{ menu.id }}</SpanBold>
                 </InputContainer>
                 <InputContainer>
-                    <LabelXS>Name</LabelXS>
-                    <SpanBold>{{ menu.name }}</SpanBold>
-                </InputContainer>
-                <InputContainer>
-                    <LabelXS>Price</LabelXS>
-                    <SpanBold>{{ menu.price }}</SpanBold>
+                    <LabelXS>Product ID</LabelXS>
+                    <SpanBold>{{ menu.product_id }}</SpanBold>
                 </InputContainer>
                 <InputContainer>
                     <LabelXS>Remarks</LabelXS>
@@ -36,13 +32,13 @@ const props = defineProps({
                     <SpanBold>Ingredients</SpanBold>
                 </TableHeader>
                 <Table>
-                    <Thead>
+                    <TableHead>
                         <TH>Inventory Code</TH>
                         <TH>Name</TH>
                         <TH>Quantity</TH>
                         <TH>UOM</TH>
-                    </Thead>
-                    <Tbody>
+                    </TableHead>
+                    <TableBody>
                         <tr
                             v-for="ingredient in ingredients"
                             :key="ingredient.id"
@@ -52,7 +48,7 @@ const props = defineProps({
                             <TD>{{ ingredient.quantity }}</TD>
                             <TD>{{ ingredient.uom }}</TD>
                         </tr>
-                    </Tbody>
+                    </TableBody>
                 </Table>
             </TableContainer>
         </DivFlexCol>
