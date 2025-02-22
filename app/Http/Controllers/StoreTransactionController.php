@@ -122,7 +122,7 @@ class StoreTransactionController extends Controller
         ]);
         try {
             Excel::import(new StoreTransactionImport, $request->file('store_transactions_file'));
-            return to_route('store-transactions.index');
+            return back();
         } catch (Exception $e) {
             dd($e);
         }

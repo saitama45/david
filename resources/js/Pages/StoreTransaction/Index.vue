@@ -126,9 +126,6 @@ console.log(order_date);
 <template>
     <Layout
         heading="Store Transactions"
-        :hasButton="true"
-        buttonName="Create New Transaction"
-        :handleClick="createNewTransaction"
         :hasExcelDownload="true"
         :exportRoute="exportRoute"
     >
