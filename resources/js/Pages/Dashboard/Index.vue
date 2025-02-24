@@ -4,7 +4,7 @@ import Chart from "primevue/chart";
 import { router } from "@inertiajs/vue3";
 import { useSelectOptions } from "@/Composables/useSelectOptions";
 
-const { branches, timePeriods, filters } = defineProps({
+const { branches, timePeriods, filters, sales } = defineProps({
     orderCounts: {
         type: Object,
         required: true,
@@ -19,6 +19,10 @@ const { branches, timePeriods, filters } = defineProps({
     },
     filters: {
         type: Object,
+        required: true,
+    },
+    sales: {
+        type: String,
         required: true,
     },
 });
@@ -464,7 +468,11 @@ watch(time_period, (value) => {
         </DivFlexCenter>
         <section class="flex flex-col gap-5">
             <div class="grid gap-5 sm:grid-cols-5">
-                <StatisticOverview heading="SALES" value="0" :icon="Check" />
+                <StatisticOverview
+                    heading="SALES"
+                    :value="sales"
+                    :icon="Check"
+                />
                 <StatisticOverview
                     heading="INVENTORIES"
                     value="0"

@@ -10,6 +10,7 @@ use App\Models\ProductInventory;
 use App\Models\StoreBranch;
 use App\Models\StoreOrder;
 use App\Models\StoreTransaction;
+use App\Models\StoreTransactionItem;
 use App\Models\User;
 use Exception;
 use Illuminate\Http\Request;
@@ -24,10 +25,20 @@ class DashboardController extends Controller
     {
         $timePeriods = TimePeriod::values();
         $time_period = request('time_period');
-        $branch = request('branch');
-        $data = StoreTransaction::where('store_branch_id', 16)->get();
+        $branches = StoreBranch::options();
+        $branch = request('branch') ?? $branches->keys()->first();
+
         try {
             $user = User::rolesAndAssignedBranches();
+
+            $sales = number_format(
+                StoreTransactionItem::whereHas('store_transaction', function ($query) use ($branch) {
+                    $query->where('store_branch_id', $branch);
+                })->sum('net_total'),
+                2,
+                '.',
+                ','
+            );
 
             if ($user['isAdmin']) {
                 $orderCounts = StoreOrder::selectRaw(DB::connection()->getDriverName() === 'sqlsrv'
@@ -42,11 +53,12 @@ class DashboardController extends Controller
                 COUNT(CASE WHEN order_status = 'rejected' THEN 1 END) as rejected_count
             ")
                     ->first();
-                $branches = StoreBranch::options();
+
                 return Inertia::render('Dashboard/Index', [
                     'orderCounts' => $orderCounts,
                     'timePeriods' => $timePeriods,
                     'branches' => $branches,
+                    'sales' => $sales,
                     'filters' => request()->only(['branch', 'time_period'])
                 ]);
             }
