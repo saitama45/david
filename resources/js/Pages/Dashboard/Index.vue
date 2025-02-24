@@ -433,7 +433,7 @@ watch(branch, (value) => {
 });
 watch(time_period, (value) => {
     router.get(route("dashboard"), {
-        branch: branch.id,
+        branch: branch.value,
         time_period: value,
     });
 });

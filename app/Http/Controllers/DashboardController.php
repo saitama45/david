@@ -12,6 +12,7 @@ use App\Models\StoreOrder;
 use App\Models\StoreTransaction;
 use App\Models\StoreTransactionItem;
 use App\Models\User;
+use Carbon\Carbon;
 use Exception;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -24,7 +25,8 @@ class DashboardController extends Controller
     public function index()
     {
         $timePeriods = TimePeriod::values();
-        $time_period = request('time_period');
+        $time_period = request('time_period') ?? $timePeriods[1];
+
         $branches = StoreBranch::options();
         $branch = request('branch') ?? $branches->keys()->first();
 
@@ -32,7 +34,8 @@ class DashboardController extends Controller
             $user = User::rolesAndAssignedBranches();
 
             $sales = number_format(
-                StoreTransactionItem::whereHas('store_transaction', function ($query) use ($branch) {
+                StoreTransactionItem::whereHas('store_transaction', function ($query) use ($branch, $time_period) {
+                    $time_period != 0 ? $query->whereMonth('order_date', $time_period) : $query->whereYear('order_date', Carbon::today()->year);
                     $query->where('store_branch_id', $branch);
                 })->sum('net_total'),
                 2,
