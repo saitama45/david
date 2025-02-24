@@ -25,6 +25,10 @@ const { branches, timePeriods, filters, sales } = defineProps({
         type: String,
         required: true,
     },
+    inventories: {
+        type: Number,
+        required: true,
+    },
 });
 
 const { options: branchesOptions } = useSelectOptions(branches);
@@ -471,7 +475,7 @@ watch(time_period, (value) => {
                 />
                 <StatisticOverview
                     heading="INVENTORIES"
-                    value="0"
+                    :value="inventories"
                     :icon="ClockArrowUp"
                 />
                 <StatisticOverview

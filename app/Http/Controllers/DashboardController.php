@@ -7,6 +7,7 @@ use App\Enum\UserRole;
 use App\Mail\OneTimePasswordMail;
 use App\Models\Branch;
 use App\Models\ProductInventory;
+use App\Models\ProductInventoryStock;
 use App\Models\StoreBranch;
 use App\Models\StoreOrder;
 use App\Models\StoreTransaction;
@@ -32,6 +33,10 @@ class DashboardController extends Controller
 
         try {
             $user = User::rolesAndAssignedBranches();
+            $inventoriesQuery = ProductInventoryStock::where('store_branch_id', $branch);
+            $time_period != 0 ? $inventoriesQuery->whereMonth('updated_at', $time_period) : $inventoriesQuery->whereYear('updated_at', Carbon::today()->year);
+            $inventories = $inventoriesQuery->sum(DB::raw('quantity - used'));
+
 
             $sales = number_format(
                 StoreTransactionItem::whereHas('store_transaction', function ($query) use ($branch, $time_period) {
@@ -62,6 +67,7 @@ class DashboardController extends Controller
                     'timePeriods' => $timePeriods,
                     'branches' => $branches,
                     'sales' => $sales,
+                    'inventories' => $inventories,
                     'filters' => request()->only(['branch', 'time_period'])
                 ]);
             }
