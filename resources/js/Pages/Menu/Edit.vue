@@ -193,6 +193,15 @@ const update = () => {
                         life: 3000,
                     });
                 },
+                onError: (e) => {
+                    toast.add({
+                        severity: "error",
+                        summary: "Error",
+                        detail: "An error occured while trying to create the menu.",
+                        life: 3000,
+                    });
+                    console.log(e);
+                },
             });
         },
     });

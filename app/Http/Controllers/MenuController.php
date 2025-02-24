@@ -62,10 +62,7 @@ class MenuController extends Controller
     {
 
         $validated = $request->validate([
-            'name' => ['required'],
             'product_id' => ['required', 'unique:menus,product_id'],
-            'price' => ['required', 'numeric'],
-            'category_id' => ['required', 'exists:menu_categories,id'],
             'remarks' => ['nullable'],
             'ingredients' => ['required', 'array', 'min:1'],
             'ingredients.*.id' => ['required', 'exists:product_inventories,id'],
@@ -160,11 +157,9 @@ class MenuController extends Controller
 
     public function update(Request $request, $id)
     {
+
         $validated = $request->validate([
-            'name' => ['required'],
             'product_id' => ['required', 'unique:menus,product_id,' . $id],
-            'price' => ['required', 'numeric'],
-            'category_id' => ['required', 'exists:menu_categories,id'],
             'remarks' => ['nullable'],
             'ingredients' => ['required', 'array', 'min:1'],
             'ingredients.*.id' => ['required', 'exists:product_inventories,id'],
@@ -176,10 +171,7 @@ class MenuController extends Controller
             $menu = Menu::findOrFail($id);
 
             $menu->update([
-                'name' => $validated['name'],
                 'product_id' => $validated['product_id'],
-                'price' => $validated['price'],
-                'category_id' => $validated['category_id'],
                 'remarks' => $validated['remarks'],
             ]);
 
@@ -192,9 +184,9 @@ class MenuController extends Controller
             }
 
             DB::commit();
-
             return redirect()->route('menu-list.index');
         } catch (\Exception $e) {
+            dd($e);
             DB::rollback();
             return back()->withErrors(['error' => 'Failed to update menu. ' . $e->getMessage()]);
         }
