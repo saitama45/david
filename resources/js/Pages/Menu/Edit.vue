@@ -212,29 +212,7 @@ const update = () => {
                     </CardHeader>
                     <CardContent class="grid sm:grid-cols-2 gap-5">
                         <InputContainer>
-                            <Label>Name</Label>
-                            <Input v-model="form.name" />
-                            <FormError>{{ form.errors.name }}</FormError>
-                        </InputContainer>
-                        <InputContainer>
-                            <Label>Price</Label>
-                            <Input type="number" v-model="form.price" />
-                            <FormError>{{ form.errors.price }}</FormError>
-                        </InputContainer>
-                        <InputContainer>
-                            <Label>Category</Label>
-                            <Select
-                                filter
-                                :options="categoriesOption"
-                                v-model="form.category_id"
-                                optionLabel="label"
-                                optionValue="value"
-                            >
-                            </Select>
-                            <FormError>{{ form.errors.category_id }}</FormError>
-                        </InputContainer>
-                        <InputContainer>
-                            <Label>Product Id</Label>
+                            <Label>Product ID</Label>
                             <Input v-model="form.product_id" />
                             <FormError>{{ form.errors.product_id }}</FormError>
                         </InputContainer>

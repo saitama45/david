@@ -38,9 +38,10 @@ class DashboardController extends Controller
             $time_period != 0 ? $inventoriesQuery->whereMonth('updated_at', $time_period) : $inventoriesQuery->whereYear('updated_at', Carbon::today()->year);
             $inventories = $inventoriesQuery->sum(DB::raw('quantity - used'));
 
-            $upcomingInventories = StoreOrderItem::whereHas('store_order', function ($query) use ($branch) {
+            $upcomingInventories = StoreOrderItem::whereHas('store_order', function ($query) use ($branch, $time_period) {
                 $query->where('store_branch_id', $branch);
                 $query->where('order_status', 'approved');
+                $time_period != 0 ? $query->whereMonth('order_date', $time_period) : $query->whereYear('order_date', Carbon::today()->year);
             })->sum('quantity_approved');
 
 
