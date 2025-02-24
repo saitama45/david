@@ -29,6 +29,10 @@ const { branches, timePeriods, filters, sales } = defineProps({
         type: Number,
         required: true,
     },
+    upcomingInventories: {
+        type: Number,
+        required: true,
+    },
 });
 
 const { options: branchesOptions } = useSelectOptions(branches);
@@ -480,7 +484,7 @@ watch(time_period, (value) => {
                 />
                 <StatisticOverview
                     heading="UPCOMING INVENTORIES"
-                    :value="orderCounts.rejected_count"
+                    :value="upcomingInventories"
                     :icon="BookX"
                 />
                 <StatisticOverview

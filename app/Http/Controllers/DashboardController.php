@@ -10,6 +10,7 @@ use App\Models\ProductInventory;
 use App\Models\ProductInventoryStock;
 use App\Models\StoreBranch;
 use App\Models\StoreOrder;
+use App\Models\StoreOrderItem;
 use App\Models\StoreTransaction;
 use App\Models\StoreTransactionItem;
 use App\Models\User;
@@ -36,6 +37,13 @@ class DashboardController extends Controller
             $inventoriesQuery = ProductInventoryStock::where('store_branch_id', $branch);
             $time_period != 0 ? $inventoriesQuery->whereMonth('updated_at', $time_period) : $inventoriesQuery->whereYear('updated_at', Carbon::today()->year);
             $inventories = $inventoriesQuery->sum(DB::raw('quantity - used'));
+
+            $upcomingInventories = StoreOrderItem::whereHas('store_order', function ($query) use ($branch) {
+                $query->where('store_branch_id', $branch);
+                $query->where('order_status', 'approved');
+            })->sum('quantity_approved');
+
+
 
 
             $sales = number_format(
@@ -68,6 +76,7 @@ class DashboardController extends Controller
                     'branches' => $branches,
                     'sales' => $sales,
                     'inventories' => $inventories,
+                    'upcomingInventories' => $upcomingInventories,
                     'filters' => request()->only(['branch', 'time_period'])
                 ]);
             }
