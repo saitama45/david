@@ -22,7 +22,8 @@ class StoreTransaction extends Model implements Auditable
         'customer', // Nullable,
         'cancel_reason', // Nullable,
         'reference_number', // Nullable
-        'remarks' // Nullable
+        'remarks', // Nullable
+        'is_approved'
     ];
 
     public function store_branch()

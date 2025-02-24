@@ -30,6 +30,7 @@ use App\Http\Controllers\RolesController;
 use App\Http\Controllers\StockController;
 use App\Http\Controllers\StockManagementController;
 use App\Http\Controllers\StoreBranchController;
+use App\Http\Controllers\StoreTransactionApprovalController;
 use App\Http\Controllers\StoreTransactionController;
 use App\Http\Controllers\SupplierController;
 use App\Http\Controllers\TestController;
@@ -173,6 +174,10 @@ Route::middleware('auth')
             Route::middleware('permission:view approved received item')->get('/approved-orders/show/{id}', 'show')->name('show');
             Route::middleware('permission:view approved received item')->put('/approved-orders/cancel-approve-status', 'cancelApproveStatus')->name('cancel-approve-status');
             Route::middleware('permission:view approved received items')->get('/approved-orders/export', 'export')->name('export');
+        });
+        // Store Transactions 
+        Route::controller(StoreTransactionApprovalController::class)->name('store-transactions-approval.')->prefix('store-transactions-approval')->group(function () {
+            Route::get('', 'index')->name('index');
         });
 
         // Store Transactions 
