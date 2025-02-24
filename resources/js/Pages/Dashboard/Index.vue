@@ -2,13 +2,25 @@
 import StatisticOverview from "../../Components/dashboard/StatisticOverview.vue";
 import Chart from "primevue/chart";
 import { router } from "@inertiajs/vue3";
+import { useSelectOptions } from "@/Composables/useSelectOptions";
 
 const props = defineProps({
     orderCounts: {
         type: Object,
         required: true,
     },
+    branches: {
+        type: Object,
+        required: true,
+    },
+    timePeriods: {
+        type: Object,
+        required: true,
+    },
 });
+
+const { options: branchesOptions } = useSelectOptions(props.branches);
+const { options: timePeriodOptions } = useSelectOptions(props.timePeriods);
 onMounted(() => {
     chartData.value = setChartData();
     chartOptions.value = setChartOptions();
@@ -403,6 +415,26 @@ import { Check, ClockArrowUp, BookX } from "lucide-vue-next";
 </script>
 <template>
     <Layout heading="Dashboard">
+        <DivFlexCenter class="gap-3">
+            <InputContainer>
+                <Select
+                    filter
+                    placeholder="Select a branch"
+                    :options="branchesOptions"
+                    optionLabel="label"
+                    optionValue="value"
+                ></Select>
+            </InputContainer>
+            <InputContainer>
+                <Select
+                    filter
+                    placeholder="Time Periods"
+                    :options="timePeriodOptions"
+                    optionLabel="label"
+                    optionValue="value"
+                ></Select>
+            </InputContainer>
+        </DivFlexCenter>
         <section class="flex flex-col gap-5">
             <div class="grid gap-5 sm:grid-cols-5">
                 <StatisticOverview heading="SALES" value="0" :icon="Check" />

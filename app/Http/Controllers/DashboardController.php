@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Enum\TimePeriod;
 use App\Enum\UserRole;
 use App\Mail\OneTimePasswordMail;
 use App\Models\Branch;
@@ -21,6 +22,7 @@ class DashboardController extends Controller
 {
     public function index()
     {
+        $timePeriods = TimePeriod::values();
 
         $data = StoreTransaction::where('store_branch_id', 16)->get();
         try {
@@ -39,9 +41,11 @@ class DashboardController extends Controller
                 COUNT(CASE WHEN order_status = 'rejected' THEN 1 END) as rejected_count
             ")
                     ->first();
-
+                $branches = StoreBranch::options();
                 return Inertia::render('Dashboard/Index', [
-                    'orderCounts' => $orderCounts
+                    'orderCounts' => $orderCounts,
+                    'timePeriods' => $timePeriods,
+                    'branches' => $branches
                 ]);
             }
 
@@ -68,6 +72,7 @@ class DashboardController extends Controller
         } catch (Exception $e) {
             throw $e;
         }
+
 
         return Inertia::render('StoreDashboard/Index', [
             'branches' => $branches,
