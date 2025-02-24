@@ -43,7 +43,6 @@ const showProductOrdersDetails = (id) => {
 };
 
 watch(branchId, (value) => {
-    console.log(value);
     router.get(
         route("product-orders-summary.index"),
         {

@@ -426,20 +426,16 @@ const time_period = ref(
     filters.time_period || timePeriodOptions.value[0].value
 );
 watch(branch, (value) => {
-    router.get(
-        route("dashboard", {
-            branch: value,
-            time_period: time_period.value,
-        })
-    );
+    router.get(route("dashboard"), {
+        branch: value,
+        time_period: time_period.value,
+    });
 });
 watch(time_period, (value) => {
-    router.get(
-        route("dashboard", {
-            branch: branch.id,
-            time_period: value,
-        })
-    );
+    router.get(route("dashboard"), {
+        branch: branch.id,
+        time_period: value,
+    });
 });
 </script>
 <template>
