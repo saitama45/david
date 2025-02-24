@@ -4,7 +4,7 @@ import Chart from "primevue/chart";
 import { router } from "@inertiajs/vue3";
 import { useSelectOptions } from "@/Composables/useSelectOptions";
 
-const props = defineProps({
+const { branches, timePeriods, filters } = defineProps({
     orderCounts: {
         type: Object,
         required: true,
@@ -17,10 +17,14 @@ const props = defineProps({
         type: Object,
         required: true,
     },
+    filters: {
+        type: Object,
+        required: true,
+    },
 });
 
-const { options: branchesOptions } = useSelectOptions(props.branches);
-const { options: timePeriodOptions } = useSelectOptions(props.timePeriods);
+const { options: branchesOptions } = useSelectOptions(branches);
+const { options: timePeriodOptions } = useSelectOptions(timePeriods);
 onMounted(() => {
     chartData.value = setChartData();
     chartOptions.value = setChartOptions();
@@ -412,12 +416,34 @@ const setChartOptionsStacked = () => {
 };
 
 import { Check, ClockArrowUp, BookX } from "lucide-vue-next";
+
+const branch = ref(filters.branch || branchesOptions.value[0].value);
+const time_period = ref(
+    filters.time_period || timePeriodOptions.value[0].value
+);
+watch(branch, (value) => {
+    router.get(
+        route("dashboard", {
+            branch: value,
+            time_period: time_period.value,
+        })
+    );
+});
+watch(time_period, (value) => {
+    router.get(
+        route("dashboard", {
+            branch: branch.id,
+            time_period: value,
+        })
+    );
+});
 </script>
 <template>
     <Layout heading="Dashboard">
         <DivFlexCenter class="gap-3">
             <InputContainer>
                 <Select
+                    v-model="branch"
                     filter
                     placeholder="Select a branch"
                     :options="branchesOptions"
@@ -427,6 +453,7 @@ import { Check, ClockArrowUp, BookX } from "lucide-vue-next";
             </InputContainer>
             <InputContainer>
                 <Select
+                    v-model="time_period"
                     filter
                     placeholder="Time Periods"
                     :options="timePeriodOptions"

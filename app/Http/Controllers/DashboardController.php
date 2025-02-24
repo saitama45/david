@@ -23,7 +23,8 @@ class DashboardController extends Controller
     public function index()
     {
         $timePeriods = TimePeriod::values();
-
+        $time_period = request('time_period');
+        $branch = request('branch');
         $data = StoreTransaction::where('store_branch_id', 16)->get();
         try {
             $user = User::rolesAndAssignedBranches();
@@ -45,7 +46,8 @@ class DashboardController extends Controller
                 return Inertia::render('Dashboard/Index', [
                     'orderCounts' => $orderCounts,
                     'timePeriods' => $timePeriods,
-                    'branches' => $branches
+                    'branches' => $branches,
+                    'filters' => request()->only(['branch', 'time_period'])
                 ]);
             }
 
