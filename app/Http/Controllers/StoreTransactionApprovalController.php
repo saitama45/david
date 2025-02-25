@@ -28,11 +28,10 @@ class StoreTransactionApprovalController extends Controller
         $branchId = request('branchId') ?? $branches->keys()->first();
 
         $transactions = StoreTransaction::query()
-            ->whereNot('is_approved')
+            ->where('is_approved', 'false')
             ->leftJoin('store_transaction_items', 'store_transactions.id', '=', 'store_transaction_items.store_transaction_id')
             ->whereBetween('order_date', [$from, $to])
             ->select(
-                'store_transactions.id',
                 'store_transactions.order_date',
                 DB::raw('COUNT(DISTINCT store_transactions.id) as transaction_count'),
                 DB::raw('SUM(store_transaction_items.net_total) as net_total')
@@ -43,7 +42,6 @@ class StoreTransactionApprovalController extends Controller
             ->get()
             ->map(function ($transaction) {
                 return [
-                    'id' => $transaction->id,
                     'order_date' => $transaction->order_date,
                     'transaction_count' => $transaction->transaction_count,
                     'net_total' => str_pad($transaction->net_total ?? 0, 2, '0', STR_PAD_RIGHT)
@@ -80,5 +78,15 @@ class StoreTransactionApprovalController extends Controller
         return Inertia::render('StoreTransactionApproval/Show', [
             'transaction' => $transaction
         ]);
+    }
+
+    public function approveSelectedTransactions(Request $request)
+    {
+        $validated = $request->validate(['id' => ['required']]);
+        foreach ($validated['id'] as $order_date) {
+            StoreTransaction::where('order_date', $order_date)
+                ->update(['is_approved' => true]);
+        }
+        return back();
     }
 }

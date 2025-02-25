@@ -167,9 +167,44 @@ const importTransactions = () => {
 
 const selectedItems = ref([]);
 
-watch(selectedItems, (newValue) => {
-    console.log(newValue);
+const approveReceivedItemForm = useForm({
+    id: null,
 });
+
+const approveSeletedItems = () => {
+    approveReceivedItemForm.id = selectedItems.value;
+    confirm.require({
+        message: "Are you sure you want to approve the selected transactions?",
+        header: "Confirmation",
+        icon: "pi pi-exclamation-triangle",
+        rejectProps: {
+            label: "Cancel",
+            severity: "secondary",
+            outlined: true,
+        },
+        acceptProps: {
+            label: "Confirm",
+            severity: "success",
+        },
+        accept: () => {
+            approveReceivedItemForm.post(
+                route(
+                    "store-transactions-approval.approve-selected-transactions"
+                ),
+                {
+                    onSuccess: () => {
+                        toast.add({
+                            severity: "success",
+                            summary: "Success",
+                            detail: "Store Transactions Approved Successfully.",
+                            life: 3000,
+                        });
+                    },
+                }
+            );
+        },
+    });
+};
 </script>
 <template>
     <Layout
@@ -182,7 +217,15 @@ watch(selectedItems, (newValue) => {
     >
         <TableContainer>
             <TableHeader>
-                <Button class="bg-green-500">Approve All</Button>
+                <Button
+                    v-if="selectedItems.length > 0"
+                    @click="approveSeletedItems"
+                    variant="outline"
+                    >Approve Selected Items</Button
+                >
+                <Button v-if="selectedItems.length == 0" class="bg-green-500"
+                    >Approve All</Button
+                >
                 <DivFlexCenter class="gap-5">
                     <Popover>
                         <PopoverTrigger> <Filter /> </PopoverTrigger>
@@ -238,8 +281,8 @@ watch(selectedItems, (newValue) => {
                         <TD>
                             <Checkbox
                                 v-model="selectedItems"
-                                :value="transaction.id"
-                                :inputId="`transaction-${transaction.id}`"
+                                :value="transaction.order_date"
+                                :inputId="`transaction-${transaction.order_date}`"
                             />
                         </TD>
                         <TD>{{ transaction.order_date }}</TD>
