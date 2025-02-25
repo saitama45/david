@@ -176,15 +176,7 @@ const importTransactions = () => {
     >
         <TableContainer>
             <TableHeader>
-                <!-- <SearchBar>
-                    <Input
-                        class="pl-10"
-                        placeholder="Search..."
-                        v-model="search"
-                    />
-                </SearchBar> -->
-                <InputContainer></InputContainer>
-
+                <Button class="bg-green-500">Approve All</Button>
                 <DivFlexCenter class="gap-5">
                     <Popover>
                         <PopoverTrigger> <Filter /> </PopoverTrigger>
@@ -226,13 +218,17 @@ const importTransactions = () => {
             </TableHeader>
             <Table>
                 <TableHead>
+                    <TH></TH>
                     <TH>Order Date</TH>
                     <TH>Transactions Count</TH>
                     <TH>Overall Net Total</TH>
                     <TH>Actions</TH>
                 </TableHead>
                 <TableBody>
-                    <tr v-for="transaction in transactions.data">
+                    <tr v-for="transaction in transactions">
+                        <TD>
+                            <Checkbox />
+                        </TD>
                         <TD>{{ transaction.order_date }}</TD>
                         <TD>{{ transaction.transaction_count }}</TD>
                         <TD>{{ transaction.net_total }}</TD>
@@ -250,7 +246,6 @@ const importTransactions = () => {
                     </tr>
                 </TableBody>
             </Table>
-            <Pagination :data="transactions" />
         </TableContainer>
 
         <Dialog v-model:open="isImportStoreTransactionModalOpen">

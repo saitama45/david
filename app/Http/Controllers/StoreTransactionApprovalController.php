@@ -39,8 +39,8 @@ class StoreTransactionApprovalController extends Controller
             ->where('store_transactions.store_branch_id', $branchId)
             ->groupBy('store_transactions.order_date')
             ->orderBy('store_transactions.order_date', 'desc')
-            ->paginate(10)
-            ->through(function ($transaction) {
+            ->get()
+            ->map(function ($transaction) {
                 return [
                     'order_date' => $transaction->order_date,
                     'transaction_count' => $transaction->transaction_count,
