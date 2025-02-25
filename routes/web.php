@@ -178,7 +178,7 @@ Route::middleware('auth')
         // Store Transactions Approval
         Route::controller(StoreTransactionApprovalController::class)->name('store-transactions-approval.')->prefix('store-transactions-approval')->group(function () {
             Route::get('', 'index')->name('index');
-
+            Route::middleware('permission:view store transactions')->get('/summary', 'mainIndex')->name('main-index');
             Route::get('/show/{store_transaction}', 'show')->name('show');
         });
 

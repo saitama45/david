@@ -72,9 +72,57 @@ class StoreTransactionService
 
 
         $query = StoreTransaction::query()->with(['store_transaction_items', 'store_branch'])
-            ->where('store_branch_id', $branchId);
+            ->where('store_branch_id', $branchId)
+            ->where('is_approved', true);
 
 
+
+        $user = User::rolesAndAssignedBranches();
+        if (!$user['isAdmin']) $query->whereIn('store_branch_id', $user['assignedBranches']);
+
+
+        if (!$from && !$to && $order_date) {
+            $query->where('order_date', $order_date);
+        }
+
+
+
+        if ($from && $to) {
+            $query->whereBetween('order_date', [$from, $to]);
+        }
+
+        if ($branchId)
+            $query->where('store_branch_id', $branchId);
+
+
+        if ($search)
+            $query->where('receipt_number', 'like', "%$search%");
+
+        $result = $query->latest()->paginate(10)->withQueryString()->through(function ($item) {
+            return [
+                'id' => $item->id,
+                'store_branch' => $item->store_branch->name,
+                'receipt_number' => $item->receipt_number,
+                'item_count' => $item->store_transaction_items->count(),
+                'net_total' => str_pad($item->store_transaction_items->sum('net_total'), 2),
+                'order_date' => $item->order_date
+            ];
+        });
+
+        return $result;
+    }
+
+    public function getStoreTransactionsForApprovalList()
+    {
+        $from = request('from') ? Carbon::parse(request('from'))->format('Y-m-d') : null;
+        $to = request('to') ? Carbon::parse(request('to'))->format('Y-m-d') : null;
+        $search = request('search');
+        $branchId = request('branchId');
+        $order_date = request('order_date');
+
+        $query = StoreTransaction::query()->with(['store_transaction_items', 'store_branch'])
+            ->where('store_branch_id', $branchId)
+            ->whereNot('is_approved');
 
         $user = User::rolesAndAssignedBranches();
         if (!$user['isAdmin']) $query->whereIn('store_branch_id', $user['assignedBranches']);

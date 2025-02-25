@@ -169,7 +169,7 @@ const canViewReferenceGroup = hasAccess("manage references");
         </NavLink>
         <NavLink
             v-if="hasAccess('view store transactions')"
-            href="/store-transactions-approval"
+            href="/store-transactions-approval/summary"
             :icon="ArrowLeftRight"
         >
             Store Transactions Approval

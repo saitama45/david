@@ -44,7 +44,7 @@ const branchId = ref(
 
 watch(from, (value) => {
     router.get(
-        route("store-transactions.main-index"),
+        route("store-transactions-approval.main-index"),
         {
             search: search.value,
             from: value,
@@ -60,7 +60,7 @@ watch(from, (value) => {
 
 watch(to, (value) => {
     router.get(
-        route("store-transactions.main-index"),
+        route("store-transactions-approval.main-index"),
         {
             search: search.value,
             from: from.value,
@@ -76,7 +76,7 @@ watch(to, (value) => {
 
 watch(branchId, (value) => {
     router.get(
-        route("store-transactions.main-index"),
+        route("store-transactions-approval.main-index"),
         {
             search: search.value,
             from: from.value,
@@ -167,7 +167,7 @@ const importTransactions = () => {
 </script>
 <template>
     <Layout
-        heading="Store Transactions"
+        heading="Store Transactions Approval"
         :hasButton="true"
         buttonName="Import Store Transactions"
         :handleClick="openImportStoreTransactionModal"
@@ -240,7 +240,7 @@ const importTransactions = () => {
                             <ShowButton
                                 :isLink="true"
                                 :href="
-                                    route('store-transactions.index', {
+                                    route('store-transactions-approval.index', {
                                         order_date: transaction.order_date,
                                         branchId: branchId,
                                     })

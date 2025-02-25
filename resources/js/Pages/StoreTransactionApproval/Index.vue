@@ -1,17 +1,89 @@
 <script setup>
-import { throttle } from "lodash";
 import { router } from "@inertiajs/vue3";
-const { transactions, filters } = defineProps({
+import { usePage } from "@inertiajs/vue3";
+import { throttle } from "lodash";
+import {
+    Select,
+    SelectContent,
+    SelectGroup,
+    SelectItem,
+    SelectLabel,
+    SelectTrigger,
+    SelectValue,
+} from "@/components/ui/select";
+const { transactions, order_date } = defineProps({
     transactions: {
         type: Object,
         required: true,
     },
-    filters: {
+    branches: {
         type: Object,
         required: true,
     },
+    order_date: {
+        type: String,
+        required: false,
+    },
 });
-let search = ref(filters.search);
+const createNewTransaction = () => {
+    router.get(route("store-transactions.create"));
+};
+
+let search = ref(usePage().props.filters.search);
+
+let from = ref(usePage().props.from ?? null);
+
+let to = ref(usePage().props.to ?? null);
+
+let branchId = ref(usePage().props.filters.branchId);
+
+watch(from, (value) => {
+    router.get(
+        route("store-transactions-approval.index"),
+        {
+            search: search.value,
+            from: value,
+            to: to.value,
+            branchId: branchId.value,
+        },
+        {
+            preserveState: true,
+            preserveScroll: true,
+        }
+    );
+});
+
+watch(to, (value) => {
+    router.get(
+        route("store-transactions-approval.index"),
+        {
+            search: search.value,
+            from: from.value,
+            to: value,
+            branchId: branchId.value,
+        },
+        {
+            preserveState: true,
+            preserveScroll: true,
+        }
+    );
+});
+
+watch(branchId, (value) => {
+    router.get(
+        route("store-transactions-approval.index"),
+        {
+            search: search.value,
+            from: from.value,
+            to: to.value,
+            branchId: value,
+        },
+        {
+            preserveState: true,
+            preserveScroll: true,
+        }
+    );
+});
 
 watch(
     search,
@@ -20,6 +92,9 @@ watch(
             route("store-transactions-approval.index"),
             {
                 search: value,
+                from: from.value,
+                to: to.value,
+                branchId: branchId.value,
             },
             {
                 preserveState: true,
@@ -28,9 +103,32 @@ watch(
         );
     }, 500)
 );
+
+const resetFilter = () => {
+    (from.value = null),
+        (to.value = null),
+        (branchId.value = null),
+        (search.value = null);
+};
+
+const exportRoute = computed(() =>
+    route("store-transactions.export", {
+        search: search.value,
+        branchId: branchId.value,
+        from: from.value,
+        to: to.value,
+        order_date: order_date,
+    })
+);
+
+console.log(order_date);
 </script>
 <template>
-    <Layout heading="Store Transactions Approval">
+    <Layout
+        heading="Store Transactions Approval"
+        :hasExcelDownload="true"
+        :exportRoute="exportRoute"
+    >
         <TableContainer>
             <TableHeader>
                 <SearchBar>
@@ -40,22 +138,65 @@ watch(
                         v-model="search"
                     />
                 </SearchBar>
+
+                <DivFlexCenter class="gap-5">
+                    <Popover>
+                        <PopoverTrigger> <Filter /> </PopoverTrigger>
+                        <PopoverContent>
+                            <div class="flex justify-end">
+                                <Button
+                                    @click="resetFilter"
+                                    variant="link"
+                                    class="text-end text-red-500 text-xs"
+                                >
+                                    Reset Filter
+                                </Button>
+                            </div>
+                            <label class="text-xs">From</label>
+                            <Input type="date" v-model="from" />
+                            <label class="text-xs">To</label>
+                            <Input type="date" v-model="to" />
+                            <label class="text-xs">Store</label>
+                            <Select v-model="branchId">
+                                <SelectTrigger>
+                                    <SelectValue placeholder="Select a store" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectGroup>
+                                        <SelectLabel>Stores</SelectLabel>
+                                        <SelectItem
+                                            v-for="(value, key) in branches"
+                                            :key="key"
+                                            :value="key"
+                                        >
+                                            {{ value }}
+                                        </SelectItem>
+                                    </SelectGroup>
+                                </SelectContent>
+                            </Select>
+                        </PopoverContent>
+                    </Popover>
+                </DivFlexCenter>
             </TableHeader>
             <Table>
                 <TableHead>
-                    <TH>ID</TH>
-                    <TH>Receipt Number</TH>
-                    <TH>Order Date</TH>
-                    <TH>Ordered Items Count</TH>
+                    <TH>Id</TH>
+                    <TH>Store Branch</TH>
+                    <TH>Receipt No.</TH>
+                    <TH>Item Count</TH>
+                    <TH>Overall Net Total</TH>
+                    <TH>Date</TH>
                     <TH>Actions</TH>
                 </TableHead>
                 <TableBody>
                     <tr v-for="transaction in transactions.data">
                         <TD>{{ transaction.id }}</TD>
+                        <TD>{{ transaction.store_branch }}</TD>
                         <TD>{{ transaction.receipt_number }}</TD>
+                        <TD>{{ transaction.item_count }}</TD>
+                        <TD>{{ transaction.net_total }}</TD>
                         <TD>{{ transaction.order_date }}</TD>
-                        <TD>{{ transaction.ordered_item_count }}</TD>
-                        <TD>
+                        <TD class="flex items-center">
                             <ShowButton
                                 :isLink="true"
                                 :href="
@@ -71,5 +212,6 @@ watch(
             </Table>
             <Pagination :data="transactions" />
         </TableContainer>
+        <BackButton />
     </Layout>
 </template>

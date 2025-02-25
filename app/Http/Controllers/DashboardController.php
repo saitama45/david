@@ -51,6 +51,7 @@ class DashboardController extends Controller
                 StoreTransactionItem::whereHas('store_transaction', function ($query) use ($branch, $time_period) {
                     $time_period != 0 ? $query->whereMonth('order_date', $time_period) : $query->whereYear('order_date', Carbon::today()->year);
                     $query->where('store_branch_id', $branch);
+                    $query->where('is_approved', true);
                 })->sum('net_total'),
                 2,
                 '.',

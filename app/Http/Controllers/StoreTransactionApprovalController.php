@@ -3,8 +3,11 @@
 namespace App\Http\Controllers;
 
 use App\Http\Services\StoreTransactionService;
+use App\Models\StoreBranch;
 use App\Models\StoreTransaction;
+use Carbon\Carbon;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
 
 class StoreTransactionApprovalController extends Controller
@@ -15,29 +18,55 @@ class StoreTransactionApprovalController extends Controller
     {
         $this->storeTransactionService = $storeTransactionService;
     }
-    public function index()
+
+    public function mainIndex()
     {
-        $search = request('search');
-        $query = StoreTransaction::with('store_transaction_items')
-            ->whereNot('is_approved');
+        $from = request('from') ? Carbon::parse(request('from'))->format('Y-m-d') : '1999-01-01';
+        $to = request('to') ? Carbon::parse(request('to'))->format('Y-m-d') : Carbon::today()->addMonth();
 
-        if ($search)
-            $query->where('receipt_number', 'like', "%$search%");
+        $branches = StoreBranch::options();
+        $branchId = request('branchId') ?? $branches->keys()->first();
 
-        $transactions = $query->latest()
+        $transactions = StoreTransaction::query()
+            ->whereNot('is_approved')
+            ->leftJoin('store_transaction_items', 'store_transactions.id', '=', 'store_transaction_items.store_transaction_id')
+            ->whereBetween('order_date', [$from, $to])
+            ->select(
+                'store_transactions.order_date',
+                DB::raw('COUNT(DISTINCT store_transactions.id) as transaction_count'),
+                DB::raw('SUM(store_transaction_items.net_total) as net_total')
+            )
+            ->where('store_transactions.store_branch_id', $branchId)
+            ->groupBy('store_transactions.order_date')
+            ->orderBy('store_transactions.order_date', 'desc')
             ->paginate(10)
-            ->withQueryString()
-            ->through(function ($item) {
+            ->through(function ($transaction) {
                 return [
-                    'id' => $item->id,
-                    'receipt_number' => $item->receipt_number,
-                    'order_date' => $item->order_date,
-                    'ordered_item_count' => $item->store_transaction_items->count('quantity')
+                    'order_date' => $transaction->order_date,
+                    'transaction_count' => $transaction->transaction_count,
+                    'net_total' => str_pad($transaction->net_total ?? 0, 2, '0', STR_PAD_RIGHT)
                 ];
             });
+
+        $branches = StoreBranch::options();
+
+        return Inertia::render('StoreTransactionApproval/MainIndex', [
+            'filters' => request()->only(['from', 'to', 'branchId', 'search']),
+            'branches' => $branches,
+            'transactions' => $transactions
+        ]);
+    }
+    public function index()
+    {
+        $transactions = $this->storeTransactionService->getStoreTransactionsForApprovalList();
+        $branches = StoreBranch::options();
+
+        $branches = StoreBranch::options();
         return Inertia::render('StoreTransactionApproval/Index', [
             'transactions' => $transactions,
-            'filters' => request()->only(['search'])
+            'filters' => request()->only(['from', 'to', 'branchId', 'search']),
+            'branches' => $branches,
+            'order_date' => request('order_date')
         ]);
     }
 
