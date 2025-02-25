@@ -56,7 +56,15 @@ watch(
                         <TD>{{ transaction.order_date }}</TD>
                         <TD>{{ transaction.ordered_item_count }}</TD>
                         <TD>
-                            <ShowButton />
+                            <ShowButton
+                                :isLink="true"
+                                :href="
+                                    route(
+                                        'store-transactions-approval.show',
+                                        transaction.id
+                                    )
+                                "
+                            />
                         </TD>
                     </tr>
                 </TableBody>

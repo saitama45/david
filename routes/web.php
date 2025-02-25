@@ -175,9 +175,11 @@ Route::middleware('auth')
             Route::middleware('permission:view approved received item')->put('/approved-orders/cancel-approve-status', 'cancelApproveStatus')->name('cancel-approve-status');
             Route::middleware('permission:view approved received items')->get('/approved-orders/export', 'export')->name('export');
         });
-        // Store Transactions 
+        // Store Transactions Approval
         Route::controller(StoreTransactionApprovalController::class)->name('store-transactions-approval.')->prefix('store-transactions-approval')->group(function () {
             Route::get('', 'index')->name('index');
+
+            Route::get('/show/{store_transaction}', 'show')->name('show');
         });
 
         // Store Transactions 

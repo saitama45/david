@@ -2,12 +2,19 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Services\StoreTransactionService;
 use App\Models\StoreTransaction;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 
 class StoreTransactionApprovalController extends Controller
 {
+    protected $storeTransactionService;
+
+    public function __construct(StoreTransactionService $storeTransactionService)
+    {
+        $this->storeTransactionService = $storeTransactionService;
+    }
     public function index()
     {
         $search = request('search');
@@ -31,6 +38,16 @@ class StoreTransactionApprovalController extends Controller
         return Inertia::render('StoreTransactionApproval/Index', [
             'transactions' => $transactions,
             'filters' => request()->only(['search'])
+        ]);
+    }
+
+    public function show(StoreTransaction $storeTransaction)
+    {
+        $transaction = $storeTransaction->load(['store_transaction_items.menu', 'store_branch']);
+        $transaction = $this->storeTransactionService->getTransactionDetails($transaction);
+
+        return Inertia::render('StoreTransactionApproval/Show', [
+            'transaction' => $transaction
         ]);
     }
 }
