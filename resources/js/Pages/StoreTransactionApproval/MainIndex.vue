@@ -26,6 +26,7 @@ const { transactions, branches } = defineProps({
         required: true,
     },
 });
+
 const { options: branchesOptions } = useSelectOptions(branches);
 
 const createNewTransaction = () => {
@@ -205,6 +206,38 @@ const approveSeletedItems = () => {
         },
     });
 };
+
+const approveAllItems = () => {
+    confirm.require({
+        message: "Are you sure you want to approve all the items status?",
+        header: "Confirmation",
+        icon: "pi pi-exclamation-triangle",
+        rejectProps: {
+            label: "Cancel",
+            severity: "secondary",
+            outlined: true,
+        },
+        acceptProps: {
+            label: "Confirm",
+            severity: "success",
+        },
+        accept: () => {
+            approveReceivedItemForm.post(
+                route("store-transactions-approval.approve-all-transactions"),
+                {
+                    onSuccess: () => {
+                        toast.add({
+                            severity: "success",
+                            summary: "Success",
+                            detail: "Store Transactions Approved Successfully.",
+                            life: 3000,
+                        });
+                    },
+                }
+            );
+        },
+    });
+};
 </script>
 <template>
     <Layout
@@ -223,7 +256,10 @@ const approveSeletedItems = () => {
                     variant="outline"
                     >Approve Selected Items</Button
                 >
-                <Button v-if="selectedItems.length == 0" class="bg-green-500"
+                <Button
+                    @click="approveAllItems"
+                    v-if="transactions.length > 0 && selectedItems.length == 0"
+                    class="bg-green-500"
                     >Approve All</Button
                 >
                 <DivFlexCenter class="gap-5">

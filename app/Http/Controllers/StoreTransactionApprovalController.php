@@ -89,4 +89,11 @@ class StoreTransactionApprovalController extends Controller
         }
         return back();
     }
+
+    public function approveAllTransactions()
+    {
+        StoreTransaction::where('is_approved', 'false')
+            ->update(['is_approved' => true]);
+        return back();
+    }
 }

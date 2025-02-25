@@ -181,7 +181,11 @@ Route::middleware('auth')
             Route::middleware('permission:view store transactions')->get('/summary', 'mainIndex')->name('main-index');
             Route::get('/show/{store_transaction}', 'show')->name('show');
 
-            Route::post('/approve-selected-transactions', 'approveSelectedTransactions')->name('approve-selected-transactions');
+            Route::post('/approve-selected-transactions', 'approveSelectedTransactions')
+                ->name('approve-selected-transactions');
+
+            Route::post('/approve-all-transactions', 'approveAllTransactions')
+                ->name('approve-all-transactions');
         });
 
         // Store Transactions 
