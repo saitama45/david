@@ -1,14 +1,46 @@
 <script setup>
-const { transactions } = defineProps({
+import { throttle } from "lodash";
+import { router } from "@inertiajs/vue3";
+const { transactions, filters } = defineProps({
     transactions: {
         type: Object,
         required: true,
     },
+    filters: {
+        type: Object,
+        required: true,
+    },
 });
+let search = ref(filters.search);
+
+watch(
+    search,
+    throttle(function (value) {
+        router.get(
+            route("store-transactions-approval.index"),
+            {
+                search: value,
+            },
+            {
+                preserveState: true,
+                replace: true,
+            }
+        );
+    }, 500)
+);
 </script>
 <template>
     <Layout heading="Store Transactions Approval">
         <TableContainer>
+            <TableHeader>
+                <SearchBar>
+                    <Input
+                        class="pl-10"
+                        placeholder="Search..."
+                        v-model="search"
+                    />
+                </SearchBar>
+            </TableHeader>
             <Table>
                 <TableHead>
                     <TH>ID</TH>

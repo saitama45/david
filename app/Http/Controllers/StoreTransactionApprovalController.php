@@ -10,9 +10,14 @@ class StoreTransactionApprovalController extends Controller
 {
     public function index()
     {
-        $transactions = StoreTransaction::with('store_transaction_items')
-            ->whereNot('is_approved')
-            ->latest()
+        $search = request('search');
+        $query = StoreTransaction::with('store_transaction_items')
+            ->whereNot('is_approved');
+
+        if ($search)
+            $query->where('receipt_number', 'like', "%$search%");
+
+        $transactions = $query->latest()
             ->paginate(10)
             ->withQueryString()
             ->through(function ($item) {
@@ -24,7 +29,8 @@ class StoreTransactionApprovalController extends Controller
                 ];
             });
         return Inertia::render('StoreTransactionApproval/Index', [
-            'transactions' => $transactions
+            'transactions' => $transactions,
+            'filters' => request()->only(['search'])
         ]);
     }
 }
