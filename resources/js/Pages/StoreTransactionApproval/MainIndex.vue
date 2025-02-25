@@ -164,6 +164,12 @@ const importTransactions = () => {
         },
     });
 };
+
+const selectedItems = ref([]);
+
+watch(selectedItems, (newValue) => {
+    console.log(newValue);
+});
 </script>
 <template>
     <Layout
@@ -225,9 +231,16 @@ const importTransactions = () => {
                     <TH>Actions</TH>
                 </TableHead>
                 <TableBody>
-                    <tr v-for="transaction in transactions">
+                    <tr
+                        v-for="transaction in transactions"
+                        :key="transaction.id"
+                    >
                         <TD>
-                            <Checkbox />
+                            <Checkbox
+                                v-model="selectedItems"
+                                :value="transaction.id"
+                                :inputId="`transaction-${transaction.id}`"
+                            />
                         </TD>
                         <TD>{{ transaction.order_date }}</TD>
                         <TD>{{ transaction.transaction_count }}</TD>
