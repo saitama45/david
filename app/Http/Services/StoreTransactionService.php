@@ -69,13 +69,9 @@ class StoreTransactionService
         $branchId = request('branchId');
         $order_date = request('order_date');
 
-
-
         $query = StoreTransaction::query()->with(['store_transaction_items', 'store_branch'])
             ->where('store_branch_id', $branchId)
             ->where('is_approved', true);
-
-
 
         $user = User::rolesAndAssignedBranches();
         if (!$user['isAdmin']) $query->whereIn('store_branch_id', $user['assignedBranches']);

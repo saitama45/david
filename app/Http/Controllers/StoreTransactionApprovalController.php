@@ -3,6 +3,8 @@
 namespace App\Http\Controllers;
 
 use App\Http\Services\StoreTransactionService;
+use App\Models\ProductInventoryStock;
+use App\Models\ProductInventoryStockManager;
 use App\Models\StoreBranch;
 use App\Models\StoreTransaction;
 use Carbon\Carbon;
@@ -26,7 +28,6 @@ class StoreTransactionApprovalController extends Controller
 
         $branches = StoreBranch::options();
         $branchId = request('branchId') ?? $branches->keys()->first();
-
         $transactions = StoreTransaction::query()
             ->where('is_approved', 'false')
             ->leftJoin('store_transaction_items', 'store_transactions.id', '=', 'store_transaction_items.store_transaction_id')
@@ -47,6 +48,7 @@ class StoreTransactionApprovalController extends Controller
                     'net_total' => str_pad($transaction->net_total ?? 0, 2, '0', STR_PAD_RIGHT)
                 ];
             });
+
 
         $branches = StoreBranch::options();
 
@@ -88,23 +90,30 @@ class StoreTransactionApprovalController extends Controller
                 ->where('is_approved', 'false')
                 ->get();
             $storeTransactions->map(function ($storeTransaction) {
+                DB::beginTransaction();
                 $storeTransaction->update(['is_approved' => true]);
                 // Get the branch
                 $branch = $storeTransaction->store_branch_id;
                 // Get the items 
                 $items = $storeTransaction->store_transaction_items;
-                $items->map(function ($item) use ($branch) {
-                    dd($item);
-                    // $menu = $item->menu;
-                    // $menu->menu_ingredients->map(function ($ingredient) use ($branch, $item) {
-                    //     dd($ingredient);
-                    //     // $ingredient->product_inventories->map(function ($product) use ($branch, $item, $ingredient) {
-                    //     //     $product->store_branches()->updateExistingPivot($branch, [
-                    //     //         'quantity' => $product->store_branches()->first()->pivot->quantity - ($ingredient->pivot->quantity * $item->quantity)
-                    //     //     ]);
-                    //     // });
-                    // });
+                $items->map(function ($item) use ($branch, $storeTransaction) {
+                    $ingredients = $item->menu->menu_ingredients;
+                    $ingredients?->map(function ($ingredient) use ($branch, $item, $storeTransaction) {
+                        ProductInventoryStock::where('product_inventory_id', $ingredient->product_inventory_id)
+                            ->where('store_branch_id', $branch)
+                            ->decrement('quantity', $ingredient->quantity * $item->quantity);
+
+                        ProductInventoryStockManager::create([
+                            'product_inventory_id' => $ingredient->product_inventory_id,
+                            'store_branch_id' => $branch,
+                            'cost_center_id' => null,
+                            'quantity' => $ingredient->quantity * $item->quantity,
+                            'action' => 'deduct',
+                            'remarks' => "Deducted from store transaction (Receipt No. {$storeTransaction->receipt_number})"
+                        ]);
+                    });
                 });
+                DB::commit();
             });
         }
         return back();
@@ -112,8 +121,35 @@ class StoreTransactionApprovalController extends Controller
 
     public function approveAllTransactions()
     {
-        StoreTransaction::where('is_approved', 'false')
-            ->update(['is_approved' => true]);
+        $storeTransactions = StoreTransaction::with('store_transaction_items.menu.menu_ingredients')
+            ->where('is_approved', 'false')
+            ->get();
+        $storeTransactions->map(function ($storeTransaction) {
+            DB::beginTransaction();
+            $storeTransaction->update(['is_approved' => true]);
+            // Get the branch
+            $branch = $storeTransaction->store_branch_id;
+            // Get the items 
+            $items = $storeTransaction->store_transaction_items;
+            $items->map(function ($item) use ($branch, $storeTransaction) {
+                $ingredients = $item->menu->menu_ingredients;
+                $ingredients?->map(function ($ingredient) use ($branch, $item, $storeTransaction) {
+                    ProductInventoryStock::where('product_inventory_id', $ingredient->product_inventory_id)
+                        ->where('store_branch_id', $branch)
+                        ->decrement('quantity', $ingredient->quantity * $item->quantity);
+
+                    ProductInventoryStockManager::create([
+                        'product_inventory_id' => $ingredient->product_inventory_id,
+                        'store_branch_id' => $branch,
+                        'cost_center_id' => null,
+                        'quantity' => $ingredient->quantity * $item->quantity,
+                        'action' => 'deduct',
+                        'remarks' => "Deducted from store transaction (Receipt No. {$storeTransaction->receipt_number})"
+                    ]);
+                });
+            });
+            DB::commit();
+        });
         return back();
     }
 }

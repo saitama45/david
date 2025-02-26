@@ -48,6 +48,7 @@ class StoreTransactionController extends Controller
                 DB::raw('SUM(store_transaction_items.net_total) as net_total')
             )
             ->where('store_transactions.store_branch_id', $branchId)
+            ->where('store_transactions.is_approved', 'true')
             ->groupBy('store_transactions.order_date')
             ->orderBy('store_transactions.order_date', 'desc')
             ->paginate(10)
