@@ -32,93 +32,40 @@ class DashboardController extends Controller
         $branches = StoreBranch::options();
         $branch = request('branch') ?? $branches->keys()->first();
 
-        try {
-            $user = User::rolesAndAssignedBranches();
-            $inventoriesQuery = ProductInventoryStock::where('store_branch_id', $branch);
-            $time_period != 0 ? $inventoriesQuery->whereMonth('updated_at', $time_period) : $inventoriesQuery->whereYear('updated_at', Carbon::today()->year);
-            $inventories = $inventoriesQuery->sum(DB::raw('quantity - used'));
+        $user = User::rolesAndAssignedBranches();
+        $inventoriesQuery = ProductInventoryStock::where('store_branch_id', $branch);
+        $time_period != 0 ? $inventoriesQuery->whereMonth('updated_at', $time_period) : $inventoriesQuery->whereYear('updated_at', Carbon::today()->year);
+        $inventories = $inventoriesQuery->sum(DB::raw('quantity - used'));
 
-            $upcomingInventories = StoreOrderItem::whereHas('store_order', function ($query) use ($branch, $time_period) {
-                $query->where('store_branch_id', $branch);
-                $query->where('order_status', 'approved');
+        $upcomingInventories = StoreOrderItem::whereHas('store_order', function ($query) use ($branch, $time_period) {
+            $query->where('store_branch_id', $branch);
+            $query->where('order_status', 'approved');
+            $time_period != 0 ? $query->whereMonth('order_date', $time_period) : $query->whereYear('order_date', Carbon::today()->year);
+        })->sum('quantity_approved');
+
+
+
+
+        $sales = number_format(
+            StoreTransactionItem::whereHas('store_transaction', function ($query) use ($branch, $time_period) {
                 $time_period != 0 ? $query->whereMonth('order_date', $time_period) : $query->whereYear('order_date', Carbon::today()->year);
-            })->sum('quantity_approved');
+                $query->where('store_branch_id', $branch);
+                $query->where('is_approved', true);
+            })->sum('net_total'),
+            2,
+            '.',
+            ','
+        );
 
 
 
-
-            $sales = number_format(
-                StoreTransactionItem::whereHas('store_transaction', function ($query) use ($branch, $time_period) {
-                    $time_period != 0 ? $query->whereMonth('order_date', $time_period) : $query->whereYear('order_date', Carbon::today()->year);
-                    $query->where('store_branch_id', $branch);
-                    $query->where('is_approved', true);
-                })->sum('net_total'),
-                2,
-                '.',
-                ','
-            );
-
-            if ($user['isAdmin']) {
-                $orderCounts = StoreOrder::selectRaw(DB::connection()->getDriverName() === 'sqlsrv'
-                    ? "
-                SUM(CASE WHEN order_status = 'pending' THEN 1 ELSE 0 END) as pending_count,
-                SUM(CASE WHEN order_status = 'approved' THEN 1 ELSE 0 END) as approved_count,
-                SUM(CASE WHEN order_status = 'rejected' THEN 1 ELSE 0 END) as rejected_count
-            "
-                    : "
-                COUNT(CASE WHEN order_status = 'pending' THEN 1 END) as pending_count,
-                COUNT(CASE WHEN order_status = 'approved' THEN 1 END) as approved_count,
-                COUNT(CASE WHEN order_status = 'rejected' THEN 1 END) as rejected_count
-            ")
-                    ->first();
-
-                return Inertia::render('Dashboard/Index', [
-                    'orderCounts' => $orderCounts,
-                    'timePeriods' => $timePeriods,
-                    'branches' => $branches,
-                    'sales' => $sales,
-                    'inventories' => $inventories,
-                    'upcomingInventories' => $upcomingInventories,
-                    'filters' => request()->only(['branch', 'time_period'])
-                ]);
-            }
-
-            $branches = $user['user']->store_branches->pluck('name', 'id')->toArray();
-            $branchId = request('branchId') ?? array_keys($branches)[0];
-
-            $orderCounts = StoreOrder::where('store_branch_id', $branchId)
-                ->selectRaw(DB::connection()->getDriverName() === 'sqlsrv'
-                    ? "
-                SUM(CASE WHEN order_status = 'pending' THEN 1 ELSE 0 END) as pending_count,
-                SUM(CASE WHEN order_status = 'approved' THEN 1 ELSE 0 END) as approved_count,
-                SUM(CASE WHEN order_status = 'rejected' THEN 1 ELSE 0 END) as rejected_count
-                "
-                    : "
-                COUNT(CASE WHEN order_status = 'pending' THEN 1 END) as pending_count,
-                COUNT(CASE WHEN order_status = 'approved' THEN 1 END) as approved_count,
-                COUNT(CASE WHEN order_status = 'rejected' THEN 1 END) as rejected_count
-        ")
-                ->first();
-
-            $highStockproducts = $this->getHighStockProducts($branchId);
-            $mostUsedProducts = $this->getMostUsedProducts($branchId);
-            $lowOnStockItems = $this->getLowOnStockItems($branchId);
-        } catch (Exception $e) {
-            throw $e;
-        }
-
-
-        return Inertia::render('StoreDashboard/Index', [
+        return Inertia::render('Dashboard/Index', [
+            'timePeriods' => $timePeriods,
             'branches' => $branches,
-            'orderCounts' => [
-                'pending' => $orderCounts->pending_count ?? 0,
-                'approved' => $orderCounts->approved_count ?? 0,
-                'rejected' => $orderCounts->rejected_count ?? 0
-            ],
-            'filters' => request()->only(['branchId']),
-            'highStockProducts' => $highStockproducts,
-            'mostUsedProducts' => $mostUsedProducts,
-            'lowOnStockItems' => $lowOnStockItems
+            'sales' => $sales,
+            'inventories' => $inventories,
+            'upcomingInventories' => $upcomingInventories,
+            'filters' => request()->only(['branch', 'time_period'])
         ]);
     }
 

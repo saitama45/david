@@ -5,10 +5,6 @@ import { router } from "@inertiajs/vue3";
 import { useSelectOptions } from "@/Composables/useSelectOptions";
 
 const { branches, timePeriods, filters, sales } = defineProps({
-    orderCounts: {
-        type: Object,
-        required: true,
-    },
     branches: {
         type: Object,
         required: true,
@@ -489,12 +485,12 @@ watch(time_period, (value) => {
                 />
                 <StatisticOverview
                     heading="LIST OF SUPPLIERS"
-                    :value="orderCounts.rejected_count"
+                    value="N/a"
                     :icon="BookX"
                 />
                 <StatisticOverview
                     heading="ACCOUNT PAYABLE"
-                    :value="orderCounts.rejected_count"
+                    value="N/a"
                     :icon="BookX"
                 />
             </div>
