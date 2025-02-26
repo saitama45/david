@@ -84,8 +84,28 @@ class StoreTransactionApprovalController extends Controller
     {
         $validated = $request->validate(['id' => ['required']]);
         foreach ($validated['id'] as $order_date) {
-            StoreTransaction::where('order_date', $order_date)
-                ->update(['is_approved' => true]);
+            $storeTransactions = StoreTransaction::with('store_transaction_items.menu.menu_ingredients')->where('order_date', $order_date)
+                ->where('is_approved', 'false')
+                ->get();
+            $storeTransactions->map(function ($storeTransaction) {
+                $storeTransaction->update(['is_approved' => true]);
+                // Get the branch
+                $branch = $storeTransaction->store_branch_id;
+                // Get the items 
+                $items = $storeTransaction->store_transaction_items;
+                $items->map(function ($item) use ($branch) {
+                    dd($item);
+                    // $menu = $item->menu;
+                    // $menu->menu_ingredients->map(function ($ingredient) use ($branch, $item) {
+                    //     dd($ingredient);
+                    //     // $ingredient->product_inventories->map(function ($product) use ($branch, $item, $ingredient) {
+                    //     //     $product->store_branches()->updateExistingPivot($branch, [
+                    //     //         'quantity' => $product->store_branches()->first()->pivot->quantity - ($ingredient->pivot->quantity * $item->quantity)
+                    //     //     ]);
+                    //     // });
+                    // });
+                });
+            });
         }
         return back();
     }
