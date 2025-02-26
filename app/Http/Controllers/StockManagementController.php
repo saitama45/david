@@ -112,8 +112,11 @@ class StockManagementController extends Controller
         $branches = StoreBranch::options();
         $branchId = $request->only('branchId')['branchId'] ?? $branches->keys()->first();
 
-        $history = ProductInventoryStockManager::with('cost_center')->where('product_inventory_id', $id)
-            ->where('store_branch_id', $branchId)->paginate(10);
+        $history = ProductInventoryStockManager::with('cost_center')
+            ->where('product_inventory_id', $id)
+            ->where('store_branch_id', $branchId)
+            ->paginate(10)
+            ->withQueryString();
 
 
         return Inertia::render('StockManagement/Show', [
