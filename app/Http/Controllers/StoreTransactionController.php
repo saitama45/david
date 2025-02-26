@@ -44,11 +44,12 @@ class StoreTransactionController extends Controller
             ->whereBetween('order_date', [$from, $to])
             ->select(
                 'store_transactions.order_date',
+                'store_transactions.is_approved',
                 DB::raw('COUNT(DISTINCT store_transactions.id) as transaction_count'),
                 DB::raw('SUM(store_transaction_items.net_total) as net_total')
             )
+            ->where('store_transactions.is_approved', true)
             ->where('store_transactions.store_branch_id', $branchId)
-            ->where('store_transactions.is_approved', 'true')
             ->groupBy('store_transactions.order_date')
             ->orderBy('store_transactions.order_date', 'desc')
             ->paginate(10)
@@ -56,9 +57,11 @@ class StoreTransactionController extends Controller
                 return [
                     'order_date' => $transaction->order_date,
                     'transaction_count' => $transaction->transaction_count,
-                    'net_total' => str_pad($transaction->net_total ?? 0, 2, '0', STR_PAD_RIGHT)
+                    'net_total' => str_pad($transaction->net_total ?? 0, 2, '0', STR_PAD_RIGHT),
+                    'is_approved' => $transaction->is_approved
                 ];
             });
+
 
         $branches = StoreBranch::options();
 

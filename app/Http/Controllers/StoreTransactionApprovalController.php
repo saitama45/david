@@ -101,7 +101,7 @@ class StoreTransactionApprovalController extends Controller
                     $ingredients?->map(function ($ingredient) use ($branch, $item, $storeTransaction) {
                         ProductInventoryStock::where('product_inventory_id', $ingredient->product_inventory_id)
                             ->where('store_branch_id', $branch)
-                            ->decrement('quantity', $ingredient->quantity * $item->quantity);
+                            ->increment('used', $ingredient->quantity * $item->quantity);
 
                         ProductInventoryStockManager::create([
                             'product_inventory_id' => $ingredient->product_inventory_id,
@@ -136,7 +136,7 @@ class StoreTransactionApprovalController extends Controller
                 $ingredients?->map(function ($ingredient) use ($branch, $item, $storeTransaction) {
                     ProductInventoryStock::where('product_inventory_id', $ingredient->product_inventory_id)
                         ->where('store_branch_id', $branch)
-                        ->decrement('quantity', $ingredient->quantity * $item->quantity);
+                        ->increment('used', $ingredient->quantity * $item->quantity);
 
                     ProductInventoryStockManager::create([
                         'product_inventory_id' => $ingredient->product_inventory_id,
