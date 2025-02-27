@@ -44,7 +44,6 @@ class StoreTransactionController extends Controller
             ->whereBetween('order_date', [$from, $to])
             ->select(
                 'store_transactions.order_date',
-                'store_transactions.is_approved',
                 DB::raw('COUNT(DISTINCT store_transactions.id) as transaction_count'),
                 DB::raw('SUM(store_transaction_items.net_total) as net_total')
             )
