@@ -58,7 +58,6 @@ class StoreTransactionController extends Controller
                     'order_date' => $transaction->order_date,
                     'transaction_count' => $transaction->transaction_count,
                     'net_total' => str_pad($transaction->net_total ?? 0, 2, '0', STR_PAD_RIGHT),
-                    'is_approved' => $transaction->is_approved
                 ];
             });
 
