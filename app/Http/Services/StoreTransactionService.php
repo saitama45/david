@@ -70,8 +70,7 @@ class StoreTransactionService
         $order_date = request('order_date');
 
         $query = StoreTransaction::query()->with(['store_transaction_items', 'store_branch'])
-            ->where('store_branch_id', $branchId)
-            ->where('is_approved', true);
+            ->where('store_branch_id', $branchId);
 
         $user = User::rolesAndAssignedBranches();
         if (!$user['isAdmin']) $query->whereIn('store_branch_id', $user['assignedBranches']);
@@ -117,8 +116,7 @@ class StoreTransactionService
         $order_date = request('order_date');
 
         $query = StoreTransaction::query()->with(['store_transaction_items', 'store_branch'])
-            ->where('store_branch_id', $branchId)
-            ->whereNot('is_approved');
+            ->where('store_branch_id', $branchId);
 
         $user = User::rolesAndAssignedBranches();
         if (!$user['isAdmin']) $query->whereIn('store_branch_id', $user['assignedBranches']);

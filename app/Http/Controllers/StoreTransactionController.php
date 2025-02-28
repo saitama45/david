@@ -48,7 +48,6 @@ class StoreTransactionController extends Controller
                 DB::raw('COUNT(DISTINCT store_transactions.id) as transaction_count'),
                 DB::raw('SUM(store_transaction_items.net_total) as net_total')
             )
-            ->where('store_transactions.is_approved', true)
             ->where('store_transactions.store_branch_id', $branchId)
             ->groupBy('store_transactions.order_date')
             ->orderBy('store_transactions.order_date', 'desc')
