@@ -34,12 +34,84 @@ jobs:
           php artisan cache:clear
           php artisan view:clear
 
+      - name: Create Queue Worker Batch Script
+        shell: powershell
+        run: |
+          @"
+          @echo off
+          cd %~dp0
+          php artisan queue:work --queue=default,imports --tries=3 --max-time=3600 >> storage/logs/queue-worker.log 2>&1
+          "@ | Out-File -FilePath run-queue.bat -Encoding ASCII
+
+      - name: Create Scheduled Task File
+        shell: powershell
+        run: |
+          @"
+          <?xml version="1.0" encoding="UTF-16"?>
+          <Task version="1.2" xmlns="http://schemas.microsoft.com/windows/2004/02/mit/task">
+            <Triggers>
+              <BootTrigger>
+                <Enabled>true</Enabled>
+              </BootTrigger>
+            </Triggers>
+            <Principals>
+              <Principal id="Author">
+                <LogonType>InteractiveToken</LogonType>
+                <RunLevel>LeastPrivilege</RunLevel>
+              </Principal>
+            </Principals>
+            <Settings>
+              <MultipleInstancesPolicy>IgnoreNew</MultipleInstancesPolicy>
+              <DisallowStartIfOnBatteries>false</DisallowStartIfOnBatteries>
+              <StopIfGoingOnBatteries>false</StopIfGoingOnBatteries>
+              <AllowHardTerminate>true</AllowHardTerminate>
+              <StartWhenAvailable>true</StartWhenAvailable>
+              <RunOnlyIfNetworkAvailable>false</RunOnlyIfNetworkAvailable>
+              <IdleSettings>
+                <StopOnIdleEnd>false</StopOnIdleEnd>
+                <RestartOnIdle>false</RestartOnIdle>
+              </IdleSettings>
+              <AllowStartOnDemand>true</AllowStartOnDemand>
+              <Enabled>true</Enabled>
+              <Hidden>false</Hidden>
+              <RunOnlyIfIdle>false</RunOnlyIfIdle>
+              <WakeToRun>false</WakeToRun>
+              <ExecutionTimeLimit>PT0S</ExecutionTimeLimit>
+              <Priority>7</Priority>
+            </Settings>
+            <Actions Context="Author">
+              <Exec>
+                <Command>run-queue.bat</Command>
+                <WorkingDirectory>%WEBSITE_PATH%</WorkingDirectory>
+              </Exec>
+            </Actions>
+          </Task>
+          "@ | Out-File -FilePath queue-worker-task.xml -Encoding ASCII
+
+      - name: Create Install Instructions File
+        shell: powershell
+        run: |
+          @"
+          # Queue Worker Setup Instructions
+
+          To set up the Laravel queue worker on your SmarterASP.NET hosting:
+
+          1. Edit run-queue.bat and ensure the paths are correct for your hosting environment
+          2. Set up a scheduled task using queue-worker-task.xml as a template
+          3. Alternatively, set up a cron job to run "php artisan queue:work" every minute
+
+          Example cron command:
+          * * * * * cd /path/to/your/app && php artisan queue:work --queue=default,imports --tries=3 --max-time=3600 >> storage/logs/queue-worker.log 2>&1
+
+          You may also want to check with SmarterASP.NET support for the best way to run background processes on your hosting plan.
+          "@ | Out-File -FilePath QUEUE_SETUP_INSTRUCTIONS.md -Encoding ASCII
+
       - name: Deploy to FTP
         uses: SamKirkland/FTP-Deploy-Action@v4.3.4
         with:
           server: win8203.site4now.net
           username: eyelix_dev
-          password: superadmin2024  
+          password: superadmin2024
           protocol: ftps
           port: 21
           timeout: 120000
@@ -48,3 +120,39 @@ jobs:
             **/.git*/**
             **/node_modules/**
             README.md
+
+      - name: Create Supervisor Configuration (For Reference)
+        shell: powershell
+        run: |
+          @"
+          [program:laravel-worker]
+          process_name=%(program_name)s_%(process_num)02d
+          command=php /path/to/your/app/artisan queue:work --queue=default,imports --tries=3 --max-time=3600
+          autostart=true
+          autorestart=true
+          user=your-user
+          numprocs=2
+          redirect_stderr=true
+          stdout_logfile=/path/to/your/app/storage/logs/worker.log
+          "@ | Out-File -FilePath supervisor-config.conf -Encoding ASCII
+
+      - name: Create Startup Script for Queue Worker
+        shell: powershell
+        run: |
+          @"
+          <?php
+
+          // This script can be called by a scheduled task to restart the queue worker
+
+          // Path to the Laravel application
+          $appPath = __DIR__;
+
+          // Kill any existing queue workers
+          exec('taskkill /F /IM php.exe 2>&1', $output, $return_var);
+
+          // Start a new queue worker process
+          $command = 'start /B php ' . $appPath . '/artisan queue:work --queue=default,imports --tries=3 --max-time=3600';
+          pclose(popen($command, 'r'));
+
+          echo "Queue worker restarted at " . date('Y-m-d H:i:s');
+          "@ | Out-File -FilePath restart-queue.php -Encoding ASCII
