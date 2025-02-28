@@ -2,16 +2,9 @@
 import { router } from "@inertiajs/vue3";
 import { usePage } from "@inertiajs/vue3";
 import { throttle } from "lodash";
-import {
-    Select,
-    SelectContent,
-    SelectGroup,
-    SelectItem,
-    SelectLabel,
-    SelectTrigger,
-    SelectValue,
-} from "@/components/ui/select";
-const { transactions, order_date } = defineProps({
+import { useSelectOptions } from "@/Composables/useSelectOptions";
+const { options: branchesOptions } = useSelectOptions(branches);
+const { transactions, order_date, branches } = defineProps({
     transactions: {
         type: Object,
         required: true,
@@ -140,6 +133,15 @@ console.log(order_date);
                 </SearchBar>
 
                 <DivFlexCenter class="gap-5">
+                    <Select
+                        filter
+                        placeholder="Select a Supplier"
+                        v-model="branchId"
+                        :options="branchesOptions"
+                        optionLabel="label"
+                        optionValue="value"
+                    >
+                    </Select>
                     <Popover>
                         <PopoverTrigger> <Filter /> </PopoverTrigger>
                         <PopoverContent>
@@ -156,24 +158,6 @@ console.log(order_date);
                             <Input type="date" v-model="from" />
                             <label class="text-xs">To</label>
                             <Input type="date" v-model="to" />
-                            <label class="text-xs">Store</label>
-                            <Select v-model="branchId">
-                                <SelectTrigger>
-                                    <SelectValue placeholder="Select a store" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    <SelectGroup>
-                                        <SelectLabel>Stores</SelectLabel>
-                                        <SelectItem
-                                            v-for="(value, key) in branches"
-                                            :key="key"
-                                            :value="key"
-                                        >
-                                            {{ value }}
-                                        </SelectItem>
-                                    </SelectGroup>
-                                </SelectContent>
-                            </Select>
                         </PopoverContent>
                     </Popover>
                 </DivFlexCenter>

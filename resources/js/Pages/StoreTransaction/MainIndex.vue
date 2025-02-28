@@ -2,7 +2,7 @@
 import { router } from "@inertiajs/vue3";
 import { usePage } from "@inertiajs/vue3";
 import { throttle } from "lodash";
-import { useSelectOptions } from "@/Composables/useSelectOptions";
+
 
 import { useToast } from "@/Composables/useToast";
 const { toast } = useToast();
@@ -18,6 +18,7 @@ const { transactions, branches } = defineProps({
         required: true,
     },
 });
+import { useSelectOptions } from "@/Composables/useSelectOptions";
 const { options: branchesOptions } = useSelectOptions(branches);
 
 const createNewTransaction = () => {
