@@ -467,7 +467,7 @@ watch(time_period, (value) => {
             </InputContainer>
         </DivFlexCenter>
         <section class="flex flex-col gap-5">
-            <div class="grid gap-5 sm:grid-cols-5">
+            <div class="grid gap-5 sm:grid-cols-4">
                 <StatisticOverview
                     heading="SALES"
                     :value="sales"
@@ -483,11 +483,11 @@ watch(time_period, (value) => {
                     :value="upcomingInventories"
                     :icon="BookX"
                 />
-                <StatisticOverview
+                <!-- <StatisticOverview
                     heading="LIST OF SUPPLIERS"
                     value="N/a"
                     :icon="BookX"
-                />
+                /> -->
                 <StatisticOverview
                     heading="ACCOUNT PAYABLE"
                     value="N/a"
