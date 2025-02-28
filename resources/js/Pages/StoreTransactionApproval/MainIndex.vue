@@ -1,4 +1,5 @@
 <script setup>
+import ProgressBar from "primevue/progressbar";
 import { router } from "@inertiajs/vue3";
 import { usePage } from "@inertiajs/vue3";
 import { throttle } from "lodash";

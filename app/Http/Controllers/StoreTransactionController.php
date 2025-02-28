@@ -8,6 +8,7 @@ use App\Http\Requests\StoreTransaction\StoreStoreTransactionRequest;
 use App\Http\Requests\StoreTransaction\UpdateStoreTransactionRequest;
 use App\Http\Services\StoreTransactionService;
 use App\Imports\StoreTransactionImport;
+use App\Jobs\StartImportJob;
 use App\Models\Menu;
 use App\Models\StoreBranch;
 use App\Models\StoreTransaction;
@@ -113,21 +114,13 @@ class StoreTransactionController extends Controller
 
     public function import(Request $request)
     {
-        ini_set('memory_limit', '512M');
-        set_time_limit(1000900000000000000);
-        $request->validate([
-            'store_transactions_file' => [
-                'required',
-                'file',
-                'mimes:xlsx,xls,csv',
-            ]
-        ]);
-        try {
-            Excel::import(new StoreTransactionImport, $request->file('store_transactions_file'));
-            return back();
-        } catch (Exception $e) {
-            dd($e);
-        }
+
+        $file = $request->file('store_transactions_file');
+        $path = $file->store('imports');
+
+        StartImportJob::dispatch($path);
+
+        return back();
     }
 
     public function create()

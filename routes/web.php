@@ -43,6 +43,12 @@ use Illuminate\Support\Facades\Route;
 
 Route::redirect('/', '/dashboard');
 
+Route::get('jobs', function () {
+    dispatch(function () {
+        logger('test');
+    });
+});
+
 
 Route::middleware('auth')
     ->group(function () {
