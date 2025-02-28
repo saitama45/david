@@ -3,15 +3,7 @@ import { router } from "@inertiajs/vue3";
 import { usePage } from "@inertiajs/vue3";
 import { throttle } from "lodash";
 import { useSelectOptions } from "@/Composables/useSelectOptions";
-import {
-    Select,
-    SelectContent,
-    SelectGroup,
-    SelectItem,
-    SelectLabel,
-    SelectTrigger,
-    SelectValue,
-} from "@/components/ui/select";
+
 import { useToast } from "@/Composables/useToast";
 const { toast } = useToast();
 import { useConfirm } from "primevue/useconfirm";
@@ -183,7 +175,15 @@ const importTransactions = () => {
                         v-model="search"
                     />
                 </SearchBar> -->
-                <InputContainer></InputContainer>
+                <Select
+                    filter
+                    placeholder="Select a Supplier"
+                    v-model="branchId"
+                    :options="branchesOptions"
+                    optionLabel="label"
+                    optionValue="value"
+                >
+                </Select>
 
                 <DivFlexCenter class="gap-5">
                     <Popover>
@@ -202,24 +202,6 @@ const importTransactions = () => {
                             <Input type="date" v-model="from" />
                             <label class="text-xs">To</label>
                             <Input type="date" v-model="to" />
-                            <label class="text-xs">Store</label>
-                            <Select v-model="branchId">
-                                <SelectTrigger>
-                                    <SelectValue placeholder="Select a store" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    <SelectGroup>
-                                        <SelectLabel>Stores</SelectLabel>
-                                        <SelectItem
-                                            v-for="(value, key) in branches"
-                                            :key="key"
-                                            :value="key"
-                                        >
-                                            {{ value }}
-                                        </SelectItem>
-                                    </SelectGroup>
-                                </SelectContent>
-                            </Select>
                         </PopoverContent>
                     </Popover>
                 </DivFlexCenter>
