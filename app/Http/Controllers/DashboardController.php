@@ -53,7 +53,7 @@ class DashboardController extends Controller
 
         $upcomingInventories = StoreOrderItem::whereHas('store_order', function ($query) use ($branch, $time_period) {
             $query->where('store_branch_id', $branch);
-            $query->where('order_status', 'approved');
+            $query->where('order_status', 'commited');
             $time_period != 0 ? $query->whereMonth('order_date', $time_period) : $query->whereYear('order_date', Carbon::today()->year);
         })->sum('quantity_approved');
 
