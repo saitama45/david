@@ -70,8 +70,24 @@ class DashboardController extends Controller
             ','
         );
 
+        $accountPayable = StoreOrderItem::query()
+            ->join('store_orders', 'store_order_items.store_order_id', '=', 'store_orders.id')
+            ->join('product_inventories', 'store_order_items.product_inventory_id', '=', 'product_inventories.id')
+            ->where('store_orders.store_branch_id', $branch)
+            ->where('store_order_items.quantity_received', '>', 0);
 
+        if ($time_period != 0) {
+            $accountPayable->whereMonth('store_orders.order_date', $time_period);
+        } else {
+            $accountPayable->whereYear('store_orders.order_date', Carbon::today()->year);
+        }
 
+        $accountPayable = number_format(
+            $accountPayable->sum(DB::raw('store_order_items.quantity_received * product_inventories.cost')),
+            2,
+            '.',
+            ','
+        );
 
         $sales = number_format(
             StoreTransactionItem::whereHas('store_transaction', function ($query) use ($branch, $time_period) {
@@ -92,6 +108,7 @@ class DashboardController extends Controller
             'sales' => $sales,
             'inventories' => $inventories,
             'upcomingInventories' => $upcomingInventories,
+            'accountPayable' => $accountPayable,
             'filters' => request()->only(['branch', 'time_period'])
         ]);
     }

@@ -29,6 +29,10 @@ const { branches, timePeriods, filters, sales } = defineProps({
         type: Number,
         required: true,
     },
+    accountPayable: {
+        type: Number,
+        required: true,
+    },
 });
 
 const { options: branchesOptions } = useSelectOptions(branches);
@@ -490,7 +494,7 @@ watch(time_period, (value) => {
                 /> -->
                 <StatisticOverview
                     heading="ACCOUNT PAYABLE"
-                    value="N/a"
+                    :value="accountPayable"
                     :icon="BookX"
                 />
             </div>
