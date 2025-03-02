@@ -3,6 +3,7 @@
 use App\Http\Controllers\ApprovedReceivedItem;
 use App\Http\Controllers\ApprovedOrderController;
 use App\Http\Controllers\AuditController;
+use App\Http\Controllers\CashPullOutController;
 use App\Http\Controllers\CategoryController;
 use App\Http\Controllers\CostCenterController;
 use App\Http\Controllers\CSApprovalController;
@@ -52,6 +53,13 @@ Route::get('jobs', function () {
 
 Route::middleware('auth')
     ->group(function () {
+
+        Route::controller(CashPullOutController::class)
+            ->name('cash-pull-out.')
+            ->prefix('cash-pull-out')
+            ->group(function () {
+                Route::get('/', 'index')->name('index');
+            });
 
         // Dashboard
         Route::get('/dashboard', [DashboardController::class, 'index'])

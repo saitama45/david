@@ -124,7 +124,7 @@ class StoreTransactionApprovalController extends Controller
         $storeTransactions = StoreTransaction::with('store_transaction_items.menu.menu_ingredients')
             ->where('is_approved', 'false')
             ->get();
-        $storeTransactions->map(function ($storeTransaction) {
+        $storeTransactions->map(function ($storeTransaction) { 
             DB::beginTransaction();
             $storeTransaction->update(['is_approved' => true]);
             // Get the branch
