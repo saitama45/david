@@ -51,11 +51,24 @@ class DashboardController extends Controller
             ','
         );
 
-        $upcomingInventories = StoreOrderItem::whereHas('store_order', function ($query) use ($branch, $time_period) {
-            $query->where('store_branch_id', $branch);
-            $query->where('order_status', 'commited');
-            $time_period != 0 ? $query->whereMonth('order_date', $time_period) : $query->whereYear('order_date', Carbon::today()->year);
-        })->sum('quantity_approved');
+        $upcomingInventories = StoreOrderItem::query()
+            ->join('product_inventories', 'store_order_items.product_inventory_id', '=', 'product_inventories.id')
+            ->join('store_orders', 'store_order_items.store_order_id', '=', 'store_orders.id')
+            ->where('store_orders.store_branch_id', $branch)
+            ->where('store_orders.order_status', 'commited');
+
+        if ($time_period != 0) {
+            $upcomingInventories->whereMonth('store_orders.order_date', $time_period);
+        } else {
+            $upcomingInventories->whereYear('store_orders.order_date', Carbon::today()->year);
+        }
+
+        $upcomingInventories = number_format(
+            $upcomingInventories->sum(DB::raw('store_order_items.quantity_commited * product_inventories.cost')),
+            2,
+            '.',
+            ','
+        );
 
 
 
