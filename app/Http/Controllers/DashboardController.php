@@ -33,9 +33,23 @@ class DashboardController extends Controller
         $branch = request('branch') ?? $branches->keys()->first();
 
         $user = User::rolesAndAssignedBranches();
-        $inventoriesQuery = ProductInventoryStock::where('store_branch_id', $branch);
-        $time_period != 0 ? $inventoriesQuery->whereMonth('updated_at', $time_period) : $inventoriesQuery->whereYear('updated_at', Carbon::today()->year);
-        $inventories = $inventoriesQuery->sum(DB::raw('quantity - used'));
+
+        $inventoriesQuery = ProductInventoryStock::query()
+            ->join('product_inventories', 'product_inventory_stocks.product_inventory_id', '=', 'product_inventories.id')
+            ->where('product_inventory_stocks.store_branch_id', $branch);
+
+        if ($time_period != 0) {
+            $inventoriesQuery->whereMonth('product_inventory_stocks.updated_at', $time_period);
+        } else {
+            $inventoriesQuery->whereYear('product_inventory_stocks.updated_at', Carbon::today()->year);
+        }
+
+        $inventories = number_format(
+            $inventoriesQuery->sum(DB::raw('(product_inventory_stocks.quantity - product_inventory_stocks.used) * product_inventories.cost')),
+            2,
+            '.',
+            ','
+        );
 
         $upcomingInventories = StoreOrderItem::whereHas('store_order', function ($query) use ($branch, $time_period) {
             $query->where('store_branch_id', $branch);
