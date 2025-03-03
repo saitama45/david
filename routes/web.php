@@ -59,6 +59,7 @@ Route::middleware('auth')
             ->prefix('cash-pull-out')
             ->group(function () {
                 Route::get('/', 'index')->name('index');
+                Route::get('/create', 'create')->name('create');
             });
 
         // Dashboard

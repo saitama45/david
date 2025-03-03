@@ -125,6 +125,7 @@ const canViewReferenceGroup = hasAccess("manage references");
             v-if="hasAccess('view orders for approval list')"
             href="/orders-approval"
             :icon="SquareChartGantt"
+            s
         >
             Orders Approval
         </NavLink>
