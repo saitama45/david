@@ -37,6 +37,11 @@ class StoreOrderItem extends Model implements Auditable
         return $this->belongsTo(ProductInventory::class);
     }
 
+    public function cash_pull_out()
+    {
+        return $this->belongsTo(CashPullOut::class);
+    }
+
     public function ordered_item_receive_dates()
     {
         return $this->hasMany(OrderedItemReceiveDate::class);

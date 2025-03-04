@@ -35,6 +35,11 @@ class ProductInventory extends Model implements Auditable
         'cost' => 'decimal:2'
     ];
 
+    public function cash_pull_out_items()
+    {
+        return $this->hasMany(CashPullOutItem::class);
+    }
+
     public function getFormattedCostAttribute()
     {
         return '₱' . number_format($this->cost, 2);
