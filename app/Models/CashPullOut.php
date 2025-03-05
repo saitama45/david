@@ -20,7 +20,7 @@ class CashPullOut extends Model
         'category'
     ];
 
-    public function branch()
+    public function store_branch()
     {
         return $this->belongsTo(StoreBranch::class);
     }

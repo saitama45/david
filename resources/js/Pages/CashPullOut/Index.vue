@@ -3,6 +3,13 @@ import { router } from "@inertiajs/vue3";
 const handleClick = () => {
     router.get("/cash-pull-out/create");
 };
+
+defineProps({
+    cashPullOuts: {
+        type: Object,
+        required: true,
+    },
+});
 </script>
 
 <template>
@@ -11,5 +18,33 @@ const handleClick = () => {
         :hasButton="true"
         buttonName="Create New"
         :handleClick="handleClick"
-    ></Layout>
+    >
+        <TableContainer>
+            <TableHeader>
+                <SearchBar>
+                    <Input class="pl-10" placeholder="Search..." />
+                </SearchBar>
+            </TableHeader>
+            <Table>
+                <TableHead>
+                    <TH>ID</TH>
+                    <TH>Store Branch</TH>
+                    <TH>Vendor</TH>
+                    <TH>Date Needed</TH>
+                    <TH>Actions</TH>
+                </TableHead>
+                <TableBody>
+                    <tr v-for="cashPullOut in cashPullOuts.data">
+                        <TD>{{ cashPullOut.id }}</TD>
+                        <TD>{{ cashPullOut.store_branch.name }}</TD>
+                        <TD>{{ cashPullOut.vendor }}</TD>
+                        <TD>{{ cashPullOut.date_needed }}</TD>
+                        <TD>
+                            <ShowButton />
+                        </TD>
+                    </tr>
+                </TableBody>
+            </Table>
+        </TableContainer>
+    </Layout>
 </template>

@@ -19,6 +19,7 @@ return new class extends Migration
             $table->date('date_needed');
             $table->string('vendor_address');
             $table->string('status')->default('pending');
+            
             $table->text('remarks')->nullable();
             $table->timestamps();
         });

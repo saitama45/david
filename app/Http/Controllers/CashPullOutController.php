@@ -15,7 +15,11 @@ class CashPullOutController extends Controller
 {
     public function index()
     {
-        return Inertia::render('CashPullOut/Index');
+        $cashPullOuts = CashPullOut::with('store_branch')->latest()->paginate(10);
+
+        return Inertia::render('CashPullOut/Index', [
+            'cashPullOuts' => $cashPullOuts
+        ]);
     }
 
     public function create()

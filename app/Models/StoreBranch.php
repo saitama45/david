@@ -97,4 +97,9 @@ class StoreBranch extends Model implements Auditable
     {
         return $this->hasMany(StoreTransaction::class);
     }
+
+    public function cash_pull_outs()
+    {
+        return $this->hasMany(CashPullOut::class);
+    }
 }
