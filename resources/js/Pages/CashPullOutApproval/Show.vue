@@ -1,14 +1,69 @@
 <script setup>
-defineProps({
+import { useConfirm } from "primevue/useconfirm";
+import { useToast } from "@/Composables/useToast";
+
+const confirm = useConfirm();
+const { toast } = useToast();
+import { router } from "@inertiajs/vue3";
+const { cashPullOut } = defineProps({
     cashPullOut: {
         type: Object,
         required: true,
     },
 });
+
+const approveRequest = () => {
+    confirm.require({
+        message: "Are you sure you want to approve this cash pull out request?",
+        header: "Confirmation",
+        icon: "pi pi-exclamation-triangle",
+        rejectProps: {
+            label: "Discard",
+            severity: "danger",
+        },
+        acceptProps: {
+            label: "Continue",
+            severity: "primary",
+        },
+        accept: () => {
+            router.put(
+                route("cash-pull-out-approval.approve", cashPullOut.id),
+                {
+                    onSuccess: () => {
+                        console.log("success");
+                        toast.add({
+                            severity: "success",
+                            summary: "Success",
+                            detail: "Approved Successfully.",
+                            life: 5000,
+                        });
+                    },
+                    onError: (e) => {
+                        console.log("errpr");
+                        toast.add({
+                            severity: "error",
+                            summary: "Error",
+                            detail: "An error occured while trying to approve this request.",
+                            life: 5000,
+                        });
+                    },
+                    onFinish: () => {
+                        console.log("fish");
+                    },
+                }
+            );
+        },
+    });
+};
 </script>
 
 <template>
-    <Layout heading="Cash Pull Out For Approval Details">
+    <Layout
+        heading="Cash Pull Out For Approval Details"
+        :hasButton="true"
+        buttonName="Approve"
+        :handleClick="approveRequest"
+    >
         <Card class="p-5 grid sm:grid-cols-4 gap-5">
             <InputContainer>
                 <LabelXS>ID </LabelXS>

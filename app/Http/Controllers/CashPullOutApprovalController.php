@@ -23,4 +23,10 @@ class CashPullOutApprovalController extends Controller
             'cashPullOut' => $cashPullOut
         ]);
     }
+
+    public function approve(CashPullOut $cashPullOut)
+    {
+        $cashPullOut->update(['status' => 'approved']);
+        return redirect()->route('cash-pull-out-approval.index');
+    }
 }

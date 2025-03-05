@@ -72,6 +72,7 @@ Route::middleware('auth')
             ->group(function () {
                 Route::get('/', 'index')->name('index');
                 Route::get('/show/{cash_pull_out}', 'show')->name('show');
+                Route::put('/approve/{cash_pull_out}', 'approve')->name('approve');
             });
 
         // Dashboard
