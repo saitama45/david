@@ -13,17 +13,17 @@ return new class extends Migration
     {
         Schema::create('cash_pull_outs', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('branch_id')->constrained();
+            $table->foreignId('store_branch_id')->constrained();
             $table->string('category');
             $table->string('vendor');
             $table->date('date_needed');
             $table->string('vendor_address');
-            $table->string('status');
+            $table->string('status')->default('pending');
             $table->text('remarks')->nullable();
             $table->timestamps();
         });
     }
-    
+
 
     /**
      * Reverse the migrations.

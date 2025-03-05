@@ -16,9 +16,8 @@ return new class extends Migration
             $table->foreignId('cash_pull_out_id')->constrained();
             $table->foreignId('product_inventory_id')->constrained();
             $table->integer('quantity_ordered');
-            $table->integer('quantity_approved');
+            $table->integer('quantity_approved')->default(0);
             $table->text('remarks')->nullable();
-            $table->text('remarks');
             $table->timestamps();
         });
     }

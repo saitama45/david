@@ -1,7 +1,7 @@
 <script setup>
 import Select from "primevue/select";
 import { useBackButton } from "@/Composables/useBackButton";
-const { backButton } = useBackButton(route("store-orders.index"));
+const { backButton } = useBackButton(route("cash-pull-out.index"));
 import { useSelectOptions } from "@/Composables/useSelectOptions";
 
 import { useConfirm } from "primevue/useconfirm";
@@ -35,7 +35,7 @@ onMounted(() => {
             },
             accept: () => {
                 orderForm.supplier_id = drafts.value.supplier_id;
-                orderForm.branch_id = drafts.value.branch_id;
+                orderForm.store_branch_id = drafts.value.store_branch_id;
                 orderForm.order_date = drafts.value.order_date;
                 orderForm.orders = drafts.value.orders;
             },
@@ -84,7 +84,7 @@ const excelFileForm = useForm({
 });
 
 const orderForm = useForm({
-    branch_id: "",
+    store_branch_id: "",
     vendor: "",
     vendor_address: "",
     date_needed: null,
@@ -125,7 +125,7 @@ const store = () => {
             severity: "info",
         },
         accept: () => {
-            orderForm.post(route("store-orders.store"), {
+            orderForm.post(route("cash-pull-out.store"), {
                 onSuccess: () => {
                     toast.add({
                         severity: "success",
@@ -306,12 +306,15 @@ watch(orderForm, (value) => {
                             <Select
                                 filter
                                 placeholder="Select a Store"
-                                v-model="orderForm.branch_id"
+                                v-model="orderForm.store_branch_id"
                                 :options="branchesOptions"
                                 optionLabel="label"
                                 optionValue="value"
                             >
                             </Select>
+                            <FormError>{{
+                                orderForm.errors.store_branch_id
+                            }}</FormError>
                         </div>
                         <div class="flex flex-col space-y-1">
                             <InputLabel label="Date Needed" />
@@ -330,10 +333,14 @@ watch(orderForm, (value) => {
                         <div class="flex flex-col space-y-1">
                             <InputLabel label="Vendor" />
                             <Input v-model="orderForm.vendor" />
+                            <FormError>{{ orderForm.errors.vendor }}</FormError>
                         </div>
                         <div class="flex flex-col space-y-1">
                             <InputLabel label="Vendor Address" />
                             <Textarea v-model="orderForm.vendor_address" />
+                            <FormError>{{
+                                orderForm.errors.vendor_address
+                            }}</FormError>
                         </div>
                     </CardContent>
                 </Card>

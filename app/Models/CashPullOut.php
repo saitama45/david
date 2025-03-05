@@ -11,7 +11,7 @@ class CashPullOut extends Model
     use HasFactory;
 
     protected $fillable = [
-        'branch_id',
+        'store_branch_id',
         'vendor',
         'date_needed',
         'vendor_address',
