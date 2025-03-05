@@ -61,6 +61,7 @@ Route::middleware('auth')
                 Route::get('/', 'index')->name('index');
                 Route::get('/create', 'create')->name('create');
                 Route::post('/store', 'store')->name('store');
+                Route::get('/show/{cash_pull_out}', 'show')->name('show');
             });
 
         // Dashboard

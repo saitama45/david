@@ -48,4 +48,12 @@ class CashPullOutController extends Controller
         DB::commit();
         return redirect()->route('cash-pull-out.index');
     }
+
+    public function show(CashPullOut $cashPullOut)
+    {
+        $cashPullOut->load(['store_branch', 'cash_pull_out_items.product_inventory.unit_of_measurement']);
+        return Inertia::render('CashPullOut/Show', [
+            'cashPullOut' => $cashPullOut
+        ]);
+    }
 }

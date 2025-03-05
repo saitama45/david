@@ -31,6 +31,7 @@ defineProps({
                     <TH>Store Branch</TH>
                     <TH>Vendor</TH>
                     <TH>Date Needed</TH>
+                    <TH>Status</TH>
                     <TH>Actions</TH>
                 </TableHead>
                 <TableBody>
@@ -39,8 +40,14 @@ defineProps({
                         <TD>{{ cashPullOut.store_branch.name }}</TD>
                         <TD>{{ cashPullOut.vendor }}</TD>
                         <TD>{{ cashPullOut.date_needed }}</TD>
+                        <TD>{{ cashPullOut.status.toUpperCase() }}</TD>
                         <TD>
-                            <ShowButton />
+                            <ShowButton
+                                :isLink="true"
+                                :href="
+                                    route('cash-pull-out.show', cashPullOut.id)
+                                "
+                            />
                         </TD>
                     </tr>
                 </TableBody>
