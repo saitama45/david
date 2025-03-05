@@ -52,6 +52,7 @@ defineProps({
                     </tr>
                 </TableBody>
             </Table>
+            <Pagination :data="cashPullOuts" />
         </TableContainer>
     </Layout>
 </template>

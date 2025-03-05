@@ -45,13 +45,17 @@ defineProps({
                             <ShowButton
                                 :isLink="true"
                                 :href="
-                                    route('cash-pull-out-approval.show', cashPullOut.id)
+                                    route(
+                                        'cash-pull-out-approval.show',
+                                        cashPullOut.id
+                                    )
                                 "
                             />
                         </TD>
                     </tr>
                 </TableBody>
             </Table>
+            <Pagination :data="cashPullOuts" />
         </TableContainer>
     </Layout>
 </template>
