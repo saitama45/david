@@ -71,6 +71,7 @@ Route::middleware('auth')
             ->prefix('cash-pull-out-approval')
             ->group(function () {
                 Route::get('/', 'index')->name('index');
+                Route::get('/show/{cash_pull_out}', 'show')->name('show');
             });
 
         // Dashboard

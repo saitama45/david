@@ -45,7 +45,7 @@ defineProps({
                             <ShowButton
                                 :isLink="true"
                                 :href="
-                                    route('cash-pull-out.show', cashPullOut.id)
+                                    route('cash-pull-out-approval.show', cashPullOut.id)
                                 "
                             />
                         </TD>

@@ -15,4 +15,12 @@ class CashPullOutApprovalController extends Controller
             'cashPullOuts' => $cashPullOuts
         ]);
     }
+
+    public function show(CashPullOut $cashPullOut)
+    {
+        $cashPullOut->load(['store_branch', 'cash_pull_out_items.product_inventory.unit_of_measurement']);
+        return Inertia::render('CashPullOutApproval/Show', [
+            'cashPullOut' => $cashPullOut
+        ]);
+    }
 }

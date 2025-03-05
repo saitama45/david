@@ -118,10 +118,10 @@ const canViewReferenceGroup = hasAccess("manage references");
         >
             DTS Orders
         </NavLink>
-        <NavLink href="cash-pull-out/" :icon="ShoppingBasket">
+        <NavLink href="cash-pull-out" :icon="ShoppingBasket">
             Cash Pull Out
         </NavLink>
-        <NavLink href="cash-pull-out-approval/" :icon="ShoppingBasket">
+        <NavLink href="cash-pull-out-approval" :icon="ShoppingBasket">
             Cash Pull Out Approval
         </NavLink>
         <NavLink
