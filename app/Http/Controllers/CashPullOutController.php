@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\ProductInventory;
+use App\Models\StoreBranch;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 
@@ -15,9 +16,11 @@ class CashPullOutController extends Controller
 
     public function create()
     {
+        $branches = StoreBranch::options();
         $products = ProductInventory::options();
         return Inertia::render('CashPullOut/Create', [
-            'products' => $products
+            'products' => $products,
+            'branches' => $branches
         ]);
     }
 }

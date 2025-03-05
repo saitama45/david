@@ -19,7 +19,6 @@ onBeforeMount(() => {
 });
 
 onMounted(() => {
-    console.log(drafts.value);
     if (drafts.value != null) {
         confirm.require({
             message:
@@ -49,10 +48,14 @@ const props = defineProps({
         type: Object,
         required: false,
     },
+    branches: {
+        type: Object,
+        required: false,
+    },
 });
 
 const { options: productsOptions } = useSelectOptions(props.products);
-
+const { options: branchesOptions } = useSelectOptions(props.branches);
 import { useForm } from "@inertiajs/vue3";
 
 const productId = ref(null);
@@ -82,8 +85,9 @@ const excelFileForm = useForm({
 
 const orderForm = useForm({
     branch_id: "",
-    supplier_id: "",
-    order_date: null,
+    vendor: "",
+    vendor_address: "",
+    date_needed: null,
     orders: [],
 });
 
@@ -220,7 +224,6 @@ const addToOrdersButton = () => {
 
 // Nat - (getting the imported data)
 
-
 const addItemQuantity = (id) => {
     const index = orderForm.orders.findIndex((item) => item.id === id);
     orderForm.orders[index].quantity = parseFloat(
@@ -273,82 +276,6 @@ const removeItem = (id) => {
     });
 };
 
-const orderRestrictionDate = reactive({
-    minDate: null,
-    maxDate: null,
-});
-
-const calculatePULILANOrderDate = () => {
-    const now = new Date();
-
-    const nextSunday = new Date(now);
-    nextSunday.setDate(now.getDate() + (7 - now.getDay()));
-
-    const nextSaturday = new Date(nextSunday);
-    nextSaturday.setDate(nextSunday.getDate() + 6);
-
-    orderRestrictionDate.minDate = nextSunday;
-    orderRestrictionDate.maxDate = nextSaturday;
-};
-
-const calculateGSIOrderDate = () => {
-    const now = new Date();
-
-    const nextSunday = new Date(now);
-    nextSunday.setDate(now.getDate() + (7 - now.getDay()));
-
-    const nextWednesday = new Date(nextSunday);
-    nextWednesday.setDate(nextSunday.getDate() + 3);
-
-    const upcomingSunday = new Date(now);
-    upcomingSunday.setDate(now.getDate() + (7 - now.getDay()));
-
-    const secondBatchStartDate = new Date(upcomingSunday);
-    secondBatchStartDate.setDate(upcomingSunday.getDate() + 4);
-
-    const secondBatchEndDate = new Date(upcomingSunday);
-    secondBatchEndDate.setDate(upcomingSunday.getDate() + 6);
-
-    const currentDay = now.getDay();
-    const currentHour = now.getHours();
-
-    if (
-        currentDay === 0 ||
-        currentDay === 1 ||
-        currentDay === 2 ||
-        (currentDay === 3 && currentHour < 7)
-    ) {
-        orderRestrictionDate.minDate = upcomingSunday;
-        orderRestrictionDate.maxDate = nextWednesday;
-    } else {
-        orderRestrictionDate.minDate = secondBatchStartDate;
-        orderRestrictionDate.maxDate = secondBatchEndDate;
-    }
-};
-
-watch(
-    () => orderForm.supplier_id,
-    (supplier_id) => {
-        orderForm.order_date = null;
-        if (!supplier_id) return;
-
-        const selectedBranch = Object.values(suppliersOptions.value).find(
-            (option) => option.value === supplier_id + ""
-        );
-
-        if (!selectedBranch) return;
-
-        if (
-            selectedBranch.label === "GSI OT-BAKERY" ||
-            selectedBranch.label === "GSI OT-PR"
-        ) {
-            calculateGSIOrderDate();
-        } else if (selectedBranch.label === "PUL OT-DG") {
-            calculatePULILANOrderDate();
-        }
-    }
-);
-
 import { useEditQuantity } from "@/Composables/useEditQuantity";
 const {
     isEditQuantityModalOpen,
@@ -363,9 +290,7 @@ watch(orderForm, (value) => {
 </script>
 
 <template>
-    <Layout
-        heading="Create Cash Pull Out"
-    >
+    <Layout heading="Create Cash Pull Out">
         <div class="grid sm:grid-cols-3 gap-5 grid-cols-1">
             <section class="grid gap-5">
                 <Card>
@@ -377,28 +302,38 @@ watch(orderForm, (value) => {
                     </CardHeader>
                     <CardContent class="space-y-3">
                         <div class="flex flex-col space-y-1">
+                            <InputLabel label="Store Branch" />
+                            <Select
+                                filter
+                                placeholder="Select a Store"
+                                v-model="orderForm.branch_id"
+                                :options="branchesOptions"
+                                optionLabel="label"
+                                optionValue="value"
+                            >
+                            </Select>
+                        </div>
+                        <div class="flex flex-col space-y-1">
                             <InputLabel label="Date Needed" />
                             <DatePicker
                                 showIcon
                                 fluid
                                 dateFormat="yy/mm/dd"
-                                v-model="orderForm.order_date"
+                                v-model="orderForm.date_needed"
                                 :showOnFocus="false"
                                 :manualInput="true"
-                                :minDate="orderRestrictionDate.minDate"
-                                :maxDate="orderRestrictionDate.maxDate"
                             />
                             <FormError>{{
-                                orderForm.errors.order_date
+                                orderForm.errors.date_needed
                             }}</FormError>
                         </div>
                         <div class="flex flex-col space-y-1">
                             <InputLabel label="Vendor" />
-                            <Input />
+                            <Input v-model="orderForm.vendor" />
                         </div>
                         <div class="flex flex-col space-y-1">
                             <InputLabel label="Vendor Address" />
-                            <Textarea />
+                            <Textarea v-model="orderForm.vendor_address" />
                         </div>
                     </CardContent>
                 </Card>
