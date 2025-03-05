@@ -121,6 +121,9 @@ const canViewReferenceGroup = hasAccess("manage references");
         <NavLink href="cash-pull-out/" :icon="ShoppingBasket">
             Cash Pull Out
         </NavLink>
+        <NavLink href="cash-pull-out-approval/" :icon="ShoppingBasket">
+            Cash Pull Out Approval
+        </NavLink>
         <NavLink
             v-if="hasAccess('view orders for approval list')"
             href="/orders-approval"

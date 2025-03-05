@@ -3,6 +3,8 @@
 use App\Http\Controllers\ApprovedReceivedItem;
 use App\Http\Controllers\ApprovedOrderController;
 use App\Http\Controllers\AuditController;
+use App\Http\Controllers\CashPullOutApproval;
+use App\Http\Controllers\CashPullOutApprovalController;
 use App\Http\Controllers\CashPullOutController;
 use App\Http\Controllers\CategoryController;
 use App\Http\Controllers\CostCenterController;
@@ -62,6 +64,13 @@ Route::middleware('auth')
                 Route::get('/create', 'create')->name('create');
                 Route::post('/store', 'store')->name('store');
                 Route::get('/show/{cash_pull_out}', 'show')->name('show');
+            });
+
+        Route::controller(CashPullOutApprovalController::class)
+            ->name('cash-pull-out-approval.')
+            ->prefix('cash-pull-out-approval')
+            ->group(function () {
+                Route::get('/', 'index')->name('index');
             });
 
         // Dashboard
