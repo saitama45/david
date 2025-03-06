@@ -24,7 +24,6 @@ return new class extends Migration
             $table->string('cancel_reason')->nullable();
             $table->string('reference_number')->nullable();
             $table->text('remarks')->nullable();
-            $table->boolean('is_approved')->default(false);
             $table->timestamps();
         });
     }
