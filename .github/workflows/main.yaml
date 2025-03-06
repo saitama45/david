@@ -40,7 +40,7 @@ jobs:
           server: win8203.site4now.net
           username: eyelix_dev
           password: superadmin2024  
-          protocol: ftps
+          protocol: ftp
           port: 21
           timeout: 120000
           exclude: |
