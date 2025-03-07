@@ -620,10 +620,7 @@ const confirmReceive = () => {
                                         <Eye />
                                     </ShowButton>
                                     <Button
-                                        v-if="
-                                            canReceive &&
-                                            orderStatus === 'incomplete'
-                                        "
+                                        v-if="orderStatus === 'incomplete'"
                                         @click="openReceiveForm(order.id)"
                                         class="text-green-500"
                                         variant="link"
@@ -664,7 +661,12 @@ const confirmReceive = () => {
             <TableContainer>
                 <TableHeader>
                     <CardTitle>Receiving History</CardTitle>
-                    <Button @click="confirmReceive"> Confirm Receive </Button>
+                    <Button
+                        v-if="order.order_status != 'received'"
+                        @click="confirmReceive"
+                    >
+                        Confirm Receive
+                    </Button>
                 </TableHeader>
                 <Table>
                     <TableHead>
