@@ -117,9 +117,10 @@ class StoreOrderService
             'ordered_item_receive_dates.receiver',
             'ordered_item_receive_dates.store_order_item',
             'ordered_item_receive_dates.store_order_item.product_inventory',
-            'image_attachments' => function ($query) {
-                $query->where('is_approved', true);
-            },
+            // 'image_attachments' => function ($query) {
+            //     $query->where('is_approved', true);
+            // },
+            'image_attachments',
         ])->where('order_number', $id)->firstOrFail();
     }
 
