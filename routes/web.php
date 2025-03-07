@@ -39,6 +39,7 @@ use App\Http\Controllers\StoreTransactionController;
 use App\Http\Controllers\SupplierController;
 use App\Http\Controllers\TestController;
 use App\Http\Controllers\UnitOfMeasurementController;
+use App\Http\Controllers\UpcomingInventoryController;
 use App\Http\Controllers\UsageRecordController;
 use App\Http\Controllers\UserController;
 use App\Models\StoreBranch;
@@ -56,6 +57,13 @@ Route::get('jobs', function () {
 
 Route::middleware('auth')
     ->group(function () {
+
+        Route::controller(UpcomingInventoryController::class)
+            ->name('upcoming-inventories.')
+            ->prefix('upcoming-inventories')
+            ->group(function () {
+                Route::get('/', 'index')->name('index');
+            });
 
         Route::controller(AccountPayableController::class)
             ->name('account-payable.')
