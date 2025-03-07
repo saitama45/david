@@ -354,6 +354,31 @@ const deleteDeliveryReceiptNumber = (id) => {
         },
     });
 };
+
+const confirmReceive = () => {
+    const form = useForm({
+        store_order_id: props.order.id,
+    });
+
+    form.put(route("orders-receiving.confirm-receive", props.order.id), {
+        onSuccess: () => {
+            toast.add({
+                severity: "success",
+                summary: "Success",
+                detail: "Action Completed.",
+                life: 5000,
+            });
+        },
+        onError: (err) => {
+            toast.add({
+                severity: "error",
+                summary: "Error",
+                detail: "Error",
+                life: 5000,
+            });
+        },
+    });
+};
 </script>
 
 <template>
@@ -637,7 +662,10 @@ const deleteDeliveryReceiptNumber = (id) => {
             </TableContainer>
 
             <TableContainer>
-                <CardTitle>Receive Dates History</CardTitle>
+                <TableHeader>
+                    <CardTitle>Receiving History</CardTitle>
+                    <Button @click="confirmReceive"> Confirm Receive </Button>
+                </TableHeader>
                 <Table>
                     <TableHead>
                         <TH> Id </TH>

@@ -149,13 +149,13 @@ const canViewReferenceGroup = hasAccess("manage references");
         >
             Approved Orders
         </NavLink>
-        <NavLink
+        <!-- <NavLink
             v-if="hasAccess('view received orders for approval list')"
             href="/receiving-approvals"
             :icon="ClipboardCheck"
         >
             Approvals
-        </NavLink>
+        </NavLink> -->
         <NavLink
             v-if="hasAccess('view approved received items')"
             href="/approved-orders"

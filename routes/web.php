@@ -185,6 +185,8 @@ Route::middleware('auth')
 
 
                 Route::middleware('permission:view approved orders')->get('/orders-receiving/export', 'export')->name('export');
+
+                Route::put('/orders-receiving/confirm-receive/{id}', 'confirmReceive')->name('confirm-receive');
             });
         });
 
