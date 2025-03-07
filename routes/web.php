@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\AccountPayableController;
 use App\Http\Controllers\ApprovedReceivedItem;
 use App\Http\Controllers\ApprovedOrderController;
 use App\Http\Controllers\AuditController;
@@ -55,6 +56,13 @@ Route::get('jobs', function () {
 
 Route::middleware('auth')
     ->group(function () {
+
+        Route::controller(AccountPayableController::class)
+            ->name('account-payable.')
+            ->prefix('account-payable')
+            ->group(function () {
+                Route::get('/', 'index')->name('index');
+            });
 
         Route::controller(CashPullOutController::class)
             ->name('cash-pull-out.')
