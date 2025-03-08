@@ -483,6 +483,8 @@ watch(time_period, (value) => {
                     :icon="ClockArrowUp"
                 />
                 <StatisticOverview
+                    :isLink="true"
+                    :href="route('upcoming-inventories.index')"
                     heading="UPCOMING INVENTORIES"
                     :value="upcomingInventories"
                     :icon="BookX"
@@ -493,6 +495,8 @@ watch(time_period, (value) => {
                     :icon="BookX"
                 /> -->
                 <StatisticOverview
+                    :isLink="true"
+                    :href="route('account-payable.index')"
                     heading="ACCOUNT PAYABLE"
                     :value="accountPayable"
                     :icon="BookX"
