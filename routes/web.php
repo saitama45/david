@@ -31,6 +31,7 @@ use App\Http\Controllers\StoreOrderController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\ReceivingApprovalController;
 use App\Http\Controllers\RolesController;
+use App\Http\Controllers\SalesReportController;
 use App\Http\Controllers\StockController;
 use App\Http\Controllers\StockManagementController;
 use App\Http\Controllers\StoreBranchController;
@@ -68,6 +69,13 @@ Route::middleware('auth')
         Route::controller(AccountPayableController::class)
             ->name('account-payable.')
             ->prefix('account-payable')
+            ->group(function () {
+                Route::get('/', 'index')->name('index');
+            });
+
+        Route::controller(SalesReportController::class)
+            ->name('sales-report.')
+            ->prefix('sales-report')
             ->group(function () {
                 Route::get('/', 'index')->name('index');
             });

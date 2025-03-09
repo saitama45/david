@@ -34,6 +34,7 @@ const { branches, timePeriods, filters, sales } = defineProps({
         required: true,
     },
 });
+console.log(timePeriods);
 
 const { options: branchesOptions } = useSelectOptions(branches);
 const { options: timePeriodOptions } = useSelectOptions(timePeriods);
@@ -473,6 +474,8 @@ watch(time_period, (value) => {
         <section class="flex flex-col gap-5">
             <div class="grid gap-5 sm:grid-cols-4">
                 <StatisticOverview
+                :isLink="true"
+                :href="route"
                     heading="SALES"
                     :value="sales"
                     :icon="Check"
