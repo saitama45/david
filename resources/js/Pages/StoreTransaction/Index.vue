@@ -28,7 +28,9 @@ let from = ref(usePage().props.from ?? null);
 
 let to = ref(usePage().props.to ?? null);
 
-let branchId = ref(usePage().props.filters.branchId);
+const branchId = ref(
+    usePage().props.filters.branchId || branchesOptions.value[0].value
+);
 
 watch(from, (value) => {
     router.get(
@@ -113,8 +115,6 @@ const exportRoute = computed(() =>
         order_date: order_date,
     })
 );
-
-console.log(order_date);
 </script>
 <template>
     <Layout

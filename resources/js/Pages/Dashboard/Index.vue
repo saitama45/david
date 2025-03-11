@@ -22,15 +22,15 @@ const { branches, timePeriods, filters, sales } = defineProps({
         required: true,
     },
     inventories: {
-        type: Number,
+        type: String,
         required: true,
     },
     upcomingInventories: {
-        type: Number,
+        type: String,
         required: true,
     },
     accountPayable: {
-        type: Number,
+        type: String,
         required: true,
     },
 });
@@ -474,8 +474,8 @@ watch(time_period, (value) => {
         <section class="flex flex-col gap-5">
             <div class="grid gap-5 sm:grid-cols-4">
                 <StatisticOverview
-                :isLink="true"
-                :href="route"
+                    :isLink="true"
+                    :href="route('sales-report.index')"
                     heading="SALES"
                     :value="sales"
                     :icon="Check"
