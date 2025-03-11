@@ -19,16 +19,16 @@ class UpcomingInventoryController extends Controller
         $time_period = request('time_period') ?? $timePeriods[1];
 
         $query = StoreOrderItem::with(['store_order', 'product_inventory'])
-            ->whereHas('store_order', function ($query) use ($branchId) {
+            ->whereHas('store_order', function ($query) use ($branchId, $time_period) {
                 $query->where('store_branch_id', $branchId);
                 $query->where('order_status', 'commited');
-            });
 
-        // if ($time_period != 0) {
-        //     $query->whereMonth('store_orders.order_date', $time_period);
-        // } else {
-        //     $query->whereYear('store_orders.order_date', Carbon::today()->year);
-        // }
+                if ($time_period != 0) {
+                    $query->whereMonth('order_date', $time_period);
+                } else {
+                    $query->whereYear('order_date', Carbon::today()->year);
+                }
+            });
 
         $inventories = $query->latest()
             ->paginate(10);

@@ -492,7 +492,12 @@ watch(time_period, (value) => {
                 />
                 <StatisticOverview
                     :isLink="true"
-                    :href="route('upcoming-inventories.index')"
+                    :href="
+                        route('upcoming-inventories.index', {
+                            time_period: time_period,
+                            branchId: branch,
+                        })
+                    "
                     heading="UPCOMING INVENTORIES"
                     :value="upcomingInventories"
                     :icon="BookX"
