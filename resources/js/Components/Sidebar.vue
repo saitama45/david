@@ -118,6 +118,9 @@ const canViewReferenceGroup = hasAccess("manage references");
         >
             DTS Orders
         </NavLink>
+        <NavLink href="/direct-receiving" :icon="ShoppingBasket">
+            Direct Receiving
+        </NavLink>
         <!-- <NavLink href="/cash-pull-out" :icon="ShoppingBasket">
             Cash Pull Out
         </NavLink>
@@ -130,7 +133,7 @@ const canViewReferenceGroup = hasAccess("manage references");
             :icon="SquareChartGantt"
             s
         >
-            Orders Approval
+            List of Orders (Created SO) form SM Approval
         </NavLink>
         <NavLink
             v-if="hasAccess('view orders for cs approval list')"
@@ -161,7 +164,7 @@ const canViewReferenceGroup = hasAccess("manage references");
             href="/approved-orders"
             :icon="FileCheck"
         >
-            Approved Received Items
+            Confirmed/Approved Received SO
         </NavLink>
         <DropdownMenuLabel v-if="canViewSalesGroup"> Sales </DropdownMenuLabel>
         <!-- <NavLink

@@ -12,6 +12,7 @@ use App\Http\Controllers\CostCenterController;
 use App\Http\Controllers\CSApprovalController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\DeliveryScheduleController;
+use App\Http\Controllers\DirectReceivingController;
 use App\Http\Controllers\DTSController;
 use App\Http\Controllers\ExcelTemplateController;
 use App\Http\Controllers\FruitAndVegetableController;
@@ -58,6 +59,12 @@ Route::get('jobs', function () {
 
 Route::middleware('auth')
     ->group(function () {
+        Route::controller(DirectReceivingController::class)
+            ->name('direct-receiving.')
+            ->prefix('direct-receiving')
+            ->group(function () {
+                Route::get('/', 'index')->name('index');
+            });
 
         Route::controller(UpcomingInventoryController::class)
             ->name('upcoming-inventories.')
