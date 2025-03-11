@@ -3,7 +3,7 @@ import { useSelectOptions } from "@/Composables/useSelectOptions";
 import { usePage } from "@inertiajs/vue3";
 import { throttle } from "lodash";
 import { router } from "@inertiajs/vue3";
-const { transactions, branches } = defineProps({
+const { transactions, branches, timePeriods, filters } = defineProps({
     transactions: {
         type: Object,
         required: true,
@@ -12,20 +12,45 @@ const { transactions, branches } = defineProps({
         type: Object,
         required: true,
     },
+    timePeriods: {
+        type: Object,
+        required: true,
+    },
+    filters: {
+        type: Object,
+        required: true,
+    },
 });
 const { options: branchesOptions } = useSelectOptions(branches);
 let search = ref(usePage().props.filters.search);
-const branchId = ref(
-    usePage().props.filters.branchId || branchesOptions.value[0].value
-);
+const branchId = ref(filters.branchId || branchesOptions.value[0].value);
 
-console.log(branchId.value);
+const { options: timePeriodOptions } = useSelectOptions(timePeriods);
+const time_period = ref(
+    filters.time_period || timePeriodOptions.value[0].value
+);
 watch(branchId, (value) => {
     router.get(
         route("sales-report.index"),
         {
             search: search.value,
             branchId: value,
+            time_period: time_period.value,
+        },
+        {
+            preserveState: true,
+            preserveScroll: true,
+        }
+    );
+});
+
+watch(time_period, (value) => {
+    router.get(
+        route("sales-report.index"),
+        {
+            search: search.value,
+            time_period: value,
+            branchId: branchId.value,
         },
         {
             preserveState: true,
@@ -42,6 +67,7 @@ watch(
             {
                 search: value,
                 branchId: branchId.value,
+                time_period: time_period.value,
             },
             {
                 preserveState: true,
@@ -74,6 +100,16 @@ watch(
                         optionValue="value"
                     >
                     </Select>
+                    <InputContainer>
+                        <Select
+                            v-model="time_period"
+                            filter
+                            placeholder="Time Periods"
+                            :options="timePeriodOptions"
+                            optionLabel="label"
+                            optionValue="value"
+                        ></Select>
+                    </InputContainer>
                 </DivFlexCenter>
             </TableHeader>
             <Table>

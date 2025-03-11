@@ -475,7 +475,12 @@ watch(time_period, (value) => {
             <div class="grid gap-5 sm:grid-cols-4">
                 <StatisticOverview
                     :isLink="true"
-                    :href="route('sales-report.index')"
+                    :href="
+                        route('sales-report.index', {
+                            time_period: time_period,
+                            branchId: branch,
+                        })
+                    "
                     heading="SALES"
                     :value="sales"
                     :icon="Check"

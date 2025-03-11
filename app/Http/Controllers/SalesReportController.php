@@ -2,8 +2,10 @@
 
 namespace App\Http\Controllers;
 
+use App\Enum\TimePeriod;
 use App\Models\StoreBranch;
 use App\Models\StoreTransaction;
+use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 
@@ -14,9 +16,19 @@ class SalesReportController extends Controller
         $branches = StoreBranch::options();
         $branchId = request('branchId') ?? $branches->keys()->first();
         $search = request('search');
+        $timePeriods = TimePeriod::values();
+        $time_period = request('time_period') ?? $timePeriods[1];
 
         $query = StoreTransaction::query()->with(['store_transaction_items', 'store_branch'])
             ->where('store_branch_id', $branchId);
+
+        if ($time_period) {
+            if ($time_period != 0) {
+                $query->whereMonth('order_date', $time_period);
+            } else {
+                $query->whereYear('order_date', Carbon::today()->year);
+            }
+        }
 
         if ($search)
             $query->where('receipt_number', 'like', "%$search%");
@@ -36,6 +48,7 @@ class SalesReportController extends Controller
             'transactions' => $transactions,
             'branches' => $branches,
             'filters' => request()->only(['from', 'to', 'branchId', 'search']),
+            'timePeriods' => $timePeriods
         ]);
     }
 }
