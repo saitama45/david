@@ -31,7 +31,6 @@ defineProps({
                     <TH>Store Branch</TH>
                     <TH>Vendor</TH>
                     <TH>Date Needed</TH>
-                    <TH>Status</TH>
                     <TH>Actions</TH>
                 </TableHead>
                 <TableBody>
@@ -40,12 +39,14 @@ defineProps({
                         <TD>{{ directReceiving.store_branch.name }}</TD>
                         <TD>{{ directReceiving.vendor }}</TD>
                         <TD>{{ directReceiving.date_needed }}</TD>
-                        <TD>{{ directReceiving.status.toUpperCase() }}</TD>
                         <TD>
                             <ShowButton
                                 :isLink="true"
                                 :href="
-                                    route('cash-pull-out.show', directReceiving.id)
+                                    route(
+                                        'cash-pull-out.show',
+                                        directReceiving.id
+                                    )
                                 "
                             />
                         </TD>

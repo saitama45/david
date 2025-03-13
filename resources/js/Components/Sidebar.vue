@@ -184,6 +184,13 @@ const canViewReferenceGroup = hasAccess("manage references");
         >
             Store Transactions
         </NavLink>
+        <NavLink
+            v-if="hasAccess('view store transactions')"
+            href="/store-transactions-approval/summary"
+            :icon="ArrowLeftRight"
+        >
+            Store Transactions Approval
+        </NavLink>
         <DropdownMenuLabel v-if="canViewInventoryGroup">
             Inventory
         </DropdownMenuLabel>

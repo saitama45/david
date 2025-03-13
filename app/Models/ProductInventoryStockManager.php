@@ -21,6 +21,16 @@ class ProductInventoryStockManager extends Model implements Auditable
         'remarks'
     ];
 
+    // quantity 1 // used 1
+
+    // 5 + 6 = 11
+
+    // 1 + 1 = 2
+
+    // quanitty - used = 9
+
+
+
     public function getCreatedAtAttribute($value)
     {
         return Carbon::parse($value)->setTimezone('Asia/Manila')->format('F d, Y h:i a');

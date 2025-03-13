@@ -317,7 +317,7 @@ watch(orderForm, (value) => {
                             }}</FormError>
                         </div>
                         <div class="flex flex-col space-y-1">
-                            <InputLabel label="Date Needed" />
+                            <InputLabel label="Received Date" />
                             <DatePicker
                                 showIcon
                                 fluid
