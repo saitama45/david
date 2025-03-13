@@ -3,10 +3,13 @@
 namespace App\Imports;
 
 use App\Models\Menu;
+use App\Models\ProductInventoryStock;
+use App\Models\ProductInventoryStockManager;
 use App\Models\StoreBranch;
 use App\Models\StoreTransaction;
 use Exception;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Maatwebsite\Excel\Concerns\ToModel;
 use Maatwebsite\Excel\Concerns\WithHeadingRow;
@@ -70,6 +73,8 @@ class StoreTransactionImport implements ToModel, WithStartRow, WithHeadingRow
                 return null;
             }
 
+            DB::beginTransaction();
+
             $menu = Menu::firstOrNew([
                 'product_id' => $row['product_id']
             ], [
@@ -90,7 +95,7 @@ class StoreTransactionImport implements ToModel, WithStartRow, WithHeadingRow
                 'receipt_number' => $row['receipt_no'],
             ]);
 
-            $transaction->store_transaction_items()->updateOrCreate([
+            $storeTransactionItem = $transaction->store_transaction_items()->updateOrCreate([
                 'product_id' => $row['product_id'],
                 'base_quantity' => $row['base_qty'],
                 'quantity' => $row['qty'],
@@ -99,6 +104,32 @@ class StoreTransactionImport implements ToModel, WithStartRow, WithHeadingRow
                 'line_total' => $row['line_total'],
                 'net_total' => $row['net_total'],
             ]);
+
+            $ingredients = $storeTransactionItem->menu->menu_ingredients;
+
+            $ingredients?->map(function ($ingredient) use ($branch, $storeTransactionItem, $transaction) {
+                $ProductInventoryStock = ProductInventoryStock::where('product_inventory_id', $ingredient->product_inventory_id)
+                    ->where('store_branch_id', $branch->id)
+                    ->increment('used', $ingredient->quantity * $storeTransactionItem->quantity);
+
+
+
+                $ProductInventoryStockManager = ProductInventoryStockManager::create([
+                    'product_inventory_id' => $ingredient->product_inventory_id,
+                    'store_branch_id' => $branch->id,
+                    'cost_center_id' => null,
+                    'quantity' => $ingredient->quantity * $storeTransactionItem->quantity,
+                    'action' => 'deduct',
+                    'remarks' => "Deducted from store transaction (Receipt No. {$transaction->receipt_number})"
+                ]);
+
+                Log::info('Processing row ' . $this->rowNumber, [
+                    'product_inventory_stock' => $ProductInventoryStock,
+                    'product_inventory_stock_manager' => $ProductInventoryStockManager
+                ]);
+            });
+
+            DB::commit();
 
             return $transaction;
         } catch (Exception $e) {
