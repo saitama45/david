@@ -28,7 +28,7 @@ class MenusImport implements ToCollection, WithStartRow
         foreach ($rows as $row) {
             if (!empty($row[0])) {
                 if (!$this->menu) {
-                    $this->menu = Menu::create([
+                    $this->menu = Menu::updateOrCreate([
                         'product_id' => $row[0]
                     ]);
                     // Log::info('Processing row ', [
