@@ -101,16 +101,16 @@ class MenuController extends Controller
 
     public function destroy($id)
     {
-        $menu = Menu::with('usage_record_items')->findOrFail($id);
+        $menu = Menu::findOrFail($id);
 
-        if ($menu->usage_record_items->count() > 0) {
+        try {
+            $menu->delete();
+            return back();
+        } catch (\Exception $e) {
             return back()->withErrors([
-                'message' => "Can't delete this menu because there are data associated with it."
+                'message' => "Can't delete this menu because there are related records in other tables."
             ]);
         }
-
-        $menu->delete();
-        return to_route('menu-list.index');
     }
 
     public function show($id)

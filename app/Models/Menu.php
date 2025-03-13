@@ -44,6 +44,11 @@ class Menu extends Model implements Auditable
         return $this->hasMany(MenuIngredient::class);
     }
 
+    public function store_transaction_items()
+    {
+        return $this->hasMany(StoreTransactionItem::class, 'product_id');
+    }
+
 
     public function products()
     {
