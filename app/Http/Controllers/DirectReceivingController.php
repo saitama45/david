@@ -44,7 +44,9 @@ class DirectReceivingController extends Controller
             $cashPullOut->cash_pull_out_items()->create([
                 'product_inventory_id' => $order['id'],
                 'quantity_ordered' => $order['quantity'],
-                'is_approved' => true
+                'is_approved' => true,
+                'cost' => $order['cost'],
+                'total_cost' => $order['total_cost']
             ]);
 
             ProductInventoryStock::where('product_inventory_id', $order['id'])

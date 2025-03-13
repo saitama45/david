@@ -15,6 +15,8 @@ class CashPullOutItem extends Model
         'product_inventory_id',
         'quantity_ordered',
         'quantity_approved',
+        'cost',
+        'total_cost',
         'remarks',
     ];
 

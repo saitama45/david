@@ -17,6 +17,8 @@ return new class extends Migration
             $table->foreignId('product_inventory_id')->constrained();
             $table->integer('quantity_ordered');
             $table->integer('quantity_approved')->default(0);
+            $table->double('cost');
+            $table->double('total_cost');
             $table->text('remarks')->nullable();
             $table->timestamps();
         });

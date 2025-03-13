@@ -377,7 +377,6 @@ watch(orderForm, (value) => {
                             <Label>Cost</Label>
                             <Input
                                 type="text"
-                                disabled
                                 v-model="productDetails.cost"
                             />
                         </div>
