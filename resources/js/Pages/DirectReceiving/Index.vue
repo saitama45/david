@@ -30,7 +30,7 @@ defineProps({
                     <TH>ID</TH>
                     <TH>Store Branch</TH>
                     <TH>Vendor</TH>
-                    <TH>Date Needed</TH>
+                    <TH>Received Date</TH>
                     <TH>Actions</TH>
                 </TableHead>
                 <TableBody>

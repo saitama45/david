@@ -66,5 +66,7 @@ defineProps({
                 </TableBody>
             </Table>
         </TableContainer>
+
+        <BackButton />
     </Layout>
 </template>
