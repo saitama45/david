@@ -2,125 +2,138 @@
 
 namespace App\Imports;
 
-use App\Jobs\ProcessStoreTransactionJob;
+use App\Models\Menu;
+use App\Models\StoreBranch;
+use App\Models\StoreTransaction;
+use Exception;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Log;
-use Maatwebsite\Excel\Concerns\ToArray;
-use Maatwebsite\Excel\Concerns\WithChunkReading;
+use Maatwebsite\Excel\Concerns\ToModel;
 use Maatwebsite\Excel\Concerns\WithHeadingRow;
 use Maatwebsite\Excel\Concerns\WithStartRow;
 
-class StoreTransactionImport implements ToArray, WithStartRow, WithHeadingRow, WithChunkReading
+class StoreTransactionImport implements ToModel, WithStartRow, WithHeadingRow
 {
     private $emptyRowCount = 0;
     private $maxEmptyRows = 5;
     private $rowNumber = 0;
-    private $batchSize = 100;
-    private $requiredHeaders = ['product_id', 'product_name', 'branch', 'date', 'posted', 'tm', 'receipt_no', 'base_qty', 'qty', 'price', 'discount', 'line_total', 'net_total'];
 
-    /**
-     * Define the starting row for data
-     * 
-     * @return int
-     */
     public function startRow(): int
     {
         return 7;
     }
 
-    /**
-     * Define the heading row
-     * 
-     * @return int
-     */
     public function headingRow(): int
     {
         return 6;
     }
 
-    /**
-     * Define the chunk size for processing
-     * 
-     * @return int
-     */
-    public function chunkSize(): int
+    public function model(array $row)
     {
-        return $this->batchSize;
-    }
-
-    /**
-     * Process the array of rows
-     * 
-     * @param array $rows
-     * @return void
-     */
-    public function array(array $rows)
-    {
-        Log::info('Processing chunk of data', [
-            'chunk_size' => count($rows)
+        $this->rowNumber++;
+        Log::info('Processing row ' . $this->rowNumber, [
+            'raw_data' => $row,
+            'headers_found' => array_keys($row)
         ]);
 
-        // Check if this is the first chunk and validate headers
-        if ($this->rowNumber == 0 && !empty($rows)) {
-            $firstRow = reset($rows);
-            $missingHeaders = array_diff($this->requiredHeaders, array_keys($firstRow));
-
-            if (!empty($missingHeaders)) {
-                Log::error('Missing required headers in import file', [
-                    'missing_headers' => $missingHeaders
+        foreach ($row as $value) {
+            if (is_string($value) && stripos($value, 'NOTHING FOLLOWS') !== false) {
+                Log::info('Found "NOTHING FOLLOWS". Ending import.', [
+                    'row_number' => $this->rowNumber
                 ]);
-                throw new \Exception('Import file is missing required headers: ' . implode(', ', $missingHeaders));
+                return null;
             }
         }
 
-        foreach ($rows as $row) {
-            $this->rowNumber++;
+        if (is_string($row['product_name']) && stripos($row['product_name'], 'SUBTOTAL:') !== false) {
+            return null;
+        }
 
-            // Log the raw row data for debugging
-            Log::debug('Processing row', [
-                'row_number' => $this->rowNumber,
-                'row_data' => $row
+        if (empty($row['product_id'])) {
+            $this->emptyRowCount++;
+            if ($this->emptyRowCount >= $this->maxEmptyRows) {
+                return null;
+            }
+            return null;
+        }
+
+        $this->emptyRowCount = 0;
+
+        try {
+            $branch = StoreBranch::where('location_code', $row['branch'])->first();
+
+            if (!$branch) {
+                Log::error('Branch not found', [
+                    'location_code' => $row['branch'],
+                    'row_number' => $this->rowNumber
+                ]);
+                return null;
+            }
+
+            $menu = Menu::firstOrNew([
+                'product_id' => $row['product_id']
+            ], [
+                'category_id' => 1,
+                'name' => $row['product_name'],
+                'price' => $row['price']
             ]);
 
-            // Check for "NOTHING FOLLOWS" to end the import
-            $endImport = false;
-            foreach ($row as $value) {
-                if (is_string($value) && stripos($value, 'NOTHING FOLLOWS') !== false) {
-                    Log::info('Found "NOTHING FOLLOWS". Ending import.', [
-                        'row_number' => $this->rowNumber
-                    ]);
-                    $endImport = true;
-                    break;
-                }
+            if (!$menu->exists) {
+                $menu->save();
             }
 
-            if ($endImport) {
-                break;
+            $transaction = StoreTransaction::updateOrCreate([
+                'store_branch_id' => $branch->id,
+                'order_date' => $this->transformDate($row['date']),
+                'posted' => $row['posted'],
+                'tim_number' => $row['tm'],
+                'receipt_number' => $row['receipt_no'],
+            ]);
+
+            $transaction->store_transaction_items()->updateOrCreate([
+                'product_id' => $row['product_id'],
+                'base_quantity' => $row['base_qty'],
+                'quantity' => $row['qty'],
+                'price' => $row['price'],
+                'discount' => $row['discount'],
+                'line_total' => $row['line_total'],
+                'net_total' => $row['net_total'],
+            ]);
+
+            return $transaction;
+        } catch (Exception $e) {
+            Log::error('Error processing transaction', [
+                'row_number' => $this->rowNumber,
+                'error' => $e->getMessage()
+            ]);
+            return null;
+        }
+    }
+
+    private function transformDate($value)
+    {
+        try {
+            if (empty($value)) {
+                throw new Exception('Date value is empty');
             }
 
-            // Skip subtotal rows
-            if (isset($row['product_name']) && is_string($row['product_name']) && stripos($row['product_name'], 'SUBTOTAL:') !== false) {
-                continue;
+            if (is_numeric($value)) {
+                return Carbon::createFromDate(1900, 1, 1)
+                    ->addDays((int)$value - 2)
+                    ->format('Y-m-d');
             }
 
-            // Handle empty rows
-            if (!isset($row['product_id']) || empty($row['product_id'])) {
-                $this->emptyRowCount++;
-                if ($this->emptyRowCount >= $this->maxEmptyRows) {
-                    Log::info('Maximum empty rows reached. Ending import.', [
-                        'row_number' => $this->rowNumber
-                    ]);
-                    break;
-                }
-                continue;
+            if (is_string($value)) {
+                return Carbon::parse($value)->format('Y-m-d');
             }
 
-            // Reset empty row counter
-            $this->emptyRowCount = 0;
-
-            // Dispatch a job to process this row
-            ProcessStoreTransactionJob::dispatch($row, $this->rowNumber);
-
-            Log::info('Job dispatched for row ' . $this->rowNumber);
+            throw new Exception('Invalid date format');
+        } catch (Exception $e) {
+            Log::error('Date transformation failed', [
+                'value' => $value,
+                'error' => $e->getMessage()
+            ]);
+            throw $e;
         }
     }
 }

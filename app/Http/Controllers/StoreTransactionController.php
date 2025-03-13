@@ -113,14 +113,23 @@ class StoreTransactionController extends Controller
 
     public function import(Request $request)
     {
-
-        $file = $request->file('store_transactions_file');
-        $path = $file->store('imports');
-
-        StartImportJob::dispatch($path);
-
-        return back();
+        ini_set('memory_limit', '512M');
+        set_time_limit(1000900000000000000);
+        $request->validate([
+            'store_transactions_file' => [
+                'required',
+                'file',
+                'mimes:xlsx,xls,csv',
+            ]
+        ]);
+        try {
+            Excel::import(new StoreTransactionImport, $request->file('store_transactions_file'));
+            return to_route('store-transactions.index');
+        } catch (Exception $e) {
+            dd($e);
+        }
     }
+
 
     public function create()
     {
