@@ -8,7 +8,7 @@ defineProps({
 </script>
 
 <template>
-    <Layout heading="Cash Pull Out Details">
+    <Layout heading="Direct Receiving Details">
         <Card class="p-5 grid sm:grid-cols-4 gap-5">
             <InputContainer>
                 <LabelXS>ID </LabelXS>

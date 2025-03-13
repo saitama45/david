@@ -15,7 +15,10 @@ class DirectReceivingController extends Controller
 {
     public function index()
     {
-        return Inertia::render('DirectReceiving/Index');
+        $cashPullOuts = CashPullOut::with('store_branch')->latest()->paginate(10);
+        return Inertia::render('DirectReceiving/Index', [
+            'directReceivings' => $cashPullOuts
+        ]);
     }
 
     public function create()

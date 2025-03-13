@@ -509,7 +509,12 @@ watch(time_period, (value) => {
                 /> -->
                 <StatisticOverview
                     :isLink="true"
-                    :href="route('account-payable.index')"
+                    :href="
+                        route('account-payable.index', {
+                            time_period: time_period,
+                            branchId: branch,
+                        })
+                    "
                     heading="ACCOUNT PAYABLE"
                     :value="accountPayable"
                     :icon="BookX"
