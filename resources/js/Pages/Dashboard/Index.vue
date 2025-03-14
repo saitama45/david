@@ -472,7 +472,7 @@ watch(time_period, (value) => {
             </InputContainer>
         </DivFlexCenter>
         <section class="flex flex-col gap-5">
-            <div class="grid gap-5 sm:grid-cols-4">
+            <div class="grid gap-5 sm:grid-cols-5">
                 <StatisticOverview
                     :isLink="true"
                     :href="
@@ -502,11 +502,6 @@ watch(time_period, (value) => {
                     :value="upcomingInventories"
                     :icon="BookX"
                 />
-                <!-- <StatisticOverview
-                    heading="LIST OF SUPPLIERS"
-                    value="N/a"
-                    :icon="BookX"
-                /> -->
                 <StatisticOverview
                     :isLink="true"
                     :href="
@@ -519,6 +514,7 @@ watch(time_period, (value) => {
                     :value="accountPayable"
                     :icon="BookX"
                 />
+                <StatisticOverview heading="COGS" value="N/a" :icon="BookX" />
             </div>
             <div class="sm:grid sm:grid-cols-3 sm:grid-rows-3 gap-4">
                 <!-- Full width chart -->
