@@ -19,6 +19,7 @@ return new class extends Migration
             $table->float('quantity_approved')->default(0);
             $table->float('quantity_commited')->default(0);
             $table->float('quantity_received')->default(0);
+            $table->double('cost_per_quantity');
             $table->double('total_cost');
             $table->text('remarks')->nullable();
             $table->timestamps();

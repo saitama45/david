@@ -71,6 +71,11 @@ class StoreTransactionImport implements ToModel, WithStartRow, WithHeadingRow
                     'row_number' => $this->rowNumber
                 ]);
                 return null;
+            } else {
+                Log::info('Branch', [
+                    'location_code' => $row['branch'],
+                    'branch' => $branch
+                ]);
             }
 
             DB::beginTransaction();

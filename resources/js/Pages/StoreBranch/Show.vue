@@ -22,6 +22,10 @@ const { backButton } = useBackButton(route("store-branches.index"));
                 <SpanBold>{{ branch.branch_code }}</SpanBold>
             </InputContainer>
             <InputContainer>
+                <InfolistLabel>Location Code</InfolistLabel>
+                <SpanBold>{{ branch.location_code }}</SpanBold>
+            </InputContainer>
+            <InputContainer>
                 <InfolistLabel>Brand Name</InfolistLabel>
                 <SpanBold>{{ branch.brand_name ?? "N/a" }}</SpanBold>
             </InputContainer>
