@@ -139,4 +139,9 @@ class ProductInventory extends Model implements Auditable
             ]);
         });
     }
+
+    public function purchase_item_batches()
+    {
+        return $this->hasMany(PurchaseItemBatch::class);
+    }
 }

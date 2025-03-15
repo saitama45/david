@@ -14,6 +14,7 @@ use App\Models\DeliveryReceipt;
 use App\Models\OrderedItemReceiveDate;
 use App\Models\ProductInventoryStock;
 use App\Models\ProductInventoryStockManager;
+use App\Models\PurchaseItemBatch;
 use App\Models\StoreOrder;
 use App\Models\StoreOrderItem;
 use App\Models\User;
@@ -160,12 +161,25 @@ class OrderReceivingController extends Controller
         $stock->increment('quantity', $data->quantity_received);
         $stock->update(['recently_added' => $data->quantity_received]);
 
-        ProductInventoryStockManager::create([
+        $batch = PurchaseItemBatch::create([
+            'store_order_item_id' => $data->store_order_item->id,
+            'product_inventory_id' => $item->id,
+            'purchase_date' => Carbon::today()->format('Y-m-d'),
+            'quantity' => $data->quantity_received,
+            'unit_cost' => $data->store_order_item->cost_per_quantity,
+            'remaining_quantity' => $data->quantity_received
+        ]);
+
+
+
+        $batch->product_inventory_stock_managers()->create([
             'product_inventory_id' => $item->id,
             'store_branch_id' => $storeOrder->store_branch_id,
             'quantity' => $data->quantity_received,
             'action' => 'add_quantity',
             'transaction_date' => Carbon::today()->format('Y-m-d'),
+            'unit_cost' =>  $data->store_order_item->cost_per_quantity,
+            'total_cost' => $data->quantity_received * $data->store_order_item->cost_per_quantity,
             'remarks' => 'From newly received items. (Order Number: ' . $storeOrder->order_number . ')'
         ]);
 

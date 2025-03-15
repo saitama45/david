@@ -13,11 +13,14 @@ class ProductInventoryStockManager extends Model implements Auditable
     use HasFactory, \OwenIt\Auditing\Auditable;
 
     protected $fillable = [
+        'purchase_item_batch_id',
         'product_inventory_id',
         'store_branch_id',
         'cost_center_id',
         'quantity',
         'action',
+        'unit_cost',
+        'total_cost',
         'transaction_date',
         'remarks'
     ];
@@ -30,7 +33,10 @@ class ProductInventoryStockManager extends Model implements Auditable
 
     // quanitty - used = 9
 
-
+    public function purchase_item_batch()
+    {
+        return $this->belongsTo(PurchaseItemBatch::class);
+    }
 
     public function getCreatedAtAttribute($value)
     {

@@ -29,4 +29,9 @@ class CashPullOutItem extends Model
     {
         return $this->belongsTo(ProductInventory::class);
     }
+
+    public function purchase_item_batch()
+    {
+        return $this->hasMany(PurchaseItemBatch::class);
+    }
 }

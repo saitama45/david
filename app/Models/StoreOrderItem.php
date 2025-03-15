@@ -47,4 +47,9 @@ class StoreOrderItem extends Model implements Auditable
     {
         return $this->hasMany(OrderedItemReceiveDate::class);
     }
+
+    public function purchase_item_batch()
+    {
+        return $this->hasMany(PurchaseItemBatch::class);
+    }
 }
