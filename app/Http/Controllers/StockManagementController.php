@@ -131,6 +131,7 @@ class StockManagementController extends Controller
             'store_branch_id' => ['required'],
             'cost_center_id' => ['required'],
             'quantity' => ['required', 'numeric', 'min:1'],
+            'transaction_date' => ['required', 'date'],
             'remarks' => ['sometimes']
         ], [
             'cost_center_id.required' => 'Cost Center is required.'
@@ -154,6 +155,7 @@ class StockManagementController extends Controller
             'cost_center_id' => $validated['cost_center_id'],
             'quantity' => -$validated['quantity'],
             'action' => 'log_usage',
+            'transaction_date' => $validated['transaction_date'],
             'remarks' => $validated['remarks']
         ]);
 
@@ -166,6 +168,7 @@ class StockManagementController extends Controller
             'id' => ['required'],
             'store_branch_id' => ['required'],
             'quantity' => ['required', 'numeric', 'min:1'],
+            'transaction_date' => ['required', 'date'],
             'remarks' => ['sometimes']
         ]);
 
@@ -182,6 +185,7 @@ class StockManagementController extends Controller
             'store_branch_id' => $validated['store_branch_id'],
             'quantity' => $validated['quantity'],
             'action' => 'add_quantity',
+            'transaction_date' => $validated['transaction_date'],
             'remarks' => $validated['remarks']
         ]);
 

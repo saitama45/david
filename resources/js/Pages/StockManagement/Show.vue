@@ -20,7 +20,7 @@ const { branches, history } = defineProps({
                     <TH>Action</TH>
                     <TH>Cost Center</TH>
                     <TH>Remarks</TH>
-                    <TH>Created at</TH>
+                    <TH>Transaction Date</TH>
                 </TableHead>
                 <TableBody>
                     <tr v-for="data in history.data">
@@ -31,7 +31,7 @@ const { branches, history } = defineProps({
                         }}</TD>
                         <TD>{{ data.cost_center?.name ?? "N/a" }}</TD>
                         <TD>{{ data.remarks ?? "None" }}</TD>
-                        <TD>{{ data.created_at }}</TD>
+                        <TD>{{ data.transaction_date }}</TD>
                     </tr>
                 </TableBody>
             </Table>

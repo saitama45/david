@@ -76,6 +76,7 @@ const form = useForm({
     store_branch_id: null,
     cost_center_id: null,
     quantity: null,
+    transaction_date: null,
     remarks: null,
 });
 watch(isLogUsageModalOpen, (value) => {
@@ -161,7 +162,7 @@ import { useAuth } from "@/Composables/useAuth";
 
 const { hasAccess } = useAuth();
 
-const exportRoute = computed(() => 
+const exportRoute = computed(() =>
     route("stock-management.export", {
         search: search.value,
         branchId: branchId.value,
@@ -341,6 +342,14 @@ watch(branchId, (value) => {
                         <Input type="number" v-model="form.quantity" />
                         <FormError>{{ form.errors.quantity }}</FormError>
                     </InputContainer>
+
+                    <InputContainer>
+                        <LabelXS>Transaction Date</LabelXS>
+                        <Input type="date" v-model="form.transaction_date" />
+                        <FormError>{{
+                            form.errors.transaction_date
+                        }}</FormError>
+                    </InputContainer>
                     <InputContainer>
                         <LabelXS>Remarks</LabelXS>
                         <Textarea type="number" v-model="form.remarks" />
@@ -382,6 +391,14 @@ watch(branchId, (value) => {
                         <LabelXS>Quantity</LabelXS>
                         <Input type="number" v-model="form.quantity" />
                         <FormError>{{ form.errors.quantity }}</FormError>
+                    </InputContainer>
+
+                    <InputContainer>
+                        <LabelXS>Transaction Date</LabelXS>
+                        <Input type="date" v-model="form.transaction_date" />
+                        <FormError>{{
+                            form.errors.transaction_date
+                        }}</FormError>
                     </InputContainer>
                     <InputContainer>
                         <LabelXS>Remarks</LabelXS>

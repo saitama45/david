@@ -18,6 +18,7 @@ class ProductInventoryStockManager extends Model implements Auditable
         'cost_center_id',
         'quantity',
         'action',
+        'transaction_date',
         'remarks'
     ];
 

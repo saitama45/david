@@ -131,7 +131,7 @@ class OrderReceivingController extends Controller
             })
             ->where('status', 'pending')
             ->get();
-      
+
         foreach ($history as $data) {
             DB::beginTransaction();
             $this->extracted($data);
@@ -165,6 +165,7 @@ class OrderReceivingController extends Controller
             'store_branch_id' => $storeOrder->store_branch_id,
             'quantity' => $data->quantity_received,
             'action' => 'add_quantity',
+            'transaction_date' => Carbon::today()->format('Y-m-d'),
             'remarks' => 'From newly received items. (Order Number: ' . $storeOrder->order_number . ')'
         ]);
 

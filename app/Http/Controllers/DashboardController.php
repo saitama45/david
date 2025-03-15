@@ -8,6 +8,7 @@ use App\Mail\OneTimePasswordMail;
 use App\Models\Branch;
 use App\Models\ProductInventory;
 use App\Models\ProductInventoryStock;
+use App\Models\ProductInventoryStockManager;
 use App\Models\StoreBranch;
 use App\Models\StoreOrder;
 use App\Models\StoreOrderItem;
@@ -100,7 +101,26 @@ class DashboardController extends Controller
             ','
         );
 
+        $totalPositiveQuantity = ProductInventoryStockManager::where('store_branch_id', $branch)
+            ->select('id', 'quantity', 'product_inventory_id')
+            ->with(['product' => function ($query) {
+                $query->select('id', 'cost');
+            }])
+            ->get()
+            ->map(function ($item) {
+                return [
+                    'quantity' => $item->quantity,
+                    'cost' => $item->product->cost,
+                    'total_cost' => $item->quantity * $item->product->cost
+                ];
+            });
 
+        $cogs = number_format(
+            $totalPositiveQuantity->where('quantity', '>', 0)->sum('total_cost') - $totalPositiveQuantity->sum('total_cost'),
+            '2',
+            '.',
+            ','
+        );
 
         return Inertia::render('Dashboard/Index', [
             'timePeriods' => $timePeriods,
@@ -109,7 +129,8 @@ class DashboardController extends Controller
             'inventories' => $inventories,
             'upcomingInventories' => $upcomingInventories,
             'accountPayable' => $accountPayable,
-            'filters' => request()->only(['branch', 'time_period'])
+            'filters' => request()->only(['branch', 'time_period']),
+            'cogs' => $cogs
         ]);
     }
 

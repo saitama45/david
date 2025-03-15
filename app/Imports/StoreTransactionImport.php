@@ -125,6 +125,7 @@ class StoreTransactionImport implements ToModel, WithStartRow, WithHeadingRow
                     'cost_center_id' => null,
                     'quantity' => - ($ingredient->quantity * $storeTransactionItem->quantity),
                     'action' => 'deduct',
+                    'transaction_date' => $transaction->order_date,
                     'remarks' => "Deducted from store transaction (Receipt No. {$transaction->receipt_number})"
                 ]);
 

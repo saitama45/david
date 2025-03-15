@@ -18,6 +18,7 @@ return new class extends Migration
             $table->foreignId('cost_center_id')->nullable()->constrained('cost_centers');
             $table->float('quantity');
             $table->string('action');
+            $table->date('transaction_date');
             $table->text('remarks')->nullable();
             $table->timestamps();
         });

@@ -4,7 +4,7 @@ import Chart from "primevue/chart";
 import { router } from "@inertiajs/vue3";
 import { useSelectOptions } from "@/Composables/useSelectOptions";
 
-const { branches, timePeriods, filters, sales } = defineProps({
+const { branches, timePeriods, filters, sales, cogs } = defineProps({
     branches: {
         type: Object,
         required: true,
@@ -30,6 +30,10 @@ const { branches, timePeriods, filters, sales } = defineProps({
         required: true,
     },
     accountPayable: {
+        type: String,
+        required: true,
+    },
+    cogs: {
         type: String,
         required: true,
     },
@@ -514,7 +518,7 @@ watch(time_period, (value) => {
                     :value="accountPayable"
                     :icon="BookX"
                 />
-                <StatisticOverview heading="COGS" value="N/a" :icon="BookX" />
+                <StatisticOverview heading="COGS" :value="cogs" :icon="BookX" />
             </div>
             <div class="sm:grid sm:grid-cols-3 sm:grid-rows-3 gap-4">
                 <!-- Full width chart -->
