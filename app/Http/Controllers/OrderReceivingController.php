@@ -170,8 +170,6 @@ class OrderReceivingController extends Controller
             'remaining_quantity' => $data->quantity_received
         ]);
 
-
-
         $batch->product_inventory_stock_managers()->create([
             'product_inventory_id' => $item->id,
             'store_branch_id' => $storeOrder->store_branch_id,

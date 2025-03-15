@@ -19,6 +19,7 @@ const { branches, history } = defineProps({
                     <TH>Quantity</TH>
                     <TH>Action</TH>
                     <TH>Cost Center</TH>
+                    <TH>Unit Cost</TH>
                     <TH>Remarks</TH>
                     <TH>Transaction Date</TH>
                 </TableHead>
@@ -30,6 +31,7 @@ const { branches, history } = defineProps({
                             data.action.replace(/_/g, " ").toUpperCase()
                         }}</TD>
                         <TD>{{ data.cost_center?.name ?? "N/a" }}</TD>
+                        <TD>{{ data.unit_cost }}</TD>
                         <TD>{{ data.remarks ?? "None" }}</TD>
                         <TD>{{ data.transaction_date }}</TD>
                     </tr>
