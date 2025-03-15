@@ -152,7 +152,7 @@ class StockManagementController extends Controller
             'product_inventory_id' => $validated['id'],
             'store_branch_id' => $validated['store_branch_id'],
             'cost_center_id' => $validated['cost_center_id'],
-            'quantity' => $validated['quantity'],
+            'quantity' => -$validated['quantity'],
             'action' => 'log_usage',
             'remarks' => $validated['remarks']
         ]);

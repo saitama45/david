@@ -118,7 +118,7 @@ class StoreTransactionImport implements ToModel, WithStartRow, WithHeadingRow
                     'product_inventory_id' => $ingredient->product_inventory_id,
                     'store_branch_id' => $branch->id,
                     'cost_center_id' => null,
-                    'quantity' => $ingredient->quantity * $storeTransactionItem->quantity,
+                    'quantity' => - ($ingredient->quantity * $storeTransactionItem->quantity),
                     'action' => 'deduct',
                     'remarks' => "Deducted from store transaction (Receipt No. {$transaction->receipt_number})"
                 ]);
