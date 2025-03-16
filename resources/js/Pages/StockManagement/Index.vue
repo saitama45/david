@@ -76,6 +76,7 @@ const form = useForm({
     store_branch_id: null,
     cost_center_id: null,
     quantity: null,
+    unit_cost: null,
     transaction_date: null,
     remarks: null,
 });
@@ -391,6 +392,12 @@ watch(branchId, (value) => {
                         <LabelXS>Quantity</LabelXS>
                         <Input type="number" v-model="form.quantity" />
                         <FormError>{{ form.errors.quantity }}</FormError>
+                    </InputContainer>
+
+                    <InputContainer>
+                        <LabelXS>Unit Cost</LabelXS>
+                        <Input type="number" v-model="form.unit_cost" />
+                        <FormError>{{ form.errors.unit_cost }}</FormError>
                     </InputContainer>
 
                     <InputContainer>

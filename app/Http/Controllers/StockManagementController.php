@@ -7,6 +7,7 @@ use App\Models\CostCenter;
 use App\Models\ProductInventory;
 use App\Models\ProductInventoryStock;
 use App\Models\ProductInventoryStockManager;
+use App\Models\PurchaseItemBatch;
 use App\Models\StoreBranch;
 use App\Models\UsageRecord;
 use Illuminate\Http\Request;
@@ -168,6 +169,7 @@ class StockManagementController extends Controller
             'id' => ['required'],
             'store_branch_id' => ['required'],
             'quantity' => ['required', 'numeric', 'min:1'],
+            'unit_cost' => ['required', 'numeric', 'min:1'],
             'transaction_date' => ['required', 'date'],
             'remarks' => ['sometimes']
         ]);
@@ -176,16 +178,27 @@ class StockManagementController extends Controller
         DB::beginTransaction();
         $product = ProductInventoryStock::where('product_inventory_id', $validated['id'])->where('store_branch_id', $validated['store_branch_id'])->first();
 
+        $batch = PurchaseItemBatch::create([
+            'product_inventory_id' => $validated['id'],
+            'purchase_date' => $validated['transaction_date'],
+            'quantity' => $validated['quantity'],
+            'unit_cost' => $validated['unit_cost'],
+            'remaining_quantity' => $validated['quantity']
+        ]);
+
 
         $product->quantity += $validated['quantity'];
         $product->recently_added = $validated['quantity'];
         $product->save();
-        ProductInventoryStockManager::create([
+
+        $batch->product_inventory_stock_managers()->create([
             'product_inventory_id' => $validated['id'],
             'store_branch_id' => $validated['store_branch_id'],
             'quantity' => $validated['quantity'],
             'action' => 'add_quantity',
             'transaction_date' => $validated['transaction_date'],
+            'unit_cost' => $validated['unit_cost'],
+            'total_cost' => $validated['unit_cost'] * $validated['quantity'],
             'remarks' => $validated['remarks']
         ]);
 
