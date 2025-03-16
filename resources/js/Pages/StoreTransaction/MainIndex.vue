@@ -34,8 +34,6 @@ const branchId = ref(
     usePage().props.filters.branchId || branchesOptions.value[0].value
 );
 
-
-
 watch(from, (value) => {
     router.get(
         route("store-transactions.main-index"),
@@ -154,6 +152,7 @@ const importTransactions = () => {
                 detail: "An error occured while trying to import store transactions.",
                 life: 3000,
             });
+            console.log(e);
             isLoading.value = false;
         },
     });

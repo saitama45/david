@@ -3,11 +3,14 @@
 namespace App\Traits;
 
 use App\Models\PurchaseItemBatch;
+use Illuminate\Support\Facades\Log;
 
 trait InventoryUsage
 {
     public function handleInventoryUsage($data)
     {
+
+
         $quantityUsed = $data['quantity'];
         $accumulatedQuantity = 0;
         while ($quantityUsed != $accumulatedQuantity) {
@@ -15,6 +18,8 @@ trait InventoryUsage
                 ->where('product_inventory_id', $data['id'])
                 ->orderBy('purchase_date', 'asc')
                 ->first();
+
+            if (!$batch) break;
 
             $remainingQuantity = $batch->remaining_quantity;
             $totalCost = 0;

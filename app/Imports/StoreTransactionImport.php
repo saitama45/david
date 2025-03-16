@@ -7,6 +7,7 @@ use App\Models\ProductInventoryStock;
 use App\Models\ProductInventoryStockManager;
 use App\Models\StoreBranch;
 use App\Models\StoreTransaction;
+use App\Traits\InventoryUsage;
 use Exception;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
@@ -17,6 +18,7 @@ use Maatwebsite\Excel\Concerns\WithStartRow;
 
 class StoreTransactionImport implements ToModel, WithStartRow, WithHeadingRow
 {
+    use InventoryUsage;
     private $emptyRowCount = 0;
     private $maxEmptyRows = 5;
     private $rowNumber = 0;
@@ -112,27 +114,40 @@ class StoreTransactionImport implements ToModel, WithStartRow, WithHeadingRow
 
             $ingredients = $storeTransactionItem->menu->menu_ingredients;
 
-            $ingredients?->map(function ($ingredient) use ($branch, $storeTransactionItem, $transaction) {
-                $ProductInventoryStock = ProductInventoryStock::where('product_inventory_id', $ingredient->product_inventory_id)
-                    ->where('store_branch_id', $branch->id)
-                    ->increment('used', $ingredient->quantity * $storeTransactionItem->quantity);
+            $ingredients?->map(function ($ingredient) use ($branch, $storeTransactionItem, $transaction, $row) {
+                DB::beginTransaction();
+                try {
+                    $product = ProductInventoryStock::where('product_inventory_id',  $ingredient->product_inventory_id)->where('store_branch_id', $branch->id)->first();
+                    $stockOnHand = $product->quantity - $product->used;
 
+                    // if ($ingredient->quantity * $storeTransactionItem->quantity > $stockOnHand) {
+                    //     return back()->withErrors([
+                    //         "quantity" => "Quantity used can't be greater than stock on hand. (Stock on hand: $stockOnHand)"
+                    //     ]);
+                    // }
 
+                    $product->used += $ingredient->quantity * $storeTransactionItem->quantity;
 
-                $ProductInventoryStockManager = ProductInventoryStockManager::create([
-                    'product_inventory_id' => $ingredient->product_inventory_id,
-                    'store_branch_id' => $branch->id,
-                    'cost_center_id' => null,
-                    'quantity' => - ($ingredient->quantity * $storeTransactionItem->quantity),
-                    'action' => 'deduct',
-                    'transaction_date' => $transaction->order_date,
-                    'remarks' => "Deducted from store transaction (Receipt No. {$transaction->receipt_number})"
-                ]);
+                    $product->update([
+                        'used' => $ingredient->quantity * $storeTransactionItem->quantity
+                    ]);
+                    $data = [
+                        'id' => $ingredient->product_inventory_id,
+                        'store_branch_id' => $branch->id,
+                        'cost_center_id' => null,
+                        'quantity' => ($ingredient->quantity * $storeTransactionItem->quantity),
+                        'transaction_date' => $transaction->order_date,
+                        'remarks' => "Deducted from store transaction (Receipt No. {$transaction->receipt_number})"
+                    ];
+                    $this->handleInventoryUsage($data);
 
-                Log::info('Processing row ' . $this->rowNumber, [
-                    'product_inventory_stock' => $ProductInventoryStock,
-                    'product_inventory_stock_manager' => $ProductInventoryStockManager
-                ]);
+                    Log::info('Success', ['result' => $product]);
+                } catch (Exception $e) {
+                    Log::error('Failed', ['error' => $e->getMessage()]);
+                    throw $e;
+                }
+
+                DB::commit();
             });
 
             DB::commit();
@@ -143,7 +158,7 @@ class StoreTransactionImport implements ToModel, WithStartRow, WithHeadingRow
                 'row_number' => $this->rowNumber,
                 'error' => $e->getMessage()
             ]);
-            return null;
+            throw $e;
         }
     }
 
