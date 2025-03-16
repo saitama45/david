@@ -150,15 +150,57 @@ class StockManagementController extends Controller
         }
         $product->used += $validated['quantity'];
         $product->save();
-        ProductInventoryStockManager::create([
-            'product_inventory_id' => $validated['id'],
-            'store_branch_id' => $validated['store_branch_id'],
-            'cost_center_id' => $validated['cost_center_id'],
-            'quantity' => -$validated['quantity'],
-            'action' => 'log_usage',
-            'transaction_date' => $validated['transaction_date'],
-            'remarks' => $validated['remarks']
-        ]);
+
+        $quantityUsed = $validated['quantity']; // 5
+        $accumulatedQuantity = 0; // 0 
+
+        while ($quantityUsed != $accumulatedQuantity) {
+            $batch = PurchaseItemBatch::where('remaining_quantity', '>', 0)
+                ->where('product_inventory_id', $validated['id'])
+                ->orderBy('purchase_date', 'asc')
+                ->first();
+
+            $remainingQuantity = $batch->remaining_quantity; // 2
+            $totalCost = 0;
+            $quantity = 0;
+
+            if ($remainingQuantity < $quantityUsed) {
+                $accumulatedQuantity += $remainingQuantity;
+                $quantity = $remainingQuantity;
+                $batch->remaining_quantity = 0;
+                $totalCost = $remainingQuantity * $batch->unit_cost;
+                $batch->save();
+            }
+            if ($remainingQuantity > $quantityUsed) {
+                // 10 // we need 1       // 5            // 4
+                $quantityNeed = $quantityUsed  - $accumulatedQuantity;
+                $accumulatedQuantity += $quantityNeed;
+                $quantity =  $quantityNeed;
+                $totalCost = $quantityNeed * $batch->unit_cost;
+                $batch->remaining_quantity -= $quantityNeed;
+                $batch->save();
+            }
+
+            if ($remainingQuantity == $quantityUsed) {
+                $accumulatedQuantity += $remainingQuantity;
+                $totalCost = $remainingQuantity * $batch->unit_cost;
+                $quantity = $remainingQuantity;
+                $batch->remaining_quantity = 0;
+                $batch->save();
+            }
+
+            $batch->product_inventory_stock_managers()->create([
+                'product_inventory_id' => $validated['id'],
+                'store_branch_id' => $validated['store_branch_id'],
+                'cost_center_id' => $validated['cost_center_id'],
+                'quantity' => -$quantity,
+                'action' => 'log_usage',
+                'unit_cost' => $batch->unit_cost,
+                'total_cost' => -$totalCost,
+                'transaction_date' => $validated['transaction_date'],
+                'remarks' => $validated['remarks']
+            ]);
+        };
 
         DB::commit();
     }
