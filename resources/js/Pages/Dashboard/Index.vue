@@ -490,6 +490,13 @@ watch(time_period, (value) => {
                     :icon="Check"
                 />
                 <StatisticOverview
+                    :isLink="true"
+                    :href="
+                        route('inventories-report.index', {
+                            time_period: time_period,
+                            branchId: branch,
+                        })
+                    "
                     heading="INVENTORIES"
                     :value="inventories"
                     :icon="ClockArrowUp"
