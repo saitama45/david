@@ -29,7 +29,7 @@ class DashboardController extends Controller
     {
         $timePeriods = TimePeriod::values();
         $time_period = request('time_period') ?? $timePeriods[1];
-
+  
         $branches = StoreBranch::options();
         $branch = request('branch') ?? $branches->keys()->first();
 
@@ -121,6 +121,23 @@ class DashboardController extends Controller
             '.',
             ','
         );
+
+
+
+        $cogsQuery = ProductInventoryStockManager::where('store_branch_id', $branch)
+            ->where('total_cost', '<', 0);
+
+        if ($time_period != 0) {
+            $cogsQuery->whereMonth('transaction_date', $time_period);
+        } else {
+            $cogsQuery->whereYear('transaction_date', Carbon::today()->year);
+        }
+   
+        $cogs = number_format($cogsQuery->sum(DB::raw('ABS(total_cost)')),
+        2,
+    '.',
+'0'); 
+
 
         return Inertia::render('Dashboard/Index', [
             'timePeriods' => $timePeriods,
