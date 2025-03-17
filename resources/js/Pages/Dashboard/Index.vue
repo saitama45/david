@@ -518,7 +518,18 @@ watch(time_period, (value) => {
                     :value="accountPayable"
                     :icon="BookX"
                 />
-                <StatisticOverview heading="COGS" :value="cogs" :icon="BookX" />
+                <StatisticOverview
+                    heading="COGS"
+                    :value="cogs"
+                    :icon="BookX"
+                    :isLink="true"
+                    :href="
+                        route('cost-of-goods.index', {
+                            time_period: time_period,
+                            branchId: branch,
+                        })
+                    "
+                />
             </div>
             <div class="sm:grid sm:grid-cols-3 sm:grid-rows-3 gap-4">
                 <!-- Full width chart -->
