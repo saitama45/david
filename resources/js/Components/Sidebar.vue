@@ -225,6 +225,9 @@ const canViewReferenceGroup = hasAccess("manage references");
         <NavLink href="/account-payable" :icon="List">
             Account Payable
         </NavLink>
+        <NavLink href="/cost-of-goods" :icon="List">
+           Cost Of Goods
+        </NavLink>
         <NavLink
             v-if="hasAccess('view items order summary')"
             href="/product-orders-summary"

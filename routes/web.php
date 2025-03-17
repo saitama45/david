@@ -9,6 +9,7 @@ use App\Http\Controllers\CashPullOutApprovalController;
 use App\Http\Controllers\CashPullOutController;
 use App\Http\Controllers\CategoryController;
 use App\Http\Controllers\CostCenterController;
+use App\Http\Controllers\CostOfGoodController;
 use App\Http\Controllers\CSApprovalController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\DeliveryScheduleController;
@@ -59,6 +60,13 @@ Route::get('jobs', function () {
 
 Route::middleware('auth')
     ->group(function () {
+        Route::controller(CostOfGoodController::class)
+            ->name('cost-of-goods.')
+            ->prefix('cost-of-goods')
+            ->group(function () {
+                Route::get('/', 'index')->name('index');
+            });
+
         Route::controller(DirectReceivingController::class)
             ->name('direct-receiving.')
             ->prefix('direct-receiving')
