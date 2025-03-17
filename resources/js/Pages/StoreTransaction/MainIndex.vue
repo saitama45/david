@@ -148,11 +148,11 @@ const importTransactions = () => {
         onError: (e) => {
             toast.add({
                 severity: "error",
-                summary: "Error",
-                detail: "An error occured while trying to import store transactions.",
-                life: 3000,
+                summary: "Inventory Error",
+                detail: `Transaction import failed at row ${e.line}:\n${e.message}\n\nPlease update inventory before proceeding.`,
+                life: 15000,
             });
-            console.log(e);
+            console.error("Import error:", e);
             isLoading.value = false;
         },
     });

@@ -117,14 +117,17 @@ class StoreTransactionImport implements ToModel, WithStartRow, WithHeadingRow
             $ingredients?->map(function ($ingredient) use ($branch, $storeTransactionItem, $transaction, $row) {
                 DB::beginTransaction();
                 try {
-                    $product = ProductInventoryStock::where('product_inventory_id',  $ingredient->product_inventory_id)->where('store_branch_id', $branch->id)->first();
+                    $product = ProductInventoryStock::with('product')->where('product_inventory_id',  $ingredient->product_inventory_id)->where('store_branch_id', $branch->id)->first();
                     $stockOnHand = $product->quantity - $product->used;
 
-                    // if ($ingredient->quantity * $storeTransactionItem->quantity > $stockOnHand) {
-                    //     return back()->withErrors([
-                    //         "quantity" => "Quantity used can't be greater than stock on hand. (Stock on hand: $stockOnHand)"
-                    //     ]);
-                    // }
+                    if ($ingredient->quantity * $storeTransactionItem->quantity > $stockOnHand) {
+                        $requiredQuantity = $ingredient->quantity * $storeTransactionItem->quantity;
+
+                        return back()->withErrors([
+                            "message" => "Insufficient inventory for '{$product->product->name}'. Required: {$requiredQuantity}, Available: {$stockOnHand}.",
+                            "line" => $this->rowNumber,
+                        ]);
+                    }
 
                     $product->used += $ingredient->quantity * $storeTransactionItem->quantity;
 
