@@ -29,24 +29,24 @@ class DashboardController extends Controller
     {
         $timePeriods = TimePeriod::values();
         $time_period = request('time_period') ?? $timePeriods[1];
-  
+
         $branches = StoreBranch::options();
         $branch = request('branch') ?? $branches->keys()->first();
 
         $user = User::rolesAndAssignedBranches();
 
-        $inventoriesQuery = ProductInventoryStock::query()
-            ->join('product_inventories', 'product_inventory_stocks.product_inventory_id', '=', 'product_inventories.id')
-            ->where('product_inventory_stocks.store_branch_id', $branch);
+        $inventoriesQuery = ProductInventoryStockManager::query()
+            ->where('store_branch_id', $branch);
+
 
         if ($time_period != 0) {
-            $inventoriesQuery->whereMonth('product_inventory_stocks.updated_at', $time_period);
+            $inventoriesQuery->whereMonth('transaction_date', '<=', $time_period);
         } else {
-            $inventoriesQuery->whereYear('product_inventory_stocks.updated_at', Carbon::today()->year);
+            $inventoriesQuery->whereYear('transaction_date', Carbon::today()->year);
         }
 
         $inventories = number_format(
-            $inventoriesQuery->sum(DB::raw('(product_inventory_stocks.quantity - product_inventory_stocks.used) * product_inventories.cost')),
+            $inventoriesQuery->sum('total_cost'),
             2,
             '.',
             ','
@@ -109,11 +109,13 @@ class DashboardController extends Controller
         } else {
             $cogsQuery->whereYear('transaction_date', Carbon::today()->year);
         }
-   
-        $cogs = number_format($cogsQuery->sum(DB::raw('ABS(total_cost)')),
-        2,
-    '.',
-'0'); 
+
+        $cogs = number_format(
+            $cogsQuery->sum(DB::raw('ABS(total_cost)')),
+            2,
+            '.',
+            '0'
+        );
 
 
         return Inertia::render('Dashboard/Index', [

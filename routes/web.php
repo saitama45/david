@@ -18,6 +18,7 @@ use App\Http\Controllers\DTSController;
 use App\Http\Controllers\ExcelTemplateController;
 use App\Http\Controllers\FruitAndVegetableController;
 use App\Http\Controllers\IceCreamOrderController;
+use App\Http\Controllers\InventoryReportController;
 use App\Http\Controllers\InvetoryCategoryController;
 use App\Http\Controllers\ItemController;
 use App\Http\Controllers\MenuCategoryController;
@@ -60,6 +61,15 @@ Route::get('jobs', function () {
 
 Route::middleware('auth')
     ->group(function () {
+
+        Route::controller(InventoryReportController::class)
+            ->name('inventories-report.')
+            ->prefix('inventories-report')
+            ->group(function () {
+                Route::get('/', 'index')->name('index');
+            });
+
+
         Route::controller(CostOfGoodController::class)
             ->name('cost-of-goods.')
             ->prefix('cost-of-goods')

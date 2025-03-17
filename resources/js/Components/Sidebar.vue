@@ -219,15 +219,16 @@ const canViewReferenceGroup = hasAccess("manage references");
             Reports
         </DropdownMenuLabel>
         <NavLink href="/sales-report" :icon="List"> Sales Report </NavLink>
+        <NavLink href="/inventories-report" :icon="List">
+            Inventories Report
+        </NavLink>
         <NavLink href="/upcoming-inventories" :icon="List">
             Upcoming Inventories
         </NavLink>
         <NavLink href="/account-payable" :icon="List">
             Account Payable
         </NavLink>
-        <NavLink href="/cost-of-goods" :icon="List">
-           Cost Of Goods
-        </NavLink>
+        <NavLink href="/cost-of-goods" :icon="List"> Cost Of Goods </NavLink>
         <NavLink
             v-if="hasAccess('view items order summary')"
             href="/product-orders-summary"

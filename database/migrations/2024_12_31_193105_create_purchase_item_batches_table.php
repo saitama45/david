@@ -13,8 +13,8 @@ return new class extends Migration
     {
         Schema::create('purchase_item_batches', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('cash_pull_out_item_id')->nullable()->constrained('cash_pull_out_items')->cascadeOnDelete();
-            $table->foreignId('store_order_item_id')->nullable()->constrained('store_order_items')->cascadeOnDelete();
+            $table->foreignId('cash_pull_out_item_id')->nullable()->constrained('cash_pull_out_items');
+            $table->foreignId('store_order_item_id')->nullable()->constrained('store_order_items');
             $table->foreignId('product_inventory_id')->constrained('product_inventories')->cascadeOnDelete();
             $table->date('purchase_date');
             $table->float('quantity');
