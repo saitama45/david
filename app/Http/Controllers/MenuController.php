@@ -29,7 +29,8 @@ class MenuController extends Controller
                 return [
                     'id' => $menu->id,
                     'product_id' => $menu->product_id,
-                    'remarks' => $menu->remarks
+                    'remarks' => $menu->remarks,
+                    'name' => $menu->name
                 ];
             });
         return Inertia::render('Menu/Index', [
