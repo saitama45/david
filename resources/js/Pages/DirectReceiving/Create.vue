@@ -325,6 +325,7 @@ watch(orderForm, (value) => {
                                 v-model="orderForm.date_needed"
                                 :showOnFocus="false"
                                 :manualInput="true"
+                                :maxDate="new Date()"
                             />
                             <FormError>{{
                                 orderForm.errors.date_needed

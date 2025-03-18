@@ -40,6 +40,7 @@ class DirectReceivingController extends Controller
         $validated = $request->validated();
 
         DB::beginTransaction();
+        $validated['date_needed'] = Carbon::parse($validated['date_needed'])->addDay();
         $cashPullOut = CashPullOut::create(Arr::except($validated, 'orders'));
 
         foreach ($validated['orders'] as $order) {
