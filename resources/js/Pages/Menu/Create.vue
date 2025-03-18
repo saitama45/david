@@ -23,6 +23,8 @@ const { options: categoriesOption } = useSelectOptions(props.categories);
 
 const form = useForm({
     product_id: "",
+    name: null,
+    remarks: null,
     ingredients: [],
 });
 
@@ -231,6 +233,11 @@ const importMenu = () => {
                             <Label>Product ID</Label>
                             <Input v-model="form.product_id" />
                             <FormError>{{ form.errors.product_id }}</FormError>
+                        </InputContainer>
+                        <InputContainer>
+                            <Label>Name</Label>
+                            <Input v-model="form.name" />
+                            <FormError>{{ form.errors.name }}</FormError>
                         </InputContainer>
                         <InputContainer>
                             <Label>Remarks</Label>

@@ -14,6 +14,7 @@ class Menu extends Model implements Auditable
 
     protected $fillable = [
         'product_id',
+        'name',
         'remarks'
     ];
 

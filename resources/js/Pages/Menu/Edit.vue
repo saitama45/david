@@ -31,6 +31,7 @@ const { menu, ingredients, categories, products } = defineProps({
 const form = useForm({
     name: menu.name,
     product_id: menu.product_id,
+    name: menu.name,
     price: menu.price,
     category_id: menu.category_id + "",
     remarks: menu.remarks,
@@ -224,6 +225,11 @@ const update = () => {
                             <Label>Product ID</Label>
                             <Input v-model="form.product_id" />
                             <FormError>{{ form.errors.product_id }}</FormError>
+                        </InputContainer>
+                        <InputContainer>
+                            <Label>Name</Label>
+                            <Input v-model="form.name" />
+                            <FormError>{{ form.errors.name }}</FormError>
                         </InputContainer>
                         <InputContainer>
                             <Label>Remarks</Label>

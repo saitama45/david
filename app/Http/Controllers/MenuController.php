@@ -63,6 +63,7 @@ class MenuController extends Controller
 
         $validated = $request->validate([
             'product_id' => ['required', 'unique:menus,product_id'],
+            'name' => ['required'],
             'remarks' => ['nullable'],
             'ingredients' => ['required', 'array', 'min:1'],
             'ingredients.*.id' => ['required', 'exists:product_inventories,id'],
@@ -160,6 +161,7 @@ class MenuController extends Controller
 
         $validated = $request->validate([
             'product_id' => ['required', 'unique:menus,product_id,' . $id],
+            'name' => ['required'],
             'remarks' => ['nullable'],
             'ingredients' => ['required', 'array', 'min:1'],
             'ingredients.*.id' => ['required', 'exists:product_inventories,id'],

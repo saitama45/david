@@ -30,6 +30,8 @@ class MenusImport implements ToCollection, WithStartRow
                 if (!$this->menu) {
                     $this->menu = Menu::updateOrCreate([
                         'product_id' => $row[0]
+                    ], [
+                        'name' => $row[1]
                     ]);
                     // Log::info('Processing row ', [
                     //     'raw_data' => 'if not this menu',
