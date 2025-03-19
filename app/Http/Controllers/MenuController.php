@@ -21,7 +21,7 @@ class MenuController extends Controller
         $query = Menu::query()->with('category');
 
         if ($query)
-            $query->whereAny(['product_id'], 'like', "%{$search}%");
+            $query->whereAny(['product_id', 'name'], 'like', "%{$search}%");
         $menus = $query
             ->latest()
             ->paginate(10)

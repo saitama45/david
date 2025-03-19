@@ -74,6 +74,11 @@ const setChartData = () => {
             "May",
             "June",
             "July",
+            "August",
+            "September",
+            "October",
+            "November",
+            "December",
         ],
         datasets: [
             {
@@ -83,13 +88,13 @@ const setChartData = () => {
                 borderWidth: 2,
                 fill: false,
                 tension: 0.4,
-                data: [50, 25, 12, 48, 56, 76, 42],
+                data: [50, 25, 12, 48, 56, 76, 42, 42, 42, 42, 42, 42],
             },
             {
                 type: "bar",
                 label: "Dataset 2",
                 backgroundColor: documentStyle.getPropertyValue("--p-gray-500"),
-                data: [21, 84, 24, 75, 37, 65, 34],
+                data: [21, 84, 24, 75, 37, 65, 34, 42, 42, 42, 42, 42],
                 borderColor: "white",
                 borderWidth: 2,
             },
@@ -97,7 +102,7 @@ const setChartData = () => {
                 type: "bar",
                 label: "Dataset 3",
                 backgroundColor: documentStyle.getPropertyValue("--p-cyan-500"),
-                data: [41, 52, 24, 74, 23, 21, 32],
+                data: [41, 52, 24, 74, 23, 21, 32, 42, 42, 42, 42, 42],
             },
         ],
     };
@@ -151,10 +156,10 @@ const setChartDataDoughnut = () => {
     const documentStyle = getComputedStyle(document.body);
 
     return {
-        labels: ["A", "B", "C"],
+        labels: ["A"],
         datasets: [
             {
-                data: [540, 325, 702],
+                data: [540],
                 backgroundColor: [
                     documentStyle.getPropertyValue("--p-cyan-500"),
                     documentStyle.getPropertyValue("--p-orange-500"),
@@ -474,6 +479,7 @@ watch(time_period, (value) => {
                     optionValue="value"
                 ></Select>
             </InputContainer>
+            <DatePicker showIcon />
         </DivFlexCenter>
         <section class="flex flex-col gap-5">
             <div class="grid gap-5 sm:grid-cols-5">

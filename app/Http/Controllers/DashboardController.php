@@ -117,6 +117,11 @@ class DashboardController extends Controller
             '0'
         );
 
+        $averageInventoryQuery = ProductInventoryStockManager::query()
+            ->where('store_branch_id', 31);
+
+        $averageInventory = $averageInventoryQuery->sum('total_cost') / 2;
+        $dio = $averageInventory / 365;
 
         return Inertia::render('Dashboard/Index', [
             'timePeriods' => $timePeriods,
