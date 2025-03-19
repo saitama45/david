@@ -35,6 +35,10 @@ class ProductInventory extends Model implements Auditable
         'cost' => 'decimal:2'
     ];
 
+    protected $appends = [
+        'select_option_name'
+    ];
+
     public function cash_pull_out_items()
     {
         return $this->hasMany(CashPullOutItem::class);

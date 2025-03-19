@@ -104,6 +104,8 @@ class DashboardController extends Controller
         $cogsQuery = ProductInventoryStockManager::where('store_branch_id', $branch)
             ->where('total_cost', '<', 0);
 
+        $cogsAll = $cogsQuery->sum(DB::raw('ABS(total_cost)'));
+
         if ($time_period != 0) {
             $cogsQuery->whereMonth('transaction_date', $time_period);
         } else {
@@ -121,7 +123,24 @@ class DashboardController extends Controller
             ->where('store_branch_id', 31);
 
         $averageInventory = $averageInventoryQuery->sum('total_cost') / 2;
-        $dio = $averageInventory / 365;
+        if ($cogsAll > 0) {
+            $dio = number_format(($averageInventory / $cogsAll) * 365, 0);
+        } else {
+            $dio = "0";
+        }
+
+        $productInventoryStock = ProductInventoryStock::with('product')
+            ->where('store_branch_id', 31)
+            ->select('*', DB::raw('(quantity - used) as stock_on_hand'))
+            ->orderBy('stock_on_hand', 'desc')
+            ->take(10)
+            ->get()
+            ->map(function ($item) {
+                return [
+                    'name' => $item->product->select_option_name,
+                    'total_cost' => $item->stock_on_hand * $item->product->cost
+                ];
+            });
 
         return Inertia::render('Dashboard/Index', [
             'timePeriods' => $timePeriods,
@@ -131,7 +150,9 @@ class DashboardController extends Controller
             'upcomingInventories' => $upcomingInventories,
             'accountPayable' => $accountPayable,
             'filters' => request()->only(['branch', 'time_period']),
-            'cogs' => $cogs
+            'cogs' => $cogs,
+            'dio' => $dio,
+            'top_10' => $productInventoryStock
         ]);
     }
 
