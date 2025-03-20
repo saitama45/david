@@ -113,54 +113,77 @@ class StoreTransactionImport implements ToModel, WithStartRow, WithHeadingRow
             ]);
 
             $ingredients = $storeTransactionItem->menu->menu_ingredients;
+            $errors = [];
 
-            $ingredients?->map(function ($ingredient) use ($branch, $storeTransactionItem, $transaction, $row) {
-
+            $ingredients?->each(function ($ingredient) use ($branch, $storeTransactionItem, $transaction, $row, &$errors) {
                 try {
-                    $product = ProductInventoryStock::with('product')->where('product_inventory_id',  $ingredient->product_inventory_id)->where('store_branch_id', $branch->id)->first();
+                    $product = ProductInventoryStock::with('product')
+                        ->where('product_inventory_id', $ingredient->product_inventory_id)
+                        ->where('store_branch_id', $branch->id)
+                        ->first();
+
+                    if (!$product) {
+                        $errors[] = "Product inventory not found for branch: {$branch->location_code}";
+                        return false; 
+                    }
+
                     $stockOnHand = $product->quantity - $product->used;
 
                     if ($ingredient->quantity * $storeTransactionItem->quantity > $stockOnHand) {
                         $requiredQuantity = $ingredient->quantity * $storeTransactionItem->quantity;
-
-                        return back()->withErrors([
-                            "message" => "Insufficient inventory for '{$product->product->name}'. Required: {$requiredQuantity}, Available: {$stockOnHand}.",
-                            "line" => $this->rowNumber,
-                        ]);
+                        $errors[] = "Insufficient inventory for '{$product->product->name}'. Required: {$requiredQuantity}, Available: {$stockOnHand}.";
+                        return false; 
                     }
 
-                    $product->used += $ingredient->quantity * $storeTransactionItem->quantity;
-
+                    $usedQuantity = $ingredient->quantity * $storeTransactionItem->quantity;
                     $product->update([
-                        'used' => $ingredient->quantity * $storeTransactionItem->quantity
+                        'used' => $product->used + $usedQuantity
                     ]);
+
                     $data = [
                         'id' => $ingredient->product_inventory_id,
                         'store_branch_id' => $branch->id,
                         'cost_center_id' => null,
-                        'quantity' => ($ingredient->quantity * $storeTransactionItem->quantity),
+                        'quantity' => $usedQuantity,
                         'transaction_date' => $transaction->order_date,
                         'remarks' => "Deducted from store transaction (Receipt No. {$transaction->receipt_number})"
                     ];
+
                     $this->handleInventoryUsage($data);
 
-                    Log::info('Success', ['result' => $product]);
+                    Log::info('Success processing ingredient', [
+                        'product_id' => $product->product_inventory_id,
+                        'used_quantity' => $usedQuantity
+                    ]);
                 } catch (Exception $e) {
-                    Log::error('Failed', ['error' => $e->getMessage()]);
-                    DB::rollBack();
-                    throw $e;
+                    Log::error('Failed to process ingredient', ['error' => $e->getMessage()]);
+                    $errors[] = "Error processing ingredient: " . $e->getMessage();
+                    return false; 
                 }
             });
 
-            DB::commit();
+            if (!empty($errors)) {
+                DB::rollBack();
+                Log::error('Errors during ingredient processing', [
+                    'row_number' => $this->rowNumber,
+                    'errors' => $errors
+                ]);
+                throw new Exception(implode("\n", $errors));
+            }
 
+            DB::commit();
             return $transaction;
         } catch (Exception $e) {
             Log::error('Error processing transaction', [
                 'row_number' => $this->rowNumber,
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
+                'transaction_level' => DB::transactionLevel()
             ]);
-            DB::rollBack();
+
+            if (DB::transactionLevel() > 0) {
+                DB::rollBack();
+            }
+
             throw $e;
         }
     }
@@ -188,7 +211,6 @@ class StoreTransactionImport implements ToModel, WithStartRow, WithHeadingRow
                 'value' => $value,
                 'error' => $e->getMessage()
             ]);
-            DB::rollBack();
             throw $e;
         }
     }
