@@ -147,10 +147,12 @@ class DashboardController extends Controller
         $averageInventory = ($begginingInventory + $averageInventoryQuery->sum('total_cost')) / 2;
 
         if ($cogsAll > 0) {
-            $dio = number_format(($averageInventory / $cogsAll) * 365, 0);
+            $dio = ($averageInventory / $cogsAll) * 365;
         } else {
             $dio = "0";
         }
+
+
 
         $productInventoryStock = ProductInventoryStock::with('product')
             ->where('store_branch_id', $branch)
@@ -174,7 +176,7 @@ class DashboardController extends Controller
             ->sum(DB::raw('store_order_items.quantity_received * product_inventories.cost'));
 
         if ($cogsAll > 0 && $accountPayableAll > 0) {
-            $dpo = number_format(($accountPayableAll / $cogsAll) * 365, 0);
+            $dpo = ($accountPayableAll / $cogsAll) * 365;
         } else {
             $dpo = "0";
         }

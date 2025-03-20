@@ -39,11 +39,11 @@ const { branches, timePeriods, filters, sales, cogs, dio, top_10, dpo } =
             required: true,
         },
         dio: {
-            type: String,
+            type: Number,
             required: true,
         },
         dpo: {
-            type: String,
+            type: Number,
             required: true,
         },
         top_10: {
@@ -174,10 +174,10 @@ const setChartDataDoughnut = () => {
     const documentStyle = getComputedStyle(document.body);
 
     return {
-        labels: ["Days Inventory Outstanding"],
+        labels: [`Days Inventory Outstanding (${dio.toFixed(0)})`],
         datasets: [
             {
-                data: [dio],
+                data: [dio.toFixed(0)],
                 backgroundColor: [
                     documentStyle.getPropertyValue("--p-cyan-500"),
                     documentStyle.getPropertyValue("--p-orange-500"),
@@ -216,10 +216,10 @@ const setChartDataDoughnutAccountPayable = () => {
     const documentStyle = getComputedStyle(document.body);
 
     return {
-        labels: ["Days Payable Outstanding"],
+        labels: [`Days Payable Outstanding (${dpo.toFixed(0)})`],
         datasets: [
             {
-                data: [dpo],
+                data: [dpo.toFixed(0)],
                 backgroundColor: [
                     documentStyle.getPropertyValue("--p-cyan-500"),
                     documentStyle.getPropertyValue("--p-orange-500"),
