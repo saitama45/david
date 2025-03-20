@@ -474,7 +474,7 @@ watch(time_period, (value) => {
                     optionValue="value"
                 ></Select>
             </InputContainer>
-            <DatePicker showIcon />
+            <!-- <DatePicker showIcon /> -->
         </DivFlexCenter>
         <section class="flex flex-col gap-5">
             <div class="grid gap-5 sm:grid-cols-5">
