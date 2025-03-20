@@ -115,7 +115,7 @@ class StoreTransactionImport implements ToModel, WithStartRow, WithHeadingRow
             $ingredients = $storeTransactionItem->menu->menu_ingredients;
 
             $ingredients?->map(function ($ingredient) use ($branch, $storeTransactionItem, $transaction, $row) {
-                DB::beginTransaction();
+
                 try {
                     $product = ProductInventoryStock::with('product')->where('product_inventory_id',  $ingredient->product_inventory_id)->where('store_branch_id', $branch->id)->first();
                     $stockOnHand = $product->quantity - $product->used;
@@ -150,7 +150,6 @@ class StoreTransactionImport implements ToModel, WithStartRow, WithHeadingRow
                     throw $e;
                 }
 
-                DB::commit();
             });
 
             DB::commit();

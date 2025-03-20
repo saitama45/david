@@ -120,9 +120,10 @@ class DashboardController extends Controller
         );
 
         $averageInventoryQuery = ProductInventoryStockManager::query()
-            ->where('store_branch_id', 31);
+            ->where('store_branch_id', $branch);
 
         $averageInventory = $averageInventoryQuery->sum('total_cost') / 2;
+
         if ($cogsAll > 0) {
             $dio = number_format(($averageInventory / $cogsAll) * 365, 0);
         } else {
@@ -130,7 +131,7 @@ class DashboardController extends Controller
         }
 
         $productInventoryStock = ProductInventoryStock::with('product')
-            ->where('store_branch_id', 31)
+            ->where('store_branch_id', $branch)
             ->select('*', DB::raw('(quantity - used) as stock_on_hand'))
             ->orderBy('stock_on_hand', 'desc')
             ->take(10)

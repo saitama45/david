@@ -204,7 +204,7 @@ const setChartOptionsDoughnut = () => {
 
 const chartDataHorizontal = ref();
 const chartOptionsHorizontal = ref();
-console.log(top_10);
+
 const setChartDataHorizontal = () => {
     const documentStyle = getComputedStyle(document.documentElement);
 
