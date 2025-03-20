@@ -147,9 +147,9 @@ class StoreTransactionImport implements ToModel, WithStartRow, WithHeadingRow
                     Log::info('Success', ['result' => $product]);
                 } catch (Exception $e) {
                     Log::error('Failed', ['error' => $e->getMessage()]);
+                    DB::rollBack();
                     throw $e;
                 }
-
             });
 
             DB::commit();
@@ -160,6 +160,7 @@ class StoreTransactionImport implements ToModel, WithStartRow, WithHeadingRow
                 'row_number' => $this->rowNumber,
                 'error' => $e->getMessage()
             ]);
+            DB::rollBack();
             throw $e;
         }
     }
@@ -187,6 +188,7 @@ class StoreTransactionImport implements ToModel, WithStartRow, WithHeadingRow
                 'value' => $value,
                 'error' => $e->getMessage()
             ]);
+            DB::rollBack();
             throw $e;
         }
     }
