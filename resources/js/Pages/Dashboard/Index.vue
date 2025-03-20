@@ -4,7 +4,7 @@ import Chart from "primevue/chart";
 import { router } from "@inertiajs/vue3";
 import { useSelectOptions } from "@/Composables/useSelectOptions";
 
-const { branches, timePeriods, filters, sales, cogs, dio, top_10 } =
+const { branches, timePeriods, filters, sales, cogs, dio, top_10, dpo } =
     defineProps({
         branches: {
             type: Object,
@@ -42,6 +42,10 @@ const { branches, timePeriods, filters, sales, cogs, dio, top_10 } =
             type: String,
             required: true,
         },
+        dpo: {
+            type: String,
+            required: true,
+        },
         top_10: {
             type: Object,
             required: true,
@@ -57,6 +61,11 @@ onMounted(() => {
 
     chartDataDoughnut.value = setChartDataDoughnut();
     chartOptionsDoughnut.value = setChartOptionsDoughnut();
+
+    chartDataDoughnutAccountPayable.value =
+        setChartDataDoughnutAccountPayable();
+    chartOptionsDoughnutAccountPayable.value =
+        setChartOptionsDoughnutAccountPayable();
 
     chartDataHorizontal.value = setChartDataHorizontal();
     chartOptionsHorizontal.value = setChartOptionsHorizontal();
@@ -185,6 +194,48 @@ const setChartDataDoughnut = () => {
 };
 
 const setChartOptionsDoughnut = () => {
+    const documentStyle = getComputedStyle(document.documentElement);
+    const textColor = documentStyle.getPropertyValue("--p-text-color");
+
+    return {
+        plugins: {
+            legend: {
+                labels: {
+                    cutout: "60%",
+                    color: textColor,
+                },
+            },
+        },
+    };
+};
+
+const chartDataDoughnutAccountPayable = ref();
+const chartOptionsDoughnutAccountPayable = ref(null);
+
+const setChartDataDoughnutAccountPayable = () => {
+    const documentStyle = getComputedStyle(document.body);
+
+    return {
+        labels: ["Days Payable Outstanding"],
+        datasets: [
+            {
+                data: [dpo],
+                backgroundColor: [
+                    documentStyle.getPropertyValue("--p-cyan-500"),
+                    documentStyle.getPropertyValue("--p-orange-500"),
+                    documentStyle.getPropertyValue("--p-gray-500"),
+                ],
+                hoverBackgroundColor: [
+                    documentStyle.getPropertyValue("--p-cyan-400"),
+                    documentStyle.getPropertyValue("--p-orange-400"),
+                    documentStyle.getPropertyValue("--p-gray-400"),
+                ],
+            },
+        ],
+    };
+};
+
+const setChartOptionsDoughnutAccountPayable = () => {
     const documentStyle = getComputedStyle(document.documentElement);
     const textColor = documentStyle.getPropertyValue("--p-text-color");
 
@@ -565,8 +616,8 @@ watch(time_period, (value) => {
 
                 <Chart
                     type="doughnut"
-                    :data="chartDataDoughnut"
-                    :options="chartOptionsDoughnut"
+                    :data="chartDataDoughnutAccountPayable"
+                    :options="chartOptionsDoughnutAccountPayable"
                     class="h-[30rem]"
                 />
 

@@ -119,10 +119,32 @@ class DashboardController extends Controller
             '0'
         );
 
+        $begginingInventory = ProductInventoryStockManager::select('product_inventory_id')
+            ->where('store_branch_id', $branch)
+            ->selectRaw('MIN(id) as first_transaction_id')
+            ->where('quantity', '>', 0)
+            ->groupBy('product_inventory_id')
+            ->get()
+            ->map(function ($item) {
+                $transaction = ProductInventoryStockManager::find($item->first_transaction_id);
+                return [
+                    'product_id' => $item->product_inventory_id,
+                    'first_quantity' => $transaction->quantity,
+                    'transaction_date' => $transaction->transaction_date,
+                    'unit_cost' => $transaction->unit_cost,
+                    'total_cost' => $transaction->total_cost
+                ];
+            })
+            ->sum('total_cost');
+
+
+
         $averageInventoryQuery = ProductInventoryStockManager::query()
             ->where('store_branch_id', $branch);
 
-        $averageInventory = $averageInventoryQuery->sum('total_cost') / 2;
+
+
+        $averageInventory = ($begginingInventory + $averageInventoryQuery->sum('total_cost')) / 2;
 
         if ($cogsAll > 0) {
             $dio = number_format(($averageInventory / $cogsAll) * 365, 0);
@@ -143,6 +165,20 @@ class DashboardController extends Controller
                 ];
             });
 
+
+        $accountPayableAll = StoreOrderItem::query()
+            ->join('store_orders', 'store_order_items.store_order_id', '=', 'store_orders.id')
+            ->join('product_inventories', 'store_order_items.product_inventory_id', '=', 'product_inventories.id')
+            ->where('store_orders.store_branch_id', $branch)
+            ->where('store_order_items.quantity_received', '>', 0)
+            ->sum(DB::raw('store_order_items.quantity_received * product_inventories.cost'));
+
+        if ($cogsAll > 0 && $accountPayableAll > 0) {
+            $dpo = number_format(($accountPayableAll / $cogsAll) * 365, 0);
+        } else {
+            $dpo = "0";
+        }
+
         return Inertia::render('Dashboard/Index', [
             'timePeriods' => $timePeriods,
             'branches' => $branches,
@@ -153,6 +189,7 @@ class DashboardController extends Controller
             'filters' => request()->only(['branch', 'time_period']),
             'cogs' => $cogs,
             'dio' => $dio,
+            'dpo' => $dpo,
             'top_10' => $productInventoryStock
         ]);
     }
