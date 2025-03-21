@@ -51,7 +51,7 @@ const { branches, timePeriods, filters, sales, cogs, dio, top_10, dpo } =
             required: true,
         },
     });
-console.log(timePeriods);
+console.log(top_10);
 
 const { options: branchesOptions } = useSelectOptions(branches);
 const { options: timePeriodOptions } = useSelectOptions(timePeriods);
@@ -177,7 +177,7 @@ const setChartDataDoughnut = () => {
         labels: [`Days Inventory Outstanding (${dio.toFixed(0)})`],
         datasets: [
             {
-                data: [dio.toFixed(0)],
+                data: [dio?.toFixed(0)],
                 backgroundColor: [
                     documentStyle.getPropertyValue("--p-cyan-500"),
                     documentStyle.getPropertyValue("--p-orange-500"),
