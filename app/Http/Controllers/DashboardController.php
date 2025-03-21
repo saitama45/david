@@ -163,9 +163,11 @@ class DashboardController extends Controller
             ->map(function ($item) {
                 return [
                     'name' => $item->product->select_option_name,
-                    'total_cost' => $item->stock_on_hand * $item->product->cost
+                    'total_cost' => $item->stock_on_hand * $item->product->cost,
+                    'quantity' => $item->stock_on_hand
                 ];
             });
+
 
 
         $accountPayableAll = StoreOrderItem::query()

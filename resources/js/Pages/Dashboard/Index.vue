@@ -266,7 +266,7 @@ const setChartDataHorizontal = () => {
                 label: "Top 10 Inventory Value by Item",
                 backgroundColor: documentStyle.getPropertyValue("--p-cyan-500"),
                 borderColor: documentStyle.getPropertyValue("--p-cyan-500"),
-                data: top_10.map((item) => item.total_cost),
+                data: top_10.map((item) => item.quantity),
             },
         ],
     };
