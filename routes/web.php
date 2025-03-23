@@ -12,6 +12,8 @@ use App\Http\Controllers\CostCenterController;
 use App\Http\Controllers\CostOfGoodController;
 use App\Http\Controllers\CSApprovalController;
 use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\DaysInventoryOutstanding;
+use App\Http\Controllers\DaysPayableOutStanding;
 use App\Http\Controllers\DeliveryScheduleController;
 use App\Http\Controllers\DirectReceivingController;
 use App\Http\Controllers\DTSController;
@@ -61,6 +63,20 @@ Route::get('jobs', function () {
 
 Route::middleware('auth')
     ->group(function () {
+
+        Route::controller(DaysPayableOutStanding::class)
+            ->name('days-payable-outstanding.')
+            ->prefix('days-payable-outstanding')
+            ->group(function () {
+                Route::get('/', 'index')->name('index');
+            });
+
+        Route::controller(DaysInventoryOutstanding::class)
+            ->name('days-inventory-outstanding.')
+            ->prefix('days-inventory-outstanding')
+            ->group(function () {
+                Route::get('/', 'index')->name('index');
+            });
 
         Route::controller(InventoryReportController::class)
             ->name('inventories-report.')
