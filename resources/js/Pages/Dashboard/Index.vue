@@ -501,6 +501,11 @@ watch(time_period, (value) => {
         time_period: value,
     });
 });
+
+const goToDPO = () => {
+    router.get(route("days-payable-outstanding.index"));
+    console.log("tes");
+};
 </script>
 <template>
     <Layout heading="Dashboard">
@@ -619,6 +624,7 @@ watch(time_period, (value) => {
                     :data="chartDataDoughnutAccountPayable"
                     :options="chartOptionsDoughnutAccountPayable"
                     class="h-[30rem]"
+                    @click="goToDPO"
                 />
 
                 <!-- Last row -->

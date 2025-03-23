@@ -218,6 +218,9 @@ const canViewReferenceGroup = hasAccess("manage references");
         <DropdownMenuLabel v-if="canViewReportsGroup">
             Reports
         </DropdownMenuLabel>
+        <NavLink href="/top-10-inventories" :icon="List">
+            Top 10 Inventories
+        </NavLink>
         <NavLink href="/days-inventory-outstanding" :icon="List">
             Days Inventory Outstanding
         </NavLink>

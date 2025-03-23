@@ -44,6 +44,7 @@ use App\Http\Controllers\StoreTransactionApprovalController;
 use App\Http\Controllers\StoreTransactionController;
 use App\Http\Controllers\SupplierController;
 use App\Http\Controllers\TestController;
+use App\Http\Controllers\Top10InventoriesController;
 use App\Http\Controllers\UnitOfMeasurementController;
 use App\Http\Controllers\UpcomingInventoryController;
 use App\Http\Controllers\UsageRecordController;
@@ -63,6 +64,13 @@ Route::get('jobs', function () {
 
 Route::middleware('auth')
     ->group(function () {
+
+        Route::controller(Top10InventoriesController::class)
+            ->name('top-10-inventories.')
+            ->prefix('top-10-inventories')
+            ->group(function () {
+                Route::get('/', 'index')->name('index');
+            });
 
         Route::controller(DaysPayableOutStanding::class)
             ->name('days-payable-outstanding.')
