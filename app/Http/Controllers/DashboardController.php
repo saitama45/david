@@ -33,93 +33,80 @@ class DashboardController extends Controller
         $branches = StoreBranch::options();
         $branch = request('branch') ?? $branches->keys()->first();
 
-        $user = User::rolesAndAssignedBranches();
 
-        $inventoriesQuery = ProductInventoryStockManager::query()
-            ->where('store_branch_id', $branch);
+        $inventories = $this->getInventories($branch, $time_period);
+        $upcomingInventories = $this->getUpcomingInventories($branch, $time_period);
+        $accountPayable = $this->getAccountPayable($branch, $time_period);
+        $sales = $this->getSales($branch, $time_period);
+        $cogs = $this->getCogs($branch, $time_period);
+        $begginingInventory = $this->getBeginningInventory($branch);
+        $endingInventory = $this->getEndingInventory($branch);
+        $cogsAll = ProductInventoryStockManager::where('store_branch_id', $branch)
+            ->where('total_cost', '<', 0)->sum(DB::raw('ABS(total_cost)'));
+        $averageInventory = ($begginingInventory + $endingInventory) / 2;
+        $dio = $this->getDaysInventoryOutstanding($cogsAll, $averageInventory);
+        $productInventoryStock = $this->getTop10Products($branch);
+        $dpo = $this->getDaysPayableOutstanding($branch, $cogsAll);
 
+        return Inertia::render('Dashboard/Index', [
+            'timePeriods' => $timePeriods,
+            'branches' => $branches,
+            'sales' => $sales,
+            'inventories' => $inventories,
+            'upcomingInventories' => $upcomingInventories,
+            'accountPayable' => $accountPayable,
+            'filters' => request()->only(['branch', 'time_period']),
+            'cogs' => $cogs,
+            'dio' => $dio,
+            'dpo' => $dpo,
+            'top_10' => $productInventoryStock
+        ]);
+    }
 
-        if ($time_period != 0) {
-            $inventoriesQuery->whereMonth('transaction_date', '<=', $time_period);
-        } else {
-            $inventoriesQuery->whereYear('transaction_date', Carbon::today()->year);
-        }
-
-        $inventories = number_format(
-            $inventoriesQuery->sum('total_cost'),
-            2,
-            '.',
-            ','
-        );
-
-        $upcomingInventories = StoreOrderItem::query()
-            ->join('product_inventories', 'store_order_items.product_inventory_id', '=', 'product_inventories.id')
-            ->join('store_orders', 'store_order_items.store_order_id', '=', 'store_orders.id')
-            ->where('store_orders.store_branch_id', $branch)
-            ->where('store_orders.order_status', 'commited');
-
-        if ($time_period != 0) {
-            $upcomingInventories->whereMonth('store_orders.order_date', $time_period);
-        } else {
-            $upcomingInventories->whereYear('store_orders.order_date', Carbon::today()->year);
-        }
-
-        $upcomingInventories = number_format(
-            $upcomingInventories->sum(DB::raw('store_order_items.quantity_commited * product_inventories.cost')),
-            2,
-            '.',
-            ','
-        );
-
-        $accountPayable = StoreOrderItem::query()
+    public function getDaysPayableOutstanding($branch, $cogsAll)
+    {
+        $accountPayableAll = StoreOrderItem::query()
             ->join('store_orders', 'store_order_items.store_order_id', '=', 'store_orders.id')
             ->join('product_inventories', 'store_order_items.product_inventory_id', '=', 'product_inventories.id')
             ->where('store_orders.store_branch_id', $branch)
-            ->where('store_order_items.quantity_received', '>', 0);
+            ->where('store_order_items.quantity_received', '>', 0)
+            ->sum(DB::raw('store_order_items.quantity_received * product_inventories.cost'));
 
-        if ($time_period != 0) {
-            $accountPayable->whereMonth('store_orders.order_date', $time_period);
-        } else {
-            $accountPayable->whereYear('store_orders.order_date', Carbon::today()->year);
-        }
+        return $cogsAll > 0 && $accountPayableAll > 0 ? ($accountPayableAll / $cogsAll) * 365 : 0;
+    }
 
-        $accountPayable = number_format(
-            $accountPayable->sum(DB::raw('store_order_items.quantity_received * product_inventories.cost')),
-            2,
-            '.',
-            ','
-        );
+    public function getTop10Products($branch)
+    {
+        return ProductInventoryStock::with('product')
+            ->where('store_branch_id', $branch)
+            ->select('*', DB::raw('(quantity - used) as stock_on_hand'))
+            ->orderBy('stock_on_hand', 'desc')
+            ->take(10)
+            ->get()
+            ->map(function ($item) {
+                return [
+                    'name' => $item->product->select_option_name,
+                    'total_cost' => $item->stock_on_hand * $item->product->cost,
+                    'quantity' => $item->stock_on_hand
+                ];
+            });
+    }
 
-        $sales = number_format(
-            StoreTransactionItem::whereHas('store_transaction', function ($query) use ($branch, $time_period) {
-                $time_period != 0 ? $query->whereMonth('order_date', $time_period) : $query->whereYear('order_date', Carbon::today()->year);
-                $query->where('store_branch_id', $branch);
-                // $query->where('is_approved', true);
-            })->sum('net_total'),
-            2,
-            '.',
-            ','
-        );
+    public function getDaysInventoryOutstanding($cogsAll, $averageInventory)
+    {
+        return $cogsAll > 0 ? ($averageInventory / $cogsAll) * 365 : 0;
+    }
 
-        $cogsQuery = ProductInventoryStockManager::where('store_branch_id', $branch)
-            ->where('total_cost', '<', 0);
+    public function getEndingInventory($branch)
+    {
+        return ProductInventoryStockManager::query()
+            ->where('store_branch_id', $branch)
+            ->sum('total_cost');
+    }
 
-        $cogsAll = $cogsQuery->sum(DB::raw('ABS(total_cost)'));
-
-        if ($time_period != 0) {
-            $cogsQuery->whereMonth('transaction_date', $time_period);
-        } else {
-            $cogsQuery->whereYear('transaction_date', Carbon::today()->year);
-        }
-
-        $cogs = number_format(
-            $cogsQuery->sum(DB::raw('ABS(total_cost)')),
-            2,
-            '.',
-            '0'
-        );
-
-        $begginingInventory = ProductInventoryStockManager::select('product_inventory_id')
+    public function getBeginningInventory($branch)
+    {
+        return ProductInventoryStockManager::select('product_inventory_id')
             ->where('store_branch_id', $branch)
             ->selectRaw('MIN(id) as first_transaction_id')
             ->where('quantity', '>', 0)
@@ -136,66 +123,102 @@ class DashboardController extends Controller
                 ];
             })
             ->sum('total_cost');
+    }
 
+    public function getCogs($branch, $time_period)
+    {
+        $cogsQuery = ProductInventoryStockManager::where('store_branch_id', $branch)
+            ->where('total_cost', '<', 0);
 
-
-        $averageInventoryQuery = ProductInventoryStockManager::query()
-            ->where('store_branch_id', $branch);
-
-
-
-        $averageInventory = ($begginingInventory + $averageInventoryQuery->sum('total_cost')) / 2;
-
-        if ($cogsAll > 0) {
-            $dio = ($averageInventory / $cogsAll) * 365;
+        if ($time_period != 0) {
+            $cogsQuery->whereMonth('transaction_date', $time_period);
         } else {
-            $dio = "0";
+            $cogsQuery->whereYear('transaction_date', Carbon::today()->year);
         }
 
+        return number_format(
+            $cogsQuery->sum(DB::raw('ABS(total_cost)')),
+            2,
+            '.',
+            '0'
+        );
+    }
 
+    public function getSales($branch, $time_period)
+    {
+        return number_format(
+            StoreTransactionItem::whereHas('store_transaction', function ($query) use ($branch, $time_period) {
+                $time_period != 0 ? $query->whereMonth('order_date', $time_period) : $query->whereYear('order_date', Carbon::today()->year);
+                $query->where('store_branch_id', $branch);
+            })->sum('net_total'),
+            2,
+            '.',
+            ','
+        );
+    }
 
-        $productInventoryStock = ProductInventoryStock::with('product')
-            ->where('store_branch_id', $branch)
-            ->select('*', DB::raw('(quantity - used) as stock_on_hand'))
-            ->orderBy('stock_on_hand', 'desc')
-            ->take(10)
-            ->get()
-            ->map(function ($item) {
-                return [
-                    'name' => $item->product->select_option_name,
-                    'total_cost' => $item->stock_on_hand * $item->product->cost,
-                    'quantity' => $item->stock_on_hand
-                ];
-            });
-
-
-
-        $accountPayableAll = StoreOrderItem::query()
+    public function getAccountPayable($branch, $time_period)
+    {
+        $accountPayable = StoreOrderItem::query()
             ->join('store_orders', 'store_order_items.store_order_id', '=', 'store_orders.id')
             ->join('product_inventories', 'store_order_items.product_inventory_id', '=', 'product_inventories.id')
             ->where('store_orders.store_branch_id', $branch)
-            ->where('store_order_items.quantity_received', '>', 0)
-            ->sum(DB::raw('store_order_items.quantity_received * product_inventories.cost'));
+            ->where('store_order_items.quantity_received', '>', 0);
 
-        if ($cogsAll > 0 && $accountPayableAll > 0) {
-            $dpo = ($accountPayableAll / $cogsAll) * 365;
+        if ($time_period != 0) {
+            $accountPayable->whereMonth('store_orders.order_date', $time_period);
         } else {
-            $dpo = "0";
+            $accountPayable->whereYear('store_orders.order_date', Carbon::today()->year);
         }
 
-        return Inertia::render('Dashboard/Index', [
-            'timePeriods' => $timePeriods,
-            'branches' => $branches,
-            'sales' => $sales,
-            'inventories' => $inventories,
-            'upcomingInventories' => $upcomingInventories,
-            'accountPayable' => $accountPayable,
-            'filters' => request()->only(['branch', 'time_period']),
-            'cogs' => $cogs,
-            'dio' => $dio,
-            'dpo' => $dpo,
-            'top_10' => $productInventoryStock
-        ]);
+        return number_format(
+            $accountPayable->sum(DB::raw('store_order_items.quantity_received * product_inventories.cost')),
+            2,
+            '.',
+            ','
+        );
+    }
+
+    public function getUpcomingInventories($branch, $time_period)
+    {
+        $upcomingInventories = StoreOrderItem::query()
+            ->join('product_inventories', 'store_order_items.product_inventory_id', '=', 'product_inventories.id')
+            ->join('store_orders', 'store_order_items.store_order_id', '=', 'store_orders.id')
+            ->where('store_orders.store_branch_id', $branch)
+            ->where('store_orders.order_status', 'commited');
+
+        if ($time_period != 0) {
+            $upcomingInventories->whereMonth('store_orders.order_date', $time_period);
+        } else {
+            $upcomingInventories->whereYear('store_orders.order_date', Carbon::today()->year);
+        }
+
+        return number_format(
+            $upcomingInventories->sum(DB::raw('store_order_items.quantity_commited * product_inventories.cost')),
+            2,
+            '.',
+            ','
+        );
+    }
+
+    public function getInventories($branch, $time_period)
+    {
+        $inventoriesQuery = ProductInventoryStockManager::query()
+            ->where('store_branch_id', $branch);
+
+
+        if ($time_period != 0) {
+            $inventoriesQuery->whereMonth('transaction_date', '<=', $time_period);
+        } else {
+            $inventoriesQuery->whereYear('transaction_date', Carbon::today()->year);
+        }
+
+        return number_format(
+            $inventoriesQuery->sum('total_cost'),
+            2,
+            '.',
+            ','
+        );
     }
 
     public function getHighStockProducts($branchId)
