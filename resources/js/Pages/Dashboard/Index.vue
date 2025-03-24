@@ -252,7 +252,6 @@ const setChartOptionsDoughnutAccountPayable = () => {
 };
 
 // Horizontal
-
 const chartDataHorizontal = ref();
 const chartOptionsHorizontal = ref();
 
@@ -396,7 +395,6 @@ const setChartOptionsLine = () => {
 };
 
 // Stacked
-
 const chartDataStacked = ref();
 const chartOptionsStacked = ref();
 
@@ -504,7 +502,16 @@ watch(time_period, (value) => {
 
 const goToDPO = () => {
     router.get(route("days-payable-outstanding.index"));
-    console.log("tes");
+};
+
+const goToTop10 = () => {
+    router.get(
+        computed(() =>
+            route("top-10-inventories.index", {
+                branchId: branch.value,
+            })
+        ).value
+    );
 };
 </script>
 <template>
@@ -617,6 +624,7 @@ const goToDPO = () => {
                     :data="chartDataHorizontal"
                     :options="chartOptionsHorizontal"
                     class="row-span-2"
+                    @click="goToTop10"
                 />
 
                 <Chart
