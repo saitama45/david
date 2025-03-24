@@ -6,6 +6,7 @@ use App\Exports\StockManagementListExport;
 use App\Exports\StockManagementLogUsageExport;
 use App\Exports\StockManagementUpdateExport;
 use App\Imports\UpdateStockManagementAddQuantityImport;
+use App\Imports\UpdateStockManagementLogUsageImport;
 use App\Models\CostCenter;
 use App\Models\ProductInventory;
 use App\Models\ProductInventoryStock;
@@ -184,6 +185,15 @@ class StockManagementController extends Controller
             'branch' => ['required'],
         ]);
         Excel::import(new UpdateStockManagementAddQuantityImport($validated['branch']), $validated['file']);
+    }
+
+    public function importLogUsage(Request $request)
+    {
+        $validated = $request->validate([
+            'file' => ['required', 'file', 'mimes:xlsx'],
+            'branch' => ['required'],
+        ]);
+        Excel::import(new UpdateStockManagementLogUsageImport($validated['branch']), $validated['file']);
     }
 
     public function addQuantity(Request $request)

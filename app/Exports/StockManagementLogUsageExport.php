@@ -23,6 +23,7 @@ class StockManagementLogUsageExport implements FromCollection, WithHeadings, Wit
         return ProductInventory::get()
             ->map(function ($item) {
                 return [
+                    'id' => $item->id,
                     'name' => $item->name,
                     'inventory_code' => $item->inventory_code,
                     'quantity' => 0,
@@ -35,6 +36,7 @@ class StockManagementLogUsageExport implements FromCollection, WithHeadings, Wit
     public function headings(): array
     {
         return [
+            'ID',
             'Product Name',
             'Inventory Code',
             'Quantity',
@@ -47,12 +49,13 @@ class StockManagementLogUsageExport implements FromCollection, WithHeadings, Wit
     public function map($row): array
     {
         return [
+            $row['id'],
             $row['name'],
             $row['inventory_code'],
             $row['quantity'],
-            '',
+            '', // Cost Center (column E)
             $row['transaction_date'],
-            ''
+            '' // Remarks
         ];
     }
 
@@ -87,8 +90,8 @@ class StockManagementLogUsageExport implements FromCollection, WithHeadings, Wit
                 $lastRow = count($costCenters) + 1;
                 $workbook->addNamedRange(new NamedRange('CostCenterNames', $lookupSheet, '$B$2:$B$' . $lastRow));
 
-                // Apply dropdown validation on the main sheet
-                $validation = $sheet->getCell('D2')->getDataValidation();
+                // Apply dropdown validation on the main sheet for Cost Center column (E)
+                $validation = $sheet->getCell('E2')->getDataValidation();
                 $validation->setType(DataValidation::TYPE_LIST);
                 $validation->setErrorStyle(DataValidation::STYLE_INFORMATION);
                 $validation->setAllowBlank(false);
@@ -99,18 +102,20 @@ class StockManagementLogUsageExport implements FromCollection, WithHeadings, Wit
 
                 // Copy validation to all rows
                 for ($i = 2; $i <= $rowCount; $i++) {
-                    $sheet->getCell('D' . $i)->setDataValidation(clone $validation);
+                    $sheet->getCell('E' . $i)->setDataValidation(clone $validation);
                 }
 
                 // Add a helper column to lookup the ID value (hidden)
-                $sheet->setCellValue('G1', 'Cost Center ID');
+                // Create a separate hidden column H for Cost Center ID
+                $sheet->setCellValue('H1', 'Cost Center ID');
                 for ($i = 2; $i <= $rowCount; $i++) {
-                    $sheet->setCellValue('G' . $i, '=VLOOKUP(D' . $i . ',CostCenterLookup!$B$2:$A$' . $lastRow . ',2,FALSE)');
+                    // Use column E (Cost Center) in the VLOOKUP formula
+                    $sheet->setCellValue('H' . $i, '=VLOOKUP(E' . $i . ',CostCenterLookup!$B$2:$A$' . $lastRow . ',2,FALSE)');
                 }
 
                 // Hide the lookup sheet and helper column
                 $lookupSheet->setSheetState(\PhpOffice\PhpSpreadsheet\Worksheet\Worksheet::SHEETSTATE_HIDDEN);
-                $sheet->getColumnDimension('G')->setVisible(false);
+                $sheet->getColumnDimension('H')->setVisible(false);
             }
         ];
     }

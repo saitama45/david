@@ -214,8 +214,12 @@ const updateImport = () => {
             severity: "success",
         },
         accept: () => {
+            const routeLocation =
+                form.action == "add-quantity"
+                    ? "stock-management.import-add"
+                    : "stock-management.import-log-usage";
             axios
-                .post(route("stock-management.import-add"), updateForm, {
+                .post(route(routeLocation), updateForm, {
                     headers: {
                         "Content-Type": "multipart/form-data",
                     },
@@ -232,9 +236,10 @@ const updateImport = () => {
                     toast.add({
                         severity: "error",
                         summary: "Error",
-                        detail: "Stock Updated Successfully.",
+                        detail: "An erro has occured while updating the stock.",
                         life: 3000,
                     });
+                    console.log(err);
                 });
         },
     });
