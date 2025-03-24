@@ -359,6 +359,9 @@ Route::middleware('auth')
             Route::middleware('permission:log stock usage')->post('/log-usage', 'logUsage')->name('log-usage');
             Route::middleware('permission:add stock quantity')->post('/add-quantity', 'addQuantity')->name('add-quantity');
             Route::middleware('permission:view stock management')->get('export', 'export')->name('export');
+
+
+            Route::get('/export/add', 'exportAdd')->name('export-add');
         });
 
         Route::controller(ExcelTemplateController::class)
