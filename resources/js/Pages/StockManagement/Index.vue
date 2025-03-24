@@ -3,7 +3,7 @@ import { useSelectOptions } from "@/Composables/useSelectOptions";
 import { usePage, router, useForm } from "@inertiajs/vue3";
 
 import { throttle } from "lodash";
-
+import { ref } from "vue";
 import { useConfirm } from "primevue/useconfirm";
 import { useToast } from "@/Composables/useToast";
 const confirm = useConfirm();
@@ -170,11 +170,51 @@ const exportRoute = computed(() =>
     })
 );
 
-watch(branchId, (value) => {
-    console.log(exportRoute);
-});
+const isUpdateModalVisible = ref(false);
+const openUpdateModal = () => {
+    isUpdateModalVisible.value = true;
+};
 </script>
 <template>
+    <Dialog v-model:open="isUpdateModalVisible">
+        <DialogContent class="sm:max-w-[600px]">
+            <DialogHeader>
+                <DialogTitle>Update Stock</DialogTitle>
+                <DialogDescription>
+                    Please input all the required fields.
+                </DialogDescription>
+            </DialogHeader>
+            <InputContainer>
+                <Label>Store Branch</Label>
+                <Select
+                    filter
+                    class="min-w-72"
+                    placeholder="Select a Supplier"
+                    :options="branchesOptions"
+                    optionLabel="label"
+                    optionValue="value"
+                    v-model="branchId"
+                    disabled
+                />
+            </InputContainer>
+            <InputContainer>
+                <Label>Excel File</Label>
+                <Input type="file" />
+            </InputContainer>
+            <InputContainer>
+                <LabelXS
+                    >Accepted Excel File Format:
+                    <a href="" class="text-blue-500 underline"
+                        >Click Me</a
+                    ></LabelXS
+                >
+            </InputContainer>
+            <DivFlexCenter class="justify-end">
+                <Button>Submit</Button>
+            </DivFlexCenter>
+        </DialogContent>
+    </Dialog>
+
     <Layout
         heading="Stock Management"
         :hasExcelDownload="true"
@@ -189,16 +229,19 @@ watch(branchId, (value) => {
                         v-model="search"
                     />
                 </SearchBar>
-                <Select
-                    filter
-                    class="min-w-72"
-                    placeholder="Select a Supplier"
-                    :options="branchesOptions"
-                    optionLabel="label"
-                    optionValue="value"
-                    v-model="branchId"
-                >
-                </Select>
+                <DivFlexCenter class="gap-3">
+                    <Select
+                        filter
+                        class="min-w-72"
+                        placeholder="Select a Supplier"
+                        :options="branchesOptions"
+                        optionLabel="label"
+                        optionValue="value"
+                        v-model="branchId"
+                    >
+                    </Select>
+                    <Button @click="openUpdateModal">Update Stock</Button>
+                </DivFlexCenter>
             </DivFlexCenter>
             <Table>
                 <TableHead>
