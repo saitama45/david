@@ -2,7 +2,7 @@
 import { useSelectOptions } from "@/Composables/useSelectOptions";
 import { usePage, router, useForm } from "@inertiajs/vue3";
 
-import { throttle } from "lodash";
+import { throttle, update } from "lodash";
 import { ref } from "vue";
 import { useConfirm } from "primevue/useconfirm";
 import { useToast } from "@/Composables/useToast";
@@ -188,8 +188,8 @@ const options = [
 
 const updateForm = useForm({
     action: null,
-    store_branch_id: null,
-    excel_file: null,
+    branch: branchId.value,
+    file: null,
 });
 const action = ref(null);
 watch(
@@ -198,6 +198,47 @@ watch(
         console.log(value);
     }
 );
+
+const updateImport = () => {
+    confirm.require({
+        message: "Are you sure you want to update the stock?",
+        header: "Confirmation",
+        icon: "pi pi-exclamation-triangle",
+        rejectProps: {
+            label: "Cancel",
+            severity: "secondary",
+            outlined: true,
+        },
+        acceptProps: {
+            label: "Confirm",
+            severity: "success",
+        },
+        accept: () => {
+            axios
+                .post(route("stock-management.import-add"), updateForm, {
+                    headers: {
+                        "Content-Type": "multipart/form-data",
+                    },
+                })
+                .then((response) => {
+                    toast.add({
+                        severity: "success",
+                        summary: "Success",
+                        detail: "Stock Updated Successfully.",
+                        life: 3000,
+                    });
+                })
+                .catch((err) => {
+                    toast.add({
+                        severity: "error",
+                        summary: "Error",
+                        detail: "Stock Updated Successfully.",
+                        life: 3000,
+                    });
+                });
+        },
+    });
+};
 </script>
 <template>
     <Dialog v-model:open="isUpdateModalVisible">
@@ -242,7 +283,10 @@ watch(
             </InputContainer>
             <InputContainer>
                 <Label>Excel File</Label>
-                <Input type="file" />
+                <Input
+                    type="file"
+                    @input="updateForm.file = $event.target.files[0]"
+                />
             </InputContainer>
             <InputContainer>
                 <LabelXS>Accepted Excel File Format: </LabelXS>
@@ -259,7 +303,7 @@ watch(
                 >
             </InputContainer>
             <DivFlexCenter class="justify-end">
-                <Button>Submit</Button>
+                <Button @click="updateImport">Submit</Button>
             </DivFlexCenter>
         </DialogContent>
     </Dialog>

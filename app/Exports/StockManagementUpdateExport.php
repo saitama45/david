@@ -20,6 +20,7 @@ class StockManagementUpdateExport implements FromCollection, WithHeadings, WithM
         return ProductInventory::get()
             ->map(function ($item) {
                 return [
+                    'id' => $item->id,
                     'name' => $item->name,
                     'inventory_code' => $item->inventory_code,
                     'quantity' => 0,
@@ -32,6 +33,7 @@ class StockManagementUpdateExport implements FromCollection, WithHeadings, WithM
     public function headings(): array
     {
         return [
+            'ID',
             'Product Name',
             'Inventory Code',
             'Quantity',
@@ -44,6 +46,7 @@ class StockManagementUpdateExport implements FromCollection, WithHeadings, WithM
     public function map($row): array
     {
         return [
+            $row['id'],
             $row['name'],
             $row['inventory_code'],
             $row['quantity'],

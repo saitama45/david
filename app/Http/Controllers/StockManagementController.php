@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Exports\StockManagementListExport;
 use App\Exports\StockManagementLogUsageExport;
 use App\Exports\StockManagementUpdateExport;
+use App\Imports\UpdateStockManagementAddQuantityImport;
 use App\Models\CostCenter;
 use App\Models\ProductInventory;
 use App\Models\ProductInventoryStock;
@@ -124,7 +125,7 @@ class StockManagementController extends Controller
     {
         return Excel::download(
             new StockManagementLogUsageExport(),
-            'stock-management-add-' . now()->format('Y-m-d') . '.xlsx'
+            'stock-management-log-usage-' . now()->format('Y-m-d') . '.xlsx'
         );
     }
 
@@ -174,6 +175,15 @@ class StockManagementController extends Controller
         $this->handleInventoryUsage($validated);
 
         DB::commit();
+    }
+
+    public function importAdd(Request $request)
+    {
+        $validated = $request->validate([
+            'file' => ['required', 'file', 'mimes:xlsx'],
+            'branch' => ['required'],
+        ]);
+        Excel::import(new UpdateStockManagementAddQuantityImport($validated['branch']), $validated['file']);
     }
 
     public function addQuantity(Request $request)
