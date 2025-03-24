@@ -513,6 +513,16 @@ const goToTop10 = () => {
         ).value
     );
 };
+
+const goToDIO = () => {
+    router.get(
+        computed(() =>
+            route("days-inventory-outstanding.index", {
+                branchId: branch.value,
+            })
+        ).value
+    );
+};
 </script>
 <template>
     <Layout heading="Dashboard">
@@ -617,6 +627,7 @@ const goToTop10 = () => {
                     :data="chartDataDoughnut"
                     :options="chartOptionsDoughnut"
                     class="h-[30rem]"
+                    @click="goToDIO"
                 />
 
                 <Chart
