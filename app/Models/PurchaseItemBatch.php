@@ -13,6 +13,7 @@ class PurchaseItemBatch extends Model
     protected $fillable = [
         'cash_pull_out_item_id',
         'store_order_item_id',
+        'store_branch_id',
         'product_inventory_id',
         'purchase_date',
         'quantity',

@@ -164,6 +164,7 @@ class OrderReceivingController extends Controller
         $batch = PurchaseItemBatch::create([
             'store_order_item_id' => $data->store_order_item->id,
             'product_inventory_id' => $item->id,
+            'store_branch_id' => $storeOrder->store_branch_id,
             'purchase_date' => Carbon::today()->format('Y-m-d'),
             'quantity' => $data->quantity_received,
             'unit_cost' => $data->store_order_item->cost_per_quantity,

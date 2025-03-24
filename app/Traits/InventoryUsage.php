@@ -15,6 +15,7 @@ trait InventoryUsage
         $accumulatedQuantity = 0;
         while ($quantityUsed != $accumulatedQuantity) {
             $batch = PurchaseItemBatch::where('remaining_quantity', '>', 0)
+                ->where('store_branch_id', $data['store_branch_id'])
                 ->where('product_inventory_id', $data['id'])
                 ->orderBy('purchase_date', 'asc')
                 ->first();

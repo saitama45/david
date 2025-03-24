@@ -47,6 +47,7 @@ class UpdateStockManagementAddQuantityImport implements ToCollection, WithHeadin
                 $batch = PurchaseItemBatch::create([
                     'product_inventory_id' => $row['id'],
                     'purchase_date' => $row['transaction_date'],
+                    'store_branch_id' => $this->branch,
                     'quantity' => $row['quantity'],
                     'unit_cost' => $row['unit_cost'],
                     'remaining_quantity' => $row['quantity']

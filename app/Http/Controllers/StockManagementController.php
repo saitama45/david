@@ -214,6 +214,7 @@ class StockManagementController extends Controller
         $batch = PurchaseItemBatch::create([
             'product_inventory_id' => $validated['id'],
             'purchase_date' => $validated['transaction_date'],
+            'store_branch_id' => $validated['store_branch_id'],
             'quantity' => $validated['quantity'],
             'unit_cost' => $validated['unit_cost'],
             'remaining_quantity' => $validated['quantity']

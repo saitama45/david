@@ -55,6 +55,7 @@ class DirectReceivingController extends Controller
             $batch = PurchaseItemBatch::create([
                 'cash_pull_out_item_id' => $cashPullOutItem->id,
                 'product_inventory_id' => $order['id'],
+                'store_branch_id' => $cashPullOut->store_branch_id,
                 'purchase_date' => $cashPullOut->date_needed,
                 'quantity' =>  $order['quantity'],
                 'unit_cost' => $order['cost'],

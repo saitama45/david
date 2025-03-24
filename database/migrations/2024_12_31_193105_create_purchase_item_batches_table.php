@@ -15,6 +15,7 @@ return new class extends Migration
             $table->id();
             $table->foreignId('cash_pull_out_item_id')->nullable()->constrained('cash_pull_out_items');
             $table->foreignId('store_order_item_id')->nullable()->constrained('store_order_items');
+            $table->foreignId('store_branch_id')->constrained('store_branches');
             $table->foreignId('product_inventory_id')->constrained('product_inventories')->cascadeOnDelete();
             $table->date('purchase_date');
             $table->float('quantity');

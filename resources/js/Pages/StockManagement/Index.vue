@@ -215,9 +215,11 @@ const updateImport = () => {
         },
         accept: () => {
             const routeLocation =
-                form.action == "add-quantity"
+            updateForm.action == "add-quantity"
                     ? "stock-management.import-add"
                     : "stock-management.import-log-usage";
+
+                    console.log(routeLocation);
             axios
                 .post(route(routeLocation), updateForm, {
                     headers: {
