@@ -174,6 +174,30 @@ const isUpdateModalVisible = ref(false);
 const openUpdateModal = () => {
     isUpdateModalVisible.value = true;
 };
+
+const options = [
+    {
+        label: "Add Quantity",
+        value: "add-quantity",
+    },
+    {
+        label: "Log Usage",
+        value: "log-usage",
+    },
+];
+
+const updateForm = useForm({
+    action: null,
+    store_branch_id: null,
+    excel_file: null,
+});
+const action = ref(null);
+watch(
+    () => updateForm.action,
+    (value) => {
+        console.log(value);
+    }
+);
 </script>
 <template>
     <Dialog v-model:open="isUpdateModalVisible">
@@ -184,6 +208,25 @@ const openUpdateModal = () => {
                     Please input all the required fields.
                 </DialogDescription>
             </DialogHeader>
+            <InputContainer>
+                <Label>Action</Label>
+                <SelectShad v-model="updateForm.action">
+                    <SelectTrigger>
+                        <SelectValue placeholder="Select from options" />
+                    </SelectTrigger>
+                    <SelectContent>
+                        <SelectGroup>
+                            <SelectLabel>Options</SelectLabel>
+                            <SelectItem
+                                v-for="variant in options"
+                                :value="variant.value"
+                            >
+                                {{ variant.label }}
+                            </SelectItem>
+                        </SelectGroup>
+                    </SelectContent>
+                </SelectShad>
+            </InputContainer>
             <InputContainer>
                 <Label>Store Branch</Label>
                 <Select
@@ -202,11 +245,17 @@ const openUpdateModal = () => {
                 <Input type="file" />
             </InputContainer>
             <InputContainer>
-                <LabelXS
-                    >Accepted Excel File Format:
-                    <a href="" class="text-blue-500 underline"
-                        >Click Me</a
-                    ></LabelXS
+                <LabelXS>Accepted Excel File Format: </LabelXS>
+                <a
+                    :href="route('stock-management.export-add')"
+                    class="text-xs text-blue-500 underline"
+                    >Add Quantity</a
+                >
+
+                <a
+                    :href="route('stock-management.export-log')"
+                    class="text-xs text-blue-500 underline"
+                    >Log Usage</a
                 >
             </InputContainer>
             <DivFlexCenter class="justify-end">
