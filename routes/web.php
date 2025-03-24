@@ -362,6 +362,7 @@ Route::middleware('auth')
 
 
             Route::get('/export/add', 'exportAdd')->name('export-add');
+            Route::get('/export/log', 'exportLog')->name('export-log');
         });
 
         Route::controller(ExcelTemplateController::class)

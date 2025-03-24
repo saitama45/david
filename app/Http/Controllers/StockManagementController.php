@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Exports\StockManagementListExport;
+use App\Exports\StockManagementLogUsageExport;
 use App\Exports\StockManagementUpdateExport;
 use App\Models\CostCenter;
 use App\Models\ProductInventory;
@@ -113,9 +114,16 @@ class StockManagementController extends Controller
 
     public function exportAdd()
     {
-        $branchId = request('branchId');
         return Excel::download(
-            new StockManagementUpdateExport($branchId),
+            new StockManagementUpdateExport(),
+            'stock-management-add-' . now()->format('Y-m-d') . '.xlsx'
+        );
+    }
+
+    public function exportLog()
+    {
+        return Excel::download(
+            new StockManagementLogUsageExport(),
             'stock-management-add-' . now()->format('Y-m-d') . '.xlsx'
         );
     }
