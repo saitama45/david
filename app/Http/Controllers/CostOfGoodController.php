@@ -19,7 +19,7 @@ class CostOfGoodController extends Controller
         $timePeriods = TimePeriod::values();
         $time_period = request('time_period') ?? $timePeriods[1];
 
-        $query = ProductInventoryStockManager::with('cost_center')
+        $query = ProductInventoryStockManager::with(['cost_center', 'product'])
             ->where('store_branch_id', $branchId)
             ->where('total_cost', '<', 0);
 
@@ -28,7 +28,7 @@ class CostOfGoodController extends Controller
         } else {
             $query->whereYear('transaction_date', Carbon::today()->year);
         }
-        
+
         $costOfGoods = $query->latest()
             ->paginate(10);
         return Inertia::render('CostOfGood/Index', [

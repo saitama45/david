@@ -4,7 +4,6 @@ import { usePage } from "@inertiajs/vue3";
 import { throttle } from "lodash";
 import { router } from "@inertiajs/vue3";
 const { costOfGoods, branches, timePeriods, filters } = defineProps({
-    
     costOfGoods: {
         type: Object,
         required: true,
@@ -117,7 +116,8 @@ watch(
             </TableHeader>
             <Table>
                 <TableHead>
-                    <TH>ID</TH>
+                    <TH>Item</TH>
+                    <TH>Inventory Code</TH>
                     <TH>Quantity</TH>
                     <TH>Cost Center</TH>
                     <TH>Unit Cost</TH>
@@ -126,7 +126,8 @@ watch(
                 </TableHead>
                 <TableBody>
                     <tr v-for="costOfGood in costOfGoods.data">
-                        <TD>{{ costOfGood.id }}</TD>
+                        <TD>{{ costOfGood.product.name }}</TD>
+                        <TD>{{ costOfGood.product.inventory_code }}</TD>
                         <TD>{{ costOfGood.quantity }}</TD>
                         <TD>{{ costOfGood.cost_center?.name ?? "N/a" }}</TD>
                         <TD>{{ costOfGood.unit_cost }}</TD>

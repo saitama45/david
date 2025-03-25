@@ -22,19 +22,22 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Mail;
 use Inertia\Inertia;
+use PhpOffice\PhpSpreadsheet\Calculation\Database\DStDevP;
 
 class DashboardController extends Controller
 {
     public function index()
     {
         $timePeriods = TimePeriod::values();
-        $time_period = request('time_period') ?? $timePeriods[1];
+        $time_period = request('time_period') ?? 0;
+
 
         $branches = StoreBranch::options();
         $branch = request('branch') ?? $branches->keys()->first();
 
 
         $inventories = $this->getInventories($branch, $time_period);
+
         $upcomingInventories = $this->getUpcomingInventories($branch, $time_period);
         $accountPayable = $this->getAccountPayable($branch, $time_period);
         $sales = $this->getSales($branch, $time_period);
@@ -140,7 +143,7 @@ class DashboardController extends Controller
             $cogsQuery->sum(DB::raw('ABS(total_cost)')),
             2,
             '.',
-            '0'
+            ','
         );
     }
 
@@ -212,6 +215,7 @@ class DashboardController extends Controller
         } else {
             $inventoriesQuery->whereYear('transaction_date', Carbon::today()->year);
         }
+
 
         return number_format(
             $inventoriesQuery->sum('total_cost'),
