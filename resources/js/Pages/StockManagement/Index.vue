@@ -199,53 +199,80 @@ watch(
     }
 );
 
-const updateImport = () => {
-    confirm.require({
-        message: "Are you sure you want to update the stock?",
-        header: "Confirmation",
-        icon: "pi pi-exclamation-triangle",
-        rejectProps: {
-            label: "Cancel",
-            severity: "secondary",
-            outlined: true,
-        },
-        acceptProps: {
-            label: "Confirm",
-            severity: "success",
-        },
-        accept: () => {
-            const routeLocation =
-            updateForm.action == "add-quantity"
-                    ? "stock-management.import-add"
-                    : "stock-management.import-log-usage";
+const isLoading = ref(false);
 
-                    console.log(routeLocation);
-            axios
-                .post(route(routeLocation), updateForm, {
-                    headers: {
-                        "Content-Type": "multipart/form-data",
-                    },
-                })
-                .then((response) => {
-                    toast.add({
-                        severity: "success",
-                        summary: "Success",
-                        detail: "Stock Updated Successfully.",
-                        life: 3000,
-                    });
-                })
-                .catch((err) => {
+const updateImport = () => {
+    const routeLocation =
+        updateForm.action == "add-quantity"
+            ? "stock-management.import-add"
+            : "stock-management.import-log-usage";
+
+    isLoading.value = true;
+
+    axios
+        .post(route(routeLocation), updateForm, {
+            headers: {
+                "Content-Type": "multipart/form-data",
+            },
+        })
+        .then((response) => {
+            // Check for any import errors
+            if (response.data.errors && response.data.errors.length > 0) {
+                // Show detailed error messages
+                response.data.errors.forEach((error) => {
                     toast.add({
                         severity: "error",
-                        summary: "Error",
-                        detail: "An erro has occured while updating the stock.",
+                        summary: "Import Error",
+                        detail: error,
+                        life: 5000,
+                    });
+                });
+
+                // If some data was imported successfully
+                if (
+                    response.data.imported &&
+                    response.data.imported.length > 0
+                ) {
+                    toast.add({
+                        severity: "warning",
+                        summary: "Partial Import",
+                        detail: `Successfully imported ${response.data.imported.length} rows`,
                         life: 3000,
                     });
-                    console.log(err);
+                }
+            } else {
+                // Successful import
+                toast.add({
+                    severity: "success",
+                    summary: "Success",
+                    detail: "Stock Updated Successfully.",
+                    life: 3000,
                 });
-        },
-    });
+            }
+        })
+        .catch((err) => {
+            // Handle network or server errors
+            toast.add({
+                severity: "error",
+                summary: "Error",
+                detail:
+                    err.response?.data?.message ||
+                    "An unexpected error occurred during import.",
+                life: 3000,
+            });
+        })
+        .finally(() => {
+            isUpdateModalVisible.value = false;
+            isLoading.value = false;
+        });
 };
+
+watch(isUpdateModalVisible, (value) => {
+    if (!value) {
+        updateForm.reset();
+        updateForm.clearErrors();
+    }
+});
 </script>
 <template>
     <Dialog v-model:open="isUpdateModalVisible">
@@ -310,7 +337,10 @@ const updateImport = () => {
                 >
             </InputContainer>
             <DivFlexCenter class="justify-end">
-                <Button @click="updateImport">Submit</Button>
+                <Button :disabled="isLoading" @click="updateImport"
+                    >Submit
+                    <span class="ml-1" v-if="isLoading"><Loading /></span
+                ></Button>
             </DivFlexCenter>
         </DialogContent>
     </Dialog>

@@ -176,6 +176,8 @@ class StockManagementController extends Controller
         $this->handleInventoryUsage($validated);
 
         DB::commit();
+
+        return back();
     }
 
     public function importAdd(Request $request)
@@ -184,7 +186,15 @@ class StockManagementController extends Controller
             'file' => ['required', 'file', 'mimes:xlsx'],
             'branch' => ['required'],
         ]);
-        Excel::import(new UpdateStockManagementAddQuantityImport($validated['branch']), $validated['file']);
+        $import = new UpdateStockManagementAddQuantityImport($validated['branch']);
+
+        Excel::import($import, $validated['file']);
+
+
+        return response()->json([
+            'imported' => $import->getImportedData(),
+            'errors' => $import->getErrors()
+        ]);
     }
 
     public function importLogUsage(Request $request)
@@ -193,7 +203,13 @@ class StockManagementController extends Controller
             'file' => ['required', 'file', 'mimes:xlsx'],
             'branch' => ['required'],
         ]);
-        Excel::import(new UpdateStockManagementLogUsageImport($validated['branch']), $validated['file']);
+        $import = new UpdateStockManagementLogUsageImport($validated['branch']);
+        Excel::import($import, $validated['file']);
+
+        return response()->json([
+            'imported' => $import->getImportedData(),
+            'errors' => $import->getErrors()
+        ]);
     }
 
     public function addQuantity(Request $request)
