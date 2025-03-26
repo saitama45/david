@@ -26,35 +26,6 @@ class UpdateStockManagementLogUsageImport implements ToCollection, WithHeadingRo
 
     public function collection(Collection $collection)
     {
-        // Check if the collection is empty
-        if ($collection->isEmpty()) {
-            $this->errors[] = "The uploaded file is empty.";
-            return;
-        }
-
-        // Get the first row's headings
-        $headings = $collection->first()->keys()->map(function ($heading) {
-            return strtolower(trim($heading));
-        })->toArray();
-
-        // More robust heading check
-        $missingColumns = [];
-        if (!in_array('id', $headings)) {
-            $missingColumns[] = 'id';
-        }
-        if (!in_array('cost_center', $headings)) {
-            $missingColumns[] = 'cost_center';
-        }
-        if (!in_array('quantity', $headings)) {
-            $missingColumns[] = 'quantity';
-        }
-
-        // If any required columns are missing, stop the import
-        if (!empty($missingColumns)) {
-            $this->errors[] = "Missing required columns: " . implode(', ', $missingColumns);
-            $this->errors[] = "Existing columns: " . implode(', ', $headings);
-            return;
-        }
 
         $costCenters = CostCenter::pluck('id', 'name')->toArray();
 
