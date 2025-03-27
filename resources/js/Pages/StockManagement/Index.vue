@@ -207,6 +207,8 @@ const updateImport = () => {
             ? "stock-management.import-add"
             : "stock-management.import-log-usage";
 
+    updateForm.branch = branchId.value;
+
     isLoading.value = true;
 
     axios
@@ -216,6 +218,7 @@ const updateImport = () => {
             },
         })
         .then((response) => {
+            console.log(response);
             // Check for any import errors
             if (response.data.errors && response.data.errors.length > 0) {
                 // Show detailed error messages
@@ -251,6 +254,7 @@ const updateImport = () => {
             }
         })
         .catch((err) => {
+            console.log(err);
             // Handle network or server errors
             toast.add({
                 severity: "error",

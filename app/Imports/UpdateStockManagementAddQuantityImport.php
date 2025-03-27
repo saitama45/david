@@ -103,7 +103,8 @@ class UpdateStockManagementAddQuantityImport implements ToCollection, WithHeadin
                     'quantity' => $row['quantity'],
                     'unit_cost' => $row['unit_cost'],
                     'total_cost' => $row['unit_cost'] * $row['quantity'],
-                    'transaction_date' => $row['transaction_date'] ?? now()
+                    'transaction_date' => $row['transaction_date'] ?? now(),
+                    'branch' => $this->branch
                 ];
             } catch (\Exception $e) {
                 // Rollback transaction on error

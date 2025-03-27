@@ -186,6 +186,7 @@ class StockManagementController extends Controller
             'file' => ['required', 'file', 'mimes:xlsx'],
             'branch' => ['required'],
         ]);
+
         $import = new UpdateStockManagementAddQuantityImport($validated['branch']);
 
         Excel::import($import, $validated['file']);
