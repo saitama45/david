@@ -99,6 +99,13 @@ const referenceOpen = ref(false);
         >
             Users
         </NavLink>
+        <NavLink
+            href="/low-on-stocks"
+            :icon="FileCog"
+            v-if="hasAccess('view roles')"
+        >
+            Low on Stocks
+        </NavLink>
         <NavLink href="/roles" :icon="FileCog" v-if="hasAccess('view roles')">
             Roles
         </NavLink>

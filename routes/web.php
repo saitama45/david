@@ -23,6 +23,7 @@ use App\Http\Controllers\IceCreamOrderController;
 use App\Http\Controllers\InventoryReportController;
 use App\Http\Controllers\InvetoryCategoryController;
 use App\Http\Controllers\ItemController;
+use App\Http\Controllers\LowOnStockController;
 use App\Http\Controllers\MenuCategoryController;
 use App\Http\Controllers\MenuController;
 use App\Http\Controllers\OrderApprovalController;
@@ -64,6 +65,8 @@ Route::get('jobs', function () {
 
 Route::middleware('auth')
     ->group(function () {
+
+        Route::resource('low-on-stocks', LowOnStockController::class);
 
         Route::controller(Top10InventoriesController::class)
             ->name('top-10-inventories.')
