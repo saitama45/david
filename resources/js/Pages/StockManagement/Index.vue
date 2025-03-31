@@ -459,7 +459,7 @@ watch(isUpdateModalVisible, (value) => {
                             v-if="hasAccess('add stock quantity')"
                             @click="openAddQuantityModal(product.id)"
                             variant="link"
-                            class="text-xs text-green-500 p-0"
+                            class="text-xs teMNaxt-green-500 p-0"
                             >Add Quantity</Button
                         >
                     </DivFlexCenter>

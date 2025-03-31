@@ -35,6 +35,8 @@ class DashboardController extends Controller
         $branches = StoreBranch::options();
         $branch = request('branch') ?? $branches->keys()->first();
 
+        $chart_time_period = request('chart_time_period') ?? 0;
+
 
         $inventories = $this->getInventories($branch, $time_period);
 
@@ -47,9 +49,9 @@ class DashboardController extends Controller
         $cogsAll = ProductInventoryStockManager::where('store_branch_id', $branch)
             ->where('total_cost', '<', 0)->sum(DB::raw('ABS(total_cost)'));
         $averageInventory = ($begginingInventory + $endingInventory) / 2;
-        $dio = $this->getDaysInventoryOutstanding($cogsAll, $averageInventory);
+        $dio = $this->getDaysInventoryOutstanding($cogsAll, $averageInventory, $chart_time_period);
         $productInventoryStock = $this->getTop10Products($branch);
-        $dpo = $this->getDaysPayableOutstanding($branch, $cogsAll);
+        $dpo = $this->getDaysPayableOutstanding($branch, $cogsAll, $chart_time_period);
 
         return Inertia::render('Dashboard/Index', [
             'timePeriods' => $timePeriods,
@@ -58,7 +60,7 @@ class DashboardController extends Controller
             'inventories' => $inventories,
             'upcomingInventories' => $upcomingInventories,
             'accountPayable' => $accountPayable,
-            'filters' => request()->only(['branch', 'time_period']),
+            'filters' => request()->only(['branch', 'time_period', 'chart_time_period']),
             'cogs' => $cogs,
             'dio' => $dio,
             'dpo' => $dpo,
@@ -66,7 +68,7 @@ class DashboardController extends Controller
         ]);
     }
 
-    public function getDaysPayableOutstanding($branch, $cogsAll)
+    public function getDaysPayableOutstanding($branch, $cogsAll, $chart_time_period)
     {
         $accountPayableAll = StoreOrderItem::query()
             ->join('store_orders', 'store_order_items.store_order_id', '=', 'store_orders.id')
@@ -75,7 +77,7 @@ class DashboardController extends Controller
             ->where('store_order_items.quantity_received', '>', 0)
             ->sum(DB::raw('store_order_items.quantity_received * product_inventories.cost'));
 
-        return $cogsAll > 0 && $accountPayableAll > 0 ? ($accountPayableAll / $cogsAll) * 365 : 0;
+        return $cogsAll > 0 && $accountPayableAll > 0 ? ($accountPayableAll / $cogsAll) *  ($chart_time_period == 0 ? 365 : 30) : 0;
     }
 
     public function getTop10Products($branch)
@@ -95,9 +97,9 @@ class DashboardController extends Controller
             });
     }
 
-    public function getDaysInventoryOutstanding($cogsAll, $averageInventory)
+    public function getDaysInventoryOutstanding($cogsAll, $averageInventory, $chart_time_period)
     {
-        return $cogsAll > 0 ? ($averageInventory / $cogsAll) * 365 : 0;
+        return $cogsAll > 0 ? ($averageInventory / $cogsAll) * ($chart_time_period == 0 ? 365 : 30) : 0;
     }
 
     public function getEndingInventory($branch)

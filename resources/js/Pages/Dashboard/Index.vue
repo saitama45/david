@@ -55,6 +55,20 @@ console.log(top_10);
 
 const { options: branchesOptions } = useSelectOptions(branches);
 const { options: timePeriodOptions } = useSelectOptions(timePeriods);
+
+const chart_time_period = ref(parseInt(filters.chart_time_period ?? 0));
+console.log(filters.chart_time_period);
+console.log(chart_time_period.value);
+const chartsOption = [
+    {
+        value: 0,
+        label: "YTD",
+    },
+    {
+        value: 1,
+        label: "Monthly",
+    },
+];
 onMounted(() => {
     chartData.value = setChartData();
     chartOptions.value = setChartOptions();
@@ -491,15 +505,24 @@ watch(branch, (value) => {
     router.get(route("dashboard"), {
         branch: value,
         time_period: time_period.value,
+        chart_time_period: chart_time_period.value,
     });
 });
 watch(time_period, (value) => {
     router.get(route("dashboard"), {
         branch: branch.value,
         time_period: value,
+        chart_time_period: chart_time_period.value,
     });
 });
 
+watch(chart_time_period, (value) => {
+    router.get(route("dashboard"), {
+        branch: branch.value,
+        time_period: time_period.value,
+        chart_time_period: value,
+    });
+});
 const goToDPO = () => {
     router.get(route("days-payable-outstanding.index"));
 };
@@ -612,6 +635,20 @@ const goToDIO = () => {
                     "
                 />
             </div>
+
+            <DivFlexCenter class="gap-3">
+                <InputContainer>
+                    <Select
+                        v-model="chart_time_period"
+                        placeholder="Time Periods"
+                        :options="chartsOption"
+                        optionLabel="label"
+                        optionValue="value"
+                    ></Select>
+                </InputContainer>
+                <!-- <DatePicker showIcon /> -->
+            </DivFlexCenter>
+
             <div class="sm:grid sm:grid-cols-3 sm:grid-rows-3 gap-4">
                 <!-- Full width chart -->
                 <Chart
@@ -620,8 +657,6 @@ const goToDIO = () => {
                     :options="chartOptions"
                     class="h-[30rem] col-span-3"
                 />
-
-                
 
                 <!-- First row after full width -->
                 <Chart

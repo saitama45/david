@@ -1,22 +1,5 @@
 <script setup>
 import {
-    DropdownMenu,
-    DropdownMenuContent,
-    DropdownMenuItem,
-    DropdownMenuLabel,
-} from "@/components/ui/dropdown-menu";
-
-import {
-    Sidebar,
-    SidebarMenu,
-    SidebarMenuItem,
-    SidebarMenuButton,
-    SidebarMenuSub,
-    SidebarMenuSubItem,
-    SidebarProvider,
-} from "@/components/ui/sidebar";
-
-import {
     Collapsible,
     CollapsibleContent,
     CollapsibleTrigger,
