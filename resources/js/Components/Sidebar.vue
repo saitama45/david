@@ -5,8 +5,26 @@ import {
     DropdownMenuItem,
     DropdownMenuLabel,
 } from "@/components/ui/dropdown-menu";
+
+import {
+    Sidebar,
+    SidebarMenu,
+    SidebarMenuItem,
+    SidebarMenuButton,
+    SidebarMenuSub,
+    SidebarMenuSubItem,
+    SidebarProvider,
+} from "@/components/ui/sidebar";
+
+import {
+    Collapsible,
+    CollapsibleContent,
+    CollapsibleTrigger,
+} from "@/components/ui/collapsible";
+
 import NavLink from "./NavLink.vue";
 import { usePage } from "@inertiajs/vue3";
+import { ref } from "vue";
 import {
     FileCog,
     Bell,
@@ -42,6 +60,8 @@ import {
     AppWindowMac,
     Warehouse,
     TextSelect,
+    ChevronDown,
+    ChevronRight,
 } from "lucide-vue-next";
 
 const { is_admin } = usePage().props.auth;
@@ -75,6 +95,15 @@ const canViewReportsGroup =
     hasAccess("view fruits and vegetables orders");
 
 const canViewReferenceGroup = hasAccess("manage references");
+
+// State for collapsible sections
+const schedulesOpen = ref(false);
+const orderingOpen = ref(false);
+const receivingOpen = ref(false);
+const salesOpen = ref(false);
+const inventoryOpen = ref(false);
+const reportsOpen = ref(false);
+const referenceOpen = ref(false);
 </script>
 
 <template>
@@ -93,230 +122,322 @@ const canViewReferenceGroup = hasAccess("manage references");
         <NavLink href="/audits" :icon="MonitorCog" v-if="false">
             Audits
         </NavLink>
-        <DropdownMenuLabel v-if="isAdmin"> Schedules </DropdownMenuLabel>
-        <NavLink
-            v-if="hasAccess('view dts delivery schedules')"
-            href="/delivery-schedules"
-            :icon="CalendarCheck2"
+
+        <!-- Schedules Section -->
+        <Collapsible v-if="isAdmin" v-model:open="schedulesOpen" class="w-full">
+            <CollapsibleTrigger
+                class="flex items-center justify-between w-full py-2 hover:bg-muted/50 rounded-md px-2"
+            >
+                <div class="flex items-center">
+                    <span>Schedules</span>
+                </div>
+                <ChevronDown v-if="schedulesOpen" class="h-4 w-4" />
+                <ChevronRight v-else class="h-4 w-4" />
+            </CollapsibleTrigger>
+            <CollapsibleContent class="pl-2">
+                <NavLink
+                    v-if="hasAccess('view dts delivery schedules')"
+                    href="/delivery-schedules"
+                    :icon="CalendarCheck2"
+                >
+                    DTS Delivery Schedules
+                </NavLink>
+            </CollapsibleContent>
+        </Collapsible>
+
+        <!-- Ordering Section -->
+        <Collapsible
+            v-if="canViewOrderingGroup"
+            v-model:open="orderingOpen"
+            class="w-full"
         >
-            DTS Delivery Schedules
-        </NavLink>
-        <DropdownMenuLabel v-if="canViewOrderingGroup">
-            Ordering
-        </DropdownMenuLabel>
-        <NavLink
-            v-if="hasAccess('view store orders')"
-            href="/store-orders"
-            :icon="ShoppingCart"
+            <CollapsibleTrigger
+                class="flex items-center justify-between w-full py-2 hover:bg-muted/50 rounded-md px-2"
+            >
+                <div class="flex items-center">
+                    <span>Ordering</span>
+                </div>
+                <ChevronDown v-if="orderingOpen" class="h-4 w-4" />
+                <ChevronRight v-else class="h-4 w-4" />
+            </CollapsibleTrigger>
+            <CollapsibleContent class="pl-2">
+                <NavLink
+                    v-if="hasAccess('view store orders')"
+                    href="/store-orders"
+                    :icon="ShoppingCart"
+                >
+                    Store Orders
+                </NavLink>
+                <NavLink
+                    v-if="hasAccess('view dts orders')"
+                    href="/dts-orders"
+                    :icon="ShoppingBasket"
+                >
+                    DTS Orders
+                </NavLink>
+                <NavLink href="/direct-receiving" :icon="ShoppingBasket">
+                    Direct Receiving
+                </NavLink>
+                <NavLink
+                    v-if="hasAccess('view orders for approval list')"
+                    href="/orders-approval"
+                    :icon="SquareChartGantt"
+                >
+                    List of Orders (Created SO) form SM Approval
+                </NavLink>
+                <NavLink
+                    v-if="hasAccess('view orders for cs approval list')"
+                    href="/cs-approvals"
+                    :icon="SquareChartGantt"
+                >
+                    CS Review List
+                </NavLink>
+            </CollapsibleContent>
+        </Collapsible>
+
+        <!-- Receiving Section -->
+        <Collapsible
+            v-if="canViewReceivingGroup"
+            v-model:open="receivingOpen"
+            class="w-full"
         >
-            Store Orders
-        </NavLink>
-        <NavLink
-            v-if="hasAccess('view dts orders')"
-            href="/dts-orders"
-            :icon="ShoppingBasket"
+            <CollapsibleTrigger
+                class="flex items-center justify-between w-full py-2 hover:bg-muted/50 rounded-md px-2"
+            >
+                <div class="flex items-center">
+                    <span>Receiving</span>
+                </div>
+                <ChevronDown v-if="receivingOpen" class="h-4 w-4" />
+                <ChevronRight v-else class="h-4 w-4" />
+            </CollapsibleTrigger>
+            <CollapsibleContent class="pl-2">
+                <NavLink
+                    v-if="hasAccess('view approved orders')"
+                    href="/orders-receiving"
+                    :icon="ClipboardList"
+                >
+                    Approved Orders
+                </NavLink>
+                <NavLink
+                    v-if="hasAccess('view approved received items')"
+                    href="/approved-orders"
+                    :icon="FileCheck"
+                >
+                    Confirmed/Approved Received SO
+                </NavLink>
+            </CollapsibleContent>
+        </Collapsible>
+
+        <!-- Sales Section -->
+        <Collapsible
+            v-if="canViewSalesGroup"
+            v-model:open="salesOpen"
+            class="w-full"
         >
-            DTS Orders
-        </NavLink>
-        <NavLink href="/direct-receiving" :icon="ShoppingBasket">
-            Direct Receiving
-        </NavLink>
-        <!-- <NavLink href="/cash-pull-out" :icon="ShoppingBasket">
-            Cash Pull Out
-        </NavLink>
-        <NavLink href="/cash-pull-out-approval" :icon="ShoppingBasket">
-            Cash Pull Out Approval
-        </NavLink> -->
-        <NavLink
-            v-if="hasAccess('view orders for approval list')"
-            href="/orders-approval"
-            :icon="SquareChartGantt"
-            s
+            <CollapsibleTrigger
+                class="flex items-center justify-between w-full py-2 hover:bg-muted/50 rounded-md px-2"
+            >
+                <div class="flex items-center">
+                    <span>Sales</span>
+                </div>
+                <ChevronDown v-if="salesOpen" class="h-4 w-4" />
+                <ChevronRight v-else class="h-4 w-4" />
+            </CollapsibleTrigger>
+            <CollapsibleContent class="pl-2">
+                <NavLink
+                    v-if="false"
+                    href="/sales-orders"
+                    :icon="ChartColumnBig"
+                >
+                    Sales Orders
+                </NavLink>
+                <NavLink
+                    v-if="hasAccess('view store transactions')"
+                    href="/store-transactions/summary"
+                    :icon="ArrowLeftRight"
+                >
+                    Store Transactions
+                </NavLink>
+            </CollapsibleContent>
+        </Collapsible>
+
+        <!-- Inventory Section -->
+        <Collapsible
+            v-if="canViewInventoryGroup"
+            v-model:open="inventoryOpen"
+            class="w-full"
         >
-            List of Orders (Created SO) form SM Approval
-        </NavLink>
-        <NavLink
-            v-if="hasAccess('view orders for cs approval list')"
-            href="/cs-approvals"
-            :icon="SquareChartGantt"
+            <CollapsibleTrigger
+                class="flex items-center justify-between w-full py-2 hover:bg-muted/50 rounded-md px-2"
+            >
+                <div class="flex items-center">
+                    <span>Inventory</span>
+                </div>
+                <ChevronDown v-if="inventoryOpen" class="h-4 w-4" />
+                <ChevronRight v-else class="h-4 w-4" />
+            </CollapsibleTrigger>
+            <CollapsibleContent class="pl-2">
+                <NavLink
+                    v-if="hasAccess('view items list')"
+                    href="/items-list"
+                    :icon="PackageSearch"
+                >
+                    Items
+                </NavLink>
+                <NavLink
+                    v-if="hasAccess('view bom list')"
+                    href="/menu-list"
+                    :icon="Scroll"
+                >
+                    BOM
+                </NavLink>
+                <NavLink
+                    v-if="hasAccess('view stock management')"
+                    href="/stock-management"
+                    :icon="FolderKanban"
+                >
+                    Stock Management
+                </NavLink>
+            </CollapsibleContent>
+        </Collapsible>
+
+        <!-- Reports Section -->
+        <Collapsible
+            v-if="canViewReportsGroup"
+            v-model:open="reportsOpen"
+            class="w-full"
         >
-            CS Review List
-        </NavLink>
-        <DropdownMenuLabel v-if="canViewReceivingGroup">
-            Receiving
-        </DropdownMenuLabel>
-        <NavLink
-            v-if="hasAccess('view approved orders')"
-            href="/orders-receiving"
-            :icon="ClipboardList"
+            <CollapsibleTrigger
+                class="flex items-center justify-between w-full py-2 hover:bg-muted/50 rounded-md px-2"
+            >
+                <div class="flex items-center">
+                    <span>Reports</span>
+                </div>
+                <ChevronDown v-if="reportsOpen" class="h-4 w-4" />
+                <ChevronRight v-else class="h-4 w-4" />
+            </CollapsibleTrigger>
+            <CollapsibleContent class="pl-2">
+                <NavLink href="/top-10-inventories" :icon="List">
+                    Top 10 Inventories
+                </NavLink>
+                <NavLink href="/days-inventory-outstanding" :icon="List">
+                    Days Inventory Outstanding
+                </NavLink>
+                <NavLink href="/days-payable-outstanding" :icon="List">
+                    Days Payable Outstanding
+                </NavLink>
+                <NavLink href="/sales-report" :icon="List">
+                    Sales Report
+                </NavLink>
+                <NavLink href="/inventories-report" :icon="List">
+                    Inventories Report
+                </NavLink>
+                <NavLink href="/upcoming-inventories" :icon="List">
+                    Upcoming Inventories
+                </NavLink>
+                <NavLink href="/account-payable" :icon="List">
+                    Account Payable
+                </NavLink>
+                <NavLink href="/cost-of-goods" :icon="List">
+                    Cost Of Goods
+                </NavLink>
+                <NavLink
+                    v-if="hasAccess('view items order summary')"
+                    href="/product-orders-summary"
+                    :icon="List"
+                >
+                    Item Orders Summary
+                </NavLink>
+                <NavLink
+                    v-if="hasAccess('view ice cream orders')"
+                    href="/ice-cream-orders"
+                    :icon="IceCreamCone"
+                >
+                    Ice Cream Orders
+                </NavLink>
+                <NavLink
+                    v-if="hasAccess('view salmon orders')"
+                    href="/salmon-orders"
+                    :icon="FishSymbol"
+                >
+                    Salmon Orders
+                </NavLink>
+                <NavLink
+                    v-if="hasAccess('view fruits and vegetables orders')"
+                    href="/fruits-and-vegetables"
+                    :icon="Vegan"
+                >
+                    Fruits And Vegetables Orders
+                </NavLink>
+            </CollapsibleContent>
+        </Collapsible>
+
+        <!-- Reference Section -->
+        <Collapsible
+            v-if="canViewReferenceGroup"
+            v-model:open="referenceOpen"
+            class="w-full"
         >
-            Approved Orders
-        </NavLink>
-        <!-- <NavLink
-            v-if="hasAccess('view received orders for approval list')"
-            href="/receiving-approvals"
-            :icon="ClipboardCheck"
-        >
-            Approvals
-        </NavLink> -->
-        <NavLink
-            v-if="hasAccess('view approved received items')"
-            href="/approved-orders"
-            :icon="FileCheck"
-        >
-            Confirmed/Approved Received SO
-        </NavLink>
-        <DropdownMenuLabel v-if="canViewSalesGroup"> Sales </DropdownMenuLabel>
-        <!-- <NavLink
-                            v-if="true"
-                            href="/product-sales"
-                            :icon="ChartColumnBig"
-                        >
-                            Product Sales
-                        </NavLink> -->
-        <NavLink v-if="false" href="/sales-orders" :icon="ChartColumnBig">
-            Sales Orders
-        </NavLink>
-        <NavLink
-            v-if="hasAccess('view store transactions')"
-            href="/store-transactions/summary"
-            :icon="ArrowLeftRight"
-        >
-            Store Transactions
-        </NavLink>
-        <!-- <NavLink
-            v-if="hasAccess('view store transactions')"
-            href="/store-transactions-approval/summary"
-            :icon="ArrowLeftRight"
-        >
-            Store Transactions Approval
-        </NavLink> -->
-        <DropdownMenuLabel v-if="canViewInventoryGroup">
-            Inventory
-        </DropdownMenuLabel>
-        <NavLink
-            v-if="hasAccess('view items list')"
-            href="/items-list"
-            :icon="PackageSearch"
-        >
-            Items
-        </NavLink>
-        <NavLink
-            v-if="hasAccess('view bom list')"
-            href="/menu-list"
-            :icon="Scroll"
-        >
-            BOM
-        </NavLink>
-        <NavLink
-            v-if="hasAccess('view stock management')"
-            href="/stock-management"
-            :icon="FolderKanban"
-        >
-            Stock Management
-        </NavLink>
-        <DropdownMenuLabel v-if="canViewReportsGroup">
-            Reports
-        </DropdownMenuLabel>
-        <NavLink href="/top-10-inventories" :icon="List">
-            Top 10 Inventories
-        </NavLink>
-        <NavLink href="/days-inventory-outstanding" :icon="List">
-            Days Inventory Outstanding
-        </NavLink>
-        <NavLink href="/days-payable-outstanding" :icon="List">
-            Days Payable Outstanding
-        </NavLink>
-        <NavLink href="/sales-report" :icon="List"> Sales Report </NavLink>
-        <NavLink href="/inventories-report" :icon="List">
-            Inventories Report
-        </NavLink>
-        <NavLink href="/upcoming-inventories" :icon="List">
-            Upcoming Inventories
-        </NavLink>
-        <NavLink href="/account-payable" :icon="List">
-            Account Payable
-        </NavLink>
-        <NavLink href="/cost-of-goods" :icon="List"> Cost Of Goods </NavLink>
-        <NavLink
-            v-if="hasAccess('view items order summary')"
-            href="/product-orders-summary"
-            :icon="List"
-        >
-            Item Orders Summary
-        </NavLink>
-        <NavLink
-            v-if="hasAccess('view ice cream orders')"
-            href="/ice-cream-orders"
-            :icon="IceCreamCone"
-        >
-            Ice Cream Orders
-        </NavLink>
-        <NavLink
-            v-if="hasAccess('view salmon orders')"
-            href="/salmon-orders"
-            :icon="FishSymbol"
-        >
-            Salmon Orders
-        </NavLink>
-        <NavLink
-            v-if="hasAccess('view fruits and vegetables orders')"
-            href="/fruits-and-vegetables"
-            :icon="Vegan"
-        >
-            Fruits And Vegetables Orders
-        </NavLink>
-        <DropdownMenuLabel v-if="canViewReferenceGroup">
-            Reference
-        </DropdownMenuLabel>
-        <NavLink
-            v-if="hasAccess('manage references')"
-            href="/category-list"
-            :icon="FolderDot"
-        >
-            Categories
-        </NavLink>
-        <NavLink
-            v-if="hasAccess('manage references')"
-            href="/menu-categories"
-            :icon="FileSliders"
-        >
-            Menu Categories
-        </NavLink>
-        <NavLink
-            v-if="hasAccess('manage references')"
-            href="/inventory-categories"
-            :icon="LayoutList"
-        >
-            Invetory Categories
-        </NavLink>
-        <NavLink
-            v-if="hasAccess('manage references')"
-            href="/unit-of-measurements"
-            :icon="LayoutList"
-        >
-            Unit of Measurements
-        </NavLink>
-        <NavLink
-            v-if="hasAccess('manage references')"
-            href="/store-branches"
-            :icon="AppWindowMac"
-        >
-            Store Branches
-        </NavLink>
-        <NavLink
-            v-if="hasAccess('manage references')"
-            href="/suppliers"
-            :icon="Warehouse"
-        >
-            Suppliers
-        </NavLink>
-        <NavLink
-            v-if="hasAccess('manage references')"
-            href="/cost-centers"
-            :icon="TextSelect"
-        >
-            Cost Centers
-        </NavLink>
+            <CollapsibleTrigger
+                class="flex items-center justify-between w-full py-2 hover:bg-muted/50 rounded-md px-2"
+            >
+                <div class="flex items-center">
+                    <span>Reference</span>
+                </div>
+                <ChevronDown v-if="referenceOpen" class="h-4 w-4" />
+                <ChevronRight v-else class="h-4 w-4" />
+            </CollapsibleTrigger>
+            <CollapsibleContent class="pl-2">
+                <NavLink
+                    v-if="hasAccess('manage references')"
+                    href="/category-list"
+                    :icon="FolderDot"
+                >
+                    Categories
+                </NavLink>
+                <NavLink
+                    v-if="hasAccess('manage references')"
+                    href="/menu-categories"
+                    :icon="FileSliders"
+                >
+                    Menu Categories
+                </NavLink>
+                <NavLink
+                    v-if="hasAccess('manage references')"
+                    href="/inventory-categories"
+                    :icon="LayoutList"
+                >
+                    Invetory Categories
+                </NavLink>
+                <NavLink
+                    v-if="hasAccess('manage references')"
+                    href="/unit-of-measurements"
+                    :icon="LayoutList"
+                >
+                    Unit of Measurements
+                </NavLink>
+                <NavLink
+                    v-if="hasAccess('manage references')"
+                    href="/store-branches"
+                    :icon="AppWindowMac"
+                >
+                    Store Branches
+                </NavLink>
+                <NavLink
+                    v-if="hasAccess('manage references')"
+                    href="/suppliers"
+                    :icon="Warehouse"
+                >
+                    Suppliers
+                </NavLink>
+                <NavLink
+                    v-if="hasAccess('manage references')"
+                    href="/cost-centers"
+                    :icon="TextSelect"
+                >
+                    Cost Centers
+                </NavLink>
+            </CollapsibleContent>
+        </Collapsible>
     </nav>
 </template>

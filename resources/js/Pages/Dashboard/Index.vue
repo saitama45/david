@@ -3,7 +3,7 @@ import StatisticOverview from "../../Components/dashboard/StatisticOverview.vue"
 import Chart from "primevue/chart";
 import { router } from "@inertiajs/vue3";
 import { useSelectOptions } from "@/Composables/useSelectOptions";
-
+import Knob from "primevue/knob";
 const { branches, timePeriods, filters, sales, cogs, dio, top_10, dpo } =
     defineProps({
         branches: {
@@ -620,6 +620,8 @@ const goToDIO = () => {
                     :options="chartOptions"
                     class="h-[30rem] col-span-3"
                 />
+
+                
 
                 <!-- First row after full width -->
                 <Chart
