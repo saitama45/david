@@ -31,6 +31,8 @@ class DashboardController extends Controller
         $timePeriods = TimePeriod::values();
         $time_period = request('time_period') ?? 0;
 
+        $inventory_type = request('inventory_type') ?? 'quantity';
+
 
         $branches = StoreBranch::options();
         $branch = request('branch') ?? $branches->keys()->first();
@@ -50,7 +52,7 @@ class DashboardController extends Controller
             ->where('total_cost', '<', 0)->sum(DB::raw('ABS(total_cost)'));
         $averageInventory = ($begginingInventory + $endingInventory) / 2;
         $dio = $this->getDaysInventoryOutstanding($cogsAll, $averageInventory, $chart_time_period);
-        $productInventoryStock = $this->getTop10Products($branch);
+        $productInventoryStock = $this->getTop10Products($branch, $inventory_type);
         $dpo = $this->getDaysPayableOutstanding($branch, $cogsAll, $chart_time_period);
 
         return Inertia::render('Dashboard/Index', [
@@ -60,7 +62,7 @@ class DashboardController extends Controller
             'inventories' => $inventories,
             'upcomingInventories' => $upcomingInventories,
             'accountPayable' => $accountPayable,
-            'filters' => request()->only(['branch', 'time_period', 'chart_time_period']),
+            'filters' => request()->only(['branch', 'time_period', 'chart_time_period', 'inventory_type']),
             'cogs' => $cogs,
             'dio' => $dio,
             'dpo' => $dpo,
@@ -80,13 +82,20 @@ class DashboardController extends Controller
         return $cogsAll > 0 && $accountPayableAll > 0 ? ($accountPayableAll / $cogsAll) *  ($chart_time_period == 0 ? 365 : 30) : 0;
     }
 
-    public function getTop10Products($branch)
+    public function getTop10Products($branch, $inventory_type)
     {
-        return ProductInventoryStock::with('product')
+        $query = ProductInventoryStock::with('product')
             ->where('store_branch_id', $branch)
-            ->select('*', DB::raw('(quantity - used) as stock_on_hand'))
-            ->orderBy('stock_on_hand', 'desc')
-            ->take(10)
+            ->select('*', DB::raw('(quantity - used) as stock_on_hand'));
+
+        if ($inventory_type === 'cost') {
+            $query->join('product_inventories', 'product_inventory_stocks.product_inventory_id', '=', 'product_inventories.id')
+                ->orderByRaw("(quantity - used) * product_inventories.cost DESC");
+        } else {
+            $query->orderBy('stock_on_hand', 'desc');
+        }
+
+        return $query->take(10)
             ->get()
             ->map(function ($item) {
                 return [

@@ -57,8 +57,7 @@ const { options: branchesOptions } = useSelectOptions(branches);
 const { options: timePeriodOptions } = useSelectOptions(timePeriods);
 
 const chart_time_period = ref(parseInt(filters.chart_time_period ?? 0));
-console.log(filters.chart_time_period);
-console.log(chart_time_period.value);
+
 const chartsOption = [
     {
         value: 0,
@@ -69,6 +68,18 @@ const chartsOption = [
         label: "Monthly",
     },
 ];
+
+const inventoryOptions = [
+    {
+        value: "quantity",
+        label: "Quantity",
+    },
+    {
+        value: "cost",
+        label: "Cost",
+    },
+];
+
 onMounted(() => {
     chartData.value = setChartData();
     chartOptions.value = setChartOptions();
@@ -279,11 +290,17 @@ const setChartDataHorizontal = () => {
                 label: "Top 10 Inventory Value by Item",
                 backgroundColor: documentStyle.getPropertyValue("--p-cyan-500"),
                 borderColor: documentStyle.getPropertyValue("--p-cyan-500"),
-                data: top_10.map((item) => item.quantity),
+                data: top_10.map((item) =>
+                    inventory_type.value == "quantity"
+                        ? item.quantity
+                        : item.total_cost
+                ),
             },
         ],
     };
 };
+
+console.log(top_10);
 
 const setChartOptionsHorizontal = () => {
     const documentStyle = getComputedStyle(document.documentElement);
@@ -501,11 +518,14 @@ const branch = ref(filters.branch || branchesOptions.value[0].value);
 const time_period = ref(
     filters.time_period || timePeriodOptions.value[0].value
 );
+
+const inventory_type = ref(filters.inventory_type ?? "quantity");
 watch(branch, (value) => {
     router.get(route("dashboard"), {
         branch: value,
         time_period: time_period.value,
         chart_time_period: chart_time_period.value,
+        inventory_type: inventory_type.value,
     });
 });
 watch(time_period, (value) => {
@@ -513,6 +533,7 @@ watch(time_period, (value) => {
         branch: branch.value,
         time_period: value,
         chart_time_period: chart_time_period.value,
+        inventory_type: inventory_type.value,
     });
 });
 
@@ -521,7 +542,24 @@ watch(chart_time_period, (value) => {
         branch: branch.value,
         time_period: time_period.value,
         chart_time_period: value,
+        inventory_type: inventory_type.value,
     });
+});
+
+watch(inventory_type, (value) => {
+    router.get(
+        route("dashboard"),
+        {
+            branch: branch.value,
+            time_period: time_period.value,
+            chart_time_period: value,
+            inventory_type: value,
+        },
+        {
+            preserveScroll: true,
+            replace: true,
+        }
+    );
 });
 const goToDPO = () => {
     router.get(route("days-payable-outstanding.index"));
@@ -667,13 +705,22 @@ const goToDIO = () => {
                     @click="goToDIO"
                 />
 
-                <Chart
-                    type="bar"
-                    :data="chartDataHorizontal"
-                    :options="chartOptionsHorizontal"
-                    class="row-span-2"
-                    @click="goToTop10"
-                />
+                <div class="flex flex-col row-span-2">
+                    <Select
+                        v-model="inventory_type"
+                        placeholder="Time Periods"
+                        :options="inventoryOptions"
+                        optionLabel="label"
+                        optionValue="value"
+                    ></Select>
+                    <Chart
+                        class="w-full h-full"
+                        type="bar"
+                        :data="chartDataHorizontal"
+                        :options="chartOptionsHorizontal"
+                        @click="goToTop10"
+                    />
+                </div>
 
                 <Chart
                     type="doughnut"
