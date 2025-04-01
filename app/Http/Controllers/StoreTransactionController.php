@@ -126,7 +126,7 @@ class StoreTransactionController extends Controller
             Excel::import(new StoreTransactionImport, $request->file('store_transactions_file'));
             return back();
         } catch (Exception $e) {
-            dd($e);
+            return response()->json(['message' => $e->getMessage()], 422);
         }
     }
 

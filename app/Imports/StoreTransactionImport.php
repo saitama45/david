@@ -128,7 +128,7 @@ class StoreTransactionImport implements ToModel, WithStartRow, WithHeadingRow
 
                     if ($ingredient->quantity * $storeTransactionItem->quantity > $stockOnHand) {
                         $requiredQuantity = $ingredient->quantity * $storeTransactionItem->quantity;
-                        $errors[] = "Insufficient inventory for '{$product->product->name}'. Required: {$requiredQuantity}, Available: {$stockOnHand}.";
+                        $errors[] = "Insufficient inventory for '{$product->product->name}'. Required: {$requiredQuantity}, Available: {$stockOnHand}. Please make sure that inventory stock is updated before proceding.";
                         return false;
                     }
 

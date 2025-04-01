@@ -131,11 +131,25 @@ watch(isImportStoreTransactionModalOpen, (value) => {
         isLoading.value = false;
     }
 });
+const isErrorDialogVisible = ref(false);
+const errorMessage = ref("");
+import axios from "axios";
 
 const importTransactions = () => {
     isLoading.value = true;
-    excelFileForm.post(route("store-transactions.import"), {
-        onSuccess: () => {
+
+    const formData = new FormData();
+    formData.append(
+        "store_transactions_file",
+        excelFileForm.store_transactions_file
+    );
+    axios
+        .post(route("store-transactions.import"), formData, {
+            headers: {
+                "Content-Type": "multipart/form-data",
+            },
+        })
+        .then((response) => {
             isLoading.value = false;
             isImportStoreTransactionModalOpen.value = false;
             toast.add({
@@ -144,19 +158,34 @@ const importTransactions = () => {
                 detail: "Store transactions created successfully",
                 life: 3000,
             });
-        },
-        onError: (e) => {
-            toast.add({
-                severity: "error",
-                summary: "Inventory Error",
-                detail: `Transaction import failed at row ${e.line}:\n${e.message}\n\nPlease update inventory before proceeding.`,
-                life: 15000,
-            });
-            console.error("Import error:", e);
+        })
+        .catch((error) => {
             isLoading.value = false;
-        },
-    });
+
+            if (error.response) {
+                if (
+                    error.response.data.errors &&
+                    error.response.data.errors.store_transactions_file
+                ) {
+                    errorMessage.value =
+                        error.response.data.errors.store_transactions_file[0];
+                } else if (error.response.data.message) {
+                    errorMessage.value = error.response.data.message;
+                } else {
+                    errorMessage.value =
+                        "An unknown error occurred while importing transactions";
+                }
+            } else {
+                errorMessage.value =
+                    "Network error occurred. Please try again.";
+            }
+
+            isErrorDialogVisible.value = true;
+            isImportStoreTransactionModalOpen.value = false;
+        });
 };
+
+import { TriangleAlert } from "lucide-vue-next";
 </script>
 <template>
     <Layout
@@ -167,6 +196,26 @@ const importTransactions = () => {
         :hasExcelDownload="true"
         :exportRoute="exportRoute"
     >
+        <!-- Error Dialog -->
+
+        <Dialog v-model:open="isErrorDialogVisible">
+            <DialogContent
+                class="sm:max-w-[400px] flex items-center justify-center flex-col"
+            >
+                <DialogHeader>
+                    <DialogTitle>
+                        <TriangleAlert class="size-12 text-red-500" />
+                    </DialogTitle>
+                    <DialogDescription></DialogDescription>
+                </DialogHeader>
+                <div class="flex items-center justify-center flex-col">
+                    <h1 class="text-2xl font-bold">Error</h1>
+                    <p class="text-center">
+                        {{ errorMessage }}
+                    </p>
+                </div>
+            </DialogContent>
+        </Dialog>
         <TableContainer>
             <TableHeader>
                 <!-- <SearchBar>
