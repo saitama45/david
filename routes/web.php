@@ -28,6 +28,7 @@ use App\Http\Controllers\MenuCategoryController;
 use App\Http\Controllers\MenuController;
 use App\Http\Controllers\OrderApprovalController;
 use App\Http\Controllers\OrderReceivingController;
+use App\Http\Controllers\PDFReportController;
 use App\Http\Controllers\PersmissionController;
 use App\Http\Controllers\ProductOrderSummaryController;
 use App\Http\Controllers\ProductSalesController;
@@ -65,6 +66,8 @@ Route::get('jobs', function () {
 
 Route::middleware('auth')
     ->group(function () {
+
+        Route::get('/test-report', [PDFReportController::class, 'index']);
 
         Route::resource('low-on-stocks', LowOnStockController::class);
 
