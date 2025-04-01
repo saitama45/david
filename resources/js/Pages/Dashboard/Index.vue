@@ -57,7 +57,7 @@ const { options: branchesOptions } = useSelectOptions(branches);
 const { options: timePeriodOptions } = useSelectOptions(timePeriods);
 
 const chart_time_period = ref(parseInt(filters.chart_time_period ?? 0));
-
+console.log(chart_time_period);
 const chartsOption = [
     {
         value: 0,
@@ -552,12 +552,11 @@ watch(inventory_type, (value) => {
         {
             branch: branch.value,
             time_period: time_period.value,
-            chart_time_period: value,
+            chart_time_period: chart_time_period.value,
             inventory_type: value,
         },
         {
             preserveScroll: true,
-            replace: true,
         }
     );
 });

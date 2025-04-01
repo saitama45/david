@@ -82,17 +82,14 @@ class StoreTransactionImport implements ToModel, WithStartRow, WithHeadingRow
 
             DB::beginTransaction();
 
-            $menu = Menu::firstOrNew([
-                'product_id' => $row['product_id']
-            ], [
-                'category_id' => 1,
-                'name' => $row['product_name'],
-                'price' => $row['price']
-            ]);
-
-            if (!$menu->exists) {
-                $menu->save();
-            }
+            Menu::updateOrCreate(
+                ['product_id' => $row['product_id']],
+                [
+                    'category_id' => 1,
+                    'name' => $row['product_name'],
+                    'price' => $row['price']
+                ]
+            );
 
             $transaction = StoreTransaction::updateOrCreate([
                 'store_branch_id' => $branch->id,
@@ -124,7 +121,7 @@ class StoreTransactionImport implements ToModel, WithStartRow, WithHeadingRow
 
                     if (!$product) {
                         $errors[] = "Product inventory not found for branch: {$branch->location_code}";
-                        return false; 
+                        return false;
                     }
 
                     $stockOnHand = $product->quantity - $product->used;
@@ -132,7 +129,7 @@ class StoreTransactionImport implements ToModel, WithStartRow, WithHeadingRow
                     if ($ingredient->quantity * $storeTransactionItem->quantity > $stockOnHand) {
                         $requiredQuantity = $ingredient->quantity * $storeTransactionItem->quantity;
                         $errors[] = "Insufficient inventory for '{$product->product->name}'. Required: {$requiredQuantity}, Available: {$stockOnHand}.";
-                        return false; 
+                        return false;
                     }
 
                     $usedQuantity = $ingredient->quantity * $storeTransactionItem->quantity;
@@ -158,7 +155,7 @@ class StoreTransactionImport implements ToModel, WithStartRow, WithHeadingRow
                 } catch (Exception $e) {
                     Log::error('Failed to process ingredient', ['error' => $e->getMessage()]);
                     $errors[] = "Error processing ingredient: " . $e->getMessage();
-                    return false; 
+                    return false;
                 }
             });
 
