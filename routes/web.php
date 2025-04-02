@@ -69,6 +69,10 @@ Route::middleware('auth')
 
         Route::get('/test-report', [PDFReportController::class, 'index']);
 
+        Route::controller(PDFReportController::class)->name('pdf-export.')->prefix('pdf-export')->group(function(){
+            Route::get('/store-orders', 'storeOrders')->name('store-orders');
+        });
+
         Route::resource('low-on-stocks', LowOnStockController::class);
 
         Route::controller(Top10InventoriesController::class)

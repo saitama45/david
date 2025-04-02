@@ -199,6 +199,7 @@ const exportRoute = computed(() =>
         :handleClick="handleClick"
         :hasExcelDownload="true"
         :exportRoute="exportRoute"
+        :pdfRoute="route('pdf-export.store-orders')"
     >
         <FilterTab>
             <FilterTabButton

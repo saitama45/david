@@ -73,6 +73,10 @@ const props = defineProps({
         type: String,
         required: false,
     },
+    pdfRoute: {
+        type: String,
+        required: false,
+    },
 });
 
 import Sidebar from "@/Components/Sidebar.vue";
@@ -83,6 +87,10 @@ const logout = () => {
 
 const exportExcel = () => {
     window.open(props.exportRoute, "_blank");
+};
+
+const exportPdf = () => {
+    window.open(props.pdfRoute, "_blank");
 };
 </script>
 
@@ -189,6 +197,12 @@ const exportExcel = () => {
                         {{ heading }}
                     </h1>
                     <DivFlexCenter class="gap-3">
+                        <Button
+                            v-show="pdfRoute"
+                            @click="exportPdf"
+                            class="sm:text-normal text-xs"
+                            >Export to Pdf</Button
+                        >
                         <Button
                             v-show="hasExcelDownload"
                             @click="exportExcel"
