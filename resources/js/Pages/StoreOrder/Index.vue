@@ -1,16 +1,10 @@
 <script setup>
 import { router } from "@inertiajs/vue3";
 import { usePage } from "@inertiajs/vue3";
-import dayjs from "dayjs";
-import {
-    Select,
-    SelectContent,
-    SelectGroup,
-    SelectItem,
-    SelectLabel,
-    SelectTrigger,
-    SelectValue,
-} from "@/components/ui/select";
+import { useForm } from "@inertiajs/vue3";
+import Dialog from "primevue/dialog";
+import { useSelectOptions } from "@/Composables/useSelectOptions";
+
 import { throttle } from "lodash";
 
 const handleClick = () => {
@@ -25,6 +19,9 @@ const props = defineProps({
         type: Object,
     },
 });
+
+const { options: branchesOptions } = useSelectOptions(props.branches);
+console.log(branchesOptions);
 
 let filterQuery = ref(
     (usePage().props.filters.filterQuery || "pending").toString()
@@ -189,6 +186,28 @@ const exportRoute = computed(() =>
         to: to.value,
     })
 );
+
+const pdfForm = useForm({
+    branch: null,
+    start_date: null,
+    end_date: null,
+});
+
+const isPdfModalVisible = ref(true);
+
+const pdfRoute = computed(() =>
+    route("pdf-export.store-orders", {
+        branch: pdfForm.branch,
+        start_date: pdfForm.start_date,
+        end_date: pdfForm.end_date,
+    })
+);
+
+const exportPdf = () => {
+    console.log(pdfRoute.value);
+    window.open(pdfRoute.value, "_blank");
+    isPdfModalVisible.visible = false;
+};
 </script>
 
 <template>
@@ -199,8 +218,43 @@ const exportRoute = computed(() =>
         :handleClick="handleClick"
         :hasExcelDownload="true"
         :exportRoute="exportRoute"
-        :pdfRoute="route('pdf-export.store-orders')"
     >
+        <Dialog
+            v-model:visible="isPdfModalVisible"
+            modal
+            header="Export to PDF"
+            :style="{ width: '25rem' }"
+        >
+            <DivFlexCol>
+                <InputContainer>
+                    <LabelXS>Branch</LabelXS>
+                    <Select
+                        filter
+                        class="w-full"
+                        placeholder="Select a branch"
+                        :options="branchesOptions"
+                        optionLabel="label"
+                        optionValue="value"
+                    />
+                    <FormError></FormError>
+                </InputContainer>
+
+                <InputContainer>
+                    <LabelXS>Start Date</LabelXS>
+                    <DatePicker showIcon />
+                    <FormError></FormError>
+                </InputContainer>
+                <InputContainer>
+                    <LabelXS>End Date</LabelXS>
+                    <DatePicker showIcon />
+                    <FormError></FormError>
+                </InputContainer>
+
+                <div class="flex justify-center">
+                    <Button @click="exportPdf" class="w-full">Export</Button>
+                </div>
+            </DivFlexCol>
+        </Dialog>
         <FilterTab>
             <FilterTabButton
                 label="All"

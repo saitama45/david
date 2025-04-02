@@ -89,6 +89,7 @@ const exportExcel = () => {
     window.open(props.exportRoute, "_blank");
 };
 
+
 const exportPdf = () => {
     window.open(props.pdfRoute, "_blank");
 };
