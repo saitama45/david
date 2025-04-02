@@ -229,6 +229,7 @@ const exportPdf = () => {
                 <InputContainer>
                     <LabelXS>Branch</LabelXS>
                     <Select
+                        v-model="pdfForm.branch"
                         filter
                         class="w-full"
                         placeholder="Select a branch"
@@ -236,18 +237,18 @@ const exportPdf = () => {
                         optionLabel="label"
                         optionValue="value"
                     />
-                    <FormError></FormError>
+                    <FormError>{{ pdfForm.errors.pdfForm }}</FormError>
                 </InputContainer>
 
                 <InputContainer>
                     <LabelXS>Start Date</LabelXS>
-                    <DatePicker showIcon />
-                    <FormError></FormError>
+                    <DatePicker showIcon v-model="pdfForm.start_date" />
+                    <FormError>{{ pdfForm.errors.start_date }}</FormError>
                 </InputContainer>
                 <InputContainer>
                     <LabelXS>End Date</LabelXS>
                     <DatePicker showIcon />
-                    <FormError></FormError>
+                    <FormError>{{ pdfForm.errors.end_date }}</FormError>
                 </InputContainer>
 
                 <div class="flex justify-center">

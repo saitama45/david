@@ -1,3 +1,4 @@
+@props(['branch', 'orders'])
 <!DOCTYPE html>
 <html lang="en">
 
@@ -113,7 +114,7 @@
     <div class="report-info">
         <table class="info-table">
             <tr>
-                <td class="left-column">Branch Name: </td>
+                <td class="left-column">Branch Name: {{ $branch }}</td>
                 <td class="right-column">Date Generated: </td>
             </tr>
             <tr>
@@ -145,26 +146,19 @@
             </tr>
         </thead>
         <tbody>
+            @foreach ($orders as $order)
             <tr>
-                <td>01/04/2025</td>
-                <td>Store Manager</td>
-                <td>ORD-1234</td>
-                <td>Supplier ABC</td>
+                <td>{{ $order->order_date }}</td>
+                <td>{{$order->created_at}}</td>
+                <td>{{ $order->order_number }}</td>
+                <td>{{ $order->supplier->name }}</td>
                 <td>100</td>
                 <td>95</td>
                 <td>90</td>
-                <td>Approved</td>
+                <td>{{ $order->order_status }}</td>
             </tr>
-            <tr>
-                <td>01/04/2025</td>
-                <td>Store Manager</td>
-                <td>ORD-1234</td>
-                <td>Supplier ABC</td>
-                <td>100</td>
-                <td>95</td>
-                <td>90</td>
-                <td>Approved</td>
-            </tr>
+            @endforeach
+
         </tbody>
     </table>
 </body>
