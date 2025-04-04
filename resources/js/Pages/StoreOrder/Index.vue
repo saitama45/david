@@ -193,8 +193,10 @@ const pdfForm = useForm({
     end_date: null,
 });
 
-const isPdfModalVisible = ref(true);
-
+const isPdfModalVisible = ref(false);
+const openPDFModal = () => {
+    isPdfModalVisible.value = true;
+};
 const pdfRoute = computed(() =>
     route("pdf-export.store-orders", {
         branch: pdfForm.branch,
@@ -330,6 +332,7 @@ const exportPdf = () => {
                 </SearchBar>
                 <!-- Filters -->
                 <DivFlexCenter class="gap-5">
+                    <Button @click="openPDFModal">Export To PDF</Button>
                     <Popover>
                         <PopoverTrigger> <Filter /> </PopoverTrigger>
                         <PopoverContent>
