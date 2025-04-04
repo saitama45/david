@@ -114,28 +114,33 @@ watch(
             </TableHeader>
             <Table>
                 <TableHead>
-                    <TH>Item</TH>
-                    <TH>Item Code</TH>
-                    <TH>Quantity</TH>
-                    <TH>Price</TH>
-                    <TH>Total</TH>
+                    <TH>Order Number</TH>
+                    <TH>Branch</TH>
+                    <TH>Supplier</TH>
+                    <TH>Order Date</TH>
+                    <TH>Total Cost</TH>
                 </TableHead>
                 <TableBody>
                     <tr v-for="inventory in inventories.data">
-                        <TD>{{ inventory.product_inventory.name }}</TD>
-                        <TD>{{
-                            inventory.product_inventory.inventory_code
-                        }}</TD>
                         <TD>
-                            {{ inventory.quantity_commited }}
+                            <Link
+                                :href="
+                                    route(
+                                        'store-orders.show',
+                                        inventory.order_number
+                                    )
+                                "
+                                class="text-blue-500 hover:underline"
+                            >
+                                {{ inventory.order_number }}
+                            </Link>
                         </TD>
-                        <TD>{{ inventory.product_inventory.cost }}</TD>
+                        <TD>{{ inventory.branch }}</TD>
                         <TD>
-                            {{
-                                inventory.quantity_commited *
-                                inventory.product_inventory.cost
-                            }}
+                            {{ inventory.supplier }}
                         </TD>
+                        <TD>{{ inventory.order_date }}</TD>
+                        <TD>{{ inventory.total }}</TD>
                     </tr>
                 </TableBody>
             </Table>
