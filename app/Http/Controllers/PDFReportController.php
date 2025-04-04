@@ -16,12 +16,6 @@ class PDFReportController extends Controller
 
     public function storeOrders(Request $request)
     {
-        $validated = $request->validate([
-            'branch' => ['nullable'],
-            'start_date' => ['nullable'],
-            'end_date' => ['nullable']
-        ]);
-
         $orders = StoreOrder::with('supplier')->where('store_branch_id', 4)->get();
 
         $pdf = Pdf::loadView('pdf.store-orders-report', [

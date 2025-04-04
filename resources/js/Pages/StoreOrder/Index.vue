@@ -204,7 +204,28 @@ const pdfRoute = computed(() =>
 );
 
 const exportPdf = () => {
-    console.log(pdfRoute.value);
+    pdfForm.clearErrors();
+    if (!pdfForm.branch) {
+        pdfForm.errors.branch = "Branch is required";
+    }
+    if (!pdfForm.start_date) {
+        pdfForm.errors.start_date = "Start date is required";
+    }
+    if (!pdfForm.end_date) {
+        pdfForm.errors.end_date = "End date is required";
+    }
+    if (pdfForm.start_date && pdfForm.end_date) {
+        const startDate = new Date(pdfForm.start_date);
+        const endDate = new Date(pdfForm.end_date);
+
+        if (endDate < startDate) {
+            pdfForm.errors.end_date =
+                "End date cannot be earlier than start date";
+        }
+    }
+    if (Object.keys(pdfForm.errors).length > 0) {
+        return;
+    }
     window.open(pdfRoute.value, "_blank");
     isPdfModalVisible.visible = false;
 };
@@ -237,7 +258,7 @@ const exportPdf = () => {
                         optionLabel="label"
                         optionValue="value"
                     />
-                    <FormError>{{ pdfForm.errors.pdfForm }}</FormError>
+                    <FormError>{{ pdfForm.errors.branch }}</FormError>
                 </InputContainer>
 
                 <InputContainer>
@@ -247,7 +268,7 @@ const exportPdf = () => {
                 </InputContainer>
                 <InputContainer>
                     <LabelXS>End Date</LabelXS>
-                    <DatePicker showIcon />
+                    <DatePicker showIcon v-model="pdfForm.end_date" />
                     <FormError>{{ pdfForm.errors.end_date }}</FormError>
                 </InputContainer>
 
