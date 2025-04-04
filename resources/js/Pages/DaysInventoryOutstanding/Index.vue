@@ -5,7 +5,7 @@ import { router } from "@inertiajs/vue3";
 const { items, branches, filters } = defineProps({
     items: {
         type: Object,
-        required: true,
+        required: false,
     },
     branches: {
         type: Object,
@@ -15,6 +15,10 @@ const { items, branches, filters } = defineProps({
         type: Object,
         required: true,
     },
+    begginingInventory: String,
+    endingInventory: String,
+    averageInventory: String,
+    costOfGoods: String,
 });
 
 const { options: branchesOptions } = useSelectOptions(branches);
@@ -56,13 +60,7 @@ watch(
     <Layout heading="Days Inventory Outstanding">
         <TableContainer>
             <TableHeader>
-                <SearchBar>
-                    <Input
-                        class="pl-10"
-                        placeholder="Search..."
-                        v-model="search"
-                    />
-                </SearchBar>
+                <span></span>
 
                 <DivFlexCenter class="gap-5">
                     <Select
@@ -78,25 +76,28 @@ watch(
             </TableHeader>
             <Table>
                 <TableHead>
-                    <TH>Item</TH>
-                    <TH>Inventory Code</TH>
-                    <TH>Quantity</TH>
-                    <TH>Unit Cost</TH>
-                    <TH>Total Cost</TH>
-                    <TH>Transaction Date</TH>
+                    <TH>Particular</TH>
+                    <TH>Value</TH>
                 </TableHead>
                 <TableBody>
-                    <tr v-for="item in items.data">
-                        <TD>{{ item.product.name }}</TD>
-                        <TD>{{ item.product.inventory_code }}</TD>
-                        <TD>{{ item.quantity }}</TD>
-                        <TD>{{ item.unit_cost }}</TD>
-                        <TD>{{ item.total_cost }}</TD>
-                        <TD>{{ item.transaction_date }}</TD>
+                    <tr>
+                        <TD>Beginning Inventory</TD>
+                        <TD>{{ begginingInventory }}</TD>
+                    </tr>
+                    <tr>
+                        <TD>Ending Inventory</TD>
+                        <TD>{{ endingInventory }}</TD>
+                    </tr>
+                    <tr>
+                        <TD>Average Inventory</TD>
+                        <TD>{{ averageInventory }}</TD>
+                    </tr>
+                    <tr>
+                        <TD>Cogs of Goods</TD>
+                        <TD>{{ costOfGoods }}</TD>
                     </tr>
                 </TableBody>
             </Table>
-            <Pagination :data="items" />
         </TableContainer>
     </Layout>
 </template>
