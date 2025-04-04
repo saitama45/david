@@ -272,7 +272,7 @@ const exportPdf = () => {
                     <FormError>{{ pdfForm.errors.end_date }}</FormError>
                 </InputContainer>
 
-                <div class="flex justify-center">
+                <div class="flex justify-center mt-3">
                     <Button @click="exportPdf" class="w-full">Export</Button>
                 </div>
             </DivFlexCol>
