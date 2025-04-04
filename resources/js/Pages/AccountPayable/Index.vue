@@ -114,26 +114,33 @@ watch(
             </TableHeader>
             <Table>
                 <TableHead>
-                    <TH>Item</TH>
-                    <TH>Item Code</TH>
-                    <TH>Quantity</TH>
-                    <TH>Price</TH>
-                    <TH>Total</TH>
+                    <TH>Order Number</TH>
+                    <TH>Branch</TH>
+                    <TH>Supplier</TH>
+                    <TH>Order Date</TH>
+                    <TH>Total Cost</TH>
                 </TableHead>
                 <TableBody>
                     <tr v-for="item in storeOrderItems.data">
-                        <TD>{{ item.product_inventory.name }}</TD>
-                        <TD>{{ item.product_inventory.inventory_code }}</TD>
                         <TD>
-                            {{ item.quantity_received }}
-                        </TD>
-                        <TD>{{ item.product_inventory.cost }}</TD>
+                            <Link
+                                :href="
+                                    route(
+                                        'store-orders.show',
+                                        item.order_number
+                                    )
+                                "
+                                class="text-blue-500 hover:underline"
+                            >
+                                {{ item.order_number }}
+                            </Link></TD
+                        >
+                        <TD>{{ item.branch }}</TD>
                         <TD>
-                            {{
-                                item.quantity_received *
-                                item.product_inventory.cost
-                            }}
+                            {{ item.supplier }}
                         </TD>
+                        <TD>{{ item.order_date }}</TD>
+                        <TD>{{ item.total }}</TD>
                     </tr>
                 </TableBody>
             </Table>
