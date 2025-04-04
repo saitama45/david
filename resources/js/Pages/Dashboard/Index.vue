@@ -4,6 +4,7 @@ import Chart from "primevue/chart";
 import { router } from "@inertiajs/vue3";
 import { useSelectOptions } from "@/Composables/useSelectOptions";
 import Knob from "primevue/knob";
+import { Chart as ChartJS } from "chart.js";
 const { branches, timePeriods, filters, sales, cogs, dio, top_10, dpo } =
     defineProps({
         branches: {
@@ -81,6 +82,8 @@ const inventoryOptions = [
 ];
 
 onMounted(() => {
+    registerDoughnutLabelPlugin();
+
     chartData.value = setChartData();
     chartOptions.value = setChartOptions();
 
@@ -223,12 +226,31 @@ const setChartOptionsDoughnut = () => {
     const textColor = documentStyle.getPropertyValue("--p-text-color");
 
     return {
+        cutout: "50%",
         plugins: {
             legend: {
                 labels: {
-                    cutout: "60%",
                     color: textColor,
                 },
+            },
+            tooltip: {
+                callbacks: {
+                    label: function (context) {
+                        return `${context.dataset.label}: ${context.raw}`;
+                    },
+                },
+            },
+            doughnutlabel: {
+                labels: [
+                    {
+                        text: dio.toFixed(0),
+                        font: {
+                            size: "30px",
+                            weight: "bold",
+                        },
+                        color: textColor,
+                    },
+                ],
             },
         },
     };
@@ -265,12 +287,32 @@ const setChartOptionsDoughnutAccountPayable = () => {
     const textColor = documentStyle.getPropertyValue("--p-text-color");
 
     return {
+        cutout: "50%", // Increase cutout to make room for text
         plugins: {
             legend: {
                 labels: {
-                    cutout: "60%",
                     color: textColor,
                 },
+            },
+            tooltip: {
+                callbacks: {
+                    label: function (context) {
+                        return `${context.dataset.label}: ${context.raw}`;
+                    },
+                },
+            },
+            // Add the center text plugin
+            doughnutlabel: {
+                labels: [
+                    {
+                        text: dpo.toFixed(0),
+                        font: {
+                            size: "30px",
+                            weight: "bold",
+                        },
+                        color: textColor,
+                    },
+                ],
             },
         },
     };
@@ -583,6 +625,44 @@ const goToDIO = () => {
         ).value
     );
 };
+
+const registerDoughnutLabelPlugin = () => {
+    ChartJS.register({
+        id: "doughnutLabel",
+        beforeDraw: function (chart) {
+            if (chart.config.type === "doughnut") {
+                // Get ctx from chart
+                const ctx = chart.ctx;
+
+                // Get options from the center object in options
+                const centerConfig = chart.config.options.plugins.doughnutlabel;
+                if (centerConfig) {
+                    const fontStyle = centerConfig.labels[0].font || {};
+                    const txt = centerConfig.labels[0].text;
+                    const color = centerConfig.labels[0].color;
+                    const sidePadding = 20;
+                    const sidePaddingCalculated =
+                        (sidePadding / 100) * (chart.innerRadius * 2);
+
+                    ctx.font = `${fontStyle.weight || "bold"} ${
+                        fontStyle.size || "30px"
+                    } ${fontStyle.family || "Arial"}`;
+                    ctx.textBaseline = "middle";
+                    ctx.textAlign = "center";
+
+                    const centerX =
+                        (chart.chartArea.left + chart.chartArea.right) / 2;
+                    const centerY =
+                        (chart.chartArea.top + chart.chartArea.bottom) / 2;
+
+                    // Draw text in center
+                    ctx.fillStyle = color || "#000";
+                    ctx.fillText(txt, centerX, centerY);
+                }
+            }
+        },
+    });
+};
 </script>
 <template>
     <Layout heading="Dashboard">
@@ -647,6 +727,7 @@ const goToDIO = () => {
                     :value="upcomingInventories"
                     :icon="BookX"
                 />
+
                 <StatisticOverview
                     :isLink="true"
                     :href="
@@ -696,6 +777,7 @@ const goToDIO = () => {
                 />
 
                 <!-- First row after full width -->
+                <!-- For DIO -->
                 <Chart
                     type="doughnut"
                     :data="chartDataDoughnut"
@@ -720,7 +802,7 @@ const goToDIO = () => {
                         @click="goToTop10"
                     />
                 </div>
-
+                <!-- For DPO -->
                 <Chart
                     type="doughnut"
                     :data="chartDataDoughnutAccountPayable"

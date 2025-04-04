@@ -14,7 +14,7 @@
             font-family: Arial, sans-serif;
         }
 
-        p,
+        p,q
         h1,
         h3 {
             margin-left: auto;
