@@ -50,6 +50,7 @@ const exportRoute = route("menu-list.export", {
                     <TH>Id</TH>
                     <TH>Product Id</TH>
                     <TH>Name</TH>
+                    <TH>Ingredients Cost</TH>
                     <TH>Remarks</TH>
                     <TH>Actions</TH>
                 </TableHead>
@@ -58,6 +59,7 @@ const exportRoute = route("menu-list.export", {
                         <TD>{{ menu.id }}</TD>
                         <TD>{{ menu.product_id }}</TD>
                         <TD>{{ menu.name }}</TD>
+                        <TD>{{ menu.total }}</TD>
                         <TD>{{ menu.remarks ?? "None" }}</TD>
                         <TD>
                             <DivFlexCenter class="gap-3">

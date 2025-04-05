@@ -18,7 +18,8 @@ class MenuController extends Controller
     {
         $search = request('search');
 
-        $query = Menu::query()->with('category');
+        $query = Menu::query()->with('menu_ingredients.product');
+
 
         if ($query)
             $query->whereAny(['product_id', 'name'], 'like', "%{$search}%");
@@ -30,9 +31,14 @@ class MenuController extends Controller
                     'id' => $menu->id,
                     'product_id' => $menu->product_id,
                     'remarks' => $menu->remarks,
-                    'name' => $menu->name
+                    'name' => $menu->name,
+                    'total' =>  number_format($menu->menu_ingredients->map(function ($ingredient) {
+                        return $ingredient->quantity * $ingredient->product->cost;
+                    })->sum(), 2, '.', ','),
                 ];
             });
+
+
         return Inertia::render('Menu/Index', [
             'menus' => $menus,
             'filters' => request()->only(['search'])
