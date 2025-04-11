@@ -121,8 +121,8 @@ const addIngredient = () => {
         ingredientsForm.setError("id", "Product field is required");
         return;
     }
-    if (Number(ingredientsForm.quantity) < 0.1) {
-        ingredientsForm.setError("quantity", "Quantity must be at least 1");
+    if (Number(ingredientsForm.quantity) < 0) {
+        ingredientsForm.setError("quantity", "Quantity must be at least 0");
         return;
     }
 

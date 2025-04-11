@@ -74,7 +74,7 @@ class MenuController extends Controller
             'remarks' => ['nullable'],
             'ingredients' => ['required', 'array', 'min:1'],
             'ingredients.*.id' => ['required', 'exists:product_inventories,id'],
-            'ingredients.*.quantity' => ['required', 'numeric', 'min:0.1'],
+            'ingredients.*.quantity' => ['required', 'numeric', 'min:0'],
             'ingredients.*.unit' => ['required'],
         ]);
 
@@ -172,7 +172,7 @@ class MenuController extends Controller
             'remarks' => ['nullable'],
             'ingredients' => ['required', 'array', 'min:1'],
             'ingredients.*.id' => ['required', 'exists:product_inventories,id'],
-            'ingredients.*.quantity' => ['required', 'numeric', 'min:0.1'],
+            'ingredients.*.quantity' => ['required', 'numeric', 'min:0'],
         ]);
 
         DB::beginTransaction();
