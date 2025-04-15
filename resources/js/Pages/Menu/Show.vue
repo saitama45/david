@@ -36,6 +36,7 @@ const props = defineProps({
                         <TH>Inventory Code</TH>
                         <TH>Name</TH>
                         <TH>Quantity</TH>
+                        <TH>Cost</TH>
                         <TH>UOM</TH>
                     </TableHead>
                     <TableBody>
@@ -46,6 +47,7 @@ const props = defineProps({
                             <TD>{{ ingredient.inventory_code }}</TD>
                             <TD>{{ ingredient.name }}</TD>
                             <TD>{{ ingredient.quantity }}</TD>
+                            <TD>{{ ingredient.cost }}</TD>
                             <TD>{{ ingredient.uom }}</TD>
                         </tr>
                     </TableBody>

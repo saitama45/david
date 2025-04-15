@@ -131,9 +131,11 @@ class MenuController extends Controller
                 'inventory_code' => $ingredient->inventory_code,
                 'name' => $ingredient->name,
                 'quantity' => $ingredient->pivot->quantity,
+                'cost' => number_format($ingredient->cost * $ingredient->pivot->quantity, 2, '.', ","),
                 'uom' => $ingredient->pivot->unit ?? $ingredient->unit_of_measurement->name,
             ];
         });
+
         return Inertia::render('Menu/Show', [
             'menu' => $menu,
             'ingredients' => $ingredients,
