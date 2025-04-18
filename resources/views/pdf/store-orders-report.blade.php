@@ -14,8 +14,8 @@
             font-family: Arial, sans-serif;
         }
 
-        p,q
-        h1,
+        p,
+        q h1,
         h3 {
             margin-left: auto;
             margin-right: auto;
@@ -139,9 +139,9 @@
                 <th>Order Placed</th>
                 <th>Order Number</th>
                 <th>Supplier</th>
-                <th>Ordered</th>
+                <!-- <th>Ordered</th>
                 <th>Approved</th>
-                <th>Commited</th>
+                <th>Commited</th> -->
                 <th>Status</th>
             </tr>
         </thead>
@@ -152,9 +152,9 @@
                 <td>{{$order->created_at}}</td>
                 <td>{{ $order->order_number }}</td>
                 <td>{{ $order->supplier->name }}</td>
-                <td>100</td>
+                <!-- <td>100</td>
                 <td>95</td>
-                <td>90</td>
+                <td>90</td> -->
                 <td>{{ $order->order_status }}</td>
             </tr>
             @endforeach
