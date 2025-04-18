@@ -24,7 +24,7 @@ class StockManagementUpdateExport implements FromCollection, WithHeadings, WithM
                     'name' => $item->name,
                     'inventory_code' => $item->inventory_code,
                     'quantity' => 0,
-                    'unit_cost' => 0,
+                    'unit_cost' => $item->cost,
                     'transaction_date' => now()->format('Y-m-d')
                 ];
             });
