@@ -9,8 +9,6 @@ trait InventoryUsage
 {
     public function handleInventoryUsage($data)
     {
-
-
         $quantityUsed = $data['quantity'];
         $accumulatedQuantity = 0;
         while ($quantityUsed != $accumulatedQuantity) {
