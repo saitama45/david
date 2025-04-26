@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Exports\StockManagementListExport;
 use App\Exports\StockManagementLogUsageExport;
 use App\Exports\StockManagementUpdateExport;
+use App\Exports\StockMangementSOHExport;
 use App\Imports\UpdateStockManagementAddQuantityImport;
 use App\Imports\UpdateStockManagementLogUsageImport;
 use App\Models\CostCenter;
@@ -127,6 +128,14 @@ class StockManagementController extends Controller
         return Excel::download(
             new StockManagementLogUsageExport(),
             'stock-management-log-usage-' . now()->format('Y-m-d') . '.xlsx'
+        );
+    }
+
+    public function exportSOH()
+    {
+        return Excel::download(
+            new StockMangementSOHExport(),
+            'stock-management-soh-' . now()->format('Y-m-d') . '.xlsx'
         );
     }
 

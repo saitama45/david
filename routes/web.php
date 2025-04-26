@@ -69,7 +69,7 @@ Route::middleware('auth')
 
         Route::get('/test-report', [PDFReportController::class, 'index']);
 
-        Route::controller(PDFReportController::class)->name('pdf-export.')->prefix('pdf-export')->group(function(){
+        Route::controller(PDFReportController::class)->name('pdf-export.')->prefix('pdf-export')->group(function () {
             Route::get('/store-orders', 'storeOrders')->name('store-orders');
         });
 
@@ -373,6 +373,7 @@ Route::middleware('auth')
 
             Route::get('/export/add', 'exportAdd')->name('export-add');
             Route::get('/export/log', 'exportLog')->name('export-log');
+            Route::get('/export/soh', 'exportSOH')->name('export-soh');
 
             Route::post('/import/add', 'importAdd')->name('import-add');
 

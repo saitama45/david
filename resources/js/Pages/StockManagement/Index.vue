@@ -206,7 +206,7 @@ const updateImport = () => {
         updateForm.action == "add-quantity"
             ? "stock-management.import-add"
             : "stock-management.import-log-usage";
- 
+
     updateForm.branch = branchId.value;
 
     isLoading.value = true;
@@ -338,6 +338,11 @@ watch(isUpdateModalVisible, (value) => {
                     :href="route('stock-management.export-log')"
                     class="text-xs text-blue-500 underline"
                     >Log Usage</a
+                >
+                <a
+                    :href="route('stock-management.export-soh')"
+                    class="text-xs text-blue-500 underline"
+                    >SOH Update</a
                 >
             </InputContainer>
             <DivFlexCenter class="justify-end">
