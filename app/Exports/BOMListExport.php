@@ -35,7 +35,6 @@ class BOMListExport implements FromQuery, WithHeadings, WithMapping
             'ID',
             'Product ID',
             'Name',
-            'Category',
             'Price'
         ];
     }
@@ -46,7 +45,6 @@ class BOMListExport implements FromQuery, WithHeadings, WithMapping
             $row->id,
             $row->product_id,
             $row->name,
-            $row->category->name,
             $row->price
         ];
     }
