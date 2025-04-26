@@ -16,7 +16,7 @@ class StoreOrderItem extends Model implements Auditable
         'product_inventory_id',
         'quantity_ordered',
         'quantity_approved',
-        'quantity_commited', // New
+        'quantity_commited', 
         'quantity_received',
         'cost_per_quantity',
         'total_cost',

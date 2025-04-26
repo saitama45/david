@@ -230,7 +230,7 @@ const openExportModal = () => {
                     <TH>Conversion</TH>
                     <TH>UOM</TH>
                     <TH>Quantity Ordered</TH>
-                    <TH>Quantity Delivered</TH>
+                    <!-- <TH>Quantity Delivered</TH> -->
                     <TH>Actions</TH>
                 </TableHead>
                 <TableBody>
@@ -241,11 +241,11 @@ const openExportModal = () => {
                         <TD>{{ item.conversion }}</TD>
                         <TD>{{ item.unit_of_measurement.name }}</TD>
                         <TD>{{
-                            item.store_order_items_sum_quantity_approved
+                            item.store_order_items_sum_quantity_commited
                         }}</TD>
-                        <TD>{{
+                        <!-- <TD>{{
                             item.store_order_items_sum_quantity_received
-                        }}</TD>
+                        }}</TD> -->
                         <TD>
                             <button @click="showProductOrdersDetails(item.id)">
                                 <Eye class="size-5" />

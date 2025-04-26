@@ -60,7 +60,7 @@ class ProductOrderSummaryController extends Controller
                     $subQuery->whereIn('store_branch_id', $branchId);
                 }
             });
-        }], 'quantity_approved')
+        }], 'quantity_commited')
             ->withSum(['store_order_items' => function ($query) use ($startDate, $endDate, $supplierId, $branchId) {
                 $query->whereHas('store_order', function ($subQuery) use ($startDate, $endDate, $supplierId, $branchId) {
                     $subQuery->whereBetween('order_date', [$startDate, $endDate]);
@@ -95,6 +95,7 @@ class ProductOrderSummaryController extends Controller
             });
 
         $items = $query->paginate(10)->withQueryString();
+
 
         return Inertia::render('ProductOrderSummary/Index', [
             'items' => $items,
@@ -142,8 +143,8 @@ class ProductOrderSummaryController extends Controller
                 ->groupBy(fn($item) => $item->store_order->store_branch->id)
                 ->mapWithKeys(fn($items, $branchId) => [
                     $branchId => DB::connection()->getDriverName() === 'sqlsrv'
-                        ? $items->sum(DB::raw('CAST(quantity_approved AS DECIMAL(10,2))'))
-                        : $items->sum('quantity_approved')
+                        ? $items->sum(DB::raw('CAST(quantity_commited AS DECIMAL(10,2))'))
+                        : $items->sum('quantity_commited')
                 ]);
 
             return [
