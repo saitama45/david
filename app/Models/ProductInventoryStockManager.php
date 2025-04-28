@@ -22,6 +22,8 @@ class ProductInventoryStockManager extends Model implements Auditable
         'unit_cost',
         'total_cost',
         'transaction_date',
+        'is_stock_adjustment',
+        'is_stock_adjustment_approved',
         'remarks'
     ];
 

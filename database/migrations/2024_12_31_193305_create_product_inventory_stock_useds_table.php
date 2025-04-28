@@ -13,7 +13,7 @@ return new class extends Migration
     {
         Schema::create('product_inventory_stock_managers', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('purchase_item_batch_id')->constrained('purchase_item_batches');
+            $table->foreignId('purchase_item_batch_id')->nullable()->constrained('purchase_item_batches');
             $table->foreignId('product_inventory_id')->constrained('product_inventories');
             $table->foreignId('store_branch_id')->constrained('store_branches');
             $table->foreignId('cost_center_id')->nullable()->constrained('cost_centers');
@@ -22,6 +22,8 @@ return new class extends Migration
             $table->double('unit_cost');
             $table->double('total_cost');
             $table->date('transaction_date');
+            $table->boolean('is_stock_adjustment')->default(false);
+            $table->boolean('is_stock_adjustment_approved')->default(false);
             $table->text('remarks')->nullable();
             $table->timestamps();
         });

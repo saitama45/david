@@ -184,6 +184,10 @@ const options = [
         label: "Log Usage",
         value: "log-usage",
     },
+    {
+        label: "SOH Update",
+        value: "soh-update",
+    },
 ];
 
 const updateForm = useForm({
