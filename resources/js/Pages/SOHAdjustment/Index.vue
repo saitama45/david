@@ -3,7 +3,7 @@ import { useSelectOptions } from "@/Composables/useSelectOptions";
 import { usePage, router, useForm } from "@inertiajs/vue3";
 
 import { throttle, update } from "lodash";
-import { ref } from "vue";
+import { ref, computed } from "vue";
 import { useConfirm } from "primevue/useconfirm";
 import { useToast } from "@/Composables/useToast";
 const confirm = useConfirm();
@@ -62,9 +62,29 @@ watch(
         );
     }, 500)
 );
+
+const selectedItems = ref([]);
+
+// Get all item IDs from the current items list
+const allItemIds = computed(() => {
+    return items.data.map((item) => item.id);
+});
+
+// Check if all items are selected
+const allSelected = computed({
+    get: () => {
+        return (
+            allItemIds.value.length > 0 &&
+            selectedItems.value.length === allItemIds.value.length
+        );
+    },
+    set: (value) => {
+        selectedItems.value = value ? [...allItemIds.value] : [];
+    },
+});
 </script>
 <template>
-    <Layout heading="Stock Management">
+    <Layout heading="SOH Adjustments">
         <TableContainer>
             <DivFlexCenter class="justify-between sm:flex-row flex-col gap-3">
                 <SearchBar>
@@ -89,6 +109,11 @@ watch(
             </DivFlexCenter>
             <Table>
                 <TableHead>
+                    <TH>
+                        <div class="cursor-pointer">
+                            <Checkbox v-model="allSelected" :binary="true" />
+                        </div>
+                    </TH>
                     <TH>Name</TH>
                     <TH>Code</TH>
                     <TH>SOH Quantity</TH>
@@ -96,13 +121,25 @@ watch(
                 </TableHead>
                 <TableBody>
                     <tr v-for="item in items.data">
+                        <TD>
+                            <Checkbox
+                                v-model="selectedItems"
+                                :value="item.id"
+                                :inputId="`item-${item.id}`"
+                            />
+                        </TD>
                         <TD>{{ item.product.name }}</TD>
                         <TD>{{ item.product.inventory_code }}</TD>
                         <TD>{{ item.quantity }}</TD>
-                        <TD></TD>
+                        <TD>
+                            <Button variant="link" class="text-green-500 p-0"
+                                >Approve</Button
+                            >
+                        </TD>
                     </tr>
                 </TableBody>
             </Table>
+            <Pagination :data="items" />
         </TableContainer>
     </Layout>
 </template>
