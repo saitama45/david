@@ -105,6 +105,9 @@ const allSelected = computed({
                         v-model="branchId"
                     >
                     </Select>
+                    <Button v-if="selectedItems.length > 0"
+                        >Approve All Selected Items</Button
+                    >
                 </DivFlexCenter>
             </DivFlexCenter>
             <Table>
