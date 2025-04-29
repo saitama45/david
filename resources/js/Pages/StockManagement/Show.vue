@@ -51,6 +51,7 @@ const { branches, history } = defineProps({
             </MobileTableContainer>
             <Pagination :data="history" />
         </TableContainer>
+
         <BackButton routeName="stock-management.index" />
     </Layout>
 </template>

@@ -288,6 +288,13 @@ const referenceOpen = ref(false);
                 >
                     Stock Management
                 </NavLink>
+                <NavLink
+                    v-if="hasAccess('view stock management')"
+                    href="/soh-adjustment"
+                    :icon="FolderKanban"
+                >
+                    SOH Adjustment
+                </NavLink>
             </CollapsibleContent>
         </Collapsible>
 

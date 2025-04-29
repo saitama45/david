@@ -2,6 +2,8 @@
 
 namespace App\Imports;
 
+use App\Models\ProductInventory;
+use App\Models\ProductInventoryStockManager;
 use Illuminate\Support\Collection;
 use Maatwebsite\Excel\Concerns\ToCollection;
 use Maatwebsite\Excel\Concerns\WithHeadingRow;
@@ -10,8 +12,8 @@ use Maatwebsite\Excel\Validators\Failure;
 class UpdateStockManagementSOH implements ToCollection, WithHeadingRow
 {
     /**
-    * @param Collection $collection
-    */
+     * @param Collection $collection
+     */
 
     protected $branch;
     protected $importedData = [];
@@ -23,7 +25,21 @@ class UpdateStockManagementSOH implements ToCollection, WithHeadingRow
     }
     public function collection(Collection $collection)
     {
-        //
+
+        foreach ($collection as $index => $row) {
+            if ($row['quantity'] < 1) continue;
+            ProductInventoryStockManager::create([
+                'product_inventory_id' => $row['id'],
+                'store_branch_id' => $this->branch,
+                'quantity' => $row['quantity'],
+                'action' => 'soh_adjustment',
+                'unit_cost' => 0,
+                'total_cost' => 0,
+                'transaction_date' => $row['transaction_date'] ?? now(),
+                'is_stock_adjustment' => true,
+                'remarks' => $row['remarks'] ?? null,
+            ]);
+        }
     }
 
     public function getImportedData()

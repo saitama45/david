@@ -39,6 +39,7 @@ use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\ReceivingApprovalController;
 use App\Http\Controllers\RolesController;
 use App\Http\Controllers\SalesReportController;
+use App\Http\Controllers\SOHAdjustmentController;
 use App\Http\Controllers\StockController;
 use App\Http\Controllers\StockManagementController;
 use App\Http\Controllers\StoreBranchController;
@@ -378,7 +379,16 @@ Route::middleware('auth')
             Route::post('/import/add', 'importAdd')->name('import-add');
 
             Route::post('/import/log-usage', 'importLogUsage')->name('import-log-usage');
+
+            Route::post('/import/soh-update', 'importSOHUpdate')->name('import-soh-update');
         });
+
+        Route::controller(SOHAdjustmentController::class)
+            ->prefix('soh-adjustment')
+            ->name('soh-adjustment.')
+            ->group(function () {
+                Route::get('/', 'index')->name('index');
+            });
 
         Route::controller(ExcelTemplateController::class)
             ->name('excel.')

@@ -8,6 +8,7 @@ use App\Exports\StockManagementUpdateExport;
 use App\Exports\StockMangementSOHExport;
 use App\Imports\UpdateStockManagementAddQuantityImport;
 use App\Imports\UpdateStockManagementLogUsageImport;
+use App\Imports\UpdateStockManagementSOH;
 use App\Models\CostCenter;
 use App\Models\ProductInventory;
 use App\Models\ProductInventoryStock;
@@ -214,6 +215,22 @@ class StockManagementController extends Controller
             'branch' => ['required'],
         ]);
         $import = new UpdateStockManagementLogUsageImport($validated['branch']);
+        Excel::import($import, $validated['file']);
+
+        return response()->json([
+            'imported' => $import->getImportedData(),
+            'errors' => $import->getErrors()
+        ]);
+    }
+
+    public function importSOHUpdate(Request $request)
+    {
+        $validated = $request->validate([
+            'file' => ['required', 'file', 'mimes:xlsx'],
+            'branch' => ['required'],
+        ]);
+
+        $import = new UpdateStockManagementSOH($validated['branch']);
         Excel::import($import, $validated['file']);
 
         return response()->json([

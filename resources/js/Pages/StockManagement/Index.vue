@@ -134,7 +134,7 @@ const addQuantity = () => {
                 severity: "success",
                 summary: "Success",
                 detail: "Usaged logged Successfully.",
-                life: 5000,
+                life: 10000,
             });
             isAddQuantityModalOpen.value = false;
         },
@@ -143,7 +143,7 @@ const addQuantity = () => {
                 severity: "error",
                 summary: "Error",
                 detail: "An error occured while trying to log the usage.",
-                life: 5000,
+                life: 10000,
             });
         },
     });
@@ -209,7 +209,9 @@ const updateImport = () => {
     const routeLocation =
         updateForm.action == "add-quantity"
             ? "stock-management.import-add"
-            : "stock-management.import-log-usage";
+            : updateForm.action == "log-usage"
+            ? "stock-management.import-log-usage"
+            : "stock-management.import-soh-update";
 
     updateForm.branch = branchId.value;
 
@@ -363,6 +365,8 @@ watch(isUpdateModalVisible, (value) => {
         :hasExcelDownload="true"
         :exportRoute="exportRoute"
     >
+        
+
         <TableContainer>
             <DivFlexCenter class="justify-between sm:flex-row flex-col gap-3">
                 <SearchBar>
