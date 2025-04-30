@@ -34,4 +34,16 @@ class SOHAdjustmentController extends Controller
             'filters' => request()->only(['search', 'branchId']),
         ]);
     }
+
+    public function approveSelectedItems(Request $request)
+    {
+        $validated = $request->validate([
+            'selectedItems' => ['required', 'array'],
+            'branchId' => ['required', 'exists:store_branches,id'],
+        ]);
+
+        ProductInventoryStockManager::whereIn('id', $validated)
+            ->where('store_branch_id', $validated['branchId'])
+            ->update();
+    }
 }

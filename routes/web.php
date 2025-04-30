@@ -387,7 +387,8 @@ Route::middleware('auth')
             ->prefix('soh-adjustment')
             ->name('soh-adjustment.')
             ->group(function () {
-                Route::get('/', 'index')->name('index');
+                Route::get('/', 'index')->name('index');  
+                Route::post('/approveSelectedItems', 'approveSelectedItems')->name('approve-selected-items');
             });
 
         Route::controller(ExcelTemplateController::class)

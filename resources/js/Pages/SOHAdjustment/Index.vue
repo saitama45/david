@@ -6,6 +6,7 @@ import { throttle, update } from "lodash";
 import { ref, computed } from "vue";
 import { useConfirm } from "primevue/useconfirm";
 import { useToast } from "@/Composables/useToast";
+
 const confirm = useConfirm();
 const { toast } = useToast();
 const { items, branches } = defineProps({
@@ -28,7 +29,7 @@ const branchId = ref(
 let search = ref(usePage().props.filters.search);
 
 watch(branchId, (newValue) => {
-    console.log(usePage());
+    selectedItems.value = [];
     router.get(
         route("soh-adjustment.index"),
         {
@@ -43,6 +44,20 @@ watch(branchId, (newValue) => {
         }
     );
 });
+
+const approveSelectedItems = () => {
+    const form = useForm({
+        selectedItems: selectedItems.value,
+        branchId: branchId.value,
+    });
+
+    form.post(route("soh-adjustment.approve-selected-items"), {
+        onSuccess: (response) => {
+            selectedItems.value = [];
+        },
+        onError: (error) => {},
+    });
+};
 
 watch(
     search,
@@ -105,7 +120,9 @@ const allSelected = computed({
                         v-model="branchId"
                     >
                     </Select>
-                    <Button v-if="selectedItems.length > 0"
+                    <Button
+                        @click="approveSelectedItems"
+                        v-if="selectedItems.length > 0"
                         >Approve All Selected Items</Button
                     >
                 </DivFlexCenter>

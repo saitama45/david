@@ -365,8 +365,6 @@ watch(isUpdateModalVisible, (value) => {
         :hasExcelDownload="true"
         :exportRoute="exportRoute"
     >
-        
-
         <TableContainer>
             <DivFlexCenter class="justify-between sm:flex-row flex-col gap-3">
                 <SearchBar>
@@ -396,7 +394,6 @@ watch(isUpdateModalVisible, (value) => {
                     <TH>Code</TH>
                     <TH>UOM</TH>
                     <TH>SOH</TH>
-                    <TH>Estimated Used</TH>
                     <TH>Recorded Used</TH>
                     <TH>Actions</TH>
                 </TableHead>
@@ -406,10 +403,6 @@ watch(isUpdateModalVisible, (value) => {
                         <TD>{{ product.inventory_code }}</TD>
                         <TD>{{ product.uom }}</TD>
                         <TD>{{ product.stock_on_hand }}</TD>
-                        <TD
-                            >{{ product.estimated_used }}
-                            {{ product.ingredient_units }}</TD
-                        >
                         <TD>{{ product.recorded_used }}</TD>
                         <TD>
                             <DivFlexCenter class="gap-3">

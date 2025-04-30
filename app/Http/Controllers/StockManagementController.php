@@ -34,70 +34,60 @@ class StockManagementController extends Controller
         $branches = StoreBranch::options();
         $branchId = request('branchId') ?? $branches->keys()->first();
 
-        $usageRecords = DB::table('usage_records as ur')
-            ->join('usage_record_items as uri', 'ur.id', '=', 'uri.usage_record_id')
-            ->join('menus as m', 'uri.menu_id', '=', 'm.id')
-            ->join('menu_ingredients as mi', 'm.id', '=', 'mi.menu_id')
-            ->where('ur.store_branch_id', $branchId)
-            ->select(
-                'mi.product_inventory_id',
-                DB::raw(
-                    DB::connection()->getDriverName() === 'sqlsrv'
-                        ? 'CAST(SUM(CAST(mi.quantity AS DECIMAL(10,2)) * CAST(uri.quantity AS DECIMAL(10,2))) AS DECIMAL(10,2)) as total_quantity_used'
-                        : 'SUM(mi.quantity * uri.quantity) as total_quantity_used'
-                ),
-                DB::raw(
-                    DB::connection()->getDriverName() === 'sqlsrv'
-                        ? "STRING_AGG(mi.unit, ',') WITHIN GROUP (ORDER BY mi.unit) as units"
-                        : "GROUP_CONCAT(DISTINCT mi.unit) as units"
-                )
-            )
-            ->groupBy('mi.product_inventory_id')
+        // First get all products with their UOM
+        $products = ProductInventory::with('unit_of_measurement')
+            ->when($search, function ($query) use ($search) {
+                $query->where('name', 'like', "%{$search}%")
+                    ->orWhere('inventory_code', 'like', "%{$search}%");
+            })
+            ->orderBy('name')
+            ->paginate(10);
+
+        // Then get stock data for these products in the selected branch
+        $stockData = ProductInventoryStockManager::with('product.unit_of_measurement')
+            ->where('store_branch_id', $branchId)
+            ->when($search, function ($query) use ($search) {
+                $query->whereHas('product', function ($q) use ($search) {
+                    $q->where('name', 'like', "%{$search}%")
+                        ->orWhere('inventory_code', 'like', "%{$search}%");
+                });
+            })
+            ->select([
+                'product_inventory_id',
+                'store_branch_id',
+                DB::raw('SUM(CASE WHEN is_stock_adjustment_approved = true THEN quantity ELSE 0 END) as stock_on_hand'),
+                DB::raw('SUM(CASE WHEN is_stock_adjustment_approved = true AND quantity < 0 THEN ABS(quantity) ELSE 0 END) as recorded_used')
+            ])
+            ->groupBy('product_inventory_id', 'store_branch_id')
             ->get()
-            ->mapWithKeys(function ($item) {
+            ->map(function ($product) {
                 return [
-                    $item->product_inventory_id => $item->total_quantity_used,
-                    $item->product_inventory_id . '_units' => $item->units
-                ];
-            })
-            ->toArray();
-
-
-
-        $query = ProductInventory::query()
-            ->with(['unit_of_measurement'])
-            ->whereHas('inventory_stocks', function ($query) use ($branchId) {
-                $query->where('store_branch_id', $branchId);
-            })
-            ->with(['inventory_stocks' => function ($query) use ($branchId) {
-                $query->where('store_branch_id', $branchId);
-            }]);
-
-        if ($search) {
-            $query->whereAny(['name', 'inventory_code'], 'like', "%$search%");
-        }
-
-        $products = $query
-            ->paginate(10)
-            ->withQueryString()
-            ->through(function ($item) use ($usageRecords) {
-                $units = isset($usageRecords[$item->id . '_units'])
-                    ? '(' . str_replace(',', ', ', $usageRecords[$item->id . '_units']) . ')'
-                    : '';
-
-                return [
-                    'id' => $item->id,
-                    'name' => $item->name,
-                    'inventory_code' => $item->inventory_code,
-                    'stock_on_hand' => $item->inventory_stocks->first()->quantity - $item->inventory_stocks->first()->used,
-                    'recorded_used' => $item->inventory_stocks->first()->used,
-                    'estimated_used' => $usageRecords[$item->id] ?? 0,
-                    'ingredient_units' => $units,
-                    'uom' => $item->unit_of_measurement->name,
+                    'id' => $product->product_inventory_id,
+                    'name' => $product->product->name,
+                    'uom' => $product->product->unit_of_measurement->name,
+                    'inventory_code' => $product->product->inventory_code,
+                    'stock_on_hand' => $product->stock_on_hand,
+                    'recorded_used' => $product->recorded_used,
                 ];
             });
 
+        dd($stockData);
 
+        // Transform the products with stock data
+        $products->getCollection()->transform(function ($product) use ($stockData) {
+            $stock = $stockData->get($product->id);
+
+            return [
+                'id' => $product->id,
+                'name' => $product->name,
+                'uom' => $product->unit_of_measurement->name,
+                'inventory_code' => $product->inventory_code,
+                'stock_on_hand' => $stock ? $stock->stock_on_hand : 0,
+                'recorded_used' => $stock ? $stock->recorded_used : 0,
+            ];
+        });
+
+        dd($stockData);
         return Inertia::render('StockManagement/Index', [
             'products' => $products,
             'branches' => $branches,
