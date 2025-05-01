@@ -29,7 +29,7 @@ class SOHAdjustmentController extends Controller
             })
             ->where('action', 'soh_adjustment')
             ->orderBy('created_at', 'desc')
-            ->paginate(10);
+            ->get();
 
         return Inertia::render('SOHAdjustment/Index', [
             'branches' => $branches,
@@ -49,12 +49,11 @@ class SOHAdjustmentController extends Controller
         DB::beginTransaction();
         foreach ($validated['selectedItems'] as $itemId) {
             $item = ProductInventoryStockManager::with('product')->find($itemId);
+            $product = ProductInventoryStock::where('product_inventory_id', $item->product_inventory_id)
+                ->where('store_branch_id', $validated['branchId'])
+                ->first();
 
             if ($item->quantity > 0) {
-
-                $product = ProductInventoryStock::where('product_inventory_id', $item->product_inventory_id)
-                    ->where('store_branch_id', $validated['branchId'])
-                    ->first();
 
                 $batch = PurchaseItemBatch::create([
                     'product_inventory_id' => $item->product_inventory_id,
@@ -78,6 +77,63 @@ class SOHAdjustmentController extends Controller
                 ]);
 
                 $item->save();
+            } else {
+                $quantityUsed = abs($item->quantity);
+                $accumulatedQuantity = 0;
+                while ($quantityUsed != $accumulatedQuantity) {
+                    $batch = PurchaseItemBatch::where('remaining_quantity', '>', 0)
+                        ->where('store_branch_id', $validated['branchId'])
+                        ->where('product_inventory_id', $item->product_inventory_id)
+                        ->orderBy('purchase_date', 'asc')
+                        ->first();
+
+                    if (!$batch) break;
+                    $remainingQuantity = $batch->remaining_quantity;
+                    $totalCost = 0;
+                    $quantity = 0;
+
+                    if ($remainingQuantity < $quantityUsed) {
+                        $accumulatedQuantity += $remainingQuantity;
+                        $quantity = $remainingQuantity;
+                        $batch->remaining_quantity = 0;
+                        $totalCost = $remainingQuantity * $batch->unit_cost;
+                        $batch->save();
+                    }
+                    if ($remainingQuantity > $quantityUsed) {
+                        $quantityNeed = $quantityUsed  - $accumulatedQuantity;
+                        $accumulatedQuantity += $quantityNeed;
+                        $quantity =  $quantityNeed;
+                        $totalCost = $quantityNeed * $batch->unit_cost;
+                        $batch->remaining_quantity -= $quantityNeed;
+                        $batch->save();
+                    }
+
+                    if ($remainingQuantity == $quantityUsed) {
+                        $accumulatedQuantity += $remainingQuantity;
+                        $totalCost = $remainingQuantity * $batch->unit_cost;
+                        $quantity = $remainingQuantity;
+                        $batch->remaining_quantity = 0;
+                        $batch->save();
+                    }
+
+
+                    $batch->product_inventory_stock_managers()->create([
+                        'product_inventory_id' => $item->product_inventory_id,
+                        'store_branch_id' => $validated['branchId'],
+                        'quantity' => -$quantity,
+                        'action' => 'soh_adjustment',
+                        'unit_cost' => $batch->unit_cost,
+                        'total_cost' => -$totalCost,
+                        'is_stock_adjustment' => true,
+                        'is_stock_adjustment_approved' => true,
+                        'transaction_date' => now(),
+                    ]);
+                }
+
+                $item->update([
+                    'is_stock_adjustment_approved' => true,
+                    'action' => 'soh_adjustment',
+                ]);
             }
         }
         DB::commit();

@@ -27,7 +27,7 @@ class UpdateStockManagementSOH implements ToCollection, WithHeadingRow
     {
 
         foreach ($collection as $index => $row) {
-            if ($row['quantity'] < 1) continue;
+            if ($row['quantity'] == false) continue;
             ProductInventoryStockManager::create([
                 'product_inventory_id' => $row['id'],
                 'store_branch_id' => $this->branch,

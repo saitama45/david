@@ -95,7 +95,7 @@ const selectedItems = ref([]);
 
 // Get all item IDs from the current items list
 const allItemIds = computed(() => {
-    return items.data.map((item) => item.id);
+    return items.map((item) => item.id);
 });
 
 // Check if all items are selected
@@ -153,7 +153,7 @@ const allSelected = computed({
                     <TH>Actions</TH>
                 </TableHead>
                 <TableBody>
-                    <tr v-for="item in items.data">
+                    <tr v-for="item in items">
                         <TD>
                             <Checkbox
                                 v-model="selectedItems"
@@ -172,7 +172,6 @@ const allSelected = computed({
                     </tr>
                 </TableBody>
             </Table>
-            <Pagination :data="items" />
         </TableContainer>
     </Layout>
 </template>

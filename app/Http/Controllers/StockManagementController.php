@@ -49,7 +49,7 @@ class StockManagementController extends Controller
             ->select([
                 'product_inventory_id',
                 DB::raw('SUM(CASE WHEN is_stock_adjustment_approved = true THEN quantity ELSE 0 END) as stock_on_hand'),
-                DB::raw('SUM(CASE WHEN is_stock_adjustment_approved = true AND quantity < 0 THEN ABS(quantity) ELSE 0 END) as recorded_used')
+                DB::raw('SUM(CASE WHEN quantity < 0 THEN ABS(quantity) ELSE 0 END) as recorded_used')
             ])
             ->groupBy('product_inventory_id')
             ->get()

@@ -5,7 +5,7 @@ namespace App\Traits;
 use App\Models\PurchaseItemBatch;
 use Illuminate\Support\Facades\Log;
 
-trait InventoryUsage
+trait   InventoryUsage
 {
     public function handleInventoryUsage($data)
     {
