@@ -53,9 +53,22 @@ const approveSelectedItems = () => {
 
     form.post(route("soh-adjustment.approve-selected-items"), {
         onSuccess: (response) => {
+            toast.add({
+                severity: "success",
+                summary: "Success",
+                detail: "Approved Successfully.",
+                life: 5000,
+            });
             selectedItems.value = [];
         },
-        onError: (error) => {},
+        onError: (error) => {
+            toast.add({
+                severity: "error",
+                summary: "Error",
+                detail: "An error occured while trying to approve.",
+                life: 5000,
+            });
+        },
     });
 };
 

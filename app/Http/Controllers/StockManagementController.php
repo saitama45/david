@@ -44,34 +44,16 @@ class StockManagementController extends Controller
             ->paginate(10);
 
         // Then get stock data for these products in the selected branch
-        $stockData = ProductInventoryStockManager::with('product.unit_of_measurement')
-            ->where('store_branch_id', $branchId)
-            ->when($search, function ($query) use ($search) {
-                $query->whereHas('product', function ($q) use ($search) {
-                    $q->where('name', 'like', "%{$search}%")
-                        ->orWhere('inventory_code', 'like', "%{$search}%");
-                });
-            })
+        $stockData = ProductInventoryStockManager::where('store_branch_id', $branchId)
+            ->whereIn('product_inventory_id', $products->pluck('id'))
             ->select([
                 'product_inventory_id',
-                'store_branch_id',
                 DB::raw('SUM(CASE WHEN is_stock_adjustment_approved = true THEN quantity ELSE 0 END) as stock_on_hand'),
                 DB::raw('SUM(CASE WHEN is_stock_adjustment_approved = true AND quantity < 0 THEN ABS(quantity) ELSE 0 END) as recorded_used')
             ])
-            ->groupBy('product_inventory_id', 'store_branch_id')
+            ->groupBy('product_inventory_id')
             ->get()
-            ->map(function ($product) {
-                return [
-                    'id' => $product->product_inventory_id,
-                    'name' => $product->product->name,
-                    'uom' => $product->product->unit_of_measurement->name,
-                    'inventory_code' => $product->product->inventory_code,
-                    'stock_on_hand' => $product->stock_on_hand,
-                    'recorded_used' => $product->recorded_used,
-                ];
-            });
-
-        dd($stockData);
+            ->keyBy('product_inventory_id');
 
         // Transform the products with stock data
         $products->getCollection()->transform(function ($product) use ($stockData) {
@@ -87,7 +69,6 @@ class StockManagementController extends Controller
             ];
         });
 
-        dd($stockData);
         return Inertia::render('StockManagement/Index', [
             'products' => $products,
             'branches' => $branches,
