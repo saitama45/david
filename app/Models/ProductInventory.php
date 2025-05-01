@@ -111,6 +111,11 @@ class ProductInventory extends Model implements Auditable
         return $this->hasMany(ProductInventoryStockManager::class);
     }
 
+    public function uom_conversion()
+    {
+        return $this->hasMany(UnitOfMesurementConversion::class, 'inventory_code', 'inventory_code');
+    }
+
     protected static function booted()
     {
         static::created(function ($product) {
