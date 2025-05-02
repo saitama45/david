@@ -20,7 +20,7 @@ class StockMangementSOHExport implements FromCollection, WithHeadings, WithMappi
                     'id' => $item->id,
                     'name' => $item->name,
                     'inventory_code' => $item->inventory_code,
-                    'quantity' => 0,
+                    'variance' => 0,
                 ];
             });
     }
@@ -31,7 +31,7 @@ class StockMangementSOHExport implements FromCollection, WithHeadings, WithMappi
             'ID',
             'Product Name',
             'Inventory Code',
-            'Quantity',
+            'Variance',
             'Remarks'
         ];
     }
@@ -42,7 +42,7 @@ class StockMangementSOHExport implements FromCollection, WithHeadings, WithMappi
             $row['id'],
             $row['name'],
             $row['inventory_code'],
-            $row['quantity'],
+            $row['variance'],
             ''
         ];
     }

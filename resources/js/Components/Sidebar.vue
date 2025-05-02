@@ -399,6 +399,9 @@ const referenceOpen = ref(false);
                 >
                     Menu Categories
                 </NavLink>
+                <NavLink href="/uom-conversions" :icon="FileSliders">
+                    UOM Conversions
+                </NavLink>
                 <NavLink
                     v-if="hasAccess('manage references')"
                     href="/inventory-categories"

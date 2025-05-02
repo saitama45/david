@@ -49,6 +49,7 @@ use App\Http\Controllers\SupplierController;
 use App\Http\Controllers\TestController;
 use App\Http\Controllers\Top10InventoriesController;
 use App\Http\Controllers\UnitOfMeasurementController;
+use App\Http\Controllers\UOMConversionController;
 use App\Http\Controllers\UpcomingInventoryController;
 use App\Http\Controllers\UsageRecordController;
 use App\Http\Controllers\UserController;
@@ -383,11 +384,15 @@ Route::middleware('auth')
             Route::post('/import/soh-update', 'importSOHUpdate')->name('import-soh-update');
         });
 
+        Route::controller(UOMConversionController::class)->name('uom-conversions.')->prefix('uom-conversions')->group(function () {
+            Route::get('/', 'index')->name('index');
+        });
+
         Route::controller(SOHAdjustmentController::class)
             ->prefix('soh-adjustment')
             ->name('soh-adjustment.')
             ->group(function () {
-                Route::get('/', 'index')->name('index');  
+                Route::get('/', 'index')->name('index');
                 Route::post('/approveSelectedItems', 'approveSelectedItems')->name('approve-selected-items');
             });
 

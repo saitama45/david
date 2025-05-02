@@ -27,11 +27,11 @@ class UpdateStockManagementSOH implements ToCollection, WithHeadingRow
     {
 
         foreach ($collection as $index => $row) {
-            if ($row['quantity'] == false) continue;
+            if ($row['variance'] == false) continue;
             ProductInventoryStockManager::create([
                 'product_inventory_id' => $row['id'],
                 'store_branch_id' => $this->branch,
-                'quantity' => $row['quantity'],
+                'quantity' => $row['variance'],
                 'action' => 'soh_adjustment',
                 'unit_cost' => 0,
                 'total_cost' => 0,
