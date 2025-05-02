@@ -386,6 +386,7 @@ Route::middleware('auth')
 
         Route::controller(UOMConversionController::class)->name('uom-conversions.')->prefix('uom-conversions')->group(function () {
             Route::get('/', 'index')->name('index');
+            Route::post('/import', 'import')->name('import');
         });
 
         Route::controller(SOHAdjustmentController::class)

@@ -12,7 +12,7 @@ const importForm = useForm({
 });
 
 const importData = () => {
-    importForm.post(route("uom-conversion.import"), {
+    importForm.post(route("uom-conversions.import"), {
         forceFormData: true,
         onSuccess: () => {
             toast.add({
@@ -56,7 +56,9 @@ const importData = () => {
             </div>
 
             <DialogFooter>
-                <Button type="submit" class="gap-2"> Proceed </Button>
+                <Button @click="importData" type="submit" class="gap-2">
+                    Proceed
+                </Button>
             </DialogFooter>
         </DialogContent>
     </Dialog>

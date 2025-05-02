@@ -13,7 +13,8 @@ return new class extends Migration
     {
         Schema::create('unit_of_mesurement_conversions', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('inventory_code')->constrained('product_inventories')->onDelete('cascade');
+            $table->string('inventory_code');
+            $table->foreign('inventory_code')->references('inventory_code')->on('product_inventories')->onDelete('cascade');
             $table->string('uom_group')->nullable();
             $table->decimal('alternative_quantity')->nullable();
             $table->decimal('base_quantity')->nullable();
