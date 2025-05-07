@@ -6,8 +6,11 @@
             </th>
         </tr>
         <tr>
-            <th>Item</th>
-            <th>Inventory Code</th>
+            <th>BRAND</th>
+            <th>ITEM CODE</th>
+            <th>ITEM NAME</th>
+            <th>Packaging</th>
+            <th>UNIT</th>
             @foreach($branches as $branch)
             <th>{{ $branch->branch_code }}</th>
             @endforeach
@@ -17,8 +20,12 @@
     <tbody>
         @foreach($products as $product)
         <tr>
-            <td>{{ $product['name'] }}</td>
+            <td>{{ $product['brand'] }}</td>
             <td>{{ $product['inventory_code'] }}</td>
+            <td>{{ $product['name'] }}</td>
+
+            <td>{{ $product['packaging'] }}</td>
+            <td>{{ $product['uom'] }}</td>
             @foreach($branches as $branch)
             <td>{{ $product['branch_quantities'][$branch->id] ?? 0 }}</td>
             @endforeach

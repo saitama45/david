@@ -119,7 +119,7 @@ class ProductOrderSummaryController extends Controller
 
         $branches = $branchId ? StoreBranch::whereIn('id', $branchId)->get() : StoreBranch::all();
 
-        $query = ProductInventory::query()->with(['store_order_items' => function ($query) use ($startDate, $endDate, $supplierId, $branchId) {
+        $query = ProductInventory::query()->with(['unit_of_measurement', 'store_order_items' => function ($query) use ($startDate, $endDate, $supplierId, $branchId) {
             $query->whereHas('store_order', function ($subQuery) use ($startDate, $endDate, $supplierId, $branchId) {
                 $subQuery->whereBetween('order_date', [$startDate, $endDate]);
                 if ($supplierId) $subQuery->where('supplier_id', $supplierId);
@@ -149,8 +149,11 @@ class ProductOrderSummaryController extends Controller
 
             return [
                 'name' => $product->name,
+                'brand' => $product->brand ?? '',
                 'inventory_code' => $product->inventory_code,
+                'packaging' => $product->packaging,
                 'branch_quantities' => $branchQuantities,
+                'uom' => $product->unit_of_measurement->name,
                 'total' => $branchQuantities->sum()
             ];
         })->filter(fn($product) => $product['total'] > 0)->values();
