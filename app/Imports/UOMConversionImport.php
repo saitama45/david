@@ -22,7 +22,7 @@ class UOMConversionImport implements ToModel, WithHeadingRow
         if (!$product) {
             return null;
         }
-        dd($row);
+
         return new UnitOfMesurementConversion([
             'inventory_code' => $row['item_no'],
             'uom_group' => $row['uom_group'],
