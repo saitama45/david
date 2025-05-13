@@ -46,6 +46,7 @@ use App\Http\Controllers\StoreBranchController;
 use App\Http\Controllers\StoreTransactionApprovalController;
 use App\Http\Controllers\StoreTransactionController;
 use App\Http\Controllers\SupplierController;
+use App\Http\Controllers\TemplateController;
 use App\Http\Controllers\TestController;
 use App\Http\Controllers\Top10InventoriesController;
 use App\Http\Controllers\UnitOfMeasurementController;
@@ -68,6 +69,10 @@ Route::get('jobs', function () {
 
 Route::middleware('auth')
     ->group(function () {
+
+
+        Route::get('/templates', [TemplateController::class, 'index']);
+        Route::post('/template/store', [TemplateController::class, 'store'])->name('templates.store');
 
         Route::get('/test-report', [PDFReportController::class, 'index']);
 

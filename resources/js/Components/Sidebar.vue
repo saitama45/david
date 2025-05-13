@@ -109,6 +109,13 @@ const referenceOpen = ref(false);
         <NavLink href="/roles" :icon="FileCog" v-if="hasAccess('view roles')">
             Roles
         </NavLink>
+        <NavLink
+            href="/templates"
+            :icon="FileCog"
+            v-if="hasAccess('view roles')"
+        >
+            Templates
+        </NavLink>
         <NavLink href="/audits" :icon="MonitorCog" v-if="false">
             Audits
         </NavLink>
