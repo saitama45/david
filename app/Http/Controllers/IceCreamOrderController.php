@@ -26,8 +26,6 @@ class IceCreamOrderController extends Controller
             : Carbon::now()->startOfWeek();
 
 
-
-
         $monday = $startDate->toDateString();
         $tuesday = $startDate->copy()->addDays(1)->toDateString();
         $wednesday = $startDate->copy()->addDays(2)->toDateString();
@@ -49,6 +47,9 @@ class IceCreamOrderController extends Controller
         $thursdayOrders =  $this->getOrders($thursdayBranches, $thursday);
         $fridayOrders =  $this->getOrders($fridayBranches, $friday);
         $saturdayOrders =  $this->getOrders($saturdayBranches, $saturday);
+
+
+
 
         return Inertia::render('IceCreamOrder/Index', [
             'mondayOrders' => $mondayOrders,
@@ -80,21 +81,21 @@ class IceCreamOrderController extends Controller
 
     public function generateDateOptions()
     {
+
         $firstOrder = StoreOrder::with(['store_order_items.product_inventory'])
             ->where('variant', 'ice cream')
             ->whereHas('store_order_items.product_inventory', function ($query) {
                 $query->where('inventory_code', '359A2A');
-            })
-            ->orderBy('order_date', 'asc')
+            })->orderBy('order_date', 'asc')
             ->first();
 
         if (!$firstOrder) {
             return [];
         }
 
-        $startDate = Carbon::parse($firstOrder->order_date)->startOfWeek();
-        $currentDate = Carbon::now()->next('Monday');
-        $dateOptions = [];
+        $startDate = Carbon::parse(now())->startOfWeek();
+        $currentDate = Carbon::now()->addMonth()->next('Monday');
+
         $weekCounter = 1;
 
         while ($startDate <= $currentDate) {
@@ -104,6 +105,7 @@ class IceCreamOrderController extends Controller
                 'name' => $startDate->format('F d, Y') . ' - ' . $endDate->format('F d, Y'),
                 'code' => $startDate->format('Y-m-d')
             ];
+
 
             $startDate->addWeek();
             $weekCounter++;
@@ -144,7 +146,11 @@ class IceCreamOrderController extends Controller
             })
             ->join(', ');
 
-        $branches = collect([
+
+
+
+        // Collect branches with addresses
+        $branchesWithAddresses = collect([
             $mondayOrders,
             $tuesdayOrders,
             $wednesdayOrders,
@@ -157,12 +163,20 @@ class IceCreamOrderController extends Controller
                 return $dayOrders->flatMap(function ($order) {
                     return $order['branches']->filter(function ($branch) {
                         return $branch['quantity_ordered'] > 0;
-                    })->pluck('display_name');
+                    })->map(function ($branch) {
+
+                        return [
+                            'display_name' => $branch['display_name'],
+                            'complete_address' => $branch['complete_address'] ?? '' // Make sure this field exists in your data
+                        ];
+                    });
                 });
             })
-            ->unique()
+            ->unique('display_name')
             ->values();
 
+        // Extract just branch names for backward compatibility
+        $branches = $branchesWithAddresses->pluck('display_name');
 
         $mondayTotal = $mondayOrders->sum(function ($order) {
             return $order['branches']->sum('quantity_ordered');
@@ -192,6 +206,7 @@ class IceCreamOrderController extends Controller
             $fridayOrders,
             $saturdayOrders,
             $branches,
+            $branchesWithAddresses,
             $startDate,
             $branchNames,
 
@@ -209,6 +224,7 @@ class IceCreamOrderController extends Controller
             private $fridayOrders;
             private $saturdayOrders;
             private $branches;
+            private $branchesWithAddresses;
             private $startDate;
             private $branchNames;
 
@@ -227,6 +243,7 @@ class IceCreamOrderController extends Controller
                 $fri,
                 $sat,
                 $branches,
+                $branchesWithAddresses,
                 $startDate,
                 $branchNames,
                 $mondayTotal,
@@ -243,6 +260,7 @@ class IceCreamOrderController extends Controller
                 $this->fridayOrders = $fri;
                 $this->saturdayOrders = $sat;
                 $this->branches = $branches;
+                $this->branchesWithAddresses = $branchesWithAddresses;
                 $this->startDate = $startDate;
                 $this->branchNames = $branchNames;
                 $this->mondayTotal = $mondayTotal;
@@ -263,6 +281,7 @@ class IceCreamOrderController extends Controller
                     'fridayOrders' => $this->fridayOrders,
                     'saturdayOrders' => $this->saturdayOrders,
                     'branches' => $this->branches,
+                    'branchesWithAddresses' => $this->branchesWithAddresses,
                     'startDate' => $this->startDate,
                     'endDate' => $this->startDate->copy()->addDays(5),
                     'branchFilter' => $this->branchNames,
@@ -276,7 +295,6 @@ class IceCreamOrderController extends Controller
             }
         }, 'ice-cream-orders-summary-' . now()->format('Y-m-d') . '.xlsx');
     }
-
     public function getOrders($branchesId, $day)
     {
         $orders = StoreOrder::with([
@@ -303,7 +321,8 @@ class IceCreamOrderController extends Controller
                             'display_name' => "{$order->store_branch->brand_code}-NONOS {$order->store_branch->location_code}",
                             'quantity_ordered' => DB::connection()->getDriverName() === 'sqlsrv'
                                 ? (float)$item->quantity_ordered
-                                : $item->quantity_ordered
+                                : $item->quantity_ordered,
+                            'complete_address' => $order->store_branch->complete_address
                         ]
                     ];
                 });
@@ -324,7 +343,8 @@ class IceCreamOrderController extends Controller
                             'display_name' => $first['branch']['display_name'],
                             'quantity_ordered' => DB::connection()->getDriverName() === 'sqlsrv'
                                 ? (float)$quantity
-                                : $quantity
+                                : $quantity,
+                            'complete_address' => $first['branch']['complete_address'],
                         ];
                     })
                     ->filter(function ($branch) {

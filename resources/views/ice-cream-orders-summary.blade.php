@@ -43,6 +43,18 @@
         <tr>
             @foreach($branches as $branchName)
             @php
+            $branchAddress = $branchesWithAddresses->firstWhere('display_name', $branchName)['complete_address'] ?? '';
+            @endphp
+            @if($order['branches']->where('display_name', $branchName)->where('quantity_ordered', '>', 0)->isNotEmpty() && !empty($branchAddress))
+            <th>{{ $branchAddress }}</th>
+            @elseif($order['branches']->where('display_name', $branchName)->where('quantity_ordered', '>', 0)->isNotEmpty())
+            <th>-</th>
+            @endif
+            @endforeach
+        </tr>
+        <tr>
+            @foreach($branches as $branchName)
+            @php
             $branchOrder = $order['branches']->firstWhere('display_name', $branchName);
             $quantity = $branchOrder ? $branchOrder['quantity_ordered'] : 0;
             @endphp
