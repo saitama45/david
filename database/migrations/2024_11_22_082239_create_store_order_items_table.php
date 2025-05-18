@@ -21,6 +21,7 @@ return new class extends Migration
             $table->float('quantity_received')->default(0);
             $table->double('cost_per_quantity');
             $table->double('total_cost');
+            $table->string('uom')->nullable();
             $table->text('remarks')->nullable();
             $table->timestamps();
         });

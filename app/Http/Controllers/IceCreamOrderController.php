@@ -167,7 +167,7 @@ class IceCreamOrderController extends Controller
 
                         return [
                             'display_name' => $branch['display_name'],
-                            'complete_address' => $branch['complete_address'] ?? '' // Make sure this field exists in your data
+                            'complete_address' => $branch['complete_address'] ?? ''
                         ];
                     });
                 });

@@ -55,7 +55,8 @@ class OrderListImport implements ToCollection, WithHeadingRow
                     'cost' => $product->cost,
                     'unit_of_measurement' => $product->unit_of_measurement?->name,
                     'total_cost' => $totalCost,
-                    'quantity' => $quantity ?? $row['qty']
+                    'quantity' => $quantity ?? $row['qty'],
+                    'uom' => $row['unit']
                 ];
             })
             ->values();

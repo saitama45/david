@@ -20,6 +20,7 @@ class StoreOrderItem extends Model implements Auditable
         'quantity_received',
         'cost_per_quantity',
         'total_cost',
+        'uom',
         'remarks',
     ];
 

@@ -86,7 +86,8 @@ class StoreOrderService
                 'product_inventory_id' => $data['id'],
                 'quantity_ordered' => $data['quantity'],
                 'total_cost' => $data['total_cost'],
-                'cost_per_quantity' => $data['cost']
+                'cost_per_quantity' => $data['cost'],
+                'uom' => $data['uom']
             ]);
         }
         DB::commit();

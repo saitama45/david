@@ -90,6 +90,7 @@ const productDetails = reactive({
     quantity: null,
     cost: null,
     total_cost: null,
+    uom: null,
 });
 
 const excelFileForm = useForm({
@@ -173,6 +174,7 @@ watch(productId, (newValue) => {
                 productDetails.inventory_code = result.inventory_code;
                 productDetails.unit_of_measurement = result.unit_of_measurement;
                 productDetails.cost = result.cost;
+                productDetails.uom = result.uom;
             })
             .catch((err) => console.log(err))
             .finally(() => (isLoading.value = false));
