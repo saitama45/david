@@ -594,6 +594,7 @@ const confirmReceive = () => {
                     <TableHead>
                         <TH> Item Code </TH>
                         <TH> Name </TH>
+                        <TH>UOM / Packaging</TH>
                         <TH> Ordered </TH>
                         <TH>Approved</TH>
                         <TH> Commited</TH>
@@ -607,7 +608,15 @@ const confirmReceive = () => {
                                 order.product_inventory.inventory_code
                             }}</TD>
                             <TD>{{ order.product_inventory.name }}</TD>
+                            <TD class="text-xs"
+                                >{{
+                                    order.product_inventory.unit_of_measurement
+                                        .name
+                                }}
+                                / {{ order.uom }}</TD
+                            >
                             <TD>{{ order.quantity_ordered }}</TD>
+
                             <TD>{{ order.quantity_approved }}</TD>
                             <TD>{{ order.quantity_commited }}</TD>
 
