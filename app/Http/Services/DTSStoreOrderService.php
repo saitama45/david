@@ -21,11 +21,13 @@ class DTSStoreOrderService extends StoreOrderService
             'supplier_id' => $data['supplier_id'],
             'store_branch_id' => $data['branch_id'],
             'order_number' => $this->getOrderNumber($data['branch_id']),
-            'order_date' => Carbon::parse($data['order_date'])->addDay()->format('Y-m-d'),
+            'order_date' => Carbon::parse($data['order_date'])->format('Y-m-d'),
             'order_status' => OrderStatus::PENDING->value,
             'order_request_status' => OrderRequestStatus::PENDING->value,
             'variant' => $data['variant']
         ]);
+
+   
 
         foreach ($data['orders'] as $data) {
             $order->store_order_items()->create([
