@@ -61,6 +61,13 @@ class ProductInventory extends Model implements Auditable
             ->withTimestamps();
     }
 
+    public function wips()
+    {
+        return $this->belongsToMany(Menu::class, 'wip_ingredients')
+            ->withPivot('quantity')
+            ->withTimestamps();
+    }
+
     public function product_categories(): BelongsToMany
     {
         return $this->belongsToMany(

@@ -399,6 +399,7 @@ const referenceOpen = ref(false);
                 >
                     Categories
                 </NavLink>
+                <NavLink href="/wip-list" :icon="FolderDot"> WIP List </NavLink>
                 <NavLink
                     v-if="hasAccess('manage references')"
                     href="/menu-categories"

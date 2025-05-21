@@ -54,6 +54,7 @@ use App\Http\Controllers\UOMConversionController;
 use App\Http\Controllers\UpcomingInventoryController;
 use App\Http\Controllers\UsageRecordController;
 use App\Http\Controllers\UserController;
+use App\Http\Controllers\WIPListController;
 use App\Models\StoreBranch;
 use App\Models\StoreTransaction;
 use Illuminate\Support\Facades\Route;
@@ -69,6 +70,8 @@ Route::get('jobs', function () {
 
 Route::middleware('auth')
     ->group(function () {
+
+        Route::get('/wip-list', [WIPListController::class, 'index']);
 
 
         Route::get('/templates', [TemplateController::class, 'index']);
