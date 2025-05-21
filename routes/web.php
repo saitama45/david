@@ -75,6 +75,7 @@ Route::middleware('auth')
             Route::get('/', 'index')->name('index');
             Route::post('/import-wip-list', 'importWipList')->name('import-wip-list');
             Route::post('/import-wip-ingredients', 'importWipIngredients')->name('import-wip-ingredients');
+            Route::get('/show/{id}', 'show')->name('show');
         });
 
         Route::get('/templates', [TemplateController::class, 'index']);

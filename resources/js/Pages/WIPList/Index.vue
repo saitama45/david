@@ -5,7 +5,7 @@ import { useToast } from "primevue/usetoast";
 const toast = useToast();
 const { search } = useSearch("wip-list.index");
 const isImportWipModalOpen = ref(false);
-const isImportWipIngredientsModalOpen = ref(true);
+const isImportWipIngredientsModalOpen = ref(false);
 const props = defineProps({
     wips: {
         type: Object,
@@ -22,10 +22,11 @@ const openImportWipModal = () => {
     isImportWipModalOpen.value = true;
 };
 const openImportWipIngredientsModal = () => {
-    isImportWipModalOpen.value = true;
+    isImportWipIngredientsModalOpen.value = true;
 };
 
 const importWipList = () => {
+    console.log("list");
     isLoading.value = true;
     wipForm.post(route("wip-list.import-wip-list"), {
         onSuccess: () => {
@@ -49,6 +50,7 @@ const importWipList = () => {
 };
 
 const importWipIngredientsList = () => {
+    console.log("ing");
     isLoading.value = true;
     wipForm.post(route("wip-list.import-wip-ingredients"), {
         onSuccess: () => {
@@ -85,7 +87,9 @@ const importWipIngredientsList = () => {
                 </SearchBar>
 
                 <DivFlexCenter class="gap-2">
-                    <Button>Update WIP Ingredients</Button>
+                    <Button @click="openImportWipIngredientsModal"
+                        >Update WIP Ingredients</Button
+                    >
                     <Button @click="openImportWipModal">Update List</Button>
                 </DivFlexCenter>
             </TableHeader>
@@ -93,6 +97,7 @@ const importWipIngredientsList = () => {
             <Table>
                 <TableHead>
                     <TH>Id</TH>
+                    <TH>SAP Code</TH>
                     <TH>Name</TH>
                     <TH>Remarks</TH>
                     <TH>Actions</TH>
@@ -100,10 +105,14 @@ const importWipIngredientsList = () => {
                 <TableBody>
                     <tr v-for="wip in wips.data" :key="wip.id">
                         <TD>{{ wip.id }}</TD>
+                        <TD>{{ wip.sap_code }}</TD>
                         <TD>{{ wip.name }}</TD>
                         <TD>{{ wip.remarks ?? "none" }}</TD>
                         <TD>
-                            <ShowButton />
+                            <ShowButton
+                                :isLink="true"
+                                :href="route('wip-list.show', wip.id)"
+                            />
                         </TD>
                     </tr>
                 </TableBody>

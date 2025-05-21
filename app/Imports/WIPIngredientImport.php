@@ -16,15 +16,23 @@ class WIPIngredientImport implements ToModel, WithHeadingRow
         // Check if column sap cde is empty
         if (!$row['sap_code']) return;
         // Check if there is an exisiting wip
+        $sap_code = trim($row['sap_code']);
+        $inventory_code = trim($row['inventory_code']);
         $wip =  WIP::firstOrCreate(
-            ['sap_code' => $row['sap_code']],
+            ['sap_code' => $sap_code],
             [
-                'sap_code' => $row['sap_code'],
+                'sap_code' => $sap_code,
                 'name' => $row['name']
             ]
         );
         // Get the ingredient id 
-        $product = ProductInventory::select(['id'])->where('inventory_code', $row['inventory_code'])->first();
+        $product = ProductInventory::select(['id'])->where('inventory_code', $inventory_code)->first();
+
+        if (!$product) {
+            return back()->withErrors([
+                'message' => 'Please make sure that your inventory is updated before proceeding'
+            ]);
+        }
 
         // Create data
         return $wip->wip_ingredients()->updateOrCreate(

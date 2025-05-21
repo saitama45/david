@@ -28,6 +28,14 @@ class WIPListController extends Controller
         ]);
     }
 
+    public function show($id)
+    {
+        $wip = WIP::with('wip_ingredients.product')->findOrFail($id);
+        return Inertia::render('WIPList/Show', [
+            'wip' => $wip
+        ]);
+    }
+
     public function importWipList(Request $request)
     {
         $request->validate([
