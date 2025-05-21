@@ -71,13 +71,11 @@ Route::get('jobs', function () {
 Route::middleware('auth')
     ->group(function () {
 
-
         Route::controller(WIPListController::class)->name('wip-list.')->prefix('wip-list')->group(function () {
             Route::get('/', 'index')->name('index');
             Route::post('/import-wip-list', 'importWipList')->name('import-wip-list');
+            Route::post('/import-wip-ingredients', 'importWipIngredients')->name('import-wip-ingredients');
         });
-
-
 
         Route::get('/templates', [TemplateController::class, 'index']);
         Route::post('/template/store', [TemplateController::class, 'store'])->name('templates.store');
@@ -439,6 +437,10 @@ Route::middleware('auth')
 
                 Route::get('/salmon-template', 'salmonTemplate')
                     ->name('salmon-template');
+
+                Route::get('/wip-list-template', 'wipListTemplate')->name('wip-list-template');
+
+                Route::get('/wip-ingredients-template', 'wipIngredientsTemplate')->name('wip-ingredients-template');
             });
 
         // Items Order Summary

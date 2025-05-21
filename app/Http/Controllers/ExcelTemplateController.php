@@ -60,4 +60,16 @@ class ExcelTemplateController extends Controller
         $path = 'storage\excel-templates\salmon-template.xlsx';
         return response()->download($path);
     }
+
+    public function wipListTemplate()
+    {
+        $path = 'storage\excel-templates\wip_list_template.xlsx';
+        return response()->download($path);
+    }
+
+    public function wipIngredientsTemplate()
+    {
+        $path = 'storage\excel-templates\wip_ingredients_template.xlsx';
+        return response()->download($path);
+    }
 }

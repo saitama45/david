@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Imports\WIPIngredientImport;
 use App\Imports\WIPListImport;
 use App\Models\WIP;
 use Illuminate\Http\Request;
@@ -34,6 +35,17 @@ class WIPListController extends Controller
         ]);
 
         Excel::import(new WIPListImport, $request->file('file'));
+
+        return back();
+    }
+
+    public function importWipIngredients(Request $request)
+    {
+        $request->validate([
+            'file' => 'required|mimes:xlsx,xls,csv'
+        ]);
+
+        Excel::import(new WIPIngredientImport, $request->file('file'));
 
         return back();
     }
