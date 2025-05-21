@@ -20,6 +20,6 @@ class WIP extends Model
 
     public function wip_ingredients()
     {
-        return $this->hasMany(WipIngredient::class);
+        return $this->hasMany(WipIngredient::class, 'wip_id');
     }
 }

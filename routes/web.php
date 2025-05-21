@@ -71,7 +71,12 @@ Route::get('jobs', function () {
 Route::middleware('auth')
     ->group(function () {
 
-        Route::get('/wip-list', [WIPListController::class, 'index'])->name('wip-list.index');
+
+        Route::controller(WIPListController::class)->name('wip-list.')->prefix('wip-list')->group(function () {
+            Route::get('/', 'index')->name('index');
+            Route::post('/import-wip-list', 'importWipList')->name('import-wip-list');
+        });
+
 
 
         Route::get('/templates', [TemplateController::class, 'index']);
