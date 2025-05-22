@@ -111,7 +111,7 @@ class IceCreamOrderController extends Controller
             $weekCounter++;
         }
 
-        return array_reverse($dateOptions);
+        return $dateOptions;
     }
 
 
