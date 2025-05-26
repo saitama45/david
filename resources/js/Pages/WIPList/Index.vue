@@ -50,7 +50,6 @@ const importWipList = () => {
 };
 
 const importWipIngredientsList = () => {
-    console.log("ing");
     isLoading.value = true;
     wipForm.post(route("wip-list.import-wip-ingredients"), {
         onSuccess: () => {
@@ -64,8 +63,50 @@ const importWipIngredientsList = () => {
                 life: 3000,
             });
         },
-        onError: (e) => {
-            console.log(e);
+        onError: (errors) => {
+            console.log('Import errors:', errors);
+            
+            // Handle validation errors (array of error messages)
+            if (errors.validation_errors && Array.isArray(errors.validation_errors)) {
+                // Show each validation error as separate toast
+                errors.validation_errors.forEach((error, index) => {
+                    setTimeout(() => {
+                        toast.add({
+                            severity: "error",
+                            summary: "Validation Error",
+                            detail: error,
+                            life: 6000,
+                        });
+                    }, index * 100); // Stagger the toasts slightly
+                });
+            }
+            // Handle single error message
+            else if (errors.message) {
+                toast.add({
+                    severity: "error",
+                    summary: "Import Failed",
+                    detail: errors.message,
+                    life: 5000,
+                });
+            }
+            // Handle generic file upload errors
+            else if (errors.file) {
+                toast.add({
+                    severity: "error",
+                    summary: "File Error",
+                    detail: errors.file,
+                    life: 5000,
+                });
+            }
+            // Fallback for any other errors
+            else {
+                toast.add({
+                    severity: "error",
+                    summary: "Import Failed",
+                    detail: errors.validation_errors,
+                    life: 10000,
+                });
+            }
         },
         onFinish: () => {
             isLoading.value = false;
@@ -192,7 +233,7 @@ const importWipIngredientsList = () => {
                     </li>
                 </ul>
             </InputContainer>
-
+``
             <DialogFooter>
                 <Button
                     :disabled="isLoading"
