@@ -320,6 +320,7 @@ const store = () => {
         });
         return;
     }
+    console.log(orderForm);
     confirm.require({
         message: "Are you sure you want to place this order?",
         header: "Confirmation",
