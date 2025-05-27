@@ -88,28 +88,30 @@ const dayNameToNumber = {
     SATURDAY: 6,
 };
 
+const getScheduledDays = (value) => {
+    axios
+        .get(route("schedule.show", value), {
+            params: { variant: variant },
+        })
+        .then((response) => {
+            // [1, 3, 5]
+            const days = response.data.map((item) => dayNameToNumber[item]);
+            // [Moday, Wednesay, Friday]
+            let daysOfWeek = [0, 1, 2, 3, 4, 5, 6];
+            allowedDays.value = daysOfWeek.filter(
+                (item) => !days.includes(item)
+            );
+            // [Tuesday, THrusy, Sat]
+        })
+        .catch((err) => console.log(err));
+};
+
 watch(
     () => orderForm.branch_id,
     (value) => {
         orderForm.order_date = null;
         if (value) {
-            axios
-                .get(route("schedule.show", value), {
-                    params: { variant: variant },
-                })
-                .then((response) => {
-                    // [1, 3, 5]
-                    const days = response.data.map(
-                        (item) => dayNameToNumber[item]
-                    );
-                    // [Moday, Wednesay, Friday]
-                    let daysOfWeek = [0, 1, 2, 3, 4, 5, 6];
-                    allowedDays.value = daysOfWeek.filter(
-                        (item) => !days.includes(item)
-                    );
-                    // [Tuesday, THrusy, Sat]
-                })
-                .catch((err) => console.log(err));
+            getScheduledDays(value);
         }
     }
 );
@@ -378,6 +380,8 @@ if (previousOrder) {
     const selectedBranch = Object.values(suppliersOptions.value).find(
         (option) => option.value === orderForm.supplier_id + ""
     );
+
+    getScheduledDays(orderForm.branch_id);
 }
 
 const excelFileForm = useForm({
