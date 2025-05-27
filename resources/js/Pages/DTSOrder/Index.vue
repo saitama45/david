@@ -34,7 +34,7 @@ watch(
     search,
     throttle(function (value) {
         router.get(
-            route("store-orders.index"),
+            route("dts-orders.index"),
             {
                 search: value,
                 filterQuery: filterQuery.value,
