@@ -198,10 +198,7 @@ const addToOrdersButton = () => {
     //     return;
     // }
 
-    if (
-        // variant === "fruits and vegetables" &&
-        Number(productDetails.quantity) < 0.1
-    ) {
+    if (Number(productDetails.quantity) < 0.1) {
         itemForm.setError("quantity", "Quantity must be at least 0.1");
         return;
     }
