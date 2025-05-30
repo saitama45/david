@@ -199,7 +199,7 @@ class DashboardController extends Controller
             ->join('product_inventories', 'store_order_items.product_inventory_id', '=', 'product_inventories.id')
             ->join('store_orders', 'store_order_items.store_order_id', '=', 'store_orders.id')
             ->where('store_orders.store_branch_id', $branch)
-            ->where('store_orders.order_status', 'commited');
+            ->where('store_orders.order_status', 'committed');
 
         if ($time_period != 0) {
             $upcomingInventories->whereMonth('store_orders.order_date', $time_period);

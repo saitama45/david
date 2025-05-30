@@ -315,7 +315,7 @@ const openEditQuantityModal = (id, quantity) => {
                     <TH> Name </TH>
                     <TH> Unit </TH>
                     <TH> Quantity </TH>
-                    <TH v-if="order.order_status === 'commited'">Commited</TH>
+                    <TH v-if="order.order_status === 'committed'">Commited</TH>
                     <TH> Cost </TH>
                     <TH> Total Cost </TH>
                     <!-- <TH> Actions </TH> -->

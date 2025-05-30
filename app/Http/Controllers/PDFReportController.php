@@ -37,7 +37,7 @@ class PDFReportController extends Controller
             'generated_by' => Auth::user()->full_name,
             'pending' => $orders->where('order_status', 'pending')->count(),
             'approved' => $orders->where('order_status', 'approved')->count(),
-            'commited' => $orders->where('order_status', 'commited')->count(),
+            'committed' => $orders->where('order_status', 'committed')->count(),
         ]);
 
         return $pdf->setPaper('legal', 'landscape')->download('store-orders.pdf');

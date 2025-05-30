@@ -1,4 +1,4 @@
-@props(['branch', 'orders', 'start_date', 'end_date', 'date_generated', 'generated_by', 'pending', 'commited', 'approved'])
+@props(['branch', 'orders', 'start_date', 'end_date', 'date_generated', 'generated_by', 'pending', 'committed', 'approved'])
 <!DOCTYPE html>
 <html lang="en">
 
@@ -126,7 +126,7 @@
                 <td class="right-column"></td>
             </tr>
             <tr>
-                <td class="left-column">Commited Orders: {{ $commited }}</td>
+                <td class="left-column">Commited Orders: {{ $committed }}</td>
                 <td class="right-column"></td>
             </tr>
         </table>

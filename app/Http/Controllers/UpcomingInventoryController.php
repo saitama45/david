@@ -21,7 +21,7 @@ class UpcomingInventoryController extends Controller
 
         $query = StoreOrder::query()
             ->with(['store_order_items', 'supplier', 'store_branch'])
-            ->where('order_status', 'commited');
+            ->where('order_status', 'committed');
 
         $query->where('store_branch_id', $branchId);
 
@@ -64,7 +64,7 @@ class UpcomingInventoryController extends Controller
     //     $query = StoreOrderItem::with(['store_order', 'product_inventory'])
     //         ->whereHas('store_order', function ($query) use ($branchId, $time_period) {
     //             $query->where('store_branch_id', $branchId);
-    //             $query->where('order_status', 'commited');
+    //             $query->where('order_status', 'committed');
 
     //             if ($time_period != 0) {
     //                 $query->whereMonth('order_date', $time_period);

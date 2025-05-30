@@ -4,12 +4,12 @@ namespace App\Enum;
 
 enum OrderStatus: string
 {
-        //
+    //
     case INCOMPLETE = 'incomplete';
     case PENDING = 'pending';
     case RECEIVED = 'received';
     case APPROVED = 'approved';
-    case COMMITED = 'commited';
+    case COMMITED = 'committed';
     case REJECTED = 'rejected';
     public static function values()
     {

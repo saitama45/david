@@ -214,9 +214,9 @@ const exportRoute = computed(() =>
             />
             <FilterTabButton
                 label="Commited"
-                filter="commited"
+                filter="committed"
                 :currentFilter="filterQuery"
-                @click="changeFilter('commited')"
+                @click="changeFilter('committed')"
             />
             <FilterTabButton
                 label="Received"
