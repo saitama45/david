@@ -45,7 +45,7 @@ const exportRoute = route("menu-list.export", {
 const importBomList = () => {
     console.log("list");
     isLoading.value = true;
-    bomForm.post(route("bom-list.import-bom-list"), {
+    bomForm.post(route("menu-list.import-bom-list"), {
         onSuccess: () => {
             isImportBomModalOpen.value = false;
             bomForm.reset();
@@ -68,7 +68,7 @@ const importBomList = () => {
 
 const importBomIngredientsList = () => {
     isLoading.value = true;
-    bomForm.post(route("bom-list.import-bom-ingredients"), {
+    bomForm.post(route("menu-list.import-bom-ingredients"), {
         onSuccess: () => {
             isImportBomIngredientsModalOpen.value = false;
             bomForm.reset();
@@ -155,7 +155,9 @@ const importBomIngredientsList = () => {
                 </SearchBar>
 
                 <DivFlexCenter class="gap-2">
-                    <Button @click="openImportBomIngredientsModal">Update BOM Ingredients</Button>
+                    <Button @click="openImportBomIngredientsModal"
+                        >Update BOM Ingredients</Button
+                    >
                     <Button @click="openImportBomModal">Update List</Button>
                 </DivFlexCenter>
             </TableHeader>

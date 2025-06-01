@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Exports\BOMListExport;
+use App\Imports\BOMListImport;
 use App\Imports\MenusImport;
 use App\Models\Menu;
 use App\Models\MenuCategory;
@@ -201,5 +202,16 @@ class MenuController extends Controller
             DB::rollback();
             return back()->withErrors(['error' => 'Failed to update menu. ' . $e->getMessage()]);
         }
+    }
+
+    public function importBomList(Request $request)
+    {
+        $request->validate([
+            'file' => 'required|mimes:xlsx,xls,csv'
+        ]);
+
+        Excel::import(new BOMListImport, $request->file('file'));
+
+        return back();
     }
 }
