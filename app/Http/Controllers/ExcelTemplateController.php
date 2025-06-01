@@ -45,7 +45,13 @@ class ExcelTemplateController extends Controller
 
     public function fruitsAndVegetablesTemplate()
     {
-        $path = 'storage\excel-templates\fruits-and-vegetables-template.xlsx';
+        $path = 'storage\excel-templates\fruits-and-vegetables-south-template.xlsx';
+        return response()->download($path);
+    }
+
+    public function fruitsAndVegetablesMMTemplate()
+    {
+        $path = 'storage\excel-templates\fruits-and-vegetables-mm-template.xlsx';
         return response()->download($path);
     }
 

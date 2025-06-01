@@ -748,7 +748,7 @@ const importOrdersButton = () => {
                                 Fruits And Vegetables:
                                 <a
                                     class="text-blue-500 underline"
-                                    href="/excel/fruits-and-vegetables-template"
+                                    href="/excel/fruits-and-vegetables-south-template"
                                     >Click to download</a
                                 >
                             </li>

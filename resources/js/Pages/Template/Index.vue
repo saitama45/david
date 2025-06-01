@@ -6,15 +6,18 @@ const isUpdateModalOpen = ref(false);
 
 const form = useForm({
     file: null,
+    file_name: null,
 });
-const openUpdateModal = () => {
+const isLoading = ref(false);
+const openUpdateModal = (file_name) => {
     isUpdateModalOpen.value = true;
+    form.file_name = file_name;
 };
 
 const updateTemplate = () => {
+    isLoading.value = true;
     form.post(route("templates.store"), {
         onSuccess: () => {
-            console.log("success");
             isUpdateModalOpen.value = false;
             form.reset();
             toast.add({
@@ -32,8 +35,39 @@ const updateTemplate = () => {
                 life: 3000,
             });
         },
+        onFinish: () => {
+            isLoading.value = false;
+        },
     });
 };
+
+const files = [
+    {
+        template: "GSI ORDER",
+        name: "GSI ORDER TEMPLATE",
+        file_name: "gsi_order_template.xlsx",
+    },
+    {
+        template: "GSI OT ORDER",
+        name: "GSI OT ORDER TEMPLATE",
+        file_name: "gsi_ot_order_template.xlsx",
+    },
+    {
+        template: "PUL ORDER",
+        name: "PUL ORDER TEMPLATE",
+        file_name: "pul_order_template.xlsx",
+    },
+    {
+        template: "FRUITS AND VEGGIES (SOUTH) ORDER",
+        name: "FRUITS AND VEGGIES (SOUTH) ORDER TEMPLATE",
+        file_name: "fruits-and-vegetables-south-template.xlsx",
+    },
+    {
+        template: "FRUITS AND VEGGIES (MM) ORDER",
+        name: "FRUITS AND VEGGIES (MM) ORDER TEMPLATE",
+        file_name: "fruits-and-vegetables-mm-template.xlsx",
+    },
+];
 </script>
 
 <template>
@@ -46,11 +80,13 @@ const updateTemplate = () => {
                     <TH>Actions</TH>
                 </TableHead>
                 <TableBody>
-                    <tr>
-                        <TD>GSI ORDER</TD>
-                        <TD>GSI ORDER TEMPLATE </TD>
+                    <tr v-for="(file, index) in files" :key="index">
+                        <TD>{{ file.template }}</TD>
+                        <TD>{{ file.name }}</TD>
                         <TD>
-                            <button @click="openUpdateModal">
+                            <button
+                                @click="() => openUpdateModal(file.file_name)"
+                            >
                                 <Pencil class="size-5" />
                             </button>
                         </TD>
@@ -78,7 +114,9 @@ const updateTemplate = () => {
                 </InputContainer>
 
                 <DialogFooter>
-                    <Button @click="updateTemplate">Update</Button>
+                    <Button :disabled="isLoading" @click="updateTemplate">{{
+                        isLoading ? "Updating..." : "Update"
+                    }}</Button>
                 </DialogFooter>
             </DialogContent>
         </Dialog>

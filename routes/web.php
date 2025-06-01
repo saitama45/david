@@ -430,8 +430,11 @@ Route::middleware('auth')
                 Route::get('/menu-template', 'menuTemplate')
                     ->name('menu-template');
 
-                Route::get('/fruits-and-vegetables-template', 'fruitsAndVegetablesTemplate')
-                    ->name('fruits-and-vegetables-template');
+                Route::get('/fruits-and-vegetables-south-template', 'fruitsAndVegetablesTemplate')
+                    ->name('fruits-and-vegetables-south-template');
+
+                Route::get('/fruits-and-vegetables-mm-template', 'fruitsAndVegetablesMMTemplate')
+                    ->name('fruits-and-vegetables-mm-template');
 
                 Route::get('/ice-cream-template', 'iceCreamTemplate')
                     ->name('ice-cream-template');

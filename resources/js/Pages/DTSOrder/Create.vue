@@ -189,7 +189,7 @@ const addToOrdersButton = () => {
         itemForm.setError("item", "Item field is required");
         return;
     }
-//test
+    //test
     // if (
     //     variant !== "fruits and vegetables" &&
     //     Number(productDetails.quantity) < 1
@@ -736,7 +736,7 @@ watch(orderForm, (value) => {
                                 Fruits And Vegetables:
                                 <a
                                     class="text-blue-500 underline"
-                                    href="/excel/fruits-and-vegetables-template"
+                                    href="/excel/fruits-and-vegetables-south-template"
                                     >Click to download</a
                                 >
                             </li>

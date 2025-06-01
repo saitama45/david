@@ -15,18 +15,19 @@ class TemplateController extends Controller
 
     public function store(Request $request)
     {
+
         $validated = $request->validate([
-            'file' => ['required', 'file', 'mimes:xlsx,xls']
+            'file' => ['required', 'file', 'mimes:xlsx,xls'],
+            'file_name' => ['required']
         ]);
 
         $destinationPath = 'excel-templates';
-        $filename = 'gsi_order_template.xlsx';
+        $filename = $validated['file_name'];
         $fullPath = storage_path('app/public/' . $destinationPath . '/' . $filename);
 
         try {
             if (Storage::disk('public')->exists($destinationPath . '/' . $filename)) {
                 Storage::disk('public')->delete($destinationPath . '/' . $filename);
-
             }
 
             $request->file('file')->storeAs($destinationPath, $filename, 'public');
