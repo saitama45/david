@@ -14,7 +14,8 @@ return new class extends Migration
         Schema::create('menu_ingredients', function (Blueprint $table) {
             $table->id();
             $table->foreignId('menu_id')->constrained('menus')->cascadeOnDelete();
-            $table->foreignId('product_inventory_id')->constrained('product_inventories')->cascadeOnDelete();
+            $table->foreignId('product_inventory_id')->nullable()->constrained('product_inventories');
+            $table->foreignId('wip_id')->nullable()->constrained('wips');
             $table->double('quantity');
             $table->string('unit')->nullable();
             $table->timestamps();

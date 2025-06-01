@@ -22,4 +22,10 @@ class WIP extends Model
     {
         return $this->hasMany(WipIngredient::class, 'wip_id');
     }
+
+
+    public function menus()
+    {
+        return $this->hasMany(Menu::class, 'wip_id');
+    }
 }
