@@ -64,10 +64,13 @@ const importWipIngredientsList = () => {
             });
         },
         onError: (errors) => {
-            console.log('Import errors:', errors);
-            
+            console.log("Import errors:", errors);
+
             // Handle validation errors (array of error messages)
-            if (errors.validation_errors && Array.isArray(errors.validation_errors)) {
+            if (
+                errors.validation_errors &&
+                Array.isArray(errors.validation_errors)
+            ) {
                 // Show each validation error as separate toast
                 errors.validation_errors.forEach((error, index) => {
                     setTimeout(() => {
@@ -233,7 +236,7 @@ const importWipIngredientsList = () => {
                     </li>
                 </ul>
             </InputContainer>
-``
+            ``
             <DialogFooter>
                 <Button
                     :disabled="isLoading"
