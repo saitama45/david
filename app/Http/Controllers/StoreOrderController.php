@@ -79,9 +79,7 @@ class StoreOrderController extends Controller
     {
         try {
             $this->storeOrderService->createStoreOrder($request->validated());
-
         } catch (Exception $e) {
-
             DB::rollBack();
         }
 

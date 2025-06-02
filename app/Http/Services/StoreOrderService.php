@@ -87,10 +87,12 @@ class StoreOrderService
                 'quantity_ordered' => $data['quantity'],
                 'total_cost' => $data['total_cost'],
                 'cost_per_quantity' => $data['cost'],
-                'uom' => $data['uom']
+                'uom' => $data['uom'] ?? null
             ]);
         }
+
         DB::commit();
+
     }
 
     public function getPreviousOrderReference()
