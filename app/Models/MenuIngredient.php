@@ -11,7 +11,13 @@ class MenuIngredient extends Model implements Auditable
     /** @use HasFactory<\Database\Factories\MenuIngredientFactory> */
     use HasFactory, \OwenIt\Auditing\Auditable;
 
-    protected $fillable = ['menu_id', 'product_inventory_id', 'wip_id', 'quantity', 'unit'];
+    protected $fillable = [
+        'menu_id',
+        'product_inventory_id',
+        'wip_id',
+        'quantity',
+        'unit'
+    ];
 
     public function menu()
     {

@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Exports\BOMListExport;
+use App\Imports\BOMIngredientImport;
 use App\Imports\BOMListImport;
 use App\Imports\MenusImport;
 use App\Models\Menu;
@@ -10,6 +11,7 @@ use App\Models\MenuCategory;
 use App\Models\ProductInventory;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Inertia\Inertia;
 use Maatwebsite\Excel\Facades\Excel;
 
@@ -33,9 +35,7 @@ class MenuController extends Controller
                     'product_id' => $menu->product_id,
                     'remarks' => $menu->remarks,
                     'name' => $menu->name,
-                    'total' =>  number_format($menu->menu_ingredients->map(function ($ingredient) {
-                        return $ingredient->quantity * $ingredient->product->cost;
-                    })->sum(), 2, '.', ','),
+                    'total' =>  0,
                 ];
             });
 
@@ -124,18 +124,34 @@ class MenuController extends Controller
 
     public function show($id)
     {
-        $menu = Menu::with(['product_inventories', 'product_inventories.unit_of_measurement'])->findOrFail($id);
+        $menu = Menu::with(['product_inventories', 'product_inventories.unit_of_measurement', 'menu_ingredients.wip', 'menu_ingredients.product'])->findOrFail($id);
 
-        $ingredients = $menu->product_inventories->map(function ($ingredient) {
-            return [
-                'id' => $ingredient->id,
-                'inventory_code' => $ingredient->inventory_code,
-                'name' => $ingredient->name,
-                'quantity' => $ingredient->pivot->quantity,
-                'cost' => number_format($ingredient->cost * $ingredient->pivot->quantity, 2, '.', ","),
-                'uom' => $ingredient->pivot->unit ?? $ingredient->unit_of_measurement->name,
-            ];
+        $ingredients = $menu->menu_ingredients->map(function ($ingredient) {
+            $wip = $ingredient->wip;
+            $product = $ingredient->product;
+
+            if ($wip) {
+                return [
+                    'id' => $ingredient->id,
+                    'inventory_code' => $wip->sap_code,
+                    'name' => $wip->name,
+                    'remarks' => $wip->remarks,
+                    'quantity' => $ingredient->quantity,
+                    'uom' => $ingredient->unit ?? $ingredient->unit_of_measurement->name,
+                    'cost' => 0
+                ];
+            } else {
+                return [
+                    'id' => $product->id,
+                    'inventory_code' => $product->inventory_code,
+                    'name' => $product->name,
+                    'quantity' => $ingredient->quantity,
+                    'cost' => number_format($product->cost * $ingredient->quantity, 2, '.', ","),
+                    'uom' => $ingredient->unit ?? $product->unit_of_measurement->name,
+                ];
+            }
         });
+
 
         return Inertia::render('Menu/Show', [
             'menu' => $menu,
@@ -213,5 +229,48 @@ class MenuController extends Controller
         Excel::import(new BOMListImport, $request->file('file'));
 
         return back();
+    }
+
+    public function importBomIngredients(Request $request)
+    {
+        $request->validate([
+            'file' => 'required|mimes:xlsx,xls,csv'
+        ]);
+
+        $import = new BOMIngredientImport();
+
+        try {
+            Excel::import($import, $request->file('file'));
+
+            $processedCount = $import->getProcessedCount();
+
+            Log::info('WIP Ingredient Import Completed Successfully', [
+                'processed_rows' => $processedCount,
+                'file_name' => $request->file('file')->getClientOriginalName()
+            ]);
+
+            return redirect()->back()->with('success', "BOM ingredients imported successfully! {$processedCount} rows processed.");
+        } catch (\Exception $e) {
+            Log::error('WIP Import Failed', [
+                'error' => $e->getMessage(),
+                'file_name' => $request->file('file')->getClientOriginalName(),
+                'trace' => $e->getTraceAsString()
+            ]);
+
+            // Check if it's a validation error (contains our custom validation messages)
+            if (strpos($e->getMessage(), 'Validation failed:') === 0) {
+                $errorMessage = str_replace('Validation failed: ', '', $e->getMessage());
+                $errors = explode('; ', $errorMessage);
+
+                return redirect()->back()->withErrors([
+                    'validation_errors' => $errors
+                ])->with('error', 'Import cancelled due to validation errors. Please fix the following issues:');
+            }
+
+            // For other types of errors
+            return redirect()->back()->withErrors([
+                'message' => 'Import failed: ' . $e->getMessage()
+            ])->with('error', 'Import was cancelled due to an error.');
+        }
     }
 }

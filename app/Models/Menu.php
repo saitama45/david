@@ -58,6 +58,8 @@ class Menu extends Model implements Auditable
             ->withTimestamps();
     }
 
+
+
     public function transactionItems()
     {
         return $this->hasMany(StoreTransactionItem::class, 'product_id', 'product_id');

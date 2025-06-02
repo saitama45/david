@@ -2,6 +2,7 @@
 
 namespace App\Imports;
 
+use App\Models\Menu;
 use App\Models\ProductInventory;
 use App\Models\WIP;
 use Exception;
@@ -84,6 +85,8 @@ class BOMIngredientImport implements ToCollection, WithHeadingRow
                 ->where('sap_code', $inventory_code)
                 ->first();
 
+            Log::info('test', ['product' => $product, 'wip' => $wip]);
+
             if (!$product && !$wip) {
                 $this->errors[] = "Row {$rowNumber}: Product inventory/WIP not found for code '{$inventory_code}' (SAP: {$sap_code}). Please make sure that your inventory/wip is updated before proceeding.";
                 continue;
@@ -112,6 +115,49 @@ class BOMIngredientImport implements ToCollection, WithHeadingRow
                 'errors' => $this->errors,
                 'total_errors' => count($this->errors)
             ]);
+        }
+    }
+
+    protected function processValidatedRow(array $rowData)
+    {
+        try {
+            $inventoryCode = $rowData['inventory_code'];
+            $sapCode = $rowData['sap_code'];
+            $wipId = $rowData['wip_id'];
+            $productId = $rowData['product_id'];
+
+            $menu = Menu::firstOrCreate(
+                ['product_id' => $sapCode],
+                [
+                    'name' => $rowData['name'],
+                    'remarks' => $rowData['remarks'] ?? null
+                ]
+            );
+
+            Log::info('Processing WIP Ingredient', [
+                'row_data' => $rowData,
+            ]);
+
+            // Create or update WIP ingredient
+            $menu->menu_ingredients()->updateOrCreate(
+                ['product_inventory_id' => $productId, 'wip_id' => $wipId],
+                [
+                    'product_inventory_id' => $wipId ? null : $productId,
+                    'sap_code' => $sapCode,
+                    'wip_id' => $wipId,
+                    'quantity' => $rowData['qty'],
+                    'unit' => $rowData['uom']
+                ]
+            );
+        } catch (Exception $e) {
+            Log::error('WIP Ingredient Import Processing Error', [
+                'sap_code' => $rowData['sap_code'],
+                'error' => $e->getMessage(),
+                'row_number' => $rowData['row_number']
+            ]);
+
+            // Re-throw to trigger transaction rollback
+            throw new Exception("Error processing row {$rowData['row_number']} (SAP: {$rowData['sap_code']}): " . $e->getMessage());
         }
     }
 

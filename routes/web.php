@@ -376,6 +376,8 @@ Route::middleware('auth')
             Route::middleware('permission:delete bom')->delete('/destroy/{id}', 'destroy')->name('destroy');
 
             Route::post('/import-bom-list', 'importBomList')->name('import-bom-list');
+
+            Route::post('/import-bom-ingredients', 'importBomIngredients')->name('import-bom-ingredients');
         });
 
         // Stock Management 
