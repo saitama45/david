@@ -258,7 +258,7 @@ const importBomIngredientsList = () => {
                         Template:
                         <a
                             class="text-blue-500 underline"
-                            href="/excel/wip-list-template"
+                            href="/excel/bom-list-template"
                             >Click to download</a
                         >
                     </li>
@@ -298,7 +298,7 @@ const importBomIngredientsList = () => {
                         Template:
                         <a
                             class="text-blue-500 underline"
-                            href="/excel/wip-ingredients-template"
+                            href="/excel/bom-ingredients-template"
                             >Click to download</a
                         >
                     </li>

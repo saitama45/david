@@ -449,6 +449,10 @@ Route::middleware('auth')
                 Route::get('/wip-list-template', 'wipListTemplate')->name('wip-list-template');
 
                 Route::get('/wip-ingredients-template', 'wipIngredientsTemplate')->name('wip-ingredients-template');
+
+                Route::get('/bom-list-template', 'bomListTemplate')->name('bom-list-template');
+
+                Route::get('/bom-ingredients-template', 'bomIngredientsTemplate')->name('bom-ingredients-template');
             });
 
         // Items Order Summary

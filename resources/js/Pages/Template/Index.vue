@@ -67,6 +67,26 @@ const files = [
         name: "FRUITS AND VEGGIES (MM) ORDER TEMPLATE",
         file_name: "fruits-and-vegetables-mm-template.xlsx",
     },
+    {
+        template: "WIP",
+        name: "WIP TEMPLATE",
+        file_name: "wip_list_template.xlsx",
+    },
+    {
+        template: "WIP INGREDIENTS TEMPLATE",
+        name: "WIP INGREDIENTS TEMPLATE",
+        file_name: "wip_ingredients_template.xlsx",
+    },
+    {
+        template: "BOM",
+        name: "BOM TEMPLATE",
+        file_name: "bom_list_template.xlsx",
+    },
+    {
+        template: "BOM INGREDIENTS TEMPLATE",
+        name: "BOM INGREDIENTS TEMPLATE",
+        file_name: "bom_ingredients_template.xlsx",
+    }
 ];
 </script>
 

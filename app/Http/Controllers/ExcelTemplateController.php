@@ -78,4 +78,16 @@ class ExcelTemplateController extends Controller
         $path = 'storage\excel-templates\wip_ingredients_template.xlsx';
         return response()->download($path);
     }
+
+    public function bomListTemplate()
+    {
+        $path = 'storage\excel-templates\bom_list_template.xlsx';
+        return response()->download($path);
+    }
+
+    public function bomIngredientsTemplate()
+    {
+        $path = 'storage\excel-templates\bom_ingredients_template.xlsx';
+        return response()->download($path);
+    }
 }
