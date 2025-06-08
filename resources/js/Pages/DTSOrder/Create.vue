@@ -319,7 +319,17 @@ const store = () => {
         });
         return;
     }
-    console.log(orderForm);
+
+    const formatDate = (date) => {
+        const month = String(date.getMonth() + 1).padStart(2, "0");
+        const day = String(date.getDate()).padStart(2, "0");
+        const year = date.getFullYear();
+        return `${year}-${month}-${day}`;
+    };
+
+    orderForm.order_date = formatDate(new Date(orderForm.order_date));
+
+
     confirm.require({
         message: "Are you sure you want to place this order?",
         header: "Confirmation",
@@ -528,7 +538,7 @@ watch(orderForm, (value) => {
                                 showIcon
                                 fluid
                                 :disabledDays="allowedDays"
-                                dateFormat="yy/mm/dd"
+                                dateFormat="yy-mm-dd"
                                 :showOnFocus="false"
                                 :minDate="getNextMonday()"
                                 :maxDate="getNextSaturday()"

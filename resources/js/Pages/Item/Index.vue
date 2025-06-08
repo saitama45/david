@@ -47,7 +47,7 @@ const { hasAccess } = useAuth();
 import { useReferenceDelete } from "@/Composables/useReferenceDelete";
 const { deleteModel } = useReferenceDelete();
 
-const exportRoute = computed(() => 
+const exportRoute = computed(() =>
     route("items.export", {
         search: search.value,
         filter: filter.value,
@@ -81,6 +81,9 @@ const importFile = () => {
                 detail: "An error occured while trying to update products. Please make sure that you are using the correct format.",
                 life: 3000,
             });
+        },
+        onFinish: () => {
+            isLoading.value = false;
         },
     });
 };

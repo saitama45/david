@@ -27,7 +27,7 @@ class DTSStoreOrderService extends StoreOrderService
             'variant' => $data['variant']
         ]);
 
-   
+
 
         foreach ($data['orders'] as $data) {
             $order->store_order_items()->create([

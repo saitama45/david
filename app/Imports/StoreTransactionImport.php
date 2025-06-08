@@ -112,13 +112,16 @@ class StoreTransactionImport implements ToModel, WithStartRow, WithHeadingRow
             $ingredients = $storeTransactionItem->menu->menu_ingredients;
             $errors = [];
 
-            if(!$storeTransactionItem->menu){
+            if (!$storeTransactionItem->menu) {
                 $errors[] = "Please make sure that the BOM list is updated before proceeding to import store transactions.";
                 return false;
             }
 
             $ingredients?->each(function ($ingredient) use ($branch, $storeTransactionItem, $transaction, $row, &$errors) {
                 try {
+                    // if the ingredient is from wip list do a different approach
+
+                    // get the wip ingredients 
                     $product = ProductInventoryStock::with('product')
                         ->where('product_inventory_id', $ingredient->product_inventory_id)
                         ->where('store_branch_id', $branch->id)
