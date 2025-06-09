@@ -7,6 +7,7 @@ use App\Models\ProductInventoryStock;
 use App\Models\ProductInventoryStockManager;
 use App\Models\StoreBranch;
 use App\Models\StoreTransaction;
+use App\Models\WIP;
 use App\Traits\InventoryUsage;
 use Exception;
 use Illuminate\Support\Carbon;
@@ -120,46 +121,101 @@ class StoreTransactionImport implements ToModel, WithStartRow, WithHeadingRow
             $ingredients?->each(function ($ingredient) use ($branch, $storeTransactionItem, $transaction, $row, &$errors) {
                 try {
                     // if the ingredient is from wip list do a different approach
+                    if ($ingredient->wip_id) {
+                        $wip = WIP::with('wip_ingredients')->find($ingredient->wip_id);
+                        if (!$wip) {
+                            $errors[] = "WIP not found for ID: {$ingredient->wip_id}";
+                            return false;
+                        }
+                        $wipIngredients = $wip->wip_ingredients;
 
-                    // get the wip ingredients 
-                    $product = ProductInventoryStock::with('product')
-                        ->where('product_inventory_id', $ingredient->product_inventory_id)
-                        ->where('store_branch_id', $branch->id)
-                        ->first();
+                        $wipIngredients?->each(function ($wipIngredient) use ($branch, $storeTransactionItem, $transaction, &$errors) {
+                            try {
+                                $product = ProductInventoryStock::with('product')
+                                    ->where('product_inventory_id', $wipIngredient->product_inventory_id)
+                                    ->where('store_branch_id', $branch->id)
+                                    ->first();
 
-                    if (!$product) {
-                        $errors[] = "Product inventory not found for branch: {$branch->location_code}";
-                        return false;
+                                if (!$product) {
+                                    $errors[] = "Product inventory not found for branch: {$branch->location_code}";
+                                    return false;
+                                }
+
+                                $stockOnHand = $product->quantity - $product->used;
+
+                                if ($wipIngredient->quantity * $storeTransactionItem->quantity > $stockOnHand) {
+                                    $requiredQuantity = $wipIngredient->quantity * $storeTransactionItem->quantity;
+                                    $errors[] = "Insufficient inventory for '{$product->product->name}'. Required: {$requiredQuantity}, Available: {$stockOnHand}. Please make sure that inventory stock is updated before proceding.";
+                                    return false;
+                                }
+
+                                $usedQuantity = $wipIngredient->quantity * $storeTransactionItem->quantity;
+                                $product->update([
+                                    'used' => $product->used + $usedQuantity
+                                ]);
+
+                                $data = [
+                                    'id' => $wipIngredient->product_inventory_id,
+                                    'store_branch_id' => $branch->id,
+                                    'cost_center_id' => null,
+                                    'quantity' => $usedQuantity,
+                                    'transaction_date' => $transaction->order_date,
+                                    'remarks' => "Deducted from store transaction (Receipt No. {$transaction->receipt_number})"
+                                ];
+
+                                $this->handleInventoryUsage($data);
+
+                                Log::info('Success processing WIP ingredient', [
+                                    'product_id' => $product->product_inventory_id,
+                                    'used_quantity' => $usedQuantity
+                                ]);
+                            } catch (Exception $e) {
+                                Log::error('Failed to process WIP ingredient', ['error' => $e->getMessage()]);
+                                $errors[] = "Error processing WIP ingredient: " . $e->getMessage();
+                                return false;
+                            }
+                        });
+                    } else {
+                        // if the ingredient is not from wip list
+                        $product = ProductInventoryStock::with('product')
+                            ->where('product_inventory_id', $ingredient->product_inventory_id)
+                            ->where('store_branch_id', $branch->id)
+                            ->first();
+
+                        if (!$product) {
+                            $errors[] = "Product inventory not found for branch: {$branch->location_code}";
+                            return false;
+                        }
+
+                        $stockOnHand = $product->quantity - $product->used;
+
+                        if ($ingredient->quantity * $storeTransactionItem->quantity > $stockOnHand) {
+                            $requiredQuantity = $ingredient->quantity * $storeTransactionItem->quantity;
+                            $errors[] = "Insufficient inventory for '{$product->product->name}'. Required: {$requiredQuantity}, Available: {$stockOnHand}. Please make sure that inventory stock is updated before proceding.";
+                            return false;
+                        }
+
+                        $usedQuantity = $ingredient->quantity * $storeTransactionItem->quantity;
+                        $product->update([
+                            'used' => $product->used + $usedQuantity
+                        ]);
+
+                        $data = [
+                            'id' => $ingredient->product_inventory_id,
+                            'store_branch_id' => $branch->id,
+                            'cost_center_id' => null,
+                            'quantity' => $usedQuantity,
+                            'transaction_date' => $transaction->order_date,
+                            'remarks' => "Deducted from store transaction (Receipt No. {$transaction->receipt_number})"
+                        ];
+
+                        $this->handleInventoryUsage($data);
+
+                        Log::info('Success processing ingredient', [
+                            'product_id' => $product->product_inventory_id,
+                            'used_quantity' => $usedQuantity
+                        ]);
                     }
-
-                    $stockOnHand = $product->quantity - $product->used;
-
-                    if ($ingredient->quantity * $storeTransactionItem->quantity > $stockOnHand) {
-                        $requiredQuantity = $ingredient->quantity * $storeTransactionItem->quantity;
-                        $errors[] = "Insufficient inventory for '{$product->product->name}'. Required: {$requiredQuantity}, Available: {$stockOnHand}. Please make sure that inventory stock is updated before proceding.";
-                        return false;
-                    }
-
-                    $usedQuantity = $ingredient->quantity * $storeTransactionItem->quantity;
-                    $product->update([
-                        'used' => $product->used + $usedQuantity
-                    ]);
-
-                    $data = [
-                        'id' => $ingredient->product_inventory_id,
-                        'store_branch_id' => $branch->id,
-                        'cost_center_id' => null,
-                        'quantity' => $usedQuantity,
-                        'transaction_date' => $transaction->order_date,
-                        'remarks' => "Deducted from store transaction (Receipt No. {$transaction->receipt_number})"
-                    ];
-
-                    $this->handleInventoryUsage($data);
-
-                    Log::info('Success processing ingredient', [
-                        'product_id' => $product->product_inventory_id,
-                        'used_quantity' => $usedQuantity
-                    ]);
                 } catch (Exception $e) {
                     Log::error('Failed to process ingredient', ['error' => $e->getMessage()]);
                     $errors[] = "Error processing ingredient: " . $e->getMessage();

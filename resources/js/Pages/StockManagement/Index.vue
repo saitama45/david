@@ -402,8 +402,12 @@ watch(isUpdateModalVisible, (value) => {
                         <TD>{{ product.name }}</TD>
                         <TD>{{ product.inventory_code }}</TD>
                         <TD>{{ product.uom }}</TD>
-                        <TD>{{ product.stock_on_hand }}</TD>
-                        <TD>{{ product.recorded_used }}</TD>
+                        <TD>{{
+                            parseFloat(product.stock_on_hand).toFixed(2)
+                        }}</TD>
+                        <TD>{{
+                            parseFloat(product.recorded_used).toFixed(2)
+                        }}</TD>
                         <TD>
                             <DivFlexCenter class="gap-3">
                                 <ShowButton

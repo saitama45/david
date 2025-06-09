@@ -33,7 +33,7 @@ class DeliveryScheduleController extends Controller
         return Inertia::render('DTSDeliverySchedule/Edit', [
             'branch' => $schedules['branch'],
             'schedules' =>  $schedules['groupedSchedules'],
-            'deliverySchedules' => $schedules['deliverySchedules']
+            'deliverySchedules' => $schedules['deliveryScfhedules']
         ]);
     }
 
