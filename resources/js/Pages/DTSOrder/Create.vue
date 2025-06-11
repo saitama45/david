@@ -328,7 +328,8 @@ const store = () => {
     };
 
     orderForm.order_date = formatDate(new Date(orderForm.order_date));
-
+    console.log(new Date(orderForm.order_date));
+    console.log(formatDate(new Date(orderForm.order_date)));
 
     confirm.require({
         message: "Are you sure you want to place this order?",
