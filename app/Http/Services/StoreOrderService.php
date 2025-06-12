@@ -119,7 +119,7 @@ class StoreOrderService
             'ordered_item_receive_dates',
             'ordered_item_receive_dates.receiver',
             'ordered_item_receive_dates.store_order_item',
-            'ordered_item_receive_dates.store_order_item.product_inventory',
+            'ordered_item_receive_dates.store_order_item.product_inventory.unit_of_measurement',
             // 'image_attachments' => function ($query) {
             //     $query->where('is_approved', true);
             // },

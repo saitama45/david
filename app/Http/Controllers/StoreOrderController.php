@@ -89,7 +89,6 @@ class StoreOrderController extends Controller
     public function show($id)
     {
         $order = $this->storeOrderService->getOrderDetails($id);
-
         return Inertia::render('StoreOrder/Show', [
             'order' => $order,
             'orderedItems' => $this->storeOrderService->getOrderItems($order),
