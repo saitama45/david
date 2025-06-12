@@ -76,7 +76,7 @@ class StoreOrderService
             'supplier_id' => $data['supplier_id'],
             'store_branch_id' => $data['branch_id'],
             'order_number' => $this->getOrderNumber($data['branch_id']),
-            'order_date' => Carbon::parse($data['order_date'])->addDays(1)->format('Y-m-d'),
+            'order_date' => Carbon::parse($data['order_date'])->format('Y-m-d'),
             'order_status' => OrderStatus::PENDING->value,
             'order_request_status' => OrderRequestStatus::PENDING->value,
         ]);
@@ -92,7 +92,6 @@ class StoreOrderService
         }
 
         DB::commit();
-
     }
 
     public function getPreviousOrderReference()

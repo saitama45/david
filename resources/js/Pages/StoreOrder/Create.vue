@@ -124,6 +124,20 @@ const store = () => {
         });
         return;
     }
+
+    if (!orderForm.order_date) {
+        orderForm.setError("order_date", "Order date is required.");
+        return;
+    }
+
+    const formatDate = (date) => {
+        const month = String(date.getMonth() + 1).padStart(2, "0");
+        const day = String(date.getDate()).padStart(2, "0");
+        const year = date.getFullYear();
+        return `${year}-${month}-${day}`;
+    };
+    orderForm.order_date = formatDate(new Date(orderForm.order_date));
+
     confirm.require({
         message: "Are you sure you want to place this order?",
         header: "Confirmation",
