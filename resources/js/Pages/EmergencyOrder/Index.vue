@@ -8,7 +8,7 @@ import { useSelectOptions } from "@/Composables/useSelectOptions";
 import { throttle } from "lodash";
 
 const handleClick = () => {
-    router.get("/store-orders/create");
+    router.get("/emergency-orders/create");
 };
 
 const props = defineProps({
@@ -235,7 +235,7 @@ const exportPdf = () => {
 
 <template>
     <Layout
-        heading="Emergency Orders"
+        heading="Emergency Store Orders"
         :hasButton="hasAccess('create store orders')"
         buttonName="Create New Order"
         :handleClick="handleClick"
