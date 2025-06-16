@@ -166,6 +166,13 @@ const referenceOpen = ref(false);
                     Store Orders
                 </NavLink>
                 <NavLink
+                    v-if="hasAccess('view store orders')"
+                    href="/emergency-orders"
+                    :icon="ShoppingCart"
+                >
+                    Emergency Orders
+                </NavLink>
+                <NavLink
                     v-if="hasAccess('view dts orders')"
                     href="/dts-orders"
                     :icon="ShoppingBasket"

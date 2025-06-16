@@ -30,7 +30,7 @@ class StoreOrderService
         return $store_order_number;
     }
 
-    public function getOrdersList()
+    public function getOrdersList($variant = 'regular')
     {
         $from = request('from') ? Carbon::parse(request('from'))->format('Y-m-d') : '1999-01-01';
         $to = request('to') ? Carbon::parse(request('to'))->addDay()->format('Y-m-d') : Carbon::today()->addMonth();
@@ -62,7 +62,7 @@ class StoreOrderService
                 });
 
         return $query
-            ->where('variant', 'regular')
+            ->where('variant', $variant)
             ->latest()
             ->paginate(10)
             ->withQueryString();

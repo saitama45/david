@@ -17,6 +17,7 @@ use App\Http\Controllers\DaysPayableOutStanding;
 use App\Http\Controllers\DeliveryScheduleController;
 use App\Http\Controllers\DirectReceivingController;
 use App\Http\Controllers\DTSController;
+use App\Http\Controllers\EmergencyOrderController;
 use App\Http\Controllers\ExcelTemplateController;
 use App\Http\Controllers\FruitAndVegetableController;
 use App\Http\Controllers\IceCreamOrderController;
@@ -77,6 +78,8 @@ Route::middleware('auth')
             Route::post('/import-wip-ingredients', 'importWipIngredients')->name('import-wip-ingredients');
             Route::get('/show/{id}', 'show')->name('show');
         });
+
+        Route::resource('emergency-orders', EmergencyOrderController::class);
 
         Route::get('/templates', [TemplateController::class, 'index']);
         Route::post('/template/store', [TemplateController::class, 'store'])->name('templates.store');
