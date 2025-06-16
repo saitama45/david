@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\AccountPayableController;
+use App\Http\Controllers\AdditionalOrderController;
 use App\Http\Controllers\ApprovedReceivedItem;
 use App\Http\Controllers\ApprovedOrderController;
 use App\Http\Controllers\AuditController;
@@ -80,6 +81,7 @@ Route::middleware('auth')
         });
 
         Route::resource('emergency-orders', EmergencyOrderController::class);
+        Route::resource('additional-orders', AdditionalOrderController::class);
 
         Route::get('/templates', [TemplateController::class, 'index']);
         Route::post('/template/store', [TemplateController::class, 'store'])->name('templates.store');
