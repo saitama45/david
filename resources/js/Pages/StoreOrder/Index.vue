@@ -231,6 +231,8 @@ const exportPdf = () => {
     window.open(pdfRoute.value, "_blank");
     isPdfModalVisible.visible = false;
 };
+
+console.log(props.branches);
 </script>
 
 <template>
@@ -350,7 +352,7 @@ const exportPdf = () => {
                             <label class="text-xs">To</label>
                             <Input type="date" v-model="to" />
                             <label class="text-xs">Store</label>
-                            <Select v-model="branchId">
+                            <SelectShad v-model="branchId">
                                 <SelectTrigger>
                                     <SelectValue placeholder="Select a store" />
                                 </SelectTrigger>
@@ -359,14 +361,13 @@ const exportPdf = () => {
                                         <SelectLabel>Stores</SelectLabel>
                                         <SelectItem
                                             v-for="(value, key) in branches"
-                                            :key="key"
                                             :value="key"
                                         >
                                             {{ value }}
                                         </SelectItem>
                                     </SelectGroup>
                                 </SelectContent>
-                            </Select>
+                            </SelectShad>
                         </PopoverContent>
                     </Popover>
                 </DivFlexCenter>

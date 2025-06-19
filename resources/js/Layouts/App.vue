@@ -1,5 +1,5 @@
 <script setup>
-import Logo from "../../images/logo.png";
+import Logo from "../../images/temporaryLoginImage.png";
 import {
     DropdownMenu,
     DropdownMenuContent,
@@ -89,7 +89,6 @@ const exportExcel = () => {
     window.open(props.exportRoute, "_blank");
 };
 
-
 const exportPdf = () => {
     window.open(props.pdfRoute, "_blank");
 };
@@ -107,8 +106,7 @@ const exportPdf = () => {
                     class="flex h-14 items-center border-b px-4 lg:h-[60px] lg:px-6"
                 >
                     <a href="/" class="flex items-center font-semibold">
-                        <img :src="Logo" alt="logo" class="size-20" />
-                        <span class="font-bold">DAVID</span>
+                        <img :src="Logo" alt="logo" class="size-52 -ml-7" />
                     </a>
                     <!-- <Button
                         variant="outline"
