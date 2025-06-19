@@ -4,6 +4,12 @@ import { useToast } from "primevue/usetoast";
 const toast = useToast();
 const isUpdateModalOpen = ref(false);
 
+const props = defineProps({
+    templates: Object,
+});
+
+console.log(props.templates);
+
 const form = useForm({
     file: null,
     file_name: null,
@@ -86,7 +92,7 @@ const files = [
         template: "BOM INGREDIENTS TEMPLATE",
         name: "BOM INGREDIENTS TEMPLATE",
         file_name: "bom_ingredients_template.xlsx",
-    }
+    },
 ];
 </script>
 
@@ -97,12 +103,22 @@ const files = [
                 <TableHead>
                     <TH>Template</TH>
                     <TH>Name</TH>
+                    <TH>Last Updated By</TH>
+                    <TH>Last Updated Date</TH>
                     <TH>Actions</TH>
                 </TableHead>
                 <TableBody>
                     <tr v-for="(file, index) in files" :key="index">
                         <TD>{{ file.template }}</TD>
                         <TD>{{ file.name }}</TD>
+                        <TD>{{
+                            templates[file.file_name]
+                                ? templates[file.file_name].user
+                                : "N/a"
+                        }}</TD>
+                        <TD>{{
+                            templates[file.file_name]?.updated_at ?? "N/a"
+                        }}</TD>
                         <TD>
                             <button
                                 @click="() => openUpdateModal(file.file_name)"

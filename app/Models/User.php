@@ -47,12 +47,19 @@ class User extends Authenticatable implements Auditable
      *
      * @return array<string, string>
      */
+
     protected function casts(): array
     {
         return [
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
         ];
+    }
+
+
+    public function templates()
+    {
+        return $this->hasMany(Template::class);
     }
 
     public function store_orders()

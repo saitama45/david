@@ -2,7 +2,9 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Template;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Storage;
 use Inertia\Inertia;
 
@@ -10,7 +12,20 @@ class TemplateController extends Controller
 {
     public function index()
     {
-        return Inertia::render('Template/Index');
+        $templates = Template::with('user')
+            ->get()
+            ->keyBy('template')
+            ->map(function ($template) {
+                return [
+                    'updated_at' => $template->updated_at->format('F d, Y'),
+                    'user' => $template->user ? $template->user->full_name : 'Unknown'
+                ];
+            });
+
+
+        return Inertia::render('Template/Index', [
+            'templates' => $templates
+        ]);
     }
 
     public function store(Request $request)
@@ -24,6 +39,11 @@ class TemplateController extends Controller
         $destinationPath = 'excel-templates';
         $filename = $validated['file_name'];
         $fullPath = storage_path('app/public/' . $destinationPath . '/' . $filename);
+
+        Template::updateOrCreate(
+            ['template' => $filename],
+            ['user_id' => Auth::id()]
+        );
 
         try {
             if (Storage::disk('public')->exists($destinationPath . '/' . $filename)) {
