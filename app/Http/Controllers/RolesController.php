@@ -6,13 +6,14 @@ use App\Exports\RolesExport;
 use App\Http\Requests\Role\StoreRoleRequest;
 use App\Http\Requests\Role\UpdateRoleRequest;
 use App\Http\Services\RoleService;
+use App\Models\Role;
 use Exception;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
 use Maatwebsite\Excel\Facades\Excel;
 use Spatie\Permission\Models\Permission;
-use Spatie\Permission\Models\Role;
+
 
 class RolesController extends Controller
 {
@@ -61,7 +62,7 @@ class RolesController extends Controller
             'permissions' => $groupedPermissions
         ]);
     }
-    
+
     public function store(StoreRoleRequest $request)
     {
         try {
