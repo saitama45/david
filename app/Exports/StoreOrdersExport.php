@@ -83,7 +83,7 @@ class StoreOrdersExport implements FromQuery, WithHeadings, WithMapping
             $order->encoder?->full_name ?? 'N/a',
             $order->supplier?->name ?? 'N/a',
             $order->store_branch->name,
-            $order->commiter->full_name,
+            $order->commiter?->full_name ?? 'N/a',
             $order->approver?->full_name ?? 'N/a',
             $order->order_number,
             $order->order_date,
