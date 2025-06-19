@@ -40,7 +40,7 @@ class StoreOrdersExport implements FromQuery, WithHeadings, WithMapping
         }
 
         if ($this->filterQuery !== 'all')
-            $query->where('order_request_status', $this->filterQuery);
+            $query->where('order_status', $this->filterQuery);
 
         if ($this->branchId)
             $query->where('store_branch_id', $this->branchId);
