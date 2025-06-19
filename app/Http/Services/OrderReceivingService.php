@@ -12,7 +12,7 @@ use Illuminate\Support\Facades\DB;
 
 class OrderReceivingService extends StoreOrderService
 {
-    public function getOrdersList()
+    public function getOrdersList($variant = 'regular')
     {
         $search = request('search');
         $query = StoreOrder::query()->with(['store_branch', 'supplier'])->whereNotIn('order_status', ['pending', 'rejected', 'approved']);
