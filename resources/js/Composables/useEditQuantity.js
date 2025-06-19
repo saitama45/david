@@ -61,8 +61,8 @@ export function useEditQuantity(orderForm, itemsDetail = null, order = null) {
             return;
         }
 
-        if (formQuantity.quantity < 0.1) {
-            formQuantity.setError("quantity", "Quantity should be more than 0");
+        if (formQuantity.quantity < 0) {
+            formQuantity.setError("quantity", "Quantity should be more than or equals to 0");
             return;
         }
         const itemIndex = itemsDetail.value.findIndex(

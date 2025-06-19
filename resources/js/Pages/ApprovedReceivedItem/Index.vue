@@ -32,7 +32,7 @@ import { useAuth } from "@/Composables/useAuth";
 const { hasAccess } = useAuth();
 
 const exportRoute = computed(() => {
-    route("approved-orders.export", {
+    return route("approved-orders.export", {
         search: search.value,
     });
 });
