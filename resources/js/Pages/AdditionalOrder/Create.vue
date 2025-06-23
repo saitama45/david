@@ -102,6 +102,7 @@ const orderForm = useForm({
     supplier_id: previousOrder?.supplier_id + "",
     order_date: null,
     orders: [],
+    variant: "additional_order",
 });
 
 const computeOverallTotal = computed(() => {
@@ -152,7 +153,7 @@ const store = () => {
             severity: "info",
         },
         accept: () => {
-            orderForm.post(route("store-orders.store"), {
+            orderForm.post(route("additional-orders.store"), {
                 onSuccess: () => {
                     toast.add({
                         severity: "success",
@@ -451,7 +452,6 @@ if (minDate.getDay() === 0) {
 
 orderRestrictionDate.minDate = minDate;
 orderRestrictionDate.maxDate = minDate;
-
 
 import { useEditQuantity } from "@/Composables/useEditQuantity";
 const {

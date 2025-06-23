@@ -79,6 +79,7 @@ class StoreOrderService
             'order_date' => Carbon::parse($data['order_date'])->format('Y-m-d'),
             'order_status' => OrderStatus::PENDING->value,
             'order_request_status' => OrderRequestStatus::PENDING->value,
+            'variant' => $data['variant'] ?? 'regular',
         ]);
 
         foreach ($data['orders'] as $data) {

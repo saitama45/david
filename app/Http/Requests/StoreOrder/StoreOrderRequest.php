@@ -18,7 +18,8 @@ class StoreOrderRequest extends FormRequest
             'branch_id' => ['required', 'exists:store_branches,id'],
             'supplier_id' => ['required', 'exists:suppliers,id'],
             'order_date' => ['required'],
-            'orders' => ['required', 'array']
+            'orders' => ['required', 'array'],
+            'variant' => ['nullable']
         ];
     }
 

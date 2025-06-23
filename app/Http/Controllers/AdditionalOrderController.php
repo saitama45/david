@@ -2,14 +2,17 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\StoreOrder\StoreOrderRequest;
 use App\Http\Services\StoreOrderService;
 use App\Models\ProductInventory;
 use App\Models\StoreBranch;
 use App\Models\Supplier;
+use Exception;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
 
-class AdditionalOrderController extends Controller
+class AdditionalOrderController extends StoreOrderController
 {
     protected $storeOrderService;
 
@@ -19,7 +22,7 @@ class AdditionalOrderController extends Controller
     }
     public function index()
     {
-        $orders = $this->storeOrderService->getOrdersList('emergency_orders');
+        $orders = $this->storeOrderService->getOrdersList('additional_order');
         $branches = StoreBranch::options();
         return Inertia::render(
             'AdditionalOrder/Index',
@@ -29,6 +32,17 @@ class AdditionalOrderController extends Controller
                 'filters' => request()->only(['from', 'to', 'branchId', 'search', 'filterQuery'])
             ]
         );
+    }
+
+    public function store(StoreOrderRequest $request)
+    {
+        try {
+            $this->storeOrderService->createStoreOrder($request->validated());
+        } catch (Exception $e) {
+            DB::rollBack();
+        }
+
+        return redirect()->route(route: 'additional-orders.index');
     }
 
     public function create()
