@@ -43,12 +43,12 @@ class BOMIngredientImport implements ToCollection, WithHeadingRow
             $rowArray = $row->toArray();
 
             // Skip empty sap_code rows
-            if (empty($rowArray['sap_code'])) {
+            if (empty($rowArray['pos_code'])) {
                 continue;
             }
 
-            $sap_code = trim($rowArray['sap_code']);
-            $inventory_code = trim($rowArray['inventory_code']);
+            $sap_code = trim($rowArray['pos_code']);
+            $inventory_code = trim($rowArray['item_code']);
 
             // Validate required fields
             if (empty($sap_code)) {
@@ -61,12 +61,12 @@ class BOMIngredientImport implements ToCollection, WithHeadingRow
                 continue;
             }
 
-            if (empty($rowArray['name'])) {
+            if (empty($rowArray['menu_item'])) {
                 $this->errors[] = "Row {$rowNumber}: Name is required for SAP code {$sap_code}";
                 continue;
             }
 
-            if (empty($rowArray['qty']) || !is_numeric($rowArray['qty'])) {
+            if (!is_numeric($rowArray['bom_qty'])) {
                 $this->errors[] = "Row {$rowNumber}: Valid quantity is required for SAP code {$sap_code}";
                 continue;
             }
@@ -94,10 +94,10 @@ class BOMIngredientImport implements ToCollection, WithHeadingRow
 
             // Store validated row data with product ID for later processing
             $this->validatedRows[] = [
-                'sap_code' => $sap_code,
-                'inventory_code' => $inventory_code,
-                'name' => $rowArray['name'],
-                'qty' => $rowArray['qty'],
+                'pos_code' => $sap_code,
+                'item_code' => $inventory_code,
+                'name' => $rowArray['menu_item'],
+                'qty' => $rowArray['bom_qty'] ?? 0,
                 'uom' => $rowArray['uom'],
                 'product_id' => $product ? $product->id : null,
                 'wip_id' => $wip ? $wip->id : null,
@@ -129,7 +129,7 @@ class BOMIngredientImport implements ToCollection, WithHeadingRow
             $menu = Menu::firstOrCreate(
                 ['product_id' => $sapCode],
                 [
-                    'name' => $rowData['name'],
+                    'name' => $rowData['menu_item'],
                     'remarks' => $rowData['remarks'] ?? null
                 ]
             );
@@ -146,7 +146,7 @@ class BOMIngredientImport implements ToCollection, WithHeadingRow
                     'product_inventory_id' => $wipId ? null : $productId,
                     'sap_code' => $sapCode,
                     'wip_id' => $wipId,
-                    'quantity' => $rowData['qty'],
+                    'quantity' => $rowData['bom_qty'],
                     'unit' => $rowData['uom']
                 ]
             );
@@ -158,7 +158,7 @@ class BOMIngredientImport implements ToCollection, WithHeadingRow
             ]);
 
             // Re-throw to trigger transaction rollback
-            throw new Exception("Error processing row {$rowData['row_number']} (SAP: {$rowData['sap_code']}): " . $e->getMessage());
+            throw new Exception("Error processing row {$rowData['row_number']} (SAP: {$rowData['pos_code']}): " . $e->getMessage());
         }
     }
 
