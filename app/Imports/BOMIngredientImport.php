@@ -62,6 +62,7 @@ class BOMIngredientImport implements ToCollection, WithHeadingRow
             }
 
             if (empty($rowArray['menu_item'])) {
+                Log::info('Missing name for SAP code', ['row' => $rowArray, 'row_number' => $rowNumber]);
                 $this->errors[] = "Row {$rowNumber}: Name is required for SAP code {$sap_code}";
                 continue;
             }
@@ -121,15 +122,15 @@ class BOMIngredientImport implements ToCollection, WithHeadingRow
     protected function processValidatedRow(array $rowData)
     {
         try {
-            $inventoryCode = $rowData['inventory_code'];
-            $sapCode = $rowData['sap_code'];
+            $inventoryCode = $rowData['item_code'];
+            $sapCode = $rowData['pos_code'];
             $wipId = $rowData['wip_id'];
             $productId = $rowData['product_id'];
 
             $menu = Menu::firstOrCreate(
                 ['product_id' => $sapCode],
                 [
-                    'name' => $rowData['menu_item'],
+                    'name' => $rowData['name'],
                     'remarks' => $rowData['remarks'] ?? null
                 ]
             );
@@ -146,13 +147,13 @@ class BOMIngredientImport implements ToCollection, WithHeadingRow
                     'product_inventory_id' => $wipId ? null : $productId,
                     'sap_code' => $sapCode,
                     'wip_id' => $wipId,
-                    'quantity' => $rowData['bom_qty'],
+                    'quantity' => $rowData['qty'],
                     'unit' => $rowData['uom']
                 ]
             );
         } catch (Exception $e) {
             Log::error('WIP Ingredient Import Processing Error', [
-                'sap_code' => $rowData['sap_code'],
+                'sap_code' => $rowData['pos_code'],
                 'error' => $e->getMessage(),
                 'row_number' => $rowData['row_number']
             ]);
