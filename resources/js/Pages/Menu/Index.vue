@@ -156,9 +156,9 @@ const importBomIngredientsList = () => {
 
                 <DivFlexCenter class="gap-2">
                     <Button @click="openImportBomIngredientsModal"
-                        >Update BOM Ingredients</Button
-                    >
-                    <Button @click="openImportBomModal">Update List</Button>
+                        >Update BOM
+                    </Button>
+                    <!-- <Button @click="openImportBomModal">Update List</Button> -->
                 </DivFlexCenter>
             </TableHeader>
             <Table>
