@@ -19,6 +19,10 @@ const props = defineProps({
                     <SpanBold>{{ menu.id }}</SpanBold>
                 </InputContainer>
                 <InputContainer>
+                    <LabelXS>Name</LabelXS>
+                    <SpanBold>{{ menu.name }}</SpanBold>
+                </InputContainer>
+                <InputContainer>
                     <LabelXS>Product ID</LabelXS>
                     <SpanBold>{{ menu.product_id }}</SpanBold>
                 </InputContainer>
