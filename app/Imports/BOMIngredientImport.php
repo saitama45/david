@@ -92,6 +92,7 @@ class BOMIngredientImport implements ToCollection, WithHeadingRow
                 $this->errors[] = "Row {$rowNumber}: Product inventory/WIP not found for code '{$inventory_code}' (SAP: {$sap_code}). Please make sure that your inventory/wip is updated before proceeding.";
                 continue;
             }
+            //
 
             // Store validated row data with product ID for later processing
             $this->validatedRows[] = [
