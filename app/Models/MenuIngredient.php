@@ -23,7 +23,7 @@ class MenuIngredient extends Model implements Auditable
     {
         return $this->belongsTo(Menu::class);
     }
-
+ 
     public function product()
     {
         return $this->belongsTo(ProductInventory::class, 'product_inventory_id');

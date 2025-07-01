@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\AccountPayableController;
+use App\Http\Controllers\AdditionalOrderApprovalController;
 use App\Http\Controllers\AdditionalOrderController;
 use App\Http\Controllers\ApprovedReceivedItem;
 use App\Http\Controllers\ApprovedOrderController;
@@ -18,6 +19,7 @@ use App\Http\Controllers\DaysPayableOutStanding;
 use App\Http\Controllers\DeliveryScheduleController;
 use App\Http\Controllers\DirectReceivingController;
 use App\Http\Controllers\DTSController;
+use App\Http\Controllers\EmergencyOrderApprovalController;
 use App\Http\Controllers\EmergencyOrderController;
 use App\Http\Controllers\ExcelTemplateController;
 use App\Http\Controllers\FruitAndVegetableController;
@@ -72,6 +74,10 @@ Route::get('jobs', function () {
 
 Route::middleware('auth')
     ->group(function () {
+
+        Route::resource('additional-orders-approval', AdditionalOrderApprovalController::class);
+
+        Route::resource('emergency-orders-approval', EmergencyOrderApprovalController::class);
 
         Route::controller(WIPListController::class)->name('wip-list.')->prefix('wip-list')->group(function () {
             Route::get('/', 'index')->name('index');

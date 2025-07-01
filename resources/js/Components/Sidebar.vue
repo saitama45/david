@@ -203,6 +203,21 @@ const referenceOpen = ref(false);
                 >
                     CS Review List
                 </NavLink>
+                <NavLink
+                    v-if="hasAccess('view orders for cs approval list')"
+                    href="/additional-orders-approval"
+                    :icon="SquareChartGantt"
+                >
+                    Additional Order Approval
+                </NavLink>
+
+                <NavLink
+                    v-if="hasAccess('view orders for cs approval list')"
+                    href="/emergency-orders-approval"
+                    :icon="SquareChartGantt"
+                >
+                    Emergency Order Approval
+                </NavLink>
             </CollapsibleContent>
         </Collapsible>
 

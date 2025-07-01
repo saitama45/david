@@ -12,12 +12,16 @@ use Illuminate\Support\Facades\DB;
 
 class OrderApprovalService extends StoreOrderService
 {
-    public function getOrdersAndCounts($page = 'manager', $condition = null)
+    public function getOrdersAndCounts($page = 'manager', $condition = null, $variant  = null)
     {
         $search = request('search');
         $filter = $page == 'manager' ? request('currentFilter') ?? 'pending' : 'approved';
 
         $query = StoreOrder::query()->with(['store_branch', 'supplier']);
+
+        if ($variant != null) {
+            $query->where('variant', $variant);
+        }
 
 
         $counts = $this->getCounts($query, $condition);
