@@ -21,6 +21,7 @@ class SAPMasterfileController extends Controller
         
         if ($search)
             $query->whereAny(['ItemNo', 'ItemDescription'], 'like', "%$search%");
+        /** @var \Illuminate\Pagination\LengthAwarePaginator $items */
         $items = $query->paginate(10)->withQueryString();
 
         return Inertia::render('SAPMasterfileItem/Index', [

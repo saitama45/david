@@ -3,6 +3,8 @@ import { useSearch } from "@/Composables/useSearch";
 import { useForm } from "@inertiajs/vue3";
 import { useConfirm } from "primevue/useconfirm";
 import { useToast } from "primevue/usetoast";
+import { useReferenceDelete } from "@/Composables/useReferenceDelete";
+
 
 const toast = useToast();
 
@@ -16,6 +18,7 @@ const props = defineProps({
 });
 
 import { router } from "@inertiajs/vue3";
+
 const handleClick = () => {
     router.get(route("sapitems.create"));
 };
@@ -25,6 +28,16 @@ import { usePage } from "@inertiajs/vue3";
 let filter = ref(usePage().props.filter || "all");
 
 const { search } = useSearch("sapitems.index");
+
+const isEditModalVisible = ref(false);
+
+const editCategoryDetails = (id) => {
+    router.get(`/sapitems-list/edit/${id}`);
+};
+
+const viewDetails = (id) => {
+    router.get(`/sapitems-list/show/${id}`);
+};
 
 const changeFilter = (currentFilter) => {
     filter.value = currentFilter;
@@ -44,7 +57,7 @@ watch(filter, function (value) {
 import { useAuth } from "@/Composables/useAuth";
 
 const { hasAccess } = useAuth();
-import { useReferenceDelete } from "@/Composables/useReferenceDelete";
+
 const { deleteModel } = useReferenceDelete();
 
 const exportRoute = computed(() =>
@@ -155,24 +168,21 @@ const isLoading = ref(false);
                         <TD>{{ item.ItemDescription }}</TD>
                         <TD>{{ item.BaseUOM }}</TD>
                         <TD>{{ item.BaseQty }}</TD>
-                        <TD>{{ item.AlternateUOM }}</TD>
-                        <TD>{{ item.AlternateQty }}</TD>
+                        <TD>{{ item.AltUOM }}</TD>
+                        <TD>{{ item.AltQty }}</TD>
                         <TD class="flex items-center gap-2">
-                            <ShowButton
-                                v-if="hasAccess('view item')"
-                                :isLink="true"
-                                :href="`sapitems-list/show/${item.inventory_code}`"
-                            />
+                            <ShowButton @click="viewDetails(branch.id)" />
                             <EditButton
-                                v-if="hasAccess('edit items')"
-                                :isLink="true"
-                                :href="route('sapitems.edit', item.id)"
+                                @click="editCategoryDetails(branch.id)"
                             />
                             <DeleteButton
                                 @click="
                                     deleteModel(
-                                        route('sapitems.destroy', item.id),
-                                        'Product'
+                                        route(
+                                            'store-branches.destroy',
+                                            branch.id
+                                        ),
+                                        'Branch'
                                     )
                                 "
                             />
@@ -186,27 +196,11 @@ const isLoading = ref(false);
                     <MobileTableHeading
                         :title="`${item.name} (${item.inventory_code})`"
                     >
-                        <ShowButton
-                            v-if="hasAccess('view item')"
-                            :isLink="true"
-                            :href="`items-list/show/${item.inventory_code}`"
-                        />
-                        <EditButton
-                            v-if="hasAccess('edit items')"
-                            :isLink="true"
-                            :href="route('items.edit', item.id)"
-                        />
-                        <DeleteButton
-                            @click="
-                                deleteModel(
-                                    route('items.destroy', item.id),
-                                    'Product'
-                                )
-                            "
-                        />
+                        <ShowButton @click="viewDetails(branch.id)" />
+                        <EditButton @click="editCategoryDetails(branch.id)" />
                     </MobileTableHeading>
-                    <LabelXS>UOM: {{ item.unit_of_measurement.name }}</LabelXS>
-                    <LabelXS>Cost: {{ item.cost }}</LabelXS>
+                    <!-- <LabelXS>UOM: {{ item.unit_of_measurement.name }}</LabelXS>
+                    <LabelXS>Cost: {{ item.cost }}</LabelXS> -->
                 </MobileTableRow>
             </MobileTableContainer>
             <Pagination :data="items" />
