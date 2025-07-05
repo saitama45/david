@@ -33,7 +33,8 @@ class DatabaseSeeder extends Seeder
             SupplierSeeder::class,
             DeliveryScheduleSeeder::class,
             DTSDeliveryScheduleSeeder::class,
-            MenuCategorySeeder::class
+            MenuCategorySeeder::class,
+            SAPMasterfilesSeeders::class,
         ]);
     }
 }
