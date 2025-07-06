@@ -368,23 +368,25 @@ Route::middleware('auth')
                 Route::get('/items-list/export', 'export')->name('export');
             });
         });
+
         // SAP Masterlist
-        Route::controller(SAPMasterfileController::class)->name('sapitems.')->group(function () {
+        Route::controller(SAPMasterfileController::class)->name('items.')->group(function () {
             Route::middleware('permission:view items list')->get('/sapitems-list', 'index')->name('index');
             Route::middleware('permission:view item')->get('/sapitems-list/show/{id}', 'show')->name('show');
             Route::middleware('permission:create new items')->group(function () {
-                // Route::post('/items-list/store', 'store')->name('store');
-                // Route::get('/items-list/create', 'create')->name('create');
-                // Route::post('/items-list/import', 'import')->name('import');
+                Route::post('/sapitems-list/store', 'store')->name('store');
+                Route::get('/sapitems-list/create', 'create')->name('create');
+                Route::post('/sapitems-list/import', 'import')->name('import');
 
-                // Route::get('/items-list/edit/{id}', 'edit')->name('edit');
-                // Route::put('/items-list/update/{id}', 'update')->name('update');
+                Route::get('/sapitems-list/edit/{id}', 'edit')->name('edit');
+                Route::put('/sapitems-list/update/{id}', 'update')->name('update');
 
-                // Route::delete('/items-list/destroy/{id}', 'destroy')->name('destroy');
+                Route::delete('/sapitems-list/destroy/{id}', 'destroy')->name('destroy');
 
                 Route::get('/sapitems-list/export', 'export')->name('export');
             });
         });
+       
         // BOM
         Route::controller(MenuController::class)->prefix('menu-list')->name('menu-list.')->group(function () {
             Route::middleware('permission:view bom list')->get('/', 'index')->name('index');

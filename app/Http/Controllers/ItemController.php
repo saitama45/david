@@ -31,7 +31,7 @@ class ItemController extends Controller
             $query->where('cost', '>', 0);
 
         if ($filter === 'without_cost')
-            $query->where('cost', '===', 0);
+            $query->where('cost', '=', 0);
 
         if ($search)
             $query->whereAny(['name', 'inventory_code'], 'like', "%$search%");
