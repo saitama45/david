@@ -60,7 +60,7 @@ class SAPMasterfileController extends Controller
     public function edit($id)
     {
         $item = SAPMasterfile::findOrFail($id);
-        return Inertia::render('Item/Edit', [
+        return Inertia::render('SAPMasterfileItem/Edit', [
             'item' => $item
         ]);
     }
@@ -87,7 +87,7 @@ class SAPMasterfileController extends Controller
         ]);
 
         SAPMasterfile::create($validated);
-        return to_route("sapitems-list.index");
+        return to_route("items.index");
     }
 
     public function destroy($id)
@@ -95,15 +95,15 @@ class SAPMasterfileController extends Controller
         $items = SAPMasterfile::findOrFail($id);
 
         $items->delete();
-        return to_route('sapitems-list.index');
+        return to_route('items.index');
     }
 
     public function update(Request $request, $id)
     {
         $item = SAPMasterfile::findOrFail($id);
         $validated = $request->validate([         
-            'ItemNo' => ['required', 'unique:ItemNo' . $id],
-            'ItemDescription' => ['required', 'unique:ItemDescription' . $id],
+           'ItemNo' => ['required', 'unique:sap_masterfiles,ItemNo,' . $id],
+            'ItemDescription' => ['required', 'unique:sap_masterfiles,ItemDescription,' . $id],
             'AltQty' => ['nullable'],
             'BaseQty' => ['nullable'],
             'AltUOM' => ['nullable'],
@@ -111,7 +111,7 @@ class SAPMasterfileController extends Controller
             'is_active' => ['nullable'],
         ]);
         $item->update($validated);
-        return to_route("sapitems-list.index");
+        return to_route("items.index");
     }
 
     public function import(Request $request)

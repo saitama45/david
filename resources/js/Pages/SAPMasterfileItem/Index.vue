@@ -148,7 +148,7 @@ const isLoading = ref(false);
                     <TH>Base UOM</TH>
                     <TH>Base QTY</TH>
                     <TH>Alternate UOM</TH>
-                    <TH>Base UOM</TH>
+                    <TH>Alternate UOM</TH>
                     <TH>Action</TH>
                 </TableHead>
 
