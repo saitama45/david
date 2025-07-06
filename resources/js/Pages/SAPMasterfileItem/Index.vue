@@ -1,22 +1,16 @@
 <script setup>
-
-import { useForm } from "@inertiajs/vue3";
-import { useToast } from "primevue/usetoast";
 import { useSearch } from "@/Composables/useSearch";
+import { useForm } from "@inertiajs/vue3";
+import { useConfirm } from "primevue/useconfirm";
+import { useToast } from "primevue/usetoast";
 import { router } from "@inertiajs/vue3";
+import { usePage } from "@inertiajs/vue3";
+import { useAuth } from "@/Composables/useAuth";
 import { useReferenceDelete } from "@/Composables/useReferenceDelete";
 
-const isEditModalVisible = ref(false);
 const toast = useToast();
-const isLoading = ref(false);
 
-
-const form = useForm({
-    name: null,
-    remarks: null,
-});
-
-const targetId = ref(null);
+const confirm = useConfirm();
 
 const props = defineProps({
     items: {
@@ -25,40 +19,115 @@ const props = defineProps({
     },
 });
 
+
+const handleClick = () => {
+    router.get(route("items.create"));
+};
+
+
+
+let filter = ref(usePage().props.filter || "all");
+
+const { search } = useSearch("items.index");
+
+const changeFilter = (currentFilter) => {
+    filter.value = currentFilter;
+};
+
+watch(filter, function (value) {
+    router.get(
+        route("items.index"),
+        { filter: value },
+        {
+            preserveState: true,
+            replace: true,
+        }
+    );
+});
+
+
+
+const { hasAccess } = useAuth();
+
 const { deleteModel } = useReferenceDelete();
 
-const { search } = useSearch("sapitems-list.index");
-
-const editCategoryDetails = (id) => {
-    router.get(`/sapitems-list/edit/${id}`);
-};
-
-const viewDetails = (id) => {
-    router.get(`/sapitems-list/show/${id}`);
-};
-
-const createNewItem = () => {
-    router.get("/sapitems-list/create");
-};
-
-const exportRoute = computed(() => 
-    route("sapitems-list.export", { search: search.value })
+const exportRoute = computed(() =>
+    route("items.export", {
+        search: search.value,
+        filter: filter.value,
+    })
 );
 
+const isImportModalVisible = ref(false);
 
+const importForm = useForm({
+    products_file: null,
+});
 
+const importFile = () => {
+    isLoading.value = true;
+    importForm.post(route("items.import"), {
+        onSuccess: () => {
+            toast.add({
+                severity: "success",
+                summary: "Success",
+                detail: "Products Updated Successfully.",
+                life: 3000,
+            });
+            isLoading.value = false;
+            isImportModalVisible.value = false;
+        },
+        onError: (e) => {
+            isLoading.value = false;
+            toast.add({
+                severity: "error",
+                summary: "Error",
+                detail: "An error occured while trying to update products. Please make sure that you are using the correct format.",
+                life: 3000,
+            });
+        },
+        onFinish: () => {
+            isLoading.value = false;
+        },
+    });
+};
 
+const openFormModal = () => {
+    return (isImportModalVisible.value = true);
+};
+
+const isLoading = ref(false);
 </script>
 
 <template>
     <Layout
-        heading="SAP Masterfile Items List"
-        :hasButton="true"
-        :handleClick="createNewItem"
+        heading="SAPMasterfile List"
+        :hasButton="hasAccess('create new SAPMasterfile items')"
         buttonName="Create New Item"
+        :handleClick="handleClick"
         :hasExcelDownload="true"
         :exportRoute="exportRoute"
     >
+        <FilterTab>
+            <FilterTabButton
+                label="All"
+                filter="all"
+                :currentFilter="filter"
+                @click="changeFilter('all')"
+            />
+            <FilterTabButton
+                label="Active"
+                filter="is_active"
+                :currentFilter="filter"
+                @click="changeFilter('is_active')"
+            />
+            <FilterTabButton
+                label="InActive"
+                filter="inactive"
+                :currentFilter="filter"
+                @click="changeFilter('inactive')"
+            />
+        </FilterTab>
         <TableContainer>
             <TableHeader>
                 <SearchBar>
@@ -68,11 +137,12 @@ const exportRoute = computed(() =>
                         placeholder="Search..."
                     />
                 </SearchBar>
+                <Button @click="openFormModal">Update List</Button>
             </TableHeader>
 
             <Table>
                 <TableHead>
-                    <TH>Id</TH>
+                   <TH>Id</TH>
                     <TH>Item Number</TH>
                     <TH>Description</TH>
                     <TH>Base UOM</TH>
@@ -92,18 +162,21 @@ const exportRoute = computed(() =>
                         <TD>{{ item.AltUOM }}</TD>
                         <TD>{{ item.AltQty }}</TD>
                         <TD class="flex items-center gap-2">
-                            <ShowButton @click="viewDetails(item.id)" />
+                            <ShowButton
+                                v-if="hasAccess('view item')"
+                                :isLink="true"
+                                :href="`sapitems-list/show/${item.id}`"
+                            />
                             <EditButton
-                                @click="editCategoryDetails(item.id)"
+                                v-if="hasAccess('edit items')"
+                                :isLink="true"
+                                :href="route('items.edit', item.id)"
                             />
                             <DeleteButton
                                 @click="
                                     deleteModel(
-                                        route(
-                                            'sapitems-list.destroy',
-                                            item.id
-                                        ),
-                                        'Branch'
+                                        route('items.destroy', item.id),
+                                        'Product'
                                     )
                                 "
                             />
@@ -117,17 +190,31 @@ const exportRoute = computed(() =>
                     <MobileTableHeading
                         :title="`${item.name} (${item.inventory_code})`"
                     >
-                        <ShowButton @click="viewDetails(item.id)" />
-                        <EditButton @click="editCategoryDetails(item.id)" />
+                        <ShowButton
+                            v-if="hasAccess('view item')"
+                            :isLink="true"
+                            :href="`sapitems-list/show/${item.inventory_code}`"
+                        />
+                        <EditButton
+                            v-if="hasAccess('edit items')"
+                            :isLink="true"
+                            :href="route('items.edit', item.id)"
+                        />
+                        <DeleteButton
+                            @click="
+                                deleteModel(
+                                    route('items.destroy', item.id),
+                                    'Product'
+                                )
+                            "
+                        />
                     </MobileTableHeading>
-                    <!-- <LabelXS>UOM: {{ item.unit_of_measurement.name }}</LabelXS>
-                    <LabelXS>Cost: {{ item.cost }}</LabelXS> -->
                 </MobileTableRow>
             </MobileTableContainer>
             <Pagination :data="items" />
         </TableContainer>
 
-        <Dialog v-model:open="isEditModalVisible">
+        <Dialog v-model:open="isImportModalVisible">
             <DialogContent class="sm:max-w-[600px]">
                 <DialogHeader>
                     <DialogTitle>Import Products</DialogTitle>

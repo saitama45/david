@@ -8,73 +8,60 @@ const { item } = defineProps({
         type: Object,
         required: true,
     },
-    orders: {
-        type: Object,
-        required: true,
-    },
+    // orders: {
+    //     type: Object,
+    //     required: true,
+    // },
 });
 </script>
 
 <template>
-    <Layout heading="Item Details">
+    <Layout heading="SAPMasterfile Details">
         <section class="grid sm:grid-cols-2">
             <Card>
                 <CardHeader>
                     <CardTitle class="text-xl">
-                        {{ item.name ?? "N/a" }}
+                        {{ item.ItemDescription ?? "N/a" }}
                     </CardTitle>
                 </CardHeader>
                 <CardContent class="grid sm:grid-cols-2 gap-3">
-                    <Label>Inventory Code</Label>
+                    <Label>Item Code</Label>
                     <Label class="font-bold">{{
-                        item.inventory_code ?? "N/a"
+                        item.ItemNo ?? "N/a"
                     }}</Label>
 
-                    <Label>Inventory Category</Label>
+                    <Label>Item Desc</Label>
                     <Label class="font-bold">{{
-                        item.inventory_category.name ?? "N/a"
+                        item.ItemDescription ?? "N/a"
                     }}</Label>
 
-                    <Label>Brand</Label>
-                    <Label class="font-bold">{{ item.brand ?? "N/a" }}</Label>
+                    <Label>Alt Qty</Label>
+                    <Label class="font-bold">{{ item.AltQty ?? "N/a" }}</Label>
 
-                    <Label>Category - A</Label>
+                    <Label>Base Qty</Label>
                     <Label class="font-bold">{{
-                        item.category_a ?? "N/a"
+                        item.BaseQty ?? "N/a"
                     }}</Label>
 
-                    <Label>Category - B</Label>
+                    <Label>Alt UOM</Label>
                     <Label class="font-bold">{{
-                        item.category_b ?? "N/a"
+                        item.AltUOM ?? "N/a"
                     }}</Label>
 
-                    <Label>Packaging</Label>
+                    <Label>Base UOM</Label>
                     <Label class="font-bold">{{
-                        item.packaging ?? "N/a"
+                        item.BaseUOM ?? "N/a"
                     }}</Label>
-
-                    <Label>Conversion</Label>
-                    <Label class="font-bold">{{
-                        item.conversion ?? "N/a"
-                    }}</Label>
-
-                    <Label>Unit Of Measurement</Label>
-                    <Label class="font-bold">{{
-                        item.unit_of_measurement.name ?? "N/a"
-                    }}</Label>
-
-                    <Label>Cost</Label>
-                    <Label class="font-bold">{{ item.cost ?? "N/a" }}</Label>
 
                     <Label>Is Active</Label>
                     <Label class="font-bold">{{
-                        item.is_active ? "Yes" : "No"
+                        item.is_active == 1 ? "Yes" : "No"
                     }}</Label>
                 </CardContent>
             </Card>
         </section>
 
-        <Card class="p-5">
+        <!-- <Card class="p-5">
             <CardHeader>
                 <CardTitle>Orders History</CardTitle>
             </CardHeader>
@@ -114,7 +101,7 @@ const { item } = defineProps({
                     </TableBody>
                 </Table>
             </CardContent>
-        </Card>
+        </Card> -->
 
         <Button variant="outline" class="text-lg px-7" @click="backButton">
             Back
