@@ -39,7 +39,7 @@ jobs:
         with:
           server: win8203.site4now.net
           username: eyelix_site12
-          password: superadmin2024
+          password: superadmin2025
           protocol: ftp
           port: 21
           timeout: 120000
