@@ -162,7 +162,7 @@ const isLoading = ref(false);
                         <TD>{{ item.BaseQty }}</TD>
                         <TD>{{ item.AltUOM }}</TD>
                         <TD>{{ item.AltQty }}</TD>
-                        <TD>{{ item.is_active ? 'Yes' : 'No' }}</TD> <TD class="flex items-center gap-2"></TD> 
+                        <TD>{{ Number(item.is_active) ? 'Yes' : 'No' }}</TD> <TD class="flex items-center gap-2"></TD>
                         <TD class="flex items-center gap-2">
                             <ShowButton
                                 v-if="hasAccess('view item')"
@@ -214,7 +214,7 @@ const isLoading = ref(false);
                     <LabelXS>Base Qty: {{ item.BaseQty }}</LabelXS>
                     <LabelXS>Alt UOM: {{ item.AltUOM }}</LabelXS>
                     <LabelXS>Alt Qty: {{ item.AltQty }}</LabelXS>
-                    <LabelXS>Active: {{ item.is_active ? 'Yes' : 'No' }}</LabelXS>
+                    <LabelXS>Active: {{ Number(item.is_active) ? 'Yes' : 'No' }}</LabelXS>
                 </MobileTableRow>
             </MobileTableContainer>
             <Pagination :data="items" />
