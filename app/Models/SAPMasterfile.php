@@ -26,4 +26,15 @@ class SAPMasterfile extends Model implements Auditable
         'BaseUOM',
         'is_active'
     ];
+
+    protected $casts = [
+        'AltQty' => 'decimal:4', // Cast to decimal with 4 decimal places
+        'BaseQty' => 'decimal:4', // Cast to decimal with 4 decimal places
+        'created_at' => 'datetime',
+        'updated_at' => 'datetime',
+    ];
+
+    // Ensure 'ItemNo' is used as the unique key for upsert
+    protected $primaryKey = 'id';
+    public $incrementing = true; // Assuming ItemNo is not auto-incrementing
 }

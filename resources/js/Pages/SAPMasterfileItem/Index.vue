@@ -149,6 +149,7 @@ const isLoading = ref(false);
                     <TH>Base QTY</TH>
                     <TH>Alternate UOM</TH>
                     <TH>Alternate UOM</TH>
+                    <TH>Active</TH>
                     <TH>Action</TH>
                 </TableHead>
 
@@ -161,11 +162,12 @@ const isLoading = ref(false);
                         <TD>{{ item.BaseQty }}</TD>
                         <TD>{{ item.AltUOM }}</TD>
                         <TD>{{ item.AltQty }}</TD>
+                        <TD>{{ item.is_active ? 'Yes' : 'No' }}</TD> <TD class="flex items-center gap-2"></TD> 
                         <TD class="flex items-center gap-2">
                             <ShowButton
                                 v-if="hasAccess('view item')"
                                 :isLink="true"
-                                :href="`sapitems-list/show/${item.id}`"
+                                :href="route('items.show', item.id)"
                             />
                             <EditButton
                                 v-if="hasAccess('edit items')"
@@ -176,7 +178,7 @@ const isLoading = ref(false);
                                 @click="
                                     deleteModel(
                                         route('items.destroy', item.id),
-                                        'Product'
+                                        'SAP Masterfile Item'
                                     )
                                 "
                             />
@@ -186,15 +188,13 @@ const isLoading = ref(false);
             </Table>
 
             <MobileTableContainer>
-                <MobileTableRow v-for="item in items.data">
+                <MobileTableRow v-for="item in items.data" :key="item.id">
                     <MobileTableHeading
-                        :title="`${item.name} (${item.inventory_code})`"
-                    >
+                        :title="`${item.ItemDescription} (${item.ItemNo})`" >
                         <ShowButton
                             v-if="hasAccess('view item')"
                             :isLink="true"
-                            :href="`sapitems-list/show/${item.inventory_code}`"
-                        />
+                            :href="route('items.show', item.id)" />
                         <EditButton
                             v-if="hasAccess('edit items')"
                             :isLink="true"
@@ -204,11 +204,17 @@ const isLoading = ref(false);
                             @click="
                                 deleteModel(
                                     route('items.destroy', item.id),
-                                    'Product'
+                                    'SAP Masterfile Item' // Changed label
                                 )
                             "
                         />
                     </MobileTableHeading>
+                    <LabelXS>Item No: {{ item.ItemNo }}</LabelXS>
+                    <LabelXS>Base UOM: {{ item.BaseUOM }}</LabelXS>
+                    <LabelXS>Base Qty: {{ item.BaseQty }}</LabelXS>
+                    <LabelXS>Alt UOM: {{ item.AltUOM }}</LabelXS>
+                    <LabelXS>Alt Qty: {{ item.AltQty }}</LabelXS>
+                    <LabelXS>Active: {{ item.is_active ? 'Yes' : 'No' }}</LabelXS>
                 </MobileTableRow>
             </MobileTableContainer>
             <Pagination :data="items" />
