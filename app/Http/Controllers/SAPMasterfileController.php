@@ -78,8 +78,8 @@ class SAPMasterfileController extends Controller
     {
 
         $validated = $request->validate([
-            'ItemNo' => ['required', 'unique:ItemNo'],
-            'ItemDescription' => ['required', 'unique:ItemDescription'],
+            'ItemNo' => ['nullable'],
+            'ItemDescription' => ['nullable'],
             'AltQty' => ['nullable'],
             'BaseQty' => ['nullable'],
             'AltUOM' => ['nullable'],
@@ -103,8 +103,8 @@ class SAPMasterfileController extends Controller
     {
         $item = SAPMasterfile::findOrFail($id);
         $validated = $request->validate([         
-           'ItemNo' => ['required', 'unique:sap_masterfiles,ItemNo,' . $id],
-            'ItemDescription' => ['required', 'unique:sap_masterfiles,ItemDescription,' . $id],
+           'ItemNo' => ['nullable'],
+            'ItemDescription' => ['nullable'],
             'AltQty' => ['nullable'],
             'BaseQty' => ['nullable'],
             'AltUOM' => ['nullable'],
