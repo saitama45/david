@@ -458,6 +458,9 @@ Route::middleware('auth')
                 Route::get('/products-template', 'productsTemplate')
                     ->name('products-template');
 
+                Route::get('/sapmasterfile-template', 'sapMasterfileTemplate')
+                    ->name('sapmasterfile-template');
+
                 Route::get('/store-transactions-template', 'storeTransactionsTemplate')
                     ->name('store-transactions-template');
 
