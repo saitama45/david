@@ -111,7 +111,7 @@ const form = useForm({
     BaseQty: item.BaseQty ?? 0,
     AltUOM: item.AltUOM ?? null,
     BaseUOM: item.BaseUOM ?? null,
-    is_active: item.is_active ?? null,
+    is_active: item.is_active !== null ? Number(item.is_active) : null,
 });
 
 const handleUpdate = () => {
