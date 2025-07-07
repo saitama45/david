@@ -51,6 +51,7 @@ use App\Http\Controllers\StoreBranchController;
 use App\Http\Controllers\StoreTransactionApprovalController;
 use App\Http\Controllers\StoreTransactionController;
 use App\Http\Controllers\SupplierController;
+use App\Http\Controllers\SupplierItemsController;
 use App\Http\Controllers\TemplateController;
 use App\Http\Controllers\TestController;
 use App\Http\Controllers\Top10InventoriesController;
@@ -370,7 +371,7 @@ Route::middleware('auth')
         });
 
         // SAP Masterlist
-        Route::controller(SAPMasterfileController::class)->name('items.')->group(function () {
+        Route::controller(SAPMasterfileController::class)->name('sapitems.')->group(function () {
             Route::middleware('permission:view items list')->get('/sapitems-list', 'index')->name('index');
             Route::middleware('permission:view item')->get('/sapitems-list/show/{id}', 'show')->name('show');
             Route::middleware('permission:create new items')->group(function () {
@@ -384,6 +385,24 @@ Route::middleware('auth')
                 Route::delete('/sapitems-list/destroy/{id}', 'destroy')->name('destroy');
 
                 Route::get('/sapitems-list/export', 'export')->name('export');
+            });
+        });
+
+        // Supplier Items
+        Route::controller(SupplierItemsController::class)->name('SupplierItems.')->group(function () {
+            Route::middleware('permission:view items list')->get('/SupplierItems-list', 'index')->name('index');
+            Route::middleware('permission:view item')->get('/SupplierItems-list/show/{id}', 'show')->name('show');
+            Route::middleware('permission:create new items')->group(function () {
+                Route::post('/SupplierItems-list/store', 'store')->name('store');
+                Route::get('/SupplierItems-list/create', 'create')->name('create');
+                Route::post('/SupplierItems-list/import', 'import')->name('import');
+
+                Route::get('/SupplierItems-list/edit/{id}', 'edit')->name('edit');
+                Route::put('/SupplierItems-list/update/{id}', 'update')->name('update');
+
+                Route::delete('/SupplierItems-list/destroy/{id}', 'destroy')->name('destroy');
+
+                Route::get('/SupplierItems-list/export', 'export')->name('export');
             });
         });
        
@@ -460,6 +479,9 @@ Route::middleware('auth')
 
                 Route::get('/sapmasterfile-template', 'sapMasterfileTemplate')
                     ->name('sapmasterfile-template');
+
+                Route::get('/SupplierItems-template', 'SupplierItemsTemplate')
+                    ->name('SupplierItems-template');
 
                 Route::get('/store-transactions-template', 'storeTransactionsTemplate')
                     ->name('store-transactions-template');

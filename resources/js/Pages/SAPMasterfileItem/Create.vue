@@ -13,7 +13,7 @@ const importForm = useForm({
 
 const importFile = () => {
     isLoading.value = true;
-    importForm.post(route("items.import"), {
+    importForm.post(route("sapitems.import"), {
         onSuccess: () => {
             toast.add({
                 severity: "success",
@@ -92,7 +92,7 @@ const handleCreate = () => {
             severity: "success",
         },
         accept: () => {
-            form.post(route("items.store"), {
+            form.post(route("sapitems.store"), {
                 preserveScroll: true,
                 onSuccess: () => {
                     toast.add({
@@ -111,7 +111,7 @@ const handleCreate = () => {
 };
 const isLoading = ref(false);
 const handleCancel = () => {
-    router.get(route("items.index"));
+    router.get(route("sapitems.index"));
 };
 
 const openFormModal = () => {

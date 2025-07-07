@@ -313,9 +313,16 @@ const referenceOpen = ref(false);
                 <NavLink
                     v-if="hasAccess('view items list')"
                     href="/sapitems-list"
-                    :icon="PackageSearch"
+                    :icon="TextSelect"
                 >
                     SAP Mastlist Items
+                </NavLink>
+                <NavLink
+                    v-if="hasAccess('view items list')"
+                    href="/SupplierItems-list"
+                    :icon="Warehouse"
+                >
+                    Supplier Items
                 </NavLink>
                 <NavLink
                     v-if="hasAccess('view bom list')"

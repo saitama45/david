@@ -13,7 +13,7 @@ const importForm = useForm({
 
 const importFile = () => {
     isLoading.value = true;
-    importForm.post(route("sapitems.import"), {
+    importForm.post(route("SupplierItems.import"), {
         onSuccess: () => {
             toast.add({
                 severity: "success",
@@ -76,7 +76,7 @@ const handleCreate = () => {
             severity: "success",
         },
         accept: () => {
-            form.post(route("sapitems.update", item.id), {
+            form.post(route("SupplierItems.update", item.id), {
                 preserveScroll: true,
                 onSuccess: () => {
                     toast.add({
@@ -106,11 +106,7 @@ watch(isImportModalVisible, (value) => {
 const item = props.item;
 const form = useForm({
     ItemNo: item.ItemNo ?? null,
-    ItemDescription: item.ItemDescription ?? null,
-    AltQty: item.AltQty ?? 0,
-    BaseQty: item.BaseQty ?? 0,
-    AltUOM: item.AltUOM ?? null,
-    BaseUOM: item.BaseUOM ?? null,
+    SupplierCode: item.SupplierCode ?? null,
     is_active: item.is_active !== null ? Number(item.is_active) : null,
 });
 
@@ -129,7 +125,7 @@ const handleUpdate = () => {
             severity: "success",
         },
         accept: () => {
-            form.put(route("sapitems.update", item.id), {
+            form.put(route("SupplierItems.update", item.id), {
                 preserveScroll: true,
                 onSuccess: () => {
                     toast.add({
@@ -154,10 +150,10 @@ const activeStatuses = ref([
 </script>
 
 <template>
-    <Layout heading="Edit Product Details">
+    <Layout heading="Edit Supplier Items Details">
         <Card>
             <CardHeader>
-                <CardTitle>Product Details</CardTitle>
+                <CardTitle>Supplier Items Details</CardTitle>
                 <CardDescription
                     >Input all the important fields</CardDescription
                 >
@@ -169,29 +165,9 @@ const activeStatuses = ref([
                     <FormError>{{ form.errors.ItemNo }}</FormError>
                 </InputContainer>
                 <InputContainer>
-                    <Label>Item Desc</Label>
-                    <Input v-model="form.ItemDescription" />
-                    <FormError>{{ form.errors.ItemDescription }}</FormError>
-                </InputContainer>
-                <InputContainer>
-                    <Label>Alt Qty</Label>
-                    <Input v-model="form.AltQty" type="number"/>
-                    <FormError>{{ form.errors.AltQty }}</FormError>
-                </InputContainer>
-                <InputContainer>
-                    <Label>Base Qty</Label>
-                    <Input v-model="form.BaseQty" type="number"/>
-                    <FormError>{{ form.errors.BaseQty }}</FormError>
-                </InputContainer>
-                <InputContainer>
-                    <Label>Alt UOM</Label>
-                    <Input v-model="form.AltUOM"  />
-                    <FormError>{{ form.errors.AltUOM }}</FormError>
-                </InputContainer>
-                <InputContainer>
-                    <Label>Base UOM</Label>
-                    <Input v-model="form.BaseUOM"  />
-                    <FormError>{{ form.errors.BaseUOM }}</FormError>
+                    <Label>Supplier Code</Label>
+                    <Input v-model="form.SupplierCode" />
+                    <FormError>{{ form.errors.SupplierCode }}</FormError>
                 </InputContainer>
                 <InputContainer>
                     <LabelXS>Active Status</LabelXS>

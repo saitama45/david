@@ -21,14 +21,14 @@ const props = defineProps({
 
 
 const handleClick = () => {
-    router.get(route("sapitems.create"));
+    router.get(route("SupplierItems.create"));
 };
 
 
 
 let filter = ref(usePage().props.filter || "all");
 
-const { search } = useSearch("sapitems.index");
+const { search } = useSearch("SupplierItems.index");
 
 const changeFilter = (currentFilter) => {
     filter.value = currentFilter;
@@ -36,7 +36,7 @@ const changeFilter = (currentFilter) => {
 
 watch(filter, function (value) {
     router.get(
-        route("sapitems.index"),
+        route("SupplierItems.index"),
         { filter: value },
         {
             preserveState: true,
@@ -52,7 +52,7 @@ const { hasAccess } = useAuth();
 const { deleteModel } = useReferenceDelete();
 
 const exportRoute = computed(() =>
-    route("sapitems.export", {
+    route("SupplierItems.export", {
         search: search.value,
         filter: filter.value,
     })
@@ -66,7 +66,7 @@ const importForm = useForm({
 
 const importFile = () => {
     isLoading.value = true;
-    importForm.post(route("sapitems.import"), {
+    importForm.post(route("SupplierItems.import"), {
         onSuccess: () => {
             toast.add({
                 severity: "success",
@@ -101,8 +101,8 @@ const isLoading = ref(false);
 
 <template>
     <Layout
-        heading="SAPMasterfile List"
-        :hasButton="hasAccess('create new SAPMasterfile items')"
+        heading="Supplier Items List"
+        :hasButton="hasAccess('create new Supplier items')"
         buttonName="Create New Item"
         :handleClick="handleClick"
         :hasExcelDownload="true"
@@ -143,12 +143,8 @@ const isLoading = ref(false);
             <Table>
                 <TableHead>
                    <TH>Id</TH>
-                    <TH>Item Number</TH>
-                    <TH>Description</TH>
-                    <TH>Base UOM</TH>
-                    <TH>Base QTY</TH>
-                    <TH>Alternate UOM</TH>
-                    <TH>Alternate UOM</TH>
+                    <TH>Item Code</TH>
+                    <TH>Supplier Code</TH>
                     <TH>Active</TH>
                     <TH>Action</TH>
                 </TableHead>
@@ -157,27 +153,23 @@ const isLoading = ref(false);
                     <tr v-for="item in items.data">
                         <TD>{{ item.id }}</TD>
                         <TD>{{ item.ItemNo }}</TD>
-                        <TD>{{ item.ItemDescription }}</TD>
-                        <TD>{{ item.BaseUOM }}</TD>
-                        <TD>{{ item.BaseQty }}</TD>
-                        <TD>{{ item.AltUOM }}</TD>
-                        <TD>{{ item.AltQty }}</TD>
+                        <TD>{{ item.SupplierCode }}</TD>
                         <TD>{{ Number(item.is_active) ? 'Yes' : 'No' }}</TD> <TD class="flex items-center gap-2"></TD>
                         <TD class="flex items-center gap-2">
                             <ShowButton
                                 v-if="hasAccess('view item')"
                                 :isLink="true"
-                                :href="route('sapitems.show', item.id)"
+                                :href="route('SupplierItems.show', item.id)"
                             />
                             <EditButton
                                 v-if="hasAccess('edit items')"
                                 :isLink="true"
-                                :href="route('sapitems.edit', item.id)"
+                                :href="route('SupplierItems.edit', item.id)"
                             />
                             <DeleteButton
                                 @click="
                                     deleteModel(
-                                        route('sapitems.destroy', item.id),
+                                        route('SupplierItems.destroy', item.id),
                                         'SAP Masterfile Item'
                                     )
                                 "
@@ -194,26 +186,23 @@ const isLoading = ref(false);
                         <ShowButton
                             v-if="hasAccess('view item')"
                             :isLink="true"
-                            :href="route('sapitems.show', item.id)" />
+                            :href="route('SupplierItems.show', item.id)" />
                         <EditButton
                             v-if="hasAccess('edit items')"
                             :isLink="true"
-                            :href="route('sapitems.edit', item.id)"
+                            :href="route('SupplierItems.edit', item.id)"
                         />
                         <DeleteButton
                             @click="
                                 deleteModel(
-                                    route('items.destroy', item.id),
+                                    route('SupplierItems.destroy', item.id),
                                     'SAP Masterfile Item' // Changed label
                                 )
                             "
                         />
                     </MobileTableHeading>
                     <LabelXS>Item No: {{ item.ItemNo }}</LabelXS>
-                    <LabelXS>Base UOM: {{ item.BaseUOM }}</LabelXS>
-                    <LabelXS>Base Qty: {{ item.BaseQty }}</LabelXS>
-                    <LabelXS>Alt UOM: {{ item.AltUOM }}</LabelXS>
-                    <LabelXS>Alt Qty: {{ item.AltQty }}</LabelXS>
+                    <LabelXS>Base UOM: {{ item.SupplierCode }}</LabelXS>
                     <LabelXS>Active: {{ Number(item.is_active) ? 'Yes' : 'No' }}</LabelXS>
                 </MobileTableRow>
             </MobileTableContainer>
@@ -249,7 +238,7 @@ const isLoading = ref(false);
                             <li class="text-xs">
                                 <a
                                     class="text-blue-500 underline"
-                                    :href="route('excel.sapmasterfile-template')"
+                                    :href="route('excel.SupplierItems-template')"
                                     >Click to download</a
                                 >
                             </li>

@@ -1,7 +1,7 @@
 <script setup>
 import CardContent from "@/Components/ui/card/CardContent.vue";
 import { useBackButton } from "@/Composables/useBackButton";
-const { backButton } = useBackButton(route("sapitems.index"));
+const { backButton } = useBackButton(route("SupplierItems.index"));
 
 const { item } = defineProps({
     item: {
@@ -16,41 +16,18 @@ const { item } = defineProps({
 </script>
 
 <template>
-    <Layout heading="SAPMasterfile Details">
+    <Layout heading="Supplier Items Details">
         <section class="grid sm:grid-cols-2">
             <Card>
                 <CardHeader>
                     <CardTitle class="text-xl">
-                        {{ item.ItemDescription ?? "N/a" }}
+                        <Label class="font-bold">Supplier Code:</Label> {{ item.SupplierCode ?? "N/a" }}
                     </CardTitle>
                 </CardHeader>
                 <CardContent class="grid sm:grid-cols-2 gap-3">
                     <Label>Item Code</Label>
                     <Label class="font-bold">{{
                         item.ItemNo ?? "N/a"
-                    }}</Label>
-
-                    <Label>Item Desc</Label>
-                    <Label class="font-bold">{{
-                        item.ItemDescription ?? "N/a"
-                    }}</Label>
-
-                    <Label>Alt Qty</Label>
-                    <Label class="font-bold">{{ item.AltQty ?? "N/a" }}</Label>
-
-                    <Label>Base Qty</Label>
-                    <Label class="font-bold">{{
-                        item.BaseQty ?? "N/a"
-                    }}</Label>
-
-                    <Label>Alt UOM</Label>
-                    <Label class="font-bold">{{
-                        item.AltUOM ?? "N/a"
-                    }}</Label>
-
-                    <Label>Base UOM</Label>
-                    <Label class="font-bold">{{
-                        item.BaseUOM ?? "N/a"
                     }}</Label>
 
                     <Label>Is Active</Label>
