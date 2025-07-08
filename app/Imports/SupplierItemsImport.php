@@ -3,56 +3,68 @@
 namespace App\Imports;
 
 use App\Models\SupplierItems;
-use Maatwebsite\Excel\Concerns\ToModel;
+use Maatwebsite\Excel\Concerns\ToCollection;
 use Maatwebsite\Excel\Concerns\WithHeadingRow; // Make sure this trait is imported
 use Maatwebsite\Excel\Concerns\WithBatchInserts; // For performance with large datasets
 use Maatwebsite\Excel\Concerns\WithChunkReading; // For performance with very large datasets
+use Illuminate\Support\Collection;
 
 
-class SupplierItemsImport implements ToModel, WithHeadingRow, WithBatchInserts, WithChunkReading //, WithValidation, SkipsOnError, SkipsOnFailure
+class SupplierItemsImport implements ToCollection, WithHeadingRow, WithBatchInserts, WithChunkReading  //, WithValidation, SkipsOnError, SkipsOnFailure
 {
     /**
-    * @param array $row
-    *
-    * @return \Illuminate\Database\Eloquent\Model|null
-    */
-    public function model(array $row)
+     * @param Collection $rows
+     *
+     * @return void
+     */
+    public function collection(Collection $rows)
     {
-        // Debugging tip: Uncomment the line below to see the exact keys Laravel-Excel generates.
-        // It typically converts headers to snake_case.
-        // For example: "Item No." -> "item_no", "Item Description" -> "item_description", "AltUom" -> "alt_uom"
-        // dd($row);
+        $processedRows = $rows->map(function ($row) {
+            // Ensure values are trimmed and default to empty string if not present
+            $itemNo = trim($row['item_code'] ?? '');
+            $supplierCode = trim($row['supplier_code'] ?? '');
+            
+            // Get 'active' status from Excel. Default to 1 if not provided or invalid.
+            // Convert to boolean or integer 0/1 as per database expectation.
+            $isActive = filter_var($row['active'] ?? 1, FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE);
+            if (is_null($isActive)) {
+                $isActive = (int)($row['active'] == 1); // Fallback for values like "Yes"/"No" if they appear, though you specified 0/1
+            }
+            $isActive = (int)$isActive; // Ensure it's 0 or 1
 
-        // Handle the 'is_active' field.
-        // Since it's not present in your Excel columns, we'll assign a default value.
-        // If you want to control this via the Excel file, you'd need to add a column for it
-        // (e.g., 'Status' and map 'Active'/'Inactive' to 1/0).
-        $is_active = 1; // Default to active (true)
+            return [
+                'ItemNo'       => $itemNo,
+                'SupplierCode' => $supplierCode,
+                'is_active'    => $isActive,
+                'created_at'   => now(),
+                'updated_at'   => now(),
+            ];
+        })->unique(function ($item) {
+            // **Crucial Change:** Unique by 'ItemNo' only
+            return $item['ItemNo'];
+        })->values(); // Re-index the collection after unique()
 
-        return new SupplierItems([
-            'SupplierCode' => $row['supplier_code'],
-            'ItemNo' => $row['item_code'],
-            'is_active' => $is_active,
-            // The 'UoM Group', 'UgpCode', 'UgpName' columns are in your Excel,
-            // but based on your SAPMasterfile model's fillable properties (from your controller's store/update methods),
-            // these are not directly stored as attributes in the SAPMasterfile model itself.
-            // If they are meant to be used for relationships or other logic, that would be handled here
-            // or in a separate step after the initial import. For direct model mapping, they are ignored if not specified.
-        ]);
+        $dataToUpsert = $processedRows->toArray();
+
+        // Define the column that uniquely identifies a record for matching
+        $uniqueBy = ['ItemNo'];
+
+        // Define the columns that should be updated if a match is found
+        // Now includes 'SupplierCode' and 'is_active' in the update list
+        $updateColumns = ['SupplierCode', 'is_active', 'updated_at'];
+
+        SupplierItems::upsert($dataToUpsert, $uniqueBy, $updateColumns);
     }
 
     /**
-     * @return string|array
-     */
-    
-    /**
      * Define the batch size for batch inserts.
-     * This improves performance by inserting multiple rows at once.
+     * This still helps with memory usage even with manual upserting,
+     * as `collection` will be called for each chunk.
      * @return int
      */
     public function batchSize(): int
     {
-        return 200; // You can adjust this number based on your server's memory and database performance
+        return 200; // Adjust based on your server's memory and database performance
     }
 
     /**
@@ -62,44 +74,19 @@ class SupplierItemsImport implements ToModel, WithHeadingRow, WithBatchInserts, 
      */
     public function chunkSize(): int
     {
-        return 1000; // You can adjust this number
+        return 1000; // Adjust as needed
     }
-
-
     /*
     // Optional: Implement WithValidation trait for row-level validation
+    // If you enable this, ensure 'item_code' and 'supplier_code' are properly validated
+    // and consider trimming them before validation if rules like 'unique' are used.
     public function rules(): array
     {
         return [
-            // Ensure these keys match the snake_cased headers from your Excel
-            'item_no' => 'required|string|max:255', // Removed unique here because WithUpserts handles it
-            'item_description' => 'required|string|max:255',
-            'alt_qty' => 'nullable|numeric',
-            'base_qty' => 'nullable|numeric',
-            'alt_uom' => 'nullable|string|max:255',
-            'base_uom' => 'required|string|max:255',
-            // If you add an 'is_active' column to your Excel, add its rule here too, e.g.:
-            // 'active_status' => 'required|in:Active,Inactive',
+            'item_code' => 'required|string|max:255',
+            'supplier_code' => 'required|string|max:255',
+            // ... other rules
         ];
     }
-
-    // Optional: Custom validation messages (requires WithValidation trait)
-    // public function customValidationMessages()
-    // {
-    //     return [
-    //         'item_no.required' => 'The Item No. field is required.',
-    //         'item_description.required' => 'The Item Description field is required.',
-    //     ];
-    // }
-
-    // Optional: If you want to skip rows that fail validation (requires SkipsOnFailure trait)
-    // public function onFailure(Failure ...$failures)
-    // {
-    //     // Handle the failures here. You could log them, collect them,
-    //     // or send notifications.
-    //     foreach ($failures as $failure) {
-    //         \Log::warning('Import validation failed: ' . $failure->row() . ' - ' . json_encode($failure->errors()));
-    //     }
-    // }
     */
 }

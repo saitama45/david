@@ -85,10 +85,18 @@ class SupplierItemsController extends Controller
     public function update(Request $request, $id)
     {
         $item = SupplierItems::findOrFail($id);
+
+        // Trim values from the request before validation
+        $request->merge([
+            'ItemNo' => trim($request->input('ItemNo')),
+            'SupplierCode' => trim($request->input('SupplierCode')),
+            // 'ItemName' => trim($request->input('ItemName')), // Uncomment if ItemName is being updated
+        ]);
+
         $validated = $request->validate([         
-           'ItemNo' => ['nullable'],
-            'SupplierCode' => ['nullable'],
-            'is_active' => ['nullable'],
+           'ItemNo' => ['nullable', 'string', 'max:255'],
+           'SupplierCode' => ['nullable', 'string', 'max:255'],
+           'is_active' => ['nullable', 'boolean'],
         ]);
         $item->update($validated);
         return to_route("SupplierItems.index");

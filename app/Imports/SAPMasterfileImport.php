@@ -4,13 +4,31 @@ namespace App\Imports;
 
 use App\Models\SAPMasterfile;
 use Maatwebsite\Excel\Concerns\ToModel;
-use Maatwebsite\Excel\Concerns\WithHeadingRow; // Make sure this trait is imported
-use Maatwebsite\Excel\Concerns\WithBatchInserts; // For performance with large datasets
-use Maatwebsite\Excel\Concerns\WithChunkReading; // For performance with very large datasets
+use Maatwebsite\Excel\Concerns\WithHeadingRow;
+use Maatwebsite\Excel\Concerns\WithBatchInserts;
+use Maatwebsite\Excel\Concerns\WithChunkReading;
+use Illuminate\Support\Collection; // Make sure this is imported if used elsewhere, though not strictly needed for this file based on provided code.
 
 
 class SAPMasterfileImport implements ToModel, WithHeadingRow, WithBatchInserts, WithChunkReading //, WithValidation, SkipsOnError, SkipsOnFailure
 {
+    /**
+     * Static property to store hashes of combinations already processed during the current import run.
+     * This is crucial for checking duplicates across different chunks.
+     * It must be reset before each new import operation.
+     * @var array
+     */
+    private static $seenCombinations = [];
+
+    /**
+     * Static method to reset the seen combinations tracker.
+     * Called by the controller before a new import starts.
+     */
+    public static function resetSeenCombinations()
+    {
+        self::$seenCombinations = [];
+    }
+
     /**
     * @param array $row
     *
@@ -18,37 +36,49 @@ class SAPMasterfileImport implements ToModel, WithHeadingRow, WithBatchInserts, 
     */
     public function model(array $row)
     {
-        // Debugging tip: Uncomment the line below to see the exact keys Laravel-Excel generates.
-        // It typically converts headers to snake_case.
-        // For example: "Item No." -> "item_no", "Item Description" -> "item_description", "AltUom" -> "alt_uom"
-        // dd($row);
+        // Get the relevant fields, ensuring they are cast to string for consistent hashing.
+        // Use empty string as default if key does not exist or value is null, for consistent hashing.
+        $itemNo = (string) ($row['item_no'] ?? '');
+        $itemDescription = (string) ($row['item_description'] ?? '');
+        $baseQty = (string) ($row['baseqty'] ?? ''); // Convert to string before hashing
+        $altUOM = (string) ($row['altuom'] ?? '');
 
-        // Handle the 'is_active' field.
-        // Since it's not present in your Excel columns, we'll assign a default value.
-        // If you want to control this via the Excel file, you'd need to add a column for it
-        // (e.g., 'Status' and map 'Active'/'Inactive' to 1/0).
-        $is_active = 1; // Default to active (true)
+        // Create a unique hash for the combination of these four fields
+        $combinationKey = md5($itemNo . $itemDescription . $baseQty . $altUOM);
 
+        // Check if this combination has already been seen in this import run.
+        // If it has, return null to skip this row (allow only the first occurrence).
+        if (isset(self::$seenCombinations[$combinationKey])) {
+            return null; // This row is a duplicate within the import file, so skip it.
+        }
+
+        // Mark this combination as seen for the current import run.
+        self::$seenCombinations[$combinationKey] = true;
+
+        // Default is_active to 1 as per your previous logic for imported items.
+        $is_active = 1;
+
+        // Prepare the data for model creation.
+        // Ensure BaseUOM is not null, as it's required in your model's validation.
+        $baseUOM = (string) ($row['baseuom'] ?? 'N/A');
+        if (empty($baseUOM) || $baseUOM === 'N/A') {
+            // Optionally, you might log this or handle it as an error,
+            // or use a default that matches your requirements more strictly.
+            // For now, it will be 'N/A' if the Excel column is empty or missing.
+        }
+
+        // Return the model instance. Eloquent will handle timestamps automatically.
         return new SAPMasterfile([
-            'ItemNo' => $row['item_no'],
-            'ItemDescription' => $row['item_description'],
-            'AltQty' => (float) $row['altqty'] ?? 0,   // Change 'alt_qty' to 'altqty'
-            'BaseQty' => (float) $row['baseqty'] ?? 0, // Change 'base_qty' to 'baseqty'
-            'AltUOM' => $row['altuom'] ?? 'N/A',       // Change 'alt_uom' to 'altuom'
-            'BaseUOM' => $row['baseuom'] ?? 'N/A',     // Change 'base_uom' to 'baseuom'
+            'ItemNo' => $itemNo,
+            'ItemDescription' => $itemDescription,
+            'AltQty' => (float) ($row['altqty'] ?? 0),
+            'BaseQty' => (float) ($row['baseqty'] ?? 0),
+            'AltUOM' => $altUOM,
+            'BaseUOM' => $baseUOM,
             'is_active' => $is_active,
-            // The 'UoM Group', 'UgpCode', 'UgpName' columns are in your Excel,
-            // but based on your SAPMasterfile model's fillable properties (from your controller's store/update methods),
-            // these are not directly stored as attributes in the SAPMasterfile model itself.
-            // If they are meant to be used for relationships or other logic, that would be handled here
-            // or in a separate step after the initial import. For direct model mapping, they are ignored if not specified.
         ]);
     }
 
-    /**
-     * @return string|array
-     */
-    
     /**
      * Define the batch size for batch inserts.
      * This improves performance by inserting multiple rows at once.
@@ -72,38 +102,6 @@ class SAPMasterfileImport implements ToModel, WithHeadingRow, WithBatchInserts, 
 
     /*
     // Optional: Implement WithValidation trait for row-level validation
-    public function rules(): array
-    {
-        return [
-            // Ensure these keys match the snake_cased headers from your Excel
-            'item_no' => 'required|string|max:255', // Removed unique here because WithUpserts handles it
-            'item_description' => 'required|string|max:255',
-            'alt_qty' => 'nullable|numeric',
-            'base_qty' => 'nullable|numeric',
-            'alt_uom' => 'nullable|string|max:255',
-            'base_uom' => 'required|string|max:255',
-            // If you add an 'is_active' column to your Excel, add its rule here too, e.g.:
-            // 'active_status' => 'required|in:Active,Inactive',
-        ];
-    }
-
-    // Optional: Custom validation messages (requires WithValidation trait)
-    // public function customValidationMessages()
-    // {
-    //     return [
-    //         'item_no.required' => 'The Item No. field is required.',
-    //         'item_description.required' => 'The Item Description field is required.',
-    //     ];
-    // }
-
-    // Optional: If you want to skip rows that fail validation (requires SkipsOnFailure trait)
-    // public function onFailure(Failure ...$failures)
-    // {
-    //     // Handle the failures here. You could log them, collect them,
-    //     // or send notifications.
-    //     foreach ($failures as $failure) {
-    //         \Log::warning('Import validation failed: ' . $failure->row() . ' - ' . json_encode($failure->errors()));
-    //     }
-    // }
+    // ... (Your existing validation rules if any)
     */
 }
