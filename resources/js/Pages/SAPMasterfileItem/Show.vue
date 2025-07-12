@@ -27,7 +27,7 @@ const { item } = defineProps({
                 <CardContent class="grid sm:grid-cols-2 gap-3">
                     <Label>Item Code</Label>
                     <Label class="font-bold">{{
-                        item.ItemNo ?? "N/a"
+                        item.ItemCode ?? "N/a"
                     }}</Label>
 
                     <Label>Item Desc</Label>

@@ -30,8 +30,19 @@ class SupplierItemsController extends Controller
         if ($filter === 'is_active')
             $query->where('is_active', '=', 1);
 
-        if ($search)
-            $query->whereAny(['ItemNo', 'SupplierCode'], 'like', "%$search%");
+        if ($search) {
+            // Update search to use 'ItemCode' and potentially new string columns
+            $query->whereAny([
+                'ItemCode',        // Renamed from ItemNo
+                'item_name',
+                'SupplierCode',
+                'category',        // New
+                'brand',           // New
+                'classification',  // New
+                'packaging_config',// New
+                'uom'              // New
+            ], 'like', "%$search%");
+        }
 
         $items = $query->latest()->paginate(10)->withQueryString();
 
@@ -88,15 +99,28 @@ class SupplierItemsController extends Controller
 
         // Trim values from the request before validation
         $request->merge([
-            'ItemNo' => trim($request->input('ItemNo')),
+            'ItemCode' => trim($request->input('ItemCode')), // Renamed from ItemNo
+            'item_name' => trim($request->input('item_name')), 
             'SupplierCode' => trim($request->input('SupplierCode')),
-            // 'ItemName' => trim($request->input('ItemName')), // Uncomment if ItemName is being updated
+            'category' => trim($request->input('category') ?? ''),
+            'brand' => trim($request->input('brand') ?? ''),
+            'classification' => trim($request->input('classification') ?? ''),
+            'packaging_config' => trim($request->input('packaging_config') ?? ''),
+            'uom' => trim($request->input('uom') ?? ''),
         ]);
 
         $validated = $request->validate([         
-           'ItemNo' => ['nullable', 'string', 'max:255'],
-           'SupplierCode' => ['nullable', 'string', 'max:255'],
-           'is_active' => ['nullable', 'boolean'],
+           'ItemCode' => ['nullable', 'string', 'max:255'], // Renamed from ItemNo
+            'SupplierCode' => ['nullable', 'string', 'max:255'],
+            'category' => ['nullable', 'string', 'max:255'],        // New
+            'brand' => ['nullable', 'string', 'max:255'],           // New
+            'classification' => ['nullable', 'string', 'max:255'],  // New
+            'packaging_config' => ['nullable', 'string', 'max:255'],// New
+            'config' => ['nullable', 'numeric', 'min:0', 'max:999999.99'], // Max based on decimal(8,2)
+            'uom' => ['nullable', 'string', 'max:255'],             // New
+            'cost' => ['nullable', 'numeric', 'min:0', 'max:99999999.99'], // Max based on decimal(10,2)
+            'srp' => ['nullable', 'numeric', 'min:0', 'max:99999999.99'],  // Max based on decimal(10,2)
+            'is_active' => ['nullable', 'boolean'],
         ]);
         $item->update($validated);
         return to_route("SupplierItems.index");
@@ -105,6 +129,7 @@ class SupplierItemsController extends Controller
     public function import(Request $request)
     {
         set_time_limit(10000000000); // Be cautious with such high limits in production
+        
         $request->validate([
             'products_file' => 'required|mimes:xlsx,xls,csv'
         ]);

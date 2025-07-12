@@ -105,7 +105,7 @@ watch(isImportModalVisible, (value) => {
 
 const item = props.item;
 const form = useForm({
-    ItemNo: item.ItemNo ?? null,
+    ItemCode: item.ItemCode ?? null,
     ItemDescription: item.ItemDescription ?? null,
     AltQty: item.AltQty ?? 0,
     BaseQty: item.BaseQty ?? 0,
@@ -164,9 +164,9 @@ const activeStatuses = ref([
             </CardHeader>
             <CardContent class="grid sm:grid-cols-2 gap-5">
                 <InputContainer>
-                    <Label>ItemNo</Label>
-                    <Input v-model="form.ItemNo" />
-                    <FormError>{{ form.errors.ItemNo }}</FormError>
+                    <Label>ItemCode</Label>
+                    <Input v-model="form.ItemCode" />
+                    <FormError>{{ form.errors.ItemCode }}</FormError>
                 </InputContainer>
                 <InputContainer>
                     <Label>Item Desc</Label>

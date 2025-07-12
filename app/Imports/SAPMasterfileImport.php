@@ -38,13 +38,13 @@ class SAPMasterfileImport implements ToModel, WithHeadingRow, WithBatchInserts, 
     {
         // Get the relevant fields, ensuring they are cast to string for consistent hashing.
         // Use empty string as default if key does not exist or value is null, for consistent hashing.
-        $itemNo = (string) ($row['item_no'] ?? '');
+        $itemCode = (string) ($row['item_no'] ?? '');
         $itemDescription = (string) ($row['item_description'] ?? '');
         $baseQty = (string) ($row['baseqty'] ?? ''); // Convert to string before hashing
         $altUOM = (string) ($row['altuom'] ?? '');
 
         // Create a unique hash for the combination of these four fields
-        $combinationKey = md5($itemNo . $itemDescription . $baseQty . $altUOM);
+        $combinationKey = md5($itemCode . $itemDescription . $baseQty . $altUOM);
 
         // Check if this combination has already been seen in this import run.
         // If it has, return null to skip this row (allow only the first occurrence).
@@ -69,7 +69,7 @@ class SAPMasterfileImport implements ToModel, WithHeadingRow, WithBatchInserts, 
 
         // Return the model instance. Eloquent will handle timestamps automatically.
         return new SAPMasterfile([
-            'ItemNo' => $itemNo,
+            'ItemCode' => $itemCode,
             'ItemDescription' => $itemDescription,
             'AltQty' => (float) ($row['altqty'] ?? 0),
             'BaseQty' => (float) ($row['baseqty'] ?? 0),

@@ -18,9 +18,18 @@ class SupplierItems extends Model implements Auditable
     protected $table = 'supplier_items';
 
     protected $fillable = [
-        'ItemNo',
+        'ItemCode', // Changed from ItemNo
+        'item_name',
         'SupplierCode',
-        'is_active'
+        'category',       // New
+        'brand',          // New
+        'classification', // New
+        'packaging_config', // New
+        'config',         // New
+        'uom',            // New
+        'cost',           // New
+        'srp',            // New
+        'is_active',
     ];
 
     protected $casts = [

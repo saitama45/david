@@ -143,8 +143,8 @@ const isLoading = ref(false);
             <Table>
                 <TableHead>
                    <TH>Id</TH>
-                    <TH>Item Number</TH>
-                    <TH>Description</TH>
+                    <TH>Item Code</TH>
+                    <TH>Item Desc</TH>
                     <TH>Base UOM</TH>
                     <TH>Base QTY</TH>
                     <TH>Alternate UOM</TH>
@@ -156,7 +156,7 @@ const isLoading = ref(false);
                 <TableBody>
                     <tr v-for="item in items.data">
                         <TD>{{ item.id }}</TD>
-                        <TD>{{ item.ItemNo }}</TD>
+                        <TD>{{ item.ItemCode }}</TD>
                         <TD>{{ item.ItemDescription }}</TD>
                         <TD>{{ item.BaseUOM }}</TD>
                         <TD>{{ item.BaseQty }}</TD>
@@ -190,7 +190,7 @@ const isLoading = ref(false);
             <MobileTableContainer>
                 <MobileTableRow v-for="item in items.data" :key="item.id">
                     <MobileTableHeading
-                        :title="`${item.ItemDescription} (${item.ItemNo})`" >
+                        :title="`${item.ItemDescription} (${item.ItemCode})`" >
                         <ShowButton
                             v-if="hasAccess('view item')"
                             :isLink="true"
@@ -209,7 +209,7 @@ const isLoading = ref(false);
                             "
                         />
                     </MobileTableHeading>
-                    <LabelXS>Item No: {{ item.ItemNo }}</LabelXS>
+                    <LabelXS>Item No: {{ item.ItemCode }}</LabelXS>
                     <LabelXS>Base UOM: {{ item.BaseUOM }}</LabelXS>
                     <LabelXS>Base Qty: {{ item.BaseQty }}</LabelXS>
                     <LabelXS>Alt UOM: {{ item.AltUOM }}</LabelXS>

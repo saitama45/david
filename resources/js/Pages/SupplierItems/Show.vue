@@ -1,84 +1,130 @@
 <script setup>
 import CardContent from "@/Components/ui/card/CardContent.vue";
+// Ensure other UI components are imported if they are not globally registered
+// For example, if Label, Card, CardHeader, CardTitle, Button are custom components:
+// import Label from "@/Components/ui/label/Label.vue";
+// import Card from "@/Components/ui/card/Card.vue";
+// import CardHeader from "@/Components/ui/card/CardHeader.vue";
+// import CardTitle from "@/Components/ui/card/CardTitle.vue";
+// import Button from "@/Components/ui/button/Button.vue";
+// import CardDescription from "@/Components/ui/card/CardDescription.vue"; // If used
+
 import { useBackButton } from "@/Composables/useBackButton";
+
+// Initialize back button functionality
 const { backButton } = useBackButton(route("SupplierItems.index"));
 
+// Define props for the component
 const { item } = defineProps({
     item: {
         type: Object,
         required: true,
     },
-    // orders: {
-    //     type: Object,
-    //     required: true,
-    // },
 });
+
+// Helper function to format numbers as currency/decimals
+const formatNumber = (value) => {
+    return value !== null && value !== undefined ? Number(value).toFixed(2) : "N/a";
+};
+
+// Helper function to display active status
+const displayIsActive = (value) => {
+    return value == 1 ? "Yes" : "No";
+};
 </script>
 
 <template>
     <Layout heading="Supplier Items Details">
-        <section class="grid sm:grid-cols-2">
+        <section class="grid sm:grid-cols-1">
             <Card>
                 <CardHeader>
                     <CardTitle class="text-xl">
-                        <Label class="font-bold">Supplier Code:</Label> {{ item.SupplierCode ?? "N/a" }}
+                        <Label class="font-bold">Item Code:</Label> {{ item.ItemCode ?? "N/a" }}
                     </CardTitle>
+                    <CardDescription>
+                        Details for Supplier Code: <Label class="font-bold">{{ item.SupplierCode ?? "N/a" }}</Label>
+                    </CardDescription>
                 </CardHeader>
-                <CardContent class="grid sm:grid-cols-2 gap-3">
-                    <Label>Item Code</Label>
-                    <Label class="font-bold">{{
-                        item.ItemNo ?? "N/a"
-                    }}</Label>
+                <CardContent class="grid grid-cols-2 gap-x-4 gap-y-3">
+                    <div>
+                        <Label>Supplier Code</Label>
+                    </div>
+                    <div>
+                        <Label class="font-bold">{{ item.SupplierCode ?? "N/a" }}</Label>
+                    </div>
 
-                    <Label>Is Active</Label>
-                    <Label class="font-bold">{{
-                        item.is_active == 1 ? "Yes" : "No"
-                    }}</Label>
+                    <div>
+                        <Label>Category</Label>
+                    </div>
+                    <div>
+                        <Label class="font-bold">{{ item.category ?? "N/a" }}</Label>
+                    </div>
+
+                    <div>
+                        <Label>Brand</Label>
+                    </div>
+                    <div>
+                        <Label class="font-bold">{{ item.brand ?? "N/a" }}</Label>
+                    </div>
+
+                    <div>
+                        <Label>Classification</Label>
+                    </div>
+                    <div>
+                        <Label class="font-bold">{{ item.classification ?? "N/a" }}</Label>
+                    </div>
+
+                    <div>
+                        <Label>Packaging Config</Label>
+                    </div>
+                    <div>
+                        <Label class="font-bold">{{ item.packaging_config ?? "N/a" }}</Label>
+                    </div>
+
+                    <div>
+                        <Label>UOM</Label>
+                    </div>
+                    <div>
+                        <Label class="font-bold">{{ item.uom ?? "N/a" }}</Label>
+                    </div>
+
+                    <div>
+                        <Label>Cost</Label>
+                    </div>
+                    <div>
+                        <Label class="font-bold">{{ formatNumber(item.cost) }}</Label>
+                    </div>
+
+                    <div>
+                        <Label>SRP</Label>
+                    </div>
+                    <div>
+                        <Label class="font-bold">{{ formatNumber(item.srp) }}</Label>
+                    </div>
+
+                    <div>
+                        <Label>Is Active</Label>
+                    </div>
+                    <div>
+                        <Label class="font-bold">{{ displayIsActive(item.is_active) }}</Label>
+                    </div>
+
+                    <div>
+                        <Label>Created At</Label>
+                    </div>
+                    <div>
+                        <Label class="font-bold">{{ item.created_at ? new Date(item.created_at).toLocaleString() : "N/a" }}</Label>
+                    </div>
+
+                    <div>
+                        <Label>Updated At</Label>
+                    </div>
+                    <div>
+                        <Label class="font-bold">{{ item.updated_at ? new Date(item.updated_at).toLocaleString() : "N/a" }}</Label>
+                    </div>
                 </CardContent>
             </Card>
         </section>
-
-        <!-- <Card class="p-5">
-            <CardHeader>
-                <CardTitle>Orders History</CardTitle>
-            </CardHeader>
-            <CardContent>
-                <Table>
-                    <TableHead>
-                        <TH>Order Number</TH>
-                        <TH>Supplier</TH>
-                        <TH>Branch</TH>
-                        <TH>Quantity Received</TH>
-                        <TH>Received Date</TH>
-                    </TableHead>
-                    <TableBody>
-                        <tr v-for="order in orders" :key="order.id">
-                            <TD>
-                                <a
-                                    class="p-0 text-blue-500"
-                                    target="_blank"
-                                    :href="`/store-orders/show/${order.store_order_item.store_order.order_number}`"
-                                >
-                                    {{
-                                        order.store_order_item.store_order
-                                            .order_number
-                                    }}
-                                </a>
-                            </TD>
-                            <TD>{{
-                                order.store_order_item.store_order.supplier.name
-                            }}</TD>
-                            <TD>{{
-                                order.store_order_item.store_order.store_branch
-                                    .name
-                            }}</TD>
-                            <TD>{{ order.quantity_received }}</TD>
-                            <TD>{{ order.received_date }}</TD>
-                        </tr>
-                    </TableBody>
-                </Table>
-            </CardContent>
-        </Card> -->
 
         <Button variant="outline" class="text-lg px-7" @click="backButton">
             Back

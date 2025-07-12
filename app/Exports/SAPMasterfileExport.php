@@ -25,7 +25,7 @@ class SAPMasterfileExport implements FromQuery, WithHeadings, WithMapping
         // Apply search logic
         if ($this->search) {
             $query->where(function ($q) {
-                $q->where('ItemNo', 'like', '%' . $this->search . '%')
+                $q->where('ItemCode', 'like', '%' . $this->search . '%')
                   ->orWhere('ItemDescription', 'like', '%' . $this->search . '%');
                 // Add more fields here if you want to search by them
             });
@@ -49,7 +49,7 @@ class SAPMasterfileExport implements FromQuery, WithHeadings, WithMapping
         // Define your exact column headers for the Excel file
         return [
             'ID',
-            'Item No',
+            'Item Code',
             'Item Description',
             'Base UOM',
             'Base QTY',
@@ -70,7 +70,7 @@ class SAPMasterfileExport implements FromQuery, WithHeadings, WithMapping
         // Map the model attributes to the array that will be a row in Excel
         return [
             $item->id,
-            $item->ItemNo,
+            $item->ItemCode,
             $item->ItemDescription,
             $item->BaseUOM,
             $item->BaseQty,

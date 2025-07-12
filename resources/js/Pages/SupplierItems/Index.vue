@@ -145,6 +145,13 @@ const isLoading = ref(false);
                    <TH>Id</TH>
                     <TH>Item Code</TH>
                     <TH>Supplier Code</TH>
+                    <TH>Category</TH>
+                    <TH>Brand</TH> 
+                    <TH>Classification</TH> 
+                    <TH>Packaging Config</TH> 
+                    <TH>UOM</TH> 
+                    <TH>Cost</TH> 
+                    <TH>SRP</TH> 
                     <TH>Active</TH>
                     <TH>Action</TH>
                 </TableHead>
@@ -152,9 +159,16 @@ const isLoading = ref(false);
                 <TableBody>
                     <tr v-for="item in items.data">
                         <TD>{{ item.id }}</TD>
-                        <TD>{{ item.ItemNo }}</TD>
+                        <TD>{{ item.ItemCode }}</TD>
                         <TD>{{ item.SupplierCode }}</TD>
-                        <TD>{{ Number(item.is_active) ? 'Yes' : 'No' }}</TD> <TD class="flex items-center gap-2"></TD>
+                        <TD>{{ item.category }}</TD> 
+                        <TD>{{ item.brand }}</TD> 
+                        <TD>{{ item.classification }}</TD> 
+                        <TD>{{ item.packaging_config }}</TD> 
+                        <TD>{{ item.uom }}</TD>
+                        <TD>{{ item.cost }}</TD> 
+                        <TD>{{ item.srp }}</TD>
+                        <TD>{{ Number(item.is_active) ? 'Yes' : 'No' }}</TD>
                         <TD class="flex items-center gap-2">
                             <ShowButton
                                 v-if="hasAccess('view item')"
@@ -196,13 +210,20 @@ const isLoading = ref(false);
                             @click="
                                 deleteModel(
                                     route('SupplierItems.destroy', item.id),
-                                    'SAP Masterfile Item' // Changed label
+                                    'Supplier Items' // Changed label
                                 )
                             "
                         />
                     </MobileTableHeading>
-                    <LabelXS>Item No: {{ item.ItemNo }}</LabelXS>
-                    <LabelXS>Base UOM: {{ item.SupplierCode }}</LabelXS>
+                    <LabelXS>Item Code: {{ item.ItemCode }}</LabelXS> 
+                    <LabelXS>Supplier Code: {{ item.SupplierCode }}</LabelXS> 
+                    <LabelXS>Category: {{ item.category }}</LabelXS> 
+                    <LabelXS>Brand: {{ item.brand }}</LabelXS> 
+                    <LabelXS>Classification: {{ item.classification }}</LabelXS> 
+                    <LabelXS>Packaging Config: {{ item.packaging_config }}</LabelXS> 
+                    <LabelXS>UOM: {{ item.uom }}</LabelXS> 
+                    <LabelXS>Cost: {{ item.cost }}</LabelXS> 
+                    <LabelXS>SRP: {{ item.srp }}</LabelXS> 
                     <LabelXS>Active: {{ Number(item.is_active) ? 'Yes' : 'No' }}</LabelXS>
                 </MobileTableRow>
             </MobileTableContainer>

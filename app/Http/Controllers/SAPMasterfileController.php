@@ -31,7 +31,7 @@ class SAPMasterfileController extends Controller
             $query->where('is_active', '=', 1);
 
         if ($search)
-            $query->whereAny(['ItemNo', 'ItemDescription'], 'like', "%$search%");
+            $query->whereAny(['ItemCode', 'ItemDescription'], 'like', "%$search%");
 
         $items = $query->latest()->paginate(10)->withQueryString();
 
@@ -78,7 +78,7 @@ class SAPMasterfileController extends Controller
     {
 
         $validated = $request->validate([
-            'ItemNo' => ['nullable'],
+            'ItemCode' => ['nullable'],
             'ItemDescription' => ['nullable'],
             'AltQty' => ['nullable'],
             'BaseQty' => ['nullable'],
@@ -103,7 +103,7 @@ class SAPMasterfileController extends Controller
     {
         $item = SAPMasterfile::findOrFail($id);
         $validated = $request->validate([         
-           'ItemNo' => ['nullable'],
+           'ItemCode' => ['nullable'],
             'ItemDescription' => ['nullable'],
             'AltQty' => ['nullable'],
             'BaseQty' => ['nullable'],

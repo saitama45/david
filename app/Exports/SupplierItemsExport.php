@@ -25,9 +25,13 @@ class SupplierItemsExport implements FromQuery, WithHeadings, WithMapping
         // Apply search logic
         if ($this->search) {
             $query->where(function ($q) {
-                $q->where('ItemNo', 'like', '%' . $this->search . '%')
-                  ->orWhere('SupplierCode', 'like', '%' . $this->search . '%');
-                // Add more fields here if you want to search by them
+                $q->where('ItemCode', 'like', '%' . $this->search . '%')
+                  ->orWhere('SupplierCode', 'like', '%' . $this->search . '%')
+                  ->orWhere('category', 'like', '%' . $this->search . '%')
+                  ->orWhere('brand', 'like', '%' . $this->search . '%')
+                  ->orWhere('classification', 'like', '%' . $this->search . '%')
+                  ->orWhere('packaging_config', 'like', '%' . $this->search . '%')
+                  ->orWhere('uom', 'like', '%' . $this->search . '%');
             });
         }
 
@@ -49,8 +53,15 @@ class SupplierItemsExport implements FromQuery, WithHeadings, WithMapping
         // Define your exact column headers for the Excel file
         return [
             'ID',
-            'Item No',
+            'Item Code',        // Renamed from 'Item No'
             'Supplier Code',
+            'Category',         // New
+            'Brand',            // New
+            'Classification',   // New
+            'Packaging Config', // New
+            'UOM',              // New
+            'Cost',             // New
+            'SRP',              // New
             'Active',
             'Created At',
             'Updated At',
@@ -66,8 +77,15 @@ class SupplierItemsExport implements FromQuery, WithHeadings, WithMapping
         // Map the model attributes to the array that will be a row in Excel
         return [
             $item->id,
-            $item->ItemNo,
+            $item->ItemCode,        // Renamed from ItemNo
             $item->SupplierCode,
+            $item->category,
+            $item->brand,
+            $item->classification,
+            $item->packaging_config,
+            $item->uom,
+            $item->cost,            // Will be formatted by Excel based on its type
+            $item->srp,             // Will be formatted by Excel based on its type
             $item->is_active ? 'Yes' : 'No', // Convert boolean to readable string
             $item->created_at,
             $item->updated_at,
