@@ -39,7 +39,12 @@ class HandleInertiaRequests extends Middleware
                 'is_admin' => $request->user() ? $request->user()->hasRole('admin') : false,
             ],
             'flash' => [
-                'message' => fn() => $request->session()->get('message')
+                'message' => fn() => $request->session()->get('message'),
+                // ADD THIS LINE FOR IMPORT SUMMARY
+                'import_summary' => fn() => $request->session()->get('import_summary'),
+                // You can add 'success' and 'error' here too if you use them elsewhere with flash()
+                'success' => fn() => $request->session()->get('success'),
+                'error' => fn() => $request->session()->get('error'),
             ],
             'previous' => fn() => URL::previous(),
         ];

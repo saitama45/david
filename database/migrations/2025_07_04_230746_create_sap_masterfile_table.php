@@ -13,7 +13,7 @@ return new class extends Migration
     {
         Schema::create('sap_masterfiles', function (Blueprint $table) {
             $table->id();
-            $table->string('ItemNo')->unique();
+            $table->string('ItemCode')->unique();
             $table->string('ItemDescription');
             $table->integer('AltQty');
             $table->integer('BaseQty');

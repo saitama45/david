@@ -18,7 +18,7 @@ class SAPMasterfile extends Model implements Auditable
     protected $table = 'sap_masterfiles';
 
     protected $fillable = [
-        'ItemNo',
+        'ItemCode',
         'ItemDescription',
         'AltQty',
         'BaseQty',
@@ -34,7 +34,7 @@ class SAPMasterfile extends Model implements Auditable
         'updated_at' => 'datetime',
     ];
 
-    // Ensure 'ItemNo' is used as the unique key for upsert
+    // Ensure 'id' is used as the unique key for upsert
     protected $primaryKey = 'id';
-    public $incrementing = true; // Assuming ItemNo is not auto-incrementing
+    public $incrementing = true; // Assuming id is not auto-incrementing
 }

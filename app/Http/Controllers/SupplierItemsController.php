@@ -11,6 +11,7 @@ use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
 use Maatwebsite\Excel\Facades\Excel;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Response;
 
 class SupplierItemsController extends Controller
 {
@@ -135,17 +136,70 @@ class SupplierItemsController extends Controller
         ]);
 
         try {
-            Excel::import(new SupplierItemsImport, $request->file('products_file'));
-            return redirect()->route('SupplierItems.index')->with('success', 'Import successful');
-        } catch (\Exception $e) {
-            // Log the exact error for debugging
-            Log::error('SupplierItems Import Error: ' . $e->getMessage(), [
-                'file_name' => $request->file('products_file')->getClientOriginalName(),
-                'trace' => $e->getTraceAsString(), // Get the full stack trace
+            $import = new SupplierItemsImport();
+            Excel::import($import, $request->file('products_file'));
+
+            // Get skipped details and counts from the import instance
+            $processedCount = $import->getProcessedCount();
+            $skippedEmptyKeysCount = $import->getSkippedEmptyKeysCount();
+            $skippedBySapValidationCount = $import->getSkippedBySapValidationCount();
+            $skippedDetails = $import->getSkippedDetails();
+
+            // Store skipped details in session flash for the next request (for Inertia)
+            session()->flash('import_summary', [
+                'success_message' => 'Import successful!',
+                'processed_count' => $processedCount,
+                'skipped_empty_keys_count' => $skippedEmptyKeysCount,
+                'skipped_sap_validation_count' => $skippedBySapValidationCount,
+                'skipped_details_present' => !empty($skippedDetails), // Indicate if details exist
             ]);
 
-            // Return to the previous page with a more specific error message if possible
+            // Store actual skipped details in session for potential download later
+            // IMPORTANT: Be mindful of session size for very large number of skipped details.
+            // If details are too large, consider storing in cache or temporary file.
+            session(['last_import_skipped_details' => $skippedDetails]);
+
+            return redirect()->route('SupplierItems.index');
+
+        } catch (\Exception $e) {
+            Log::error('SupplierItems Import Error: ' . $e->getMessage(), [
+                'file_name' => $request->file('products_file')->getClientOriginalName(),
+                'trace' => $e->getTraceAsString(),
+            ]);
+
             return back()->with('error', 'Import failed: ' . $e->getMessage() . '. Please check logs for details.');
         }
+    }
+
+    // NEW METHOD: For downloading skipped details
+    public function downloadSkippedImportLog(Request $request)
+    {
+        $skippedDetails = session('last_import_skipped_details', []);
+
+        if (empty($skippedDetails)) {
+            return back()->with('error', 'No skipped import details found to download.');
+        }
+
+        $fileName = 'skipped_supplier_items_log_' . now()->format('Y-m-d_His') . '.txt';
+        $content = "Skipped Supplier Items Import Log\n";
+        $content .= "Generated on: " . now()->toDateTimeString() . "\n\n";
+
+        foreach ($skippedDetails as $index => $detail) {
+            $content .= "--- Skipped Row " . ($index + 1) . " ---\n";
+            $content .= "Reason: " . ($detail['reason'] ?? 'N/A') . "\n";
+            if (!empty($detail['details'])) {
+                $content .= "Specific Details: " . json_encode($detail['details'], JSON_PRETTY_PRINT) . "\n";
+            }
+            if (!empty($detail['original_row'])) {
+                $content .= "Original Row Data: " . json_encode($detail['original_row'], JSON_PRETTY_PRINT) . "\n";
+            }
+            $content .= "\n";
+        }
+
+        // Return as a downloadable text file
+        return Response::make($content, 200, [
+            'Content-Type' => 'text/plain',
+            'Content-Disposition' => 'attachment; filename="' . $fileName . '"',
+        ]);
     }
 }

@@ -14,7 +14,7 @@ class SAPMasterfilesSeeders extends Seeder
     public function run(): void
     {
        SAPMasterfile::create([
-        'ItemNo' => 'TEST',
+        'ItemCode' => 'TEST',
         'ItemDescription' => 'Item for test only',
         'AltQty' => 1,
         'BaseQty' => 1,

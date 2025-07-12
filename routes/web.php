@@ -396,6 +396,7 @@ Route::middleware('auth')
                 Route::post('/SupplierItems-list/store', 'store')->name('store');
                 Route::get('/SupplierItems-list/create', 'create')->name('create');
                 Route::post('/SupplierItems-list/import', 'import')->name('import');
+                Route::get('/SupplierItems-list/download-skipped-log', 'downloadSkippedImportLog')->name('downloadSkippedLog');
 
                 Route::get('/SupplierItems-list/edit/{id}', 'edit')->name('edit');
                 Route::put('/SupplierItems-list/update/{id}', 'update')->name('update');
