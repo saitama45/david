@@ -30,7 +30,7 @@ return new class extends Migration
             // --- Modify columns to be nullable and update data types ---
 
             // Make 'ItemNo' nullable
-            $table->string('ItemNo')->nullable()->change();
+            $table->string('ItemCode')->nullable()->change();
 
             // Make 'ItemDescription' nullable
             $table->string('ItemDescription')->nullable()->change();
@@ -64,7 +64,7 @@ return new class extends Migration
 
             // Revert 'ItemNo' to non-nullable and re-add unique (if desired for rollback)
             // If you truly want it unique again on rollback, uncomment the unique() line.
-            $table->string('ItemNo')->nullable(false)->change();
+            $table->string('ItemCode')->nullable(false)->change();
             // $table->unique('ItemNo'); // Uncomment if you want to re-add unique constraint on rollback
 
             // Revert 'ItemDescription' to non-nullable and re-add unique (if desired for rollback)
