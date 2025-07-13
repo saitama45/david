@@ -36,6 +36,12 @@ class StoreOrder extends Model implements Auditable
         'approval_action_date' => 'date:F d, Y h:i a',
     ];
 
+    public function storeOrderItems()
+    {
+        return $this->hasMany(StoreOrderItem::class);
+    }
+
+    
     public function encoder()
     {
         return $this->belongsTo(User::class, 'encoder_id');

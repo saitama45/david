@@ -2,9 +2,14 @@
 import { useBackButton } from "@/Composables/useBackButton";
 import { router } from "@inertiajs/vue3";
 import dayjs from "dayjs";
+import { ref } from "vue"; // Ensure ref is imported
 
 const { backButton } = useBackButton(route("store-orders.index"));
 const statusBadgeColor = (status) => {
+    // Add this check for null or undefined status
+    if (!status) {
+        return "bg-gray-400 text-white"; // Or choose another appropriate default class
+    }
     switch (status.toUpperCase()) {
         case "APPROVED":
             return "bg-green-500 text-white";
@@ -38,16 +43,21 @@ const props = defineProps({
     },
 });
 
+// CONSOLE.LOGS REMOVED FROM TEMPLATE AND ADDED HERE TO AVOID ERRORS
+console.log("Ordered Items Prop:", props.orderedItems);
+console.log("Receive Dates History Prop:", props.receiveDatesHistory);
+
+
 const copyOrderAndCreateAnother = (id) => {
     router.get("/store-orders/create", { orderId: id });
 };
 
 const isViewModalVisible = ref(false);
-const selectedItem = ref();
+const selectedItem = ref(null); // Initialize with null for clarity
 const openViewModalForm = (id) => {
     const data = props.receiveDatesHistory;
-    const existingItemIndex = data.findIndex((history) => history.id === id);
-    const history = data[existingItemIndex];
+    // Use find for direct access, safer than findIndex then direct access
+    const history = data.find((item) => item.id === id);
     selectedItem.value = history;
     isViewModalVisible.value = true;
 };
@@ -73,8 +83,8 @@ const enlargeImage = (image) => {
                 <InputContainer>
                     <LabelXS>Encoder: </LabelXS>
                     <SpanBold
-                        >{{ order.encoder.first_name }}
-                        {{ order.encoder.last_name }}</SpanBold
+                        >{{ order.encoder?.first_name }}
+                        {{ order.encoder?.last_name }}</SpanBold
                     >
                 </InputContainer>
                 <InputContainer>
@@ -88,14 +98,14 @@ const enlargeImage = (image) => {
                 <InputContainer>
                     <LabelXS>Approver: </LabelXS>
                     <SpanBold v-if="order.approver"
-                        >{{ order.approver.first_name }}
-                        {{ order.approver.last_name }}</SpanBold
+                        >{{ order.approver?.first_name }}
+                        {{ order.approver?.last_name }}</SpanBold
                     >
                     <SpanBold v-if="!order.approver">N/a</SpanBold>
                 </InputContainer>
                 <InputContainer>
                     <LabelXS>Variant: </LabelXS>
-                    <SpanBold>{{ order.variant.toUpperCase() }}</SpanBold>
+                    <SpanBold>{{ order.variant?.toUpperCase() }}</SpanBold>
                 </InputContainer>
                 <InputContainer>
                     <LabelXS>Approval Action Date: </LabelXS>
@@ -120,28 +130,13 @@ const enlargeImage = (image) => {
                         class="w-fit"
                         :class="statusBadgeColor(order.order_status)"
                         >{{
-                            order.order_status.toUpperCase().replace("_", " ")
+                            order.order_status?.toUpperCase().replace("_", " ")
                         }}</Badge
                     >
                 </InputContainer>
             </Card>
 
-            <!-- Ordered Items -->
             <TableContainer>
-                <!-- <DivFlexCenter class="justify-end">
-                    <Button
-                        class="bg-blue-500 hover:bg-blue-300"
-                        @click="copyOrderAndCreateAnother(order.id)"
-                    >
-                        Copy Order and Create Another
-                    </Button>
-                </DivFlexCenter> -->
-
-                <!-- <TableHeader>
-                    <SearchBar>
-                        <Input class="pl-10" placeholder="Search..." />
-                    </SearchBar>
-                </TableHeader> -->
                 <TableHeader>
                     <SpanBold class="sm:text-normal text-xs"
                         >Ordered Items</SpanBold
@@ -157,7 +152,6 @@ const enlargeImage = (image) => {
                         <TH> Comitted</TH>
                         <TH> Delivered</TH>
                         <TH> Received</TH>
-                        <!-- <TH> Total Cost </TH> -->
                         <TH>
                             <DivFlexCol>
                                 Variance
@@ -173,33 +167,20 @@ const enlargeImage = (image) => {
                     </TableHead>
                     <TableBody>
                         <tr v-for="order in orderedItems" :key="order.id">
-                            <TD>{{
-                                order.product_inventory.inventory_code
-                            }}</TD>
-                            <TD>{{ order.product_inventory.name }}</TD>
-                            <TD>{{
-                                order.product_inventory.unit_of_measurement.name
-                            }}</TD>
+                            <TD>{{ order.supplier_item?.ItemCode }}</TD>
+                            <TD>{{ order.supplier_item?.item_name }}</TD>
+                            <TD>{{ order.uom }}</TD> 
                             <TD>{{ order.quantity_ordered }}</TD>
                             <TD>{{ order.quantity_approved }}</TD>
                             <TD>{{ order.quantity_commited }}</TD>
                             <TD>{{ order.quantity_received }}</TD>
                             <TD>{{ order.quantity_received }}</TD>
-                            <!-- <TD
-                                >{{
-                                    parseFloat(
-                                        (order.quantity_approved /
-                                            order.quantity_ordered) *
-                                            100
-                                    ).toFixed(0, 2)
-                                }}%</TD -->
                             <TD>{{
                                 Math.abs(
                                     order.quantity_approved -
                                         order.quantity_commited
                                 )
                             }}</TD>
-                            <!-- <TD>{{ order.total_cost }}</TD> -->
                             <TD>{{
                                 Math.abs(
                                     order.quantity_commited -
@@ -216,7 +197,7 @@ const enlargeImage = (image) => {
                         :key="order.id"
                     >
                         <MobileTableHeading
-                            :title="`${order.product_inventory.name} (${order.product_inventory.inventory_code})`"
+                            :title="`${order.supplier_item?.item_name} (${order.supplier_item?.ItemCode})`"
                         >
                         </MobileTableHeading>
                         <LabelXS>Ordered: {{ order.quantity_ordered }}</LabelXS>
@@ -230,7 +211,6 @@ const enlargeImage = (image) => {
                 </MobileTableContainer>
             </TableContainer>
 
-            <!-- Delivery Receipts -->
             <TableContainer>
                 <TableHeader>
                     <SpanBold class="sm:text-normal text-xs"
@@ -290,11 +270,11 @@ const enlargeImage = (image) => {
                         <tr v-for="remarks in order.store_order_remarks">
                             <TD>{{ remarks.id }}</TD>
                             <TD
-                                >{{ remarks.user.first_name }}
-                                {{ remarks.user.last_name }}</TD
+                                >{{ remarks.user?.first_name }}
+                                {{ remarks.user?.last_name }}</TD
                             >
                             <TD>
-                                {{ remarks.action.toUpperCase() }}
+                                {{ remarks.action?.toUpperCase() }}
                             </TD>
                             <TD>{{ remarks.remarks }}</TD>
                             <TD>{{
@@ -310,7 +290,7 @@ const enlargeImage = (image) => {
                         :key="remarks.id"
                     >
                         <MobileTableHeading
-                            :title="`${remarks.action.toUpperCase()}`"
+                            :title="`${remarks.action?.toUpperCase()}`"
                         >
                         </MobileTableHeading>
                         <LabelXS>Remarks: {{ remarks.remarks }}</LabelXS>
@@ -352,7 +332,6 @@ const enlargeImage = (image) => {
                         <TH> Id </TH>
                         <TH> Item </TH>
                         <TH> Item Code </TH>
-                        <!-- <TH> Received By </TH> -->
                         <TH> Quantity Received</TH>
                         <TH> Received At</TH>
                         <TH> Status</TH>
@@ -364,17 +343,8 @@ const enlargeImage = (image) => {
                             :key="history.id"
                         >
                             <TD>{{ history.id }}</TD>
-                            <TD>{{
-                                history.store_order_item.product_inventory.name
-                            }}</TD>
-                            <TD>{{
-                                history.store_order_item.product_inventory
-                                    .inventory_code
-                            }}</TD>
-                            <!-- <TD>
-                                {{ history.receiver.first_name }}
-                                {{ history.receiver.last_name }}
-                            </TD> -->
+                            <TD>{{ history.store_order_item?.supplier_item?.item_name }}</TD>
+                            <TD>{{ history.store_order_item?.supplier_item?.ItemCode }}</TD>
                             <TD>{{ history.quantity_received }}</TD>
                             <TD>{{
                                 dayjs(history.received_date).format(
@@ -399,16 +369,18 @@ const enlargeImage = (image) => {
                         :key="history.id"
                     >
                         <MobileTableHeading
-                            :title="`${history.store_order_item.product_inventory.name} (${history.store_order_item.product_inventory.inventory_code})`"
+                            :title="`${history.store_order_item?.supplier_item?.item_name} (${history.store_order_item?.supplier_item?.ItemCode})`"
                         >
                         </MobileTableHeading>
                         <LabelXS
                             >Received: {{ history.quantity_received }}</LabelXS
                         >
                         <LabelXS
-                            >Status: {{ history.status.toUpperCase() }}</LabelXS
+                            >Status: {{ history.status?.toUpperCase() }}</LabelXS
                         >
-                        <SpanBold v-if="history.length < 1">None</SpanBold>
+                        <SpanBold v-if="receiveDatesHistory.length < 1"
+                            >None</SpanBold
+                        >
                     </MobileTableRow>
                 </MobileTableContainer>
             </TableContainer>
@@ -418,31 +390,29 @@ const enlargeImage = (image) => {
             Back
         </Button>
 
-        <!-- View Modal -->
         <Dialog v-model:open="isViewModalVisible">
             <DialogContent class="sm:max-w-[600px]">
                 <DialogHeader>
                     <DialogTitle>Received Item Details</DialogTitle>
                 </DialogHeader>
-                <section class="grid sm:grid-cols-2 gap-5">
+                <section v-if="selectedItem" class="grid sm:grid-cols-2 gap-5">
                     <InputContainer>
-                        <LabelXS>Item</LabelXS>
-                        <SpanBold
-                            >{{
-                                selectedItem.store_order_item.product_inventory
-                                    .name
-                            }}
-                            ({{
-                                selectedItem.store_order_item.product_inventory
-                                    .inventory_code
-                            }})</SpanBold
-                        >
+                        <LabelXS>Item Code</LabelXS>
+                        <SpanBold>{{ selectedItem.store_order_item?.supplier_item?.ItemCode ?? 'N/a' }}</SpanBold>
+                    </InputContainer>
+                    <InputContainer>
+                        <LabelXS>Item Name</LabelXS>
+                        <SpanBold>{{ selectedItem.store_order_item?.supplier_item?.item_name ?? 'N/a' }}</SpanBold>
+                    </InputContainer>
+                    <InputContainer>
+                        <LabelXS>UOM</LabelXS>
+                        <SpanBold>{{ selectedItem.store_order_item?.supplier_item?.uom ?? 'N/a' }}</SpanBold>
                     </InputContainer>
                     <InputContainer>
                         <LabelXS>Received By</LabelXS>
                         <SpanBold
-                            >{{ selectedItem.receiver.first_name }}
-                            {{ selectedItem.receiver.last_name }}</SpanBold
+                            >{{ selectedItem.receiver?.first_name }}
+                            {{ selectedItem.receiver?.last_name }}</SpanBold
                         >
                     </InputContainer>
 
@@ -460,12 +430,12 @@ const enlargeImage = (image) => {
 
                     <InputContainer>
                         <LabelXS>Expiry Date</LabelXS>
-                        <SpanBold>{{ selectedItem.expiry_date }}</SpanBold>
+                        <SpanBold>{{ selectedItem.expiry_date ?? 'N/a' }}</SpanBold>
                     </InputContainer>
 
                     <InputContainer>
                         <LabelXS>Status</LabelXS>
-                        <SpanBold>{{ selectedItem.status }}</SpanBold>
+                        <SpanBold>{{ selectedItem.status ?? 'N/a' }}</SpanBold>
                     </InputContainer>
 
                     <InputContainer>
@@ -476,7 +446,6 @@ const enlargeImage = (image) => {
             </DialogContent>
         </Dialog>
 
-        <!-- Image Viewer -->
         <Dialog v-model:open="isEnlargedImageVisible">
             <DialogContent
                 class="sm:max-w-[90vw] h-[90vh] p-0 flex items-center justify-center"

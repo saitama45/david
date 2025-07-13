@@ -1,5 +1,9 @@
 <script setup>
+import { ref, reactive, computed, watch, onBeforeMount } from 'vue';
 import Select from "primevue/select";
+import DatePicker from "primevue/datepicker";
+import axios from 'axios'; // Import axios for API calls
+
 import { useBackButton } from "@/Composables/useBackButton";
 const { backButton } = useBackButton(route("store-orders.index"));
 import { useSelectOptions } from "@/Composables/useSelectOptions";
@@ -18,37 +22,7 @@ onBeforeMount(() => {
     }
 });
 
-onMounted(() => {
-    console.log(drafts.value);
-    if (drafts.value != null) {
-        confirm.require({
-            message:
-                "You have an unfinished draft. Would you like to continue where you left off or discard the draft?",
-            header: "Unfinished Draft Detected",
-            icon: "pi pi-exclamation-triangle",
-            rejectProps: {
-                label: "Discard",
-                severity: "danger",
-            },
-            acceptProps: {
-                label: "Continue",
-                severity: "primary",
-            },
-            accept: () => {
-                orderForm.supplier_id = drafts.value.supplier_id;
-                orderForm.branch_id = drafts.value.branch_id;
-                orderForm.order_date = drafts.value.order_date;
-                orderForm.orders = drafts.value.orders;
-            },
-        });
-    }
-});
-
 const props = defineProps({
-    products: {
-        type: Object,
-        required: false,
-    },
     branches: {
         type: Object,
         required: true,
@@ -66,7 +40,10 @@ const props = defineProps({
 const previousOrder = props.previousOrder;
 
 const { options: branchesOptions } = useSelectOptions(props.branches);
-const { options: productsOptions } = useSelectOptions(props.products);
+
+// availableProductsOptions will now be directly populated from API
+const availableProductsOptions = ref([]);
+
 const { options: suppliersOptions } = useSelectOptions(props.suppliers);
 
 import { useForm } from "@inertiajs/vue3";
@@ -82,7 +59,7 @@ watch(visible, (newValue) => {
     }
 });
 
-const productDetails = reactive({
+const productDetails = reactive({ // Renamed for clarity in previous response, sticking to productDetails for consistency with user's current code
     id: null,
     inventory_code: null,
     name: null,
@@ -98,8 +75,8 @@ const excelFileForm = useForm({
 });
 
 const orderForm = useForm({
-    branch_id: previousOrder?.store_branch_id + "",
-    supplier_id: previousOrder?.supplier_id + "",
+    branch_id: previousOrder?.store_branch_id ? previousOrder.store_branch_id + "" : null, // Initialize with null if previousOrder or its branch_id is undefined
+    supplier_id: previousOrder?.supplier_id ? previousOrder.supplier_id + "" : null, // Initialize with null if previousOrder or its supplier_id is undefined
     order_date: null,
     orders: [],
 });
@@ -175,23 +152,39 @@ const store = () => {
     });
 };
 
+// Adjust this watch to fetch SupplierItem details from a new endpoint
 watch(productId, (newValue) => {
     if (newValue) {
         isLoading.value = true;
-        itemForm.item = newValue;
+        itemForm.item = newValue; // productId is the ID of the SupplierItem
+
+        // Fetch details of the selected SupplierItem
         axios
-            .get(route("product.show", newValue))
+            .get(route("SupplierItems.details.json", newValue)) // <--- **This route should be defined in web.php**
             .then((response) => response.data)
             .then((result) => {
                 productDetails.id = result.id;
-                productDetails.name = result.name;
-                productDetails.inventory_code = result.inventory_code;
-                productDetails.unit_of_measurement = result.unit_of_measurement;
-                productDetails.cost = result.cost;
-                productDetails.uom = result.uom;
+                productDetails.name = result.item_name; // From supplier_items table
+                productDetails.inventory_code = result.ItemCode; // From supplier_items table
+                productDetails.unit_of_measurement = result.uom; // From supplier_items table
+                productDetails.cost = result.cost; // From supplier_items table
+                productDetails.uom = result.uom; // Redundant, but keeping for consistency if needed
             })
-            .catch((err) => console.log(err))
+            .catch((err) => {
+                console.error("Error fetching supplier item details:", err);
+                toast.add({
+                    severity: "error",
+                    summary: "Error",
+                    detail: "Failed to load item details.",
+                    life: 5000,
+                });
+            })
             .finally(() => (isLoading.value = false));
+    } else {
+        // Clear productDetails if productId is null (item deselected)
+        Object.keys(productDetails).forEach((key) => {
+            productDetails[key] = null;
+        });
     }
 });
 
@@ -205,8 +198,9 @@ const addToOrdersButton = () => {
         itemForm.setError("item", "Item field is required");
         return;
     }
-    if (Number(productDetails.quantity) < 0.1) {
-        itemForm.setError("quantity", "Quantity must be at least 0.1");
+    // Check if productDetails.quantity is a valid number before comparing
+    if (isNaN(Number(productDetails.quantity)) || Number(productDetails.quantity) < 0.1) {
+        itemForm.setError("quantity", "Quantity must be at least 0.1 and a valid number");
         return;
     }
 
@@ -214,8 +208,15 @@ const addToOrdersButton = () => {
         !productDetails.inventory_code ||
         !productDetails.name ||
         !productDetails.unit_of_measurement ||
-        !productDetails.quantity
+        !productDetails.quantity ||
+        productDetails.cost === null // Ensure cost is loaded
     ) {
+        toast.add({
+            severity: "error",
+            summary: "Validation Error",
+            detail: "Please ensure all item details are loaded (name, code, UOM, quantity, cost).",
+            life: 5000,
+        });
         return;
     }
 
@@ -236,6 +237,7 @@ const addToOrdersButton = () => {
         orderForm.orders.push({ ...productDetails });
     }
 
+    // Clear productDetails and productId after adding
     Object.keys(productDetails).forEach((key) => {
         productDetails[key] = null;
     });
@@ -250,7 +252,6 @@ const addToOrdersButton = () => {
     itemForm.clearErrors();
 };
 
-// Nat - (getting the imported data)
 const addImportedItemsToOrderList = () => {
     isLoading.value = true;
     const formData = new FormData();
@@ -415,58 +416,92 @@ const calculateGSIOrderDate = () => {
     }
 };
 
+// This watch block is critical for fetching filtered items
 watch(
     () => orderForm.supplier_id,
-    (supplier_id) => {
+    async (supplierId) => { // Made it async to use await
         orderForm.order_date = null;
-        if (!supplier_id) return;
+        productId.value = null; // Clear selected product when supplier changes
+        Object.keys(productDetails).forEach((key) => { // Clear product details as well
+            productDetails[key] = null;
+        });
 
-        const selectedBranch = Object.values(suppliersOptions.value).find(
-            (option) => option.value === supplier_id + ""
+        availableProductsOptions.value = []; // Clear options immediately
+
+        if (!supplierId) {
+            // Check if supplierId is null or undefined before proceeding
+            return; // Exit if no supplier selected
+        }
+
+        try {
+            // *** CHANGE: Fetch supplier by ID to get the supplier_code ***
+            const supplierResponse = await axios.get(route('suppliers.show', supplierId));
+            const supplierCode = supplierResponse.data.supplier_code;
+
+            if (supplierCode) {
+                // Fetch supplier items based on the supplier_code
+                isLoading.value = true;
+                const response = await axios.get(route('store-orders.get-supplier-items', supplierCode));
+                // Assuming response.data.items is already in {value: 'id', label: 'name'} format or needs mapping
+                availableProductsOptions.value = response.data.items;
+                isLoading.value = false;
+            } else {
+                console.error("Supplier code could not be determined for selected supplier ID:", supplierId);
+            }
+
+        } catch (error) {
+            console.error("Error fetching supplier or supplier items:", error);
+            toast.add({
+                severity: "error",
+                summary: "Error",
+                detail: "Failed to load items for the selected supplier.",
+                life: 5000,
+            });
+            isLoading.value = false;
+        }
+
+
+        // Date calculation logic (remains the same)
+        const selectedSupplier = suppliersOptions.value.find(
+            (option) => option.value === supplierId + ""
         );
 
-        if (!selectedBranch) return;
-
-        if (
-            selectedBranch.label === "GSI OT-BAKERY" ||
-            selectedBranch.label === "GSI OT-PR"
-        ) {
-            calculateGSIOrderDate();
-        } else if (selectedBranch.label === "PUL OT-DG") {
-            calculatePULILANOrderDate();
+        if (selectedSupplier) {
+            if (
+                selectedSupplier.label === "GSI OT-BAKERY" ||
+                selectedSupplier.label === "GSI OT-PR"
+            ) {
+                calculateGSIOrderDate();
+            } else if (selectedSupplier.label === "PUL OT-DG") {
+                calculatePULILANOrderDate();
+            }
         }
-    }
+    },
+    { immediate: true } // Run immediately on component mount if previousOrder exists
 );
+
+// Computed property to check if a supplier is selected (still useful for other disabled states)
+const isSupplierSelected = computed(() => {
+    return orderForm.supplier_id !== null && orderForm.supplier_id !== '';
+});
+
 
 if (previousOrder) {
     previousOrder.store_order_items.forEach((item) => {
+        // *** CHANGE: Adapt this to item.supplier_item structure ***
         const product = {
-            id: item.product_inventory.id,
-            inventory_code: item.product_inventory.inventory_code,
-            name: item.product_inventory.name,
-            unit_of_measurement:
-                item.product_inventory.unit_of_measurement.name,
+            id: item.supplier_item.id,
+            inventory_code: item.supplier_item.ItemCode,
+            name: item.supplier_item.item_name,
+            unit_of_measurement: item.supplier_item.uom,
             quantity: item.quantity_ordered,
-            cost: item.product_inventory.cost,
+            cost: item.supplier_item.cost,
             total_cost: parseFloat(
-                item.quantity_ordered * item.product_inventory.cost
+                item.quantity_ordered * item.supplier_item.cost
             ).toFixed(2),
         };
         orderForm.orders.push(product);
     });
-
-    const selectedBranch = Object.values(suppliersOptions.value).find(
-        (option) => option.value === orderForm.supplier_id + ""
-    );
-
-    if (
-        selectedBranch.label === "GSI OT-BAKERY" ||
-        selectedBranch.label === "GSI OT-PR"
-    ) {
-        calculateGSIOrderDate();
-    } else if (selectedBranch.label === "PUL OT-DG") {
-        calculatePULILANOrderDate();
-    }
 }
 
 import { useEditQuantity } from "@/Composables/useEditQuantity";
@@ -561,9 +596,10 @@ watch(orderForm, (value) => {
                                 filter
                                 placeholder="Select an Item"
                                 v-model="productId"
-                                :options="productsOptions"
+                                :options="availableProductsOptions"
                                 optionLabel="label"
                                 optionValue="value"
+                                :disabled="!isSupplierSelected"
                             >
                             </Select>
                             <FormError>{{ itemForm.errors.item }}</FormError>
@@ -629,7 +665,7 @@ watch(orderForm, (value) => {
                         <TableBody>
                             <tr
                                 v-for="order in orderForm.orders"
-                                :key="order.item_code"
+                                :key="order.id"
                             >
                                 <TD>
                                     {{ order.name }}
@@ -650,18 +686,6 @@ watch(orderForm, (value) => {
                                     {{ order.total_cost }}
                                 </TD>
                                 <TD class="flex gap-3">
-                                    <!-- <button
-                                        class="text-red-500"
-                                        @click="minusItemQuantity(order.id)"
-                                    >
-                                        <Minus />
-                                    </button>
-                                    <button
-                                        class="text-green-500"
-                                        @click="addItemQuantity(order.id)"
-                                    >
-                                        <Plus />
-                                    </button> -->
                                     <LinkButton
                                         @click="
                                             openEditQuantityModal(
@@ -687,7 +711,7 @@ watch(orderForm, (value) => {
                     <MobileTableContainer>
                         <MobileTableRow
                             v-for="order in orderForm.orders"
-                            :key="order.item_code"
+                            :key="order.id"
                         >
                             <MobileTableHeading
                                 :title="`${order.name} (${order.inventory_code})`"

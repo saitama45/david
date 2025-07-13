@@ -67,7 +67,7 @@ const BACK_KEYS = {
   "from-left": ["Home", "PageDown", "ArrowDown", "ArrowLeft"],
   "from-right": ["Home", "PageDown", "ArrowDown", "ArrowRight"],
   "from-bottom": ["Home", "PageDown", "ArrowDown", "ArrowLeft"],
-  "from-top": ["Home", "PageDown", "ArrowUp", "ArrowLeft"]
+  "from-top": ["Home", "PageUp", "ArrowUp", "ArrowLeft"]
 };
 const [injectSliderOrientationContext, provideSliderOrientationContext] = shared_createContext.createContext(["SliderVertical", "SliderHorizontal"]);
 

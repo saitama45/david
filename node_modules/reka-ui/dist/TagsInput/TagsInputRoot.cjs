@@ -1,8 +1,8 @@
 'use strict';
 
 const vue = require('vue');
-const Collection_Collection = require('../Collection/Collection.cjs');
 const core = require('@vueuse/core');
+const Collection_Collection = require('../Collection/Collection.cjs');
 const shared_createContext = require('../shared/createContext.cjs');
 const shared_useDirection = require('../shared/useDirection.cjs');
 const shared_useForwardExpose = require('../shared/useForwardExpose.cjs');

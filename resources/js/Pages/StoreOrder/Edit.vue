@@ -1,4 +1,9 @@
 <script setup>
+import { ref, reactive, computed, watch, onMounted, onBeforeMount } from 'vue';
+import Select from "primevue/select";
+import DatePicker from "primevue/datepicker";
+import axios from 'axios';
+
 import { useSelectOptions } from "@/Composables/useSelectOptions";
 import { useForm } from "@inertiajs/vue3";
 import { useConfirm } from "primevue/useconfirm";
@@ -15,10 +20,6 @@ const props = defineProps({
         required: true,
     },
     orderedItems: {
-        type: Object,
-        required: true,
-    },
-    products: {
         type: Object,
         required: true,
     },
@@ -46,6 +47,8 @@ onBeforeMount(() => {
     }
 });
 
+const isMountedAndReady = ref(false);
+
 onMounted(() => {
     if (
         drafts.value &&
@@ -67,29 +70,86 @@ onMounted(() => {
             accept: () => {
                 orderForm.supplier_id = drafts.value.supplier_id;
                 orderForm.branch_id = drafts.value.branch_id;
-                orderForm.order_date = drafts.value.order_date;
+                
+                // Prioritize props.order.order_date if draft's order_date is null or undefined
+                orderForm.order_date = drafts.value.order_date !== null && drafts.value.order_date !== undefined 
+                                        ? drafts.value.order_date 
+                                        : props.order.order_date; // Fallback to prop value
+                console.log('Order Date from Draft after draft loading (onMounted):', orderForm.order_date);
+                
                 orderForm.orders = drafts.value.orders;
             },
         });
     }
+
+    const selectedSupplier = suppliersOptions.value.find(
+        (option) => option.value === orderForm.supplier_id + ""
+    );
+
+    if (!selectedSupplier) return;
+
+    if (
+        selectedSupplier.label === "GSI OT-BAKERY" ||
+        selectedSupplier.label === "GSI OT-PR"
+    ) {
+        calculateGSIOrderDate();
+    } else if (selectedSupplier.label === "PUL OT-DG") {
+        calculatePULILANOrderDate();
+    }
+
+    // Set the flag after initial setup is complete
+    isMountedAndReady.value = true;
 });
 
 const { options: branchesOptions } = useSelectOptions(props.branches);
-const { options: productsOptions } = useSelectOptions(props.products);
 const { options: suppliersOptions } = useSelectOptions(props.suppliers);
+
+const availableProductsOptions = ref([]);
+
 const productId = ref(null);
 const isLoading = ref(false);
 
 const orderForm = useForm({
     supplier_id: props.order.supplier_id + "",
     branch_id: props.order.store_branch_id + "",
-    order_date: props.order.order_date,
+    order_date: props.order.order_date, // Initialize with string from props.order.order_date
     orders: [],
 });
+console.log('Initial Order Date (string) from props (setup):', orderForm.order_date);
+
+
+const datePickerDate = computed({
+    get() {
+        if (orderForm.order_date) {
+            const parts = orderForm.order_date.split('-');
+            return new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]));
+        }
+        return null;
+    },
+    set(value) {
+        if (value) {
+            const d = new Date(value);
+            const month = String(d.getMonth() + 1).padStart(2, '0');
+            const day = String(d.getDate()).padStart(2, '0');
+            const year = d.getFullYear();
+            orderForm.order_date = `${year}-${month}-${day}`;
+        } else {
+            orderForm.order_date = null;
+        }
+    }
+});
+
 
 watch(orderForm, (value) => {
-    localStorage.setItem("editStoreOrderDraft", JSON.stringify(value));
+    if (!isMountedAndReady.value) {
+        console.log('Skipping draft save: Component not yet ready.');
+        return;
+    }
+    console.log('Value of orderForm.order_date right before saving (watch):', value.order_date);
+    const draftJson = JSON.stringify(value);
+    localStorage.setItem("editStoreOrderDraft", draftJson);
     localStorage.setItem("previoustoreOrderNumber", props.order.order_number);
+    console.log('Draft saved to localStorage:', draftJson);
 });
 
 const itemForm = useForm({
@@ -108,14 +168,14 @@ const productDetails = reactive({
 
 props.orderedItems.forEach((item) => {
     const product = {
-        id: item.product_inventory.id,
-        inventory_code: item.product_inventory.inventory_code,
-        name: item.product_inventory.name,
-        unit_of_measurement: item.product_inventory.unit_of_measurement.name,
+        id: item.supplier_item.id,
+        inventory_code: item.supplier_item.ItemCode,
+        name: item.supplier_item.item_name,
+        unit_of_measurement: item.supplier_item.uom,
         quantity: item.quantity_ordered,
-        cost: item.product_inventory.cost,
+        cost: item.supplier_item.cost,
         total_cost: parseFloat(
-            item.quantity_ordered * item.product_inventory.cost
+            item.quantity_ordered * item.supplier_item.cost
         ).toFixed(2),
     };
     orderForm.orders.push(product);
@@ -179,8 +239,8 @@ const addToOrdersButton = () => {
         itemForm.setError("item", "Item field is required");
         return;
     }
-    if (Number(productDetails.quantity) < 0.1) {
-        itemForm.setError("quantity", "Quantity must be at least 0.1");
+    if (isNaN(Number(productDetails.quantity)) || Number(productDetails.quantity) < 0.1) {
+        itemForm.setError("quantity", "Quantity must be at least 0.1 and a valid number");
         return;
     }
 
@@ -188,8 +248,15 @@ const addToOrdersButton = () => {
         !productDetails.inventory_code ||
         !productDetails.name ||
         !productDetails.unit_of_measurement ||
-        !productDetails.quantity
+        !productDetails.quantity ||
+        productDetails.cost === null
     ) {
+        toast.add({
+            severity: "error",
+            summary: "Validation Error",
+            detail: "Please ensure all item details are loaded (name, code, UOM, quantity, cost).",
+            life: 5000,
+        });
         return;
     }
 
@@ -234,6 +301,21 @@ const update = () => {
         });
         return;
     }
+
+    const formatDate = (date) => {
+        if (!date) return null;
+        if (typeof date === 'string') {
+            return date;
+        }
+        const d = new Date(date);
+        const month = String(d.getMonth() + 1).padStart(2, "0");
+        const day = String(d.getDate()).padStart(2, "0");
+        const year = d.getFullYear();
+        return `${year}-${month}-${day}`;
+    };
+    orderForm.order_date = formatDate(orderForm.order_date);
+
+
     confirm.require({
         message: "Are you sure you want to place update the order details?",
         header: "Confirmation",
@@ -273,22 +355,35 @@ const update = () => {
     });
 };
 
-watch(productId, (newValue) => {
+watch(productId, async (newValue) => {
     if (newValue) {
         isLoading.value = true;
         itemForm.item = newValue;
-        axios
-            .get(route("product.show", newValue))
-            .then((response) => response.data)
-            .then((result) => {
-                productDetails.id = result.id;
-                productDetails.name = result.name;
-                productDetails.inventory_code = result.inventory_code;
-                productDetails.unit_of_measurement = result.unit_of_measurement;
-                productDetails.cost = result.cost;
-            })
-            .catch((err) => console.log(err))
-            .finally(() => (isLoading.value = false));
+
+        try {
+            const response = await axios.get(route("SupplierItems.details.json", newValue));
+            const result = response.data;
+
+            productDetails.id = result.id;
+            productDetails.name = result.item_name;
+            productDetails.inventory_code = result.ItemCode;
+            productDetails.unit_of_measurement = result.uom;
+            productDetails.cost = result.cost;
+        } catch (err) {
+            console.error("Error fetching supplier item details:", err);
+            toast.add({
+                severity: "error",
+                summary: "Error",
+                detail: "Failed to load item details.",
+                life: 5000,
+            });
+        } finally {
+            isLoading.value = false;
+        }
+    } else {
+        Object.keys(productDetails).forEach((key) => {
+            productDetails[key] = null;
+        });
     }
 });
 
@@ -353,43 +448,69 @@ const computeOverallTotal = computed(() => {
 
 watch(
     () => orderForm.supplier_id,
-    (supplier_id) => {
-        orderForm.order_date = null;
-        if (!supplier_id) return;
+    async (supplierId) => {
+        // Only reset order_date if the component is mounted and ready,
+        // preventing it from nullifying the initial date from props.
+        if (isMountedAndReady.value) { 
+            orderForm.order_date = null; 
+        }
+        productId.value = null;
+        Object.keys(productDetails).forEach((key) => {
+            productDetails[key] = null;
+        });
 
-        const selectedBranch = Object.values(suppliersOptions.value).find(
-            (option) => option.value === supplier_id + ""
+        availableProductsOptions.value = [];
+
+        if (!supplierId) {
+            return;
+        }
+
+        try {
+            const supplierResponse = await axios.get(route('suppliers.show', supplierId));
+            const supplierCode = supplierResponse.data.supplier_code;
+
+            if (supplierCode) {
+                isLoading.value = true;
+                const response = await axios.get(route('store-orders.get-supplier-items', supplierCode));
+                availableProductsOptions.value = response.data.items;
+                isLoading.value = false;
+            } else {
+                console.error("Supplier code could not be determined for selected supplier ID:", supplierId);
+            }
+
+        } catch (error) {
+            console.error("Error fetching supplier or supplier items:", error);
+            toast.add({
+                severity: "error",
+                summary: "Error",
+                detail: "Failed to load items for the selected supplier.",
+                life: 5000,
+            });
+            isLoading.value = false;
+        }
+
+        const selectedSupplier = suppliersOptions.value.find(
+            (option) => option.value === supplierId + ""
         );
 
-        if (!selectedBranch) return;
-
-        if (
-            selectedBranch.label === "GSI OT-BAKERY" ||
-            selectedBranch.label === "GSI OT-PR"
-        ) {
-            calculateGSIOrderDate();
-        } else if (selectedBranch.label === "PUL OT-DG") {
-            calculatePULILANOrderDate();
+        if (selectedSupplier) {
+            if (
+                selectedSupplier.label === "GSI OT-BAKERY" ||
+                selectedSupplier.label === "GSI OT-PR"
+            ) {
+                calculateGSIOrderDate();
+            } else if (selectedSupplier.label === "PUL OT-DG") {
+                calculatePULILANOrderDate();
+            }
         }
-    }
+    },
+    { immediate: true }
 );
 
-onMounted(() => {
-    const selectedBranch = Object.values(suppliersOptions.value).find(
-        (option) => option.value === orderForm.supplier_id + ""
-    );
-
-    if (!selectedBranch) return;
-
-    if (
-        selectedBranch.label === "GSI OT-BAKERY" ||
-        selectedBranch.label === "GSI OT-PR"
-    ) {
-        calculateGSIOrderDate();
-    } else if (selectedBranch.label === "PUL OT-DG") {
-        calculatePULILANOrderDate();
-    }
+const isSupplierSelected = computed(() => {
+    return orderForm.supplier_id !== null && orderForm.supplier_id !== '';
 });
+
 
 import { useEditQuantity } from "@/Composables/useEditQuantity";
 const {
@@ -405,6 +526,15 @@ const excelFileForm = useForm({
     orders_file: null,
 });
 const visible = ref(false);
+
+watch(visible, (newValue) => {
+    if (!newValue) {
+        excelFileForm.reset();
+        excelFileForm.clearErrors();
+    }
+});
+
+
 const importOrdersButton = () => {
     visible.value = true;
 };
@@ -467,7 +597,6 @@ const addImportedItemsToOrderList = () => {
         .finally(() => (isLoading.value = false));
 };
 
-// This one is triggered even nothing is changed how can i only trigger this when something is changed on orderForm but not the first one
 </script>
 <template>
     <Layout
@@ -522,7 +651,7 @@ const addImportedItemsToOrderList = () => {
                                 showIcon
                                 fluid
                                 dateFormat="yy/mm/dd"
-                                v-model="orderForm.order_date"
+                                v-model="datePickerDate"
                                 :showOnFocus="false"
                                 :manualInput="true"
                                 :minDate="orderRestrictionDate.minDate"
@@ -548,9 +677,10 @@ const addImportedItemsToOrderList = () => {
                                 filter
                                 placeholder="Select an Item"
                                 v-model="productId"
-                                :options="productsOptions"
+                                :options="availableProductsOptions"
                                 optionLabel="label"
                                 optionValue="value"
+                                :disabled="!isSupplierSelected"
                             >
                             </Select>
                             <FormError>{{ itemForm.errors.item }}</FormError>
@@ -616,7 +746,7 @@ const addImportedItemsToOrderList = () => {
                         <TableBody>
                             <tr
                                 v-for="order in orderForm.orders"
-                                :key="order.item_code"
+                                :key="order.id"
                             >
                                 <TD>
                                     {{ order.name }}
@@ -637,18 +767,6 @@ const addImportedItemsToOrderList = () => {
                                     {{ order.total_cost }}
                                 </TD>
                                 <TD class="flex gap-3">
-                                    <!-- <button
-                                        class="text-red-500"
-                                        @click="minusItemQuantity(order.id)"
-                                    >
-                                        <Minus />
-                                    </button>
-                                    <button
-                                        class="text-green-500"
-                                        @click="addItemQuantity(order.id)"
-                                    >
-                                        <Plus />
-                                    </button> -->
                                     <LinkButton
                                         @click="
                                             openEditQuantityModal(
@@ -674,7 +792,7 @@ const addImportedItemsToOrderList = () => {
                     <MobileTableContainer>
                         <MobileTableRow
                             v-for="order in orderForm.orders"
-                            :key="order.item_code"
+                            :key="order.id"
                         >
                             <MobileTableHeading
                                 :title="`${order.name} (${order.inventory_code})`"

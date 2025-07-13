@@ -202,4 +202,10 @@ class SupplierItemsController extends Controller
             'Content-Disposition' => 'attachment; filename="' . $fileName . '"',
         ]);
     }
+
+    public function getDetailsJson(SupplierItems $supplierItem) // Use route model binding directly
+    {
+
+        return response()->json($supplierItem);
+    }
 }

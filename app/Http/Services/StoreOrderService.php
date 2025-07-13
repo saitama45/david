@@ -130,7 +130,8 @@ class StoreOrderService
 
     public function getOrderItems(StoreOrder $order)
     {
-        return $order->store_order_items()->with(['product_inventory.unit_of_measurement'])->get();
+        // Make sure you are loading 'supplierItem' here
+        return $order->storeOrderItems()->with('supplierItem')->get();
     }
 
     public function getImageAttachments(StoreOrder  $order)

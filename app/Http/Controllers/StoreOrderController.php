@@ -23,6 +23,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Storage;
 use Maatwebsite\Excel\Facades\Excel;
+use App\Models\SupplierItems;
 
 
 class StoreOrderController extends Controller
@@ -86,14 +87,37 @@ class StoreOrderController extends Controller
         return redirect()->route('store-orders.index');
     }
 
+    // public function show($id)
+    // {
+    //     $order = $this->storeOrderService->getOrderDetails($id);
+    //     $orderedItems = $this->storeOrderService->getOrderItems($order);
+    //     $orderedItems->load('supplierItem'); // Ensure this is also present if Show.vue uses it
+    //     return Inertia::render('StoreOrder/Show', [
+    //         'order' => $order,
+    //         'orderedItems' => $orderedItems,
+    //         'receiveDatesHistory' => $order->ordered_item_receive_dates,
+    //         'images' =>  $this->storeOrderService->getImageAttachments($order)
+    //     ]);
+    // }
+
     public function show($id)
     {
+        // Eager load the necessary relationships for the main order object
+        // This ensures 'ordered_item_receive_dates' and its nested 'store_order_item.supplierItem' are available
         $order = $this->storeOrderService->getOrderDetails($id);
+
+        // Load nested relationships for 'receiveDatesHistory' specifically
+        // Assuming 'ordered_item_receive_dates' is a relationship on the StoreOrder model
+        $order->load(['ordered_item_receive_dates.store_order_item.supplierItem']);
+
+        $orderedItems = $this->storeOrderService->getOrderItems($order);
+        $orderedItems->load('supplierItem'); // This line is for the 'orderedItems' prop, it seems correct for that table
+
         return Inertia::render('StoreOrder/Show', [
             'order' => $order,
-            'orderedItems' => $this->storeOrderService->getOrderItems($order),
-            'receiveDatesHistory' => $order->ordered_item_receive_dates,
-            'images' =>  $this->storeOrderService->getImageAttachments($order)
+            'orderedItems' => $orderedItems,
+            'receiveDatesHistory' => $order->ordered_item_receive_dates, // This will now contain the eager-loaded data for the modal
+            'images' => $this->storeOrderService->getImageAttachments($order)
         ]);
     }
 
@@ -112,14 +136,15 @@ class StoreOrderController extends Controller
     {
         $order = $this->storeOrderService->getOrder($id);
         $orderedItems = $this->storeOrderService->getOrderItems($order);
-        $products = ProductInventory::options();
+        // $products = ProductInventory::options();
+        $orderedItems->load('supplierItem'); 
         $suppliers = Supplier::options();
         $branches = StoreBranch::options();
 
         return Inertia::render('StoreOrder/Edit', [
             'order' => $order,
             'orderedItems' => $orderedItems,
-            'products' => $products,
+            // 'products' => $products,
             'branches' => $branches,
             'suppliers' => $suppliers
         ]);
@@ -131,5 +156,31 @@ class StoreOrderController extends Controller
         $this->storeOrderService->updateOrder($order, $request->validated());
 
         return redirect()->route('store-orders.index');
+    }
+
+    // getSupplierItems method to use route parameter and SupplierItems::options()
+    public function getSupplierItems($supplierCode) // Changed to use route parameter
+    {
+        // Find the supplier to get its internal ID if you need to enforce a relationship,
+        // otherwise, directly use the $supplierCode on SupplierItems.
+        
+        $supplierItems = SupplierItems::where('SupplierCode', $supplierCode)
+                                       ->where('is_active', true) // Only active items
+                                       ->options() // Use the options scope from SupplierItems
+                                       ->all(); // Convert the collection to an array of value/label pairs
+
+        // The options scope returns an associative array, but useSelectOptions expects an object
+        // So, we'll convert it manually to the format useSelectOptions expects: {value: 'id', label: 'name'}
+        $formattedSupplierItems = [];
+        foreach ($supplierItems as $id => $name) {
+            $formattedSupplierItems[] = [
+                'value' => (string) $id, // Ensure value is a string if your v-model expects it
+                'label' => $name
+            ];
+        }
+
+        return response()->json([
+            'items' => $formattedSupplierItems
+        ]);
     }
 }

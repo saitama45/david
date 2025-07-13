@@ -2,13 +2,11 @@
 
 namespace App\Models;
 
-use App\Traits\HasSelections;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Relations\BelongsToMany;
-use Illuminate\Support\Facades\DB;
 use OwenIt\Auditing\Contracts\Auditable;
+use Illuminate\Support\Facades\DB; 
 
 class SupplierItems extends Model implements Auditable
 {
@@ -18,17 +16,17 @@ class SupplierItems extends Model implements Auditable
     protected $table = 'supplier_items';
 
     protected $fillable = [
-        'ItemCode', // Changed from ItemNo
+        'ItemCode',
         'item_name',
         'SupplierCode',
-        'category',       // New
-        'brand',          // New
-        'classification', // New
-        'packaging_config', // New
-        'config',         // New
-        'uom',            // New
-        'cost',           // New
-        'srp',            // New
+        'category',
+        'brand',
+        'classification',
+        'packaging_config',
+        'config',
+        'uom',
+        'cost',
+        'srp',
         'is_active',
     ];
 
@@ -37,7 +35,20 @@ class SupplierItems extends Model implements Auditable
         'updated_at' => 'datetime',
     ];
 
-    // Ensure 'ItemNo' is used as the unique key for upsert
     protected $primaryKey = 'id';
-    public $incrementing = true; // Assuming ItemNo is not auto-incrementing
+    public $incrementing = true;
+
+    // new scope to format data for select options
+    public function scopeOptions(Builder $query)
+    {
+        // 'id' for value, and a combined 'item_name (ItemCode)' for label is a good practice
+        return $query->select('id', DB::raw("CONCAT(item_name, ' (', ItemCode, ')') as name"))
+                     ->pluck('name', 'id');
+    }
+
+    // relationship back to Supplier
+    public function supplier()
+    {
+        return $this->belongsTo(Supplier::class, 'SupplierCode', 'supplier_code');
+    }
 }

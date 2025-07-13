@@ -6,8 +6,8 @@ function useId(deterministicId, prefix = "reka") {
   if (deterministicId)
     return deterministicId;
   const configProviderContext = injectConfigProviderContext({ useId: void 0 });
-  if (vue.useId) {
-    return `${prefix}-${vue.useId()}`;
+  if (Object.hasOwn(vue, "useId")) {
+    return `${prefix}-${vue.useId?.()}`;
   } else if (configProviderContext.useId) {
     return `${prefix}-${configProviderContext.useId()}`;
   }

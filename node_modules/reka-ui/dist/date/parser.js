@@ -1,7 +1,7 @@
 import { t as toDate, a as isZonedDateTime } from './comparators.js';
 import { E as EDITABLE_SEGMENT_PARTS, D as DATE_SEGMENT_PARTS, T as TIME_SEGMENT_PARTS, i as isSegmentPart, a as isDateSegmentPart } from './parts.js';
 import { g as getPlaceholder } from './placeholders.js';
-import { g as getOptsByGranularity } from './utils.js';
+import { g as getOptsByGranularity, n as normalizeHourCycle } from './utils.js';
 
 const calendarDateTimeGranularities = ["hour", "minute", "second"];
 function syncTimeSegmentValues(props) {
@@ -63,13 +63,23 @@ function createContentObj(props) {
     if ("hour" in segmentValues) {
       const value = segmentValues[part];
       if (value !== null) {
-        if (part === "day" && segmentValues.month !== null) {
-          return formatter.part(props.dateRef.set({ [part]: value, month: segmentValues.month }), part, {
-            hourCycle: props.hourCycle === 24 ? "h23" : void 0
-          });
+        if (part === "day") {
+          return formatter.part(props.dateRef.set({
+            [part]: value,
+            /**
+             * Edge case for the day field:
+             *
+             * 1. If the month is filled,
+             *   we need to ensure that the day snaps to the maximum value of that month.
+             * 2. If the month is not filled,
+             *   we default to the month with the maximum number of days (here just using January, 31 days),
+             *   so that user can input any possible day.
+             */
+            month: segmentValues.month ?? 1
+          }), part, { hourCycle: normalizeHourCycle(props.hourCycle) });
         }
         return formatter.part(props.dateRef.set({ [part]: value }), part, {
-          hourCycle: props.hourCycle === 24 ? "h23" : void 0
+          hourCycle: normalizeHourCycle(props.hourCycle)
         });
       } else {
         return getPlaceholder(part, "", locale.value);
@@ -78,8 +88,13 @@ function createContentObj(props) {
       if (isDateSegmentPart(part)) {
         const value = segmentValues[part];
         if (value !== null) {
-          if (part === "day" && segmentValues.month !== null)
-            return formatter.part(props.dateRef.set({ [part]: value, month: segmentValues.month }), part);
+          if (part === "day") {
+            return formatter.part(props.dateRef.set({
+              [part]: value,
+              // Same logic as above for the day field
+              month: segmentValues.month ?? 1
+            }), part);
+          }
           return formatter.part(props.dateRef.set({ [part]: value }), part);
         } else {
           return getPlaceholder(part, "", locale.value);

@@ -252,6 +252,8 @@ Route::middleware('auth')
             });
 
             Route::middleware('permission:view dts orders')->get('/export', 'export')->name('export');
+            // ROUTE: To fetch supplier items based on supplier code
+            Route::get('/get-supplier-items/{supplierCode}', 'getSupplierItems')->name('get-supplier-items');
         });
 
         // Orders Approval
@@ -392,6 +394,7 @@ Route::middleware('auth')
         Route::controller(SupplierItemsController::class)->name('SupplierItems.')->group(function () {
             Route::middleware('permission:view items list')->get('/SupplierItems-list', 'index')->name('index');
             Route::middleware('permission:view item')->get('/SupplierItems-list/show/{id}', 'show')->name('show');
+            Route::get('/SupplierItems-list/details/{supplierItem}', 'getDetailsJson')->name('details.json');
             Route::middleware('permission:create new items')->group(function () {
                 Route::post('/SupplierItems-list/store', 'store')->name('store');
                 Route::get('/SupplierItems-list/create', 'create')->name('create');
@@ -581,11 +584,15 @@ Route::middleware('auth')
                 Route::get('/', 'index')->name('index');
                 Route::get('/create', 'create')->name('create');
                 Route::post('/store', 'store')->name('store');
+                Route::get('/{supplier}', 'show')->name('show'); // This will create a route named 'suppliers.show'
+
                 Route::get('/edit/{id}', 'edit')->name('edit');
                 Route::put('/update/{id}', 'update')->name('update');
                 Route::delete('/destroy/{id}', 'destroy')->name('destroy');
 
                 Route::get('/export', 'export')->name('export');
+      
+
             });
 
             Route::controller(UnitOfMeasurementController::class)->name('unit-of-measurements.')->group(function () {

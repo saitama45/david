@@ -42,8 +42,12 @@ class OrderedItemReceiveDate extends Model implements Auditable
         return $this->belongsTo(StoreOrder::class);
     }
 
-    public function product_inventory()
+    // public function product_inventory()
+    // {
+    //     return $this->belongsTo(ProductInventory::class);
+    // }
+    public function storeOrderItem()
     {
-        return $this->belongsTo(ProductInventory::class);
+        return $this->belongsTo(StoreOrderItem::class);
     }
 }

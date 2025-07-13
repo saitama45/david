@@ -85,4 +85,11 @@ class SupplierController extends Controller
         Supplier::create($validated);
         return redirect()->route('suppliers.index');
     }
+    public function show(Supplier $supplier)
+    {
+        // This method receives a Supplier model instance via route model binding
+        // and returns it as JSON.
+        return response()->json($supplier);
+    }
+
 }
