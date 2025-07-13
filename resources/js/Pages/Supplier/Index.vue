@@ -4,6 +4,7 @@ import { useToast } from "primevue/usetoast";
 import { useSearch } from "@/Composables/useSearch";
 import { router } from "@inertiajs/vue3";
 import { useReferenceDelete } from "@/Composables/useReferenceDelete";
+import { ref, computed } from 'vue'; // Ensure ref and computed are imported if not already
 
 const isEditModalVisible = ref(false);
 
@@ -13,6 +14,8 @@ const isLoading = ref(false);
 const form = useForm({
     name: null,
     remarks: null,
+    // Note: is_active is not part of this modal's form, as it's for name/remarks only.
+    // The actual edit for is_active happens on the dedicated Edit.vue page.
 });
 
 const targetId = ref(null);
@@ -30,6 +33,18 @@ const update = () => {
             form.reset();
             isEditModalVisible.value = false;
         },
+        onError: (errors) => {
+            let errorMessage = "An error occurred while trying to update the supplier details.";
+            if (Object.keys(errors).length > 0) {
+                errorMessage = Object.values(errors).join(', ');
+            }
+            toast.add({
+                severity: "error",
+                summary: "Error",
+                detail: errorMessage,
+                life: 5000,
+            });
+        }
     });
 };
 
@@ -48,6 +63,7 @@ const editCategoryDetails = (id) => {
     const data = props.data.data.find((item) => item.id === id);
     form.name = data.name;
     form.remarks = data.remarks;
+    // No need to set form.is_active here as this modal doesn't handle it
 };
 
 const createNewSupplier = () => {
@@ -56,7 +72,7 @@ const createNewSupplier = () => {
 
 const { deleteModel } = useReferenceDelete();
 
-const exportRoute = computed(() => 
+const exportRoute = computed(() =>
     route("suppliers.export", { search: search.value })
 );
 </script>
@@ -87,14 +103,19 @@ const exportRoute = computed(() =>
                     <TH> Name</TH>
                     <TH> Supplier Code</TH>
                     <TH> Remarks</TH>
+                    <TH> Status</TH> <!-- New Table Header for Status -->
                     <TH> Actions </TH>
                 </TableHead>
                 <TableBody>
-                    <tr v-for="data in data.data">
+                    <tr v-for="data in data.data" :key="data.id">
                         <TD>{{ data.id }}</TD>
                         <TD>{{ data.name }}</TD>
                         <TD>{{ data.supplier_code }}</TD>
                         <TD>{{ data.remarks ?? "N/a" }}</TD>
+                        <TD>
+                            <!-- Display "Active" if is_active is 1, "Inactive" otherwise -->
+                            {{ Number(data.is_active) === 1 ? 'Active' : 'Inactive' }}
+                        </TD>
                         <TD>
                             <DivFlexCenter>
                                 <EditButton
@@ -116,7 +137,7 @@ const exportRoute = computed(() =>
             </Table>
 
             <MobileTableContainer>
-                <MobileTableRow v-for="data in data.data">
+                <MobileTableRow v-for="data in data.data" :key="data.id">
                     <MobileTableHeading :title="data.name">
                         <EditButton
                             :isLink="true"
@@ -125,6 +146,8 @@ const exportRoute = computed(() =>
                         />
                     </MobileTableHeading>
                     <LabelXS>Supplier Code: {{ data.supplier_code }}</LabelXS>
+                    <!-- Display Status for Mobile View -->
+                    <LabelXS>Status: {{ Number(data.is_active) === 1 ? 'Active' : 'Inactive' }}</LabelXS>
                 </MobileTableRow>
             </MobileTableContainer>
             <Pagination :data="data" />

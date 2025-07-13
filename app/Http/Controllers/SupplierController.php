@@ -62,7 +62,8 @@ class SupplierController extends Controller
         $validated = $request->validate([
             'name' => ['required', 'unique:suppliers,name,' . $id],
             'supplier_code' => ['required', 'unique:suppliers,supplier_code,' . $id],
-            'remarks' => ['nullable']
+            'remarks' => ['nullable'],
+            'is_active' => ['required', 'boolean'] // Added validation for is_active
         ]);
         $supplier = Supplier::findOrFail($id);
         $supplier->update($validated);
@@ -91,5 +92,4 @@ class SupplierController extends Controller
         // and returns it as JSON.
         return response()->json($supplier);
     }
-
 }
