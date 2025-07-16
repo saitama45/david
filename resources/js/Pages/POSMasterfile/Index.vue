@@ -247,7 +247,7 @@ const isLoading = ref(false);
                             <li class="text-xs">
                                 <a
                                     class="text-blue-500 underline"
-                                    :href="route('excel.sapmasterfile-template')"
+                                    :href="route('excel.POSMasterfile-template')"
                                     >Click to download</a
                                 >
                             </li>

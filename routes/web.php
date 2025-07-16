@@ -503,6 +503,9 @@ Route::middleware('auth')
                 Route::get('/sapmasterfile-template', 'sapMasterfileTemplate')
                     ->name('sapmasterfile-template');
 
+                Route::get('/POSMasterfile-template', 'POSMasterfileTemplate')
+                    ->name('POSMasterfile-template');
+
                 Route::get('/SupplierItems-template', 'SupplierItemsTemplate')
                     ->name('SupplierItems-template');
 
