@@ -34,6 +34,7 @@ use App\Http\Controllers\OrderApprovalController;
 use App\Http\Controllers\OrderReceivingController;
 use App\Http\Controllers\PDFReportController;
 use App\Http\Controllers\PersmissionController;
+use App\Http\Controllers\POSMasterfileController;
 use App\Http\Controllers\ProductOrderSummaryController;
 use App\Http\Controllers\ProductSalesController;
 use App\Http\Controllers\SalesOrderController;
@@ -407,6 +408,24 @@ Route::middleware('auth')
                 Route::delete('/SupplierItems-list/destroy/{id}', 'destroy')->name('destroy');
 
                 Route::get('/SupplierItems-list/export', 'export')->name('export');
+            });
+        });
+
+        // POSMasterfile
+        Route::controller(POSMasterfileController::class)->name('POSMasterfile.')->group(function () {
+            Route::middleware('permission:view items list')->get('/POSMasterfile-list', 'index')->name('index');
+            Route::middleware('permission:view item')->get('/POSMasterfile-list/show/{id}', 'show')->name('show');
+            Route::middleware('permission:create new items')->group(function () {
+                Route::post('/POSMasterfile-list/store', 'store')->name('store');
+                Route::get('/POSMasterfile-list/create', 'create')->name('create');
+                Route::post('/POSMasterfile-list/import', 'import')->name('import');
+
+                Route::get('/POSMasterfile-list/edit/{id}', 'edit')->name('edit');
+                Route::put('/POSMasterfile-list/update/{id}', 'update')->name('update');
+
+                Route::delete('/POSMasterfile-list/destroy/{id}', 'destroy')->name('destroy');
+
+                Route::get('/POSMasterfile-list/export', 'export')->name('export');
             });
         });
        

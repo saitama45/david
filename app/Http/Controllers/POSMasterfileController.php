@@ -2,25 +2,27 @@
 
 namespace App\Http\Controllers;
 
-use App\Exports\SAPMasterfileExport;
-use App\Imports\SAPMasterfileImport;
-use App\Models\SAPMasterfile;
+use App\Exports\POSMasterfileExport;
+use App\Http\Controllers\Controller;
+use App\Imports\POSMasterfileImport;
+use App\Models\POSMasterfile;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
 use Maatwebsite\Excel\Facades\Excel;
 use Illuminate\Support\Facades\Log;
 
-class SAPMasterfileController extends Controller
+class POSMasterfileController extends Controller
 {
-    //
-    
+    /**
+     * Display a listing of the resource.
+     */
     public function index()
     {
         $search = request('search');
         $filter = request('filter');
 
-        $query = SAPMasterfile::query();
+        $query = POSMasterfile::query();
 
         if ($filter === 'inactive')
             $query->where('is_active', '=', 0);
@@ -33,15 +35,18 @@ class SAPMasterfileController extends Controller
 
         $items = $query->latest()->paginate(10)->withQueryString();
 
-        return Inertia::render('SAPMasterfileItem/Index', [
+        return Inertia::render('POSMasterfile/Index', [
             'items' => $items,
             'filters' => request()->only(['search', 'filter'])
         ])->with('success', true);
     }
 
+    /**
+     * Show the form for creating a new resource.
+     */
     public function create()
     {
-        return Inertia::render('SAPMasterfileItem/Create', [
+        return Inertia::render('POSMasterfile/Create', [
         ]);
     }
 
@@ -51,66 +56,75 @@ class SAPMasterfileController extends Controller
         $filter = request('filter');
 
         return Excel::download(
-            new SAPMasterfileExport($search, $filter),
-            'sapitems-list-' . now()->format('Y-m-d') . '.xlsx'
+            new POSMasterfileExport($search, $filter),
+            'POSMasterfile-list-' . now()->format('Y-m-d') . '.xlsx'
         );
     }
 
-    public function edit($id)
+    /**
+     * Store a newly created resource in storage.
+     */
+    public function store(Request $request)
     {
-        $item = SAPMasterfile::findOrFail($id);
-        return Inertia::render('SAPMasterfileItem/Edit', [
-            'item' => $item
+        $validated = $request->validate([
+            'ItemCode' => ['nullable'],
+            'ItemDescription' => ['nullable'],
+            'is_active' => ['nullable'],
         ]);
+
+        POSMasterfile::create($validated);
+        return to_route("POSMasterfile.index");
     }
 
-    public function show($id)
+    /**
+     * Display the specified resource.
+     */
+    public function show(string $id)
     {
-        $items = SAPMasterfile::findOrFail($id);
-        return Inertia::render('SAPMasterfileItem/Show', [
+        $items = POSMasterfile::findOrFail($id);
+        return Inertia::render('POSMasterfile/Show', [
             'item' => $items
         ]);
     }
 
-    public function store(Request $request)
+    /**
+     * Show the form for editing the specified resource.
+     */
+    public function edit(string $id)
     {
-
-        $validated = $request->validate([
-            'ItemCode' => ['nullable'],
-            'ItemDescription' => ['nullable'],
-            'AltQty' => ['nullable'],
-            'BaseQty' => ['nullable'],
-            'AltUOM' => ['nullable'],
-            'BaseUOM' => ['required'],
-            'is_active' => ['nullable'],
+        $item = POSMasterfile::findOrFail($id);
+        return Inertia::render('POSMasterfile/Edit', [
+            'item' => $item
         ]);
-
-        SAPMasterfile::create($validated);
-        return to_route("sapitems.index");
     }
 
-    public function destroy($id)
+    /**
+     * Update the specified resource in storage.
+     */
+    public function update(Request $request, string $id)
     {
-        $items = SAPMasterfile::findOrFail($id);
-
-        $items->delete();
-        return to_route('sapitems.index');
-    }
-
-    public function update(Request $request, $id)
-    {
-        $item = SAPMasterfile::findOrFail($id);
+        $item = POSMasterfile::findOrFail($id);
         $validated = $request->validate([         
            'ItemCode' => ['nullable'],
-            'ItemDescription' => ['nullable'],
-            'AltQty' => ['nullable'],
-            'BaseQty' => ['nullable'],
-            'AltUOM' => ['nullable'],
-            'BaseUOM' => ['required'],
+           'ItemDescription' => ['nullable'],
+            'Category' => ['nullable'],
+            'SubCategory' => ['nullable'],
+            'SRP' => ['nullable'],
             'is_active' => ['nullable'],
         ]);
         $item->update($validated);
-        return to_route("sapitems.index");
+        return to_route("POSMasterfile.index");
+    }
+
+    /**
+     * Remove the specified resource from storage.
+     */
+    public function destroy(string $id)
+    {
+        $items = POSMasterfile::findOrFail($id);
+
+        $items->delete();
+        return to_route('POSMasterfile.index');
     }
 
     public function import(Request $request)
@@ -123,29 +137,29 @@ class SAPMasterfileController extends Controller
 
         // IMPORTANT: Reset the static tracker in the importer class before starting a new import.
         // This ensures that the duplicate checking starts fresh for each import operation.
-        SAPMasterfileImport::resetSeenCombinations();
+        POSMasterfileImport::resetSeenCombinations();
 
         DB::beginTransaction(); // Start a database transaction
 
         try {
             // Step 1: Delete all existing records from the table.
-            SAPMasterfile::query()->delete();
+            POSMasterfile::query()->delete();
 
             // Step 2: Reseed the ID for SQL Server.
             // As per your request, RESEED to 0 means the NEXT ID inserted will be 1.
-            DB::statement("DBCC CHECKIDENT('sap_masterfiles', RESEED, 0);");
+            DB::statement("DBCC CHECKIDENT('pos_masterfiles', RESEED, 0);");
 
             // Step 3: Perform the import. The de-duplication logic is now handled internally
-            // by SAPMasterfileImport using chunk reading and batch inserts.
-            Excel::import(new SAPMasterfileImport, $request->file('products_file'));
+            // by POSMasterfileImport using chunk reading and batch inserts.
+            Excel::import(new POSMasterfileImport, $request->file('products_file'));
 
             DB::commit(); // Commit the transaction if everything is successful
 
-            return redirect()->route('sapitems.index')->with('success', 'Import successful. Duplicates within the file were skipped. All records updated.');
+            return redirect()->route('POSMasterfile.index')->with('success', 'Import successful. Duplicates within the file were skipped. All records updated.');
 
         } catch (\Exception $e) {
             DB::rollBack(); // Rollback the transaction if any error occurs
-            Log::error('SAPMasterfile Import Error: ' . $e->getMessage(), [
+            Log::error('POSMasterfile Import Error: ' . $e->getMessage(), [
                 'file_name' => $request->file('products_file')->getClientOriginalName(),
                 'trace' => $e->getTraceAsString(),
             ]);

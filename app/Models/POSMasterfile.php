@@ -6,26 +6,23 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use OwenIt\Auditing\Contracts\Auditable;
 
-class SAPMasterfile extends Model implements Auditable
+class POSMasterfile extends Model implements Auditable
 {
-    /** @use HasFactory<\Database\Factories\ProductInventoryFactory> */
     use HasFactory, \OwenIt\Auditing\Auditable;
     
-    protected $table = 'sap_masterfiles';
+    protected $table = 'pos_masterfiles';
 
     protected $fillable = [
         'ItemCode',
         'ItemDescription',
-        'AltQty',
-        'BaseQty',
-        'AltUOM',
-        'BaseUOM',
+        'Category',
+        'SubCategory',
+        'SRP',
         'is_active'
     ];
 
     protected $casts = [
-        'AltQty' => 'decimal:4', // Cast to decimal with 4 decimal places
-        'BaseQty' => 'decimal:4', // Cast to decimal with 4 decimal places
+        'SRP' => 'decimal:4', // Cast to decimal with 4 decimal places
         'created_at' => 'datetime',
         'updated_at' => 'datetime',
     ];

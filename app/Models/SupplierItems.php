@@ -42,7 +42,7 @@ class SupplierItems extends Model implements Auditable
     public function scopeOptions(Builder $query)
     {
         // 'id' for value, and a combined 'item_name (ItemCode)' for label is a good practice
-        return $query->select('id', DB::raw("CONCAT(item_name, ' (', ItemCode, ')') as name"))
+        return $query->select('id', DB::raw("CONCAT(item_name, ' (', ItemCode, ') ', uom) as name"))
                      ->pluck('name', 'id');
     }
 
@@ -50,5 +50,10 @@ class SupplierItems extends Model implements Auditable
     public function supplier()
     {
         return $this->belongsTo(Supplier::class, 'SupplierCode', 'supplier_code');
+    }
+
+    public function sapMasterfile()
+    {
+        return $this->hasOne(SAPMasterfile::class, 'ItemCode', 'ItemCode');
     }
 }

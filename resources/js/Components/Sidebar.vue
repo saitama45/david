@@ -325,6 +325,13 @@ const referenceOpen = ref(false);
                     Supplier Items
                 </NavLink>
                 <NavLink
+                    v-if="hasAccess('view items list')"
+                    href="/POSMasterfile-list"
+                    :icon="TextSelect"
+                >
+                    POS Masterlist
+                </NavLink>
+                <NavLink
                     v-if="hasAccess('view bom list')"
                     href="/menu-list"
                     :icon="Scroll"

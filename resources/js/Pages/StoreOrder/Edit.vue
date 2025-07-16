@@ -161,17 +161,25 @@ const productDetails = reactive({
     inventory_code: null,
     name: null,
     unit_of_measurement: null,
+    base_uom: null,
     quantity: null,
     cost: null,
     total_cost: null,
 });
 
 props.orderedItems.forEach((item) => {
+    // --- DEBUGGING LOG FOR EXISTING ITEMS ---
+    // console.log("Existing Ordered Item:", item);
+    // console.log("Existing Supplier Item:", item.supplier_item);
+    // console.log("Existing SAP Masterfile (from supplier_item):", item.supplier_item?.sap_masterfile);
+    // console.log("Existing BaseUOM:", item.supplier_item?.sap_masterfile?.BaseUOM);
+    // --- END DEBUGGING LOG ---
     const product = {
         id: item.supplier_item.id,
         inventory_code: item.supplier_item.ItemCode,
         name: item.supplier_item.item_name,
         unit_of_measurement: item.supplier_item.uom,
+        base_uom: item.supplier_item.sap_masterfile.BaseUOM,
         quantity: item.quantity_ordered,
         cost: item.supplier_item.cost,
         total_cost: parseFloat(
@@ -364,10 +372,17 @@ watch(productId, async (newValue) => {
             const response = await axios.get(route("SupplierItems.details.json", newValue));
             const result = response.data;
 
+            // --- DEBUGGING LOG FOR NEWLY FETCHED ITEMS ---
+            // console.log("Newly Fetched Item Details (result):", result);
+            // console.log("SAP Masterfile (from result):", result.sap_masterfile);
+            // console.log("BaseUOM (from result):", result.sap_masterfile?.BaseUOM);
+            // --- END DEBUGGING LOG ---
+
             productDetails.id = result.id;
             productDetails.name = result.item_name;
             productDetails.inventory_code = result.ItemCode;
             productDetails.unit_of_measurement = result.uom;
+            productDetails.base_uom = result.base_uom;
             productDetails.cost = result.cost;
         } catch (err) {
             console.error("Error fetching supplier item details:", err);
@@ -737,6 +752,7 @@ const addImportedItemsToOrderList = () => {
                             <TH> Name </TH>
                             <TH> Code </TH>
                             <TH> Quantity </TH>
+                            <TH> Base UOM </TH>
                             <TH> Unit </TH>
                             <TH> Cost </TH>
                             <TH> Total Cost </TH>
@@ -756,6 +772,9 @@ const addImportedItemsToOrderList = () => {
                                 </TD>
                                 <TD>
                                     {{ order.quantity }}
+                                </TD>
+                                <TD>
+                                    {{ order.base_uom }}
                                 </TD>
                                 <TD>
                                     {{ order.unit_of_measurement }}

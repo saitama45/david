@@ -108,10 +108,10 @@ class StoreOrderController extends Controller
 
         // Load nested relationships for 'receiveDatesHistory' specifically
         // Assuming 'ordered_item_receive_dates' is a relationship on the StoreOrder model
-        $order->load(['ordered_item_receive_dates.store_order_item.supplierItem']);
+        $order->load(['ordered_item_receive_dates.store_order_item.supplierItem.sapMasterfile']);
 
         $orderedItems = $this->storeOrderService->getOrderItems($order);
-        $orderedItems->load('supplierItem'); // This line is for the 'orderedItems' prop, it seems correct for that table
+        $orderedItems->load('supplierItem.sapMasterfile'); // This line is for the 'orderedItems' prop, it seems correct for that table
 
         return Inertia::render('StoreOrder/Show', [
             'order' => $order,
@@ -137,7 +137,7 @@ class StoreOrderController extends Controller
         $order = $this->storeOrderService->getOrder($id);
         $orderedItems = $this->storeOrderService->getOrderItems($order);
         // $products = ProductInventory::options();
-        $orderedItems->load('supplierItem'); 
+        $orderedItems->load('supplierItem.sapMasterfile'); 
         $suppliers = Supplier::options();
         $branches = StoreBranch::options();
 

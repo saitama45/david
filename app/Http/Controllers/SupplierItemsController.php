@@ -206,6 +206,12 @@ class SupplierItemsController extends Controller
     public function getDetailsJson(SupplierItems $supplierItem) // Use route model binding directly
     {
 
+        // Eager load the sapMasterfile relationship
+        // This will make the related SAPMasterfile data available on the $supplierItem object
+        $supplierItem->load('sapMasterfile');
+
+        // Now, when $supplierItem is returned as JSON, it will include the sap_masterfile relationship
+        // and its attributes, including 'BaseUOM'.
         return response()->json($supplierItem);
     }
 }
