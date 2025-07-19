@@ -26,11 +26,15 @@ class UpdateUserRequest extends FormRequest
             'first_name' => ['required'],
             'middle_name' => ['nullable'],
             'last_name' => ['required'],
-            'phone_number' => ['required', 'regex:/^09\d{9}$/'],
+            // Updated regex for phone number format: 0912 345 6789
+            'phone_number' => ['required', 'regex:/^09\d{2} \d{3} \d{4}$/'],
+            'password' => ['nullable', 'sometimes', 'string', 'min:8'],
             'email' => ['required', 'unique:users,email,' . $this->user->id],
             'roles' => ['required', 'array'],
             'remarks' => ['nullable'],
             'assignedBranches' => ['required', 'array'],
+            'assignedSuppliers' => ['nullable', 'array'],
+            'assignedSuppliers.*' => ['exists:suppliers,id'], // Validate each ID exists in the suppliers table
         ];
     }
 }

@@ -10,8 +10,9 @@
                 </template>
                 <template v-else>
                     <component v-if="column.children && column.children.rowtoggleicon" :is="column.children.rowtoggleicon" :node="node" :expanded="expanded" :class="cx('nodeToggleIcon')" />
+                    <component v-else-if="templates['nodetoggleicon']" :is="templates['nodetoggleicon']" :node="node" :expanded="expanded" :class="cx('nodeToggleIcon')" />
                     <!-- TODO: Deprecated since v4.0-->
-                    <component v-if="column.children && column.children.rowtogglericon" :is="column.children.rowtogglericon" :node="node" :expanded="expanded" :class="cx('nodeToggleIcon')" />
+                    <component v-else-if="column.children && column.children.rowtogglericon" :is="column.children.rowtogglericon" :node="node" :expanded="expanded" :class="cx('nodeToggleIcon')" />
                     <component v-else-if="expanded" :is="node.expandedIcon ? 'span' : 'ChevronDownIcon'" :class="cx('nodeToggleIcon')" v-bind="getColumnPT('nodeToggleIcon')" />
                     <component v-else :is="node.collapsedIcon ? 'span' : 'ChevronRightIcon'" :class="cx('nodeToggleIcon')" v-bind="getColumnPT('nodeToggleIcon')" />
                 </template>
@@ -145,7 +146,8 @@ export default {
                     frozen: this.columnProp('frozen'),
                     scrollable: this.$parentInstance.scrollable,
                     showGridlines: this.$parentInstance.showGridlines,
-                    size: this.$parentInstance?.size
+                    size: this.$parentInstance?.size,
+                    node: this.node
                 }
             };
 
@@ -164,7 +166,8 @@ export default {
                 },
                 context: {
                     checked: this.checked,
-                    partialChecked: this.partialChecked
+                    partialChecked: this.partialChecked,
+                    node: this.node
                 }
             };
 
@@ -179,7 +182,7 @@ export default {
                     let next = getNextElementSibling(this.$el, '[data-p-frozen-column="true"]');
 
                     if (next) {
-                        pos = getOuterWidth(next) + parseFloat(next.style.right || 0);
+                        pos = getOuterWidth(next) + parseFloat(next.style['inset-inline-end'] || 0);
                     }
 
                     this.styleObject.insetInlineEnd = pos + 'px';
@@ -188,7 +191,7 @@ export default {
                     let prev = getPreviousElementSibling(this.$el, '[data-p-frozen-column="true"]');
 
                     if (prev) {
-                        pos = getOuterWidth(prev) + parseFloat(prev.style.left || 0);
+                        pos = getOuterWidth(prev) + parseFloat(prev.style['inset-inline-start'] || 0);
                     }
 
                     this.styleObject.insetInlineStart = pos + 'px';

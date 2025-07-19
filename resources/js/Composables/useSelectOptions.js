@@ -15,7 +15,7 @@ export function useSelectOptions(data) {
 
         // Otherwise, assume it's an object from pluck and convert it
         return Object.entries(data).map(([value, label]) => ({
-            value: value,
+            value: value.toString(),
             label: label,
         }));
     });

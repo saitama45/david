@@ -3,6 +3,8 @@ import { useForm, router } from "@inertiajs/vue3";
 import { useSelectOptions } from "@/Composables/useSelectOptions";
 import { useConfirm } from "primevue/useconfirm";
 import { useToast } from "primevue/usetoast";
+import { computed } from 'vue'; // Import computed for check all logic
+
 const toast = useToast();
 const confirm = useConfirm();
 
@@ -33,6 +35,13 @@ const handleCreate = () => {
                 },
                 onError: (e) => {
                     console.log(e);
+                    // You might want to display a more user-friendly error message here
+                    toast.add({
+                        severity: "error",
+                        summary: "Error",
+                        detail: "Failed to create user. Please check the form.",
+                        life: 3000,
+                    });
                 },
             });
         },
@@ -48,6 +57,10 @@ const props = defineProps({
         type: Object,
         required: true,
     },
+    suppliers: {
+        type: Object,
+        required: true,
+    },
     user: {
         type: Object,
         required: false,
@@ -56,8 +69,10 @@ const props = defineProps({
 const handleCancel = () => {
     router.get(route("users.index"));
 };
+
 const { options: rolesOptions } = useSelectOptions(props.roles);
 const { options: branchesOptions } = useSelectOptions(props.branches);
+const { options: suppliersOptions } = useSelectOptions(props.suppliers);
 
 const form = useForm({
     first_name: null,
@@ -70,9 +85,64 @@ const form = useForm({
     remarks: null,
     assignedBranches:
         props.user?.store_branches.map((item) => item.id.toString()) ?? [],
+    assignedSuppliers:
+        props.user?.suppliers.map((item) => item.id.toString()) ?? [],
 });
 
-console.log(props.user?.store_branches.map((item) => item.id.toString()) ?? []);
+// Computed property for "Check All Branches" checkbox state
+const checkAllBranches = computed({
+    get: () => {
+        let totalOptionsCount = 0;
+        if (Array.isArray(branchesOptions.value)) {
+            totalOptionsCount = branchesOptions.value.length;
+        } else if (typeof branchesOptions.value === 'object' && branchesOptions.value !== null) {
+            totalOptionsCount = Object.keys(branchesOptions.value).length;
+        }
+        return form.assignedBranches.length === totalOptionsCount && totalOptionsCount > 0;
+    },
+    set: (value) => {
+        if (value) {
+            if (Array.isArray(branchesOptions.value)) {
+                form.assignedBranches = branchesOptions.value.map(branch => branch.value);
+            } else if (typeof branchesOptions.value === 'object' && branchesOptions.value !== null) {
+                // If it's the raw object, get its keys (which are the IDs)
+                form.assignedBranches = Object.keys(branchesOptions.value);
+            } else {
+                form.assignedBranches = []; // Fallback for unexpected types
+            }
+        } else {
+            form.assignedBranches = [];
+        }
+    }
+});
+
+// Computed property for "Check All Suppliers" checkbox state
+const checkAllSuppliers = computed({
+    get: () => {
+        let totalOptionsCount = 0;
+        if (Array.isArray(suppliersOptions.value)) {
+            totalOptionsCount = suppliersOptions.value.length;
+        } else if (typeof suppliersOptions.value === 'object' && suppliersOptions.value !== null) {
+            totalOptionsCount = Object.keys(suppliersOptions.value).length;
+        }
+        return form.assignedSuppliers.length === totalOptionsCount && totalOptionsCount > 0;
+    },
+    set: (value) => {
+        if (value) {
+            if (Array.isArray(suppliersOptions.value)) {
+                form.assignedSuppliers = suppliersOptions.value.map(supplier => supplier.value);
+            } else if (typeof suppliersOptions.value === 'object' && suppliersOptions.value !== null) {
+                // If it's the raw object, get its keys (which are the IDs)
+                form.assignedSuppliers = Object.keys(suppliersOptions.value);
+            } else {
+                form.assignedSuppliers = []; // Fallback for unexpected types
+            }
+        } else {
+            form.assignedSuppliers = [];
+        }
+    }
+});
+
 </script>
 <template>
     <Layout heading="Create New User">
@@ -111,6 +181,11 @@ console.log(props.user?.store_branches.map((item) => item.id.toString()) ?? []);
                         <FormError>{{ form.errors.email }}</FormError>
                     </InputContainer>
                     <InputContainer>
+                        <LabelXS>Password</LabelXS>
+                        <Input v-model="form.password" type="password" />
+                        <FormError>{{ form.errors.password }}</FormError>
+                    </InputContainer>
+                    <InputContainer>
                         <LabelXS>Roles</LabelXS>
                         <MultiSelect
                             filter
@@ -129,6 +204,10 @@ console.log(props.user?.store_branches.map((item) => item.id.toString()) ?? []);
                     </InputContainer>
 
                     <InputContainer class="sm:col-span-2">
+                        <div class="flex items-center space-x-2 mb-2">
+                            <Checkbox v-model="checkAllBranches" id="checkAllBranches" />
+                            <label for="checkAllBranches" class="text-sm font-medium text-gray-700">Check All Branches</label>
+                        </div>
                         <LabelXS> Assign Branches </LabelXS>
                         <div
                             class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4"
@@ -152,12 +231,43 @@ console.log(props.user?.store_branches.map((item) => item.id.toString()) ?? []);
                             form.errors.assignedBranches
                         }}</FormError>
                     </InputContainer>
+
+                    <!-- New section for Assign Suppliers -->
+                    <InputContainer class="sm:col-span-2">
+                        <div class="flex items-center space-x-2 mb-2">
+                            <Checkbox v-model="checkAllSuppliers" id="checkAllSuppliers" />
+                            <label for="checkAllSuppliers" class="text-sm font-medium text-gray-700">Check All Suppliers</label>
+                        </div>
+                        <LabelXS> Assign Suppliers </LabelXS>
+                        <div
+                            class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4"
+                        >
+                            <div
+                                v-for="supplier in suppliersOptions"
+                                :key="supplier.value"
+                                class="flex items-center space-x-2"
+                            >
+                                <Checkbox
+                                    v-model="form.assignedSuppliers"
+                                    :value="supplier.value"
+                                    name="assignedSuppliers[]"
+                                />
+                                <label class="text-xs text-gray-600">
+                                    {{ supplier.label }}
+                                </label>
+                            </div>
+                        </div>
+                        <FormError>{{
+                            form.errors.assignedSuppliers
+                        }}</FormError>
+                    </InputContainer>
                 </section>
             </CardContent>
             <CardFooter class="justify-end gap-3">
                 <Button @click="handleCancel" variant="outline">Cancel</Button>
-                <Button @click="handleCreate">Create</Button>
+                <Button @click="handleCreate" :disabled="form.processing">Create</Button>
             </CardFooter>
         </Card>
     </Layout>
 </template>
+

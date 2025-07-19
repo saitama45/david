@@ -1,9 +1,29 @@
 <script setup>
-defineProps({
+import { computed } from 'vue'; // Import computed
+
+const props = defineProps({
     user: {
         type: Object,
         required: true,
     },
+    // New prop for all available suppliers
+    suppliers: {
+        type: Object, // This will be an object like {id: name, ...} from Laravel's pluck
+        required: true,
+    },
+});
+
+// Convert the suppliers prop object into an array of values for length comparison
+const allAvailableSuppliersCount = computed(() => {
+    return Object.keys(props.suppliers).length;
+});
+
+// Computed property to check if all suppliers are assigned
+const isAllSuppliersAssigned = computed(() => {
+    return (
+        props.user.suppliers.length > 0 && // Ensure there's at least one assigned
+        props.user.suppliers.length === allAvailableSuppliersCount.value
+    );
 });
 </script>
 
@@ -34,7 +54,7 @@ defineProps({
                 <InputContainer>
                     <LabelXS>Roles</LabelXS>
                     <SpanBold>{{
-                        user.roles.map((role) => role.name).join(",")
+                        user.roles.map((role) => role.name).join(", ")
                     }}</SpanBold>
                 </InputContainer>
                 <InputContainer>
@@ -64,8 +84,25 @@ defineProps({
                         }}
                     </SpanBold>
                 </InputContainer>
+
+                <!-- Updated InputContainer for Assigned Suppliers -->
+                <InputContainer class="col-span-2">
+                    <LabelXS>Assigned Suppliers</LabelXS>
+                    <SpanBold>
+                        <template v-if="isAllSuppliersAssigned">
+                            All Suppliers
+                        </template>
+                        <template v-else-if="user.suppliers.length > 0">
+                            {{ user.suppliers.map((supplier) => supplier.name).join(", ") }}
+                        </template>
+                        <template v-else>
+                            N/a
+                        </template>
+                    </SpanBold>
+                </InputContainer>
             </section>
         </Card>
         <BackButton routeName="users.index" />
     </Layout>
 </template>
+

@@ -9,6 +9,7 @@ use App\Http\Requests\User\UpdateUserRequest;
 use App\Http\Services\UserService;
 use App\Models\StoreBranch;
 use App\Models\User;
+use App\Models\Supplier; // Import the Supplier model
 use Exception;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -42,27 +43,32 @@ class UserController extends Controller
 
     public function create()
     {
-
         $user = $this->userService->getUserFromTemplate();
         $roles = ExtendedRole::rolesOption();
         $branches = StoreBranch::options();
+        $suppliers = Supplier::options()->toArray(); // Fetch all suppliers
 
         return Inertia::render('User/Create', [
             'roles' => $roles,
             'branches' => $branches,
+            'suppliers' => $suppliers, // Pass all suppliers to the view
             'user' => $user ?? null
         ]);
     }
 
     public function edit(User $user)
     {
-        $user->load(['roles', 'store_branches']);
+        // Load the suppliers relationship
+        $user->load(['roles', 'store_branches', 'suppliers']);
         $roles = Role::select(['id', 'name'])->pluck('name', 'id');
         $branches = StoreBranch::options();
+        $suppliers = Supplier::options()->toArray(); // Fetch all suppliers
+
         return Inertia::render('User/Edit', [
             'user' => $user,
             'roles' => $roles,
-            'branches' => $branches
+            'branches' => $branches,
+            'suppliers' => $suppliers // Pass all suppliers to the view
         ]);
     }
 
@@ -78,20 +84,27 @@ class UserController extends Controller
 
     public function store(StoreUserRequest $request)
     {
+        DB::beginTransaction(); // Start transaction
         try {
             $this->userService->createUser($request->validated());
+            DB::commit(); // Commit transaction
             return redirect()->route('users.index');
         } catch (Exception $e) {
-            DB::rollBack();
+            DB::rollBack(); // Rollback on error
+            Log::error("Error creating user: " . $e->getMessage()); // Log the error
             return back()->withErrors(['error' => $e->getMessage()]);
         }
     }
 
     public function destroy(User $user)
     {
+        DB::beginTransaction(); // Start transaction
         try {
             $this->userService->deleteUser($user);
+            DB::commit(); // Commit transaction
         } catch (Exception $e) {
+            DB::rollBack(); // Rollback on error
+            Log::error("Error deleting user: " . $e->getMessage()); // Log the error
             return back()->withErrors(['error' => $e->getMessage()]);
         }
         return to_route('users.index');
@@ -99,20 +112,26 @@ class UserController extends Controller
 
     public function update(UpdateUserRequest $request, User $user)
     {
+        DB::beginTransaction(); // Start transaction
         try {
             $this->userService->updateUser($request->validated(), $user);
+            DB::commit(); // Commit transaction
             return redirect()->route('users.index');
         } catch (Exception $e) {
-            DB::rollBack();
+            DB::rollBack(); // Rollback on error
+            Log::error("Error updating user: " . $e->getMessage()); // Log the error
             return back()->withErrors(['error' => $e->getMessage()]);
         }
     }
 
     public function show(User $user)
     {
-        $user->load(['roles', 'store_branches']);
+        // Load the suppliers relationship
+        $user->load(['roles', 'store_branches', 'suppliers']);
+        $suppliers = Supplier::options()->toArray(); // Fetch all suppliers
         return Inertia::render('User/Show', [
-            'user' => $user
+            'user' => $user,
+            'suppliers' => $suppliers, // Pass all suppliers to the view
         ]);
     }
 }

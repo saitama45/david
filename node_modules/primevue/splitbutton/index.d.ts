@@ -104,10 +104,10 @@ export interface SplitButtonPassThroughAttributes {
  */
 export interface SplitButtonState {
     /**
-     * Current blocked state as a boolean.
+     * Current expanded state as a boolean.
      * @defaultValue false
      */
-    isBlocked: boolean;
+    isExpanded: boolean;
 }
 
 /**
@@ -203,7 +203,7 @@ export interface SplitButtonProps {
     /**
      * Defines the size of the button.
      */
-    size?: 'small' | 'large' | undefined;
+    size?: HintedString<'small' | 'large'> | undefined;
     /**
      * Add a plain textual class to the button without a background initially.
      * @defaultValue false

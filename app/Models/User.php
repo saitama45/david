@@ -2,8 +2,6 @@
 
 namespace App\Models;
 
-// use Illuminate\Contracts\Auth\MustVerifyEmail;
-
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
@@ -93,6 +91,17 @@ class User extends Authenticatable implements Auditable
         );
     }
 
+    // New relationship for suppliers
+    public function suppliers()
+    {
+        return $this->belongsToMany(
+            Supplier::class,
+            'user_suppliers', // This is the pivot table name
+            'user_id',
+            'supplier_id'
+        )->withTimestamps();
+    }
+
     public function user_roles()
     {
         return $this->hasMany(UserRole::class);
@@ -127,12 +136,12 @@ class User extends Authenticatable implements Auditable
             'user_type' => self::class,
             'user_id' => Auth::id(),
             'auditable_type' => self::class,
-            'auditable_id'   => $this->id,
-            'event'          => $event,
-            'url'            => request()->fullUrl(),
-            'ip_address'     => request()->ip(),
-            'user_agent'     => request()->userAgent(),
-            'created_at'     => now(),
+            'auditable_id'  => $this->id,
+            'event'         => $event,
+            'url'           => request()->fullUrl(),
+            'ip_address'    => request()->ip(),
+            'user_agent'    => request()->userAgent(),
+            'created_at'    => now(),
         ]);
     }
 
