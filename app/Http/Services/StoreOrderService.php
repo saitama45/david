@@ -7,14 +7,17 @@ use App\Enum\OrderStatus;
 use App\Models\StoreBranch;
 use App\Models\StoreOrder;
 use App\Models\User;
+use App\Models\Supplier;
+use App\Models\StoreOrderItem;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
+use Exception;
+use Illuminate\Support\Facades\Log;
 
 class StoreOrderService
 {
-
     public function getOrderNumber($id)
     {
         $branchId = $id;
@@ -36,30 +39,41 @@ class StoreOrderService
         $to = request('to') ? Carbon::parse(request('to'))->addDay()->format('Y-m-d') : Carbon::today()->addMonth();
         $branchId = request('branchId');
         $search = request('search');
-        $filterQuery = request('filterQuery') ?? 'pending';
+        $filterQuery = request('filterQuery');
 
-        $query = StoreOrder::query()->with(['store_branch', 'supplier']);
+        $query = StoreOrder::query()->with(['store_branch', 'supplier', 'encoder']);
 
         $user = User::rolesAndAssignedBranches();
 
-        if (!$user['isAdmin']) $query->whereIn('store_branch_id', $user['assignedBranches']);
+        if (!$user['isAdmin']) {
+            $query->whereIn('store_branch_id', $user['assignedBranches']);
+        }
 
         if ($from && $to) {
             $query->whereBetween('order_date', [$from, $to]);
         }
 
-        if ($filterQuery !== 'all')
+        if ($filterQuery && $filterQuery !== 'all') {
             $query->where('order_status', $filterQuery);
+        }
 
-        if ($branchId)
+
+        if ($branchId) {
             $query->where('store_branch_id', $branchId);
+        }
 
-
-        if ($search)
-            $query->where('order_number', 'like', '%' . $search . '%')
-                ->orWhereHas('store_branch', function ($query) use ($search) {
-                    $query->where('name', 'like', '%' . $search . '%');
-                });
+        if ($search) {
+            $query->where(function ($q) use ($search) {
+                $q->where('order_number', 'like', '%' . $search . '%')
+                    ->orWhereHas('store_branch', function ($subQuery) use ($search) {
+                        $subQuery->where('name', 'like', '%' . $search . '%');
+                    })
+                    ->orWhereHas('supplier', function ($subQuery) use ($search) {
+                        $subQuery->where('name', 'like', '%' . $search . '%')
+                                 ->orWhere('supplier_code', 'like', '%' . $search . '%');
+                    });
+            });
+        }
 
         return $query
             ->where('variant', $variant)
@@ -71,35 +85,48 @@ class StoreOrderService
     public function createStoreOrder(array $data)
     {
         DB::beginTransaction();
-        $order = StoreOrder::create([
-            'encoder_id' => Auth::user()->id,
-            'supplier_id' => $data['supplier_id'],
-            'store_branch_id' => $data['branch_id'],
-            'order_number' => $this->getOrderNumber($data['branch_id']),
-            'order_date' => Carbon::parse($data['order_date'])->format('Y-m-d'),
-            'order_status' => OrderStatus::PENDING->value,
-            'order_request_status' => OrderRequestStatus::PENDING->value,
-            'variant' => $data['variant'] ?? 'regular',
-        ]);
+        try {
+            $supplier = Supplier::where('supplier_code', $data['supplier_id'])->first();
 
-        foreach ($data['orders'] as $data) {
-            $order->store_order_items()->create([
-                'product_inventory_id' => $data['id'],
-                'quantity_ordered' => $data['quantity'],
-                'total_cost' => $data['total_cost'],
-                'cost_per_quantity' => $data['cost'],
-                'uom' => $data['uom'] ?? null
+            if (!$supplier) {
+                throw new Exception("Supplier with code '{$data['supplier_id']}' not found.");
+            }
+
+            $order = StoreOrder::create([
+                'encoder_id' => Auth::user()->id,
+                'supplier_id' => $supplier->id,
+                'store_branch_id' => $data['branch_id'],
+                'order_number' => $this->getOrderNumber($data['branch_id']),
+                'order_date' => Carbon::parse($data['order_date'])->format('Y-m-d'),
+                'order_status' => OrderStatus::PENDING->value,
+                'order_request_status' => OrderRequestStatus::PENDING->value,
+                'variant' => $data['variant'] ?? 'regular',
             ]);
-        }
 
-        DB::commit();
+            foreach ($data['orders'] as $itemData) {
+                $order->store_order_items()->create([
+                    'item_code' => $itemData['id'],
+                    'quantity_ordered' => $itemData['quantity'],
+                    'total_cost' => $itemData['total_cost'],
+                    'cost_per_quantity' => $itemData['cost'], // CRITICAL FIX: Changed from 'cost_per_item' to 'cost_per_quantity'
+                    'uom' => $itemData['uom'] ?? null
+                ]);
+            }
+
+            DB::commit();
+            return $order;
+        } catch (Exception $e) {
+            DB::rollBack();
+            Log::error("Error in StoreOrderService@createStoreOrder: " . $e->getMessage(), ['trace' => $e->getTraceAsString()]);
+            throw $e;
+        }
     }
 
     public function getPreviousOrderReference()
     {
         if (request()->has('orderId')) {
             $orderId = request()->input('orderId');
-            return StoreOrder::with(['store_order_items', 'store_order_items.product_inventory', 'store_order_items.product_inventory.unit_of_measurement'])->find($orderId);
+            return StoreOrder::with(['store_order_items.supplierItem.sapMasterfile'])->find($orderId);
         }
 
         return null;
@@ -115,26 +142,22 @@ class StoreOrderService
             'store_branch',
             'supplier',
             'store_order_items',
+            'store_order_items.supplierItem.sapMasterfile',
             'store_order_remarks',
             'store_order_remarks.user',
             'ordered_item_receive_dates',
             'ordered_item_receive_dates.receiver',
-            'ordered_item_receive_dates.store_order_item',
-            'ordered_item_receive_dates.store_order_item.product_inventory.unit_of_measurement',
-            // 'image_attachments' => function ($query) {
-            //     $query->where('is_approved', true);
-            // },
+            'ordered_item_receive_dates.store_order_item.supplierItem.sapMasterfile',
             'image_attachments',
         ])->where('order_number', $id)->firstOrFail();
     }
 
     public function getOrderItems(StoreOrder $order)
     {
-        // Make sure you are loading 'supplierItem' here
-        return $order->storeOrderItems()->with('supplierItem')->get();
+        return $order->store_order_items()->with('supplierItem.sapMasterfile')->get();
     }
 
-    public function getImageAttachments(StoreOrder  $order)
+    public function getImageAttachments(StoreOrder $order)
     {
         return $order->image_attachments->map(function ($image) {
             return [
@@ -160,37 +183,51 @@ class StoreOrderService
     public function updateOrder(StoreOrder $order, array $data)
     {
         DB::beginTransaction();
+        try {
+            $supplier = Supplier::where('supplier_code', $data['supplier_id'])->first();
 
-        if ($order->store_branch_id != $data['branch_id'])
-            $order->order_number = $this->getOrderNumber($data['branch_id']);
+            if (!$supplier) {
+                throw new Exception("Supplier with code '{$data['supplier_id']}' not found for update.");
+            }
 
+            if ($order->store_branch_id != $data['branch_id']) {
+                $order->order_number = $this->getOrderNumber($data['branch_id']);
+            }
 
-        $order->update([
-            'supplier_id' => $data['supplier_id'],
-            'store_branch_id' => $data['branch_id'],
-            'order_date' => Carbon::parse($data['order_date'])->addDays(1)->format('Y-m-d'),
-        ]);
+            $order->update([
+                'supplier_id' => $supplier->id,
+                'store_branch_id' => $data['branch_id'],
+                'order_date' => Carbon::parse($data['order_date'])->format('Y-m-d'),
+            ]);
 
-        $updatedProductIds = collect($data['orders'])->pluck('id')->toArray();
+            $updatedSupplierItemCodes = collect($data['orders'])->pluck('id')->toArray();
 
-        $order->store_order_items()
-            ->whereNotIn('product_inventory_id', $updatedProductIds)
-            ->delete();
+            $order->store_order_items()
+                ->whereNotIn('item_code', $updatedSupplierItemCodes)
+                ->delete();
 
-        foreach ($data['orders'] as $data) {
-            $order->store_order_items()->updateOrCreate(
-                [
-                    'store_order_id' => $order->id,
-                    'product_inventory_id' => $data['id'],
-                ],
-                [
-                    'quantity_ordered' => $data['quantity'],
-                    'total_cost' => $data['total_cost'],
-                ]
-            );
+            foreach ($data['orders'] as $itemData) {
+                $order->store_order_items()->updateOrCreate(
+                    [
+                        'store_order_id' => $order->id,
+                        'item_code' => $itemData['id'],
+                    ],
+                    [
+                        'quantity_ordered' => $itemData['quantity'],
+                        'total_cost' => $itemData['total_cost'],
+                        'cost_per_quantity' => $itemData['cost'], // CRITICAL FIX: Changed from 'cost_per_item' to 'cost_per_quantity'
+                        'uom' => $itemData['uom'] ?? null
+                    ]
+                );
+            }
+
+            $order->save();
+            DB::commit();
+            return $order;
+        } catch (Exception $e) {
+            DB::rollBack();
+            Log::error("Error in StoreOrderService@updateOrder: " . $e->getMessage(), ['trace' => $e->getTraceAsString()]);
+            throw $e;
         }
-
-        $order->save();
-        DB::commit();
     }
 }

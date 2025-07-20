@@ -24,7 +24,7 @@ class StoreOrderRequest extends FormRequest
         return [
             // 'store' => ['required', 'exists:Branch,id'],
             // 'store_order_date' => ['required', 'date'],
-            'orders_file' => ['required', 'file', 'mimes:xls,xlsx']
+            'orders_file' => ['required', 'file', 'mimes:xls,xlsx'],
         ];
     }
 }

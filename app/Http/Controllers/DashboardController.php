@@ -6,7 +6,7 @@ use App\Enum\TimePeriod;
 use App\Enum\UserRole;
 use App\Mail\OneTimePasswordMail;
 use App\Models\Branch;
-use App\Models\ProductInventory;
+use App\Models\ProductInventory; // Keep if still used elsewhere, but not for store_order_items joins
 use App\Models\ProductInventoryStock;
 use App\Models\ProductInventoryStockManager;
 use App\Models\StoreBranch;
@@ -14,6 +14,7 @@ use App\Models\StoreOrder;
 use App\Models\StoreOrderItem;
 use App\Models\StoreTransaction;
 use App\Models\StoreTransactionItem;
+use App\Models\SupplierItems; // Import SupplierItems model
 use App\Models\User;
 use Carbon\Carbon;
 use Exception;
@@ -74,21 +75,40 @@ class DashboardController extends Controller
     {
         $accountPayableAll = StoreOrderItem::query()
             ->join('store_orders', 'store_order_items.store_order_id', '=', 'store_orders.id')
-            ->join('product_inventories', 'store_order_items.product_inventory_id', '=', 'product_inventories.id')
+            // CRITICAL FIX: Join with supplier_items on item_code and ItemCode
+            ->join('supplier_items', 'store_order_items.item_code', '=', 'supplier_items.ItemCode')
             ->where('store_orders.store_branch_id', $branch)
             ->where('store_order_items.quantity_received', '>', 0)
-            ->sum(DB::raw('store_order_items.quantity_received * product_inventories.cost'));
+            // CRITICAL FIX: Use supplier_items.cost
+            ->sum(DB::raw('store_order_items.quantity_received * supplier_items.cost'));
 
-        return $cogsAll > 0 && $accountPayableAll > 0 ? ($accountPayableAll / $cogsAll) *  ($chart_time_period == 0 ? 365 : 30) : 0;
+        return $cogsAll > 0 && $accountPayableAll > 0 ? ($accountPayableAll / $cogsAll) * ($chart_time_period == 0 ? 365 : 30) : 0;
     }
 
     public function getTop10Products($branch, $inventory_type)
     {
+        // This method still uses ProductInventoryStock and ProductInventory.
+        // If ProductInventoryStockManager is now the source of truth for stock,
+        // and its 'product_inventory_id' column was renamed to 'item_code' and stores ItemCode,
+        // then this method needs a more significant refactor to join with SupplierItems.
+        // For now, I'm assuming ProductInventoryStock still uses product_inventory_id (integer ID)
+        // and ProductInventory still has a 'cost' column.
+        // If this is NOT the case, please provide the schema/model for ProductInventoryStock
+        // and clarify how its 'product_inventory_id' relates to SupplierItems.
+
+        // If ProductInventoryStock.product_inventory_id has also been changed to store ItemCode
+        // and should join to SupplierItems.ItemCode, then this block needs to be updated.
+        // Assuming 'product_inventories' table and 'product_inventory_id' on 'product_inventory_stocks'
+        // are still in use for *actual inventory stocks* (not related to store orders).
+        // If this is meant to reflect ordered items, then it needs a full rewrite.
+
         $query = ProductInventoryStock::with('product')
             ->where('store_branch_id', $branch)
             ->select('*', DB::raw('(quantity - used) as stock_on_hand'));
 
         if ($inventory_type === 'cost') {
+            // This join assumes product_inventory_stocks.product_inventory_id still links to product_inventories.id
+            // and product_inventories still has a 'cost' column.
             $query->join('product_inventories', 'product_inventory_stocks.product_inventory_id', '=', 'product_inventories.id')
                 ->orderByRaw("(quantity - used) * product_inventories.cost DESC");
         } else {
@@ -98,6 +118,7 @@ class DashboardController extends Controller
         return $query->take(10)
             ->get()
             ->map(function ($item) {
+                // This assumes product->cost is still valid.
                 return [
                     'name' => $item->product->select_option_name,
                     'total_cost' => $item->stock_on_hand * $item->product->cost,
@@ -120,6 +141,11 @@ class DashboardController extends Controller
 
     public function getBeginningInventory($branch)
     {
+        // This method still references 'product_inventory_id' from ProductInventoryStockManager.
+        // If ProductInventoryStockManager's 'product_inventory_id' column was also renamed to 'item_code'
+        // and stores ItemCode, then this part needs an update to reflect that.
+        // Assuming ProductInventoryStockManager still uses product_inventory_id (integer ID)
+        // and relates to ProductInventory for details.
         return ProductInventoryStockManager::select('product_inventory_id')
             ->where('store_branch_id', $branch)
             ->selectRaw('MIN(id) as first_transaction_id')
@@ -129,7 +155,7 @@ class DashboardController extends Controller
             ->map(function ($item) {
                 $transaction = ProductInventoryStockManager::find($item->first_transaction_id);
                 return [
-                    'product_id' => $item->product_inventory_id,
+                    'product_id' => $item->product_inventory_id, // This will be the old integer ID
                     'first_quantity' => $transaction->quantity,
                     'transaction_date' => $transaction->transaction_date,
                     'unit_cost' => $transaction->unit_cost,
@@ -175,7 +201,8 @@ class DashboardController extends Controller
     {
         $accountPayable = StoreOrderItem::query()
             ->join('store_orders', 'store_order_items.store_order_id', '=', 'store_orders.id')
-            ->join('product_inventories', 'store_order_items.product_inventory_id', '=', 'product_inventories.id')
+            // CRITICAL FIX: Join with supplier_items on item_code and ItemCode
+            ->join('supplier_items', 'store_order_items.item_code', '=', 'supplier_items.ItemCode')
             ->where('store_orders.store_branch_id', $branch)
             ->where('store_order_items.quantity_received', '>', 0);
 
@@ -186,7 +213,8 @@ class DashboardController extends Controller
         }
 
         return number_format(
-            $accountPayable->sum(DB::raw('store_order_items.quantity_received * product_inventories.cost')),
+            // CRITICAL FIX: Use supplier_items.cost
+            $accountPayable->sum(DB::raw('store_order_items.quantity_received * supplier_items.cost')),
             2,
             '.',
             ','
@@ -196,7 +224,8 @@ class DashboardController extends Controller
     public function getUpcomingInventories($branch, $time_period)
     {
         $upcomingInventories = StoreOrderItem::query()
-            ->join('product_inventories', 'store_order_items.product_inventory_id', '=', 'product_inventories.id')
+            // CRITICAL FIX: Join with supplier_items on item_code and ItemCode
+            ->join('supplier_items', 'store_order_items.item_code', '=', 'supplier_items.ItemCode')
             ->join('store_orders', 'store_order_items.store_order_id', '=', 'store_orders.id')
             ->where('store_orders.store_branch_id', $branch)
             ->where('store_orders.order_status', 'committed');
@@ -208,7 +237,8 @@ class DashboardController extends Controller
         }
 
         return number_format(
-            $upcomingInventories->sum(DB::raw('store_order_items.quantity_commited * product_inventories.cost')),
+            // CRITICAL FIX: Use supplier_items.cost
+            $upcomingInventories->sum(DB::raw('store_order_items.quantity_commited * supplier_items.cost')),
             2,
             '.',
             ','
@@ -238,15 +268,21 @@ class DashboardController extends Controller
 
     public function getHighStockProducts($branchId)
     {
-        return ProductInventory::with(['inventory_stocks' => function ($query) use ($branchId) {
-            $query->where('store_branch_id', $branchId);
-        }])
+        // This method still uses ProductInventory and product_inventory_stocks.
+        // If these tables are also updated to use ItemCode from SupplierItems,
+        // this method needs to be refactored to join with SupplierItems.
+        // Assuming 'product_inventories' table and 'product_inventory_stocks'
+        // are still in use for *actual inventory stocks* (not related to store orders).
+        $query = ProductInventory::query()
+            ->with(['inventory_stocks' => function ($query) use ($branchId) {
+                $query->where('store_branch_id', $branchId);
+            }])
             ->whereHas('inventory_stocks', function ($query) use ($branchId) {
                 $query->where('store_branch_id', $branchId);
             })
             ->select('product_inventories.*')
-            ->selectRaw('(SELECT SUM(quantity - used) FROM product_inventory_stocks 
-                WHERE product_inventories.id = product_inventory_stocks.product_inventory_id 
+            ->selectRaw('(SELECT SUM(quantity - used) FROM product_inventory_stocks
+                WHERE product_inventories.id = product_inventory_stocks.product_inventory_id
                 AND store_branch_id = ?) as stock_on_hand', [$branchId])
             ->orderByDesc('stock_on_hand')
             ->take(4)
@@ -262,6 +298,11 @@ class DashboardController extends Controller
 
     public function getMostUsedProducts($branchId)
     {
+        // This method still uses ProductInventory and product_inventory_stocks.
+        // If these tables are also updated to use ItemCode from SupplierItems,
+        // this method needs to be refactored to join with SupplierItems.
+        // Assuming 'product_inventories' table and 'product_inventory_stocks'
+        // are still in use for *actual inventory stocks* (not related to store orders).
         return ProductInventory::with(['inventory_stocks' => function ($query) use ($branchId) {
             $query->where('store_branch_id', $branchId);
         }])
@@ -269,8 +310,8 @@ class DashboardController extends Controller
                 $query->where('store_branch_id', $branchId);
             })
             ->select('product_inventories.*')
-            ->selectRaw('(SELECT SUM(used) FROM product_inventory_stocks 
-                WHERE product_inventory_stocks.product_inventory_id = product_inventories.id 
+            ->selectRaw('(SELECT SUM(used) FROM product_inventory_stocks
+                WHERE product_inventory_stocks.product_inventory_id = product_inventories.id
                 AND store_branch_id = ?) as total_used', [$branchId])
             ->orderBy('total_used', 'desc')
             ->take(4)
@@ -285,6 +326,10 @@ class DashboardController extends Controller
 
     public function getLowOnStockItems($branchId)
     {
+        // This method still uses 'product_inventory_id' in usage_records, menu_ingredients, and ProductInventory.
+        // If these tables/models are also updated to use ItemCode from SupplierItems,
+        // this method needs to be refactored.
+        // Assuming 'product_inventory_id' here still refers to an integer ID from ProductInventory.
         $usageRecords = DB::table('usage_records as ur')
             ->join('usage_record_items as uri', 'ur.id', '=', 'uri.usage_record_id')
             ->join('menus as m', 'uri.menu_id', '=', 'm.id')

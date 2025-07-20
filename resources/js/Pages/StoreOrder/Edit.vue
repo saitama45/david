@@ -27,7 +27,7 @@ const props = defineProps({
         type: Object,
         required: true,
     },
-    suppliers: {
+    suppliers: { // This prop contains {supplier_code: name} pairs from Supplier::options()
         type: Object,
         required: true,
     },
@@ -82,27 +82,47 @@ onMounted(() => {
         });
     }
 
-    const selectedSupplier = suppliersOptions.value.find(
-        (option) => option.value === orderForm.supplier_id + ""
-    );
-
-    if (!selectedSupplier) return;
-
-    if (
-        selectedSupplier.label === "GSI OT-BAKERY" ||
-        selectedSupplier.label === "GSI OT-PR"
-    ) {
-        calculateGSIOrderDate();
-    } else if (selectedSupplier.label === "PUL OT-DG") {
-        calculatePULILANOrderDate();
-    }
+    // The initial supplier selection logic is now handled by the orderForm.supplier_id initialization below
+    // and the watch for orderForm.supplier_id.
 
     // Set the flag after initial setup is complete
     isMountedAndReady.value = true;
+
+    // --- NEW LOGGING FOR INITIAL LOAD ---
+    console.log('--- Edit.vue: Initializing orderForm.orders from props.orderedItems ---');
+    console.log('props.orderedItems (raw):', props.orderedItems);
+
+    // Initial population of orderForm.orders
+    // This loop runs when the component is first mounted or props change
+    const initialOrders = [];
+    props.orderedItems.forEach((item, index) => {
+        console.log(`Processing initial item ${index}:`, item);
+        // CRITICAL FIX: Use item.cost_per_quantity directly from the ordered item
+        console.log(`item.cost_per_quantity for item ${index}:`, item.cost_per_quantity);
+
+        const product = {
+            id: item.supplier_item.ItemCode,
+            inventory_code: item.supplier_item.ItemCode,
+            name: item.supplier_item.item_name,
+            unit_of_measurement: item.supplier_item.uom,
+            base_uom: item.supplier_item.sap_masterfile?.BaseUOM || null,
+            quantity: item.quantity_ordered,
+            cost: Number(item.cost_per_quantity), // CRITICAL FIX: Use cost_per_quantity from the order item
+            total_cost: parseFloat(
+                item.quantity_ordered * Number(item.cost_per_quantity) // CRITICAL FIX: Use cost_per_quantity for calculation
+            ).toFixed(2),
+            uom: item.supplier_item.uom,
+        };
+        initialOrders.push(product);
+        console.log(`Mapped product for item ${index}:`, product);
+    });
+    orderForm.orders = initialOrders;
+    console.log('orderForm.orders after initial population:', orderForm.orders);
+    // --- END NEW LOGGING ---
 });
 
 const { options: branchesOptions } = useSelectOptions(props.branches);
-const { options: suppliersOptions } = useSelectOptions(props.suppliers);
+const { options: suppliersOptions } = useSelectOptions(props.suppliers); // This already has supplier_code as value
 
 const availableProductsOptions = ref([]);
 
@@ -110,10 +130,11 @@ const productId = ref(null);
 const isLoading = ref(false);
 
 const orderForm = useForm({
-    supplier_id: props.order.supplier_id + "",
+    // CRITICAL FIX: Initialize supplier_id with the supplier_code from the order prop
+    supplier_id: props.order.supplier.supplier_code + "", 
     branch_id: props.order.store_branch_id + "",
     order_date: props.order.order_date, // Initialize with string from props.order.order_date
-    orders: [],
+    orders: [], // Initialize as empty, will be populated in onMounted
 });
 console.log('Initial Order Date (string) from props (setup):', orderForm.order_date);
 
@@ -157,37 +178,20 @@ const itemForm = useForm({
 });
 
 const productDetails = reactive({
-    id: null,
-    inventory_code: null,
-    name: null,
-    unit_of_measurement: null,
-    base_uom: null,
+    id: null, // This will be the ItemCode (string) that gets stored in item_code column
+    inventory_code: null, // This will be the ItemCode (string)
+    name: null, // This will be the item_name
+    unit_of_measurement: null, // This will be the uom for display
+    base_uom: null, // From sap_masterfile
     quantity: null,
     cost: null,
     total_cost: null,
+    uom: null, // This will be the uom for backend submission
 });
 
-props.orderedItems.forEach((item) => {
-    // --- DEBUGGING LOG FOR EXISTING ITEMS ---
-    // console.log("Existing Ordered Item:", item);
-    // console.log("Existing Supplier Item:", item.supplier_item);
-    // console.log("Existing SAP Masterfile (from supplier_item):", item.supplier_item?.sap_masterfile);
-    // console.log("Existing BaseUOM:", item.supplier_item?.sap_masterfile?.BaseUOM);
-    // --- END DEBUGGING LOG ---
-    const product = {
-        id: item.supplier_item.id,
-        inventory_code: item.supplier_item.ItemCode,
-        name: item.supplier_item.item_name,
-        unit_of_measurement: item.supplier_item.uom,
-        base_uom: item.supplier_item.sap_masterfile.BaseUOM,
-        quantity: item.quantity_ordered,
-        cost: item.supplier_item.cost,
-        total_cost: parseFloat(
-            item.quantity_ordered * item.supplier_item.cost
-        ).toFixed(2),
-    };
-    orderForm.orders.push(product);
-});
+// The initial population logic has been moved to onMounted to ensure props are fully available
+// props.orderedItems.forEach((item) => { ... });
+
 
 const addItemQuantity = (id) => {
     const index = orderForm.orders.findIndex((item) => item.id === id);
@@ -251,6 +255,16 @@ const addToOrdersButton = () => {
         itemForm.setError("quantity", "Quantity must be at least 0.1 and a valid number");
         return;
     }
+    // CRITICAL FIX: Add validation for cost being 0 or null
+    if (productDetails.cost === null || Number(productDetails.cost) === 0) {
+        toast.add({
+            severity: "error",
+            summary: "Validation Error",
+            detail: "Item cost cannot be zero or empty.",
+            life: 5000,
+        });
+        return;
+    }
 
     if (
         !productDetails.inventory_code ||
@@ -282,7 +296,9 @@ const addToOrdersButton = () => {
         productDetails.total_cost = parseFloat(
             Number(productDetails.cost * productDetails.quantity)
         ).toFixed(2);
-        orderForm.orders.push({ ...productDetails });
+        // CRITICAL FIX: Ensure the 'id' property of the product object is ItemCode
+        // Also ensure 'uom' is included when pushing to orders
+        orderForm.orders.push({ ...productDetails, id: productDetails.inventory_code, uom: productDetails.unit_of_measurement });
     }
 
     Object.keys(productDetails).forEach((key) => {
@@ -363,27 +379,51 @@ const update = () => {
     });
 };
 
-watch(productId, async (newValue) => {
-    if (newValue) {
+watch(productId, async (itemCode) => { // newValue is now itemCode
+    if (itemCode) {
         isLoading.value = true;
-        itemForm.item = newValue;
+        itemForm.item = itemCode;
 
         try {
-            const response = await axios.get(route("SupplierItems.details.json", newValue));
-            const result = response.data;
+            // Get the supplier code from the form's selected supplier_id
+            // orderForm.supplier_id now holds the supplier_code string directly
+            const supplierCode = orderForm.supplier_id; 
 
-            // --- DEBUGGING LOG FOR NEWLY FETCHED ITEMS ---
-            // console.log("Newly Fetched Item Details (result):", result);
-            // console.log("SAP Masterfile (from result):", result.sap_masterfile);
-            // console.log("BaseUOM (from result):", result.sap_masterfile?.BaseUOM);
-            // --- END DEBUGGING LOG ---
+            if (!supplierCode) {
+                console.error("Supplier code not found for selected supplier ID:", orderForm.supplier_id);
+                toast.add({
+                    severity: "error",
+                    summary: "Error",
+                    detail: "Failed to determine supplier code.",
+                    life: 5000,
+                });
+                isLoading.value = false;
+                return;
+            }
 
-            productDetails.id = result.id;
-            productDetails.name = result.item_name;
-            productDetails.inventory_code = result.ItemCode;
-            productDetails.unit_of_measurement = result.uom;
-            productDetails.base_uom = result.base_uom;
-            productDetails.cost = result.cost;
+            // Route to fetch details by ItemCode and SupplierCode
+            const response = await axios.get(route("SupplierItems.get-details-by-code", {
+                itemCode: itemCode,
+                supplierCode: supplierCode // Pass supplierCode (string) directly
+            }));
+            const result = response.data.item; // Assuming the API returns { item: {...} }
+
+            if (result) {
+                productDetails.id = result.ItemCode; // Assign ItemCode to productDetails.id
+                productDetails.name = result.item_name;
+                productDetails.inventory_code = result.ItemCode;
+                productDetails.unit_of_measurement = result.uom;
+                productDetails.base_uom = result.sap_masterfile?.BaseUOM || null; // Safely access nested property
+                productDetails.cost = result.cost;
+                productDetails.uom = result.uom; // CRITICAL FIX: Assign uom here
+            } else {
+                toast.add({
+                    severity: "error",
+                    summary: "Error",
+                    detail: "Item details not found.",
+                    life: 5000,
+                });
+            }
         } catch (err) {
             console.error("Error fetching supplier item details:", err);
             toast.add({
@@ -400,7 +440,7 @@ watch(productId, async (newValue) => {
             productDetails[key] = null;
         });
     }
-});
+}, { deep: true });
 
 const orderRestrictionDate = reactive({
     minDate: null,
@@ -463,7 +503,7 @@ const computeOverallTotal = computed(() => {
 
 watch(
     () => orderForm.supplier_id,
-    async (supplierId) => {
+    async (supplierCode) => { // supplierCode is now the string code
         // Only reset order_date if the component is mounted and ready,
         // preventing it from nullifying the initial date from props.
         if (isMountedAndReady.value) { 
@@ -476,25 +516,19 @@ watch(
 
         availableProductsOptions.value = [];
 
-        if (!supplierId) {
+        if (!supplierCode) {
             return;
         }
 
         try {
-            const supplierResponse = await axios.get(route('suppliers.show', supplierId));
-            const supplierCode = supplierResponse.data.supplier_code;
-
-            if (supplierCode) {
-                isLoading.value = true;
-                const response = await axios.get(route('store-orders.get-supplier-items', supplierCode));
-                availableProductsOptions.value = response.data.items;
-                isLoading.value = false;
-            } else {
-                console.error("Supplier code could not be determined for selected supplier ID:", supplierId);
-            }
+            isLoading.value = true;
+            // Directly use supplierCode to fetch items
+            const response = await axios.get(route('store-orders.get-supplier-items', supplierCode));
+            availableProductsOptions.value = response.data.items;
+            isLoading.value = false;
 
         } catch (error) {
-            console.error("Error fetching supplier or supplier items:", error);
+            console.error("Error fetching supplier items:", error);
             toast.add({
                 severity: "error",
                 summary: "Error",
@@ -505,7 +539,7 @@ watch(
         }
 
         const selectedSupplier = suppliersOptions.value.find(
-            (option) => option.value === supplierId + ""
+            (option) => option.value === supplierCode // Match by supplierCode (string)
         );
 
         if (selectedSupplier) {
@@ -566,14 +600,51 @@ const addImportedItemsToOrderList = () => {
         })
         .then((response) => {
             response.data.orders.forEach((importedOrder) => {
+                // --- Start: Debugging Logs ---
+                console.log('--- Processing importedOrder from Excel import ---');
+                console.log('Raw importedOrder from backend (Excel import):', importedOrder);
+                // --- End: Debugging Logs ---
+
+                // Normalize keys from backend response for easier access
+                const itemCode = importedOrder.item_code || importedOrder.ItemCode || importedOrder.inventory_code;
+                const itemName = importedOrder.item_name || importedOrder.ItemName || importedOrder.name;
+                const quantity = Number(importedOrder.qty || importedOrder.Qty || importedOrder.quantity);
+                const cost = Number(importedOrder.cost || importedOrder.Cost);
+                const unit = importedOrder.unit || importedOrder.UOM || importedOrder.unit_of_measurement;
+
+                // --- Start: Debugging Logs ---
+                console.log('Normalized values (Excel import) - itemCode:', itemCode, 'itemName:', itemName, 'quantity:', quantity, 'cost:', cost, 'unit:', unit);
+                // --- End: Debugging Logs ---
+
+                // Validate cost for imported items
+                if (isNaN(cost) || cost === 0) {
+                    toast.add({
+                        severity: "error",
+                        summary: "Validation Error",
+                        detail: `Imported item '${itemName || itemCode || 'Unknown Item'}' has a cost of zero or is invalid and will be skipped.`,
+                        life: 7000,
+                    });
+                    return; // Skip this item
+                }
+
+                // Validate quantity for imported items
+                if (isNaN(quantity) || quantity < 0.1) {
+                    toast.add({
+                        severity: "error",
+                        summary: "Validation Error",
+                        detail: `Imported item '${itemName || itemCode || 'Unknown Item'}' has an invalid quantity and will be skipped. Quantity must be at least 0.1.`,
+                        life: 7000,
+                    });
+                    return; // Skip this item
+                }
+
                 const existingItemIndex = orderForm.orders.findIndex(
-                    (order) => order.id === importedOrder.id
+                    (order) => order.inventory_code === itemCode
                 );
 
                 if (existingItemIndex !== -1) {
                     const updatedQuantity =
-                        orderForm.orders[existingItemIndex].quantity +
-                        Number(importedOrder.quantity);
+                        orderForm.orders[existingItemIndex].quantity + quantity;
                     orderForm.orders[existingItemIndex].quantity =
                         updatedQuantity;
                     orderForm.orders[existingItemIndex].total_cost = parseFloat(
@@ -581,12 +652,21 @@ const addImportedItemsToOrderList = () => {
                             orderForm.orders[existingItemIndex].cost
                     ).toFixed(2);
                 } else {
-                    orderForm.orders.push({
-                        ...importedOrder,
-                        total_cost: parseFloat(
-                            importedOrder.quantity * importedOrder.cost
-                        ).toFixed(2),
-                    });
+                    const newItem = {
+                        id: itemCode, 
+                        inventory_code: itemCode, 
+                        name: itemName, 
+                        unit_of_measurement: unit, 
+                        base_uom: importedOrder.base_uom || null, 
+                        quantity: quantity, 
+                        cost: cost, 
+                        uom: unit, 
+                        total_cost: parseFloat(quantity * cost).toFixed(2),
+                    };
+                    orderForm.orders.push(newItem);
+                    // --- Start: Debugging Logs ---
+                    console.log('Added new item to orderForm.orders (Excel import):', newItem); 
+                    // --- End: Debugging Logs ---
                 }
             });
 
@@ -606,7 +686,7 @@ const addImportedItemsToOrderList = () => {
                 detail: "An error occured while trying to get the imported orders. Please make sure that you are using the correct format.",
                 life: 5000,
             });
-            excelFileForm.setError("orders_file", error.response.data.message);
+            excelFileForm.setError("orders_file", error.response.data.message || "Unknown error during import.");
             console.log(error);
         })
         .finally(() => (isLoading.value = false));
@@ -695,8 +775,16 @@ const addImportedItemsToOrderList = () => {
                                 :options="availableProductsOptions"
                                 optionLabel="label"
                                 optionValue="value"
-                                :disabled="!isSupplierSelected"
+                                :disabled="!isSupplierSelected || isLoading"
                             >
+                                <template #empty>
+                                    <div v-if="isLoading" class="p-4 text-center text-gray-500">
+                                        Loading items...
+                                    </div>
+                                    <div v-else class="p-4 text-center text-gray-500">
+                                        No items available for this supplier.
+                                    </div>
+                                </template>
                             </Select>
                             <FormError>{{ itemForm.errors.item }}</FormError>
                         </div>
@@ -729,7 +817,7 @@ const addImportedItemsToOrderList = () => {
                     </CardContent>
 
                     <CardFooter class="flex justify-end">
-                        <Button @click="addToOrdersButton">
+                        <Button @click="addToOrdersButton" :disabled="isLoading">
                             Add to Orders
                         </Button>
                     </CardFooter>
@@ -877,7 +965,6 @@ const addImportedItemsToOrderList = () => {
                 </DialogFooter>
             </DialogContent>
         </Dialog>
-
         <Dialog v-model:open="visible">
             <DialogContent class="sm:max-w-[600px]">
                 <DialogHeader>

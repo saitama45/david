@@ -204,7 +204,7 @@ watch(importSummary, (newValue) => {
                     <TH>Item Code</TH>
                     <TH>Item Name</TH> <!-- Re-included Item Name header -->
                     <TH>Packaging Config</TH>
-                    <TH>UOM</TH>
+                    <TH>Unit</TH>
                     <TH>Cost</TH> 
                     <TH>SRP</TH> <!-- Added SRP header -->
                     <TH>Supplier Code</TH>

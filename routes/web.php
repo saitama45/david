@@ -409,6 +409,10 @@ Route::middleware('auth')
 
                 Route::get('/SupplierItems-list/export', 'export')->name('export');
             });
+
+            // NEW ROUTE: To fetch specific supplier item details by ItemCode and SupplierCode
+            // This route now matches your existing naming convention and prefix.
+            Route::get('/SupplierItems-list/details-by-code/{itemCode}/{supplierCode}', 'getDetailsByItemCodeAndSupplierCode')->name('get-details-by-code');
         });
 
         // POSMasterfile

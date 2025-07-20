@@ -298,4 +298,18 @@ class SupplierItemsController extends Controller
             'Content-Disposition' => 'attachment; filename="' . $fileName . '"',
         ]);
     }
+
+    public function getDetailsByItemCodeAndSupplierCode($itemCode, $supplierCode)
+    {
+        $item = SupplierItems::where('ItemCode', $itemCode)
+                            ->where('SupplierCode', $supplierCode)
+                            ->with('sapMasterfile') // Eager load sapMasterfile
+                            ->first();
+
+        if (!$item) {
+            return response()->json(['message' => 'Item not found.'], 404);
+        }
+
+        return response()->json(['item' => $item]);
+    }
 }

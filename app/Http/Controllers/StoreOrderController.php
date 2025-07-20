@@ -6,7 +6,7 @@ use App\Enum\OrderRequestStatus;
 use App\Enum\OrderStatus;
 use App\Exports\StoreOrdersExport;
 use App\Exports\UsersExport;
-use App\Http\Requests\StoreOrder\StoreOrderRequest;
+use App\Http\Requests\StoreOrder\StoreOrderRequest; // Ensure this is the correct namespace
 use App\Http\Requests\StoreOrder\UpdateOrderRequest;
 use App\Http\Services\StoreOrderService;
 use App\Imports\OrderListImport;
@@ -24,7 +24,7 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Storage;
 use Maatwebsite\Excel\Facades\Excel;
 use App\Models\SupplierItems;
-
+use Illuminate\Support\Facades\Log; // Import Log facade
 
 class StoreOrderController extends Controller
 {
@@ -64,59 +64,40 @@ class StoreOrderController extends Controller
 
     public function create()
     {
-        $products = ProductInventory::options();
         $suppliers = Supplier::whereNot('supplier_code', 'DROPS')->options();
         $branches = StoreBranch::options();
 
         return Inertia::render('StoreOrder/Create', [
-            'products' => $products,
             'branches' => $branches,
             'suppliers' => $suppliers,
             'previousOrder' => $this->storeOrderService->getPreviousOrderReference()
         ]);
     }
 
+    // REVISED: Store method with improved error handling and correct StoreOrderRequest usage
     public function store(StoreOrderRequest $request)
     {
         try {
             $this->storeOrderService->createStoreOrder($request->validated());
+            return redirect()->route('store-orders.index')->with('success', 'Order placed successfully!');
         } catch (Exception $e) {
-            DB::rollBack();
+            Log::error("Error creating store order: " . $e->getMessage(), ['trace' => $e->getTraceAsString()]);
+            return back()->withErrors(['error' => 'Failed to place order: ' . $e->getMessage()]);
         }
-
-        return redirect()->route('store-orders.index');
     }
-
-    // public function show($id)
-    // {
-    //     $order = $this->storeOrderService->getOrderDetails($id);
-    //     $orderedItems = $this->storeOrderService->getOrderItems($order);
-    //     $orderedItems->load('supplierItem'); // Ensure this is also present if Show.vue uses it
-    //     return Inertia::render('StoreOrder/Show', [
-    //         'order' => $order,
-    //         'orderedItems' => $orderedItems,
-    //         'receiveDatesHistory' => $order->ordered_item_receive_dates,
-    //         'images' =>  $this->storeOrderService->getImageAttachments($order)
-    //     ]);
-    // }
 
     public function show($id)
     {
-        // Eager load the necessary relationships for the main order object
-        // This ensures 'ordered_item_receive_dates' and its nested 'store_order_item.supplierItem' are available
         $order = $this->storeOrderService->getOrderDetails($id);
-
-        // Load nested relationships for 'receiveDatesHistory' specifically
-        // Assuming 'ordered_item_receive_dates' is a relationship on the StoreOrder model
         $order->load(['ordered_item_receive_dates.store_order_item.supplierItem.sapMasterfile']);
 
         $orderedItems = $this->storeOrderService->getOrderItems($order);
-        $orderedItems->load('supplierItem.sapMasterfile'); // This line is for the 'orderedItems' prop, it seems correct for that table
+        $orderedItems->load('supplierItem.sapMasterfile');
 
         return Inertia::render('StoreOrder/Show', [
             'order' => $order,
             'orderedItems' => $orderedItems,
-            'receiveDatesHistory' => $order->ordered_item_receive_dates, // This will now contain the eager-loaded data for the modal
+            'receiveDatesHistory' => $order->ordered_item_receive_dates,
             'images' => $this->storeOrderService->getImageAttachments($order)
         ]);
     }
@@ -131,12 +112,10 @@ class StoreOrderController extends Controller
         ]);
     }
 
-
     public function edit($id)
     {
         $order = $this->storeOrderService->getOrder($id);
         $orderedItems = $this->storeOrderService->getOrderItems($order);
-        // $products = ProductInventory::options();
         $orderedItems->load('supplierItem.sapMasterfile'); 
         $suppliers = Supplier::options();
         $branches = StoreBranch::options();
@@ -144,38 +123,40 @@ class StoreOrderController extends Controller
         return Inertia::render('StoreOrder/Edit', [
             'order' => $order,
             'orderedItems' => $orderedItems,
-            // 'products' => $products,
             'branches' => $branches,
             'suppliers' => $suppliers
         ]);
     }
 
+    // REVISED: Update method with improved error handling
     public function update(UpdateOrderRequest $request, StoreOrder $storeOrder)
     {
-        $order =  $storeOrder->load('store_order_items');
-        $this->storeOrderService->updateOrder($order, $request->validated());
-
-        return redirect()->route('store-orders.index');
+        $order = $storeOrder->load('store_order_items');
+        try {
+            $this->storeOrderService->updateOrder($order, $request->validated());
+            return redirect()->route('store-orders.index')->with('success', 'Order updated successfully!');
+        } catch (Exception $e) {
+            Log::error("Error updating store order: " . $e->getMessage(), ['trace' => $e->getTraceAsString()]);
+            return back()->withErrors(['error' => 'Failed to update order: ' . $e->getMessage()]);
+        }
     }
 
-    // getSupplierItems method to use route parameter and SupplierItems::options()
-    public function getSupplierItems($supplierCode) // Changed to use route parameter
+    // getSupplierItems method now correctly takes supplierCode (string)
+    public function getSupplierItems($supplierCode) // Expects supplierCode (string)
     {
-        // Find the supplier to get its internal ID if you need to enforce a relationship,
-        // otherwise, directly use the $supplierCode on SupplierItems.
-        
+        // Use the SupplierItems::options() scope which returns ItemCode => CONCAT(item_name, ' (', ItemCode, ') ', uom)
         $supplierItems = SupplierItems::where('SupplierCode', $supplierCode)
-                                       ->where('is_active', true) // Only active items
-                                       ->options() // Use the options scope from SupplierItems
+                                       ->where('is_active', true)
+                                       ->options() // This scope returns ItemCode => CONCAT(item_name, ' (', ItemCode, ') ', uom)
                                        ->all(); // Convert the collection to an array of value/label pairs
 
-        // The options scope returns an associative array, but useSelectOptions expects an object
-        // So, we'll convert it manually to the format useSelectOptions expects: {value: 'id', label: 'name'}
+        // The options scope returns an associative array (ItemCode => formatted_name),
+        // we need to convert it to the {value: 'ItemCode', label: 'formatted_name'} format expected by Select component.
         $formattedSupplierItems = [];
-        foreach ($supplierItems as $id => $name) {
+        foreach ($supplierItems as $itemCode => $formattedName) {
             $formattedSupplierItems[] = [
-                'value' => (string) $id, // Ensure value is a string if your v-model expects it
-                'label' => $name
+                'value' => (string) $itemCode, // Ensure ItemCode is a string
+                'label' => $formattedName // Use the concatenated name as the label
             ];
         }
 

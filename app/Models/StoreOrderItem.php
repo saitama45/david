@@ -13,7 +13,7 @@ class StoreOrderItem extends Model implements Auditable
 
     protected $fillable = [
         'store_order_id',
-        'product_inventory_id', // This column now acts as the foreign key to supplier_items.id
+        'item_code', 
         'quantity_ordered',
         'quantity_approved',
         'quantity_commited',
@@ -34,12 +34,10 @@ class StoreOrderItem extends Model implements Auditable
         return $this->belongsTo(StoreOrder::class);
     }
 
-    // RENAMED and UPDATED this relationship to point to SupplierItems
-    public function supplierItem() // <--- NEW METHOD NAME
+    public function supplierItem()
     {
-        return $this->belongsTo(SupplierItems::class, 'product_inventory_id', 'id');
-        // "This 'product_inventory_id' column in StoreOrderItem
-        // is actually the foreign key for the 'id' column in the SupplierItems table."
+        // CRITICAL FIX: Link 'item_code' (on this model) to 'ItemCode' (on SupplierItems)
+        return $this->belongsTo(SupplierItems::class, 'item_code', 'ItemCode');
     }
 
     // comment out or remove the old product_inventory relationship

@@ -169,7 +169,7 @@ const enlargeImage = (image) => {
                         <tr v-for="order in orderedItems" :key="order.id">
                             <TD>{{ order.supplier_item?.ItemCode }}</TD>
                             <TD>{{ order.supplier_item?.item_name }}</TD>
-                            <TD>{{ order.uom }}</TD> 
+                            <TD>{{ order.supplier_item?.uom }}</TD> <!-- CRITICAL FIX: Changed to order.supplier_item?.uom -->
                             <TD>{{ order.quantity_ordered }}</TD>
                             <TD>{{ order.quantity_approved }}</TD>
                             <TD>{{ order.quantity_commited }}</TD>
@@ -200,6 +200,7 @@ const enlargeImage = (image) => {
                             :title="`${order.supplier_item?.item_name} (${order.supplier_item?.ItemCode})`"
                         >
                         </MobileTableHeading>
+                        <LabelXS>UOM: {{ order.supplier_item?.uom }}</LabelXS> <!-- CRITICAL FIX: Changed to order.supplier_item?.uom -->
                         <LabelXS>Ordered: {{ order.quantity_ordered }}</LabelXS>
                         <LabelXS
                             >Approved: {{ order.quantity_approved }}</LabelXS
@@ -294,6 +295,7 @@ const enlargeImage = (image) => {
                         >
                         </MobileTableHeading>
                         <LabelXS>Remarks: {{ remarks.remarks }}</LabelXS>
+                        <LabelXS>Created at: {{ remarks.created_at }}</LabelXS>
                     </MobileTableRow>
                     <SpanBold v-if="order.store_order_remarks.length < 1"
                         >None</SpanBold
@@ -372,6 +374,7 @@ const enlargeImage = (image) => {
                             :title="`${history.store_order_item?.supplier_item?.item_name} (${history.store_order_item?.supplier_item?.ItemCode})`"
                         >
                         </MobileTableHeading>
+                        <LabelXS>UOM: {{ history.store_order_item?.uom }}</LabelXS> <!-- Added UOM here -->
                         <LabelXS
                             >Received: {{ history.quantity_received }}</LabelXS
                         >

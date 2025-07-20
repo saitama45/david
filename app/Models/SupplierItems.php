@@ -33,17 +33,21 @@ class SupplierItems extends Model implements Auditable
     protected $casts = [
         'created_at' => 'datetime',
         'updated_at' => 'datetime',
+        'cost' => 'float', // CRITICAL FIX: Explicitly cast 'cost' to float
     ];
 
     protected $primaryKey = 'id';
     public $incrementing = true;
 
-    // new scope to format data for select options
+   // Define the options scope to return ItemCode as value and a concatenated string as label
     public function scopeOptions(Builder $query)
     {
-        // 'id' for value, and a combined 'item_name (ItemCode)' for label is a good practice
-        return $query->select('id', DB::raw("CONCAT(item_name, ' (', ItemCode, ') ', uom) as name"))
-                     ->pluck('name', 'id');
+        // Select ItemCode as the value, and a concatenated string for the label
+        return $query->select(
+                'ItemCode',
+                DB::raw("CONCAT(item_name, ' (', ItemCode, ') ', uom) as name")
+            )
+            ->pluck('name', 'ItemCode'); // Pluck the 'name' (concatenated string) as value and 'ItemCode' as key
     }
 
     // relationship back to Supplier

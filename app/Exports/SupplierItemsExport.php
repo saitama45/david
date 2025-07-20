@@ -66,7 +66,7 @@ class SupplierItemsExport implements FromQuery, WithHeadings, WithMapping, WithS
             'Item Code',
             'Item Name', // Re-included item_name
             'Packaging Config',
-            'UOM',
+            'Unit',
             'Cost',
             'SRP', // Re-included SRP
             'Supplier Code',

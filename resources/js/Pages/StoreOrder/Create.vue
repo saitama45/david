@@ -44,11 +44,12 @@ const { options: branchesOptions } = useSelectOptions(props.branches);
 // availableProductsOptions will now be directly populated from API
 const availableProductsOptions = ref([]);
 
+// suppliersOptions will now directly map supplier_code to value and name to label
 const { options: suppliersOptions } = useSelectOptions(props.suppliers);
 
 import { useForm } from "@inertiajs/vue3";
 
-const productId = ref(null);
+const productId = ref(null); // This will now hold the ItemCode of the selected SupplierItem
 const visible = ref(false);
 const isLoading = ref(false);
 
@@ -59,12 +60,12 @@ watch(visible, (newValue) => {
     }
 });
 
-const productDetails = reactive({ // Renamed for clarity in previous response, sticking to productDetails for consistency with user's current code
-    id: null,
-    inventory_code: null,
-    name: null,
-    unit_of_measurement: null,
-    base_uom: null,
+const productDetails = reactive({
+    id: null, // This will be the ItemCode (string) that gets stored in item_code column
+    inventory_code: null, // This will be the ItemCode (string)
+    name: null, // This will be the item_name
+    unit_of_measurement: null, // This will be the uom
+    base_uom: null, // From sap_masterfile
     quantity: null,
     cost: null,
     total_cost: null,
@@ -76,8 +77,8 @@ const excelFileForm = useForm({
 });
 
 const orderForm = useForm({
-    branch_id: previousOrder?.store_branch_id ? previousOrder.store_branch_id + "" : null, // Initialize with null if previousOrder or its branch_id is undefined
-    supplier_id: previousOrder?.supplier_id ? previousOrder.supplier_id + "" : null, // Initialize with null if previousOrder or its supplier_id is undefined
+    branch_id: previousOrder?.store_branch_id ? previousOrder.store_branch_id + "" : null,
+    supplier_id: previousOrder?.supplier_id ? previousOrder.supplier_id + "" : null, // This will now hold supplier_code (string)
     order_date: null,
     orders: [],
 });
@@ -89,7 +90,7 @@ const computeOverallTotal = computed(() => {
 });
 
 const itemForm = useForm({
-    item: null,
+    item: null, // This will hold the ItemCode when an item is selected in the dropdown
 });
 
 const store = () => {
@@ -141,10 +142,11 @@ const store = () => {
                     localStorage.removeItem("storeStoreOrderDraft");
                 },
                 onError: (e) => {
+                    const errorMessage = e.error || "Can't place the order.";
                     toast.add({
                         severity: "error",
                         summary: "Error",
-                        detail: "Can't place the order.",
+                        detail: errorMessage,
                         life: 5000,
                     });
                 },
@@ -153,42 +155,65 @@ const store = () => {
     });
 };
 
-// Adjust this watch to fetch SupplierItem details from a new endpoint
-watch(productId, (newValue) => {
-    if (newValue) {
+watch(productId, async (itemCode) => {
+    if (itemCode) {
         isLoading.value = true;
-        itemForm.item = newValue; // productId is the ID of the SupplierItem
+        itemForm.item = itemCode;
 
-        // Fetch details of the selected SupplierItem
-        axios
-            .get(route("SupplierItems.details.json", newValue)) // <--- **This route should be defined in web.php**
-            .then((response) => response.data)
-            .then((result) => {
-                productDetails.id = result.id;
-                productDetails.name = result.item_name; // From supplier_items table
-                productDetails.inventory_code = result.ItemCode; // From supplier_items table
-                productDetails.unit_of_measurement = result.uom; // From supplier_items table
-                productDetails.base_uom = result.sap_masterfile.BaseUOM;
-                productDetails.cost = result.cost; // From supplier_items table
-                productDetails.uom = result.uom; // Redundant, but keeping for consistency if needed
-            })
-            .catch((err) => {
-                console.error("Error fetching supplier item details:", err);
+        try {
+            const supplierCode = orderForm.supplier_id;
+
+            if (!supplierCode) {
+                console.error("Supplier code not found for selected supplier ID:", orderForm.supplier_id);
                 toast.add({
                     severity: "error",
                     summary: "Error",
-                    detail: "Failed to load item details.",
+                    detail: "Failed to determine supplier code.",
                     life: 5000,
                 });
-            })
-            .finally(() => (isLoading.value = false));
+                isLoading.value = false;
+                return;
+            }
+
+            const response = await axios.get(route("SupplierItems.get-details-by-code", {
+                itemCode: itemCode,
+                supplierCode: supplierCode
+            }));
+            const result = response.data.item;
+
+            if (result) {
+                productDetails.id = result.ItemCode; // Assign ItemCode to productDetails.id
+                productDetails.name = result.item_name;
+                productDetails.inventory_code = result.ItemCode;
+                productDetails.unit_of_measurement = result.uom;
+                productDetails.base_uom = result.sap_masterfile?.BaseUOM || null;
+                productDetails.cost = result.cost;
+                productDetails.uom = result.uom;
+            } else {
+                toast.add({
+                    severity: "error",
+                    summary: "Error",
+                    detail: "Item details not found.",
+                    life: 5000,
+                });
+            }
+        } catch (err) {
+            console.error("Error fetching supplier item details:", err);
+            toast.add({
+                severity: "error",
+                summary: "Error",
+                detail: "Failed to load item details.",
+                life: 5000,
+            });
+        } finally {
+            isLoading.value = false;
+        }
     } else {
-        // Clear productDetails if productId is null (item deselected)
         Object.keys(productDetails).forEach((key) => {
             productDetails[key] = null;
         });
     }
-});
+}, { deep: true });
 
 const importOrdersButton = () => {
     visible.value = true;
@@ -200,9 +225,18 @@ const addToOrdersButton = () => {
         itemForm.setError("item", "Item field is required");
         return;
     }
-    // Check if productDetails.quantity is a valid number before comparing
     if (isNaN(Number(productDetails.quantity)) || Number(productDetails.quantity) < 0.1) {
         itemForm.setError("quantity", "Quantity must be at least 0.1 and a valid number");
+        return;
+    }
+    // CRITICAL FIX: Add validation for cost being 0 or null
+    if (productDetails.cost === null || Number(productDetails.cost) === 0) {
+        toast.add({
+            severity: "error",
+            summary: "Validation Error",
+            detail: "Item cost cannot be zero or empty.",
+            life: 5000,
+        });
         return;
     }
 
@@ -211,7 +245,7 @@ const addToOrdersButton = () => {
         !productDetails.name ||
         !productDetails.unit_of_measurement ||
         !productDetails.quantity ||
-        productDetails.cost === null // Ensure cost is loaded
+        productDetails.cost === null
     ) {
         toast.add({
             severity: "error",
@@ -223,7 +257,7 @@ const addToOrdersButton = () => {
     }
 
     const existingItemIndex = orderForm.orders.findIndex(
-        (order) => order.id === productDetails.id
+        (order) => order.inventory_code === productDetails.inventory_code
     );
 
     if (existingItemIndex !== -1) {
@@ -236,10 +270,10 @@ const addToOrdersButton = () => {
         productDetails.total_cost = parseFloat(
             productDetails.cost * productDetails.quantity
         ).toFixed(2);
-        orderForm.orders.push({ ...productDetails });
+        // CRITICAL FIX: Ensure the 'id' property of the product object is ItemCode
+        orderForm.orders.push({ ...productDetails, id: productDetails.inventory_code });
     }
 
-    // Clear productDetails and productId after adding
     Object.keys(productDetails).forEach((key) => {
         productDetails[key] = null;
     });
@@ -268,7 +302,7 @@ const addImportedItemsToOrderList = () => {
         .then((response) => {
             response.data.orders.forEach((importedOrder) => {
                 const existingItemIndex = orderForm.orders.findIndex(
-                    (order) => order.id === importedOrder.id
+                    (order) => order.inventory_code === importedOrder.inventory_code
                 );
 
                 if (existingItemIndex !== -1) {
@@ -282,8 +316,10 @@ const addImportedItemsToOrderList = () => {
                             orderForm.orders[existingItemIndex].cost
                     ).toFixed(2);
                 } else {
+                    // CRITICAL FIX: Ensure the 'id' property of the imported order is ItemCode
                     orderForm.orders.push({
                         ...importedOrder,
+                        id: importedOrder.inventory_code, // Assuming importedOrder.inventory_code is the ItemCode
                         total_cost: parseFloat(
                             importedOrder.quantity * importedOrder.cost
                         ).toFixed(2),
@@ -418,41 +454,29 @@ const calculateGSIOrderDate = () => {
     }
 };
 
-// This watch block is critical for fetching filtered items
 watch(
     () => orderForm.supplier_id,
-    async (supplierId) => { // Made it async to use await
+    async (supplierCode) => {
         orderForm.order_date = null;
-        productId.value = null; // Clear selected product when supplier changes
-        Object.keys(productDetails).forEach((key) => { // Clear product details as well
+        productId.value = null;
+        Object.keys(productDetails).forEach((key) => {
             productDetails[key] = null;
         });
 
-        availableProductsOptions.value = []; // Clear options immediately
+        availableProductsOptions.value = [];
 
-        if (!supplierId) {
-            // Check if supplierId is null or undefined before proceeding
-            return; // Exit if no supplier selected
+        if (!supplierCode) {
+            return;
         }
 
         try {
-            // *** CHANGE: Fetch supplier by ID to get the supplier_code ***
-            const supplierResponse = await axios.get(route('suppliers.show', supplierId));
-            const supplierCode = supplierResponse.data.supplier_code;
-
-            if (supplierCode) {
-                // Fetch supplier items based on the supplier_code
-                isLoading.value = true;
-                const response = await axios.get(route('store-orders.get-supplier-items', supplierCode));
-                // Assuming response.data.items is already in {value: 'id', label: 'name'} format or needs mapping
-                availableProductsOptions.value = response.data.items;
-                isLoading.value = false;
-            } else {
-                console.error("Supplier code could not be determined for selected supplier ID:", supplierId);
-            }
+            isLoading.value = true;
+            const response = await axios.get(route('store-orders.get-supplier-items', supplierCode));
+            availableProductsOptions.value = response.data.items;
+            isLoading.value = false;
 
         } catch (error) {
-            console.error("Error fetching supplier or supplier items:", error);
+            console.error("Error fetching supplier items:", error);
             toast.add({
                 severity: "error",
                 summary: "Error",
@@ -462,10 +486,8 @@ watch(
             isLoading.value = false;
         }
 
-
-        // Date calculation logic (remains the same)
         const selectedSupplier = suppliersOptions.value.find(
-            (option) => option.value === supplierId + ""
+            (option) => option.value === supplierCode
         );
 
         if (selectedSupplier) {
@@ -479,10 +501,9 @@ watch(
             }
         }
     },
-    { immediate: true } // Run immediately on component mount if previousOrder exists
+    { immediate: true }
 );
 
-// Computed property to check if a supplier is selected (still useful for other disabled states)
 const isSupplierSelected = computed(() => {
     return orderForm.supplier_id !== null && orderForm.supplier_id !== '';
 });
@@ -490,14 +511,13 @@ const isSupplierSelected = computed(() => {
 
 if (previousOrder) {
     previousOrder.store_order_items.forEach((item) => {
-        // *** CHANGE: Adapt this to item.supplier_item structure ***
         console.log("Existing Ordered Item:", item);
         const product = {
-            id: item.supplier_item.id,
+            id: item.supplier_item.ItemCode, // Set id to ItemCode
             inventory_code: item.supplier_item.ItemCode,
             name: item.supplier_item.item_name,
             unit_of_measurement: item.supplier_item.uom,
-            base_uom: item.supplier_item.sap_masterfile.BaseUOM,
+            base_uom: item.supplier_item.sap_masterfile?.BaseUOM || null,
             quantity: item.quantity_ordered,
             cost: item.supplier_item.cost,
             total_cost: parseFloat(
@@ -518,7 +538,7 @@ const {
 
 watch(orderForm, (value) => {
     localStorage.setItem("storeStoreOrderDraft", JSON.stringify(value));
-});
+}, { deep: true });
 </script>
 
 <template>
@@ -603,8 +623,16 @@ watch(orderForm, (value) => {
                                 :options="availableProductsOptions"
                                 optionLabel="label"
                                 optionValue="value"
-                                :disabled="!isSupplierSelected"
+                                :disabled="!isSupplierSelected || isLoading"
                             >
+                                <template #empty>
+                                    <div v-if="isLoading" class="p-4 text-center text-gray-500">
+                                        Loading items...
+                                    </div>
+                                    <div v-else class="p-4 text-center text-gray-500">
+                                        No items available for this supplier.
+                                    </div>
+                                </template>
                             </Select>
                             <FormError>{{ itemForm.errors.item }}</FormError>
                         </div>
@@ -637,7 +665,7 @@ watch(orderForm, (value) => {
                     </CardContent>
 
                     <CardFooter class="flex justify-end">
-                        <Button @click="addToOrdersButton">
+                        <Button @click="addToOrdersButton" :disabled="isLoading">
                             Add to Orders
                         </Button>
                     </CardFooter>
