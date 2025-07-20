@@ -4,12 +4,12 @@ import { useSelectOptions } from "@/Composables/useSelectOptions";
 import { useConfirm } from "primevue/useconfirm";
 import { useToast } from "primevue/usetoast";
 import { computed } from 'vue';
-import ToggleSwitch from 'primevue/toggleswitch'; // Changed from InputSwitch to ToggleSwitch
+import InputMask from 'primevue/inputmask';
+import ToggleSwitch from 'primevue/toggleswitch';
 
 const toast = useToast();
 const confirm = useConfirm();
 
-// Assign the return value of defineProps to a 'props' constant
 const props = defineProps({
     user: {
         type: Object,
@@ -29,20 +29,17 @@ const props = defineProps({
     },
 });
 
-// Now 'props' is defined and can be used for logging
 console.log('Raw branches prop:', props.branches);
 console.log('Raw suppliers prop:', props.suppliers);
 
-// Destructure from 'props' after it's defined
 const { user, roles, branches, suppliers } = props;
 
-// Ensure user.roles, user.store_branches, and user.suppliers are arrays before mapping
 const userCurrentRoles = Array.isArray(user.roles) ? user.roles.map((role) => role.id.toString()) : [];
 const userCurrentAssignedBranches = Array.isArray(user.store_branches)
     ? user.store_branches.map((branch) => branch.id.toString())
     : [];
 const userCurrentAssignedSuppliers = Array.isArray(user.suppliers)
-    ? user.suppliers.map((supplier) => supplier.id.toString())
+    ? user.suppliers.map((supplier) => supplier.supplier_code)
     : [];
 
 const form = useForm({
@@ -51,7 +48,7 @@ const form = useForm({
     last_name: user.last_name,
     phone_number: user.phone_number,
     email: user.email,
-    password: null, // Password field for update, can be null if not changing
+    password: null,
     roles: userCurrentRoles,
     remarks: user.remarks,
     assignedBranches: userCurrentAssignedBranches,
@@ -65,7 +62,6 @@ const { options: suppliersOptions } = useSelectOptions(suppliers);
 console.log('branchesOptions.value after composable:', branchesOptions.value);
 console.log('suppliersOptions.value after composable:', suppliersOptions.value);
 
-// Computed property for "Check All Branches" state (getter/setter for ToggleSwitch)
 const isAllBranchesChecked = computed({
     get: () => {
         const totalOptionsCount = branchesOptions.value.length;
@@ -80,7 +76,6 @@ const isAllBranchesChecked = computed({
     }
 });
 
-// Computed property for "Check All Suppliers" state (getter/setter for ToggleSwitch)
 const isAllSuppliersChecked = computed({
     get: () => {
         const totalOptionsCount = suppliersOptions.value.length;
@@ -110,8 +105,11 @@ const handleUpdate = () => {
             severity: "success",
         },
         accept: () => {
+            // --- DEBUG LOG START ---
+            console.log('Form data being submitted (Edit):', form.data());
+            // --- DEBUG LOG END ---
             form.post(route("users.update", user.id), {
-                _method: 'put', // Important for Laravel PUT/PATCH routing
+                _method: 'put',
                 preserveScroll: true,
                 onSuccess: () => {
                     toast.add({
@@ -168,7 +166,7 @@ const handleCancel = () => {
                     </InputContainer>
                     <InputContainer>
                         <Label>Phone Number</Label>
-                        <Input v-model="form.phone_number" />
+                        <InputMask v-model="form.phone_number" mask="9999 999 9999" placeholder="xxxx xxx xxxx" />
                         <FormError>{{ form.errors.phone_number }}</FormError>
                     </InputContainer>
                     <InputContainer>
@@ -201,7 +199,6 @@ const handleCancel = () => {
 
                     <InputContainer class="sm:col-span-2">
                         <div class="flex items-center space-x-2 mb-2">
-                            <!-- Using ToggleSwitch for "Check All Branches" -->
                             <ToggleSwitch v-model="isAllBranchesChecked" id="editCheckAllBranches" />
                             <label for="editCheckAllBranches" class="text-sm font-medium text-gray-700">Check All Branches</label>
                         </div>
@@ -214,7 +211,6 @@ const handleCancel = () => {
                                 :key="branch.value"
                                 class="flex items-center space-x-2"
                             >
-                                <!-- Individual checkboxes use v-model -->
                                 <Checkbox
                                     v-model="form.assignedBranches"
                                     :value="branch.value"
@@ -230,10 +226,8 @@ const handleCancel = () => {
                         }}</FormError>
                     </InputContainer>
 
-                    <!-- New section for Assign Suppliers -->
                     <InputContainer class="sm:col-span-2">
                         <div class="flex items-center space-x-2 mb-2">
-                            <!-- Using ToggleSwitch for "Check All Suppliers" -->
                             <ToggleSwitch v-model="isAllSuppliersChecked" id="editCheckAllSuppliers" />
                             <label for="editCheckAllSuppliers" class="text-sm font-medium text-gray-700">Check All Suppliers</label>
                         </div>
@@ -246,7 +240,6 @@ const handleCancel = () => {
                                 :key="supplier.value"
                                 class="flex items-center space-x-2"
                             >
-                                <!-- Individual checkboxes use v-model -->
                                 <Checkbox
                                     v-model="form.assignedSuppliers"
                                     :value="supplier.value"

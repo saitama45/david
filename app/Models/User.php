@@ -98,7 +98,9 @@ class User extends Authenticatable implements Auditable
             Supplier::class,
             'user_suppliers', // This is the pivot table name
             'user_id',
-            'supplier_id'
+            'supplier_code',
+            'id',             // Local key on User model (default)
+            'supplier_code'   // Related key on Supplier model (was 'id')
         )->withTimestamps();
     }
 

@@ -3,7 +3,9 @@ import { useForm, router } from "@inertiajs/vue3";
 import { useSelectOptions } from "@/Composables/useSelectOptions";
 import { useConfirm } from "primevue/useconfirm";
 import { useToast } from "primevue/usetoast";
-import { computed } from 'vue'; // Import computed for check all logic
+import { computed } from 'vue';
+import InputMask from 'primevue/inputmask'; // Import InputMask
+import ToggleSwitch from 'primevue/toggleswitch'; // Import ToggleSwitch for consistency
 
 const toast = useToast();
 const confirm = useConfirm();
@@ -89,54 +91,30 @@ const form = useForm({
         props.user?.suppliers.map((item) => item.id.toString()) ?? [],
 });
 
-// Computed property for "Check All Branches" checkbox state
-const checkAllBranches = computed({
+// Computed property for "Check All Branches" state (getter/setter for ToggleSwitch)
+const isAllBranchesChecked = computed({
     get: () => {
-        let totalOptionsCount = 0;
-        if (Array.isArray(branchesOptions.value)) {
-            totalOptionsCount = branchesOptions.value.length;
-        } else if (typeof branchesOptions.value === 'object' && branchesOptions.value !== null) {
-            totalOptionsCount = Object.keys(branchesOptions.value).length;
-        }
+        const totalOptionsCount = branchesOptions.value.length;
         return form.assignedBranches.length === totalOptionsCount && totalOptionsCount > 0;
     },
     set: (value) => {
         if (value) {
-            if (Array.isArray(branchesOptions.value)) {
-                form.assignedBranches = branchesOptions.value.map(branch => branch.value);
-            } else if (typeof branchesOptions.value === 'object' && branchesOptions.value !== null) {
-                // If it's the raw object, get its keys (which are the IDs)
-                form.assignedBranches = Object.keys(branchesOptions.value);
-            } else {
-                form.assignedBranches = []; // Fallback for unexpected types
-            }
+            form.assignedBranches = branchesOptions.value.map(branch => branch.value);
         } else {
             form.assignedBranches = [];
         }
     }
 });
 
-// Computed property for "Check All Suppliers" checkbox state
-const checkAllSuppliers = computed({
+// Computed property for "Check All Suppliers" state (getter/setter for ToggleSwitch)
+const isAllSuppliersChecked = computed({
     get: () => {
-        let totalOptionsCount = 0;
-        if (Array.isArray(suppliersOptions.value)) {
-            totalOptionsCount = suppliersOptions.value.length;
-        } else if (typeof suppliersOptions.value === 'object' && suppliersOptions.value !== null) {
-            totalOptionsCount = Object.keys(suppliersOptions.value).length;
-        }
+        const totalOptionsCount = suppliersOptions.value.length;
         return form.assignedSuppliers.length === totalOptionsCount && totalOptionsCount > 0;
     },
     set: (value) => {
         if (value) {
-            if (Array.isArray(suppliersOptions.value)) {
-                form.assignedSuppliers = suppliersOptions.value.map(supplier => supplier.value);
-            } else if (typeof suppliersOptions.value === 'object' && suppliersOptions.value !== null) {
-                // If it's the raw object, get its keys (which are the IDs)
-                form.assignedSuppliers = Object.keys(suppliersOptions.value);
-            } else {
-                form.assignedSuppliers = []; // Fallback for unexpected types
-            }
+            form.assignedSuppliers = suppliersOptions.value.map(supplier => supplier.value);
         } else {
             form.assignedSuppliers = [];
         }
@@ -172,7 +150,8 @@ const checkAllSuppliers = computed({
                     </InputContainer>
                     <InputContainer>
                         <LabelXS>Phone Number</LabelXS>
-                        <Input v-model="form.phone_number" />
+                        <!-- Using InputMask for phone number -->
+                        <InputMask v-model="form.phone_number" mask="9999 999 9999" placeholder="09xx xxx xxxx" />
                         <FormError>{{ form.errors.phone_number }}</FormError>
                     </InputContainer>
                     <InputContainer>
@@ -205,7 +184,8 @@ const checkAllSuppliers = computed({
 
                     <InputContainer class="sm:col-span-2">
                         <div class="flex items-center space-x-2 mb-2">
-                            <Checkbox v-model="checkAllBranches" id="checkAllBranches" />
+                            <!-- Using ToggleSwitch for "Check All Branches" -->
+                            <ToggleSwitch v-model="isAllBranchesChecked" id="checkAllBranches" />
                             <label for="checkAllBranches" class="text-sm font-medium text-gray-700">Check All Branches</label>
                         </div>
                         <LabelXS> Assign Branches </LabelXS>
@@ -235,7 +215,8 @@ const checkAllSuppliers = computed({
                     <!-- New section for Assign Suppliers -->
                     <InputContainer class="sm:col-span-2">
                         <div class="flex items-center space-x-2 mb-2">
-                            <Checkbox v-model="checkAllSuppliers" id="checkAllSuppliers" />
+                            <!-- Using ToggleSwitch for "Check All Suppliers" -->
+                            <ToggleSwitch v-model="isAllSuppliersChecked" id="checkAllSuppliers" />
                             <label for="checkAllSuppliers" class="text-sm font-medium text-gray-700">Check All Suppliers</label>
                         </div>
                         <LabelXS> Assign Suppliers </LabelXS>
@@ -270,4 +251,3 @@ const checkAllSuppliers = computed({
         </Card>
     </Layout>
 </template>
-

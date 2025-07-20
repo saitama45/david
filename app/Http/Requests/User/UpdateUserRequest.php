@@ -34,7 +34,7 @@ class UpdateUserRequest extends FormRequest
             'remarks' => ['nullable'],
             'assignedBranches' => ['required', 'array'],
             'assignedSuppliers' => ['nullable', 'array'],
-            'assignedSuppliers.*' => ['exists:suppliers,id'], // Validate each ID exists in the suppliers table
+            'assignedSuppliers.*' => ['exists:suppliers,supplier_code'], // Validate each supplier_code exists in the suppliers table
         ];
     }
 }

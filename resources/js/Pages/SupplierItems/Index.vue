@@ -1,5 +1,5 @@
 <script setup>
-import { ref, computed, watch } from 'vue'; // Keep only one import for these
+import { ref, computed, watch } from 'vue';
 import { Head, Link, usePage } from '@inertiajs/vue3';
 import { useSearch } from "@/Composables/useSearch";
 import { useForm } from "@inertiajs/vue3";
@@ -18,26 +18,34 @@ const props = defineProps({
         type: Object,
         required: true,
     },
+    assignedSupplierCodes: { // Prop passed from controller
+        type: Array,
+        default: () => [],
+    }
 });
 
-
-const handleClick = () => {
-    router.get(route("SupplierItems.create"));
-};
-
+// Removed handleClick as 'Create New Item' button is removed
 
 let filter = ref(usePage().props.filter || "all");
 
 const { search } = useSearch("SupplierItems.index");
 
 const changeFilter = (currentFilter) => {
-    filter.value = currentFilter;
+    filter.value = currentFilter; // Update filter ref
+    router.get(
+        route("SupplierItems.index"),
+        { filter: currentFilter, search: search.value }, // Ensure search is preserved
+        {
+            preserveState: true,
+            replace: true,
+        }
+    );
 };
 
 watch(filter, function (value) {
     router.get(
         route("SupplierItems.index"),
-        { filter: value },
+        { filter: value, search: search.value }, // Ensure search is preserved
         {
             preserveState: true,
             replace: true,
@@ -66,22 +74,18 @@ const importFile = () => {
     isLoading.value = true;
     importForm.post(route("SupplierItems.import"), {
         onSuccess: () => {
-            toast.add({
-                severity: "success",
-                summary: "Success",
-                detail: "Products Updated Successfully.",
-                life: 3000,
-            });
+            // Toast will be handled by the watch(importSummary) below
             isLoading.value = false;
             isImportModalVisible.value = false;
         },
         onError: (e) => {
             isLoading.value = false;
+            console.error('Import Error:', e);
             toast.add({
                 severity: "error",
-                summary: "Error",
-                detail: "An error occured while trying to update products. Please make sure that you are using the correct format.",
-                life: 3000,
+                summary: "Import Error",
+                detail: e.products_file || "An error occurred while trying to update supplier items. Please make sure that you are using the correct format.",
+                life: 5000,
             });
         },
         onFinish: () => {
@@ -96,7 +100,6 @@ const openFormModal = () => {
 
 const isLoading = ref(false);
 
-// START of the relevant fix
 const flash = computed(() => usePage().props.flash);
 
 const importSummary = computed(() => flash.value.import_summary || null);
@@ -105,44 +108,40 @@ const hasSkippedDetails = computed(() => {
     return importSummary.value && importSummary.value.skipped_details_present;
 });
 
-// >>>>>> THIS IS THE ONLY NEW COMPUTED PROPERTY YOU NEED <<<<<<<
 const downloadLogLink = computed(() => {
-    // This assumes you have Ziggy installed and the route 'SupplierItems.downloadSkippedLog' defined in web.php
-    return route('SupplierItems.downloadSkippedLog');
+    return route('SupplierItems.downloadSkippedImportLog');
 });
-// >>>>>> END OF NEW COMPUTED PROPERTY <<<<<<<
 
-// If you want the toast to appear for skipped details, ensure this watch block is present
 watch(importSummary, (newValue) => {
     if (newValue) {
-        if (newValue.skipped_details_present) {
-            let detailMessage = `Processed: ${newValue.processed_count}. `;
-            if (newValue.skipped_empty_keys_count > 0) {
-                detailMessage += `Skipped (Empty Keys): ${newValue.skipped_empty_keys_count}. `;
-            }
-            if (newValue.skipped_sap_validation_count > 0) {
-                detailMessage += `Skipped (SAP Validation): ${newValue.skipped_sap_validation_count}. `;
-            }
-
-            toast.add({
-                severity: 'warn', // or 'info'
-                summary: 'Import with Skips',
-                detail: detailMessage,
-                life: 8000
-            });
+        let detailMessage = `Processed: ${newValue.processed_count}. `;
+        if (newValue.skipped_empty_keys_count > 0) {
+            detailMessage += `Skipped (Empty Keys): ${newValue.skipped_empty_keys_count}. `;
         }
+        if (newValue.skipped_sap_validation_count > 0) {
+            detailMessage += `Skipped (Validation): ${newValue.skipped_sap_validation_count}. `;
+        }
+        if (newValue.skipped_unauthorized_count > 0) {
+            detailMessage += `Skipped (Unauthorized): ${newValue.skipped_unauthorized_count}. `;
+        }
+
+        toast.add({
+            severity: newValue.skipped_details_present ? 'warn' : 'success',
+            summary: newValue.skipped_details_present ? 'Import with Skips' : 'Import Successful',
+            detail: detailMessage,
+            life: 8000
+        });
     }
 }, { immediate: true });
-// END of the relevant fix
 
 </script>
 
 <template>
     <Layout
         heading="Supplier Items List"
-        :hasButton="hasAccess('create new Supplier items')"
+        :hasButton="false" 
         buttonName="Create New Item"
-        :handleClick="handleClick"
+        :handleClick="null"
         :hasExcelDownload="true"
         :exportRoute="exportRoute"
     >
@@ -153,11 +152,12 @@ watch(importSummary, (newValue) => {
                 <p class="font-bold">{{ importSummary.success_message }}</p>
                 <p>Processed: {{ importSummary.processed_count }}</p>
                 <p>Skipped (Empty Keys): {{ importSummary.skipped_empty_keys_count }}</p>
-                <p>Skipped (SAP Validation): {{ importSummary.skipped_sap_validation_count }}</p>
+                <p>Skipped (Validation): {{ importSummary.skipped_sap_validation_count }}</p>
+                <p>Skipped (Unauthorized): {{ importSummary.skipped_unauthorized_count }}</p>
             </div>
 
             <div v-if="hasSkippedDetails" class="mt-4 p-4 bg-yellow-100 border-l-4 border-yellow-500 text-yellow-700">
-                <p>Some rows were skipped during the import due to validation errors.</p>
+                <p>Some rows were skipped during the import due to validation errors or unauthorized supplier codes.</p>
                 <a :href="downloadLogLink" class="font-bold underline cursor-pointer hover:text-yellow-900">
                     Click here to download a log file with details
                 </a>
@@ -198,34 +198,35 @@ watch(importSummary, (newValue) => {
 
             <Table>
                 <TableHead>
-                   <TH>Id</TH>
-                    <TH>Item Code</TH>
-                    <TH>Supplier Code</TH>
                     <TH>Category</TH>
                     <TH>Brand</TH> 
                     <TH>Classification</TH> 
-                    <TH>Packaging Config</TH> 
-                    <TH>UOM</TH> 
+                    <TH>Item Code</TH>
+                    <TH>Item Name</TH> <!-- Re-included Item Name header -->
+                    <TH>Packaging Config</TH>
+                    <TH>UOM</TH>
                     <TH>Cost</TH> 
-                    <TH>SRP</TH> 
+                    <TH>SRP</TH> <!-- Added SRP header -->
+                    <TH>Supplier Code</TH>
                     <TH>Active</TH>
                     <TH>Action</TH>
                 </TableHead>
 
                 <TableBody>
-                    <tr v-for="item in items.data">
-                        <TD>{{ item.id }}</TD>
-                        <TD>{{ item.ItemCode }}</TD>
-                        <TD>{{ item.SupplierCode }}</TD>
+                    <tr v-for="item in items.data" :key="item.id">
                         <TD>{{ item.category }}</TD> 
                         <TD>{{ item.brand }}</TD> 
-                        <TD>{{ item.classification }}</TD> 
-                        <TD>{{ item.packaging_config }}</TD> 
-                        <TD>{{ item.uom }}</TD>
-                        <TD>{{ item.cost }}</TD> 
-                        <TD>{{ item.srp }}</TD>
+                        <TD>{{ item.classification }}</TD>
+                        <TD>{{ item.ItemCode }}</TD>
+                        <TD>{{ item.item_name }}</TD> <!-- Re-included Item Name data -->
+                        <TD>{{ item.packaging_config }}</TD>
+                        <TD>{{ item.uom }}</TD> 
+                        <TD>{{ item.cost }}</TD>
+                        <TD>{{ item.srp }}</TD> <!-- Display SRP -->
+                        <TD>{{ item.SupplierCode }}</TD>
                         <TD>{{ Number(item.is_active) ? 'Yes' : 'No' }}</TD>
                         <TD class="flex items-center gap-2">
+                            <!-- Access control is handled in the controller, but hasAccess can add another layer -->
                             <ShowButton
                                 v-if="hasAccess('view item')"
                                 :isLink="true"
@@ -240,7 +241,7 @@ watch(importSummary, (newValue) => {
                                 @click="
                                     deleteModel(
                                         route('SupplierItems.destroy', item.id),
-                                        'SAP Masterfile Item'
+                                        'Supplier Item'
                                     )
                                 "
                             />
@@ -252,7 +253,7 @@ watch(importSummary, (newValue) => {
             <MobileTableContainer>
                 <MobileTableRow v-for="item in items.data" :key="item.id">
                     <MobileTableHeading
-                        :title="`${item.item_name} (${item.ItemCode})`" >
+                        :title="`${item.item_name} (${item.ItemCode})`" > <!-- Use ItemName and ItemCode -->
                         <ShowButton
                             v-if="hasAccess('view item')"
                             :isLink="true"
@@ -266,12 +267,13 @@ watch(importSummary, (newValue) => {
                             @click="
                                 deleteModel(
                                     route('SupplierItems.destroy', item.id),
-                                    'Supplier Items' // Changed label
+                                    'Supplier Item'
                                 )
                             "
                         />
                     </MobileTableHeading>
-                    <LabelXS>Item Code: {{ item.ItemCode }}</LabelXS> 
+                    <LabelXS>Item Code: {{ item.ItemCode }}</LabelXS>
+                    <LabelXS>Item Name: {{ item.item_name }}</LabelXS> <!-- Re-included Item Name -->
                     <LabelXS>Supplier Code: {{ item.SupplierCode }}</LabelXS> 
                     <LabelXS>Category: {{ item.category }}</LabelXS> 
                     <LabelXS>Brand: {{ item.brand }}</LabelXS> 
@@ -289,9 +291,9 @@ watch(importSummary, (newValue) => {
         <Dialog v-model:open="isImportModalVisible">
             <DialogContent class="sm:max-w-[600px]">
                 <DialogHeader>
-                    <DialogTitle>Import Products</DialogTitle>
+                    <DialogTitle>Import Supplier Items</DialogTitle>
                     <DialogDescription>
-                        Import the excel file of the products.
+                        Import the Excel file of the supplier items.
                     </DialogDescription>
                 </DialogHeader>
                 <div class="space-y-5">
@@ -309,14 +311,14 @@ watch(importSummary, (newValue) => {
                     </div>
                     <div class="flex flex-col space-y-1">
                         <Label class="text-xs"
-                            >Accepted Products File Format</Label
+                            >Accepted Supplier Items File Format</Label
                         >
                         <ul>
                             <li class="text-xs">
                                 <a
                                     class="text-blue-500 underline"
                                     :href="route('excel.SupplierItems-template')"
-                                    >Click to download</a
+                                    >Click to download template</a
                                 >
                             </li>
                         </ul>

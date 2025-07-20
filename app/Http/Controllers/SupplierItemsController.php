@@ -12,67 +12,116 @@ use Inertia\Inertia;
 use Maatwebsite\Excel\Facades\Excel;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Response;
+use Illuminate\Support\Facades\Auth;
+use App\Models\User; // Ensure User model is imported if not already
+use App\Models\Supplier; // Ensure Supplier model is imported
 
 class SupplierItemsController extends Controller
 {
-    //
-    
     public function index()
     {
+        $user = Auth::user();
+        if (!$user) {
+            return redirect('/login')->with('error', 'Please log in to view supplier items.');
+        }
+
+        // Get the SupplierCodes assigned to the current user using the existing relationship
+        // CRITICAL FIX: Pluck 'supplier_code' from the related Supplier models
+        $assignedSupplierCodes = $user->suppliers->pluck('supplier_code')->toArray();
+
+        // If the user has no assigned suppliers, return an empty list
+        if (empty($assignedSupplierCodes)) {
+            return Inertia::render('SupplierItems/Index', [
+                'items' => SupplierItems::whereRaw('1 = 0')->paginate(10), // Return empty pagination
+                'filters' => request()->only(['search', 'filter']),
+                'assignedSupplierCodes' => $assignedSupplierCodes, // Pass to frontend
+            ])->with('info', 'You have no assigned suppliers.');
+        }
+
         $search = request('search');
         $filter = request('filter');
 
-        $query = SupplierItems::query();
-        // ->with(['inventory_category', 'unit_of_measurement', 'product_categories']);
+        $query = SupplierItems::query()
+            // Filter SupplierItems to only include those assigned to the current user
+            ->whereIn('SupplierCode', $assignedSupplierCodes);
 
-        if ($filter === 'inactive')
+        if ($filter === 'inactive') {
             $query->where('is_active', '=', 0);
+        }
 
-        if ($filter === 'is_active')
+        if ($filter === 'is_active') {
             $query->where('is_active', '=', 1);
+        }
 
         if ($search) {
-            // Update search to use 'ItemCode' and potentially new string columns
-            $query->whereAny([
-                'ItemCode',        // Renamed from ItemNo
-                'item_name',
-                'SupplierCode',
-                'category',        // New
-                'brand',           // New
-                'classification',  // New
-                'packaging_config',// New
-                'uom'              // New
-            ], 'like', "%$search%");
+            $query->where(function ($q) use ($search) {
+                $q->where('ItemCode', 'like', "%$search%")
+                  ->orWhere('item_name', 'like', "%$search%") // Re-included item_name
+                  ->orWhere('SupplierCode', 'like', "%$search%")
+                  ->orWhere('category', 'like', "%$search%")
+                  ->orWhere('brand', 'like', "%$search%")
+                  ->orWhere('classification', 'like', "%$search%")
+                  ->orWhere('packaging_config', 'like', "%$search%")
+                  ->orWhere('uom', 'like', "%$search%");
+            });
         }
 
         $items = $query->latest()->paginate(10)->withQueryString();
 
         return Inertia::render('SupplierItems/Index', [
             'items' => $items,
-            'filters' => request()->only(['search', 'filter'])
+            'filters' => request()->only(['search', 'filter']),
+            'assignedSupplierCodes' => $assignedSupplierCodes, // Pass to frontend
         ])->with('success', true);
     }
 
-    public function create()
-    {
-        return Inertia::render('SupplierItems/Create', [
-        ]);
-    }
+    // The 'create' method is removed as per the requirement that users only manage assigned items.
+    // If you need a form for creating new SupplierItems, it should be restricted to admin roles.
+    // public function create()
+    // {
+    //     return Inertia::render('SupplierItems/Create', []);
+    // }
 
     public function export()
     {
+        $user = Auth::user();
+        if (!$user) {
+            return redirect('/login')->with('error', 'Please log in to export supplier items.');
+        }
+        // CRITICAL FIX: Pluck 'supplier_code' from the related Supplier models
+        $assignedSupplierCodes = $user->suppliers->pluck('supplier_code')->toArray();
+
+        // If the user has no assigned suppliers, return an empty export or error
+        if (empty($assignedSupplierCodes)) {
+             return back()->with('error', 'You have no assigned suppliers to export items from.');
+        }
+
         $search = request('search');
         $filter = request('filter');
 
+        // Pass assignedSupplierCodes to the export class
         return Excel::download(
-            new SupplierItemsExport($search, $filter),
+            new SupplierItemsExport($search, $filter, $assignedSupplierCodes),
             'SupplierItems-list-' . now()->format('Y-m-d') . '.xlsx'
         );
     }
 
     public function edit($id)
     {
+        $user = Auth::user();
+        if (!$user) {
+            return redirect('/login')->with('error', 'Please log in to edit supplier items.');
+        }
+
         $item = SupplierItems::findOrFail($id);
+
+        // Authorization check: Ensure the user is assigned to this supplier item's SupplierCode
+        // CRITICAL FIX: Pluck 'supplier_code' from the related Supplier models
+        $assignedSupplierCodes = $user->suppliers->pluck('supplier_code')->toArray();
+        if (!in_array($item->SupplierCode, $assignedSupplierCodes)) {
+            return back()->with('error', 'You are not authorized to edit this supplier item.');
+        }
+
         return Inertia::render('SupplierItems/Edit', [
             'item' => $item
         ]);
@@ -80,28 +129,65 @@ class SupplierItemsController extends Controller
 
     public function show($id)
     {
-        $items = SupplierItems::findOrFail($id);
+        $user = Auth::user();
+        if (!$user) {
+            return redirect('/login')->with('error', 'Please log in to view supplier items.');
+        }
+
+        $item = SupplierItems::findOrFail($id);
+
+        // Authorization check: Ensure the user is assigned to this supplier item's SupplierCode
+        // CRITICAL FIX: Pluck 'supplier_code' from the related Supplier models
+        $assignedSupplierCodes = $user->suppliers->pluck('supplier_code')->toArray();
+        if (!in_array($item->SupplierCode, $assignedSupplierCodes)) {
+            return back()->with('error', 'You are not authorized to view this supplier item.');
+        }
+
         return Inertia::render('SupplierItems/Show', [
-            'item' => $items
+            'item' => $item
         ]);
     }
 
     public function destroy($id)
     {
-        $items = SupplierItems::findOrFail($id);
+        $user = Auth::user();
+        if (!$user) {
+            return redirect('/login')->with('error', 'Please log in to delete supplier items.');
+        }
 
-        $items->delete();
-        return to_route('SupplierItems.index');
+        $item = SupplierItems::findOrFail($id);
+
+        // Authorization check: Ensure the user is assigned to this supplier item's SupplierCode
+        // CRITICAL FIX: Pluck 'supplier_code' from the related Supplier models
+        $assignedSupplierCodes = $user->suppliers->pluck('supplier_code')->toArray();
+        if (!in_array($item->SupplierCode, $assignedSupplierCodes)) {
+            return back()->with('error', 'You are not authorized to delete this supplier item.');
+        }
+
+        $item->delete();
+        return to_route('SupplierItems.index')->with('success', 'Supplier item deleted successfully.');
     }
 
     public function update(Request $request, $id)
     {
+        $user = Auth::user();
+        if (!$user) {
+            return redirect('/login')->with('error', 'Please log in to update supplier items.');
+        }
+
         $item = SupplierItems::findOrFail($id);
+
+        // Authorization check: Ensure the user is assigned to this supplier item's SupplierCode
+        // CRITICAL FIX: Pluck 'supplier_code' from the related Supplier models
+        $assignedSupplierCodes = $user->suppliers->pluck('supplier_code')->toArray();
+        if (!in_array($item->SupplierCode, $assignedSupplierCodes)) {
+            return back()->with('error', 'You are not authorized to update this supplier item.');
+        }
 
         // Trim values from the request before validation
         $request->merge([
-            'ItemCode' => trim($request->input('ItemCode')), // Renamed from ItemNo
-            'item_name' => trim($request->input('item_name')), 
+            'ItemCode' => trim($request->input('ItemCode')),
+            'item_name' => trim($request->input('item_name') ?? ''), // Re-included item_name
             'SupplierCode' => trim($request->input('SupplierCode')),
             'category' => trim($request->input('category') ?? ''),
             'brand' => trim($request->input('brand') ?? ''),
@@ -111,52 +197,64 @@ class SupplierItemsController extends Controller
         ]);
 
         $validated = $request->validate([         
-           'ItemCode' => ['nullable', 'string', 'max:255'], // Renamed from ItemNo
-            'SupplierCode' => ['nullable', 'string', 'max:255'],
-            'category' => ['nullable', 'string', 'max:255'],        // New
-            'brand' => ['nullable', 'string', 'max:255'],           // New
-            'classification' => ['nullable', 'string', 'max:255'],  // New
-            'packaging_config' => ['nullable', 'string', 'max:255'],// New
-            'config' => ['nullable', 'numeric', 'min:0', 'max:999999.99'], // Max based on decimal(8,2)
-            'uom' => ['nullable', 'string', 'max:255'],             // New
-            'cost' => ['nullable', 'numeric', 'min:0', 'max:99999999.99'], // Max based on decimal(10,2)
-            'srp' => ['nullable', 'numeric', 'min:0', 'max:99999999.99'],  // Max based on decimal(10,2)
-            'is_active' => ['nullable', 'boolean'],
+           'ItemCode' => ['nullable', 'string', 'max:255'],
+           'SupplierCode' => ['nullable', 'string', 'max:255'],
+           'category' => ['nullable', 'string', 'max:255'],
+           'brand' => ['nullable', 'string', 'max:255'],
+           'classification' => ['nullable', 'string', 'max:255'],
+           'packaging_config' => ['nullable', 'string', 'max:255'],
+           'config' => ['nullable', 'numeric', 'min:0', 'max:999999.99'],
+           'uom' => ['nullable', 'string', 'max:255'],
+           'cost' => ['nullable', 'numeric', 'min:0', 'max:99999999.99'],
+           'srp' => ['nullable', 'numeric', 'min:0', 'max:99999999.99'],
+           'is_active' => ['nullable', 'boolean'],
+           'item_name' => ['nullable', 'string', 'max:255'], // Re-included item_name
         ]);
+
         $item->update($validated);
-        return to_route("SupplierItems.index");
+        return to_route("SupplierItems.index")->with('success', 'Supplier item updated successfully.');
     }
 
     public function import(Request $request)
     {
-        set_time_limit(10000000000); // Be cautious with such high limits in production
+        $user = Auth::user();
+        if (!$user) {
+            return redirect('/login')->with('error', 'Please log in to import supplier items.');
+        }
+        // CRITICAL FIX: Pluck 'supplier_code' from the related Supplier models
+        $assignedSupplierCodes = $user->suppliers->pluck('supplier_code')->toArray();
+
+        // If the user has no assigned suppliers, they cannot import any items.
+        if (empty($assignedSupplierCodes)) {
+            return back()->with('error', 'You have no assigned suppliers, so you cannot import items.');
+        }
+
+        set_time_limit(10000000000); 
         
         $request->validate([
             'products_file' => 'required|mimes:xlsx,xls,csv'
         ]);
 
         try {
-            $import = new SupplierItemsImport();
+            // Pass the assignedSupplierCodes to the import class
+            $import = new SupplierItemsImport($assignedSupplierCodes);
             Excel::import($import, $request->file('products_file'));
 
-            // Get skipped details and counts from the import instance
             $processedCount = $import->getProcessedCount();
             $skippedEmptyKeysCount = $import->getSkippedEmptyKeysCount();
             $skippedBySapValidationCount = $import->getSkippedBySapValidationCount();
+            $skippedUnauthorizedCount = $import->getSkippedUnauthorizedCount();
             $skippedDetails = $import->getSkippedDetails();
 
-            // Store skipped details in session flash for the next request (for Inertia)
             session()->flash('import_summary', [
                 'success_message' => 'Import successful!',
                 'processed_count' => $processedCount,
                 'skipped_empty_keys_count' => $skippedEmptyKeysCount,
                 'skipped_sap_validation_count' => $skippedBySapValidationCount,
-                'skipped_details_present' => !empty($skippedDetails), // Indicate if details exist
+                'skipped_unauthorized_count' => $skippedUnauthorizedCount,
+                'skipped_details_present' => !empty($skippedDetails),
             ]);
 
-            // Store actual skipped details in session for potential download later
-            // IMPORTANT: Be mindful of session size for very large number of skipped details.
-            // If details are too large, consider storing in cache or temporary file.
             session(['last_import_skipped_details' => $skippedDetails]);
 
             return redirect()->route('SupplierItems.index');
@@ -171,7 +269,6 @@ class SupplierItemsController extends Controller
         }
     }
 
-    // NEW METHOD: For downloading skipped details
     public function downloadSkippedImportLog(Request $request)
     {
         $skippedDetails = session('last_import_skipped_details', []);
@@ -196,22 +293,9 @@ class SupplierItemsController extends Controller
             $content .= "\n";
         }
 
-        // Return as a downloadable text file
         return Response::make($content, 200, [
             'Content-Type' => 'text/plain',
             'Content-Disposition' => 'attachment; filename="' . $fileName . '"',
         ]);
-    }
-
-    public function getDetailsJson(SupplierItems $supplierItem) // Use route model binding directly
-    {
-
-        // Eager load the sapMasterfile relationship
-        // This will make the related SAPMasterfile data available on the $supplierItem object
-        $supplierItem->load('sapMasterfile');
-
-        // Now, when $supplierItem is returned as JSON, it will include the sap_masterfile relationship
-        // and its attributes, including 'BaseUOM'.
-        return response()->json($supplierItem);
     }
 }
