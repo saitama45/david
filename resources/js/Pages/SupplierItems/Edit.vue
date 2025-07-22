@@ -67,6 +67,7 @@ const item = props.item;
 // Initialize the form with existing item data, including new columns
 const form = useForm({
     ItemCode: item.ItemCode ?? null, // Renamed from ItemNo
+    item_name: item.item_name ?? '', // Added item_name
     SupplierCode: item.SupplierCode ?? null,
     category: item.category ?? '', // New column, default to empty string
     brand: item.brand ?? '', // New column
@@ -137,6 +138,12 @@ const activeStatuses = ref([
                     <Label>Item Code</Label>
                     <Input v-model="form.ItemCode" />
                     <FormError>{{ form.errors.ItemCode }}</FormError>
+                </InputContainer>
+
+                <InputContainer>
+                    <Label>Item Name</Label>
+                    <Input v-model="form.item_name" />
+                    <FormError>{{ form.errors.item_name }}</FormError>
                 </InputContainer>
 
                 <InputContainer>

@@ -46,6 +46,14 @@ const displayIsActive = (value) => {
                     </CardDescription>
                 </CardHeader>
                 <CardContent class="grid grid-cols-2 gap-x-4 gap-y-3">
+                    <!-- Item Name -->
+                    <div>
+                        <Label>Item Name</Label>
+                    </div>
+                    <div>
+                        <Label class="font-bold">{{ item.item_name ?? "N/a" }}</Label>
+                    </div>
+
                     <div>
                         <Label>Supplier Code</Label>
                     </div>

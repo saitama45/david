@@ -1,45 +1,165 @@
 <script setup>
+import { ref, computed } from "vue";
 import Checkbox from "primevue/checkbox";
 import Dialog from "primevue/dialog";
 import { useToast } from "primevue/usetoast";
 const toast = useToast();
 
 import { CircleHelp } from "lucide-vue-next";
+import ToggleSwitch from 'primevue/toggleswitch'; // Import ToggleSwitch
 
 import { useForm } from "@inertiajs/vue3";
-// Assuming BackButton is a global component or imported elsewhere if needed.
-// Based on your previous message, you removed it because it was not needed.
-// import { BackButton } from "@/Components/ui/button"; 
+import BackButton from "@/Components/BackButton.vue"; // Re-added import for BackButton
 
 const form = useForm({
     name: "",
-    selectedPermissions: [],
+    selectedPermissions: [], // This will hold an array of permission IDs
 });
+
 const props = defineProps({
     permissions: {
+        // This prop is now expected to be a nested object:
+        // {
+        //   'Main Category Label': {
+        //     'Sub Category Label': [
+        //       { id: 'permission_id_1', name: 'permission name 1' },
+        //       { id: 'permission_id_2', name: 'permission name 2' },
+        //       ...
+        //     ],
+        //     ...
+        //   },
+        //   ...
+        // }
         type: Object,
         required: true,
     },
 });
 
+// Flatten all permission IDs from the nested permissions prop
+const allPermissionIds = computed(() => {
+    const ids = [];
+    for (const mainCategoryLabel in props.permissions) {
+        for (const subCategoryLabel in props.permissions[mainCategoryLabel]) {
+            props.permissions[mainCategoryLabel][subCategoryLabel].forEach(permission => {
+                ids.push(permission.id);
+            });
+        }
+    }
+    return ids;
+});
+
+// Computed property for the global "Check All" ToggleSwitch
+const globalCheckAll = computed({
+    get() {
+        // If no permissions, it's unchecked
+        if (allPermissionIds.value.length === 0) {
+            return false;
+        }
+        // Return true only if ALL permissions are selected, otherwise false.
+        // ToggleSwitch is binary, so no indeterminate state.
+        return allPermissionIds.value.every(id =>
+            form.selectedPermissions.includes(id)
+        );
+    },
+    set(value) {
+        if (value) {
+            // Select all permissions
+            form.selectedPermissions = [...allPermissionIds.value];
+        } else {
+            // Deselect all permissions
+            form.selectedPermissions = [];
+        }
+    }
+});
+
+// Function to get computed property for each main group's "Check All" ToggleSwitch
+const groupCheckAll = (mainCategoryLabel) => computed({
+    get() {
+        const groupPermissionIds = [];
+        for (const subCategoryLabel in props.permissions[mainCategoryLabel]) {
+            props.permissions[mainCategoryLabel][subCategoryLabel].forEach(permission => {
+                groupPermissionIds.push(permission.id);
+            });
+        }
+
+        if (groupPermissionIds.length === 0) {
+            return false;
+        }
+
+        // Return true only if ALL permissions in this group are selected, otherwise false.
+        return groupPermissionIds.every(id =>
+            form.selectedPermissions.includes(id)
+        );
+    },
+    set(value) {
+        const groupPermissionIds = [];
+        for (const subCategoryLabel in props.permissions[mainCategoryLabel]) {
+            props.permissions[mainCategoryLabel][subCategoryLabel].forEach(permission => {
+                groupPermissionIds.push(permission.id);
+            });
+        }
+
+        if (value) {
+            // Add all permissions from this group
+            form.selectedPermissions = [...new Set([...form.selectedPermissions, ...groupPermissionIds])];
+        } else {
+            // Remove all permissions from this group
+            form.selectedPermissions = form.selectedPermissions.filter(id =>
+                !groupPermissionIds.includes(id)
+            );
+        }
+    }
+});
+
+// Function to get computed property for each sub-category's "Check All" ToggleSwitch
+const subCategoryCheckAll = (mainCategoryLabel, subCategoryLabel) => computed({
+    get() {
+        const subCategoryPermissionIds = props.permissions[mainCategoryLabel][subCategoryLabel].map(permission => permission.id);
+
+        if (subCategoryPermissionIds.length === 0) {
+            return false;
+        }
+
+        // Return true only if ALL permissions in this sub-category are selected, otherwise false.
+        return subCategoryPermissionIds.every(id =>
+            form.selectedPermissions.includes(id)
+        );
+    },
+    set(value) {
+        const subCategoryPermissionIds = props.permissions[mainCategoryLabel][subCategoryLabel].map(permission => permission.id);
+
+        if (value) {
+            // Add all permissions from this sub-category
+            form.selectedPermissions = [...new Set([...form.selectedPermissions, ...subCategoryPermissionIds])];
+        } else {
+            // Remove all permissions from this sub-category
+            form.selectedPermissions = form.selectedPermissions.filter(id =>
+                !subCategoryPermissionIds.includes(id)
+            );
+        }
+    }
+});
+
+
+/**
+ * Handles the creation of a new role by submitting the form.
+ * Displays success or error toasts based on the API response.
+ */
 const createNewRoles = () => {
     form.post(route("roles.store"), {
         onSuccess: () => {
             toast.add({
                 severity: "success",
                 summary: "Success",
-                detail: "New Role Successfully Created", // Changed from "New User Successfully Created"
+                detail: "New Role Successfully Created",
                 life: 3000,
             });
             form.reset(); // Reset form after successful submission
         },
-        onError: (errors) => { // Renamed 'e' to 'errors' for clarity
-            // Log the full error object to the console for detailed inspection
+        onError: (errors) => {
             console.error('Role Creation Error Details:', errors);
 
             let detailMessage = "An error occurred while trying to create a new role.";
-            // If there are specific validation errors returned from the backend,
-            // join them into a more descriptive message for the toast.
             if (errors && Object.keys(errors).length > 0) {
                 detailMessage = Object.values(errors).join(', ');
             }
@@ -47,8 +167,8 @@ const createNewRoles = () => {
             toast.add({
                 severity: "error",
                 summary: "Error",
-                detail: detailMessage, // Now dynamically shows validation errors
-                life: 5000, // Increased display time for the toast
+                detail: detailMessage,
+                life: 5000,
             });
         },
     });
@@ -60,54 +180,102 @@ const isPermissionGuideModalVisible = ref(false);
 <template>
     <Layout heading="Create Role">
         <Card class="p-5 space-y-5">
+            <!-- Role Name Input -->
             <InputContainer>
                 <LabelXS>Name</LabelXS>
                 <Input v-model="form.name" />
                 <FormError>{{ form.errors.name }}</FormError>
             </InputContainer>
+
+            <!-- Permissions Section -->
             <InputContainer>
-                <DivFlexCenter class="justify-between">
-                    <LabelXS> Permissions</LabelXS>
-                    <!-- <button @click="isPermissionGuideModalVisible = true">
+                <div class="flex justify-between items-center mb-4">
+                    <LabelXS>Permissions</LabelXS>
+                    <!-- Global "Check All" ToggleSwitch -->
+                    <div class="flex items-center gap-2">
+                        <ToggleSwitch
+                            inputId="global-check-all"
+                            v-model="globalCheckAll"
+                        />
+                        <label for="global-check-all" class="text-xs text-gray-700 font-bold">Check All (Globally)</label>
+                    </div>
+                    <button @click="isPermissionGuideModalVisible = true">
                         <CircleHelp />
-                    </button> -->
-                </DivFlexCenter>
+                    </button>
+                </div>
                 <div
                     class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-5"
                 >
-                    <DivFlexCol
-                        v-for="(label, category) in permissions"
-                        :key="category"
-                        class="gap-3"
+                    <!-- Loop through the main permission categories (e.g., 'Settings', 'Ordering') -->
+                    <div
+                        v-for="(subCategories, mainCategoryLabel) in permissions"
+                        :key="mainCategoryLabel"
+                        class="flex flex-col gap-3"
                     >
-                        <SpanBold class="text-xs">{{
-                            category.toUpperCase().replace(/_/g, " ")
-                        }}</SpanBold>
-                        <DivFlexCenter
-                            class="gap-3"
-                            v-for="(permissionName, id) in label"
-                            :key="id"
+                        <!-- Display the main category name and its "Check All" ToggleSwitch -->
+                        <div class="flex items-center justify-between">
+                            <SpanBold class="text-xs text-blue-700">{{
+                                mainCategoryLabel.toUpperCase().replace(/_/g, " ")
+                            }}</SpanBold>
+                            <div class="flex items-center gap-2">
+                                <ToggleSwitch
+                                    :inputId="`group-check-all-${mainCategoryLabel}`"
+                                    v-model="groupCheckAll(mainCategoryLabel).value"
+                                />
+                                <label :for="`group-check-all-${mainCategoryLabel}`" class="text-xs text-gray-700">Check All</label>
+                            </div>
+                        </div>
+
+                        <!-- Loop through sub-categories within each main category -->
+                        <div
+                            v-for="(permissionList, subCategoryLabel) in subCategories"
+                            :key="subCategoryLabel"
+                            class="flex flex-col gap-2 pl-2 border-l border-gray-200"
                         >
-                            <Checkbox
-                                :inputId="`permission-${id}`"
-                                v-model="form.selectedPermissions"
-                                :value="id"
-                                name="permissions[]"
-                            />
-                            <label
-                                :for="`permission-${id}`"
-                                class="text-xs text-gray-600"
+                            <!-- Display the sub-category name and its "Check All" ToggleSwitch -->
+                            <div class="flex items-center justify-between mt-2">
+                                <SpanBold class="text-xs text-gray-800">{{
+                                    subCategoryLabel
+                                }}</SpanBold>
+                                <div class="flex items-center gap-2">
+                                    <ToggleSwitch
+                                        :inputId="`subcategory-check-all-${mainCategoryLabel}-${subCategoryLabel}`"
+                                        v-model="subCategoryCheckAll(mainCategoryLabel, subCategoryLabel).value"
+                                    />
+                                    <label :for="`subcategory-check-all-${mainCategoryLabel}-${subCategoryLabel}`" class="text-xs text-gray-700">Check All</label>
+                                </div>
+                            </div>
+
+                            <!-- Loop through individual permissions within each sub-category -->
+                            <div
+                                class="flex items-center gap-3"
+                                v-for="permission in permissionList"
+                                :key="permission.id"
                             >
-                                {{ permissionName }}
-                            </label>
-                        </DivFlexCenter>
-                    </DivFlexCol>
+                                <!-- Checkbox for each permission -->
+                                <Checkbox
+                                    :inputId="`permission-${permission.id}`"
+                                    v-model="form.selectedPermissions"
+                                    :value="permission.id"
+                                    name="permissions[]"
+                                />
+                                <!-- Label for the checkbox, linked by 'for' attribute -->
+                                <label
+                                    :for="`permission-${permission.id}`"
+                                    class="text-xs text-gray-600"
+                                >
+                                    {{ permission.name }}
+                                </label>
+                            </div>
+                        </div>
+                    </div>
                 </div>
                 <FormError>{{ form.errors.selectedPermissions }}</FormError>
             </InputContainer>
+
+            <!-- Action Buttons -->
             <DivFlexCenter class="justify-end gap-3">
-                <!-- Assuming BackButton is available globally or not needed here as per your previous fix -->
-                <BackButton /> 
+                <BackButton />
                 <Button @click="createNewRoles">Create</Button>
             </DivFlexCenter>
         </Card>

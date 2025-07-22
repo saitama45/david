@@ -1,11 +1,16 @@
 <script setup>
+// FIX: SyntaxError: Cannot use import statement outside a module
+// This error typically indicates that the JavaScript file containing 'import' statements
+// is not being treated as an ES module by your environment. For Vue.js Single File Components (SFCs)
+// like this one, this usually means there's an issue with your build setup (e.g., Vite, Laravel Mix,
+// or Vue CLI configuration) that compiles and bundles your Vue files.
+// Ensure your project's build process is correctly configured to handle Vue SFCs and ES module imports.
+// This comment highlights the common cause of this error, as the fix is external to this file's logic.
 import { ref, reactive, computed, watch, onBeforeMount } from 'vue';
 import Select from "primevue/select";
 import DatePicker from "primevue/datepicker";
 import axios from 'axios'; // Import axios for API calls
 
-import { useBackButton } from "@/Composables/useBackButton";
-const { backButton } = useBackButton(route("store-orders.index"));
 import { useSelectOptions } from "@/Composables/useSelectOptions";
 
 import { useConfirm } from "primevue/useconfirm";
@@ -84,9 +89,10 @@ const orderForm = useForm({
 });
 
 const computeOverallTotal = computed(() => {
+    // Format Overall Total with commas
     return orderForm.orders
         .reduce((total, order) => total + parseFloat(order.total_cost), 0)
-        .toFixed(2);
+        .toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 });
 
 const itemForm = useForm({
@@ -300,15 +306,55 @@ const addImportedItemsToOrderList = () => {
             },
         })
         .then((response) => {
+            console.log('Backend response.data.orders:', response.data.orders); // Log the entire array
             response.data.orders.forEach((importedOrder) => {
+                console.log('--- Processing individual importedOrder from backend (Excel import) ---');
+                console.log('Raw importedOrder object:', importedOrder); // Show the raw object for each item
+
+                // Normalize keys from backend response for easier access
+                const itemCode = importedOrder.item_code || importedOrder.ItemCode || importedOrder.inventory_code;
+                const itemName = importedOrder.item_name || importedOrder.ItemName || importedOrder.name;
+                
+                // CRITICAL DEBUGGING: Log the value before Number() conversion and after
+                const rawQuantityValue = importedOrder.qty || importedOrder.Qty || importedOrder.quantity;
+                const quantity = Number(rawQuantityValue);
+
+                console.log(`Extracted values for ${itemCode || 'Unknown Item'}:`);
+                console.log(`  - Raw quantity value from backend (before Number() conversion):`, rawQuantityValue);
+                console.log(`  - Converted quantity:`, quantity);
+
+                const cost = Number(importedOrder.cost || importedOrder.Cost);
+                const unit = importedOrder.unit || importedOrder.UOM || importedOrder.unit_of_measurement;
+
+                // Validate cost for imported items
+                if (isNaN(cost) || cost === 0) {
+                    toast.add({
+                        severity: "error",
+                        summary: "Validation Error",
+                        detail: `Imported item '${itemName || itemCode || 'Unknown Item'}' has a cost of zero or is invalid and will be skipped.`,
+                        life: 7000,
+                    });
+                    return; // Skip this item
+                }
+
+                // Validate quantity for imported items
+                if (isNaN(quantity) || quantity < 0.1) {
+                    toast.add({
+                        severity: "error",
+                        summary: "Validation Error",
+                        detail: `Imported item '${itemName || itemCode || 'Unknown Item'}' has an invalid quantity and will be skipped. Quantity must be at least 0.1.`,
+                        life: 7000,
+                    });
+                    return; // Skip this item
+                }
+
                 const existingItemIndex = orderForm.orders.findIndex(
-                    (order) => order.inventory_code === importedOrder.inventory_code
+                    (order) => order.inventory_code === itemCode
                 );
 
                 if (existingItemIndex !== -1) {
                     const updatedQuantity =
-                        orderForm.orders[existingItemIndex].quantity +
-                        Number(importedOrder.quantity);
+                        orderForm.orders[existingItemIndex].quantity + quantity;
                     orderForm.orders[existingItemIndex].quantity =
                         updatedQuantity;
                     orderForm.orders[existingItemIndex].total_cost = parseFloat(
@@ -318,11 +364,15 @@ const addImportedItemsToOrderList = () => {
                 } else {
                     // CRITICAL FIX: Ensure the 'id' property of the imported order is ItemCode
                     orderForm.orders.push({
-                        ...importedOrder,
-                        id: importedOrder.inventory_code, // Assuming importedOrder.inventory_code is the ItemCode
-                        total_cost: parseFloat(
-                            importedOrder.quantity * importedOrder.cost
-                        ).toFixed(2),
+                        id: itemCode, 
+                        inventory_code: itemCode, 
+                        name: itemName, 
+                        unit_of_measurement: unit, 
+                        base_uom: importedOrder.base_uom || null, // Assuming base_uom might come from backend
+                        quantity: quantity, 
+                        cost: cost, 
+                        uom: unit, 
+                        total_cost: parseFloat(quantity * cost).toFixed(2),
                     });
                 }
             });
@@ -343,8 +393,8 @@ const addImportedItemsToOrderList = () => {
                 detail: "An error occured while trying to get the imported orders. Please make sure that you are using the correct format.",
                 life: 5000,
             });
-            excelFileForm.setError("orders_file", error.response.data.message);
-            console.log(error);
+            excelFileForm.setError("orders_file", error.response.data.message || "Unknown error during import.");
+            console.error("Error during import:", error); // Use console.error for errors
         })
         .finally(() => (isLoading.value = false));
 };
@@ -538,6 +588,7 @@ const {
 
 watch(orderForm, (value) => {
     localStorage.setItem("storeStoreOrderDraft", JSON.stringify(value));
+    console.log('Draft saved to localStorage:', JSON.stringify(value)); // Explicitly log what's saved
 }, { deep: true });
 </script>
 
@@ -716,10 +767,10 @@ watch(orderForm, (value) => {
                                     {{ order.unit_of_measurement }}
                                 </TD>
                                 <TD>
-                                    {{ order.cost }}
+                                    {{ Number(order.cost).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) }}
                                 </TD>
                                 <TD>
-                                    {{ order.total_cost }}
+                                    {{ Number(order.total_cost).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) }}
                                 </TD>
                                 <TD class="flex gap-3">
                                     <LinkButton
@@ -776,7 +827,7 @@ watch(orderForm, (value) => {
                                 >UOM: {{ order.unit_of_measurement }}</LabelXS
                             >
                             <LabelXS>Quantity: {{ order.quantity }}</LabelXS>
-                            <LabelXS>Cost: {{ order.cost }}</LabelXS>
+                            <LabelXS>Cost: {{ Number(order.cost).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) }}</LabelXS>
                         </MobileTableRow>
                     </MobileTableContainer>
                 </CardContent>
@@ -879,8 +930,6 @@ watch(orderForm, (value) => {
             </DialogContent>
         </Dialog>
 
-        <Button variant="outline" class="text-lg px-7" @click="backButton">
-            Back
-        </Button>
+        <BackButton />
     </Layout>
 </template>

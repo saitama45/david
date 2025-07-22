@@ -47,69 +47,56 @@ class OrderListImport implements ToCollection, WithHeadingRow
                     Log::warning("OrderListImport: Skipping row {$key}: 'Supplier Code' is missing or empty for item '{$itemCodeFromExcel}'.");
                     return null;
                 }
-                // Note: Quantity and Cost validation will be done on the frontend to match user's exact requirement
-                // "We need to skipped these 0 cost and 0 qty. We just import those who have > 0 in cost and qty."
-                // This means the backend should pass all validly structured rows, and frontend filters.
-                // However, for robustness, we'll keep basic checks here to prevent obvious garbage data.
-                if ($qtyFromExcel === null || $qtyFromExcel < 0) { // Allow 0 here, frontend will filter
+                // Allow 0 here for Qty and Cost, frontend will filter based on > 0.1 and > 0 respectively.
+                if ($qtyFromExcel === null || $qtyFromExcel < 0) { 
                     Log::warning("OrderListImport: Skipping row {$key} for item '{$itemCodeFromExcel}': 'Qty' is missing or invalid (negative).");
                     return null;
                 }
-                if ($costFromExcel === null || $costFromExcel < 0) { // Allow 0 here, frontend will filter
+                if ($costFromExcel === null || $costFromExcel < 0) { 
                     Log::warning("OrderListImport: Skipping row {$key} for item '{$itemCodeFromExcel}': 'Cost' is missing or invalid (negative).");
                     return null;
                 }
                 // --- End Backend-side Validation ---
 
                 $supplierItem = SupplierItems::with('sapMasterfile')
-                                ->where('ItemCode', $itemCodeFromExcel)
-                                ->where('SupplierCode', $supplierCodeFromExcel)
-                                ->first();
+                                     ->where('ItemCode', $itemCodeFromExcel)
+                                     ->where('is_active', true) // Only import active items
+                                     ->where('SupplierCode', $supplierCodeFromExcel)
+                                     ->first();
 
                 if (!$supplierItem) {
-                    Log::warning("OrderListImport: Skipping row {$key}: SupplierItems not found for Item Code: '{$itemCodeFromExcel}' and Supplier Code: '{$supplierCodeFromExcel}'.");
+                    Log::warning("OrderListImport: Skipping row {$key}: SupplierItems not found or inactive for Item Code: '{$itemCodeFromExcel}' and Supplier Code: '{$supplierCodeFromExcel}'.");
                     return null;
                 }
                 Log::debug("OrderListImport: SupplierItems found for '{$itemCodeFromExcel}': " . json_encode($supplierItem->toArray()));
 
-                $calculatedQuantity = $qtyFromExcel;
-                if (is_string($unitFromExcel) && str_contains($unitFromExcel, '(') && str_contains($unitFromExcel, ')')) {
-                    $start = strpos($unitFromExcel, '(') + 1;
-                    $end = strpos($unitFromExcel, ')');
-                    $conversionString = substr($unitFromExcel, $start, $end - $start);
-                    if (is_numeric($conversionString)) {
-                        $conversionFactor = (float) $conversionString;
-                        $calculatedQuantity = $conversionFactor * $qtyFromExcel;
-                        Log::debug("OrderListImport: Unit conversion applied for '{$unitFromExcel}'. Original Qty: {$qtyFromExcel}, Conversion Factor: {$conversionFactor}, Calculated Qty: {$calculatedQuantity}");
-                    } else {
-                        Log::warning("OrderListImport: Invalid conversion factor in unit '{$unitFromExcel}' for item '{$itemCodeFromExcel}'. Using raw quantity.");
-                    }
-                }
-
+                // CRITICAL FIX: Use the quantity directly from Excel.
+                // The Excel 'Qty' column is assumed to be the final desired quantity.
+                $finalQuantity = $qtyFromExcel; 
+                
                 // CRITICAL FIX: Use cost from Excel directly for mapped row and total cost calculation
-                // This ensures the frontend receives the Excel cost for its validation.
                 $finalCost = $costFromExcel; 
-                $totalCost = $finalCost * $calculatedQuantity;
+                $totalCost = $finalCost * $finalQuantity;
 
-                Log::debug("OrderListImport: Calculated Total Cost for '{$itemCodeFromExcel}': {$totalCost} (Excel Cost: {$finalCost}, Calculated Qty: {$calculatedQuantity})");
+                Log::debug("OrderListImport: Final values for '{$itemCodeFromExcel}' - Quantity: {$finalQuantity}, Cost: {$finalCost}, Total Cost: {$totalCost}");
 
                 $mappedRow = [
-                    'id' => $supplierItem->id,
+                    'id' => $supplierItem->id, // Use supplierItem->id for consistency
                     'inventory_code' => $supplierItem->ItemCode,
                     'name' => $supplierItem->item_name,
                     'cost' => $finalCost, // Use the Excel cost here
-                    'unit_of_measurement' => $supplierItem->uom ?? $unitFromExcel,
+                    'unit_of_measurement' => $supplierItem->uom ?? $unitFromExcel, // Prefer DB UOM, fallback to Excel
                     'base_uom' => $supplierItem->sapMasterfile->BaseUOM ?? null,
                     'total_cost' => $totalCost,
-                    'quantity' => $calculatedQuantity,
-                    'uom' => $supplierItem->uom ?? $unitFromExcel
+                    'quantity' => $finalQuantity, // This is the fixed quantity
+                    'uom' => $supplierItem->uom ?? $unitFromExcel // Use DB UOM, fallback to Excel
                 ];
                 Log::debug("OrderListImport: Mapped row {$key} output: " . json_encode($mappedRow));
                 return $mappedRow;
             })
-            ->filter()
-            ->values();
-        
+            ->filter() // Remove any null entries (skipped rows)
+            ->values(); // Re-index the array
+
         Log::debug("OrderListImport: Finished collection processing. Final importedData count: " . $this->importedData->count());
         Log::debug("OrderListImport: Final importedData: " . json_encode($this->importedData->toArray()));
     }

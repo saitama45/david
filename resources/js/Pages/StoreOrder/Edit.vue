@@ -496,9 +496,10 @@ const calculateGSIOrderDate = () => {
 };
 
 const computeOverallTotal = computed(() => {
+    // Format Overall Total with commas
     return orderForm.orders
         .reduce((total, order) => total + parseFloat(order.total_cost), 0)
-        .toFixed(2);
+        .toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 });
 
 watch(
@@ -599,22 +600,25 @@ const addImportedItemsToOrderList = () => {
             },
         })
         .then((response) => {
+            console.log('Backend response.data.orders:', response.data.orders); // Log the entire array
             response.data.orders.forEach((importedOrder) => {
-                // --- Start: Debugging Logs ---
-                console.log('--- Processing importedOrder from Excel import ---');
-                console.log('Raw importedOrder from backend (Excel import):', importedOrder);
-                // --- End: Debugging Logs ---
+                console.log('--- Processing individual importedOrder from backend (Excel import) ---');
+                console.log('Raw importedOrder object:', importedOrder); // Show the raw object for each item
 
                 // Normalize keys from backend response for easier access
                 const itemCode = importedOrder.item_code || importedOrder.ItemCode || importedOrder.inventory_code;
                 const itemName = importedOrder.item_name || importedOrder.ItemName || importedOrder.name;
-                const quantity = Number(importedOrder.qty || importedOrder.Qty || importedOrder.quantity);
+                
+                // CRITICAL DEBUGGING: Log the value before Number() conversion and after
+                const rawQuantityValue = importedOrder.qty || importedOrder.Qty || importedOrder.quantity;
+                const quantity = Number(rawQuantityValue);
+
+                console.log(`Extracted values for ${itemCode || 'Unknown Item'}:`);
+                console.log(`  - Raw quantity value from backend (before Number() conversion):`, rawQuantityValue);
+                console.log(`  - Converted quantity:`, quantity);
+
                 const cost = Number(importedOrder.cost || importedOrder.Cost);
                 const unit = importedOrder.unit || importedOrder.UOM || importedOrder.unit_of_measurement;
-
-                // --- Start: Debugging Logs ---
-                console.log('Normalized values (Excel import) - itemCode:', itemCode, 'itemName:', itemName, 'quantity:', quantity, 'cost:', cost, 'unit:', unit);
-                // --- End: Debugging Logs ---
 
                 // Validate cost for imported items
                 if (isNaN(cost) || cost === 0) {
@@ -664,9 +668,6 @@ const addImportedItemsToOrderList = () => {
                         total_cost: parseFloat(quantity * cost).toFixed(2),
                     };
                     orderForm.orders.push(newItem);
-                    // --- Start: Debugging Logs ---
-                    console.log('Added new item to orderForm.orders (Excel import):', newItem); 
-                    // --- End: Debugging Logs ---
                 }
             });
 
@@ -687,7 +688,7 @@ const addImportedItemsToOrderList = () => {
                 life: 5000,
             });
             excelFileForm.setError("orders_file", error.response.data.message || "Unknown error during import.");
-            console.log(error);
+            console.error("Error during import:", error); // Use console.error for errors
         })
         .finally(() => (isLoading.value = false));
 };
@@ -868,10 +869,10 @@ const addImportedItemsToOrderList = () => {
                                     {{ order.unit_of_measurement }}
                                 </TD>
                                 <TD>
-                                    {{ order.cost }}
+                                    {{ Number(order.cost).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) }}
                                 </TD>
                                 <TD>
-                                    {{ order.total_cost }}
+                                    {{ Number(order.total_cost).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) }}
                                 </TD>
                                 <TD class="flex gap-3">
                                     <LinkButton
@@ -928,12 +929,12 @@ const addImportedItemsToOrderList = () => {
                                 >UOM: {{ order.unit_of_measurement }}</LabelXS
                             >
                             <LabelXS>Quantity: {{ order.quantity }}</LabelXS>
-                            <LabelXS>Cost: {{ order.cost }}</LabelXS>
+                            <LabelXS>Cost: {{ Number(order.cost).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) }}</LabelXS>
                         </MobileTableRow>
                     </MobileTableContainer>
                 </CardContent>
                 <CardFooter class="flex justify-end">
-                    <Button @click="update">Place Order</Button>
+                    <Button @click="store">Place Order</Button>
                 </CardFooter>
             </Card>
         </div>
@@ -1031,8 +1032,6 @@ const addImportedItemsToOrderList = () => {
             </DialogContent>
         </Dialog>
 
-        <Button variant="outline" class="text-lg px-7" @click="backButton">
-            Back
-        </Button>
+        <BackButton />
     </Layout>
 </template>
