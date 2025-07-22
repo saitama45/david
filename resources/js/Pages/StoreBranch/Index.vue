@@ -17,7 +17,7 @@ const form = useForm({
 const targetId = ref(null);
 
 const store = () => {
-    form.post(route("store-branches.update", targetId.value), {
+    form.post(route("branches.update", targetId.value), {
         preserveScroll: true,
         onSuccess: () => {
             toast.add({
@@ -39,7 +39,7 @@ const props = defineProps({
     },
 });
 
-const { search } = useSearch("store-branches.index");
+const { search } = useSearch("branches.index");
 
 const editCategoryDetails = (id) => {
     router.get(`/store-branches/edit/${id}`);
@@ -56,7 +56,7 @@ const createNewStoreBranch = () => {
 const { deleteModel } = useReferenceDelete();
 
 const exportRoute = computed(() => 
-    route("store-branches.export", { search: search.value })
+    route("branches.export", { search: search.value })
 );
 </script>
 
@@ -105,7 +105,7 @@ const exportRoute = computed(() =>
                                 @click="
                                     deleteModel(
                                         route(
-                                            'store-branches.destroy',
+                                            'branches.destroy',
                                             branch.id
                                         ),
                                         'Branch'

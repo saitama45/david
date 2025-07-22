@@ -5,9 +5,10 @@ import {
     CollapsibleTrigger,
 } from "@/components/ui/collapsible";
 
-import NavLink from "./NavLink.vue";
+import NavLink from "./NavLink.vue"; // Assuming NavLink.vue is in the same directory
 import { usePage } from "@inertiajs/vue3";
-import { ref } from "vue";
+import { ref, computed, watchEffect } from "vue"; // Import 'watchEffect'
+
 import {
     FileCog,
     Bell,
@@ -54,6 +55,35 @@ const hasAccess = (access) => {
 };
 const isAdmin = is_admin;
 
+// Function to check if a given URL (or any of a list of URLs) is the current active page.
+// This uses usePage().url which gives the full current URL path (e.g., /users/1/edit).
+const isPathActive = (pathOrPaths) => {
+    const currentUrl = usePage().url;
+    if (Array.isArray(pathOrPaths)) {
+        // If an array of paths is provided, check if any of them are active.
+        return pathOrPaths.some(path => {
+            if (path === currentUrl) {
+                return true;
+            }
+            // For prefix matches, ensure it's not just '/' matching everything.
+            return path !== '/' && currentUrl.startsWith(path);
+        });
+    } else {
+        // If a single path is provided, check for exact or prefix match.
+        if (pathOrPaths === currentUrl) {
+            return true;
+        }
+        return pathOrPaths !== '/' && currentUrl.startsWith(pathOrPaths);
+    }
+};
+
+// Grouping permissions for collapsible sections (no change here, still needed for v-if)
+const canViewSettingsGroup =
+    hasAccess("view users") ||
+    hasAccess("view roles") ||
+    hasAccess("view templates") ||
+    hasAccess("view dts delivery schedules");
+
 const canViewOrderingGroup =
     hasAccess("view store orders") ||
     hasAccess("view dts orders") ||
@@ -69,7 +99,8 @@ const canViewSalesGroup = hasAccess("view store transactions");
 const canViewInventoryGroup =
     hasAccess("view items list") ||
     hasAccess("view menu list") ||
-    hasAccess("view stock management");
+    hasAccess("view stock management") ||
+    hasAccess("view low on stocks"); // Added for Low on Stocks
 
 const canViewReportsGroup =
     hasAccess("view items order summary") ||
@@ -77,70 +108,62 @@ const canViewReportsGroup =
     hasAccess("view salmon orders") ||
     hasAccess("view fruits and vegetables orders");
 
-const canViewReferenceGroup = hasAccess("manage references");
+const canViewReferencesGroup = hasAccess("manage references");
 
-// State for collapsible sections
-const schedulesOpen = ref(false);
+// Internal refs to store the open/closed state for each section.
+// These are directly controlled by v-model:open on Collapsible.
+const settingsOpen = ref(false);
 const orderingOpen = ref(false);
 const receivingOpen = ref(false);
 const salesOpen = ref(false);
 const inventoryOpen = ref(false);
 const reportsOpen = ref(false);
-const referenceOpen = ref(false);
+const referencesOpen = ref(false);
+
+// Watch for route changes to automatically open the relevant collapsible section
+watchEffect(() => {
+    const currentUrl = usePage().url;
+
+    // Define all collapsible sections and their associated paths
+    const sections = [
+        { ref: settingsOpen, paths: ["/users", "/roles", "/templates", "/dts-delivery-schedules"] },
+        { ref: orderingOpen, paths: ["/store-orders", "/emergency-orders", "/additional-orders", "/dts-orders", "/direct-receiving", "/orders-approval", "/cs-approvals", "/additional-orders-approval", "/emergency-orders-approval"] },
+        { ref: receivingOpen, paths: ["/orders-receiving", "/approved-orders", "/receiving-approvals"] },
+        { ref: salesOpen, paths: ["/sales-orders", "/store-transactions", "/store-transactions-approval"] },
+        { ref: inventoryOpen, paths: ["/items-list", "/sapitems-list", "/SupplierItems-list", "/POSMasterfile-list", "/menu-list", "/stock-management", "/soh-adjustment", "/low-on-stocks"] },
+        { ref: reportsOpen, paths: ["/top-10-inventories", "/days-inventory-outstanding", "/days-payable-outstanding", "/sales-report", "/inventories-report", "/upcoming-inventories", "/account-payable", "/cost-of-goods", "/product-orders-summary", "/ice-cream-orders", "/salmon-orders", "/fruits-and-vegetables"] },
+        { ref: referencesOpen, paths: ["/category-list", "/wip-list", "/menu-categories", "/uom-conversions", "/inventory-categories", "/unit-of-measurements", "/branches", "/suppliers", "/cost-centers"] },
+    ];
+
+    let anySectionActive = false;
+    sections.forEach(section => {
+        const isActive = isPathActive(section.paths);
+        section.ref.value = isActive; // Set the section's open state based on active path
+        if (isActive) {
+            anySectionActive = true;
+        }
+    });
+
+    // If no section is active, ensure all are closed (or handle default open state if desired)
+    // This part ensures that if you navigate to a non-collapsible root route, all collapsibles close.
+    // If you want a default collapsible to be open, you'd add logic here.
+});
 </script>
 
 <template>
-    <nav class="grid items-start pl-4 text-sm font-medium">
-        <NavLink href="/dashboard" :icon="Home"> Dashboard </NavLink>
-        <NavLink
-            v-if="hasAccess('view users')"
-            href="/users"
-            :icon="UsersRound"
-        >
-            Users
+    <nav
+        class="grid items-start pl-4 text-sm font-medium transition-all duration-300 overflow-hidden w-64"
+    >
+        <!-- Removed Sidebar Toggle Button -->
+
+        <!-- Dashboard Link -->
+        <NavLink href="/dashboard" :icon="Home" :is-active="isPathActive('/dashboard')">
+            Dashboard
         </NavLink>
-        <NavLink
-            href="/low-on-stocks"
-            :icon="FileCog"
-            v-if="hasAccess('view roles')"
-        >
-            Low on Stocks
-        </NavLink>
-        <NavLink href="/roles" :icon="FileCog" v-if="hasAccess('view roles')">
-            Roles
-        </NavLink>
-        <NavLink
-            href="/templates"
-            :icon="FileCog"
-            v-if="hasAccess('view roles')"
-        >
-            Templates
-        </NavLink>
-        <NavLink href="/audits" :icon="MonitorCog" v-if="false">
+        <!-- Audits Link (currently hidden) -->
+        <NavLink href="/audits" :icon="MonitorCog" v-if="false" :is-active="isPathActive('/audits')">
             Audits
         </NavLink>
-
-        <!-- Schedules Section -->
-        <Collapsible v-if="isAdmin" v-model:open="schedulesOpen" class="w-full">
-            <CollapsibleTrigger
-                class="flex items-center justify-between w-full py-2 hover:bg-muted/50 rounded-md px-2"
-            >
-                <div class="flex items-center">
-                    <span>Schedules</span>
-                </div>
-                <ChevronDown v-if="schedulesOpen" class="h-4 w-4" />
-                <ChevronRight v-else class="h-4 w-4" />
-            </CollapsibleTrigger>
-            <CollapsibleContent class="pl-2">
-                <NavLink
-                    v-if="hasAccess('view dts delivery schedules')"
-                    href="/delivery-schedules"
-                    :icon="CalendarCheck2"
-                >
-                    DTS Delivery Schedules
-                </NavLink>
-            </CollapsibleContent>
-        </Collapsible>
 
         <!-- Ordering Section -->
         <Collapsible
@@ -152,7 +175,7 @@ const referenceOpen = ref(false);
                 class="flex items-center justify-between w-full py-2 hover:bg-muted/50 rounded-md px-2"
             >
                 <div class="flex items-center">
-                    <span>Ordering</span>
+                    <span >Ordering</span>
                 </div>
                 <ChevronDown v-if="orderingOpen" class="h-4 w-4" />
                 <ChevronRight v-else class="h-4 w-4" />
@@ -162,6 +185,7 @@ const referenceOpen = ref(false);
                     v-if="hasAccess('view store orders')"
                     href="/store-orders"
                     :icon="ShoppingCart"
+                    :is-active="isPathActive('/store-orders')"
                 >
                     Store Orders
                 </NavLink>
@@ -169,6 +193,7 @@ const referenceOpen = ref(false);
                     v-if="hasAccess('view store orders')"
                     href="/emergency-orders"
                     :icon="ShoppingCart"
+                    :is-active="isPathActive('/emergency-orders')"
                 >
                     Emergency Orders
                 </NavLink>
@@ -176,6 +201,7 @@ const referenceOpen = ref(false);
                     v-if="hasAccess('view store orders')"
                     href="/additional-orders"
                     :icon="ShoppingCart"
+                    :is-active="isPathActive('/additional-orders')"
                 >
                     Additional Orders
                 </NavLink>
@@ -183,16 +209,18 @@ const referenceOpen = ref(false);
                     v-if="hasAccess('view dts orders')"
                     href="/dts-orders"
                     :icon="ShoppingBasket"
+                    :is-active="isPathActive('/dts-orders')"
                 >
                     DTS Orders
                 </NavLink>
-                <NavLink href="/direct-receiving" :icon="ShoppingBasket">
+                <NavLink href="/direct-receiving" :icon="ShoppingBasket" :is-active="isPathActive('/direct-receiving')">
                     Direct Receiving
                 </NavLink>
                 <NavLink
                     v-if="hasAccess('view orders for approval list')"
                     href="/orders-approval"
                     :icon="SquareChartGantt"
+                    :is-active="isPathActive('/orders-approval')"
                 >
                     List of Orders (Created SO) form SM Approval
                 </NavLink>
@@ -200,6 +228,7 @@ const referenceOpen = ref(false);
                     v-if="hasAccess('view orders for cs approval list')"
                     href="/cs-approvals"
                     :icon="SquareChartGantt"
+                    :is-active="isPathActive('/cs-approvals')"
                 >
                     CS Review List
                 </NavLink>
@@ -207,6 +236,7 @@ const referenceOpen = ref(false);
                     v-if="hasAccess('view orders for cs approval list')"
                     href="/additional-orders-approval"
                     :icon="SquareChartGantt"
+                    :is-active="isPathActive('/additional-orders-approval')"
                 >
                     Additional Order Approval
                 </NavLink>
@@ -215,6 +245,7 @@ const referenceOpen = ref(false);
                     v-if="hasAccess('view orders for cs approval list')"
                     href="/emergency-orders-approval"
                     :icon="SquareChartGantt"
+                    :is-active="isPathActive('/emergency-orders-approval')"
                 >
                     Emergency Order Approval
                 </NavLink>
@@ -231,7 +262,7 @@ const referenceOpen = ref(false);
                 class="flex items-center justify-between w-full py-2 hover:bg-muted/50 rounded-md px-2"
             >
                 <div class="flex items-center">
-                    <span>Receiving</span>
+                    <span >Receiving</span>
                 </div>
                 <ChevronDown v-if="receivingOpen" class="h-4 w-4" />
                 <ChevronRight v-else class="h-4 w-4" />
@@ -241,13 +272,23 @@ const referenceOpen = ref(false);
                     v-if="hasAccess('view approved orders')"
                     href="/orders-receiving"
                     :icon="ClipboardList"
+                    :is-active="isPathActive('/orders-receiving')"
                 >
                     Approved Orders
+                </NavLink>
+                <NavLink
+                    v-if="hasAccess('view received orders for approval list')"
+                    href="/receiving-approvals"
+                    :icon="ClipboardCheck"
+                    :is-active="isPathActive('/receiving-approvals')"
+                >
+                    Receiving Approvals
                 </NavLink>
                 <NavLink
                     v-if="hasAccess('view approved received items')"
                     href="/approved-orders"
                     :icon="FileCheck"
+                    :is-active="isPathActive('/approved-orders')"
                 >
                     Confirmed/Approved Received SO
                 </NavLink>
@@ -264,7 +305,7 @@ const referenceOpen = ref(false);
                 class="flex items-center justify-between w-full py-2 hover:bg-muted/50 rounded-md px-2"
             >
                 <div class="flex items-center">
-                    <span>Sales</span>
+                    <span >Sales</span>
                 </div>
                 <ChevronDown v-if="salesOpen" class="h-4 w-4" />
                 <ChevronRight v-else class="h-4 w-4" />
@@ -274,6 +315,7 @@ const referenceOpen = ref(false);
                     v-if="false"
                     href="/sales-orders"
                     :icon="ChartColumnBig"
+                    :is-active="isPathActive('/sales-orders')"
                 >
                     Sales Orders
                 </NavLink>
@@ -281,8 +323,17 @@ const referenceOpen = ref(false);
                     v-if="hasAccess('view store transactions')"
                     href="/store-transactions/summary"
                     :icon="ArrowLeftRight"
+                    :is-active="isPathActive('/store-transactions')"
                 >
                     Store Transactions
+                </NavLink>
+                <NavLink
+                    v-if="hasAccess('view store transactions')"
+                    href="/store-transactions-approval"
+                    :icon="ArrowLeftRight"
+                    :is-active="isPathActive('/store-transactions-approval')"
+                >
+                    Store Transactions Approval
                 </NavLink>
             </CollapsibleContent>
         </Collapsible>
@@ -297,7 +348,7 @@ const referenceOpen = ref(false);
                 class="flex items-center justify-between w-full py-2 hover:bg-muted/50 rounded-md px-2"
             >
                 <div class="flex items-center">
-                    <span>Inventory</span>
+                    <span >Inventory</span>
                 </div>
                 <ChevronDown v-if="inventoryOpen" class="h-4 w-4" />
                 <ChevronRight v-else class="h-4 w-4" />
@@ -307,6 +358,7 @@ const referenceOpen = ref(false);
                     v-if="hasAccess('view items list')"
                     href="/items-list"
                     :icon="PackageSearch"
+                    :is-active="isPathActive('/items-list')"
                 >
                     NN Inventory Items
                 </NavLink>
@@ -314,6 +366,7 @@ const referenceOpen = ref(false);
                     v-if="hasAccess('view items list')"
                     href="/sapitems-list"
                     :icon="TextSelect"
+                    :is-active="isPathActive('/sapitems-list')"
                 >
                     SAP Mastlist Items
                 </NavLink>
@@ -321,6 +374,7 @@ const referenceOpen = ref(false);
                     v-if="hasAccess('view items list')"
                     href="/SupplierItems-list"
                     :icon="Warehouse"
+                    :is-active="isPathActive('/SupplierItems-list')"
                 >
                     Supplier Items
                 </NavLink>
@@ -328,6 +382,7 @@ const referenceOpen = ref(false);
                     v-if="hasAccess('view items list')"
                     href="/POSMasterfile-list"
                     :icon="TextSelect"
+                    :is-active="isPathActive('/POSMasterfile-list')"
                 >
                     POS Masterlist
                 </NavLink>
@@ -335,6 +390,7 @@ const referenceOpen = ref(false);
                     v-if="hasAccess('view bom list')"
                     href="/menu-list"
                     :icon="Scroll"
+                    :is-active="isPathActive('/menu-list')"
                 >
                     BOM
                 </NavLink>
@@ -342,6 +398,7 @@ const referenceOpen = ref(false);
                     v-if="hasAccess('view stock management')"
                     href="/stock-management"
                     :icon="FolderKanban"
+                    :is-active="isPathActive('/stock-management')"
                 >
                     Stock Management
                 </NavLink>
@@ -349,8 +406,14 @@ const referenceOpen = ref(false);
                     v-if="hasAccess('view stock management')"
                     href="/soh-adjustment"
                     :icon="FolderKanban"
+                    :is-active="isPathActive('/soh-adjustment')"
                 >
                     SOH Adjustment
+                </NavLink>
+                <!-- Moved Low on Stocks here -->
+                <NavLink href="/low-on-stocks" :icon="FileCog" v-if="hasAccess('view low on stocks')"
+                    :is-active="isPathActive('/low-on-stocks')">
+                    Low on Stocks
                 </NavLink>
             </CollapsibleContent>
         </Collapsible>
@@ -365,40 +428,41 @@ const referenceOpen = ref(false);
                 class="flex items-center justify-between w-full py-2 hover:bg-muted/50 rounded-md px-2"
             >
                 <div class="flex items-center">
-                    <span>Reports</span>
+                    <span >Reports</span>
                 </div>
                 <ChevronDown v-if="reportsOpen" class="h-4 w-4" />
                 <ChevronRight v-else class="h-4 w-4" />
             </CollapsibleTrigger>
             <CollapsibleContent class="pl-2">
-                <NavLink href="/top-10-inventories" :icon="List">
+                <NavLink href="/top-10-inventories" :icon="List" :is-active="isPathActive('/top-10-inventories')">
                     Top 10 Inventories
                 </NavLink>
-                <NavLink href="/days-inventory-outstanding" :icon="List">
+                <NavLink href="/days-inventory-outstanding" :icon="List" :is-active="isPathActive('/days-inventory-outstanding')">
                     Days Inventory Outstanding
                 </NavLink>
-                <NavLink href="/days-payable-outstanding" :icon="List">
+                <NavLink href="/days-payable-outstanding" :icon="List" :is-active="isPathActive('/days-payable-outstanding')">
                     Days Payable Outstanding
                 </NavLink>
-                <NavLink href="/sales-report" :icon="List">
+                <NavLink href="/sales-report" :icon="List" :is-active="isPathActive('/sales-report')">
                     Sales Report
                 </NavLink>
-                <NavLink href="/inventories-report" :icon="List">
+                <NavLink href="/inventories-report" :icon="List" :is-active="isPathActive('/inventories-report')">
                     Inventories Report
                 </NavLink>
-                <NavLink href="/upcoming-inventories" :icon="List">
+                <NavLink href="/upcoming-inventories" :icon="List" :is-active="isPathActive('/upcoming-inventories')">
                     Upcoming Inventories
                 </NavLink>
-                <NavLink href="/account-payable" :icon="List">
+                <NavLink href="/account-payable" :icon="List" :is-active="isPathActive('/account-payable')">
                     Account Payable
                 </NavLink>
-                <NavLink href="/cost-of-goods" :icon="List">
+                <NavLink href="/cost-of-goods" :icon="List" :is-active="isPathActive('/cost-of-goods')">
                     Cost Of Goods
                 </NavLink>
                 <NavLink
                     v-if="hasAccess('view items order summary')"
                     href="/product-orders-summary"
                     :icon="List"
+                    :is-active="isPathActive('/product-orders-summary')"
                 >
                     Item Orders Summary
                 </NavLink>
@@ -406,6 +470,7 @@ const referenceOpen = ref(false);
                     v-if="hasAccess('view ice cream orders')"
                     href="/ice-cream-orders"
                     :icon="IceCreamCone"
+                    :is-active="isPathActive('/ice-cream-orders')"
                 >
                     Ice Cream Orders
                 </NavLink>
@@ -413,6 +478,7 @@ const referenceOpen = ref(false);
                     v-if="hasAccess('view salmon orders')"
                     href="/salmon-orders"
                     :icon="FishSymbol"
+                    :is-active="isPathActive('/salmon-orders')"
                 >
                     Salmon Orders
                 </NavLink>
@@ -420,25 +486,26 @@ const referenceOpen = ref(false);
                     v-if="hasAccess('view fruits and vegetables orders')"
                     href="/fruits-and-vegetables"
                     :icon="Vegan"
+                    :is-active="isPathActive('/fruits-and-vegetables')"
                 >
                     Fruits And Vegetables Orders
                 </NavLink>
             </CollapsibleContent>
         </Collapsible>
 
-        <!-- Reference Section -->
+        <!-- References Section -->
         <Collapsible
-            v-if="canViewReferenceGroup"
-            v-model:open="referenceOpen"
+            v-if="canViewReferencesGroup"
+            v-model:open="referencesOpen"
             class="w-full"
         >
             <CollapsibleTrigger
                 class="flex items-center justify-between w-full py-2 hover:bg-muted/50 rounded-md px-2"
             >
                 <div class="flex items-center">
-                    <span>Reference</span>
+                    <span >References</span>
                 </div>
-                <ChevronDown v-if="referenceOpen" class="h-4 w-4" />
+                <ChevronDown v-if="referencesOpen" class="h-4 w-4" />
                 <ChevronRight v-else class="h-4 w-4" />
             </CollapsibleTrigger>
             <CollapsibleContent class="pl-2">
@@ -446,24 +513,27 @@ const referenceOpen = ref(false);
                     v-if="hasAccess('manage references')"
                     href="/category-list"
                     :icon="FolderDot"
+                    :is-active="isPathActive('/category-list')"
                 >
                     Categories
                 </NavLink>
-                <NavLink href="/wip-list" :icon="FolderDot"> WIP List </NavLink>
+                <NavLink href="/wip-list" :icon="FolderDot" :is-active="isPathActive('/wip-list')"> WIP List </NavLink>
                 <NavLink
                     v-if="hasAccess('manage references')"
                     href="/menu-categories"
                     :icon="FileSliders"
+                    :is-active="isPathActive('/menu-categories')"
                 >
                     Menu Categories
                 </NavLink>
-                <NavLink href="/uom-conversions" :icon="FileSliders">
+                <NavLink href="/uom-conversions" :icon="FileSliders" :is-active="isPathActive('/uom-conversions')">
                     UOM Conversions
                 </NavLink>
                 <NavLink
                     v-if="hasAccess('manage references')"
                     href="/inventory-categories"
                     :icon="LayoutList"
+                    :is-active="isPathActive('/inventory-categories')"
                 >
                     Invetory Categories
                 </NavLink>
@@ -471,13 +541,15 @@ const referenceOpen = ref(false);
                     v-if="hasAccess('manage references')"
                     href="/unit-of-measurements"
                     :icon="LayoutList"
+                    :is-active="isPathActive('/unit-of-measurements')"
                 >
                     Unit of Measurements
                 </NavLink>
                 <NavLink
                     v-if="hasAccess('manage references')"
-                    href="/store-branches"
+                    href="/branches"
                     :icon="AppWindowMac"
+                    :is-active="isPathActive('/branches')"
                 >
                     Store Branches
                 </NavLink>
@@ -485,6 +557,7 @@ const referenceOpen = ref(false);
                     v-if="hasAccess('manage references')"
                     href="/suppliers"
                     :icon="Warehouse"
+                    :is-active="isPathActive('/suppliers')"
                 >
                     Suppliers
                 </NavLink>
@@ -492,8 +565,51 @@ const referenceOpen = ref(false);
                     v-if="hasAccess('manage references')"
                     href="/cost-centers"
                     :icon="TextSelect"
+                    :is-active="isPathActive('/cost-centers')"
                 >
                     Cost Centers
+                </NavLink>
+            </CollapsibleContent>
+        </Collapsible>
+
+        <!-- Settings Section -->
+        <Collapsible v-if="canViewSettingsGroup" v-model:open="settingsOpen" class="w-full">
+            <CollapsibleTrigger
+                class="flex items-center justify-between w-full py-2 hover:bg-muted/50 rounded-md px-2"
+            >
+                <div class="flex items-center">
+                    <span >Settings</span>
+                </div>
+                <ChevronDown v-if="settingsOpen" class="h-4 w-4" />
+                <ChevronRight v-else class="h-4 w-4" />
+            </CollapsibleTrigger>
+            <CollapsibleContent class="pl-2">
+                <NavLink
+                    v-if="hasAccess('view users')"
+                    href="/users"
+                    :icon="UsersRound"
+                    :is-active="isPathActive('/users')"
+                >
+                    Users
+                </NavLink>
+                <NavLink href="/roles" :icon="FileCog" v-if="hasAccess('view roles')" :is-active="isPathActive('/roles')">
+                    Roles
+                </NavLink>
+                <NavLink
+                    href="/templates"
+                    :icon="FileCog"
+                    v-if="hasAccess('view templates')"
+                    :is-active="isPathActive('/templates')"
+                >
+                    Templates
+                </NavLink>
+                <NavLink
+                    v-if="hasAccess('view dts delivery schedules')"
+                    href="/dts-delivery-schedules"
+                    :icon="CalendarCheck2"
+                    :is-active="isPathActive('/dts-delivery-schedules')"
+                >
+                    DTS Delivery Schedules
                 </NavLink>
             </CollapsibleContent>
         </Collapsible>

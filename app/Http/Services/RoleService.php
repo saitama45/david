@@ -3,8 +3,9 @@
 namespace App\Http\Services;
 
 use App\Models\Role;
-use Illuminate\Support\Facades\DB;
+use Exception;
 use Spatie\Permission\Models\Permission;
+use Illuminate\Support\Facades\DB;
 
 class RoleService
 {
@@ -12,107 +13,240 @@ class RoleService
     public function createRole(array $data)
     {
         DB::beginTransaction();
-        $role = Role::create(['name' => $data['name']]);
-        $permissions = Permission::whereIn('id', $data['selectedPermissions'])->get();
-        $role->syncPermissions($permissions);
-        DB::commit();
+        try {
+            $role = Role::create(['name' => $data['name']]);
+            if (isset($data['selectedPermissions']) && !empty($data['selectedPermissions'])) {
+                // Fetch Permission models by their IDs
+                $permissions = Permission::whereIn('id', $data['selectedPermissions'])->get();
+                $role->syncPermissions($permissions);
+            } else {
+                $role->syncPermissions([]); // Revoke all permissions if none selected
+            }
+            DB::commit();
+        } catch (Exception $e) {
+            DB::rollBack();
+            throw new Exception("Failed to create role: " . $e->getMessage());
+        }
     }
 
     public function updateRole(array $data, Role $role)
     {
         DB::beginTransaction();
-        $role->update([
-            'name' => $data['name']
-        ]);
-        $permissions = Permission::whereIn('id', $data['selectedPermissions'])->get();
-        $role->syncPermissions($permissions);
-        DB::commit();
+        try {
+            $role->update([
+                'name' => $data['name']
+            ]);
+            if (isset($data['selectedPermissions']) && !empty($data['selectedPermissions'])) {
+                // Fetch Permission models by their IDs
+                $permissions = Permission::whereIn('id', $data['selectedPermissions'])->get();
+                $role->syncPermissions($permissions);
+            } else {
+                $role->syncPermissions([]); // Revoke all permissions if none selected
+            }
+            DB::commit();
+        } catch (Exception $e) {
+            DB::rollBack();
+            throw new Exception("Failed to update role: " . $e->getMessage());
+        }
     }
 
     public function getPermissionsGroup()
     {
-        $permissions = Permission::all();
+        $allPermissions = Permission::all()->keyBy('name'); // Get all permissions keyed by their name
 
-        $groupedPermissions = [
-            'user' => $permissions->filter(function ($permission) {
-                return str_contains($permission->name, 'users');
-            }),
+        $groupedPermissions = [];
 
-            'roles' => $permissions->filter(function ($permission) {
-                return str_contains($permission->name, 'roles');
-            }),
-
-            'dts_delivery_schedules' => $permissions->filter(function ($permission) {
-                return str_contains($permission->name, 'dts delivery schedules');
-            }),
-
-            'store_orders' => $permissions->filter(function ($permission) {
-                return str_contains($permission->name, 'store order');
-            }),
-
-            'dts_orders' => $permissions->filter(function ($permission) {
-                return str_contains($permission->name, 'dts order');
-            }),
-
-            'orders_approval' => $permissions->filter(function ($permission) {
-                return str_contains($permission->name, 'view order for approval') ||
-                    str_contains($permission->name, 'view orders for approval list') ||
-                    str_contains($permission->name, 'approve/decline order request') &&  !str_contains($permission->name, 'cs');
-            }),
-
-            'cs_review_list' => $permissions->filter(function ($permission) {
-                return str_contains($permission->name, 'orders for cs approval') ||
-                    str_contains($permission->name, 'cs approve/decline order request') ||
-                    str_contains($permission->name, 'order for cs approval');
-            }),
-
-            'approved_orders' => $permissions->filter(function ($permission) {
-                return str_contains($permission->name, 'approved order') &&
-                    !str_contains($permission->name, 'for approval');
-            }),
-
-            'approvals' => $permissions->filter(function ($permission) {
-                return str_contains($permission->name, 'received orders for approval') ||
-                    str_contains($permission->name, 'approve received orders') ||
-                    str_contains($permission->name, 'approve image attachments');
-            }),
-
-            'approved_received_items' => $permissions->filter(function ($permission) {
-                return str_contains($permission->name, 'approved received item');
-            }),
-
-            'store_transactions' => $permissions->filter(function ($permission) {
-                return str_contains($permission->name, 'store transaction');
-            }),
-
-            'items' => $permissions->filter(function ($permission) {
-                return !str_contains($permission->name, 'approved received item') && (str_contains($permission->name, 'items') ||
-                    str_contains($permission->name, 'item')) && !str_contains($permission->name, 'order');
-            }),
-
-            'bom' => $permissions->filter(function ($permission) {
-                return str_contains($permission->name, 'bom');
-            }),
-
-            'stock_management' => $permissions->filter(function ($permission) {
-                return str_contains($permission->name, 'stock');
-            }),
-
-            'items_order_summary' => $permissions->filter(function ($permission) {
-                return str_contains($permission->name, 'items order summary') ||
-                    str_contains($permission->name, 'ice cream orders') ||
-                    str_contains($permission->name, 'salmon orders') ||
-                    str_contains($permission->name, 'fruits and vegetables orders');
-            }),
-
-            'manage_references' => $permissions->filter(function ($permission) {
-                return str_contains($permission->name, 'references');
-            })
+        // Define the desired hierarchical structure and map permission names to it.
+        // Permissions not found in $allPermissions will simply be skipped.
+        $permissionStructure = [
+            'Settings' => [
+                'Users' => [
+                    'view users', 'create users', 'edit users', 'view user', 'delete users'
+                ],
+                'Roles' => [
+                    'view roles', 'create roles', 'edit roles', 'delete roles'
+                ],
+                'DTS Delivery Schedules' => [
+                    'view dts delivery schedules', 'edit dts delivery schedules', 'export dts delivery schedules'
+                ],
+                'Templates' => [
+                    'view templates', 'create templates', 'edit templates', 'delete templates', 'export templates'
+                ],
+            ],
+            'Ordering' => [
+                'Store Orders' => [
+                    'view store orders', 'create store orders', 'edit store orders', 'view store order', 'export store orders'
+                ],
+                'Emergency Orders' => [
+                    'view emergency orders', 'create emergency orders', 'edit emergency orders', 'delete emergency orders', 'export emergency orders'
+                ],
+                'Additional Orders' => [
+                    'view additional orders', 'create additional orders', 'edit additional orders', 'delete additional orders', 'export additional orders'
+                ],
+                'DTS Orders' => [
+                    'view dts orders', 'create dts orders', 'edit dts orders', 'view dts order', 'export dts orders'
+                ],
+                'Direct Receiving' => [
+                    'view direct receiving', 'create direct receiving', 'edit direct receiving', 'delete direct receiving', 'export direct receiving'
+                ],
+                'Orders Approval (SM)' => [
+                    'view orders for approval list', 'view order for approval', 'approve/decline order request'
+                ],
+                'CS Review List' => [
+                    'view orders for cs approval list', 'view order for cs approval', 'cs approve/decline order request'
+                ],
+                'Emergency Order Approval' => [
+                    'view emergency order approval', 'approve emergency order', 'decline emergency order'
+                ],
+                'Additional Order Approval' => [
+                    'view additional order approval', 'approve additional order', 'decline additional order'
+                ],
+            ],
+            'Receiving' => [
+                'Approved Orders' => [
+                    'view approved orders', 'view approved order', 'receive orders', 'export approved orders'
+                ],
+                'Receiving Approvals' => [
+                    'view received orders for approval list', 'view approved order for approval', 'approve received orders', 'approve image attachments', 'export received orders for approval list'
+                ],
+                'Confirmed/Approved Received SO' => [
+                    'view approved received items', 'view approved received item', 'cancel approved received item', 'export approved received items'
+                ],
+            ],
+            'Sales' => [
+                'Store Transactions' => [
+                    'view store transactions', 'create store transactions', 'view store transaction', 'edit store transactions', 'export store transactions'
+                ],
+                'Store Transactions Approval' => [
+                    'view store transactions approval', 'approve store transactions', 'decline store transactions'
+                ],
+            ],
+            'Inventory' => [
+                'NN Inventory Items' => [
+                    'view items list', 'create new items', 'edit items', 'view item', 'delete items', 'export items list'
+                ],
+                'SAP Masterlist Items' => [
+                    'view sapitems list', 'create sapitems', 'edit sapitems', 'delete sapitems', 'export sapitems list'
+                ],
+                'Supplier Items' => [
+                    'view SupplierItems list', 'create SupplierItems', 'edit SupplierItems', 'delete SupplierItems', 'export SupplierItems list'
+                ],
+                'POS Masterlist' => [
+                    'view POSMasterfile list', 'create POSMasterfile', 'edit POSMasterfile', 'delete POSMasterfile', 'export POSMasterfile list'
+                ],
+                'BOM' => [
+                    'view bom list', 'view bom', 'create bom', 'edit bom', 'delete bom', 'export bom list'
+                ],
+                'Stock Management' => [
+                    'view stock management', 'log stock usage', 'add stock quantity', 'view stock management history', 'export stock management'
+                ],
+                'SOH Adjustment' => [
+                    'view soh adjustment', 'create soh adjustment', 'edit soh adjustment', 'delete soh adjustment', 'export soh adjustment'
+                ],
+                'Low on Stocks' => [
+                    'view low on stocks', 'export low on stocks'
+                ],
+            ],
+            'Reports' => [
+                'Top 10 Inventories' => [
+                    'view top 10 inventories', 'export top 10 inventories'
+                ],
+                'Days Inventory Outstanding' => [
+                    'view days inventory outstanding', 'export days inventory outstanding'
+                ],
+                'Days Payable Outstanding' => [
+                    'view days payable outstanding', 'export days payable outstanding'
+                ],
+                'Sales Report' => [
+                    'view sales report', 'export sales report'
+                ],
+                'Inventories Report' => [
+                    'view inventories report', 'export inventories report'
+                ],
+                'Upcoming Inventories' => [
+                    'view upcoming inventories', 'export upcoming inventories'
+                ],
+                'Account Payable' => [
+                    'view account payable', 'export account payable'
+                ],
+                'Cost Of Goods' => [
+                    'view cost of goods', 'export cost of goods'
+                ],
+                'Item Orders Summary' => [
+                    'view items order summary', 'export items order summary'
+                ],
+                'Ice Cream Orders' => [
+                    'view ice cream orders', 'export ice cream orders'
+                ],
+                'Salmon Orders' => [
+                    'view salmon orders', 'export salmon orders'
+                ],
+                'Fruits and Vegetables Orders' => [
+                    'view fruits and vegetables orders', 'export fruits and vegetables orders'
+                ],
+            ],
+            'References' => [
+                'Categories' => [
+                    'view category list', 'create category', 'edit category', 'delete category', 'export category list'
+                ],
+                'WIP List' => [
+                    'view wip list', 'create wip', 'edit wip', 'delete wip', 'export wip list'
+                ],
+                'Menu Categories' => [
+                    'view menu categories', 'create menu category', 'edit menu category', 'delete menu category', 'export menu categories'
+                ],
+                'UOM Conversions' => [
+                    'view uom conversions', 'create uom conversion', 'edit uom conversion', 'delete uom conversion', 'export uom conversions'
+                ],
+                'Inventory Categories' => [
+                    'view inventory categories', 'create inventory category', 'edit inventory category', 'delete inventory category', 'export inventory categories'
+                ],
+                'Unit of Measurements' => [
+                    'view unit of measurements', 'create unit of measurement', 'edit unit of measurement', 'delete unit of measurement', 'export unit of measurements'
+                ],
+                'Store Branches' => [
+                    'view branches', 'create branch', 'edit branch', 'delete branch', 'export branches'
+                ],
+                'Suppliers' => [
+                    'view suppliers', 'create supplier', 'edit supplier', 'delete supplier', 'export suppliers'
+                ],
+                'Cost Centers' => [
+                    'view cost centers', 'create cost center', 'edit cost center', 'delete cost center', 'export cost centers'
+                ],
+            ],
         ];
 
-        return collect($groupedPermissions)->map(function ($permissions) {
-            return $permissions->pluck('name', 'id');
-        });
+        foreach ($permissionStructure as $mainCategoryLabel => $subCategories) {
+            $groupedPermissions[$mainCategoryLabel] = [];
+            foreach ($subCategories as $subCategoryLabel => $permissionNames) {
+                $currentSubCategoryPermissions = [];
+                foreach ($permissionNames as $permissionName) {
+                    if ($allPermissions->has($permissionName)) {
+                        $permission = $allPermissions->get($permissionName);
+                        // Store as an object {id: ..., name: ...}
+                        $currentSubCategoryPermissions[] = ['id' => $permission->id, 'name' => $permission->name];
+                    }
+                }
+                // Only add sub-category if it has permissions
+                if (!empty($currentSubCategoryPermissions)) {
+                    $groupedPermissions[$mainCategoryLabel][$subCategoryLabel] = $currentSubCategoryPermissions;
+                }
+            }
+            // If a main category ends up empty after filtering, remove it
+            if (empty($groupedPermissions[$mainCategoryLabel])) {
+                unset($groupedPermissions[$mainCategoryLabel]);
+            }
+        }
+
+        // Sort main categories alphabetically by their keys
+        ksort($groupedPermissions);
+
+        // Sort sub-categories alphabetically by their keys
+        foreach ($groupedPermissions as $mainCategoryLabel => $subCategories) {
+            ksort($groupedPermissions[$mainCategoryLabel]);
+        }
+
+        return $groupedPermissions;
     }
 
     public function getRolesList()
@@ -120,8 +254,9 @@ class RoleService
         $search = request('search');
         $query = Role::query()->with('permissions');
 
-        if ($search)
+        if ($search) {
             $query->where('name', 'like', "%$search%");
+        }
         return $query->latest()->paginate(10);
     }
 
@@ -129,9 +264,7 @@ class RoleService
     {
         $role->load(['users']);
         if ($role->users->count() > 0) {
-            return back()->withErrors([
-                'message' => "Can't delete this role because there are users associated with it."
-            ]);
+            throw new Exception("Can't delete this role because there are users associated with it.");
         }
         $role->delete();
     }

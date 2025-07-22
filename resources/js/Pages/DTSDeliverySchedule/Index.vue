@@ -7,7 +7,7 @@ const { branches } = defineProps({
 });
 import { useSearch } from "@/Composables/useSearch";
 
-const { search } = useSearch("delivery-schedules.index");
+const { search } = useSearch("dts-delivery-schedules.index");
 import { useAuth } from "@/Composables/useAuth";
 
 const { hasAccess } = useAuth();
@@ -124,7 +124,7 @@ const { hasAccess } = useAuth();
                             ><EditButton
                                 :isLink="true"
                                 :href="
-                                    route('delivery-schedules.edit', branch.id)
+                                    route('dts-delivery-schedules.edit', branch.id)
                                 "
                         /></TD>
                     </tr>
@@ -137,7 +137,7 @@ const { hasAccess } = useAuth();
                         <EditButton
                             class="size-5"
                             :isLink="true"
-                            :href="route('delivery-schedules.edit', branch.id)"
+                            :href="route('dts-delivery-schedules.edit', branch.id)"
                         />
                     </MobileTableHeading>
 

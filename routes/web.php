@@ -61,10 +61,12 @@ use App\Http\Controllers\UOMConversionController;
 use App\Http\Controllers\UpcomingInventoryController;
 use App\Http\Controllers\UsageRecordController;
 use App\Http\Controllers\UserController;
-use App\Http\Controllers\WIPListController;
 use App\Models\StoreBranch;
 use App\Models\StoreTransaction;
 use Illuminate\Support\Facades\Route;
+use Inertia\Inertia;
+use Illuminate\Foundation\Application;
+
 
 Route::redirect('/', '/dashboard');
 
@@ -92,8 +94,22 @@ Route::middleware('auth')
         Route::resource('emergency-orders', EmergencyOrderController::class);
         Route::resource('additional-orders', AdditionalOrderController::class);
 
-        Route::get('/templates', [TemplateController::class, 'index']);
-        Route::post('/template/store', [TemplateController::class, 'store'])->name('templates.store');
+        // MODIFIED: Template Management Routes - Grouped and named
+        Route::controller(TemplateController::class)->prefix('templates')->name('templates.')->group(function () {
+            Route::middleware('permission:view templates')->get('/', 'index')->name('index');
+            Route::middleware('permission:view template')->get('/show/{template}', 'show')->name('show');
+            Route::middleware('permission:create templates')->group(function () {
+                Route::get('/create', 'create')->name('create');
+                Route::post('/store', 'store')->name('store');
+            });
+            Route::middleware('permission:edit templates')->group(function () {
+                Route::get('/edit/{template}', 'edit')->name('edit');
+                Route::put('/update/{template}', 'update')->name('update');
+            });
+            Route::middleware('permission:delete templates')->delete('/destroy/{template}', 'destroy')->name('destroy');
+            Route::middleware('permission:export templates')->get('/export', 'export')->name('export'); // Assuming an export route
+        });
+
 
         Route::get('/test-report', [PDFReportController::class, 'index']);
 
@@ -192,24 +208,24 @@ Route::middleware('auth')
         Route::get('/dashboard', [DashboardController::class, 'index'])
             ->name('dashboard');
 
-        // User
-        Route::controller(UserController::class)->name('users.')->group(function () {
-            Route::middleware('permission:view users')->get('/users', 'index')->name('index');
-            Route::middleware('permission:view user')->get('/users/show/{user}', 'show')->name('show');
+        // User Management Routes
+        Route::controller(UserController::class)->prefix('users')->name('users.')->group(function () {
+            Route::middleware('permission:view users')->get('/', 'index')->name('index');
+            Route::middleware('permission:view user')->get('/show/{user}', 'show')->name('show');
             Route::middleware('permission:create users')->group(function () {
-                Route::get('/users/create', 'create')->name('create');
-                Route::post('/users/store', 'store')->name('store');
+                Route::get('/create', 'create')->name('create');
+                Route::post('/store', 'store')->name('store');
             });
             Route::middleware('permission:edit users')->group(function () {
-                Route::get('/users/edit/{user}', 'edit')->name('edit');
-                Route::post('/users/update/{user}', 'update')->name('update');
+                Route::get('/edit/{user}', 'edit')->name('edit');
+                Route::post('/update/{user}', 'update')->name('update');
             });
-            Route::middleware('permission:delete users')->delete('/users/destroy/{user}', 'destroy')->name('destroy');
+            Route::middleware('permission:delete users')->delete('/destroy/{user}', 'destroy')->name('destroy');
             Route::middleware('permission:view users')->get('/export', 'export')->name('export');
         });
 
-        // Roles 
-        Route::controller(RolesController::class)->name('roles.')->prefix('roles')->group(function () {
+        // Role Management Routes
+        Route::controller(RolesController::class)->prefix('roles')->name('roles.')->group(function () {
             Route::middleware('permission:view roles')->get('/', 'index')->name('index');
             Route::middleware('permission:create roles')->get('/create', 'create')->name('create');
             Route::middleware('permission:create roles')->post('/store', 'store')->name('store');
@@ -219,11 +235,20 @@ Route::middleware('auth')
             Route::middleware('permission:view roles')->get('/export', 'export')->name('export');
         });
 
-        // DTS Delivery Schedules
-        Route::controller(DeliveryScheduleController::class)->name('delivery-schedules.')->prefix('delivery-schedules')->group(function () {
+        // MODIFIED: DTS Delivery Schedules Routes - Renamed and expanded
+        Route::controller(DeliveryScheduleController::class)->name('dts-delivery-schedules.')->prefix('dts-delivery-schedules')->group(function () {
             Route::middleware('permission:view dts delivery schedules')->get('/', 'index')->name('index');
-            Route::middleware('permission:edit dts delivery schedules')->get('/edit/{id}', 'edit')->name('edit');
-            Route::middleware('permission:edit dts delivery schedules')->post('/update/{id}', 'update')->name('update');
+            Route::middleware('permission:view dts delivery schedule')->get('/show/{id}', 'show')->name('show');
+            Route::middleware('permission:create dts delivery schedules')->group(function () {
+                Route::get('/create', 'create')->name('create');
+                Route::post('/store', 'store')->name('store');
+            });
+            Route::middleware('permission:edit dts delivery schedules')->group(function () {
+                Route::get('/edit/{id}', 'edit')->name('edit');
+                Route::post('/update/{id}', 'update')->name('update');
+            });
+            Route::middleware('permission:delete dts delivery schedules')->delete('/destroy/{id}', 'destroy')->name('destroy');
+            Route::middleware('permission:export dts delivery schedules')->get('/export', 'export')->name('export');
         });
 
         // DTS Orders
@@ -305,7 +330,7 @@ Route::middleware('auth')
             });
         });
 
-        // Approvals 
+        // Approvals
         Route::controller(ReceivingApprovalController::class)->prefix('receiving-approvals')->name('receiving-approvals.')->group(function () {
             Route::middleware('permission:view received orders for approval list')->get('/', 'index')->name('index');
             Route::middleware('permission:view approved order for approval')->get('/show/{id}', 'show')->name('show');
@@ -333,7 +358,7 @@ Route::middleware('auth')
                 ->name('approve-all-transactions');
         });
 
-        // Store Transactions 
+        // Store Transactions
         Route::controller(StoreTransactionController::class)->name('store-transactions.')->prefix('store-transactions')->group(function () {
             Route::middleware('permission:view store transactions')->get('/summary', 'mainIndex')->name('main-index');
 
@@ -432,7 +457,7 @@ Route::middleware('auth')
                 Route::get('/POSMasterfile-list/export', 'export')->name('export');
             });
         });
-       
+
         // BOM
         Route::controller(MenuController::class)->prefix('menu-list')->name('menu-list.')->group(function () {
             Route::middleware('permission:view bom list')->get('/', 'index')->name('index');
@@ -456,7 +481,7 @@ Route::middleware('auth')
             Route::post('/import-bom-ingredients', 'importBomIngredients')->name('import-bom-ingredients');
         });
 
-        // Stock Management 
+        // Stock Management
         Route::controller(StockManagementController::class)->prefix('stock-management')->name('stock-management.')->group(function () {
             Route::middleware('permission:view stock management')->get('/', 'index')->name('index');
             Route::middleware('permission:view stock management history')->get('/show/{id}', 'show')->name('show');
@@ -595,7 +620,7 @@ Route::middleware('auth')
                 Route::get('/export', 'export')->name('export');
             });
 
-            Route::controller(StoreBranchController::class)->name('store-branches.')->prefix('store-branches')->group(function () {
+            Route::controller(StoreBranchController::class)->name('branches.')->prefix('branches')->group(function () { // Renamed from store-branches to branches
                 Route::get('/', 'index')->name('index');
                 Route::get('/create', 'create')->name('create');
                 Route::post('/store', 'store')->name('store');
@@ -617,7 +642,7 @@ Route::middleware('auth')
                 Route::delete('/destroy/{id}', 'destroy')->name('destroy');
 
                 Route::get('/export', 'export')->name('export');
-      
+
 
             });
 
@@ -637,79 +662,27 @@ Route::middleware('auth')
             });
         });
 
-        // Route::get('/audits', [AuditController::class, 'index']);
-
-
-        // Route::controller(ProductSalesController::class)->prefix('product-sales')->name('product-sales.')->group(function () {
-        //     Route::get('/', 'index')->name('index');
-        //     Route::get('/show/{id}', 'show')->name('show');
-        // });
-
-        // Route::controller(StockController::class)->name('stocks.')
-        //     ->group(function () {
-        //         Route::get('/stocks', 'index')->name('index');
-        //         Route::get('/stocks/show/{id}', 'show')->name('show');
-        //     });
-        // // TBD
-        // Route::controller(UsageRecordController::class)
-        //     ->prefix('usage-records')
-        //     ->name('usage-records.')
-        //     ->group(function () {
-        //         Route::get('/', 'index')->name('index');
-        //         Route::get('/create', 'create')->name('create');
-        //         Route::post('/store', 'store')->name('store');
-        //         Route::get('/show/{id}', 'show')->name('show');
-        //         Route::post('/import', 'import')->name('import');
-        //         Route::delete('/destroy/{id}', 'destroy')->name('destroy');
-        //     });
-
-
-        // Route::controller(PersmissionController::class)->name('permissions.')->prefix('permissions')->group(function () {
-        //     Route::get('/', 'index')->name('index');
-        //     Route::get('/create', 'create')->name('create');
-        //     Route::post('/store', 'store')->name('store');
-        //     Route::get('/edit/{id}', 'edit')->name('edit');
-        // });
-
-        // Route::controller(SalesOrderController::class)
-        //     ->prefix('sales-orders')
-        //     ->name('sales-orders.')
-        //     ->group(function () {
-        //         Route::get('/', 'index')->name('index');
-        //         Route::get('/create', 'create')->name('create');
-        //         Route::get('/show/{id}', 'show')->name('show');
-        //     });
-
-
+        // Consolidated Profile Routes
         Route::controller(ProfileController::class)->name('profile.')
             ->prefix('profile')
             ->group(function () {
-                Route::get('/', 'index')->name('index');
+                Route::get('/', 'index')->name('index'); // Your existing index route
                 Route::post('/update-details/{id}', 'updateDetails')->name('update-details');
                 Route::post('/update-password/{id}', 'updatePassword')->name('update-password');
+
+                // Standard profile routes moved here
+                Route::get('/edit', 'edit')->name('edit');
+                Route::patch('/', 'update')->name('update');
+                Route::delete('/', 'destroy')->name('destroy');
             });
 
         Route::controller(TestController::class)->group(function () {
-            Route::get('/test', 'index')->name('test');
+            Route::get('/test', 'index')->name('index'); // Added name for test route
             Route::post('/uploadImage', 'store')->name('upload-image');
             Route::post('/destroy', 'destroy')->name('destroy');
             Route::post('/approveImage/{id}', 'approveImage')->name('approveImage');
         });
-
-
-
-
-
-
-
-        // Route::get('/profile', [ProfileController::class, 'edit'])
-        //     ->name('profile.edit');
-
-        // Route::patch('/profile', [ProfileController::class, 'update'])
-        //     ->name('profile.update');
-
-        // Route::delete('/profile', [ProfileController::class, 'destroy'])
-        //     ->name('profile.destroy');
     });
 
 require __DIR__ . '/auth.php';
+

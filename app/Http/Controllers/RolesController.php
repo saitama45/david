@@ -34,6 +34,7 @@ class RolesController extends Controller
     public function edit(Role $role)
     {
         $role->load(['permissions']);
+        // Pass the grouped permissions from the service to the frontend
         $groupedPermissions = $this->roleService->getPermissionsGroup();
         return Inertia::render('Roles/Edit', [
             'permissions' => $groupedPermissions,
@@ -57,6 +58,7 @@ class RolesController extends Controller
 
     public function create()
     {
+        // Pass the grouped permissions from the service to the frontend for the create page as well
         $groupedPermissions = $this->roleService->getPermissionsGroup();
         return Inertia::render('Roles/Create', [
             'permissions' => $groupedPermissions

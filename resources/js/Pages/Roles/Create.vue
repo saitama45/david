@@ -7,6 +7,9 @@ const toast = useToast();
 import { CircleHelp } from "lucide-vue-next";
 
 import { useForm } from "@inertiajs/vue3";
+// Assuming BackButton is a global component or imported elsewhere if needed.
+// Based on your previous message, you removed it because it was not needed.
+// import { BackButton } from "@/Components/ui/button"; 
 
 const form = useForm({
     name: "",
@@ -25,16 +28,27 @@ const createNewRoles = () => {
             toast.add({
                 severity: "success",
                 summary: "Success",
-                detail: "New User Successfully Created",
+                detail: "New Role Successfully Created", // Changed from "New User Successfully Created"
                 life: 3000,
             });
+            form.reset(); // Reset form after successful submission
         },
-        onError: (e) => {
+        onError: (errors) => { // Renamed 'e' to 'errors' for clarity
+            // Log the full error object to the console for detailed inspection
+            console.error('Role Creation Error Details:', errors);
+
+            let detailMessage = "An error occurred while trying to create a new role.";
+            // If there are specific validation errors returned from the backend,
+            // join them into a more descriptive message for the toast.
+            if (errors && Object.keys(errors).length > 0) {
+                detailMessage = Object.values(errors).join(', ');
+            }
+
             toast.add({
                 severity: "error",
                 summary: "Error",
-                detail: "An error occured while trying create a new role.",
-                life: 3000,
+                detail: detailMessage, // Now dynamically shows validation errors
+                life: 5000, // Increased display time for the toast
             });
         },
     });
@@ -62,16 +76,17 @@ const isPermissionGuideModalVisible = ref(false);
                     class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-5"
                 >
                     <DivFlexCol
-                        v-for="(label, id) in permissions"
-                        :key="id"
+                        v-for="(label, category) in permissions"
+                        :key="category"
                         class="gap-3"
                     >
                         <SpanBold class="text-xs">{{
-                            id.toUpperCase().replace(/_/g, " ")
+                            category.toUpperCase().replace(/_/g, " ")
                         }}</SpanBold>
                         <DivFlexCenter
                             class="gap-3"
-                            v-for="(data, id) in label"
+                            v-for="(permissionName, id) in label"
+                            :key="id"
                         >
                             <Checkbox
                                 :inputId="`permission-${id}`"
@@ -83,7 +98,7 @@ const isPermissionGuideModalVisible = ref(false);
                                 :for="`permission-${id}`"
                                 class="text-xs text-gray-600"
                             >
-                                {{ data }}
+                                {{ permissionName }}
                             </label>
                         </DivFlexCenter>
                     </DivFlexCol>
@@ -91,7 +106,8 @@ const isPermissionGuideModalVisible = ref(false);
                 <FormError>{{ form.errors.selectedPermissions }}</FormError>
             </InputContainer>
             <DivFlexCenter class="justify-end gap-3">
-                <BackButton />
+                <!-- Assuming BackButton is available globally or not needed here as per your previous fix -->
+                <BackButton /> 
                 <Button @click="createNewRoles">Create</Button>
             </DivFlexCenter>
         </Card>

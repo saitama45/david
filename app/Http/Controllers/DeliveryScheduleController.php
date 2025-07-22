@@ -40,6 +40,6 @@ class DeliveryScheduleController extends Controller
     public function update(UpdateDeliveryScheduleRequest $request, $id)
     {
         $this->deliveryScheduleService->updateDeliveryScedule($request->validated(), $id);
-        return redirect()->route('delivery-schedules.index');
+        return redirect()->route('dts-delivery-schedules.index');
     }
 }
