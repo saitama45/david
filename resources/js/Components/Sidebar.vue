@@ -50,6 +50,8 @@ import {
 
 const { is_admin } = usePage().props.auth;
 const permissions = usePage().props.auth.permissions;
+
+// Helper function to check if the current user has a specific permission.
 const hasAccess = (access) => {
     return permissions.includes(access);
 };
@@ -77,38 +79,77 @@ const isPathActive = (pathOrPaths) => {
     }
 };
 
-// Grouping permissions for collapsible sections (no change here, still needed for v-if)
-const canViewSettingsGroup =
+// Grouping permissions for collapsible sections
+// These computed properties determine if a main collapsible section should be visible.
+// A section is visible if the user has access to ANY of the items within that section.
+
+const canViewSettingsGroup = computed(() =>
     hasAccess("view users") ||
     hasAccess("view roles") ||
     hasAccess("view templates") ||
-    hasAccess("view dts delivery schedules");
+    hasAccess("view dts delivery schedules")
+);
 
-const canViewOrderingGroup =
+const canViewOrderingGroup = computed(() =>
     hasAccess("view store orders") ||
+    hasAccess("view emergency orders") ||
+    hasAccess("view additional orders") ||
     hasAccess("view dts orders") ||
-    hasAccess("view orders for approval list");
+    hasAccess("view direct receiving") ||
+    hasAccess("view orders for approval list") ||
+    hasAccess("view orders for cs approval list") || // CS Review List
+    hasAccess("view additional order approval") ||
+    hasAccess("view emergency order approval")
+);
 
-const canViewReceivingGroup =
+const canViewReceivingGroup = computed(() =>
     hasAccess("view approved orders") ||
     hasAccess("view received orders for approval list") ||
-    hasAccess("view approved received items");
+    hasAccess("view approved received items")
+);
 
-const canViewSalesGroup = hasAccess("view store transactions");
+const canViewSalesGroup = computed(() =>
+    hasAccess("view store transactions") ||
+    hasAccess("view store transactions approval")
+);
 
-const canViewInventoryGroup =
+const canViewInventoryGroup = computed(() =>
     hasAccess("view items list") ||
-    hasAccess("view menu list") ||
+    hasAccess("view sapitems list") ||
+    hasAccess("view SupplierItems list") ||
+    hasAccess("view POSMasterfile list") ||
+    hasAccess("view bom list") || // Corrected from 'view menu list'
     hasAccess("view stock management") ||
-    hasAccess("view low on stocks"); // Added for Low on Stocks
+    hasAccess("view soh adjustment") ||
+    hasAccess("view low on stocks")
+);
 
-const canViewReportsGroup =
+const canViewReportsGroup = computed(() =>
+    hasAccess("view top 10 inventories") ||
+    hasAccess("view days inventory outstanding") ||
+    hasAccess("view days payable outstanding") ||
+    hasAccess("view sales report") ||
+    hasAccess("view inventories report") ||
+    hasAccess("view upcoming inventories") ||
+    hasAccess("view account payable") ||
+    hasAccess("view cost of goods") ||
     hasAccess("view items order summary") ||
     hasAccess("view ice cream orders") ||
     hasAccess("view salmon orders") ||
-    hasAccess("view fruits and vegetables orders");
+    hasAccess("view fruits and vegetables orders")
+);
 
-const canViewReferencesGroup = hasAccess("manage references");
+const canViewReferencesGroup = computed(() =>
+    hasAccess("view category list") ||
+    hasAccess("view wip list") ||
+    hasAccess("view menu categories") ||
+    hasAccess("view uom conversions") ||
+    hasAccess("view inventory categories") ||
+    hasAccess("view unit of measurements") ||
+    hasAccess("view branches") ||
+    hasAccess("view suppliers") ||
+    hasAccess("view cost centers")
+);
 
 // Internal refs to store the open/closed state for each section.
 // These are directly controlled by v-model:open on Collapsible.
@@ -135,18 +176,10 @@ watchEffect(() => {
         { ref: referencesOpen, paths: ["/category-list", "/wip-list", "/menu-categories", "/uom-conversions", "/inventory-categories", "/unit-of-measurements", "/branches", "/suppliers", "/cost-centers"] },
     ];
 
-    let anySectionActive = false;
     sections.forEach(section => {
         const isActive = isPathActive(section.paths);
         section.ref.value = isActive; // Set the section's open state based on active path
-        if (isActive) {
-            anySectionActive = true;
-        }
     });
-
-    // If no section is active, ensure all are closed (or handle default open state if desired)
-    // This part ensures that if you navigate to a non-collapsible root route, all collapsibles close.
-    // If you want a default collapsible to be open, you'd add logic here.
 });
 </script>
 
@@ -190,7 +223,7 @@ watchEffect(() => {
                     Store Orders
                 </NavLink>
                 <NavLink
-                    v-if="hasAccess('view store orders')"
+                    v-if="hasAccess('view emergency orders')"
                     href="/emergency-orders"
                     :icon="ShoppingCart"
                     :is-active="isPathActive('/emergency-orders')"
@@ -198,7 +231,7 @@ watchEffect(() => {
                     Emergency Orders
                 </NavLink>
                 <NavLink
-                    v-if="hasAccess('view store orders')"
+                    v-if="hasAccess('view additional orders')"
                     href="/additional-orders"
                     :icon="ShoppingCart"
                     :is-active="isPathActive('/additional-orders')"
@@ -233,7 +266,7 @@ watchEffect(() => {
                     CS Review List
                 </NavLink>
                 <NavLink
-                    v-if="hasAccess('view orders for cs approval list')"
+                    v-if="hasAccess('view additional order approval')"
                     href="/additional-orders-approval"
                     :icon="SquareChartGantt"
                     :is-active="isPathActive('/additional-orders-approval')"
@@ -242,7 +275,7 @@ watchEffect(() => {
                 </NavLink>
 
                 <NavLink
-                    v-if="hasAccess('view orders for cs approval list')"
+                    v-if="hasAccess('view emergency order approval')"
                     href="/emergency-orders-approval"
                     :icon="SquareChartGantt"
                     :is-active="isPathActive('/emergency-orders-approval')"
@@ -328,7 +361,7 @@ watchEffect(() => {
                     Store Transactions
                 </NavLink>
                 <NavLink
-                    v-if="hasAccess('view store transactions')"
+                    v-if="hasAccess('view store transactions approval')"
                     href="/store-transactions-approval"
                     :icon="ArrowLeftRight"
                     :is-active="isPathActive('/store-transactions-approval')"
@@ -363,7 +396,7 @@ watchEffect(() => {
                     NN Inventory Items
                 </NavLink>
                 <NavLink
-                    v-if="hasAccess('view items list')"
+                    v-if="hasAccess('view sapitems list')"
                     href="/sapitems-list"
                     :icon="TextSelect"
                     :is-active="isPathActive('/sapitems-list')"
@@ -371,7 +404,7 @@ watchEffect(() => {
                     SAP Mastlist Items
                 </NavLink>
                 <NavLink
-                    v-if="hasAccess('view items list')"
+                    v-if="hasAccess('view SupplierItems list')"
                     href="/SupplierItems-list"
                     :icon="Warehouse"
                     :is-active="isPathActive('/SupplierItems-list')"
@@ -379,7 +412,7 @@ watchEffect(() => {
                     Supplier Items
                 </NavLink>
                 <NavLink
-                    v-if="hasAccess('view items list')"
+                    v-if="hasAccess('view POSMasterfile list')"
                     href="/POSMasterfile-list"
                     :icon="TextSelect"
                     :is-active="isPathActive('/POSMasterfile-list')"
@@ -403,7 +436,7 @@ watchEffect(() => {
                     Stock Management
                 </NavLink>
                 <NavLink
-                    v-if="hasAccess('view stock management')"
+                    v-if="hasAccess('view soh adjustment')"
                     href="/soh-adjustment"
                     :icon="FolderKanban"
                     :is-active="isPathActive('/soh-adjustment')"
@@ -434,28 +467,28 @@ watchEffect(() => {
                 <ChevronRight v-else class="h-4 w-4" />
             </CollapsibleTrigger>
             <CollapsibleContent class="pl-2">
-                <NavLink href="/top-10-inventories" :icon="List" :is-active="isPathActive('/top-10-inventories')">
+                <NavLink v-if="hasAccess('view top 10 inventories')" href="/top-10-inventories" :icon="List" :is-active="isPathActive('/top-10-inventories')">
                     Top 10 Inventories
                 </NavLink>
-                <NavLink href="/days-inventory-outstanding" :icon="List" :is-active="isPathActive('/days-inventory-outstanding')">
+                <NavLink v-if="hasAccess('view days inventory outstanding')" href="/days-inventory-outstanding" :icon="List" :is-active="isPathActive('/days-inventory-outstanding')">
                     Days Inventory Outstanding
                 </NavLink>
-                <NavLink href="/days-payable-outstanding" :icon="List" :is-active="isPathActive('/days-payable-outstanding')">
+                <NavLink v-if="hasAccess('view days payable outstanding')" href="/days-payable-outstanding" :icon="List" :is-active="isPathActive('/days-payable-outstanding')">
                     Days Payable Outstanding
                 </NavLink>
-                <NavLink href="/sales-report" :icon="List" :is-active="isPathActive('/sales-report')">
+                <NavLink v-if="hasAccess('view sales report')" href="/sales-report" :icon="List" :is-active="isPathActive('/sales-report')">
                     Sales Report
                 </NavLink>
-                <NavLink href="/inventories-report" :icon="List" :is-active="isPathActive('/inventories-report')">
+                <NavLink v-if="hasAccess('view inventories report')" href="/inventories-report" :icon="List" :is-active="isPathActive('/inventories-report')">
                     Inventories Report
                 </NavLink>
-                <NavLink href="/upcoming-inventories" :icon="List" :is-active="isPathActive('/upcoming-inventories')">
+                <NavLink v-if="hasAccess('view upcoming inventories')" href="/upcoming-inventories" :icon="List" :is-active="isPathActive('/upcoming-inventories')">
                     Upcoming Inventories
                 </NavLink>
-                <NavLink href="/account-payable" :icon="List" :is-active="isPathActive('/account-payable')">
+                <NavLink v-if="hasAccess('view account payable')" href="/account-payable" :icon="List" :is-active="isPathActive('/account-payable')">
                     Account Payable
                 </NavLink>
-                <NavLink href="/cost-of-goods" :icon="List" :is-active="isPathActive('/cost-of-goods')">
+                <NavLink v-if="hasAccess('view cost of goods')" href="/cost-of-goods" :icon="List" :is-active="isPathActive('/cost-of-goods')">
                     Cost Of Goods
                 </NavLink>
                 <NavLink
@@ -510,27 +543,27 @@ watchEffect(() => {
             </CollapsibleTrigger>
             <CollapsibleContent class="pl-2">
                 <NavLink
-                    v-if="hasAccess('manage references')"
+                    v-if="hasAccess('view category list')"
                     href="/category-list"
                     :icon="FolderDot"
                     :is-active="isPathActive('/category-list')"
                 >
                     Categories
                 </NavLink>
-                <NavLink href="/wip-list" :icon="FolderDot" :is-active="isPathActive('/wip-list')"> WIP List </NavLink>
+                <NavLink v-if="hasAccess('view wip list')" href="/wip-list" :icon="FolderDot" :is-active="isPathActive('/wip-list')"> WIP List </NavLink>
                 <NavLink
-                    v-if="hasAccess('manage references')"
+                    v-if="hasAccess('view menu categories')"
                     href="/menu-categories"
                     :icon="FileSliders"
                     :is-active="isPathActive('/menu-categories')"
                 >
                     Menu Categories
                 </NavLink>
-                <NavLink href="/uom-conversions" :icon="FileSliders" :is-active="isPathActive('/uom-conversions')">
+                <NavLink v-if="hasAccess('view uom conversions')" href="/uom-conversions" :icon="FileSliders" :is-active="isPathActive('/uom-conversions')">
                     UOM Conversions
                 </NavLink>
                 <NavLink
-                    v-if="hasAccess('manage references')"
+                    v-if="hasAccess('view inventory categories')"
                     href="/inventory-categories"
                     :icon="LayoutList"
                     :is-active="isPathActive('/inventory-categories')"
@@ -538,7 +571,7 @@ watchEffect(() => {
                     Invetory Categories
                 </NavLink>
                 <NavLink
-                    v-if="hasAccess('manage references')"
+                    v-if="hasAccess('view unit of measurements')"
                     href="/unit-of-measurements"
                     :icon="LayoutList"
                     :is-active="isPathActive('/unit-of-measurements')"
@@ -546,7 +579,7 @@ watchEffect(() => {
                     Unit of Measurements
                 </NavLink>
                 <NavLink
-                    v-if="hasAccess('manage references')"
+                    v-if="hasAccess('view branches')"
                     href="/branches"
                     :icon="AppWindowMac"
                     :is-active="isPathActive('/branches')"
@@ -554,7 +587,7 @@ watchEffect(() => {
                     Store Branches
                 </NavLink>
                 <NavLink
-                    v-if="hasAccess('manage references')"
+                    v-if="hasAccess('view suppliers')"
                     href="/suppliers"
                     :icon="Warehouse"
                     :is-active="isPathActive('/suppliers')"
@@ -562,7 +595,7 @@ watchEffect(() => {
                     Suppliers
                 </NavLink>
                 <NavLink
-                    v-if="hasAccess('manage references')"
+                    v-if="hasAccess('view cost centers')"
                     href="/cost-centers"
                     :icon="TextSelect"
                     :is-active="isPathActive('/cost-centers')"
@@ -596,9 +629,9 @@ watchEffect(() => {
                     Roles
                 </NavLink>
                 <NavLink
+                    v-if="hasAccess('view templates')"
                     href="/templates"
                     :icon="FileCog"
-                    v-if="hasAccess('view templates')"
                     :is-active="isPathActive('/templates')"
                 >
                     Templates

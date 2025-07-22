@@ -33,26 +33,25 @@ use App\Http\Controllers\MenuController;
 use App\Http\Controllers\OrderApprovalController;
 use App\Http\Controllers\OrderReceivingController;
 use App\Http\Controllers\PDFReportController;
-use App\Http\Controllers\PersmissionController;
+use App\Http\Controllers\PermissionController;
 use App\Http\Controllers\POSMasterfileController;
 use App\Http\Controllers\ProductOrderSummaryController;
 use App\Http\Controllers\ProductSalesController;
-use App\Http\Controllers\SalesOrderController;
-use App\Http\Controllers\SalmonOrderController;
-use App\Http\Controllers\StoreOrderController;
-use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\ReceivingApprovalController;
-use App\Http\Controllers\RolesController;
+use App\Http\Controllers\RoleController;
+use App\Http\Controllers\SalmonOrderController;
+use App\Http\Controllers\SAPItemController;
+use App\Http\Controllers\SalesOrderController;
 use App\Http\Controllers\SalesReportController;
-use App\Http\Controllers\SAPMasterfileController;
 use App\Http\Controllers\SOHAdjustmentController;
 use App\Http\Controllers\StockController;
 use App\Http\Controllers\StockManagementController;
 use App\Http\Controllers\StoreBranchController;
+use App\Http\Controllers\StoreOrderController;
 use App\Http\Controllers\StoreTransactionApprovalController;
 use App\Http\Controllers\StoreTransactionController;
 use App\Http\Controllers\SupplierController;
-use App\Http\Controllers\SupplierItemsController;
+use App\Http\Controllers\SupplierItemController;
 use App\Http\Controllers\TemplateController;
 use App\Http\Controllers\TestController;
 use App\Http\Controllers\Top10InventoriesController;
@@ -61,8 +60,12 @@ use App\Http\Controllers\UOMConversionController;
 use App\Http\Controllers\UpcomingInventoryController;
 use App\Http\Controllers\UsageRecordController;
 use App\Http\Controllers\UserController;
-use App\Models\StoreBranch;
-use App\Models\StoreTransaction;
+use App\Http\Controllers\WIPController;
+use App\Http\Controllers\ProfileController;
+use App\Http\Controllers\RolesController;
+use App\Http\Controllers\SAPMasterfileController;
+use App\Http\Controllers\SupplierItemsController;
+use App\Http\Controllers\WIPListController;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 use Illuminate\Foundation\Application;
@@ -80,19 +83,22 @@ Route::get('jobs', function () {
 Route::middleware('auth')
     ->group(function () {
 
-        Route::resource('additional-orders-approval', AdditionalOrderApprovalController::class);
+        Route::resource('additional-orders-approval', AdditionalOrderApprovalController::class)->middleware('permission:view additional order approval'); // Added middleware
 
-        Route::resource('emergency-orders-approval', EmergencyOrderApprovalController::class);
+        Route::resource('emergency-orders-approval', EmergencyOrderApprovalController::class)->middleware('permission:view emergency order approval'); // Added middleware
 
-        Route::controller(WIPListController::class)->name('wip-list.')->prefix('wip-list')->group(function () {
-            Route::get('/', 'index')->name('index');
-            Route::post('/import-wip-list', 'importWipList')->name('import-wip-list');
-            Route::post('/import-wip-ingredients', 'importWipIngredients')->name('import-wip-ingredients');
-            Route::get('/show/{id}', 'show')->name('show');
+        Route::controller(WIPListController::class)->name('wip-list.')->prefix('wip-list')->group(function () { // Corrected controller name
+            Route::middleware('permission:view wip list')->get('/', 'index')->name('index');
+            Route::middleware('permission:create wip')->post('/import-wip-list', 'importWipList')->name('import-wip-list');
+            Route::middleware('permission:create wip')->post('/import-wip-ingredients', 'importWipIngredients')->name('import-wip-ingredients');
+            Route::middleware('permission:view wip list')->get('/show/{id}', 'show')->name('show');
+            Route::middleware('permission:edit wip')->post('/update/{id}', 'update')->name('update'); // Added update route
+            Route::middleware('permission:delete wip')->delete('/destroy/{id}', 'destroy')->name('destroy'); // Added destroy route
+            Route::middleware('permission:export wip list')->get('/export', 'export')->name('export'); // Added export route
         });
 
-        Route::resource('emergency-orders', EmergencyOrderController::class);
-        Route::resource('additional-orders', AdditionalOrderController::class);
+        Route::resource('emergency-orders', EmergencyOrderController::class)->middleware('permission:view emergency orders'); // Added middleware
+        Route::resource('additional-orders', AdditionalOrderController::class)->middleware('permission:view additional orders'); // Added middleware
 
         // MODIFIED: Template Management Routes - Grouped and named
         Route::controller(TemplateController::class)->prefix('templates')->name('templates.')->group(function () {
@@ -117,34 +123,38 @@ Route::middleware('auth')
             Route::get('/store-orders', 'storeOrders')->name('store-orders');
         });
 
-        Route::resource('low-on-stocks', LowOnStockController::class);
+        Route::resource('low-on-stocks', LowOnStockController::class)->middleware('permission:view low on stocks'); // Added middleware
 
         Route::controller(Top10InventoriesController::class)
             ->name('top-10-inventories.')
             ->prefix('top-10-inventories')
             ->group(function () {
-                Route::get('/', 'index')->name('index');
+                Route::middleware('permission:view top 10 inventories')->get('/', 'index')->name('index');
+                Route::middleware('permission:export top 10 inventories')->get('/export', 'export')->name('export'); // Added export
             });
 
         Route::controller(DaysPayableOutStanding::class)
             ->name('days-payable-outstanding.')
             ->prefix('days-payable-outstanding')
             ->group(function () {
-                Route::get('/', 'index')->name('index');
+                Route::middleware('permission:view days payable outstanding')->get('/', 'index')->name('index');
+                Route::middleware('permission:export days payable outstanding')->get('/export', 'export')->name('export'); // Added export
             });
 
         Route::controller(DaysInventoryOutstanding::class)
             ->name('days-inventory-outstanding.')
             ->prefix('days-inventory-outstanding')
             ->group(function () {
-                Route::get('/', 'index')->name('index');
+                Route::middleware('permission:view days inventory outstanding')->get('/', 'index')->name('index');
+                Route::middleware('permission:export days inventory outstanding')->get('/export', 'export')->name('export'); // Added export
             });
 
         Route::controller(InventoryReportController::class)
             ->name('inventories-report.')
             ->prefix('inventories-report')
             ->group(function () {
-                Route::get('/', 'index')->name('index');
+                Route::middleware('permission:view inventories report')->get('/', 'index')->name('index');
+                Route::middleware('permission:export inventories report')->get('/export', 'export')->name('export'); // Added export
             });
 
 
@@ -152,56 +162,72 @@ Route::middleware('auth')
             ->name('cost-of-goods.')
             ->prefix('cost-of-goods')
             ->group(function () {
-                Route::get('/', 'index')->name('index');
+                Route::middleware('permission:view cost of goods')->get('/', 'index')->name('index');
+                Route::middleware('permission:export cost of goods')->get('/export', 'export')->name('export'); // Added export
             });
 
         Route::controller(DirectReceivingController::class)
             ->name('direct-receiving.')
             ->prefix('direct-receiving')
             ->group(function () {
-                Route::get('/', 'index')->name('index');
-                Route::get('/create', 'create')->name('create');
-                Route::post('/store', 'store')->name('store');
+                Route::middleware('permission:view direct receiving')->get('/', 'index')->name('index');
+                Route::middleware('permission:create direct receiving')->get('/create', 'create')->name('create');
+                Route::middleware('permission:create direct receiving')->post('/store', 'store')->name('store');
+                Route::middleware('permission:view direct receiving')->get('/show/{id}', 'show')->name('show'); // Added show
+                Route::middleware('permission:edit direct receiving')->post('/update/{id}', 'update')->name('update'); // Added update
+                Route::middleware('permission:delete direct receiving')->delete('/destroy/{id}', 'destroy')->name('destroy'); // Added destroy
+                Route::middleware('permission:export direct receiving')->get('/export', 'export')->name('export'); // Added export
             });
 
         Route::controller(UpcomingInventoryController::class)
             ->name('upcoming-inventories.')
             ->prefix('upcoming-inventories')
             ->group(function () {
-                Route::get('/', 'index')->name('index');
+                Route::middleware('permission:view upcoming inventories')->get('/', 'index')->name('index');
+                Route::middleware('permission:export upcoming inventories')->get('/export', 'export')->name('export'); // Added export
             });
 
         Route::controller(AccountPayableController::class)
             ->name('account-payable.')
             ->prefix('account-payable')
             ->group(function () {
-                Route::get('/', 'index')->name('index');
+                Route::middleware('permission:view account payable')->get('/', 'index')->name('index');
+                Route::middleware('permission:export account payable')->get('/export', 'export')->name('export'); // Added export
             });
 
         Route::controller(SalesReportController::class)
             ->name('sales-report.')
             ->prefix('sales-report')
             ->group(function () {
-                Route::get('/', 'index')->name('index');
+                Route::middleware('permission:view sales report')->get('/', 'index')->name('index');
+                Route::middleware('permission:export sales report')->get('/export', 'export')->name('export'); // Added export
             });
 
         Route::controller(CashPullOutController::class)
             ->name('cash-pull-out.')
             ->prefix('cash-pull-out')
             ->group(function () {
+                // Assuming permissions for cash pull out
                 Route::get('/', 'index')->name('index');
                 Route::get('/create', 'create')->name('create');
                 Route::post('/store', 'store')->name('store');
                 Route::get('/show/{cash_pull_out}', 'show')->name('show');
+                Route::post('/update/{id}', 'update')->name('update'); // Added update
+                Route::delete('/destroy/{id}', 'destroy')->name('destroy'); // Added destroy
+                Route::get('/export', 'export')->name('export'); // Added export
             });
 
         Route::controller(CashPullOutApprovalController::class)
             ->name('cash-pull-out-approval.')
             ->prefix('cash-pull-out-approval')
             ->group(function () {
+                // Assuming permissions for cash pull out approval
                 Route::get('/', 'index')->name('index');
                 Route::get('/show/{cash_pull_out}', 'show')->name('show');
                 Route::put('/approve/{cash_pull_out}', 'approve')->name('approve');
+                Route::post('/update/{id}', 'update')->name('update'); // Added update
+                Route::delete('/destroy/{id}', 'destroy')->name('destroy'); // Added destroy
+                Route::get('/export', 'export')->name('export'); // Added export
             });
 
         // Dashboard
@@ -259,8 +285,7 @@ Route::middleware('auth')
             Route::middleware('permission:view dts order')->get('/show/{id}', 'show')->name('show');
             Route::middleware('permission:edit dts orders')->get('/edit/{id}', 'edit')->name('edit');
             Route::middleware('permission:edit dts orders')->put('/update/{store_order}', 'update')->name('update');
-
-            Route::get('/export', 'export')->name('export');
+            Route::middleware('permission:export dts orders')->get('/export', 'export')->name('export'); // Added export
         });
 
         // Store Orders
@@ -277,7 +302,7 @@ Route::middleware('auth')
                 Route::put('/update/{store_order}', 'update')->name('update');
             });
 
-            Route::middleware('permission:view dts orders')->get('/export', 'export')->name('export');
+            Route::middleware('permission:export store orders')->get('/export', 'export')->name('export'); // Corrected permission
             // ROUTE: To fetch supplier items based on supplier code
             Route::get('/get-supplier-items/{supplierCode}', 'getSupplierItems')->name('get-supplier-items');
         });
@@ -290,7 +315,7 @@ Route::middleware('auth')
                 Route::post('/orders-approval/approve', 'approve')->name('approve');
                 Route::post('/orders-approval/reject', 'reject')->name('reject');
             });
-            Route::middleware('permission:view orders for approval list')->get('/orders-approval/export', 'export')->name('export');
+            Route::middleware('permission:export orders for approval list')->get('/orders-approval/export', 'export')->name('export'); // Added export permission
 
             // TBD
             // Route::middleware('permission:edit orders for approval')->post('/orders-approval/add-remarks/{id}', 'addRemarks')->name('add-remarks');
@@ -305,7 +330,7 @@ Route::middleware('auth')
                 Route::post('/approve', 'approve')->name('approve');
                 Route::post('/reject', 'reject')->name('reject');
             });
-            Route::middleware('permission:view orders for cs approval list')->get('/export', 'export')->name('export');
+            Route::middleware('permission:export orders for cs approval list')->get('/export', 'export')->name('export'); // Added export permission
         });
 
         // Approved Orders
@@ -324,7 +349,7 @@ Route::middleware('auth')
                 Route::delete('/orders-receiving/delete/{id}', 'destroyDeliveryReceiptNumber')->name('delete-delivery-receipt-number');
 
 
-                Route::middleware('permission:view approved orders')->get('/orders-receiving/export', 'export')->name('export');
+                Route::middleware('permission:export approved orders')->get('/orders-receiving/export', 'export')->name('export'); // Corrected permission
 
                 Route::put('/orders-receiving/confirm-receive/{id}', 'confirmReceive')->name('confirm-receive');
             });
@@ -336,26 +361,28 @@ Route::middleware('auth')
             Route::middleware('permission:view approved order for approval')->get('/show/{id}', 'show')->name('show');
             Route::middleware('permission:approve received orders')->post('/approve', 'approveReceivedItem')->name('approve-received-item');
             Route::middleware('permission:approve received orders')->post('/decline', 'declineReceivedItem')->name('decline-received-item');
+            Route::middleware('permission:export received orders for approval list')->get('/export', 'export')->name('export'); // Added export
         });
 
         // Approved Received Items
         Route::controller(ApprovedOrderController::class)->name('approved-orders.')->group(function () {
             Route::middleware('permission:view approved received items')->get('/approved-orders', 'index')->name('index');
             Route::middleware('permission:view approved received item')->get('/approved-orders/show/{id}', 'show')->name('show');
-            Route::middleware('permission:view approved received item')->put('/approved-orders/cancel-approve-status', 'cancelApproveStatus')->name('cancel-approve-status');
-            Route::middleware('permission:view approved received items')->get('/approved-orders/export', 'export')->name('export');
+            Route::middleware('permission:cancel approved received item')->put('/approved-orders/cancel-approve-status', 'cancelApproveStatus')->name('cancel-approve-status');
+            Route::middleware('permission:export approved received items')->get('/approved-orders/export', 'export')->name('export');
         });
         // Store Transactions Approval
         Route::controller(StoreTransactionApprovalController::class)->name('store-transactions-approval.')->prefix('store-transactions-approval')->group(function () {
-            Route::get('', 'index')->name('index');
-            Route::middleware('permission:view store transactions')->get('/summary', 'mainIndex')->name('main-index');
-            Route::get('/show/{store_transaction}', 'show')->name('show');
+            Route::middleware('permission:view store transactions approval')->get('', 'index')->name('index'); // Added middleware
+            Route::middleware('permission:view store transactions approval')->get('/summary', 'mainIndex')->name('main-index'); // Added middleware
+            Route::middleware('permission:view store transactions approval')->get('/show/{store_transaction}', 'show')->name('show'); // Added middleware
 
-            Route::post('/approve-selected-transactions', 'approveSelectedTransactions')
+            Route::middleware('permission:approve store transactions')->post('/approve-selected-transactions', 'approveSelectedTransactions') // Added middleware
                 ->name('approve-selected-transactions');
 
-            Route::post('/approve-all-transactions', 'approveAllTransactions')
+            Route::middleware('permission:approve store transactions')->post('/approve-all-transactions', 'approveAllTransactions') // Added middleware
                 ->name('approve-all-transactions');
+            Route::middleware('permission:export store transactions approval')->get('/export', 'export')->name('export'); // Added export
         });
 
         // Store Transactions
@@ -376,8 +403,8 @@ Route::middleware('auth')
                 Route::put('/update/{store_transaction}', 'update')->name('update');
             });
 
-            Route::middleware('permission:view store transactions')->get('export', 'export')->name('export');
-            Route::middleware('permission:view store transactions')->get('main-index/export', 'exportMainIndex')->name('export-main-index');
+            Route::middleware('permission:export store transactions')->get('export', 'export')->name('export');
+            Route::middleware('permission:export store transactions')->get('main-index/export', 'exportMainIndex')->name('export-main-index');
         });
 
         // Items
@@ -388,52 +415,49 @@ Route::middleware('auth')
                 Route::post('/items-list/store', 'store')->name('store');
                 Route::get('/items-list/create', 'create')->name('create');
                 Route::post('/items-list/import', 'import')->name('import');
-
+            });
+            Route::middleware('permission:edit items')->group(function () { // Grouped edit operations
                 Route::get('/items-list/edit/{id}', 'edit')->name('edit');
                 Route::put('/items-list/update/{id}', 'update')->name('update');
-
-                Route::delete('/items-list/destroy/{id}', 'destroy')->name('destroy');
-
-                Route::get('/items-list/export', 'export')->name('export');
             });
+            Route::middleware('permission:delete items')->delete('/items-list/destroy/{id}', 'destroy')->name('destroy');
+            Route::middleware('permission:export items list')->get('/items-list/export', 'export')->name('export');
         });
 
         // SAP Masterlist
         Route::controller(SAPMasterfileController::class)->name('sapitems.')->group(function () {
-            Route::middleware('permission:view items list')->get('/sapitems-list', 'index')->name('index');
-            Route::middleware('permission:view item')->get('/sapitems-list/show/{id}', 'show')->name('show');
-            Route::middleware('permission:create new items')->group(function () {
+            Route::middleware('permission:view sapitems list')->get('/sapitems-list', 'index')->name('index');
+            Route::middleware('permission:view sapitems list')->get('/sapitems-list/show/{id}', 'show')->name('show');
+            Route::middleware('permission:create sapitems')->group(function () {
                 Route::post('/sapitems-list/store', 'store')->name('store');
                 Route::get('/sapitems-list/create', 'create')->name('create');
                 Route::post('/sapitems-list/import', 'import')->name('import');
-
+            });
+            Route::middleware('permission:edit sapitems')->group(function () {
                 Route::get('/sapitems-list/edit/{id}', 'edit')->name('edit');
                 Route::put('/sapitems-list/update/{id}', 'update')->name('update');
-
-                Route::delete('/sapitems-list/destroy/{id}', 'destroy')->name('destroy');
-
-                Route::get('/sapitems-list/export', 'export')->name('export');
             });
+            Route::middleware('permission:delete sapitems')->delete('/sapitems-list/destroy/{id}', 'destroy')->name('destroy');
+            Route::middleware('permission:export sapitems list')->get('/sapitems-list/export', 'export')->name('export');
         });
 
         // Supplier Items
         Route::controller(SupplierItemsController::class)->name('SupplierItems.')->group(function () {
-            Route::middleware('permission:view items list')->get('/SupplierItems-list', 'index')->name('index');
-            Route::middleware('permission:view item')->get('/SupplierItems-list/show/{id}', 'show')->name('show');
+            Route::middleware('permission:view SupplierItems list')->get('/SupplierItems-list', 'index')->name('index');
+            Route::middleware('permission:view SupplierItems list')->get('/SupplierItems-list/show/{id}', 'show')->name('show');
             Route::get('/SupplierItems-list/details/{supplierItem}', 'getDetailsJson')->name('details.json');
-            Route::middleware('permission:create new items')->group(function () {
+            Route::middleware('permission:create SupplierItems')->group(function () {
                 Route::post('/SupplierItems-list/store', 'store')->name('store');
                 Route::get('/SupplierItems-list/create', 'create')->name('create');
                 Route::post('/SupplierItems-list/import', 'import')->name('import');
                 Route::get('/SupplierItems-list/download-skipped-log', 'downloadSkippedImportLog')->name('downloadSkippedLog');
-
+            });
+            Route::middleware('permission:edit SupplierItems')->group(function () {
                 Route::get('/SupplierItems-list/edit/{id}', 'edit')->name('edit');
                 Route::put('/SupplierItems-list/update/{id}', 'update')->name('update');
-
-                Route::delete('/SupplierItems-list/destroy/{id}', 'destroy')->name('destroy');
-
-                Route::get('/SupplierItems-list/export', 'export')->name('export');
             });
+            Route::middleware('permission:delete SupplierItems')->delete('/SupplierItems-list/destroy/{id}', 'destroy')->name('destroy');
+            Route::middleware('permission:export SupplierItems list')->get('/SupplierItems-list/export', 'export')->name('export');
 
             // NEW ROUTE: To fetch specific supplier item details by ItemCode and SupplierCode
             // This route now matches your existing naming convention and prefix.
@@ -442,20 +466,19 @@ Route::middleware('auth')
 
         // POSMasterfile
         Route::controller(POSMasterfileController::class)->name('POSMasterfile.')->group(function () {
-            Route::middleware('permission:view items list')->get('/POSMasterfile-list', 'index')->name('index');
-            Route::middleware('permission:view item')->get('/POSMasterfile-list/show/{id}', 'show')->name('show');
-            Route::middleware('permission:create new items')->group(function () {
+            Route::middleware('permission:view POSMasterfile list')->get('/POSMasterfile-list', 'index')->name('index');
+            Route::middleware('permission:view POSMasterfile list')->get('/POSMasterfile-list/show/{id}', 'show')->name('show');
+            Route::middleware('permission:create POSMasterfile')->group(function () {
                 Route::post('/POSMasterfile-list/store', 'store')->name('store');
                 Route::get('/POSMasterfile-list/create', 'create')->name('create');
                 Route::post('/POSMasterfile-list/import', 'import')->name('import');
-
+            });
+            Route::middleware('permission:edit POSMasterfile')->group(function () {
                 Route::get('/POSMasterfile-list/edit/{id}', 'edit')->name('edit');
                 Route::put('/POSMasterfile-list/update/{id}', 'update')->name('update');
-
-                Route::delete('/POSMasterfile-list/destroy/{id}', 'destroy')->name('destroy');
-
-                Route::get('/POSMasterfile-list/export', 'export')->name('export');
             });
+            Route::middleware('permission:delete POSMasterfile')->delete('/POSMasterfile-list/destroy/{id}', 'destroy')->name('destroy');
+            Route::middleware('permission:export POSMasterfile list')->get('/POSMasterfile-list/export', 'export')->name('export');
         });
 
         // BOM
@@ -472,13 +495,13 @@ Route::middleware('auth')
                 Route::get('/edit/{id}', 'edit')->name('edit');
             });
 
-            Route::get('/export', 'export')->name('export');
+            Route::middleware('permission:export bom list')->get('/export', 'export')->name('export');
 
             Route::middleware('permission:delete bom')->delete('/destroy/{id}', 'destroy')->name('destroy');
 
-            Route::post('/import-bom-list', 'importBomList')->name('import-bom-list');
+            Route::middleware('permission:create bom')->post('/import-bom-list', 'importBomList')->name('import-bom-list');
 
-            Route::post('/import-bom-ingredients', 'importBomIngredients')->name('import-bom-ingredients');
+            Route::middleware('permission:create bom')->post('/import-bom-ingredients', 'importBomIngredients')->name('import-bom-ingredients');
         });
 
         // Stock Management
@@ -487,31 +510,36 @@ Route::middleware('auth')
             Route::middleware('permission:view stock management history')->get('/show/{id}', 'show')->name('show');
             Route::middleware('permission:log stock usage')->post('/log-usage', 'logUsage')->name('log-usage');
             Route::middleware('permission:add stock quantity')->post('/add-quantity', 'addQuantity')->name('add-quantity');
-            Route::middleware('permission:view stock management')->get('export', 'export')->name('export');
+            Route::middleware('permission:export stock management')->get('export', 'export')->name('export');
 
 
-            Route::get('/export/add', 'exportAdd')->name('export-add');
-            Route::get('/export/log', 'exportLog')->name('export-log');
-            Route::get('/export/soh', 'exportSOH')->name('export-soh');
+            Route::middleware('permission:export stock management')->get('/export/add', 'exportAdd')->name('export-add');
+            Route::middleware('permission:export stock management')->get('/export/log', 'exportLog')->name('export-log');
+            Route::middleware('permission:export stock management')->get('/export/soh', 'exportSOH')->name('export-soh');
 
-            Route::post('/import/add', 'importAdd')->name('import-add');
+            Route::middleware('permission:add stock quantity')->post('/import/add', 'importAdd')->name('import-add');
 
-            Route::post('/import/log-usage', 'importLogUsage')->name('import-log-usage');
+            Route::middleware('permission:log stock usage')->post('/import/log-usage', 'importLogUsage')->name('import-log-usage');
 
-            Route::post('/import/soh-update', 'importSOHUpdate')->name('import-soh-update');
+            Route::middleware('permission:create soh adjustment')->post('/import/soh-update', 'importSOHUpdate')->name('import-soh-update');
         });
 
         Route::controller(UOMConversionController::class)->name('uom-conversions.')->prefix('uom-conversions')->group(function () {
-            Route::get('/', 'index')->name('index');
-            Route::post('/import', 'import')->name('import');
+            Route::middleware('permission:view uom conversions')->get('/', 'index')->name('index');
+            Route::middleware('permission:create uom conversion')->post('/import', 'import')->name('import');
+            Route::middleware('permission:create uom conversion')->post('/store', 'store')->name('store');
+            Route::middleware('permission:edit uom conversion')->post('/update/{id}', 'update')->name('update');
+            Route::middleware('permission:delete uom conversion')->delete('/destroy/{id}', 'destroy')->name('destroy');
+            Route::middleware('permission:export uom conversions')->get('/export', 'export')->name('export');
         });
 
         Route::controller(SOHAdjustmentController::class)
             ->prefix('soh-adjustment')
             ->name('soh-adjustment.')
             ->group(function () {
-                Route::get('/', 'index')->name('index');
-                Route::post('/approveSelectedItems', 'approveSelectedItems')->name('approve-selected-items');
+                Route::middleware('permission:view soh adjustment')->get('/', 'index')->name('index');
+                Route::middleware('permission:approve soh adjustment')->post('/approveSelectedItems', 'approveSelectedItems')->name('approve-selected-items');
+                Route::middleware('permission:export soh adjustment')->get('/export', 'export')->name('export');
             });
 
         Route::controller(ExcelTemplateController::class)
@@ -566,100 +594,94 @@ Route::middleware('auth')
             });
 
         // Items Order Summary
-        Route::middleware('permission:view items order summary')->controller(ProductOrderSummaryController::class)->name('product-orders-summary.')->group(function () {
-            Route::get('/product-orders-summary', 'index')->name('index');
-            Route::get('/product-orders-summary/show/{id}', 'show')->name('show');
-            Route::get('/product-orders-summary/download-orders-summary-pdf', 'downloadOrdersPdf')->name('export');
+        Route::controller(ProductOrderSummaryController::class)->name('product-orders-summary.')->group(function () {
+            Route::middleware('permission:view items order summary')->get('/product-orders-summary', 'index')->name('index');
+            Route::middleware('permission:view items order summary')->get('/product-orders-summary/show/{id}', 'show')->name('show');
+            Route::middleware('permission:export items order summary')->get('/product-orders-summary/download-orders-summary-pdf', 'downloadOrdersPdf')->name('export');
         });
-        Route::middleware('permission:view ice cream orders')->controller(IceCreamOrderController::class)->name('ice-cream-orders.')->prefix('ice-cream-orders')->group(function () {
-            Route::get('/', 'index')->name('index');
-            Route::get('/excel', 'excel')->name('excel');
+        Route::controller(IceCreamOrderController::class)->name('ice-cream-orders.')->prefix('ice-cream-orders')->group(function () {
+            Route::middleware('permission:view ice cream orders')->get('/', 'index')->name('index');
+            Route::middleware('permission:export ice cream orders')->get('/excel', 'excel')->name('excel');
         });
-        Route::middleware('permission:view salmon orders')->controller(SalmonOrderController::class)->name('salmon-orders.')->prefix('salmon-orders')->group(function () {
-            Route::get('/', 'index')->name('index');
-            Route::get('/excel', 'excel')->name('excel');
+        Route::controller(SalmonOrderController::class)->name('salmon-orders.')->prefix('salmon-orders')->group(function () {
+            Route::middleware('permission:view salmon orders')->get('/', 'index')->name('index');
+            Route::middleware('permission:export salmon orders')->get('/excel', 'excel')->name('excel');
         });
-        Route::middleware('permission:view fruits and vegetables orders')->controller(FruitAndVegetableController::class)->prefix('fruits-and-vegetables')->name('fruits-and-vegetables.')->group(function () {
-            Route::get('/', 'index')->name('index');
-            Route::get('/show/{id}', 'show')->name('show');
-            Route::get('/export', 'export')->name('export');
+        Route::controller(FruitAndVegetableController::class)->prefix('fruits-and-vegetables')->name('fruits-and-vegetables.')->group(function () {
+            Route::middleware('permission:view fruits and vegetables orders')->get('/', 'index')->name('index');
+            Route::middleware('permission:view fruits and vegetables orders')->get('/show/{id}', 'show')->name('show');
+            Route::middleware('permission:export fruits and vegetables orders')->get('/export', 'export')->name('export');
         });
 
 
 
         // Manage References
-        Route::middleware('permission:manage references')->group(function () {
+        // Each reference sub-category should have its own specific permissions, not a general 'manage references' on the group.
+        // The individual routes inside will have their specific permissions.
 
-            Route::controller(CategoryController::class)->prefix('category-list')->name('categories.')->group(function () {
-                Route::get('/', 'index')->name('index');
-                Route::post('/update/{id}', 'update')->name('update');
+        Route::controller(CategoryController::class)->prefix('category-list')->name('categories.')->group(function () {
+            Route::middleware('permission:view category list')->get('/', 'index')->name('index');
+            Route::middleware('permission:create category')->post('/store', 'store')->name('store');
+            Route::middleware('permission:edit category')->post('/update/{id}', 'update')->name('update');
+            Route::middleware('permission:delete category')->delete('/destroy/{id}', 'destroy')->name('destroy');
+            Route::middleware('permission:export category list')->get('/export', 'export')->name('export');
+        });
 
-                Route::post('/store', 'store')->name('store');
+        Route::controller(MenuCategoryController::class)->prefix('menu-categories')->name('menu-categories.')->group(function () {
+            Route::middleware('permission:view menu categories')->get('/', 'index')->name('index');
+            Route::middleware('permission:create menu category')->get('/create', 'create')->name('create');
+            Route::middleware('permission:create menu category')->post('/store', 'store')->name('store');
+            Route::middleware('permission:view menu categories')->get('/show/{id}', 'show')->name('show');
+            Route::middleware('permission:edit menu category')->get('/edit/{id}', 'edit')->name('edit');
+            Route::middleware('permission:edit menu category')->post('/update/{id}', 'update')->name('update');
+            Route::middleware('permission:delete menu category')->delete('/destroy/{id}', 'destroy')->name('destroy');
+            Route::middleware('permission:export menu categories')->get('/export', 'export')->name('export');
+        });
 
-                Route::delete('/destroy/{id}', 'destroy')->name('destroy');
+        Route::controller(InvetoryCategoryController::class)->prefix('inventory-categories')->name('inventory-categories.')->group(function () {
+            Route::middleware('permission:view inventory categories')->get('/', 'index')->name('index');
+            Route::middleware('permission:create inventory category')->post('/store', 'store')->name('store');
+            Route::middleware('permission:edit inventory category')->post('/update/{id}', 'update')->name('update');
+            Route::middleware('permission:delete inventory category')->delete('/destroy/{id}', 'destroy')->name('destroy');
+            Route::middleware('permission:export inventory categories')->get('/export', 'export')->name('export');
+        });
 
-                Route::get('/export', 'export')->name('export');
-            });
+        Route::controller(StoreBranchController::class)->name('branches.')->prefix('branches')->group(function () { // Renamed from store-branches to branches
+            Route::middleware('permission:view branches')->get('/', 'index')->name('index');
+            Route::middleware('permission:create branch')->get('/create', 'create')->name('create');
+            Route::middleware('permission:create branch')->post('/store', 'store')->name('store');
+            Route::middleware('permission:view branches')->get('/show/{id}', 'show')->name('show');
+            Route::middleware('permission:edit branch')->get('/edit/{id}', 'edit')->name('edit');
+            Route::middleware('permission:edit branch')->post('/update/{id}', 'update')->name('update');
+            Route::middleware('permission:delete branch')->delete('/destroy/{id}', 'destroy')->name('destroy');
+            Route::middleware('permission:export branches')->get('/export', 'export')->name('export');
+        });
 
-            Route::controller(MenuCategoryController::class)->prefix('menu-categories')->name('menu-categories.')->group(function () {
-                Route::get('/', 'index')->name('index');
-                Route::get('/create', 'create')->name('create');
-                Route::post('/store', 'store')->name('store');
-                Route::get('/show/{id}', 'show')->name('show');
-                Route::get('/edit/{id}', 'edit')->name('edit');
-                Route::post('/update/{id}', 'update')->name('update');
-                Route::delete('/destroy/{id}', 'destroy')->name('destroy');
-                Route::get('/export', 'export')->name('export');
-            });
+        Route::controller(SupplierController::class)->prefix('suppliers')->name('suppliers.')->group(function () {
+            Route::middleware('permission:view suppliers')->get('/', 'index')->name('index');
+            Route::middleware('permission:create supplier')->get('/create', 'create')->name('create');
+            Route::middleware('permission:create supplier')->post('/store', 'store')->name('store');
+            Route::middleware('permission:view supplier')->get('/{supplier}', 'show')->name('show'); // This will create a route named 'suppliers.show'
+            Route::middleware('permission:edit supplier')->get('/edit/{id}', 'edit')->name('edit');
+            Route::middleware('permission:edit supplier')->put('/update/{id}', 'update')->name('update');
+            Route::middleware('permission:delete supplier')->delete('/destroy/{id}', 'destroy')->name('destroy');
+            Route::middleware('permission:export suppliers')->get('/export', 'export')->name('export');
+        });
 
-            Route::controller(InvetoryCategoryController::class)->prefix('inventory-categories')->name('inventory-categories.')->group(function () {
-                Route::get('/', 'index')->name('index');
-                Route::post('/update/{id}', 'update')->name('update');
-                Route::post('/store', 'store')->name('store');
-                Route::delete('/destroy/{id}', 'destroy')->name('destroy');
-                Route::get('/export', 'export')->name('export');
-            });
+        Route::controller(UnitOfMeasurementController::class)->name('unit-of-measurements.')->group(function () {
+            Route::middleware('permission:view unit of measurements')->get('/unit-of-measurements', 'index')->name('index');
+            Route::middleware('permission:create unit of measurement')->post('/unit-of-measurements/store', 'store')->name('store');
+            Route::middleware('permission:edit unit of measurement')->post('/unit-of-measurements/update/{id}', 'update')->name('update');
+            Route::middleware('permission:delete unit of measurement')->delete('/unit-of-measurements/destroy/{id}', 'destroy')->name('destroy');
+            Route::middleware('permission:export unit of measurements')->get('/unit-of-measurements/export', 'export')->name('export');
+        });
 
-            Route::controller(StoreBranchController::class)->name('branches.')->prefix('branches')->group(function () { // Renamed from store-branches to branches
-                Route::get('/', 'index')->name('index');
-                Route::get('/create', 'create')->name('create');
-                Route::post('/store', 'store')->name('store');
-                Route::get('/show/{id}', 'show')->name('show');
-                Route::get('/edit/{id}', 'edit')->name('edit');
-                Route::post('/update/{id}', 'update')->name('update');
-                Route::delete('/destroy/{id}', 'destroy')->name('destroy');
-                Route::get('/export', 'export')->name('export');
-            });
-
-            Route::controller(SupplierController::class)->prefix('suppliers')->name('suppliers.')->group(function () {
-                Route::get('/', 'index')->name('index');
-                Route::get('/create', 'create')->name('create');
-                Route::post('/store', 'store')->name('store');
-                Route::get('/{supplier}', 'show')->name('show'); // This will create a route named 'suppliers.show'
-
-                Route::get('/edit/{id}', 'edit')->name('edit');
-                Route::put('/update/{id}', 'update')->name('update');
-                Route::delete('/destroy/{id}', 'destroy')->name('destroy');
-
-                Route::get('/export', 'export')->name('export');
-
-
-            });
-
-            Route::controller(UnitOfMeasurementController::class)->name('unit-of-measurements.')->group(function () {
-                Route::get('/unit-of-measurements', 'index')->name('index');
-                Route::post('/unit-of-measurements/update/{id}', 'update')->name('update');
-                Route::get('/unit-of-measurements/export', 'export')->name('export');
-            });
-
-            Route::controller(CostCenterController::class)->name('cost-centers.')->prefix('cost-centers')->group(function () {
-                Route::get('/', 'index')->name('index');
-                Route::post('/store', 'store')->name('store');
-                Route::post('/update/{id}', 'update')->name('update');
-                Route::delete('/destroy/{id}', 'destroy')->name('destroy');
-
-                Route::get('/export', 'export')->name('export');
-            });
+        Route::controller(CostCenterController::class)->name('cost-centers.')->prefix('cost-centers')->group(function () {
+            Route::middleware('permission:view cost centers')->get('/', 'index')->name('index');
+            Route::middleware('permission:create cost center')->post('/store', 'store')->name('store');
+            Route::middleware('permission:edit cost center')->post('/update/{id}', 'update')->name('update');
+            Route::middleware('permission:delete cost center')->delete('/destroy/{id}', 'destroy')->name('destroy');
+            Route::middleware('permission:export cost centers')->get('/export', 'export')->name('export');
         });
 
         // Consolidated Profile Routes
@@ -685,4 +707,3 @@ Route::middleware('auth')
     });
 
 require __DIR__ . '/auth.php';
-
