@@ -694,7 +694,7 @@ const registerDoughnutLabelPlugin = () => {
                 <StatisticOverview
                     :isLink="true"
                     :href="
-                        route('sales.index', {
+                        route('sales-report.index', {
                             time_period: time_period,
                             branchId: branch,
                         })
