@@ -86,9 +86,6 @@ class RoleService
                 'DTS Orders' => [
                     'view dts orders', 'create dts orders', 'edit dts orders', 'view dts order', 'export dts orders'
                 ],
-                'Direct Receiving' => [
-                    'view direct receiving', 'create direct receiving', 'edit direct receiving', 'delete direct receiving', 'export direct receiving'
-                ],
                 'Orders Approval (SM)' => [
                     'view orders for approval list', 'view order for approval', 'approve/decline order request'
                 ],
@@ -103,6 +100,9 @@ class RoleService
                 ],
             ],
             'Receiving' => [
+                'Direct Receiving' => [
+                    'view direct receiving', 'create direct receiving', 'edit direct receiving', 'delete direct receiving', 'export direct receiving'
+                ],
                 'Approved Orders' => [
                     'view approved orders', 'view approved order', 'receive orders', 'export approved orders'
                 ],

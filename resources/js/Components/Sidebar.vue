@@ -95,7 +95,6 @@ const canViewOrderingGroup = computed(() =>
     hasAccess("view emergency orders") ||
     hasAccess("view additional orders") ||
     hasAccess("view dts orders") ||
-    hasAccess("view direct receiving") ||
     hasAccess("view orders for approval list") ||
     hasAccess("view orders for cs approval list") || // CS Review List
     hasAccess("view additional order approval") ||
@@ -103,6 +102,7 @@ const canViewOrderingGroup = computed(() =>
 );
 
 const canViewReceivingGroup = computed(() =>
+    hasAccess("view direct receiving") ||
     hasAccess("view approved orders") ||
     hasAccess("view received orders for approval list") ||
     hasAccess("view approved received items")
@@ -168,8 +168,8 @@ watchEffect(() => {
     // Define all collapsible sections and their associated paths
     const sections = [
         { ref: settingsOpen, paths: ["/users", "/roles", "/templates", "/dts-delivery-schedules"] },
-        { ref: orderingOpen, paths: ["/store-orders", "/emergency-orders", "/additional-orders", "/dts-orders", "/direct-receiving", "/orders-approval", "/cs-approvals", "/additional-orders-approval", "/emergency-orders-approval"] },
-        { ref: receivingOpen, paths: ["/orders-receiving", "/approved-orders", "/receiving-approvals"] },
+        { ref: orderingOpen, paths: ["/store-orders", "/emergency-orders", "/additional-orders", "/dts-orders", "/orders-approval", "/cs-approvals", "/additional-orders-approval", "/emergency-orders-approval"] },
+        { ref: receivingOpen, paths: ["/direct-receiving", "/orders-receiving", "/approved-orders", "/receiving-approvals"] },
         { ref: salesOpen, paths: ["/sales-orders", "/store-transactions", "/store-transactions-approval"] },
         { ref: inventoryOpen, paths: ["/items-list", "/sapitems-list", "/SupplierItems-list", "/POSMasterfile-list", "/menu-list", "/stock-management", "/soh-adjustment", "/low-on-stocks"] },
         { ref: reportsOpen, paths: ["/top-10-inventories", "/days-inventory-outstanding", "/days-payable-outstanding", "/sales-report", "/inventories-report", "/upcoming-inventories", "/account-payable", "/cost-of-goods", "/product-orders-summary", "/ice-cream-orders", "/salmon-orders", "/fruits-and-vegetables"] },
@@ -246,16 +246,13 @@ watchEffect(() => {
                 >
                     DTS Orders
                 </NavLink>
-                <NavLink href="/direct-receiving" :icon="ShoppingBasket" :is-active="isPathActive('/direct-receiving')">
-                    Direct Receiving
-                </NavLink>
                 <NavLink
                     v-if="hasAccess('view orders for approval list')"
                     href="/orders-approval"
                     :icon="SquareChartGantt"
                     :is-active="isPathActive('/orders-approval')"
                 >
-                    List of Orders (Created SO) form SM Approval
+                    Orders Approval
                 </NavLink>
                 <NavLink
                     v-if="hasAccess('view orders for cs approval list')"
@@ -301,6 +298,9 @@ watchEffect(() => {
                 <ChevronRight v-else class="h-4 w-4" />
             </CollapsibleTrigger>
             <CollapsibleContent class="pl-2">
+                <NavLink href="/direct-receiving" :icon="ShoppingBasket" :is-active="isPathActive('/direct-receiving')">
+                    Direct Receiving
+                </NavLink>
                 <NavLink
                     v-if="hasAccess('view approved orders')"
                     href="/orders-receiving"
