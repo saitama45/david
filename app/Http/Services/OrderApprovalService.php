@@ -52,6 +52,22 @@ class OrderApprovalService extends StoreOrderService
         ];
     }
 
+    /**
+     * Get order items for a given store order, eager loading necessary relationships.
+     *
+     * @param StoreOrder $order The store order model.
+     * @return \Illuminate\Database\Eloquent\Collection
+     */
+    public function getOrderItems(StoreOrder $order)
+    {
+        // Eager load the supplierItem relationship and ensure 'cost' is selected.
+        // Also ensure 'ItemCode', 'item_name', and 'uom' are selected for the frontend.
+        return $order->store_order_items()->with(['supplierItem' => function($query) {
+            $query->select('id', 'ItemCode', 'item_name', 'uom', 'cost');
+        }])->get();
+    }
+
+
     public function approveOrder(array $data)
     {
         DB::beginTransaction();

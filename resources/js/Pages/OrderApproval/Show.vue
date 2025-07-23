@@ -4,6 +4,8 @@ import { router } from "@inertiajs/vue3";
 import { useConfirm } from "primevue/useconfirm";
 import { useToast } from "@/Composables/useToast";
 import { useForm } from "@inertiajs/vue3";
+import { ref, watch, computed } from 'vue'; // Explicitly import Vue reactivity APIs
+import { Minus, Plus } from "lucide-vue-next"; // Import icons
 
 const confirm = useConfirm();
 const { toast } = useToast();
@@ -34,74 +36,6 @@ const statusBadgeColor = (status) => {
             return "bg-yellow-500 text-white";
     }
 };
-
-// const approveOrder = (id) => {
-//     confirm.require({
-//         message: "Are you sure you want to approve this order?",
-//         header: "Confirmation",
-//         icon: "pi pi-exclamation-triangle",
-//         rejectProps: {
-//             label: "Cancel",
-//             severity: "secondary",
-//             outlined: true,
-//         },
-//         acceptProps: {
-//             label: "Confirm",
-//             severity: "info",
-//         },
-//         accept: () => {
-//             router.post(
-//                 route("orders-approval.approve", id),
-//                 {},
-//                 {
-//                     preserveScroll: true,
-//                     onSuccess: () => {
-//                         toast.add({
-//                             severity: "success",
-//                             summary: "Success",
-//                             detail: "Order Approved Successfully.",
-//                             life: 3000,
-//                         });
-//                     },
-//                 }
-//             );
-//         },
-//     });
-// };
-
-// const rejectOrder = (id) => {
-//     confirm.require({
-//         message: "Are you sure you want to reject this order?",
-//         header: "Confirmation",
-//         icon: "pi pi-exclamation-triangle",
-//         rejectProps: {
-//             label: "Cancel",
-//             severity: "secondary",
-//             outlined: true,
-//         },
-//         acceptProps: {
-//             label: "Confirm",
-//             severity: "danger",
-//         },
-//         accept: () => {
-//             router.post(
-//                 route("orders-approval.reject", id),
-//                 {},
-//                 {
-//                     preserveScroll: true,
-//                     onSuccess: () => {
-//                         toast.add({
-//                             severity: "success",
-//                             summary: "Success",
-//                             detail: "Order Rejected Successfully.",
-//                             life: 3000,
-//                         });
-//                     },
-//                 }
-//             );
-//         },
-//     });
-// };
 
 const itemRemarksForm = useForm({
     remarks: null,
@@ -190,7 +124,7 @@ props.orderedItems.forEach((item) =>
         id: item.id,
         quantity_ordered: item.quantity_ordered,
         quantity_approved: item.quantity_ordered,
-        item_cost: item.product_inventory.cost,
+        item_cost: item.cost_per_quantity, // Changed to item.cost_per_quantity
         total_cost: item.total_cost,
     })
 );
@@ -220,17 +154,6 @@ const addQuantityApproved = (id) => {
         currentItem.quantity_approved = Number(
             parseFloat(currentItem.quantity_approved + 0.1).toFixed(2)
         );
-        // if (
-        //     currentItem.quantity_approved < 1 &&
-        //     currentItem.quantity_approved >= 0
-        // ) {
-        //     currentItem.quantity_approved = Number(
-        //         parseFloat(currentItem.quantity_approved + 0.1).toFixed(2)
-        //     );
-        // } else {
-        //     currentItem.quantity_approved++;
-        // }
-
         currentItem.total_cost = parseFloat(
             currentItem.item_cost * currentItem.quantity_approved
         ).toFixed(2);
@@ -274,19 +197,6 @@ const {
                 </section>
 
                 <DivFlexCenter class="gap-5">
-                    <!-- <Button
-                        v-if="order.order_request_status === 'pending'"
-                        variant="secondary"
-                        @click="updateDetails(order.order_number)"
-                    >
-                        Update Details
-                    </Button> -->
-                    <!-- <Button
-                        class="bg-blue-500 hover:bg-blue-300"
-                        @click="copyOrderAndCreateAnother(order.id)"
-                    >
-                        Copy Order And Create
-                    </Button> -->
                     <Button
                         v-if="order.order_status === 'pending'"
                         variant="destructive"
@@ -305,7 +215,6 @@ const {
             </section>
 
             <TableHeader>
-                <!-- <SearchBar /> -->
             </TableHeader>
 
             <Table>
@@ -317,14 +226,13 @@ const {
                     <TH v-if="order.order_status === 'approved'">Approved</TH>
                     <TH> Cost </TH>
                     <TH> Total Cost </TH>
-                    <!-- <TH> Actions </TH> -->
                 </TableHead>
                 <TableBody>
                     <tr v-for="item in orderedItems" :key="order.id">
-                        <TD>{{ item.product_inventory.inventory_code }}</TD>
-                        <TD>{{ item.product_inventory.name }}</TD>
+                        <TD>{{ item.supplier_item.ItemCode }}</TD>
+                        <TD>{{ item.supplier_item.item_name }}</TD>
                         <TD>{{
-                            item.product_inventory.unit_of_measurement.name
+                            item.supplier_item.uom
                         }}</TD>
                         <TD class="flex items-center gap-3">
                             {{
@@ -346,20 +254,13 @@ const {
                         <TD v-if="order.order_status === 'approved'">
                             {{ item.quantity_approved }}
                         </TD>
-                        <TD>{{ item.product_inventory.cost }}</TD>
+                        <TD>{{ parseFloat(item.cost_per_quantity).toFixed(2) }}</TD> <!-- Changed to item.cost_per_quantity -->
                         <TD>
                             {{
                                 itemsDetail.find((data) => data.id === item.id)
                                     ?.total_cost || 0
                             }}
                         </TD>
-                        <!-- <TD>
-                            <LinkButton
-                                class="text-blue-500"
-                                @click="addRemarks(order.id)"
-                                >Add Remarks</LinkButton
-                            >
-                        </TD> -->
                     </tr>
                 </TableBody>
             </Table>
@@ -367,7 +268,7 @@ const {
             <MobileTableContainer>
                 <MobileTableRow v-for="item in orderedItems" :key="order.id">
                     <MobileTableHeading
-                        :title="`${item.product_inventory.name} (${item.product_inventory.inventory_code})`"
+                        :title="`${item.supplier_item.item_name} (${item.supplier_item.ItemCode})`"
                     >
                         <DivFlexCenter
                             class="gap-2"
@@ -384,7 +285,7 @@ const {
                     <LabelXS
                         >UOM:
                         {{
-                            item.product_inventory.unit_of_measurement.name
+                            item.supplier_item.uom
                         }}</LabelXS
                     >
                     <LabelXS
