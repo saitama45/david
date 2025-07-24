@@ -6,6 +6,8 @@ use App\Exports\POSMasterfileExport;
 use App\Http\Controllers\Controller;
 use App\Imports\POSMasterfileImport;
 use App\Models\POSMasterfile;
+use App\Models\MenuCategory;
+use App\Models\SAPMasterfile; // Import SAPMasterfile model
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
@@ -93,8 +95,19 @@ class POSMasterfileController extends Controller
     public function edit(string $id)
     {
         $item = POSMasterfile::findOrFail($id);
+        // Fetch menu categories for the dropdown
+        $categories = MenuCategory::options();
+        // Fetch products from SAPMasterfile for the ingredients dropdown
+        $products = SAPMasterfile::options();
+
         return Inertia::render('POSMasterfile/Edit', [
-            'item' => $item
+            'item' => $item,
+            'categories' => $categories,
+            'products' => $products, // Pass products to the Inertia view
+            // If POSMasterfile has a relationship to ingredients, you would fetch them here
+            // 'ingredients' => $item->ingredients->map(function($ingredient) { ... })
+            // For now, assuming no existing ingredients for POSMasterfile
+            'existingIngredients' => [], // Placeholder for existing ingredients
         ]);
     }
 
@@ -105,14 +118,25 @@ class POSMasterfileController extends Controller
     {
         $item = POSMasterfile::findOrFail($id);
         $validated = $request->validate([         
-           'ItemCode' => ['nullable'],
-           'ItemDescription' => ['nullable'],
+            'ItemCode' => ['nullable'],
+            'ItemDescription' => ['nullable'],
             'Category' => ['nullable'],
             'SubCategory' => ['nullable'],
             'SRP' => ['nullable'],
             'is_active' => ['nullable'],
+            // Add validation for ingredients if they are to be saved
+            'ingredients' => ['array', 'nullable'],
+            'ingredients.*.id' => ['required', 'exists:sap_masterfiles,id'],
+            'ingredients.*.quantity' => ['required', 'numeric', 'min:0.1'],
         ]);
         $item->update($validated);
+
+        // Logic to sync ingredients if POSMasterfile has a relationship
+        // For example, if POSMasterfile has a many-to-many relationship with SAPMasterfile
+        // $item->ingredients()->sync(collect($validated['ingredients'])->mapWithKeys(function ($ingredient) {
+        //     return [$ingredient['id'] => ['quantity' => $ingredient['quantity']]];
+        // })->toArray());
+
         return to_route("POSMasterfile.index");
     }
 
@@ -166,5 +190,19 @@ class POSMasterfileController extends Controller
 
             return back()->with('error', 'Import failed: ' . $e->getMessage() . '. Please check logs for details.');
         }
+    }
+
+    // New method to fetch a single product's details for the ingredient dropdown
+    public function getProductDetails(string $id)
+    {
+        $product = SAPMasterfile::select('id', 'ItemCode', 'ItemDescription', 'BaseUOM', 'AltUOM') // Select AltUOM
+                                ->findOrFail($id);
+        return response()->json([
+            'id' => $product->id,
+            'inventory_code' => $product->ItemCode,
+            'name' => $product->ItemDescription,
+            'unit_of_measurement' => $product->BaseUOM, // Keep BaseUOM for general UOM
+            'alt_unit_of_measurement' => $product->AltUOM, // Add AltUOM for the specific textbox
+        ]);
     }
 }

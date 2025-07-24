@@ -146,6 +146,7 @@ const enlargeImage = (image) => {
                     <TableHead>
                         <TH> Item Code </TH>
                         <TH> Name </TH>
+                        <TH>Base UOM</TH> <!-- New Header -->
                         <TH>UOM</TH>
                         <TH> Ordered</TH>
                         <TH> Approved</TH>
@@ -166,25 +167,26 @@ const enlargeImage = (image) => {
                         </TH>
                     </TableHead>
                     <TableBody>
-                        <tr v-for="order in orderedItems" :key="order.id">
-                            <TD>{{ order.supplier_item?.ItemCode }}</TD>
-                            <TD>{{ order.supplier_item?.item_name }}</TD>
-                            <TD>{{ order.supplier_item?.uom }}</TD> <!-- CRITICAL FIX: Changed to order.supplier_item?.uom -->
-                            <TD>{{ order.quantity_ordered }}</TD>
-                            <TD>{{ order.quantity_approved }}</TD>
-                            <TD>{{ order.quantity_commited }}</TD>
-                            <TD>{{ order.quantity_received }}</TD>
-                            <TD>{{ order.quantity_received }}</TD>
+                        <tr v-for="orderItem in orderedItems" :key="orderItem.id">
+                            <TD>{{ orderItem.supplier_item?.ItemCode ?? 'N/a' }}</TD>
+                            <TD>{{ orderItem.supplier_item?.item_name ?? 'N/a' }}</TD>
+                            <TD>{{ orderItem.supplier_item?.sap_masterfile?.BaseUOM ?? 'N/a' }}</TD> <!-- New Cell -->
+                            <TD>{{ orderItem.supplier_item?.uom ?? 'N/a' }}</TD>
+                            <TD>{{ orderItem.quantity_ordered }}</TD>
+                            <TD>{{ orderItem.quantity_approved }}</TD>
+                            <TD>{{ orderItem.quantity_commited }}</TD>
+                            <TD>{{ orderItem.quantity_received }}</TD>
+                            <TD>{{ orderItem.quantity_received }}</TD>
                             <TD>{{
                                 Math.abs(
-                                    order.quantity_approved -
-                                        order.quantity_commited
+                                    orderItem.quantity_approved -
+                                        orderItem.quantity_commited
                                 )
                             }}</TD>
                             <TD>{{
                                 Math.abs(
-                                    order.quantity_commited -
-                                        order.quantity_received
+                                    orderItem.quantity_commited -
+                                        orderItem.quantity_received
                                 )
                             }}</TD>
                         </tr>
@@ -193,20 +195,21 @@ const enlargeImage = (image) => {
 
                 <MobileTableContainer>
                     <MobileTableRow
-                        v-for="order in orderedItems"
-                        :key="order.id"
+                        v-for="orderItem in orderedItems"
+                        :key="orderItem.id"
                     >
                         <MobileTableHeading
-                            :title="`${order.supplier_item?.item_name} (${order.supplier_item?.ItemCode})`"
+                            :title="`${orderItem.supplier_item?.item_name ?? 'N/a'} (${orderItem.supplier_item?.ItemCode ?? 'N/a'})`"
                         >
                         </MobileTableHeading>
-                        <LabelXS>UOM: {{ order.supplier_item?.uom }}</LabelXS> <!-- CRITICAL FIX: Changed to order.supplier_item?.uom -->
-                        <LabelXS>Ordered: {{ order.quantity_ordered }}</LabelXS>
+                        <LabelXS>Base UOM: {{ orderItem.supplier_item?.sap_masterfile?.BaseUOM ?? 'N/a' }}</LabelXS> <!-- New for Mobile -->
+                        <LabelXS>UOM: {{ orderItem.supplier_item?.uom ?? 'N/a' }}</LabelXS>
+                        <LabelXS>Ordered: {{ orderItem.quantity_ordered }}</LabelXS>
                         <LabelXS
-                            >Approved: {{ order.quantity_approved }}</LabelXS
+                            >Approved: {{ orderItem.quantity_approved }}</LabelXS
                         >
                         <LabelXS
-                            >Received: {{ order.quantity_received }}</LabelXS
+                            >Received: {{ orderItem.quantity_received }}</LabelXS
                         >
                     </MobileTableRow>
                 </MobileTableContainer>
@@ -226,7 +229,7 @@ const enlargeImage = (image) => {
                         <TH>Created at</TH>
                     </TableHead>
                     <TableBody>
-                        <tr v-for="receipt in order.delivery_receipts">
+                        <tr v-for="receipt in order.delivery_receipts" :key="receipt.id">
                             <TD>{{ receipt.id }}</TD>
                             <TD>{{ receipt.delivery_receipt_number }}</TD>
                             <TD>{{ receipt.remarks }}</TD>
@@ -268,7 +271,7 @@ const enlargeImage = (image) => {
                         <TH>Created At</TH>
                     </TableHead>
                     <TableBody>
-                        <tr v-for="remarks in order.store_order_remarks">
+                        <tr v-for="remarks in order.store_order_remarks" :key="remarks.id">
                             <TD>{{ remarks.id }}</TD>
                             <TD
                                 >{{ remarks.user?.first_name }}
@@ -345,8 +348,8 @@ const enlargeImage = (image) => {
                             :key="history.id"
                         >
                             <TD>{{ history.id }}</TD>
-                            <TD>{{ history.store_order_item?.supplier_item?.item_name }}</TD>
-                            <TD>{{ history.store_order_item?.supplier_item?.ItemCode }}</TD>
+                            <TD>{{ history.store_order_item?.supplier_item?.item_name ?? 'N/a' }}</TD>
+                            <TD>{{ history.store_order_item?.supplier_item?.ItemCode ?? 'N/a' }}</TD>
                             <TD>{{ history.quantity_received }}</TD>
                             <TD>{{
                                 dayjs(history.received_date).format(
@@ -371,10 +374,10 @@ const enlargeImage = (image) => {
                         :key="history.id"
                     >
                         <MobileTableHeading
-                            :title="`${history.store_order_item?.supplier_item?.item_name} (${history.store_order_item?.supplier_item?.ItemCode})`"
+                            :title="`${history.store_order_item?.supplier_item?.item_name ?? 'N/a'} (${history.store_order_item?.supplier_item?.ItemCode ?? 'N/a'})`"
                         >
                         </MobileTableHeading>
-                        <LabelXS>UOM: {{ history.store_order_item?.uom }}</LabelXS> <!-- Added UOM here -->
+                        <LabelXS>UOM: {{ history.store_order_item?.supplier_item?.uom ?? 'N/a' }}</LabelXS>
                         <LabelXS
                             >Received: {{ history.quantity_received }}</LabelXS
                         >

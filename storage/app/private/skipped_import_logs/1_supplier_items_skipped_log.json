@@ -1,0 +1,5538 @@
+[
+    {
+        "original_row": [
+            "CATEGORY",
+            "BRAND",
+            "CLASSIFICATION",
+            "ITEM CODE",
+            "ITEM NAME",
+            "PACKAGING CONFIGURATION",
+            "UNIT",
+            "COST",
+            "SRP",
+            "SUPPLIER CODE",
+            "ACTIVE"
+        ],
+        "reason": "Missing ItemCode or SupplierCode"
+    },
+    {
+        "original_row": [
+            "FINISHED GOOD",
+            "GSI",
+            "CAKES",
+            "107D9A",
+            "Apple Pie",
+            1,
+            "WHOLE",
+            0,
+            0,
+            "GSI-P",
+            1
+        ],
+        "reason": "Missing ItemCode or SupplierCode"
+    },
+    {
+        "original_row": [
+            "FINISHED GOOD",
+            "GSI",
+            "CAKES",
+            "118D9A",
+            "Blueberry Cheesecake",
+            1,
+            "Whole",
+            0,
+            0,
+            "GSI-P",
+            1
+        ],
+        "reason": "Missing ItemCode or SupplierCode"
+    },
+    {
+        "original_row": [
+            "FINISHED GOOD",
+            "GSI",
+            "CAKES",
+            "161D9A",
+            "Lemon Torte 8",
+            1,
+            "WHOLE",
+            0,
+            0,
+            "GSI-P",
+            1
+        ],
+        "reason": "Missing ItemCode or SupplierCode"
+    },
+    {
+        "original_row": [
+            "FINISHED GOOD",
+            "GSI",
+            "CAKES",
+            "170D9A",
+            "Nono's Chocolate Oblivion",
+            1,
+            "WHOLE",
+            0,
+            0,
+            "GSI-P",
+            1
+        ],
+        "reason": "Missing ItemCode or SupplierCode"
+    },
+    {
+        "original_row": [
+            "FINISHED GOOD",
+            "GSI",
+            "CAKES",
+            "202D9A",
+            "Sylvia's Strawberry Shortcake 8",
+            1,
+            "WHOLE",
+            0,
+            0,
+            "GSI-P",
+            1
+        ],
+        "reason": "Missing ItemCode or SupplierCode"
+    },
+    {
+        "original_row": [
+            "FINISHED GOOD",
+            "GSI",
+            "CAKES",
+            "242D9A",
+            "Honey Crunch Cake",
+            1,
+            "WHOLE",
+            0,
+            0,
+            "GSI-P",
+            1
+        ],
+        "reason": "Missing ItemCode or SupplierCode"
+    },
+    {
+        "original_row": [
+            "FINISHED GOOD",
+            "GSI",
+            "CAKES",
+            "348D9A",
+            "Ube Cake",
+            1,
+            "WHOLE",
+            0,
+            0,
+            "GSI-P",
+            1
+        ],
+        "reason": "Missing ItemCode or SupplierCode"
+    },
+    {
+        "original_row": [
+            "FINISHED GOOD",
+            "GSI",
+            "CAKES",
+            "209D9A",
+            "Vitto's Chocolate Loaf",
+            1,
+            "LOAF",
+            0,
+            0,
+            "GSI-P",
+            1
+        ],
+        "reason": "Missing ItemCode or SupplierCode"
+    },
+    {
+        "original_row": [
+            "FINISHED GOOD",
+            "GSI",
+            "CAKES",
+            "109D9A",
+            "Banana Cream Pie Crust - Large",
+            1,
+            "Pack",
+            0,
+            0,
+            "GSI-P",
+            1
+        ],
+        "reason": "Missing ItemCode or SupplierCode"
+    },
+    {
+        "original_row": [
+            "FINISHED GOOD",
+            "GSI",
+            "CAKES",
+            "110D9A",
+            "Banana Cream Pie Crust - Small",
+            1,
+            "Pack",
+            0,
+            0,
+            "GSI-P",
+            1
+        ],
+        "reason": "Missing ItemCode or SupplierCode"
+    },
+    {
+        "original_row": [
+            "FINISHED GOOD",
+            "GSI",
+            "CAKES",
+            "184D9A",
+            "Pastry Cream 300g",
+            "300g x pack",
+            "Pack",
+            0,
+            0,
+            "GSI-P",
+            1
+        ],
+        "reason": "Missing ItemCode or SupplierCode"
+    },
+    {
+        "original_row": [
+            "FINISHED GOOD",
+            "GSI",
+            "CAKES",
+            "238D9A",
+            "Caramel Sauce 200g (for NN drinks)",
+            "200g x pack",
+            "Pack",
+            0,
+            0,
+            "GSI-P",
+            1
+        ],
+        "reason": "Missing ItemCode or SupplierCode"
+    },
+    {
+        "original_row": [
+            "FINISHED GOOD",
+            "GSI",
+            "CAKES",
+            "126D9A",
+            "Caramel Sauce 300g",
+            "300g x pack",
+            "Pack",
+            0,
+            0,
+            "GSI-P",
+            1
+        ],
+        "reason": "Missing ItemCode or SupplierCode"
+    },
+    {
+        "original_row": [
+            "FINISHED GOOD",
+            "GSI",
+            "CAKES",
+            "380D9A",
+            "Chocolate Truffle Cake",
+            1,
+            "WHOLE",
+            0,
+            0,
+            "GSI-P",
+            1
+        ],
+        "reason": "Missing ItemCode or SupplierCode"
+    },
+    {
+        "original_row": [
+            "FINISHED GOOD",
+            "GSI",
+            "CAKES",
+            "259D9A",
+            "Yema Sansrival",
+            1,
+            "WHOLE",
+            0,
+            0,
+            "GSI-P",
+            1
+        ],
+        "reason": "Missing ItemCode or SupplierCode"
+    },
+    {
+        "original_row": [
+            "FINISHED GOOD",
+            "GSI",
+            "CAKES",
+            "381D9A",
+            "Sylvia's Strawberry Shortcake 6\"",
+            1,
+            "WHOLE",
+            0,
+            0,
+            "GSI-P",
+            1
+        ],
+        "reason": "Missing ItemCode or SupplierCode"
+    },
+    {
+        "original_row": [
+            "FINISHED GOOD",
+            "GSI",
+            "CAKES",
+            "382D9A",
+            "Ube Indulgence 6\"",
+            1,
+            "WHOLE",
+            0,
+            0,
+            "GSI-P",
+            1
+        ],
+        "reason": "Missing ItemCode or SupplierCode"
+    },
+    {
+        "original_row": [
+            "FINISHED GOOD",
+            "GSI",
+            "CAKES",
+            "383D9A",
+            "Honey Crunch 6\"",
+            1,
+            "WHOLE",
+            0,
+            0,
+            "GSI-P",
+            1
+        ],
+        "reason": "Missing ItemCode or SupplierCode"
+    },
+    {
+        "original_row": [
+            "FINISHED GOOD",
+            "GSI",
+            "CAKES",
+            "385D9A",
+            "Chocolate Almond Cake Bites",
+            "18pcs x pack",
+            "Pack",
+            0,
+            0,
+            "GSI-P",
+            1
+        ],
+        "reason": "Missing ItemCode or SupplierCode"
+    },
+    {
+        "original_row": [
+            "FINISHED GOOD",
+            "GSI",
+            "ST - BAKERY",
+            "310D9A",
+            "Gingerbread Cookies (24 pcs\/pack)",
+            "300g x pack",
+            "Pack",
+            0,
+            0,
+            "GSI-P",
+            1
+        ],
+        "reason": "Missing ItemCode or SupplierCode"
+    },
+    {
+        "original_row": [
+            "FINISHED GOOD",
+            "GSI",
+            "ST - BAKERY",
+            "363D9A",
+            "Birthday Cookies",
+            "300g x pack",
+            "Pack",
+            0,
+            0,
+            "GSI-P",
+            1
+        ],
+        "reason": "Missing ItemCode or SupplierCode"
+    },
+    {
+        "original_row": [
+            "FINISHED GOOD",
+            "GSI",
+            "ST - BAKERY",
+            "101D9A",
+            "Almond Crunch 130g",
+            "130g x pack",
+            "Pack",
+            0,
+            0,
+            "GSI-P",
+            1
+        ],
+        "reason": "Missing ItemCode or SupplierCode"
+    },
+    {
+        "original_row": [
+            "FINISHED GOOD",
+            "GSI",
+            "ST - BAKERY",
+            "102D9A",
+            "Almond Crunch 250g",
+            "250g x can",
+            "Can",
+            0,
+            0,
+            "GSI-P",
+            1
+        ],
+        "reason": "Missing ItemCode or SupplierCode"
+    },
+    {
+        "original_row": [
+            "FINISHED GOOD",
+            "GSI",
+            "ST - BAKERY",
+            "103D9A",
+            "Almond Crunch 350g",
+            "350g x can",
+            "Can",
+            0,
+            0,
+            "GSI-P",
+            1
+        ],
+        "reason": "Missing ItemCode or SupplierCode"
+    },
+    {
+        "original_row": [
+            "FINISHED GOOD",
+            "GSI",
+            "ST - BAKERY",
+            "136D9A",
+            "Choco Cornflakes",
+            "225g x pack",
+            "Pack",
+            0,
+            0,
+            "GSI-P",
+            1
+        ],
+        "reason": "Missing ItemCode or SupplierCode"
+    },
+    {
+        "original_row": [
+            "FINISHED GOOD",
+            "GSI",
+            "ST - BAKERY",
+            "199D9A",
+            "Sugar Cookies, medium",
+            1,
+            "PC",
+            0,
+            0,
+            "GSI-P",
+            1
+        ],
+        "reason": "Missing ItemCode or SupplierCode"
+    },
+    {
+        "original_row": [
+            "FINISHED GOOD",
+            "GSI",
+            "ST - BAKERY",
+            "210D9A",
+            "White Chocolate Band",
+            "10pcs x pack",
+            "PACK(10)",
+            0,
+            0,
+            "GSI-P",
+            1
+        ],
+        "reason": "Missing ItemCode or SupplierCode"
+    },
+    {
+        "original_row": [
+            "FINISHED GOOD",
+            "GSI",
+            "ST - BAKERY",
+            "142D9A",
+            "Chocolate Crinkle Cookies (pack of 8)",
+            "8pcs x pack",
+            "PACK",
+            0,
+            0,
+            "GSI-P",
+            1
+        ],
+        "reason": "Missing ItemCode or SupplierCode"
+    },
+    {
+        "original_row": [
+            "FINISHED GOOD",
+            "GSI",
+            "ST - BAKERY",
+            "115D9A",
+            "Bistro - CCI BROWNIE COOKIE (Uncooked)",
+            "670g x pack",
+            "PACK",
+            0,
+            0,
+            "GSI-P",
+            1
+        ],
+        "reason": "Missing ItemCode or SupplierCode"
+    },
+    {
+        "original_row": [
+            "FINISHED GOOD",
+            "GSI",
+            "ST - BAKERY",
+            "116D9A",
+            "Bistro - CCI Chocolate Chip Cookies (Uncooked)",
+            "670g x pack",
+            "PACK",
+            0,
+            0,
+            "GSI-P",
+            1
+        ],
+        "reason": "Missing ItemCode or SupplierCode"
+    },
+    {
+        "original_row": [
+            "FINISHED GOOD",
+            "GSI",
+            "ST - BAKERY",
+            "335D9A",
+            "White Chocolate Walnut Cookies (pack of 8)",
+            "8pcs x pack",
+            "PACK",
+            0,
+            0,
+            "GSI-P",
+            1
+        ],
+        "reason": "Missing ItemCode or SupplierCode"
+    },
+    {
+        "original_row": [
+            "FINISHED GOOD",
+            "GSI",
+            "ST - BAKERY",
+            "282D9A",
+            "Candied Walnuts 500g\/pack",
+            "500g x pack",
+            "Pack",
+            0,
+            0,
+            "GSI-P",
+            1
+        ],
+        "reason": "Missing ItemCode or SupplierCode"
+    },
+    {
+        "original_row": [
+            "FINISHED GOOD",
+            "GSI",
+            "BAKERY",
+            "384D9A",
+            "Meringue (22pcs\/pack)",
+            "22pcs x pack",
+            "Pack",
+            0,
+            0,
+            "GSI-P",
+            1
+        ],
+        "reason": "Missing ItemCode or SupplierCode"
+    },
+    {
+        "original_row": [
+            "FINISHED GOOD",
+            "GSI",
+            "BAKERY",
+            "178D9A",
+            "Parmesan Ensaymada (box of 6)",
+            "6pcs x pack",
+            "PACK",
+            0,
+            0,
+            "GSI-P",
+            1
+        ],
+        "reason": "Missing ItemCode or SupplierCode"
+    },
+    {
+        "original_row": [
+            "FINISHED GOOD",
+            "GSI",
+            "BAKERY",
+            "131D9A",
+            "Cheeserolls (pack of 8)",
+            "8pcs x pack",
+            "PACK",
+            0,
+            0,
+            "GSI-P",
+            1
+        ],
+        "reason": "Missing ItemCode or SupplierCode"
+    },
+    {
+        "original_row": [
+            "FINISHED GOOD",
+            "GSI",
+            "BAKERY",
+            "150D9A",
+            "Dinner Roll (pack of 6)",
+            1,
+            "Pack",
+            0,
+            0,
+            "GSI-P",
+            1
+        ],
+        "reason": "Missing ItemCode or SupplierCode"
+    },
+    {
+        "original_row": [
+            "FINISHED GOOD",
+            "GSI",
+            "BAKERY",
+            "162D9A",
+            "Classic Sourdough (PR)",
+            1,
+            "Pc",
+            0,
+            0,
+            "GSI-P",
+            1
+        ],
+        "reason": "Missing ItemCode or SupplierCode"
+    },
+    {
+        "original_row": [
+            "FINISHED GOOD",
+            "GSI",
+            "BAKERY",
+            "130D9A",
+            "CCI Pandesal",
+            "8pcs x pack",
+            "Pack",
+            0,
+            0,
+            "GSI-P",
+            1
+        ],
+        "reason": "Missing ItemCode or SupplierCode"
+    },
+    {
+        "original_row": [
+            "FINISHED GOOD",
+            "GSI",
+            "BAKERY",
+            "350D9A",
+            "Dinner Roll (Pack of 12)",
+            "12pcs x pack",
+            "Pack",
+            0,
+            0,
+            "GSI-P",
+            1
+        ],
+        "reason": "Missing ItemCode or SupplierCode"
+    },
+    {
+        "original_row": [
+            "FINISHED GOOD",
+            "GSI",
+            "BAKERY",
+            "162D9A",
+            "Classic Sourdough (BOH)",
+            1,
+            "Pc",
+            0,
+            0,
+            "GSI-P",
+            1
+        ],
+        "reason": "Missing ItemCode or SupplierCode"
+    },
+    {
+        "original_row": [
+            "FINISHED GOOD",
+            "GSI",
+            "BAKERY",
+            "177D9A",
+            "Panini Baguette (pack of 4)",
+            "4pcs x pack",
+            "Pack",
+            0,
+            0,
+            "GSI-P",
+            1
+        ],
+        "reason": "Missing ItemCode or SupplierCode"
+    },
+    {
+        "original_row": [
+            "FINISHED GOOD",
+            "GSI",
+            "BAKERY",
+            "992A2C",
+            "Burger Bun",
+            "6pcs x pack",
+            "PACK(6)",
+            0,
+            0,
+            "GSI-P",
+            1
+        ],
+        "reason": "Missing ItemCode or SupplierCode"
+    },
+    {
+        "original_row": [
+            "FINISHED GOOD",
+            "GSI",
+            "BAKERY",
+            "250D9A",
+            "Waffle Dough 6\"",
+            "10pcs x pack",
+            "PACK(10)",
+            0,
+            0,
+            "GSI-P",
+            1
+        ],
+        "reason": "Missing ItemCode or SupplierCode"
+    },
+    {
+        "original_row": [
+            "FINISHED GOOD",
+            "GSI",
+            "BAKERY",
+            "297D9A",
+            "Frozen Sourdough Pizza (pack of 6)",
+            "6pcs x pack",
+            "Pack",
+            0,
+            0,
+            "GSI-P",
+            1
+        ],
+        "reason": "Missing ItemCode or SupplierCode"
+    },
+    {
+        "original_row": [
+            "FINISHED GOOD",
+            "GSI",
+            "BAKERY",
+            "366D9A",
+            "Frozen Pizza Dough",
+            "180g (6pcs x pack)",
+            "Pack",
+            0,
+            0,
+            "GSI-P",
+            1
+        ],
+        "reason": "Missing ItemCode or SupplierCode"
+    },
+    {
+        "original_row": [
+            "FINISHED GOOD",
+            "GSI",
+            "GOURMET",
+            "280D9A",
+            "Cheese Wonton (tub of 30)",
+            "30pcs x tub",
+            "TUB",
+            0,
+            0,
+            "GSI-P",
+            1
+        ],
+        "reason": "Missing ItemCode or SupplierCode"
+    },
+    {
+        "original_row": [
+            "FINISHED GOOD",
+            "GSI",
+            "GOURMET",
+            "281D9A",
+            "Mashed Potatoes 1 kg\/pack",
+            "1kg x pack",
+            "Pack",
+            0,
+            0,
+            "GSI-P",
+            1
+        ],
+        "reason": "Missing ItemCode or SupplierCode"
+    },
+    {
+        "original_row": [
+            "FINISHED GOOD",
+            "GSI",
+            "PROTEIN - GOURMET",
+            "171D9A",
+            "Nono's Marinated Chicken 625g",
+            "625g x pack",
+            "Pack",
+            0,
+            0,
+            "GSI-P",
+            1
+        ],
+        "reason": "Missing ItemCode or SupplierCode"
+    },
+    {
+        "original_row": [
+            "FINISHED GOOD",
+            "GSI",
+            "PROTEIN - GOURMET",
+            "364D9A",
+            "Marinated Chicken Nibblers",
+            "625g x pack",
+            "PACK",
+            0,
+            0,
+            "GSI-P",
+            1
+        ],
+        "reason": "Missing ItemCode or SupplierCode"
+    },
+    {
+        "original_row": [
+            "FINISHED GOOD",
+            "GSI",
+            "PROTEIN - GOURMET",
+            "248D9A",
+            "Pork Belly Trimmings",
+            "1kg x pack",
+            "Pack",
+            0,
+            0,
+            "GSI-P",
+            1
+        ],
+        "reason": "Missing ItemCode or SupplierCode"
+    },
+    {
+        "original_row": [
+            "FINISHED GOOD",
+            "GSI",
+            "PROTEIN - GOURMET",
+            "190D9A",
+            "Pork Balsamic Adobo",
+            "250g x pack",
+            "Pack",
+            0,
+            0,
+            "GSI-P",
+            1
+        ],
+        "reason": "Missing ItemCode or SupplierCode"
+    },
+    {
+        "original_row": [
+            "FINISHED GOOD",
+            "GSI",
+            "PROTEIN - GOURMET",
+            "165D9A",
+            "Marinated Pork Chop",
+            "500g x pack",
+            "Pack",
+            0,
+            0,
+            "GSI-P",
+            1
+        ],
+        "reason": "Missing ItemCode or SupplierCode"
+    },
+    {
+        "original_row": [
+            "FINISHED GOOD",
+            "GSI",
+            "PROTEIN - GOURMET",
+            "354D9A",
+            "Pulled Pork 1 kg.",
+            "1kg x pack",
+            "PACK",
+            0,
+            0,
+            "GSI-P",
+            1
+        ],
+        "reason": "Missing ItemCode or SupplierCode"
+    },
+    {
+        "original_row": [
+            "FINISHED GOOD",
+            "GSI",
+            "PROTEIN - GOURMET",
+            "246D9A",
+            "Pinoy Style Beef Steak Sauce",
+            "5pc x pack",
+            "PACK(5)",
+            0,
+            0,
+            "GSI-P",
+            1
+        ],
+        "reason": "Missing ItemCode or SupplierCode"
+    },
+    {
+        "original_row": [
+            "FINISHED GOOD",
+            "GSI",
+            "PROTEIN - GOURMET",
+            "164D9A",
+            "Marinated Beef Tapa",
+            "5pc x pack",
+            "PACK(5)",
+            0,
+            0,
+            "GSI-P",
+            1
+        ],
+        "reason": "Missing ItemCode or SupplierCode"
+    },
+    {
+        "original_row": [
+            "FINISHED GOOD",
+            "GSI",
+            "PROTEIN - GOURMET",
+            "349A2A",
+            "Ham - Smoked Maple",
+            "1kg x pack",
+            "KG",
+            0,
+            0,
+            "GSI-P",
+            1
+        ],
+        "reason": "Missing ItemCode or SupplierCode"
+    },
+    {
+        "original_row": [
+            "FINISHED GOOD",
+            "GSI",
+            "PROTEIN - GOURMET",
+            "191D9A",
+            "Roasted Beef Belly",
+            1,
+            "KG",
+            0,
+            0,
+            "GSI-P",
+            1
+        ],
+        "reason": "Missing ItemCode or SupplierCode"
+    },
+    {
+        "original_row": [
+            "FINISHED GOOD",
+            "GSI",
+            "SAUCE - GOURMET",
+            "114D9A",
+            "Beef Gravy",
+            "450g x pack",
+            "Pack",
+            0,
+            0,
+            "GSI-P",
+            1
+        ],
+        "reason": "Missing ItemCode or SupplierCode"
+    },
+    {
+        "original_row": [
+            "FINISHED GOOD",
+            "GSI",
+            "SAUCE - GOURMET",
+            "239D9A",
+            "Chicken Gravy",
+            "450g x pack",
+            "Pack",
+            0,
+            0,
+            "GSI-P",
+            1
+        ],
+        "reason": "Missing ItemCode or SupplierCode"
+    },
+    {
+        "original_row": [
+            "FINISHED GOOD",
+            "GSI",
+            "SAUCE - GOURMET",
+            "112D9A",
+            "Basil in Oil 120g",
+            "500g x pack",
+            "Pack",
+            0,
+            0,
+            "GSI-P",
+            1
+        ],
+        "reason": "Missing ItemCode or SupplierCode"
+    },
+    {
+        "original_row": [
+            "FINISHED GOOD",
+            "GSI",
+            "SAUCE - GOURMET",
+            "163D9A",
+            "Marinara Sauce (TMI pasta tomato sauce)",
+            "500g x pack",
+            "Pack",
+            0,
+            0,
+            "GSI-P",
+            1
+        ],
+        "reason": "Missing ItemCode or SupplierCode"
+    },
+    {
+        "original_row": [
+            "FINISHED GOOD",
+            "GSI",
+            "SAUCE - GOURMET",
+            "122D9A",
+            "Bolognese Sauce 150g",
+            "850g x pack",
+            "Pack",
+            0,
+            0,
+            "GSI-P",
+            1
+        ],
+        "reason": "Missing ItemCode or SupplierCode"
+    },
+    {
+        "original_row": [
+            "FINISHED GOOD",
+            "GSI",
+            "SAUCE - GOURMET",
+            "192D9A",
+            "Roasted Squash Soup",
+            "750g x pack",
+            "Pack",
+            0,
+            0,
+            "GSI-P",
+            1
+        ],
+        "reason": "Missing ItemCode or SupplierCode"
+    },
+    {
+        "original_row": [
+            "FINISHED GOOD",
+            "GSI",
+            "SAUCE - GOURMET",
+            "353D9A",
+            "Balsamic BBQ Sauce 1 kg.",
+            "1kg x pack",
+            "PACK",
+            0,
+            0,
+            "GSI-P",
+            1
+        ],
+        "reason": "Missing ItemCode or SupplierCode"
+    },
+    {
+        "original_row": [
+            "FINISHED GOOD",
+            "GSI",
+            "SAUCE - GOURMET",
+            "201D9A",
+            "Sugar Syrup 1L",
+            "1lit x pack",
+            "Pack",
+            0,
+            0,
+            "GSI-P",
+            1
+        ],
+        "reason": "Missing ItemCode or SupplierCode"
+    },
+    {
+        "original_row": [
+            "FINISHED GOOD",
+            "GSI",
+            "SAUCE - GOURMET",
+            "400D9A",
+            "Burger Sauce 500g",
+            "500g x pack",
+            "Pack",
+            0,
+            0,
+            "GSI-P",
+            1
+        ],
+        "reason": "Missing ItemCode or SupplierCode"
+    },
+    {
+        "original_row": [
+            "TRADED",
+            "GSI",
+            "CONTROL",
+            "211A2A",
+            "Chocolate Callets Dark",
+            "1kg x pack",
+            "KG",
+            0,
+            0,
+            "GSI-P",
+            1
+        ],
+        "reason": "Missing ItemCode or SupplierCode"
+    },
+    {
+        "original_row": [
+            "TRADED",
+            "GSI",
+            "CONTROL",
+            "214A2A",
+            "Chocolate Chips Dark SS",
+            "1kg x pack",
+            "KG",
+            0,
+            0,
+            "GSI-P",
+            1
+        ],
+        "reason": "Missing ItemCode or SupplierCode"
+    },
+    {
+        "original_row": [
+            "TRADED",
+            "GSI",
+            "CONTROL",
+            "231A2A",
+            "Cocoa Powder (1)",
+            "1kg x pack",
+            "KG",
+            0,
+            0,
+            "GSI-P",
+            1
+        ],
+        "reason": "Missing ItemCode or SupplierCode"
+    },
+    {
+        "original_row": [
+            "TRADED",
+            "GSI",
+            "CONTROL",
+            "352D9A",
+            "Dry Rub 1 kg.",
+            "1kg x pack",
+            "PACK",
+            0,
+            0,
+            "GSI-P",
+            1
+        ],
+        "reason": "Missing ItemCode or SupplierCode"
+    },
+    {
+        "original_row": [
+            "TRADED",
+            "GSI",
+            "CONTROL",
+            "872A2C",
+            "Bistro - Butter unsalted 500g",
+            "500g x pack",
+            "PACK(.5)",
+            0,
+            0,
+            "GSI-P",
+            1
+        ],
+        "reason": "Missing ItemCode or SupplierCode"
+    },
+    {
+        "original_row": [
+            "TRADED",
+            "GSI",
+            "CONTROL",
+            "191A2A",
+            "Cheese - Parmesan Block",
+            "500g x pack",
+            "KG",
+            0,
+            0,
+            "GSI-P",
+            1
+        ],
+        "reason": "Missing ItemCode or SupplierCode"
+    },
+    {
+        "original_row": [
+            "TRADED",
+            "GSI",
+            "CONTROL",
+            "248A2A",
+            "Cream Cheese",
+            "500g x pack",
+            "PACK(.5)",
+            0,
+            0,
+            "GSI-P",
+            1
+        ],
+        "reason": "Missing ItemCode or SupplierCode"
+    },
+    {
+        "original_row": [
+            "TRADED",
+            "GSI",
+            "CONTROL",
+            "120A2A",
+            "Baking Powder",
+            "1kg x pack",
+            "PACK(1)",
+            0,
+            0,
+            "GSI-P",
+            1
+        ],
+        "reason": "Missing ItemCode or SupplierCode"
+    },
+    {
+        "original_row": [
+            "TRADED",
+            "GSI",
+            "CONTROL",
+            "121A2A",
+            "Baking Soda",
+            "1kg x pack",
+            "PC(1)",
+            0,
+            0,
+            "GSI-P",
+            1
+        ],
+        "reason": "Missing ItemCode or SupplierCode"
+    },
+    {
+        "original_row": [
+            "TRADED",
+            "GSI",
+            "CONTROL",
+            "277A2A",
+            "Flour - All Purpose (2)",
+            "1kg x pack",
+            "PACK(1)",
+            0,
+            0,
+            "GSI-P",
+            1
+        ],
+        "reason": "Missing ItemCode or SupplierCode"
+    },
+    {
+        "original_row": [
+            "TRADED",
+            "GSI",
+            "CONTROL",
+            "244A2A",
+            "Cornstarch",
+            "1kg x pack",
+            "PACK(1)",
+            0,
+            0,
+            "GSI-P",
+            1
+        ],
+        "reason": "Missing ItemCode or SupplierCode"
+    },
+    {
+        "original_row": [
+            "TRADED",
+            "GSI",
+            "CONTROL",
+            "865A2C",
+            "Spicy Breading Flour",
+            "1kg x PC",
+            "PC",
+            0,
+            0,
+            "GSI-P",
+            1
+        ],
+        "reason": "Missing ItemCode or SupplierCode"
+    },
+    {
+        "original_row": [
+            "TRADED",
+            "GSI",
+            "CONTROL",
+            "263D9A",
+            "Breading for Chicken",
+            "1kg x pack",
+            "Pack",
+            0,
+            0,
+            "GSI-P",
+            1
+        ],
+        "reason": "Missing ItemCode or SupplierCode"
+    },
+    {
+        "original_row": [
+            "TRADED",
+            "GSI",
+            "CONTROL",
+            "270D9A",
+            "Dusting Flour",
+            "500g x pack",
+            "PACK",
+            0,
+            0,
+            "GSI-P",
+            1
+        ],
+        "reason": "Missing ItemCode or SupplierCode"
+    },
+    {
+        "original_row": [
+            "TRADED",
+            "GSI",
+            "CONTROL",
+            "862A2C",
+            "Beer Batter Mixture",
+            "5pc x pack",
+            "PACK(5)",
+            0,
+            0,
+            "GSI-P",
+            1
+        ],
+        "reason": "Missing ItemCode or SupplierCode"
+    },
+    {
+        "original_row": [
+            "TRADED",
+            "GSI",
+            "CONTROL",
+            "507A2A",
+            "Salt - Iodized",
+            "1kg x pack",
+            "PACK(1)",
+            0,
+            0,
+            "GSI-P",
+            1
+        ],
+        "reason": "Missing ItemCode or SupplierCode"
+    },
+    {
+        "original_row": [
+            "TRADED",
+            "GSI",
+            "CONTROL",
+            "509A2A",
+            "Salt - Rock",
+            "1kg x pack",
+            "PACK(1)",
+            0,
+            0,
+            "GSI-P",
+            1
+        ],
+        "reason": "Missing ItemCode or SupplierCode"
+    },
+    {
+        "original_row": [
+            "TRADED",
+            "GSI",
+            "CONTROL",
+            "545A2A",
+            "Sugar - Brown",
+            "1kg x pack",
+            "PACK(1)",
+            0,
+            0,
+            "GSI-P",
+            1
+        ],
+        "reason": "Missing ItemCode or SupplierCode"
+    },
+    {
+        "original_row": [
+            "TRADED",
+            "GSI",
+            "CONTROL",
+            "548A2A",
+            "Sugar - White",
+            "1kg x pack",
+            "PACK(1)",
+            0,
+            0,
+            "GSI-P",
+            1
+        ],
+        "reason": "Missing ItemCode or SupplierCode"
+    },
+    {
+        "original_row": [
+            "TRADED",
+            "GSI",
+            "CONTROL",
+            "646A2A",
+            "Walnuts Halves",
+            "1kg x pack",
+            "PACK(1)",
+            0,
+            0,
+            "GSI-P",
+            1
+        ],
+        "reason": "Missing ItemCode or SupplierCode"
+    },
+    {
+        "original_row": [
+            "TRADED",
+            "Arla",
+            "CHILLER - RM",
+            "221A2G",
+            "Cheese - Feta",
+            "200g x pack",
+            "PIECE(0.2)",
+            0,
+            0,
+            "GSI-P",
+            1
+        ],
+        "reason": "Missing ItemCode or SupplierCode"
+    },
+    {
+        "original_row": [
+            "TRADED",
+            "ARLA",
+            "CHILLER - RM",
+            "190A2A",
+            "Cheese - Mozzarella",
+            "2.3 KG x PC",
+            "PC(2.3)",
+            0,
+            0,
+            "GSI-P",
+            1
+        ],
+        "reason": "Missing ItemCode or SupplierCode"
+    },
+    {
+        "original_row": [
+            "TRADED",
+            "PRESIDENT",
+            "CHILLER - RM",
+            "185A2A",
+            "Cheese - Cheddar Sliced (1)",
+            "400g x pack",
+            "PC(0.4)",
+            0,
+            0,
+            "GSI-P",
+            1
+        ],
+        "reason": "Missing ItemCode or SupplierCode"
+    },
+    {
+        "original_row": [
+            "TRADED",
+            "LE GRUYERE (WERDENBERG)",
+            "CHILLER - RM",
+            "188A2A",
+            "Cheese - Gruyere",
+            1,
+            "KG",
+            0,
+            0,
+            "GSI-P",
+            1
+        ],
+        "reason": "Missing ItemCode or SupplierCode"
+    },
+    {
+        "original_row": [
+            "TRADED",
+            "DAIRY DAIRY",
+            "CHILLER - RM",
+            "189A2A",
+            "Cheese - Kesong Puti",
+            "200g x pack",
+            "PACK(0.2)",
+            0,
+            0,
+            "GSI-P",
+            1
+        ],
+        "reason": "Missing ItemCode or SupplierCode"
+    },
+    {
+        "original_row": [
+            "TRADED",
+            "MILANO",
+            "CHILLER - RM",
+            "192A2A",
+            "Cheese - Parmesan Grated (1)",
+            "2kg x pack",
+            "PACK(2)",
+            0,
+            0,
+            "GSI-P",
+            1
+        ],
+        "reason": "Missing ItemCode or SupplierCode"
+    },
+    {
+        "original_row": [
+            "TRADED",
+            "MAGNOLIA",
+            "CHILLER - RM",
+            "196A2A",
+            "Cheese -Cheddar Block (1)",
+            "2kg X PC",
+            "BAR(2)",
+            0,
+            0,
+            "GSI-P",
+            1
+        ],
+        "reason": "Missing ItemCode or SupplierCode"
+    },
+    {
+        "original_row": [
+            "TRADED",
+            "EMBORG",
+            "CHILLER - RM",
+            "197A2A",
+            "Cheese -Cheddar Block (2)",
+            1,
+            "KG",
+            0,
+            0,
+            "GSI-P",
+            1
+        ],
+        "reason": "Missing ItemCode or SupplierCode"
+    },
+    {
+        "original_row": [
+            "TRADED",
+            "-",
+            "CHILLER - RM",
+            "632A2G",
+            "Egg - Fresh, Large",
+            "30pcs x Tray",
+            "TRAY(30)",
+            0,
+            0,
+            "GSI-P",
+            1
+        ],
+        "reason": "Missing ItemCode or SupplierCode"
+    },
+    {
+        "original_row": [
+            "TRADED",
+            "EMBORG",
+            "CHILLER - RM",
+            "528A2A",
+            "Sour Cream Plain (2)",
+            1,
+            "PC(1)",
+            0,
+            0,
+            "GSI-P",
+            1
+        ],
+        "reason": "Missing ItemCode or SupplierCode"
+    },
+    {
+        "original_row": [
+            "TRADED",
+            "Dae Jang Gum",
+            "CHILLER - RM",
+            "575A2A",
+            "Tofu",
+            "500g x pc",
+            "PC(0.5)",
+            0,
+            0,
+            "GSI-P",
+            1
+        ],
+        "reason": "Missing ItemCode or SupplierCode"
+    },
+    {
+        "original_row": [
+            "TRADED",
+            "MILLAC",
+            "CHILLER - RM",
+            "653A2A",
+            "Whipping Cream - Baking (1)",
+            "12lit x case",
+            "CASE(12)",
+            0,
+            0,
+            "GSI-P",
+            1
+        ],
+        "reason": "Missing ItemCode or SupplierCode"
+    },
+    {
+        "original_row": [
+            "TRADED",
+            "BAMBI",
+            "CHILLER - RM",
+            "939A2E",
+            "Atchara - Papaya 300grams",
+            "300g x pc",
+            "PC(.3)",
+            0,
+            0,
+            "GSI-P",
+            1
+        ],
+        "reason": "Missing ItemCode or SupplierCode"
+    },
+    {
+        "original_row": [
+            "TRADED",
+            "MALAGOS",
+            "CHILLER - RM",
+            "950A2C",
+            "Cheese - Goat Chevre",
+            "150g x pack",
+            "PACK(.15)",
+            0,
+            0,
+            "GSI-P",
+            1
+        ],
+        "reason": "Missing ItemCode or SupplierCode"
+    },
+    {
+        "original_row": [
+            "TRADED",
+            "ASCONA",
+            "FREEZER - RM",
+            "304A2A",
+            "Frozen - Strawberry",
+            "1kg x pack",
+            "KG",
+            0,
+            0,
+            "GSI-P",
+            1
+        ],
+        "reason": "Missing ItemCode or SupplierCode"
+    },
+    {
+        "original_row": [
+            "TRADED",
+            "AVOSET",
+            "FREEZER - RM",
+            "825A2C",
+            "Whipping Cream - Baking (3)",
+            "907ml x pc",
+            "Pc(.907)",
+            0,
+            0,
+            "GSI-P",
+            1
+        ],
+        "reason": "Missing ItemCode or SupplierCode"
+    },
+    {
+        "original_row": [
+            "TRADED",
+            "Kingsue",
+            "FREEZER - RM",
+            "159A2A",
+            "Breakfast Sausage",
+            1,
+            "KG",
+            0,
+            0,
+            "GSI-P",
+            1
+        ],
+        "reason": "Missing ItemCode or SupplierCode"
+    },
+    {
+        "original_row": [
+            "TRADED",
+            "Euro swiss",
+            "FREEZER - RM",
+            "180A2D",
+            "Sausage - Lughanighe",
+            1,
+            "KG",
+            0,
+            0,
+            "GSI-P",
+            1
+        ],
+        "reason": "Missing ItemCode or SupplierCode"
+    },
+    {
+        "original_row": [
+            "TRADED",
+            "SIKAT ARAW",
+            "FREEZER - RM",
+            "272A2A",
+            "FISH - Sole Fillet",
+            "1kg x pack",
+            "KG",
+            0,
+            0,
+            "GSI-P",
+            1
+        ],
+        "reason": "Missing ItemCode or SupplierCode"
+    },
+    {
+        "original_row": [
+            "TRADED",
+            "FISHERFARMS",
+            "FREEZER - RM",
+            "270A2A",
+            "FISH - Smoked Milkfish",
+            "350g x pack",
+            "PACK(0.35)",
+            0,
+            0,
+            "GSI-P",
+            1
+        ],
+        "reason": "Missing ItemCode or SupplierCode"
+    },
+    {
+        "original_row": [
+            "TRADED",
+            "AVIKO",
+            "FREEZER - RM",
+            "302A2A",
+            "Fries 3\/8",
+            "2.5kg x 4 pack",
+            "CASE(10)",
+            0,
+            0,
+            "GSI-P",
+            1
+        ],
+        "reason": "Missing ItemCode or SupplierCode"
+    },
+    {
+        "original_row": [
+            "TRADED",
+            "IBP",
+            "FREEZER - RM",
+            "390A2A",
+            "Meat - Beef Top Blade",
+            1,
+            "KG",
+            0,
+            0,
+            "GSI-P",
+            1
+        ],
+        "reason": "Missing ItemCode or SupplierCode"
+    },
+    {
+        "original_row": [
+            "TRADED",
+            "COOPAVEL",
+            "FREEZER - RM",
+            "392A2A",
+            "Meat - Chicken Breast Fillet skin-off",
+            "2kg x pack",
+            "PACK(2)",
+            0,
+            0,
+            "GSI-P",
+            1
+        ],
+        "reason": "Missing ItemCode or SupplierCode"
+    },
+    {
+        "original_row": [
+            "TRADED",
+            "SEARA",
+            "FREEZER - RM",
+            "393A2A",
+            "Meat - Chicken Thigh Fillet Skin-on",
+            "2kg x pack",
+            "PACK(2)",
+            0,
+            0,
+            "GSI-P",
+            1
+        ],
+        "reason": "Missing ItemCode or SupplierCode"
+    },
+    {
+        "original_row": [
+            "TRADED",
+            "RARE",
+            "FREEZER - RM",
+            "394A2A",
+            "Meat - Ground Beef (1)",
+            1,
+            "KG",
+            0,
+            0,
+            "GSI-P",
+            1
+        ],
+        "reason": "Missing ItemCode or SupplierCode"
+    },
+    {
+        "original_row": [
+            "TRADED",
+            "ODE TO IMA",
+            "FREEZER - RM",
+            "396A2A",
+            "MEAT - Longganisa Recado",
+            1,
+            "KG",
+            0,
+            0,
+            "GSI-P",
+            1
+        ],
+        "reason": "Missing ItemCode or SupplierCode"
+    },
+    {
+        "original_row": [
+            "TRADED",
+            "ODE TO IMA",
+            "FREEZER - RM",
+            "397A2A",
+            "MEAT - Longganisa Spicy",
+            1,
+            "KG",
+            0,
+            0,
+            "GSI-P",
+            1
+        ],
+        "reason": "Missing ItemCode or SupplierCode"
+    },
+    {
+        "original_row": [
+            "TRADED",
+            "PL Aguila",
+            "FREEZER - RM",
+            "398A2A",
+            "Meat - Pepperoni",
+            1,
+            "KG",
+            0,
+            0,
+            "GSI-P",
+            1
+        ],
+        "reason": "Missing ItemCode or SupplierCode"
+    },
+    {
+        "original_row": [
+            "TRADED",
+            "BAMBI",
+            "FREEZER - RM",
+            "408A2A",
+            "Molo Wrapper",
+            "300g x pack",
+            "PACK(0.3)",
+            0,
+            0,
+            "GSI-P",
+            1
+        ],
+        "reason": "Missing ItemCode or SupplierCode"
+    },
+    {
+        "original_row": [
+            "TRADED",
+            "RARE",
+            "FREEZER - RM",
+            "518A2A",
+            "Shrimp Vannamei (1)",
+            1,
+            "KG",
+            0,
+            0,
+            "GSI-P",
+            1
+        ],
+        "reason": "Missing ItemCode or SupplierCode"
+    },
+    {
+        "original_row": [
+            "TRADED",
+            "SMOKING J's",
+            "FREEZER - RM",
+            "996A2E",
+            "Bacon, Smoked",
+            1,
+            "KG",
+            0,
+            0,
+            "GSI-P",
+            1
+        ],
+        "reason": "Missing ItemCode or SupplierCode"
+    },
+    {
+        "original_row": [
+            "TRADED",
+            "PEOTRACO",
+            "SM - RM",
+            "361A2A",
+            "Icing Sugar",
+            "2.27kg x PC",
+            "PC(2.27)",
+            0,
+            0,
+            "GSI-P",
+            1
+        ],
+        "reason": "Missing ItemCode or SupplierCode"
+    },
+    {
+        "original_row": [
+            "TRADED",
+            "SMART CHOICE",
+            "SM - RM",
+            "107A2A",
+            "Almonds Sliced",
+            "1kg x pack",
+            "PACK(1)",
+            0,
+            0,
+            "GSI-P",
+            1
+        ],
+        "reason": "Missing ItemCode or SupplierCode"
+    },
+    {
+        "original_row": [
+            "TRADED",
+            "SMART CHOICE",
+            "SM - RM",
+            "108A2A",
+            "Almonds Whole Raw",
+            1,
+            "KG",
+            0,
+            0,
+            "GSI-P",
+            1
+        ],
+        "reason": "Missing ItemCode or SupplierCode"
+    },
+    {
+        "original_row": [
+            "TRADED",
+            "DONA ELENA",
+            "SM - RM",
+            "114A2A",
+            "Anchovies",
+            "350g x pc",
+            "PC(0.35)",
+            0,
+            0,
+            "GSI-P",
+            1
+        ],
+        "reason": "Missing ItemCode or SupplierCode"
+    },
+    {
+        "original_row": [
+            "TRADED",
+            "BACARDI",
+            "SM - RM",
+            "116A2A",
+            "Bacardi",
+            "750ml x pc",
+            "PC(0.75)",
+            0,
+            0,
+            "GSI-P",
+            1
+        ],
+        "reason": "Missing ItemCode or SupplierCode"
+    },
+    {
+        "original_row": [
+            "TRADED",
+            "McCormick",
+            "SM - RM",
+            "124A2A",
+            "Basil Dry",
+            "300g x pc",
+            "PC(0.3)",
+            0,
+            0,
+            "GSI-P",
+            1
+        ],
+        "reason": "Missing ItemCode or SupplierCode"
+    },
+    {
+        "original_row": [
+            "TRADED",
+            "McCormick",
+            "SM - RM",
+            "126A2A",
+            "Bay Leaf",
+            "80g x pc",
+            "PC(0.08)",
+            0,
+            0,
+            "GSI-P",
+            1
+        ],
+        "reason": "Missing ItemCode or SupplierCode"
+    },
+    {
+        "original_row": [
+            "TRADED",
+            "KNORR",
+            "SM - RM",
+            "127A2A",
+            "Beef Bouillon Cube",
+            "600g x pc",
+            "PC(0.6)",
+            0,
+            0,
+            "GSI-P",
+            1
+        ],
+        "reason": "Missing ItemCode or SupplierCode"
+    },
+    {
+        "original_row": [
+            "TRADED",
+            "HOBE",
+            "SM - RM",
+            "132A2A",
+            "Bihon",
+            "907g x pack",
+            "PC(.907)",
+            0,
+            0,
+            "GSI-P",
+            1
+        ],
+        "reason": "Missing ItemCode or SupplierCode"
+    },
+    {
+        "original_row": [
+            "TRADED",
+            "SANSUR",
+            "SM - RM",
+            "134A2A",
+            "Black Olives Sliced",
+            "3.1kg x can",
+            "PC(3)",
+            0,
+            0,
+            "GSI-P",
+            1
+        ],
+        "reason": "Missing ItemCode or SupplierCode"
+    },
+    {
+        "original_row": [
+            "TRADED",
+            "CAPRI",
+            "SM - RM",
+            "182A2A",
+            "Capers Vinegar",
+            "340ml x pc",
+            "PC(0.34)",
+            0,
+            0,
+            "GSI-P",
+            1
+        ],
+        "reason": "Missing ItemCode or SupplierCode"
+    },
+    {
+        "original_row": [
+            "TRADED",
+            "SMART CHOICE",
+            "SM - RM",
+            "184A2A",
+            "Cashew Split",
+            1,
+            "KG",
+            0,
+            0,
+            "GSI-P",
+            1
+        ],
+        "reason": "Missing ItemCode or SupplierCode"
+    },
+    {
+        "original_row": [
+            "TRADED",
+            "DABOY",
+            "SM - RM",
+            "203A2A",
+            "Chicharon",
+            "250g x pc",
+            "PC(0.25)",
+            0,
+            0,
+            "GSI-P",
+            1
+        ],
+        "reason": "Missing ItemCode or SupplierCode"
+    },
+    {
+        "original_row": [
+            "TRADED",
+            "KNORR",
+            "SM - RM",
+            "205A2A",
+            "Chicken Powder",
+            1,
+            "KG",
+            0,
+            0,
+            "GSI-P",
+            1
+        ],
+        "reason": "Missing ItemCode or SupplierCode"
+    },
+    {
+        "original_row": [
+            "TRADED",
+            "JOLLY",
+            "SM - RM",
+            "241A2A",
+            "Corn Kernel Whole",
+            "425g x can",
+            "CAN(0.425)",
+            0,
+            0,
+            "GSI-P",
+            1
+        ],
+        "reason": "Missing ItemCode or SupplierCode"
+    },
+    {
+        "original_row": [
+            "TRADED",
+            "McCORMICK",
+            "SM - RM",
+            "206A2A",
+            "Chili Flakes",
+            "500g x pc",
+            "PACK(0.5)",
+            0,
+            0,
+            "GSI-P",
+            1
+        ],
+        "reason": "Missing ItemCode or SupplierCode"
+    },
+    {
+        "original_row": [
+            "TRADED",
+            "McCORMICK",
+            "SM - RM",
+            "207A2A",
+            "Chili Powder",
+            "1kg x pc",
+            "PC(1)",
+            0,
+            0,
+            "GSI-P",
+            1
+        ],
+        "reason": "Missing ItemCode or SupplierCode"
+    },
+    {
+        "original_row": [
+            "TRADED",
+            "McCormick",
+            "SM - RM",
+            "230A2A",
+            "Cloves Ground",
+            "1kg x pc",
+            "PC(1)",
+            0,
+            0,
+            "GSI-P",
+            1
+        ],
+        "reason": "Missing ItemCode or SupplierCode"
+    },
+    {
+        "original_row": [
+            "TRADED",
+            "KARA",
+            "SM - RM",
+            "232A2A",
+            "Coconut Cream",
+            "500g x pc",
+            "PC(0.5)",
+            0,
+            0,
+            "GSI-P",
+            1
+        ],
+        "reason": "Missing ItemCode or SupplierCode"
+    },
+    {
+        "original_row": [
+            "TRADED",
+            "McCORMICK",
+            "SM - RM",
+            "232A2D",
+            "Cinnamon Powder",
+            1,
+            "KG",
+            0,
+            0,
+            "GSI-P",
+            1
+        ],
+        "reason": "Missing ItemCode or SupplierCode"
+    },
+    {
+        "original_row": [
+            "TRADED",
+            "TANQUERAY",
+            "SM - RM",
+            "244A2F",
+            "Liquor - Dry Gin",
+            "700ml x pc",
+            "PC(.7)",
+            0,
+            0,
+            "GSI-P",
+            1
+        ],
+        "reason": "Missing ItemCode or SupplierCode"
+    },
+    {
+        "original_row": [
+            "TRADED",
+            "SCHWEPPES",
+            "SM - RM",
+            "245A2F",
+            "Tonic Water",
+            "330 ml x pc",
+            "PC(.33)",
+            0,
+            0,
+            "GSI-P",
+            1
+        ],
+        "reason": "Missing ItemCode or SupplierCode"
+    },
+    {
+        "original_row": [
+            "TRADED",
+            "APEROL",
+            "SM - RM",
+            "246A2F",
+            "Liquor - Aperol",
+            "700ml x pc",
+            "PC(.7)",
+            0,
+            0,
+            "GSI-P",
+            1
+        ],
+        "reason": "Missing ItemCode or SupplierCode"
+    },
+    {
+        "original_row": [
+            "TRADED",
+            "KNORR",
+            "SM - RM",
+            "252A2A",
+            "Demi Glace Powder",
+            "1lit x pc",
+            "PC(1)",
+            0,
+            0,
+            "GSI-P",
+            1
+        ],
+        "reason": "Missing ItemCode or SupplierCode"
+    },
+    {
+        "original_row": [
+            "TRADED",
+            "PROXIMO",
+            "SM - RM",
+            "263A2B",
+            "Wine - Red",
+            "6lit x case",
+            "CASE(6)",
+            0,
+            0,
+            "GSI-P",
+            1
+        ],
+        "reason": "Missing ItemCode or SupplierCode"
+    },
+    {
+        "original_row": [
+            "TRADED",
+            "AZIMUT",
+            "SM - RM",
+            "264A2B",
+            "Wine - SPARKLING",
+            "750ml x 12 x case",
+            "CASE(9)",
+            0,
+            0,
+            "GSI-P",
+            1
+        ],
+        "reason": "Missing ItemCode or SupplierCode"
+    },
+    {
+        "original_row": [
+            "TRADED",
+            "NELICOM",
+            "SM - RM",
+            "274A2A",
+            "Fish Sauce (1)",
+            "4lit x pc",
+            "PC(4)",
+            0,
+            0,
+            "GSI-P",
+            1
+        ],
+        "reason": "Missing ItemCode or SupplierCode"
+    },
+    {
+        "original_row": [
+            "TRADED",
+            "SMART CHOICE",
+            "SM - RM",
+            "327A2A",
+            "Garlic Powder",
+            "1kg x pack",
+            "PACK(1)",
+            0,
+            0,
+            "GSI-P",
+            1
+        ],
+        "reason": "Missing ItemCode or SupplierCode"
+    },
+    {
+        "original_row": [
+            "TRADED",
+            "PRIME",
+            "SM - RM",
+            "354A2A",
+            "Honey",
+            "1lit x pc",
+            "PC(1)",
+            0,
+            0,
+            "GSI-P",
+            1
+        ],
+        "reason": "Missing ItemCode or SupplierCode"
+    },
+    {
+        "original_row": [
+            "TRADED",
+            "KOCH'S",
+            "SM - RM",
+            "356A2A",
+            "Horseradish",
+            "700g x pc",
+            "PC(0.7)",
+            0,
+            0,
+            "GSI-P",
+            1
+        ],
+        "reason": "Missing ItemCode or SupplierCode"
+    },
+    {
+        "original_row": [
+            "TRADED",
+            "TABASCO",
+            "SM - RM",
+            "357A2A",
+            "Hot Sauce",
+            "350ml x pc",
+            "PC(.35)",
+            0,
+            0,
+            "GSI-P",
+            1
+        ],
+        "reason": "Missing ItemCode or SupplierCode"
+    },
+    {
+        "original_row": [
+            "TRADED",
+            "La Potager",
+            "SM - RM",
+            "366A2A",
+            "Jam - Strawberry",
+            "500g x pc",
+            "PC(0.5)",
+            0,
+            0,
+            "GSI-P",
+            1
+        ],
+        "reason": "Missing ItemCode or SupplierCode"
+    },
+    {
+        "original_row": [
+            "TRADED",
+            "GOOD LIFE",
+            "SM - RM",
+            "367A2A",
+            "Japanese Breadcrumbs",
+            "1kg x pack",
+            "PACK(1)",
+            0,
+            0,
+            "GSI-P",
+            1
+        ],
+        "reason": "Missing ItemCode or SupplierCode"
+    },
+    {
+        "original_row": [
+            "TRADED",
+            "KEWPIE",
+            "SM - RM",
+            "368A2A",
+            "Japanese Mayonnaise",
+            1,
+            "KG",
+            0,
+            0,
+            "GSI-P",
+            1
+        ],
+        "reason": "Missing ItemCode or SupplierCode"
+    },
+    {
+        "original_row": [
+            "TRADED",
+            "KNORR",
+            "SM - RM",
+            "380A2A",
+            "Liquid Seasoning",
+            "3.8lit x pc",
+            "PC(3.8)",
+            0,
+            0,
+            "GSI-P",
+            1
+        ],
+        "reason": "Missing ItemCode or SupplierCode"
+    },
+    {
+        "original_row": [
+            "TRADED",
+            "KEN'S",
+            "SM - RM",
+            "388A2A",
+            "Mayonnaise",
+            "3.79lit x pc",
+            "GAL(3.79)",
+            0,
+            0,
+            "GSI-P",
+            1
+        ],
+        "reason": "Missing ItemCode or SupplierCode"
+    },
+    {
+        "original_row": [
+            "TRADED",
+            "MARUKOME",
+            "SM - RM",
+            "407A2A",
+            "Miso Paste",
+            "1kg x pack",
+            "PACK(1)",
+            0,
+            0,
+            "GSI-P",
+            1
+        ],
+        "reason": "Missing ItemCode or SupplierCode"
+    },
+    {
+        "original_row": [
+            "TRADED",
+            "TAI HING (KLASS A)",
+            "SM - RM",
+            "413A2A",
+            "Mushroom-Shiitake Whole Dried",
+            "250g x pc",
+            "PC(0.25)",
+            0,
+            0,
+            "GSI-P",
+            1
+        ],
+        "reason": "Missing ItemCode or SupplierCode"
+    },
+    {
+        "original_row": [
+            "TRADED",
+            "McCormick",
+            "SM - RM",
+            "418A2A",
+            "Nutmeg",
+            "1kg x pack",
+            "PACK(1)",
+            0,
+            0,
+            "GSI-P",
+            1
+        ],
+        "reason": "Missing ItemCode or SupplierCode"
+    },
+    {
+        "original_row": [
+            "TRADED",
+            "Sansur (Q&H)",
+            "SM - RM",
+            "423A2A",
+            "Oil - Olive Oil Pomace",
+            "5lit x pc",
+            "PC(5)",
+            0,
+            0,
+            "GSI-P",
+            1
+        ],
+        "reason": "Missing ItemCode or SupplierCode"
+    },
+    {
+        "original_row": [
+            "TRADED",
+            "BAO DOU (Three B)",
+            "SM - RM",
+            "424A2A",
+            "Oil - Sesame",
+            "330ML x pc",
+            "PC(330ML)",
+            0,
+            0,
+            "GSI-P",
+            1
+        ],
+        "reason": "Missing ItemCode or SupplierCode"
+    },
+    {
+        "original_row": [
+            "TRADED",
+            "Royal Ace",
+            "SM - RM",
+            "425A2A",
+            "Oil - Soya",
+            "17lit x pc",
+            "PC(17)",
+            0,
+            0,
+            "GSI-P",
+            1
+        ],
+        "reason": "Missing ItemCode or SupplierCode"
+    },
+    {
+        "original_row": [
+            "TRADED",
+            "TODDI TARTUFI",
+            "SM - RM",
+            "640A2G",
+            "Oil - White Truffle Oil (2)",
+            "250ml x pc",
+            "BOT(0.25)",
+            0,
+            0,
+            "GSI-P",
+            1
+        ],
+        "reason": "Missing ItemCode or SupplierCode"
+    },
+    {
+        "original_row": [
+            "TRADED",
+            "GassHo",
+            "SM - RM",
+            "857A2F",
+            "Mirin",
+            "1.8lit x pc",
+            "PC(1.8)",
+            0,
+            0,
+            "GSI-P",
+            1
+        ],
+        "reason": "Missing ItemCode or SupplierCode"
+    },
+    {
+        "original_row": [
+            "TRADED",
+            "McCORMICK",
+            "SM - RM",
+            "430A2A",
+            "Onion Powder",
+            "1kg x pc",
+            "PC(1)",
+            0,
+            0,
+            "GSI-P",
+            1
+        ],
+        "reason": "Missing ItemCode or SupplierCode"
+    },
+    {
+        "original_row": [
+            "TRADED",
+            "McCORMICK",
+            "SM - RM",
+            "431A2A",
+            "Oregano Whole Dried",
+            "250g x pack",
+            "PACK(0.25)",
+            0,
+            0,
+            "GSI-P",
+            1
+        ],
+        "reason": "Missing ItemCode or SupplierCode"
+    },
+    {
+        "original_row": [
+            "TRADED",
+            "LEE KUM KEE",
+            "SM - RM",
+            "432A2A",
+            "Oyster Sauce",
+            "2.2lit x pc",
+            "PC(2.2)",
+            0,
+            0,
+            "GSI-P",
+            1
+        ],
+        "reason": "Missing ItemCode or SupplierCode"
+    },
+    {
+        "original_row": [
+            "TRADED",
+            "SAN REMO",
+            "SM - RM",
+            "443A2A",
+            "Pasta - Fusili",
+            "6kg x case",
+            "CASE(6)",
+            0,
+            0,
+            "GSI-P",
+            1
+        ],
+        "reason": "Missing ItemCode or SupplierCode"
+    },
+    {
+        "original_row": [
+            "TRADED",
+            "BARONIA",
+            "SM - RM",
+            "446A2A",
+            "Pasta - Penne",
+            "1kg x pack",
+            "PC(1)",
+            0,
+            0,
+            "GSI-P",
+            1
+        ],
+        "reason": "Missing ItemCode or SupplierCode"
+    },
+    {
+        "original_row": [
+            "TRADED",
+            "IDEAL GOURMET",
+            "SM - RM",
+            "447A2A",
+            "Pasta - Small Shell",
+            "500g x pc",
+            "PC(0.5)",
+            0,
+            0,
+            "GSI-P",
+            1
+        ],
+        "reason": "Missing ItemCode or SupplierCode"
+    },
+    {
+        "original_row": [
+            "TRADED",
+            "BARONIA",
+            "SM - RM",
+            "448A2A",
+            "Pasta - Spaghettini",
+            "12kg x case",
+            "CASE(12)",
+            0,
+            0,
+            "GSI-P",
+            1
+        ],
+        "reason": "Missing ItemCode or SupplierCode"
+    },
+    {
+        "original_row": [
+            "TRADED",
+            "CLARA OLE",
+            "SM - RM",
+            "587A2G",
+            "Pasta Sauce - Crab Flavor",
+            "1 Case x 24 Pcs x 180g",
+            "PC(0.18)",
+            0,
+            0,
+            "GSI-P",
+            1
+        ],
+        "reason": "Missing ItemCode or SupplierCode"
+    },
+    {
+        "original_row": [
+            "TRADED",
+            "McCORMICK",
+            "SM - RM",
+            "453A2A",
+            "Pepper Black Ground",
+            "1kg x pack",
+            "PACK(1)",
+            0,
+            0,
+            "GSI-P",
+            1
+        ],
+        "reason": "Missing ItemCode or SupplierCode"
+    },
+    {
+        "original_row": [
+            "TRADED",
+            "-",
+            "SM - RM",
+            "454A2A",
+            "Pepper Black Peppermill",
+            "1kg x pc",
+            "PC(1)",
+            0,
+            0,
+            "GSI-P",
+            1
+        ],
+        "reason": "Missing ItemCode or SupplierCode"
+    },
+    {
+        "original_row": [
+            "TRADED",
+            "McCORMICK",
+            "SM - RM",
+            "455A2A",
+            "Pepper Black Whole",
+            "1kg x pc",
+            "PC(1)",
+            0,
+            0,
+            "GSI-P",
+            1
+        ],
+        "reason": "Missing ItemCode or SupplierCode"
+    },
+    {
+        "original_row": [
+            "TRADED",
+            "McCORMICK",
+            "SM - RM",
+            "483A2A",
+            "Red Cayenne Ground Pepper",
+            "1kg x pc",
+            "PC(1)",
+            0,
+            0,
+            "GSI-P",
+            1
+        ],
+        "reason": "Missing ItemCode or SupplierCode"
+    },
+    {
+        "original_row": [
+            "TRADED",
+            "DON GARCIA",
+            "SM - RM",
+            "486A2A",
+            "Red Wine Cooking",
+            "1lit x pc",
+            "PC(1)",
+            0,
+            0,
+            "GSI-P",
+            1
+        ],
+        "reason": "Missing ItemCode or SupplierCode"
+    },
+    {
+        "original_row": [
+            "TRADED",
+            "GOLDMINE",
+            "SM - RM",
+            "492A2A",
+            "Rice - Red Rice",
+            "25kg x pc",
+            "PC(25)",
+            0,
+            0,
+            "GSI-P",
+            1
+        ],
+        "reason": "Missing ItemCode or SupplierCode"
+    },
+    {
+        "original_row": [
+            "TRADED",
+            "SALVADOR GRIPAL",
+            "SM - RM",
+            "494A2A",
+            "Rice - White rice (2)",
+            "25kg x pc",
+            "PC(25)",
+            0,
+            0,
+            "GSI-P",
+            1
+        ],
+        "reason": "Missing ItemCode or SupplierCode"
+    },
+    {
+        "original_row": [
+            "TRADED",
+            "THREE B",
+            "SM - RM",
+            "515A2A",
+            "Sesame Seed, Black",
+            "1kg x pc",
+            "PC(1)",
+            0,
+            0,
+            "GSI-P",
+            1
+        ],
+        "reason": "Missing ItemCode or SupplierCode"
+    },
+    {
+        "original_row": [
+            "TRADED",
+            "Dane",
+            "SM - RM",
+            "516A2A",
+            "Sesame Seed, White",
+            "1kg x pc",
+            "PC(1)",
+            0,
+            0,
+            "GSI-P",
+            1
+        ],
+        "reason": "Missing ItemCode or SupplierCode"
+    },
+    {
+        "original_row": [
+            "TRADED",
+            "LA COSTENA",
+            "SM - RM",
+            "522A2A",
+            "Sliced Jalapeno",
+            "2.8kg x pc",
+            "PC(2.8)",
+            0,
+            0,
+            "GSI-P",
+            1
+        ],
+        "reason": "Missing ItemCode or SupplierCode"
+    },
+    {
+        "original_row": [
+            "TRADED",
+            "DATU PUTI",
+            "SM - RM",
+            "529A2A",
+            "Soy sauce",
+            "3.78lit x pc",
+            "PC(3.785)",
+            0,
+            0,
+            "GSI-P",
+            1
+        ],
+        "reason": "Missing ItemCode or SupplierCode"
+    },
+    {
+        "original_row": [
+            "TRADED",
+            "KIKKOMAN",
+            "SM - RM",
+            "530A2A",
+            "Soy Sauce - Kikkoman",
+            1,
+            "BOT(1)",
+            0,
+            0,
+            "GSI-P",
+            1
+        ],
+        "reason": "Missing ItemCode or SupplierCode"
+    },
+    {
+        "original_row": [
+            "TRADED",
+            "McCORMICK",
+            "SM - RM",
+            "531A2A",
+            "Spanish Paprika",
+            "1kg x pack",
+            "PACK(1)",
+            0,
+            0,
+            "GSI-P",
+            1
+        ],
+        "reason": "Missing ItemCode or SupplierCode"
+    },
+    {
+        "original_row": [
+            "TRADED",
+            "TUONG OT",
+            "SM - RM",
+            "535A2A",
+            "Sriracha Chili Sauce",
+            "740ml x pc",
+            "PC(.74)",
+            0,
+            0,
+            "GSI-P",
+            1
+        ],
+        "reason": "Missing ItemCode or SupplierCode"
+    },
+    {
+        "original_row": [
+            "TRADED",
+            "Mazza",
+            "SM - RM",
+            "549A2A",
+            "Sundried Tomato",
+            "3.1kg x pc",
+            "PC(3.1)",
+            0,
+            0,
+            "GSI-P",
+            1
+        ],
+        "reason": "Missing ItemCode or SupplierCode"
+    },
+    {
+        "original_row": [
+            "TRADED",
+            "Ferna",
+            "SM - RM",
+            "553A2A",
+            "Syrup - Maple Syrup",
+            "4 KG x PC",
+            "PC(4)",
+            0,
+            0,
+            "GSI-P",
+            1
+        ],
+        "reason": "Missing ItemCode or SupplierCode"
+    },
+    {
+        "original_row": [
+            "TRADED",
+            "CAPRI",
+            "SM - RM",
+            "576A2A",
+            "Tomato Diced",
+            "2.5kg x pc",
+            "PC(2.5)",
+            0,
+            0,
+            "GSI-P",
+            1
+        ],
+        "reason": "Missing ItemCode or SupplierCode"
+    },
+    {
+        "original_row": [
+            "TRADED",
+            "Delmonte",
+            "SM - RM",
+            "577A2A",
+            "Tomato Ketchup",
+            1,
+            "PC(1)",
+            0,
+            0,
+            "GSI-P",
+            1
+        ],
+        "reason": "Missing ItemCode or SupplierCode"
+    },
+    {
+        "original_row": [
+            "TRADED",
+            "Canfrost",
+            "SM - RM",
+            "578A2A",
+            "Tomato Paste (1)",
+            "4.5kg x can",
+            "PC(4.5)",
+            0,
+            0,
+            "GSI-P",
+            1
+        ],
+        "reason": "Missing ItemCode or SupplierCode"
+    },
+    {
+        "original_row": [
+            "TRADED",
+            "DEL MONTE",
+            "SM - RM",
+            "580A2A",
+            "Tomato Sauce",
+            "900g x pack",
+            "PC(.9)",
+            0,
+            0,
+            "GSI-P",
+            1
+        ],
+        "reason": "Missing ItemCode or SupplierCode"
+    },
+    {
+        "original_row": [
+            "TRADED",
+            "Ferna",
+            "SM - RM",
+            "591A2A",
+            "Vanilla Flavor",
+            "3.78lit x gal",
+            "GAL(3.785)",
+            0,
+            0,
+            "GSI-P",
+            1
+        ],
+        "reason": "Missing ItemCode or SupplierCode"
+    },
+    {
+        "original_row": [
+            "TRADED",
+            "HEINZ",
+            "SM - RM",
+            "641A2A",
+            "Vinegar - Apple Cider",
+            "1 PC x 946 ML",
+            "PC(0.946)",
+            0,
+            0,
+            "GSI-P",
+            1
+        ],
+        "reason": "Missing ItemCode or SupplierCode"
+    },
+    {
+        "original_row": [
+            "TRADED",
+            "CAPRI",
+            "SM - RM",
+            "642A2A",
+            "Vinegar - Balsamic (1)",
+            "1lit x pc",
+            "PC(1)",
+            0,
+            0,
+            "GSI-P",
+            1
+        ],
+        "reason": "Missing ItemCode or SupplierCode"
+    },
+    {
+        "original_row": [
+            "TRADED",
+            "CIRIO GLAZE",
+            "SM - RM",
+            "643A2A",
+            "Vinegar - Balsamic (2)",
+            "250ml x pc",
+            "PC(.25)",
+            0,
+            0,
+            "GSI-P",
+            1
+        ],
+        "reason": "Missing ItemCode or SupplierCode"
+    },
+    {
+        "original_row": [
+            "TRADED",
+            "QUEZON'S BEST",
+            "SM - RM",
+            "644A2A",
+            "Vinegar - Suka Pinakurat",
+            "750ml x pc",
+            "PC",
+            0,
+            0,
+            "GSI-P",
+            1
+        ],
+        "reason": "Missing ItemCode or SupplierCode"
+    },
+    {
+        "original_row": [
+            "TRADED",
+            "Datu puti",
+            "SM - RM",
+            "645A2A",
+            "Vinegar - White",
+            "3.78lit x gal",
+            "GAL(3.785)",
+            0,
+            0,
+            "GSI-P",
+            1
+        ],
+        "reason": "Missing ItemCode or SupplierCode"
+    },
+    {
+        "original_row": [
+            "TRADED",
+            "JOLLY",
+            "SM - RM",
+            "649A2A",
+            "Water Chestnut peeled",
+            "560g x pc",
+            "PC(0.56)",
+            0,
+            0,
+            "GSI-P",
+            1
+        ],
+        "reason": "Missing ItemCode or SupplierCode"
+    },
+    {
+        "original_row": [
+            "TRADED",
+            "McCORMICK",
+            "SM - RM",
+            "656A2A",
+            "White Pepper Ground",
+            "1kg x pc",
+            "PC(1)",
+            0,
+            0,
+            "GSI-P",
+            1
+        ],
+        "reason": "Missing ItemCode or SupplierCode"
+    },
+    {
+        "original_row": [
+            "TRADED",
+            "DON GARCIA",
+            "SM - RM",
+            "657A2A",
+            "White Wine Cooking",
+            "1lit x pc",
+            "PC(1)",
+            0,
+            0,
+            "GSI-P",
+            1
+        ],
+        "reason": "Missing ItemCode or SupplierCode"
+    },
+    {
+        "original_row": [
+            "TRADED",
+            "McCormick",
+            "SM - RM",
+            "737A2C",
+            "Oregano Ground",
+            1,
+            "KG",
+            0,
+            0,
+            "GSI-P",
+            1
+        ],
+        "reason": "Missing ItemCode or SupplierCode"
+    },
+    {
+        "original_row": [
+            "TRADED",
+            "SUN & SEA",
+            "SM - RM",
+            "848A2E",
+            "Baby Clams",
+            "284g x pc",
+            "PC(.284)",
+            0,
+            0,
+            "GSI-P",
+            1
+        ],
+        "reason": "Missing ItemCode or SupplierCode"
+    },
+    {
+        "original_row": [
+            "TRADED",
+            "Knorr",
+            "SM - RM",
+            "898A2E",
+            "Shrimp Bouillon Cube",
+            "60g x pc",
+            "PC(.06)",
+            0,
+            0,
+            "GSI-P",
+            1
+        ],
+        "reason": "Missing ItemCode or SupplierCode"
+    },
+    {
+        "original_row": [
+            "TRADED",
+            "Grey Poupon",
+            "SM - RM",
+            "962A2E",
+            "Dijon Mustard (2)",
+            1,
+            "PC",
+            0,
+            0,
+            "GSI-P",
+            1
+        ],
+        "reason": "Missing ItemCode or SupplierCode"
+    },
+    {
+        "original_row": [
+            "TRADED",
+            "Mccormick",
+            "SM - RM",
+            "675A2G",
+            "Prepared Mustard",
+            "200g x pc",
+            "PC(0.2)",
+            0,
+            0,
+            "GSI-P",
+            1
+        ],
+        "reason": "Missing ItemCode or SupplierCode"
+    },
+    {
+        "original_row": [
+            "TRADED",
+            "DLA",
+            "SM - RM",
+            "998A2E",
+            "Blueberry Filling, Large",
+            "6kg x pc",
+            "PC(6)",
+            0,
+            0,
+            "GSI-P",
+            1
+        ],
+        "reason": "Missing ItemCode or SupplierCode"
+    },
+    {
+        "original_row": [
+            "TRADED",
+            "McCORMICK",
+            "SM - RM",
+            "186A2G",
+            "Lemon Pepper",
+            "1 PC x 1 KG",
+            "KG",
+            0,
+            0,
+            "GSI-P",
+            1
+        ],
+        "reason": "Missing ItemCode or SupplierCode"
+    },
+    {
+        "original_row": [
+            "TRADED",
+            "McCORMICK",
+            "SM - RM",
+            "657A2G",
+            "Tarragon Leaves Whole",
+            "300G x pack",
+            "PACK(0.3)",
+            0,
+            0,
+            "GSI-P",
+            1
+        ],
+        "reason": "Missing ItemCode or SupplierCode"
+    },
+    {
+        "original_row": [
+            "TRADED",
+            "McCORMICK",
+            "SM - RM",
+            "612A2F",
+            "Italian Seasoning",
+            "500g x pack",
+            "PC(.5)",
+            0,
+            0,
+            "GSI-P",
+            1
+        ],
+        "reason": "Missing ItemCode or SupplierCode"
+    },
+    {
+        "original_row": [
+            "TRADED",
+            "McCORMICK",
+            "SM - RM",
+            "100A2F",
+            "Dried Thyme",
+            "1 CASE x 10 PCS x 800 G",
+            "CASE(8)",
+            0,
+            0,
+            "GSI-P",
+            1
+        ],
+        "reason": "Missing ItemCode or SupplierCode"
+    },
+    {
+        "original_row": [
+            "TRADED",
+            "GRIFFITA",
+            "SM - RM",
+            "261A2F",
+            "Hollandaise Sauce Mix test",
+            "500g x pack",
+            "PC(.5)",
+            0,
+            0,
+            "GSI-P",
+            1
+        ],
+        "reason": "Missing ItemCode or SupplierCode"
+    },
+    {
+        "original_row": [
+            "FINISHED GOOD",
+            "GSI",
+            "BAKERY",
+            "254D9A",
+            "Chocolate Croissant Dough",
+            1,
+            "PC",
+            0,
+            0,
+            "GSI-B",
+            1
+        ],
+        "reason": "Missing ItemCode or SupplierCode"
+    },
+    {
+        "original_row": [
+            "FINISHED GOOD",
+            "GSI",
+            "BAKERY",
+            "255D9A",
+            "Croissant Dough 3-4-3",
+            1,
+            "PC",
+            0,
+            0,
+            "GSI-B",
+            1
+        ],
+        "reason": "Missing ItemCode or SupplierCode"
+    },
+    {
+        "original_row": [
+            "TRADED",
+            "GSI",
+            "CONTROL",
+            "211A2A",
+            "Chocolate Callets Dark",
+            "1kg x pack",
+            "KG",
+            0,
+            0,
+            "GSI-B",
+            1
+        ],
+        "reason": "Missing ItemCode or SupplierCode"
+    },
+    {
+        "original_row": [
+            "TRADED",
+            "GSI",
+            "CONTROL",
+            "120A2A",
+            "Baking Powder",
+            "1kg x pack",
+            "PACK(1)",
+            0,
+            0,
+            "GSI-B",
+            1
+        ],
+        "reason": "Missing ItemCode or SupplierCode"
+    },
+    {
+        "original_row": [
+            "TRADED",
+            "GSI",
+            "CONTROL",
+            "121A2A",
+            "Baking Soda",
+            "1kg x pack",
+            "PC(1)",
+            0,
+            0,
+            "GSI-B",
+            1
+        ],
+        "reason": "Missing ItemCode or SupplierCode"
+    },
+    {
+        "original_row": [
+            "TRADED",
+            "GSI",
+            "CONTROL",
+            "244A2A",
+            "Cornstarch",
+            "1kg x pack",
+            "PACK(1)",
+            0,
+            0,
+            "GSI-B",
+            1
+        ],
+        "reason": "Missing ItemCode or SupplierCode"
+    },
+    {
+        "original_row": [
+            "TRADED",
+            "ARLA",
+            "CHILLER - RM",
+            "190A2A",
+            "Cheese - Mozzarella Block",
+            "2.3 KG x PC",
+            "PC(2.3)",
+            0,
+            0,
+            "GSI-B",
+            1
+        ],
+        "reason": "Missing ItemCode or SupplierCode"
+    },
+    {
+        "original_row": [
+            "TRADED",
+            "PRESIDENT",
+            "CHILLER - RM",
+            "185A2A",
+            "Cheese - Cheddar Sliced (1)",
+            "400g x pack",
+            "PC(0.4)",
+            0,
+            0,
+            "GSI-B",
+            1
+        ],
+        "reason": "Missing ItemCode or SupplierCode"
+    },
+    {
+        "original_row": [
+            "TRADED",
+            "NESTLE",
+            "CHILLER - RM",
+            "105A2A",
+            "All Purpose Cream",
+            1,
+            "LIT",
+            0,
+            0,
+            "GSI-B",
+            1
+        ],
+        "reason": "Missing ItemCode or SupplierCode"
+    },
+    {
+        "original_row": [
+            "TRADED",
+            "INNOBAKE",
+            "CHILLER - RM",
+            "162A2A",
+            "Butter - Unsalted",
+            "25 KG x Case",
+            "CASE(25)",
+            0,
+            0,
+            "GSI-B",
+            1
+        ],
+        "reason": "Missing ItemCode or SupplierCode"
+    },
+    {
+        "original_row": [
+            "TRADED",
+            "Euro swiss",
+            "CHILLER - RM",
+            "180A2D",
+            "Sausage - Luganighe",
+            1,
+            "KG",
+            0,
+            0,
+            "GSI-B",
+            1
+        ],
+        "reason": "Missing ItemCode or SupplierCode"
+    },
+    {
+        "original_row": [
+            "TRADED",
+            "CHE-VITAL",
+            "CHILLER - RM",
+            "194A2A",
+            "Cheese - Pasteurized Processed Cheese",
+            "2 KG X PC",
+            "PC(2)",
+            0,
+            0,
+            "GSI-B",
+            1
+        ],
+        "reason": "Missing ItemCode or SupplierCode"
+    },
+    {
+        "original_row": [
+            "TRADED",
+            "DAIRY MONT",
+            "CHILLER - RM",
+            "248A2A",
+            "Cream Cheese",
+            "2kg X PC",
+            "PC(2)",
+            0,
+            0,
+            "GSI-B",
+            1
+        ],
+        "reason": "Missing ItemCode or SupplierCode"
+    },
+    {
+        "original_row": [
+            "TRADED",
+            "RLT\/ TENTH BREAD\/ ZYSCO",
+            "CHILLER - RM",
+            "260A2A",
+            "Egg - Fresh, Medium",
+            "30 pcs x Tray",
+            "TRAY(30)",
+            0,
+            0,
+            "GSI-B",
+            1
+        ],
+        "reason": "Missing ItemCode or SupplierCode"
+    },
+    {
+        "original_row": [
+            "TRADED",
+            "-",
+            "CHILLER - RM",
+            "632A2G",
+            "Egg - Fresh, Large",
+            "30 pcs x Tray",
+            "TRAY(30)",
+            0,
+            0,
+            "GSI-B",
+            1
+        ],
+        "reason": "Missing ItemCode or SupplierCode"
+    },
+    {
+        "original_row": [
+            "TRADED",
+            "PL Aguila",
+            "FREEZER - RM",
+            "398A2A",
+            "Meat - Pepperoni",
+            1,
+            "KG",
+            0,
+            0,
+            "GSI-B",
+            1
+        ],
+        "reason": "Missing ItemCode or SupplierCode"
+    },
+    {
+        "original_row": [
+            "TRADED",
+            "AVOSET",
+            "FREEZER - RM",
+            "825A2C",
+            "Whipping Cream - Baking (3)",
+            "907ml x pc",
+            "PC(.907)",
+            0,
+            0,
+            "GSI-B",
+            1
+        ],
+        "reason": "Missing ItemCode or SupplierCode"
+    },
+    {
+        "original_row": [
+            "TRADED",
+            "LOTUS",
+            "SM - RM",
+            "572A2G",
+            "Biscoff Cookies",
+            "1 Case x 10 PC x 250 G",
+            "CASE(2.5)",
+            0,
+            0,
+            "GSI-B",
+            1
+        ],
+        "reason": "Missing ItemCode or SupplierCode"
+    },
+    {
+        "original_row": [
+            "TRADED",
+            "LOTUS",
+            "SM - RM",
+            "573A2G",
+            "Biscoff Cookie Butter Smooth Spread",
+            "1 Case x 12 PC x 400 G",
+            "CASE(4.8)",
+            0,
+            0,
+            "GSI-B",
+            1
+        ],
+        "reason": "Missing ItemCode or SupplierCode"
+    },
+    {
+        "original_row": [
+            "TRADED",
+            "ALASKA",
+            "SM - RM",
+            "402A2A",
+            "Milk - Condensed (1)",
+            "1 CASE X 48 PC X 377 G",
+            "CASE(18.096)",
+            0,
+            0,
+            "GSI-B",
+            1
+        ],
+        "reason": "Missing ItemCode or SupplierCode"
+    },
+    {
+        "original_row": [
+            "TRADED",
+            "PEOTRACO",
+            "SM - RM",
+            "361A2A",
+            "Icing Sugar",
+            "2.22kg x pack",
+            "PC(2.27)",
+            0,
+            0,
+            "GSI-B",
+            1
+        ],
+        "reason": "Missing ItemCode or SupplierCode"
+    },
+    {
+        "original_row": [
+            "TRADED",
+            "-",
+            "SM - RM",
+            "653A2F",
+            "Pork floss",
+            "1 PC",
+            "PC",
+            0,
+            0,
+            "GSI-B",
+            1
+        ],
+        "reason": "Missing ItemCode or SupplierCode"
+    },
+    {
+        "original_row": [
+            "TRADED",
+            "DLA",
+            "SM - RM",
+            "998A2E",
+            "Blueberry Filling (1)",
+            "6kg x pc",
+            "PC(6)",
+            0,
+            0,
+            "GSI-B",
+            1
+        ],
+        "reason": "Missing ItemCode or SupplierCode"
+    },
+    {
+        "original_row": [
+            "TRADED",
+            "SMART CHOICE",
+            "SM - RM",
+            "107A2A",
+            "Almonds Sliced",
+            1,
+            "PACK(1)",
+            0,
+            0,
+            "GSI-B",
+            1
+        ],
+        "reason": "Missing ItemCode or SupplierCode"
+    },
+    {
+        "original_row": [
+            "TRADED",
+            "SMART CHOICE",
+            "SM - RM",
+            "108A2A",
+            "Almonds Whole Raw",
+            1,
+            "KG",
+            0,
+            0,
+            "GSI-B",
+            1
+        ],
+        "reason": "Missing ItemCode or SupplierCode"
+    },
+    {
+        "original_row": [
+            "TRADED",
+            "Liberty",
+            "SM - RM",
+            "206A2D",
+            "Flour - Bread, Unbleached",
+            "25 kg x Pc",
+            "PC(25)",
+            0,
+            0,
+            "GSI-B",
+            1
+        ],
+        "reason": "Missing ItemCode or SupplierCode"
+    },
+    {
+        "original_row": [
+            "TRADED",
+            "MONTANA",
+            "SM - RM",
+            "564A2G",
+            "Flour - Bread, Unbleached (2)",
+            "25 kg x Pc",
+            "PC(25)",
+            0,
+            0,
+            "GSI-B",
+            1
+        ],
+        "reason": "Missing ItemCode or SupplierCode"
+    },
+    {
+        "original_row": [
+            "TRADED",
+            "TRAINA",
+            "SM - RM",
+            "209A2D",
+            "Dried Cranberries",
+            1,
+            "KG",
+            0,
+            0,
+            "GSI-B",
+            1
+        ],
+        "reason": "Missing ItemCode or SupplierCode"
+    },
+    {
+        "original_row": [
+            "TRADED",
+            "Van Houten",
+            "SM - RM",
+            "210A2D",
+            "Chocolate Batons",
+            "1.5KG x pack",
+            "PC(1.5)",
+            0,
+            0,
+            "GSI-B",
+            1
+        ],
+        "reason": "Missing ItemCode or SupplierCode"
+    },
+    {
+        "original_row": [
+            "TRADED",
+            "BENSDORP",
+            "SM - RM",
+            "231A2A",
+            "Cocoa Powder (1)",
+            1,
+            "KG",
+            0,
+            0,
+            "GSI-B",
+            1
+        ],
+        "reason": "Missing ItemCode or SupplierCode"
+    },
+    {
+        "original_row": [
+            "TRADED",
+            "McCORMICK",
+            "SM - RM",
+            "232A2D",
+            "Cinnamon Powder",
+            1,
+            "KG",
+            0,
+            0,
+            "GSI-B",
+            1
+        ],
+        "reason": "Missing ItemCode or SupplierCode"
+    },
+    {
+        "original_row": [
+            "TRADED",
+            "SAF - Instant",
+            "SM - RM",
+            "258A2A",
+            "Dry Yeast Instant (1)",
+            "500g x pack",
+            "PACK(0.5)",
+            0,
+            0,
+            "GSI-B",
+            1
+        ],
+        "reason": "Missing ItemCode or SupplierCode"
+    },
+    {
+        "original_row": [
+            "TRADED",
+            "GOLDEN WHEAT",
+            "SM - RM",
+            "277A2A",
+            "Flour - All Purpose (2)",
+            "25 kg x Pc",
+            "PC(25)",
+            0,
+            0,
+            "GSI-B",
+            1
+        ],
+        "reason": "Missing ItemCode or SupplierCode"
+    },
+    {
+        "original_row": [
+            "TRADED",
+            "PRIME",
+            "SM - RM",
+            "354A2A",
+            "Honey",
+            "1 Liters x Pc",
+            "PC(1)",
+            0,
+            0,
+            "GSI-B",
+            1
+        ],
+        "reason": "Missing ItemCode or SupplierCode"
+    },
+    {
+        "original_row": [
+            "TRADED",
+            "Australian Harvest",
+            "SM - RM",
+            "364A2A",
+            "Instant Oatmeal",
+            1,
+            "KG",
+            0,
+            0,
+            "GSI-B",
+            1
+        ],
+        "reason": "Missing ItemCode or SupplierCode"
+    },
+    {
+        "original_row": [
+            "TRADED",
+            "NUTELLA",
+            "SM - RM",
+            "371A2F",
+            "Hazelnut Filling",
+            "1 GAL x 3KG",
+            "GAL(3)",
+            0,
+            0,
+            "GSI-B",
+            1
+        ],
+        "reason": "Missing ItemCode or SupplierCode"
+    },
+    {
+        "original_row": [
+            "TRADED",
+            "Milk Magic",
+            "SM - RM",
+            "404A2A",
+            "MILK - Fresh Milk, Gourmet\/baking",
+            1,
+            "LIT",
+            0,
+            0,
+            "GSI-B",
+            1
+        ],
+        "reason": "Missing ItemCode or SupplierCode"
+    },
+    {
+        "original_row": [
+            "TRADED",
+            "Bearbrand",
+            "SM - RM",
+            "405A2A",
+            "MILK - Skimmed Milk Powder",
+            "2kg x pack",
+            "PC(2)",
+            0,
+            0,
+            "GSI-B",
+            1
+        ],
+        "reason": "Missing ItemCode or SupplierCode"
+    },
+    {
+        "original_row": [
+            "TRADED",
+            "Sansur (Q&H)",
+            "SM - RM",
+            "423A2A",
+            "Oil - Olive Oil Pomace",
+            "5 LIT x 1 GAL",
+            "PC(5)",
+            0,
+            0,
+            "GSI-B",
+            1
+        ],
+        "reason": "Missing ItemCode or SupplierCode"
+    },
+    {
+        "original_row": [
+            "TRADED",
+            "McCORMICK",
+            "SM - RM",
+            "442A2A",
+            "Parsley Flakes Dried",
+            "500g x pc",
+            "PC(0.5)",
+            0,
+            0,
+            "GSI-B",
+            1
+        ],
+        "reason": "Missing ItemCode or SupplierCode"
+    },
+    {
+        "original_row": [
+            "TRADED",
+            "SMART CHOICE",
+            "SM - RM",
+            "452A2A",
+            "Pecan",
+            1,
+            "KG",
+            0,
+            0,
+            "GSI-B",
+            1
+        ],
+        "reason": "Missing ItemCode or SupplierCode"
+    },
+    {
+        "original_row": [
+            "TRADED",
+            "McCORMICK",
+            "SM - RM",
+            "910A2E",
+            "Rosemary Leaves Whole",
+            "500g x pack",
+            "PACK(.5)",
+            0,
+            0,
+            "GSI-B",
+            1
+        ],
+        "reason": "Missing ItemCode or SupplierCode"
+    },
+    {
+        "original_row": [
+            "TRADED",
+            "Busco\/Biscom",
+            "SM - RM",
+            "545A2A",
+            "Sugar - Brown",
+            "1 x 50kg",
+            "PACK(50)",
+            0,
+            0,
+            "GSI-B",
+            1
+        ],
+        "reason": "Missing ItemCode or SupplierCode"
+    },
+    {
+        "original_row": [
+            "TRADED",
+            "VICTORIAS",
+            "SM - RM",
+            "548A2A",
+            "Sugar - White",
+            "1 x 50kg",
+            "PACK(50)",
+            0,
+            0,
+            "GSI-B",
+            1
+        ],
+        "reason": "Missing ItemCode or SupplierCode"
+    },
+    {
+        "original_row": [
+            "TRADED",
+            "FERNA",
+            "SM - RM",
+            "552A2A",
+            "Syrup - Light corn",
+            "3.7 Kg x Gal",
+            "GAL(3.7)",
+            0,
+            0,
+            "GSI-B",
+            1
+        ],
+        "reason": "Missing ItemCode or SupplierCode"
+    },
+    {
+        "original_row": [
+            "TRADED",
+            "McCORMICK",
+            "SM - RM",
+            "587A2A",
+            "Ube Flavor",
+            "1 pc x 475 ml",
+            "PC(0.475)",
+            0,
+            0,
+            "GSI-B",
+            1
+        ],
+        "reason": "Missing ItemCode or SupplierCode"
+    },
+    {
+        "original_row": [
+            "TRADED",
+            "NESCAFE",
+            "SM - RM",
+            "237A2A",
+            "Coffee Instant",
+            "1 pack x 5 kg",
+            "PACK(5)",
+            0,
+            0,
+            "GSI-B",
+            1
+        ],
+        "reason": "Missing ItemCode or SupplierCode"
+    },
+    {
+        "original_row": [
+            "TRADED",
+            "Ferna",
+            "SM - RM",
+            "591A2A",
+            "Vanilla Flavor",
+            "3.785 KG x Gal",
+            "GAL(3.785)",
+            0,
+            0,
+            "GSI-B",
+            1
+        ],
+        "reason": "Missing ItemCode or SupplierCode"
+    },
+    {
+        "original_row": [
+            "TRADED",
+            "ALPINE PACIFIC ",
+            "SM - RM",
+            "646A2A",
+            "Walnuts Halves",
+            1,
+            "PACK(1)",
+            0,
+            0,
+            "GSI-B",
+            1
+        ],
+        "reason": "Missing ItemCode or SupplierCode"
+    },
+    {
+        "original_row": [
+            "TRADED",
+            "BAKERS SECRET",
+            "SM - RM",
+            "985A2C",
+            "Mineral Salt",
+            1,
+            "KG",
+            0,
+            0,
+            "GSI-B",
+            1
+        ],
+        "reason": "Missing ItemCode or SupplierCode"
+    },
+    {
+        "original_row": [
+            "TRADED",
+            "CALIFORNIA",
+            "SM - RM",
+            "989A2C",
+            "Raisin",
+            1,
+            "KG",
+            0,
+            0,
+            "GSI-B",
+            1
+        ],
+        "reason": "Missing ItemCode or SupplierCode"
+    },
+    {
+        "original_row": [
+            "TRADED",
+            "-",
+            "SM - RM",
+            "185A2G",
+            "Jam - Coco Jam",
+            "1 CASE x 24 PCS x 275 G",
+            "PC(.275)",
+            0,
+            0,
+            "GSI-B",
+            1
+        ],
+        "reason": "Missing ItemCode or SupplierCode"
+    },
+    {
+        "original_row": [
+            "TRADED",
+            "-",
+            "SM - RM",
+            "570A2G",
+            "Jam - Strawberry (2)",
+            "1 Case x 12 PC x 340G",
+            "PC(0.34)",
+            0,
+            0,
+            "GSI-B",
+            1
+        ],
+        "reason": "Missing ItemCode or SupplierCode"
+    },
+    {
+        "original_row": [
+            "TRADED",
+            "-",
+            "BIG - WH",
+            "614A2F",
+            "Pouch - Packaging 16cm x 26cm",
+            "50PCS x PACK",
+            "PACK(50)",
+            0,
+            0,
+            "GSI-B",
+            1
+        ],
+        "reason": "Missing ItemCode or SupplierCode"
+    },
+    {
+        "original_row": [
+            "TRADED",
+            "-",
+            "BIG - WH",
+            "229A2A",
+            "Cling Wrap",
+            1,
+            "PC",
+            0,
+            0,
+            "GSI-B",
+            1
+        ],
+        "reason": "Missing ItemCode or SupplierCode"
+    },
+    {
+        "original_row": [
+            "TRADED",
+            "Bakers Choice",
+            "BIG - WH",
+            "433A2A",
+            "Pan Spray",
+            "6 Liters x Pc",
+            "PC(0.6)",
+            0,
+            0,
+            "GSI-B",
+            1
+        ],
+        "reason": "Missing ItemCode or SupplierCode"
+    },
+    {
+        "original_row": [
+            "TRADED",
+            "-",
+            "BIG - WH",
+            "463A2A",
+            "PLASTIC - Loaf",
+            "1000 pcs x Pack",
+            "PACK(1000)",
+            0,
+            0,
+            "GSI-B",
+            1
+        ],
+        "reason": "Missing ItemCode or SupplierCode"
+    },
+    {
+        "original_row": [
+            "TRADED",
+            "-",
+            "BIG - WH",
+            "966A2E",
+            "Greaseproof - Plain 18x24",
+            "1000 pcs x Pack",
+            "PACK(1000)",
+            0,
+            0,
+            "GSI-B",
+            1
+        ],
+        "reason": "Missing ItemCode or SupplierCode"
+    },
+    {
+        "original_row": [
+            "TRADED",
+            "-",
+            "BIG - WH",
+            "166A2F",
+            "Sticker Tag - Classic Sourdough",
+            "50pcs x Pack",
+            "PACK(50)",
+            0,
+            0,
+            "GSI-B",
+            1
+        ],
+        "reason": "Missing ItemCode or SupplierCode"
+    },
+    {
+        "original_row": [
+            "TRADED",
+            "-",
+            "BIG - WH",
+            "354A2G",
+            "Sticker - Rosemary Sourdough",
+            "1 PC xx",
+            "PC",
+            0,
+            0,
+            "GSI-B",
+            1
+        ],
+        "reason": "Missing ItemCode or SupplierCode"
+    },
+    {
+        "original_row": [
+            "TRADED",
+            "-",
+            "BIG - WH",
+            "355A2G",
+            "Sticker - Ube Cheese Loaf",
+            "1 PC xx",
+            "PC",
+            0,
+            0,
+            "GSI-B",
+            1
+        ],
+        "reason": "Missing ItemCode or SupplierCode"
+    },
+    {
+        "original_row": [
+            "TRADED",
+            "-",
+            "BIG - WH",
+            "356A2G",
+            "Sticker - Ube Cheese Pandesal",
+            "1 PC xx",
+            "PC",
+            0,
+            0,
+            "GSI-B",
+            1
+        ],
+        "reason": "Missing ItemCode or SupplierCode"
+    },
+    {
+        "original_row": [
+            "TRADED",
+            "-",
+            "BIG - WH",
+            "158A2G",
+            "Box - Cake Box Generic 10\"",
+            "100 PCS x PACK",
+            "PACK(100)",
+            0,
+            0,
+            "GSI-B",
+            1
+        ],
+        "reason": "Missing ItemCode or SupplierCode"
+    },
+    {
+        "original_row": [
+            "TRADED( DRY )",
+            "-",
+            "BIG - WH",
+            "595A2G",
+            "Pastry Pouch, Nono's",
+            "100PCS X PACK",
+            "PACK(100)",
+            0,
+            0,
+            "GSI-B",
+            1
+        ],
+        "reason": "Missing ItemCode or SupplierCode"
+    },
+    {
+        "original_row": [
+            "BEVERAGES",
+            "-",
+            "-",
+            "727A2C",
+            "Milk - Whole Milk",
+            "-",
+            "CASE(12)",
+            0,
+            0,
+            "PUL-O",
+            1
+        ],
+        "reason": "Missing ItemCode or SupplierCode"
+    },
+    {
+        "original_row": [
+            "BEVERAGES",
+            "-",
+            "-",
+            "201A2G",
+            "Powder - Bellagio Sipping Chocolate",
+            "-",
+            "KG",
+            0,
+            0,
+            "PUL-O",
+            1
+        ],
+        "reason": "Missing ItemCode or SupplierCode"
+    },
+    {
+        "original_row": [
+            "BEVERAGES",
+            "-",
+            "-",
+            "647A2A",
+            "Water - Hope in Box",
+            "-",
+            "CASE(12)",
+            0,
+            0,
+            "PUL-O",
+            1
+        ],
+        "reason": "Missing ItemCode or SupplierCode"
+    },
+    {
+        "original_row": [
+            "BEVERAGES",
+            "-",
+            "-",
+            "648A2A",
+            "Water - Sparkling",
+            "-",
+            "CASE(24)",
+            0,
+            0,
+            "PUL-O",
+            1
+        ],
+        "reason": "Missing ItemCode or SupplierCode"
+    },
+    {
+        "original_row": [
+            "OFFICE SUPPLIES",
+            "-",
+            "-",
+            "795A2C",
+            "Daily Cash Handover Audit Form",
+            "-",
+            "PAD(100)",
+            0,
+            0,
+            "PUL-O",
+            1
+        ],
+        "reason": "Missing ItemCode or SupplierCode"
+    },
+    {
+        "original_row": [
+            "OFFICE SUPPLIES",
+            "-",
+            "-",
+            "300A2A",
+            "Form - Delivery Receipt",
+            "-",
+            "PAD(50)",
+            0,
+            0,
+            "PUL-O",
+            1
+        ],
+        "reason": "Missing ItemCode or SupplierCode"
+    },
+    {
+        "original_row": [
+            "OFFICE SUPPLIES",
+            "-",
+            "-",
+            "301A2A",
+            "Form - Petty Cash Voucher",
+            "-",
+            "PAD(50)",
+            0,
+            0,
+            "PUL-O",
+            1
+        ],
+        "reason": "Missing ItemCode or SupplierCode"
+    },
+    {
+        "original_row": [
+            "OFFICE SUPPLIES",
+            "-",
+            "-",
+            "362A2A",
+            "Ink - POS\/kitchen Printer, Epson ERC 38",
+            "-",
+            "PC",
+            0,
+            0,
+            "PUL-O",
+            1
+        ],
+        "reason": "Missing ItemCode or SupplierCode"
+    },
+    {
+        "original_row": [
+            "OFFICE SUPPLIES",
+            "-",
+            "-",
+            "475A2A",
+            "Pos Journal Paper 2 Ply 76 x 70mm",
+            "-",
+            "CASE(50)",
+            0,
+            0,
+            "PUL-O",
+            1
+        ],
+        "reason": "Missing ItemCode or SupplierCode"
+    },
+    {
+        "original_row": [
+            "OFFICE SUPPLIES",
+            "-",
+            "-",
+            "477A2A",
+            "POS Thermal Paper 80 x 70mm - NEC",
+            "-",
+            "CASE(50)",
+            0,
+            0,
+            "PUL-O",
+            1
+        ],
+        "reason": "Missing ItemCode or SupplierCode"
+    },
+    {
+        "original_row": [
+            "OFFICE SUPPLIES",
+            "-",
+            "-",
+            "560A2A",
+            "Tape - Packaging Clear 2",
+            "-",
+            "ROLL(50)",
+            0,
+            0,
+            "PUL-O",
+            1
+        ],
+        "reason": "Missing ItemCode or SupplierCode"
+    },
+    {
+        "original_row": [
+            "OFFICE SUPPLIES",
+            "-",
+            "-",
+            "556A2A",
+            "Tape - Clear 1",
+            "-",
+            "PC(50)",
+            0,
+            0,
+            "PUL-O",
+            1
+        ],
+        "reason": "Missing ItemCode or SupplierCode"
+    },
+    {
+        "original_row": [
+            "OFFICE SUPPLIES",
+            "-",
+            "-",
+            "557A2A",
+            "Tape - Clear 1\/2\"",
+            "-",
+            "PC(50)",
+            0,
+            0,
+            "PUL-O",
+            1
+        ],
+        "reason": "Missing ItemCode or SupplierCode"
+    },
+    {
+        "original_row": [
+            "OPERATIONAL",
+            "-",
+            "-",
+            "149A2A",
+            "Box - Take-Out Large, NONO's",
+            "-",
+            "PACK(100)",
+            0,
+            0,
+            "PUL-O",
+            1
+        ],
+        "reason": "Missing ItemCode or SupplierCode"
+    },
+    {
+        "original_row": [
+            "OPERATIONAL",
+            "-",
+            "-",
+            "180A2A",
+            "CANDLE - Spiral Big",
+            "-",
+            "PACK(12)",
+            0,
+            0,
+            "PUL-O",
+            1
+        ],
+        "reason": "Missing ItemCode or SupplierCode"
+    },
+    {
+        "original_row": [
+            "OPERATIONAL",
+            "-",
+            "-",
+            "181A2A",
+            "CANDLE - Spiral Small",
+            "-",
+            "PACK(24)",
+            0,
+            0,
+            "PUL-O",
+            1
+        ],
+        "reason": "Missing ItemCode or SupplierCode"
+    },
+    {
+        "original_row": [
+            "OPERATIONAL",
+            "-",
+            "-",
+            "246A2A",
+            "Cream Charger",
+            "-",
+            "PACK(10)",
+            0,
+            0,
+            "PUL-O",
+            1
+        ],
+        "reason": "Missing ItemCode or SupplierCode"
+    },
+    {
+        "original_row": [
+            "OPERATIONAL",
+            "-",
+            "-",
+            "299A2A",
+            "Fork - Disposable",
+            "-",
+            "PACK(100)",
+            0,
+            0,
+            "PUL-O",
+            1
+        ],
+        "reason": "Missing ItemCode or SupplierCode"
+    },
+    {
+        "original_row": [
+            "OPERATIONAL",
+            "-",
+            "-",
+            "329A2A",
+            "Gloves - Plastic Disposable",
+            "-",
+            "Pack",
+            0,
+            0,
+            "PUL-O",
+            1
+        ],
+        "reason": "Missing ItemCode or SupplierCode"
+    },
+    {
+        "original_row": [
+            "OPERATIONAL",
+            "-",
+            "-",
+            "965A2E",
+            "Greaseproof - Nono's 10x10\"",
+            "-",
+            "PACK(500)",
+            0,
+            0,
+            "PUL-O",
+            1
+        ],
+        "reason": "Missing ItemCode or SupplierCode"
+    },
+    {
+        "original_row": [
+            "OPERATIONAL",
+            "-",
+            "-",
+            "373A2A",
+            "Knife - Disposable",
+            "-",
+            "PACK(100)",
+            0,
+            0,
+            "PUL-O",
+            1
+        ],
+        "reason": "Missing ItemCode or SupplierCode"
+    },
+    {
+        "original_row": [
+            "OPERATIONAL",
+            "-",
+            "-",
+            "975A2A",
+            "Paper Cup - Cold Drink 16oz, Plain",
+            "-",
+            "PACK(50)",
+            0,
+            0,
+            "PUL-O",
+            1
+        ],
+        "reason": "Missing ItemCode or SupplierCode"
+    },
+    {
+        "original_row": [
+            "OPERATIONAL",
+            "-",
+            "-",
+            "895A2A",
+            "LID - Flat Cold Drink 12\/16oz",
+            "-",
+            "PACK(50)",
+            0,
+            0,
+            "PUL-O",
+            1
+        ],
+        "reason": "Missing ItemCode or SupplierCode"
+    },
+    {
+        "original_row": [
+            "OPERATIONAL",
+            "-",
+            "-",
+            "439A2A",
+            "Paper Cup - Hot Drink 8oz, plain",
+            "-",
+            "PACK(50)",
+            0,
+            0,
+            "PUL-O",
+            1
+        ],
+        "reason": "Missing ItemCode or SupplierCode"
+    },
+    {
+        "original_row": [
+            "OPERATIONAL",
+            "-",
+            "-",
+            "379A2A",
+            "LID - Hot Drink Cup 8oz",
+            "-",
+            "PACK(50)",
+            0,
+            0,
+            "PUL-O",
+            1
+        ],
+        "reason": "Missing ItemCode or SupplierCode"
+    },
+    {
+        "original_row": [
+            "OPERATIONAL",
+            "-",
+            "-",
+            "449A2A",
+            "Pastries Sleeve",
+            "-",
+            "PACK(100)",
+            0,
+            0,
+            "PUL-O",
+            1
+        ],
+        "reason": "Missing ItemCode or SupplierCode"
+    },
+    {
+        "original_row": [
+            "OPERATIONAL",
+            "-",
+            "-",
+            "107A2B",
+            "Pos Thermal Paper 80 x 50mm",
+            "-",
+            "CASE(100)",
+            0,
+            0,
+            "PUL-O",
+            1
+        ],
+        "reason": "Missing ItemCode or SupplierCode"
+    },
+    {
+        "original_row": [
+            "OPERATIONAL",
+            "-",
+            "-",
+            "533A2A",
+            "Spoon - Disposable",
+            "-",
+            "PACK(100)",
+            0,
+            0,
+            "PUL-O",
+            1
+        ],
+        "reason": "Missing ItemCode or SupplierCode"
+    },
+    {
+        "original_row": [
+            "OPERATIONAL",
+            "-",
+            "-",
+            "543A2A",
+            "Stirrer - Wooden",
+            "-",
+            "PACK(1000)",
+            0,
+            0,
+            "PUL-O",
+            1
+        ],
+        "reason": "Missing ItemCode or SupplierCode"
+    },
+    {
+        "original_row": [
+            "OPERATIONAL",
+            "-",
+            "-",
+            "779A2E",
+            "Straw - Individually Wrapped, Sugarcane",
+            "-",
+            "PACK(100)",
+            0,
+            0,
+            "PUL-O",
+            1
+        ],
+        "reason": "Missing ItemCode or SupplierCode"
+    },
+    {
+        "original_row": [
+            "OPERATIONAL",
+            "-",
+            "-",
+            "546A2A",
+            "Sugar - Raw sugar sachet",
+            "-",
+            "PACK(100)",
+            0,
+            0,
+            "PUL-O",
+            1
+        ],
+        "reason": "Missing ItemCode or SupplierCode"
+    },
+    {
+        "original_row": [
+            "OPERATIONAL",
+            "-",
+            "-",
+            "150A2A",
+            "Take-Out Small, NONO's",
+            "-",
+            "PACK(100)",
+            0,
+            0,
+            "PUL-O",
+            1
+        ],
+        "reason": "Missing ItemCode or SupplierCode"
+    },
+    {
+        "original_row": [
+            "OPERATIONAL",
+            "-",
+            "-",
+            "572A2A",
+            "Tissue - Interfolded",
+            "-",
+            "CASE(4500)",
+            0,
+            0,
+            "PUL-O",
+            1
+        ],
+        "reason": "Missing ItemCode or SupplierCode"
+    },
+    {
+        "original_row": [
+            "OPERATIONAL",
+            "-",
+            "-",
+            "573A2A",
+            "Tissue - Jumbo Roll",
+            "-",
+            "PC",
+            0,
+            0,
+            "PUL-O",
+            1
+        ],
+        "reason": "Missing ItemCode or SupplierCode"
+    },
+    {
+        "original_row": [
+            "OPERATIONAL",
+            "-",
+            "-",
+            "947A2E",
+            "Tissue - Table Napkin, White",
+            "-",
+            "CASE(2160)",
+            0,
+            0,
+            "PUL-O",
+            1
+        ],
+        "reason": "Missing ItemCode or SupplierCode"
+    },
+    {
+        "original_row": [
+            "OPERATIONAL",
+            "-",
+            "-",
+            "583A2A",
+            "Tray - 4 Cup Carrier",
+            "-",
+            "PACK(75)",
+            0,
+            0,
+            "PUL-O",
+            1
+        ],
+        "reason": "Missing ItemCode or SupplierCode"
+    },
+    {
+        "original_row": [
+            "OPERATIONAL",
+            "-",
+            "-",
+            "723A2F",
+            "Hinged Sauce Cup 60ml",
+            "-",
+            "PACK(50)",
+            0,
+            0,
+            "PUL-O",
+            1
+        ],
+        "reason": "Missing ItemCode or SupplierCode"
+    },
+    {
+        "original_row": [
+            "-",
+            "-",
+            "-",
+            "485A2G",
+            "Milk - Oat",
+            "-",
+            "CASE(6)",
+            0,
+            0,
+            "PUL-O",
+            1
+        ],
+        "reason": "Missing ItemCode or SupplierCode"
+    },
+    {
+        "original_row": [
+            "GB",
+            "-",
+            "-",
+            "560A2G",
+            "Zincwell\u00a0Lavender 8 Liter Gallon",
+            "-",
+            "GAL",
+            0,
+            0,
+            "PUL-O",
+            1
+        ],
+        "reason": "Missing ItemCode or SupplierCode"
+    },
+    {
+        "original_row": [
+            "GB",
+            "-",
+            "-",
+            "561A2G",
+            "Zincwell Green Tea 8 Liter Gallon",
+            "-",
+            "GAL",
+            0,
+            0,
+            "PUL-O",
+            1
+        ],
+        "reason": "Missing ItemCode or SupplierCode"
+    },
+    {
+        "original_row": [
+            "EGS",
+            "-",
+            "-",
+            "COBRB",
+            "Cobra Replacement Bulb 3pcs\/ pack",
+            "-",
+            "PC",
+            0,
+            0,
+            "PUL-O",
+            1
+        ],
+        "reason": "Missing ItemCode or SupplierCode"
+    },
+    {
+        "original_row": [
+            "EGS",
+            "-",
+            "-",
+            "NF040100006-INNV",
+            "Reagent - Dirt Stripper (INNV)",
+            "-",
+            "GAL",
+            0,
+            0,
+            "PUL-O",
+            1
+        ],
+        "reason": "Missing ItemCode or SupplierCode"
+    },
+    {
+        "original_row": [
+            "EGS",
+            "-",
+            "-",
+            "NF040100007-INNV",
+            "Dish Cloth Blue (INNV)",
+            "-",
+            "PACK",
+            0,
+            0,
+            "PUL-O",
+            1
+        ],
+        "reason": "Missing ItemCode or SupplierCode"
+    },
+    {
+        "original_row": [
+            "EGS",
+            "-",
+            "-",
+            "NF040100008-INNV",
+            "Dish Cloth Green (INNV)",
+            "-",
+            "PACK",
+            0,
+            0,
+            "PUL-O",
+            1
+        ],
+        "reason": "Missing ItemCode or SupplierCode"
+    },
+    {
+        "original_row": [
+            "EGS",
+            "-",
+            "-",
+            "NF040100009-INNV",
+            "Dish Cloth White (INNV)",
+            "-",
+            "PACK",
+            0,
+            0,
+            "PUL-O",
+            1
+        ],
+        "reason": "Missing ItemCode or SupplierCode"
+    },
+    {
+        "original_row": [
+            "EGS",
+            "-",
+            "-",
+            "NF040100010-INNV",
+            "Dish Cloth Yellow (INNV)",
+            "-",
+            "PACK",
+            0,
+            0,
+            "PUL-O",
+            1
+        ],
+        "reason": "Missing ItemCode or SupplierCode"
+    },
+    {
+        "original_row": [
+            "EGS",
+            "-",
+            "-",
+            "NF040200005-INNV",
+            "Dish Sponge (INNV)",
+            "-",
+            "PC",
+            0,
+            0,
+            "PUL-O",
+            1
+        ],
+        "reason": "Missing ItemCode or SupplierCode"
+    },
+    {
+        "original_row": [
+            "EGS",
+            "-",
+            "-",
+            "NF040200004-INNV",
+            "Dish Sponge w\/ Net (INNV)",
+            "-",
+            "PC",
+            0,
+            0,
+            "PUL-O",
+            1
+        ],
+        "reason": "Missing ItemCode or SupplierCode"
+    },
+    {
+        "original_row": [
+            "EGS",
+            "-",
+            "-",
+            "DIYCS",
+            "DIY Clear Septic 100g\/ pack",
+            "-",
+            "PC",
+            0,
+            0,
+            "PUL-O",
+            1
+        ],
+        "reason": "Missing ItemCode or SupplierCode"
+    },
+    {
+        "original_row": [
+            "EGS",
+            "-",
+            "-",
+            "ECOBALL",
+            "Ecoball 4pc\/pack",
+            "-",
+            "PACK",
+            0,
+            0,
+            "PUL-O",
+            1
+        ],
+        "reason": "Missing ItemCode or SupplierCode"
+    },
+    {
+        "original_row": [
+            "GB",
+            "-",
+            "-",
+            "NF040100018-INNV",
+            "Garbage Bag Clear, XXL (INNV)",
+            "-",
+            "PACK",
+            0,
+            0,
+            "PUL-O",
+            1
+        ],
+        "reason": "Missing ItemCode or SupplierCode"
+    },
+    {
+        "original_row": [
+            "GB",
+            "-",
+            "-",
+            "NF040100019-INNV",
+            "Garbage Bag Green XXL (INNV)",
+            "-",
+            "PACK",
+            0,
+            0,
+            "PUL-O",
+            1
+        ],
+        "reason": "Missing ItemCode or SupplierCode"
+    },
+    {
+        "original_row": [
+            "GB",
+            "-",
+            "-",
+            "NF020107189",
+            "Green Drains 2\"",
+            "-",
+            "PC",
+            0,
+            0,
+            "PUL-O",
+            1
+        ],
+        "reason": "Missing ItemCode or SupplierCode"
+    },
+    {
+        "original_row": [
+            "GB",
+            "-",
+            "-",
+            "GD4",
+            "Green Drains 4\"",
+            "-",
+            "PC",
+            0,
+            0,
+            "PUL-O",
+            1
+        ],
+        "reason": "Missing ItemCode or SupplierCode"
+    },
+    {
+        "original_row": [
+            "GB",
+            "-",
+            "-",
+            "GSOD",
+            "GSO Digester 100g\/pack",
+            "-",
+            "PC",
+            0,
+            0,
+            "PUL-O",
+            1
+        ],
+        "reason": "Missing ItemCode or SupplierCode"
+    },
+    {
+        "original_row": [
+            "GB",
+            "-",
+            "-",
+            "IGB",
+            "Illume Glue Boards 10pcs \/ pack",
+            "-",
+            "PACK",
+            0,
+            0,
+            "PUL-O",
+            1
+        ],
+        "reason": "Missing ItemCode or SupplierCode"
+    },
+    {
+        "original_row": [
+            "GB",
+            "-",
+            "-",
+            "IRB",
+            "Illume Replacement Bulb 1pc \/ pack",
+            "-",
+            "Pack",
+            0,
+            0,
+            "PUL-O",
+            1
+        ],
+        "reason": "Missing ItemCode or SupplierCode"
+    },
+    {
+        "original_row": [
+            "GB",
+            "-",
+            "-",
+            "NF040200008-INNV",
+            "Mop Handle - Blue (INNV)",
+            "-",
+            "PC",
+            0,
+            0,
+            "PUL-O",
+            1
+        ],
+        "reason": "Missing ItemCode or SupplierCode"
+    },
+    {
+        "original_row": [
+            "GB",
+            "-",
+            "-",
+            "NF040200009-INNV",
+            "Mop Handle - Green (INNV)",
+            "-",
+            "PC",
+            0,
+            0,
+            "PUL-O",
+            1
+        ],
+        "reason": "Missing ItemCode or SupplierCode"
+    },
+    {
+        "original_row": [
+            "GB",
+            "-",
+            "-",
+            "NF040200010-INNV",
+            "Mop Handle - Red (INNV)",
+            "-",
+            "PC",
+            0,
+            0,
+            "PUL-O",
+            1
+        ],
+        "reason": "Missing ItemCode or SupplierCode"
+    },
+    {
+        "original_row": [
+            "GB",
+            "-",
+            "-",
+            "NF040200028-INNV",
+            "Mop Head - Green (INNV)",
+            "-",
+            "PC",
+            0,
+            0,
+            "PUL-O",
+            1
+        ],
+        "reason": "Missing ItemCode or SupplierCode"
+    },
+    {
+        "original_row": [
+            "GB",
+            "-",
+            "-",
+            "NF040200029-INNV",
+            "Mop Head - Blue (INNV)",
+            "-",
+            "PC",
+            0,
+            0,
+            "PUL-O",
+            1
+        ],
+        "reason": "Missing ItemCode or SupplierCode"
+    },
+    {
+        "original_row": [
+            "GB",
+            "-",
+            "-",
+            "NF040200030-INNV",
+            "Mop Head - Red (INNV)",
+            "-",
+            "PC",
+            0,
+            0,
+            "PUL-O",
+            1
+        ],
+        "reason": "Missing ItemCode or SupplierCode"
+    },
+    {
+        "original_row": [
+            "GB",
+            "-",
+            "-",
+            "ALL PURPOSE CLEANER, AMARIS 100 (3.7LIT)",
+            "ALL PURPOSE CLEANER, AMARIS 100 (3.7LIT)",
+            "-",
+            "PC",
+            0,
+            0,
+            "PUL-O",
+            1
+        ],
+        "reason": "Missing ItemCode or SupplierCode"
+    },
+    {
+        "original_row": [
+            "GB",
+            "-",
+            "-",
+            "WIN CLEAN HAND SOAP",
+            "WIN CLEAN HAND SOAP",
+            "-",
+            "GAL",
+            0,
+            0,
+            "PUL-O",
+            1
+        ],
+        "reason": "Missing ItemCode or SupplierCode"
+    },
+    {
+        "original_row": [
+            "GB",
+            "-",
+            "-",
+            "Cleansol Pro Disinfectant - All Purpose Sanitizer",
+            "Cleansol Pro Disinfectant - All Purpose Sanitizer",
+            "-",
+            "PC",
+            0,
+            0,
+            "PUL-O",
+            1
+        ],
+        "reason": "Missing ItemCode or SupplierCode"
+    },
+    {
+        "original_row": [
+            "GB",
+            "-",
+            "-",
+            "UGB",
+            "Universal Glue Boards  15pcs\/ pack",
+            "-",
+            "PC",
+            0,
+            0,
+            "PUL-O",
+            1
+        ],
+        "reason": "Missing ItemCode or SupplierCode"
+    },
+    {
+        "original_row": [
+            "GB",
+            "-",
+            "-",
+            "Degreaser - Grease Master",
+            "Degreaser - Grease Master",
+            "-",
+            "GAL",
+            0,
+            0,
+            "PUL-O",
+            1
+        ],
+        "reason": "Missing ItemCode or SupplierCode"
+    },
+    {
+        "original_row": [
+            "GB",
+            "-",
+            "-",
+            "RWWD-4LIT(INNV)",
+            "REAGENT - WARE WASHING DETERGENT 4LIT,WASHMATE (INNV)",
+            "-",
+            "PC",
+            0,
+            0,
+            "PUL-O",
+            1
+        ],
+        "reason": "Missing ItemCode or SupplierCode"
+    },
+    {
+        "original_row": [
+            "GB",
+            "-",
+            "-",
+            "sample test",
+            "Dishwashing Rinse 4Lit, RinseMate (INNV)",
+            "-",
+            "PC",
+            0,
+            0,
+            "PUL-O",
+            1
+        ],
+        "reason": "Missing ItemCode or SupplierCode"
+    },
+    {
+        "original_row": [
+            "test",
+            "-",
+            "-",
+            "359A2A",
+            "Ice Cream - Vanilla",
+            3.8,
+            "GAL",
+            0,
+            0,
+            "DROPS",
+            1
+        ],
+        "reason": "Missing ItemCode or SupplierCode"
+    },
+    {
+        "original_row": [
+            "-",
+            "-",
+            "-",
+            "269A2A",
+            "FISH - Salmon Fillet",
+            1,
+            "KG",
+            0,
+            0,
+            "DROPS",
+            1
+        ],
+        "reason": "Missing ItemCode or SupplierCode"
+    }
+]

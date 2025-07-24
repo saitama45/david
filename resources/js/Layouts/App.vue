@@ -108,14 +108,6 @@ const exportPdf = () => {
                     <a href="/" class="flex items-center font-semibold">
                         <img :src="Logo" alt="logo" class="size-52 -ml-7" />
                     </a>
-                    <!-- <Button
-                        variant="outline"
-                        size="icon"
-                        class="ml-auto h-8 w-8"
-                    >
-                        <Bell class="h-4 w-4" />
-                        <span class="sr-only">Toggle notifications</span>
-                    </Button> -->
                 </div>
                 <div
                     class="flex-1 overflow-y-auto scrollbar-thin scrollbar-track-gray-100 scrollbar-thumb-gray-300 hover:scrollbar-thumb-gray-400"
@@ -196,6 +188,8 @@ const exportPdf = () => {
                         {{ heading }}
                     </h1>
                     <DivFlexCenter class="gap-3">
+                        <!-- New slot for header actions -->
+                        <slot name="header-actions"></slot> 
                         <Button
                             v-show="pdfRoute"
                             @click="exportPdf"

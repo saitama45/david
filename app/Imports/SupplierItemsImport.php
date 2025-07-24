@@ -3,13 +3,14 @@
 namespace App\Imports;
 
 use App\Models\SupplierItems;
-use App\Models\SapMasterfile; // Assuming this model exists and is correctly configured
+use App\Models\SAPMasterfile; // Corrected to SAPMasterfile (was SapMasterfile)
 use Maatwebsite\Excel\Concerns\ToCollection;
 use Maatwebsite\Excel\Concerns\WithHeadingRow;
 use Maatwebsite\Excel\Concerns\WithChunkReading;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Log;
 use Carbon\Carbon;
+use Illuminate\Support\Facades\DB; // Import DB facade for upsert
 
 class SupplierItemsImport implements ToCollection, WithHeadingRow, WithChunkReading
 {
@@ -17,8 +18,8 @@ class SupplierItemsImport implements ToCollection, WithHeadingRow, WithChunkRead
     protected $processedCount = 0;
     protected $skippedEmptyKeysCount = 0;
     protected $skippedBySapValidationCount = 0;
-    protected $skippedUnauthorizedCount = 0; // This property must be present
-    protected $assignedSupplierCodes; // To store supplier codes assigned to the user
+    protected $skippedUnauthorizedCount = 0;
+    protected $assignedSupplierCodes;
 
     public function __construct(array $assignedSupplierCodes)
     {
@@ -32,16 +33,21 @@ class SupplierItemsImport implements ToCollection, WithHeadingRow, WithChunkRead
      */
     public function collection(Collection $rows)
     {
-        $dataToUpsert = [];
+        // Define a conservative batch size for the upsert operation to avoid SQL Server parameter limits.
+        // This value is chosen to provide a significant buffer, making it less reliant on exact column counts.
+        // Even if more columns are added later, this batch size should remain safe.
+        $upsertBatchSize = 100; 
 
-        // Group rows by ItemCode to handle duplicates within the Excel file itself
-        // This ensures that for a given ItemCode, only the LAST occurrence in the Excel file is processed,
-        // preventing the SQL Server MERGE error if the Excel has duplicate ItemCodes.
+        // Group rows by ItemCode to handle duplicates within the Excel chunk itself
+        // This ensures that for a given ItemCode, only the LAST occurrence in the Excel chunk is processed,
+        // preventing issues if the chunk has duplicate ItemCodes.
         $deduplicatedRows = $rows->groupBy(function($row) {
             return trim($row['item_code'] ?? '');
         })->map(function($group) {
             return $group->last(); // Take the last occurrence for each ItemCode
         })->values(); // Re-index the collection
+
+        $dataForCurrentChunk = [];
 
         foreach ($deduplicatedRows as $row) {
             $itemCode = trim($row['item_code'] ?? '');
@@ -76,8 +82,7 @@ class SupplierItemsImport implements ToCollection, WithHeadingRow, WithChunkRead
             }
 
             // 3. SAP Validation: Check if ItemCode and AltUOM (from Excel's UNIT) exist in sap_masterfiles
-            // Assuming SapMasterfile has 'ItemCode' and 'AltUOM' columns
-            $sapMasterfileExists = SapMasterfile::where('ItemCode', $itemCode)
+            $sapMasterfileExists = SAPMasterfile::where('ItemCode', $itemCode)
                                                 ->where('AltUOM', $unit)
                                                 ->exists();
 
@@ -97,8 +102,8 @@ class SupplierItemsImport implements ToCollection, WithHeadingRow, WithChunkRead
             $category = trim($row['category'] ?? '');
             $brand = trim($row['brand'] ?? '');
             $classification = trim($row['classification'] ?? '');
-            $itemName = trim($row['item_name'] ?? ''); // Re-included item_name
-            $packagingConfig = trim($row['packaging_config'] ?? ''); // Using 'packaging_config' as per your Excel headers
+            $itemName = trim($row['item_name'] ?? '');
+            $packagingConfig = trim($row['packaging_config'] ?? '');
             $cost = (float) ($row['cost'] ?? 0.00);
             $srp = (float) ($row['srp'] ?? 0.00);
             
@@ -109,36 +114,38 @@ class SupplierItemsImport implements ToCollection, WithHeadingRow, WithChunkRead
             }
             $isActive = (int)$isActive; // Ensure it's 0 or 1
 
-            $dataToUpsert[] = [
+            $dataForCurrentChunk[] = [
                 'category'          => $category,
                 'brand'             => $brand,
                 'classification'    => $classification,
-                'ItemCode'          => $itemCode, // Use ItemCode
-                'item_name'         => $itemName, // Re-included item_name
+                'ItemCode'          => $itemCode,
+                'item_name'         => $itemName,
                 'packaging_config'  => $packagingConfig,
                 'uom'               => $unit, // Maps to 'UNIT' column in Excel
                 'cost'              => $cost,
                 'srp'               => $srp,
                 'SupplierCode'      => $supplierCode,
                 'is_active'         => $isActive,
-                'created_at'        => now(), // Will be ignored on update by upsert if not in updateColumns
+                'created_at'        => now(), 
                 'updated_at'        => now(),
             ];
             $this->processedCount++;
         }
 
-        // Only proceed if there's data to upsert after all filters
-        if (!empty($dataToUpsert)) {
-            // Define the unique key for upserting: 'ItemCode' only
-            $uniqueBy = ['ItemCode'];
+        // Now, process the collected dataForCurrentChunk in smaller batches for upsert
+        if (!empty($dataForCurrentChunk)) {
+            foreach (array_chunk($dataForCurrentChunk, $upsertBatchSize) as $miniBatch) {
+                // Define the unique key for upserting: 'ItemCode' and 'SupplierCode'
+                $uniqueBy = ['ItemCode', 'SupplierCode'];
 
-            // Define the columns that should be updated if a match is found
-            $updateColumns = [
-                'category', 'brand', 'classification', 'item_name', 'packaging_config',
-                'uom', 'cost', 'srp', 'SupplierCode', 'is_active', 'updated_at'
-            ];
+                // Define the columns that should be updated if a match is found
+                $updateColumns = [
+                    'category', 'brand', 'classification', 'item_name', 'packaging_config',
+                    'uom', 'cost', 'srp', 'is_active', 'updated_at' // SupplierCode is part of uniqueBy, not update
+                ];
 
-            SupplierItems::upsert($dataToUpsert, $uniqueBy, $updateColumns);
+                DB::table('supplier_items')->upsert($miniBatch, $uniqueBy, $updateColumns);
+            }
         }
     }
 
@@ -173,7 +180,6 @@ class SupplierItemsImport implements ToCollection, WithHeadingRow, WithChunkRead
         return $this->skippedBySapValidationCount;
     }
 
-    // This method must be present for the controller to call it
     public function getSkippedUnauthorizedCount(): int
     {
         return $this->skippedUnauthorizedCount;
@@ -184,13 +190,9 @@ class SupplierItemsImport implements ToCollection, WithHeadingRow, WithChunkRead
         return $this->skippedDetails;
     }
 
-    public function batchSize(): int
-    {
-        return 200; // Optimal batch size for upsert
-    }
-
+    // This is the chunk size for Maatwebsite\Excel to read the file
     public function chunkSize(): int
     {
-        return 1000;
+        return 1000; // Reads 1000 rows at a time into the collection method
     }
 }

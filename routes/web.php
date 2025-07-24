@@ -476,6 +476,7 @@ Route::middleware('auth')
             Route::middleware('permission:edit POSMasterfile')->group(function () {
                 Route::get('/POSMasterfile-list/edit/{id}', 'edit')->name('edit');
                 Route::put('/POSMasterfile-list/update/{id}', 'update')->name('update');
+                Route::get('/POSMasterfile-list/product/{id}', 'getProductDetails')->name('product.show');
             });
             Route::middleware('permission:delete POSMasterfile')->delete('/POSMasterfile-list/destroy/{id}', 'destroy')->name('destroy');
             Route::middleware('permission:export POSMasterfile list')->get('/POSMasterfile-list/export', 'export')->name('export');
