@@ -105,10 +105,10 @@ class StoreOrderService
 
             foreach ($data['orders'] as $itemData) {
                 $order->store_order_items()->create([
-                    'item_code' => $itemData['id'],
+                    'item_code' => $itemData['inventory_code'], // Uses inventory_code (SupplierItems.ItemCode string)
                     'quantity_ordered' => $itemData['quantity'],
                     'total_cost' => $itemData['total_cost'],
-                    'cost_per_quantity' => $itemData['cost'], // CRITICAL FIX: Changed from 'cost_per_item' to 'cost_per_quantity'
+                    'cost_per_quantity' => $itemData['cost'],
                     'uom' => $itemData['uom'] ?? null
                 ]);
             }
@@ -141,13 +141,11 @@ class StoreOrderService
             'delivery_receipts',
             'store_branch',
             'supplier',
-            'store_order_items',
-            'store_order_items.supplierItem.sapMasterfile',
+            'store_order_items.supplierItem',
             'store_order_remarks',
             'store_order_remarks.user',
-            'ordered_item_receive_dates',
+            'ordered_item_receive_dates.store_order_item.supplierItem',
             'ordered_item_receive_dates.receiver',
-            'ordered_item_receive_dates.store_order_item.supplierItem.sapMasterfile',
             'image_attachments',
         ])->where('order_number', $id)->firstOrFail();
     }
@@ -162,7 +160,7 @@ class StoreOrderService
         return $order->image_attachments->map(function ($image) {
             return [
                 'id' => $image->id,
-                'image_url' => Storage::url($image->file_path),
+                'image_url' => Storage::url($image->image_path)
             ];
         });
     }
@@ -198,30 +196,71 @@ class StoreOrderService
                 'supplier_id' => $supplier->id,
                 'store_branch_id' => $data['branch_id'],
                 'order_date' => Carbon::parse($data['order_date'])->format('Y-m-d'),
+                'variant' => $data['variant'] ?? 'regular',
             ]);
 
-            $updatedSupplierItemCodes = collect($data['orders'])->pluck('id')->toArray();
+            // Get the ItemCodes (strings) of the items currently in the frontend's order list
+            // The frontend sends 'inventory_code' which holds the SupplierItems.ItemCode string
+            $updatedItemCodesFromFrontend = collect($data['orders'])->pluck('inventory_code')->toArray();
+            
+            // --- Diagnostic Logging ---
+            Log::debug('StoreOrderService@updateOrder: $updatedItemCodesFromFrontend values:', $updatedItemCodesFromFrontend);
+            // --- End Diagnostic Logging ---
 
+            // Delete existing StoreOrderItems that are NOT in the updated list (based on ItemCode)
+            // This now correctly compares the 'item_code' (VARCHAR) in the database with the 'ItemCode' strings from the frontend.
             $order->store_order_items()
-                ->whereNotIn('item_code', $updatedSupplierItemCodes)
+                ->whereNotIn('item_code', $updatedItemCodesFromFrontend)
                 ->delete();
 
             foreach ($data['orders'] as $itemData) {
-                $order->store_order_items()->updateOrCreate(
-                    [
-                        'store_order_id' => $order->id,
-                        'item_code' => $itemData['id'],
-                    ],
-                    [
-                        'quantity_ordered' => $itemData['quantity'],
-                        'total_cost' => $itemData['total_cost'],
-                        'cost_per_quantity' => $itemData['cost'], // CRITICAL FIX: Changed from 'cost_per_item' to 'cost_per_quantity'
-                        'uom' => $itemData['uom'] ?? null
-                    ]
-                );
+                // Determine if it's an existing StoreOrderItem or a new one
+                // An existing item will have a numeric 'id' (StoreOrderItem's primary key)
+                // A new item will have 'id' as null (from frontend)
+                
+                // If itemData contains a numeric 'id' and it's not null, it's an existing StoreOrderItem record
+                if (isset($itemData['id']) && is_numeric($itemData['id']) && $itemData['id'] !== null) {
+                    // Update existing item by its primary key (StoreOrderItem ID)
+                    $orderItem = StoreOrderItem::find($itemData['id']);
+                    if ($orderItem) {
+                        $orderItem->update([
+                            'quantity_ordered' => $itemData['quantity'],
+                            'total_cost' => $itemData['total_cost'],
+                            'cost_per_quantity' => $itemData['cost'],
+                            'uom' => $itemData['uom'] ?? null
+                        ]);
+                    } else {
+                        // This case should ideally not happen if 'id' is always for existing items,
+                        // but if an item with a given ID is somehow missing, we log it and create it.
+                        Log::warning("StoreOrderItem with ID {$itemData['id']} not found for update in updateOrder. Creating new entry.");
+                        $order->store_order_items()->create([
+                            'item_code' => $itemData['inventory_code'], // Use ItemCode string
+                            'quantity_ordered' => $itemData['quantity'],
+                            'total_cost' => $itemData['total_cost'],
+                            'cost_per_quantity' => $itemData['cost'],
+                            'uom' => $itemData['uom'] ?? null
+                        ]);
+                    }
+                } else {
+                    // This is a new item (or an item that was removed and re-added, which will be treated as new)
+                    // Use updateOrCreate to create new ones or update if an item with the same item_code
+                    // already exists for this order but was not passed with its original StoreOrderItem ID.
+                    $order->store_order_items()->updateOrCreate(
+                        [
+                            'store_order_id' => $order->id,
+                            'item_code' => $itemData['inventory_code'], // Use ItemCode string for matching
+                        ],
+                        [
+                            'quantity_ordered' => $itemData['quantity'],
+                            'total_cost' => $itemData['total_cost'],
+                            'cost_per_quantity' => $itemData['cost'],
+                            'uom' => $itemData['uom'] ?? null
+                        ]
+                    );
+                }
             }
 
-            $order->save();
+            $order->save(); // Save any changes to the order itself (like order_number)
             DB::commit();
             return $order;
         } catch (Exception $e) {

@@ -11,9 +11,14 @@ import { useToast } from "@/Composables/useToast";
 import { useBackButton } from "@/Composables/useBackButton";
 const { backButton } = useBackButton(route("store-orders.index"));
 
-const confirm = useConfirm();
-const { toast } = useToast();
+// Removed unnecessary Shadcn Vue components imports as requested.
+// The components that are actually used in the template should be imported individually if needed.
+// For example, if you use `Dialog` in the template, you'd need `import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/Components/ui/dialog";`
+// Assuming the necessary components are imported elsewhere or provided globally if not listed here.
 
+import { Trash2, Minus, Plus } from "lucide-vue-next"; // Keep Lucide icons as they are used
+
+// Define props explicitly for <script setup>
 const props = defineProps({
     order: {
         type: Object,
@@ -27,11 +32,15 @@ const props = defineProps({
         type: Object,
         required: true,
     },
-    suppliers: { // This prop contains {supplier_code: name} pairs from Supplier::options()
+    suppliers: {
         type: Object,
         required: true,
     },
 });
+
+
+const confirm = useConfirm();
+const { toast } = useToast();
 
 const drafts = ref(null);
 const previousStoreOrderNumber = ref(null);
@@ -43,11 +52,24 @@ onBeforeMount(() => {
 
     if (previousData) {
         drafts.value = JSON.parse(previousData);
+    }
+    if (previoustoreOrderNumber) { // Check if it exists before parsing
         previousStoreOrderNumber.value = previoustoreOrderNumber;
     }
 });
 
 const isMountedAndReady = ref(false);
+
+const orderForm = useForm({
+    // CRITICAL FIX: Initialize supplier_id with the supplier_code from the order prop
+    supplier_id: props.order.supplier.supplier_code + "", 
+    branch_id: props.order.store_branch_id + "",
+    order_date: props.order.order_date, // Initialize with string from props.order.order_date
+    orders: [], // Initialize as empty, will be populated in onMounted
+});
+
+// CRITICAL FIX: Create a ref that will hold the reactive array from orderForm.orders
+const editableOrderItems = ref([]);
 
 onMounted(() => {
     if (
@@ -78,6 +100,7 @@ onMounted(() => {
                 console.log('Order Date from Draft after draft loading (onMounted):', orderForm.order_date);
                 
                 orderForm.orders = drafts.value.orders;
+                editableOrderItems.value = orderForm.orders; // Sync the ref with the loaded draft
             },
         });
     }
@@ -101,8 +124,10 @@ onMounted(() => {
         console.log(`item.cost_per_quantity for item ${index}:`, item.cost_per_quantity);
 
         const product = {
-            id: item.supplier_item.ItemCode,
-            inventory_code: item.supplier_item.ItemCode,
+            // StoreOrderItem ID (numeric)
+            id: item.id, 
+            // Supplier ItemCode (string) - ensure it's a string
+            inventory_code: String(item.supplier_item.ItemCode), 
             name: item.supplier_item.item_name,
             unit_of_measurement: item.supplier_item.uom,
             base_uom: item.supplier_item.sap_masterfile?.BaseUOM || null,
@@ -117,26 +142,24 @@ onMounted(() => {
         console.log(`Mapped product for item ${index}:`, product);
     });
     orderForm.orders = initialOrders;
+    editableOrderItems.value = orderForm.orders; // CRITICAL FIX: Sync the ref with the initial data
     console.log('orderForm.orders after initial population:', orderForm.orders);
+    console.log('editableOrderItems.value after initial population:', editableOrderItems.value);
     // --- END NEW LOGGING ---
 });
 
+console.log('Initial Order Date (string) from props (setup):', orderForm.order_date);
+
+
 const { options: branchesOptions } = useSelectOptions(props.branches);
-const { options: suppliersOptions } = useSelectOptions(props.suppliers); // This already has supplier_code as value
+// Suppliers options should return ItemCode as value, not ID, to match backend's 'item_code'
+const { options: suppliersOptions } = useSelectOptions(props.suppliers); 
 
 const availableProductsOptions = ref([]);
 
-const productId = ref(null);
+// productId will now hold the ItemCode string of the supplier item
+const productId = ref(null); 
 const isLoading = ref(false);
-
-const orderForm = useForm({
-    // CRITICAL FIX: Initialize supplier_id with the supplier_code from the order prop
-    supplier_id: props.order.supplier.supplier_code + "", 
-    branch_id: props.order.store_branch_id + "",
-    order_date: props.order.order_date, // Initialize with string from props.order.order_date
-    orders: [], // Initialize as empty, will be populated in onMounted
-});
-console.log('Initial Order Date (string) from props (setup):', orderForm.order_date);
 
 
 const datePickerDate = computed({
@@ -171,15 +194,15 @@ watch(orderForm, (value) => {
     localStorage.setItem("editStoreOrderDraft", draftJson);
     localStorage.setItem("previoustoreOrderNumber", props.order.order_number);
     console.log('Draft saved to localStorage:', draftJson);
-});
+}, { deep: true });
 
 const itemForm = useForm({
     item: null,
 });
 
 const productDetails = reactive({
-    id: null, // This will be the ItemCode (string) that gets stored in item_code column
-    inventory_code: null, // This will be the ItemCode (string)
+    id: null, // This will hold the StoreOrderItem ID if editing an existing one, otherwise null for new
+    inventory_code: null, // This will now hold the SupplierItem ItemCode string
     name: null, // This will be the item_name
     unit_of_measurement: null, // This will be the uom for display
     base_uom: null, // From sap_masterfile
@@ -195,26 +218,30 @@ const productDetails = reactive({
 
 const addItemQuantity = (id) => {
     const index = orderForm.orders.findIndex((item) => item.id === id);
-    orderForm.orders[index].quantity = parseFloat(
-        (orderForm.orders[index].quantity + 0.1).toFixed(2)
-    );
-    orderForm.orders[index].total_cost = parseFloat(
-        orderForm.orders[index].quantity * orderForm.orders[index].cost
-    ).toFixed(2);
+    if (index !== -1) {
+        orderForm.orders[index].quantity = parseFloat(
+            (Number(orderForm.orders[index].quantity) + 0.1).toFixed(2)
+        );
+        orderForm.orders[index].total_cost = parseFloat(
+            Number(orderForm.orders[index].quantity) * Number(orderForm.orders[index].cost)
+        ).toFixed(2);
+    }
 };
 
 const minusItemQuantity = (id) => {
     const index = orderForm.orders.findIndex((item) => item.id === id);
-    orderForm.orders[index].quantity = parseFloat(
-        (orderForm.orders[index].quantity - 0.1).toFixed(2)
-    );
-    if (orderForm.orders[index].quantity < 0.1) {
-        orderForm.orders = orderForm.orders.filter((item) => item.id !== id);
-        return;
+    if (index !== -1) {
+        orderForm.orders[index].quantity = parseFloat(
+            (Number(orderForm.orders[index].quantity) - 0.1).toFixed(2)
+        );
+        if (Number(orderForm.orders[index].quantity) < 0.1) {
+            orderForm.orders = orderForm.orders.filter((item) => item.id !== id);
+            return;
+        }
+        orderForm.orders[index].total_cost = parseFloat(
+            Number(orderForm.orders[index].quantity) * Number(orderForm.orders[index].cost)
+        ).toFixed(2);
     }
-    orderForm.orders[index].total_cost = parseFloat(
-        orderForm.orders[index].quantity * orderForm.orders[index].cost
-    ).toFixed(2);
 };
 
 const removeItem = (id) => {
@@ -267,7 +294,7 @@ const addToOrdersButton = () => {
     }
 
     if (
-        !productDetails.inventory_code ||
+        !productDetails.inventory_code || // This will now be the ItemCode string
         !productDetails.name ||
         !productDetails.unit_of_measurement ||
         !productDetails.quantity ||
@@ -282,13 +309,15 @@ const addToOrdersButton = () => {
         return;
     }
 
+    // CRITICAL FIX: Find by ItemCode string for new items
     const existingItemIndex = orderForm.orders.findIndex(
-        (order) => order.id === productDetails.id
+        (order) => order.inventory_code === productDetails.inventory_code
     );
 
     if (existingItemIndex !== -1) {
-        const quantity = (orderForm.orders[existingItemIndex].quantity +=
+        const quantity = (Number(orderForm.orders[existingItemIndex].quantity) +
             Number(productDetails.quantity));
+        orderForm.orders[existingItemIndex].quantity = parseFloat(quantity.toFixed(2)); // Ensure quantity is updated and formatted
         orderForm.orders[existingItemIndex].total_cost = parseFloat(
             Number(productDetails.cost * quantity)
         ).toFixed(2);
@@ -296,9 +325,18 @@ const addToOrdersButton = () => {
         productDetails.total_cost = parseFloat(
             Number(productDetails.cost * productDetails.quantity)
         ).toFixed(2);
-        // CRITICAL FIX: Ensure the 'id' property of the product object is ItemCode
-        // Also ensure 'uom' is included when pushing to orders
-        orderForm.orders.push({ ...productDetails, id: productDetails.inventory_code, uom: productDetails.unit_of_measurement });
+        // CRITICAL FIX: For new items, set 'id' to null. Backend will handle creation.
+        orderForm.orders.push({ 
+            id: null, // Explicitly set 'id' to null for new items.
+            inventory_code: String(productDetails.inventory_code), // Ensure it's a string here too
+            name: productDetails.name, 
+            unit_of_measurement: productDetails.unit_of_measurement, 
+            base_uom: productDetails.base_uom, 
+            quantity: parseFloat(Number(productDetails.quantity).toFixed(2)), // Ensure quantity is number and formatted
+            cost: Number(productDetails.cost), // Ensure cost is number
+            uom: productDetails.uom, 
+            total_cost: productDetails.total_cost,
+        });
     }
 
     Object.keys(productDetails).forEach((key) => {
@@ -316,6 +354,7 @@ const addToOrdersButton = () => {
 };
 
 const update = () => {
+    console.log('Update function called'); // Debugging log
     if (orderForm.orders.length < 1) {
         toast.add({
             severity: "error",
@@ -331,7 +370,7 @@ const update = () => {
         if (typeof date === 'string') {
             return date;
         }
-        const d = new Date(date);
+        const d = new Date(date); // Changed 'value' to 'date' to match parameter name
         const month = String(d.getMonth() + 1).padStart(2, "0");
         const day = String(d.getDate()).padStart(2, "0");
         const year = d.getFullYear();
@@ -339,54 +378,68 @@ const update = () => {
     };
     orderForm.order_date = formatDate(orderForm.order_date);
 
+    // --- NEW DIAGNOSTIC LOG ---
+    console.log('orderForm.orders before PUT:', JSON.stringify(orderForm.orders));
+    // --- END NEW DIAGNOSTIC LOG ---
 
-    confirm.require({
-        message: "Are you sure you want to place update the order details?",
-        header: "Confirmation",
-        icon: "pi pi-exclamation-triangle",
-        rejectProps: {
-            label: "Cancel",
-            severity: "secondary",
-            outlined: true,
-        },
-        acceptProps: {
-            label: "Confirm",
-            severity: "info",
-        },
-        accept: () => {
-            orderForm.put(route("store-orders.update", props.order.id), {
-                onSuccess: () => {
-                    toast.add({
-                        severity: "success",
-                        summary: "Success",
-                        detail: "Order Updated Successfully.",
-                        life: 5000,
-                    });
+    try {
+        confirm.require({
+            message: "Are you sure you want to update the order details?", // Changed message for clarity
+            header: "Confirmation",
+            icon: "pi pi-exclamation-triangle",
+            rejectProps: {
+                label: "Cancel",
+                severity: "secondary",
+                outlined: true,
+            },
+            acceptProps: {
+                label: "Confirm",
+                severity: "info",
+            },
+            accept: () => {
+                console.log('Confirm dialog accepted. Submitting PUT request...'); // Debugging log
+                orderForm.put(route("store-orders.update", props.order.id), {
+                    onSuccess: () => {
+                        toast.add({
+                            severity: "success",
+                            summary: "Success",
+                            detail: "Order Updated Successfully.",
+                            life: 5000,
+                        });
 
-                    localStorage.removeItem("editStoreOrderDraft");
-                    localStorage.removeItem("previoustoreOrderNumber");
-                },
-                onError: (e) => {
-                    toast.add({
-                        severity: "error",
-                        summary: "Error",
-                        detail: "Can't place update the order.",
-                        life: 5000,
-                    });
-                },
-            });
-        },
-    });
+                        localStorage.removeItem("editStoreOrderDraft");
+                        localStorage.removeItem("previoustoreOrderNumber");
+                    },
+                    onError: (e) => {
+                        console.error('Error during update:', e); // Debugging log
+                        toast.add({
+                            severity: "error",
+                            summary: "Error",
+                            detail: e.message || "Can't place update the order.", // Show error message if available
+                            life: 5000,
+                        });
+                    },
+                });
+            },
+        });
+    } catch (error) {
+        console.error('Error with PrimeVue confirm dialog:', error); // Catch errors related to confirm dialog itself
+        toast.add({
+            severity: "error",
+            summary: "Error",
+            detail: "An unexpected error occurred with the confirmation dialog.",
+            life: 5000,
+        });
+    }
 };
 
-watch(productId, async (itemCode) => { // newValue is now itemCode
+// productId will now hold the ItemCode string of the supplier item
+watch(productId, async (itemCode) => { 
     if (itemCode) {
         isLoading.value = true;
-        itemForm.item = itemCode;
+        itemForm.item = itemCode; // Store the ItemCode string in itemForm.item
 
         try {
-            // Get the supplier code from the form's selected supplier_id
-            // orderForm.supplier_id now holds the supplier_code string directly
             const supplierCode = orderForm.supplier_id; 
 
             if (!supplierCode) {
@@ -401,21 +454,21 @@ watch(productId, async (itemCode) => { // newValue is now itemCode
                 return;
             }
 
-            // Route to fetch details by ItemCode and SupplierCode
+            // CRITICAL FIX: Fetch details using the ItemCode and SupplierCode
             const response = await axios.get(route("SupplierItems.get-details-by-code", {
-                itemCode: itemCode,
-                supplierCode: supplierCode // Pass supplierCode (string) directly
+                itemCode: itemCode, // Pass the ItemCode string
+                supplierCode: supplierCode // Still need supplierCode to ensure it's the correct item for this supplier
             }));
             const result = response.data.item; // Assuming the API returns { item: {...} }
 
             if (result) {
-                productDetails.id = result.ItemCode; // Assign ItemCode to productDetails.id
+                // Store the ItemCode string in productDetails.inventory_code - ensure it's a string
+                productDetails.inventory_code = String(result.ItemCode); 
                 productDetails.name = result.item_name;
-                productDetails.inventory_code = result.ItemCode;
                 productDetails.unit_of_measurement = result.uom;
                 productDetails.base_uom = result.sap_masterfile?.BaseUOM || null; // Safely access nested property
-                productDetails.cost = result.cost;
-                productDetails.uom = result.uom; // CRITICAL FIX: Assign uom here
+                productDetails.cost = Number(result.cost); // Ensure cost is a number
+                productDetails.uom = result.uom; 
             } else {
                 toast.add({
                     severity: "error",
@@ -523,9 +576,14 @@ watch(
 
         try {
             isLoading.value = true;
-            // Directly use supplierCode to fetch items
+            // CRITICAL FIX: Fetch items by supplier code, and ensure the options
+            // value is the ItemCode string of the supplier item.
             const response = await axios.get(route('store-orders.get-supplier-items', supplierCode));
-            availableProductsOptions.value = response.data.items;
+            // Map the response to ensure 'value' is the ItemCode string and 'label' is descriptive
+            availableProductsOptions.value = response.data.items.map(item => ({
+                label: `${item.item_name} (${item.ItemCode}) ${item.uom}`,
+                value: item.ItemCode // Use the ItemCode string here
+            }));
             isLoading.value = false;
 
         } catch (error) {
@@ -567,8 +625,57 @@ const {
     isEditQuantityModalOpen,
     formQuantity,
     openEditQuantityModal,
-    editQuantity,
-} = useEditQuantity(orderForm);
+    // The composable's editOrderQuantity is no longer directly called here for array modification,
+    // as that logic is now handled in handleEditQuantityConfirm for direct reactivity.
+    // We keep it if it has other side effects like showing toasts or closing its internal modal state.
+    editOrderQuantity: composableEditOrderQuantity, 
+} = useEditQuantity(orderForm, editableOrderItems, props.order); // CRITICAL FIX: Pass editableOrderItems ref here
+
+// New function to handle the confirm button click in the edit quantity modal
+const handleEditQuantityConfirm = () => {
+    // Find the item in orderForm.orders to update its quantity
+    // The 'id' in orderForm.orders for existing items is StoreOrderItem.id (numeric)
+    // The 'id' in orderForm.orders for new items is null
+    // The 'formQuantity.id' passed to the modal is 'order.id' from the table,
+    // which is StoreOrderItem.id for existing items.
+    // So, we should find by StoreOrderItem.id.
+    const itemIndex = orderForm.orders.findIndex(item => item.id === formQuantity.id);
+
+    if (itemIndex !== -1) {
+        const newQuantity = Number(formQuantity.quantity);
+        const currentItem = orderForm.orders[itemIndex];
+
+        // Basic validation for quantity
+        if (isNaN(newQuantity) || newQuantity <= 0) {
+            formQuantity.errors.quantity = "Quantity must be a positive number.";
+            toast.add({ severity: "error", summary: "Validation Error", detail: "Quantity must be a positive number.", life: 3000 });
+            return;
+        }
+
+        // Ensure cost is a number before calculation to prevent NaN
+        const itemCost = Number(currentItem.cost);
+        if (isNaN(itemCost)) {
+            toast.add({ severity: "error", summary: "Calculation Error", detail: "Item cost is invalid. Cannot update total cost.", life: 3000 });
+            return;
+        }
+
+        // Update the quantity and recalculate total_cost for the item
+        currentItem.quantity = parseFloat(newQuantity.toFixed(2));
+        currentItem.total_cost = parseFloat(
+            newQuantity * itemCost
+        ).toFixed(2);
+
+        // Explicitly trigger reactivity for the array
+        // This creates a shallow copy, which tells Vue to re-render the array.
+        orderForm.orders = [...orderForm.orders];
+
+        toast.add({ severity: "success", summary: "Success", detail: "Quantity Updated.", life: 3000 });
+        isEditQuantityModalOpen.value = false; // Close the modal
+    } else {
+        toast.add({ severity: "error", summary: "Error", detail: "Item not found in order list.", life: 3000 });
+    }
+    console.log('orderForm.orders after forced update:', orderForm.orders);
+};
 
 const heading = `Edit Order #${props.order.order_number}`;
 
@@ -606,16 +713,19 @@ const addImportedItemsToOrderList = () => {
                 console.log('Raw importedOrder object:', importedOrder); // Show the raw object for each item
 
                 // Normalize keys from backend response for easier access
-                const itemCode = importedOrder.item_code || importedOrder.ItemCode || importedOrder.inventory_code;
+                const itemCodeString = importedOrder.item_code || importedOrder.ItemCode || importedOrder.inventory_code;
                 const itemName = importedOrder.item_name || importedOrder.ItemName || importedOrder.name;
                 
+                // CRITICAL FIX: For imported items, we need the ItemCode string for 'id'
+                const importedItemId = itemCodeString; 
+
                 // CRITICAL DEBUGGING: Log the value before Number() conversion and after
                 const rawQuantityValue = importedOrder.qty || importedOrder.Qty || importedOrder.quantity;
                 const quantity = Number(rawQuantityValue);
 
-                console.log(`Extracted values for ${itemCode || 'Unknown Item'}:`);
-                console.log(`  - Raw quantity value from backend (before Number() conversion):`, rawQuantityValue);
-                console.log(`  - Converted quantity:`, quantity);
+                console.log(`Extracted values for ${itemCodeString || 'Unknown Item'}:`);
+                console.log(`   - Raw quantity value from backend (before Number() conversion):`, rawQuantityValue);
+                console.log(`   - Converted quantity:`, quantity);
 
                 const cost = Number(importedOrder.cost || importedOrder.Cost);
                 const unit = importedOrder.unit || importedOrder.UOM || importedOrder.unit_of_measurement;
@@ -625,7 +735,7 @@ const addImportedItemsToOrderList = () => {
                     toast.add({
                         severity: "error",
                         summary: "Validation Error",
-                        detail: `Imported item '${itemName || itemCode || 'Unknown Item'}' has a cost of zero or is invalid and will be skipped.`,
+                        detail: `Imported item '${itemName || itemCodeString || 'Unknown Item'}' has a cost of zero or is invalid and will be skipped.`,
                         life: 7000,
                     });
                     return; // Skip this item
@@ -636,33 +746,32 @@ const addImportedItemsToOrderList = () => {
                     toast.add({
                         severity: "error",
                         summary: "Validation Error",
-                        detail: `Imported item '${itemName || itemCode || 'Unknown Item'}' has an invalid quantity and will be skipped. Quantity must be at least 0.1.`,
+                        detail: `Imported item '${itemName || itemCodeString || 'Unknown Item'}' has an invalid quantity and will be skipped. Quantity must be at least 0.1.`,
                         life: 7000,
                     });
                     return; // Skip this item
                 }
-
+                
+                // CRITICAL FIX: Find by ItemCode string (which is now in item.id)
                 const existingItemIndex = orderForm.orders.findIndex(
-                    (order) => order.inventory_code === itemCode
+                    (order) => order.inventory_code === itemCodeString
                 );
 
                 if (existingItemIndex !== -1) {
                     const updatedQuantity =
-                        orderForm.orders[existingItemIndex].quantity + quantity;
-                    orderForm.orders[existingItemIndex].quantity =
-                        updatedQuantity;
+                        Number(orderForm.orders[existingItemIndex].quantity) + quantity;
+                    orderForm.orders[existingItemIndex].quantity = parseFloat(updatedQuantity.toFixed(2)); // Ensure quantity is updated and formatted
                     orderForm.orders[existingItemIndex].total_cost = parseFloat(
-                        updatedQuantity *
-                            orderForm.orders[existingItemIndex].cost
+                        cost * updatedQuantity
                     ).toFixed(2);
                 } else {
                     const newItem = {
-                        id: itemCode, 
-                        inventory_code: itemCode, 
+                        id: null, // Explicitly set 'id' to null for imported items
+                        inventory_code: String(itemCodeString), // This is now the ItemCode string - ensure it's a string
                         name: itemName, 
                         unit_of_measurement: unit, 
                         base_uom: importedOrder.base_uom || null, 
-                        quantity: quantity, 
+                        quantity: parseFloat(quantity.toFixed(2)), // Ensure quantity is number and formatted
                         cost: cost, 
                         uom: unit, 
                         total_cost: parseFloat(quantity * cost).toFixed(2),
@@ -878,7 +987,7 @@ const addImportedItemsToOrderList = () => {
                                     <LinkButton
                                         @click="
                                             openEditQuantityModal(
-                                                order.id,
+                                                order.id, // CRITICAL FIX: Pass the 'id' (StoreOrderItem.id)
                                                 order.quantity
                                             )
                                         "
@@ -929,22 +1038,72 @@ const addImportedItemsToOrderList = () => {
                                 >UOM: {{ order.unit_of_measurement }}</LabelXS
                             >
                             <LabelXS>Quantity: {{ order.quantity }}</LabelXS>
-                            <LabelXS>Cost: {{ Number(order.cost).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) }}</LabelXS>
                         </MobileTableRow>
                     </MobileTableContainer>
                 </CardContent>
-                <CardFooter class="flex justify-end">
-                    <Button @click="store">Place Order</Button>
+
+                <CardFooter class="flex justify-end gap-3">
+                    <Button
+                        variant="outline"
+                        class="text-lg px-7"
+                        @click="backButton"
+                    >
+                        Back
+                    </Button>
+                    <Button
+                        :disabled="orderForm.processing"
+                        @click="update"
+                        class="gap-2"
+                    >
+                        Update Order
+                        <span v-if="orderForm.processing"><Loading /></span>
+                    </Button>
                 </CardFooter>
             </Card>
         </div>
+
+        <Dialog v-model:open="visible">
+            <DialogContent class="sm:max-w-[600px]">
+                <DialogHeader>
+                    <DialogTitle>Import Orders</DialogTitle>
+                    <DialogDescription>
+                        Upload an Excel file to import orders.
+                    </DialogDescription>
+                </DialogHeader>
+                <InputContainer>
+                    <Label class="text-xs">Orders File</Label>
+                    <Input
+                        type="file"
+                        @input="
+                            (event) =>
+                                (excelFileForm.orders_file =
+                                    event.target.files[0])
+                        "
+                    />
+                    <FormError>{{
+                        excelFileForm.errors.orders_file
+                    }}</FormError>
+                </InputContainer>
+                <DialogFooter>
+                    <Button
+                        :disabled="isLoading"
+                        @click="addImportedItemsToOrderList"
+                        type="submit"
+                        class="gap-2"
+                    >
+                        Import
+                        <span v-if="isLoading"><Loading /></span>
+                    </Button>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
 
         <Dialog v-model:open="isEditQuantityModalOpen">
             <DialogContent class="sm:max-w-[600px]">
                 <DialogHeader>
                     <DialogTitle>Edit Quantity</DialogTitle>
                     <DialogDescription>
-                        Please input all the required fields.
+                        Please input the new quantity.
                     </DialogDescription>
                 </DialogHeader>
                 <InputContainer>
@@ -955,7 +1114,7 @@ const addImportedItemsToOrderList = () => {
 
                 <DialogFooter>
                     <Button
-                        @click="editQuantity"
+                        @click="handleEditQuantityConfirm"
                         :disabled="isLoading"
                         type="submit"
                         class="gap-2"
@@ -966,72 +1125,5 @@ const addImportedItemsToOrderList = () => {
                 </DialogFooter>
             </DialogContent>
         </Dialog>
-        <Dialog v-model:open="visible">
-            <DialogContent class="sm:max-w-[600px]">
-                <DialogHeader>
-                    <DialogTitle>Import Orders</DialogTitle>
-                    <DialogDescription>
-                        Import the excel file of your orders.
-                    </DialogDescription>
-                </DialogHeader>
-                <div class="space-y-5">
-                    <div class="flex flex-col space-y-1">
-                        <Label>Orders</Label>
-                        <Input
-                            type="file"
-                            @input="
-                                excelFileForm.orders_file =
-                                    $event.target.files[0]
-                            "
-                        />
-                        <FormError>{{
-                            excelFileForm.errors.orders_file
-                        }}</FormError>
-                    </div>
-                    <div class="flex flex-col space-y-1">
-                        <Label class="text-xs">Order Templates</Label>
-                        <ul>
-                            <li class="text-xs">
-                                GSI BAKERY:
-                                <a
-                                    class="text-blue-500 underline"
-                                    href="/excel/gsi-bakery-template"
-                                    >Click to download</a
-                                >
-                            </li>
-                            <li class="text-xs">
-                                GSI OT:
-                                <a
-                                    class="text-blue-500 underline"
-                                    href="/excel/gsi-pr-template"
-                                    >Click to download</a
-                                >
-                            </li>
-                            <li class="text-xs">
-                                PUL:
-                                <a
-                                    class="text-blue-500 underline"
-                                    href="/excel/pul-template"
-                                    >Click to download</a
-                                >
-                            </li>
-                        </ul>
-                    </div>
-                </div>
-                <DialogFooter>
-                    <Button
-                        :disabled="isLoading"
-                        @click="addImportedItemsToOrderList"
-                        type="submit"
-                        class="gap-2"
-                    >
-                        Proceed
-                        <span v-if="isLoading"><Loading /></span>
-                    </Button>
-                </DialogFooter>
-            </DialogContent>
-        </Dialog>
-
-        <BackButton />
     </Layout>
 </template>

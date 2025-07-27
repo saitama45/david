@@ -130,10 +130,10 @@ class OrderReceivingController extends Controller
     {
         // Eager load supplierItem and its sapMasterfile relationship
         $historyItems = OrderedItemReceiveDate::with([
-            'store_order_item.store_order.store_order_items', // Changed to store_order and store_order_items
+            'store_order_item.store_order.store_order_items',
             'store_order_item.supplierItem.sapMasterfile'
         ])
-        ->whereHas('store_order_item.store_order', function ($query) use ($id) { // Changed to store_order
+        ->whereHas('store_order_item.store_order', function ($query) use ($id) {
             $query->where('id', $id);
         })
         ->where('status', 'pending')
@@ -178,7 +178,7 @@ class OrderReceivingController extends Controller
 
         // Get the SAPMasterfile instance via the StoreOrderItem's supplierItem relationship
         $sapMasterfile = $data->store_order_item->supplierItem->sapMasterfile;
-        $storeOrder = $data->store_order_item->store_order; // Changed to store_order
+        $storeOrder = $data->store_order_item->store_order;
 
         // Ensure sapMasterfile exists before proceeding with stock updates
         if (!$sapMasterfile) {
@@ -194,26 +194,25 @@ class OrderReceivingController extends Controller
             'store_branch_id' => $storeOrder->store_branch_id
         ]);
 
-        // Corrected line 189 for PHP 5.x/7.0 compatibility if $stock->id might be null
-        Log::info("OrderReceivingController: ProductInventoryStock BEFORE save (ID: " . (isset($stock->id) ? $stock->id : 'NEW') . "): Quantity = {$stock->quantity}, Used = {$stock->used}, Recently Added = {$stock->recently_added}");
-
-
         // If it's a new stock entry, set initial quantities
         if (!$stock->exists) {
             $stock->quantity = 0;
             $stock->recently_added = 0;
             $stock->used = 0;
-            Log::info("OrderReceivingController: New ProductInventoryStock record being initialized.");
+            Log::info("OrderReceivingController: New ProductInventoryStock record being initialized for product_inventory_id: {$sapMasterfile->id}.");
+        } else {
+            Log::info("OrderReceivingController: Existing ProductInventoryStock record found (ID: {$stock->id}) for product_inventory_id: {$sapMasterfile->id}. Current quantity: {$stock->quantity}.");
         }
         
-        $stock->increment('quantity', $data->quantity_received);
-        // The `recently_added` should reflect the current received quantity, not accumulate.
-        // It's usually a temporary field for reporting on recent additions, or should be handled carefully.
-        // If it's meant to be the *last* quantity added, then direct assignment is fine.
+        // Explicitly add the quantity and set recently_added
+        $stock->quantity += $data->quantity_received; // Direct addition instead of increment()
         $stock->recently_added = $data->quantity_received; // Set recently_added to the current quantity received
+        
+        Log::info("OrderReceivingController: ProductInventoryStock BEFORE save (ID: " . (isset($stock->id) ? $stock->id : 'NEW') . "): Calculated Quantity = {$stock->quantity}, Recently Added = {$stock->recently_added}");
+        
         $stock->save(); // Save the updated stock record
 
-        Log::info("OrderReceivingController: ProductInventoryStock AFTER save (ID: {$stock->id}): Quantity = {$stock->quantity}, Used = {$stock->used}, Recently Added = {$stock->recently_added}");
+        Log::info("OrderReceivingController: ProductInventoryStock AFTER save (ID: {$stock->id}): Persisted Quantity = {$stock->quantity}, Persisted Recently Added = {$stock->recently_added}");
 
 
         // Create PurchaseItemBatch
@@ -250,9 +249,9 @@ class OrderReceivingController extends Controller
 
     public function getOrderStatus($id)
     {
-        $storeOrder = StoreOrder::with('store_order_items')->find($id); // Changed to store_order_items
+        $storeOrder = StoreOrder::with('store_order_items')->find($id);
 
-        $orderedItems = $storeOrder->store_order_items; // Changed to store_order_items
+        $orderedItems = $storeOrder->store_order_items;
 
         $storeOrder->order_status = OrderStatus::RECEIVED->value;
         foreach ($orderedItems as $itemOrdered) {
