@@ -26,8 +26,19 @@ class PurchaseItemBatch extends Model
         return $this->hasMany(ProductInventoryStockManager::class);
     }
 
-    public function product_inventory()
+    /**
+     * Get the SAP Masterfile product associated with the batch.
+     */
+    public function sapMasterfile()
     {
-        return $this->belongsTo(ProductInventory::class);
+        return $this->belongsTo(SAPMasterfile::class, 'product_inventory_id');
+    }
+
+    /**
+     * Get the store order item that this batch belongs to.
+     */
+    public function storeOrderItem()
+    {
+        return $this->belongsTo(StoreOrderItem::class);
     }
 }

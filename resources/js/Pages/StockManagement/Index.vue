@@ -283,6 +283,17 @@ watch(isUpdateModalVisible, (value) => {
         updateForm.clearErrors();
     }
 });
+// Helper function to log product SOH and return formatted value
+const getProductSOHForDisplay = (product) => {
+    console.log(`Product ID: ${product.id}, SOH: ${product.stock_on_hand}, Name: ${product.name}`);
+    return parseFloat(product.stock_on_hand).toFixed(2);
+};
+
+// Helper function to log product Recorded Used and return formatted value
+const getProductRecordedUsedForDisplay = (product) => {
+    console.log(`Product ID: ${product.id}, Recorded Used: ${product.recorded_used}, Name: ${product.name}`);
+    return parseFloat(product.recorded_used).toFixed(2);
+};
 </script>
 <template>
     <Dialog v-model:open="isUpdateModalVisible">
@@ -402,12 +413,8 @@ watch(isUpdateModalVisible, (value) => {
                         <TD>{{ product.name }}</TD>
                         <TD>{{ product.inventory_code }}</TD>
                         <TD>{{ product.uom }}</TD>
-                        <TD>{{
-                            parseFloat(product.stock_on_hand).toFixed(2)
-                        }}</TD>
-                        <TD>{{
-                            parseFloat(product.recorded_used).toFixed(2)
-                        }}</TD>
+                        <TD>{{ getProductSOHForDisplay(product) }}</TD>
+                        <TD>{{ getProductRecordedUsedForDisplay(product) }}</TD>
                         <TD>
                             <DivFlexCenter class="gap-3">
                                 <ShowButton
@@ -449,13 +456,13 @@ watch(isUpdateModalVisible, (value) => {
                         />
                     </MobileTableHeading>
                     <LabelXS>UOM: {{ product.uom }}</LabelXS>
-                    <LabelXS>SOH: {{ product.stock_on_hand }}</LabelXS>
+                    <LabelXS>SOH: {{ getProductSOHForDisplay(product) }}</LabelXS>
                     <LabelXS
                         >Estimated Used: {{ product.estimated_used }}
                         {{ product.ingredient_units }}</LabelXS
                     >
                     <LabelXS
-                        >Recorded Used: {{ product.recorded_used }}</LabelXS
+                        >Recorded Used: {{ getProductRecordedUsedForDisplay(product) }}</LabelXS
                     >
                     <DivFlexCenter class="gap-3">
                         <Button

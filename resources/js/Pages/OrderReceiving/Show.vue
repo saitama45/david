@@ -521,7 +521,7 @@ const confirmReceive = () => {
                                 {{ remarks.action.toUpperCase() }}
                             </TD>
                             <TD>{{ remarks.remarks }}</TD>
-                            <TD>{{ remarks.created_at }}</TD>
+                            <TD>{{ dayjs(remarks.created_at).format("MMMM D, YYYY h:mm A") }}</TD>
                         </tr>
                     </TableBody>
                 </Table>
@@ -537,6 +537,7 @@ const confirmReceive = () => {
                             <ShowButton />
                         </MobileTableHeading>
                         <LabelXS>Remarks: {{ remarks.remarks }}</LabelXS>
+                        <LabelXS>Created at: {{ dayjs(remarks.created_at).format("MMMM D, YYYY h:mm A") }}</LabelXS>
                     </MobileTableRow>
                     <SpanBold v-if="order.store_order_remarks.length < 1"
                         >None</SpanBold

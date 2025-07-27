@@ -2,7 +2,6 @@
 
 namespace App\Models;
 
-use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use OwenIt\Auditing\Contracts\Auditable;
@@ -13,8 +12,8 @@ class ProductInventoryStockManager extends Model implements Auditable
     use HasFactory, \OwenIt\Auditing\Auditable;
 
     protected $fillable = [
-        'purchase_item_batch_id',
-        'product_inventory_id',
+        'purchase_item_batch_id', // Added this if it's not already in fillable
+        'product_inventory_id', // This will store SAPMasterfile IDs
         'store_branch_id',
         'cost_center_id',
         'quantity',
@@ -24,39 +23,30 @@ class ProductInventoryStockManager extends Model implements Auditable
         'transaction_date',
         'is_stock_adjustment',
         'is_stock_adjustment_approved',
-        'remarks'
+        'remarks',
     ];
 
-    // quantity 1 // used 1
-
-    // 5 + 6 = 11
-
-    // 1 + 1 = 2
-
-    // quanitty - used = 9
-
-    public function purchase_item_batch()
+    /**
+     * Get the SAP Masterfile product associated with the stock manager entry.
+     */
+    public function sapMasterfile()
     {
-        return $this->belongsTo(PurchaseItemBatch::class);
+        return $this->belongsTo(SAPMasterfile::class, 'product_inventory_id');
     }
 
-    public function getCreatedAtAttribute($value)
-    {
-        return Carbon::parse($value)->setTimezone('Asia/Manila')->format('F d, Y h:i a');
-    }
-
+    /**
+     * Get the cost center associated with the stock manager entry.
+     */
     public function cost_center()
     {
         return $this->belongsTo(CostCenter::class);
     }
 
-    public function product()
+    /**
+     * Get the purchase item batch associated with the stock manager entry.
+     */
+    public function purchaseItemBatch()
     {
-        return $this->belongsTo(ProductInventory::class, 'product_inventory_id');
-    }
-
-    public function store_branch()
-    {
-        return $this->belongsTo(StoreBranch::class);
+        return $this->belongsTo(PurchaseItemBatch::class);
     }
 }
