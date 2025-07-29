@@ -233,9 +233,7 @@ const enlargeImage = (image) => {
                             <TD>{{ receipt.id }}</TD>
                             <TD>{{ receipt.delivery_receipt_number }}</TD>
                             <TD>{{ receipt.remarks }}</TD>
-                            <TD>{{
-                                dayjs(receipt.created_at).format("MMMM D, YYYY")
-                            }}</TD>
+                            <TD>{{ receipt.created_at }}</TD> <!-- Display directly from Laravel's cast -->
                         </tr>
                     </TableBody>
                 </Table>
@@ -249,8 +247,8 @@ const enlargeImage = (image) => {
                             :title="`${receipt.delivery_receipt_number}`"
                         >
                         </MobileTableHeading>
-                        <LabelXS>Remarks: {{ receipt.remarks }}</LabelXS>
-                        <LabelXS>Created at: {{ receipt.created_at }}</LabelXS>
+                        <LabelXS>Remarks: {{ receipt.remarks ?? "N/a" }}</LabelXS>
+                        <LabelXS>Created at: {{ receipt.created_at }}</LabelXS> <!-- Display directly from Laravel's cast -->
                     </MobileTableRow>
                     <SpanBold v-if="order.delivery_receipts.length < 1"
                         >None</SpanBold
@@ -282,7 +280,7 @@ const enlargeImage = (image) => {
                             </TD>
                             <TD>{{ remarks.remarks }}</TD>
                             <TD>{{
-                                dayjs(remarks.created_at).format("MMMM D, YYYY")
+                                dayjs(remarks.created_at).format("MMMM D, YYYY h:mm A")
                             }}</TD>
                         </tr>
                     </TableBody>
@@ -298,7 +296,9 @@ const enlargeImage = (image) => {
                         >
                         </MobileTableHeading>
                         <LabelXS>Remarks: {{ remarks.remarks }}</LabelXS>
-                        <LabelXS>Created at: {{ remarks.created_at }}</LabelXS>
+                        <LabelXS>Created at: {{
+                            dayjs(remarks.created_at).format("MMMM D, YYYY h:mm A")
+                        }}</LabelXS>
                     </MobileTableRow>
                     <SpanBold v-if="order.store_order_remarks.length < 1"
                         >None</SpanBold
@@ -353,7 +353,7 @@ const enlargeImage = (image) => {
                             <TD>{{ history.quantity_received }}</TD>
                             <TD>{{
                                 dayjs(history.received_date).format(
-                                    "MMMM D, YYYY"
+                                    "MMMM D, YYYY h:mm A"
                                 )
                             }}</TD>
                             <TD>{{ history.status }}</TD>

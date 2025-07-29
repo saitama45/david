@@ -24,8 +24,9 @@ class AddDeliveryReceiptNumberRequest extends FormRequest
     {
         return [
             'delivery_receipt_number' => ['required', 'unique:delivery_receipts,delivery_receipt_number'],
+            'sap_so_number' => ['required', 'string', 'max:255', 'unique:delivery_receipts,sap_so_number'], // Added validation for SAP SO Number
             'store_order_id' => ['required', 'exists:store_orders,id'],
-            'remarks' => ['sometimes']
+            'remarks' => ['sometimes', 'nullable', 'string', 'max:1000'] // Added nullable and max length for remarks
         ];
     }
 }

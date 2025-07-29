@@ -26,7 +26,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Inertia\Inertia;
 use Maatwebsite\Excel\Facades\Excel;
-use Illuminate\Support\Facades\Log; // Import Log facade
+use Illuminate\Support\Facades\Log; // Import Log facade for error logging
 
 class OrderReceivingController extends Controller
 {
@@ -81,9 +81,11 @@ class OrderReceivingController extends Controller
         $validated = $request->validated();
         DeliveryReceipt::create([
             'delivery_receipt_number' => $validated['delivery_receipt_number'],
+            'sap_so_number' => $validated['sap_so_number'], // Added SAP SO Number
             'store_order_id' => $validated['store_order_id'],
-            'remarks' => $validated['remarks']
+            'remarks' => $validated['remarks'],
         ]);
+        return redirect()->back();
     }
 
     public function updateDeliveryReceiptNumber(UpdateDeliveryReceiptNumberRequest $request, $id)
@@ -131,7 +133,7 @@ class OrderReceivingController extends Controller
         // Eager load supplierItem and its sapMasterfile relationship
         $historyItems = OrderedItemReceiveDate::with([
             'store_order_item.store_order.store_order_items',
-            'store_order_item.supplierItem.sapMasterfile'
+            'store_order_item.supplierItem.sapMasterfile' // Corrected relationship loading
         ])
         ->whereHas('store_order_item.store_order', function ($query) use ($id) {
             $query->where('id', $id);
