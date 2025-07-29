@@ -204,6 +204,7 @@ watch(importSummary, (newValue) => {
                     <TH>Item Code</TH>
                     <TH>Item Name</TH> <!-- Re-included Item Name header -->
                     <TH>Packaging Config</TH>
+                    <TH>BaseUOM</TH> <!-- New column header for BaseUOM -->
                     <TH>Unit</TH>
                     <TH>Cost</TH> 
                     <TH>SRP</TH> <!-- Added SRP header -->
@@ -220,6 +221,7 @@ watch(importSummary, (newValue) => {
                         <TD>{{ item.ItemCode }}</TD>
                         <TD>{{ item.item_name }}</TD> <!-- Re-included Item Name data -->
                         <TD>{{ item.packaging_config }}</TD>
+                        <TD>{{ item.base_uom_display }}</TD> <!-- Use the new property -->
                         <TD>{{ item.uom }}</TD> 
                         <TD>{{ item.cost }}</TD>
                         <TD>{{ item.srp }}</TD> <!-- Display SRP -->
@@ -279,6 +281,7 @@ watch(importSummary, (newValue) => {
                     <LabelXS>Brand: {{ item.brand }}</LabelXS> 
                     <LabelXS>Classification: {{ item.classification }}</LabelXS> 
                     <LabelXS>Packaging Config: {{ item.packaging_config }}</LabelXS> 
+                    <LabelXS>BaseUOM: {{ item.base_uom_display }}</LabelXS> <!-- Use the new property -->
                     <LabelXS>UOM: {{ item.uom }}</LabelXS> 
                     <LabelXS>Cost: {{ item.cost }}</LabelXS> 
                     <LabelXS>SRP: {{ item.srp }}</LabelXS> 
