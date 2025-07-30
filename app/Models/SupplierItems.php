@@ -40,6 +40,11 @@ class SupplierItems extends Model implements Auditable
     protected $primaryKey = 'id';
     public $incrementing = true;
 
+    // Append the 'sap_masterfile' accessor to the model's array/JSON form
+    // This ensures that when SupplierItems are serialized (e.g., for Inertia),
+    // the result of the getSapMasterfileAttribute() method is automatically included.
+    protected $appends = ['sap_masterfile'];
+
    // Define the options scope to return ItemCode as value and a concatenated string as label
     public function scopeOptions(Builder $query)
     {
@@ -80,13 +85,17 @@ class SupplierItems extends Model implements Auditable
     public function getSapMasterfileAttribute()
     {
         // Log the SupplierItem's details when the accessor is called
-        // Using ternary operator for null handling in string interpolation to avoid syntax error
         Log::debug("Accessing sap_masterfile for SupplierItem ID: " . ($this->id ? $this->id : 'N/A') . ", ItemCode: " . ($this->ItemCode ? $this->ItemCode : 'N/A') . ", SupplierItem UOM: '" . ($this->uom ? $this->uom : 'N/A') . "'");
+
+        // Convert the SupplierItem's UOM to uppercase for case-insensitive comparison
+        $supplierItemUomUpper = strtoupper($this->uom);
 
         // Check if the 'sapMasterfiles' relationship has already been loaded
         if ($this->relationLoaded('sapMasterfiles')) {
-            // Filter the loaded collection in memory to find the matching AltUOM
-            $matchingSapMasterfile = $this->sapMasterfiles->firstWhere('AltUOM', $this->uom);
+            // Filter the loaded collection in memory to find the matching AltUOM (converted to uppercase)
+            $matchingSapMasterfile = $this->sapMasterfiles->first(function ($sapMasterfile) use ($supplierItemUomUpper) {
+                return strtoupper($sapMasterfile->AltUOM) === $supplierItemUomUpper;
+            });
             
             // Log whether a match was found from the loaded relationship
             Log::debug("sapMasterfiles relationship loaded. Matching AltUOM '{$this->uom}' found: " . ($matchingSapMasterfile ? 'Yes' : 'No'));
@@ -100,7 +109,8 @@ class SupplierItems extends Model implements Auditable
 
         // Fallback: If the relationship is not loaded, perform a direct query.
         // This will cause an N+1 query if called for multiple SupplierItems in a loop without eager loading.
-        $matchingSapMasterfile = $this->sapMasterfiles()->where('AltUOM', $this->uom)->first();
+        // Use DB::raw to convert AltUOM to uppercase in the query for case-insensitive matching
+        $matchingSapMasterfile = $this->sapMasterfiles()->where(DB::raw('UPPER(AltUOM)'), $supplierItemUomUpper)->first();
         
         // Log whether a match was found from the direct query
         Log::debug("sapMasterfiles relationship NOT loaded. Direct query for AltUOM '{$this->uom}' found: " . ($matchingSapMasterfile ? 'Yes' : 'No'));

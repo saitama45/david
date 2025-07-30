@@ -89,10 +89,12 @@ class StoreOrderController extends Controller
     public function show($id)
     {
         $order = $this->storeOrderService->getOrderDetails($id);
-        $order->load(['ordered_item_receive_dates.store_order_item.supplierItem.sapMasterfile']);
+        // Eager load the 'sapMasterfiles' relationship (plural) so the 'sap_masterfile' accessor works correctly.
+        $order->load(['ordered_item_receive_dates.store_order_item.supplierItem.sapMasterfiles']);
 
         $orderedItems = $this->storeOrderService->getOrderItems($order);
-        $orderedItems->load('supplierItem.sapMasterfile');
+        // Eager load the 'sapMasterfiles' relationship (plural) for ordered items.
+        $orderedItems->load('supplierItem.sapMasterfiles');
 
         return Inertia::render('StoreOrder/Show', [
             'order' => $order,
@@ -116,7 +118,8 @@ class StoreOrderController extends Controller
     {
         $order = $this->storeOrderService->getOrder($id);
         $orderedItems = $this->storeOrderService->getOrderItems($order);
-        $orderedItems->load('supplierItem.sapMasterfile'); 
+        // Eager load the 'sapMasterfiles' relationship (plural) for ordered items in edit.
+        $orderedItems->load('supplierItem.sapMasterfiles'); 
         $suppliers = Supplier::options();
         $branches = StoreBranch::options();
 
@@ -146,9 +149,9 @@ class StoreOrderController extends Controller
     {
         // Use the SupplierItems::options() scope which returns ItemCode => CONCAT(item_name, ' (', ItemCode, ') ', uom)
         $supplierItems = SupplierItems::where('SupplierCode', $supplierCode)
-                                       ->where('is_active', true)
-                                       ->options() // This scope returns ItemCode => CONCAT(item_name, ' (', ItemCode, ') ', uom)
-                                       ->all(); // Convert the collection to an array of value/label pairs
+                                     ->where('is_active', true)
+                                     ->options() // This scope returns ItemCode => CONCAT(item_name, ' (', ItemCode, ') ', uom)
+                                     ->all(); // Convert the collection to an array of value/label pairs
 
         // The options scope returns an associative array (ItemCode => formatted_name),
         // we need to convert it to the {value: 'ItemCode', label: 'formatted_name'} format expected by Select component.

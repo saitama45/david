@@ -125,8 +125,8 @@ class StoreOrderService
     public function getPreviousOrderReference()
     {
         if (request()->has('orderId')) {
-            $orderId = request()->input('orderId');
-            return StoreOrder::with(['store_order_items.supplierItem.sapMasterfile'])->find($orderId);
+            // CORRECTED: Eager load 'sapMasterfiles' (plural)
+            return StoreOrder::with(['store_order_items.supplierItem.sapMasterfiles'])->find(request()->input('orderId'));
         }
 
         return null;
@@ -141,10 +141,12 @@ class StoreOrderService
             'delivery_receipts',
             'store_branch',
             'supplier',
-            'store_order_items.supplierItem',
+            // CORRECTED: Eager load 'sapMasterfiles' (plural) here
+            'store_order_items.supplierItem.sapMasterfiles',
             'store_order_remarks',
             'store_order_remarks.user',
-            'ordered_item_receive_dates.store_order_item.supplierItem',
+            // CORRECTED: Eager load 'sapMasterfiles' (plural) here as well
+            'ordered_item_receive_dates.store_order_item.supplierItem.sapMasterfiles',
             'ordered_item_receive_dates.receiver',
             'image_attachments',
         ])->where('order_number', $id)->firstOrFail();
@@ -152,7 +154,8 @@ class StoreOrderService
 
     public function getOrderItems(StoreOrder $order)
     {
-        return $order->store_order_items()->with('supplierItem.sapMasterfile')->get();
+        // CORRECTED: Eager load 'sapMasterfiles' (plural)
+        return $order->store_order_items()->with('supplierItem.sapMasterfiles')->get();
     }
 
     public function getImageAttachments(StoreOrder $order)
