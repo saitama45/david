@@ -547,8 +547,8 @@ const confirmReceive = () => {
                 </TableHeader>
                 <Table>
                     <TableHead>
-                        <TH>Id</TH>
-                        <TH>Remarks By</TH>
+                        <TH> Id </TH>
+                        <TH> Remarks By</TH>
                         <TH>Action</TH>
                         <TH>Remarks</TH>
                         <TH>Created At</TH>
@@ -653,7 +653,7 @@ const confirmReceive = () => {
                             <TD>{{ orderItem.supplier_item.ItemCode }}</TD>
                             <TD>{{ orderItem.supplier_item.item_name }}</TD>
                             <TD>{{ orderItem.supplier_item.sap_masterfile?.BaseUOM }}</TD> <!-- Display BaseUOM -->
-                            <TD class="text-xs">{{ orderItem.uom }}</TD> <!-- Display UOM from StoreOrderItem (packaging UOM) -->
+                            <TD class="text-xs">{{ orderItem.supplier_item.uom }}</TD> <!-- Display UOM from StoreOrderItem (packaging UOM) -->
                             <TD>{{ orderItem.quantity_ordered }}</TD>
 
                             <TD>{{ orderItem.quantity_approved }}</TD>
@@ -819,7 +819,7 @@ const confirmReceive = () => {
                         }}</FormError>
                     </InputContainer>
                     <InputContainer>
-                        <Label class="text-xs">SAP SO Number</Label> <!-- New input field -->
+                        <Label class="text-xs">SAP SO Number</Label>
                         <Input
                             v-model="
                                 deliveryReceiptForm.sap_so_number
@@ -831,7 +831,11 @@ const confirmReceive = () => {
                     </InputContainer>
                     <InputContainer>
                         <Label class="text-xs">Remarks</Label>
-                        <Textarea v-model="deliveryReceiptForm.remarks" />
+                        <Input
+                            v-model="
+                                deliveryReceiptForm.remarks
+                            "
+                        />
                         <FormError>{{
                             deliveryReceiptForm.errors.remarks
                         }}</FormError>
@@ -839,105 +843,31 @@ const confirmReceive = () => {
                 </div>
                 <DialogFooter>
                     <Button
-                        :disabled="isLoading"
-                        class="gap-2"
-                        @click="submitDeliveryReceiptForm"
-                        >Submit <span v-if="isLoading"><Loading /></span
-                    ></Button>
-                </DialogFooter>
-            </DialogContent>
-        </Dialog>
-
-        <Dialog v-model:open="showItemDetails">
-            <DialogContent class="sm:max-w-[600px]">
-                <DialogHeader>
-                    <DialogTitle>View Details</DialogTitle>
-                    <DialogDescription
-                        >Ordered Item Information</DialogDescription
+                        variant="ghost"
+                        @click="showDeliveryReceiptForm = false"
+                        >Cancel</Button
                     >
-                </DialogHeader>
-                <div class="grid grid-cols-2 gap-2">
-                    <div>
-                        <span class="text-xs">Name</span>
-                        <p>{{ itemDetails.supplier_item.item_name }}</p>
-                    </div>
-                    <div>
-                        <span class="text-xs">Inventory Code</span>
-                        <p>
-                            {{ itemDetails.supplier_item.ItemCode }}
-                        </p>
-                    </div>
-                    <div>
-                        <span class="text-xs">BaseUOM</span> <!-- New field -->
-                        <p>{{ itemDetails.supplier_item.sap_masterfile?.BaseUOM }}</p>
-                    </div>
-                    <div>
-                        <span class="text-xs">UOM</span>
-                        <p>{{ itemDetails.uom }}</p> <!-- This is the packaging UOM from StoreOrderItem -->
-                    </div>
-                    <div>
-                        <span class="text-xs">Cost</span>
-                        <p>
-                            {{ parseFloat(itemDetails.cost_per_quantity).toFixed(2) }}
-                        </p>
-                    </div>
-                    <div>
-                        <span class="text-xs">Quantity Ordered</span>
-                        <p>
-                            {{ itemDetails.quantity_ordered }}
-                        </p>
-                    </div>
-                    <div>
-                        <span class="text-xs">Quantity Approved</span>
-                        <p>
-                            {{ itemDetails.quantity_approved }}
-                        </p>
-                    </div>
-                    <div>
-                        <span class="text-xs">Quantity Committed</span>
-                        <p>
-                            {{ itemDetails.quantity_commited }}
-                        </p>
-                    </div>
-                    <!-- Remaining part of the code -->
-                    <div>
-                        <span class="text-xs">Quantity Received</span>
-                        <p>
-                            {{ itemDetails.quantity_received }}
-                        </p>
-                    </div>
-                    <div>
-                        <span class="text-xs">Total Cost</span>
-                        <p>
-                            {{ parseFloat(itemDetails.total_cost).toFixed(2) }}
-                        </p>
-                    </div>
-                    <div>
-                        <span class="text-xs">Remarks</span>
-                        <p>
-                            {{ itemDetails.remarks ?? "N/a" }}
-                        </p>
-                    </div>
-                </div>
+                    <Button @click="submitDeliveryReceiptForm"
+                        >Submit</Button
+                    >
+                </DialogFooter>
             </DialogContent>
         </Dialog>
 
         <Dialog v-model:open="showReceiveForm">
             <DialogContent class="sm:max-w-[600px]">
                 <DialogHeader>
-                    <DialogTitle>Receive Item</DialogTitle>
-                    <DialogDescription>
-                        Enter details for the received item.
-                    </DialogDescription>
+                    <DialogTitle>Receive Form</DialogTitle>
+                    <DialogDescription
+                        >Input all the important details</DialogDescription
+                    >
                 </DialogHeader>
                 <div class="space-y-3">
                     <InputContainer>
                         <Label class="text-xs">Quantity Received</Label>
                         <Input
-                            type="number"
                             v-model="form.quantity_received"
-                            :max="itemDetails?.quantity_commited - itemDetails?.quantity_received"
-                            min="1"
+                            type="number"
                         />
                         <FormError>{{
                             form.errors.quantity_received
@@ -945,27 +875,43 @@ const confirmReceive = () => {
                     </InputContainer>
                     <InputContainer>
                         <Label class="text-xs">Received Date</Label>
-                        <Input type="datetime-local" v-model="form.received_date" />
-                        <FormError>{{ form.errors.received_date }}</FormError>
+                        <Input
+                            v-model="form.received_date"
+                            type="datetime-local"
+                        />
+                        <FormError>{{
+                            form.errors.received_date
+                        }}</FormError>
                     </InputContainer>
                     <InputContainer>
                         <Label class="text-xs">Expiry Date</Label>
-                        <Input type="date" v-model="form.expiry_date" />
-                        <FormError>{{ form.errors.expiry_date }}</FormError>
+                        <Input
+                            v-model="form.expiry_date"
+                            type="date"
+                        />
+                        <FormError>{{
+                            form.errors.expiry_date
+                        }}</FormError>
                     </InputContainer>
                     <InputContainer>
                         <Label class="text-xs">Remarks</Label>
-                        <Textarea v-model="form.remarks" />
-                        <FormError>{{ form.errors.remarks }}</FormError>
+                        <Input
+                            v-model="form.remarks"
+                        />
+                        <FormError>{{
+                            form.errors.remarks
+                        }}</FormError>
                     </InputContainer>
                 </div>
                 <DialogFooter>
                     <Button
-                        :disabled="isLoading"
-                        class="gap-2"
-                        @click="submitReceivingForm"
-                        >Submit <span v-if="isLoading"><Loading /></span
-                    ></Button>
+                        variant="ghost"
+                        @click="showReceiveForm = false"
+                        >Cancel</Button
+                    >
+                    <Button @click="submitReceivingForm"
+                        >Submit</Button
+                    >
                 </DialogFooter>
             </DialogContent>
         </Dialog>
@@ -974,17 +920,16 @@ const confirmReceive = () => {
             <DialogContent class="sm:max-w-[600px]">
                 <DialogHeader>
                     <DialogTitle>Edit Receive Details</DialogTitle>
-                    <DialogDescription>
-                        Update the details for this received item history.
-                    </DialogDescription>
+                    <DialogDescription
+                        >Update the receive information below.</DialogDescription
+                    >
                 </DialogHeader>
                 <div class="space-y-3">
                     <InputContainer>
                         <Label class="text-xs">Quantity Received</Label>
                         <Input
-                            type="number"
                             v-model="editReceiveDetailsForm.quantity_received"
-                            min="1"
+                            type="number"
                         />
                         <FormError>{{
                             editReceiveDetailsForm.errors.quantity_received
@@ -992,14 +937,19 @@ const confirmReceive = () => {
                     </InputContainer>
                     <InputContainer>
                         <Label class="text-xs">Expiry Date</Label>
-                        <Input type="date" v-model="editReceiveDetailsForm.expiry_date" />
+                        <Input
+                            v-model="editReceiveDetailsForm.expiry_date"
+                            type="date"
+                        />
                         <FormError>{{
                             editReceiveDetailsForm.errors.expiry_date
                         }}</FormError>
                     </InputContainer>
                     <InputContainer>
                         <Label class="text-xs">Remarks</Label>
-                        <Textarea v-model="editReceiveDetailsForm.remarks" />
+                        <Input
+                            v-model="editReceiveDetailsForm.remarks"
+                        />
                         <FormError>{{
                             editReceiveDetailsForm.errors.remarks
                         }}</FormError>
@@ -1007,11 +957,13 @@ const confirmReceive = () => {
                 </div>
                 <DialogFooter>
                     <Button
-                        :disabled="isLoading"
-                        class="gap-2"
-                        @click="updateReceiveDetails"
-                        >Update <span v-if="isLoading"><Loading /></span
-                    ></Button>
+                        variant="ghost"
+                        @click="isEditModalVisible = false"
+                        >Cancel</Button
+                    >
+                    <Button @click="updateReceiveDetails"
+                        >Update</Button
+                    >
                 </DialogFooter>
             </DialogContent>
         </Dialog>
@@ -1020,66 +972,87 @@ const confirmReceive = () => {
             <DialogContent class="sm:max-w-[600px]">
                 <DialogHeader>
                     <DialogTitle>Receive History Details</DialogTitle>
-                    <DialogDescription>
-                        Details of a specific received item history.
-                    </DialogDescription>
+                    <DialogDescription
+                        >View the details of the received item.</DialogDescription
+                    >
                 </DialogHeader>
-                <div class="grid grid-cols-2 gap-2">
-                    <div>
-                        <span class="text-xs">Item Name</span>
-                        <p>{{ selectedItem?.store_order_item.supplier_item.item_name }}</p>
-                    </div>
-                    <div>
-                        <span class="text-xs">Item Code</span>
-                        <p>{{ selectedItem?.store_order_item.supplier_item.ItemCode }}</p>
-                    </div>
-                    <div>
-                        <span class="text-xs">Quantity Received</span>
-                        <p>{{ selectedItem?.quantity_received }}</p>
-                    </div>
-                    <div>
-                        <span class="text-xs">Received Date</span>
-                        <p>{{ dayjs(selectedItem?.received_date).tz('Asia/Manila').format("MMMM D, YYYY h:mm A") }}</p>
-                    </div>
-                    <div>
-                        <span class="text-xs">Expiry Date</span>
-                        <p>{{ selectedItem?.expiry_date }}</p>
-                    </div>
-                    <div>
-                        <span class="text-xs">Remarks</span>
-                        <p>{{ selectedItem?.remarks ?? 'N/A' }}</p>
-                    </div>
-                    <div>
-                        <span class="text-xs">Status</span>
-                        <p>{{ selectedItem?.status }}</p>
-                    </div>
-                    <div>
-                        <span class="text-xs">Approved By</span>
-                        <p>{{ selectedItem?.receiver?.first_name }} {{ selectedItem?.receiver?.last_name }}</p>
-                    </div>
+                <div class="space-y-3">
+                    <InputContainer>
+                        <LabelXS>Item Name:</LabelXS>
+                        <SpanBold>{{ selectedItem?.store_order_item.supplier_item.item_name }}</SpanBold>
+                    </InputContainer>
+                    <InputContainer>
+                        <LabelXS>Item Code:</LabelXS>
+                        <SpanBold>{{ selectedItem?.store_order_item.supplier_item.ItemCode }}</SpanBold>
+                    </InputContainer>
+                    <InputContainer>
+                        <LabelXS>Quantity Received:</LabelXS>
+                        <SpanBold>{{ selectedItem?.quantity_received }}</SpanBold>
+                    </InputContainer>
+                    <InputContainer>
+                        <LabelXS>Received By:</LabelXS>
+                        <SpanBold>{{ selectedItem?.received_by_user?.first_name }} {{ selectedItem?.received_by_user?.last_name }}</SpanBold>
+                    </InputContainer>
+                    <InputContainer>
+                        <LabelXS>Received Date:</LabelXS>
+                        <SpanBold>{{ dayjs(selectedItem?.received_date).tz('Asia/Manila').format("MMMM D, YYYY h:mm A") }}</SpanBold>
+                    </InputContainer>
+                    <InputContainer>
+                        <LabelXS>Expiry Date:</LabelXS>
+                        <SpanBold>{{ selectedItem?.expiry_date }}</SpanBold>
+                    </InputContainer>
+                    <InputContainer>
+                        <LabelXS>Remarks:</LabelXS>
+                        <SpanBold>{{ selectedItem?.remarks }}</SpanBold>
+                    </InputContainer>
+                    <InputContainer>
+                        <LabelXS>Status:</LabelXS>
+                        <SpanBold>{{ selectedItem?.status }}</SpanBold>
+                    </InputContainer>
+                    <InputContainer>
+                        <LabelXS>Approval Action By:</LabelXS>
+                        <SpanBold>{{ selectedItem?.approval_action_by_user?.first_name }} {{ selectedItem?.approval_action_by_user?.last_name }}</SpanBold>
+                    </InputContainer>
                 </div>
+                <DialogFooter>
+                    <Button
+                        variant="ghost"
+                        @click="isViewModalVisible = false"
+                        >Close</Button
+                    >
+                </DialogFooter>
             </DialogContent>
         </Dialog>
 
-        <!-- Enlarged Image Modal -->
         <Dialog v-model:open="isEnlargedImageVisible">
-            <DialogContent class="sm:max-w-[90vw] max-h-[90vh] flex flex-col">
+            <DialogContent class="sm:max-w-[900px]">
                 <DialogHeader>
                     <DialogTitle>Enlarged Image</DialogTitle>
-                    <DialogDescription>
-                        Viewing image: {{ selectedImage?.file_name }}
-                    </DialogDescription>
                 </DialogHeader>
-                <div class="flex-grow flex items-center justify-center overflow-hidden">
-                    <img :src="selectedImage?.image_url" class="max-w-full max-h-full object-contain" />
+                <div class="flex justify-center items-center">
+                    <img :src="selectedImage?.image_url" class="max-w-full max-h-[80vh] object-contain" />
                 </div>
+                <DialogFooter>
+                    <Button variant="ghost" @click="isEnlargedImageVisible = false">Close</Button>
+                </DialogFooter>
             </DialogContent>
         </Dialog>
 
-        <!-- Camera Modal -->
         <Dialog v-model:open="isImageModalVisible">
-            <DialogContent class="sm:max-w-[600px] p-0">
-                <Camera :orderId="order.id" @close="isImageModalVisible = false" />
+            <DialogContent class="sm:max-w-[600px]">
+                <DialogHeader>
+                    <DialogTitle>Attach Image</DialogTitle>
+                    <DialogDescription>
+                        Upload an image for this order.
+                    </DialogDescription>
+                </DialogHeader>
+                <Camera
+                    :orderId="order.id"
+                    @image-uploaded="isImageModalVisible = false"
+                />
+                <DialogFooter>
+                    <Button variant="ghost" @click="isImageModalVisible = false">Cancel</Button>
+                </DialogFooter>
             </DialogContent>
         </Dialog>
     </Layout>

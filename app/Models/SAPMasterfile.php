@@ -59,4 +59,9 @@ class SAPMasterfile extends Model implements Auditable
                          ];
                      })->all(); // Convert the collection to a plain array
     }
+
+    public function getBaseQTYAttribute()
+    {
+        return $this->attributes['BaseQty'];
+    }
 }

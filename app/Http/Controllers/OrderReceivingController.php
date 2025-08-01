@@ -130,10 +130,10 @@ class OrderReceivingController extends Controller
 
     public function confirmReceive($id)
     {
-        // Eager load supplierItem and its sapMasterfile relationship
+        // Eager load supplierItem and its sapMasterfiles relationship (plural)
         $historyItems = OrderedItemReceiveDate::with([
             'store_order_item.store_order.store_order_items',
-            'store_order_item.supplierItem.sapMasterfile' // Corrected relationship loading
+            'store_order_item.supplierItem.sapMasterfiles' // Corrected relationship loading to plural
         ])
         ->whereHas('store_order_item.store_order', function ($query) use ($id) {
             $query->where('id', $id);
@@ -180,13 +180,15 @@ class OrderReceivingController extends Controller
 
         // Get the SAPMasterfile instance via the StoreOrderItem's supplierItem relationship
         $sapMasterfile = $data->store_order_item->supplierItem->sapMasterfile;
-        $storeOrder = $data->store_order_item->store_order;
 
         // Ensure sapMasterfile exists before proceeding with stock updates
         if (!$sapMasterfile) {
             Log::error("OrderReceivingController: SAPMasterfile not found for StoreOrderItem ID: {$data->store_order_item->id} (ItemCode: {$data->store_order_item->item_code}, UOM: {$data->store_order_item->uom})");
             throw new \Exception("SAP Masterfile not found for item: {$data->store_order_item->item_code}");
         }
+        
+        $storeOrder = $data->store_order_item->store_order;
+
 
         Log::info("OrderReceivingController: Processing StoreOrderItem ID: {$data->store_order_item->id}, SAPMasterfile ID: {$sapMasterfile->id}, Quantity Received: {$data->quantity_received}");
 

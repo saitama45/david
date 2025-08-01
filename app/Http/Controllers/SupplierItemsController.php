@@ -46,7 +46,8 @@ class SupplierItemsController extends Controller
             // Eager load the sapMasterfiles (plural) relationship.
             // The accessor `sap_masterfile` will then filter this loaded collection.
             ->with(['sapMasterfiles' => function($q) {
-                $q->select('id', 'ItemCode', 'BaseUOM', 'AltUOM'); // Select AltUOM as it's needed for matching
+                // IMPORTANT FIX: Include 'BaseQTY' in the select statement
+                $q->select('id', 'ItemCode', 'BaseUOM', 'AltUOM', 'BaseQTY'); 
             }])
             // Filter SupplierItems to only include those assigned to the current user
             ->whereIn('SupplierCode', $assignedSupplierCodes);
@@ -228,7 +229,7 @@ class SupplierItemsController extends Controller
             'uom' => trim($request->input('uom') ?? ''),
         ]);
 
-        $validated = $request->validate([         
+        $validated = $request->validate([ 
            'ItemCode' => ['nullable', 'string', 'max:255'],
            'SupplierCode' => ['nullable', 'string', 'max:255'],
            'category' => ['nullable', 'string', 'max:255'],
@@ -338,7 +339,8 @@ class SupplierItemsController extends Controller
         $item = SupplierItems::where('ItemCode', $itemCode)
                             ->where('SupplierCode', $supplierCode)
                             ->with(['sapMasterfiles' => function($q) {
-                                $q->select('id', 'ItemCode', 'BaseUOM', 'AltUOM');
+                                // IMPORTANT FIX: Include 'BaseQTY' in the select statement
+                                $q->select('id', 'ItemCode', 'BaseUOM', 'AltUOM', 'BaseQTY');
                             }])
                             ->first();
 

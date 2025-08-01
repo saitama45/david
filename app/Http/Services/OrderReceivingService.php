@@ -39,12 +39,10 @@ class OrderReceivingService extends StoreOrderService
     {
         // Eager load the supplierItem relationship and ensure 'cost' is selected.
         // Also ensure 'ItemCode', 'item_name', and 'uom' are selected for the frontend.
-        // Eager load sapMasterfile and select BaseUOM from it.
+        // Eager load sapMasterfiles (plural relationship) so the sap_masterfile accessor can use it.
         return $order->store_order_items()->with(['supplierItem' => function($query) {
             $query->select('id', 'ItemCode', 'item_name', 'uom', 'cost');
-            $query->with(['sapMasterfile' => function($sapQuery) {
-                $sapQuery->select('id', 'ItemCode', 'BaseUOM'); // Select BaseUOM from SAPMasterfile
-            }]);
+            $query->with('sapMasterfiles'); // Corrected: Load the plural relationship
         }])->get();
     }
 

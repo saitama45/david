@@ -97,10 +97,6 @@ onMounted(() => {
                 orderForm.order_date = drafts.value.order_date !== null && drafts.value.order_date !== undefined 
                                         ? drafts.value.order_date 
                                         : props.order.order_date; // Fallback to prop value
-                console.log('Order Date from Draft after draft loading (onMounted):', orderForm.order_date);
-                
-                orderForm.orders = drafts.value.orders;
-                editableOrderItems.value = orderForm.orders; // Sync the ref with the loaded draft
             },
         });
     }
@@ -111,44 +107,55 @@ onMounted(() => {
     // Set the flag after initial setup is complete
     isMountedAndReady.value = true;
 
-    // --- NEW LOGGING FOR INITIAL LOAD ---
-    console.log('--- Edit.vue: Initializing orderForm.orders from props.orderedItems ---');
-    console.log('props.orderedItems (raw):', props.orderedItems);
-
     // Initial population of orderForm.orders
-    // This loop runs when the component is first mounted or props change
     const initialOrders = [];
     props.orderedItems.forEach((item, index) => {
-        console.log(`Processing initial item ${index}:`, item);
-        // CRITICAL FIX: Use item.cost_per_quantity directly from the ordered item
-        console.log(`item.cost_per_quantity for item ${index}:`, item.cost_per_quantity);
+        console.log(`Processing initial item ${index}:`, JSON.parse(JSON.stringify(item))); // Log raw item data
+
+        let baseQty = 1; // Default to 1
+        let baseUom = null;
+        
+        // CRITICAL FIX: Always use the singular accessor 'sap_master_file'
+        // as this is designed to return the correct matching record.
+        const supplierItemData = item.supplier_item; // Get the supplier_item data
+        if (supplierItemData && supplierItemData.sap_master_file) {
+            const sapMasterFileObject = supplierItemData.sap_master_file;
+            console.log('  Full sap_master_file object (onMounted):', JSON.parse(JSON.stringify(sapMasterFileObject))); // Retained log
+            
+            if (Object.prototype.hasOwnProperty.call(sapMasterFileObject, 'BaseQty')) {
+                const rawBaseQty = sapMasterFileObject.BaseQty; // Access directly from the object
+                baseQty = Number(rawBaseQty);
+                if (isNaN(baseQty) || baseQty <= 0) {
+                    baseQty = 1; // Fallback if conversion results in NaN or non-positive
+                }
+                baseUom = sapMasterFileObject.BaseUOM;
+            }
+        }
+
+        const quantityOrdered = Number(item.quantity_ordered);
+        const itemCost = Number(item.cost_per_quantity); // Use cost_per_quantity from ordered item
+
+        const calculatedBaseUomQty = parseFloat((quantityOrdered * baseQty).toFixed(2));
+        const calculatedTotalCost = parseFloat((calculatedBaseUomQty * itemCost).toFixed(2));
 
         const product = {
-            // StoreOrderItem ID (numeric)
             id: item.id, 
-            // Supplier ItemCode (string) - ensure it's a string
             inventory_code: String(item.supplier_item.ItemCode), 
             name: item.supplier_item.item_name,
             unit_of_measurement: item.supplier_item.uom,
-            base_uom: item.supplier_item.sap_masterfile?.BaseUOM || null,
-            quantity: item.quantity_ordered,
-            cost: Number(item.cost_per_quantity), // CRITICAL FIX: Use cost_per_quantity from the order item
-            total_cost: parseFloat(
-                item.quantity_ordered * Number(item.cost_per_quantity) // CRITICAL FIX: Use cost_per_quantity for calculation
-            ).toFixed(2),
+            base_uom: baseUom, // Use the determined BaseUOM
+            base_qty: baseQty, // Use the determined BaseQTY
+            base_uom_qty: calculatedBaseUomQty, // Add calculated BaseUOM Qty
+            quantity: quantityOrdered,
+            cost: itemCost,
+            total_cost: calculatedTotalCost, // Use calculated total cost
             uom: item.supplier_item.uom,
         };
         initialOrders.push(product);
-        console.log(`Mapped product for item ${index}:`, product);
     });
     orderForm.orders = initialOrders;
     editableOrderItems.value = orderForm.orders; // CRITICAL FIX: Sync the ref with the initial data
-    console.log('orderForm.orders after initial population:', orderForm.orders);
-    console.log('editableOrderItems.value after initial population:', editableOrderItems.value);
-    // --- END NEW LOGGING ---
 });
-
-console.log('Initial Order Date (string) from props (setup):', orderForm.order_date);
 
 
 const { options: branchesOptions } = useSelectOptions(props.branches);
@@ -186,14 +193,11 @@ const datePickerDate = computed({
 
 watch(orderForm, (value) => {
     if (!isMountedAndReady.value) {
-        console.log('Skipping draft save: Component not yet ready.');
         return;
     }
-    console.log('Value of orderForm.order_date right before saving (watch):', value.order_date);
     const draftJson = JSON.stringify(value);
     localStorage.setItem("editStoreOrderDraft", draftJson);
     localStorage.setItem("previoustoreOrderNumber", props.order.order_number);
-    console.log('Draft saved to localStorage:', draftJson);
 }, { deep: true });
 
 const itemForm = useForm({
@@ -205,7 +209,8 @@ const productDetails = reactive({
     inventory_code: null, // This will now hold the SupplierItem ItemCode string
     name: null, // This will be the item_name
     unit_of_measurement: null, // This will be the uom for display
-    base_uom: null, // From sap_masterfile
+    base_uom: null, // NEW: From sap_master_file
+    base_qty: null, // NEW: From sap_master_file
     quantity: null,
     cost: null,
     total_cost: null,
@@ -219,11 +224,17 @@ const productDetails = reactive({
 const addItemQuantity = (id) => {
     const index = orderForm.orders.findIndex((item) => item.id === id);
     if (index !== -1) {
-        orderForm.orders[index].quantity = parseFloat(
-            (Number(orderForm.orders[index].quantity) + 0.1).toFixed(2)
+        const currentItem = orderForm.orders[index];
+        currentItem.quantity = parseFloat(
+            (Number(currentItem.quantity) + 0.1).toFixed(2)
         );
-        orderForm.orders[index].total_cost = parseFloat(
-            Number(orderForm.orders[index].quantity) * Number(orderForm.orders[index].cost)
+        
+        const effectiveBaseQty = Number(currentItem.base_qty) > 0 ? Number(currentItem.base_qty) : 1;
+        currentItem.base_uom_qty = parseFloat(
+            (Number(currentItem.quantity) * effectiveBaseQty).toFixed(2)
+        );
+        currentItem.total_cost = parseFloat(
+            Number(currentItem.base_uom_qty) * Number(currentItem.cost)
         ).toFixed(2);
     }
 };
@@ -231,15 +242,21 @@ const addItemQuantity = (id) => {
 const minusItemQuantity = (id) => {
     const index = orderForm.orders.findIndex((item) => item.id === id);
     if (index !== -1) {
-        orderForm.orders[index].quantity = parseFloat(
-            (Number(orderForm.orders[index].quantity) - 0.1).toFixed(2)
+        const currentItem = orderForm.orders[index];
+        currentItem.quantity = parseFloat(
+            (Number(currentItem.quantity) - 0.1).toFixed(2)
         );
-        if (Number(orderForm.orders[index].quantity) < 0.1) {
+        if (Number(currentItem.quantity) < 0.1) {
             orderForm.orders = orderForm.orders.filter((item) => item.id !== id);
             return;
         }
-        orderForm.orders[index].total_cost = parseFloat(
-            Number(orderForm.orders[index].quantity) * Number(orderForm.orders[index].cost)
+        
+        const effectiveBaseQty = Number(currentItem.base_qty) > 0 ? Number(currentItem.base_qty) : 1;
+        currentItem.base_uom_qty = parseFloat(
+            (Number(currentItem.quantity) * effectiveBaseQty).toFixed(2)
+        );
+        currentItem.total_cost = parseFloat(
+            Number(currentItem.base_uom_qty) * Number(currentItem.cost)
         ).toFixed(2);
     }
 };
@@ -314,24 +331,40 @@ const addToOrdersButton = () => {
         (order) => order.inventory_code === productDetails.inventory_code
     );
 
+    // Determine the effective BaseQTY for calculation. Default to 1 if not available or <= 0.
+    const effectiveBaseQtyForNewItem = Number(productDetails.base_qty) > 0 ? Number(productDetails.base_qty) : 1;
+    const currentQuantity = Number(productDetails.quantity);
+    const currentCost = Number(productDetails.cost);
+
+
     if (existingItemIndex !== -1) {
-        const quantity = (Number(orderForm.orders[existingItemIndex].quantity) +
-            Number(productDetails.quantity));
-        orderForm.orders[existingItemIndex].quantity = parseFloat(quantity.toFixed(2)); // Ensure quantity is updated and formatted
-        orderForm.orders[existingItemIndex].total_cost = parseFloat(
-            Number(productDetails.cost * quantity)
-        ).toFixed(2);
+        // Update existing item
+        const existingItem = orderForm.orders[existingItemIndex];
+        const newTotalQuantity = existingItem.quantity + currentQuantity;
+        
+        // Use the base_qty already present in the existing item, or default to 1
+        const effectiveBaseQtyForExistingItem = Number(existingItem.base_qty) > 0 ? Number(existingItem.base_qty) : 1;
+
+        const newBaseUomQty = parseFloat((newTotalQuantity * effectiveBaseQtyForExistingItem).toFixed(2));
+        const newTotalCost = parseFloat((newBaseUomQty * currentCost).toFixed(2));
+        
+        existingItem.quantity = newTotalQuantity;
+        existingItem.base_uom_qty = newBaseUomQty;
+        existingItem.total_cost = newTotalCost;
+
     } else {
-        productDetails.total_cost = parseFloat(
-            Number(productDetails.cost * productDetails.quantity)
-        ).toFixed(2);
-        // CRITICAL FIX: For new items, set 'id' to null. Backend will handle creation.
+        // Add new item
+        productDetails.base_uom_qty = parseFloat((currentQuantity * effectiveBaseQtyForNewItem).toFixed(2));
+        productDetails.total_cost = parseFloat((productDetails.base_uom_qty * currentCost).toFixed(2));
+
         orderForm.orders.push({ 
             id: null, // Explicitly set 'id' to null for new items.
             inventory_code: String(productDetails.inventory_code), // Ensure it's a string here too
             name: productDetails.name, 
             unit_of_measurement: productDetails.unit_of_measurement, 
-            base_uom: productDetails.base_uom, 
+            base_uom: productDetails.base_uom, // NEW: Add BaseUOM
+            base_qty: productDetails.base_qty, // NEW: Add BaseQTY
+            base_uom_qty: productDetails.base_uom_qty, // NEW: Add calculated BaseUoM Qty
             quantity: parseFloat(Number(productDetails.quantity).toFixed(2)), // Ensure quantity is number and formatted
             cost: Number(productDetails.cost), // Ensure cost is number
             uom: productDetails.uom, 
@@ -354,7 +387,6 @@ const addToOrdersButton = () => {
 };
 
 const update = () => {
-    console.log('Update function called'); // Debugging log
     if (orderForm.orders.length < 1) {
         toast.add({
             severity: "error",
@@ -378,9 +410,6 @@ const update = () => {
     };
     orderForm.order_date = formatDate(orderForm.order_date);
 
-    // --- NEW DIAGNOSTIC LOG ---
-    console.log('orderForm.orders before PUT:', JSON.stringify(orderForm.orders));
-    // --- END NEW DIAGNOSTIC LOG ---
 
     try {
         confirm.require({
@@ -397,7 +426,6 @@ const update = () => {
                 severity: "info",
             },
             accept: () => {
-                console.log('Confirm dialog accepted. Submitting PUT request...'); // Debugging log
                 orderForm.put(route("store-orders.update", props.order.id), {
                     onSuccess: () => {
                         toast.add({
@@ -411,11 +439,10 @@ const update = () => {
                         localStorage.removeItem("previoustoreOrderNumber");
                     },
                     onError: (e) => {
-                        console.error('Error during update:', e); // Debugging log
                         toast.add({
                             severity: "error",
                             summary: "Error",
-                            detail: e.message || "Can't place update the order.", // Show error message if available
+                            detail: e.error || e.message || "Can't place update the order.", // Show error message if available
                             life: 5000,
                         });
                     },
@@ -423,7 +450,6 @@ const update = () => {
             },
         });
     } catch (error) {
-        console.error('Error with PrimeVue confirm dialog:', error); // Catch errors related to confirm dialog itself
         toast.add({
             severity: "error",
             summary: "Error",
@@ -443,7 +469,6 @@ watch(productId, async (itemCode) => {
             const supplierCode = orderForm.supplier_id; 
 
             if (!supplierCode) {
-                console.error("Supplier code not found for selected supplier ID:", orderForm.supplier_id);
                 toast.add({
                     severity: "error",
                     summary: "Error",
@@ -466,9 +491,31 @@ watch(productId, async (itemCode) => {
                 productDetails.inventory_code = String(result.ItemCode); 
                 productDetails.name = result.item_name;
                 productDetails.unit_of_measurement = result.uom;
-                productDetails.base_uom = result.sap_masterfile?.BaseUOM || null; // Safely access nested property
                 productDetails.cost = Number(result.cost); // Ensure cost is a number
                 productDetails.uom = result.uom; 
+
+                // --- NEW LOGIC FOR BASE_UOM and BASE_QTY (from Create.vue) ---
+                let foundBaseUom = null;
+                let foundBaseQty = 1; // Default to 1 to prevent division by zero or NaN in calculations
+
+                // CRITICAL FIX: Always use the singular accessor 'sap_master_file'
+                const apiResultSapMasterFile = result.sap_master_file;
+                if (apiResultSapMasterFile) {
+                    console.log('  Full sap_master_file object (watch):', JSON.parse(JSON.stringify(apiResultSapMasterFile))); // Retained log
+                    if (Object.prototype.hasOwnProperty.call(apiResultSapMasterFile, 'BaseQty')) {
+                        const rawFoundBaseQty = apiResultSapMasterFile.BaseQty;
+                        foundBaseQty = Number(rawFoundBaseQty);
+                        if (isNaN(foundBaseQty) || foundBaseQty <= 0) {
+                            foundBaseQty = 1; // Fallback if conversion results in NaN or non-positive
+                        }
+                        foundBaseUom = apiResultSapMasterFile.BaseUOM;
+                    }
+                }
+                // --- END NEW LOGIC ---
+
+                productDetails.base_uom = foundBaseUom;
+                productDetails.base_qty = foundBaseQty;
+                
             } else {
                 toast.add({
                     severity: "error",
@@ -478,7 +525,6 @@ watch(productId, async (itemCode) => {
                 });
             }
         } catch (err) {
-            console.error("Error fetching supplier item details:", err);
             toast.add({
                 severity: "error",
                 summary: "Error",
@@ -579,15 +625,11 @@ watch(
             // CRITICAL FIX: Fetch items by supplier code, and ensure the options
             // value is the ItemCode string of the supplier item.
             const response = await axios.get(route('store-orders.get-supplier-items', supplierCode));
-            // Map the response to ensure 'value' is the ItemCode string and 'label' is descriptive
-            availableProductsOptions.value = response.data.items.map(item => ({
-                label: `${item.item_name} (${item.ItemCode}) ${item.uom}`,
-                value: item.ItemCode // Use the ItemCode string here
-            }));
+            // Directly assign the response data, as the backend already formats it to { value, label }
+            availableProductsOptions.value = response.data.items; 
             isLoading.value = false;
 
         } catch (error) {
-            console.error("Error fetching supplier items:", error);
             toast.add({
                 severity: "error",
                 summary: "Error",
@@ -617,6 +659,11 @@ watch(
 
 const isSupplierSelected = computed(() => {
     return orderForm.supplier_id !== null && orderForm.supplier_id !== '';
+});
+
+// NEW: Computed property to determine if dropdowns should be disabled
+const shouldLockDropdowns = computed(() => {
+    return orderForm.orders.length > 0;
 });
 
 
@@ -659,14 +706,15 @@ const handleEditQuantityConfirm = () => {
             return;
         }
 
-        // Update the quantity and recalculate total_cost for the item
+        // Determine the effective BaseQTY for calculation. Default to 1 if not available or <= 0.
+        const effectiveBaseQty = Number(currentItem.base_qty) > 0 ? Number(currentItem.base_qty) : 1;
+
         currentItem.quantity = parseFloat(newQuantity.toFixed(2));
+        currentItem.base_uom_qty = parseFloat((newQuantity * effectiveBaseQty).toFixed(2)); // NEW: Recalculate BaseUOM Qty
         currentItem.total_cost = parseFloat(
-            newQuantity * itemCost
+            currentItem.base_uom_qty * itemCost // Use base_uom_qty for total cost calculation
         ).toFixed(2);
 
-        // Explicitly trigger reactivity for the array
-        // This creates a shallow copy, which tells Vue to re-render the array.
         orderForm.orders = [...orderForm.orders];
 
         toast.add({ severity: "success", summary: "Success", detail: "Quantity Updated.", life: 3000 });
@@ -674,7 +722,6 @@ const handleEditQuantityConfirm = () => {
     } else {
         toast.add({ severity: "error", summary: "Error", detail: "Item not found in order list.", life: 3000 });
     }
-    console.log('orderForm.orders after forced update:', orderForm.orders);
 };
 
 const heading = `Edit Order #${props.order.order_number}`;
@@ -707,11 +754,7 @@ const addImportedItemsToOrderList = () => {
             },
         })
         .then((response) => {
-            console.log('Backend response.data.orders:', response.data.orders); // Log the entire array
             response.data.orders.forEach((importedOrder) => {
-                console.log('--- Processing individual importedOrder from backend (Excel import) ---');
-                console.log('Raw importedOrder object:', importedOrder); // Show the raw object for each item
-
                 // Normalize keys from backend response for easier access
                 const itemCodeString = importedOrder.item_code || importedOrder.ItemCode || importedOrder.inventory_code;
                 const itemName = importedOrder.item_name || importedOrder.ItemName || importedOrder.name;
@@ -723,12 +766,9 @@ const addImportedItemsToOrderList = () => {
                 const rawQuantityValue = importedOrder.qty || importedOrder.Qty || importedOrder.quantity;
                 const quantity = Number(rawQuantityValue);
 
-                console.log(`Extracted values for ${itemCodeString || 'Unknown Item'}:`);
-                console.log(`   - Raw quantity value from backend (before Number() conversion):`, rawQuantityValue);
-                console.log(`   - Converted quantity:`, quantity);
-
                 const cost = Number(importedOrder.cost || importedOrder.Cost);
                 const unit = importedOrder.unit || importedOrder.UOM || importedOrder.unit_of_measurement;
+                const baseQty = Number(importedOrder.base_qty || importedOrder.BaseQTY); // NEW: Get BaseQTY from imported data
 
                 // Validate cost for imported items
                 if (isNaN(cost) || cost === 0) {
@@ -741,17 +781,33 @@ const addImportedItemsToOrderList = () => {
                     return; // Skip this item
                 }
 
-                // Validate quantity for imported items
-                if (isNaN(quantity) || quantity < 0.1) {
+                // Validate quantity for imported items: Allow 0, but not negative or NaN.
+                if (isNaN(quantity) || quantity < 0) { // Changed from quantity < 0.1 to quantity < 0
                     toast.add({
                         severity: "error",
                         summary: "Validation Error",
-                        detail: `Imported item '${itemName || itemCodeString || 'Unknown Item'}' has an invalid quantity and will be skipped. Quantity must be at least 0.1.`,
+                        detail: `Imported item '${itemName || itemCodeString || 'Unknown Item'}' has an invalid quantity and will be skipped. Quantity must be a non-negative number.`,
                         life: 7000,
                     });
                     return; // Skip this item
                 }
                 
+                // NEW: Validate baseQty for imported items
+                if (isNaN(baseQty) || baseQty <= 0) {
+                    toast.add({
+                        severity: "error",
+                        summary: "Validation Error",
+                        detail: `Imported item '${itemName || itemCodeString || 'Unknown Item'}' has an invalid BaseQTY and will be skipped. BaseQTY must be a positive number.`,
+                        life: 7000,
+                    });
+                    return; // Skip this item
+                }
+
+                // Calculate BaseUoM Qty for imported item
+                const importedBaseUomQty = parseFloat((quantity * baseQty).toFixed(2));
+                // Calculate Total Cost for imported item
+                const importedTotalCost = parseFloat((importedBaseUomQty * cost).toFixed(2));
+
                 // CRITICAL FIX: Find by ItemCode string (which is now in item.id)
                 const existingItemIndex = orderForm.orders.findIndex(
                     (order) => order.inventory_code === itemCodeString
@@ -760,9 +816,12 @@ const addImportedItemsToOrderList = () => {
                 if (existingItemIndex !== -1) {
                     const updatedQuantity =
                         Number(orderForm.orders[existingItemIndex].quantity) + quantity;
-                    orderForm.orders[existingItemIndex].quantity = parseFloat(updatedQuantity.toFixed(2)); // Ensure quantity is updated and formatted
+                    const updatedBaseUomQty = parseFloat((updatedQuantity * baseQty).toFixed(2)); // Recalculate BaseUoM Qty
+                    
+                    orderForm.orders[existingItemIndex].quantity = updatedQuantity;
+                    orderForm.orders[existingItemIndex].base_uom_qty = updatedBaseUomQty; // NEW: Update BaseUoM Qty
                     orderForm.orders[existingItemIndex].total_cost = parseFloat(
-                        cost * updatedQuantity
+                        updatedBaseUomQty * cost // NEW: Total Cost = BaseUoM Qty * Cost
                     ).toFixed(2);
                 } else {
                     const newItem = {
@@ -771,10 +830,12 @@ const addImportedItemsToOrderList = () => {
                         name: itemName, 
                         unit_of_measurement: unit, 
                         base_uom: importedOrder.base_uom || null, 
+                        base_qty: baseQty, // NEW: Add BaseQTY
+                        base_uom_qty: importedBaseUomQty, // NEW: Add calculated BaseUoM Qty
                         quantity: parseFloat(quantity.toFixed(2)), // Ensure quantity is number and formatted
                         cost: cost, 
                         uom: unit, 
-                        total_cost: parseFloat(quantity * cost).toFixed(2),
+                        total_cost: importedTotalCost, // NEW: Use calculated total cost
                     };
                     orderForm.orders.push(newItem);
                 }
@@ -797,7 +858,6 @@ const addImportedItemsToOrderList = () => {
                 life: 5000,
             });
             excelFileForm.setError("orders_file", error.response.data.message || "Unknown error during import.");
-            console.error("Error during import:", error); // Use console.error for errors
         })
         .finally(() => (isLoading.value = false));
 };
@@ -829,6 +889,7 @@ const addImportedItemsToOrderList = () => {
                                 :options="suppliersOptions"
                                 optionLabel="label"
                                 optionValue="value"
+                                :disabled="shouldLockDropdowns"
                             >
                             </Select>
                             <FormError>{{
@@ -844,6 +905,7 @@ const addImportedItemsToOrderList = () => {
                                 :options="branchesOptions"
                                 optionLabel="label"
                                 optionValue="value"
+                                :disabled="shouldLockDropdowns"
                             >
                             </Select>
                             <FormError>{{
@@ -861,6 +923,7 @@ const addImportedItemsToOrderList = () => {
                                 :manualInput="true"
                                 :minDate="orderRestrictionDate.minDate"
                                 :maxDate="orderRestrictionDate.maxDate"
+                                :disabled="shouldLockDropdowns"
                             />
                             <FormError>{{
                                 orderForm.errors.order_date
@@ -951,6 +1014,7 @@ const addImportedItemsToOrderList = () => {
                             <TH> Code </TH>
                             <TH> Quantity </TH>
                             <TH> Base UOM </TH>
+                            <TH> BaseUOM Qty </TH> <!-- NEW COLUMN HEADER -->
                             <TH> Unit </TH>
                             <TH> Cost </TH>
                             <TH> Total Cost </TH>
@@ -973,6 +1037,9 @@ const addImportedItemsToOrderList = () => {
                                 </TD>
                                 <TD>
                                     {{ order.base_uom }}
+                                </TD>
+                                <TD>
+                                    {{ order.base_uom_qty }} <!-- NEW COLUMN DATA -->
                                 </TD>
                                 <TD>
                                     {{ order.unit_of_measurement }}
@@ -1038,6 +1105,19 @@ const addImportedItemsToOrderList = () => {
                                 >UOM: {{ order.unit_of_measurement }}</LabelXS
                             >
                             <LabelXS>Quantity: {{ order.quantity }}</LabelXS>
+                            <LabelXS>BaseUOM Qty: {{ order.base_uom_qty }}</LabelXS> <!-- NEW MOBILE LABEL -->
+                            <LabelXS>Cost: {{ Number(order.cost).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) }}</LabelXS>
+                            <LabelXS>Total Cost: {{ Number(order.total_cost).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) }}</LabelXS>
+                            <LinkButton
+                                @click="
+                                    openEditQuantityModal(
+                                        order.id,
+                                        order.quantity
+                                    )
+                                "
+                            >
+                                Edit Quantity
+                            </LinkButton>
                         </MobileTableRow>
                     </MobileTableContainer>
                 </CardContent>
@@ -1127,3 +1207,4 @@ const addImportedItemsToOrderList = () => {
         </Dialog>
     </Layout>
 </template>
+

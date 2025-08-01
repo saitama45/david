@@ -3,10 +3,13 @@
 namespace App\Imports;
 
 use App\Models\SupplierItems;
+use App\Models\SAPMasterfile; // Import SAPMasterfile model
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Log;
 use Maatwebsite\Excel\Concerns\ToCollection;
 use Maatwebsite\Excel\Concerns\WithHeadingRow;
+use Illuminate\Support\Facades\DB; // Import DB facade for DB::raw
+use Illuminate\Support\Arr; // Import the Arr facade for data_get helper
 
 class OrderListImport implements ToCollection, WithHeadingRow
 {
@@ -27,13 +30,23 @@ class OrderListImport implements ToCollection, WithHeadingRow
                 // Safely access Excel column data, considering potential casing variations
                 $itemCodeFromExcel = $row['item_code'] ?? $row['Item Code'] ?? null;
                 $itemNameFromExcel = $row['item_name'] ?? $row['Item Name'] ?? null;
-                $qtyFromExcel = $row['qty'] ?? $row['Qty'] ?? $row['quantity'] ?? null; // Check for 'qty', 'Qty', 'quantity'
+                $qtyFromExcelRaw = $row['qty'] ?? $row['Qty'] ?? $row['quantity'] ?? null; // Get raw value
                 $costFromExcel = $row['cost'] ?? $row['Cost'] ?? null;
                 $unitFromExcel = $row['unit'] ?? $row['Unit'] ?? $row['uom'] ?? $row['UOM'] ?? null; // Check for 'unit', 'Unit', 'uom', 'UOM'
                 $supplierCodeFromExcel = $row['supplier_code'] ?? $row['Supplier Code'] ?? null; // Added supplier code
 
-                // Convert to numeric types, handling potential non-numeric values
-                $qtyFromExcel = is_numeric($qtyFromExcel) ? (float) $qtyFromExcel : null;
+                // Convert to numeric types, handling potential non-numeric values and empty strings for quantity
+                $qtyFromExcel = null;
+                $trimmedQty = trim($qtyFromExcelRaw); // Trim whitespace from the raw quantity value
+
+                if (is_numeric($trimmedQty)) {
+                    $qtyFromExcel = (float) $trimmedQty;
+                } elseif ($trimmedQty === '') {
+                    $qtyFromExcel = 0.0; // Treat empty string (after trimming) as 0 quantity
+                }
+                // If it's not numeric and not an empty string (e.g., "abc"), it remains null.
+
+
                 $costFromExcel = is_numeric($costFromExcel) ? (float) $costFromExcel : null;
 
                 Log::debug("OrderListImport: Extracted for row {$key} - ItemCode: '{$itemCodeFromExcel}', ItemName: '{$itemNameFromExcel}', Qty: '{$qtyFromExcel}', Cost: '{$costFromExcel}', Unit: '{$unitFromExcel}', SupplierCode: '{$supplierCodeFromExcel}'");
@@ -58,11 +71,11 @@ class OrderListImport implements ToCollection, WithHeadingRow
                 }
                 // --- End Backend-side Validation ---
 
-                $supplierItem = SupplierItems::with('sapMasterfile')
-                                     ->where('ItemCode', $itemCodeFromExcel)
-                                     ->where('is_active', true) // Only import active items
-                                     ->where('SupplierCode', $supplierCodeFromExcel)
-                                     ->first();
+                // Fetch SupplierItem without eager loading sapMasterfiles, as we'll query it directly
+                $supplierItem = SupplierItems::where('ItemCode', $itemCodeFromExcel)
+                                            ->where('is_active', true) // Only import active items
+                                            ->where('SupplierCode', $supplierCodeFromExcel)
+                                            ->first();
 
                 if (!$supplierItem) {
                     Log::warning("OrderListImport: Skipping row {$key}: SupplierItems not found or inactive for Item Code: '{$itemCodeFromExcel}' and Supplier Code: '{$supplierCodeFromExcel}'.");
@@ -70,13 +83,51 @@ class OrderListImport implements ToCollection, WithHeadingRow
                 }
                 Log::debug("OrderListImport: SupplierItems found for '{$itemCodeFromExcel}': " . json_encode($supplierItem->toArray()));
 
-                // CRITICAL FIX: Use the quantity directly from Excel.
-                // The Excel 'Qty' column is assumed to be the final desired quantity.
+                // Use the quantity directly from Excel.
                 $finalQuantity = $qtyFromExcel; 
                 
-                // CRITICAL FIX: Use cost from Excel directly for mapped row and total cost calculation
+                // Use cost from Excel directly for mapped row and total cost calculation
                 $finalCost = $costFromExcel; 
                 $totalCost = $finalCost * $finalQuantity;
+
+                // CRITICAL FIX: Directly query SAPMasterfile to get the exact matching entry
+                $baseQtyForCalculation = 1; // Default fallback
+                $baseUomForMapping = null;
+                $retrievedBaseQtyLog = 'N/A (no matching SAPMasterfile)';
+
+                $cleanedSupplierUOM = strtoupper(trim($supplierItem->uom));
+
+                $matchedSapMasterfile = SAPMasterfile::where('ItemCode', $itemCodeFromExcel)
+                                                    ->where(DB::raw('UPPER(AltUOM)'), $cleanedSupplierUOM)
+                                                    ->where('is_active', true) // Ensure only active SAP masterfile entries are considered
+                                                    ->first();
+
+                if ($matchedSapMasterfile) {
+                    // FIXED: Changed BaseQTY to BaseQty
+                    $retrievedBaseQtyLog = $matchedSapMasterfile->BaseQty ?? 'N/A (direct access fallback)';
+                    $baseQtyForCalculation = (float) $retrievedBaseQtyLog;
+                    
+                    if ($baseQtyForCalculation <= 0) {
+                        $baseQtyForCalculation = 1;
+                    }
+                    $baseUomForMapping = $matchedSapMasterfile->BaseUOM ?? null;
+                } else {
+                    $anySapMasterfile = SAPMasterfile::where('ItemCode', $itemCodeFromExcel)
+                                                    ->where('is_active', true)
+                                                    ->first();
+                    if ($anySapMasterfile) {
+                        // FIXED: Changed BaseQTY to BaseQty
+                        $baseQtyForCalculation = (float) ($anySapMasterfile->BaseQty ?? 1);
+                        if ($baseQtyForCalculation <= 0) {
+                            $baseQtyForCalculation = 1;
+                        }
+                        $baseUomForMapping = $anySapMasterfile->BaseUOM ?? null;
+                        $retrievedBaseQtyLog = "Fallback to any SAP entry: " . ($anySapMasterfile->BaseQty ?? 'N/A');
+                    }
+                }
+                
+                Log::debug("OrderListImport: BaseQTY from direct SAPMasterfile query for '{$itemCodeFromExcel}': {$retrievedBaseQtyLog} (Used for calculation: {$baseQtyForCalculation})");
+
 
                 Log::debug("OrderListImport: Final values for '{$itemCodeFromExcel}' - Quantity: {$finalQuantity}, Cost: {$finalCost}, Total Cost: {$totalCost}");
 
@@ -86,7 +137,8 @@ class OrderListImport implements ToCollection, WithHeadingRow
                     'name' => $supplierItem->item_name,
                     'cost' => $finalCost, // Use the Excel cost here
                     'unit_of_measurement' => $supplierItem->uom ?? $unitFromExcel, // Prefer DB UOM, fallback to Excel
-                    'base_uom' => $supplierItem->sapMasterfile->BaseUOM ?? null,
+                    'base_uom' => $baseUomForMapping, // Use the determined BaseUOM
+                    'base_qty' => $baseQtyForCalculation, // Use the explicitly determined baseQty
                     'total_cost' => $totalCost,
                     'quantity' => $finalQuantity, // This is the fixed quantity
                     'uom' => $supplierItem->uom ?? $unitFromExcel // Use DB UOM, fallback to Excel

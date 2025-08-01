@@ -1,11 +1,4 @@
 <script setup>
-// FIX: SyntaxError: Cannot use import statement outside a module
-// This error typically indicates that the JavaScript file containing 'import' statements
-// is not being treated as an ES module by your environment. For Vue.js Single File Components (SFCs)
-// like this one, this usually means there's an issue with your build setup (e.g., Vite, Laravel Mix,
-// or Vue CLI configuration) that compiles and bundles your Vue files.
-// Ensure your project's build process is correctly configured to handle Vue SFCs and ES module imports.
-// This comment highlights the common cause of this error, as the fix is external to this file's logic.
 import { ref, reactive, computed, watch, onBeforeMount } from 'vue';
 import Select from "primevue/select";
 import DatePicker from "primevue/datepicker";
@@ -15,6 +8,9 @@ import { useSelectOptions } from "@/Composables/useSelectOptions";
 
 import { useConfirm } from "primevue/useconfirm";
 import { useToast } from "@/Composables/useToast";
+
+// Lucide icons for table actions
+import { Trash2, Minus, Plus } from "lucide-vue-next"; 
 
 const confirm = useConfirm();
 const { toast } = useToast();
@@ -70,7 +66,8 @@ const productDetails = reactive({
     inventory_code: null, // This will be the ItemCode (string)
     name: null, // This will be the item_name
     unit_of_measurement: null, // This will be the uom
-    base_uom: null, // From sap_masterfile
+    base_uom: null, // From sap_masterfile (BaseUOM)
+    base_qty: null, // Needed for 'Add Item' calculation
     quantity: null,
     cost: null,
     total_cost: null,
@@ -148,7 +145,9 @@ const store = () => {
                     localStorage.removeItem("storeStoreOrderDraft");
                 },
                 onError: (e) => {
-                    const errorMessage = e.error || "Can't place the order.";
+                    // --- IMPORTANT DEBUGGING CHANGE ---
+                    console.error("Frontend Error during Place Order:", e); 
+                    const errorMessage = e.error || e.message || "Can't place the order."; // Capture more error info
                     toast.add({
                         severity: "error",
                         summary: "Error",
@@ -191,10 +190,59 @@ watch(productId, async (itemCode) => {
                 productDetails.id = result.ItemCode; // Assign ItemCode to productDetails.id
                 productDetails.name = result.item_name;
                 productDetails.inventory_code = result.ItemCode;
-                productDetails.unit_of_measurement = result.uom;
-                productDetails.base_uom = result.sap_masterfile?.BaseUOM || null;
-                productDetails.cost = result.cost;
+                productDetails.unit_of_measurement = result.uom; // This is the UOM of the selected SupplierItem
+                productDetails.cost = Number(result.cost); // Ensure cost is a number
                 productDetails.uom = result.uom;
+
+                // --- NEW LOGIC FOR BASE_UOM and BASE_QTY ---
+                let foundBaseUom = null;
+                let foundBaseQty = 1; // Default to 1 to prevent division by zero or NaN in calculations
+
+                // console.log('--- Debugging BaseQTY Retrieval (New Item) ---'); // Removed
+                // console.log('Supplier Item UOM:', result.uom); // Removed
+                console.log('Full result.sap_masterfiles:', JSON.parse(JSON.stringify(result.sap_masterfiles || result.sap_masterfile))); // Retained log
+
+                // Assuming result.sap_masterfiles is an array of SAP masterfile entries
+                // Each entry might have 'BaseUOM', 'AltUOM', 'BaseQTY'
+                if (result.sap_masterfiles && Array.isArray(result.sap_masterfiles)) {
+                    // console.log('Processing SAP Masterfiles (array):'); // Removed
+                    const matchingSapEntry = result.sap_masterfiles.find(
+                        (sapEntry) => {
+                            const cleanedAltUOM = sapEntry.AltUOM ? String(sapEntry.AltUOM).trim().toLowerCase() : '';
+                            const cleanedResultUOM = result.uom ? String(result.uom).trim().toLowerCase() : '';
+                            const isMatch = cleanedAltUOM === cleanedResultUOM;
+                            // console.log(`  Comparing SupplierItem UOM '${cleanedResultUOM}' with SAP AltUOM '${cleanedAltUOM}'. Match: ${isMatch}`); // Removed
+                            return isMatch;
+                        }
+                    );
+
+                    if (matchingSapEntry) {
+                        foundBaseUom = matchingSapEntry.BaseUOM;
+                        foundBaseQty = Number(matchingSapEntry.BaseQTY) || 1; // Ensure it's a number, default to 1
+                        // console.log(`  Found direct match. BaseUOM: ${foundBaseUom}, BaseQTY: ${foundBaseQty}`); // Removed
+                    } else if (result.sap_masterfiles.length > 0) {
+                        // Fallback: If no specific AltUOM match, use the first entry's BaseUOM/BaseQTY
+                        // This might be the case if the supplier item's UOM is the BaseUOM itself
+                        foundBaseUom = result.sap_masterfiles[0].BaseUOM;
+                        foundBaseQty = Number(result.sap_masterfiles[0].BaseQTY) || 1;
+                        // console.log(`  No direct AltUOM match. Falling back to first SAP entry. BaseUOM: ${foundBaseUom}, BaseQTY: ${foundBaseQty}`); // Removed
+                    }
+                } else if (result.sap_masterfile) { // Handle case where it's a single object (not array)
+                    // console.log('Processing SAP Masterfile (single object):'); // Removed
+                    foundBaseUom = result.sap_masterfile.BaseUOM;
+                    foundBaseQty = Number(result.sap_masterfile.BaseQTY) || 1;
+                    // console.log(`  Using single SAP entry. BaseUOM: ${foundBaseUom}, BaseQTY: ${foundBaseQty}`); // Removed
+                } else {
+                    // console.log('No SAP Masterfile data found for this item. Defaulting BaseQTY to 1.'); // Removed
+                }
+
+                productDetails.base_uom = foundBaseUom;
+                productDetails.base_qty = foundBaseQty;
+                // console.log('Final productDetails.base_uom:', productDetails.base_uom); // Removed
+                // console.log('Final productDetails.base_qty:', productDetails.base_qty); // Removed
+                // console.log('--- End Debugging BaseQTY Retrieval (New Item) ---'); // Removed
+                // --- END NEW LOGIC ---
+
             } else {
                 toast.add({
                     severity: "error",
@@ -245,6 +293,7 @@ const addToOrdersButton = () => {
         });
         return;
     }
+    // BaseQTY validation removed as requested. Calculations will use a default of 1 if not available.
 
     if (
         !productDetails.inventory_code ||
@@ -256,7 +305,7 @@ const addToOrdersButton = () => {
         toast.add({
             severity: "error",
             summary: "Validation Error",
-            detail: "Please ensure all item details are loaded (name, code, UOM, quantity, cost).",
+            detail: "Please ensure all item details are loaded (name, code, UOM, quantity, cost).", // Updated message
             life: 5000,
         });
         return;
@@ -266,19 +315,43 @@ const addToOrdersButton = () => {
         (order) => order.inventory_code === productDetails.inventory_code
     );
 
+    // Determine the effective BaseQTY for calculation. Default to 1 if not available or <= 0.
+    const effectiveBaseQtyForNewItem = Number(productDetails.base_qty) > 0 ? Number(productDetails.base_qty) : 1;
+    const currentQuantity = Number(productDetails.quantity);
+    const currentCost = Number(productDetails.cost);
+
+    // console.log('--- Debugging Add to Orders Button ---'); // Removed
+    // console.log('productDetails.quantity:', currentQuantity); // Removed
+    // console.log('productDetails.base_qty (effective):', effectiveBaseQtyForNewItem); // Removed
+    // console.log('productDetails.cost:', currentCost); // Removed
+
     if (existingItemIndex !== -1) {
-        const quantity = (orderForm.orders[existingItemIndex].quantity +=
-            Number(productDetails.quantity));
-        orderForm.orders[existingItemIndex].total_cost = parseFloat(
-            productDetails.cost * quantity
-        ).toFixed(2);
+        // Update existing item
+        const existingItem = orderForm.orders[existingItemIndex];
+        const newTotalQuantity = existingItem.quantity + currentQuantity;
+        
+        // Use the base_qty already present in the existing item, or default to 1
+        const effectiveBaseQtyForExistingItem = Number(existingItem.base_qty) > 0 ? Number(existingItem.base_qty) : 1;
+
+        const newBaseUomQty = parseFloat((newTotalQuantity * effectiveBaseQtyForExistingItem).toFixed(2));
+        const newTotalCost = parseFloat((newBaseUomQty * currentCost).toFixed(2));
+        
+        existingItem.quantity = newTotalQuantity;
+        existingItem.base_uom_qty = newBaseUomQty;
+        existingItem.total_cost = newTotalCost;
+
+        // console.log('  Updated existing item. New Quantity:', newTotalQuantity, 'New BaseUOM Qty:', newBaseUomQty, 'New Total Cost:', newTotalCost); // Removed
+
     } else {
-        productDetails.total_cost = parseFloat(
-            productDetails.cost * productDetails.quantity
-        ).toFixed(2);
-        // CRITICAL FIX: Ensure the 'id' property of the product object is ItemCode
+        // Add new item
+        productDetails.base_uom_qty = parseFloat((currentQuantity * effectiveBaseQtyForNewItem).toFixed(2));
+        productDetails.total_cost = parseFloat((productDetails.base_uom_qty * currentCost).toFixed(2));
+
+        // console.log('  Adding new item. BaseUOM Qty:', productDetails.base_uom_qty, 'Total Cost:', productDetails.total_cost); // Removed
+
         orderForm.orders.push({ ...productDetails, id: productDetails.inventory_code });
     }
+    // console.log('--- End Debugging Add to Orders Button ---'); // Removed
 
     Object.keys(productDetails).forEach((key) => {
         productDetails[key] = null;
@@ -320,11 +393,18 @@ const addImportedItemsToOrderList = () => {
                 const quantity = Number(rawQuantityValue);
 
                 console.log(`Extracted values for ${itemCode || 'Unknown Item'}:`);
-                console.log(`  - Raw quantity value from backend (before Number() conversion):`, rawQuantityValue);
-                console.log(`  - Converted quantity:`, quantity);
+                console.log(`   - Raw quantity value from backend (before Number() conversion):`, rawQuantityValue);
+                console.log(`   - Converted quantity:`, quantity);
 
                 const cost = Number(importedOrder.cost || importedOrder.Cost);
+                console.log(`   - Converted cost:`, cost);
+
+                const baseQty = Number(importedOrder.base_qty || importedOrder.BaseQTY); // Keep: Get BaseQTY from imported data for calculation
+                console.log(`   - Converted baseQty:`, baseQty);
+
+
                 const unit = importedOrder.unit || importedOrder.UOM || importedOrder.unit_of_measurement;
+                
 
                 // Validate cost for imported items
                 if (isNaN(cost) || cost === 0) {
@@ -348,6 +428,26 @@ const addImportedItemsToOrderList = () => {
                     return; // Skip this item
                 }
 
+                // NEW: Validate baseQty for imported items (still needed for imported calculation)
+                if (isNaN(baseQty) || baseQty <= 0) {
+                    toast.add({
+                        severity: "error",
+                        summary: "Validation Error",
+                        detail: `Imported item '${itemName || itemCode || 'Unknown Item'}' has an invalid BaseQTY and will be skipped. BaseQTY must be a positive number.`,
+                        life: 7000,
+                    });
+                    return; // Skip this item
+                }
+
+                // Calculate BaseUoM Qty for imported item
+                const importedBaseUomQty = parseFloat((quantity * baseQty).toFixed(2));
+                console.log(`   - Calculated importedBaseUomQty:`, importedBaseUomQty);
+
+                // Calculate Total Cost for imported item
+                const importedTotalCost = parseFloat((importedBaseUomQty * cost).toFixed(2));
+                console.log(`   - Calculated importedTotalCost:`, importedTotalCost);
+
+
                 const existingItemIndex = orderForm.orders.findIndex(
                     (order) => order.inventory_code === itemCode
                 );
@@ -355,26 +455,33 @@ const addImportedItemsToOrderList = () => {
                 if (existingItemIndex !== -1) {
                     const updatedQuantity =
                         orderForm.orders[existingItemIndex].quantity + quantity;
-                    orderForm.orders[existingItemIndex].quantity =
-                        updatedQuantity;
+                    const updatedBaseUomQty = parseFloat((updatedQuantity * baseQty).toFixed(2)); // Recalculate BaseUoM Qty
+                    
+                    orderForm.orders[existingItemIndex].quantity = updatedQuantity;
+                    orderForm.orders[existingItemIndex].base_uom_qty = updatedBaseUomQty; // NEW: Update BaseUoM Qty
                     orderForm.orders[existingItemIndex].total_cost = parseFloat(
-                        updatedQuantity *
-                            orderForm.orders[existingItemIndex].cost
+                        updatedBaseUomQty * cost // NEW: Total Cost = BaseUoM Qty * Cost
                     ).toFixed(2);
+                    console.log(`   - Updated existing item in orderForm.orders:`, orderForm.orders[existingItemIndex]);
                 } else {
                     // CRITICAL FIX: Ensure the 'id' property of the imported order is ItemCode
-                    orderForm.orders.push({
+                    const newItem = {
                         id: itemCode, 
                         inventory_code: itemCode, 
                         name: itemName, 
                         unit_of_measurement: unit, 
                         base_uom: importedOrder.base_uom || null, // Assuming base_uom might come from backend
-                        quantity: quantity, 
+                        base_qty: baseQty, // NEW: Add BaseQTY
+                        base_uom_qty: importedBaseUomQty, // NEW: Add calculated BaseUoM Qty
+                        quantity: parseFloat(quantity.toFixed(2)), // Ensure quantity is number and formatted
                         cost: cost, 
                         uom: unit, 
-                        total_cost: parseFloat(quantity * cost).toFixed(2),
-                    });
+                        total_cost: importedTotalCost, // NEW: Use calculated total cost
+                    };
+                    orderForm.orders.push(newItem);
+                    console.log(`   - Added new item to orderForm.orders:`, newItem);
                 }
+                console.log('--- End Processing individual importedOrder ---');
             });
 
             visible.value = false;
@@ -401,26 +508,42 @@ const addImportedItemsToOrderList = () => {
 
 const addItemQuantity = (id) => {
     const index = orderForm.orders.findIndex((item) => item.id === id);
-    orderForm.orders[index].quantity = parseFloat(
-        (orderForm.orders[index].quantity + 0.1).toFixed(2)
-    );
-    orderForm.orders[index].total_cost = parseFloat(
-        orderForm.orders[index].quantity * orderForm.orders[index].cost
-    ).toFixed(2);
+    if (index !== -1) {
+        const currentItem = orderForm.orders[index];
+        currentItem.quantity = parseFloat(
+            (Number(currentItem.quantity) + 0.1).toFixed(2)
+        );
+        
+        const effectiveBaseQty = Number(currentItem.base_qty) > 0 ? Number(currentItem.base_qty) : 1;
+        currentItem.base_uom_qty = parseFloat(
+            (Number(currentItem.quantity) * effectiveBaseQty).toFixed(2)
+        );
+        currentItem.total_cost = parseFloat(
+            Number(currentItem.base_uom_qty) * Number(currentItem.cost)
+        ).toFixed(2);
+    }
 };
 
 const minusItemQuantity = (id) => {
     const index = orderForm.orders.findIndex((item) => item.id === id);
-    orderForm.orders[index].quantity = parseFloat(
-        (orderForm.orders[index].quantity - 0.1).toFixed(2)
-    );
-    if (orderForm.orders[index].quantity < 0.1) {
-        orderForm.orders = orderForm.orders.filter((item) => item.id !== id);
-        return;
+    if (index !== -1) {
+        const currentItem = orderForm.orders[index];
+        currentItem.quantity = parseFloat(
+            (Number(currentItem.quantity) - 0.1).toFixed(2)
+        );
+        if (Number(currentItem.quantity) < 0.1) {
+            orderForm.orders = orderForm.orders.filter((item) => item.id !== id);
+            return;
+        }
+        
+        const effectiveBaseQty = Number(currentItem.base_qty) > 0 ? Number(currentItem.base_qty) : 1;
+        currentItem.base_uom_qty = parseFloat(
+            (Number(currentItem.quantity) * effectiveBaseQty).toFixed(2)
+        );
+        currentItem.total_cost = parseFloat(
+            Number(currentItem.base_uom_qty) * Number(currentItem.cost)
+        ).toFixed(2);
     }
-    orderForm.orders[index].total_cost = parseFloat(
-        orderForm.orders[index].quantity * orderForm.orders[index].cost
-    ).toFixed(2);
 };
 
 const removeItem = (id) => {
@@ -562,19 +685,59 @@ const isSupplierSelected = computed(() => {
 if (previousOrder) {
     previousOrder.store_order_items.forEach((item) => {
         console.log("Existing Ordered Item:", item);
+        
+        let baseQty = 1; // Default to 1
+        let baseUom = null;
+
+        console.log('Full item.supplier_item.sap_masterfiles:', JSON.parse(JSON.stringify(item.supplier_item.sap_masterfiles || item.supplier_item.sap_masterfile))); // Log the full SAP data
+
+        // Assuming item.supplier_item.sap_masterfiles is an array
+        if (item.supplier_item.sap_masterfiles && Array.isArray(item.supplier_item.sap_masterfiles)) {
+            const matchingSapEntry = item.supplier_item.sap_masterfiles.find(
+                (sapEntry) => {
+                    const cleanedAltUOM = sapEntry.AltUOM ? String(sapEntry.AltUOM).trim().toLowerCase() : '';
+                    const cleanedItemUOM = item.supplier_item.uom ? String(item.supplier_item.uom).trim().toLowerCase() : '';
+                    const isMatch = cleanedAltUOM === cleanedItemUOM;
+                    return isMatch;
+                }
+            );
+            if (matchingSapEntry) {
+                baseQty = Number(matchingSapEntry.BaseQTY) || 1;
+                baseUom = matchingSapEntry.BaseUOM;
+            } else if (item.supplier_item.sap_masterfiles.length > 0) {
+                // Fallback to first entry if no specific AltUOM match
+                baseQty = Number(item.supplier_item.sap_masterfiles[0].BaseQTY) || 1;
+                baseUom = item.supplier_item.sap_masterfiles[0].BaseUOM;
+            }
+        } else if (item.supplier_item.sap_masterfile) { // Handle single object case
+             baseQty = Number(item.supplier_item.sap_masterfile.BaseQTY) || 1;
+             baseUom = item.supplier_item.sap_masterfile.BaseUOM;
+        } else {
+            // console.log('No SAP Masterfile data found for this previous order item. Defaulting BaseQTY to 1.'); // Removed
+        }
+
+        const quantityOrdered = Number(item.quantity_ordered);
+        const itemCost = Number(item.supplier_item.cost);
+
+        const calculatedBaseUomQty = parseFloat((quantityOrdered * baseQty).toFixed(2));
+        const calculatedTotalCost = parseFloat((calculatedBaseUomQty * itemCost).toFixed(2));
+
         const product = {
             id: item.supplier_item.ItemCode, // Set id to ItemCode
             inventory_code: item.supplier_item.ItemCode,
             name: item.supplier_item.item_name,
             unit_of_measurement: item.supplier_item.uom,
-            base_uom: item.supplier_item.sap_masterfile?.BaseUOM || null,
-            quantity: item.quantity_ordered,
-            cost: item.supplier_item.cost,
-            total_cost: parseFloat(
-                item.quantity_ordered * item.supplier_item.cost
-            ).toFixed(2),
+            base_uom: baseUom, // Use the determined BaseUOM
+            base_qty: baseQty, // Use the determined BaseQTY
+            base_uom_qty: calculatedBaseUomQty,
+            quantity: quantityOrdered,
+            cost: itemCost,
+            total_cost: calculatedTotalCost,
+            uom: item.supplier_item.uom,
         };
         orderForm.orders.push(product);
+        // console.log('Final product for previous order item:', product); // Removed
+        // console.log('--- End Debugging BaseQTY Retrieval (Previous Order Item) ---'); // Removed
     });
 }
 
@@ -583,12 +746,54 @@ const {
     isEditQuantityModalOpen,
     formQuantity,
     openEditQuantityModal,
-    editQuantity,
+    // editQuantity is the function we need to modify
 } = useEditQuantity(orderForm);
+
+// Manually define editQuantity to include recalculation logic
+const editQuantity = () => {
+    const itemIndex = orderForm.orders.findIndex(item => item.id === formQuantity.id);
+
+    if (itemIndex !== -1) {
+        const newQuantity = Number(formQuantity.quantity);
+        const currentItem = orderForm.orders[itemIndex];
+
+        // Basic validation for quantity
+        if (isNaN(newQuantity) || newQuantity <= 0) {
+            formQuantity.errors.quantity = "Quantity must be a positive number.";
+            toast.add({ severity: "error", summary: "Validation Error", detail: "Quantity must be a positive number.", life: 3000 });
+            return;
+        }
+
+        // Ensure cost is a number before calculation to prevent NaN
+        const itemCost = Number(currentItem.cost);
+        if (isNaN(itemCost)) {
+            toast.add({ severity: "error", summary: "Calculation Error", detail: "Item cost is invalid. Cannot update total cost.", life: 3000 });
+            return;
+        }
+
+        // Determine the effective BaseQTY for calculation. Default to 1 if not available or <= 0.
+        const effectiveBaseQty = Number(currentItem.base_qty) > 0 ? Number(currentItem.base_qty) : 1;
+
+        currentItem.quantity = parseFloat(newQuantity.toFixed(2));
+        currentItem.base_uom_qty = parseFloat((newQuantity * effectiveBaseQty).toFixed(2)); // Recalculate BaseUOM Qty
+        currentItem.total_cost = parseFloat(
+            currentItem.base_uom_qty * itemCost // Use base_uom_qty for total cost calculation
+        ).toFixed(2);
+
+        // Ensure reactivity by replacing the array or updating it immutably
+        orderForm.orders = [...orderForm.orders];
+
+        toast.add({ severity: "success", summary: "Success", detail: "Quantity Updated.", life: 3000 });
+        isEditQuantityModalOpen.value = false; // Close the modal
+    } else {
+        toast.add({ severity: "error", summary: "Error", detail: "Item not found in order list.", life: 3000 });
+    }
+};
+
 
 watch(orderForm, (value) => {
     localStorage.setItem("storeStoreOrderDraft", JSON.stringify(value));
-    console.log('Draft saved to localStorage:', JSON.stringify(value)); // Explicitly log what's saved
+    // console.log('Draft saved to localStorage:', JSON.stringify(value)); // Removed
 }, { deep: true });
 </script>
 
@@ -740,6 +945,7 @@ watch(orderForm, (value) => {
                             <TH> Code </TH>
                             <TH> Quantity </TH>
                             <TH> Base UOM </TH>
+                            <TH> BaseUOM Qty </TH> <!-- NEW COLUMN HEADER -->
                             <TH> Unit </TH>
                             <TH> Cost </TH>
                             <TH> Total Cost </TH>
@@ -762,6 +968,9 @@ watch(orderForm, (value) => {
                                 </TD>
                                 <TD>
                                     {{ order.base_uom }}
+                                </TD>
+                                <TD>
+                                    {{ order.base_uom_qty }} <!-- NEW COLUMN DATA -->
                                 </TD>
                                 <TD>
                                     {{ order.unit_of_measurement }}
@@ -827,109 +1036,94 @@ watch(orderForm, (value) => {
                                 >UOM: {{ order.unit_of_measurement }}</LabelXS
                             >
                             <LabelXS>Quantity: {{ order.quantity }}</LabelXS>
+                            <LabelXS>BaseUOM Qty: {{ order.base_uom_qty }}</LabelXS> <!-- NEW MOBILE LABEL -->
                             <LabelXS>Cost: {{ Number(order.cost).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) }}</LabelXS>
+                            <LabelXS>Total Cost: {{ Number(order.total_cost).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) }}</LabelXS>
+                            <LinkButton
+                                @click="
+                                    openEditQuantityModal(
+                                        order.id,
+                                        order.quantity
+                                    )
+                                "
+                            >
+                                Edit Quantity
+                            </LinkButton>
                         </MobileTableRow>
                     </MobileTableContainer>
                 </CardContent>
+
                 <CardFooter class="flex justify-end">
                     <Button @click="store">Place Order</Button>
                 </CardFooter>
             </Card>
         </div>
 
-        <Dialog v-model:open="isEditQuantityModalOpen">
-            <DialogContent class="sm:max-w-[600px]">
-                <DialogHeader>
-                    <DialogTitle>Edit Quantity</DialogTitle>
-                    <DialogDescription>
-                        Please input all the required fields.
-                    </DialogDescription>
-                </DialogHeader>
-                <InputContainer>
-                    <LabelXS>Quantity</LabelXS>
-                    <Input type="number" v-model="formQuantity.quantity" />
-                    <FormError>{{ formQuantity.errors.quantity }}</FormError>
-                </InputContainer>
-
-                <DialogFooter>
-                    <Button
-                        @click="editQuantity"
-                        :disabled="isLoading"
-                        type="submit"
-                        class="gap-2"
-                    >
-                        Confirm
-                        <span v-if="isLoading"><Loading /></span>
-                    </Button>
-                </DialogFooter>
-            </DialogContent>
-        </Dialog>
         <Dialog v-model:open="visible">
             <DialogContent class="sm:max-w-[600px]">
                 <DialogHeader>
                     <DialogTitle>Import Orders</DialogTitle>
-                    <DialogDescription>
-                        Import the excel file of your orders.
-                    </DialogDescription>
+                    <DialogDescription
+                        >Upload an Excel file to import orders.</DialogDescription
+                    >
                 </DialogHeader>
-                <div class="space-y-5">
-                    <div class="flex flex-col space-y-1">
-                        <Label>Orders</Label>
+                <div class="grid gap-4 py-4">
+                    <InputContainer>
+                        <Label for="orders_file">Excel File</Label>
                         <Input
+                            id="orders"
                             type="file"
-                            @input="
-                                excelFileForm.orders_file =
-                                    $event.target.files[0]
+                            @change="
+                                excelFileForm.orders_file = $event.target.files[0]
                             "
                         />
                         <FormError>{{
                             excelFileForm.errors.orders_file
                         }}</FormError>
-                    </div>
-                    <div class="flex flex-col space-y-1">
-                        <Label class="text-xs">Order Templates</Label>
-                        <ul>
-                            <li class="text-xs">
-                                GSI BAKERY:
-                                <a
-                                    class="text-blue-500 underline"
-                                    href="/excel/gsi-bakery-template"
-                                    >Click to download</a
-                                >
-                            </li>
-                            <li class="text-xs">
-                                GSI OT:
-                                <a
-                                    class="text-blue-500 underline"
-                                    href="/excel/gsi-pr-template"
-                                    >Click to download</a
-                                >
-                            </li>
-                            <li class="text-xs">
-                                PUL:
-                                <a
-                                    class="text-blue-500 underline"
-                                    href="/excel/pul-template"
-                                    >Click to download</a
-                                >
-                            </li>
-                        </ul>
-                    </div>
+                    </InputContainer>
                 </div>
                 <DialogFooter>
-                    <Button
-                        :disabled="isLoading"
-                        @click="addImportedItemsToOrderList"
-                        type="submit"
-                        class="gap-2"
+                    <Button variant="ghost" @click="visible = false"
+                        >Cancel</Button
                     >
-                        Proceed
-                        <span v-if="isLoading"><Loading /></span>
+                    <Button @click="addImportedItemsToOrderList" :disabled="isLoading">
+                        <div v-if="isLoading" class="flex items-center">
+                            <svg class="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                            </svg>
+                            Importing...
+                        </div>
+                        <span v-else>Import</span>
                     </Button>
                 </DialogFooter>
             </DialogContent>
         </Dialog>
 
-        <BackButton />
+        <Dialog v-model:open="isEditQuantityModalOpen">
+            <DialogContent class="sm:max-w-[425px]">
+                <DialogHeader>
+                    <DialogTitle>Edit Quantity</DialogTitle>
+                    <DialogDescription
+                        >Make changes to the quantity here. Click save when
+                        you're done.</DialogDescription
+                    >
+                </DialogHeader>
+                <div class="grid gap-4 py-4">
+                    <div class="grid grid-cols-4 items-center gap-4">
+                        <Label for="quantity" class="text-right"> Quantity </Label>
+                        <Input
+                            id="quantity"
+                            type="number"
+                            class="col-span-3"
+                            v-model="formQuantity.quantity"
+                        />
+                    </div>
+                </div>
+                <DialogFooter>
+                    <Button @click="editQuantity">Save changes</Button>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
     </Layout>
 </template>

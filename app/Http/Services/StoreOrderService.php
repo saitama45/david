@@ -170,7 +170,8 @@ class StoreOrderService
 
     public function getOrder($id, $page = null)
     {
-        $order = StoreOrder::with(['store_branch', 'supplier', 'store_order_items'])
+        // CORRECTED: Eager load 'sapMasterfiles' (plural) for store_order_items
+        $order = StoreOrder::with(['store_branch', 'supplier', 'store_order_items.supplierItem.sapMasterfiles'])
             ->where('order_number', $id)->firstOrFail();
 
         if ($page && $page !== 'cs') {
