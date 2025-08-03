@@ -134,6 +134,10 @@ class RoleService
                 'POS Masterlist' => [
                     'view POSMasterfile list', 'create POSMasterfile', 'edit POSMasterfile', 'delete POSMasterfile', 'export POSMasterfile list'
                 ],
+                // NEW: POS Masterlist BOM
+                'POS Masterlist BOM' => [
+                    'view POSMasterfile BOM list', 'view POSMasterfile BOM', 'create POSMasterfile BOM', 'edit POSMasterfile BOM', 'delete POSMasterfile BOM', 'import POSMasterfile BOM', 'export POSMasterfile BOM',
+                ],
                 'BOM' => [
                     'view bom list', 'view bom', 'create bom', 'edit bom', 'delete bom', 'export bom list'
                 ],

@@ -34,6 +34,7 @@ use App\Http\Controllers\OrderApprovalController;
 use App\Http\Controllers\OrderReceivingController;
 use App\Http\Controllers\PDFReportController;
 use App\Http\Controllers\PermissionController;
+use App\Http\Controllers\POSMasterfileBOMController;
 use App\Http\Controllers\POSMasterfileController;
 use App\Http\Controllers\ProductOrderSummaryController;
 use App\Http\Controllers\ProductSalesController;
@@ -482,6 +483,25 @@ Route::middleware('auth')
             Route::middleware('permission:export POSMasterfile list')->get('/POSMasterfile-list/export', 'export')->name('export');
         });
 
+        // POSMasterfileBOM
+        Route::controller(POSMasterfileBOMController::class)->name('pos-bom.')->group(function () {
+            Route::middleware('permission:view POSMasterfile BOM list')->get('/pos-bom-list', 'index')->name('index');
+            Route::middleware('permission:view POSMasterfile BOM list')->get('/pos-bom-list/show/{posBom}', 'show')->name('show');
+            Route::middleware('permission:create POSMasterfile BOM')->group(function () {
+                Route::post('/pos-bom-list/store', 'store')->name('store');
+                Route::get('/pos-bom-list/create', 'create')->name('create');
+                Route::post('/pos-bom-list/import', 'import')->name('import');
+                // Route for downloading skipped import log
+                Route::get('/pos-bom-list/download-skipped-log', 'downloadSkippedImportLog')->name('downloadSkippedImportLog');
+            });
+            Route::middleware('permission:edit POSMasterfile BOM')->group(function () {
+                Route::get('/pos-bom-list/edit/{posBom}', 'edit')->name('edit');
+                Route::put('/pos-bom-list/update/{posBom}', 'update')->name('update');
+            });
+            Route::middleware('permission:delete POSMasterfile BOM')->delete('/pos-bom-list/destroy/{posBom}', 'destroy')->name('destroy');
+            Route::middleware('permission:export POSMasterfile BOM')->get('/pos-bom-list/export', 'export')->name('export');
+        });
+
         // BOM
         Route::controller(MenuController::class)->prefix('menu-list')->name('menu-list.')->group(function () {
             Route::middleware('permission:view bom list')->get('/', 'index')->name('index');
@@ -588,6 +608,9 @@ Route::middleware('auth')
                 Route::get('/wip-list-template', 'wipListTemplate')->name('wip-list-template');
 
                 Route::get('/wip-ingredients-template', 'wipIngredientsTemplate')->name('wip-ingredients-template');
+
+                // NEW: POS BOM Excel template route
+                Route::get('/pos-bom-template', 'posBomTemplate')->name('pos-bom-template');
 
                 Route::get('/bom-list-template', 'bomListTemplate')->name('bom-list-template');
 

@@ -155,8 +155,17 @@ class RolesAndPermissionSeeder extends Seeder
         Permission::firstOrCreate(['name' => 'delete POSMasterfile']);
         Permission::firstOrCreate(['name' => 'export POSMasterfile list']);
 
+        // NEW: POSMasterfileBOM Permissions
+        Permission::firstOrCreate(['name' => 'view POSMasterfile BOM list']);
+        Permission::firstOrCreate(['name' => 'view POSMasterfile BOM']);
+        Permission::firstOrCreate(['name' => 'create POSMasterfile BOM']);
+        Permission::firstOrCreate(['name' => 'edit POSMasterfile BOM']);
+        Permission::firstOrCreate(['name' => 'delete POSMasterfile BOM']);
+        Permission::firstOrCreate(['name' => 'import POSMasterfile BOM']);
+        Permission::firstOrCreate(['name' => 'export POSMasterfile BOM']);
 
-        // BOM
+
+        // BOM (Existing, keeping for context if it refers to something else)
         Permission::firstOrCreate(['name' => 'view bom list']);
         Permission::firstOrCreate(['name' => 'view bom']);
         Permission::firstOrCreate(['name' => 'create bom']);
@@ -300,6 +309,8 @@ class RolesAndPermissionSeeder extends Seeder
             'view sales report', 'view inventories report', 'view upcoming inventories',
             'view account payable', 'view cost of goods',
             'view store transactions', 'create store transactions', 'view store transaction', 'edit store transactions',
+            // NEW: POSMasterfileBOM permissions for store representative
+            'view POSMasterfile BOM list', 'view POSMasterfile BOM', 'create POSMasterfile BOM', 'edit POSMasterfile BOM', 'import POSMasterfile BOM', 'export POSMasterfile BOM',
         ]);
 
         // Assign specific permissions to 'request approver'

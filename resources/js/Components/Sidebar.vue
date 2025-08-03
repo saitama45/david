@@ -171,7 +171,7 @@ watchEffect(() => {
         { ref: orderingOpen, paths: ["/store-orders", "/emergency-orders", "/additional-orders", "/dts-orders", "/orders-approval", "/cs-approvals", "/additional-orders-approval", "/emergency-orders-approval"] },
         { ref: receivingOpen, paths: ["/direct-receiving", "/orders-receiving", "/approved-orders", "/receiving-approvals"] },
         { ref: salesOpen, paths: ["/sales-orders", "/store-transactions", "/store-transactions-approval"] },
-        { ref: inventoryOpen, paths: ["/items-list", "/sapitems-list", "/SupplierItems-list", "/POSMasterfile-list", "/menu-list", "/stock-management", "/soh-adjustment", "/low-on-stocks"] },
+        { ref: inventoryOpen, paths: ["/items-list", "/sapitems-list", "/SupplierItems-list", "/POSMasterfile-list", "/pos-bom-list", "/stock-management", "/soh-adjustment", "/low-on-stocks"] },
         { ref: reportsOpen, paths: ["/top-10-inventories", "/days-inventory-outstanding", "/days-payable-outstanding", "/sales-report", "/inventories-report", "/upcoming-inventories", "/account-payable", "/cost-of-goods", "/product-orders-summary", "/ice-cream-orders", "/salmon-orders", "/fruits-and-vegetables"] },
         { ref: referencesOpen, paths: ["/category-list", "/wip-list", "/menu-categories", "/uom-conversions", "/inventory-categories", "/unit-of-measurements", "/branches", "/suppliers", "/cost-centers"] },
     ];
@@ -420,10 +420,10 @@ watchEffect(() => {
                     POS Masterlist
                 </NavLink>
                 <NavLink
-                    v-if="hasAccess('view bom list')"
-                    href="/menu-list"
+                    v-if="hasAccess('view POSMasterfile BOM list')"
+                    href="/pos-bom-list"
                     :icon="Scroll"
-                    :is-active="isPathActive('/menu-list')"
+                    :is-active="isPathActive('/pos-bom-list')"
                 >
                     BOM
                 </NavLink>
