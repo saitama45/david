@@ -11,11 +11,6 @@ import { useToast } from "@/Composables/useToast";
 import { useBackButton } from "@/Composables/useBackButton";
 const { backButton } = useBackButton(route("store-orders.index"));
 
-// Removed unnecessary Shadcn Vue components imports as requested.
-// The components that are actually used in the template should be imported individually if needed.
-// For example, if you use `Dialog` in the template, you'd need `import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/Components/ui/dialog";`
-// Assuming the necessary components are imported elsewhere or provided globally if not listed here.
-
 import { Trash2, Minus, Plus } from "lucide-vue-next"; // Keep Lucide icons as they are used
 
 // Define props explicitly for <script setup>
@@ -120,7 +115,7 @@ onMounted(() => {
         const supplierItemData = item.supplier_item; // Get the supplier_item data
         if (supplierItemData && supplierItemData.sap_master_file) {
             const sapMasterFileObject = supplierItemData.sap_master_file;
-            console.log('  Full sap_master_file object (onMounted):', JSON.parse(JSON.stringify(sapMasterFileObject))); // Retained log
+            console.log('   Full sap_master_file object (onMounted):', JSON.parse(JSON.stringify(sapMasterFileObject))); // Retained log
             
             if (Object.prototype.hasOwnProperty.call(sapMasterFileObject, 'BaseQty')) {
                 const rawBaseQty = sapMasterFileObject.BaseQty; // Access directly from the object
@@ -145,7 +140,7 @@ onMounted(() => {
             unit_of_measurement: item.supplier_item.uom,
             base_uom: baseUom, // Use the determined BaseUOM
             base_qty: baseQty, // Use the determined BaseQTY
-            base_uom_qty: calculatedBaseUomQty, // Add calculated BaseUOM Qty
+            base_uom_qty: calculatedBaseUomQty,
             quantity: quantityOrdered,
             cost: itemCost,
             total_cost: calculatedTotalCost, // Use calculated total cost
@@ -167,6 +162,9 @@ const availableProductsOptions = ref([]);
 // productId will now hold the ItemCode string of the supplier item
 const productId = ref(null); 
 const isLoading = ref(false);
+
+// NEW: Reactive array to store skipped import messages
+const skippedImportMessages = ref([]);
 
 
 const datePickerDate = computed({
@@ -288,6 +286,34 @@ const removeItem = (id) => {
         },
     });
 };
+
+// Function to clear all orders
+const clearAllOrders = () => {
+    confirm.require({
+        message: "Are you sure you want to remove ALL items from your orders?",
+        header: "Confirmation",
+        icon: "pi pi-exclamation-triangle",
+        rejectProps: {
+            label: "Cancel",
+            severity: "secondary",
+            outlined: true,
+        },
+        acceptProps: {
+            label: "Remove All",
+            severity: "danger",
+        },
+        accept: () => {
+            orderForm.orders = []; // Clear the array
+            toast.add({
+                severity: "success",
+                summary: "Confirmed",
+                detail: "All items removed.",
+                life: 3000,
+            });
+        },
+    });
+};
+
 
 const addToOrdersButton = () => {
     itemForm.clearErrors();
@@ -501,7 +527,7 @@ watch(productId, async (itemCode) => {
                 // CRITICAL FIX: Always use the singular accessor 'sap_master_file'
                 const apiResultSapMasterFile = result.sap_master_file;
                 if (apiResultSapMasterFile) {
-                    console.log('  Full sap_master_file object (watch):', JSON.parse(JSON.stringify(apiResultSapMasterFile))); // Retained log
+                    console.log('   Full sap_master_file object (watch):', JSON.parse(JSON.stringify(apiResultSapMasterFile))); // Retained log
                     if (Object.prototype.hasOwnProperty.call(apiResultSapMasterFile, 'BaseQty')) {
                         const rawFoundBaseQty = apiResultSapMasterFile.BaseQty;
                         foundBaseQty = Number(rawFoundBaseQty);
@@ -666,6 +692,18 @@ const shouldLockDropdowns = computed(() => {
     return orderForm.orders.length > 0;
 });
 
+// NEW: Computed property to control the visibility of the "Import Orders" button
+const showImportOrdersButton = computed(() => {
+    return (
+        orderForm.orders.length === 0 &&
+        orderForm.supplier_id !== null &&
+        orderForm.supplier_id !== '' &&
+        orderForm.branch_id !== null &&
+        orderForm.branch_id !== '' &&
+        orderForm.order_date !== null
+    );
+});
+
 
 import { useEditQuantity } from "@/Composables/useEditQuantity";
 const {
@@ -741,11 +779,15 @@ watch(visible, (newValue) => {
 
 const importOrdersButton = () => {
     visible.value = true;
+    skippedImportMessages.value = []; // Clear previous skipped messages when opening modal
 };
 const addImportedItemsToOrderList = () => {
     isLoading.value = true;
+    skippedImportMessages.value = []; // Clear messages before new import attempt
     const formData = new FormData();
     formData.append("orders_file", excelFileForm.orders_file);
+    // Append the currently selected supplier_id to the form data
+    formData.append("supplier_id", orderForm.supplier_id); 
 
     axios
         .post(route("store-orders.imported-file"), formData, {
@@ -782,11 +824,11 @@ const addImportedItemsToOrderList = () => {
                 }
 
                 // Validate quantity for imported items: Allow 0, but not negative or NaN.
-                if (isNaN(quantity) || quantity < 0) { // Changed from quantity < 0.1 to quantity < 0
+                if (isNaN(quantity) || quantity < 0.1) { // Changed from quantity < 0.1 to quantity < 0
                     toast.add({
                         severity: "error",
                         summary: "Validation Error",
-                        detail: `Imported item '${itemName || itemCodeString || 'Unknown Item'}' has an invalid quantity and will be skipped. Quantity must be a non-negative number.`,
+                        detail: `Imported item '${itemName || itemCodeString || 'Unknown Item'}' has an invalid quantity and will be skipped. Quantity must be at least 0.1.`,
                         life: 7000,
                     });
                     return; // Skip this item
@@ -835,7 +877,7 @@ const addImportedItemsToOrderList = () => {
                         quantity: parseFloat(quantity.toFixed(2)), // Ensure quantity is number and formatted
                         cost: cost, 
                         uom: unit, 
-                        total_cost: importedTotalCost, // NEW: Use calculated total cost
+                        total_cost: importedTotalCost,
                     };
                     orderForm.orders.push(newItem);
                 }
@@ -849,12 +891,19 @@ const addImportedItemsToOrderList = () => {
                 life: 5000,
             });
             excelFileForm.orders_file = null;
+
+            // NEW: Display skipped items as persistent messages
+            if (response.data.skipped_items && response.data.skipped_items.length > 0) {
+                skippedImportMessages.value = response.data.skipped_items.map(skippedItem => 
+                    `Item '${skippedItem.item_name || skippedItem.item_code || 'Unknown'}' was skipped: ${skippedItem.reason}`
+                );
+            }
         })
         .catch((error) => {
             toast.add({
                 severity: "error",
                 summary: "Error",
-                detail: "An error occured while trying to get the imported orders. Please make sure that you are using the correct format.",
+                detail: error.response.data.message || "An error occured while trying to get the imported orders. Please make sure that you are using the correct format.",
                 life: 5000,
             });
             excelFileForm.setError("orders_file", error.response.data.message || "Unknown error during import.");
@@ -866,10 +915,20 @@ const addImportedItemsToOrderList = () => {
 <template>
     <Layout
         :heading="heading"
-        :hasButton="true"
+        :hasButton="showImportOrdersButton"
         buttonName="Import Orders"
         :handleClick="importOrdersButton"
     >
+        <!-- NEW: Display area for skipped import messages -->
+        <div v-if="skippedImportMessages.length > 0" class="mb-4 p-4 rounded-lg bg-yellow-100 text-yellow-800 border border-yellow-200">
+            <p class="font-bold mb-2">Skipped Items:</p>
+            <ul class="list-disc list-inside">
+                <li v-for="(message, index) in skippedImportMessages" :key="index">
+                    {{ message }}
+                </li>
+            </ul>
+        </div>
+
         <div class="grid sm:grid-cols-3 gap-5 grid-cols-1">
             <section class="grid gap-5">
                 <Card>
@@ -1004,6 +1063,15 @@ const addImportedItemsToOrderList = () => {
                         <DivFlexCenter class="gap-2">
                             <LabelXS> Overall Total:</LabelXS>
                             <SpanBold>{{ computeOverallTotal }}</SpanBold>
+                            <!-- Delete All Button -->
+                            <Button
+                                @click="clearAllOrders"
+                                variant="outline"
+                                class="text-red-500"
+                                :disabled="orderForm.orders.length === 0"
+                            >
+                                <Trash2 class="size-4 mr-1" /> Delete All
+                            </Button>
                         </DivFlexCenter>
                     </DivFlexCenter>
                 </CardHeader>
@@ -1062,9 +1130,21 @@ const addImportedItemsToOrderList = () => {
                                         Edit Quantity
                                     </LinkButton>
                                     <button
+                                        class="text-red-500 size-5"
+                                        @click="minusItemQuantity(order.id)"
+                                    >
+                                        <Minus />
+                                    </button>
+                                    <button
+                                        class="text-green-500 size-5"
+                                        @click="addItemQuantity(order.id)"
+                                    >
+                                        <Plus />
+                                    </button>
+                                    <button
                                         @click="removeItem(order.id)"
                                         variant="outline"
-                                        class="text-red-500"
+                                        class="text-red-500 size-5"
                                     >
                                         <Trash2 />
                                     </button>
