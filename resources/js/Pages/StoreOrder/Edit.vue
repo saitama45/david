@@ -358,8 +358,8 @@ const addToOrdersButton = () => {
         productDetails.total_cost = parseFloat((productDetails.base_uom_qty * currentCost).toFixed(2));
 
         orderForm.orders.push({ 
-            id: null, // Explicitly set 'id' to null for new items.
-            inventory_code: String(productDetails.inventory_code), // Ensure it's a string here too
+            id: null, // Explicitly set 'id' to null for imported items
+            inventory_code: String(productDetails.inventory_code), // This is now the ItemCode string - ensure it's a string
             name: productDetails.name, 
             unit_of_measurement: productDetails.unit_of_measurement, 
             base_uom: productDetails.base_uom, // NEW: Add BaseUOM
@@ -1054,7 +1054,7 @@ const addImportedItemsToOrderList = () => {
                                     <LinkButton
                                         @click="
                                             openEditQuantityModal(
-                                                order.id, // CRITICAL FIX: Pass the 'id' (StoreOrderItem.id)
+                                                order.id,
                                                 order.quantity
                                             )
                                         "
@@ -1150,20 +1150,33 @@ const addImportedItemsToOrderList = () => {
                         Upload an Excel file to import orders.
                     </DialogDescription>
                 </DialogHeader>
-                <InputContainer>
-                    <Label class="text-xs">Orders File</Label>
-                    <Input
-                        type="file"
-                        @input="
-                            (event) =>
-                                (excelFileForm.orders_file =
-                                    event.target.files[0])
-                        "
-                    />
-                    <FormError>{{
-                        excelFileForm.errors.orders_file
-                    }}</FormError>
-                </InputContainer>
+                <div class="space-y-5">
+                    <div class="flex flex-col space-y-1">
+                        <Input
+                            type="file"
+                            @input="
+                                (event) =>
+                                    (excelFileForm.orders_file =
+                                        event.target.files[0])
+                            "
+                        />
+                        <FormError>{{
+                            excelFileForm.errors.orders_file
+                        }}</FormError>
+                    </div>
+                    <div class="flex flex-col space-y-1">
+                        <Label class="text-xs">Accepted Orders File Format</Label>
+                        <ul>
+                            <li class="text-xs">
+                                <a
+                                    class="text-blue-500 underline"
+                                    :href="route('excel.store-order-template')"
+                                    >Click to download template</a
+                                >
+                            </li>
+                        </ul>
+                    </div>
+                </div>
                 <DialogFooter>
                     <Button
                         :disabled="isLoading"
@@ -1172,7 +1185,7 @@ const addImportedItemsToOrderList = () => {
                         class="gap-2"
                     >
                         Import
-                        <span v-if="isLoading"><Loading /></span>
+                        <span><Loading v-if="isLoading" /></span>
                     </Button>
                 </DialogFooter>
             </DialogContent>
@@ -1200,11 +1213,10 @@ const addImportedItemsToOrderList = () => {
                         class="gap-2"
                     >
                         Confirm
-                        <span v-if="isLoading"><Loading /></span>
+                        <span><Loading v-if="isLoading" /></span>
                     </Button>
                 </DialogFooter>
             </DialogContent>
         </Dialog>
     </Layout>
 </template>
-

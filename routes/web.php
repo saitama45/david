@@ -609,12 +609,14 @@ Route::middleware('auth')
 
                 Route::get('/wip-ingredients-template', 'wipIngredientsTemplate')->name('wip-ingredients-template');
 
-                // NEW: POS BOM Excel template route
                 Route::get('/pos-bom-template', 'posBomTemplate')->name('pos-bom-template');
 
                 Route::get('/bom-list-template', 'bomListTemplate')->name('bom-list-template');
 
                 Route::get('/bom-ingredients-template', 'bomIngredientsTemplate')->name('bom-ingredients-template');
+
+                // NEW: Store Order template route
+                Route::get('/store-order-template', 'storeOrderTemplate')->name('store-order-template');
             });
 
         // Items Order Summary

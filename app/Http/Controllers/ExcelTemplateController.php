@@ -52,7 +52,7 @@ class ExcelTemplateController extends Controller
     public function POSMasterfileTemplate()
     {
         // Define the path to your new template file
-        // Use `storage_path('app/public/excel-templates/sapmasterfile_template.xlsx')`
+        // Use `storage_path('app/public/excel-templates/POSMasterfile_template.xlsx')`
         // for a more robust path that works across different OS.
         $path = 'storage\excel-templates\POSMasterfile_template.xlsx';
 
@@ -160,6 +160,16 @@ class ExcelTemplateController extends Controller
     public function bomIngredientsTemplate()
     {
         $path = 'storage\excel-templates\bom_ingredients_template.xlsx';
+        return response()->download($path);
+    }
+
+    // NEW: Method to serve the Store Order template
+    public function storeOrderTemplate()
+    {
+        $path = 'storage\excel-templates\store_order_template.xlsx'; // Assuming this file exists
+        if (!file_exists($path)) {
+            abort(404, 'Store Order template file not found.');
+        }
         return response()->download($path);
     }
 }
