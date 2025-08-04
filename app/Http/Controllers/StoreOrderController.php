@@ -89,7 +89,7 @@ class StoreOrderController extends Controller
     public function show($id)
     {
         $order = $this->storeOrderService->getOrderDetails($id);
-        // Eager load the 'sapMasterfiles' relationship (plural) so the 'sap_masterfile' accessor works correctly.
+        // Eager load the 'sapMasterfiles' relationship (plural) so the 'sap_master_file' accessor works correctly.
         $order->load(['ordered_item_receive_dates.store_order_item.supplierItem.sapMasterfiles']);
 
         $orderedItems = $this->storeOrderService->getOrderItems($order);
@@ -106,11 +106,23 @@ class StoreOrderController extends Controller
 
     public function getImportedOrders(Request $request)
     {
-        $import = new OrderListImport();
+        // Validate the incoming request, ensuring the file and supplier_id are present
+        $request->validate([
+            'orders_file' => 'required|file|mimes:xlsx,xls',
+            'supplier_id' => 'required|string', // Ensure supplier_id is passed and is a string
+        ]);
+
+        $supplierId = $request->input('supplier_id'); // Get the supplier_id from the request
+        $import = new OrderListImport($supplierId); // Pass the supplier_id to the importer's constructor
         Excel::import($import, $request->file('orders_file'));
         $importedCollection = $import->getImportedData();
+        $skippedItems = $import->getSkippedItems(); // NEW: Get skipped items
+
+        // If no valid items were imported after filtering (e.g., due to supplier mismatch or other validation)
+        // We will now always return a 200 OK, but include skipped items for frontend display.
         return response()->json([
-            'orders' => $importedCollection
+            'orders' => $importedCollection,
+            'skipped_items' => $skippedItems // NEW: Include skipped items in the response
         ]);
     }
 
@@ -149,9 +161,9 @@ class StoreOrderController extends Controller
     {
         // Use the SupplierItems::options() scope which returns ItemCode => CONCAT(item_name, ' (', ItemCode, ') ', uom)
         $supplierItems = SupplierItems::where('SupplierCode', $supplierCode)
-                                     ->where('is_active', true)
-                                     ->options() // This scope returns ItemCode => CONCAT(item_name, ' (', ItemCode, ') ', uom)
-                                     ->all(); // Convert the collection to an array of value/label pairs
+                                   ->where('is_active', true)
+                                   ->options() // This scope returns ItemCode => CONCAT(item_name, ' (', ItemCode, ') ', uom)
+                                   ->all(); // Convert the collection to an array of value/label pairs
 
         // The options scope returns an associative array (ItemCode => formatted_name),
         // we need to convert it to the {value: 'ItemCode', label: 'formatted_name'} format expected by Select component.

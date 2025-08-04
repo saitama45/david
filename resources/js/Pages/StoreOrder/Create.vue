@@ -54,6 +54,9 @@ const productId = ref(null); // This will now hold the ItemCode of the selected 
 const visible = ref(false);
 const isLoading = ref(false);
 
+// NEW: Reactive array to store skipped import messages
+const skippedImportMessages = ref([]);
+
 watch(visible, (newValue) => {
     if (!newValue) {
         excelFileForm.reset();
@@ -94,6 +97,24 @@ const computeOverallTotal = computed(() => {
 
 const itemForm = useForm({
     item: null, // This will hold the ItemCode when an item is selected in the dropdown
+});
+
+// Computed property to control the visibility of the "Import Orders" button
+const showImportOrdersButton = computed(() => {
+    // Hide if there are items in the list OR if no supplier, branch, or order date is selected
+    return (
+        orderForm.orders.length === 0 &&
+        orderForm.supplier_id !== null &&
+        orderForm.supplier_id !== '' &&
+        orderForm.branch_id !== null &&
+        orderForm.branch_id !== '' &&
+        orderForm.order_date !== null
+    );
+});
+
+// Computed property to lock order details fields
+const areOrderDetailsLocked = computed(() => {
+    return orderForm.orders.length > 0;
 });
 
 const store = () => {
@@ -198,20 +219,16 @@ watch(productId, async (itemCode) => {
                 let foundBaseUom = null;
                 let foundBaseQty = 1; // Default to 1 to prevent division by zero or NaN in calculations
 
-                // console.log('--- Debugging BaseQTY Retrieval (New Item) ---'); // Removed
-                // console.log('Supplier Item UOM:', result.uom); // Removed
                 console.log('Full result.sap_masterfiles:', JSON.parse(JSON.stringify(result.sap_masterfiles || result.sap_masterfile))); // Retained log
 
                 // Assuming result.sap_masterfiles is an array of SAP masterfile entries
                 // Each entry might have 'BaseUOM', 'AltUOM', 'BaseQTY'
                 if (result.sap_masterfiles && Array.isArray(result.sap_masterfiles)) {
-                    // console.log('Processing SAP Masterfiles (array):'); // Removed
                     const matchingSapEntry = result.sap_masterfiles.find(
                         (sapEntry) => {
                             const cleanedAltUOM = sapEntry.AltUOM ? String(sapEntry.AltUOM).trim().toLowerCase() : '';
                             const cleanedResultUOM = result.uom ? String(result.uom).trim().toLowerCase() : '';
                             const isMatch = cleanedAltUOM === cleanedResultUOM;
-                            // console.log(`  Comparing SupplierItem UOM '${cleanedResultUOM}' with SAP AltUOM '${cleanedAltUOM}'. Match: ${isMatch}`); // Removed
                             return isMatch;
                         }
                     );
@@ -219,28 +236,21 @@ watch(productId, async (itemCode) => {
                     if (matchingSapEntry) {
                         foundBaseUom = matchingSapEntry.BaseUOM;
                         foundBaseQty = Number(matchingSapEntry.BaseQTY) || 1; // Ensure it's a number, default to 1
-                        // console.log(`  Found direct match. BaseUOM: ${foundBaseUom}, BaseQTY: ${foundBaseQty}`); // Removed
                     } else if (result.sap_masterfiles.length > 0) {
                         // Fallback: If no specific AltUOM match, use the first entry's BaseUOM/BaseQTY
                         // This might be the case if the supplier item's UOM is the BaseUOM itself
                         foundBaseUom = result.sap_masterfiles[0].BaseUOM;
                         foundBaseQty = Number(result.sap_masterfiles[0].BaseQTY) || 1;
-                        // console.log(`  No direct AltUOM match. Falling back to first SAP entry. BaseUOM: ${foundBaseUom}, BaseQTY: ${foundBaseQty}`); // Removed
                     }
                 } else if (result.sap_masterfile) { // Handle case where it's a single object (not array)
-                    // console.log('Processing SAP Masterfile (single object):'); // Removed
                     foundBaseUom = result.sap_masterfile.BaseUOM;
                     foundBaseQty = Number(result.sap_masterfile.BaseQTY) || 1;
-                    // console.log(`  Using single SAP entry. BaseUOM: ${foundBaseUom}, BaseQTY: ${foundBaseQty}`); // Removed
                 } else {
-                    // console.log('No SAP Masterfile data found for this item. Defaulting BaseQTY to 1.'); // Removed
+                    // No SAP Masterfile data found, BaseQTY remains 1 (default)
                 }
 
                 productDetails.base_uom = foundBaseUom;
                 productDetails.base_qty = foundBaseQty;
-                // console.log('Final productDetails.base_uom:', productDetails.base_uom); // Removed
-                // console.log('Final productDetails.base_qty:', productDetails.base_qty); // Removed
-                // console.log('--- End Debugging BaseQTY Retrieval (New Item) ---'); // Removed
                 // --- END NEW LOGIC ---
 
             } else {
@@ -271,106 +281,16 @@ watch(productId, async (itemCode) => {
 
 const importOrdersButton = () => {
     visible.value = true;
-};
-
-const addToOrdersButton = () => {
-    itemForm.clearErrors();
-    if (!itemForm.item) {
-        itemForm.setError("item", "Item field is required");
-        return;
-    }
-    if (isNaN(Number(productDetails.quantity)) || Number(productDetails.quantity) < 0.1) {
-        itemForm.setError("quantity", "Quantity must be at least 0.1 and a valid number");
-        return;
-    }
-    // CRITICAL FIX: Add validation for cost being 0 or null
-    if (productDetails.cost === null || Number(productDetails.cost) === 0) {
-        toast.add({
-            severity: "error",
-            summary: "Validation Error",
-            detail: "Item cost cannot be zero or empty.",
-            life: 5000,
-        });
-        return;
-    }
-    // BaseQTY validation removed as requested. Calculations will use a default of 1 if not available.
-
-    if (
-        !productDetails.inventory_code ||
-        !productDetails.name ||
-        !productDetails.unit_of_measurement ||
-        !productDetails.quantity ||
-        productDetails.cost === null
-    ) {
-        toast.add({
-            severity: "error",
-            summary: "Validation Error",
-            detail: "Please ensure all item details are loaded (name, code, UOM, quantity, cost).", // Updated message
-            life: 5000,
-        });
-        return;
-    }
-
-    const existingItemIndex = orderForm.orders.findIndex(
-        (order) => order.inventory_code === productDetails.inventory_code
-    );
-
-    // Determine the effective BaseQTY for calculation. Default to 1 if not available or <= 0.
-    const effectiveBaseQtyForNewItem = Number(productDetails.base_qty) > 0 ? Number(productDetails.base_qty) : 1;
-    const currentQuantity = Number(productDetails.quantity);
-    const currentCost = Number(productDetails.cost);
-
-    // console.log('--- Debugging Add to Orders Button ---'); // Removed
-    // console.log('productDetails.quantity:', currentQuantity); // Removed
-    // console.log('productDetails.base_qty (effective):', effectiveBaseQtyForNewItem); // Removed
-    // console.log('productDetails.cost:', currentCost); // Removed
-
-    if (existingItemIndex !== -1) {
-        // Update existing item
-        const existingItem = orderForm.orders[existingItemIndex];
-        const newTotalQuantity = existingItem.quantity + currentQuantity;
-        
-        // Use the base_qty already present in the existing item, or default to 1
-        const effectiveBaseQtyForExistingItem = Number(existingItem.base_qty) > 0 ? Number(existingItem.base_qty) : 1;
-
-        const newBaseUomQty = parseFloat((newTotalQuantity * effectiveBaseQtyForExistingItem).toFixed(2));
-        const newTotalCost = parseFloat((newBaseUomQty * currentCost).toFixed(2));
-        
-        existingItem.quantity = newTotalQuantity;
-        existingItem.base_uom_qty = newBaseUomQty;
-        existingItem.total_cost = newTotalCost;
-
-        // console.log('  Updated existing item. New Quantity:', newTotalQuantity, 'New BaseUOM Qty:', newBaseUomQty, 'New Total Cost:', newTotalCost); // Removed
-
-    } else {
-        // Add new item
-        productDetails.base_uom_qty = parseFloat((currentQuantity * effectiveBaseQtyForNewItem).toFixed(2));
-        productDetails.total_cost = parseFloat((productDetails.base_uom_qty * currentCost).toFixed(2));
-
-        // console.log('  Adding new item. BaseUOM Qty:', productDetails.base_uom_qty, 'Total Cost:', productDetails.total_cost); // Removed
-
-        orderForm.orders.push({ ...productDetails, id: productDetails.inventory_code });
-    }
-    // console.log('--- End Debugging Add to Orders Button ---'); // Removed
-
-    Object.keys(productDetails).forEach((key) => {
-        productDetails[key] = null;
-    });
-    productId.value = null;
-    toast.add({
-        severity: "success",
-        summary: "Success",
-        detail: "Item added successfully.",
-        life: 5000,
-    });
-    itemForm.item = null;
-    itemForm.clearErrors();
+    skippedImportMessages.value = []; // Clear previous skipped messages when opening modal
 };
 
 const addImportedItemsToOrderList = () => {
     isLoading.value = true;
+    skippedImportMessages.value = []; // Clear messages before new import attempt
     const formData = new FormData();
     formData.append("orders_file", excelFileForm.orders_file);
+    // Append the currently selected supplier_id to the form data
+    formData.append("supplier_id", orderForm.supplier_id); 
 
     axios
         .post(route("store-orders.imported-file"), formData, {
@@ -393,14 +313,14 @@ const addImportedItemsToOrderList = () => {
                 const quantity = Number(rawQuantityValue);
 
                 console.log(`Extracted values for ${itemCode || 'Unknown Item'}:`);
-                console.log(`   - Raw quantity value from backend (before Number() conversion):`, rawQuantityValue);
-                console.log(`   - Converted quantity:`, quantity);
+                console.log(`    - Raw quantity value from backend (before Number() conversion):`, rawQuantityValue);
+                console.log(`    - Converted quantity:`, quantity);
 
                 const cost = Number(importedOrder.cost || importedOrder.Cost);
-                console.log(`   - Converted cost:`, cost);
+                console.log(`    - Converted cost:`, cost);
 
                 const baseQty = Number(importedOrder.base_qty || importedOrder.BaseQTY); // Keep: Get BaseQTY from imported data for calculation
-                console.log(`   - Converted baseQty:`, baseQty);
+                console.log(`    - Converted baseQty:`, baseQty);
 
 
                 const unit = importedOrder.unit || importedOrder.UOM || importedOrder.unit_of_measurement;
@@ -441,11 +361,11 @@ const addImportedItemsToOrderList = () => {
 
                 // Calculate BaseUoM Qty for imported item
                 const importedBaseUomQty = parseFloat((quantity * baseQty).toFixed(2));
-                console.log(`   - Calculated importedBaseUomQty:`, importedBaseUomQty);
+                console.log(`    - Calculated importedBaseUomQty:`, importedBaseUomQty);
 
                 // Calculate Total Cost for imported item
                 const importedTotalCost = parseFloat((importedBaseUomQty * cost).toFixed(2));
-                console.log(`   - Calculated importedTotalCost:`, importedTotalCost);
+                console.log(`    - Calculated importedTotalCost:`, importedTotalCost);
 
 
                 const existingItemIndex = orderForm.orders.findIndex(
@@ -462,7 +382,7 @@ const addImportedItemsToOrderList = () => {
                     orderForm.orders[existingItemIndex].total_cost = parseFloat(
                         updatedBaseUomQty * cost // NEW: Total Cost = BaseUoM Qty * Cost
                     ).toFixed(2);
-                    console.log(`   - Updated existing item in orderForm.orders:`, orderForm.orders[existingItemIndex]);
+                    console.log(`    - Updated existing item in orderForm.orders:`, orderForm.orders[existingItemIndex]);
                 } else {
                     // CRITICAL FIX: Ensure the 'id' property of the imported order is ItemCode
                     const newItem = {
@@ -479,7 +399,7 @@ const addImportedItemsToOrderList = () => {
                         total_cost: importedTotalCost, // NEW: Use calculated total cost
                     };
                     orderForm.orders.push(newItem);
-                    console.log(`   - Added new item to orderForm.orders:`, newItem);
+                    console.log(`    - Added new item to orderForm.orders:`, newItem);
                 }
                 console.log('--- End Processing individual importedOrder ---');
             });
@@ -492,18 +412,110 @@ const addImportedItemsToOrderList = () => {
                 life: 5000,
             });
             excelFileForm.orders_file = null;
+
+            // NEW: Display skipped items as persistent messages
+            if (response.data.skipped_items && response.data.skipped_items.length > 0) {
+                skippedImportMessages.value = response.data.skipped_items.map(skippedItem => 
+                    `Item '${skippedItem.item_name || skippedItem.item_code || 'Unknown'}' was skipped: ${skippedItem.reason}`
+                );
+            }
+
         })
         .catch((error) => {
             toast.add({
                 severity: "error",
                 summary: "Error",
-                detail: "An error occured while trying to get the imported orders. Please make sure that you are using the correct format.",
+                detail: error.response.data.message || "An error occurred while trying to get the imported orders. Please make sure that you are using the correct format.",
                 life: 5000,
             });
             excelFileForm.setError("orders_file", error.response.data.message || "Unknown error during import.");
             console.error("Error during import:", error); // Use console.error for errors
         })
         .finally(() => (isLoading.value = false));
+};
+
+const addToOrdersButton = () => {
+    itemForm.clearErrors();
+    if (!itemForm.item) {
+        itemForm.setError("item", "Item field is required");
+        return;
+    }
+    if (isNaN(Number(productDetails.quantity)) || Number(productDetails.quantity) < 0.1) {
+        itemForm.setError("quantity", "Quantity must be at least 0.1 and a valid number");
+        return;
+    }
+    // Add validation for cost being 0 or null
+    if (productDetails.cost === null || Number(productDetails.cost) === 0) {
+        toast.add({
+            severity: "error",
+            summary: "Validation Error",
+            detail: "Item cost cannot be zero or empty.",
+            life: 5000,
+        });
+        return;
+    }
+    // BaseQTY validation removed as requested. Calculations will use a default of 1 if not available.
+
+    if (
+        !productDetails.inventory_code ||
+        !productDetails.name ||
+        !productDetails.unit_of_measurement ||
+        !productDetails.quantity ||
+        productDetails.cost === null
+    ) {
+        toast.add({
+            severity: "error",
+            summary: "Validation Error",
+            detail: "Please ensure all item details are loaded (name, code, UOM, quantity, cost).", // Updated message
+            life: 5000,
+        });
+        return;
+    }
+
+    const existingItemIndex = orderForm.orders.findIndex(
+        (order) => order.inventory_code === productDetails.inventory_code
+    );
+
+    // Determine the effective BaseQTY for calculation. Default to 1 if not available or <= 0.
+    const effectiveBaseQtyForNewItem = Number(productDetails.base_qty) > 0 ? Number(productDetails.base_qty) : 1;
+    const currentQuantity = Number(productDetails.quantity);
+    const currentCost = Number(productDetails.cost);
+
+    if (existingItemIndex !== -1) {
+        // Update existing item
+        const existingItem = orderForm.orders[existingItemIndex];
+        const newTotalQuantity = existingItem.quantity + currentQuantity;
+        
+        // Use the base_qty already present in the existing item, or default to 1
+        const effectiveBaseQtyForExistingItem = Number(existingItem.base_qty) > 0 ? Number(existingItem.base_qty) : 1;
+
+        const newBaseUomQty = parseFloat((newTotalQuantity * effectiveBaseQtyForExistingItem).toFixed(2));
+        const newTotalCost = parseFloat((newBaseUomQty * currentCost).toFixed(2));
+        
+        existingItem.quantity = newTotalQuantity;
+        existingItem.base_uom_qty = newBaseUomQty;
+        existingItem.total_cost = newTotalCost;
+
+    } else {
+        // Add new item
+        productDetails.base_uom_qty = parseFloat((currentQuantity * effectiveBaseQtyForNewItem).toFixed(2));
+        productDetails.total_cost = parseFloat((productDetails.base_uom_qty * currentCost).toFixed(2));
+
+        orderForm.orders.push({ ...productDetails, id: productDetails.inventory_code });
+    }
+
+    Object.keys(productDetails).forEach((key) => {
+        productDetails[key] = null;
+    });
+    productId.value = null;
+    toast.add({
+        severity: "success",
+        summary: "Success",
+        detail: "Item added successfully.",
+        life: 5000,
+    });
+    itemForm.item = null;
+    itemForm.clearErrors();
 };
 
 const addItemQuantity = (id) => {
@@ -568,6 +580,33 @@ const removeItem = (id) => {
                 severity: "success",
                 summary: "Confirmed",
                 detail: "Item Removed",
+                life: 3000,
+            });
+        },
+    });
+};
+
+// Function to clear all orders
+const clearAllOrders = () => {
+    confirm.require({
+        message: "Are you sure you want to remove ALL items from your orders?",
+        header: "Confirmation",
+        icon: "pi pi-exclamation-triangle",
+        rejectProps: {
+            label: "Cancel",
+            severity: "secondary",
+            outlined: true,
+        },
+        acceptProps: {
+            label: "Remove All",
+            severity: "danger",
+        },
+        accept: () => {
+            orderForm.orders = []; // Clear the array
+            toast.add({
+                severity: "success",
+                summary: "Confirmed",
+                detail: "All items removed.",
                 life: 3000,
             });
         },
@@ -710,10 +749,10 @@ if (previousOrder) {
                 baseUom = item.supplier_item.sap_masterfiles[0].BaseUOM;
             }
         } else if (item.supplier_item.sap_masterfile) { // Handle single object case
-             baseQty = Number(item.supplier_item.sap_masterfile.BaseQTY) || 1;
-             baseUom = item.supplier_item.sap_masterfile.BaseUOM;
+            baseQty = Number(item.supplier_item.sap_masterfile.BaseQTY) || 1;
+            baseUom = item.supplier_item.sap_masterfile.BaseUOM;
         } else {
-            // console.log('No SAP Masterfile data found for this previous order item. Defaulting BaseQTY to 1.'); // Removed
+            // No SAP Masterfile data found for this previous order item. Defaulting BaseQTY to 1.
         }
 
         const quantityOrdered = Number(item.quantity_ordered);
@@ -736,8 +775,6 @@ if (previousOrder) {
             uom: item.supplier_item.uom,
         };
         orderForm.orders.push(product);
-        // console.log('Final product for previous order item:', product); // Removed
-        // console.log('--- End Debugging BaseQTY Retrieval (Previous Order Item) ---'); // Removed
     });
 }
 
@@ -793,25 +830,32 @@ const editQuantity = () => {
 
 watch(orderForm, (value) => {
     localStorage.setItem("storeStoreOrderDraft", JSON.stringify(value));
-    // console.log('Draft saved to localStorage:', JSON.stringify(value)); // Removed
 }, { deep: true });
 </script>
 
 <template>
     <Layout
         heading="Store Order > Create"
-        :hasButton="true"
+        :hasButton="showImportOrdersButton"
         buttonName="Import Orders"
         :handleClick="importOrdersButton"
     >
+        <!-- NEW: Display area for skipped import messages -->
+        <div v-if="skippedImportMessages.length > 0" class="mb-4 p-4 rounded-lg bg-yellow-100 text-yellow-800 border border-yellow-200">
+            <p class="font-bold mb-2">Skipped Items:</p>
+            <ul class="list-disc list-inside">
+                <li v-for="(message, index) in skippedImportMessages" :key="index">
+                    {{ message }}
+                </li>
+            </ul>
+        </div>
+
         <div class="grid sm:grid-cols-3 gap-5 grid-cols-1">
             <section class="grid gap-5">
                 <Card>
                     <CardHeader>
                         <CardTitle>Order Details</CardTitle>
-                        <CardDescription
-                            >Please input all the fields</CardDescription
-                        >
+                        <CardDescription>Please input all the fields</CardDescription>
                     </CardHeader>
                     <CardContent class="space-y-3">
                         <div class="flex flex-col space-y-1">
@@ -823,6 +867,7 @@ watch(orderForm, (value) => {
                                 :options="suppliersOptions"
                                 optionLabel="label"
                                 optionValue="value"
+                                :disabled="areOrderDetailsLocked"
                             >
                             </Select>
                             <FormError>{{
@@ -838,6 +883,7 @@ watch(orderForm, (value) => {
                                 :options="branchesOptions"
                                 optionLabel="label"
                                 optionValue="value"
+                                :disabled="areOrderDetailsLocked"
                             >
                             </Select>
                             <FormError>{{
@@ -855,6 +901,7 @@ watch(orderForm, (value) => {
                                 :manualInput="true"
                                 :minDate="orderRestrictionDate.minDate"
                                 :maxDate="orderRestrictionDate.maxDate"
+                                :disabled="areOrderDetailsLocked"
                             />
                             <FormError>{{
                                 orderForm.errors.order_date
@@ -865,9 +912,7 @@ watch(orderForm, (value) => {
                 <Card>
                     <CardHeader>
                         <CardTitle>Add Item</CardTitle>
-                        <CardDescription
-                            >Please input all the fields</CardDescription
-                        >
+                        <CardDescription>Please input all the fields</CardDescription>
                     </CardHeader>
                     <CardContent class="space-y-3">
                         <div class="flex flex-col space-y-1">
@@ -935,6 +980,15 @@ watch(orderForm, (value) => {
                         <DivFlexCenter class="gap-2">
                             <LabelXS> Overall Total:</LabelXS>
                             <SpanBold>{{ computeOverallTotal }}</SpanBold>
+                            <!-- Delete All Button -->
+                            <Button
+                                @click="clearAllOrders"
+                                variant="outline"
+                                class="text-red-500"
+                                :disabled="orderForm.orders.length === 0"
+                            >
+                                <Trash2 class="size-4 mr-1" /> Delete All
+                            </Button>
                         </DivFlexCenter>
                     </DivFlexCenter>
                 </CardHeader>
@@ -945,7 +999,7 @@ watch(orderForm, (value) => {
                             <TH> Code </TH>
                             <TH> Quantity </TH>
                             <TH> Base UOM </TH>
-                            <TH> BaseUOM Qty </TH> <!-- NEW COLUMN HEADER -->
+                            <TH> BaseUOM Qty </TH>
                             <TH> Unit </TH>
                             <TH> Cost </TH>
                             <TH> Total Cost </TH>
@@ -970,7 +1024,7 @@ watch(orderForm, (value) => {
                                     {{ order.base_uom }}
                                 </TD>
                                 <TD>
-                                    {{ order.base_uom_qty }} <!-- NEW COLUMN DATA -->
+                                    {{ order.base_uom_qty }}
                                 </TD>
                                 <TD>
                                     {{ order.unit_of_measurement }}
@@ -993,9 +1047,21 @@ watch(orderForm, (value) => {
                                         Edit Quantity
                                     </LinkButton>
                                     <button
+                                        class="text-red-500"
+                                        @click="minusItemQuantity(order.id)"
+                                    >
+                                        <Minus />
+                                    </button>
+                                    <button
+                                        class="text-green-500"
+                                        @click="addItemQuantity(order.id)"
+                                    >
+                                        <Plus />
+                                    </button>
+                                    <button
                                         @click="removeItem(order.id)"
                                         variant="outline"
-                                        class="text-red-500"
+                                        class="text-red-500 size-5"
                                     >
                                         <Trash2 />
                                     </button>
@@ -1036,7 +1102,7 @@ watch(orderForm, (value) => {
                                 >UOM: {{ order.unit_of_measurement }}</LabelXS
                             >
                             <LabelXS>Quantity: {{ order.quantity }}</LabelXS>
-                            <LabelXS>BaseUOM Qty: {{ order.base_uom_qty }}</LabelXS> <!-- NEW MOBILE LABEL -->
+                            <LabelXS>BaseUOM Qty: {{ order.base_uom_qty }}</LabelXS>
                             <LabelXS>Cost: {{ Number(order.cost).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) }}</LabelXS>
                             <LabelXS>Total Cost: {{ Number(order.total_cost).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) }}</LabelXS>
                             <LinkButton

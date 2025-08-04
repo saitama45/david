@@ -14,6 +14,17 @@ use Illuminate\Support\Arr; // Import the Arr facade for data_get helper
 class OrderListImport implements ToCollection, WithHeadingRow
 {
     protected $importedData;
+    protected $expectedSupplierCode; // New property to store the selected supplier code
+    protected $skippedItems = []; // NEW: Property to store skipped items and their reasons
+
+    /**
+     * Constructor to receive the expected supplier code.
+     * @param string|null $expectedSupplierCode The supplier code from the frontend dropdown.
+     */
+    public function __construct(string $expectedSupplierCode = null)
+    {
+        $this->expectedSupplierCode = $expectedSupplierCode;
+    }
 
     /**
      * @param Collection $collection
@@ -49,36 +60,55 @@ class OrderListImport implements ToCollection, WithHeadingRow
 
                 $costFromExcel = is_numeric($costFromExcel) ? (float) $costFromExcel : null;
 
-                Log::debug("OrderListImport: Extracted for row {$key} - ItemCode: '{$itemCodeFromExcel}', ItemName: '{$itemNameFromExcel}', Qty: '{$qtyFromExcel}', Cost: '{$costFromExcel}', Unit: '{$unitFromExcel}', SupplierCode: '{$supplierCodeFromExcel}'");
+                $logMessage = "OrderListImport: Extracted for row {$key} - ItemCode: '{$itemCodeFromExcel}', ItemName: '{$itemNameFromExcel}', Qty: '{$qtyFromExcel}', Cost: '{$costFromExcel}', Unit: '{$unitFromExcel}', SupplierCode: '{$supplierCodeFromExcel}'";
+                Log::debug($logMessage);
 
                 // --- Backend-side Validation for essential data from Excel ---
                 if (empty($itemCodeFromExcel)) {
-                    Log::warning("OrderListImport: Skipping row {$key}: 'Item Code' is missing or empty.");
+                    $reason = 'Item Code is missing or empty.';
+                    Log::warning("OrderListImport: Skipping row {$key}: {$reason}");
+                    $this->addSkippedItem($itemCodeFromExcel, $itemNameFromExcel, $reason);
                     return null;
                 }
                 if (empty($supplierCodeFromExcel)) {
-                    Log::warning("OrderListImport: Skipping row {$key}: 'Supplier Code' is missing or empty for item '{$itemCodeFromExcel}'.");
+                    $reason = 'Supplier Code is missing or empty.';
+                    Log::warning("OrderListImport: Skipping row {$key} for item '{$itemCodeFromExcel}': {$reason}");
+                    $this->addSkippedItem($itemCodeFromExcel, $itemNameFromExcel, $reason);
                     return null;
                 }
+                // NEW VALIDATION: Check if supplier code from Excel matches the expected supplier code
+                if ($this->expectedSupplierCode && $supplierCodeFromExcel !== $this->expectedSupplierCode) {
+                    $reason = "Supplier Code '{$supplierCodeFromExcel}' from Excel does not match selected supplier '{$this->expectedSupplierCode}'.";
+                    Log::warning("OrderListImport: Skipping row {$key} for item '{$itemCodeFromExcel}': {$reason}");
+                    $this->addSkippedItem($itemCodeFromExcel, $itemNameFromExcel, $reason);
+                    return null; // Skip this row
+                }
+
                 // Allow 0 here for Qty and Cost, frontend will filter based on > 0.1 and > 0 respectively.
                 if ($qtyFromExcel === null || $qtyFromExcel < 0) { 
-                    Log::warning("OrderListImport: Skipping row {$key} for item '{$itemCodeFromExcel}': 'Qty' is missing or invalid (negative).");
+                    $reason = 'Quantity is missing or invalid (negative).';
+                    Log::warning("OrderListImport: Skipping row {$key} for item '{$itemCodeFromExcel}': {$reason}");
+                    $this->addSkippedItem($itemCodeFromExcel, $itemNameFromExcel, $reason);
                     return null;
                 }
                 if ($costFromExcel === null || $costFromExcel < 0) { 
-                    Log::warning("OrderListImport: Skipping row {$key} for item '{$itemCodeFromExcel}': 'Cost' is missing or invalid (negative).");
+                    $reason = 'Cost is missing or invalid (negative).';
+                    Log::warning("OrderListImport: Skipping row {$key} for item '{$itemCodeFromExcel}': {$reason}");
+                    $this->addSkippedItem($itemCodeFromExcel, $itemNameFromExcel, $reason);
                     return null;
                 }
                 // --- End Backend-side Validation ---
 
                 // Fetch SupplierItem without eager loading sapMasterfiles, as we'll query it directly
                 $supplierItem = SupplierItems::where('ItemCode', $itemCodeFromExcel)
-                                            ->where('is_active', true) // Only import active items
-                                            ->where('SupplierCode', $supplierCodeFromExcel)
-                                            ->first();
+                                             ->where('is_active', true) // Only import active items
+                                             ->where('SupplierCode', $supplierCodeFromExcel)
+                                             ->first();
 
                 if (!$supplierItem) {
-                    Log::warning("OrderListImport: Skipping row {$key}: SupplierItems not found or inactive for Item Code: '{$itemCodeFromExcel}' and Supplier Code: '{$supplierCodeFromExcel}'.");
+                    $reason = "Item not found or inactive for Item Code: '{$itemCodeFromExcel}' and Supplier Code: '{$supplierCodeFromExcel}'.";
+                    Log::warning("OrderListImport: Skipping row {$key}: {$reason}");
+                    $this->addSkippedItem($itemCodeFromExcel, $itemNameFromExcel, $reason);
                     return null;
                 }
                 Log::debug("OrderListImport: SupplierItems found for '{$itemCodeFromExcel}': " . json_encode($supplierItem->toArray()));
@@ -98,9 +128,9 @@ class OrderListImport implements ToCollection, WithHeadingRow
                 $cleanedSupplierUOM = strtoupper(trim($supplierItem->uom));
 
                 $matchedSapMasterfile = SAPMasterfile::where('ItemCode', $itemCodeFromExcel)
-                                                    ->where(DB::raw('UPPER(AltUOM)'), $cleanedSupplierUOM)
-                                                    ->where('is_active', true) // Ensure only active SAP masterfile entries are considered
-                                                    ->first();
+                                                     ->where(DB::raw('UPPER(AltUOM)'), $cleanedSupplierUOM)
+                                                     ->where('is_active', true) // Ensure only active SAP masterfile entries are considered
+                                                     ->first();
 
                 if ($matchedSapMasterfile) {
                     // FIXED: Changed BaseQTY to BaseQty
@@ -113,8 +143,8 @@ class OrderListImport implements ToCollection, WithHeadingRow
                     $baseUomForMapping = $matchedSapMasterfile->BaseUOM ?? null;
                 } else {
                     $anySapMasterfile = SAPMasterfile::where('ItemCode', $itemCodeFromExcel)
-                                                    ->where('is_active', true)
-                                                    ->first();
+                                                     ->where('is_active', true)
+                                                     ->first();
                     if ($anySapMasterfile) {
                         // FIXED: Changed BaseQTY to BaseQty
                         $baseQtyForCalculation = (float) ($anySapMasterfile->BaseQty ?? 1);
@@ -153,8 +183,40 @@ class OrderListImport implements ToCollection, WithHeadingRow
         Log::debug("OrderListImport: Final importedData: " . json_encode($this->importedData->toArray()));
     }
 
-    public function getImportedData()
+    /**
+     * Adds a skipped item to the internal list.
+     *
+     * @param string|null $itemCode
+     * @param string|null $itemName
+     * @param string $reason
+     * @return void
+     */
+    protected function addSkippedItem(?string $itemCode, ?string $itemName, string $reason): void
+    {
+        $this->skippedItems[] = [
+            'item_code' => $itemCode,
+            'item_name' => $itemName,
+            'reason' => $reason,
+        ];
+    }
+
+    /**
+     * Get the imported data collection.
+     *
+     * @return Collection
+     */
+    public function getImportedData(): Collection
     {
         return $this->importedData;
+    }
+
+    /**
+     * Get the list of skipped items.
+     *
+     * @return array
+     */
+    public function getSkippedItems(): array
+    {
+        return $this->skippedItems;
     }
 }
