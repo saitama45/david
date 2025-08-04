@@ -67,6 +67,24 @@ class ExcelTemplateController extends Controller
         return response()->download($path);
     }
 
+    public function posBomTemplate()
+    {
+        // Define the path to your new template file
+        // Use `storage_path('app/public/excel-templates/sapmasterfile_template.xlsx')`
+        // for a more robust path that works across different OS.
+        $path = 'storage\excel-templates\BOM_template.xlsx';
+
+        // Check if the file exists before attempting to download
+        if (!file_exists($path)) {
+            // Log an error or return a 404 response if the file is not found
+            // For production, you might want a more user-friendly error page.
+            abort(404, 'BOM template file not found.');
+        }
+
+        // Return the download response
+        return response()->download($path);
+    }
+
     public function SupplierItemsTemplate()
     {
         // Define the path to your new template file
