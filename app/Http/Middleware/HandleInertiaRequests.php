@@ -45,6 +45,7 @@ class HandleInertiaRequests extends Middleware
                 // You can add 'success' and 'error' here too if you use them elsewhere with flash()
                 'success' => fn() => $request->session()->get('success'),
                 'error' => fn() => $request->session()->get('error'),
+                'skippedItems' => fn () => $request->session()->get('skippedItems'),
             ],
             'previous' => fn() => URL::previous(),
         ];

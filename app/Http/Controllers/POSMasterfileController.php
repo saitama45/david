@@ -7,7 +7,7 @@ use App\Http\Controllers\Controller;
 use App\Imports\POSMasterfileImport;
 use App\Models\POSMasterfile;
 use App\Models\MenuCategory;
-use App\Models\SAPMasterfile; // Import SAPMasterfile model
+use App\Models\SAPMasterfile;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
@@ -48,8 +48,7 @@ class POSMasterfileController extends Controller
      */
     public function create()
     {
-        return Inertia::render('POSMasterfile/Create', [
-        ]);
+        return Inertia::render('POSMasterfile/Create', []);
     }
 
     public function export()
@@ -103,11 +102,8 @@ class POSMasterfileController extends Controller
         return Inertia::render('POSMasterfile/Edit', [
             'item' => $item,
             'categories' => $categories,
-            'products' => $products, // Pass products to the Inertia view
-            // If POSMasterfile has a relationship to ingredients, you would fetch them here
-            // 'ingredients' => $item->ingredients->map(function($ingredient) { ... })
-            // For now, assuming no existing ingredients for POSMasterfile
-            'existingIngredients' => [], // Placeholder for existing ingredients
+            'products' => $products,
+            'existingIngredients' => [],
         ]);
     }
 
@@ -117,25 +113,18 @@ class POSMasterfileController extends Controller
     public function update(Request $request, string $id)
     {
         $item = POSMasterfile::findOrFail($id);
-        $validated = $request->validate([         
+        $validated = $request->validate([
             'ItemCode' => ['nullable'],
             'ItemDescription' => ['nullable'],
             'Category' => ['nullable'],
             'SubCategory' => ['nullable'],
             'SRP' => ['nullable'],
             'is_active' => ['nullable'],
-            // Add validation for ingredients if they are to be saved
             'ingredients' => ['array', 'nullable'],
             'ingredients.*.id' => ['required', 'exists:sap_masterfiles,id'],
             'ingredients.*.quantity' => ['required', 'numeric', 'min:0.1'],
         ]);
         $item->update($validated);
-
-        // Logic to sync ingredients if POSMasterfile has a relationship
-        // For example, if POSMasterfile has a many-to-many relationship with SAPMasterfile
-        // $item->ingredients()->sync(collect($validated['ingredients'])->mapWithKeys(function ($ingredient) {
-        //     return [$ingredient['id'] => ['quantity' => $ingredient['quantity']]];
-        // })->toArray());
 
         return to_route("POSMasterfile.index");
     }
@@ -154,32 +143,42 @@ class POSMasterfileController extends Controller
     public function import(Request $request)
     {
         set_time_limit(300); // 300 seconds (5 minutes). Adjust as needed.
+        Log::debug('POSMasterfileController: Import method started.');
 
         $request->validate([
             'products_file' => 'required|mimes:xlsx,xls,csv'
         ]);
 
         // IMPORTANT: Reset the static tracker in the importer class before starting a new import.
-        // This ensures that the duplicate checking starts fresh for each import operation.
         POSMasterfileImport::resetSeenCombinations();
 
         DB::beginTransaction(); // Start a database transaction
+        Log::debug('POSMasterfileController: Database transaction started.');
 
         try {
-            // Step 1: Delete all existing records from the table.
-            POSMasterfile::query()->delete();
+            // Removed: Step 1: Delete all existing records from the table.
+            // Removed: Step 2: Reseed the ID for SQL Server.
+            Log::debug('POSMasterfileController: Existing records will be updated/inserted, not deleted.');
 
-            // Step 2: Reseed the ID for SQL Server.
-            // As per your request, RESEED to 0 means the NEXT ID inserted will be 1.
-            DB::statement("DBCC CHECKIDENT('pos_masterfiles', RESEED, 0);");
+            // Step 3: Perform the import.
+            $import = new POSMasterfileImport(); // Instantiate the importer
+            Excel::import($import, $request->file('products_file'));
+            Log::debug('POSMasterfileController: Excel import process initiated.');
 
-            // Step 3: Perform the import. The de-duplication logic is now handled internally
-            // by POSMasterfileImport using chunk reading and batch inserts.
-            Excel::import(new POSMasterfileImport, $request->file('products_file'));
+            $skippedItems = $import->getSkippedItems(); // Get skipped items
+            Log::debug('POSMasterfileController: Skipped items count: ' . count($skippedItems));
+            Log::debug('POSMasterfileController: Skipped items: ' . json_encode($skippedItems));
 
             DB::commit(); // Commit the transaction if everything is successful
+            Log::debug('POSMasterfileController: Database transaction committed successfully.');
 
-            return redirect()->route('POSMasterfile.index')->with('success', 'Import successful. Duplicates within the file were skipped. All records updated.');
+            $message = 'Import successful.';
+            if (!empty($skippedItems)) {
+                $message .= ' Some rows were skipped due to validation errors.';
+                session()->flash('skippedItems', $skippedItems); // Use session()->flash() directly for skippedItems
+            }
+
+            return redirect()->route('POSMasterfile.index')->with('success', $message);
 
         } catch (\Exception $e) {
             DB::rollBack(); // Rollback the transaction if any error occurs
@@ -187,6 +186,7 @@ class POSMasterfileController extends Controller
                 'file_name' => $request->file('products_file')->getClientOriginalName(),
                 'trace' => $e->getTraceAsString(),
             ]);
+            Log::debug('POSMasterfileController: Database transaction rolled back due to error.');
 
             return back()->with('error', 'Import failed: ' . $e->getMessage() . '. Please check logs for details.');
         }
@@ -195,14 +195,14 @@ class POSMasterfileController extends Controller
     // New method to fetch a single product's details for the ingredient dropdown
     public function getProductDetails(string $id)
     {
-        $product = SAPMasterfile::select('id', 'ItemCode', 'ItemDescription', 'BaseUOM', 'AltUOM') // Select AltUOM
-                                ->findOrFail($id);
+        $product = SAPMasterfile::select('id', 'ItemCode', 'ItemDescription', 'BaseUOM', 'AltUOM')
+                                 ->findOrFail($id);
         return response()->json([
             'id' => $product->id,
             'inventory_code' => $product->ItemCode,
             'name' => $product->ItemDescription,
-            'unit_of_measurement' => $product->BaseUOM, // Keep BaseUOM for general UOM
-            'alt_unit_of_measurement' => $product->AltUOM, // Add AltUOM for the specific textbox
+            'unit_of_measurement' => $product->BaseUOM,
+            'alt_unit_of_measurement' => $product->AltUOM,
         ]);
     }
 }

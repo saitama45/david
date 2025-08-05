@@ -7,10 +7,11 @@ import { router } from "@inertiajs/vue3";
 import { usePage } from "@inertiajs/vue3";
 import { useAuth } from "@/Composables/useAuth";
 import { useReferenceDelete } from "@/Composables/useReferenceDelete";
+import { ref, watch, computed, onMounted } from 'vue';
 
 const toast = useToast();
-
 const confirm = useConfirm();
+const page = usePage(); // Get the page object
 
 const props = defineProps({
     items: {
@@ -19,14 +20,11 @@ const props = defineProps({
     },
 });
 
-
 const handleClick = () => {
     router.get(route("POSMasterfile.create"));
 };
 
-
-
-let filter = ref(usePage().props.filter || "all");
+let filter = ref(page.props.filter || "all");
 
 const { search } = useSearch("POSMasterfile.index");
 
@@ -45,10 +43,7 @@ watch(filter, function (value) {
     );
 });
 
-
-
 const { hasAccess } = useAuth();
-
 const { deleteModel } = useReferenceDelete();
 
 const exportRoute = computed(() =>
@@ -59,6 +54,20 @@ const exportRoute = computed(() =>
 );
 
 const isImportModalVisible = ref(false);
+const skippedItems = ref([]);
+const persistentSkippedItemsMessage = ref(''); // New ref for persistent message
+
+const formatSkippedItemsMessage = (items) => {
+    if (!items || items.length === 0) {
+        return '';
+    }
+
+    let message = 'The following items were skipped during import due to validation issues:\n\n';
+    items.forEach(item => {
+        message += `- Item Code: ${item.item_code || 'N/A'}, Description: ${item.item_description || 'N/A'}, Reason: ${item.reason}\n`;
+    });
+    return message;
+};
 
 const importForm = useForm({
     products_file: null,
@@ -68,21 +77,37 @@ const importFile = () => {
     isLoading.value = true;
     importForm.post(route("POSMasterfile.import"), {
         onSuccess: () => {
-            toast.add({
-                severity: "success",
-                summary: "Success",
-                detail: "Products Updated Successfully.",
-                life: 3000,
-            });
             isLoading.value = false;
             isImportModalVisible.value = false;
+
+            // Debugging log: Check what's in page.props.flash.skippedItems
+            console.log('page.props.flash.skippedItems on success:', page.props.flash.skippedItems);
+
+            if (page.props.flash && page.props.flash.skippedItems && page.props.flash.skippedItems.length > 0) {
+                skippedItems.value = page.props.flash.skippedItems;
+                persistentSkippedItemsMessage.value = formatSkippedItemsMessage(skippedItems.value);
+                toast.add({
+                    severity: "warn",
+                    summary: "Import Completed with Warnings",
+                    detail: `Some products were skipped during import. See persistent message for details.`,
+                    life: 5000,
+                });
+            } else {
+                persistentSkippedItemsMessage.value = ''; // Clear message if no skipped items
+                toast.add({
+                    severity: "success",
+                    summary: "Success",
+                    detail: "Products Updated Successfully.",
+                    life: 3000,
+                });
+            }
         },
         onError: (e) => {
             isLoading.value = false;
             toast.add({
                 severity: "error",
                 summary: "Error",
-                detail: "An error occured while trying to update products. Please make sure that you are using the correct format.",
+                detail: "An error occurred while trying to update products. Please make sure that you are using the correct format.",
                 life: 3000,
             });
         },
@@ -93,10 +118,26 @@ const importFile = () => {
 };
 
 const openFormModal = () => {
-    return (isImportModalVisible.value = true);
+    isImportModalVisible.value = true;
 };
 
 const isLoading = ref(false);
+
+onMounted(() => {
+    // Debugging log: Check what's in page.props.flash.skippedItems on mount
+    console.log('page.props.flash.skippedItems on mounted:', page.props.flash.skippedItems);
+
+    if (page.props.flash && page.props.flash.skippedItems && page.props.flash.skippedItems.length > 0) {
+        skippedItems.value = page.props.flash.skippedItems;
+        persistentSkippedItemsMessage.value = formatSkippedItemsMessage(skippedItems.value);
+        toast.add({
+            severity: "warn",
+            summary: "Import Completed with Warnings",
+            detail: `Some products were skipped during the last import. See persistent message for details.`,
+            life: 5000,
+        });
+    }
+});
 </script>
 
 <template>
@@ -128,6 +169,16 @@ const isLoading = ref(false);
                 @click="changeFilter('inactive')"
             />
         </FilterTab>
+
+        <!-- Persistent Skipped Items Message -->
+        <div v-if="persistentSkippedItemsMessage" class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative mb-4" role="alert">
+            <strong class="font-bold">Import Warnings:</strong>
+            <span class="block sm:inline whitespace-pre-line">{{ persistentSkippedItemsMessage }}</span>
+            <span class="absolute top-0 bottom-0 right-0 px-4 py-3 cursor-pointer" @click="persistentSkippedItemsMessage = ''">
+                <svg class="fill-current h-6 w-6 text-red-500" role="button" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20"><title>Close</title><path d="M14.348 14.849a1.2 1.2 0 0 1-1.697 0L10 11.819l-2.651 3.029a1.2 1.2 0 1 1-1.697-1.697l2.758-3.15-2.759-3.152a1.2 1.2 0 1 1 1.697-1.697L10 8.183l2.651-3.031a1.2 1.2 0 1 1 1.697 1.697l-2.758 3.152 2.758 3.15a1.2 1.2 0 0 1 0 1.698z"/></svg>
+            </span>
+        </div>
+
         <TableContainer>
             <TableHeader>
                 <SearchBar>
@@ -153,14 +204,14 @@ const isLoading = ref(false);
                 </TableHead>
 
                 <TableBody>
-                    <tr v-for="item in items.data">
+                    <tr v-for="item in items.data" :key="item.id">
                         <TD>{{ item.id }}</TD>
                         <TD>{{ item.ItemCode }}</TD>
                         <TD>{{ item.ItemDescription }}</TD>
                         <TD>{{ item.Category }}</TD>
                         <TD>{{ item.SubCategory }}</TD>
                         <TD>{{ item.SRP }}</TD>
-                        <TD>{{ Number(item.is_active) ? 'Yes' : 'No' }}</TD> <TD class="flex items-center gap-2"></TD>
+                        <TD>{{ Number(item.is_active) ? 'Yes' : 'No' }}</TD>
                         <TD class="flex items-center gap-2">
                             <ShowButton
                                 v-if="hasAccess('view item')"
@@ -202,7 +253,7 @@ const isLoading = ref(false);
                             @click="
                                 deleteModel(
                                     route('POSMasterfile.destroy', item.id),
-                                    'POSMasterfile Item' // Changed label
+                                    'POSMasterfile Item'
                                 )
                             "
                         />
@@ -218,6 +269,7 @@ const isLoading = ref(false);
             <Pagination :data="items" />
         </TableContainer>
 
+        <!-- Import Products Dialog -->
         <Dialog v-model:open="isImportModalVisible">
             <DialogContent class="sm:max-w-[600px]">
                 <DialogHeader>

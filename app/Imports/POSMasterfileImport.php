@@ -7,10 +7,17 @@ use Maatwebsite\Excel\Concerns\ToModel;
 use Maatwebsite\Excel\Concerns\WithHeadingRow;
 use Maatwebsite\Excel\Concerns\WithBatchInserts;
 use Maatwebsite\Excel\Concerns\WithChunkReading;
+use Maatwebsite\Excel\Concerns\WithUpserts; // Added for upsert functionality
+use Illuminate\Support\Facades\Log; // Added for logging
 
-
-class POSMasterfileImport implements ToModel, WithHeadingRow, WithBatchInserts, WithChunkReading //, WithValidation, SkipsOnError, SkipsOnFailure
+class POSMasterfileImport implements ToModel, WithHeadingRow, WithBatchInserts, WithChunkReading, WithUpserts
 {
+    /**
+     * Property to store skipped items and their reasons.
+     * @var array
+     */
+    protected $skippedItems = [];
+
     /**
      * Static property to store hashes of combinations already processed during the current import run.
      * This is crucial for checking duplicates across different chunks.
@@ -26,34 +33,89 @@ class POSMasterfileImport implements ToModel, WithHeadingRow, WithBatchInserts, 
     public static function resetSeenCombinations()
     {
         self::$seenCombinations = [];
+        Log::debug('POSMasterfileImport: resetSeenCombinations called.');
     }
 
     /**
-    * @param array $row
-    *
-    * @return \Illuminate\Database\Eloquent\Model|null
-    */
+     * Adds a skipped item to the internal list.
+     *
+     * @param string|null $itemCode
+     * @param string|null $itemDescription
+     * @param string $reason
+     * @return void
+     */
+    protected function addSkippedItem(?string $itemCode, ?string $itemDescription, string $reason): void
+    {
+        $this->skippedItems[] = [
+            'item_code' => $itemCode,
+            'item_description' => $itemDescription,
+            'reason' => $reason,
+        ];
+        Log::warning("POSMasterfileImport: Skipped item - ItemCode: '{$itemCode}', Description: '{$itemDescription}', Reason: '{$reason}'");
+    }
+
+    /**
+     * Get the list of skipped items.
+     *
+     * @return array
+     */
+    public function getSkippedItems(): array
+    {
+        return $this->skippedItems;
+    }
+
+    /**
+     * @param array $row
+     *
+     * @return \Illuminate\Database\Eloquent\Model|null
+     */
     public function model(array $row)
     {
-        // Get the relevant fields, ensuring they are cast to string for consistent hashing.
-        // Use empty string as default if key does not exist or value is null, for consistent hashing.
-        $itemCode = (string) ($row['item_code'] ?? '');
-        $itemDescription = (string) ($row['item_description'] ?? '');
-        $category = (string) ($row['category'] ?? ''); // Convert to string before hashing
-        $subCategory = (string) ($row['subcategory'] ?? '');
+        Log::debug('POSMasterfileImport: Processing raw row data: ' . json_encode($row));
+        // NEW DEBUG: Log all available keys from the row to help identify correct header name
+        Log::debug('POSMasterfileImport: Available row keys: ' . implode(', ', array_keys($row)));
 
-        // Default is_active to 1 as per your previous logic for imported items.
-        $is_active = 1;
 
-        // Return the model instance. Eloquent will handle timestamps automatically.
-        return new POSMasterfile([
+        // Robustly get ItemCode, checking for common header variations
+        // Ensure you use the exact header name from your Excel file here if none of these work.
+        $itemCode = (string) ($row['item_code'] ?? $row['Item Code'] ?? $row['ItemCode'] ?? null);
+        $itemDescription = (string) ($row['item_description'] ?? $row['Item Description'] ?? $row['ItemDescription'] ?? null);
+        $category = (string) ($row['category'] ?? $row['Category'] ?? null);
+        $subCategory = (string) ($row['subcategory'] ?? $row['SubCategory'] ?? null);
+        $srp = (float) str_replace(',', '', ($row['srp'] ?? $row['SRP'] ?? 0));
+        $isActive = (int) ($row['active'] ?? $row['Active'] ?? 1); // Default to 1 if not provided
+
+        // Trim whitespace from itemCode and check if it's empty
+        if (empty(trim($itemCode))) {
+            $this->addSkippedItem($itemCode, $itemDescription, 'Item Code is missing or empty.');
+            Log::warning("POSMasterfileImport: Skipping row due to blank Item Code after robust check: " . json_encode($row));
+            return null; // Skip this row
+        }
+
+        $posMasterfile = new POSMasterfile([
             'ItemCode' => $itemCode,
             'ItemDescription' => $itemDescription,
             'Category' => $category,
             'SubCategory' => $subCategory,
-            'SRP' => (float) str_replace(',', '', ($row['srp'] ?? 0)),
-            'is_active' => $is_active,
+            'SRP' => $srp,
+            'is_active' => $isActive,
         ]);
+
+        Log::debug('POSMasterfileImport: Created model for row: ' . json_encode($posMasterfile->toArray()));
+
+        // Return the model instance. Maatwebsite\Excel with WithUpserts will handle insert/update.
+        return $posMasterfile;
+    }
+
+    /**
+     * Define the column(s) that should be used to uniquely identify a row.
+     * This is used by the WithUpserts trait to determine if a record should be updated or inserted.
+     *
+     * @return string|array
+     */
+    public function uniqueBy()
+    {
+        return 'ItemCode';
     }
 
     /**
@@ -63,7 +125,7 @@ class POSMasterfileImport implements ToModel, WithHeadingRow, WithBatchInserts, 
      */
     public function batchSize(): int
     {
-        return 200; // You can adjust this number based on your server's memory and database performance
+        return 200;
     }
 
     /**
@@ -73,12 +135,6 @@ class POSMasterfileImport implements ToModel, WithHeadingRow, WithBatchInserts, 
      */
     public function chunkSize(): int
     {
-        return 1000; // You can adjust this number
+        return 1000;
     }
-
-
-    /*
-    // Optional: Implement WithValidation trait for row-level validation
-    // ... (Your existing validation rules if any)
-    */
 }
