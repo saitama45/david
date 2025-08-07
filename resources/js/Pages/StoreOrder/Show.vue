@@ -170,7 +170,7 @@ const enlargeImage = (image) => {
                         <tr v-for="orderItem in orderedItems" :key="orderItem.id">
                             <TD>{{ orderItem.supplier_item?.ItemCode ?? 'N/a' }}</TD>
                             <TD>{{ orderItem.supplier_item?.item_name ?? 'N/a' }}</TD>
-                            <TD>{{ orderItem.supplier_item?.sap_masterfile?.BaseUOM ?? 'N/a' }}</TD> <!-- New Cell -->
+                            <TD>{{ orderItem.supplier_item?.sap_master_file?.BaseUOM ?? 'N/a' }}</TD> <!-- New Cell -->
                             <TD>{{ orderItem.supplier_item?.uom ?? 'N/a' }}</TD>
                             <TD>{{ orderItem.quantity_ordered }}</TD>
                             <TD>{{ orderItem.quantity_approved }}</TD>
@@ -202,7 +202,7 @@ const enlargeImage = (image) => {
                             :title="`${orderItem.supplier_item?.item_name ?? 'N/a'} (${orderItem.supplier_item?.ItemCode ?? 'N/a'})`"
                         >
                         </MobileTableHeading>
-                        <LabelXS>Base UOM: {{ orderItem.supplier_item?.sap_masterfile?.BaseUOM ?? 'N/a' }}</LabelXS> <!-- New for Mobile -->
+                        <LabelXS>Base UOM: {{ orderItem.supplier_item?.sap_master_file?.BaseUOM ?? 'N/a' }}</LabelXS> <!-- New for Mobile -->
                         <LabelXS>UOM: {{ orderItem.supplier_item?.uom ?? 'N/a' }}</LabelXS>
                         <LabelXS>Ordered: {{ orderItem.quantity_ordered }}</LabelXS>
                         <LabelXS
