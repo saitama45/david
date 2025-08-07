@@ -652,7 +652,7 @@ const confirmReceive = () => {
                         <tr v-for="orderItem in orderedItems" :key="orderItem.id">
                             <TD>{{ orderItem.supplier_item.ItemCode }}</TD>
                             <TD>{{ orderItem.supplier_item.item_name }}</TD>
-                            <TD>{{ orderItem.supplier_item.sap_masterfile?.BaseUOM }}</TD> <!-- Display BaseUOM -->
+                            <TD>{{ orderItem.supplier_item.sap_master_file?.BaseUOM }}</TD> <!-- Display BaseUOM -->
                             <TD class="text-xs">{{ orderItem.supplier_item.uom }}</TD> <!-- Display UOM from StoreOrderItem (packaging UOM) -->
                             <TD>{{ orderItem.quantity_ordered }}</TD>
 
@@ -698,7 +698,7 @@ const confirmReceive = () => {
                                 Receive
                             </Button>
                         </MobileTableHeading>
-                        <LabelXS>BaseUOM: {{ orderItem.supplier_item.sap_masterfile?.BaseUOM }}</LabelXS> <!-- New line for BaseUOM -->
+                        <LabelXS>BaseUOM: {{ orderItem.supplier_item.sap_master_file?.BaseUOM }}</LabelXS> <!-- New line for BaseUOM -->
                         <LabelXS>UOM: {{ orderItem.uom }}</LabelXS> <!-- Existing UOM line -->
                         <LabelXS
                             >Quantity Received:
