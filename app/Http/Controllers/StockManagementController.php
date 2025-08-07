@@ -41,7 +41,7 @@ class StockManagementController extends Controller
         $productsQuery = SAPMasterfile::query()
             ->leftJoin('product_inventory_stocks', function ($join) use ($branchId) {
                 $join->on('sap_masterfiles.id', '=', 'product_inventory_stocks.product_inventory_id')
-                     ->where('product_inventory_stocks.store_branch_id', '=', $branchId);
+                    ->where('product_inventory_stocks.store_branch_id', '=', $branchId);
             })
             ->select(
                 // Select MIN(id) to get a single representative ID for the grouped product
@@ -49,6 +49,7 @@ class StockManagementController extends Controller
                 'sap_masterfiles.ItemDescription as name',
                 'sap_masterfiles.ItemCode as inventory_code',
                 'sap_masterfiles.BaseUOM as uom',
+                'sap_masterfiles.AltUOM as alt_uom', // Added AltUOM to select
                 // Use MAX to handle potential duplicates in product_inventory_stocks if unique constraint is missing
                 DB::raw('COALESCE(MAX(product_inventory_stocks.quantity), 0) - COALESCE(MAX(product_inventory_stocks.used), 0) as stock_on_hand'),
                 DB::raw('COALESCE(MAX(product_inventory_stocks.used), 0) as recorded_used')
@@ -57,11 +58,12 @@ class StockManagementController extends Controller
                 $query->where('sap_masterfiles.ItemDescription', 'like', "%{$search}%")
                     ->orWhere('sap_masterfiles.ItemCode', 'like', "%{$search}%");
             })
-            // Group by ItemCode and ItemDescription to consolidate logical products
+            // Group by ItemCode, ItemDescription, BaseUOM, and AltUOM to consolidate logical products
             ->groupBy(
                 'sap_masterfiles.ItemCode',
                 'sap_masterfiles.ItemDescription',
-                'sap_masterfiles.BaseUOM' // Also group by UOM as it's a non-aggregated selected column
+                'sap_masterfiles.BaseUOM',
+                'sap_masterfiles.AltUOM' // Added AltUOM to group by
             )
             ->orderBy('name');
 
@@ -126,21 +128,38 @@ class StockManagementController extends Controller
         $branches = StoreBranch::options();
         $branchId = $request->only('branchId')['branchId'] ?? $branches->keys()->first();
 
+        // Add this log to see the exact ID and Branch ID being used
+        Log::info("StockManagementController: show method parameters - Product ID: {$id}, Branch ID: {$branchId}");
+
         // Get the current stock on hand for this product and branch
         $currentProductStock = ProductInventoryStock::where('product_inventory_id', $id)
-                                                    ->where('store_branch_id', $branchId)
-                                                    ->first();
+            ->where('store_branch_id', $branchId)
+            ->first();
+
+        // Add this log to see if a current product stock record is found
+        Log::info('StockManagementController: Current Product Stock found:', ['exists' => (bool)$currentProductStock, 'data' => $currentProductStock ? $currentProductStock->toArray() : null]);
+
 
         // Calculate the current SOH (quantity - used)
         $currentSOH = $currentProductStock ? ($currentProductStock->quantity - $currentProductStock->used) : 0;
 
         // Fetch all history records for the product and branch, ordered chronologically
-        $rawHistory = ProductInventoryStockManager::with(['cost_center', 'sapMasterfile', 'purchaseItemBatch.storeOrderItem.store_order']) // Eager load relationships
+        $rawHistoryQuery = ProductInventoryStockManager::with(['cost_center', 'sapMasterfile', 'purchaseItemBatch.storeOrderItem.store_order'])
             ->where('product_inventory_id', $id)
             ->where('store_branch_id', $branchId)
             ->orderBy('transaction_date', 'asc')
-            ->orderBy('id', 'asc') // Ensure consistent ordering for running balance
-            ->get();
+            ->orderBy('id', 'asc');
+
+        // Add these logs to see the actual SQL query and its bindings
+        Log::info('StockManagementController: Raw History SQL Query: ' . $rawHistoryQuery->toSql());
+        Log::info('StockManagementController: Raw History Query Bindings: ' . json_encode($rawHistoryQuery->getBindings()));
+
+        $rawHistory = $rawHistoryQuery->get();
+
+        // Add this log to see how many records were actually fetched
+        Log::info('StockManagementController: Raw History Records Fetched Count: ' . $rawHistory->count());
+        Log::info('StockManagementController: Raw History Fetched Data (first 5):', ['data' => $rawHistory->take(5)->toArray()]); // Log only a few to avoid huge logs
+
 
         $processedHistory = collect(); // Use a Laravel collection for easier manipulation
 

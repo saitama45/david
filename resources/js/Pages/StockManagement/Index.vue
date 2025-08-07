@@ -3,7 +3,7 @@ import { useSelectOptions } from "@/Composables/useSelectOptions";
 import { usePage, router, useForm } from "@inertiajs/vue3";
 
 import { throttle, update } from "lodash";
-import { ref } from "vue";
+import { ref, watch, computed } from "vue"; // Added 'watch' and 'computed' to imports
 import { useConfirm } from "primevue/useconfirm";
 import { useToast } from "@/Composables/useToast";
 const confirm = useConfirm();
@@ -111,7 +111,7 @@ const logUsage = () => {
             toast.add({
                 severity: "success",
                 summary: "Success",
-                detail: "Usaged logged Successfully.",
+                detail: "Usage logged Successfully.",
                 life: 5000,
             });
             isLogUsageModalOpen.value = false;
@@ -120,7 +120,7 @@ const logUsage = () => {
             toast.add({
                 severity: "error",
                 summary: "Error",
-                detail: "An error occured while trying to log the usage.",
+                detail: "An error occurred while trying to log the usage.",
                 life: 5000,
             });
         },
@@ -133,7 +133,7 @@ const addQuantity = () => {
             toast.add({
                 severity: "success",
                 summary: "Success",
-                detail: "Usaged logged Successfully.",
+                detail: "Quantity added Successfully.", // Changed detail message for clarity
                 life: 10000,
             });
             isAddQuantityModalOpen.value = false;
@@ -142,18 +142,19 @@ const addQuantity = () => {
             toast.add({
                 severity: "error",
                 summary: "Error",
-                detail: "An error occured while trying to log the usage.",
+                detail: "An error occurred while trying to add quantity.", // Changed detail message for clarity
                 life: 10000,
             });
         },
     });
 };
 
-const showDetails = (id) => {
+// Updated showDetails function for explicit parameter passing
+const showDetails = (productId, selectedBranchId) => {
     router.get(
-        route("stock-management.show", id),
+        route("stock-management.show", productId), // Product ID is the route parameter
         {
-            branchId: branchId.value,
+            branchId: selectedBranchId, // Branch ID is the query parameter
         },
         {}
     );
@@ -404,15 +405,17 @@ const getProductRecordedUsedForDisplay = (product) => {
                     <TH>Name</TH>
                     <TH>Code</TH>
                     <TH>UOM</TH>
+                    <TH>Alt UOM</TH> <!-- Added new column for Alt UOM -->
                     <TH>SOH</TH>
                     <TH>Recorded Used</TH>
                     <TH>Actions</TH>
                 </TableHead>
                 <TableBody>
-                    <tr v-for="product in products.data">
+                    <tr v-for="product in products.data" :key="product.id">
                         <TD>{{ product.name }}</TD>
                         <TD>{{ product.inventory_code }}</TD>
                         <TD>{{ product.uom }}</TD>
+                        <TD>{{ product.alt_uom }}</TD> <!-- Display Alt UOM -->
                         <TD>{{ getProductSOHForDisplay(product) }}</TD>
                         <TD>{{ getProductRecordedUsedForDisplay(product) }}</TD>
                         <TD>
@@ -423,7 +426,7 @@ const getProductRecordedUsedForDisplay = (product) => {
                                             'view stock management history'
                                         )
                                     "
-                                    @click="showDetails(product.id)"
+                                    @click="showDetails(product.id, branchId)"
                                 />
                                 <Button
                                     v-if="hasAccess('log stock usage')"
@@ -446,16 +449,17 @@ const getProductRecordedUsedForDisplay = (product) => {
             </Table>
 
             <MobileTableContainer>
-                <MobileTableRow v-for="product in products.data">
+                <MobileTableRow v-for="product in products.data" :key="product.id">
                     <MobileTableHeading
                         :title="`${product.name} (${product.inventory_code})`"
                     >
                         <ShowButton
                             v-if="hasAccess('view stock management history')"
-                            @click="showDetails(product.id)"
+                            @click="showDetails(product.id, branchId)"
                         />
                     </MobileTableHeading>
                     <LabelXS>UOM: {{ product.uom }}</LabelXS>
+                    <LabelXS>Alt UOM: {{ product.alt_uom }}</LabelXS> <!-- Display Alt UOM in mobile view -->
                     <LabelXS>SOH: {{ getProductSOHForDisplay(product) }}</LabelXS>
                     <LabelXS
                         >Estimated Used: {{ product.estimated_used }}
