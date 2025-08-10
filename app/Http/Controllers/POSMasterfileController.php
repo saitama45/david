@@ -80,12 +80,39 @@ class POSMasterfileController extends Controller
 
     /**
      * Display the specified resource.
+     * This method now also fetches and passes the related BOM ingredients.
      */
     public function show(string $id)
     {
-        $items = POSMasterfile::findOrFail($id);
+        $item = POSMasterfile::findOrFail($id);
+
+        // Get BOM rows directly from pos_masterfiles_bom (one row per BOM entry).
+        $bomRows = POSMasterfileBOM::where('POSCode', $item->ItemCode)
+            ->orderBy('id')
+            ->get();
+
+        // Map each BOM row to the structure the Vue page expects for display.
+        $existingIngredients = $bomRows->map(function ($bom) {
+            // You might not need to fetch sap_masterfile_id for read-only view,
+            // but including it for consistency with edit view's data structure
+            $sap = SAPMasterfile::where('ItemCode', $bom->ItemCode)->first();
+
+            return [
+                'id' => $bom->id, // BOM primary key (one-to-one with the BOM row)
+                'assembly' => $bom->Assembly,
+                'sap_masterfile_id' => $sap ? $sap->id : null, // link to SAP product if found
+                'inventory_code' => $bom->ItemCode,
+                'name' => $bom->ItemDescription,
+                'quantity' => $bom->BOMQty,
+                'uom' => $bom->BOMUOM,
+                'unit_cost' => $bom->UnitCost,
+                'total_cost' => $bom->TotalCost,
+            ];
+        })->values()->all();
+
         return Inertia::render('POSMasterfile/Show', [
-            'item' => $items
+            'item' => $item,
+            'existingIngredients' => $existingIngredients, // Pass the fetched ingredients
         ]);
     }
 
