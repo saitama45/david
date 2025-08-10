@@ -8,6 +8,7 @@ use App\Imports\POSMasterfileImport;
 use App\Models\POSMasterfile;
 use App\Models\MenuCategory;
 use App\Models\SAPMasterfile;
+use App\Models\POSMasterfileBOM; // Import POSMasterfileBOM
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
@@ -90,29 +91,60 @@ class POSMasterfileController extends Controller
 
     /**
      * Show the form for editing the specified resource.
+     *
+     * IMPORTANT: This version reads BOM rows from pos_masterfiles_bom first (no aggregate join),
+     * then attaches SAP product info per BOM row so each BOM row maps 1:1 to the frontend.
      */
     public function edit(string $id)
     {
         $item = POSMasterfile::findOrFail($id);
+
         // Fetch menu categories for the dropdown
         $categories = MenuCategory::options();
+
         // Fetch products from SAPMasterfile for the ingredients dropdown
         $products = SAPMasterfile::options();
+
+        // Get BOM rows directly from pos_masterfiles_bom (one row per BOM entry).
+        $bomRows = POSMasterfileBOM::where('POSCode', $item->ItemCode)
+            ->orderBy('id')
+            ->get();
+
+        // Map each BOM row to the structure the Vue page expects.
+        $existingIngredients = $bomRows->map(function ($bom) {
+            // find corresponding SAP product (if exists) by ItemCode
+            $sap = SAPMasterfile::where('ItemCode', $bom->ItemCode)->first();
+
+            return [
+                'id' => $bom->id, // BOM primary key (one-to-one with the BOM row)
+                'assembly' => $bom->Assembly,
+                'sap_masterfile_id' => $sap ? $sap->id : null, // link to SAP product if found
+                'inventory_code' => $bom->ItemCode,
+                'name' => $bom->ItemDescription,
+                'quantity' => $bom->BOMQty,
+                'uom' => $bom->BOMUOM,
+                'unit_cost' => $bom->UnitCost,
+                'total_cost' => $bom->TotalCost,
+            ];
+        })->values()->all();
 
         return Inertia::render('POSMasterfile/Edit', [
             'item' => $item,
             'categories' => $categories,
             'products' => $products,
-            'existingIngredients' => [],
+            'existingIngredients' => $existingIngredients,
         ]);
     }
 
     /**
      * Update the specified resource in storage.
+     * This method now ONLY updates the main POSMasterfile details.
+     * It does NOT expect or process ingredient list data.
      */
     public function update(Request $request, string $id)
     {
         $item = POSMasterfile::findOrFail($id);
+
         $validated = $request->validate([
             'ItemCode' => ['nullable'],
             'ItemDescription' => ['nullable'],
@@ -120,13 +152,16 @@ class POSMasterfileController extends Controller
             'SubCategory' => ['nullable'],
             'SRP' => ['nullable'],
             'is_active' => ['nullable'],
-            'ingredients' => ['array', 'nullable'],
-            'ingredients.*.id' => ['required', 'exists:sap_masterfiles,id'],
-            'ingredients.*.quantity' => ['required', 'numeric', 'min:0.1'],
+            // Removed 'ingredients' validation as it's no longer updated here.
         ]);
+
+        // Update the main POSMasterfile item
         $item->update($validated);
 
-        return to_route("POSMasterfile.index");
+        // Removed all BOM update logic (DB::beginTransaction, delete, create/update loops)
+        // as ingredient updates are no longer handled by this method.
+
+        return to_route("POSMasterfile.index")->with('success', 'Product FG Details successfully updated!');
     }
 
     /**
@@ -140,48 +175,40 @@ class POSMasterfileController extends Controller
         return to_route('POSMasterfile.index');
     }
 
+    /**
+     * Import method
+     */
     public function import(Request $request)
     {
-        set_time_limit(300); // 300 seconds (5 minutes). Adjust as needed.
+        set_time_limit(300);
         Log::debug('POSMasterfileController: Import method started.');
 
         $request->validate([
             'products_file' => 'required|mimes:xlsx,xls,csv'
         ]);
 
-        // IMPORTANT: Reset the static tracker in the importer class before starting a new import.
         POSMasterfileImport::resetSeenCombinations();
 
-        DB::beginTransaction(); // Start a database transaction
+        DB::beginTransaction();
         Log::debug('POSMasterfileController: Database transaction started.');
 
         try {
-            // Removed: Step 1: Delete all existing records from the table.
-            // Removed: Step 2: Reseed the ID for SQL Server.
-            Log::debug('POSMasterfileController: Existing records will be updated/inserted, not deleted.');
-
-            // Step 3: Perform the import.
-            $import = new POSMasterfileImport(); // Instantiate the importer
+            $import = new POSMasterfileImport();
             Excel::import($import, $request->file('products_file'));
-            Log::debug('POSMasterfileController: Excel import process initiated.');
+            $skippedItems = $import->getSkippedItems();
 
-            $skippedItems = $import->getSkippedItems(); // Get skipped items
-            Log::debug('POSMasterfileController: Skipped items count: ' . count($skippedItems));
-            Log::debug('POSMasterfileController: Skipped items: ' . json_encode($skippedItems));
-
-            DB::commit(); // Commit the transaction if everything is successful
-            Log::debug('POSMasterfileController: Database transaction committed successfully.');
+            DB::commit();
 
             $message = 'Import successful.';
             if (!empty($skippedItems)) {
                 $message .= ' Some rows were skipped due to validation errors.';
-                session()->flash('skippedItems', $skippedItems); // Use session()->flash() directly for skippedItems
+                session()->flash('skippedItems', $skippedItems);
             }
 
             return redirect()->route('POSMasterfile.index')->with('success', $message);
 
         } catch (\Exception $e) {
-            DB::rollBack(); // Rollback the transaction if any error occurs
+            DB::rollBack();
             Log::error('POSMasterfile Import Error: ' . $e->getMessage(), [
                 'file_name' => $request->file('products_file')->getClientOriginalName(),
                 'trace' => $e->getTraceAsString(),
