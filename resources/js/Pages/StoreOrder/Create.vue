@@ -1108,7 +1108,7 @@ watch(orderForm, (value) => {
                             <LabelXS
                                 >UOM: {{ order.unit_of_measurement }}</LabelXS
                             >
-                            <LabelXS>Ordered Qty: {{ order.quantity }}</LabelXS>
+                            <LabelXS>OrderedQty: {{ order.quantity }}</LabelXS>
                             <LabelXS>BaseUOM Qty: {{ order.base_uom_qty }}</LabelXS>
                             <LabelXS>Cost: {{ Number(order.cost).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) }}</LabelXS>
                             <LabelXS>Total Cost: {{ Number(order.total_cost).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) }}</LabelXS>
