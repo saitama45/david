@@ -38,8 +38,8 @@ jobs:
         uses: SamKirkland/FTP-Deploy-Action@v4.3.4
         with:
           server: win8203.site4now.net
-          username: eyelix_site12
-          password: superadmin2025
+          username: eyelix_site11
+          password: superadmin2024
           protocol: ftp
           port: 21
           timeout: 120000
