@@ -3,30 +3,91 @@
 namespace App\Http\Services;
 
 use App\Enum\OrderRequestStatus;
+use App\Enum\OrderStatus; // Import OrderStatus enum
 use App\Models\StoreOrder;
 use App\Models\StoreOrderItem;
 use App\Models\User;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log; // Added for logging in extracted method
 
 class OrderReceivingService extends StoreOrderService
 {
-    public function getOrdersList($variant = 'regular')
+    /**
+     * Get a list of orders for receiving, filtered by status and search term.
+     *
+     * @param string $currentFilter The current status filter ('all', 'received', 'incomplete').
+     * @return array Contains 'orders' (paginated) and 'counts'.
+     */
+    public function getOrdersList($currentFilter = 'all')
     {
         $search = request('search');
-        $query = StoreOrder::query()->with(['store_branch', 'supplier'])->whereNotIn('order_status', ['pending', 'rejected', 'approved']);
         $user = User::rolesAndAssignedBranches();
 
-        if (!$user['isAdmin']) $query->whereIn('store_branch_id', $user['assignedBranches']);
+        // Start with a base query that includes relationships
+        $query = StoreOrder::query()->with(['store_branch', 'supplier']);
 
-        if ($search)
-            $query->where('order_number', 'like', '%' . $search . '%');
+        // Apply branch filtering based on user roles
+        if (!$user['isAdmin']) {
+            $query->whereIn('store_branch_id', $user['assignedBranches']);
+        }
 
-        return $query
-            ->latest()
-            ->paginate(10)
-            ->withQueryString();
+        // Apply search filter
+        if ($search) {
+            $query->where(function ($q) use ($search) {
+                $q->where('order_number', 'like', '%' . $search . '%')
+                  ->orWhereHas('supplier', function ($sq) use ($search) {
+                      $sq->where('name', 'like', '%' . $search . '%');
+                  })
+                  ->orWhereHas('store_branch', function ($bq) use ($search) {
+                      $bq->where('name', 'like', '%' . $search . '%');
+                  });
+            });
+        }
+
+        // Calculate counts for all relevant statuses before applying the specific filter for the list
+        $counts = $this->getCounts($query);
+
+        // Apply status filter for the main orders list
+        if ($currentFilter === 'all') {
+            // "All" for receiving means orders that are received, or incomplete
+            $query->whereIn('order_status', [
+                OrderStatus::RECEIVED->value,
+                OrderStatus::INCOMPLETE->value
+            ]);
+        } else {
+            // Apply specific status filter
+            $query->where('order_status', $currentFilter);
+        }
+
+        return [
+            'orders' => $query
+                ->latest()
+                ->paginate(10)
+                ->withQueryString(),
+            'counts' => $counts
+        ];
+    }
+
+    /**
+     * Calculates counts for different order statuses relevant to receiving.
+     *
+     * @param \Illuminate\Database\Eloquent\Builder $baseQuery A query builder instance before specific status filters.
+     * @return array
+     */
+    public function getCounts($baseQuery)
+    {
+        $counts = [
+            'received' => (clone $baseQuery)->where('order_status', OrderStatus::RECEIVED->value)->count(),
+            'incomplete' => (clone $baseQuery)->where('order_status', OrderStatus::INCOMPLETE->value)->count(),
+            // 'commited' is no longer needed for the tabs, but you might keep it for other internal logic if necessary
+            // 'commited' => (clone $baseQuery)->where('order_status', OrderStatus::COMMITED->value)->count(),
+        ];
+        // The 'all' count is the sum of relevant receiving statuses
+        $counts['all'] = $counts['received'] + $counts['incomplete']; // + $counts['commited']; // Exclude if not needed in 'all' tab
+
+        return $counts;
     }
 
     /**
@@ -61,5 +122,185 @@ class OrderReceivingService extends StoreOrderService
         ]);
         $orderedItem->save();
         DB::commit();
+    }
+
+    public function addDeliveryReceiptNumber(array $data)
+    {
+        // This method is now part of the service, so it should receive validated data directly.
+        // The controller will call this method with $request->validated().
+        // Added missing use statement for DeliveryReceipt
+        \App\Models\DeliveryReceipt::create([
+            'delivery_receipt_number' => $data['delivery_receipt_number'],
+            'sap_so_number' => $data['sap_so_number'],
+            'store_order_id' => $data['store_order_id'],
+            'remarks' => $data['remarks'],
+        ]);
+    }
+
+    public function updateDeliveryReceiptNumber(array $data, $id)
+    {
+        // This method is now part of the service, so it should receive validated data directly.
+        // Added missing use statement for DeliveryReceipt
+        \App\Models\DeliveryReceipt::findOrFail($id)->update($data);
+    }
+
+    public function destroyDeliveryReceiptNumber($id)
+    {
+        // Added missing use statement for DeliveryReceipt
+        \App\Models\DeliveryReceipt::findOrFail($id)->delete();
+    }
+
+    public function deleteReceiveDateHistory($id)
+    {
+        // Added missing use statement for OrderedItemReceiveDate
+        \App\Models\OrderedItemReceiveDate::with('store_order_item')->findOrFail($id)->delete();
+        DB::beginTransaction();
+        DB::commit();
+    }
+
+    public function updateReceiveDateHistory(array $data)
+    {
+        // This method is now part of the service, so it should receive validated data directly.
+        // Added missing use statement for OrderedItemReceiveDate
+        \App\Models\OrderedItemReceiveDate::findOrFail($data['id'])->update($data);
+    }
+
+    public function confirmReceive($id)
+    {
+        // Eager load supplierItem and its sapMasterfiles relationship (plural)
+        $historyItems = \App\Models\OrderedItemReceiveDate::with([ // Added missing use statement
+            'store_order_item.store_order.store_order_items',
+            'store_order_item.supplierItem.sapMasterfiles'
+        ])
+        ->whereHas('store_order_item.store_order', function ($query) use ($id) {
+            $query->where('id', $id);
+        })
+        ->where('status', 'pending')
+        ->get();
+
+        foreach ($historyItems as $data) {
+            DB::beginTransaction();
+            try {
+                $this->extracted($data);
+                $data->store_order_item->save();
+                $data->save();
+                $this->getOrderStatus($id);
+                DB::commit();
+            } catch (\Exception $e) {
+                DB::rollBack();
+                Log::error("OrderReceivingController: Error confirming receive for order item history ID {$data->id}: " . $e->getMessage(), [
+                    'trace' => $e->getTraceAsString()
+                ]);
+                throw new \Exception('Failed to confirm receive for some items.'); // Re-throw or handle appropriately
+            }
+        }
+    }
+
+    public function extracted($data): void
+    {
+        // Update received_date only if it's NULL, and set status/approver
+        $updateData = [
+            'status' => 'approved',
+            'approval_action_by' => Auth::user()->id,
+            'received_by_user_id' => Auth::user()->id,
+        ];
+
+        // Set the received_date to current Philippine time (UTC+8) if it's null
+        if (is_null($data->received_date)) {
+            $updateData['received_date'] = Carbon::now('Asia/Manila'); // Explicitly set timezone to Asia/Manila
+        }
+
+        $data->update($updateData);
+
+        // Get the SAPMasterfile instance via the StoreOrderItem's supplierItem relationship
+        $sapMasterfile = $data->store_order_item->supplierItem->sapMasterfile;
+
+        // Ensure sapMasterfile exists before proceeding with stock updates
+        if (!$sapMasterfile) {
+            Log::error("OrderReceivingService: SAPMasterfile not found for StoreOrderItem ID: {$data->store_order_item->id} (ItemCode: {$data->store_order_item->item_code}, UOM: {$data->store_order_item->uom})");
+            throw new \Exception("SAP Masterfile not found for item: {$data->store_order_item->item_code}");
+        }
+        
+        $storeOrder = $data->store_order_item->store_order;
+
+
+        Log::info("OrderReceivingService: Processing StoreOrderItem ID: {$data->store_order_item->id}, SAPMasterfile ID: {$sapMasterfile->id}, Quantity Received: {$data->quantity_received}");
+
+        // Use the sapMasterfile->id for product_inventory_id in ProductInventoryStock
+        // Added missing use statement for ProductInventoryStock
+        $stock = \App\Models\ProductInventoryStock::firstOrNew([
+            'product_inventory_id' => $sapMasterfile->id, // Use SAPMasterfile ID here
+            'store_branch_id' => $storeOrder->store_branch_id
+        ]);
+
+        // If it's a new stock entry, set initial quantities
+        if (!$stock->exists) {
+            $stock->quantity = 0;
+            $stock->recently_added = 0;
+            $stock->used = 0;
+            Log::info("OrderReceivingService: New ProductInventoryStock record being initialized for product_inventory_id: {$sapMasterfile->id}.");
+        } else {
+            Log::info("OrderReceivingService: Existing ProductInventoryStock record found (ID: {$stock->id}) for product_inventory_id: {$sapMasterfile->id}. Current quantity: {$stock->quantity}.");
+        }
+        
+        // Explicitly add the quantity and set recently_added
+        $stock->quantity += $data->quantity_received; // Direct addition instead of increment()
+        $stock->recently_added = $data->quantity_received; // Set recently_added to the current quantity received
+        
+        Log::info("OrderReceivingService: ProductInventoryStock BEFORE save (ID: " . (isset($stock->id) ? $stock->id : 'NEW') . "): Calculated Quantity = {$stock->quantity}, Recently Added = {$stock->recently_added}");
+        
+        $stock->save(); // Save the updated stock record
+
+        Log::info("OrderReceivingService: ProductInventoryStock AFTER save (ID: {$stock->id}): Persisted Quantity = {$stock->quantity}, Persisted Recently Added = {$stock->recently_added}");
+
+
+        // Create PurchaseItemBatch
+        // Added missing use statement for PurchaseItemBatch
+        $batch = \App\Models\PurchaseItemBatch::create([
+            'store_order_item_id' => $data->store_order_item->id,
+            'product_inventory_id' => $sapMasterfile->id, // Use SAPMasterfile ID here
+            'store_branch_id' => $storeOrder->store_branch_id,
+            'purchase_date' => Carbon::today()->format('Y-m-d'),
+            'quantity' => $data->quantity_received,
+            'unit_cost' => $data->store_order_item->cost_per_quantity,
+            'remaining_quantity' => $data->quantity_received
+        ]);
+
+        Log::info("OrderReceivingService: PurchaseItemBatch created with ID: {$batch->id}, Quantity: {$batch->quantity}");
+
+
+        // Create ProductInventoryStockManager entry
+        // Added missing use statement for ProductInventoryStockManager
+        $batch->product_inventory_stock_managers()->create([
+            'product_inventory_id' => $sapMasterfile->id, // Use SAPMasterfile ID here
+            'store_branch_id' => $storeOrder->store_branch_id,
+            'quantity' => $data->quantity_received,
+            'action' => 'add_quantity',
+            'transaction_date' => Carbon::today()->format('Y-m-d'),
+            'unit_cost' =>  $data->store_order_item->cost_per_quantity,
+            'total_cost' => $data->quantity_received * $data->store_order_item->cost_per_quantity,
+            'remarks' => 'From newly received items. (Order Number: ' . $storeOrder->order_number . ')'
+        ]);
+
+        Log::info("OrderReceivingService: ProductInventoryStockManager entry created for batch ID: {$batch->id}");
+
+        $data->store_order_item->quantity_received += $data->quantity_received;
+        // The $data->store_order_item->save() is handled in the confirmReceive loop.
+    }
+
+    public function getOrderStatus($id)
+    {
+        $storeOrder = StoreOrder::with('store_order_items')->find($id);
+
+        $orderedItems = $storeOrder->store_order_items;
+
+        $storeOrder->order_status = OrderStatus::RECEIVED->value;
+        foreach ($orderedItems as $itemOrdered) {
+            if ($itemOrdered->quantity_commited > $itemOrdered->quantity_received) {
+                $storeOrder->order_status = OrderStatus::INCOMPLETE->value;
+            }
+        }
+
+        $storeOrder->save();
     }
 }

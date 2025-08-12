@@ -38,10 +38,14 @@ class OrderReceivingController extends Controller
     }
     public function index()
     {
-        $orders = $this->orderReceivingService->getOrdersList();
+        // Get the current filter from the request, default to 'all'
+        $currentFilter = request('currentFilter') ?? 'all';
+        $data = $this->orderReceivingService->getOrdersList($currentFilter); // Pass the filter to the service
+
         return Inertia::render('OrderReceiving/Index', [
-            'orders' => $orders,
-            'filters' => request()->only(['search'])
+            'orders' => $data['orders'],
+            'filters' => request()->only(['search', 'currentFilter']), // Pass currentFilter to frontend filters
+            'counts' => $data['counts'] // Pass counts to the frontend
         ]);
     }
 
@@ -63,9 +67,10 @@ class OrderReceivingController extends Controller
     public function export()
     {
         $search = request('search');
+        $currentFilter = request('currentFilter') ?? 'all'; // Get the current filter for export
 
         return Excel::download(
-            new ApprovedOrdersExport($search),
+            new ApprovedOrdersExport($search, $currentFilter), // Pass the filter to the export class
             'approved-orders-' . now()->format('Y-m-d') . '.xlsx'
         );
     }
@@ -151,7 +156,7 @@ class OrderReceivingController extends Controller
                 DB::commit();
             } catch (\Exception $e) {
                 DB::rollBack();
-                Log::error("Error confirming receive for order item history ID {$data->id}: " . $e->getMessage(), [
+                Log::error("OrderReceivingController: Error confirming receive for order item history ID {$data->id}: " . $e->getMessage(), [
                     'trace' => $e->getTraceAsString()
                 ]);
                 // You might want to return an error response here or re-throw

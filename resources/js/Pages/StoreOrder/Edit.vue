@@ -92,8 +92,18 @@ onMounted(() => {
                 orderForm.order_date = drafts.value.order_date !== null && drafts.value.order_date !== undefined 
                                         ? drafts.value.order_date 
                                         : props.order.order_date; // Fallback to prop value
+                // Restore orders from draft
+                orderForm.orders = drafts.value.orders || [];
+                editableOrderItems.value = orderForm.orders;
             },
+            reject: () => {
+                // If discarded, populate from props.orderedItems
+                populateInitialOrdersFromProps();
+            }
         });
+    } else {
+        // If no draft or draft is for a different order, populate from props.orderedItems
+        populateInitialOrdersFromProps();
     }
 
     // The initial supplier selection logic is now handled by the orderForm.supplier_id initialization below
@@ -101,8 +111,9 @@ onMounted(() => {
 
     // Set the flag after initial setup is complete
     isMountedAndReady.value = true;
+});
 
-    // Initial population of orderForm.orders
+const populateInitialOrdersFromProps = () => {
     const initialOrders = [];
     props.orderedItems.forEach((item, index) => {
         console.log(`Processing initial item ${index}:`, JSON.parse(JSON.stringify(item))); // Log raw item data
@@ -115,7 +126,7 @@ onMounted(() => {
         const supplierItemData = item.supplier_item; // Get the supplier_item data
         if (supplierItemData && supplierItemData.sap_master_file) {
             const sapMasterFileObject = supplierItemData.sap_master_file;
-            console.log('   Full sap_master_file object (onMounted):', JSON.parse(JSON.stringify(sapMasterFileObject))); // Retained log
+            console.log('    Full sap_master_file object (onMounted):', JSON.parse(JSON.stringify(sapMasterFileObject))); // Retained log
             
             if (Object.prototype.hasOwnProperty.call(sapMasterFileObject, 'BaseQty')) {
                 const rawBaseQty = sapMasterFileObject.BaseQty; // Access directly from the object
@@ -150,7 +161,7 @@ onMounted(() => {
     });
     orderForm.orders = initialOrders;
     editableOrderItems.value = orderForm.orders; // CRITICAL FIX: Sync the ref with the initial data
-});
+};
 
 
 const { options: branchesOptions } = useSelectOptions(props.branches);
@@ -214,9 +225,6 @@ const productDetails = reactive({
     total_cost: null,
     uom: null, // This will be the uom for backend submission
 });
-
-// The initial population logic has been moved to onMounted to ensure props are fully available
-// props.orderedItems.forEach((item) => { ... });
 
 
 const addItemQuantity = (id) => {
@@ -527,7 +535,7 @@ watch(productId, async (itemCode) => {
                 // CRITICAL FIX: Always use the singular accessor 'sap_master_file'
                 const apiResultSapMasterFile = result.sap_master_file;
                 if (apiResultSapMasterFile) {
-                    console.log('   Full sap_master_file object (watch):', JSON.parse(JSON.stringify(apiResultSapMasterFile))); // Retained log
+                    console.log('    Full sap_master_file object (watch):', JSON.parse(JSON.stringify(apiResultSapMasterFile))); // Retained log
                     if (Object.prototype.hasOwnProperty.call(apiResultSapMasterFile, 'BaseQty')) {
                         const rawFoundBaseQty = apiResultSapMasterFile.BaseQty;
                         foundBaseQty = Number(rawFoundBaseQty);
@@ -781,6 +789,56 @@ const importOrdersButton = () => {
     visible.value = true;
     skippedImportMessages.value = []; // Clear previous skipped messages when opening modal
 };
+
+// New function to handle downloading the dynamic template
+const downloadDynamicTemplate = async () => {
+    const supplierCode = orderForm.supplier_id;
+    if (!supplierCode) {
+        toast.add({
+            severity: "warn",
+            summary: "Warning",
+            detail: "Please select a supplier first to download the template.",
+            life: 5000,
+        });
+        return;
+    }
+
+    try {
+        // Use axios to make a GET request to the new backend route
+        const response = await axios.get(route('store-orders.download-supplier-order-template', { supplierCode: supplierCode }), {
+            responseType: 'blob', // Important: responseType must be 'blob' to handle file download
+        });
+
+        // Create a blob URL and trigger download
+        const url = window.URL.createObjectURL(new Blob([response.data]));
+        const link = document.createElement('a');
+        link.href = url;
+        // Dynamically set the filename based on the supplier code
+        link.setAttribute('download', `supplier_order_template_${supplierCode}.xlsx`);
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        window.URL.revokeObjectURL(url); // Clean up the URL object
+
+        toast.add({
+            severity: "success",
+            summary: "Success",
+            detail: "Template download started.",
+            life: 3000,
+        });
+
+    } catch (error) {
+        console.error("Error downloading template:", error);
+        toast.add({
+            severity: "error",
+            summary: "Error",
+            detail: "Failed to download template. Please try again.",
+            life: 5000,
+        });
+    }
+};
+
+
 const addImportedItemsToOrderList = () => {
     isLoading.value = true;
     skippedImportMessages.value = []; // Clear messages before new import attempt
@@ -823,14 +881,9 @@ const addImportedItemsToOrderList = () => {
                     return; // Skip this item
                 }
 
-                // Validate quantity for imported items: Allow 0, but not negative or NaN.
-                if (isNaN(quantity) || quantity < 0.1) { // Changed from quantity < 0.1 to quantity < 0
-                    toast.add({
-                        severity: "error",
-                        summary: "Validation Error",
-                        detail: `Imported item '${itemName || itemCodeString || 'Unknown Item'}' has an invalid quantity and will be skipped. Quantity must be at least 0.1.`,
-                        life: 7000,
-                    });
+                // Validate quantity for imported items - REMOVED TOAST MESSAGE
+                if (isNaN(quantity) || quantity < 0.1) { 
+                    // The item will still be skipped, but no toast message will be displayed.
                     return; // Skip this item
                 }
                 
@@ -1080,7 +1133,7 @@ const addImportedItemsToOrderList = () => {
                         <TableHead>
                             <TH> Name </TH>
                             <TH> Code </TH>
-                            <TH> Quantity </TH>
+                            <TH> Ordered Qty </TH>
                             <TH> Base UOM </TH>
                             <TH> BaseUOM Qty </TH> <!-- NEW COLUMN HEADER -->
                             <TH> Unit </TH>
@@ -1184,7 +1237,7 @@ const addImportedItemsToOrderList = () => {
                             <LabelXS
                                 >UOM: {{ order.unit_of_measurement }}</LabelXS
                             >
-                            <LabelXS>Quantity: {{ order.quantity }}</LabelXS>
+                            <LabelXS>Ordered Qty: {{ order.quantity }}</LabelXS>
                             <LabelXS>BaseUOM Qty: {{ order.base_uom_qty }}</LabelXS> <!-- NEW MOBILE LABEL -->
                             <LabelXS>Cost: {{ Number(order.cost).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) }}</LabelXS>
                             <LabelXS>Total Cost: {{ Number(order.total_cost).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) }}</LabelXS>
@@ -1248,9 +1301,10 @@ const addImportedItemsToOrderList = () => {
                         <Label class="text-xs">Accepted Orders File Format</Label>
                         <ul>
                             <li class="text-xs">
+                                <!-- Updated to call the new dynamic download function -->
                                 <a
-                                    class="text-blue-500 underline"
-                                    :href="route('excel.store-order-template')"
+                                    class="text-blue-500 underline cursor-pointer"
+                                    @click.prevent="downloadDynamicTemplate"
                                     >Click to download template</a
                                 >
                             </li>

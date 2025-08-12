@@ -50,7 +50,7 @@ const form = useForm({
 });
 
 const update = (id) => {
-    form.post(route("delivery-schedules.update", props.branch.id), {
+    form.post(route("dts-delivery-schedules.update", props.branch.id), {
         preserveScroll: true,
         onSuccess: () => {
             toast.add({

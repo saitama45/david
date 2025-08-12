@@ -11,6 +11,53 @@ const toast = useToast();
 const confirm = useConfirm();
 
 const handleCreate = () => {
+    // Clear previous errors before validation
+    form.clearErrors();
+
+    let isValid = true;
+
+    // Client-side validation checks
+    if (!form.first_name) {
+        form.setError('first_name', 'First name is required.');
+        isValid = false;
+    }
+    if (!form.last_name) {
+        form.setError('last_name', 'Last name is required.');
+        isValid = false;
+    }
+    if (!form.email) {
+        form.setError('email', 'Email is required.');
+        isValid = false;
+    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)) {
+        form.setError('email', 'Invalid email format.');
+        isValid = false;
+    }
+    if (!form.password) {
+        form.setError('password', 'Password is required.');
+        isValid = false;
+    } else if (form.password.length < 8) {
+        form.setError('password', 'Password must be at least 8 characters.');
+        isValid = false;
+    }
+    if (!form.phone_number || form.phone_number.replace(/[^0-9]/g, '').length !== 11) {
+        form.setError('phone_number', 'Phone number is required and must be 11 digits (e.g., 09xx xxx xxxx).');
+        isValid = false;
+    }
+    if (!form.roles || form.roles.length === 0) {
+        form.setError('roles', 'At least one role must be assigned.');
+        isValid = false;
+    }
+
+    if (!isValid) {
+        toast.add({
+            severity: "error",
+            summary: "Validation Error",
+            detail: "Please correct the highlighted fields.",
+            life: 3000,
+        });
+        return; // Stop execution if validation fails
+    }
+
     confirm.require({
         message: "Are you sure you want to create this user?",
         header: "Confirmation",
@@ -88,7 +135,7 @@ const form = useForm({
     assignedBranches:
         props.user?.store_branches.map((item) => item.id.toString()) ?? [],
     assignedSuppliers:
-        props.user?.suppliers.map((item) => item.id.toString()) ?? [],
+        props.user?.suppliers.map((item) => item.id.toString()) ?? [], // Assuming suppliersOptions values are IDs
 });
 
 // Computed property for "Check All Branches" state (getter/setter for ToggleSwitch)

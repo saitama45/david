@@ -1,32 +1,49 @@
 <script setup>
+import { ref, watch, computed } from "vue";
 import { router, usePage } from "@inertiajs/vue3";
 
 import { useConfirm } from "primevue/useconfirm";
 import { useToast } from "@/Composables/useToast";
 import { throttle } from "lodash";
 
+// Lucide icons
+import { Eye } from "lucide-vue-next"; 
+
 const confirm = useConfirm();
 const { toast } = useToast();
 
-let filter = ref(usePage().props.filters.currentFilter || "pending");
-let search = ref(usePage().props.filters.search);
-watch(filter, function (value) {
-    router.get(
-        route("cs-approvals.index"),
-        { currentFilter: value, search: search.value },
-        {
-            preserveState: true,
-            replace: true,
-        }
-    );
+const props = defineProps({
+    orders: {
+        type: Object,
+        required: true,
+    },
+    counts: {
+        type: Object,
+        required: true,
+    },
+    assignedSuppliers: { // Prop to receive assigned suppliers
+        type: Array,
+        default: () => [],
+    },
 });
 
+// Initialize filters with current values from props, defaulting to 'all' for supplier and 'approved' for status
+let currentSupplierFilter = ref(usePage().props.filters.currentSupplierFilter || "all");
+// Status filter is now static to 'approved' as per request
+let currentStatusFilter = ref('approved'); 
+let search = ref(usePage().props.filters.search);
+
+// Watch for changes in any filter and update the URL
 watch(
-    search,
-    throttle(function (value) {
+    [currentSupplierFilter, search], // Removed currentStatusFilter from watch as it's static
+    throttle(([newSupplierFilter, newSearch]) => {
         router.get(
             route("cs-approvals.index"),
-            { search: value, currentFilter: filter.value },
+            {
+                currentSupplierFilter: newSupplierFilter,
+                // currentStatusFilter is no longer passed as a dynamic URL parameter
+                search: newSearch
+            },
             {
                 preserveState: true,
                 replace: true,
@@ -35,23 +52,39 @@ watch(
     }, 500)
 );
 
-const changeFilter = (currentFilter) => {
-    filter.value = currentFilter;
+// Function to change the active supplier filter tab
+const changeSupplierFilter = (supplierCode) => {
+    currentSupplierFilter.value = supplierCode;
 };
 
-const isFilterActive = (currentFilter) => {
-    return filter.value == currentFilter ? "bg-primary text-white" : "";
+// Function to change the active status filter tab (no longer used for UI, but kept for consistency if needed elsewhere)
+const changeStatusFilter = (status) => {
+    // This function will technically still work but won't affect the backend query
+    // as currentStatusFilter is now hardcoded in the controller/service.
+    // For this specific request, this function is effectively deprecated.
+    console.warn("changeStatusFilter called, but status filter is now static to 'approved'.");
 };
 
-const props = defineProps({
-    orders: {
-        type: Object,
-    },
-    counts: {
-        type: Object,
-    },
-});
+// Computed property to determine active supplier filter class
+const isSupplierFilterActive = (supplierCode) => {
+    return currentSupplierFilter.value === supplierCode ? "bg-primary text-white" : "";
+};
 
+// Computed property to determine active status filter class (no longer used for UI)
+const isStatusFilterActive = (status) => {
+    return currentStatusFilter.value === status ? "bg-primary text-white" : "";
+};
+
+// Computed property for the export route, including all current filters
+const exportRoute = computed(() =>
+    route("cs-approvals.export", {
+        search: search.value,
+        currentSupplierFilter: currentSupplierFilter.value,
+        currentStatusFilter: currentStatusFilter.value, // Still pass 'approved' for export
+    })
+);
+
+// Function to determine status badge color
 const statusBadgeColor = (status) => {
     switch (status.toUpperCase()) {
         case "APPROVED":
@@ -144,55 +177,51 @@ const showOrderDetails = (id) => {
 import { useAuth } from "@/Composables/useAuth";
 
 const { hasAccess } = useAuth();
-
-const exportRoute = computed(() =>
-    route("cs-approvals.export", {
-        search: search.value,
-        currentFilter: filter.value,
-    })
-);
 </script>
+
 <template>
     <Layout
         heading="CS Review List"
         :hasExcelDownload="true"
         :exportRoute="exportRoute"
     >
-        <!-- <FilterTab>
+        <!-- Supplier Filter Tabs -->
+        <FilterTab>
+            <!-- "All" tab for suppliers -->
             <Button
                 class="sm:px-10 px-3 bg-white/10 text-gray-800 hover:text-white gap-5 sm:text-sm text-xs"
-                :class="isFilterActive('pending')"
-                @click="changeFilter('pending')"
-                >PENDING
+                :class="isSupplierFilterActive('all')"
+                @click="changeSupplierFilter('all')"
+            >
+                ALL
                 <Badge
                     class="sm:flex hidden border border-gray bg-transparent text-gray-900 px-2"
-                    :class="isFilterActive('pending')"
-                    >{{ counts.pending }}</Badge
-                >
+                    :class="isSupplierFilterActive('all')"
+                >{{ counts.all_approved }}</Badge> <!-- Changed to all_approved -->
             </Button>
+
+            <!-- Dynamic Supplier Tabs -->
             <Button
+                v-for="supplier in assignedSuppliers"
+                :key="supplier.value"
                 class="sm:px-10 px-3 bg-white/10 text-gray-800 hover:text-white gap-5 sm:text-sm text-xs"
-                :class="isFilterActive('approved')"
-                @click="changeFilter('approved')"
-                >APPROVED
+                :class="isSupplierFilterActive(supplier.value)"
+                @click="changeSupplierFilter(supplier.value)"
+            >
+                {{ supplier.label }}
                 <Badge
                     class="sm:flex hidden border border-gray bg-transparent text-gray-900 px-2"
-                    :class="isFilterActive('approved')"
-                    >{{ counts.approved }}</Badge
-                ></Button
-            >
-            <Button
-                class="sm:px-10 px-3 bg-white/10 text-gray-800 hover:text-white gap-5 sm:text-sm text-xs"
-                :class="isFilterActive('rejected')"
-                @click="changeFilter('rejected')"
-                >REJECTED
-                <Badge
-                    class="sm:flex hidden border border-gray bg-transparent text-gray-900 px-2"
-                    :class="isFilterActive('rejected')"
-                    >{{ counts.rejected }}</Badge
-                ></Button
-            >
+                    :class="isSupplierFilterActive(supplier.value)"
+                >{{ counts[`${supplier.value}_approved`] || 0 }}</Badge> <!-- Changed to _approved -->
+            </Button>
+        </FilterTab>
+
+        <!-- Status Filter Tabs (REMOVED as per request) -->
+        <!-- <FilterTab class="mt-4">
+            ... (Removed content) ...
         </FilterTab> -->
+
+
         <TableContainer>
             <TableHeader>
                 <SearchBar>
@@ -227,8 +256,7 @@ const exportRoute = computed(() =>
                             <Badge
                                 :class="statusBadgeColor(order.order_status)"
                                 class="font-bold"
-                                >{{ order.order_status.toUpperCase() }}</Badge
-                            >
+                            >{{ order.order_status.toUpperCase() }}</Badge>
                         </TD>
                         <TD class="flex">
                             <Button
@@ -238,41 +266,13 @@ const exportRoute = computed(() =>
                             >
                                 <Eye />
                             </Button>
-                            <!-- <Popover
-                                v-if="order.order_request_status === 'pending'"
-                            >
-                                <PopoverTrigger>
-                                    <EllipsisVertical />
-                                </PopoverTrigger>
-                                <PopoverContent class="w-fit">
-                                    <DivFlexCol>
-                                        <Button
-                                            class="text-green-500"
-                                            @click="approveOrder(order.id)"
-                                            variant="link"
-                                        >
-                                            Approve
-                                        </Button>
-                                        <Button
-                                            v-if="
-                                                order.order_request_status ===
-                                                'pending'
-                                            "
-                                            class="text-red-500"
-                                            @click="rejectOrder(order.id)"
-                                            variant="link"
-                                        >
-                                            Reject
-                                        </Button>
-                                    </DivFlexCol>
-                                </PopoverContent>
-                            </Popover> -->
+                            <!-- Popover and other actions remain commented out as they were in your original code -->
                         </TD>
                     </tr>
                 </TableBody>
             </Table>
             <MobileTableContainer>
-                <MobileTableRow v-for="order in orders.data">
+                <MobileTableRow v-for="order in orders.data" :key="order.id">
                     <MobileTableHeading :title="order.order_number">
                         <ShowButton
                             v-if="hasAccess('view order for cs approval')"

@@ -90,7 +90,8 @@ class RoleService
                     'view orders for approval list', 'view order for approval', 'approve/decline order request'
                 ],
                 'CS Review List' => [
-                    'view orders for cs approval list', 'view order for cs approval', 'cs approve/decline order request'
+                    'view orders for cs approval list', 'view order for cs approval', 'cs approve/decline order request',
+                    'export orders for cs approval list' // NEW: Added export permission here
                 ],
                 'Emergency Order Approval' => [
                     'view emergency order approval', 'approve emergency order', 'decline emergency order'

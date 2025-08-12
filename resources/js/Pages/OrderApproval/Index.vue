@@ -1,15 +1,20 @@
 <script setup>
 import { router, usePage } from "@inertiajs/vue3";
+import { ref, watch, computed } from "vue"; // Added explicit import for ref, watch, computed from vue
 
 import { useConfirm } from "primevue/useconfirm";
 import { useToast } from "@/Composables/useToast";
 import { throttle } from "lodash";
+
+// Lucide icons
+import { Eye } from "lucide-vue-next"; 
 
 const confirm = useConfirm();
 const { toast } = useToast();
 
 let filter = ref(usePage().props.filters.currentFilter || "pending");
 let search = ref(usePage().props.filters.search);
+
 watch(filter, function (value) {
     router.get(
         route("orders-approval.index"),
@@ -46,9 +51,11 @@ const isFilterActive = (currentFilter) => {
 const props = defineProps({
     orders: {
         type: Object,
+        required: true,
     },
     counts: {
         type: Object,
+        required: true,
     },
 });
 
@@ -149,6 +156,7 @@ const exportRoute = computed(() =>
     })
 );
 </script>
+
 <template>
     <Layout
         heading="Orders For Approval List"
@@ -156,40 +164,41 @@ const exportRoute = computed(() =>
         :exportRoute="exportRoute"
     >
         <FilterTab>
+            <!-- NEW: "All" tab to show approved orders -->
+            <Button
+                class="sm:px-10 px-3 bg-white/10 text-gray-800 hover:text-white gap-5 sm:text-sm text-xs"
+                :class="isFilterActive('all')"
+                @click="changeFilter('all')"
+            >ALL
+                <Badge
+                    class="sm:flex hidden border border-gray bg-transparent text-gray-900 px-2"
+                    :class="isFilterActive('all')"
+                >{{ counts.approved }}</Badge> <!-- Display approved count for "All" tab -->
+            </Button>
+
             <Button
                 class="sm:px-10 px-3 bg-white/10 text-gray-800 hover:text-white gap-5 sm:text-sm text-xs"
                 :class="isFilterActive('pending')"
                 @click="changeFilter('pending')"
-                >PENDING
+            >PENDING
                 <Badge
                     class="sm:flex hidden border border-gray bg-transparent text-gray-900 px-2"
                     :class="isFilterActive('pending')"
-                    >{{ counts.pending }}</Badge
-                >
+                >{{ counts.pending }}</Badge>
             </Button>
-            <!-- <Button
-                class="sm:px-10 px-3 bg-white/10 text-gray-800 hover:text-white gap-5 sm:text-sm text-xs"
-                :class="isFilterActive('approved')"
-                @click="changeFilter('approved')"
-                >APPROVED
-                <Badge
-                    class="sm:flex hidden border border-gray bg-transparent text-gray-900 px-2"
-                    :class="isFilterActive('approved')"
-                    >{{ counts.approved }}</Badge
-                ></Button
-            > -->
+            
             <Button
                 class="sm:px-10 px-3 bg-white/10 text-gray-800 hover:text-white gap-5 sm:text-sm text-xs"
                 :class="isFilterActive('rejected')"
                 @click="changeFilter('rejected')"
-                >REJECTED
+            >REJECTED
                 <Badge
                     class="sm:flex hidden border border-gray bg-transparent text-gray-900 px-2"
                     :class="isFilterActive('rejected')"
-                    >{{ counts.rejected }}</Badge
-                ></Button
-            >
+                >{{ counts.rejected }}</Badge>
+            </Button>
         </FilterTab>
+
         <TableContainer>
             <TableHeader>
                 <SearchBar>
@@ -224,8 +233,7 @@ const exportRoute = computed(() =>
                             <Badge
                                 :class="statusBadgeColor(order.order_status)"
                                 class="font-bold"
-                                >{{ order.order_status.toUpperCase() }}</Badge
-                            >
+                            >{{ order.order_status.toUpperCase() }}</Badge>
                         </TD>
                         <TD class="flex">
                             <Button
@@ -269,7 +277,7 @@ const exportRoute = computed(() =>
                 </TableBody>
             </Table>
             <MobileTableContainer>
-                <MobileTableRow v-for="order in orders.data">
+                <MobileTableRow v-for="order in orders.data" :key="order.id">
                     <MobileTableHeading :title="order.order_number">
                         <ShowButton
                             v-if="hasAccess('view order for approval')"

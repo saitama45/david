@@ -12,43 +12,66 @@ use Illuminate\Support\Facades\DB;
 
 class OrderApprovalService extends StoreOrderService
 {
-    public function getOrdersAndCounts($page = 'manager', $condition = null, $variant  = null)
+    /**
+     * Get orders and their counts for Order Approval (SM).
+     *
+     * @param string $page This parameter is typically 'manager' for this context.
+     * @param mixed $condition Not used in this specific implementation.
+     * @param mixed $variant Used for additional query filtering (e.g., 'variant' column).
+     * @param string $currentFilter NEW: The current status filter from the UI ('pending', 'rejected', or 'all').
+     * @return array Contains 'orders' (paginated) and 'counts'.
+     */
+    public function getOrdersAndCounts($page = 'manager', $condition = null, $variant = null, $currentFilter = 'pending')
     {
         $search = request('search');
-        $filter = $page == 'manager' ? request('currentFilter') ?? 'pending' : 'approved';
 
-        $query = StoreOrder::query()->with(['store_branch', 'supplier']);
+        // Start with a base query that includes relationships and potential variant filter
+        $baseQuery = StoreOrder::query()->with(['store_branch', 'supplier']);
 
         if ($variant != null) {
-            $query->where('variant', $variant);
+            $baseQuery->where('variant', $variant);
         }
 
+        if ($search) {
+            $baseQuery->where('order_number', 'like', '%' . $search . '%')
+                      ->orWhereHas('supplier', function ($q) use ($search) {
+                          $q->where('name', 'like', '%' . $search . '%');
+                      })
+                      ->orWhereHas('store_branch', function ($q) use ($search) {
+                          $q->where('name', 'like', '%' . $search . '%');
+                      });
+        }
 
-        $counts = $this->getCounts($query, $condition);
-        if ($search)
-            $query->where('order_number', 'like', '%' . $search . '%');
+        // Calculate counts based on the base query (before applying the specific status filter for the main list)
+        $counts = $this->getCounts($baseQuery);
 
-
-
-        if ($filter)
-            $query->where('order_status', $filter);
-
-
+        // Apply the specific status filter for the main orders list
+        if ($currentFilter === 'all') {
+            $baseQuery->where('order_status', OrderStatus::APPROVED->value); // "All" tab means show approved orders
+        } else {
+            $baseQuery->where('order_status', $currentFilter); // Use pending or rejected
+        }
 
         return [
-            'orders' => $query->latest()
+            'orders' => $baseQuery->latest()
                 ->paginate(10)
                 ->withQueryString(),
             'counts' => $counts
         ];
     }
 
-    public function getCounts($query, $condition)
+    /**
+     * Calculates counts for different order statuses based on a base query.
+     *
+     * @param \Illuminate\Database\Eloquent\Builder $baseQuery A query builder instance without specific status filters yet.
+     * @return array
+     */
+    public function getCounts($baseQuery)
     {
         return [
-            'pending' => (clone $query)->where('order_status', 'pending')->count(),
-            'approved' => (clone $query)->where('order_status', 'approved')->count(),
-            'rejected' => (clone $query)->where('order_status', 'rejected')->count(),
+            'pending' => (clone $baseQuery)->where('order_status', OrderStatus::PENDING->value)->count(),
+            'approved' => (clone $baseQuery)->where('order_status', OrderStatus::APPROVED->value)->count(),
+            'rejected' => (clone $baseQuery)->where('order_status', OrderStatus::REJECTED->value)->count(),
         ];
     }
 
@@ -84,6 +107,11 @@ class OrderApprovalService extends StoreOrderService
                 'total_cost' => $item['total_cost'],
                 'quantity_approved' => $item['quantity_approved'],
             ]);
+
+            $orderedItem->ordered_item_receive_dates()->create([
+                'received_by_user_id' => $storeOrder->encoder_id,
+                'quantity_received' => $item['quantity_approved'],
+            ]);
         }
         $this->addRemarks($storeOrder, $data['remarks']);
         DB::commit();
@@ -96,7 +124,7 @@ class OrderApprovalService extends StoreOrderService
         $storeOrder = StoreOrder::findOrFail($data['id']);
 
         $storeOrder->update([
-            'order_status' => OrderRequestStatus::REJECTED->value,
+            'order_status' => OrderRequestStatus::REJECTED->value, // Assuming OrderRequestStatus is used for rejection
             'approver_id' => Auth::user()->id,
             'approval_action_date' => Carbon::now()
         ]);

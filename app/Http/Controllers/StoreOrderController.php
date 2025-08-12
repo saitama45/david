@@ -25,6 +25,7 @@ use Illuminate\Support\Facades\Storage;
 use Maatwebsite\Excel\Facades\Excel;
 use App\Models\SupplierItems;
 use Illuminate\Support\Facades\Log; // Import Log facade
+use App\Exports\SupplierOrderTemplateExport; // Import the new export class
 
 class StoreOrderController extends Controller
 {
@@ -161,9 +162,9 @@ class StoreOrderController extends Controller
     {
         // Use the SupplierItems::options() scope which returns ItemCode => CONCAT(item_name, ' (', ItemCode, ') ', uom)
         $supplierItems = SupplierItems::where('SupplierCode', $supplierCode)
-                                   ->where('is_active', true)
-                                   ->options() // This scope returns ItemCode => CONCAT(item_name, ' (', ItemCode, ') ', uom)
-                                   ->all(); // Convert the collection to an array of value/label pairs
+                                       ->where('is_active', true)
+                                       ->options() // This scope returns ItemCode => CONCAT(item_name, ' (', ItemCode, ') ', uom)
+                                       ->all(); // Convert the collection to an array of value/label pairs
 
         // The options scope returns an associative array (ItemCode => formatted_name),
         // we need to convert it to the {value: 'ItemCode', label: 'formatted_name'} format expected by Select component.
@@ -178,5 +179,43 @@ class StoreOrderController extends Controller
         return response()->json([
             'items' => $formattedSupplierItems
         ]);
+    }
+
+    public function getSupplierItemDetailsByCode(Request $request)
+    {
+        $itemCode = $request->itemCode;
+        $supplierCode = $request->supplierCode;
+
+        $item = SupplierItems::where('ItemCode', $itemCode)
+                            ->where('SupplierCode', $supplierCode)
+                            ->where('is_active', true)
+                            // The 'sap_master_file' is an accessor, not a relationship.
+                            // It's automatically appended due to $appends on the SupplierItems model.
+                            // No need to eager load it with 'with()'.
+                            ->first();
+
+        if (!$item) {
+            return response()->json(['message' => 'Item not found for the given code and supplier.'], 404);
+        }
+
+        return response()->json(['item' => $item]);
+    }
+
+    /**
+     * Downloads an Excel template for supplier items based on the selected supplier.
+     *
+     * @param string $supplierCode The supplier code from the frontend.
+     * @return \Illuminate\Http\Response|\Symfony\Component\HttpFoundation\BinaryFileResponse
+     */
+    public function downloadSupplierOrderTemplate(string $supplierCode)
+    {
+        // Validate that the supplierCode exists
+        $supplierExists = Supplier::where('supplier_code', $supplierCode)->exists();
+        if (!$supplierExists) {
+            return response()->json(['message' => 'Supplier not found.'], 404);
+        }
+
+        $fileName = "supplier_order_template_{$supplierCode}.xlsx";
+        return Excel::download(new SupplierOrderTemplateExport($supplierCode), $fileName);
     }
 }

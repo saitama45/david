@@ -3,11 +3,12 @@
 namespace App\Http\Controllers;
 
 use App\Enum\OrderRequestStatus;
+use App\Enum\OrderStatus; // Added missing use statement for OrderStatus
 use App\Exports\OrderApprovalsExport;
 use App\Http\Requests\OrderApproval\ApproveOrderRequest;
 use App\Http\Requests\OrderApproval\RejectOrderRequest;
 use App\Http\Services\OrderApprovalService;
-use App\Models\Order;
+use App\Models\Order; // This model might not be used, consider removing if so
 use App\Models\StoreOrder;
 use App\Models\StoreOrderItem;
 use Carbon\Carbon;
@@ -29,7 +30,13 @@ class OrderApprovalController extends Controller
 
     public function index()
     {
-        $data = $this->orderApprovalService->getOrdersAndCounts();
+        // Pass the currentFilter from the request to the service
+        $data = $this->orderApprovalService->getOrdersAndCounts(
+            'manager', // page
+            null,      // condition (not used for this context)
+            null,      // variant (not used for this context)
+            request('currentFilter') ?? 'pending' // Pass the current filter from UI
+        );
 
         return Inertia::render('OrderApproval/Index', [
             'orders' =>  $data['orders'],
@@ -41,7 +48,7 @@ class OrderApprovalController extends Controller
     public function export()
     {
         $search = request('search');
-        $filter = request('currentFilter') ?? 'pending';
+        $filter = request('currentFilter') ?? 'pending'; // Use currentFilter from UI for export
 
         return Excel::download(
             new OrderApprovalsExport($search, $filter),

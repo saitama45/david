@@ -35,9 +35,8 @@ console.log('Raw suppliers prop:', props.suppliers);
 const { user, roles, branches, suppliers } = props;
 
 const userCurrentRoles = Array.isArray(user.roles) ? user.roles.map((role) => role.id.toString()) : [];
-const userCurrentAssignedBranches = Array.isArray(user.store_branches)
-    ? user.store_branches.map((branch) => branch.id.toString())
-    : [];
+// CRITICAL FIX: Ensure assignedSuppliers are mapped by their 'value' (supplier_code) from options
+// This assumes your suppliersOptions are structured as { label: '...', value: 'supplier_code' }
 const userCurrentAssignedSuppliers = Array.isArray(user.suppliers)
     ? user.suppliers.map((supplier) => supplier.supplier_code)
     : [];
@@ -48,10 +47,10 @@ const form = useForm({
     last_name: user.last_name,
     phone_number: user.phone_number,
     email: user.email,
-    password: null,
+    password: null, // Password is null by default, only set if user types
     roles: userCurrentRoles,
     remarks: user.remarks,
-    assignedBranches: userCurrentAssignedBranches,
+    assignedBranches: user.store_branches.map((item) => item.id.toString()), // Assuming store_branches are always an array
     assignedSuppliers: userCurrentAssignedSuppliers,
 });
 
@@ -91,6 +90,51 @@ const isAllSuppliersChecked = computed({
 });
 
 const handleUpdate = () => {
+    // Clear previous errors before validation
+    form.clearErrors();
+
+    let isValid = true;
+
+    // Client-side validation checks
+    if (!form.first_name) {
+        form.setError('first_name', 'First name is required.');
+        isValid = false;
+    }
+    if (!form.last_name) {
+        form.setError('last_name', 'Last name is required.');
+        isValid = false;
+    }
+    if (!form.email) {
+        form.setError('email', 'Email is required.');
+        isValid = false;
+    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)) {
+        form.setError('email', 'Invalid email format.');
+        isValid = false;
+    }
+    // Password is optional for update, but if provided, it must meet length requirements
+    if (form.password && form.password.length < 8) {
+        form.setError('password', 'Password must be at least 8 characters if provided.');
+        isValid = false;
+    }
+    if (!form.phone_number || form.phone_number.replace(/[^0-9]/g, '').length !== 11) {
+        form.setError('phone_number', 'Phone number is required and must be 11 digits (e.g., 09xx xxx xxxx).');
+        isValid = false;
+    }
+    if (!form.roles || form.roles.length === 0) {
+        form.setError('roles', 'At least one role must be assigned.');
+        isValid = false;
+    }
+
+    if (!isValid) {
+        toast.add({
+            severity: "error",
+            summary: "Validation Error",
+            detail: "Please correct the highlighted fields.",
+            life: 3000,
+        });
+        return; // Stop execution if validation fails
+    }
+
     confirm.require({
         message: "Are you sure you want to update the user details?",
         header: "Confirmation",

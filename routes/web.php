@@ -304,6 +304,10 @@ Route::middleware('auth')
             });
 
             Route::middleware('permission:export store orders')->get('/export', 'export')->name('export'); // Corrected permission
+
+            // NEW: Route to download dynamic supplier order template
+            Route::get('/store-order-template/{supplierCode}', 'downloadSupplierOrderTemplate')->name('download-supplier-order-template');
+
             // ROUTE: To fetch supplier items based on supplier code
             Route::get('/get-supplier-items/{supplierCode}', 'getSupplierItems')->name('get-supplier-items');
         });

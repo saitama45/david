@@ -1,36 +1,73 @@
 <script setup>
+import { ref, watch, computed } from "vue"; // Ensure ref, watch, computed are imported from vue
 import { useSearch } from "@/Composables/useSearch";
-import { router } from "@inertiajs/vue3";
+import { router, usePage } from "@inertiajs/vue3";
 
 const props = defineProps({
     orders: {
         type: Object,
+        required: true,
+    },
+    counts: {
+        type: Object,
+        required: true,
     },
 });
+
+// Initialize filter with currentFilter from props, defaulting to 'all'
+let filter = ref(usePage().props.filters.currentFilter || "all");
+const { search } = useSearch("orders-receiving.index");
+
+// Watch for changes in filter or search and update the URL
+watch(
+    [filter, search],
+    ([newFilter, newSearch]) => {
+        router.get(
+            route("orders-receiving.index"),
+            { currentFilter: newFilter, search: newSearch },
+            {
+                preserveState: true,
+                replace: true,
+            }
+        );
+    }
+);
+
+const changeFilter = (currentFilter) => {
+    filter.value = currentFilter;
+};
+
+const isFilterActive = (currentFilter) => {
+    return filter.value === currentFilter ? "bg-primary text-white" : "";
+};
 
 const statusBadgeColor = (status) => {
     switch (status.toUpperCase()) {
         case "RECEIVED":
             return "bg-green-500 text-white";
-        case "PENDING":
+        case "PENDING": // This status might not appear in this list, but keeping for completeness
             return "bg-yellow-500 text-white";
-        default:
+        case "INCOMPLETE":
             return "bg-orange-500 text-white";
+        case "COMMITED": // Keeping this case, but the tab is removed from UI
+            return "bg-blue-400 text-white";
+        default:
+            return "bg-gray-500 text-white"; // Fallback for other statuses
     }
 };
 
 const viewDetails = (id) => {
     router.get(`/orders-receiving/show/${id}`);
 };
-const { search } = useSearch("orders-receiving.index");
 
 import { useAuth } from "@/Composables/useAuth";
 
 const { hasAccess } = useAuth();
 
 const exportRoute = computed(() => {
-    route("orders-receiving.export", {
+    return route("orders-receiving.export", {
         search: search.value,
+        currentFilter: filter.value, // Pass the current filter to the export route
     });
 });
 </script>
@@ -41,6 +78,46 @@ const exportRoute = computed(() => {
         :hasExcelDownload="true"
         :exportRoute="exportRoute"
     >
+        <FilterTab>
+            <!-- "All" tab -->
+            <Button
+                class="sm:px-10 px-3 bg-white/10 text-gray-800 hover:text-white gap-5 sm:text-sm text-xs"
+                :class="isFilterActive('all')"
+                @click="changeFilter('all')"
+            >ALL
+                <Badge
+                    class="sm:flex hidden border border-gray bg-transparent text-gray-900 px-2"
+                    :class="isFilterActive('all')"
+                >{{ counts.all }}</Badge>
+            </Button>
+
+            <!-- "Received" tab -->
+            <Button
+                class="sm:px-10 px-3 bg-white/10 text-gray-800 hover:text-white gap-5 sm:text-sm text-xs"
+                :class="isFilterActive('received')"
+                @click="changeFilter('received')"
+            >RECEIVED
+                <Badge
+                    class="sm:flex hidden border border-gray bg-transparent text-gray-900 px-2"
+                    :class="isFilterActive('received')"
+                >{{ counts.received }}</Badge>
+            </Button>
+
+            <!-- "Incomplete" tab -->
+            <Button
+                class="sm:px-10 px-3 bg-white/10 text-gray-800 hover:text-white gap-5 sm:text-sm text-xs"
+                :class="isFilterActive('incomplete')"
+                @click="changeFilter('incomplete')"
+            >INCOMPLETE
+                <Badge
+                    class="sm:flex hidden border border-gray bg-transparent text-gray-900 px-2"
+                    :class="isFilterActive('incomplete')"
+                >{{ counts.incomplete }}</Badge>
+            </Button>
+            
+            <!-- Removed "COMMITED" tab as per request -->
+        </FilterTab>
+
         <TableContainer>
             <TableHeader>
                 <SearchBar>
@@ -64,7 +141,7 @@ const exportRoute = computed(() => {
                     <TH v-if="hasAccess('view approved order')">Actions</TH>
                 </TableHead>
                 <TableBody>
-                    <tr v-for="order in orders.data">
+                    <tr v-for="order in orders.data" :key="order.id">
                         <TD>{{ order.id }}</TD>
                         <TD>{{ order.supplier?.name ?? "N/A" }}</TD>
                         <TD>{{ order.store_branch?.name ?? "N/A" }}</TD>
@@ -75,12 +152,11 @@ const exportRoute = computed(() => {
                             <Badge
                                 :class="statusBadgeColor(order.order_status)"
                                 class="font-bold"
-                                >{{
-                                    order.order_status
-                                        .toUpperCase()
-                                        .replace("_", " ")
-                                }}</Badge
-                            >
+                            >{{
+                                order.order_status
+                                    .toUpperCase()
+                                    .replace("_", " ")
+                            }}</Badge>
                         </TD>
                         <TD>
                             <Button
@@ -96,7 +172,7 @@ const exportRoute = computed(() => {
             </Table>
 
             <MobileTableContainer>
-                <MobileTableRow v-for="order in orders.data">
+                <MobileTableRow v-for="order in orders.data" :key="order.id">
                     <MobileTableHeading :title="order.order_number">
                         <ShowButton
                             v-if="hasAccess('view approved order')"

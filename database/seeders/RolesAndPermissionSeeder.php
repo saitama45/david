@@ -85,6 +85,8 @@ class RolesAndPermissionSeeder extends Seeder
         Permission::firstOrCreate(['name' => 'view orders for cs approval list']);
         Permission::firstOrCreate(['name' => 'view order for cs approval']);
         Permission::firstOrCreate(['name' => 'cs approve/decline order request']);
+        // NEW: Export permission for CS Approval List
+        Permission::firstOrCreate(['name' => 'export orders for cs approval list']);
 
         // Emergency Order Approval (Added for consistency)
         Permission::firstOrCreate(['name' => 'view emergency order approval']);
@@ -322,6 +324,8 @@ class RolesAndPermissionSeeder extends Seeder
             'view emergency order approval', 'approve emergency order', 'decline emergency order',
             'view additional order approval', 'approve additional order', 'decline additional order',
             'view store transactions approval', 'approve store transactions', 'decline store transactions',
+            // NEW: Export permission for CS Approval List for 'request approver'
+            'export orders for cs approval list',
         ]);
     }
 }

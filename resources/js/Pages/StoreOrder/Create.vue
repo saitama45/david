@@ -52,7 +52,7 @@ import { useForm } from "@inertiajs/vue3";
 
 const productId = ref(null); // This will now hold the ItemCode of the selected SupplierItem
 const visible = ref(false);
-const isLoading = ref(false);
+const isLoading = ref(null); // Initialize as null for initial state
 
 // NEW: Reactive array to store skipped import messages
 const skippedImportMessages = ref([]);
@@ -219,32 +219,12 @@ watch(productId, async (itemCode) => {
                 let foundBaseUom = null;
                 let foundBaseQty = 1; // Default to 1 to prevent division by zero or NaN in calculations
 
-                console.log('Full result.sap_masterfiles:', JSON.parse(JSON.stringify(result.sap_masterfiles || result.sap_masterfile))); // Retained log
+                console.log('Full result.sap_master_file:', JSON.parse(JSON.stringify(result.sap_master_file || null))); // Retained log
 
-                // Assuming result.sap_masterfiles is an array of SAP masterfile entries
-                // Each entry might have 'BaseUOM', 'AltUOM', 'BaseQTY'
-                if (result.sap_masterfiles && Array.isArray(result.sap_masterfiles)) {
-                    const matchingSapEntry = result.sap_masterfiles.find(
-                        (sapEntry) => {
-                            const cleanedAltUOM = sapEntry.AltUOM ? String(sapEntry.AltUOM).trim().toLowerCase() : '';
-                            const cleanedResultUOM = result.uom ? String(result.uom).trim().toLowerCase() : '';
-                            const isMatch = cleanedAltUOM === cleanedResultUOM;
-                            return isMatch;
-                        }
-                    );
-
-                    if (matchingSapEntry) {
-                        foundBaseUom = matchingSapEntry.BaseUOM;
-                        foundBaseQty = Number(matchingSapEntry.BaseQTY) || 1; // Ensure it's a number, default to 1
-                    } else if (result.sap_masterfiles.length > 0) {
-                        // Fallback: If no specific AltUOM match, use the first entry's BaseUOM/BaseQTY
-                        // This might be the case if the supplier item's UOM is the BaseUOM itself
-                        foundBaseUom = result.sap_masterfiles[0].BaseUOM;
-                        foundBaseQty = Number(result.sap_masterfiles[0].BaseQTY) || 1;
-                    }
-                } else if (result.sap_masterfile) { // Handle case where it's a single object (not array)
-                    foundBaseUom = result.sap_masterfile.BaseUOM;
-                    foundBaseQty = Number(result.sap_masterfile.BaseQTY) || 1;
+                // Assuming result.sap_master_file is a single SAP masterfile entry
+                if (result.sap_master_file) {
+                    foundBaseUom = result.sap_master_file.BaseUOM;
+                    foundBaseQty = Number(result.sap_master_file.BaseQty) || 1; // Ensure it's a number, default to 1
                 } else {
                     // No SAP Masterfile data found, BaseQTY remains 1 (default)
                 }
@@ -282,6 +262,54 @@ watch(productId, async (itemCode) => {
 const importOrdersButton = () => {
     visible.value = true;
     skippedImportMessages.value = []; // Clear previous skipped messages when opening modal
+};
+
+// New function to handle downloading the dynamic template
+const downloadDynamicTemplate = async () => {
+    const supplierCode = orderForm.supplier_id;
+    if (!supplierCode) {
+        toast.add({
+            severity: "warn",
+            summary: "Warning",
+            detail: "Please select a supplier first to download the template.",
+            life: 5000,
+        });
+        return;
+    }
+
+    try {
+        // Use axios to make a GET request to the new backend route
+        const response = await axios.get(route('store-orders.download-supplier-order-template', { supplierCode: supplierCode }), {
+            responseType: 'blob', // Important: responseType must be 'blob' to handle file download
+        });
+
+        // Create a blob URL and trigger download
+        const url = window.URL.createObjectURL(new Blob([response.data]));
+        const link = document.createElement('a');
+        link.href = url;
+        // Dynamically set the filename based on the supplier code
+        link.setAttribute('download', `supplier_order_template_${supplierCode}.xlsx`);
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        window.URL.revokeObjectURL(url); // Clean up the URL object
+
+        toast.add({
+            severity: "success",
+            summary: "Success",
+            detail: "Template download started.",
+            life: 3000,
+        });
+
+    } catch (error) {
+        console.error("Error downloading template:", error);
+        toast.add({
+            severity: "error",
+            summary: "Error",
+            detail: "Failed to download template. Please try again.",
+            life: 5000,
+        });
+    }
 };
 
 const addImportedItemsToOrderList = () => {
@@ -337,14 +365,9 @@ const addImportedItemsToOrderList = () => {
                     return; // Skip this item
                 }
 
-                // Validate quantity for imported items
+                // Validate quantity for imported items - REMOVED TOAST MESSAGE
                 if (isNaN(quantity) || quantity < 0.1) {
-                    toast.add({
-                        severity: "error",
-                        summary: "Validation Error",
-                        detail: `Imported item '${itemName || itemCode || 'Unknown Item'}' has an invalid quantity and will be skipped. Quantity must be at least 0.1.`,
-                        life: 7000,
-                    });
+                    // The item will still be skipped, but no toast message will be displayed.
                     return; // Skip this item
                 }
 
@@ -728,29 +751,13 @@ if (previousOrder) {
         let baseQty = 1; // Default to 1
         let baseUom = null;
 
-        console.log('Full item.supplier_item.sap_masterfiles:', JSON.parse(JSON.stringify(item.supplier_item.sap_masterfiles || item.supplier_item.sap_masterfile))); // Log the full SAP data
+        console.log('Full item.supplier_item.sap_master_file:', JSON.parse(JSON.stringify(item.supplier_item.sap_master_file || null))); // Log the full SAP data
 
-        // Assuming item.supplier_item.sap_masterfiles is an array
-        if (item.supplier_item.sap_masterfiles && Array.isArray(item.supplier_item.sap_masterfiles)) {
-            const matchingSapEntry = item.supplier_item.sap_masterfiles.find(
-                (sapEntry) => {
-                    const cleanedAltUOM = sapEntry.AltUOM ? String(sapEntry.AltUOM).trim().toLowerCase() : '';
-                    const cleanedItemUOM = item.supplier_item.uom ? String(item.supplier_item.uom).trim().toLowerCase() : '';
-                    const isMatch = cleanedAltUOM === cleanedItemUOM;
-                    return isMatch;
-                }
-            );
-            if (matchingSapEntry) {
-                baseQty = Number(matchingSapEntry.BaseQTY) || 1;
-                baseUom = matchingSapEntry.BaseUOM;
-            } else if (item.supplier_item.sap_masterfiles.length > 0) {
-                // Fallback to first entry if no specific AltUOM match
-                baseQty = Number(item.supplier_item.sap_masterfiles[0].BaseQTY) || 1;
-                baseUom = item.supplier_item.sap_masterfiles[0].BaseUOM;
-            }
-        } else if (item.supplier_item.sap_masterfile) { // Handle single object case
-            baseQty = Number(item.supplier_item.sap_masterfile.BaseQTY) || 1;
-            baseUom = item.supplier_item.sap_masterfile.BaseUOM;
+        // Assuming item.supplier_item.sap_master_file is a single object
+        if (item.supplier_item.sap_master_file) {
+            const sapMasterFileObject = item.supplier_item.sap_master_file;
+            baseQty = Number(sapMasterFileObject.BaseQty) || 1;
+            baseUom = sapMasterFileObject.BaseUOM;
         } else {
             // No SAP Masterfile data found for this previous order item. Defaulting BaseQTY to 1.
         }
@@ -997,7 +1004,7 @@ watch(orderForm, (value) => {
                         <TableHead>
                             <TH> Name </TH>
                             <TH> Code </TH>
-                            <TH> Quantity </TH>
+                            <TH> Ordered Qty </TH>
                             <TH> Base UOM </TH>
                             <TH> BaseUOM Qty </TH>
                             <TH> Unit </TH>
@@ -1101,7 +1108,7 @@ watch(orderForm, (value) => {
                             <LabelXS
                                 >UOM: {{ order.unit_of_measurement }}</LabelXS
                             >
-                            <LabelXS>Quantity: {{ order.quantity }}</LabelXS>
+                            <LabelXS>Ordered Qty: {{ order.quantity }}</LabelXS>
                             <LabelXS>BaseUOM Qty: {{ order.base_uom_qty }}</LabelXS>
                             <LabelXS>Cost: {{ Number(order.cost).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) }}</LabelXS>
                             <LabelXS>Total Cost: {{ Number(order.total_cost).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) }}</LabelXS>
@@ -1151,9 +1158,10 @@ watch(orderForm, (value) => {
                         <Label class="text-xs">Accepted Orders File Format</Label>
                         <ul>
                             <li class="text-xs">
+                                <!-- Updated to call the new dynamic download function -->
                                 <a
-                                    class="text-blue-500 underline"
-                                    :href="route('excel.store-order-template')"
+                                    class="text-blue-500 underline cursor-pointer"
+                                    @click.prevent="downloadDynamicTemplate"
                                     >Click to download template</a
                                 >
                             </li>
