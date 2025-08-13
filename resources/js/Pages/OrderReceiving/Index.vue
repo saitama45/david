@@ -49,7 +49,7 @@ const statusBadgeColor = (status) => {
             return "bg-yellow-500 text-white";
         case "INCOMPLETE":
             return "bg-orange-500 text-white";
-        case "COMMITED": // Keeping this case, but the tab is removed from UI
+        case "COMMITED": // Keeping this case, and the tab is now re-added
             return "bg-blue-400 text-white";
         default:
             return "bg-gray-500 text-white"; // Fallback for other statuses
@@ -115,7 +115,17 @@ const exportRoute = computed(() => {
                 >{{ counts.incomplete }}</Badge>
             </Button>
             
-            <!-- Removed "COMMITED" tab as per request -->
+            <!-- Re-added "COMMITED" tab as per request -->
+            <Button
+                class="sm:px-10 px-3 bg-white/10 text-gray-800 hover:text-white gap-5 sm:text-sm text-xs"
+                :class="isFilterActive('commited')"
+                @click="changeFilter('commited')"
+            >COMMITED
+                <Badge
+                    class="sm:flex hidden border border-gray bg-transparent text-gray-900 px-2"
+                    :class="isFilterActive('commited')"
+                >{{ counts.commited }}</Badge>
+            </Button>
         </FilterTab>
 
         <TableContainer>

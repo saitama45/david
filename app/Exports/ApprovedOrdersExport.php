@@ -15,8 +15,6 @@ use PhpOffice\PhpSpreadsheet\Worksheet\Worksheet; // Import Worksheet
 use PhpOffice\PhpSpreadsheet\Style\Fill; // Import Fill
 use Carbon\Carbon; // Import Carbon
 
-// Removed 'use function Laravel\Prompts\search;' as it's not needed and causes issues
-
 class ApprovedOrdersExport implements FromQuery, WithHeadings, WithMapping, WithStyles // Added WithStyles interface
 {
     use Exportable;
@@ -42,14 +40,35 @@ class ApprovedOrdersExport implements FromQuery, WithHeadings, WithMapping, With
 
         // Apply status filter based on $this->currentFilter
         if ($this->currentFilter === 'all') {
-            // "All" for receiving means orders that are received, or incomplete
+            // "All" for receiving means orders that are commited, received, or incomplete
             $query->whereIn('order_status', [
+                OrderStatus::COMMITED->value,
                 OrderStatus::RECEIVED->value,
                 OrderStatus::INCOMPLETE->value
             ]);
         } else {
-            // Apply specific status filter (received or incomplete)
-            $query->where('order_status', $this->currentFilter);
+            // Determine the canonical lowercase status value from the enum
+            $statusToFilter = '';
+            switch ($this->currentFilter) {
+                case 'commited':
+                    $statusToFilter = strtolower(OrderStatus::COMMITED->value);
+                    break;
+                case 'received':
+                    $statusToFilter = strtolower(OrderStatus::RECEIVED->value);
+                    break;
+                case 'incomplete':
+                    $statusToFilter = strtolower(OrderStatus::INCOMPLETE->value);
+                    break;
+                // Add other cases if you introduce more specific tabs
+            }
+
+            if ($statusToFilter) {
+                // Apply specific status filter using a case-insensitive comparison with canonical enum value
+                $query->whereRaw('LOWER(order_status) = ?', [$statusToFilter]);
+            } else {
+                // If an unknown filter is passed, return an empty query
+                return $query->whereRaw('1=0');
+            }
         }
 
         // Apply search logic

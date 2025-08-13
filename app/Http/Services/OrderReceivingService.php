@@ -11,17 +11,24 @@ use Carbon\Carbon;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log; // Added for logging in extracted method
+use App\Models\DeliveryReceipt; // Added missing use statement
+use App\Models\OrderedItemReceiveDate; // Added missing use statement
+use App\Models\ProductInventoryStock; // Added missing use statement
+use App\Models\ProductInventoryStockManager; // Added missing use statement
+use App\Models\PurchaseItemBatch; // Added missing use statement
 
 class OrderReceivingService extends StoreOrderService
 {
     /**
      * Get a list of orders for receiving, filtered by status and search term.
      *
-     * @param string $currentFilter The current status filter ('all', 'received', 'incomplete').
+     * @param string $currentFilter The current status filter ('all', 'received', 'incomplete', 'commited').
      * @return array Contains 'orders' (paginated) and 'counts'.
      */
     public function getOrdersList($currentFilter = 'all')
     {
+        Log::debug("OrderReceivingService: getOrdersList called with currentFilter: {$currentFilter}");
+
         $search = request('search');
         $user = User::rolesAndAssignedBranches();
 
@@ -31,6 +38,7 @@ class OrderReceivingService extends StoreOrderService
         // Apply branch filtering based on user roles
         if (!$user['isAdmin']) {
             $query->whereIn('store_branch_id', $user['assignedBranches']);
+            Log::debug("OrderReceivingService: Applied branch filter for non-admin user: " . json_encode($user['assignedBranches']));
         }
 
         // Apply search filter
@@ -44,28 +52,58 @@ class OrderReceivingService extends StoreOrderService
                       $bq->where('name', 'like', '%' . $search . '%');
                   });
             });
+            Log::debug("OrderReceivingService: Applied search filter: {$search}");
         }
 
         // Calculate counts for all relevant statuses before applying the specific filter for the list
         $counts = $this->getCounts($query);
+        Log::debug("OrderReceivingService: Calculated counts: " . json_encode($counts));
 
         // Apply status filter for the main orders list
         if ($currentFilter === 'all') {
-            // "All" for receiving means orders that are received, or incomplete
+            // "All" for receiving means orders that are commited, received, or incomplete
             $query->whereIn('order_status', [
+                OrderStatus::COMMITED->value,
                 OrderStatus::RECEIVED->value,
                 OrderStatus::INCOMPLETE->value
             ]);
+            Log::debug("OrderReceivingService: Applied 'all' status filter: COMMITED, RECEIVED, INCOMPLETE");
         } else {
-            // Apply specific status filter
-            $query->where('order_status', $currentFilter);
+            // Determine the canonical lowercase status value from the enum
+            $statusToFilter = '';
+            switch ($currentFilter) {
+                case 'commited':
+                    $statusToFilter = strtolower(OrderStatus::COMMITED->value);
+                    break;
+                case 'received':
+                    $statusToFilter = strtolower(OrderStatus::RECEIVED->value);
+                    break;
+                case 'incomplete':
+                    $statusToFilter = strtolower(OrderStatus::INCOMPLETE->value);
+                    break;
+                // Add other cases if you introduce more specific tabs
+            }
+
+            if ($statusToFilter) {
+                // Apply specific status filter using a case-insensitive comparison with canonical enum value
+                $query->whereRaw('LOWER(order_status) = ?', [$statusToFilter]);
+                Log::debug("OrderReceivingService: Applied specific status filter: LOWER(order_status) = " . $statusToFilter);
+            } else {
+                // Fallback if an unknown filter is passed, prevent showing all orders inadvertently
+                $query->whereRaw('1=0'); // Force no results
+                Log::warning("OrderReceivingService: Unknown status filter '{$currentFilter}'. Forcing empty order results.");
+            }
         }
 
+        $orders = $query
+            ->latest()
+            ->paginate(10)
+            ->withQueryString();
+
+        Log::debug("OrderReceivingService: Orders query executed. Total orders found: " . $orders->total());
+
         return [
-            'orders' => $query
-                ->latest()
-                ->paginate(10)
-                ->withQueryString(),
+            'orders' => $orders,
             'counts' => $counts
         ];
     }
@@ -81,11 +119,10 @@ class OrderReceivingService extends StoreOrderService
         $counts = [
             'received' => (clone $baseQuery)->where('order_status', OrderStatus::RECEIVED->value)->count(),
             'incomplete' => (clone $baseQuery)->where('order_status', OrderStatus::INCOMPLETE->value)->count(),
-            // 'commited' is no longer needed for the tabs, but you might keep it for other internal logic if necessary
-            // 'commited' => (clone $baseQuery)->where('order_status', OrderStatus::COMMITED->value)->count(),
+            'commited' => (clone $baseQuery)->where('order_status', OrderStatus::COMMITED->value)->count(),
         ];
         // The 'all' count is the sum of relevant receiving statuses
-        $counts['all'] = $counts['received'] + $counts['incomplete']; // + $counts['commited']; // Exclude if not needed in 'all' tab
+        $counts['all'] = $counts['received'] + $counts['incomplete'] + $counts['commited'];
 
         return $counts;
     }
@@ -117,7 +154,7 @@ class OrderReceivingService extends StoreOrderService
             'received_by_user_id' => Auth::user()->id,
             'quantity_received' => $data['quantity_received'],
             'received_date' => Carbon::parse($data['received_date'])->format('Y-m-d H:i:s'),
-            'expiry_date' => Carbon::parse($data['expiry_date'])->format('Y-m-d'),
+            'expiry_date' => $data['expiry_date'] ? Carbon::parse($data['expiry_date'])->format('Y-m-d') : null, // Handle null expiry_date
             'remarks' => $data['remarks'],
         ]);
         $orderedItem->save();
@@ -126,10 +163,7 @@ class OrderReceivingService extends StoreOrderService
 
     public function addDeliveryReceiptNumber(array $data)
     {
-        // This method is now part of the service, so it should receive validated data directly.
-        // The controller will call this method with $request->validated().
-        // Added missing use statement for DeliveryReceipt
-        \App\Models\DeliveryReceipt::create([
+        DeliveryReceipt::create([
             'delivery_receipt_number' => $data['delivery_receipt_number'],
             'sap_so_number' => $data['sap_so_number'],
             'store_order_id' => $data['store_order_id'],
@@ -139,36 +173,33 @@ class OrderReceivingService extends StoreOrderService
 
     public function updateDeliveryReceiptNumber(array $data, $id)
     {
-        // This method is now part of the service, so it should receive validated data directly.
-        // Added missing use statement for DeliveryReceipt
-        \App\Models\DeliveryReceipt::findOrFail($id)->update($data);
+        $receipt = DeliveryReceipt::findOrFail($id);
+        $receipt->update($data);
     }
 
     public function destroyDeliveryReceiptNumber($id)
     {
-        // Added missing use statement for DeliveryReceipt
-        \App\Models\DeliveryReceipt::findOrFail($id)->delete();
+        $receipt = DeliveryReceipt::findOrFail($id);
+        $receipt->delete();
     }
 
     public function deleteReceiveDateHistory($id)
     {
-        // Added missing use statement for OrderedItemReceiveDate
-        \App\Models\OrderedItemReceiveDate::with('store_order_item')->findOrFail($id)->delete();
+        $history = OrderedItemReceiveDate::with('store_order_item')->findOrFail($id);
         DB::beginTransaction();
+        $history->delete();
         DB::commit();
     }
 
     public function updateReceiveDateHistory(array $data)
     {
-        // This method is now part of the service, so it should receive validated data directly.
-        // Added missing use statement for OrderedItemReceiveDate
-        \App\Models\OrderedItemReceiveDate::findOrFail($data['id'])->update($data);
+        $history = OrderedItemReceiveDate::findOrFail($data['id']);
+        $history->update($data);
     }
 
     public function confirmReceive($id)
     {
-        // Eager load supplierItem and its sapMasterfiles relationship (plural)
-        $historyItems = \App\Models\OrderedItemReceiveDate::with([ // Added missing use statement
+        $historyItems = OrderedItemReceiveDate::with([
             'store_order_item.store_order.store_order_items',
             'store_order_item.supplierItem.sapMasterfiles'
         ])
@@ -188,10 +219,10 @@ class OrderReceivingService extends StoreOrderService
                 DB::commit();
             } catch (\Exception $e) {
                 DB::rollBack();
-                Log::error("OrderReceivingController: Error confirming receive for order item history ID {$data->id}: " . $e->getMessage(), [
+                Log::error("OrderReceivingService: Error confirming receive for order item history ID {$data->id}: " . $e->getMessage(), [
                     'trace' => $e->getTraceAsString()
                 ]);
-                throw new \Exception('Failed to confirm receive for some items.'); // Re-throw or handle appropriately
+                throw new \Exception('Failed to confirm receive for some items.');
             }
         }
     }
@@ -227,8 +258,7 @@ class OrderReceivingService extends StoreOrderService
         Log::info("OrderReceivingService: Processing StoreOrderItem ID: {$data->store_order_item->id}, SAPMasterfile ID: {$sapMasterfile->id}, Quantity Received: {$data->quantity_received}");
 
         // Use the sapMasterfile->id for product_inventory_id in ProductInventoryStock
-        // Added missing use statement for ProductInventoryStock
-        $stock = \App\Models\ProductInventoryStock::firstOrNew([
+        $stock = ProductInventoryStock::firstOrNew([
             'product_inventory_id' => $sapMasterfile->id, // Use SAPMasterfile ID here
             'store_branch_id' => $storeOrder->store_branch_id
         ]);
@@ -255,8 +285,7 @@ class OrderReceivingService extends StoreOrderService
 
 
         // Create PurchaseItemBatch
-        // Added missing use statement for PurchaseItemBatch
-        $batch = \App\Models\PurchaseItemBatch::create([
+        $batch = PurchaseItemBatch::create([
             'store_order_item_id' => $data->store_order_item->id,
             'product_inventory_id' => $sapMasterfile->id, // Use SAPMasterfile ID here
             'store_branch_id' => $storeOrder->store_branch_id,
@@ -270,7 +299,6 @@ class OrderReceivingService extends StoreOrderService
 
 
         // Create ProductInventoryStockManager entry
-        // Added missing use statement for ProductInventoryStockManager
         $batch->product_inventory_stock_managers()->create([
             'product_inventory_id' => $sapMasterfile->id, // Use SAPMasterfile ID here
             'store_branch_id' => $storeOrder->store_branch_id,
