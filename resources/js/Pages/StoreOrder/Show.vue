@@ -46,6 +46,9 @@ const props = defineProps({
 // CONSOLE.LOGS REMOVED FROM TEMPLATE AND ADDED HERE TO AVOID ERRORS
 console.log("Ordered Items Prop:", props.orderedItems);
 console.log("Receive Dates History Prop:", props.receiveDatesHistory);
+// Add these new lines to inspect the prop more thoroughly
+console.log("Type of receiveDatesHistory:", typeof props.receiveDatesHistory, Array.isArray(props.receiveDatesHistory));
+console.log("Length of receiveDatesHistory:", props.receiveDatesHistory?.length);
 
 
 const copyOrderAndCreateAnother = (id) => {

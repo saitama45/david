@@ -108,10 +108,14 @@ class OrderApprovalService extends StoreOrderService
                 'quantity_approved' => $item['quantity_approved'],
             ]);
 
+            // CRITICAL FIX: Comment out this line to prevent premature creation of receive dates.
+            // OrderedItemReceiveDate entries should ONLY be created when items are physically received.
+            /*
             $orderedItem->ordered_item_receive_dates()->create([
                 'received_by_user_id' => $storeOrder->encoder_id,
                 'quantity_received' => $item['quantity_approved'],
             ]);
+            */
         }
         $this->addRemarks($storeOrder, $data['remarks']);
         DB::commit();

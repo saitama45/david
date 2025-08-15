@@ -84,10 +84,10 @@ class CSCommitService extends OrderApprovalService // Assuming OrderApprovalServ
             $ordersQuery->where(function ($query) use ($search) {
                 $query->where('order_number', 'like', '%' . $search . '%')
                       ->orWhereHas('supplier', function ($q) use ($search) {
-                          $q->where('name', 'like', '%' . $search . '%');
+                          $q->where('name', 'like', '%' . $this->search . '%');
                       })
                       ->orWhereHas('store_branch', function ($q) use ($search) {
-                          $q->where('name', 'like', '%' . $search . '%');
+                          $q->where('name', 'like', '%' . $this->search . '%');
                       });
             });
             Log::debug("CSCommitService: Applied search filter: '{$search}'");
@@ -153,9 +153,13 @@ class CSCommitService extends OrderApprovalService // Assuming OrderApprovalServ
                 'quantity_commited' => $item['quantity_approved'],
             ]);
 
+            // Re-enabled this line as per your new requirement.
+            // It now creates a 'pending' receive date entry when committed.
             $orderedItem->ordered_item_receive_dates()->create([
-                'received_by_user_id' => $storeOrder->encoder_id,
-                'quantity_received' => $item['quantity_approved'],
+                'received_by_user_id' => Auth::user()->id, // The committer is the one who "virtually receives" at this stage
+                'quantity_received' => $item['quantity_approved'], // Quantity committed is the quantity "received" at this stage
+                'status' => 'pending', // Mark as pending approval for actual receiving
+                'received_date' => Carbon::now(), // Timestamp for when it was "committed received"
             ]);
         }
         $this->addRemarks($storeOrder, $data['remarks']);

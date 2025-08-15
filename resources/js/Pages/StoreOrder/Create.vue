@@ -68,20 +68,19 @@ const productDetails = reactive({
     id: null, // This will be the ItemCode (string) that gets stored in item_code column
     inventory_code: null, // This will be the ItemCode (string)
     name: null, // This will be the item_name
-    unit_of_measurement: null, // This will be the uom
+    unit_of_measurement: null, // This will now be the single source of truth for UOM
     base_uom: null, // From sap_masterfile (BaseUOM)
     base_qty: null, // Needed for 'Add Item' calculation
     quantity: null,
     cost: null,
     total_cost: null,
-    uom: null,
 });
 
 const excelFileForm = useForm({
     orders_file: null,
 });
 
-const orderForm = useForm({
+const orderForm = useForm({ // This is the form instance
     branch_id: previousOrder?.store_branch_id ? previousOrder.store_branch_id + "" : null,
     supplier_id: previousOrder?.supplier_id ? previousOrder.supplier_id + "" : null, // This will now hold supplier_code (string)
     order_date: null,
@@ -155,7 +154,7 @@ const store = () => {
             severity: "info",
         },
         accept: () => {
-            orderForm.post(route("store-orders.store"), {
+            orderForm.post(route("store-orders.store"), { // Corrected: Used orderForm.post
                 onSuccess: () => {
                     toast.add({
                         severity: "success",
@@ -207,13 +206,17 @@ watch(productId, async (itemCode) => {
             }));
             const result = response.data.item;
 
+            // --- DEBUG LOG START ---
+            console.log('API response item details (result):', result);
+            console.log('UOM from API (result.uom):', result ? result.uom : 'N/A');
+            // --- DEBUG LOG END ---
+
             if (result) {
                 productDetails.id = result.ItemCode; // Assign ItemCode to productDetails.id
                 productDetails.name = result.item_name;
                 productDetails.inventory_code = result.ItemCode;
-                productDetails.unit_of_measurement = result.uom; // This is the UOM of the selected SupplierItem
+                productDetails.unit_of_measurement = result.uom; // Now the single source of truth for UOM
                 productDetails.cost = Number(result.cost); // Ensure cost is a number
-                productDetails.uom = result.uom;
 
                 // --- NEW LOGIC FOR BASE_UOM and BASE_QTY ---
                 let foundBaseUom = null;
@@ -232,6 +235,10 @@ watch(productId, async (itemCode) => {
                 productDetails.base_uom = foundBaseUom;
                 productDetails.base_qty = foundBaseQty;
                 // --- END NEW LOGIC ---
+                
+                // --- DEBUG LOG START ---
+                console.log('productDetails after setting values:', JSON.parse(JSON.stringify(productDetails)));
+                // --- DEBUG LOG END ---
 
             } else {
                 toast.add({
@@ -412,13 +419,12 @@ const addImportedItemsToOrderList = () => {
                         id: itemCode, 
                         inventory_code: itemCode, 
                         name: itemName, 
-                        unit_of_measurement: unit, 
+                        unit_of_measurement: unit, // Use 'unit' directly from imported data
                         base_uom: importedOrder.base_uom || null, // Assuming base_uom might come from backend
                         base_qty: baseQty, // NEW: Add BaseQTY
                         base_uom_qty: importedBaseUomQty, // NEW: Add calculated BaseUoM Qty
                         quantity: parseFloat(quantity.toFixed(2)), // Ensure quantity is number and formatted
                         cost: cost, 
-                        uom: unit, 
                         total_cost: importedTotalCost, // NEW: Use calculated total cost
                     };
                     orderForm.orders.push(newItem);
@@ -482,7 +488,7 @@ const addToOrdersButton = () => {
     if (
         !productDetails.inventory_code ||
         !productDetails.name ||
-        !productDetails.unit_of_measurement ||
+        !productDetails.unit_of_measurement || // Check productDetails.unit_of_measurement directly
         !productDetails.quantity ||
         productDetails.cost === null
     ) {
@@ -524,7 +530,20 @@ const addToOrdersButton = () => {
         productDetails.base_uom_qty = parseFloat((currentQuantity * effectiveBaseQtyForNewItem).toFixed(2));
         productDetails.total_cost = parseFloat((productDetails.base_uom_qty * currentCost).toFixed(2));
 
-        orderForm.orders.push({ ...productDetails, id: productDetails.inventory_code });
+        // Explicitly define the new item structure to ensure 'unit_of_measurement' is always present
+        const newItem = {
+            id: productDetails.inventory_code, 
+            inventory_code: productDetails.inventory_code, 
+            name: productDetails.name, 
+            unit_of_measurement: productDetails.unit_of_measurement, // Use productDetails.unit_of_measurement directly
+            base_uom: productDetails.base_uom,
+            base_qty: productDetails.base_qty,
+            base_uom_qty: productDetails.base_uom_qty,
+            quantity: parseFloat(currentQuantity.toFixed(2)),
+            cost: currentCost, 
+            total_cost: productDetails.total_cost,
+        };
+        orderForm.orders.push(newItem);
     }
 
     Object.keys(productDetails).forEach((key) => {
@@ -706,7 +725,7 @@ watch(
 
         try {
             isLoading.value = true;
-            const response = await axios.get(route('store-orders.get-supplier-items', supplierCode));
+            const response = await axios.get(route("store-orders.get-supplier-items", supplierCode));
             availableProductsOptions.value = response.data.items;
             isLoading.value = false;
 
@@ -772,14 +791,13 @@ if (previousOrder) {
             id: item.supplier_item.ItemCode, // Set id to ItemCode
             inventory_code: item.supplier_item.ItemCode,
             name: item.supplier_item.item_name,
-            unit_of_measurement: item.supplier_item.uom,
+            unit_of_measurement: item.supplier_item.uom, // Use 'unit_of_measurement'
             base_uom: baseUom, // Use the determined BaseUOM
             base_qty: baseQty, // Use the determined BaseQTY
             base_uom_qty: calculatedBaseUomQty,
             quantity: quantityOrdered,
             cost: itemCost,
             total_cost: calculatedTotalCost,
-            uom: item.supplier_item.uom,
         };
         orderForm.orders.push(product);
     });
@@ -821,7 +839,7 @@ const editQuantity = () => {
         currentItem.quantity = parseFloat(newQuantity.toFixed(2));
         currentItem.base_uom_qty = parseFloat((newQuantity * effectiveBaseQty).toFixed(2)); // Recalculate BaseUOM Qty
         currentItem.total_cost = parseFloat(
-            currentItem.base_uom_qty * itemCost // Use base_uom_qty for total cost calculation
+            Number(currentItem.base_uom_qty) * Number(currentItem.cost)
         ).toFixed(2);
 
         // Ensure reactivity by replacing the array or updating it immutably

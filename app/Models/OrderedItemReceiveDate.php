@@ -27,26 +27,28 @@ class OrderedItemReceiveDate extends Model implements Auditable
         // 'expiry_date' => 'date:F d, Y'
     ];
 
-    public function receiver()
+    /**
+     * Defines the relationship to the User model for the user who received the item.
+     * It uses the 'received_by_user_id' foreign key.
+     */
+    public function received_by_user()
     {
         return $this->belongsTo(User::class, 'received_by_user_id');
     }
 
+    /**
+     * Defines the relationship to the User model for the user who approved the action.
+     * It uses the 'approval_action_by' foreign key.
+     */
+    public function approval_action_by_user()
+    {
+        return $this->belongsTo(User::class, 'approval_action_by');
+    }
+
+    /**
+     * Defines the relationship to the parent StoreOrderItem.
+     */
     public function store_order_item()
-    {
-        return $this->belongsTo(StoreOrderItem::class);
-    }
-
-    public function store_order()
-    {
-        return $this->belongsTo(StoreOrder::class);
-    }
-
-    // public function product_inventory()
-    // {
-    //     return $this->belongsTo(ProductInventory::class);
-    // }
-    public function storeOrderItem()
     {
         return $this->belongsTo(StoreOrderItem::class);
     }

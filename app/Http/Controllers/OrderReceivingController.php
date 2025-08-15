@@ -53,12 +53,21 @@ class OrderReceivingController extends Controller
     {
         $order = $this->orderReceivingService->getOrderDetails($id);
         $images = $this->orderReceivingService->getImageAttachments($order);
-        $orderedItems = $this->orderReceivingService->getOrderItems($order);
-        $receiveDatesHistory = $order->ordered_item_receive_dates;
+        
+        // Correct: Load latest_approved_receive_date through orderedItems
+        $orderedItems = $order->store_order_items()->with([
+            'supplierItem',
+        ])->get();
+
+        $receiveDatesHistory = $order->ordered_item_receive_dates()->with([
+            'store_order_item.supplierItem',
+            'received_by_user',
+            'approval_action_by_user'
+        ])->get();
 
         return Inertia::render('OrderReceiving/Show', [
             'order' => $order,
-            'orderedItems' => $orderedItems,
+            'orderedItems' => $orderedItems, // Now contains latest_approved_receive_date
             'receiveDatesHistory' => $receiveDatesHistory,
             'images' => $images
         ]);

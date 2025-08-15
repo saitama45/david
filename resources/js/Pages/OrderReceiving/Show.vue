@@ -35,7 +35,7 @@ const props = defineProps({
         required: true,
     },
     receiveDatesHistory: {
-        type: Object,
+        type: Object, // This prop now correctly contains eager-loaded nested data
         required: true,
     },
     images: {
@@ -72,7 +72,7 @@ const deliveryReceiptForm = useForm({
 
 const showItemDetails = ref(false);
 // Ensure orderedItems has at least one item before accessing index 0
-itemDetails.value = props.orderedItems.length > 0 ? props.orderedItems[0] : null; 
+itemDetails.value = props.orderedItems.length > 0 ? props.orderedItems[0] : null;
 const opentItemDetails = (id) => {
     const index = props.orderedItems.findIndex((order) => order.id === id);
     itemDetails.value = props.orderedItems[index];

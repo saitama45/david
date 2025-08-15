@@ -9,6 +9,7 @@ use App\Models\StoreOrder;
 use App\Models\User;
 use App\Models\Supplier;
 use App\Models\StoreOrderItem;
+use App\Models\OrderedItemReceiveDate; // Import OrderedItemReceiveDate
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -104,12 +105,18 @@ class StoreOrderService
             ]);
 
             foreach ($data['orders'] as $itemData) {
+                // --- DEBUG LOG START ---
+                Log::debug('StoreOrderService@createStoreOrder: Processing itemData for StoreOrderItem:', $itemData);
+                // CRITICAL FIX: Now explicitly expecting 'unit_of_measurement' from frontend
+                Log::debug('StoreOrderService@createStoreOrder: UOM value from itemData (using unit_of_measurement):', ['unit_of_measurement' => $itemData['unit_of_measurement'] ?? 'KEY NOT SET / NULL']);
+                // --- DEBUG LOG END ---
+
                 $order->store_order_items()->create([
                     'item_code' => $itemData['inventory_code'], // Uses inventory_code (SupplierItems.ItemCode string)
                     'quantity_ordered' => $itemData['quantity'],
                     'total_cost' => $itemData['total_cost'],
                     'cost_per_quantity' => $itemData['cost'],
-                    'uom' => $itemData['uom'] ?? null
+                    'uom' => $itemData['unit_of_measurement'] ?? null // Use unit_of_measurement directly
                 ]);
             }
 
@@ -125,7 +132,7 @@ class StoreOrderService
     public function getPreviousOrderReference()
     {
         if (request()->has('orderId')) {
-            // CORRECTED: Eager load 'sapMasterfiles' (plural)
+            // Eager load 'sapMasterfiles' (plural) for consistency
             return StoreOrder::with(['store_order_items.supplierItem.sapMasterfiles'])->find(request()->input('orderId'));
         }
 
@@ -134,28 +141,35 @@ class StoreOrderService
 
     public function getOrderDetails($id)
     {
-        return StoreOrder::with([
+        // Fetch the main StoreOrder with necessary direct relationships
+        // IMPORTANT: Do NOT eager load 'ordered_item_receive_dates' here initially.
+        $order = StoreOrder::with([
             'encoder',
             'approver',
             'commiter',
             'delivery_receipts',
             'store_branch',
             'supplier',
-            // CORRECTED: Eager load 'sapMasterfiles' (plural) here
-            'store_order_items.supplierItem.sapMasterfiles',
+            'store_order_items.supplierItem.sapMasterfiles', // Eager load this for the main ordered items table
             'store_order_remarks',
             'store_order_remarks.user',
-            // CORRECTED: Eager load 'sapMasterfiles' (plural) here as well
-            'ordered_item_receive_dates.store_order_item.supplierItem.sapMasterfiles',
-            'ordered_item_receive_dates.receiver',
             'image_attachments',
         ])->where('order_number', $id)->firstOrFail();
+
+        Log::debug('StoreOrderService: getOrderDetails - Fetched Order Status: ' . $order->order_status);
+
+        // Explicitly clear the relation to ensure it's empty by default
+        // This is a more aggressive way to ensure no previous loading persists for this specific relation
+        $order->setRelation('ordered_item_receive_dates', []); // Set to empty array immediately
+
+        return $order;
     }
 
     public function getOrderItems(StoreOrder $order)
     {
-        // CORRECTED: Eager load 'sapMasterfiles' (plural)
-        return $order->store_order_items()->with('supplierItem.sapMasterfiles')->get();
+        // Return the store_order_items relation which should already be eager-loaded by getOrderDetails.
+        // No need to re-query the database if it's already loaded.
+        return $order->store_order_items;
     }
 
     public function getImageAttachments(StoreOrder $order)
@@ -170,7 +184,7 @@ class StoreOrderService
 
     public function getOrder($id, $page = null)
     {
-        // CORRECTED: Eager load 'sapMasterfiles' (plural) for store_order_items
+        // Eager load 'sapMasterfiles' (plural) for store_order_items
         $order = StoreOrder::with(['store_branch', 'supplier', 'store_order_items.supplierItem.sapMasterfiles'])
             ->where('order_number', $id)->firstOrFail();
 
@@ -231,7 +245,7 @@ class StoreOrderService
                             'quantity_ordered' => $itemData['quantity'],
                             'total_cost' => $itemData['total_cost'],
                             'cost_per_quantity' => $itemData['cost'],
-                            'uom' => $itemData['uom'] ?? null
+                            'uom' => $itemData['unit_of_measurement'] ?? null // Use unit_of_measurement directly
                         ]);
                     } else {
                         // This case should ideally not happen if 'id' is always for existing items,
@@ -242,7 +256,7 @@ class StoreOrderService
                             'quantity_ordered' => $itemData['quantity'],
                             'total_cost' => $itemData['total_cost'],
                             'cost_per_quantity' => $itemData['cost'],
-                            'uom' => $itemData['uom'] ?? null
+                            'uom' => $itemData['unit_of_measurement'] ?? null // Use unit_of_measurement directly
                         ]);
                     }
                 } else {
@@ -258,7 +272,7 @@ class StoreOrderService
                             'quantity_ordered' => $itemData['quantity'],
                             'total_cost' => $itemData['total_cost'],
                             'cost_per_quantity' => $itemData['cost'],
-                            'uom' => $itemData['uom'] ?? null
+                            'uom' => $itemData['unit_of_measurement'] ?? null // Use unit_of_measurement directly
                         ]
                     );
                 }
