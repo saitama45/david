@@ -8,16 +8,15 @@ import { X, Eye } from "lucide-vue-next";
 import { useConfirm } from "primevue/useconfirm";
 import Camera from "@/Pages/Camera.vue";
 import dayjs from "dayjs";
-import utc from 'dayjs/plugin/utc'; // Import UTC plugin
-import timezone from 'dayjs/plugin/timezone'; // Import Timezone plugin
+import utc from "dayjs/plugin/utc"; // Import UTC plugin
+import timezone from "dayjs/plugin/timezone"; // Import Timezone plugin
 
 // Extend dayjs with the plugins
 dayjs.extend(utc);
 dayjs.extend(timezone);
 
 // Set the default timezone for dayjs.tz() operations to Asia/Manila
-dayjs.tz.setDefault('Asia/Manila');
-
+dayjs.tz.setDefault("Asia/Manila");
 
 const toast = useToast();
 const confirm = useConfirm();
@@ -35,7 +34,7 @@ const props = defineProps({
         required: true,
     },
     receiveDatesHistory: {
-        type: Object, // This prop now correctly contains eager-loaded nested data
+        type: Array,
         required: true,
     },
     images: {
@@ -242,7 +241,8 @@ const updateReceiveDetails = () => {
                 toast.add({
                     severity: "error",
                     summary: "Error",
-                    detail: errors.message || "Failed to update receive details.",
+                    detail:
+                        errors.message || "Failed to update receive details.",
                     life: 5000,
                 });
             },
@@ -312,7 +312,8 @@ const deleteImage = () => {
     });
 };
 
-const editDeliveryReceiptNumber = (id, number, sapSoNumber, remarks) => { // Added sapSoNumber parameter
+const editDeliveryReceiptNumber = (id, number, sapSoNumber, remarks) => {
+    // Added sapSoNumber parameter
     deliveryReceiptForm.id = id;
     deliveryReceiptForm.delivery_receipt_number = number;
     deliveryReceiptForm.sap_so_number = sapSoNumber; // Set sap_so_number for editing
@@ -411,9 +412,32 @@ const confirmReceive = () => {
             toast.add({
                 severity: "error",
                 summary: "Error",
-                detail: "Error confirming receive: " + (err.message || "An unknown error occurred."),
+                detail:
+                    "Error confirming receive: " +
+                    (err.message || "An unknown error occurred."),
                 life: 5000,
             });
+        },
+    });
+};
+
+// New function to show confirmation dialog before confirming receive
+const promptConfirmReceive = () => {
+    confirm.require({
+        message: 'Are you sure you want to confirm all pending received items? This action cannot be undone.',
+        header: 'Confirm Receiving',
+        icon: 'pi pi-exclamation-triangle',
+        rejectProps: {
+            label: 'Cancel',
+            severity: 'secondary',
+            outlined: true,
+        },
+        acceptProps: {
+            label: 'Confirm',
+            severity: 'success',
+        },
+        accept: () => {
+            confirmReceive(); // Call the original function on accept
         },
     });
 };
@@ -468,18 +492,28 @@ const confirmReceive = () => {
                     <TableHead>
                         <TH>Id</TH>
                         <TH>Number</TH>
-                        <TH>SAP SO Number</TH> <!-- New column header -->
+                        <TH>SAP SO Number</TH>
+                        <!-- New column header -->
                         <TH>Remarks</TH>
                         <TH>Created at</TH>
                         <TH>Actions</TH>
                     </TableHead>
                     <TableBody>
-                        <tr v-for="receipt in order.delivery_receipts" :key="receipt.id">
+                        <tr
+                            v-for="receipt in order.delivery_receipts"
+                            :key="receipt.id"
+                        >
                             <TD>{{ receipt.id }}</TD>
                             <TD>{{ receipt.delivery_receipt_number }}</TD>
-                            <TD>{{ receipt.sap_so_number }}</TD> <!-- Display SAP SO Number -->
+                            <TD>{{ receipt.sap_so_number }}</TD>
+                            <!-- Display SAP SO Number -->
                             <TD>{{ receipt.remarks }}</TD>
-                            <TD>{{ dayjs.utc(receipt.created_at).tz('Asia/Manila').format("MMMM D, YYYY h:mm A") }}</TD>
+                            <TD>{{
+                                dayjs
+                                    .utc(receipt.created_at)
+                                    .tz("Asia/Manila")
+                                    .format("MMMM D, YYYY h:mm A")
+                            }}</TD>
                             <TD>
                                 <DivFlexCenter class="gap-3">
                                     <EditButton
@@ -528,12 +562,22 @@ const confirmReceive = () => {
                             />
                         </MobileTableHeading>
                         <LabelXS
-                            >SAP SO Number: {{ receipt.sap_so_number ?? "N/a" }}</LabelXS
-                        > <!-- Display SAP SO Number -->
+                            >SAP SO Number:
+                            {{ receipt.sap_so_number ?? "N/a" }}</LabelXS
+                        >
+                        <!-- Display SAP SO Number -->
                         <LabelXS
                             >Remarks: {{ receipt.remarks ?? "N/a" }}</LabelXS
                         >
-                        <LabelXS>Created at: {{ dayjs.utc(receipt.created_at).tz('Asia/Manila').format("MMMM D, YYYY h:mm A") }}</LabelXS>
+                        <LabelXS
+                            >Created at:
+                            {{
+                                dayjs
+                                    .utc(receipt.created_at)
+                                    .tz("Asia/Manila")
+                                    .format("MMMM D, YYYY h:mm A")
+                            }}</LabelXS
+                        >
                     </MobileTableRow>
                     <SpanBold v-if="order.delivery_receipts.length < 1"
                         >None</SpanBold
@@ -554,7 +598,10 @@ const confirmReceive = () => {
                         <TH>Created At</TH>
                     </TableHead>
                     <TableBody>
-                        <tr v-for="remarks in order.store_order_remarks" :key="remarks.id">
+                        <tr
+                            v-for="remarks in order.store_order_remarks"
+                            :key="remarks.id"
+                        >
                             <TD>{{ remarks.id }}</TD>
                             <TD
                                 >{{ remarks.user.first_name }}
@@ -564,7 +611,11 @@ const confirmReceive = () => {
                                 {{ remarks.action.toUpperCase() }}
                             </TD>
                             <TD>{{ remarks.remarks }}</TD>
-                            <TD>{{ dayjs(remarks.created_at).tz('Asia/Manila').format("MMMM D, YYYY h:mm A") }}</TD>
+                            <TD>{{
+                                dayjs(remarks.created_at)
+                                    .tz("Asia/Manila")
+                                    .format("MMMM D, YYYY h:mm A")
+                            }}</TD>
                         </tr>
                     </TableBody>
                 </Table>
@@ -580,7 +631,14 @@ const confirmReceive = () => {
                             <ShowButton />
                         </MobileTableHeading>
                         <LabelXS>Remarks: {{ remarks.remarks }}</LabelXS>
-                        <LabelXS>Created at: {{ dayjs(remarks.created_at).tz('Asia/Manila').format("MMMM D, YYYY h:mm A") }}</LabelXS>
+                        <LabelXS
+                            >Created at:
+                            {{
+                                dayjs(remarks.created_at)
+                                    .tz("Asia/Manila")
+                                    .format("MMMM D, YYYY h:mm A")
+                            }}</LabelXS
+                        >
                     </MobileTableRow>
                     <SpanBold v-if="order.store_order_remarks.length < 1"
                         >None</SpanBold
@@ -639,8 +697,10 @@ const confirmReceive = () => {
                     <TableHead>
                         <TH> Item Code </TH>
                         <TH> Name </TH>
-                        <TH>BaseUOM</TH> <!-- New column header for BaseUOM -->
-                        <TH>UOM</TH> <!-- Changed from UOM / Packaging -->
+                        <TH>BaseUOM</TH>
+                        <!-- New column header for BaseUOM -->
+                        <TH>UOM</TH>
+                        <!-- Changed from UOM / Packaging -->
                         <TH> Ordered </TH>
                         <TH>Approved</TH>
                         <TH> Commited</TH>
@@ -649,11 +709,21 @@ const confirmReceive = () => {
                     </TableHead>
 
                     <TableBody>
-                        <tr v-for="orderItem in orderedItems" :key="orderItem.id">
+                        <tr
+                            v-for="orderItem in orderedItems"
+                            :key="orderItem.id"
+                        >
                             <TD>{{ orderItem.supplier_item.ItemCode }}</TD>
                             <TD>{{ orderItem.supplier_item.item_name }}</TD>
-                            <TD>{{ orderItem.supplier_item.sap_master_file?.BaseUOM }}</TD> <!-- Display BaseUOM -->
-                            <TD class="text-xs">{{ orderItem.supplier_item.uom }}</TD> <!-- Display UOM from StoreOrderItem (packaging UOM) -->
+                            <TD>{{
+                                orderItem.supplier_item.sap_master_file
+                                    ?.BaseUOM
+                            }}</TD>
+                            <!-- Display BaseUOM -->
+                            <TD class="text-xs">{{
+                                orderItem.supplier_item.uom
+                            }}</TD>
+                            <!-- Display UOM from StoreOrderItem (packaging UOM) -->
                             <TD>{{ orderItem.quantity_ordered }}</TD>
 
                             <TD>{{ orderItem.quantity_approved }}</TD>
@@ -698,8 +768,16 @@ const confirmReceive = () => {
                                 Receive
                             </Button>
                         </MobileTableHeading>
-                        <LabelXS>BaseUOM: {{ orderItem.supplier_item.sap_master_file?.BaseUOM }}</LabelXS> <!-- New line for BaseUOM -->
-                        <LabelXS>UOM: {{ orderItem.uom }}</LabelXS> <!-- Existing UOM line -->
+                        <LabelXS
+                            >BaseUOM:
+                            {{
+                                orderItem.supplier_item.sap_master_file
+                                    ?.BaseUOM
+                            }}</LabelXS
+                        >
+                        <!-- New line for BaseUOM -->
+                        <LabelXS>UOM: {{ orderItem.uom }}</LabelXS>
+                        <!-- Existing UOM line -->
                         <LabelXS
                             >Quantity Received:
                             {{ orderItem.quantity_received }}</LabelXS
@@ -713,7 +791,7 @@ const confirmReceive = () => {
                     <CardTitle>Receiving History</CardTitle>
                     <Button
                         v-if="order.order_status != 'received'"
-                        @click="confirmReceive"
+                        @click="promptConfirmReceive"
                     >
                         Confirm Receive
                     </Button>
@@ -735,13 +813,19 @@ const confirmReceive = () => {
                         >
                             <TD>{{ history.id }}</TD>
                             <TD>{{
-                                history.store_order_item.supplier_item.item_name
+                                history.store_order_item.supplier_item
+                                    .item_name
                             }}</TD>
                             <TD>{{
-                                history.store_order_item.supplier_item.ItemCode
+                                history.store_order_item.supplier_item
+                                    .ItemCode
                             }}</TD>
                             <TD>{{ history.quantity_received }}</TD>
-                            <TD>{{ dayjs(history.received_date).tz('Asia/Manila').format("MMMM D, YYYY h:mm A") }}</TD>
+                            <TD>{{
+                                dayjs(history.received_date)
+                                    .tz("Asia/Manila")
+                                    .format("MMMM D, YYYY h:mm A")
+                            }}</TD>
                             <TD>{{ history.status }}</TD>
                             <TD>
                                 <DivFlexCenter class="gap-3">
@@ -979,23 +1063,42 @@ const confirmReceive = () => {
                 <div class="space-y-3">
                     <InputContainer>
                         <LabelXS>Item Name:</LabelXS>
-                        <SpanBold>{{ selectedItem?.store_order_item.supplier_item.item_name }}</SpanBold>
+                        <SpanBold>{{
+                            selectedItem?.store_order_item.supplier_item
+                                .item_name
+                        }}</SpanBold>
                     </InputContainer>
                     <InputContainer>
                         <LabelXS>Item Code:</LabelXS>
-                        <SpanBold>{{ selectedItem?.store_order_item.supplier_item.ItemCode }}</SpanBold>
+                        <SpanBold>{{
+                            selectedItem?.store_order_item.supplier_item
+                                .ItemCode
+                        }}</SpanBold>
                     </InputContainer>
                     <InputContainer>
                         <LabelXS>Quantity Received:</LabelXS>
-                        <SpanBold>{{ selectedItem?.quantity_received }}</SpanBold>
+                        <SpanBold>{{
+                            selectedItem?.quantity_received
+                        }}</SpanBold>
                     </InputContainer>
                     <InputContainer>
                         <LabelXS>Received By:</LabelXS>
-                        <SpanBold>{{ selectedItem?.received_by_user?.first_name }} {{ selectedItem?.received_by_user?.last_name }}</SpanBold>
+                        <SpanBold
+                            >{{
+                                selectedItem?.received_by_user?.first_name
+                            }}
+                            {{
+                                selectedItem?.received_by_user?.last_name
+                            }}</SpanBold
+                        >
                     </InputContainer>
                     <InputContainer>
                         <LabelXS>Received Date:</LabelXS>
-                        <SpanBold>{{ dayjs(selectedItem?.received_date).tz('Asia/Manila').format("MMMM D, YYYY h:mm A") }}</SpanBold>
+                        <SpanBold>{{
+                            dayjs(selectedItem?.received_date)
+                                .tz("Asia/Manila")
+                                .format("MMMM D, YYYY h:mm A")
+                        }}</SpanBold>
                     </InputContainer>
                     <InputContainer>
                         <LabelXS>Expiry Date:</LabelXS>
@@ -1011,7 +1114,16 @@ const confirmReceive = () => {
                     </InputContainer>
                     <InputContainer>
                         <LabelXS>Approval Action By:</LabelXS>
-                        <SpanBold>{{ selectedItem?.approval_action_by_user?.first_name }} {{ selectedItem?.approval_action_by_user?.last_name }}</SpanBold>
+                        <SpanBold
+                            >{{
+                                selectedItem?.approval_action_by_user
+                                    ?.first_name
+                            }}
+                            {{
+                                selectedItem?.approval_action_by_user
+                                    ?.last_name
+                            }}</SpanBold
+                        >
                     </InputContainer>
                 </div>
                 <DialogFooter>
@@ -1030,10 +1142,17 @@ const confirmReceive = () => {
                     <DialogTitle>Enlarged Image</DialogTitle>
                 </DialogHeader>
                 <div class="flex justify-center items-center">
-                    <img :src="selectedImage?.image_url" class="max-w-full max-h-[80vh] object-contain" />
+                    <img
+                        :src="selectedImage?.image_url"
+                        class="max-w-full max-h-[80vh] object-contain"
+                    />
                 </div>
                 <DialogFooter>
-                    <Button variant="ghost" @click="isEnlargedImageVisible = false">Close</Button>
+                    <Button
+                        variant="ghost"
+                        @click="isEnlargedImageVisible = false"
+                        >Close</Button
+                    >
                 </DialogFooter>
             </DialogContent>
         </Dialog>
@@ -1051,7 +1170,9 @@ const confirmReceive = () => {
                     @image-uploaded="isImageModalVisible = false"
                 />
                 <DialogFooter>
-                    <Button variant="ghost" @click="isImageModalVisible = false">Cancel</Button>
+                    <Button variant="ghost" @click="isImageModalVisible = false"
+                        >Cancel</Button
+                    >
                 </DialogFooter>
             </DialogContent>
         </Dialog>
