@@ -54,8 +54,7 @@ class OrderReceivingController extends Controller
     {
         $order = $this->orderReceivingService->getOrderDetails($id);
         
-        // FIX: Bypass the service and get images directly from the relationship.
-        // This ensures a fresh, unaltered collection of ImageAttachment models is retrieved.
+        // Fetch images directly from the relationship to ensure the accessor is called
         $images = $order->image_attachments()->get();
 
         $orderedItems = $this->orderReceivingService->getOrderItems($order);
@@ -152,12 +151,13 @@ class OrderReceivingController extends Controller
         if ($request->hasFile('image')) {
             $file = $request->file('image');
             
-            // Store the file and get the path
+            // Store the file and get the path.
+            // This stores it relative to storage/app/public/
             $path = $file->store('order_attachments', 'public');
 
             // Create a record in the database using your table structure
             $order->image_attachments()->create([
-                'file_path' => $path,
+                'file_path' => $path, // This will be 'order_attachments/filename.jpg'
                 'mime_type' => $file->getMimeType(),
                 'is_approved' => true, // Defaulting to true
                 'uploaded_by_user_id' => Auth::id(),

@@ -6,7 +6,7 @@ import { router } from "@inertiajs/vue3";
 import { X, Eye } from "lucide-vue-next";
 
 import { useConfirm } from "primevue/useconfirm";
-// FIX: Camera component is no longer needed.
+// Camera component is no longer needed.
 // import Camera from "@/Pages/Camera.vue";
 import dayjs from "dayjs";
 import utc from "dayjs/plugin/utc"; // Import UTC plugin
@@ -60,12 +60,12 @@ const form = useForm({
     remarks: null,
 });
 
-// FIX: New form for handling image uploads.
+// New form for handling image uploads.
 const imageUploadForm = useForm({
     image: null,
 });
 
-// FIX: New ref and function to handle image preview before uploading.
+// New ref and function to handle image preview before uploading.
 const imagePreviewUrl = ref(null);
 const onFileChange = (event) => {
     const file = event.target.files[0];
@@ -75,7 +75,7 @@ const onFileChange = (event) => {
     }
 };
 
-// FIX: New function to submit the uploaded image.
+// New function to submit the uploaded image.
 const submitImageUpload = () => {
     imageUploadForm.post(route('orders-receiving.attach-image', props.order.id), {
         onSuccess: () => {
@@ -299,14 +299,6 @@ const openViewModalForm = (id) => {
     isViewModalVisible.value = true;
 };
 
-// FIX: Logic for enlarging image in a modal is no longer needed.
-// const selectedImage = ref(null);
-// const isEnlargedImageVisible = ref(false);
-// const enlargeImage = (image) => {
-//     selectedImage.value = image;
-//     isEnlargedImageVisible.value = true;
-// };
-
 const deleteImageForm = useForm({
     id: null,
 });
@@ -326,7 +318,7 @@ const deleteImage = () => {
             severity: "danger",
         },
         accept: () => {
-            deleteImageForm.post(route("destroy"), {
+            deleteImageForm.post(route("destroy"), { // This route is not defined in web.php provided. Assuming it's a generic delete route for images.
                 onSuccess: () => {
                     toast.add({
                         severity: "success",
@@ -477,12 +469,6 @@ const promptConfirmReceive = () => {
             confirmReceive();
         },
     });
-};
-
-const handleImageError = (event, image) => {
-    console.error('Image load failed:', image.image_url);
-    event.target.src = '/images/temporaryLoginImage.png'; // Simple placeholder
-    event.target.alt = 'Image failed to load';
 };
 </script>
 
@@ -706,11 +692,10 @@ const handleImageError = (event, image) => {
                             >
                                 <X class="size-5" />
                             </button>
-                            <!-- FIX: Wrap image in an anchor tag to open in a new tab -->
+                            <!-- Image URL is bound correctly here -->
                             <a :href="image.image_url" target="_blank" rel="noopener noreferrer">
                                 <img
                                     :src="image.image_url"
-                                    @error="handleImageError($event, image)"
                                     class="size-24 cursor-pointer hover:opacity-80 transition-opacity"
                                 />
                             </a>
@@ -1152,8 +1137,6 @@ const handleImageError = (event, image) => {
             </DialogContent>
         </Dialog>
 
-        <!-- FIX: Removed the dialog for enlarging images -->
-
         <Dialog v-model:open="isImageModalVisible">
             <DialogContent class="sm:max-w-[600px]">
                 <DialogHeader>
@@ -1162,7 +1145,6 @@ const handleImageError = (event, image) => {
                         Select an image file to upload for this order.
                     </DialogDescription>
                 </DialogHeader>
-                <!-- FIX: Replaced Camera component with a file uploader -->
                 <div class="space-y-4">
                     <InputContainer>
                         <Label class="text-xs">Image File</Label>
@@ -1172,11 +1154,12 @@ const handleImageError = (event, image) => {
                             accept="image/png, image/jpeg, image/jpg"
                             class="file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
                         />
-                         <FormError>{{ imageUploadForm.errors.image }}</FormError>
+                           <FormError>{{ imageUploadForm.errors.image }}</FormError>
                     </InputContainer>
-                    <div v-if="imagePreviewUrl" class="mt-4">
+                    <!-- Apply max-height and overflow to the preview container -->
+                    <div v-if="imagePreviewUrl" class="mt-4 max-h-64 overflow-y-auto">
                         <Label class="text-xs">Preview</Label>
-                        <img :src="imagePreviewUrl" class="mt-2 max-w-full h-auto rounded-md border" />
+                        <img :src="imagePreviewUrl" class="mt-2 max-w-full h-auto rounded-md border object-contain" />
                     </div>
                 </div>
                 <DialogFooter>

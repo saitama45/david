@@ -45,12 +45,12 @@ class OrderReceivingService extends StoreOrderService
         if ($search) {
             $query->where(function ($q) use ($search) {
                 $q->where('order_number', 'like', '%' . $search . '%')
-                  ->orWhereHas('supplier', function ($sq) use ($search) {
-                      $sq->where('name', 'like', '%' . $search . '%');
-                  })
-                  ->orWhereHas('store_branch', function ($bq) use ($search) {
-                      $bq->where('name', 'like', '%' . $search . '%');
-                  });
+                    ->orWhereHas('supplier', function ($sq) use ($search) {
+                        $sq->where('name', 'like', '%' . $search . '%');
+                    })
+                    ->orWhereHas('store_branch', function ($bq) use ($search) {
+                        $bq->where('name', 'like', '%' . $search . '%');
+                    });
             });
             Log::debug("OrderReceivingService: Applied search filter: {$search}");
         }
