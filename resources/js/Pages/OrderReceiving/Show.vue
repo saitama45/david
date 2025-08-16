@@ -6,7 +6,8 @@ import { router } from "@inertiajs/vue3";
 import { X, Eye } from "lucide-vue-next";
 
 import { useConfirm } from "primevue/useconfirm";
-import Camera from "@/Pages/Camera.vue";
+// FIX: Camera component is no longer needed.
+// import Camera from "@/Pages/Camera.vue";
 import dayjs from "dayjs";
 import utc from "dayjs/plugin/utc"; // Import UTC plugin
 import timezone from "dayjs/plugin/timezone"; // Import Timezone plugin
@@ -44,7 +45,6 @@ const props = defineProps({
 });
 
 const orderStatus = ref(props.order.order_status);
-console.log(orderStatus.value);
 
 const isImageModalVisible = ref(false);
 const openImageModal = () => {
@@ -55,22 +55,63 @@ const targetId = ref(null);
 const itemDetails = ref(null);
 const form = useForm({
     quantity_received: null,
-    // Initialize received_date to current local date and time in YYYY-MM-DDTHH:mm format
     received_date: new Date().toISOString().slice(0, 16),
     expiry_date: null,
     remarks: null,
 });
 
+// FIX: New form for handling image uploads.
+const imageUploadForm = useForm({
+    image: null,
+});
+
+// FIX: New ref and function to handle image preview before uploading.
+const imagePreviewUrl = ref(null);
+const onFileChange = (event) => {
+    const file = event.target.files[0];
+    if (file) {
+        imageUploadForm.image = file;
+        imagePreviewUrl.value = URL.createObjectURL(file);
+    }
+};
+
+// FIX: New function to submit the uploaded image.
+const submitImageUpload = () => {
+    imageUploadForm.post(route('orders-receiving.attach-image', props.order.id), {
+        onSuccess: () => {
+            toast.add({
+                severity: 'success',
+                summary: 'Success',
+                detail: 'Image attached successfully.',
+                life: 3000,
+            });
+            isImageModalVisible.value = false;
+            imageUploadForm.reset();
+            imagePreviewUrl.value = null;
+        },
+        onError: (errors) => {
+            // Display the first validation error message
+            const firstError = Object.values(errors)[0];
+            toast.add({
+                severity: 'error',
+                summary: 'Upload Error',
+                detail: firstError || 'Failed to attach image.',
+                life: 5000,
+            });
+        },
+    });
+};
+
+
 const deliveryReceiptForm = useForm({
     id: null,
     store_order_id: props.order.id,
     delivery_receipt_number: null,
-    sap_so_number: null, // Added new field for SAP SO Number
+    sap_so_number: null,
     remarks: null,
 });
 
 const showItemDetails = ref(false);
-// Ensure orderedItems has at least one item before accessing index 0
 itemDetails.value = props.orderedItems.length > 0 ? props.orderedItems[0] : null;
 const opentItemDetails = (id) => {
     const index = props.orderedItems.findIndex((order) => order.id === id);
@@ -205,7 +246,6 @@ watch(isEditModalVisible, (value) => {
 const editReceiveDetailsForm = useForm({
     id: null,
     quantity_received: null,
-    expiry_date: null,
     remarks: null,
 });
 
@@ -216,7 +256,6 @@ const openEditModalForm = (id) => {
 
     editReceiveDetailsForm.id = history.id;
     editReceiveDetailsForm.quantity_received = history.quantity_received;
-    editReceiveDetailsForm.expiry_date = history.expiry_date;
     editReceiveDetailsForm.remarks = history.remarks;
     isEditModalVisible.value = true;
 };
@@ -260,13 +299,13 @@ const openViewModalForm = (id) => {
     isViewModalVisible.value = true;
 };
 
-const selectedImage = ref(null);
-const isEnlargedImageVisible = ref(false);
-
-const enlargeImage = (image) => {
-    selectedImage.value = image;
-    isEnlargedImageVisible.value = true;
-};
+// FIX: Logic for enlarging image in a modal is no longer needed.
+// const selectedImage = ref(null);
+// const isEnlargedImageVisible = ref(false);
+// const enlargeImage = (image) => {
+//     selectedImage.value = image;
+//     isEnlargedImageVisible.value = true;
+// };
 
 const deleteImageForm = useForm({
     id: null,
@@ -313,10 +352,9 @@ const deleteImage = () => {
 };
 
 const editDeliveryReceiptNumber = (id, number, sapSoNumber, remarks) => {
-    // Added sapSoNumber parameter
     deliveryReceiptForm.id = id;
     deliveryReceiptForm.delivery_receipt_number = number;
-    deliveryReceiptForm.sap_so_number = sapSoNumber; // Set sap_so_number for editing
+    deliveryReceiptForm.sap_so_number = sapSoNumber;
     deliveryReceiptForm.remarks = remarks;
     showDeliveryReceiptForm.value = true;
 };
@@ -421,7 +459,6 @@ const confirmReceive = () => {
     });
 };
 
-// New function to show confirmation dialog before confirming receive
 const promptConfirmReceive = () => {
     confirm.require({
         message: 'Are you sure you want to confirm all pending received items? This action cannot be undone.',
@@ -437,7 +474,7 @@ const promptConfirmReceive = () => {
             severity: 'success',
         },
         accept: () => {
-            confirmReceive(); // Call the original function on accept
+            confirmReceive();
         },
     });
 };
@@ -493,7 +530,6 @@ const promptConfirmReceive = () => {
                         <TH>Id</TH>
                         <TH>Number</TH>
                         <TH>SAP SO Number</TH>
-                        <!-- New column header -->
                         <TH>Remarks</TH>
                         <TH>Created at</TH>
                         <TH>Actions</TH>
@@ -506,7 +542,6 @@ const promptConfirmReceive = () => {
                             <TD>{{ receipt.id }}</TD>
                             <TD>{{ receipt.delivery_receipt_number }}</TD>
                             <TD>{{ receipt.sap_so_number }}</TD>
-                            <!-- Display SAP SO Number -->
                             <TD>{{ receipt.remarks }}</TD>
                             <TD>{{
                                 dayjs
@@ -521,7 +556,7 @@ const promptConfirmReceive = () => {
                                             editDeliveryReceiptNumber(
                                                 receipt.id,
                                                 receipt.delivery_receipt_number,
-                                                receipt.sap_so_number, // Pass sap_so_number
+                                                receipt.sap_so_number,
                                                 receipt.remarks
                                             )
                                         "
@@ -552,7 +587,7 @@ const promptConfirmReceive = () => {
                                     editDeliveryReceiptNumber(
                                         receipt.id,
                                         receipt.delivery_receipt_number,
-                                        receipt.sap_so_number, // Pass sap_so_number
+                                        receipt.sap_so_number,
                                         receipt.remarks
                                     )
                                 "
@@ -565,7 +600,6 @@ const promptConfirmReceive = () => {
                             >SAP SO Number:
                             {{ receipt.sap_so_number ?? "N/a" }}</LabelXS
                         >
-                        <!-- Display SAP SO Number -->
                         <LabelXS
                             >Remarks: {{ receipt.remarks ?? "N/a" }}</LabelXS
                         >
@@ -666,11 +700,13 @@ const promptConfirmReceive = () => {
                             >
                                 <X class="size-5" />
                             </button>
-                            <img
-                                :src="image.image_url"
-                                class="size-24 cursor-pointer hover:opacity-80 transition-opacity"
-                                @click="enlargeImage(image)"
-                            />
+                            <!-- FIX: Wrap image in an anchor tag to open in a new tab -->
+                            <a :href="image.image_url" target="_blank" rel="noopener noreferrer">
+                                <img
+                                    :src="image.image_url"
+                                    class="size-24 cursor-pointer hover:opacity-80 transition-opacity"
+                                />
+                            </a>
                         </div>
                     </DivFlexCenter>
                     <SpanBold v-if="images.length < 1">None</SpanBold>
@@ -698,9 +734,7 @@ const promptConfirmReceive = () => {
                         <TH> Item Code </TH>
                         <TH> Name </TH>
                         <TH>BaseUOM</TH>
-                        <!-- New column header for BaseUOM -->
                         <TH>UOM</TH>
-                        <!-- Changed from UOM / Packaging -->
                         <TH> Ordered </TH>
                         <TH>Approved</TH>
                         <TH> Commited</TH>
@@ -719,16 +753,12 @@ const promptConfirmReceive = () => {
                                 orderItem.supplier_item.sap_master_file
                                     ?.BaseUOM
                             }}</TD>
-                            <!-- Display BaseUOM -->
                             <TD class="text-xs">{{
                                 orderItem.supplier_item.uom
                             }}</TD>
-                            <!-- Display UOM from StoreOrderItem (packaging UOM) -->
                             <TD>{{ orderItem.quantity_ordered }}</TD>
-
                             <TD>{{ orderItem.quantity_approved }}</TD>
                             <TD>{{ orderItem.quantity_commited }}</TD>
-
                             <TD>{{ orderItem.quantity_received }}</TD>
                             <TD class="w-[90px]">
                                 <DivFlexCenter class="gap-1">
@@ -775,9 +805,7 @@ const promptConfirmReceive = () => {
                                     ?.BaseUOM
                             }}</LabelXS
                         >
-                        <!-- New line for BaseUOM -->
                         <LabelXS>UOM: {{ orderItem.uom }}</LabelXS>
-                        <!-- Existing UOM line -->
                         <LabelXS
                             >Quantity Received:
                             {{ orderItem.quantity_received }}</LabelXS
@@ -836,10 +864,6 @@ const promptConfirmReceive = () => {
                                         v-if="history.status === 'pending'"
                                         @click="openEditModalForm(history.id)"
                                     />
-                                    <DeleteButton
-                                        v-if="history.status === 'pending'"
-                                        @click="deleteReceiveDate(history.id)"
-                                    />
                                 </DivFlexCenter>
                             </TD>
                         </tr>
@@ -862,11 +886,6 @@ const promptConfirmReceive = () => {
                                 class="size-5 gap mr-1"
                                 v-if="history.status === 'pending'"
                                 @click="openEditModalForm(history.id)"
-                            />
-                            <DeleteButton
-                                class="size-5 gap mr-1"
-                                v-if="history.status === 'pending'"
-                                @click="deleteReceiveDate(history.id)"
                             />
                         </MobileTableHeading>
                         <LabelXS
@@ -1020,16 +1039,6 @@ const promptConfirmReceive = () => {
                         }}</FormError>
                     </InputContainer>
                     <InputContainer>
-                        <Label class="text-xs">Expiry Date</Label>
-                        <Input
-                            v-model="editReceiveDetailsForm.expiry_date"
-                            type="date"
-                        />
-                        <FormError>{{
-                            editReceiveDetailsForm.errors.expiry_date
-                        }}</FormError>
-                    </InputContainer>
-                    <InputContainer>
                         <Label class="text-xs">Remarks</Label>
                         <Input
                             v-model="editReceiveDetailsForm.remarks"
@@ -1136,43 +1145,39 @@ const promptConfirmReceive = () => {
             </DialogContent>
         </Dialog>
 
-        <Dialog v-model:open="isEnlargedImageVisible">
-            <DialogContent class="sm:max-w-[900px]">
-                <DialogHeader>
-                    <DialogTitle>Enlarged Image</DialogTitle>
-                </DialogHeader>
-                <div class="flex justify-center items-center">
-                    <img
-                        :src="selectedImage?.image_url"
-                        class="max-w-full max-h-[80vh] object-contain"
-                    />
-                </div>
-                <DialogFooter>
-                    <Button
-                        variant="ghost"
-                        @click="isEnlargedImageVisible = false"
-                        >Close</Button
-                    >
-                </DialogFooter>
-            </DialogContent>
-        </Dialog>
+        <!-- FIX: Removed the dialog for enlarging images -->
 
         <Dialog v-model:open="isImageModalVisible">
             <DialogContent class="sm:max-w-[600px]">
                 <DialogHeader>
                     <DialogTitle>Attach Image</DialogTitle>
                     <DialogDescription>
-                        Upload an image for this order.
+                        Select an image file to upload for this order.
                     </DialogDescription>
                 </DialogHeader>
-                <Camera
-                    :orderId="order.id"
-                    @image-uploaded="isImageModalVisible = false"
-                />
+                <!-- FIX: Replaced Camera component with a file uploader -->
+                <div class="space-y-4">
+                    <InputContainer>
+                        <Label class="text-xs">Image File</Label>
+                        <Input
+                            type="file"
+                            @change="onFileChange"
+                            accept="image/png, image/jpeg, image/jpg"
+                            class="file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
+                        />
+                         <FormError>{{ imageUploadForm.errors.image }}</FormError>
+                    </InputContainer>
+                    <div v-if="imagePreviewUrl" class="mt-4">
+                        <Label class="text-xs">Preview</Label>
+                        <img :src="imagePreviewUrl" class="mt-2 max-w-full h-auto rounded-md border" />
+                    </div>
+                </div>
                 <DialogFooter>
-                    <Button variant="ghost" @click="isImageModalVisible = false"
-                        >Cancel</Button
-                    >
+                    <Button variant="ghost" @click="isImageModalVisible = false">Cancel</Button>
+                    <Button @click="submitImageUpload" :disabled="imageUploadForm.processing">
+                        <span v-if="imageUploadForm.processing">Uploading...</span>
+                        <span v-else>Upload</span>
+                    </Button>
                 </DialogFooter>
             </DialogContent>
         </Dialog>

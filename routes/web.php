@@ -353,6 +353,8 @@ Route::middleware('auth')
 
                 Route::delete('/orders-receiving/delete/{id}', 'destroyDeliveryReceiptNumber')->name('delete-delivery-receipt-number');
 
+                // New route for attaching images
+                Route::post('/orders-receiving/{order}/attach-image', 'attachImage')->name('attach-image');
 
                 Route::middleware('permission:export approved orders')->get('/orders-receiving/export', 'export')->name('export'); // Corrected permission
 

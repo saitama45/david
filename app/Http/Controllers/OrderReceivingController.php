@@ -12,13 +12,14 @@ use App\Http\Requests\OrderReceiving\UpdateReceiveDateHistoryRequest;
 use App\Http\Services\OrderReceivingService;
 use App\Models\DeliveryReceipt;
 use App\Models\OrderedItemReceiveDate;
-use App\Models\ProductInventoryStock; // This model is now linked to SAPMasterfile
-use App\Models\ProductInventoryStockManager; // This model is now linked to SAPMasterfile
+use App\Models\ProductInventoryStock;
+use App\Models\ProductInventoryStockManager;
 use App\Models\PurchaseItemBatch;
 use App\Models\StoreOrder;
 use App\Models\StoreOrderItem;
 use App\Models\User;
-use App\Models\SAPMasterfile; // Ensure SAPMasterfile is imported
+use App\Models\SAPMasterfile;
+use App\Models\ImageAttachment; // Make sure this is imported
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -26,7 +27,8 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Inertia\Inertia;
 use Maatwebsite\Excel\Facades\Excel;
-use Illuminate\Support\Facades\Log; // Import Log facade for error logging
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Validator;
 
 class OrderReceivingController extends Controller
 {
@@ -38,26 +40,25 @@ class OrderReceivingController extends Controller
     }
     public function index()
     {
-        // Get the current filter from the request, default to 'all'
         $currentFilter = request('currentFilter') ?? 'all';
-        $data = $this->orderReceivingService->getOrdersList($currentFilter); // Pass the filter to the service
+        $data = $this->orderReceivingService->getOrdersList($currentFilter);
 
         return Inertia::render('OrderReceiving/Index', [
             'orders' => $data['orders'],
-            'filters' => request()->only(['search', 'currentFilter']), // Pass currentFilter to frontend filters
-            'counts' => $data['counts'] // Pass counts to the frontend
+            'filters' => request()->only(['search', 'currentFilter']),
+            'counts' => $data['counts']
         ]);
     }
 
     public function show($id)
     {
         $order = $this->orderReceivingService->getOrderDetails($id);
-        $images = $this->orderReceivingService->getImageAttachments($order);
         
-        // Correct: Load latest_approved_receive_date through orderedItems
-        $orderedItems = $order->store_order_items()->with([
-            'supplierItem',
-        ])->get();
+        // FIX: Bypass the service and get images directly from the relationship.
+        // This ensures a fresh, unaltered collection of ImageAttachment models is retrieved.
+        $images = $order->image_attachments()->get();
+
+        $orderedItems = $this->orderReceivingService->getOrderItems($order);
 
         $receiveDatesHistory = $order->ordered_item_receive_dates()->with([
             'store_order_item.supplierItem',
@@ -67,7 +68,7 @@ class OrderReceivingController extends Controller
 
         return Inertia::render('OrderReceiving/Show', [
             'order' => $order,
-            'orderedItems' => $orderedItems, // Now contains latest_approved_receive_date
+            'orderedItems' => $orderedItems,
             'receiveDatesHistory' => $receiveDatesHistory,
             'images' => $images
         ]);
@@ -76,10 +77,10 @@ class OrderReceivingController extends Controller
     public function export()
     {
         $search = request('search');
-        $currentFilter = request('currentFilter') ?? 'all'; // Get the current filter for export
+        $currentFilter = request('currentFilter') ?? 'all';
 
         return Excel::download(
-            new ApprovedOrdersExport($search, $currentFilter), // Pass the filter to the export class
+            new ApprovedOrdersExport($search, $currentFilter),
             'approved-orders-' . now()->format('Y-m-d') . '.xlsx'
         );
     }
@@ -95,7 +96,7 @@ class OrderReceivingController extends Controller
         $validated = $request->validated();
         DeliveryReceipt::create([
             'delivery_receipt_number' => $validated['delivery_receipt_number'],
-            'sap_so_number' => $validated['sap_so_number'], // Added SAP SO Number
+            'sap_so_number' => $validated['sap_so_number'],
             'store_order_id' => $validated['store_order_id'],
             'remarks' => $validated['remarks'],
         ]);
@@ -105,14 +106,10 @@ class OrderReceivingController extends Controller
     public function updateDeliveryReceiptNumber(UpdateDeliveryReceiptNumberRequest $request, $id)
     {
         $validated = $request->validated();
-
         $id = $validated['id'];
         unset($validated['id']);
-
         $receipt = DeliveryReceipt::findOrFail($id);
-
         $receipt->update($validated);
-
         return redirect()->back();
     }
 
@@ -120,7 +117,6 @@ class OrderReceivingController extends Controller
     {
         $receipt = DeliveryReceipt::findOrFail($id);
         $receipt->delete();
-
         return redirect()->back();
     }
 
@@ -130,24 +126,53 @@ class OrderReceivingController extends Controller
         DB::beginTransaction();
         $history->delete();
         DB::commit();
-
         return redirect()->back();
     }
 
-    public function updateReceiveDateHistory(UpdateReceiveDateHistoryRequest $request)
+    public function updateReceiveDateHistory(Request $request)
     {
-        $validated = $request->validated();
+        $validated = $request->validate([
+            'id' => 'required|integer|exists:ordered_item_receive_dates,id',
+            'quantity_received' => 'required|numeric|min:0',
+            'remarks' => 'nullable|string',
+        ]);
+
         $history = OrderedItemReceiveDate::findOrFail($validated['id']);
         $history->update($validated);
+
         return redirect()->back();
     }
+
+    public function attachImage(Request $request, StoreOrder $order)
+    {
+        $request->validate([
+            'image' => 'required|image|mimes:jpeg,png,jpg|max:2048', // 2MB Max
+        ]);
+
+        if ($request->hasFile('image')) {
+            $file = $request->file('image');
+            
+            // Store the file and get the path
+            $path = $file->store('order_attachments', 'public');
+
+            // Create a record in the database using your table structure
+            $order->image_attachments()->create([
+                'file_path' => $path,
+                'mime_type' => $file->getMimeType(),
+                'is_approved' => true, // Defaulting to true
+                'uploaded_by_user_id' => Auth::id(),
+            ]);
+        }
+
+        return redirect()->back()->with('success', 'Image uploaded successfully.');
+    }
+
 
     public function confirmReceive($id)
     {
-        // Eager load supplierItem and its sapMasterfiles relationship (plural)
         $historyItems = OrderedItemReceiveDate::with([
             'store_order_item.store_order.store_order_items',
-            'store_order_item.supplierItem.sapMasterfiles' // Corrected relationship loading to plural
+            'store_order_item.supplierItem.sapMasterfiles'
         ])
         ->whereHas('store_order_item.store_order', function ($query) use ($id) {
             $query->where('id', $id);
@@ -168,7 +193,6 @@ class OrderReceivingController extends Controller
                 Log::error("OrderReceivingController: Error confirming receive for order item history ID {$data->id}: " . $e->getMessage(), [
                     'trace' => $e->getTraceAsString()
                 ]);
-                // You might want to return an error response here or re-throw
                 return back()->with('error', 'Failed to confirm receive for some items. Check logs for details.');
             }
         }
@@ -178,24 +202,20 @@ class OrderReceivingController extends Controller
 
     public function extracted($data): void
     {
-        // Update received_date only if it's NULL, and set status/approver
         $updateData = [
             'status' => 'approved',
             'approval_action_by' => Auth::user()->id,
             'received_by_user_id' => Auth::user()->id,
         ];
 
-        // Set the received_date to current Philippine time (UTC+8) if it's null
         if (is_null($data->received_date)) {
-            $updateData['received_date'] = Carbon::now('Asia/Manila'); // Explicitly set timezone to Asia/Manila
+            $updateData['received_date'] = Carbon::now('Asia/Manila');
         }
 
         $data->update($updateData);
 
-        // Get the SAPMasterfile instance via the StoreOrderItem's supplierItem relationship
         $sapMasterfile = $data->store_order_item->supplierItem->sapMasterfile;
 
-        // Ensure sapMasterfile exists before proceeding with stock updates
         if (!$sapMasterfile) {
             Log::error("OrderReceivingController: SAPMasterfile not found for StoreOrderItem ID: {$data->store_order_item->id} (ItemCode: {$data->store_order_item->item_code}, UOM: {$data->store_order_item->uom})");
             throw new \Exception("SAP Masterfile not found for item: {$data->store_order_item->item_code}");
@@ -203,16 +223,13 @@ class OrderReceivingController extends Controller
         
         $storeOrder = $data->store_order_item->store_order;
 
-
         Log::info("OrderReceivingController: Processing StoreOrderItem ID: {$data->store_order_item->id}, SAPMasterfile ID: {$sapMasterfile->id}, Quantity Received: {$data->quantity_received}");
 
-        // Use the sapMasterfile->id for product_inventory_id in ProductInventoryStock
         $stock = ProductInventoryStock::firstOrNew([
-            'product_inventory_id' => $sapMasterfile->id, // Use SAPMasterfile ID here
+            'product_inventory_id' => $sapMasterfile->id,
             'store_branch_id' => $storeOrder->store_branch_id
         ]);
 
-        // If it's a new stock entry, set initial quantities
         if (!$stock->exists) {
             $stock->quantity = 0;
             $stock->recently_added = 0;
@@ -222,21 +239,18 @@ class OrderReceivingController extends Controller
             Log::info("OrderReceivingController: Existing ProductInventoryStock record found (ID: {$stock->id}) for product_inventory_id: {$sapMasterfile->id}. Current quantity: {$stock->quantity}.");
         }
         
-        // Explicitly add the quantity and set recently_added
-        $stock->quantity += $data->quantity_received; // Direct addition instead of increment()
-        $stock->recently_added = $data->quantity_received; // Set recently_added to the current quantity received
+        $stock->quantity += $data->quantity_received;
+        $stock->recently_added = $data->quantity_received;
         
         Log::info("OrderReceivingController: ProductInventoryStock BEFORE save (ID: " . (isset($stock->id) ? $stock->id : 'NEW') . "): Calculated Quantity = {$stock->quantity}, Recently Added = {$stock->recently_added}");
         
-        $stock->save(); // Save the updated stock record
+        $stock->save();
 
         Log::info("OrderReceivingController: ProductInventoryStock AFTER save (ID: {$stock->id}): Persisted Quantity = {$stock->quantity}, Persisted Recently Added = {$stock->recently_added}");
 
-
-        // Create PurchaseItemBatch
         $batch = PurchaseItemBatch::create([
             'store_order_item_id' => $data->store_order_item->id,
-            'product_inventory_id' => $sapMasterfile->id, // Use SAPMasterfile ID here
+            'product_inventory_id' => $sapMasterfile->id,
             'store_branch_id' => $storeOrder->store_branch_id,
             'purchase_date' => Carbon::today()->format('Y-m-d'),
             'quantity' => $data->quantity_received,
@@ -246,10 +260,8 @@ class OrderReceivingController extends Controller
 
         Log::info("OrderReceivingController: PurchaseItemBatch created with ID: {$batch->id}, Quantity: {$batch->quantity}");
 
-
-        // Create ProductInventoryStockManager entry
         $batch->product_inventory_stock_managers()->create([
-            'product_inventory_id' => $sapMasterfile->id, // Use SAPMasterfile ID here
+            'product_inventory_id' => $sapMasterfile->id,
             'store_branch_id' => $storeOrder->store_branch_id,
             'quantity' => $data->quantity_received,
             'action' => 'add_quantity',
@@ -262,22 +274,18 @@ class OrderReceivingController extends Controller
         Log::info("OrderReceivingController: ProductInventoryStockManager entry created for batch ID: {$batch->id}");
 
         $data->store_order_item->quantity_received += $data->quantity_received;
-        // The $data->store_order_item->save() is handled in the confirmReceive loop.
     }
 
     public function getOrderStatus($id)
     {
         $storeOrder = StoreOrder::with('store_order_items')->find($id);
-
         $orderedItems = $storeOrder->store_order_items;
-
         $storeOrder->order_status = OrderStatus::RECEIVED->value;
         foreach ($orderedItems as $itemOrdered) {
             if ($itemOrdered->quantity_commited > $itemOrdered->quantity_received) {
                 $storeOrder->order_status = OrderStatus::INCOMPLETE->value;
             }
         }
-
         $storeOrder->save();
     }
 }

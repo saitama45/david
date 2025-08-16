@@ -1023,9 +1023,9 @@ watch(orderForm, (value) => {
                             <TH> Name </TH>
                             <TH> Code </TH>
                             <TH> Ordered Qty </TH>
-                            <TH> Base UOM </TH>
-                            <TH> BaseUOM Qty </TH>
                             <TH> Unit </TH>
+                            <TH> BaseUOM Qty </TH>
+                            <TH> Base UOM </TH>
                             <TH> Cost </TH>
                             <TH> Total Cost </TH>
                             <TH> Action </TH>
@@ -1046,13 +1046,13 @@ watch(orderForm, (value) => {
                                     {{ order.quantity }}
                                 </TD>
                                 <TD>
-                                    {{ order.base_uom }}
+                                    {{ order.unit_of_measurement }}
                                 </TD>
                                 <TD>
                                     {{ order.base_uom_qty }}
                                 </TD>
                                 <TD>
-                                    {{ order.unit_of_measurement }}
+                                    {{ order.base_uom }}
                                 </TD>
                                 <TD>
                                     {{ Number(order.cost).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) }}
