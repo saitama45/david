@@ -478,6 +478,12 @@ const promptConfirmReceive = () => {
         },
     });
 };
+
+const handleImageError = (event, image) => {
+    console.error('Image load failed:', image.image_url);
+    event.target.src = '/images/temporaryLoginImage.png'; // Simple placeholder
+    event.target.alt = 'Image failed to load';
+};
 </script>
 
 <template>
@@ -704,6 +710,7 @@ const promptConfirmReceive = () => {
                             <a :href="image.image_url" target="_blank" rel="noopener noreferrer">
                                 <img
                                     :src="image.image_url"
+                                    @error="handleImageError($event, image)"
                                     class="size-24 cursor-pointer hover:opacity-80 transition-opacity"
                                 />
                             </a>

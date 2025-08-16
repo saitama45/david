@@ -42,8 +42,8 @@ class ImageAttachment extends Model implements Auditable
             return null;
         }
         
-        // This is the correct, standard Laravel way to generate a public URL for a stored file.
-        return Storage::disk('public')->url($this->file_path);
+        // Use direct URL construction for SmarterASP
+        return url('storage/app/public/' . $this->file_path);
     }
 
     /**
