@@ -4,6 +4,8 @@ import { useToast } from "primevue/usetoast";
 import { useSearch } from "@/Composables/useSearch";
 import { router } from "@inertiajs/vue3";
 import { useReferenceDelete } from "@/Composables/useReferenceDelete";
+import { ref, computed } from 'vue'; // Explicitly import ref and computed
+
 const isEditModalVisible = ref(false);
 
 const toast = useToast();
@@ -41,16 +43,19 @@ const props = defineProps({
 
 const { search } = useSearch("branches.index");
 
+// Use named route for editCategoryDetails
 const editCategoryDetails = (id) => {
-    router.get(`/store-branches/edit/${id}`);
+    router.get(route("branches.edit", id)); // Already correct
 };
 
+// FIX: Use named route for viewDetails
 const viewDetails = (id) => {
-    router.get(`/store-branches/show/${id}`);
+    router.get(route("branches.show", id)); // Changed to use the named route
 };
 
+// FIX: Use named route for createNewStoreBranch
 const createNewStoreBranch = () => {
-    router.get("/store-branches/create");
+    router.get(route("branches.create")); // Changed to use the named route
 };
 
 const { deleteModel } = useReferenceDelete();
@@ -90,7 +95,7 @@ const exportRoute = computed(() =>
                     <TH> Actions </TH>
                 </TableHead>
                 <TableBody>
-                    <tr v-for="branch in data.data">
+                    <tr v-for="branch in data.data" :key="branch.id">
                         <TD>{{ branch.id }}</TD>
                         <TD>{{ branch.name }}</TD>
                         <TD>{{ branch.branch_code }}</TD>
@@ -117,7 +122,7 @@ const exportRoute = computed(() =>
                 </TableBody>
             </Table>
             <MobileTableContainer>
-                <MobileTableRow v-for="branch in data.data">
+                <MobileTableRow v-for="branch in data.data" :key="branch.id">
                     <MobileTableHeading :title="branch.name">
                         <ShowButton @click="viewDetails(branch.id)" />
                         <EditButton @click="editCategoryDetails(branch.id)" />

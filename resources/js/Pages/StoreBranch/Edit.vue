@@ -1,7 +1,8 @@
-sm:
 <script setup>
 import { useForm } from "@inertiajs/vue3";
 import { useToast } from "@/Composables/useToast";
+import { ref } from 'vue'; // Explicitly import ref
+import { router } from "@inertiajs/vue3"; // Import router for client-side navigation
 
 const { toast } = useToast();
 const { branch } = defineProps({
@@ -26,11 +27,11 @@ const form = useForm({
     aom: branch.aom || "",
     point_of_contact: branch.point_of_contact || "",
     contact_number: branch.contact_number || "",
-    is_active: branch.is_active ?? null,
+    is_active: branch.is_active === null ? null : Number(branch.is_active), // Ensures numeric value for dropdown
 });
 
 const update = (id) => {
-    form.post(route("store-branches.update", id), {
+    form.post(route("branches.update", id), {
         onSuccess: () => {
             toast.add({
                 severity: "success",
@@ -38,13 +39,14 @@ const update = (id) => {
                 detail: "Store Branch Updated Successfully.",
                 life: 5000,
             });
-            form.reset();
+            // FIX: Use router.visit for client-side navigation without full page reload
+            router.visit(route('branches.index'));
         },
         onError: () => {
             toast.add({
                 severity: "error",
                 summary: "Error",
-                detail: "An error occured while trying to update the store branch details.",
+                detail: "An error occurred while trying to update the store branch details.",
                 life: 5000,
             });
         },
@@ -235,7 +237,7 @@ const activeStatuses = ref([
             </CardContent>
             <CardFooter class="flex justify-end gap-3">
                 <BackButton />
-                <Button @click="update(branch.id)">Create</Button>
+                <Button @click="update(branch.id)">Update</Button>
             </CardFooter>
         </Card>
     </Layout>

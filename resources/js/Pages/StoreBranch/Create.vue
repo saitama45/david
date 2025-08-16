@@ -1,6 +1,8 @@
 <script setup>
 import { useForm } from "@inertiajs/vue3";
 import { useToast } from "@/Composables/useToast";
+import { ref } from 'vue'; // Explicitly import ref
+import { router } from "@inertiajs/vue3"; // Import router for client-side navigation
 
 const { toast } = useToast();
 const form = useForm({
@@ -19,11 +21,12 @@ const form = useForm({
     aom: "",
     point_of_contact: "",
     contact_number: "",
-    is_active: 1,
+    is_active: 1, // Default to Active
 });
 
 const store = () => {
-    form.post(route("store-branches.store"), {
+    // FIX: Changed route name from 'store-branches.store' to 'branches.store'
+    form.post(route("branches.store"), {
         onSuccess: () => {
             toast.add({
                 severity: "success",
@@ -32,12 +35,14 @@ const store = () => {
                 life: 5000,
             });
             form.reset();
+            // FIX: Use router.visit for client-side navigation without full page reload
+            router.visit(route('branches.index'));
         },
         onError: () => {
             toast.add({
                 severity: "error",
                 summary: "Error",
-                detail: "An error occured while trying to create the store branch.",
+                detail: "An error occurred while trying to create the store branch.",
                 life: 5000,
             });
         },
@@ -106,8 +111,8 @@ const activeStatuses = ref([
                         v-model="form.location_code"
                         placeholder="Enter location code"
                     />
-                    <FormError v-if="form.errors.brand_code">
-                        {{ form.errors.brand_code }}
+                    <FormError v-if="form.errors.location_code"> <!-- FIX: Changed error check to location_code -->
+                        {{ form.errors.location_code }}
                     </FormError>
                 </InputContainer>
                 <InputContainer>

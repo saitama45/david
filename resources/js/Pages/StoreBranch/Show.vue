@@ -7,7 +7,8 @@ defineProps({
     },
 });
 
-const { backButton } = useBackButton(route("store-branches.index"));
+// FIX: Changed route name from 'store-branches.index' to 'branches.index'
+const { backButton } = useBackButton(route("branches.index"));
 </script>
 
 <template>

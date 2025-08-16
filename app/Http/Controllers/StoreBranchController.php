@@ -68,7 +68,7 @@ class StoreBranchController extends Controller
         }
 
         $category->delete();
-        return to_route('store-branches.index');
+        return to_route('branches.index'); // FIX: Changed route name from 'store-branches.index' to 'branches.index'
     }
 
     public function store(Request $request)
@@ -94,7 +94,7 @@ class StoreBranchController extends Controller
         ]);
 
         StoreBranch::create($validated);
-        return to_route("store-branches.index");
+        return to_route("branches.index"); // FIX: Changed route name from 'store-branches.index' to 'branches.index'
     }
 
     public function update(Request $request, $id)
@@ -119,6 +119,6 @@ class StoreBranchController extends Controller
             'is_active' => ['nullable'],
         ]);
         $branch->update($validated);
-        return to_route("store-branches.index");
+        return to_route("branches.index"); // FIX: Changed route name from 'store-branches.index' to 'branches.index'
     }
 }
