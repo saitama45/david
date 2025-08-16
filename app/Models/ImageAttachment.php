@@ -49,6 +49,7 @@ class ImageAttachment extends Model implements Auditable
         
         // This constructs the URL to explicitly include 'storage/app/public/'
         // Example: if file_path is 'order_attachments/image.jpg', URL becomes '/storage/app/public/order_attachments/image.jpg'
+        // ensure same function to cloud
         return asset('storage/' . $this->file_path);
     }
 
