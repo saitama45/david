@@ -30,16 +30,7 @@ class ImageAttachment extends Model implements Auditable
 
     /**
      * Accessor to generate the full public URL for the image.
-     * This has been modified to include 'app/public/' in the URL path as requested.
-     *
-     * IMPORTANT NOTE: Standard Laravel setups using 'public/storage' symbolic links
-     * do NOT expose 'storage/app/public' directly in the URL.
-     * This change might lead to a '404 Not Found' error on production servers
-     * unless your web server is explicitly configured to serve files from
-     * `your-app-root/public/storage/app/public/` when it sees `/storage/app/public/` in the URL.
-     *
-     * The file_path stored in the database is typically relative to the 'public' disk root (e.g., 'order_attachments/image.jpg').
-     * We are now prepending 'app/public/' to that path for URL generation.
+     * This now uses the 'public' disk configuration which points to public/uploads.
      */
     public function getImageUrlAttribute()
     {
@@ -47,10 +38,8 @@ class ImageAttachment extends Model implements Auditable
             return null;
         }
         
-        // This constructs the URL to explicitly include 'storage/app/public/'
-        // Example: if file_path is 'order_attachments/image.jpg', URL becomes '/storage/app/public/order_attachments/image.jpg'
-        // ensure same function to cloud
-        return asset('storage/' . $this->file_path);
+        // This will now correctly generate URLs like 'http://yourdomain.com/uploads/order_attachments/filename.jpg'
+        return Storage::disk('public')->url($this->file_path);
     }
 
     /**

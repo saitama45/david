@@ -19,12 +19,12 @@ use App\Models\StoreOrder;
 use App\Models\StoreOrderItem;
 use App\Models\User;
 use App\Models\SAPMasterfile;
-use App\Models\ImageAttachment; // Make sure this is imported
+use App\Models\ImageAttachment;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\Storage; // Ensure Storage facade is used
 use Inertia\Inertia;
 use Maatwebsite\Excel\Facades\Excel;
 use Illuminate\Support\Facades\Log;
@@ -151,13 +151,12 @@ class OrderReceivingController extends Controller
         if ($request->hasFile('image')) {
             $file = $request->file('image');
             
-            // Store the file and get the path.
-            // This stores it relative to storage/app/public/
-            $path = $file->store('order_attachments', 'public');
+            // MODIFIED: Store the file directly to the 'public' disk, which now points to public/uploads
+            $path = Storage::disk('public')->putFile('order_attachments', $file);
 
-            // Create a record in the database using your table structure
+            // Create a record in the database
             $order->image_attachments()->create([
-                'file_path' => $path, // This will be 'order_attachments/filename.jpg'
+                'file_path' => $path, // This will be 'order_attachments/filename.jpg' relative to public/uploads
                 'mime_type' => $file->getMimeType(),
                 'is_approved' => true, // Defaulting to true
                 'uploaded_by_user_id' => Auth::id(),
