@@ -71,7 +71,8 @@ class StockManagementController extends Controller
         Log::info('StockManagementController: Products query Bindings: ' . json_encode($productsQuery->getBindings()));
 
 
-        $products = $productsQuery->paginate(10);
+        // FIX: Add ->withQueryString() to persist filters across pagination links
+        $products = $productsQuery->paginate(10)->withQueryString();
 
         $products->getCollection()->each(function ($product) {
             Log::info("StockManagementController: Product '{$product->name}' (ID: {$product->id}) - SOH: {$product->stock_on_hand}, Recorded Used: {$product->recorded_used}");

@@ -9,8 +9,8 @@ import { useSelectOptions } from "@/Composables/useSelectOptions";
 import { useConfirm } from "primevue/useconfirm";
 import { useToast } from "@/Composables/useToast";
 
-// Lucide icons for table actions
-import { Trash2, Minus, Plus } from "lucide-vue-next"; 
+// Lucide icons for table actions - Minus and Plus removed
+import { Trash2 } from "lucide-vue-next"; 
 
 const confirm = useConfirm();
 const { toast } = useToast();
@@ -163,9 +163,9 @@ const store = () => {
                         life: 5000,
                     });
                     localStorage.removeItem("storeStoreOrderDraft");
+                    router.visit(route('store-orders.index')); // Redirect after success
                 },
                 onError: (e) => {
-                    // --- IMPORTANT DEBUGGING CHANGE ---
                     console.error("Frontend Error during Place Order:", e); 
                     const errorMessage = e.error || e.message || "Can't place the order."; // Capture more error info
                     toast.add({
@@ -206,11 +206,6 @@ watch(productId, async (itemCode) => {
             }));
             const result = response.data.item;
 
-            // --- DEBUG LOG START ---
-            console.log('API response item details (result):', result);
-            console.log('UOM from API (result.uom):', result ? result.uom : 'N/A');
-            // --- DEBUG LOG END ---
-
             if (result) {
                 productDetails.id = result.ItemCode; // Assign ItemCode to productDetails.id
                 productDetails.name = result.item_name;
@@ -218,13 +213,9 @@ watch(productId, async (itemCode) => {
                 productDetails.unit_of_measurement = result.uom; // Now the single source of truth for UOM
                 productDetails.cost = Number(result.cost); // Ensure cost is a number
 
-                // --- NEW LOGIC FOR BASE_UOM and BASE_QTY ---
                 let foundBaseUom = null;
                 let foundBaseQty = 1; // Default to 1 to prevent division by zero or NaN in calculations
 
-                console.log('Full result.sap_master_file:', JSON.parse(JSON.stringify(result.sap_master_file || null))); // Retained log
-
-                // Assuming result.sap_master_file is a single SAP masterfile entry
                 if (result.sap_master_file) {
                     foundBaseUom = result.sap_master_file.BaseUOM;
                     foundBaseQty = Number(result.sap_master_file.BaseQty) || 1; // Ensure it's a number, default to 1
@@ -234,12 +225,7 @@ watch(productId, async (itemCode) => {
 
                 productDetails.base_uom = foundBaseUom;
                 productDetails.base_qty = foundBaseQty;
-                // --- END NEW LOGIC ---
                 
-                // --- DEBUG LOG START ---
-                console.log('productDetails after setting values:', JSON.parse(JSON.stringify(productDetails)));
-                // --- DEBUG LOG END ---
-
             } else {
                 toast.add({
                     severity: "error",
@@ -334,32 +320,17 @@ const addImportedItemsToOrderList = () => {
             },
         })
         .then((response) => {
-            console.log('Backend response.data.orders:', response.data.orders); // Log the entire array
             response.data.orders.forEach((importedOrder) => {
-                console.log('--- Processing individual importedOrder from backend (Excel import) ---');
-                console.log('Raw importedOrder object:', importedOrder); // Show the raw object for each item
-
                 // Normalize keys from backend response for easier access
                 const itemCode = importedOrder.item_code || importedOrder.ItemCode || importedOrder.inventory_code;
                 const itemName = importedOrder.item_name || importedOrder.ItemName || importedOrder.name;
                 
-                // CRITICAL DEBUGGING: Log the value before Number() conversion and after
                 const rawQuantityValue = importedOrder.qty || importedOrder.Qty || importedOrder.quantity;
                 const quantity = Number(rawQuantityValue);
 
-                console.log(`Extracted values for ${itemCode || 'Unknown Item'}:`);
-                console.log(`    - Raw quantity value from backend (before Number() conversion):`, rawQuantityValue);
-                console.log(`    - Converted quantity:`, quantity);
-
                 const cost = Number(importedOrder.cost || importedOrder.Cost);
-                console.log(`    - Converted cost:`, cost);
-
-                const baseQty = Number(importedOrder.base_qty || importedOrder.BaseQTY); // Keep: Get BaseQTY from imported data for calculation
-                console.log(`    - Converted baseQty:`, baseQty);
-
-
                 const unit = importedOrder.unit || importedOrder.UOM || importedOrder.unit_of_measurement;
-                
+                const baseQty = Number(importedOrder.base_qty || importedOrder.BaseQTY); // Keep: Get BaseQTY from imported data for calculation
 
                 // Validate cost for imported items
                 if (isNaN(cost) || cost === 0) {
@@ -374,7 +345,6 @@ const addImportedItemsToOrderList = () => {
 
                 // Validate quantity for imported items - REMOVED TOAST MESSAGE
                 if (isNaN(quantity) || quantity < 0.1) {
-                    // The item will still be skipped, but no toast message will be displayed.
                     return; // Skip this item
                 }
 
@@ -391,11 +361,8 @@ const addImportedItemsToOrderList = () => {
 
                 // Calculate BaseUoM Qty for imported item
                 const importedBaseUomQty = parseFloat((quantity * baseQty).toFixed(2));
-                console.log(`    - Calculated importedBaseUomQty:`, importedBaseUomQty);
-
                 // Calculate Total Cost for imported item
                 const importedTotalCost = parseFloat((importedBaseUomQty * cost).toFixed(2));
-                console.log(`    - Calculated importedTotalCost:`, importedTotalCost);
 
 
                 const existingItemIndex = orderForm.orders.findIndex(
@@ -412,7 +379,6 @@ const addImportedItemsToOrderList = () => {
                     orderForm.orders[existingItemIndex].total_cost = parseFloat(
                         updatedBaseUomQty * cost // NEW: Total Cost = BaseUoM Qty * Cost
                     ).toFixed(2);
-                    console.log(`    - Updated existing item in orderForm.orders:`, orderForm.orders[existingItemIndex]);
                 } else {
                     // CRITICAL FIX: Ensure the 'id' property of the imported order is ItemCode
                     const newItem = {
@@ -428,9 +394,7 @@ const addImportedItemsToOrderList = () => {
                         total_cost: importedTotalCost, // NEW: Use calculated total cost
                     };
                     orderForm.orders.push(newItem);
-                    console.log(`    - Added new item to orderForm.orders:`, newItem);
                 }
-                console.log('--- End Processing individual importedOrder ---');
             });
 
             visible.value = false;
@@ -765,14 +729,9 @@ const isSupplierSelected = computed(() => {
 
 if (previousOrder) {
     previousOrder.store_order_items.forEach((item) => {
-        console.log("Existing Ordered Item:", item);
-        
         let baseQty = 1; // Default to 1
         let baseUom = null;
 
-        console.log('Full item.supplier_item.sap_master_file:', JSON.parse(JSON.stringify(item.supplier_item.sap_master_file || null))); // Log the full SAP data
-
-        // Assuming item.supplier_item.sap_master_file is a single object
         if (item.supplier_item.sap_master_file) {
             const sapMasterFileObject = item.supplier_item.sap_master_file;
             baseQty = Number(sapMasterFileObject.BaseQty) || 1;
@@ -1018,82 +977,74 @@ watch(orderForm, (value) => {
                     </DivFlexCenter>
                 </CardHeader>
                 <CardContent class="flex-1">
-                    <Table>
-                        <TableHead>
-                            <TH> Name </TH>
-                            <TH> Code </TH>
-                            <TH> Ordered Qty </TH>
-                            <TH> Unit </TH>
-                            <TH> BaseUOM Qty </TH>
-                            <TH> Base UOM </TH>
-                            <TH> Cost </TH>
-                            <TH> Total Cost </TH>
-                            <TH> Action </TH>
-                        </TableHead>
+                    <!-- FIX: Added overflow-x-auto to handle horizontal scrolling -->
+                    <div class="overflow-x-auto">
+                        <Table>
+                            <TableHead>
+                                <TH> Name </TH>
+                                <TH> Code </TH>
+                                <TH> Ordered Qty </TH>
+                                <TH> Unit </TH>
+                                <TH> BaseUOM Qty </TH>
+                                <TH> Base UOM </TH>
+                                <TH> Cost </TH>
+                                <TH> Total Cost </TH>
+                                <TH> Action </TH>
+                            </TableHead>
 
-                        <TableBody>
-                            <tr
-                                v-for="order in orderForm.orders"
-                                :key="order.id"
-                            >
-                                <TD>
-                                    {{ order.name }}
-                                </TD>
-                                <TD>
-                                    {{ order.inventory_code }}
-                                </TD>
-                                <TD>
-                                    {{ order.quantity }}
-                                </TD>
-                                <TD>
-                                    {{ order.unit_of_measurement }}
-                                </TD>
-                                <TD>
-                                    {{ order.base_uom_qty }}
-                                </TD>
-                                <TD>
-                                    {{ order.base_uom }}
-                                </TD>
-                                <TD>
-                                    {{ Number(order.cost).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) }}
-                                </TD>
-                                <TD>
-                                    {{ Number(order.total_cost).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) }}
-                                </TD>
-                                <TD class="flex gap-3">
-                                    <LinkButton
-                                        @click="
-                                            openEditQuantityModal(
-                                                order.id,
-                                                order.quantity
-                                            )
-                                        "
-                                    >
-                                        Edit Quantity
-                                    </LinkButton>
-                                    <button
-                                        class="text-red-500"
-                                        @click="minusItemQuantity(order.id)"
-                                    >
-                                        <Minus />
-                                    </button>
-                                    <button
-                                        class="text-green-500"
-                                        @click="addItemQuantity(order.id)"
-                                    >
-                                        <Plus />
-                                    </button>
-                                    <button
-                                        @click="removeItem(order.id)"
-                                        variant="outline"
-                                        class="text-red-500 size-5"
-                                    >
-                                        <Trash2 />
-                                    </button>
-                                </TD>
-                            </tr>
-                        </TableBody>
-                    </Table>
+                            <TableBody>
+                                <tr
+                                    v-for="order in orderForm.orders"
+                                    :key="order.id"
+                                >
+                                    <TD>
+                                        {{ order.name }}
+                                    </TD>
+                                    <TD>
+                                        {{ order.inventory_code }}
+                                    </TD>
+                                    <TD>
+                                        {{ order.quantity }}
+                                    </TD>
+                                    <TD>
+                                        {{ order.unit_of_measurement }}
+                                    </TD>
+                                    <TD>
+                                        {{ order.base_uom_qty }}
+                                    </TD>
+                                    <TD>
+                                        {{ order.base_uom }}
+                                    </TD>
+                                    <TD>
+                                        {{ Number(order.cost).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) }}
+                                    </TD>
+                                    <TD>
+                                        {{ Number(order.total_cost).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) }}
+                                    </TD>
+                                    <TD class="flex gap-3">
+                                        <LinkButton
+                                            @click="
+                                                openEditQuantityModal(
+                                                    order.id,
+                                                    order.quantity
+                                                )
+                                            "
+                                        >
+                                            Edit Quantity
+                                        </LinkButton>
+                                        <!-- Removed Minus and Plus buttons -->
+                                        <button
+                                            @click="removeItem(order.id)"
+                                            variant="outline"
+                                            class="text-red-500 size-5"
+                                        >
+                                            <Trash2 />
+                                        </button>
+                                    </TD>
+                                </tr>
+                            </TableBody>
+                        </Table>
+                    </div>
 
                     <MobileTableContainer>
                         <MobileTableRow
@@ -1103,18 +1054,7 @@ watch(orderForm, (value) => {
                             <MobileTableHeading
                                 :title="`${order.name} (${order.inventory_code})`"
                             >
-                                <button
-                                    class="text-red-500 size-5"
-                                    @click="minusItemQuantity(order.id)"
-                                >
-                                    <Minus />
-                                </button>
-                                <button
-                                    class="text-green-500 size-5"
-                                    @click="addItemQuantity(order.id)"
-                                >
-                                    <Plus />
-                                </button>
+                                <!-- Removed Minus and Plus buttons from mobile heading -->
                                 <button
                                     @click="removeItem(order.id)"
                                     variant="outline"
