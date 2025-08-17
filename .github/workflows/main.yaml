@@ -41,9 +41,9 @@ jobs:
       - name: Deploy to FTP
         uses: SamKirkland/FTP-Deploy-Action@v4.3.4
         with:
-          server: win8203.site4now.net
-          username: eyelix_site11
-          password: superadmin2024
+          server: ${{ secrets.FTP_SERVER_SITE11 }}
+          username: ${{ secrets.FTP_USERNAME_SITE11 }}
+          password: ${{ secrets.FTP_PASSWORD_SITE11 }}
           protocol: ftp
           port: 21
           timeout: 120000
