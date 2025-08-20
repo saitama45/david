@@ -401,7 +401,7 @@ console.log(props.branches);
                     <TH>Supplier</TH>
                     <TH>Store</TH>
                     <TH>Order #</TH>
-                    <TH>Order Date</TH>
+                    <TH>Delivery Date</TH>
                     <TH>Order Placed Date</TH>
                     <TH>Order Status</TH>
                     <TH>Actions</TH>
@@ -471,7 +471,7 @@ console.log(props.branches);
                         {{ order.order_status.toUpperCase() }}</LabelXS
                     >
                     <LabelXS>
-                        Order Date:
+                        Delivery Date:
                         {{ formatDisplayDateTime(order.order_date) }}</LabelXS
                     >
                 </MobileTableRow>
