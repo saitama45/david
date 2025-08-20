@@ -6,6 +6,7 @@ import Dialog from "primevue/dialog";
 import { useSelectOptions } from "@/Composables/useSelectOptions";
 
 import { throttle } from "lodash";
+import { ref, watch, computed } from 'vue'; // Added 'computed' import
 
 const handleClick = () => {
     router.get("/store-orders/create");
@@ -229,7 +230,28 @@ const exportPdf = () => {
         return;
     }
     window.open(pdfRoute.value, "_blank");
-    isPdfModalVisible.visible = false;
+    isPdfModalVisible.value = false;
+};
+
+// Function to format date and time for consistent display (now only date)
+const formatDisplayDateTime = (dateString) => {
+    if (!dateString) return 'N/A';
+    try {
+        const date = new Date(dateString);
+        if (isNaN(date.getTime())) {
+            console.warn("Invalid date string for formatting:", dateString);
+            return dateString;
+        }
+        const options = {
+            year: 'numeric',
+            month: 'short',
+            day: 'numeric',
+        };
+        return new Intl.DateTimeFormat('en-US', options).format(date);
+    } catch (e) {
+        console.error("Error formatting date:", dateString, e);
+        return dateString;
+    }
 };
 
 console.log(props.branches);
@@ -390,8 +412,8 @@ console.log(props.branches);
                         <TD>{{ order.supplier?.name ?? "N/A" }}</TD>
                         <TD>{{ order.store_branch?.name ?? "N/A" }}</TD>
                         <TD>{{ order.order_number }}</TD>
-                        <TD>{{ order.order_date }}</TD>
-                        <TD>{{ order.created_at }}</TD>
+                        <TD>{{ formatDisplayDateTime(order.order_date) }}</TD>
+                        <TD>{{ formatDisplayDateTime(order.created_at) }}</TD>
                         <TD>
                             <Badge
                                 :class="statusBadgeColor(order.order_status)"
@@ -438,7 +460,7 @@ console.log(props.branches);
                         <EditButton
                             class="size-5"
                             v-if="
-                                order.order_request_status === 'pending' &&
+                                order.order_status === 'pending' &&
                                 hasAccess('edit store orders')
                             "
                             @click="editOrderDetails(order.order_number)"
@@ -450,7 +472,7 @@ console.log(props.branches);
                     >
                     <LabelXS>
                         Order Date:
-                        {{ order.order_date }}</LabelXS
+                        {{ formatDisplayDateTime(order.order_date) }}</LabelXS
                     >
                 </MobileTableRow>
             </MobileTableContainer>
