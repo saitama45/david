@@ -21,7 +21,7 @@ use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
 use Maatwebsite\Excel\Facades\Excel;
-use Illuminate\Support\Facades\Log; // Ensure Log facade is imported
+use Illuminate\Support\Facades\Log;
 
 class StoreTransactionController extends Controller
 {
@@ -34,51 +34,90 @@ class StoreTransactionController extends Controller
 
     public function mainIndex()
     {
-        $from = request('from') ? Carbon::parse(request('from'))->format('Y-m-d') : '1999-01-01';
-        $to = request('to') ? Carbon::parse(request('to'))->format('Y-m-d') : Carbon::today()->addMonth();
+        $from = request('from') ? Carbon::parse(request('from'))->format('Y-m-d') : Carbon::today()->format('Y-m-d');
+        $to = request('to') ? Carbon::parse(request('to'))->format('Y-m-d') : Carbon::today()->format('Y-m-d');
 
         $branches = StoreBranch::options();
-        $branchId = request('branchId') ?? (optional($branches->first())['value'] ?? null);
+        $branchId = request('branchId') ?? 'all';
 
-        $transactions = StoreTransaction::query()
+        $transactionsQuery = StoreTransaction::query()
             ->leftJoin('store_transaction_items', 'store_transactions.id', '=', 'store_transaction_items.store_transaction_id')
+            ->leftJoin('store_branches', 'store_transactions.store_branch_id', '=', 'store_branches.id')
             ->whereBetween('order_date', [$from, $to])
             ->select(
                 'store_transactions.order_date',
                 DB::raw('COUNT(DISTINCT store_transactions.id) as transaction_count'),
-                DB::raw('SUM(store_transaction_items.net_total) as net_total')
+                DB::raw('SUM(store_transaction_items.net_total) as net_total'),
+                'store_branches.branch_code',
+                'store_branches.name as branch_name',
+                'store_transactions.store_branch_id'
             )
-            ->where('store_transactions.store_branch_id', $branchId)
-            ->groupBy('store_transactions.order_date')
-            ->orderBy('store_transactions.order_date', 'desc')
-            ->paginate(10)
-            ->through(function ($transaction) {
-                return [
-                    'order_date' => $transaction->order_date,
-                    'transaction_count' => $transaction->transaction_count,
-                    'net_total' => number_format($transaction->net_total ?? 0, 2, '.', ''),
-                ];
-            });
+            ->when($branchId !== 'all', function ($query) use ($branchId) {
+                $query->where('store_transactions.store_branch_id', $branchId);
+            })
+            ->groupBy(
+                'store_transactions.order_date',
+                'store_branches.branch_code',
+                'store_branches.name',
+                'store_transactions.store_branch_id'
+            )
+            ->orderBy('store_transactions.order_date', 'desc');
+
+
+        $transactions = $transactionsQuery->paginate(10)->through(function ($transaction) {
+            return [
+                'order_date' => $transaction->order_date,
+                'transaction_count' => $transaction->transaction_count,
+                'net_total' => number_format($transaction->net_total ?? 0, 2, '.', ''),
+                'branch_code' => $transaction->branch_code,
+                'branch_name' => $transaction->branch_name,
+                'store_branch_id' => $transaction->store_branch_id,
+            ];
+        })->withQueryString();
 
 
         $branches = StoreBranch::options();
 
         return Inertia::render('StoreTransaction/MainIndex', [
-            'filters' => request()->only(['from', 'to', 'branchId', 'search']),
+            'filters' => [
+                'from' => $from,
+                'to' => $to,
+                'branchId' => $branchId,
+                'search' => request('search')
+            ],
             'branches' => $branches,
             'transactions' => $transactions
         ]);
     }
+
     public function index()
     {
+        $order_date_param = request('order_date');
+        $branch_id_param = request('branchId');
+
+        $formatted_order_date = $order_date_param ? Carbon::parse($order_date_param)->format('Y-m-d') : null;
+
+        // CRITICAL FIX: 'from' defaults to order_date, 'to' defaults to today
+        $from_filter = request('from') ?? $formatted_order_date;
+        $to_filter = request('to') ?? Carbon::today()->format('Y-m-d'); // 'To' filter always defaults to today
+
+        $branch_id_filter = $branch_id_param;
+
         $transactions = $this->storeTransactionService->getStoreTransactionsList();
+        
         $branches = StoreBranch::options();
 
         return Inertia::render('StoreTransaction/Index', [
             'transactions' => $transactions,
-            'filters' => request()->only(['from', 'to', 'branchId', 'search']),
+            'filters' => [
+                'from' => $from_filter,
+                'to' => $to_filter,
+                'branchId' => $branch_id_filter,
+                'search' => request('search'),
+                'order_date' => $formatted_order_date // Pass formatted order_date to filters
+            ],
             'branches' => $branches,
-            'order_date' => request('order_date')
+            'order_date' => $formatted_order_date // Pass formatted order_date as a prop
         ]);
     }
 
@@ -135,32 +174,26 @@ class StoreTransactionController extends Controller
             if (!empty($skippedRows)) {
                 session()->flash('skipped_import_rows', $skippedRows);
                 session()->flash('warning', 'Store transactions imported with some skipped rows. Please check the details below.');
-                // --- DEBUG LOG START ---
                 Log::debug('Flash messages set for skipped rows:', [
                     'skipped_import_rows' => session('skipped_import_rows'),
                     'warning' => session('warning')
                 ]);
-                // --- DEBUG LOG END ---
                 return back();
             }
 
             session()->flash('success', 'Store transactions imported successfully.');
-            // --- DEBUG LOG START ---
             Log::debug('Flash message set for success:', [
                 'success' => session('success')
             ]);
-            // --- DEBUG LOG END ---
             return back();
 
         } catch (Exception $e) {
             DB::rollBack();
-            Log::error("StoreTransaction Import Error: " . $e->getMessage(), ['trace' => $e->getTraceAsString()]);
+            \Log::error("StoreTransaction Import Error: " . $e->getMessage(), ['trace' => $e->getTraceAsString()]);
             session()->flash('error', 'Import failed: ' . $e->getMessage());
-            // --- DEBUG LOG START ---
             Log::debug('Flash message set for error:', [
                 'error' => session('error')
             ]);
-            // --- DEBUG LOG END ---
             return back()->withInput();
         }
     }

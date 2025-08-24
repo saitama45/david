@@ -5,13 +5,14 @@ const { toast } = useToast();
 import { useConfirm } from "primevue/useconfirm";
 const confirm = useConfirm();
 import { useForm } from "@inertiajs/vue3";
+import { ref, watch, onMounted } from 'vue';
 
-const { menus, branches, transaction } = defineProps({
+const { posMasterfiles, branches, transaction } = defineProps({
     transaction: {
         type: Object,
         required: true,
     },
-    menus: {
+    posMasterfiles: { // This prop now correctly receives POSMasterfile options
         type: Object,
         required: true,
     },
@@ -21,8 +22,9 @@ const { menus, branches, transaction } = defineProps({
     },
 });
 
-const { options: menusOptions } = useSelectOptions(menus);
+const { options: posMasterfilesOptions } = useSelectOptions(posMasterfiles);
 const { options: branchesOptions } = useSelectOptions(branches);
+
 const excelFileForm = useForm({
     store_transactions_file: null,
 });
@@ -37,6 +39,7 @@ watch(isImportStoreTransactionModalOpen, (value) => {
         isLoading.value = false;
     }
 });
+
 const importTransactions = () => {
     isLoading.value = true;
     excelFileForm.post(route("store-transactions.import"), {
@@ -62,9 +65,9 @@ const importTransactions = () => {
 };
 
 const itemForm = useForm({
-    id: null,
-    product_id: null,
-    name: null,
+    id: null, // This should be POSMasterfile.id
+    product_id: null, // This also refers to POSMasterfile.id
+    name: null, // This should be POSMasterfile.POSDescription
     quantity: null,
     discount: 0,
     price: null,
@@ -85,10 +88,16 @@ const form = useForm({
 });
 
 transaction.store_transaction_items.forEach((item) => {
+    // CRITICAL FIX: Add null check for item.posMasterfile
+    if (!item.posMasterfile) {
+        console.warn(`Skipping transaction item ID ${item.id} due to missing POSMasterfile data.`);
+        return; // Skip this item if its POSMasterfile is undefined
+    }
+
     const product = {
-        id: item.menu.id,
-        product_id: item.product_id,
-        name: item.menu.name,
+        id: item.posMasterfile.id,
+        product_id: item.posMasterfile.id,
+        name: item.posMasterfile.POSDescription,
         quantity: item.quantity,
         discount: item.discount,
         price: item.price,
@@ -103,14 +112,15 @@ watch(
     (newValue) => {
         if (newValue == null) return;
         itemForm.clearErrors();
+        // Assuming 'menu-item.show' now correctly returns a POSMasterfile instance
         axios
             .get(route("menu-item.show", newValue))
             .then((res) => res.data)
             .then((result) => {
                 console.log(result);
-                itemForm.name = result.name;
-                itemForm.price = result.price;
-                itemForm.product_id = result.product_id;
+                itemForm.name = result.POSDescription;
+                itemForm.price = result.SRP;
+                itemForm.product_id = result.id;
             })
             .catch((err) => console.log(err));
     }
@@ -122,7 +132,7 @@ const addToItemsList = () => {
         return;
     }
     if (itemForm.quantity < 1) {
-        itemForm.setError("quantity", "Quantity must be atleast 1");
+        itemForm.setError("quantity", "Quantity must be at least 1");
         return;
     }
     console.log(itemForm);
@@ -135,9 +145,10 @@ const addToItemsList = () => {
         form.items.push({ ...itemForm });
     } else {
         const item = form.items[existingItemIndex];
-        item.quantity += itemForm.quantity;
-        itemForm.line_total = parseFloat(itemForm.quantity * itemForm.price);
-        itemForm.net_total = parseFloat(itemForm.quantity * itemForm.price);
+        item.quantity = parseFloat(item.quantity) + parseFloat(itemForm.quantity);
+        item.line_total = parseFloat(item.quantity * item.price);
+        const discountAmount = (item.discount / 100) * item.line_total;
+        item.net_total = parseFloat(item.line_total - discountAmount);
     }
 
     itemForm.reset();
@@ -241,6 +252,12 @@ const removeItem = (id) => {
         },
     });
 };
+
+onMounted(() => {
+    console.log('StoreTransaction/Edit.vue mounted! Component script is running.');
+    console.log('Transaction prop:', transaction);
+    console.log('posMasterfiles prop:', posMasterfiles);
+});
 </script>
 <template>
     <Layout heading="Edit Store Transaction">
@@ -328,7 +345,7 @@ const removeItem = (id) => {
                                 <Select
                                     filter
                                     placeholder="Select a Store"
-                                    :options="menusOptions"
+                                    :options="posMasterfilesOptions"
                                     optionLabel="label"
                                     optionValue="value"
                                     v-model="itemForm.id"

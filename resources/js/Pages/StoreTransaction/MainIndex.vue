@@ -3,7 +3,6 @@ import { router } from "@inertiajs/vue3";
 import { usePage } from "@inertiajs/vue3";
 import { throttle } from "lodash";
 import { ref, watch, computed, onMounted } from 'vue';
-
 import { useToast } from "@/Composables/useToast";
 const { toast } = useToast();
 import { useConfirm } from "primevue/useconfirm";
@@ -27,12 +26,11 @@ const createNewTransaction = () => {
 
 let search = ref(usePage().props.filters.search);
 
-let from = ref(usePage().props.filters.from ?? null);
-let to = ref(usePage().props.filters.to ?? null);
+let from = ref(usePage().props.filters.from ?? new Date().toISOString().slice(0, 10));
+let to = ref(usePage().props.filters.to ?? new Date().toISOString().slice(0, 10));
 
-const branchId = ref(
-    usePage().props.filters.branchId || (branchesOptions.value.length > 0 ? branchesOptions.value[0].value : null)
-);
+const branchId = ref(usePage().props.filters.branchId ?? 'all');
+
 
 watch(from, (value) => {
     router.get(
@@ -83,15 +81,16 @@ watch(branchId, (value) => {
 });
 
 const resetFilter = () => {
-    from.value = null;
-    to.value = null;
-    branchId.value = branchesOptions.value.length > 0 ? branchesOptions.value[0].value : null;
+    from.value = new Date().toISOString().slice(0, 10); // Reset to today
+    to.value = new Date().toISOString().slice(0, 10);   // Reset to today
+    branchId.value = 'all'; // Reset to 'All Branches'
+    search.value = null;
     router.get(
         route("store-transactions.main-index"),
         {
-            search: null,
-            from: null,
-            to: null,
+            search: search.value, // Pass search value, even if null
+            from: from.value,
+            to: to.value,
             branchId: branchId.value,
         },
         {
@@ -112,7 +111,7 @@ const exportRoute = computed(() =>
 );
 
 import { useForm } from "@inertiajs/vue3";
-const importForm = useForm({ // Renamed from excelFileForm to importForm for consistency
+const importForm = useForm({
     store_transactions_file: null,
 });
 const isLoading = ref(false);
@@ -124,16 +123,13 @@ const openImportStoreTransactionModal = () => {
 watch(isImportStoreTransactionModalOpen, (value) => {
     if (!value) {
         isLoading.value = false;
-        importForm.reset(); // Reset form on modal close
+        importForm.reset();
     }
 });
 const isErrorDialogVisible = ref(false);
 const errorMessage = ref("");
-// Removed axios import as we're switching to useForm().post
-
-// New reactive variables for skipped rows display
-const skippedImportRows = ref([]);
-const persistentSkippedItemsMessage = ref(''); // New ref for persistent message
+const skippedImportRows = ref([]); // Added to manage skipped rows
+const persistentSkippedItemsMessage = ref(''); // Added for the persistent message
 
 const formatSkippedRowsMessage = (rows) => {
     if (!rows || rows.length === 0) {
@@ -145,7 +141,7 @@ const formatSkippedRowsMessage = (rows) => {
     rows.forEach(row => {
         const productId = row.data && row.data.product_id ? row.data.product_id : 'N/A';
         const reason = row.reason || 'Unknown reason';
-        const key = `${productId}-${reason}`; // Unique key for grouping
+        const key = `${productId}-${reason}`;
 
         if (!groupedMessages[key]) {
             groupedMessages[key] = {
@@ -162,7 +158,7 @@ const formatSkippedRowsMessage = (rows) => {
     let message = 'The following import warnings occurred:\n\n';
     Object.values(groupedMessages).forEach(group => {
         const productInfo = group.productId !== 'N/A' ? ` (Product ID: ${group.productId})` : '';
-        const rowNumbers = group.rowNumbers.length > 5 // Limit row numbers displayed
+        const rowNumbers = group.rowNumbers.length > 5
             ? `${group.rowNumbers.slice(0, 5).join(', ')}... (and ${group.rowNumbers.length - 5} more)`
             : group.rowNumbers.join(', ');
 
@@ -179,7 +175,7 @@ const importTransactions = () => {
             isImportStoreTransactionModalOpen.value = false;
 
             const flash = usePage().props.flash;
-            console.log('onSuccess: flash object from Inertia:', flash); // Debugging log
+            console.log('onSuccess: flash object from Inertia:', flash);
 
             if (flash.skipped_import_rows && flash.skipped_import_rows.length > 0) {
                 skippedImportRows.value = flash.skipped_import_rows;
@@ -191,7 +187,7 @@ const importTransactions = () => {
                     life: 5000,
                 });
             } else if (flash.success) {
-                persistentSkippedItemsMessage.value = ''; // Clear message if successful
+                persistentSkippedItemsMessage.value = '';
                 toast.add({
                     severity: "success",
                     summary: "Success",
@@ -199,32 +195,30 @@ const importTransactions = () => {
                     life: 3000,
                 });
             }
-            // Clear flash messages after processing to prevent reappearance
-            flash.skipped_import_rows = null;
-            flash.warning = null;
-            flash.success = null;
-            flash.error = null;
+            // Clear flash messages manually after processing
+            usePage().props.flash.skipped_import_rows = null;
+            usePage().props.flash.warning = null;
+            usePage().props.flash.success = null;
+            usePage().props.flash.error = null;
 
-            router.reload({ preserveState: true }); // Reload to update table data if any records were inserted
+            router.reload({ preserveState: true });
         },
         onError: (errors) => {
             isLoading.value = false;
             isImportStoreTransactionModalOpen.value = false;
             const flash = usePage().props.flash;
 
-            // Check for general error message from backend
             if (flash.error) {
                 errorMessage.value = flash.error;
             } else if (errors.store_transactions_file) {
-                // Specific validation error for the file
                 errorMessage.value = errors.store_transactions_file[0];
             } else {
                 errorMessage.value = "An unknown error occurred during import.";
             }
             isErrorDialogVisible.value = true;
 
-            // Clear error flash message after displaying
-            flash.error = null;
+            // Clear flash message manually after processing
+            usePage().props.flash.error = null;
         },
         onFinish: () => {
             isLoading.value = false;
@@ -234,10 +228,29 @@ const importTransactions = () => {
 
 import { TriangleAlert, X } from "lucide-vue-next";
 
-// onMounted hook to handle initial page load flash messages
+const formatDisplayDate = (dateString) => {
+    if (!dateString) {
+        return 'N/a';
+    }
+    try {
+        const date = new Date(dateString);
+        return date.toLocaleDateString('en-US', {
+            year: 'numeric',
+            month: 'long',
+            day: 'numeric'
+        });
+    } catch (e) {
+        console.error("Error formatting date:", dateString, e);
+        return dateString;
+    }
+};
+
+
 onMounted(() => {
     const flash = usePage().props.flash;
-    console.log('onMounted: Full flash object from Inertia:', flash); // Debugging log
+    console.log('onMounted: Full flash object from Inertia:', flash);
+    console.log('onMounted: branchesOptions:', branchesOptions.value);
+    console.log('onMounted: initial branchId.value:', branchId.value);
 
     if (flash.skipped_import_rows && flash.skipped_import_rows.length > 0) {
         skippedImportRows.value = flash.skipped_import_rows;
@@ -259,7 +272,6 @@ onMounted(() => {
             life: 3000,
         });
     } else if (flash.error) {
-        // If there's a general error flash, display it as a toast
         toast.add({
             severity: "error",
             summary: "Import Error",
@@ -268,17 +280,16 @@ onMounted(() => {
         });
     }
 
-    // Clear flash messages after they've been processed to prevent them from reappearing
-    flash.skipped_import_rows = null;
-    flash.warning = null;
-    flash.success = null;
-    flash.error = null;
+    // Clear flash messages manually after processing
+    usePage().props.flash.skipped_import_rows = null;
+    usePage().props.flash.warning = null;
+    usePage().props.flash.success = null;
+    usePage().props.flash.error = null;
 });
 
 const closeSkippedRowsCard = () => {
-    persistentSkippedItemsMessage.value = ''; // Clear the message
-    skippedImportRows.value = []; // Clear the array
-    // No need to clear flash on page.props.flash directly here, as onMounted already handles it.
+    persistentSkippedItemsMessage.value = '';
+    skippedImportRows.value = [];
 };
 
 </script>
@@ -312,7 +323,7 @@ const closeSkippedRowsCard = () => {
                         <X class="size-4" />
                     </button>
                 </div>
-                <div class="max-h-40 overflow-y-auto pr-2"> <!-- Added pr-2 for scrollbar spacing -->
+                <div class="max-h-40 overflow-y-auto pr-2">
                     <p class="text-sm whitespace-pre-line">{{ persistentSkippedItemsMessage }}</p>
                 </div>
             </div>
@@ -372,14 +383,18 @@ const closeSkippedRowsCard = () => {
             </TableHeader>
             <Table>
                 <TableHead>
-                    <TH>Order Date</TH>
+                    <TH>Branch Code</TH>
+                    <TH>Branch Name</TH>
+                    <TH>POS Sales Date</TH>
                     <TH>Transactions Count</TH>
                     <TH>Overall Net Total</TH>
                     <TH>Actions</TH>
                 </TableHead>
                 <TableBody>
                     <tr v-for="transaction in transactions.data" :key="transaction.order_date">
-                        <TD>{{ transaction.order_date }}</TD>
+                        <TD>{{ transaction.branch_code }}</TD>
+                        <TD>{{ transaction.branch_name }}</TD>
+                        <TD>{{ formatDisplayDate(transaction.order_date) }}</TD>
                         <TD>{{ transaction.transaction_count }}</TD>
                         <TD>{{ transaction.net_total }}</TD>
                         <TD class="flex items-center">
@@ -387,8 +402,9 @@ const closeSkippedRowsCard = () => {
                                 :isLink="true"
                                 :href="
                                     route('store-transactions.index', {
-                                        order_date: transaction.order_date,
-                                        branchId: branchId,
+                                        // CRITICAL FIX: Explicitly format to 'YYYY-MM-DD' to prevent client-side timezone shift
+                                        order_date: new Date(transaction.order_date).toLocaleDateString('en-CA', { year: 'numeric', month: '2-digit', day: '2-digit' }),
+                                        branchId: transaction.store_branch_id,
                                     })
                                 "
                             />

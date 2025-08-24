@@ -127,7 +127,7 @@ class StockManagementController extends Controller
 
         $currentProductStock = ProductInventoryStock::where('product_inventory_id', $id)
             ->where('store_branch_id', $branchId)
-            ->with('sapMasterfile')
+            ->with('sapMasterfile') // Eager load sapMasterfile for name
             ->first();
 
         Log::info('StockManagementController: Current Product Stock found:', ['exists' => (bool)$currentProductStock, 'data' => $currentProductStock ? $currentProductStock->toArray() : null]);
@@ -136,72 +136,74 @@ class StockManagementController extends Controller
         $rawHistory = ProductInventoryStockManager::with(['cost_center', 'sapMasterfile', 'purchaseItemBatch.storeOrderItem.store_order'])
             ->where('product_inventory_id', $id)
             ->where('store_branch_id', $branchId)
-            ->orderBy('transaction_date', 'asc') // Keep chronological order for SOH calculation
+            ->orderBy('transaction_date', 'asc') // Keep chronological order for initial processing
             ->orderBy('id', 'asc') // Then by ID ascending for consistent chronological order
             ->get();
 
         Log::info('StockManagementController: Raw History Records Fetched Count: ' . $rawHistory->count());
-        Log::info('StockManagementController: Raw History Fetched Data (all):', ['data' => $rawHistory->toArray()]); // Log all raw history
+        Log::info('StockManagementController: Raw History Fetched Data (all):', ['data' => $rawHistory->toArray()]);
 
         $chronologicalTransactions = collect(); // To hold transactions in chronological order with running SOH
 
-        // --- CRITICAL FIX START: Re-order transactions for SOH calculation to match desired output ---
-
         // Separate 'add' and 'out' actions
-        $addMovements = $rawHistory->filter(fn($item) => in_array($item->action, ['add', 'add_quantity']));
-        $outMovements = $rawHistory->filter(fn($item) => in_array($item->action, ['out', 'deduct', 'log_usage']));
+        $addMovements = $rawHistory->filter(fn($item) => in_array($item->action, ['add', 'add_quantity']))->sortBy('id')->values();
+        $outMovements = $rawHistory->filter(fn($item) => in_array($item->action, ['out', 'deduct', 'log_usage']))->sortBy('id')->values();
 
-        // Sort them by ID ascending within their groups (this is important for consistent SOH calculation if dates are identical)
-        $addMovements = $addMovements->sortBy('id')->values();
-        $outMovements = $outMovements->sortBy('id')->values();
-
-        // Start running SOH from 0 for the conceptual 'initial_balance'
-        $runningSOH = 0;
+        $runningSOH = 0; // Initialize running SOH to 0 for the conceptual 'initial_balance'
         Log::info('StockManagementController: Running SOH initialized to: ' . $runningSOH);
 
-        // Add the conceptual "Initial Stock Balance" entry at the very beginning of the chronological list
+        // Add the conceptual "Initial Stock Balance" entry first
         $initialBalanceEntry = (object)[
             'id' => 'initial',
             'purchase_item_batch_id' => null,
             'quantity' => 0,
-            'action' => 'initial_balance',
+            'action' => 'BEG BAL',
             'cost_center_id' => null,
             'unit_cost' => 0,
             'total_cost' => 0,
             'transaction_date' => $rawHistory->first() ? Carbon::parse($rawHistory->first()->transaction_date)->subDay()->format('Y-m-d') : Carbon::today()->format('Y-m-d'),
-            'remarks' => 'Initial Stock Balance',
+            'remarks' => 'Beginning Balance',
             'sap_masterfile' => $currentProductStock ? $currentProductStock->sapMasterfile : null,
             'purchase_item_batch' => null,
             'running_soh' => $runningSOH, // Initial SOH is 0
         ];
         $chronologicalTransactions->push($initialBalanceEntry);
-        Log::info('StockManagementController: Initial Balance Entry added with Running SOH: ' . $initialBalanceEntry->running_soh);
+        Log::debug('StockManagementController: Initial Balance Entry added with Running SOH: ' . $initialBalanceEntry->running_soh);
 
-        // Process 'add' movements first to build up stock
+        // Process 'add' movements first to build up stock logically
         foreach ($addMovements as $item) {
             $quantityChange = $item->quantity;
             $runningSOH += $quantityChange;
             $item->running_soh = $runningSOH;
+            // Add display_ref_no and is_link_ref for 'add' actions
+            $item->display_ref_no = optional($item->purchaseItemBatch->storeOrderItem->store_order)->order_number ?? 'N/a';
+            $item->is_link_ref = (bool)optional($item->purchaseItemBatch->storeOrderItem->store_order)->order_number;
             $chronologicalTransactions->push($item);
-            Log::debug("StockManagementController: After ADD Item ID {$item->id}, Action: {$item->action}, Quantity: {$item->quantity}, Running SOH: {$runningSOH}");
+            Log::debug("StockManagementController: After ADD Item ID {$item->id}, Action: {$item->action}, Quantity: {$item->quantity}, Running SOH: {$runningSOH}, Display Ref: {$item->display_ref_no}");
         }
 
-        // Then process 'out' movements to deduct from stock
+        // Then process 'out' movements to deduct from stock logically
         foreach ($outMovements as $item) {
             $quantityChange = -$item->quantity; // Out actions are negative
             $runningSOH += $quantityChange;
             $item->running_soh = $runningSOH;
+            // Add display_ref_no and is_link_ref for 'out' actions
+            if (preg_match('/Receipt No\. (\d+)/', $item->remarks, $matches)) {
+                $item->display_ref_no = $matches[1];
+                $item->is_link_ref = false; // Store transaction receipts are not direct links in this context
+            } else {
+                $item->display_ref_no = 'N/a';
+                $item->is_link_ref = false;
+            }
             $chronologicalTransactions->push($item);
-            Log::debug("StockManagementController: After OUT Item ID {$item->id}, Action: {$item->action}, Quantity: {$item->quantity}, Running SOH: {$runningSOH}");
+            Log::debug("StockManagementController: After OUT Item ID {$item->id}, Action: {$item->action}, Quantity: {$item->quantity}, Running SOH: {$runningSOH}, Display Ref: {$item->display_ref_no}");
         }
 
         // Now, prepare the final display order: newest transactions first, then initial balance last.
         // Sort the entire chronologicalTransactions collection by ID descending for display.
-        // The 'initial' entry will have ID 'initial', so it will naturally fall to the end when sorting by ID.
         $processedHistory = $chronologicalTransactions->sortByDesc(function ($item) {
             return is_numeric($item->id) ? $item->id : -1; // Treat 'initial' as having a very low ID for sorting to the bottom
         })->values();
-        // --- CRITICAL FIX END ---
 
         Log::info('StockManagementController: Processed History for Show (final order):', ['history' => $processedHistory->toArray()]);
 
@@ -333,6 +335,8 @@ class StockManagementController extends Controller
             'unit_cost' => ['required', 'numeric', 'min:1'],
             'transaction_date' => ['required', 'date'],
             'remarks' => ['sometimes']
+        ], [
+            'cost_center_id.required' => 'Cost Center is required.'
         ]);
 
 

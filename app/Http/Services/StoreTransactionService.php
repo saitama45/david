@@ -7,6 +7,7 @@ use App\Models\User;
 use Carbon\Carbon;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log; // Ensure Log facade is imported
 
 class StoreTransactionService
 {
@@ -59,50 +60,69 @@ class StoreTransactionService
             'customer' => $transaction->customer ?? 'N/a',
             'cancel_reason' => $transaction->cancel_reason ?? 'N/a',
             'reference_number' => $transaction->reference_number ?? 'N/a',
-            'remarks' => $transaction->remarks ?? 'N/a',
+            'remarks' => $transaction->remarks ?? 'N/a', // Corrected: Using actual remarks if available
             'items' => $items,
-            // 'is_approved' => $transaction->is_approved, // Removed as it's no longer needed
         ];
     }
 
     public function getStoreTransactionsList()
     {
-        $from = request('from') ? Carbon::parse(request('from'))->format('Y-m-d') : null;
-        $to = request('to') ? Carbon::parse(request('to'))->format('Y-m-d') : null;
+        $from = request('from');
+        $to = request('to');
         $search = request('search');
         $branchId = request('branchId');
         $order_date = request('order_date');
 
-        $query = StoreTransaction::query()->with(['store_transaction_items.posMasterfile', 'store_branch'])
-            ->where('store_branch_id', $branchId);
+        $query = StoreTransaction::query()->with(['store_transaction_items.posMasterfile', 'store_branch']);
 
         $user = User::rolesAndAssignedBranches();
         if (!$user['isAdmin']) $query->whereIn('store_branch_id', $user['assignedBranches']);
 
-
-        if (!$from && !$to && $order_date) {
-            $query->where('order_date', $order_date);
-        }
-
-        if ($from && $to) {
-            $query->whereBetween('order_date', [$from, $to]);
-        }
-
-        if ($branchId)
+        if ($branchId !== 'all') {
             $query->where('store_branch_id', $branchId);
+        }
+
+        // CRITICAL FIX: Use whereRaw with CAST for robust date comparison for both single day and range
+        $from_formatted = $from ? Carbon::parse($from)->format('Y-m-d') : null;
+        $to_formatted = $to ? Carbon::parse($to)->format('Y-m-d') : null;
+
+        if ($order_date) {
+            $query->whereRaw('CAST(order_date as DATE) = ?', [Carbon::parse($order_date)->format('Y-m-d')]);
+        } elseif ($from && $to) {
+            $query->whereRaw('CAST(order_date as DATE) BETWEEN ? AND ?', [$from_formatted, $to_formatted]);
+        }
+
 
         if ($search)
             $query->where('receipt_number', 'like', "%$search%");
+
+        // --- DEBUG LOG START ---
+        Log::debug('StoreTransactionService: getStoreTransactionsList filters:', [
+            'from_request' => request('from'),
+            'to_request' => request('to'),
+            'search' => $search,
+            'branchId' => $branchId,
+            'order_date_param' => $order_date,
+            'from_formatted_for_query' => $from_formatted,
+            'to_formatted_for_query' => $to_formatted,
+            'final_query_sql' => $query->toSql(),
+            'final_query_bindings' => $query->getBindings(),
+        ]);
+        $raw_results = $query->get();
+        Log::debug('StoreTransactionService: Raw query results count:', ['count' => $raw_results->count()]);
+        Log::debug('StoreTransactionService: Raw query results (first 5):', ['data' => $raw_results->take(5)->toArray()]);
+        // --- DEBUG LOG END ---
+
 
         $result = $query->latest()->paginate(10)->withQueryString()->through(function ($item) {
             return [
                 'id' => $item->id,
                 'store_branch' => $item->store_branch->name,
+                'branch_code' => $item->store_branch->branch_code,
                 'receipt_number' => $item->receipt_number,
                 'item_count' => $item->store_transaction_items->count(),
                 'net_total' => number_format($item->store_transaction_items->sum('net_total'), 2),
                 'order_date' => $item->order_date,
-                // 'is_approved' => $item->is_approved, // Removed as it's no longer needed
             ];
         });
 
@@ -114,28 +134,24 @@ class StoreTransactionService
         $from = request('from') ? Carbon::parse(request('from'))->format('Y-m-d') : null;
         $to = request('to') ? Carbon::parse(request('to'))->format('Y-m-d') : null;
         $search = request('search');
-        $branchId = request('branchId');
-        $order_date = request('order_date');
+        $branchId = request('branchId'); // This can be 'all' or an actual ID
 
-        $query = StoreTransaction::query()->with(['store_transaction_items.posMasterfile', 'store_branch'])
-            ->where('store_branch_id', $branchId);
-            // Removed ->where('is_approved', false) to show all transactions for approval page
+        $query = StoreTransaction::query()->with(['store_transaction_items.posMasterfile', 'store_branch']);
 
         $user = User::rolesAndAssignedBranches();
         if (!$user['isAdmin']) $query->whereIn('store_branch_id', $user['assignedBranches']);
 
+        if ($branchId !== 'all') {
+            $query->where('store_branch_id', $branchId);
+        }
 
-        if (!$from && !$to && $order_date) {
+        if (!$from && !$to && $order_date = request('order_date')) {
             $query->where('order_date', $order_date);
         }
 
         if ($from && $to) {
             $query->whereBetween('order_date', [$from, $to]);
         }
-
-        if ($branchId)
-            $query->where('store_branch_id', $branchId);
-
 
         if ($search)
             $query->where('receipt_number', 'like', "%$search%");
@@ -148,7 +164,6 @@ class StoreTransactionService
                 'item_count' => $item->store_transaction_items->count(),
                 'net_total' => number_format($item->store_transaction_items->sum('net_total'), 2),
                 'order_date' => $item->order_date,
-                // 'is_approved' => $item->is_approved, // Removed as it's no longer needed
             ];
         });
 

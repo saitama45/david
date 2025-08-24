@@ -2,10 +2,8 @@
 import { router } from "@inertiajs/vue3";
 import { usePage } from "@inertiajs/vue3";
 import { throttle } from "lodash";
-import { useSelectOptions } from "@/Composables/useSelectOptions";
-import { ref, watch, computed } from 'vue'; // Explicitly import ref, watch, computed
+import { ref, watch, computed, onMounted } from 'vue';
 
-const { options: branchesOptions } = useSelectOptions(branches);
 const { transactions, order_date, branches } = defineProps({
     transactions: {
         type: Object,
@@ -15,7 +13,7 @@ const { transactions, order_date, branches } = defineProps({
         type: Object,
         required: true,
     },
-    order_date: {
+    order_date: { // This prop will now be YYYY-MM-DD from the controller
         type: String,
         required: false,
     },
@@ -27,13 +25,14 @@ const createNewTransaction = () => {
 
 let search = ref(usePage().props.filters.search);
 
-let from = ref(usePage().props.from ?? null);
+// CRITICAL FIX: Initialize 'from' from filters.from, 'to' from filters.to.
+// The controller now ensures these are already YYYY-MM-DD or today's date.
+let from = ref(usePage().props.filters.from);
+let to = ref(usePage().props.filters.to);
 
-let to = ref(usePage().props.to ?? null);
+// branchId is now passed directly from the route/filters
+const branchId = usePage().props.filters.branchId;
 
-const branchId = ref(
-    usePage().props.filters.branchId || (branchesOptions.value.length > 0 ? branchesOptions.value[0].value : null) // Safely initialize
-);
 
 watch(from, (value) => {
     router.get(
@@ -42,7 +41,8 @@ watch(from, (value) => {
             search: search.value,
             from: value,
             to: to.value,
-            branchId: branchId.value,
+            branchId: branchId,
+            order_date: order_date,
         },
         {
             preserveState: true,
@@ -58,23 +58,8 @@ watch(to, (value) => {
             search: search.value,
             from: from.value,
             to: value,
-            branchId: branchId.value,
-        },
-        {
-            preserveState: true,
-            preserveScroll: true,
-        }
-    );
-});
-
-watch(branchId, (value) => {
-    router.get(
-        route("store-transactions.index"),
-        {
-            search: search.value,
-            from: from.value,
-            to: to.value,
-            branchId: value,
+            branchId: branchId,
+            order_date: order_date,
         },
         {
             preserveState: true,
@@ -92,7 +77,8 @@ watch(
                 search: value,
                 from: from.value,
                 to: to.value,
-                branchId: branchId.value,
+                branchId: branchId,
+                order_date: order_date,
             },
             {
                 preserveState: true,
@@ -103,21 +89,64 @@ watch(
 );
 
 const resetFilter = () => {
-    from.value = null;
-    to.value = null;
-    branchId.value = branchesOptions.value.length > 0 ? branchesOptions.value[0].value : null; // Reset to first branch or null
+    // CRITICAL FIX: Reset to the initial order_date (formatted) or today's date
+    from.value = order_date ?? new Date().toISOString().slice(0, 10);
+    to.value = new Date().toISOString().slice(0, 10); // 'To' always resets to today
     search.value = null;
+    router.get(
+        route("store-transactions.index"),
+        {
+            search: search.value,
+            from: from.value,
+            to: to.value,
+            branchId: branchId,
+            order_date: order_date,
+        },
+        {
+            preserveState: true,
+            preserveScroll: true,
+            replace: true,
+        }
+    );
 };
 
 const exportRoute = computed(() =>
     route("store-transactions.export", {
         search: search.value,
-        branchId: branchId.value,
+        branchId: branchId,
         from: from.value,
         to: to.value,
         order_date: order_date,
     })
 );
+
+const formatDisplayDate = (dateString) => {
+    if (!dateString) {
+        return 'N/a';
+    }
+    try {
+        const date = new Date(dateString);
+        return date.toLocaleDateString('en-US', {
+            year: 'numeric',
+            month: 'long',
+            day: 'numeric'
+        });
+    } catch (e) {
+        console.error("Error formatting date:", dateString, e);
+        return dateString;
+    }
+};
+
+onMounted(() => {
+    console.log('StoreTransaction/Index.vue onMounted:');
+    console.log('  usePage().props.filters:', usePage().props.filters);
+    console.log('  from.value (after init):', from.value);
+    console.log('  to.value (after init):', to.value);
+    console.log('  branchId (from props.filters):', branchId);
+    console.log('  transactions prop:', transactions);
+    console.log('  order_date prop:', order_date);
+});
+
 </script>
 <template>
     <Layout
@@ -130,21 +159,12 @@ const exportRoute = computed(() =>
                 <SearchBar>
                     <Input
                         class="pl-10"
-                        placeholder="Search..."
+                        placeholder="Search by Receipt No."
                         v-model="search"
                     />
                 </SearchBar>
 
                 <DivFlexCenter class="gap-5">
-                    <Select
-                        filter
-                        placeholder="Select a Branch"
-                        v-model="branchId"
-                        :options="branchesOptions"
-                        optionLabel="label"
-                        optionValue="value"
-                    >
-                    </Select>
                     <Popover>
                         <PopoverTrigger> <Filter /> </PopoverTrigger>
                         <PopoverContent>
@@ -168,21 +188,23 @@ const exportRoute = computed(() =>
             <Table>
                 <TableHead>
                     <TH>Id</TH>
+                    <TH>Branch Code</TH>
                     <TH>Store Branch</TH>
                     <TH>Receipt No.</TH>
                     <TH>Item Count</TH>
                     <TH>Overall Net Total</TH>
-                    <TH>Date</TH>
+                    <TH>POS Sales Date</TH>
                     <TH>Actions</TH>
                 </TableHead>
                 <TableBody>
                     <tr v-for="transaction in transactions.data" :key="transaction.id">
                         <TD>{{ transaction.id }}</TD>
+                        <TD>{{ transaction.branch_code }}</TD>
                         <TD>{{ transaction.store_branch }}</TD>
                         <TD>{{ transaction.receipt_number }}</TD>
                         <TD>{{ transaction.item_count }}</TD>
                         <TD>{{ transaction.net_total }}</TD>
-                        <TD>{{ transaction.order_date }}</TD>
+                        <TD>{{ formatDisplayDate(transaction.order_date) }}</TD>
                         <TD class="flex items-center">
                             <ShowButton
                                 :isLink="true"
