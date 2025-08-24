@@ -13,8 +13,8 @@ class POSMasterfile extends Model implements Auditable
     protected $table = 'pos_masterfiles';
 
     protected $fillable = [
-        'ItemCode',
-        'ItemDescription',
+        'POSCode',
+        'POSDescription',
         'Category',
         'SubCategory',
         'SRP',
@@ -30,4 +30,5 @@ class POSMasterfile extends Model implements Auditable
     // Ensure 'id' is used as the unique key for upsert
     protected $primaryKey = 'id';
     public $incrementing = true; // Assuming id is not auto-incrementing
+
 }

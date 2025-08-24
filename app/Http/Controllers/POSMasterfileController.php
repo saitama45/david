@@ -34,7 +34,7 @@ class POSMasterfileController extends Controller
             $query->where('is_active', '=', 1);
 
         if ($search)
-            $query->whereAny(['ItemCode', 'ItemDescription'], 'like', "%$search%");
+            $query->whereAny(['POSCode', 'POSDescription'], 'like', "%$search%"); // Corrected: Searching by POSDescription
 
         $items = $query->latest()->paginate(10)->withQueryString();
 
@@ -69,8 +69,8 @@ class POSMasterfileController extends Controller
     public function store(Request $request)
     {
         $validated = $request->validate([
-            'ItemCode' => ['nullable'],
-            'ItemDescription' => ['nullable'],
+            'POSCode' => ['nullable'],
+            'POSDescription' => ['nullable'], // Corrected: Validating POSDescription
             'is_active' => ['nullable'],
         ]);
 
@@ -87,14 +87,13 @@ class POSMasterfileController extends Controller
         $item = POSMasterfile::findOrFail($id);
 
         // Get BOM rows directly from pos_masterfiles_bom (one row per BOM entry).
-        $bomRows = POSMasterfileBOM::where('POSCode', $item->ItemCode)
+        $bomRows = POSMasterfileBOM::where('POSCode', $item->POSCode)
             ->orderBy('id')
             ->get();
 
         // Map each BOM row to the structure the Vue page expects for display.
         $existingIngredients = $bomRows->map(function ($bom) {
-            // You might not need to fetch sap_masterfile_id for read-only view,
-            // but including it for consistency with edit view's data structure
+            // Find corresponding SAP product (if exists) by ItemCode
             $sap = SAPMasterfile::where('ItemCode', $bom->ItemCode)->first();
 
             return [
@@ -102,7 +101,7 @@ class POSMasterfileController extends Controller
                 'assembly' => $bom->Assembly,
                 'sap_masterfile_id' => $sap ? $sap->id : null, // link to SAP product if found
                 'inventory_code' => $bom->ItemCode,
-                'name' => $bom->ItemDescription,
+                'name' => $bom->ItemDescription, // Correct: This is the ingredient's description from BOM
                 'quantity' => $bom->BOMQty,
                 'uom' => $bom->BOMUOM,
                 'unit_cost' => $bom->UnitCost,
@@ -133,13 +132,13 @@ class POSMasterfileController extends Controller
         $products = SAPMasterfile::options();
 
         // Get BOM rows directly from pos_masterfiles_bom (one row per BOM entry).
-        $bomRows = POSMasterfileBOM::where('POSCode', $item->ItemCode)
+        $bomRows = POSMasterfileBOM::where('POSCode', $item->POSCode)
             ->orderBy('id')
             ->get();
 
         // Map each BOM row to the structure the Vue page expects.
         $existingIngredients = $bomRows->map(function ($bom) {
-            // find corresponding SAP product (if exists) by ItemCode
+            // Find corresponding SAP product (if exists) by ItemCode
             $sap = SAPMasterfile::where('ItemCode', $bom->ItemCode)->first();
 
             return [
@@ -147,7 +146,7 @@ class POSMasterfileController extends Controller
                 'assembly' => $bom->Assembly,
                 'sap_masterfile_id' => $sap ? $sap->id : null, // link to SAP product if found
                 'inventory_code' => $bom->ItemCode,
-                'name' => $bom->ItemDescription,
+                'name' => $bom->ItemDescription, // Correct: This is the ingredient's description from BOM
                 'quantity' => $bom->BOMQty,
                 'uom' => $bom->BOMUOM,
                 'unit_cost' => $bom->UnitCost,
@@ -173,8 +172,8 @@ class POSMasterfileController extends Controller
         $item = POSMasterfile::findOrFail($id);
 
         $validated = $request->validate([
-            'ItemCode' => ['nullable'],
-            'ItemDescription' => ['nullable'],
+            'POSCode' => ['nullable'],
+            'POSDescription' => ['nullable'], // Corrected: Validating POSDescription
             'Category' => ['nullable'],
             'SubCategory' => ['nullable'],
             'SRP' => ['nullable'],
@@ -250,7 +249,7 @@ class POSMasterfileController extends Controller
     public function getProductDetails(string $id)
     {
         $product = SAPMasterfile::select('id', 'ItemCode', 'ItemDescription', 'BaseUOM', 'AltUOM')
-                                 ->findOrFail($id);
+                                     ->findOrFail($id);
         return response()->json([
             'id' => $product->id,
             'inventory_code' => $product->ItemCode,

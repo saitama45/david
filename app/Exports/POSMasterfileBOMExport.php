@@ -30,12 +30,12 @@ class POSMasterfileBOMExport implements FromQuery, WithHeadings, WithMapping, Wi
         if ($this->search) {
             $query->where(function ($q) {
                 $q->where('POSCode', 'like', '%' . $this->search . '%')
-                  ->orWhere('POSDescription', 'like', '%' . $this->search . '%')
-                  ->orWhere('Assembly', 'like', '%' . $this->search . '%')
-                  ->orWhere('ItemCode', 'like', '%' . $this->search . '%')
-                  ->orWhere('ItemDescription', 'like', '%' . $this->search . '%')
-                  ->orWhere('RecipeUOM', 'like', '%' . $this->search . '%')
-                  ->orWhere('BOMUOM', 'like', '%' . $this->search . '%');
+                    ->orWhere('POSDescription', 'like', '%' . $this->search . '%')
+                    ->orWhere('Assembly', 'like', '%' . $this->search . '%')
+                    ->orWhere('ItemCode', 'like', '%' . $this->search . '%')
+                    ->orWhere('ItemDescription', 'like', '%' . $this->search . '%')
+                    ->orWhere('RecipeUOM', 'like', '%' . $this->search . '%')
+                    ->orWhere('BOMUOM', 'like', '%' . $this->search . '%');
             });
         }
 

@@ -25,8 +25,9 @@ class POSMasterfileExport implements FromQuery, WithHeadings, WithMapping
         // Apply search logic
         if ($this->search) {
             $query->where(function ($q) {
-                $q->where('ItemCode', 'like', '%' . $this->search . '%')
-                  ->orWhere('ItemDescription', 'like', '%' . $this->search . '%');
+                // CRITICAL FIX: Changed ItemCode to POSCode and ItemDescription to POSDescription
+                $q->where('POSCode', 'like', '%' . $this->search . '%')
+                    ->orWhere('POSDescription', 'like', '%' . $this->search . '%');
                 // Add more fields here if you want to search by them
             });
         }
@@ -47,10 +48,11 @@ class POSMasterfileExport implements FromQuery, WithHeadings, WithMapping
     public function headings(): array
     {
         // Define your exact column headers for the Excel file
+        // CRITICAL FIX: Changed Item Code to POS Code and Item Description to POS Description
         return [
             'ID',
-            'Item Code',
-            'Item Description',
+            'POS Code',
+            'POS Description',
             'Category',
             'SubCategory',
             'SRP',
@@ -67,10 +69,11 @@ class POSMasterfileExport implements FromQuery, WithHeadings, WithMapping
     public function map($item): array
     {
         // Map the model attributes to the array that will be a row in Excel
+        // CRITICAL FIX: Changed ItemCode to POSCode and ItemDescription to POSDescription
         return [
             $item->id,
-            $item->ItemCode,
-            $item->ItemDescription,
+            $item->POSCode,
+            $item->POSDescription,
             $item->Category,
             $item->SubCategory,
             $item->SRP,

@@ -26,7 +26,7 @@ class POSMasterfileBOMImport implements ToCollection, WithHeadingRow, WithChunkR
     // Constructor can be used if you need to pass assigned POS codes for authorization, similar to SupplierItemsImport
     // public function __construct(array $assignedPOSCodes = [])
     // {
-    //     $this->assignedCodes = $assignedCodes; // Renamed for clarity
+    //     $this->assignedCodes = $assignedPOSCodes; // Renamed for clarity
     // }
 
     /**
@@ -42,10 +42,10 @@ class POSMasterfileBOMImport implements ToCollection, WithHeadingRow, WithChunkR
         // Log the count before deduplication (if it were still active)
         Log::debug("POSMasterfileBOMImport: Rows before deduplication: " . $rows->count());
 
-        $upsertBatchSize = 100; 
+        $upsertBatchSize = 100;    
 
         // We are processing all rows, as deduplication was removed.
-        $rowsToProcess = $rows; 
+        $rowsToProcess = $rows;    
 
         // Log the count of rows that will be processed
         Log::debug("POSMasterfileBOMImport: Rows to process (all rows): " . $rowsToProcess->count());
@@ -70,9 +70,9 @@ class POSMasterfileBOMImport implements ToCollection, WithHeadingRow, WithChunkR
             $itemDescription = $getCellValue($row, ['item_description', 'PRODUCT DESCRIPTION']);
             $recPercent = is_numeric($getCellValue($row, ['rec_percent', 'REC%'])) ? (float)$getCellValue($row, ['rec_percent', 'REC%']) : null;
             $recipeQty = is_numeric($getCellValue($row, ['recipe_qty', 'RECIPE QTY'])) ? (float)$getCellValue($row, ['recipe_qty', 'RECIPE QTY']) : null;
-            $recipeUOM = $getCellValue($row, ['recipe_uom', 'RECIPE UOM', 'UOM']); 
+            $recipeUOM = $getCellValue($row, ['recipe_uom', 'RECIPE UOM', 'UOM']);    
             $bomQty = is_numeric($getCellValue($row, ['bom_qty', 'BOM QTY'])) ? (float)$getCellValue($row, ['bom_qty', 'BOM QTY']) : null;
-            $bomUOM = $getCellValue($row, ['bom_uom', 'BOM UOM', 'UOM']); 
+            $bomUOM = $getCellValue($row, ['bom_uom', 'BOM UOM', 'UOM']);    
             $unitCost = is_numeric($getCellValue($row, ['unit_cost', 'UNIT COST'])) ? (float)$getCellValue($row, ['unit_cost', 'UNIT COST']) : null;
             $totalCost = is_numeric($getCellValue($row, ['total_cost', 'TOTAL COST'])) ? (float)$getCellValue($row, ['total_cost', 'TOTAL COST']) : null;
 
@@ -88,7 +88,8 @@ class POSMasterfileBOMImport implements ToCollection, WithHeadingRow, WithChunkR
                 continue;
             }
 
-            $posMasterfileExists = POSMasterfile::where('ItemCode', $posCode)->exists();
+            // CRITICAL FIX: Changed 'ItemCode' to 'POSCode' for POSMasterfile validation
+            $posMasterfileExists = POSMasterfile::where('POSCode', $posCode)->exists();
             if (!$posMasterfileExists) {
                 $this->skippedByPosMasterfileValidationCount++;
                 $reason = 'POS Code not found in POS Masterfile';
@@ -161,7 +162,7 @@ class POSMasterfileBOMImport implements ToCollection, WithHeadingRow, WithChunkR
         if (!empty($dataForCurrentChunk)) {
             foreach (array_chunk($dataForCurrentChunk, $upsertBatchSize) as $miniBatch) {
                 // CRITICAL FIX: Changed uniqueBy to include 'Assembly'
-                $uniqueBy = ['POSCode', 'ItemCode', 'Assembly']; 
+                $uniqueBy = ['POSCode', 'ItemCode', 'Assembly'];    
 
                 $updateColumns = [
                     'POSDescription', 'ItemDescription', 'RecPercent',

@@ -39,19 +39,20 @@ class POSMasterfileImport implements ToModel, WithHeadingRow, WithBatchInserts, 
     /**
      * Adds a skipped item to the internal list.
      *
-     * @param string|null $itemCode
-     * @param string|null $itemDescription
+     * @param string|null $posCode
+     * @param string|null $posDescription
      * @param string $reason
      * @return void
      */
-    protected function addSkippedItem(?string $itemCode, ?string $itemDescription, string $reason): void
+    // CRITICAL FIX: Changed parameters to posCode and posDescription for clarity and consistency
+    protected function addSkippedItem(?string $posCode, ?string $posDescription, string $reason): void
     {
         $this->skippedItems[] = [
-            'item_code' => $itemCode,
-            'item_description' => $itemDescription,
+            'pos_code' => $posCode, // Changed from item_code
+            'pos_description' => $posDescription, // Changed from item_description
             'reason' => $reason,
         ];
-        Log::warning("POSMasterfileImport: Skipped item - ItemCode: '{$itemCode}', Description: '{$itemDescription}', Reason: '{$reason}'");
+        Log::warning("POSMasterfileImport: Skipped item - POS Code: '{$posCode}', Description: '{$posDescription}', Reason: '{$reason}'");
     }
 
     /**
@@ -76,25 +77,27 @@ class POSMasterfileImport implements ToModel, WithHeadingRow, WithBatchInserts, 
         Log::debug('POSMasterfileImport: Available row keys: ' . implode(', ', array_keys($row)));
 
 
-        // Robustly get ItemCode, checking for common header variations
-        // Ensure you use the exact header name from your Excel file here if none of these work.
-        $itemCode = (string) ($row['item_code'] ?? $row['Item Code'] ?? $row['ItemCode'] ?? null);
-        $itemDescription = (string) ($row['item_description'] ?? $row['Item Description'] ?? $row['ItemDescription'] ?? null);
+        // Robustly get POSCode and POSDescription, checking for common header variations
+        // CRITICAL FIX: Changed variable names and checked keys to match new column names
+        $posCode = (string) ($row['pos_code'] ?? $row['POS Code'] ?? $row['POSCode'] ?? $row['item_code'] ?? $row['Item Code'] ?? $row['ItemCode'] ?? null);
+        $posDescription = (string) ($row['pos_description'] ?? $row['POS Description'] ?? $row['POSDescription'] ?? $row['item_description'] ?? $row['Item Description'] ?? $row['ItemDescription'] ?? null);
         $category = (string) ($row['category'] ?? $row['Category'] ?? null);
         $subCategory = (string) ($row['subcategory'] ?? $row['SubCategory'] ?? null);
         $srp = (float) str_replace(',', '', ($row['srp'] ?? $row['SRP'] ?? 0));
         $isActive = (int) ($row['active'] ?? $row['Active'] ?? 1); // Default to 1 if not provided
 
-        // Trim whitespace from itemCode and check if it's empty
-        if (empty(trim($itemCode))) {
-            $this->addSkippedItem($itemCode, $itemDescription, 'Item Code is missing or empty.');
-            Log::warning("POSMasterfileImport: Skipping row due to blank Item Code after robust check: " . json_encode($row));
+        // Trim whitespace from posCode and check if it's empty
+        if (empty(trim($posCode))) {
+            // CRITICAL FIX: Pass posCode and posDescription to addSkippedItem
+            $this->addSkippedItem($posCode, $posDescription, 'POS Code is missing or empty.');
+            Log::warning("POSMasterfileImport: Skipping row due to blank POS Code after robust check: " . json_encode($row));
             return null; // Skip this row
         }
 
+        // CRITICAL FIX: Updated model instantiation to use POSCode and POSDescription
         $posMasterfile = new POSMasterfile([
-            'ItemCode' => $itemCode,
-            'ItemDescription' => $itemDescription,
+            'POSCode' => $posCode,
+            'POSDescription' => $posDescription,
             'Category' => $category,
             'SubCategory' => $subCategory,
             'SRP' => $srp,
@@ -115,7 +118,7 @@ class POSMasterfileImport implements ToModel, WithHeadingRow, WithBatchInserts, 
      */
     public function uniqueBy()
     {
-        return 'ItemCode';
+        return 'POSCode'; // CRITICAL FIX: Changed from ItemCode to POSCode
     }
 
     /**

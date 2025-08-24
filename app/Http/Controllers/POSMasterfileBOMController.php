@@ -33,11 +33,11 @@ class POSMasterfileBOMController extends Controller
         if ($search) {
             $query->where(function ($q) use ($search) {
                 $q->where('POSCode', 'like', "%{$search}%")
-                  ->orWhere('POSDescription', 'like', "%{$search}%")
-                  ->orWhere('ItemCode', 'like', "%{$search}%")
-                  ->orWhere('ItemDescription', 'like', "%{$search}%")
-                  ->orWhere('RecipeUOM', 'like', "%{$search}%")
-                  ->orWhere('BOMUOM', 'like', "%{$search}%");
+                    ->orWhere('POSDescription', 'like', "%{$search}%")
+                    ->orWhere('ItemCode', 'like', "%{$search}%")
+                    ->orWhere('ItemDescription', 'like', "%{$search}%")
+                    ->orWhere('RecipeUOM', 'like', "%{$search}%")
+                    ->orWhere('BOMUOM', 'like', "%{$search}%");
             });
         }
 

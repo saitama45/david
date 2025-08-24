@@ -64,7 +64,8 @@ const formatSkippedItemsMessage = (items) => {
 
     let message = 'The following items were skipped during import due to validation issues:\n\n';
     items.forEach(item => {
-        message += `- Item Code: ${item.item_code || 'N/A'}, Description: ${item.item_description || 'N/A'}, Reason: ${item.reason}\n`;
+        // Use 'pos_code' and 'pos_description' as keys based on POSMasterfileImport's addSkippedItem
+        message += `- POS Code: ${item.pos_code || 'N/A'}, Description: ${item.pos_description || 'N/A'}, Reason: ${item.reason}\n`;
     });
     return message;
 };
@@ -194,8 +195,8 @@ onMounted(() => {
             <Table>
                 <TableHead>
                    <TH>Id</TH>
-                    <TH>Item Code</TH>
-                    <TH>Item Desc</TH>
+                    <TH>POS Code</TH> <!-- Changed from Item Code -->
+                    <TH>POS Desc</TH> <!-- Changed from Item Desc -->
                     <TH>Category</TH>
                     <TH>SubCategory</TH>
                     <TH>SRP</TH>
@@ -206,8 +207,8 @@ onMounted(() => {
                 <TableBody>
                     <tr v-for="item in items.data" :key="item.id">
                         <TD>{{ item.id }}</TD>
-                        <TD>{{ item.ItemCode }}</TD>
-                        <TD>{{ item.ItemDescription }}</TD>
+                        <TD>{{ item.POSCode }}</TD> <!-- Changed from item.ItemCode -->
+                        <TD>{{ item.POSDescription }}</TD> <!-- Changed from item.ItemDescription -->
                         <TD>{{ item.Category }}</TD>
                         <TD>{{ item.SubCategory }}</TD>
                         <TD>{{ item.SRP }}</TD>
@@ -239,7 +240,7 @@ onMounted(() => {
             <MobileTableContainer>
                 <MobileTableRow v-for="item in items.data" :key="item.id">
                     <MobileTableHeading
-                        :title="`${item.ItemDescription} (${item.ItemCode})`" >
+                        :title="`${item.POSDescription} (${item.POSCode})`" > <!-- Changed from ItemDescription and ItemCode -->
                         <ShowButton
                             v-if="hasAccess('view item')"
                             :isLink="true"
@@ -258,9 +259,9 @@ onMounted(() => {
                             "
                         />
                     </MobileTableHeading>
-                    <LabelXS>Item Code: {{ item.ItemCode }}</LabelXS>
-                    <LabelXS>Item Desc: {{ item.ItemDescription }}</LabelXS>
-                    <LabelXS>Cateogyr: {{ item.Category }}</LabelXS>
+                    <LabelXS>POS Code: {{ item.POSCode }}</LabelXS> <!-- Changed from Item Code -->
+                    <LabelXS>POS Desc: {{ item.POSDescription }}</LabelXS> <!-- Changed from Item Desc -->
+                    <LabelXS>Category: {{ item.Category }}</LabelXS>
                     <LabelXS>SubCategory: {{ item.SubCategory }}</LabelXS>
                     <LabelXS>SRP: {{ item.SRP }}</LabelXS>
                     <LabelXS>Active: {{ Number(item.is_active) ? 'Yes' : 'No' }}</LabelXS>
@@ -321,3 +322,4 @@ onMounted(() => {
         </Dialog>
     </Layout>
 </template>
+
