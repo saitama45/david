@@ -3,6 +3,8 @@ import { router } from "@inertiajs/vue3";
 import { usePage } from "@inertiajs/vue3";
 import { throttle } from "lodash";
 import { useSelectOptions } from "@/Composables/useSelectOptions";
+import { ref, watch, computed } from 'vue'; // Explicitly import ref, watch, computed
+
 const { options: branchesOptions } = useSelectOptions(branches);
 const { transactions, order_date, branches } = defineProps({
     transactions: {
@@ -18,6 +20,7 @@ const { transactions, order_date, branches } = defineProps({
         required: false,
     },
 });
+
 const createNewTransaction = () => {
     router.get(route("store-transactions.create"));
 };
@@ -29,7 +32,7 @@ let from = ref(usePage().props.from ?? null);
 let to = ref(usePage().props.to ?? null);
 
 const branchId = ref(
-    usePage().props.filters.branchId || branchesOptions.value[0].value
+    usePage().props.filters.branchId || (branchesOptions.value.length > 0 ? branchesOptions.value[0].value : null) // Safely initialize
 );
 
 watch(from, (value) => {
@@ -100,10 +103,10 @@ watch(
 );
 
 const resetFilter = () => {
-    (from.value = null),
-        (to.value = null),
-        (branchId.value = null),
-        (search.value = null);
+    from.value = null;
+    to.value = null;
+    branchId.value = branchesOptions.value.length > 0 ? branchesOptions.value[0].value : null; // Reset to first branch or null
+    search.value = null;
 };
 
 const exportRoute = computed(() =>
@@ -135,7 +138,7 @@ const exportRoute = computed(() =>
                 <DivFlexCenter class="gap-5">
                     <Select
                         filter
-                        placeholder="Select a Supplier"
+                        placeholder="Select a Branch"
                         v-model="branchId"
                         :options="branchesOptions"
                         optionLabel="label"
@@ -173,7 +176,7 @@ const exportRoute = computed(() =>
                     <TH>Actions</TH>
                 </TableHead>
                 <TableBody>
-                    <tr v-for="transaction in transactions.data">
+                    <tr v-for="transaction in transactions.data" :key="transaction.id">
                         <TD>{{ transaction.id }}</TD>
                         <TD>{{ transaction.store_branch }}</TD>
                         <TD>{{ transaction.receipt_number }}</TD>

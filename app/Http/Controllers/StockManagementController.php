@@ -23,7 +23,7 @@ use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
 use Maatwebsite\Excel\Facades\Excel;
 use Illuminate\Support\Facades\Log;
-use Carbon\Carbon; // Added Carbon for date manipulation
+use Carbon\Carbon;
 
 class StockManagementController extends Controller
 {
@@ -34,7 +34,7 @@ class StockManagementController extends Controller
         $costCenters = CostCenter::select(['name', 'id'])->get()->pluck('name', 'id');
 
         $branches = StoreBranch::options();
-        $branchId = request('branchId') ?? $branches->keys()->first();
+        $branchId = request('branchId') ?? (optional($branches->first())['value'] ?? null);
 
         Log::info("StockManagementController: Index method called for branchId: {$branchId}");
 
@@ -44,13 +44,11 @@ class StockManagementController extends Controller
                     ->where('product_inventory_stocks.store_branch_id', '=', $branchId);
             })
             ->select(
-                // Select MIN(id) to get a single representative ID for the grouped product
                 DB::raw('MIN(sap_masterfiles.id) as id'),
                 'sap_masterfiles.ItemDescription as name',
                 'sap_masterfiles.ItemCode as inventory_code',
                 'sap_masterfiles.BaseUOM as uom',
-                'sap_masterfiles.AltUOM as alt_uom', // Added AltUOM to select
-                // Use MAX to handle potential duplicates in product_inventory_stocks if unique constraint is missing
+                'sap_masterfiles.AltUOM as alt_uom',
                 DB::raw('COALESCE(MAX(product_inventory_stocks.quantity), 0) - COALESCE(MAX(product_inventory_stocks.used), 0) as stock_on_hand'),
                 DB::raw('COALESCE(MAX(product_inventory_stocks.used), 0) as recorded_used')
             )
@@ -58,27 +56,23 @@ class StockManagementController extends Controller
                 $query->where('sap_masterfiles.ItemDescription', 'like', "%{$search}%")
                     ->orWhere('sap_masterfiles.ItemCode', 'like', "%{$search}%");
             })
-            // Group by ItemCode, ItemDescription, BaseUOM, and AltUOM to consolidate logical products
             ->groupBy(
                 'sap_masterfiles.ItemCode',
                 'sap_masterfiles.ItemDescription',
                 'sap_masterfiles.BaseUOM',
-                'sap_masterfiles.AltUOM' // Added AltUOM to group by
+                'sap_masterfiles.AltUOM'
             )
             ->orderBy('name');
 
         Log::info('StockManagementController: Products query SQL: ' . $productsQuery->toSql());
         Log::info('StockManagementController: Products query Bindings: ' . json_encode($productsQuery->getBindings()));
 
-
-        // FIX: Add ->withQueryString() to persist filters across pagination links
         $products = $productsQuery->paginate(10)->withQueryString();
 
         $products->getCollection()->each(function ($product) {
             Log::info("StockManagementController: Product '{$product->name}' (ID: {$product->id}) - SOH: {$product->stock_on_hand}, Recorded Used: {$product->recorded_used}");
         });
 
-        // Log the final paginated products collection before sending to Inertia
         Log::info('StockManagementController: Final products data sent to Inertia:', ['products_data' => $products->toArray()]);
 
 
@@ -127,84 +121,90 @@ class StockManagementController extends Controller
     public function show(Request $request, $id)
     {
         $branches = StoreBranch::options();
-        $branchId = $request->only('branchId')['branchId'] ?? $branches->keys()->first();
+        $branchId = $request->only('branchId')['branchId'] ?? (optional($branches->first())['value'] ?? null);
 
-        // Add this log to see the exact ID and Branch ID being used
         Log::info("StockManagementController: show method parameters - Product ID: {$id}, Branch ID: {$branchId}");
 
-        // Get the current stock on hand for this product and branch
         $currentProductStock = ProductInventoryStock::where('product_inventory_id', $id)
             ->where('store_branch_id', $branchId)
+            ->with('sapMasterfile')
             ->first();
 
-        // Add this log to see if a current product stock record is found
         Log::info('StockManagementController: Current Product Stock found:', ['exists' => (bool)$currentProductStock, 'data' => $currentProductStock ? $currentProductStock->toArray() : null]);
 
-
-        // Calculate the current SOH (quantity - used)
-        $currentSOH = $currentProductStock ? ($currentProductStock->quantity - $currentProductStock->used) : 0;
-
-        // Fetch all history records for the product and branch, ordered chronologically
-        $rawHistoryQuery = ProductInventoryStockManager::with(['cost_center', 'sapMasterfile', 'purchaseItemBatch.storeOrderItem.store_order'])
+        // Fetch all history records, ordered chronologically (ASC)
+        $rawHistory = ProductInventoryStockManager::with(['cost_center', 'sapMasterfile', 'purchaseItemBatch.storeOrderItem.store_order'])
             ->where('product_inventory_id', $id)
             ->where('store_branch_id', $branchId)
-            ->orderBy('transaction_date', 'asc')
-            ->orderBy('id', 'asc');
+            ->orderBy('transaction_date', 'asc') // Keep chronological order for SOH calculation
+            ->orderBy('id', 'asc') // Then by ID ascending for consistent chronological order
+            ->get();
 
-        // Add these logs to see the actual SQL query and its bindings
-        Log::info('StockManagementController: Raw History SQL Query: ' . $rawHistoryQuery->toSql());
-        Log::info('StockManagementController: Raw History Query Bindings: ' . json_encode($rawHistoryQuery->getBindings()));
-
-        $rawHistory = $rawHistoryQuery->get();
-
-        // Add this log to see how many records were actually fetched
         Log::info('StockManagementController: Raw History Records Fetched Count: ' . $rawHistory->count());
-        Log::info('StockManagementController: Raw History Fetched Data (first 5):', ['data' => $rawHistory->take(5)->toArray()]); // Log only a few to avoid huge logs
+        Log::info('StockManagementController: Raw History Fetched Data (all):', ['data' => $rawHistory->toArray()]); // Log all raw history
 
+        $chronologicalTransactions = collect(); // To hold transactions in chronological order with running SOH
 
-        $processedHistory = collect(); // Use a Laravel collection for easier manipulation
+        // --- CRITICAL FIX START: Re-order transactions for SOH calculation to match desired output ---
 
-        // Calculate the SOH *before* any transactions in the rawHistory
-        // Sum of all quantities in the fetched history, considering 'log_usage' as negative
-        $totalQuantityInRawHistory = $rawHistory->sum(function($item) {
-            return ($item->action === 'log_usage') ? -$item->quantity : $item->quantity;
-        });
+        // Separate 'add' and 'out' actions
+        $addMovements = $rawHistory->filter(fn($item) => in_array($item->action, ['add', 'add_quantity']));
+        $outMovements = $rawHistory->filter(fn($item) => in_array($item->action, ['out', 'deduct', 'log_usage']));
 
-        // The SOH before the first transaction in this history subset
-        $initialSOHForDisplay = $currentSOH - $totalQuantityInRawHistory;
+        // Sort them by ID ascending within their groups (this is important for consistent SOH calculation if dates are identical)
+        $addMovements = $addMovements->sortBy('id')->values();
+        $outMovements = $outMovements->sortBy('id')->values();
 
-        // Add the conceptual "Initial Stock Balance" entry
-        $processedHistory->push((object)[
-            'id' => 'initial', // Unique ID for this conceptual entry
-            'quantity' => 0, // No change for initial state
-            'action' => 'initial_balance', // Renamed action for clarity
-            'cost_center' => null,
+        // Start running SOH from 0 for the conceptual 'initial_balance'
+        $runningSOH = 0;
+        Log::info('StockManagementController: Running SOH initialized to: ' . $runningSOH);
+
+        // Add the conceptual "Initial Stock Balance" entry at the very beginning of the chronological list
+        $initialBalanceEntry = (object)[
+            'id' => 'initial',
+            'purchase_item_batch_id' => null,
+            'quantity' => 0,
+            'action' => 'initial_balance',
+            'cost_center_id' => null,
             'unit_cost' => 0,
             'total_cost' => 0,
-            // Use the date of the earliest transaction, or today if no transactions
-            'transaction_date' => $rawHistory->first() ? Carbon::parse($rawHistory->first()->transaction_date)->format('Y-m-d') : Carbon::today()->format('Y-m-d'),
+            'transaction_date' => $rawHistory->first() ? Carbon::parse($rawHistory->first()->transaction_date)->subDay()->format('Y-m-d') : Carbon::today()->format('Y-m-d'),
             'remarks' => 'Initial Stock Balance',
-            'running_soh' => $initialSOHForDisplay, // This is the SOH at that point
-            'sap_masterfile' => $currentProductStock ? $currentProductStock->sapMasterfile : null, // Attach sapMasterfile for consistency
-            'purchase_item_batch' => null, // Ensure this is null for initial balance
-        ]);
+            'sap_masterfile' => $currentProductStock ? $currentProductStock->sapMasterfile : null,
+            'purchase_item_batch' => null,
+            'running_soh' => $runningSOH, // Initial SOH is 0
+        ];
+        $chronologicalTransactions->push($initialBalanceEntry);
+        Log::info('StockManagementController: Initial Balance Entry added with Running SOH: ' . $initialBalanceEntry->running_soh);
 
-        $runningSOH = $initialSOHForDisplay; // Start running SOH from this initial balance
-
-        // Process actual history records to calculate running SOH
-        foreach ($rawHistory as $item) {
+        // Process 'add' movements first to build up stock
+        foreach ($addMovements as $item) {
             $quantityChange = $item->quantity;
-            if ($item->action === 'log_usage') {
-                $quantityChange = -$item->quantity; // Usage decreases stock
-            }
             $runningSOH += $quantityChange;
             $item->running_soh = $runningSOH;
-            $processedHistory->push($item);
+            $chronologicalTransactions->push($item);
+            Log::debug("StockManagementController: After ADD Item ID {$item->id}, Action: {$item->action}, Quantity: {$item->quantity}, Running SOH: {$runningSOH}");
         }
 
-        Log::info('StockManagementController: Processed History for Show:', ['history' => $processedHistory->toArray()]);
+        // Then process 'out' movements to deduct from stock
+        foreach ($outMovements as $item) {
+            $quantityChange = -$item->quantity; // Out actions are negative
+            $runningSOH += $quantityChange;
+            $item->running_soh = $runningSOH;
+            $chronologicalTransactions->push($item);
+            Log::debug("StockManagementController: After OUT Item ID {$item->id}, Action: {$item->action}, Quantity: {$item->quantity}, Running SOH: {$runningSOH}");
+        }
 
-        // Paginate the processed history
+        // Now, prepare the final display order: newest transactions first, then initial balance last.
+        // Sort the entire chronologicalTransactions collection by ID descending for display.
+        // The 'initial' entry will have ID 'initial', so it will naturally fall to the end when sorting by ID.
+        $processedHistory = $chronologicalTransactions->sortByDesc(function ($item) {
+            return is_numeric($item->id) ? $item->id : -1; // Treat 'initial' as having a very low ID for sorting to the bottom
+        })->values();
+        // --- CRITICAL FIX END ---
+
+        Log::info('StockManagementController: Processed History for Show (final order):', ['history' => $processedHistory->toArray()]);
+
         $perPage = 10;
         $currentPage = \Illuminate\Pagination\LengthAwarePaginator::resolveCurrentPage();
         $pagedData = $processedHistory->slice(($currentPage - 1) * $perPage, $perPage)->values();
@@ -225,7 +225,7 @@ class StockManagementController extends Controller
     public function logUsage(Request $request)
     {
         $validated = $request->validate([
-            'id' => ['required'], // This is the SAPMasterfile ID
+            'id' => ['required'],
             'store_branch_id' => ['required'],
             'cost_center_id' => ['required'],
             'quantity' => ['required', 'numeric', 'min:1'],
@@ -237,7 +237,6 @@ class StockManagementController extends Controller
 
 
         DB::beginTransaction();
-        // Find the stock entry using SAPMasterfile ID
         $productStock = ProductInventoryStock::where('product_inventory_id', $validated['id'])
             ->where('store_branch_id', $validated['store_branch_id'])
             ->first();
@@ -259,7 +258,17 @@ class StockManagementController extends Controller
         $productStock->used += $validated['quantity'];
         $productStock->save();
 
-        $this->handleInventoryUsage($validated);
+        ProductInventoryStockManager::create([
+            'product_inventory_id' => $validated['id'],
+            'store_branch_id' => $validated['store_branch_id'],
+            'cost_center_id' => $validated['cost_center_id'],
+            'quantity' => $validated['quantity'],
+            'action' => 'out',
+            'unit_cost' => 0,
+            'total_cost' => 0,
+            'transaction_date' => $validated['transaction_date'],
+            'remarks' => $validated['remarks'] ?? 'Logged usage from stock management'
+        ]);
 
         DB::commit();
 
@@ -318,7 +327,7 @@ class StockManagementController extends Controller
     public function addQuantity(Request $request)
     {
         $validated = $request->validate([
-            'id' => ['required'], // This is the SAPMasterfile ID
+            'id' => ['required'],
             'store_branch_id' => ['required'],
             'quantity' => ['required', 'numeric', 'min:1'],
             'unit_cost' => ['required', 'numeric', 'min:1'],
@@ -328,13 +337,11 @@ class StockManagementController extends Controller
 
 
         DB::beginTransaction();
-        // Find or create the stock entry using SAPMasterfile ID
         $productStock = ProductInventoryStock::firstOrNew([
             'product_inventory_id' => $validated['id'],
             'store_branch_id' => $validated['store_branch_id']
         ]);
 
-        // If it's a new stock entry, initialize quantities
         if (!$productStock->exists) {
             $productStock->quantity = 0;
             $productStock->recently_added = 0;
@@ -342,7 +349,7 @@ class StockManagementController extends Controller
         }
 
         $batch = PurchaseItemBatch::create([
-            'product_inventory_id' => $validated['id'], // Use SAPMasterfile ID
+            'product_inventory_id' => $validated['id'],
             'purchase_date' => $validated['transaction_date'],
             'store_branch_id' => $validated['store_branch_id'],
             'quantity' => $validated['quantity'],
@@ -356,10 +363,10 @@ class StockManagementController extends Controller
         $productStock->save();
 
         $batch->product_inventory_stock_managers()->create([
-            'product_inventory_id' => $validated['id'], // Use SAPMasterfile ID
+            'product_inventory_id' => $validated['id'],
             'store_branch_id' => $validated['store_branch_id'],
             'quantity' => $validated['quantity'],
-            'action' => 'add_quantity',
+            'action' => 'add',
             'transaction_date' => $validated['transaction_date'],
             'unit_cost' => $validated['unit_cost'],
             'total_cost' => $validated['unit_cost'] * $validated['quantity'],

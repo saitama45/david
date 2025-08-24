@@ -31,4 +31,11 @@ class POSMasterfile extends Model implements Auditable
     protected $primaryKey = 'id';
     public $incrementing = true; // Assuming id is not auto-incrementing
 
+    /**
+     * Get the POSMasterfileBOM entries (ingredients) for this POS item.
+     */
+    public function posMasterfileBOMs()
+    {
+        return $this->hasMany(POSMasterfileBOM::class, 'POSCode', 'POSCode');
+    }
 }

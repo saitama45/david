@@ -9,7 +9,7 @@ use App\Http\Requests\StoreTransaction\UpdateStoreTransactionRequest;
 use App\Http\Services\StoreTransactionService;
 use App\Imports\StoreTransactionImport;
 use App\Jobs\StartImportJob;
-use App\Models\Menu;
+use App\Models\POSMasterfile;
 use App\Models\StoreBranch;
 use App\Models\StoreTransaction;
 use App\Models\StoreTransactionItem;
@@ -21,7 +21,7 @@ use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
 use Maatwebsite\Excel\Facades\Excel;
-
+use Illuminate\Support\Facades\Log; // Ensure Log facade is imported
 
 class StoreTransactionController extends Controller
 {
@@ -38,7 +38,7 @@ class StoreTransactionController extends Controller
         $to = request('to') ? Carbon::parse(request('to'))->format('Y-m-d') : Carbon::today()->addMonth();
 
         $branches = StoreBranch::options();
-        $branchId = request('branchId') ?? $branches->keys()->first();
+        $branchId = request('branchId') ?? (optional($branches->first())['value'] ?? null);
 
         $transactions = StoreTransaction::query()
             ->leftJoin('store_transaction_items', 'store_transactions.id', '=', 'store_transaction_items.store_transaction_id')
@@ -56,7 +56,7 @@ class StoreTransactionController extends Controller
                 return [
                     'order_date' => $transaction->order_date,
                     'transaction_count' => $transaction->transaction_count,
-                    'net_total' => str_pad($transaction->net_total ?? 0, 2, '0', STR_PAD_RIGHT),
+                    'net_total' => number_format($transaction->net_total ?? 0, 2, '.', ''),
                 ];
             });
 
@@ -115,6 +115,7 @@ class StoreTransactionController extends Controller
     {
         ini_set('memory_limit', '512M');
         set_time_limit(1000900000000000000);
+
         $request->validate([
             'store_transactions_file' => [
                 'required',
@@ -122,21 +123,55 @@ class StoreTransactionController extends Controller
                 'mimes:xlsx,xls,csv',
             ]
         ]);
+
+        DB::beginTransaction();
         try {
-            Excel::import(new StoreTransactionImport, $request->file('store_transactions_file'));
+            $import = new StoreTransactionImport;
+            Excel::import($import, $request->file('store_transactions_file'));
+            DB::commit();
+
+            $skippedRows = $import->getSkippedRows();
+
+            if (!empty($skippedRows)) {
+                session()->flash('skipped_import_rows', $skippedRows);
+                session()->flash('warning', 'Store transactions imported with some skipped rows. Please check the details below.');
+                // --- DEBUG LOG START ---
+                Log::debug('Flash messages set for skipped rows:', [
+                    'skipped_import_rows' => session('skipped_import_rows'),
+                    'warning' => session('warning')
+                ]);
+                // --- DEBUG LOG END ---
+                return back();
+            }
+
+            session()->flash('success', 'Store transactions imported successfully.');
+            // --- DEBUG LOG START ---
+            Log::debug('Flash message set for success:', [
+                'success' => session('success')
+            ]);
+            // --- DEBUG LOG END ---
             return back();
+
         } catch (Exception $e) {
-            return response()->json(['message' => $e->getMessage()], 422);
+            DB::rollBack();
+            Log::error("StoreTransaction Import Error: " . $e->getMessage(), ['trace' => $e->getTraceAsString()]);
+            session()->flash('error', 'Import failed: ' . $e->getMessage());
+            // --- DEBUG LOG START ---
+            Log::debug('Flash message set for error:', [
+                'error' => session('error')
+            ]);
+            // --- DEBUG LOG END ---
+            return back()->withInput();
         }
     }
 
 
     public function create()
     {
-        $menus = Menu::options();
+        $posMasterfiles = POSMasterfile::options();
         $branches = StoreBranch::options();
         return Inertia::render('StoreTransaction/Create', [
-            'menus' => $menus,
+            'posMasterfiles' => $posMasterfiles,
             'branches' => $branches
         ]);
     }
@@ -144,31 +179,31 @@ class StoreTransactionController extends Controller
     public function update(UpdateStoreTransactionRequest $request, StoreTransaction $storeTransaction)
     {
         $this->storeTransactionService->updateStoreTransaction($storeTransaction, $request->validated());
-        return to_route('store-transactions.index');
+        return to_route('store-transactions.index')->with('success', 'Store transaction updated successfully.');
     }
 
     public function store(StoreStoreTransactionRequest $request)
     {
         $this->storeTransactionService->createStoreTransaction($request->validated());
-        return to_route('store-transactions.index');
+        return to_route('store-transactions.index')->with('success', 'Store transaction created successfully.');
     }
 
     public function edit(StoreTransaction $storeTransaction)
     {
-        $menus = Menu::options();
+        $posMasterfiles = POSMasterfile::options();
         $branches = StoreBranch::options();
-        $transaction =  $storeTransaction->load(['store_transaction_items.menu']);
+        $transaction =  $storeTransaction->load(['store_transaction_items.posMasterfile']);
 
         return Inertia::render('StoreTransaction/Edit', [
             'transaction' => $transaction,
-            'menus' => $menus,
+            'posMasterfiles' => $posMasterfiles,
             'branches' => $branches
         ]);
     }
 
     public function show(StoreTransaction $storeTransaction)
     {
-        $transaction = $storeTransaction->load(['store_transaction_items.menu', 'store_branch']);
+        $transaction = $storeTransaction->load(['store_transaction_items.posMasterfile', 'store_branch']);
         $transaction = $this->storeTransactionService->getTransactionDetails($transaction);
 
         return Inertia::render('StoreTransaction/Show', [

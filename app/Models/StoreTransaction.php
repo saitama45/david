@@ -25,6 +25,11 @@ class StoreTransaction extends Model implements Auditable
         'remarks', // Nullable
     ];
 
+    protected $casts = [
+        'is_approved' => 'boolean', // Cast to boolean
+        'order_date' => 'date',
+    ];
+
     public function store_branch()
     {
         return $this->belongsTo(StoreBranch::class);

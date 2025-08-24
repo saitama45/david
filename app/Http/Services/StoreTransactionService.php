@@ -19,7 +19,7 @@ class StoreTransactionService
 
         foreach ($data['items'] as $item) {
             $transaction->store_transaction_items()->create([
-                'product_id' => $item['product_id'],
+                'product_id' => $item['product_id'], // This is now POSMasterfile.id
                 'base_quantity' => $item['quantity'],
                 'quantity' => $item['quantity'],
                 'price' => $item['price'],
@@ -33,10 +33,13 @@ class StoreTransactionService
 
     public function getTransactionDetails(StoreTransaction $transaction)
     {
+        $transaction->load('store_transaction_items.posMasterfile');
+
         $items = $transaction->store_transaction_items->map(function ($item) {
             return [
-                'product_id' => $item->menu->product_id,
-                'name' => $item->menu->name,
+                'product_id' => $item->posMasterfile->id,
+                'pos_code' => $item->posMasterfile->POSCode,
+                'name' => $item->posMasterfile->POSDescription,
                 'base_quantity' => $item->base_quantity,
                 'quantity' => $item->quantity,
                 'price' => $item->price,
@@ -57,7 +60,8 @@ class StoreTransactionService
             'cancel_reason' => $transaction->cancel_reason ?? 'N/a',
             'reference_number' => $transaction->reference_number ?? 'N/a',
             'remarks' => $transaction->remarks ?? 'N/a',
-            'items' => $items
+            'items' => $items,
+            // 'is_approved' => $transaction->is_approved, // Removed as it's no longer needed
         ];
     }
 
@@ -69,7 +73,7 @@ class StoreTransactionService
         $branchId = request('branchId');
         $order_date = request('order_date');
 
-        $query = StoreTransaction::query()->with(['store_transaction_items', 'store_branch'])
+        $query = StoreTransaction::query()->with(['store_transaction_items.posMasterfile', 'store_branch'])
             ->where('store_branch_id', $branchId);
 
         $user = User::rolesAndAssignedBranches();
@@ -80,15 +84,12 @@ class StoreTransactionService
             $query->where('order_date', $order_date);
         }
 
-
-
         if ($from && $to) {
             $query->whereBetween('order_date', [$from, $to]);
         }
 
         if ($branchId)
             $query->where('store_branch_id', $branchId);
-
 
         if ($search)
             $query->where('receipt_number', 'like', "%$search%");
@@ -99,8 +100,9 @@ class StoreTransactionService
                 'store_branch' => $item->store_branch->name,
                 'receipt_number' => $item->receipt_number,
                 'item_count' => $item->store_transaction_items->count(),
-                'net_total' => str_pad($item->store_transaction_items->sum('net_total'), 2),
-                'order_date' => $item->order_date
+                'net_total' => number_format($item->store_transaction_items->sum('net_total'), 2),
+                'order_date' => $item->order_date,
+                // 'is_approved' => $item->is_approved, // Removed as it's no longer needed
             ];
         });
 
@@ -115,8 +117,9 @@ class StoreTransactionService
         $branchId = request('branchId');
         $order_date = request('order_date');
 
-        $query = StoreTransaction::query()->with(['store_transaction_items', 'store_branch'])
+        $query = StoreTransaction::query()->with(['store_transaction_items.posMasterfile', 'store_branch'])
             ->where('store_branch_id', $branchId);
+            // Removed ->where('is_approved', false) to show all transactions for approval page
 
         $user = User::rolesAndAssignedBranches();
         if (!$user['isAdmin']) $query->whereIn('store_branch_id', $user['assignedBranches']);
@@ -125,8 +128,6 @@ class StoreTransactionService
         if (!$from && !$to && $order_date) {
             $query->where('order_date', $order_date);
         }
-
-
 
         if ($from && $to) {
             $query->whereBetween('order_date', [$from, $to]);
@@ -145,8 +146,9 @@ class StoreTransactionService
                 'store_branch' => $item->store_branch->name,
                 'receipt_number' => $item->receipt_number,
                 'item_count' => $item->store_transaction_items->count(),
-                'net_total' => str_pad($item->store_transaction_items->sum('net_total'), 2),
-                'order_date' => $item->order_date
+                'net_total' => number_format($item->store_transaction_items->sum('net_total'), 2),
+                'order_date' => $item->order_date,
+                // 'is_approved' => $item->is_approved, // Removed as it's no longer needed
             ];
         });
 

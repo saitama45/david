@@ -2,11 +2,14 @@
 
 namespace App\Imports;
 
-use App\Models\Menu;
+use App\Models\POSMasterfile;
+use App\Models\POSMasterfileBOM;
 use App\Models\ProductInventoryStock;
 use App\Models\ProductInventoryStockManager;
+use App\Models\SAPMasterfile;
 use App\Models\StoreBranch;
 use App\Models\StoreTransaction;
+use App\Models\StoreTransactionItem;
 use App\Models\WIP;
 use App\Traits\InventoryUsage;
 use Exception;
@@ -17,12 +20,13 @@ use Maatwebsite\Excel\Concerns\ToModel;
 use Maatwebsite\Excel\Concerns\WithHeadingRow;
 use Maatwebsite\Excel\Concerns\WithStartRow;
 
-class StoreTransactionImport implements ToModel, WithStartRow, WithHeadingRow
+class StoreTransactionImport implements ToModel, WithHeadingRow, WithStartRow
 {
     use InventoryUsage;
     private $emptyRowCount = 0;
     private $maxEmptyRows = 5;
     private $rowNumber = 0;
+    protected $skippedRows = [];
 
     public function startRow(): int
     {
@@ -37,12 +41,14 @@ class StoreTransactionImport implements ToModel, WithStartRow, WithHeadingRow
     public function model(array $row)
     {
         $this->rowNumber++;
+        $currentRawRow = $row;
+
         Log::info('Processing row ' . $this->rowNumber, [
-            'raw_data' => $row,
-            'headers_found' => array_keys($row)
+            'raw_data' => $currentRawRow,
+            'headers_found' => array_keys($currentRawRow)
         ]);
 
-        foreach ($row as $value) {
+        foreach ($currentRawRow as $value) {
             if (is_string($value) && stripos($value, 'NOTHING FOLLOWS') !== false) {
                 Log::info('Found "NOTHING FOLLOWS". Ending import.', [
                     'row_number' => $this->rowNumber
@@ -51,11 +57,16 @@ class StoreTransactionImport implements ToModel, WithStartRow, WithHeadingRow
             }
         }
 
-        if (is_string($row['product_name']) && stripos($row['product_name'], 'SUBTOTAL:') !== false) {
+        if (is_string($currentRawRow['product_name']) && stripos($currentRawRow['product_name'], 'SUBTOTAL:') !== false) {
             return null;
         }
 
-        if (empty($row['product_id'])) {
+        if (empty($currentRawRow['product_id'])) {
+            $this->skippedRows[] = [
+                'row_number' => $this->rowNumber,
+                'reason' => 'Product ID is missing or empty.',
+                'data' => $currentRawRow
+            ];
             $this->emptyRowCount++;
             if ($this->emptyRowCount >= $this->maxEmptyRows) {
                 return null;
@@ -66,187 +77,182 @@ class StoreTransactionImport implements ToModel, WithStartRow, WithHeadingRow
         $this->emptyRowCount = 0;
 
         try {
-            $branch = StoreBranch::where('location_code', $row['branch'])->first();
+            $branch = StoreBranch::where('location_code', $currentRawRow['branch'])->first();
 
             if (!$branch) {
+                $this->skippedRows[] = [
+                    'row_number' => $this->rowNumber,
+                    'reason' => 'Branch not found: ' . $currentRawRow['branch'],
+                    'data' => $currentRawRow
+                ];
                 Log::error('Branch not found', [
-                    'location_code' => $row['branch'],
+                    'location_code' => $currentRawRow['branch'],
                     'row_number' => $this->rowNumber
                 ]);
                 return null;
             } else {
                 Log::info('Branch', [
-                    'location_code' => $row['branch'],
+                    'location_code' => $currentRawRow['branch'],
                     'branch' => $branch
                 ]);
             }
 
-            DB::beginTransaction();
+            $excelPosCode = strtoupper(trim($currentRawRow['product_id']));
+            $posMasterfile = POSMasterfile::whereRaw('UPPER(POSCode) = ?', [$excelPosCode])->first();
 
-            Menu::updateOrCreate(
-                ['product_id' => $row['product_id']],
-                [
-                    'category_id' => 1,
-                    'name' => $row['product_name'],
-                    'price' => $row['price']
-                ]
-            );
-            //
+            if (!$posMasterfile) {
+                $this->skippedRows[] = [
+                    'row_number' => $this->rowNumber,
+                    'reason' => 'POS Masterfile not found for Product ID (POSCode): ' . $currentRawRow['product_id'],
+                    'data' => $currentRawRow
+                ];
+                Log::error('POS Masterfile not found for product_id (POSCode)', [
+                    'product_id' => $currentRawRow['product_id'],
+                    'excel_pos_code_processed' => $excelPosCode,
+                    'row_number' => $this->rowNumber
+                ]);
+                return null;
+            }
 
+            // Create or update StoreTransaction
             $transaction = StoreTransaction::updateOrCreate([
                 'store_branch_id' => $branch->id,
-                'order_date' => $this->transformDate($row['date']),
-                'posted' => $row['posted'],
-                'tim_number' => $row['tm'],
-                'receipt_number' => $row['receipt_no'],
+                'order_date' => $this->transformDate($currentRawRow['date']),
+                'posted' => $currentRawRow['posted'],
+                'tim_number' => $currentRawRow['tm'],
+                'receipt_number' => $currentRawRow['receipt_no'],
             ]);
 
-            $storeTransactionItem = $transaction->store_transaction_items()->updateOrCreate([
-                'product_id' => $row['product_id'],
-                'base_quantity' => $row['base_qty'],
-                'quantity' => $row['qty'],
-                'price' => $row['price'],
-                'discount' => $row['discount'],
-                'line_total' => $row['line_total'],
-                'net_total' => $row['net_total'],
-            ]);
+            // Create or update StoreTransactionItem, linking to POSMasterfile via product_id
+            $storeTransactionItem = $transaction->store_transaction_items()->updateOrCreate(
+                [
+                    'product_id' => $posMasterfile->id,
+                    'store_transaction_id' => $transaction->id,
+                ],
+                [
+                    'base_quantity' => $currentRawRow['base_qty'],
+                    'quantity' => $currentRawRow['qty'],
+                    'price' => $currentRawRow['price'],
+                    'discount' => $currentRawRow['discount'],
+                    'line_total' => $currentRawRow['line_total'],
+                    'net_total' => $currentRawRow['net_total'],
+                ]
+            );
 
-            $ingredients = $storeTransactionItem->menu->menu_ingredients;
-            $errors = [];
+            // --- INVENTORY DEDUCTION LOGIC ---
+            Log::debug("StoreTransactionImport: Fetching BOM ingredients for POSCode: {$posMasterfile->POSCode} for StoreTransactionItem ID: {$storeTransactionItem->id}");
+            $bomIngredients = POSMasterfileBOM::where('POSCode', $posMasterfile->POSCode)->get();
+            Log::debug("StoreTransactionImport: Found {$bomIngredients->count()} BOM ingredients for POSCode: {$posMasterfile->POSCode}. Details: " . json_encode($bomIngredients->pluck('id', 'ItemCode')));
 
-            if (!$storeTransactionItem->menu) {
-                $errors[] = "Please make sure that the BOM list is updated before proceeding to import store transactions.";
-                return false;
-            }
 
-            $ingredients?->each(function ($ingredient) use ($branch, $storeTransactionItem, $transaction, $row, &$errors) {
-                try {
-                    // if the ingredient is from wip list do a different approach
-                    if ($ingredient->wip_id) {
-                        $wip = WIP::with('wip_ingredients')->find($ingredient->wip_id);
-                        if (!$wip) {
-                            $errors[] = "WIP not found for ID: {$ingredient->wip_id}";
-                            return false;
-                        }
-                        $wipIngredients = $wip->wip_ingredients;
-
-                        $wipIngredients?->each(function ($wipIngredient) use ($branch, $storeTransactionItem, $transaction, &$errors) {
-                            try {
-                                $product = ProductInventoryStock::with('product')
-                                    ->where('product_inventory_id', $wipIngredient->product_inventory_id)
-                                    ->where('store_branch_id', $branch->id)
-                                    ->first();
-
-                                if (!$product) {
-                                    $errors[] = "Product inventory not found for branch: {$branch->location_code}";
-                                    return false;
-                                }
-
-                                $stockOnHand = $product->quantity - $product->used;
-
-                                if ($wipIngredient->quantity * $storeTransactionItem->quantity > $stockOnHand) {
-                                    $requiredQuantity = $wipIngredient->quantity * $storeTransactionItem->quantity;
-                                    $errors[] = "Insufficient inventory for '{$product->product->name}'. Required: {$requiredQuantity}, Available: {$stockOnHand}. Please make sure that inventory stock is updated before proceding.";
-                                    return false;
-                                }
-
-                                $usedQuantity = $wipIngredient->quantity * $storeTransactionItem->quantity;
-                                $product->update([
-                                    'used' => $product->used + $usedQuantity
-                                ]);
-
-                                $data = [
-                                    'id' => $wipIngredient->product_inventory_id,
-                                    'store_branch_id' => $branch->id,
-                                    'cost_center_id' => null,
-                                    'quantity' => $usedQuantity,
-                                    'transaction_date' => $transaction->order_date,
-                                    'remarks' => "Deducted from store transaction (Receipt No. {$transaction->receipt_number})"
-                                ];
-
-                                $this->handleInventoryUsage($data);
-
-                                Log::info('Success processing WIP ingredient', [
-                                    'product_id' => $product->product_inventory_id,
-                                    'used_quantity' => $usedQuantity
-                                ]);
-                            } catch (Exception $e) {
-                                Log::error('Failed to process WIP ingredient', ['error' => $e->getMessage()]);
-                                $errors[] = "Error processing WIP ingredient: " . $e->getMessage();
-                                return false;
-                            }
-                        });
-                    } else {
-                        // if the ingredient is not from wip list
-                        $product = ProductInventoryStock::with('product')
-                            ->where('product_inventory_id', $ingredient->product_inventory_id)
-                            ->where('store_branch_id', $branch->id)
-                            ->first();
-
-                        if (!$product) {
-                            $errors[] = "Product inventory not found for branch: {$branch->location_code}";
-                            return false;
-                        }
-
-                        $stockOnHand = $product->quantity - $product->used;
-
-                        if ($ingredient->quantity * $storeTransactionItem->quantity > $stockOnHand) {
-                            $requiredQuantity = $ingredient->quantity * $storeTransactionItem->quantity;
-                            $errors[] = "Insufficient inventory for '{$product->product->name}'. Required: {$requiredQuantity}, Available: {$stockOnHand}. Please make sure that inventory stock is updated before proceding.";
-                            return false;
-                        }
-
-                        $usedQuantity = $ingredient->quantity * $storeTransactionItem->quantity;
-                        $product->update([
-                            'used' => $product->used + $usedQuantity
-                        ]);
-
-                        $data = [
-                            'id' => $ingredient->product_inventory_id,
-                            'store_branch_id' => $branch->id,
-                            'cost_center_id' => null,
-                            'quantity' => $usedQuantity,
-                            'transaction_date' => $transaction->order_date,
-                            'remarks' => "Deducted from store transaction (Receipt No. {$transaction->receipt_number})"
-                        ];
-
-                        $this->handleInventoryUsage($data);
-
-                        Log::info('Success processing ingredient', [
-                            'product_id' => $product->product_inventory_id,
-                            'used_quantity' => $usedQuantity
-                        ]);
-                    }
-                } catch (Exception $e) {
-                    Log::error('Failed to process ingredient', ['error' => $e->getMessage()]);
-                    $errors[] = "Error processing ingredient: " . $e->getMessage();
-                    return false;
-                }
-            });
-
-            if (!empty($errors)) {
-                DB::rollBack();
-                Log::error('Errors during ingredient processing', [
+            if ($bomIngredients->isEmpty()) {
+                $this->skippedRows[] = [
                     'row_number' => $this->rowNumber,
-                    'errors' => $errors
-                ]);
-                throw new Exception(implode("\n", $errors));
+                    'reason' => "No Bill of Materials (BOM) entries found for POS Code: {$posMasterfile->POSCode}. Inventory not deducted for this item.",
+                    'data' => $currentRawRow
+                ];
+                Log::warning("No Bill of Materials (BOM) entries found for POS Code: {$posMasterfile->POSCode}. Skipping inventory deduction for this item.");
+                return $transaction; // Still return transaction, but skip inventory deduction
             }
 
-            DB::commit();
+            foreach ($bomIngredients as $ingredientBOM) {
+                Log::debug("StoreTransactionImport: Processing BOM entry ID: {$ingredientBOM->id}, ItemCode: {$ingredientBOM->ItemCode}, ItemDescription: {$ingredientBOM->ItemDescription}, Assembly: {$ingredientBOM->Assembly}, BOMQty: {$ingredientBOM->BOMQty}, BOMUOM: {$ingredientBOM->BOMUOM}");
+
+                $sapProduct = SAPMasterfile::where('ItemCode', $ingredientBOM->ItemCode)
+                                            ->where(function ($query) use ($ingredientBOM) {
+                                                $query->whereRaw('UPPER(BaseUOM) = ?', [strtoupper($ingredientBOM->BOMUOM)])
+                                                      ->orWhereRaw('UPPER(AltUOM) = ?', [strtoupper($ingredientBOM->BOMUOM)]);
+                                            })
+                                            ->first();
+
+                if (!$sapProduct) {
+                    $this->skippedRows[] = [
+                        'row_number' => $this->rowNumber,
+                        'reason' => "SAP Masterfile entry not found for ItemCode: '{$ingredientBOM->ItemCode}' with UOM: '{$ingredientBOM->BOMUOM}' for POS item {$posMasterfile->POSDescription}. Inventory not deducted.",
+                        'data' => $currentRawRow
+                    ];
+                    Log::error("StoreTransactionImport: SAP Masterfile entry not found for ItemCode: '{$ingredientBOM->ItemCode}' with UOM: '{$ingredientBOM->BOMUOM}' for POS item {$posMasterfile->POSDescription}. Skipping deduction for this ingredient.");
+                    continue; // Skip this specific ingredient, but continue with others if any
+                }
+                Log::debug("StoreTransactionImport: SAP Product found for ItemCode: {$sapProduct->ItemCode}, SAP ID: {$sapProduct->id}, BaseUOM: {$sapProduct->BaseUOM}, AltUOM: {$sapProduct->AltUOM}");
+
+
+                $productStock = ProductInventoryStock::with('sapMasterfile')
+                    ->where('product_inventory_id', $sapProduct->id)
+                    ->where('store_branch_id', $branch->id)
+                    ->first();
+
+                if (!$productStock) {
+                    $this->skippedRows[] = [
+                        'row_number' => $this->rowNumber,
+                        'reason' => "Product inventory stock not found for SAP Item '{$sapProduct->ItemDescription}' (SAP ID: {$sapProduct->id}) in branch '{$branch->location_code}'. Inventory not deducted.",
+                        'data' => $currentRawRow
+                    ];
+                    Log::error("StoreTransactionImport: Product inventory stock not found for SAP Item '{$sapProduct->ItemDescription}' (SAP ID: {$sapProduct->id}) in branch '{$branch->location_code}'. Skipping deduction for this ingredient.");
+                    continue; // Skip this specific ingredient
+                }
+                Log::debug("StoreTransactionImport: Product Stock found for SAP ID: {$productStock->product_inventory_id}, Current Quantity: {$productStock->quantity}, Used: {$productStock->used}");
+
+
+                // CRITICAL FIX: Ensure all quantities are treated as floats for precise calculation
+                $bomQtyFloat = (float)$ingredientBOM->BOMQty;
+                $transactionItemQuantityFloat = (float)$storeTransactionItem->quantity;
+
+                $requiredQuantity = $bomQtyFloat * $transactionItemQuantityFloat;
+                $stockOnHand = (float)$productStock->quantity - (float)$productStock->used;
+
+                if ($requiredQuantity > $stockOnHand) {
+                    $this->skippedRows[] = [
+                        'row_number' => $this->rowNumber,
+                        'reason' => "Insufficient inventory for '{$sapProduct->ItemDescription}'. Required: {$requiredQuantity}, Available: {$stockOnHand}. Inventory not deducted.",
+                        'data' => $currentRawRow
+                    ];
+                    Log::error("StoreTransactionImport: Insufficient inventory for '{$sapProduct->ItemDescription}'. Required: {$requiredQuantity}, Available: {$stockOnHand}. Skipping deduction for this ingredient.");
+                    continue; // Skip deduction due to insufficient stock
+                }
+                Log::debug("StoreTransactionImport: Required Quantity: {$requiredQuantity}, Stock On Hand: {$stockOnHand}. Proceeding with deduction.");
+
+
+                $usedQuantity = $requiredQuantity;
+                $productStock->update([
+                    'used' => (float)$productStock->used + $usedQuantity // CRITICAL FIX: Ensure float addition
+                ]);
+
+                // Create a new ProductInventoryStockManager record for 'Action Out'
+                ProductInventoryStockManager::create([
+                    'product_inventory_id' => $sapProduct->id,
+                    'store_branch_id' => $branch->id,
+                    'cost_center_id' => null,
+                    'quantity' => $usedQuantity, // This should now be the exact float value
+                    'action' => 'out', // Explicitly set action as 'out'
+                    'unit_cost' => (float)$ingredientBOM->UnitCost, // CRITICAL FIX: Ensure float
+                    'total_cost' => (float)$ingredientBOM->UnitCost * $usedQuantity, // Calculate total cost with float
+                    'transaction_date' => $transaction->order_date,
+                    'remarks' => "Deducted from store transaction (Receipt No. {$transaction->receipt_number}) for POS item '{$posMasterfile->POSDescription}' ingredient '{$sapProduct->ItemDescription}' (BOM ID: {$ingredientBOM->id}, Assembly: {$ingredientBOM->Assembly})"
+                ]);
+
+                Log::info('Success processing BOM ingredient', [
+                    'bom_id' => $ingredientBOM->id,
+                    'sap_product_id' => $sapProduct->id,
+                    'used_quantity' => $usedQuantity,
+                    'transaction_id' => $transaction->id,
+                    'item_id' => $storeTransactionItem->id,
+                ]);
+            }
+
             return $transaction;
         } catch (Exception $e) {
-            Log::error('Error processing transaction', [
+            $this->skippedRows[] = [
+                'row_number' => $this->rowNumber,
+                'reason' => 'Unhandled error during row processing: ' . $e->getMessage(),
+                'data' => $currentRawRow
+            ];
+            Log::error('Error processing transaction row', [
                 'row_number' => $this->rowNumber,
                 'error' => $e->getMessage(),
-                'transaction_level' => DB::transactionLevel()
+                'raw_row' => $currentRawRow
             ]);
-
-            if (DB::transactionLevel() > 0) {
-                DB::rollBack();
-            }
-
-            throw $e;
+            return null;
         }
     }
 
@@ -275,5 +281,15 @@ class StoreTransactionImport implements ToModel, WithStartRow, WithHeadingRow
             ]);
             throw $e;
         }
+    }
+
+    /**
+     * Get the list of skipped rows.
+     *
+     * @return array
+     */
+    public function getSkippedRows(): array
+    {
+        return $this->skippedRows;
     }
 }

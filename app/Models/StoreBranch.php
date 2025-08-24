@@ -2,7 +2,7 @@
 
 namespace App\Models;
 
-use App\Traits\HasSelections;
+use App\Traits\HasSelections; // Keep if you're using this trait elsewhere
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Builder;
@@ -44,14 +44,37 @@ class StoreBranch extends Model implements Auditable
         return $this->hasMany(UsageRecord::class);
     }
 
-
+    /**
+     * Scope a query to return options for select dropdowns.
+     * This now returns a Collection of associative arrays with 'label' and 'value'.
+     *
+     * @param  \Illuminate\Database\Eloquent\Builder  $query
+     * @return \Illuminate\Support\Collection
+     */
     public function scopeOptions(Builder $query)
     {
-        $user = User::with(['roles', 'store_branches'])->findOrFail(Auth::id());
-        $hasAdmin = $user->roles->contains('name', 'admin');
-        $assignedBranches = $user->store_branches->pluck('id')->toArray();
-        if (!$hasAdmin)  $query->whereIn('id', $assignedBranches);
-        return $query->where('is_active', true)->get()->pluck('display_name', 'id');
+        // Fetch the authenticated user and their roles/assigned branches
+        $user = Auth::user();
+        if ($user) { // Ensure a user is authenticated
+            $user->load(['roles', 'store_branches']); // Eager load relationships
+            $hasAdmin = $user->roles->contains('name', 'admin');
+            $assignedBranches = $user->store_branches->pluck('id')->toArray();
+
+            // Apply branch filtering if the user is not an admin
+            if (!$hasAdmin) {
+                $query->whereIn('id', $assignedBranches);
+            }
+        }
+        
+        // Filter by active branches and then map to 'label' and 'value' for dropdowns
+        return $query->where('is_active', true)
+                     ->get() // Get the collection of StoreBranch models
+                     ->map(function ($branch) {
+                         return [
+                             'label' => $branch->display_name, // Use the accessor
+                             'value' => $branch->id,
+                         ];
+                     });
     }
 
     public function users()
@@ -79,7 +102,6 @@ class StoreBranch extends Model implements Auditable
     {
         return $this->belongsTo(ProductInventoryStockManager::class);
     }
-
 
 
     public function delivery_schedules()

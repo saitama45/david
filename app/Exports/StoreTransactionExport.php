@@ -35,12 +35,13 @@ class StoreTransactionExport implements FromQuery, WithHeadings, WithMapping, Wi
 
     public function query()
     {
+        // Eager load store_branch and store_transaction_items
         $query = StoreTransaction::query()->with(['store_transaction_items', 'store_branch']);
 
         $user = User::rolesAndAssignedBranches();
         if (!$user['isAdmin']) $query->whereIn('store_branch_id', $user['assignedBranches']);
 
-        if (!$this->from && !$this->to) {
+        if (!$this->from && !$this->to && $this->order_date) { // Only apply order_date filter if from/to are not set
             $query->where('order_date', $this->order_date);
         }
 
@@ -54,7 +55,7 @@ class StoreTransactionExport implements FromQuery, WithHeadings, WithMapping, Wi
         if ($this->search)
             $query->where('receipt_number', 'like', "%$this->search%");
 
-        return $query;
+        return $query->orderBy('order_date', 'asc'); // Ordering by date for better summary presentation
     }
 
     public function headings(): array
@@ -73,6 +74,7 @@ class StoreTransactionExport implements FromQuery, WithHeadings, WithMapping, Wi
 
     public function map($row): array
     {
+        // Summing up values from related store_transaction_items
         $discount = $row->store_transaction_items->sum('discount');
         $lineTotal = $row->store_transaction_items->sum('line_total');
         $netTotal = $row->store_transaction_items->sum('net_total');
@@ -87,9 +89,9 @@ class StoreTransactionExport implements FromQuery, WithHeadings, WithMapping, Wi
             $row->tim_number,
             $row->posted,
             $row->order_date,
-            $discount,
-            $lineTotal,
-            $netTotal,
+            number_format($discount, 2), // Format for currency
+            number_format($lineTotal, 2), // Format for currency
+            number_format($netTotal, 2), // Format for currency
         ];
     }
 
@@ -101,9 +103,9 @@ class StoreTransactionExport implements FromQuery, WithHeadings, WithMapping, Wi
                 $lastRow = $event->sheet->getHighestRow() + 1;
 
                 $sheet->setCellValue('A' . $lastRow, 'TOTAL');
-                $sheet->setCellValue('F' . $lastRow, $this->totalDiscount);
-                $sheet->setCellValue('G' . $lastRow, $this->totalLineTotal);
-                $sheet->setCellValue('H' . $lastRow, $this->totalNetTotal);
+                $sheet->setCellValue('F' . $lastRow, number_format($this->totalDiscount, 2));
+                $sheet->setCellValue('G' . $lastRow, number_format($this->totalLineTotal, 2));
+                $sheet->setCellValue('H' . $lastRow, number_format($this->totalNetTotal, 2));
 
                 $styleArray = [
                     'font' => [
@@ -124,6 +126,10 @@ class StoreTransactionExport implements FromQuery, WithHeadings, WithMapping, Wi
                 ];
 
                 $sheet->getStyle('A' . $lastRow . ':H' . $lastRow)->applyFromArray($styleArray);
+                // Apply auto size to columns for better readability
+                foreach (range('A', $sheet->getHighestColumn()) as $col) {
+                    $sheet->getColumnDimension($col)->setAutoSize(true);
+                }
             },
         ];
     }
