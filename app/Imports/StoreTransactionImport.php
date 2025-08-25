@@ -57,7 +57,8 @@ class StoreTransactionImport implements ToModel, WithHeadingRow, WithStartRow
             }
         }
 
-        if (is_string($currentRawRow['product_name']) && stripos($currentRawRow['product_name'], 'SUBTOTAL:') !== false) {
+        // CRITICAL FIX: Check if 'product_name' key exists before accessing it
+        if (isset($currentRawRow['product_name']) && is_string($currentRawRow['product_name']) && stripos($currentRawRow['product_name'], 'SUBTOTAL:') !== false) {
             return null;
         }
 
@@ -258,34 +259,60 @@ class StoreTransactionImport implements ToModel, WithHeadingRow, WithStartRow
 
     private function transformDate($value)
     {
+        Log::debug('TransformDate: Initial value and type', ['value' => $value, 'type' => gettype($value)]);
+
         try {
             if (empty($value)) {
+                Log::warning('TransformDate: Date value is empty');
                 throw new Exception('Date value is empty');
             }
 
-            // CRITICAL FIX: Attempt to parse as MM/DD/YYYY first, as per user's requirement
+            // If the value is already a Carbon instance (from Maatwebsite\Excel), return it directly
+            if ($value instanceof Carbon) {
+                Log::debug('TransformDate: Value is already a Carbon instance', ['original' => $value->format('Y-m-d')]);
+                return $value->format('Y-m-d');
+            }
+
+            // Attempt to parse as MM/DD/YYYY first, as per user's requirement
             if (is_string($value)) {
-                $date = Carbon::createFromFormat('m/d/Y', $value);
-                if ($date !== false) {
-                    return $date->format('Y-m-d');
+                try {
+                    $date = Carbon::createFromFormat('m/d/Y', $value);
+                    if ($date !== false) {
+                        Log::debug('TransformDate: Parsed as MM/DD/YYYY', ['original' => $value, 'parsed' => $date->format('Y-m-d')]);
+                        return $date->format('Y-m-d');
+                    }
+                } catch (\InvalidArgumentException $e) {
+                    // This catch block will handle cases where createFromFormat fails to parse
+                    Log::debug('TransformDate: MM/DD/YYYY parsing failed (InvalidArgumentException)', ['value' => $value, 'error' => $e->getMessage()]);
                 }
             }
 
             // If not a string or if m/d/Y parsing failed, try numeric (Excel serial)
             if (is_numeric($value)) {
-                return Carbon::createFromDate(1900, 1, 1)
-                    ->addDays((int)$value - 2)
-                    ->format('Y-m-d');
+                // Excel's epoch is 1900-01-01, but it incorrectly treats 1900 as a leap year.
+                // So, for dates after Feb 28, 1900, we subtract 2 days.
+                // For dates up to Feb 28, 1900, we subtract 1 day.
+                // For simplicity, assuming dates are well past 1900.
+                $excelDate = Carbon::createFromDate(1900, 1, 1)->addDays((int)$value - 2);
+                Log::debug('TransformDate: Parsed as Excel numeric serial', ['original' => $value, 'parsed' => $excelDate->format('Y-m-d')]);
+                return $excelDate->format('Y-m-d');
             }
 
             // Fallback to general parsing if m/d/Y and numeric failed
-            if (is_string($value)) { // Re-check if it's a string for general parsing
-                return Carbon::parse($value)->format('Y-m-d');
+            if (is_string($value)) {
+                try {
+                    $date = Carbon::parse($value);
+                    Log::debug('TransformDate: Parsed using general Carbon::parse', ['original' => $value, 'parsed' => $date->format('Y-m-d')]);
+                    return $date->format('Y-m-d');
+                } catch (\Exception $e) {
+                    Log::error('TransformDate: General Carbon::parse failed', ['value' => $value, 'error' => $e->getMessage()]);
+                }
             }
 
+            Log::error('TransformDate: No valid date format found');
             throw new Exception('Invalid date format');
         } catch (Exception $e) {
-            Log::error('Date transformation failed', [
+            Log::error('Date transformation failed in catch block', [
                 'value' => $value,
                 'error' => $e->getMessage()
             ]);
