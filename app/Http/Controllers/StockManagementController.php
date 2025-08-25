@@ -28,22 +28,44 @@ use Carbon\Carbon;
 class StockManagementController extends Controller
 {
     use InventoryUsage;
+
     public function index()
     {
         $search = request('search');
         $costCenters = CostCenter::select(['name', 'id'])->get()->pluck('name', 'id');
 
         $branches = StoreBranch::options();
-        $branchId = request('branchId') ?? (optional($branches->first())['value'] ?? null);
+
+        // --- Start More Robust Fix for branchId in index method ---
+        $requestedBranchId = request('branchId');
+        $branchId = null; // Default to null, meaning no specific branch filter initially
+
+        // If the requested branch ID is 'all' or empty, treat it as no specific branch filter
+        if ($requestedBranchId === 'all' || empty($requestedBranchId)) {
+            $branchId = null;
+        } elseif (is_numeric($requestedBranchId)) {
+            $branchId = (int) $requestedBranchId; // Cast to integer if it's a valid number
+        }
+        // If requestedBranchId is a non-numeric string (other than 'all') and not empty,
+        // branchId will remain null, leading to no branch-specific filter in the query.
+        // --- End More Robust Fix for branchId in index method ---
+
+        // Removed the dd() statement as the issue has been diagnosed.
 
         Log::info("StockManagementController: Index method called for branchId: {$branchId}");
 
-        $productsQuery = SAPMasterfile::query()
-            ->leftJoin('product_inventory_stocks', function ($join) use ($branchId) {
-                $join->on('sap_masterfiles.id', '=', 'product_inventory_stocks.product_inventory_id')
-                    ->where('product_inventory_stocks.store_branch_id', '=', $branchId);
-            })
-            ->select(
+        $productsQuery = SAPMasterfile::query();
+
+        // Conditionally leftJoin based on branchId.
+        // The where clause for store_branch_id is only added if branchId is a valid, non-null integer.
+        $productsQuery->leftJoin('product_inventory_stocks', function ($join) use ($branchId) {
+            $join->on('sap_masterfiles.id', '=', 'product_inventory_stocks.product_inventory_id');
+            if ($branchId !== null) {
+                $join->where('product_inventory_stocks.store_branch_id', '=', $branchId);
+            }
+        });
+
+        $productsQuery->select(
                 DB::raw('MIN(sap_masterfiles.id) as id'),
                 'sap_masterfiles.ItemDescription as name',
                 'sap_masterfiles.ItemCode as inventory_code',
@@ -121,7 +143,32 @@ class StockManagementController extends Controller
     public function show(Request $request, $id)
     {
         $branches = StoreBranch::options();
-        $branchId = $request->only('branchId')['branchId'] ?? (optional($branches->first())['value'] ?? null);
+
+        // --- Start More Robust Fix for branchId in show method ---
+        $requestedBranchId = $request->query('branchId');
+        $branchId = null; // Default to null
+
+        if ($requestedBranchId === 'all' || empty($requestedBranchId)) {
+            // If 'all' or empty, try to find the first *actual numeric* branch ID for a 'show' page
+            $firstActualBranch = $branches->filter(function($option) {
+                return is_numeric($option['value']);
+            })->first();
+
+            $branchId = optional($firstActualBranch)['value'] ?? null;
+        } elseif (is_numeric($requestedBranchId)) {
+            $branchId = (int) $requestedBranchId;
+        }
+
+        // If after all attempts, branchId is still null, it's an invalid state for 'show'
+        if ($branchId === null) {
+            Log::error("StockManagementController: show method called without a valid branchId. Requested: {$requestedBranchId}");
+            return Inertia::render('StockManagement/Show', [
+                'branches' => $branches,
+                'history' => (new \Illuminate\Pagination\LengthAwarePaginator([], 0, 10))->withQueryString(),
+                'error' => 'No store branch selected or available for detailed view. Please select a valid branch.',
+            ]);
+        }
+        // --- End More Robust Fix for branchId in show method ---
 
         Log::info("StockManagementController: show method parameters - Product ID: {$id}, Branch ID: {$branchId}");
 
