@@ -25,9 +25,37 @@ class Supplier extends Model implements Auditable
         return $this->hasMany(StoreOrder::class);
     }
 
+    /**
+     * Original scopeOptions: Returns suppliers with supplier_code as value.
+     * This remains unchanged to avoid breaking existing modules.
+     *
+     * @param  \Illuminate\Database\Eloquent\Builder  $query
+     * @return \Illuminate\Support\Collection
+     */
     public function scopeOptions(Builder $query)
     {
-        return $query->whereNot('supplier_code', 'DROPS')->where('is_active', true)->pluck('name', 'supplier_code');
+        return $query->whereNot('supplier_code', 'DROPS')
+                     ->where('is_active', true)
+                     ->pluck('name', 'supplier_code');
+    }
+
+    /**
+     * New scopeReportOptions: Returns suppliers with ID as value and formatted label.
+     * This is specifically for reports requiring supplier ID in the filter.
+     *
+     * @param  \Illuminate\Database\Eloquent\Builder  $query
+     * @return \Illuminate\Support\Collection
+     */
+    public function scopeReportOptions(Builder $query)
+    {
+        return $query->where('is_active', true)
+                     ->get()
+                     ->map(function ($supplier) {
+                         return [
+                             'label' => $supplier->name . ' (' . $supplier->supplier_code . ')',
+                             'value' => $supplier->id,
+                         ];
+                     });
     }
 
     public function scopeOptionsDTS(Builder $query)

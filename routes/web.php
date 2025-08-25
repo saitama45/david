@@ -10,6 +10,7 @@ use App\Http\Controllers\CashPullOutApproval;
 use App\Http\Controllers\CashPullOutApprovalController;
 use App\Http\Controllers\CashPullOutController;
 use App\Http\Controllers\CategoryController;
+use App\Http\Controllers\ConsolidatedSOReportController;
 use App\Http\Controllers\CostCenterController;
 use App\Http\Controllers\CostOfGoodController;
 use App\Http\Controllers\CSApprovalController;
@@ -133,6 +134,11 @@ Route::middleware('auth')
                 Route::middleware('permission:view top 10 inventories')->get('/', 'index')->name('index');
                 Route::middleware('permission:export top 10 inventories')->get('/export', 'export')->name('export'); // Added export
             });
+
+        Route::prefix('reports')->group(function () {
+            Route::get('/consolidated-so', [ConsolidatedSOReportController::class, 'index'])->name('reports.consolidated-so.index');
+            Route::get('/consolidated-so/export', [ConsolidatedSOReportController::class, 'export'])->name('reports.consolidated-so.export');
+        });
 
         Route::controller(DaysPayableOutStanding::class)
             ->name('days-payable-outstanding.')

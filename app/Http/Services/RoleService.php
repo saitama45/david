@@ -91,7 +91,7 @@ class RoleService
                 ],
                 'CS Review List' => [
                     'view orders for cs approval list', 'view order for cs approval', 'cs approve/decline order request',
-                    'export orders for cs approval list' // NEW: Added export permission here
+                    'export orders for cs approval list'
                 ],
                 'Emergency Order Approval' => [
                     'view emergency order approval', 'approve emergency order', 'decline emergency order'
@@ -135,7 +135,6 @@ class RoleService
                 'POS Masterlist' => [
                     'view POSMasterfile list', 'create POSMasterfile', 'edit POSMasterfile', 'delete POSMasterfile', 'export POSMasterfile list'
                 ],
-                // NEW: POS Masterlist BOM
                 'POS Masterlist BOM' => [
                     'view POSMasterfile BOM list', 'view POSMasterfile BOM', 'create POSMasterfile BOM', 'edit POSMasterfile BOM', 'delete POSMasterfile BOM', 'import POSMasterfile BOM', 'export POSMasterfile BOM',
                 ],
@@ -153,6 +152,10 @@ class RoleService
                 ],
             ],
             'Reports' => [
+                // CRITICAL FIX: Added Consolidated SO Report here
+                'Consolidated SO Report' => [
+                    'view consolidated so report', 'export consolidated so report'
+                ],
                 'Top 10 Inventories' => [
                     'view top 10 inventories', 'export top 10 inventories'
                 ],

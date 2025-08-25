@@ -286,6 +286,10 @@ class RolesAndPermissionSeeder extends Seeder
         Permission::firstOrCreate(['name' => 'view cost of goods']);
         Permission::firstOrCreate(['name' => 'export cost of goods']);
 
+        // NEW: Consolidated SO Report permissions
+        Permission::firstOrCreate(['name' => 'view consolidated so report']);
+        Permission::firstOrCreate(['name' => 'export consolidated so report']);
+
 
         // Assign all permissions to the 'admin' role
         $role->syncPermissions(Permission::all());
@@ -313,6 +317,8 @@ class RolesAndPermissionSeeder extends Seeder
             'view store transactions', 'create store transactions', 'view store transaction', 'edit store transactions',
             // NEW: POSMasterfileBOM permissions for store representative
             'view POSMasterfile BOM list', 'view POSMasterfile BOM', 'create POSMasterfile BOM', 'edit POSMasterfile BOM', 'import POSMasterfile BOM', 'export POSMasterfile BOM',
+            // NEW: Consolidated SO Report permission for store representative
+            'view consolidated so report',
         ]);
 
         // Assign specific permissions to 'request approver'
@@ -326,6 +332,8 @@ class RolesAndPermissionSeeder extends Seeder
             'view store transactions approval', 'approve store transactions', 'decline store transactions',
             // NEW: Export permission for CS Approval List for 'request approver'
             'export orders for cs approval list',
+            // NEW: Consolidated SO Report permission for request approver
+            'view consolidated so report',
         ]);
     }
 }
