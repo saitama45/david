@@ -159,11 +159,11 @@ class StoreTransactionImport implements ToModel, WithHeadingRow, WithStartRow
                 Log::debug("StoreTransactionImport: Processing BOM entry ID: {$ingredientBOM->id}, ItemCode: {$ingredientBOM->ItemCode}, ItemDescription: {$ingredientBOM->ItemDescription}, Assembly: {$ingredientBOM->Assembly}, BOMQty: {$ingredientBOM->BOMQty}, BOMUOM: {$ingredientBOM->BOMUOM}");
 
                 $sapProduct = SAPMasterfile::where('ItemCode', $ingredientBOM->ItemCode)
-                                            ->where(function ($query) use ($ingredientBOM) {
-                                                $query->whereRaw('UPPER(BaseUOM) = ?', [strtoupper($ingredientBOM->BOMUOM)])
-                                                      ->orWhereRaw('UPPER(AltUOM) = ?', [strtoupper($ingredientBOM->BOMUOM)]);
-                                            })
-                                            ->first();
+                    ->where(function ($query) use ($ingredientBOM) {
+                        $query->whereRaw('UPPER(BaseUOM) = ?', [strtoupper($ingredientBOM->BOMUOM)])
+                            ->orWhereRaw('UPPER(AltUOM) = ?', [strtoupper($ingredientBOM->BOMUOM)]);
+                    })
+                    ->first();
 
                 if (!$sapProduct) {
                     $this->skippedRows[] = [
@@ -263,13 +263,23 @@ class StoreTransactionImport implements ToModel, WithHeadingRow, WithStartRow
                 throw new Exception('Date value is empty');
             }
 
+            // Attempt to parse as DD/MM/YYYY first, as per user's requirement
+            if (is_string($value)) {
+                $date = Carbon::createFromFormat('d/m/Y', $value);
+                if ($date !== false) {
+                    return $date->format('Y-m-d');
+                }
+            }
+
+            // If not a string or if d/m/Y parsing failed, try numeric (Excel serial)
             if (is_numeric($value)) {
                 return Carbon::createFromDate(1900, 1, 1)
                     ->addDays((int)$value - 2)
                     ->format('Y-m-d');
             }
 
-            if (is_string($value)) {
+            // Fallback to general parsing if d/m/Y and numeric failed
+            if (is_string($value)) { // Re-check if it's a string for general parsing
                 return Carbon::parse($value)->format('Y-m-d');
             }
 
