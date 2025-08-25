@@ -263,22 +263,22 @@ class StoreTransactionImport implements ToModel, WithHeadingRow, WithStartRow
                 throw new Exception('Date value is empty');
             }
 
-            // Attempt to parse as DD/MM/YYYY first, as per user's requirement
+            // CRITICAL FIX: Attempt to parse as MM/DD/YYYY first, as per user's requirement
             if (is_string($value)) {
-                $date = Carbon::createFromFormat('d/m/Y', $value);
+                $date = Carbon::createFromFormat('m/d/Y', $value);
                 if ($date !== false) {
                     return $date->format('Y-m-d');
                 }
             }
 
-            // If not a string or if d/m/Y parsing failed, try numeric (Excel serial)
+            // If not a string or if m/d/Y parsing failed, try numeric (Excel serial)
             if (is_numeric($value)) {
                 return Carbon::createFromDate(1900, 1, 1)
                     ->addDays((int)$value - 2)
                     ->format('Y-m-d');
             }
 
-            // Fallback to general parsing if d/m/Y and numeric failed
+            // Fallback to general parsing if m/d/Y and numeric failed
             if (is_string($value)) { // Re-check if it's a string for general parsing
                 return Carbon::parse($value)->format('Y-m-d');
             }
