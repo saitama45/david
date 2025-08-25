@@ -11,19 +11,22 @@ use Maatwebsite\Excel\Events\AfterSheet;
 use PhpOffice\PhpSpreadsheet\Style\Border;
 use PhpOffice\PhpSpreadsheet\Style\Fill;
 use PhpOffice\PhpSpreadsheet\Style\Alignment;
-use PhpOffice\PhpSpreadsheet\Cell\Coordinate; // CRITICAL FIX: Import Coordinate class
+use PhpOffice\PhpSpreadsheet\Cell\Coordinate;
+use Carbon\Carbon; // CRITICAL FIX: Import Carbon
 
 class ConsolidatedSOReportExport implements FromCollection, WithHeadings, WithMapping, WithEvents
 {
     protected $reportData;
     protected $dynamicHeaders;
     protected $totalBranches;
+    protected $orderDate; // CRITICAL FIX: Add property to store the order date
 
-    public function __construct(Collection $reportData, array $dynamicHeaders, int $totalBranches)
+    public function __construct(Collection $reportData, array $dynamicHeaders, int $totalBranches, string $orderDate) // CRITICAL FIX: Accept orderDate in constructor
     {
         $this->reportData = $reportData;
         $this->dynamicHeaders = $dynamicHeaders;
         $this->totalBranches = $totalBranches;
+        $this->orderDate = $orderDate; // Store the order date
     }
 
     public function collection()
@@ -69,9 +72,12 @@ class ConsolidatedSOReportExport implements FromCollection, WithHeadings, WithMa
             AfterSheet::class => function (AfterSheet $event) {
                 $sheet = $event->sheet->getDelegate();
                 $lastRow = $sheet->getHighestRow();
-                $lastColumnLetter = $sheet->getHighestColumn(); // Get the letter (e.g., 'Z', 'AA')
+                $lastColumnLetter = $sheet->getHighestColumn();
 
-                // CRITICAL FIX: Convert column letter to numeric index for iteration
+                // CRITICAL FIX: Set the sheet title to the formatted order date
+                $sheetName = Carbon::parse($this->orderDate)->format('m-d-Y');
+                $sheet->setTitle($sheetName);
+
                 $lastColumnIndex = Coordinate::columnIndexFromString($lastColumnLetter);
 
                 // Style for headers
@@ -105,7 +111,7 @@ class ConsolidatedSOReportExport implements FromCollection, WithHeadings, WithMa
                     ],
                 ]);
 
-                // CRITICAL FIX: Auto size columns by iterating numerically
+                // Auto size columns by iterating numerically
                 for ($col = 1; $col <= $lastColumnIndex; $col++) {
                     $columnLetter = Coordinate::stringFromColumnIndex($col);
                     $sheet->getColumnDimension($columnLetter)->setAutoSize(true);

@@ -27,7 +27,7 @@ class ConsolidatedSOReportController extends Controller
         $supplierId = $request->input('supplier_id', 'all');
 
         $branches = StoreBranch::options();
-        $suppliers = Supplier::reportOptions(); // CRITICAL FIX: Use the new reportOptions scope for suppliers
+        $suppliers = Supplier::reportOptions(); // Use the new reportOptions scope for suppliers
 
         // Fetch report data including dynamic branch columns
         $reportData = $this->consolidatedSOReportService->getConsolidatedSOReportData(
@@ -62,7 +62,8 @@ class ConsolidatedSOReportController extends Controller
             new ConsolidatedSOReportExport(
                 $reportData['report'],
                 $reportData['dynamicHeaders'],
-                $reportData['totalBranches']
+                $reportData['totalBranches'],
+                $orderDate // CRITICAL FIX: Pass the orderDate to the export constructor
             ),
             'consolidated-so-report-' . Carbon::parse($orderDate)->format('Y-m-d') . '.xlsx'
         );

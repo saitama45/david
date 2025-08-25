@@ -103,20 +103,10 @@ const formatDisplayDate = (dateString) => {
     }
 };
 
-// Calculate the colspan for the dynamic branch headers
-// const dynamicHeadersColspan = computed(() => {
-//     // 3 static headers at the start (ITEM CODE, ITEM NAME, UNIT)
-//     // 2 static headers at the end (TOTAL, WHSE)
-//     // The rest are dynamic branch headers
-//     return props.dynamicHeaders.length - 3 - 2;
-// });
-
-// Calculate total number of columns for table width
-// const totalColumns = computed(() => props.dynamicHeaders.length);
-
+// CRITICAL FIX: Extract branch headers reliably for colgroup and dynamic rendering
 const branchHeaders = computed(() => {
-  // slice out the branch headers reliably
-  return props.dynamicHeaders.slice(3, props.dynamicHeaders.length - 2);
+    // dynamicHeaders contains all headers. The branch headers are from index 3 up to length - 2.
+    return props.dynamicHeaders.slice(3, props.dynamicHeaders.length - 2);
 });
 
 const branchCount = computed(() => branchHeaders.value.length);
@@ -126,6 +116,7 @@ const dynamicHeadersColspan = computed(() => branchCount.value);
 
 // total columns = 3 static + branchCount + 2 trailing static
 const totalColumns = computed(() => 3 + branchCount.value + 2);
+
 </script>
 
 <template>
@@ -161,63 +152,82 @@ const totalColumns = computed(() => 3 + branchCount.value + 2);
                 </Button>
             </TableHeader>
             
-            <!-- CRITICAL FIX: Wrap the table in a div for better layout control -->
-            <div style="display: block; overflow-x: auto; width: 100%;">
-                <!-- replace the <Table> wrapper with a native table to ensure colgroup is inside the table -->
-<table style="table-layout: fixed; width: 100%;">
-  <colgroup>
-    <col style="width: 120px;"> <!-- ITEM CODE -->
-    <col style="width: 200px;"> <!-- ITEM NAME -->
-    <col style="width: 80px;">  <!-- UNIT -->
-    <col v-for="(h, i) in branchHeaders" :key="`col-${i}`" style="width: 80px;">
-    <col style="width: 100px;"> <!-- TOTAL -->
-    <col style="width: 70px;">  <!-- WHSE -->
-  </colgroup>
+            <!-- CRITICAL FIX: Use native table elements and colgroup for robust alignment -->
+            <div class="bg-white border rounded-md shadow-sm">
+                <!-- CRITICAL FIX: Removed the "Report Data" div -->
+                <!-- <div class="px-4 py-3 border-b">
+                    <span class="font-semibold text-gray-700">Report Data</span>
+                </div> -->
 
-  <thead>
-    <tr>
-      <th rowspan="2" class="text-left whitespace-nowrap p-2">ITEM CODE</th>
-      <th rowspan="2" class="text-left whitespace-nowrap p-2">ITEM NAME</th>
-      <th rowspan="2" class="text-left whitespace-nowrap p-2">UNIT</th>
+                <div class="overflow-x-auto">
+                    <table class="min-w-full table-fixed" style="table-layout: fixed;">
+                        <!-- Important: colgroup fixes widths for header and body, using percentages -->
+                        <colgroup>
+                            <!-- Static Columns -->
+                            <col style="width: 10%;"> <!-- ITEM CODE -->
+                            <col style="width: 25%;"> <!-- ITEM NAME -->
+                            <col style="width: 8%;">  <!-- UNIT -->
+                            
+                            <!-- Dynamic Branch Quantities -->
+                            <template v-for="(header, i) in branchHeaders" :key="`col-branch-${i}`">
+                                <col style="width: 5%;"> <!-- Each dynamic column gets a fixed percentage -->
+                            </template>
 
-      <th :colspan="dynamicHeadersColspan" class="text-center bg-gray-100 p-2">
-        <div class="flex justify-center items-center gap-2">
-          <span class="font-weight: bold;">BRANCH QUANTITIES</span>
-          <Filter class="w-4 h-4 text-gray-500" />
-        </div>
-      </th>
+                            <!-- Static Trailing Columns -->
+                            <col style="width: 10%;"> <!-- TOTAL -->
+                            <col style="width: 7%;">  <!-- WHSE -->
+                        </colgroup>
 
-      <th rowspan="2" class="text-right whitespace-nowrap p-2">TOTAL</th>
-      <th rowspan="2" class="text-right whitespace-nowrap p-2">WHSE</th>
-    </tr>
+                        <thead class="bg-white">
+                            <tr class="text-sm text-gray-600">
+                                <!-- Static Headers -->
+                                <th rowspan="2" class="px-4 py-3 text-left whitespace-nowrap">ITEM CODE</th>
+                                <th rowspan="2" class="px-4 py-3 text-left whitespace-nowrap">ITEM NAME</th>
+                                <th rowspan="2" class="px-4 py-3 text-left whitespace-nowrap">UNIT</th>
+                                
+                                <!-- Dynamic Branch Headers -->
+                                <th :colspan="dynamicHeadersColspan" class="px-4 py-3 text-center bg-gray-100">
+                                   <div class="flex justify-center items-center gap-2">
+                                        <span class="font-weight: bold;">BRANCH QUANTITIES</span>
+                                        <Filter class="w-4 h-4 text-gray-500" />
+                                   </div>
+                                </th>
+                                
+                                <!-- Static Trailing Headers -->
+                                <th rowspan="2" class="px-4 py-3 text-right whitespace-nowrap">TOTAL</th>
+                                <th rowspan="2" class="px-4 py-3 text-right whitespace-nowrap">WHSE</th>
+                            </tr>
+                            <tr>
+                                <!-- Dynamic Branch Codes (second row of header) -->
+                                <template v-for="(header, idx) in branchHeaders" :key="`branch-header-${idx}`">
+                                    <th class="px-4 py-3 text-right whitespace-nowrap">
+                                        {{ header.label.split(' ')[0] }} <!-- Extracts 'NNTOL' from 'NNTOL Qty' -->
+                                    </th>
+                                </template>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr v-for="(row, rowIndex) in report" :key="rowIndex" class="border-t">
+                                <td class="px-4 py-3 text-left whitespace-nowrap">{{ row.item_code }}</td>
+                                <td class="px-4 py-3 text-left whitespace-nowrap">{{ row.item_name }}</td>
+                                <td class="px-4 py-3 text-left whitespace-nowrap">{{ row.unit }}</td>
+                                
+                                <!-- Dynamic Branch Quantities -->
+                                <template v-for="(header, colIndex) in branchHeaders" :key="`branch-data-${rowIndex}-${colIndex}`">
+                                    <td class="px-4 py-3 text-right whitespace-nowrap">
+                                        {{ row[header.field] }}
+                                    </td>
+                                </template>
 
-    <tr>
-      <th v-for="(header, idx) in branchHeaders" :key="`branch-header-${idx}`" class="text-right whitespace-nowrap p-2">
-        {{ header.label.split(' ')[0] }}
-      </th>
-    </tr>
-  </thead>
-
-  <tbody>
-    <tr v-for="(row, rowIndex) in report" :key="rowIndex">
-      <td class="text-left whitespace-nowrap p-2">{{ row.item_code }}</td>
-      <td class="text-left whitespace-nowrap p-2">{{ row.item_name }}</td>
-      <td class="text-left whitespace-nowrap p-2">{{ row.unit }}</td>
-
-      <td v-for="(header, colIndex) in branchHeaders" :key="`branch-data-${rowIndex}-${colIndex}`" class="text-right whitespace-nowrap p-2">
-        {{ row[header.field] }}
-      </td>
-
-      <td class="text-right whitespace-nowrap p-2">{{ row.total_quantity }}</td>
-      <td class="text-right whitespace-nowrap p-2">{{ row.whse }}</td>
-    </tr>
-
-    <tr v-if="report.length === 0">
-      <td :colspan="totalColumns" class="text-center p-4">No data available for the selected filters.</td>
-    </tr>
-  </tbody>
-</table>
-
+                                <td class="px-4 py-3 text-right whitespace-nowrap">{{ row.total_quantity }}</td>
+                                <td class="px-4 py-3 text-right whitespace-nowrap">{{ row.whse }}</td>
+                            </tr>
+                            <tr v-if="report.length === 0">
+                                <td :colspan="totalColumns" class="text-center p-4">No data available for the selected filters.</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
             </div>
         </TableContainer>
     </Layout>
