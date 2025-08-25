@@ -1,4 +1,6 @@
 <script setup>
+import { computed } from 'vue'; // Import computed if not already
+// No need to import onMounted for this task, but keep it if used elsewhere.
 
 const { transaction } = defineProps({
     transaction: {
@@ -18,6 +20,23 @@ const subtotals = computed(() => {
     );
 });
 
+// CRITICAL FIX: Add formatDisplayDate function
+const formatDisplayDate = (dateString) => {
+    if (!dateString) {
+        return 'N/a';
+    }
+    try {
+        const date = new Date(dateString);
+        return date.toLocaleDateString('en-US', {
+            year: 'numeric',
+            month: 'long',
+            day: 'numeric'
+        });
+    } catch (e) {
+        console.error("Error formatting date:", dateString, e);
+        return dateString;
+    }
+};
 </script>
 <template>
     <Layout heading="Store Transaction Details">
@@ -32,7 +51,8 @@ const subtotals = computed(() => {
             </InputContainer>
             <InputContainer>
                 <LabelXS>Date</LabelXS>
-                <SpanBold>{{ transaction.date }}</SpanBold>
+                <!-- CRITICAL FIX: Apply formatDisplayDate to transaction.date -->
+                <SpanBold>{{ formatDisplayDate(transaction.date) }}</SpanBold>
             </InputContainer>
             <InputContainer>
                 <LabelXS>Posted</LabelXS>
