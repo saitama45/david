@@ -60,7 +60,7 @@ const createNewStoreBranch = () => {
 
 const { deleteModel } = useReferenceDelete();
 
-const exportRoute = computed(() => 
+const exportRoute = computed(() =>
     route("branches.export", { search: search.value })
 );
 </script>
@@ -90,8 +90,7 @@ const exportRoute = computed(() =>
                     <TH> Id </TH>
                     <TH> Name</TH>
                     <TH> Branch Code</TH>
-                    <TH> Brand Name</TH>
-                    <TH> Brand Code</TH>
+                    <TH> Location Code</TH> <!-- Added Location Code -->
                     <TH> Actions </TH>
                 </TableHead>
                 <TableBody>
@@ -99,8 +98,7 @@ const exportRoute = computed(() =>
                         <TD>{{ branch.id }}</TD>
                         <TD>{{ branch.name }}</TD>
                         <TD>{{ branch.branch_code }}</TD>
-                        <TD>{{ branch.brand_name ?? "N/a" }}</TD>
-                        <TD>{{ branch.brand_code ?? "N/a" }}</TD>
+                        <TD>{{ branch.location_code ?? "N/a" }}</TD> <!-- Added Location Code -->
                         <TD>
                             <ShowButton @click="viewDetails(branch.id)" />
                             <EditButton
@@ -128,6 +126,7 @@ const exportRoute = computed(() =>
                         <EditButton @click="editCategoryDetails(branch.id)" />
                     </MobileTableHeading>
                     <LabelXS>{{ branch.branch_code }}</LabelXS>
+                    <LabelXS>{{ branch.location_code ?? "N/a" }}</LabelXS> <!-- Added Location Code for mobile -->
                 </MobileTableRow>
             </MobileTableContainer>
             <Pagination :data="data" />

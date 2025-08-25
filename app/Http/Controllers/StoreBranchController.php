@@ -68,7 +68,7 @@ class StoreBranchController extends Controller
         }
 
         $category->delete();
-        return to_route('branches.index'); // FIX: Changed route name from 'store-branches.index' to 'branches.index'
+        return to_route('branches.index');
     }
 
     public function store(Request $request)
@@ -78,8 +78,8 @@ class StoreBranchController extends Controller
             'branch_code' => ['required', 'unique:store_branches,branch_code'],
             'name' => ['required', 'unique:store_branches,name'],
             'brand_name' => ['nullable'],
-            'brand_code' => ['nullable', 'unique:store_branches,brand_code'],
-            'location_code' => ['nullable', 'unique:store_branches,location_code'],
+            'brand_code' => ['nullable', 'unique:store_branches,brand_code'], // Retained unique for creation
+            'location_code' => ['nullable', 'unique:store_branches,location_code'], // Retained unique for creation
             'store_status' => ['required'],
             'tin' => ['nullable'],
             'complete_address' => ['nullable'],
@@ -94,7 +94,7 @@ class StoreBranchController extends Controller
         ]);
 
         StoreBranch::create($validated);
-        return to_route("branches.index"); // FIX: Changed route name from 'store-branches.index' to 'branches.index'
+        return to_route("branches.index");
     }
 
     public function update(Request $request, $id)
@@ -104,8 +104,8 @@ class StoreBranchController extends Controller
             'branch_code' => ['required', 'unique:store_branches,branch_code,' . $id],
             'name' => ['required', 'unique:store_branches,name,' . $id],
             'brand_name' => ['nullable'],
-            'brand_code' => ['nullable', 'unique:store_branches,brand_code,' . $id],
-            'location_code' => ['nullable', 'unique:store_branches,location_code,' . $id],
+            'brand_code' => ['nullable'], // Removed unique validation
+            'location_code' => ['nullable'], // Removed unique validation
             'store_status' => ['required'],
             'tin' => ['nullable'],
             'complete_address' => ['nullable'],
@@ -119,6 +119,6 @@ class StoreBranchController extends Controller
             'is_active' => ['nullable'],
         ]);
         $branch->update($validated);
-        return to_route("branches.index"); // FIX: Changed route name from 'store-branches.index' to 'branches.index'
+        return to_route("branches.index");
     }
 }
