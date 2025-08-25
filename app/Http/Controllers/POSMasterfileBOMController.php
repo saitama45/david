@@ -28,6 +28,8 @@ class POSMasterfileBOMController extends Controller
         }
 
         $search = $request->input('search');
+        $filter = $request->input('filter', 'all'); // Get filter with a default
+
         $query = POSMasterfileBOM::query();
 
         if ($search) {
@@ -41,11 +43,25 @@ class POSMasterfileBOMController extends Controller
             });
         }
 
-        $boms = $query->latest()->paginate(10);
+        // Apply filter logic
+        if ($filter === 'is_active') {
+            // Assuming there's an 'is_active' column or similar for active items
+            // You'll need to adjust this based on how 'active' is defined for POSMasterfileBOM
+            // For now, let's assume a placeholder for 'active'
+            // If POSMasterfileBOM has no 'is_active' column, this condition will need re-evaluation
+            // For example, if 'active' is determined by some other field's value
+            $query->where('is_active', 1); // Placeholder: Adjust if your model has a different way to signify 'active'
+        } elseif ($filter === 'inactive') {
+            $query->where('is_active', 0); // Placeholder: Adjust if your model has a different way to signify 'inactive'
+        }
+
+
+        $boms = $query->latest()->paginate(10)->withQueryString(); // CRITICAL FIX: Added withQueryString()
 
         return Inertia::render('POSMasterfileBOM/Index', [
             'boms' => $boms,
-            'filters' => $request->only(['search']),
+            'filters' => $request->only(['search', 'filter']), // Pass filter back to frontend
+            'filter' => $filter, // Pass current filter to the frontend
         ]);
     }
 
