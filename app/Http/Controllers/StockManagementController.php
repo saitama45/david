@@ -50,8 +50,6 @@ class StockManagementController extends Controller
         // branchId will remain null, leading to no branch-specific filter in the query.
         // --- End More Robust Fix for branchId in index method ---
 
-        // Removed the dd() statement as the issue has been diagnosed.
-
         Log::info("StockManagementController: Index method called for branchId: {$branchId}");
 
         $productsQuery = SAPMasterfile::query();
@@ -180,6 +178,8 @@ class StockManagementController extends Controller
         Log::info('StockManagementController: Current Product Stock found:', ['exists' => (bool)$currentProductStock, 'data' => $currentProductStock ? $currentProductStock->toArray() : null]);
 
         // Fetch all history records, ordered chronologically (ASC)
+        // CRITICAL FIX: The eager loading chain itself is fine, but the *access* pattern to nested relations
+        // needs to use the nullsafe operator to prevent errors when intermediate relations are null.
         $rawHistory = ProductInventoryStockManager::with(['cost_center', 'sapMasterfile', 'purchaseItemBatch.storeOrderItem.store_order'])
             ->where('product_inventory_id', $id)
             ->where('store_branch_id', $branchId)
@@ -222,9 +222,12 @@ class StockManagementController extends Controller
             $quantityChange = $item->quantity;
             $runningSOH += $quantityChange;
             $item->running_soh = $runningSOH;
-            // Add display_ref_no and is_link_ref for 'add' actions
-            $item->display_ref_no = optional($item->purchaseItemBatch->storeOrderItem->store_order)->order_number ?? 'N/a';
-            $item->is_link_ref = (bool)optional($item->purchaseItemBatch->storeOrderItem->store_order)->order_number;
+
+            // CRITICAL FIX: Use nullsafe operator for nested relations to prevent errors on null.
+            // If purchaseItemBatch, storeOrderItem, or store_order is null, the chain will safely return null.
+            $item->display_ref_no = $item->purchaseItemBatch?->storeOrderItem?->store_order?->order_number ?? 'N/a';
+            $item->is_link_ref = (bool)($item->purchaseItemBatch?->storeOrderItem?->store_order?->order_number);
+
             $chronologicalTransactions->push($item);
             Log::debug("StockManagementController: After ADD Item ID {$item->id}, Action: {$item->action}, Quantity: {$item->quantity}, Running SOH: {$runningSOH}, Display Ref: {$item->display_ref_no}");
         }
@@ -234,7 +237,9 @@ class StockManagementController extends Controller
             $quantityChange = -$item->quantity; // Out actions are negative
             $runningSOH += $quantityChange;
             $item->running_soh = $runningSOH;
-            // Add display_ref_no and is_link_ref for 'out' actions
+
+            // For 'out' actions, extract receipt number from remarks if present
+            // This logic was already robust for 'out' transactions.
             if (preg_match('/Receipt No\. (\d+)/', $item->remarks, $matches)) {
                 $item->display_ref_no = $matches[1];
                 $item->is_link_ref = false; // Store transaction receipts are not direct links in this context
