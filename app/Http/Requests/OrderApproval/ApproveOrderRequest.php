@@ -24,7 +24,7 @@ class ApproveOrderRequest extends FormRequest
     {
         return [
             'id' => ['required'],
-            'remarks' => ['required'],
+            'remarks' => ['nullable'],
             'updatedOrderedItemDetails' => ['required']
         ];
     }
