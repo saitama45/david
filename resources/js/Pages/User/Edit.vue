@@ -50,7 +50,8 @@ const form = useForm({
     password: null, // Password is null by default, only set if user types
     roles: userCurrentRoles,
     remarks: user.remarks,
-    assignedBranches: user.store_branches.map((item) => item.id.toString()), // Assuming store_branches are always an array
+    // FIX: Remove .toString() here, so assignedBranches stores actual integer IDs.
+    assignedBranches: user.store_branches.map((item) => item.id),
     assignedSuppliers: userCurrentAssignedSuppliers,
 });
 
@@ -63,12 +64,23 @@ console.log('suppliersOptions.value after composable:', suppliersOptions.value);
 
 const isAllBranchesChecked = computed({
     get: () => {
-        const totalOptionsCount = branchesOptions.value.length;
-        return form.assignedBranches.length === totalOptionsCount && totalOptionsCount > 0;
+        // Ensure that the "All Branches" option itself is not counted towards the total,
+        // unless you specifically want to select it as a data point.
+        // Assuming 'all' is always the first option and should be excluded for comparison.
+        const actualBranchOptions = branchesOptions.value.filter(b => b.value !== 'all');
+        const totalOptionsCount = actualBranchOptions.length;
+        // Compare the length of currently assigned branches with the actual number of selectable branches
+        // Also check if all actual branch values are present in form.assignedBranches
+        return form.assignedBranches.length === totalOptionsCount &&
+               actualBranchOptions.every(branch => form.assignedBranches.includes(branch.value)) &&
+               totalOptionsCount > 0;
     },
     set: (value) => {
         if (value) {
-            form.assignedBranches = branchesOptions.value.map(branch => branch.value);
+            // Assign all actual branch IDs, excluding 'all'
+            form.assignedBranches = branchesOptions.value
+                                        .filter(branch => branch.value !== 'all')
+                                        .map(branch => branch.value);
         } else {
             form.assignedBranches = [];
         }
@@ -122,6 +134,11 @@ const handleUpdate = () => {
     }
     if (!form.roles || form.roles.length === 0) {
         form.setError('roles', 'At least one role must be assigned.');
+        isValid = false;
+    }
+    // Add validation for assignedBranches
+    if (!form.assignedBranches || form.assignedBranches.length === 0) {
+        form.setError('assignedBranches', 'At least one branch must be assigned.');
         isValid = false;
     }
 
@@ -251,7 +268,7 @@ const handleCancel = () => {
                             class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4"
                         >
                             <div
-                                v-for="branch in branchesOptions"
+                                v-for="branch in branchesOptions.filter(b => b.value !== 'all')"
                                 :key="branch.value"
                                 class="flex items-center space-x-2"
                             >
