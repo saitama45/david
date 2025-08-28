@@ -117,7 +117,7 @@ class ConsolidatedSOReportService
             case 'GSI-P':
                 return '03';
             case 'GSI-B':
-                return '02';
+                return '03';
             case 'PUL-O':
                 return '01';
             default:
