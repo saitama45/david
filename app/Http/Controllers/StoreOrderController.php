@@ -68,10 +68,20 @@ class StoreOrderController extends Controller
         $suppliers = Supplier::whereNot('supplier_code', 'DROPS')->options();
         $branches = StoreBranch::options();
 
+        // Get query parameters
+        $supplierCode = request('supplierCode');
+        $branchId = request('branchId');
+        $orderDate = request('orderDate');
+
         return Inertia::render('StoreOrder/Create', [
             'branches' => $branches,
             'suppliers' => $suppliers,
-            'previousOrder' => $this->storeOrderService->getPreviousOrderReference()
+            'previousOrder' => $this->storeOrderService->getPreviousOrderReference(),
+            'preselectedValues' => [
+                'supplierCode' => $supplierCode,
+                'branchId' => $branchId,
+                'orderDate' => $orderDate,
+            ]
         ]);
     }
 

@@ -133,7 +133,7 @@ class StoreOrderService
     {
         if (request()->has('orderId')) {
             // Eager load 'sapMasterfiles' (plural) for consistency
-            return StoreOrder::with(['store_order_items.supplierItem.sapMasterfiles'])->find(request()->input('orderId'));
+            return StoreOrder::with(['store_order_items.supplierItem.sapMasterfiles', 'supplier', 'store_branch'])->find(request()->input('orderId'));
         }
 
         return null;

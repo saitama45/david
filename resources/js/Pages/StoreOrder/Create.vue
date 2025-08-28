@@ -25,11 +25,11 @@ onBeforeMount(() => {
 
 const props = defineProps({
     branches: {
-        type: Object,
+        type: Object, // Assuming this is a Laravel Collection object, e.g., { '1': {id: 1, name: 'Branch A'}, ... }
         required: true,
     },
     suppliers: {
-        type: Object,
+        type: Object, // Assuming this is a Laravel Collection object, e.g., { '1': {id: 1, name: 'Supplier A', supplier_code: 'SA'}, ... }
         required: true,
     },
     previousOrder: {
@@ -40,12 +40,14 @@ const props = defineProps({
 
 const previousOrder = props.previousOrder;
 
+// useSelectOptions expects an iterable, usually an array of objects.
+// If props.branches is a plain object (from Laravel Collection), Object.values() makes it iterable.
 const { options: branchesOptions } = useSelectOptions(props.branches);
 
 // availableProductsOptions will now be directly populated from API
 const availableProductsOptions = ref([]);
 
-// suppliersOptions will now directly map supplier_code to value and name to label
+// If props.suppliers is a plain object, Object.values() makes it iterable.
 const { options: suppliersOptions } = useSelectOptions(props.suppliers);
 
 import { useForm } from "@inertiajs/vue3";
@@ -69,7 +71,7 @@ const productDetails = reactive({
     inventory_code: null, // This will be the ItemCode (string)
     name: null, // This will be the item_name
     unit_of_measurement: null, // This will now be the single source of truth for UOM
-    base_uom: null, // From sap_masterfile (BaseUOM)
+    base_uom: null, // From sap_master_file (BaseUOM)
     base_qty: null, // Needed for 'Add Item' calculation
     quantity: null,
     cost: null,
@@ -81,9 +83,11 @@ const excelFileForm = useForm({
 });
 
 const orderForm = useForm({ // This is the form instance
-    branch_id: previousOrder?.store_branch_id ? previousOrder.store_branch_id + "" : null,
-    supplier_id: previousOrder?.supplier_id ? previousOrder.supplier_id + "" : null, // This will now hold supplier_code (string)
-    order_date: null,
+    // FIX: Initialize branch_id and supplier_id with the actual ID from previousOrder
+    branch_id: previousOrder?.store_branch?.id ?? null,
+    supplier_id: previousOrder?.supplier?.supplier_code ?? null,
+    // FIX: Initialize order_date from previousOrder and convert to Date object
+    order_date: previousOrder?.order_date ? new Date(previousOrder.order_date) : new Date(),
     orders: [],
 });
 
@@ -186,14 +190,13 @@ watch(productId, async (itemCode) => {
         itemForm.item = itemCode;
 
         try {
-            const supplierCode = orderForm.supplier_id;
-
-            if (!supplierCode) {
-                console.error("Supplier code not found for selected supplier ID:", orderForm.supplier_id);
+            const supplierCodeString = orderForm.supplier_id;
+            if (!supplierCodeString) {
+                console.error("Supplier code not selected.");
                 toast.add({
                     severity: "error",
                     summary: "Error",
-                    detail: "Failed to determine supplier code.",
+                    detail: "Please select a supplier first.",
                     life: 5000,
                 });
                 isLoading.value = false;
@@ -202,7 +205,7 @@ watch(productId, async (itemCode) => {
 
             const response = await axios.get(route("SupplierItems.get-details-by-code", {
                 itemCode: itemCode,
-                supplierCode: supplierCode
+                supplierCode: supplierCodeString // Use directly
             }));
             const result = response.data.item;
 
@@ -503,7 +506,7 @@ const addToOrdersButton = () => {
             base_uom: productDetails.base_uom,
             base_qty: productDetails.base_qty,
             base_uom_qty: productDetails.base_uom_qty,
-            quantity: parseFloat(currentQuantity.toFixed(2)),
+            quantity: parseFloat(currentQuantity.toFixed(2)), // Ensure quantity is number and formatted
             cost: currentCost, 
             total_cost: productDetails.total_cost,
         };
@@ -689,6 +692,7 @@ watch(
 
         try {
             isLoading.value = true;
+            // Now pass the supplierCode directly to the backend route
             const response = await axios.get(route("store-orders.get-supplier-items", supplierCode));
             availableProductsOptions.value = response.data.items;
             isLoading.value = false;
@@ -704,17 +708,18 @@ watch(
             isLoading.value = false;
         }
 
-        const selectedSupplier = suppliersOptions.value.find(
-            (option) => option.value === supplierCode
+        // For date restriction calculation, use the label from suppliersOptions
+        const selectedSupplierOption = suppliersOptions.value.find(
+            (option) => option.value == supplierCode
         );
 
-        if (selectedSupplier) {
+        if (selectedSupplierOption) {
             if (
-                selectedSupplier.label === "GSI OT-BAKERY" ||
-                selectedSupplier.label === "GSI OT-PR"
+                selectedSupplierOption.label.includes("GSI OT-BAKERY") || // Using includes for robustness
+                selectedSupplierOption.label.includes("GSI OT-PR")
             ) {
                 calculateGSIOrderDate();
-            } else if (selectedSupplier.label === "PUL OT-DG") {
+            } else if (selectedSupplierOption.label.includes("PUL OT-DG")) {
                 calculatePULILANOrderDate();
             }
         }
@@ -728,6 +733,19 @@ const isSupplierSelected = computed(() => {
 
 
 if (previousOrder) {
+    // FIX: Set order_date from previousOrder and convert to Date object
+    if (previousOrder.order_date) {
+        orderForm.order_date = new Date(previousOrder.order_date);
+    }
+    // FIX: Set supplier_id and branch_id correctly from previousOrder's IDs
+    if (previousOrder.supplier) {
+        orderForm.supplier_id = previousOrder.supplier.supplier_code;
+    }
+    if (previousOrder.store_branch) {
+        orderForm.branch_id = previousOrder.store_branch.id;
+    }
+
+
     previousOrder.store_order_items.forEach((item) => {
         let baseQty = 1; // Default to 1
         let baseUom = null;
