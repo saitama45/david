@@ -1,262 +1,358 @@
 <script setup>
-import { ref, watch, computed } from 'vue';
+import { ref, computed } from 'vue'; // Added computed
 import { router } from '@inertiajs/vue3';
-import { throttle } from 'lodash';
-import { Filter } from 'lucide-vue-next';
-import { useSelectOptions } from "@/Composables/useSelectOptions";
-
-// CRITICAL FIX: Removed component imports, assuming global registration or central import
-// import Layout from '@/Layouts/AuthenticatedLayout.vue';
-// import TableContainer from '../../Components/TableContainer.vue';
-// import TableHeader from '../../Components/TableHeader.vue';
-// import Table from '../../Components/Table.vue';
-// import TableHead from '../../Components/TableHead.vue';
-// import TableBody from '../../Components/TableBody.vue';
-// import TH from '../../Components/TH.vue';
-// import TD from '../../Components/TD.vue';
-// import Input from '../../Components/Input.vue';
-// import Select from '../../Components/Select.vue';
-// import Button from '../../Components/Button.vue';
-
+import { Edit, Package } from 'lucide-vue-next'; // Using Lucide icons for better visuals
 
 const props = defineProps({
-    report: {
-        type: Array,
-        required: true,
-    },
-    dynamicHeaders: {
-        type: Array,
-        required: true,
-    },
-    branches: {
-        type: Object, // Laravel Collection mapped to options
-        required: true,
-    },
-    suppliers: {
-        type: Object, // Laravel Collection mapped to options
-        required: true,
-    },
-    filters: {
+    item: {
         type: Object,
         required: true,
     },
-    totalBranches: {
-        type: Number,
-        required: true,
-    }
+    existingIngredients: {
+        type: Array,
+        default: () => [],
+    },
 });
 
-const { options: branchesOptions } = useSelectOptions(props.branches);
-const { options: suppliersOptions } = useSelectOptions(props.suppliers);
-
-const orderDate = ref(props.filters.order_date || new Date().toISOString().slice(0, 10));
-const supplierId = ref(props.filters.supplier_id || 'all');
-
-watch([orderDate, supplierId], throttle(() => {
-    router.get(
-        route('reports.consolidated-so.index'),
-        {
-            order_date: orderDate.value,
-            supplier_id: supplierId.value,
-        },
-        {
-            preserveState: true,
-            preserveScroll: true,
-            replace: true,
-        }
-    );
-}, 300));
-
-const resetFilters = () => {
-    orderDate.value = new Date().toISOString().slice(0, 10);
-    supplierId.value = 'all';
-    router.get(
-        route('reports.consolidated-so.index'),
-        {
-            order_date: orderDate.value,
-            supplier_id: supplierId.value,
-        },
-        {
-            preserveState: true,
-            preserveScroll: true,
-            replace: true,
-        }
-    );
+const handleEditClick = () => {
+    router.get(route('POSMasterfile.edit', props.item.id));
 };
 
-const exportRoute = computed(() =>
-    route('reports.consolidated-so.export', {
-        order_date: orderDate.value,
-        supplier_id: supplierId.value,
-    })
-);
-
-// Helper to format date for display
-const formatDisplayDate = (dateString) => {
-    if (!dateString) return 'N/a';
-    try {
-        const date = new Date(dateString);
-        return date.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
-    } catch (e) {
-        console.error("Error formatting date:", dateString, e);
-        return dateString;
-    }
+// Helper to format currency (example, adjust as needed)
+const formatCurrency = (value) => {
+    if (value === null || value === undefined) return 'N/A';
+    return parseFloat(value).toLocaleString('en-US', {
+        style: 'currency',
+        currency: 'PHP', // Assuming Philippine Peso based on location
+    });
 };
 
-// Calculate the colspan for the dynamic branch headers
-const dynamicHeadersColspan = computed(() => {
-    // 3 static headers at the start (ITEM CODE, ITEM NAME, UNIT)
-    // 2 static headers at the end (TOTAL, WHSE)
-    // The rest are dynamic branch headers
-    return props.dynamicHeaders.length - 3 - 2;
+// Helper to check if a value is active
+const isActiveText = (value) => {
+    return Number(value) ? 'Yes' : 'No';
+};
+
+// --- Start of BOM Ingredients Sorting Logic (Copied from Edit.vue) ---
+const sortColumn = ref(null);
+const sortDirection = ref('asc');
+
+const sortedIngredients = computed(() => {
+    if (!sortColumn.value) return props.existingIngredients;
+
+    const sorted = [...props.existingIngredients].sort((a, b) => {
+        let valA = a[sortColumn.value];
+        let valB = b[sortColumn.value];
+
+        // Normalize null/undefined to allow consistent sorting
+        if (valA == null) valA = (typeof valB === 'number' ? 0 : '');
+        if (valB == null) valB = (typeof valA === 'number' ? 0 : '');
+
+        // Numeric compare if both parse as numbers
+        const numA = parseFloat(valA);
+        const numB = parseFloat(valB);
+        const bothNumbers = !Number.isNaN(numA) && !Number.isNaN(numB);
+
+        if (bothNumbers) {
+            return sortDirection.value === 'asc' ? numA - numB : numB - numA;
+        }
+
+        // Fallback string compare
+        const A = String(valA).toLowerCase();
+        const B = String(valB).toLowerCase();
+        if (A < B) return sortDirection.value === 'asc' ? -1 : 1;
+        if (A > B) return sortDirection.value === 'asc' ? 1 : -1;
+        return 0;
+    });
+
+    return sorted;
 });
 
-// Calculate total number of columns for table width
-const totalColumns = computed(() => props.dynamicHeaders.length);
-
-// CRITICAL FIX: Calculate percentage widths for columns
-const calculateColWidth = (type) => {
-    const baseWidth = 100; // Total percentage for all columns
-    const staticCols = 5; // ITEM CODE, ITEM NAME, UNIT, TOTAL, WHSE
-    const dynamicCols = dynamicHeadersColspan.value;
-
-    const totalCalculatedCols = staticCols + dynamicCols;
-
-    // Define base percentages for static columns
-    const itemCodePct = 10; // ITEM CODE
-    const itemNamePct = 25; // ITEM NAME
-    const unitPct = 8;    // UNIT
-    const totalPct = 10;   // TOTAL
-    const whsePct = 7;    // WHSE
-
-    const staticWidthSum = itemCodePct + itemNamePct + unitPct + totalPct + whsePct;
-    const remainingPctForDynamic = baseWidth - staticWidthSum;
-
-    if (dynamicCols === 0) {
-        // If no dynamic columns, distribute remaining percentage among static if needed
-        // For simplicity, we'll just ensure static columns have their defined width
-        switch (type) {
-            case 'item_code': return `${itemCodePct}%`;
-            case 'item_name': return `${itemNamePct}%`;
-            case 'unit': return `${unitPct}%`;
-            case 'total': return `${totalPct}%`;
-            case 'whse': return `${whsePct}%`;
-            default: return '0%'; // Should not happen if dynamicCols is 0
-        }
+const sortIngredients = (column) => {
+    if (sortColumn.value === column) {
+        sortDirection.value = sortDirection.value === 'asc' ? 'desc' : 'asc';
     } else {
-        const dynamicColPct = remainingPctForDynamic / dynamicCols;
-        switch (type) {
-            case 'item_code': return `${itemCodePct}%`;
-            case 'item_name': return `${itemNamePct}%`;
-            case 'unit': return `${unitPct}%`;
-            case 'dynamic': return `${dynamicColPct}%`;
-            case 'total': return `${totalPct}%`;
-            case 'whse': return `${whsePct}%`;
-            default: return '0%';
-        }
+        sortColumn.value = column;
+        sortDirection.value = 'asc';
     }
 };
-
+// --- End of BOM Ingredients Sorting Logic ---
 </script>
 
 <template>
-    <Layout heading="Consolidated SO Report" :hasExcelDownload="true" :exportRoute="exportRoute">
-        <TableContainer>
-            <TableHeader class="flex-wrap">
-                <div class="flex items-center gap-4">
-                    <label for="order_date" class="text-sm font-medium text-gray-700">Date:</label>
-                    <Input
-                        id="order_date"
-                        type="date"
-                        v-model="orderDate"
-                        class="w-48"
-                    />
+    <Layout :heading="`POS Masterfile Details: ${item.POSDescription}`">
+        <div class="p-6 bg-white rounded-lg shadow-md space-y-6">
+
+            <!-- Item Details Section -->
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 border-t pt-4">
+                <div class="detail-item">
+                    <span class="font-semibold text-gray-600">POS Code:</span>
+                    <span class="text-gray-900">{{ item.POSCode }}</span>
                 </div>
-
-                <div class="flex items-center gap-4">
-                    <label for="supplier_filter" class="text-sm font-medium text-gray-700">Supplier:</label>
-                    <Select
-                        id="supplier_filter"
-                        filter
-                        placeholder="Select a Supplier"
-                        v-model="supplierId"
-                        :options="suppliersOptions"
-                        optionLabel="label"
-                        optionValue="value"
-                        class="w-64"
-                    />
+                <div class="detail-item">
+                    <span class="font-semibold text-gray-600">POS Description:</span>
+                    <span class="text-gray-900">{{ item.POSDescription }}</span>
                 </div>
-
-                <Button @click="resetFilters" variant="outline" class="ml-auto">
-                    Reset Filters
-                </Button>
-            </TableHeader>
-            
-            <!-- CRITICAL FIX: Wrap the table in a div for better layout control and use native table elements -->
-            <div style="display: block; overflow-x: auto; width: 100%;">
-                <table class="min-w-full" style="table-layout: fixed;">
-                    <!-- CRITICAL FIX: Define column widths using <colgroup> and <col> tags with percentages -->
-                    <colgroup>
-                        <col :style="{ width: calculateColWidth('item_code') }"> <!-- ITEM CODE -->
-                        <col :style="{ width: calculateColWidth('item_name') }"> <!-- ITEM NAME -->
-                        <col :style="{ width: calculateColWidth('unit') }">  <!-- UNIT -->
-                        <template v-for="(header, index) in dynamicHeaders">
-                            <col v-if="index >= 3 && index < dynamicHeaders.length - 2" :key="`col-${index}`" :style="{ width: calculateColWidth('dynamic') }"> <!-- Dynamic Branch Quantities -->
-                        </template>
-                        <col :style="{ width: calculateColWidth('total') }"> <!-- TOTAL -->
-                        <col :style="{ width: calculateColWidth('whse') }">  <!-- WHSE -->
-                    </colgroup>
-
-                    <thead>
-                        <tr>
-                            <!-- Static Headers -->
-                            <th rowspan="2" class="text-left whitespace-nowrap p-2">ITEM CODE</th>
-                            <th rowspan="2" class="text-left whitespace-nowrap p-2">ITEM NAME</th>
-                            <th rowspan="2" class="text-left whitespace-nowrap p-2">UNIT</th>
-                            
-                            <!-- Dynamic Branch Headers -->
-                            <th :colspan="dynamicHeadersColspan" class="text-center bg-gray-100 p-2">
-                               <div class="flex justify-center items-center gap-2">
-                                    <span class="font-weight: bold;">BRANCH QUANTITIES</span>
-                                    <Filter class="w-4 h-4 text-gray-500" />
-                               </div>
-                            </th>
-                            
-                            <!-- Static Trailing Headers -->
-                            <th rowspan="2" class="text-right whitespace-nowrap p-2">TOTAL</th>
-                            <th rowspan="2" class="text-right whitespace-nowrap p-2">WHSE</th>
-                        </tr>
-                        <tr>
-                            <!-- Dynamic Branch Codes (second row of header) -->
-                            <template v-for="(header, index) in dynamicHeaders">
-                                <th v-if="index >= 3 && index < dynamicHeaders.length - 2" :key="`branch-header-${index}`" class="text-right whitespace-nowrap p-2">
-                                    {{ header.label.split(' ')[0] }} <!-- Extracts 'NNTOL' from 'NNTOL Qty' -->
-                                </th>
-                            </template>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <tr v-for="(row, rowIndex) in report" :key="rowIndex">
-                            <td class="text-left whitespace-nowrap p-2">{{ row.item_code }}</td>
-                            <td class="text-left whitespace-nowrap p-2">{{ row.item_name }}</td>
-                            <td class="text-left whitespace-nowrap p-2">{{ row.unit }}</td>
-                            
-                            <!-- Dynamic Branch Quantities -->
-                            <template v-for="(header, colIndex) in dynamicHeaders">
-                                <td v-if="colIndex >= 3 && colIndex < dynamicHeaders.length - 2" :key="`branch-data-${rowIndex}-${colIndex}`" class="text-right whitespace-nowrap p-2">
-                                    {{ row[header.field] }}
-                                </td>
-                            </template>
-
-                            <td class="text-right whitespace-nowrap p-2">{{ row.total_quantity }}</td>
-                            <td class="text-right whitespace-nowrap p-2">{{ row.whse }}</td>
-                        </tr>
-                        <tr v-if="report.length === 0">
-                            <td :colspan="totalColumns" class="text-center p-4">No data available for the selected filters.</td>
-                        </tr>
-                    </tbody>
-                </table>
+                <div class="detail-item">
+                    <span class="font-semibold text-gray-600">Category:</span>
+                    <span class="text-gray-900">{{ item.Category || 'N/A' }}</span>
+                </div>
+                <div class="detail-item">
+                    <span class="font-semibold text-gray-600">SubCategory:</span>
+                    <span class="text-gray-900">{{ item.SubCategory || 'N/A' }}</span>
+                </div>
+                <div class="detail-item">
+                    <span class="font-semibold text-gray-600">SRP:</span>
+                    <span class="text-gray-900">{{ formatCurrency(item.SRP) }}</span>
+                </div>
+                <div class="detail-item">
+                    <span class="font-semibold text-gray-600">Active:</span>
+                    <span class="text-gray-900">{{ isActiveText(item.is_active) }}</span>
+                </div>
             </div>
-        </TableContainer>
+
+            <h3 class="text-xl font-bold text-gray-800 flex items-center gap-2 mt-8 border-t pt-6">
+                <Package class="w-5 h-5 text-gray-600" />
+                Bill of Materials (BOM) Ingredients
+            </h3>
+
+            <!-- Ingredients Table (adapted from Edit.vue) -->
+            <div class="bg-white border rounded-md shadow-sm w-full">
+                <div class="px-4 py-3 border-b">
+                    <span class="font-semibold text-gray-700">Ingredients Overview</span>
+                </div>
+
+                <div class="overflow-x-auto">
+                    <table class="min-w-full table-fixed" style="table-layout: fixed;">
+                        <colgroup>
+                            <!-- Adjusted colgroup for 7 columns -->
+                            <col style="width:14.28%" /> <!-- Inventory Code -->
+                            <col style="width:25.72%" /> <!-- Name -->
+                            <col style="width:10%" /> <!-- Assembly -->
+                            <col style="width:10%" /> <!-- Quantity -->
+                            <col style="width:10%" /> <!-- UOM -->
+                            <col style="width:15%" /> <!-- Unit Cost -->
+                            <col style="width:15%" /> <!-- Total Cost -->
+                        </colgroup>
+
+                        <thead class="bg-white">
+                            <tr class="text-sm text-gray-600">
+                                <th
+                                    class="px-4 py-3 text-left cursor-pointer select-none"
+                                    :class="{'bg-gray-50': sortColumn === 'inventory_code'}"
+                                    @click="sortIngredients('inventory_code')"
+                                >
+                                    <div class="flex items-center justify-between">
+                                        <span class="truncate">Inventory Code</span>
+                                        <span class="ml-2 flex-shrink-0" v-if="sortColumn === 'inventory_code'">
+                                            <svg v-if="sortDirection === 'asc'" xmlns="http://www.w3.org/2000/svg" class="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                                <path d="M6 15l6-6 6 6"></path>
+                                            </svg>
+                                            <svg v-else xmlns="http://www.w3.org/2000/svg" class="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                                <path d="M6 9l6 6 6-6"></path>
+                                            </svg>
+                                        </span>
+                                    </div>
+                                </th>
+
+                                <th
+                                    class="px-4 py-3 text-left cursor-pointer select-none"
+                                    :class="{'bg-gray-50': sortColumn === 'name'}"
+                                    @click="sortIngredients('name')"
+                                >
+                                    <div class="flex items-center justify-between">
+                                        <span class="truncate">Name</span>
+                                        <span class="ml-2 flex-shrink-0" v-if="sortColumn === 'name'">
+                                            <svg v-if="sortDirection === 'asc'" xmlns="http://www.w3.org/2000/svg" class="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                                <path d="M6 15l6-6 6 6"></path>
+                                            </svg>
+                                            <svg v-else xmlns="http://www.w3.org/2000/svg" class="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                                <path d="M6 9l6 6 6-6"></path>
+                                            </svg>
+                                        </span>
+                                    </div>
+                                </th>
+
+                                <th
+                                    class="px-4 py-3 text-left cursor-pointer select-none"
+                                    :class="{'bg-gray-50': sortColumn === 'assembly'}"
+                                    @click="sortIngredients('assembly')"
+                                >
+                                    <div class="flex items-center justify-between">
+                                        <span class="truncate">Assembly</span>
+                                        <span class="ml-2 flex-shrink-0" v-if="sortColumn === 'assembly'">
+                                            <svg v-if="sortDirection === 'asc'" xmlns="http://www.w3.org/2000/svg" class="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                                <path d="M6 15l6-6 6 6"></path>
+                                            </svg>
+                                            <svg v-else xmlns="http://www.w3.org/2000/svg" class="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                                <path d="M6 9l6 6 6-6"></path>
+                                            </svg>
+                                        </span>
+                                    </div>
+                                </th>
+
+                                <th
+                                    class="px-4 py-3 text-right cursor-pointer select-none"
+                                    :class="{'bg-gray-50': sortColumn === 'quantity'}"
+                                    @click="sortIngredients('quantity')"
+                                >
+                                    <div class="flex items-center justify-end">
+                                        <span class="truncate">Quantity</span>
+                                        <span class="ml-2 flex-shrink-0" v-if="sortColumn === 'quantity'">
+                                            <svg v-if="sortDirection === 'asc'" xmlns="http://www.w3.org/2000/svg" class="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                                <path d="M6 15l6-6 6 6"></path>
+                                            </svg>
+                                            <svg v-else xmlns="http://www.w3.org/2000/svg" class="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                                <path d="M6 9l6 6 6-6"></path>
+                                            </svg>
+                                        </span>
+                                    </div>
+                                </th>
+
+                                <th
+                                    class="px-4 py-3 text-left cursor-pointer select-none"
+                                    :class="{'bg-gray-50': sortColumn === 'uom'}"
+                                    @click="sortIngredients('uom')"
+                                >
+                                    <div class="flex items-center justify-between">
+                                        <span class="truncate">UOM</span>
+                                        <span class="ml-2 flex-shrink-0" v-if="sortColumn === 'uom'">
+                                            <svg v-if="sortDirection === 'asc'" xmlns="http://www.w3.org/2000/svg" class="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                                <path d="M6 15l6-6 6 6"></path>
+                                            </svg>
+                                            <svg v-else xmlns="http://www.w3.org/2000/svg" class="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                                <path d="M6 9l6 6 6-6"></path>
+                                            </svg>
+                                        </span>
+                                    </div>
+                                </th>
+
+                                <th
+                                    class="px-4 py-3 text-right cursor-pointer select-none"
+                                    :class="{'bg-gray-50': sortColumn === 'unit_cost'}"
+                                    @click="sortIngredients('unit_cost')"
+                                >
+                                    <div class="flex items-center justify-end">
+                                        <span class="truncate">Unit Cost</span>
+                                        <span class="ml-2 flex-shrink-0" v-if="sortColumn === 'unit_cost'">
+                                            <svg v-if="sortDirection === 'asc'" xmlns="http://www.w3.org/2000/svg" class="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                                <path d="M6 15l6-6 6 6"></path>
+                                            </svg>
+                                            <svg v-else xmlns="http://www.w3.org/2000/svg" class="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                                <path d="M6 9l6 6 6-6"></path>
+                                            </svg>
+                                        </span>
+                                    </div>
+                                </th>
+
+                                <th
+                                    class="px-4 py-3 text-right cursor-pointer select-none"
+                                    :class="{'bg-gray-50': sortColumn === 'total_cost'}"
+                                    @click="sortIngredients('total_cost')"
+                                >
+                                    <div class="flex items-center justify-end">
+                                        <span class="truncate">Total Cost</span>
+                                        <span class="ml-2 flex-shrink-0" v-if="sortColumn === 'total_cost'">
+                                            <svg v-if="sortDirection === 'asc'" xmlns="http://www.w3.org/2000/svg" class="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                                <path d="M6 15l6-6 6 6"></path>
+                                            </svg>
+                                            <svg v-else xmlns="http://www.w3.org/2000/svg" class="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                                <path d="M6 9l6 6 6-6"></path>
+                                            </svg>
+                                        </span>
+                                    </div>
+                                </th>
+                            </tr>
+                        </thead>
+
+                        <tbody class="text-sm text-gray-700">
+                            <tr v-if="sortedIngredients.length === 0">
+                                <td colspan="7" class="text-center p-4 text-gray-500">No BOM ingredients defined for this POS Masterfile item.</td>
+                            </tr>
+                            <tr v-for="ingredient in sortedIngredients" :key="ingredient.id" class="border-t">
+                                <td
+                                    class="px-4 py-3 align-top whitespace-nowrap overflow-hidden text-ellipsis"
+                                    :class="{'bg-gray-50': sortColumn === 'inventory_code'}"
+                                >
+                                    {{ ingredient.inventory_code }}
+                                </td>
+
+                                <td
+                                    class="px-4 py-3 align-top"
+                                    :class="{'bg-gray-50': sortColumn === 'name'}"
+                                >
+                                    <div class="truncate" :title="ingredient.name">{{ ingredient.name }}</div>
+                                </td>
+
+                                <td
+                                    class="px-4 py-3 align-top whitespace-nowrap overflow-hidden text-ellipsis"
+                                    :class="{'bg-gray-50': sortColumn === 'assembly'}"
+                                >
+                                    {{ ingredient.assembly ?? '-' }}
+                                </td>
+
+                                <td
+                                    class="px-4 py-3 align-top whitespace-nowrap text-right"
+                                    :class="{'bg-gray-50': sortColumn === 'quantity'}"
+                                >
+                                    {{ ingredient.quantity }}
+                                </td>
+
+                                <td
+                                    class="px-4 py-3 align-top whitespace-nowrap"
+                                    :class="{'bg-gray-50': sortColumn === 'uom'}"
+                                >
+                                    {{ ingredient.uom }}
+                                </td>
+
+                                <td
+                                    class="px-4 py-3 align-top whitespace-nowrap text-right"
+                                    :class="{'bg-gray-50': sortColumn === 'unit_cost'}"
+                                >
+                                    {{ formatCurrency(ingredient.unit_cost) }}
+                                </td>
+
+                                <td
+                                    class="px-4 py-3 align-top whitespace-nowrap text-right"
+                                    :class="{'bg-gray-50': sortColumn === 'total_cost'}"
+                                >
+                                    {{ formatCurrency(ingredient.total_cost) }}
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- Mobile condensed view -->
+                <div class="md:hidden p-4 space-y-3">
+                    <div v-for="ingredient in sortedIngredients" :key="'m-' + ingredient.id" class="border rounded p-3">
+                        <div class="font-semibold truncate">
+                            {{ ingredient.name }}
+                            <span class="text-sm font-normal">({{ ingredient.inventory_code }})</span>
+                        </div>
+                        <div class="text-sm text-gray-600">Assembly: {{ ingredient.assembly ?? '-' }}</div>
+                        <div class="text-sm text-gray-600">UOM: {{ ingredient.uom }}</div>
+                        <div class="text-sm text-gray-600">Quantity: {{ ingredient.quantity }}</div>
+                        <div class="text-sm text-gray-600">Unit Cost: {{ formatCurrency(ingredient.unit_cost) }}</div>
+                        <div class="text-sm text-gray-600">Total Cost: {{ formatCurrency(ingredient.total_cost) }}</div>
+                    </div>
+                </div>
+
+                <div class="px-4 py-3 text-sm text-gray-700 border-t">
+                    <p>Total Ingredients: <span class="font-bold">{{ existingIngredients.length }}</span></p>
+                </div>
+            </div>
+        </div>
     </Layout>
 </template>
+
+<style scoped>
+.detail-item {
+    @apply flex flex-col p-2 bg-gray-50 rounded-md;
+}
+.detail-item span:first-child {
+    @apply text-sm uppercase;
+}
+.detail-item span:last-child {
+    @apply text-lg font-medium;
+}
+</style>
