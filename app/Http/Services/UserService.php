@@ -4,83 +4,152 @@ namespace App\Http\Services;
 
 use App\Models\User;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Log;
 use Spatie\Permission\Models\Role;
-use Illuminate\Support\Facades\Log; // CRITICAL FIX: Import Log facade for debugging
+use Exception;
 
 class UserService
 {
+    /**
+     * Sanitize branch IDs coming from frontend: keep only numeric values and cast to int.
+     */
+    protected function sanitizeBranchIds(array $values = null): array
+    {
+        if (empty($values)) {
+            return [];
+        }
+        $filtered = array_values(array_filter($values, function ($v) {
+            // treat numeric strings and integers as valid ids
+            return is_numeric($v);
+        }));
+        return array_map('intval', $filtered);
+    }
+
+    /**
+     * Sanitize supplier values coming from frontend: remove sentinel values like 'all' and empty strings.
+     * Keep string codes or numeric ids as-is (trimmed).
+     */
+    protected function sanitizeSupplierValues(array $values = null): array
+    {
+        if (empty($values)) {
+            return [];
+        }
+        $filtered = array_values(array_filter($values, function ($v) {
+            if ($v === null) return false;
+            $v = trim((string) $v);
+            // drop special marker values
+            if ($v === '' || strtolower($v) === 'all') return false;
+            return true;
+        }));
+        return $filtered;
+    }
+
+    /**
+     * Sanitize role ids: keep only numeric IDs (since we'll look up names by id).
+     */
+    protected function sanitizeRoleIds(array $values = null): array
+    {
+        if (empty($values)) return [];
+        $filtered = array_values(array_filter($values, function ($v) {
+            return is_numeric($v);
+        }));
+        return array_map('intval', $filtered);
+    }
+
     public function createUser(array $data)
     {
-        // Password hashing is handled by the 'hashed' cast on the User model.
-        DB::beginTransaction();
-        try {
-            $user = User::create($data);
-            $roles = Role::whereIn('id', $data['roles'])->get();
-            $user->assignRole($roles);
-            $user->store_branches()->attach($data['assignedBranches']);
+        return DB::transaction(function () use ($data) {
+            $user = User::create([
+                'first_name'    => $data['first_name'] ?? null,
+                'middle_name'   => $data['middle_name'] ?? null,
+                'last_name'     => $data['last_name'] ?? null,
+                'phone_number'  => $data['phone_number'] ?? null,
+                'email'         => $data['email'] ?? null,
+                'password'      => $data['password'] ?? null,
+                'remarks'       => $data['remarks'] ?? null,
+                'is_active'     => $data['is_active'] ?? 1,
+            ]);
 
-            if (isset($data['assignedSuppliers'])) {
-                $user->suppliers()->attach($data['assignedSuppliers']);
+            // Roles: convert IDs -> names
+            if (isset($data['roles']) && is_array($data['roles'])) {
+                $roleIds = $this->sanitizeRoleIds($data['roles']);
+                $roleNames = [];
+                if (!empty($roleIds)) {
+                    $roleNames = Role::whereIn('id', $roleIds)->pluck('name')->toArray();
+                }
+                if (!empty($roleNames)) {
+                    $user->assignRole($roleNames);
+                } else {
+                    $user->syncRoles([]);
+                }
+            } else {
+                $user->syncRoles([]);
             }
 
-            DB::commit();
-        } catch (\Exception $e) {
-            DB::rollBack();
-            throw $e;
-        }
+            // Assigned branches: ensure numeric IDs only
+            $branchIds = $this->sanitizeBranchIds($data['assignedBranches'] ?? []);
+            $user->store_branches()->sync($branchIds);
+
+            // Assigned suppliers: remove marker values like 'all', keep codes or ids
+            $supplierVals = $this->sanitizeSupplierValues($data['assignedSuppliers'] ?? []);
+            $user->suppliers()->sync($supplierVals);
+
+            return $user;
+        });
     }
 
     public function updateUser(array $data, User $user)
     {
-        DB::beginTransaction();
-        try {
+        return DB::transaction(function () use ($data, $user) {
             $updateData = [
-                'first_name' => $data['first_name'],
-                'middle_name' => $data['middle_name'] ?? null,
-                'last_name' => $data['last_name'],
-                'phone_number' => $data['phone_number'],
-                'email' => $data['email'],
-                'remarks' => $data['remarks'] ?? null,
+                'first_name' => $data['first_name'] ?? $user->first_name,
+                'middle_name' => $data['middle_name'] ?? $user->middle_name,
+                'last_name' => $data['last_name'] ?? $user->last_name,
+                'phone_number' => $data['phone_number'] ?? $user->phone_number,
+                'email' => $data['email'] ?? $user->email,
+                'remarks' => $data['remarks'] ?? $user->remarks,
+                'is_active' => $data['is_active'] ?? $user->is_active,
             ];
 
             if (isset($data['password']) && !empty($data['password'])) {
-                $updateData['password'] = $data['password']; // Assign plain password, model cast will hash it
+                $updateData['password'] = $data['password'];
             }
 
             $user->update($updateData);
 
-            $roles = Role::whereIn('id', $data['roles'])->get();
-            $user->syncRoles($roles);
-            $user->store_branches()->sync($data['assignedBranches']);
-
-            if (isset($data['assignedSuppliers'])) {
-                $user->suppliers()->sync($data['assignedSuppliers']);
+            // Roles
+            if (isset($data['roles']) && is_array($data['roles'])) {
+                $roleIds = $this->sanitizeRoleIds($data['roles']);
+                $roleNames = $roleIds ? Role::whereIn('id', $roleIds)->pluck('name')->toArray() : [];
+                $user->syncRoles($roleNames);
             } else {
-                $user->suppliers()->sync([]);
+                $user->syncRoles([]);
             }
 
-            DB::commit();
-        } catch (\Exception $e) {
-            DB::rollBack();
-            throw $e;
-        }
+            // Branches
+            $branchIds = $this->sanitizeBranchIds($data['assignedBranches'] ?? []);
+            $user->store_branches()->sync($branchIds);
+
+            // Suppliers
+            $supplierVals = $this->sanitizeSupplierValues($data['assignedSuppliers'] ?? []);
+            $user->suppliers()->sync($supplierVals);
+
+            return $user;
+        });
     }
 
     public function deleteUser(User $user)
     {
-        DB::beginTransaction();
-        try {
-            $user->load(['usage_records', 'store_orders']);
-            if ($user->usage_records->count() > 0 || $user->store_orders->count() > 0) {
-                throw new \Exception("Can't delete this user because there are data associated with it.");
+        return DB::transaction(function () use ($user) {
+            // Detach relations to avoid FK issues
+            $user->store_branches()->detach();
+            $user->suppliers()->detach();
+            // If roles are via spatie relation table, detach
+            if (method_exists($user, 'roles')) {
+                try { $user->roles()->detach(); } catch (\Throwable $e) { /* ignore */ }
             }
             $user->delete();
-            DB::commit();
-        } catch (\Exception $e) {
-            DB::rollBack();
-            throw $e;
-        }
+        });
     }
 
     public function getUsersList()
@@ -89,9 +158,15 @@ class UserService
         $query = User::query()
             ->select(['id', 'first_name', 'last_name', 'email', 'is_active'])
             ->withOnly(['roles:name', 'suppliers:supplier_code,name']);
+
         if ($search) {
-            $query->whereAny(['first_name', 'last_name', 'email'], 'like', "%$search%");
+            $query->where(function ($q) use ($search) {
+                $q->where('first_name', 'like', "%{$search}%")
+                  ->orWhere('last_name', 'like', "%{$search}%")
+                  ->orWhere('email', 'like', "%{$search}%");
+            });
         }
+
         return $query->latest()->paginate(10)->withQueryString();
     }
 
