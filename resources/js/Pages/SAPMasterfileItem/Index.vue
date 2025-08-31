@@ -207,6 +207,16 @@ onMounted(() => {
             >
                 Download Skipped Items Report
             </button>
+
+            <p class="text-sm mt-2">
+                Common reasons for skipped items:
+                <ul class="list-disc list-inside text-sm ml-4">
+                    <li>Item already exists in the database</li>
+                    <li>Missing ItemCode or AltUOM values</li>
+                    <li>Duplicate items within the import file</li>
+                    <li>Invalid data format</li>
+                </ul>
+            </p>
         </div>
 
         <FilterTab>
