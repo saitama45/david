@@ -115,36 +115,43 @@ class SAPMasterfileController extends Controller
 
     public function import(Request $request)
     {
-        set_time_limit(300); // 300 seconds (5 minutes). Adjust as needed.
+        set_time_limit(300);
+        Log::debug('SAPMasterfile Import: Import method started.');
 
         $request->validate([
             'products_file' => 'required|mimes:xlsx,xls,csv'
         ]);
 
-        // IMPORTANT: Reset the static tracker in the importer class before starting a new import.
-        // This ensures that the duplicate checking starts fresh for each import operation.
         SAPMasterfileImport::resetSeenCombinations();
 
-        DB::beginTransaction(); // Start a database transaction
-
         try {
-            // Step 1: Delete all existing records from the table.
-            SAPMasterfile::query()->delete();
+            $import = new SAPMasterfileImport();
+            Excel::import($import, $request->file('products_file'));
+            $skippedItems = $import->getSkippedItems();
+            $processedCount = $import->getProcessedCount();
+            $skippedCount = $import->getSkippedCount();
 
-            // Step 2: Reseed the ID for SQL Server.
-            // As per your request, RESEED to 0 means the NEXT ID inserted will be 1.
-            DB::statement("DBCC CHECKIDENT('sap_masterfiles', RESEED, 0);");
+            if ($processedCount > 0) {
+                $message = 'Import successful. Processed ' . $processedCount . ' items.';
+                
+                if ($skippedCount > 0) {
+                    $message .= ' ' . $skippedCount . ' rows were skipped due to validation errors or duplicates.';
+                    session()->flash('skippedItems', $skippedItems);
+                    session()->flash('warning', $message);
+                } else {
+                    session()->flash('success', $message);
+                }
+            } else if ($skippedCount > 0) {
+                $message = 'No items were imported. ' . $skippedCount . ' rows were skipped due to validation errors or duplicates.';
+                session()->flash('skippedItems', $skippedItems);
+                session()->flash('warning', $message);
+            } else {
+                session()->flash('warning', 'No valid items found in the import file.');
+            }
 
-            // Step 3: Perform the import. The de-duplication logic is now handled internally
-            // by SAPMasterfileImport using chunk reading and batch inserts.
-            Excel::import(new SAPMasterfileImport, $request->file('products_file'));
-
-            DB::commit(); // Commit the transaction if everything is successful
-
-            return redirect()->route('sapitems.index')->with('success', 'Import successful. Duplicates within the file were skipped. All records updated.');
+            return redirect()->route('sapitems.index');
 
         } catch (\Exception $e) {
-            DB::rollBack(); // Rollback the transaction if any error occurs
             Log::error('SAPMasterfile Import Error: ' . $e->getMessage(), [
                 'file_name' => $request->file('products_file')->getClientOriginalName(),
                 'trace' => $e->getTraceAsString(),

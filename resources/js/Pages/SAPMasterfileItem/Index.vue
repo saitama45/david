@@ -7,10 +7,11 @@ import { router } from "@inertiajs/vue3";
 import { usePage } from "@inertiajs/vue3";
 import { useAuth } from "@/Composables/useAuth";
 import { useReferenceDelete } from "@/Composables/useReferenceDelete";
+import { ref, watch, computed, onMounted } from 'vue';
 
 const toast = useToast();
-
 const confirm = useConfirm();
+const page = usePage();
 
 const props = defineProps({
     items: {
@@ -19,14 +20,11 @@ const props = defineProps({
     },
 });
 
-
 const handleClick = () => {
     router.get(route("sapitems.create"));
 };
 
-
-
-let filter = ref(usePage().props.filter || "all");
+let filter = ref(page.props.filter || "all");
 
 const { search } = useSearch("sapitems.index");
 
@@ -45,10 +43,7 @@ watch(filter, function (value) {
     );
 });
 
-
-
 const { hasAccess } = useAuth();
-
 const { deleteModel } = useReferenceDelete();
 
 const exportRoute = computed(() =>
@@ -59,6 +54,35 @@ const exportRoute = computed(() =>
 );
 
 const isImportModalVisible = ref(false);
+const skippedItems = ref([]);
+const persistentSkippedItemsMessage = ref('');
+
+const formatSkippedItemsMessage = (items) => {
+    if (!items || items.length === 0) {
+        return '';
+    }
+
+    let message = 'The following items were skipped during import:\n\n';
+    items.forEach(item => {
+        message += `- Item Code: ${item.item_code || 'N/A'}, Description: ${item.item_description || 'N/A'}, Reason: ${item.reason}\n`;
+    });
+    return message;
+};
+
+const downloadSkippedItems = () => {
+    if (skippedItems.value.length === 0) return;
+    
+    const content = formatSkippedItemsMessage(skippedItems.value);
+    const blob = new Blob([content], { type: 'text/plain' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `sap_masterfile_skipped_items_${new Date().toISOString().split('T')[0]}.txt`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+};
 
 const importForm = useForm({
     products_file: null,
@@ -68,21 +92,41 @@ const importFile = () => {
     isLoading.value = true;
     importForm.post(route("sapitems.import"), {
         onSuccess: () => {
-            toast.add({
-                severity: "success",
-                summary: "Success",
-                detail: "Products Updated Successfully.",
-                life: 3000,
-            });
             isLoading.value = false;
             isImportModalVisible.value = false;
+
+            if (page.props.flash && page.props.flash.skippedItems && page.props.flash.skippedItems.length > 0) {
+                skippedItems.value = page.props.flash.skippedItems;
+                
+                // Only show message if 15 or fewer items
+                if (skippedItems.value.length <= 15) {
+                    persistentSkippedItemsMessage.value = formatSkippedItemsMessage(skippedItems.value);
+                } else {
+                    persistentSkippedItemsMessage.value = '';
+                }
+                
+                toast.add({
+                    severity: "warn",
+                    summary: "Import Completed with Warnings",
+                    detail: `${skippedItems.value.length} items were skipped during import. Download the report for details.`,
+                    life: 5000,
+                });
+            } else if (page.props.flash && page.props.flash.success) {
+                persistentSkippedItemsMessage.value = '';
+                toast.add({
+                    severity: "success",
+                    summary: "Success",
+                    detail: page.props.flash.success,
+                    life: 3000,
+                });
+            }
         },
         onError: (e) => {
             isLoading.value = false;
             toast.add({
                 severity: "error",
                 summary: "Error",
-                detail: "An error occured while trying to update products. Please make sure that you are using the correct format.",
+                detail: "An error occurred while trying to import items. Please make sure that you are using the correct format.",
                 life: 3000,
             });
         },
@@ -93,10 +137,44 @@ const importFile = () => {
 };
 
 const openFormModal = () => {
-    return (isImportModalVisible.value = true);
+    isImportModalVisible.value = true;
 };
 
 const isLoading = ref(false);
+
+onMounted(() => {
+    if (page.props.flash && page.props.flash.skippedItems && page.props.flash.skippedItems.length > 0) {
+        skippedItems.value = page.props.flash.skippedItems;
+        
+        // Only show message if 15 or fewer items
+        if (skippedItems.value.length <= 15) {
+            persistentSkippedItemsMessage.value = formatSkippedItemsMessage(skippedItems.value);
+        } else {
+            persistentSkippedItemsMessage.value = '';
+        }
+        
+        toast.add({
+            severity: "warn",
+            summary: "Import Completed with Warnings",
+            detail: `${skippedItems.value.length} items were skipped during the last import. Download the report for details.`,
+            life: 5000,
+        });
+    } else if (page.props.flash && page.props.flash.success) {
+        toast.add({
+            severity: "success",
+            summary: "Success",
+            detail: page.props.flash.success,
+            life: 3000,
+        });
+    } else if (page.props.flash && page.props.flash.error) {
+        toast.add({
+            severity: "error",
+            summary: "Error",
+            detail: page.props.flash.error,
+            life: 3000,
+        });
+    }
+});
 </script>
 
 <template>
@@ -108,6 +186,39 @@ const isLoading = ref(false);
         :hasExcelDownload="true"
         :exportRoute="exportRoute"
     >
+        <!-- Persistent Skipped Items Message (only shown for 15 or fewer items) -->
+        <div v-if="persistentSkippedItemsMessage && skippedItems.length <= 15" class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative mb-4" role="alert">
+            <strong class="font-bold">Import Warnings:</strong>
+            <span class="block sm:inline whitespace-pre-line">{{ persistentSkippedItemsMessage }}</span>
+            
+            <span class="absolute top-0 bottom-0 right-0 px-4 py-3 cursor-pointer" @click="persistentSkippedItemsMessage = ''">
+                <svg class="fill-current h-6 w-6 text-red-500" role="button" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20"><title>Close</title><path d="M14.348 14.849a1.2 1.2 0 0 1-1.697 0L10 11.819l-2.651 3.029a1.2 1.2 0 1 1-1.697-1.697l2.758-3.15-2.759-3.152a1.2 1.2 0 1 1 1.697-1.697L10 8.183l2.651-3.031a1.2 1.2 0 1 1 1.697 1.697l-2.758 3.152 2.758 3.15a1.2 1.2 0 0 1 0 1.698z"/></svg>
+            </span>
+        </div>
+
+        <!-- Download button (always shown when there are skipped items) -->
+        <div v-if="skippedItems.length > 0" class="bg-blue-100 border border-blue-400 text-blue-700 px-4 py-3 rounded mb-4" role="alert">
+            <strong class="font-bold">Import Summary:</strong>
+            <span class="block sm:inline"> {{ skippedItems.length }} items were skipped during import.</span>
+            
+            <button 
+                @click="downloadSkippedItems"
+                class="mt-2 bg-blue-500 hover:bg-blue-700 text-white font-bold py-1 px-2 rounded text-sm"
+            >
+                Download Skipped Items Report
+            </button>
+            
+            <p class="text-sm mt-2">
+                Common reasons for skipped items:
+                <ul class="list-disc list-inside text-sm ml-4">
+                    <li>Item already exists in the database</li>
+                    <li>Missing ItemCode or AltUOM values</li>
+                    <li>Duplicate items within the import file</li>
+                    <li>Invalid data format</li>
+                </ul>
+            </p>
+        </div>
+
         <FilterTab>
             <FilterTabButton
                 label="All"
@@ -162,7 +273,7 @@ const isLoading = ref(false);
                         <TD>{{ item.BaseQty }}</TD>
                         <TD>{{ item.AltUOM }}</TD>
                         <TD>{{ item.AltQty }}</TD>
-                        <TD>{{ Number(item.is_active) ? 'Yes' : 'No' }}</TD> <TD class="flex items-center gap-2"></TD>
+                        <TD>{{ Number(item.is_active) ? 'Yes' : 'No' }}</TD>
                         <TD class="flex items-center gap-2">
                             <ShowButton
                                 v-if="hasAccess('view item')"
@@ -203,8 +314,8 @@ const isLoading = ref(false);
                         <DeleteButton
                             @click="
                                 deleteModel(
-                                    route('items.destroy', item.id),
-                                    'SAP Masterfile Item' // Changed label
+                                    route('sapitems.destroy', item.id),
+                                    'SAP Masterfile Item'
                                 )
                             "
                         />
