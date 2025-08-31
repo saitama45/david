@@ -62,9 +62,9 @@ const formatSkippedItemsMessage = (items) => {
         return '';
     }
 
-    let message = 'The following items were skipped during import:\n\n';
+    let message = 'The following items were skipped during import due to validation issues:\n\n';
     items.forEach(item => {
-        message += `- Item Code: ${item.item_code || 'N/A'}, Description: ${item.item_description || 'N/A'}, Reason: ${item.reason}\n`;
+        message += `- Item Code: ${item.item_code || 'N/A'}, AltUOM: ${item.alt_uom || 'N/A'}, Reason: ${item.reason}\n`;
     });
     return message;
 };
@@ -207,16 +207,6 @@ onMounted(() => {
             >
                 Download Skipped Items Report
             </button>
-            
-            <p class="text-sm mt-2">
-                Common reasons for skipped items:
-                <ul class="list-disc list-inside text-sm ml-4">
-                    <li>Item already exists in the database</li>
-                    <li>Missing ItemCode or AltUOM values</li>
-                    <li>Duplicate items within the import file</li>
-                    <li>Invalid data format</li>
-                </ul>
-            </p>
         </div>
 
         <FilterTab>

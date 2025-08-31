@@ -37,13 +37,13 @@ class SAPMasterfileImport implements ToCollection, WithHeadingRow, WithChunkRead
 
                 // Check for required fields
                 if (empty($itemCode)) {
-                    $this->addSkippedItem($itemCode, $row['item_description'] ?? '', 'ItemCode is missing or empty.');
+                    $this->addSkippedItem($itemCode, $altUOM, $row['item_description'] ?? '', 'ItemCode is missing or empty.');
                     $this->skippedCount++;
                     continue;
                 }
 
                 if (empty($altUOM)) {
-                    $this->addSkippedItem($itemCode, $row['item_description'] ?? '', 'AltUOM is missing or empty.');
+                    $this->addSkippedItem($itemCode, $altUOM, $row['item_description'] ?? '', 'AltUOM is missing or empty.');
                     $this->skippedCount++;
                     continue;
                 }
@@ -52,7 +52,7 @@ class SAPMasterfileImport implements ToCollection, WithHeadingRow, WithChunkRead
 
                 // Check for duplicates in the current import
                 if (in_array($combination, self::$seenCombinations)) {
-                    $this->addSkippedItem($itemCode, $row['item_description'] ?? '', 'Duplicate item within the import file.');
+                    $this->addSkippedItem($itemCode, $altUOM, $row['item_description'] ?? '', 'Duplicate item within the import file.');
                     $this->skippedCount++;
                     continue;
                 }
@@ -63,7 +63,7 @@ class SAPMasterfileImport implements ToCollection, WithHeadingRow, WithChunkRead
                     ->first();
 
                 if ($existingRecord) {
-                    $this->addSkippedItem($itemCode, $row['item_description'] ?? '', 'Item already exists in the database.');
+                    $this->addSkippedItem($itemCode, $altUOM, $row['item_description'] ?? '', 'Item already exists in the database.');
                     $this->skippedCount++;
                     continue;
                 }
@@ -85,21 +85,22 @@ class SAPMasterfileImport implements ToCollection, WithHeadingRow, WithChunkRead
                 $this->processedCount++;
                 
             } catch (\Exception $e) {
-                $this->addSkippedItem($itemCode ?? '', $row['item_description'] ?? '', 'Error processing row: ' . $e->getMessage());
+                $this->addSkippedItem($itemCode ?? '', $altUOM ?? '', $row['item_description'] ?? '', 'Error processing row: ' . $e->getMessage());
                 $this->skippedCount++;
                 Log::error("Error processing SAPMasterfile row: " . $e->getMessage());
             }
         }
     }
 
-    protected function addSkippedItem(?string $itemCode, ?string $itemDescription, string $reason): void
+    protected function addSkippedItem(?string $itemCode, ?string $altUOM, ?string $itemDescription, string $reason): void
     {
         $this->skippedItems[] = [
             'item_code' => $itemCode,
+            'alt_uom' => $altUOM,
             'item_description' => $itemDescription,
             'reason' => $reason,
         ];
-        Log::warning("SAPMasterfileImport: Skipped item - Item Code: '{$itemCode}', Description: '{$itemDescription}', Reason: '{$reason}'");
+        Log::warning("SAPMasterfileImport: Skipped item - Item Code: '{$itemCode}', AltUOM: '{$altUOM}', Description: '{$itemDescription}', Reason: '{$reason}'");
     }
 
     public function getSkippedItems(): array
