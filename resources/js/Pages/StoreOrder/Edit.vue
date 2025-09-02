@@ -91,8 +91,8 @@ onMounted(() => {
                 
                 // Prioritize props.order.order_date if draft's order_date is null or undefined
                 orderForm.order_date = drafts.value.order_date !== null && drafts.value.order_date !== undefined 
-                                        ? drafts.value.order_date 
-                                        : props.order.order_date; // Fallback to prop value
+                                         ? drafts.value.order_date 
+                                         : props.order.order_date; // Fallback to prop value
                 // Restore orders from draft
                 orderForm.orders = drafts.value.orders || [];
                 editableOrderItems.value = orderForm.orders;
@@ -716,57 +716,45 @@ const {
     isEditQuantityModalOpen,
     formQuantity,
     openEditQuantityModal,
-    // The composable's editOrderQuantity is no longer directly called here for array modification,
-    // as that logic is now handled in handleEditQuantityConfirm for direct reactivity.
-    // We keep it if it has other side effects like showing toasts or closing its internal modal state.
-    editOrderQuantity: composableEditOrderQuantity, 
 } = useEditQuantity(orderForm, editableOrderItems, props.order); // CRITICAL FIX: Pass editableOrderItems ref here
 
-// New function to handle the confirm button click in the edit quantity modal
-const handleEditQuantityConfirm = () => {
-    // Find the item in orderForm.orders to update its quantity
-    // The 'id' in orderForm.orders for existing items is StoreOrderItem.id (numeric)
-    // The 'id' in orderForm.orders for new items is null
-    // The 'formQuantity.id' passed to the modal is 'order.id' from the table,
-    // which is StoreOrderItem.id for existing items.
-    // So, we should find by StoreOrderItem.id.
+// This is the function that is now called when "Save changes" is clicked
+const editQuantity = () => {
     const itemIndex = orderForm.orders.findIndex(item => item.id === formQuantity.id);
 
     if (itemIndex !== -1) {
         const newQuantity = Number(formQuantity.quantity);
         const currentItem = orderForm.orders[itemIndex];
 
-        // Basic validation for quantity
         if (isNaN(newQuantity) || newQuantity <= 0) {
             formQuantity.errors.quantity = "Quantity must be a positive number.";
             toast.add({ severity: "error", summary: "Validation Error", detail: "Quantity must be a positive number.", life: 3000 });
             return;
         }
 
-        // Ensure cost is a number before calculation to prevent NaN
         const itemCost = Number(currentItem.cost);
         if (isNaN(itemCost)) {
             toast.add({ severity: "error", summary: "Calculation Error", detail: "Item cost is invalid. Cannot update total cost.", life: 3000 });
             return;
         }
 
-        // Determine the effective BaseQTY for calculation. Default to 1 if not available or <= 0.
         const effectiveBaseQty = Number(currentItem.base_qty) > 0 ? Number(currentItem.base_qty) : 1;
 
         currentItem.quantity = parseFloat(newQuantity.toFixed(2));
-        currentItem.base_uom_qty = parseFloat((newQuantity * effectiveBaseQty).toFixed(2)); // NEW: Recalculate BaseUOM Qty
+        currentItem.base_uom_qty = parseFloat((newQuantity * effectiveBaseQty).toFixed(2));
         currentItem.total_cost = parseFloat(
-            currentItem.base_uom_qty * itemCost // Use base_uom_qty for total cost calculation
+            Number(currentItem.base_uom_qty) * Number(currentItem.cost)
         ).toFixed(2);
 
         orderForm.orders = [...orderForm.orders];
 
         toast.add({ severity: "success", summary: "Success", detail: "Quantity Updated.", life: 3000 });
-        isEditQuantityModalOpen.value = false; // Close the modal
+        isEditQuantityModalOpen.value = false;
     } else {
         toast.add({ severity: "error", summary: "Error", detail: "Item not found in order list.", life: 3000 });
     }
 };
+
 
 const heading = `Edit Order #${props.order.order_number}`;
 
@@ -1235,7 +1223,7 @@ const addImportedItemsToOrderList = () => {
                 </CardContent>
 
                 <CardFooter class="flex justify-end">
-                    <Button @click="store">Place Order</Button>
+                    <Button @click="update">Update Order</Button>
                 </CardFooter>
             </Card>
         </div>
