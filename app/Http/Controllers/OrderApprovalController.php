@@ -33,8 +33,8 @@ class OrderApprovalController extends Controller
         // Pass the currentFilter from the request to the service
         $data = $this->orderApprovalService->getOrdersAndCounts(
             'manager', // page
-            null,      // condition (not used for this context)
-            null,      // variant (not used for this context)
+            null,       // condition (not used for this context)
+            null,       // variant (not used for this context)
             request('currentFilter') ?? 'pending' // Pass the current filter from UI
         );
 
@@ -48,7 +48,8 @@ class OrderApprovalController extends Controller
     public function export()
     {
         $search = request('search');
-        $filter = request('currentFilter') ?? 'pending'; // Use currentFilter from UI for export
+        // FIX: The frontend passes the filter as 'filter', not 'currentFilter'.
+        $filter = request('filter') ?? 'pending';
 
         return Excel::download(
             new OrderApprovalsExport($search, $filter),

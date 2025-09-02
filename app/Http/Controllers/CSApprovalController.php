@@ -48,6 +48,7 @@ class CSApprovalController extends Controller
         $currentSupplierFilter = request('currentSupplierFilter') ?? 'all'; 
         // Status filter is now static to 'approved' as per request
         $currentStatusFilter = OrderStatus::APPROVED->value; 
+        $search = request('search'); // FIX: Get the search term from the request
 
         // Fetch all active suppliers to populate the dynamic tabs in the frontend
         $assignedSuppliers = Supplier::whereIn('supplier_code', $assignedSupplierCodes)
@@ -62,11 +63,13 @@ class CSApprovalController extends Controller
                                      })->toArray();
 
         // Pass the assigned supplier codes, the current supplier filter, and the static status filter to the service
+        // FIX: Pass the search term to the service
         $data = $this->csCommitService->getOrdersAndCounts(
             'cs', // type
             $assignedSupplierCodes,
             $currentSupplierFilter, // passed as $variant in service
-            $currentStatusFilter // passed as $statusFilter in service
+            $currentStatusFilter, // passed as $statusFilter in service
+            $search // FIX: Pass the search term to the service
         );
 
         return Inertia::render('CSApproval/Index', [
@@ -164,9 +167,9 @@ class CSApprovalController extends Controller
     public function getSupplierItems($supplierCode)
     {
         $supplierItems = SupplierItems::where('SupplierCode', $supplierCode)
-                                       ->where('is_active', true)
-                                       ->options()
-                                       ->all();
+                                     ->where('is_active', true)
+                                     ->options()
+                                     ->all();
 
         $formattedSupplierItems = [];
         foreach ($supplierItems as $itemCode => $formattedName) {

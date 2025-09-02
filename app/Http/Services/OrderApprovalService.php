@@ -34,21 +34,19 @@ class OrderApprovalService extends StoreOrderService
 
         if ($search) {
             $baseQuery->where('order_number', 'like', '%' . $search . '%')
-                      ->orWhereHas('supplier', function ($q) use ($search) {
-                          $q->where('name', 'like', '%' . $search . '%');
-                      })
-                      ->orWhereHas('store_branch', function ($q) use ($search) {
-                          $q->where('name', 'like', '%' . $search . '%');
-                      });
+                    ->orWhereHas('supplier', function ($q) use ($search) {
+                        $q->where('name', 'like', '%' . $search . '%');
+                    })
+                    ->orWhereHas('store_branch', function ($q) use ($search) {
+                        $q->where('name', 'like', '%' . $search . '%');
+                    });
         }
 
         // Calculate counts based on the base query (before applying the specific status filter for the main list)
         $counts = $this->getCounts($baseQuery);
 
         // Apply the specific status filter for the main orders list
-        if ($currentFilter === 'all') {
-            $baseQuery->where('order_status', OrderStatus::APPROVED->value); // "All" tab means show approved orders
-        } else {
+        if ($currentFilter !== 'all') {
             $baseQuery->where('order_status', $currentFilter); // Use pending or rejected
         }
 

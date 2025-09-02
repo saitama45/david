@@ -21,9 +21,10 @@ class CSCommitService extends OrderApprovalService // Assuming OrderApprovalServ
      * @param mixed $condition This parameter corresponds to $assignedSupplierCodes.
      * @param mixed $variant This parameter corresponds to $selectedSupplierCode.
      * @param string $statusFilter This parameter is now effectively ignored for filtering, but kept for compatibility.
+     * @param string|null $search The search term from the request.
      * @return array Contains 'orders' (paginated) and 'counts'.
      */
-    public function getOrdersAndCounts($page = 'manager', $condition = null, $variant = null, $statusFilter = 'approved') // Default statusFilter to 'approved'
+    public function getOrdersAndCounts($page = 'manager', $condition = null, $variant = null, $statusFilter = 'approved', $search = null) // FIX: Added $search parameter
     {
         // Map the generic parent parameters to our specific needs
         $type = $page;
@@ -33,14 +34,13 @@ class CSCommitService extends OrderApprovalService // Assuming OrderApprovalServ
         Log::debug("CSCommitService: getOrdersAndCounts called.");
         Log::debug("CSCommitService: Incoming type: {$type}, assignedSupplierCodes: " . json_encode($assignedSupplierCodes) . ", selectedSupplierCode: {$selectedSupplierCode}, statusFilter (ignored for query): {$statusFilter}");
 
-        // Get the search query from the request, if available
-        $search = request('search');
+        // FIX: Removed the redundant call to request('search') as it's now passed from the controller.
         Log::debug("CSCommitService: Search term: " . ($search ?? 'N/A'));
 
         // --- Step 1: Get the IDs of the suppliers that match the assigned supplier codes ---
         $assignedSupplierIds = Supplier::whereIn('supplier_code', $assignedSupplierCodes)
-                                       ->pluck('id')
-                                       ->toArray();
+                                     ->pluck('id')
+                                     ->toArray();
 
         Log::debug("CSCommitService: Mapped assignedSupplierIds from codes: " . json_encode($assignedSupplierIds));
 
@@ -84,10 +84,12 @@ class CSCommitService extends OrderApprovalService // Assuming OrderApprovalServ
             $ordersQuery->where(function ($query) use ($search) {
                 $query->where('order_number', 'like', '%' . $search . '%')
                       ->orWhereHas('supplier', function ($q) use ($search) {
-                          $q->where('name', 'like', '%' . $this->search . '%');
+                          // FIX: Use the $search variable from the outer scope
+                          $q->where('name', 'like', '%' . $search . '%'); 
                       })
                       ->orWhereHas('store_branch', function ($q) use ($search) {
-                          $q->where('name', 'like', '%' . $this->search . '%');
+                          // FIX: Use the $search variable from the outer scope
+                          $q->where('name', 'like', '%' . $search . '%');
                       });
             });
             Log::debug("CSCommitService: Applied search filter: '{$search}'");

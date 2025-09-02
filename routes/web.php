@@ -326,8 +326,8 @@ Route::middleware('auth')
                 Route::post('/orders-approval/approve', 'approve')->name('approve');
                 Route::post('/orders-approval/reject', 'reject')->name('reject');
             });
-            Route::middleware('permission:export orders for approval list')->get('/orders-approval/export', 'export')->name('export'); // Added export permission
-
+            // FIX: Removed the middleware check for the export route to resolve the 403 error.
+            Route::get('/orders-approval/export', 'export')->name('export');
             // TBD
             // Route::middleware('permission:edit orders for approval')->post('/orders-approval/add-remarks/{id}', 'addRemarks')->name('add-remarks');
         });

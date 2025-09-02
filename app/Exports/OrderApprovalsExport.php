@@ -28,8 +28,12 @@ class OrderApprovalsExport implements FromQuery, WithHeadings, WithMapping
         if ($this->search)
             $query->where('order_number', 'like', '%' . $this->search . '%');
 
-        if ($this->filter)
-            $query->where('manager_approval_status', $this->filter);
+        // FIX: The `where` clause for `order_status` should only be applied
+        // if a specific filter (e.g., 'pending' or 'rejected') is selected.
+        // For the 'all' filter, we don't apply any status constraint.
+        if ($this->filter && $this->filter !== 'all') {
+            $query->where('order_status', $this->filter);
+        }
 
         return $query;
     }
@@ -46,7 +50,6 @@ class OrderApprovalsExport implements FromQuery, WithHeadings, WithMapping
             'Order Date',
             'Order Status',
             'Order Request Status',
-            'Manager Approval Status',
             'Remarks',
             'Variant',
             'Approval Action Date'
@@ -65,7 +68,6 @@ class OrderApprovalsExport implements FromQuery, WithHeadings, WithMapping
             $order->order_date,
             $order->order_status,
             $order->order_request_status,
-            $order->manager_approval_status,
             $order->remarks,
             $order->variant,
             $order->approval_action_date ?? 'N/a'
