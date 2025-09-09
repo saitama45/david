@@ -229,11 +229,9 @@ const {
                 </TableHead>
                 <TableBody>
                     <tr v-for="item in orderedItems" :key="order.id">
-                        <TD>{{ item.supplier_item.ItemCode }}</TD>
-                        <TD>{{ item.supplier_item.item_name }}</TD>
-                        <TD>{{
-                            item.supplier_item.uom
-                        }}</TD>
+                        <TD>{{ item.supplier_item?.ItemCode ?? 'N/A' }}</TD>
+                        <TD>{{ item.supplier_item?.item_name ?? 'N/A' }}</TD>
+                        <TD>{{ item.supplier_item?.uom ?? 'N/A' }}</TD>
                         <TD class="flex items-center gap-3">
                             {{
                                 itemsDetail.find((data) => data.id === item.id)
@@ -268,7 +266,7 @@ const {
             <MobileTableContainer>
                 <MobileTableRow v-for="item in orderedItems" :key="order.id">
                     <MobileTableHeading
-                        :title="`${item.supplier_item.item_name} (${item.supplier_item.ItemCode})`"
+                        :title="`${item.supplier_item?.item_name ?? 'N/A'} (${item.supplier_item?.ItemCode ?? 'N/A'})`"
                     >
                         <DivFlexCenter
                             class="gap-2"
@@ -284,9 +282,7 @@ const {
                     </MobileTableHeading>
                     <LabelXS
                         >UOM:
-                        {{
-                            item.supplier_item.uom
-                        }}</LabelXS
+                        {{ item.supplier_item?.uom ?? 'N/A' }}</LabelXS
                     >
                     <LabelXS
                         >Quantity:

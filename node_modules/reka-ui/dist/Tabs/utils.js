@@ -1,9 +1,11 @@
+//#region src/Tabs/utils.ts
 function makeTriggerId(baseId, value) {
-  return `${baseId}-trigger-${value}`;
+	return `${baseId}-trigger-${value}`;
 }
 function makeContentId(baseId, value) {
-  return `${baseId}-content-${value}`;
+	return `${baseId}-content-${value}`;
 }
 
-export { makeContentId as a, makeTriggerId as m };
+//#endregion
+export { makeContentId, makeTriggerId };
 //# sourceMappingURL=utils.js.map

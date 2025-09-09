@@ -3,99 +3,70 @@
 namespace App\Exports;
 
 use App\Models\StoreOrder;
-use App\Models\User;
-use Maatwebsite\Excel\Concerns\Exportable;
+use Illuminate\Support\Collection;
 use Maatwebsite\Excel\Concerns\FromCollection;
-use Maatwebsite\Excel\Concerns\FromQuery;
 use Maatwebsite\Excel\Concerns\WithHeadings;
-use Maatwebsite\Excel\Concerns\WithMapping;
 
-class DTSOrdersExport implements FromQuery, WithHeadings, WithMapping
+class DTSOrdersExport implements FromCollection, WithHeadings
 {
-    use Exportable;
+    protected array $filters;
 
-    protected $search;
-    protected $branchId;
-    protected $filterQuery;
-    protected $from;
-    protected $to;
-    public function __construct($search = null, $branchId = null, $filterQuery = null, $from = null, $to = null)
+    public function __construct(array $filters)
     {
-        $this->search = $search;
-        $this->branchId = $branchId;
-        $this->filterQuery = $filterQuery;
-        $this->from = $from;
-        $this->to = $to;
+        $this->filters = $filters;
     }
 
-    public function query()
+    /**
+    * @return Collection
+    */
+    public function collection(): Collection
     {
-        $query = StoreOrder::query()->with(['encoder', 'approver', 'commiter', 'store_branch', 'supplier']);
+        $query = StoreOrder::with('store_branch')
+            ->where('variant', 'dropshipping');
 
-        $user = User::rolesAndAssignedBranches();
-
-        if (!$user['isAdmin']) $query->whereIn('store_branch_id', $user['assignedBranches']);
-
-        if ($this->from && $this->to) {
-            $query->whereBetween('order_date', [$this->from, $this->to]);
+        // Apply filters
+        if (!empty($this->filters['branchId']) && $this->filters['branchId'] !== 'all') {
+            $query->where('store_branch_id', $this->filters['branchId']);
         }
 
-        if ($this->filterQuery !== 'all')
-            $query->where('order_request_status', $this->filterQuery);
+        if (!empty($this->filters['search'])) {
+            $query->where('order_number', 'like', '%' . $this->filters['search'] . '%');
+        }
 
-        if ($this->branchId)
-            $query->where('store_branch_id', $this->branchId);
+        if (!empty($this->filters['filterQuery']) && $this->filters['filterQuery'] !== 'all') {
+            $query->where('order_status', $this->filters['filterQuery']);
+        }
 
-        if ($this->search)
-            $query->where('order_number', 'like', '%' . $this->search . '%')
-                ->orWhereHas('store_branch', function ($query) {
-                    $query->where('name', 'like', '%' . $this->search . '%');
-                });
+        if (!empty($this->filters['from']) && !empty($this->filters['to'])) {
+            $query->whereBetween('order_date', [$this->filters['from'], $this->filters['to']]);
+        }
 
-        $query
-            ->whereNot('variant', 'regular')
-            ->latest();
+        $orders = $query->get();
 
-        return $query;
+        return $orders->map(function ($order) {
+            return [
+                'ID' => $order->id,
+                'Store Branch' => $order->store_branch?->name,
+                'Order Number' => $order->order_number,
+                'Order Status' => $order->order_status,
+                'Delivery Date' => $order->order_date,
+                'Created At' => $order->created_at,
+            ];
+        });
     }
 
+    /**
+    * @return array
+    */
     public function headings(): array
     {
         return [
-            'Encoder',
-            'Supplier',
+            'ID',
             'Store Branch',
-            'Commiter',
-            'Approver',
             'Order Number',
-            'Order Date',
             'Order Status',
-            'Order Request Status',
-            'Manager Approval Status',
-            'Remarks',
-            'Variant',
-            'Approval Action Date'
+            'Delivery Date',
+            'Created At',
         ];
     }
-
-    
-
-    public function map($order): array
-    {
-        return [
-            $order->encoder?->full_name ?? 'N/a',
-            $order->supplier->name,
-            $order->store_branch->name,
-            $order->commiter?->full_name ?? 'N/a',
-            $order->approver?->full_name ?? 'N/a',
-            $order->order_number,
-            $order->order_date,
-            $order->order_status,
-            $order->order_request_status,
-            $order->manager_approval_status,
-            $order->remarks,
-            $order->variant,
-            $order->approval_action_date ?? 'N/a'
-        ];
-    }
-} 
+}

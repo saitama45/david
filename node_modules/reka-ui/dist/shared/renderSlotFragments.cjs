@@ -1,16 +1,20 @@
-'use strict';
+const require_rolldown_runtime = require('../rolldown-runtime.cjs');
+const vue = require_rolldown_runtime.__toESM(require("vue"));
 
-const vue = require('vue');
-
+//#region src/shared/renderSlotFragments.ts
 function renderSlotFragments(children) {
-  if (!children)
-    return [];
-  return children.flatMap((child) => {
-    if (child.type === vue.Fragment)
-      return renderSlotFragments(child.children);
-    return [child];
-  });
+	if (!children) return [];
+	return children.flatMap((child) => {
+		if (child.type === vue.Fragment) return renderSlotFragments(child.children);
+		return [child];
+	});
 }
 
-exports.renderSlotFragments = renderSlotFragments;
+//#endregion
+Object.defineProperty(exports, 'renderSlotFragments', {
+  enumerable: true,
+  get: function () {
+    return renderSlotFragments;
+  }
+});
 //# sourceMappingURL=renderSlotFragments.cjs.map

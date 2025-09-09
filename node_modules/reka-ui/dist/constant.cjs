@@ -1,11 +1,5 @@
-'use strict';
+const require_constant_components = require('./constant/components.cjs');
+require('./constant/index.cjs');
 
-Object.defineProperty(exports, Symbol.toStringTag, { value: 'Module' });
-
-const constant_components = require('./constant/components.cjs');
-
-
-
-exports.components = constant_components.components;
-exports.utilities = constant_components.utilities;
-//# sourceMappingURL=constant.cjs.map
+exports.components = require_constant_components.components;
+exports.utilities = require_constant_components.utilities;

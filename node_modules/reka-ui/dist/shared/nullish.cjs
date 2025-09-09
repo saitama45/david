@@ -1,8 +1,14 @@
-'use strict';
 
+//#region src/shared/nullish.ts
 function isNullish(value) {
-  return value === null || value === void 0;
+	return value === null || value === void 0;
 }
 
-exports.isNullish = isNullish;
+//#endregion
+Object.defineProperty(exports, 'isNullish', {
+  enumerable: true,
+  get: function () {
+    return isNullish;
+  }
+});
 //# sourceMappingURL=nullish.cjs.map

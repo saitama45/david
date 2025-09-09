@@ -2,90 +2,120 @@
 
 namespace App\Http\Services;
 
-use App\Enum\OrderRequestStatus;
-use App\Enum\OrderStatus;
-use App\Models\ProductInventory;
 use App\Models\StoreOrder;
-use App\Models\User;
-use Carbon\Carbon;
+use App\Models\StoreOrderItem;
+use App\Models\StoreBranch;
+use App\Models\Supplier;
+use App\Models\SAPMasterfile;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Log;
 
-class DTSStoreOrderService extends StoreOrderService
+class DTSStoreOrderService
 {
-
-    public function createOrder(array $data)
+    /**
+     * Creates new DTS orders, grouped by store branch.
+     *
+     * @param array $data
+     * @return \Illuminate\Support\Collection
+     */
+    public function createDTSOrder(array $data): Collection
     {
         DB::beginTransaction();
-        $order = StoreOrder::create([
-            'encoder_id' => 1,
-            'supplier_id' => $data['supplier_id'],
-            'store_branch_id' => $data['branch_id'],
-            'order_number' => $this->getOrderNumber($data['branch_id']),
-            'order_date' => Carbon::parse($data['order_date'])->format('Y-m-d'),
-            'order_status' => OrderStatus::PENDING->value,
-            'order_request_status' => OrderRequestStatus::PENDING->value,
-            'variant' => $data['variant']
-        ]);
+        try {
+            $createdOrders = new Collection();
+            $encoderId = Auth::id();
+            $dtsSupplier = Supplier::where('supplier_code', 'DROPS')->firstOrFail();
 
+            // Group items by store_branch_id ONLY, as per business logic.
+            $itemsByBranch = collect($data['items'])->groupBy('store_branch_id');
 
+            foreach ($itemsByBranch as $branchId => $itemsForBranch) {
+                $storeBranch = StoreBranch::findOrFail($branchId);
 
-        foreach ($data['orders'] as $data) {
-            $order->store_order_items()->create([
-                'product_inventory_id' => $data['id'],
-                'quantity_ordered' => $data['quantity'],
-                'total_cost' => $data['total_cost'],
-            ]);
+                // Generate ONE Order Number for the entire branch transaction.
+                $lastOrder = StoreOrder::query()
+                    ->where('store_branch_id', $storeBranch->id)
+                    ->latest('id')->first();
+
+                $nextOrderNumber = '00001';
+                if ($lastOrder) {
+                    $lastNumber = intval(substr($lastOrder->order_number, -5));
+                    $nextOrderNumber = str_pad($lastNumber + 1, 5, '0', STR_PAD_LEFT);
+                }
+                $orderNumber = $storeBranch->branch_code . '-' . $nextOrderNumber;
+
+                // Use the date and variant from the FIRST item as the representative for the main order.
+                $firstItemInGroup = $itemsForBranch->first();
+                $representativeDate = $firstItemInGroup['order_date'];
+                $representativeVariant = $firstItemInGroup['variant'];
+
+                // Create the single Store Order record for this branch
+                $storeOrder = StoreOrder::create([
+                    'encoder_id' => $encoderId,
+                    'supplier_id' => $dtsSupplier->id,
+                    'store_branch_id' => $branchId,
+                    'order_number' => $orderNumber,
+                    'order_date' => $representativeDate,
+                    'order_status' => 'pending',
+                    'variant' => $representativeVariant,
+                    'remarks' => 'DTS Order for ' . $representativeVariant,
+                ]);
+
+                // Create Store Order Items for this order
+                foreach ($itemsForBranch as $itemData) {
+                    $sapMasterfile = SAPMasterfile::find($itemData['item_id']);
+                    if (!$sapMasterfile) continue;
+
+                    // Store the item-specific date and variant in the remarks field.
+                    $itemRemarks = 'Variant: ' . $itemData['variant'] . '; Delivery Date: ' . $itemData['order_date'];
+
+                    StoreOrderItem::create([
+                        'store_order_id' => $storeOrder->id,
+                        'item_code' => $sapMasterfile->ItemCode,
+                        'quantity_ordered' => $itemData['quantity'],
+                        'cost_per_quantity' => $itemData['cost'],
+                        'total_cost' => $itemData['quantity'] * $itemData['cost'],
+                        'uom' => $sapMasterfile->AltUOM,
+                        'remarks' => $itemRemarks,
+                    ]);
+                }
+                $createdOrders->push($storeOrder);
+            }
+
+            DB::commit();
+            return $createdOrders;
+        } catch (\Exception $e) {
+            DB::rollBack();
+            throw $e;
         }
-        DB::commit();
     }
 
-    public function getItems($variant)
+    /**
+     * Updates existing DTS orders based on the new data structure.
+     * Note: This is a destructive and recreative process.
+     *
+     * @param array $orderNumbersToUpdate
+     * @param array $data
+     * @return \Illuminate\Support\Collection
+     */
+    public function updateDTSOrder(StoreOrder $store_order, array $data)
     {
-        if ($variant === 'fruits and vegetables') {
-            return ProductInventory::where('inventory_category_id', 6)
-                ->options();
-        } else if ($variant === 'salmon') {
-            return ProductInventory::where('inventory_code', '269A2A')->options();
-        } else {
-            return ProductInventory::where('inventory_code', '359A2A')->options();
+        DB::beginTransaction();
+        try {
+            // Delete the old order and its items
+            $store_order->store_order_items()->delete();
+            $store_order->delete();
+
+            // Re-create the new order(s) using the existing creation logic
+            $newOrders = $this->createDTSOrder($data);
+
+            DB::commit();
+            return $newOrders;
+        } catch (\Exception $e) {
+            DB::rollBack();
+            throw $e;
         }
-    }
-
-    public function getDtsOrdersList()
-    {
-        $from = request('from') ? Carbon::parse(request('from'))->format('Y-m-d') : '1999-01-01';
-        $to = request('to') ? Carbon::parse(request('to'))->addDay()->format('Y-m-d') : Carbon::today()->addMonth();
-        $search = request('search');
-        $filter = request('filterQuery') ?? 'pending';
-        $branchId = request('branchId');
-
-
-
-        $query = StoreOrder::query()->with(['store_branch', 'supplier'])->whereNot('variant', 'regular');
-
-        $user = User::rolesAndAssignedBranches();
-
-        if (!$user['isAdmin']) $query->whereIn('store_branch_id', $user['assignedBranches']);
-        if ($search)
-            $query->where('order_number', 'like', '%' . $search . '%');
-
-        if ($from && $to) {
-            $query->whereBetween('order_date', [$from, $to]);
-        }
-
-        if ($filter !== 'all')
-
-            $query->where('order_status', $filter);
-
-        if ($branchId)
-            $query->where('store_branch_id', $branchId);
-
-
-
-
-        return $query
-            ->latest()
-            ->paginate(10)
-            ->withQueryString();
     }
 }

@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class DTSDeliverySchedule extends Model
 {
@@ -15,4 +16,12 @@ class DTSDeliverySchedule extends Model
         'store_branch_id',
         'variant'
     ];
+
+    /**
+     * Get the delivery schedule associated with the DTS entry.
+     */
+    public function deliverySchedule(): BelongsTo
+    {
+        return $this->belongsTo(DeliverySchedule::class, 'delivery_schedule_id');
+    }
 }

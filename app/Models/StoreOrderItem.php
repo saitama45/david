@@ -13,7 +13,8 @@ class StoreOrderItem extends Model implements Auditable
 
     protected $fillable = [
         'store_order_id',
-        'item_code', 
+        'item_code',
+        'sap_masterfile_id',
         'quantity_ordered',
         'quantity_approved',
         'quantity_commited',
@@ -39,15 +40,6 @@ class StoreOrderItem extends Model implements Auditable
         // CRITICAL FIX: Link 'item_code' (on this model) to 'ItemCode' (on SupplierItems)
         return $this->belongsTo(SupplierItems::class, 'item_code', 'ItemCode');
     }
-
-    // comment out or remove the old product_inventory relationship
-    // if it's no longer relevant for items in store orders.
-    /*
-    public function product_inventory()
-    {
-        return $this->belongsTo(ProductInventory::class);
-    }
-    */
 
     public function cash_pull_out()
     {

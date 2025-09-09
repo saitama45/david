@@ -1,8 +1,14 @@
-'use strict';
 
+//#region src/ContextMenu/utils.ts
 function isTouchOrPen(event) {
-  return event.pointerType !== "mouse";
+	return event.pointerType !== "mouse";
 }
 
-exports.isTouchOrPen = isTouchOrPen;
+//#endregion
+Object.defineProperty(exports, 'isTouchOrPen', {
+  enumerable: true,
+  get: function () {
+    return isTouchOrPen;
+  }
+});
 //# sourceMappingURL=utils.cjs.map

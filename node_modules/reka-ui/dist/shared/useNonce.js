@@ -1,12 +1,12 @@
-import { ref, computed } from 'vue';
-import { i as injectConfigProviderContext } from '../ConfigProvider/ConfigProvider.js';
+import { injectConfigProviderContext } from "../ConfigProvider/ConfigProvider.js";
+import { computed, ref } from "vue";
 
+//#region src/shared/useNonce.ts
 function useNonce(nonce) {
-  const context = injectConfigProviderContext({
-    nonce: ref()
-  });
-  return computed(() => nonce?.value || context.nonce?.value);
+	const context = injectConfigProviderContext({ nonce: ref() });
+	return computed(() => nonce?.value || context.nonce?.value);
 }
 
-export { useNonce as u };
+//#endregion
+export { useNonce };
 //# sourceMappingURL=useNonce.js.map

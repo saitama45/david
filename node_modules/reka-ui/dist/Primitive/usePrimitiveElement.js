@@ -1,14 +1,16 @@
-import { unrefElement } from '@vueuse/core';
-import { ref, computed } from 'vue';
+import { computed, ref } from "vue";
+import { unrefElement } from "@vueuse/core";
 
+//#region src/Primitive/usePrimitiveElement.ts
 function usePrimitiveElement() {
-  const primitiveElement = ref();
-  const currentElement = computed(() => ["#text", "#comment"].includes(primitiveElement.value?.$el.nodeName) ? primitiveElement.value?.$el.nextElementSibling : unrefElement(primitiveElement));
-  return {
-    primitiveElement,
-    currentElement
-  };
+	const primitiveElement = ref();
+	const currentElement = computed(() => ["#text", "#comment"].includes(primitiveElement.value?.$el.nodeName) ? primitiveElement.value?.$el.nextElementSibling : unrefElement(primitiveElement));
+	return {
+		primitiveElement,
+		currentElement
+	};
 }
 
-export { usePrimitiveElement as u };
+//#endregion
+export { usePrimitiveElement };
 //# sourceMappingURL=usePrimitiveElement.js.map

@@ -1,6 +1,8 @@
+//#region src/ContextMenu/utils.ts
 function isTouchOrPen(event) {
-  return event.pointerType !== "mouse";
+	return event.pointerType !== "mouse";
 }
 
-export { isTouchOrPen as i };
+//#endregion
+export { isTouchOrPen };
 //# sourceMappingURL=utils.js.map

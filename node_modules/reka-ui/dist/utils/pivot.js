@@ -1,13 +1,11 @@
-import { b as getResizeHandleElementIndex } from './dom.js';
+import { getResizeHandleElementIndex } from "./dom.js";
 
+//#region src/Splitter/utils/pivot.ts
 function determinePivotIndices(groupId, dragHandleId, panelGroupElement) {
-  const index = getResizeHandleElementIndex(
-    groupId,
-    dragHandleId,
-    panelGroupElement
-  );
-  return index != null ? [index, index + 1] : [-1, -1];
+	const index = getResizeHandleElementIndex(groupId, dragHandleId, panelGroupElement);
+	return index != null ? [index, index + 1] : [-1, -1];
 }
 
-export { determinePivotIndices as d };
+//#endregion
+export { determinePivotIndices };
 //# sourceMappingURL=pivot.js.map

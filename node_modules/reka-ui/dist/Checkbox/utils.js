@@ -1,9 +1,11 @@
+//#region src/Checkbox/utils.ts
 function isIndeterminate(checked) {
-  return checked === "indeterminate";
+	return checked === "indeterminate";
 }
 function getState(checked) {
-  return isIndeterminate(checked) ? "indeterminate" : checked ? "checked" : "unchecked";
+	return isIndeterminate(checked) ? "indeterminate" : checked ? "checked" : "unchecked";
 }
 
-export { getState as g, isIndeterminate as i };
+//#endregion
+export { getState, isIndeterminate };
 //# sourceMappingURL=utils.js.map

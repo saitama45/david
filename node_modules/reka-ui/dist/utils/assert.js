@@ -1,9 +1,11 @@
+//#region src/Splitter/utils/assert.ts
 function assert(expectedCondition, message = "Assertion failed!") {
-  if (!expectedCondition) {
-    console.error(message);
-    throw new Error(message);
-  }
+	if (!expectedCondition) {
+		console.error(message);
+		throw new Error(message);
+	}
 }
 
-export { assert as a };
+//#endregion
+export { assert };
 //# sourceMappingURL=assert.js.map

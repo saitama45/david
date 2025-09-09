@@ -1,820 +1,486 @@
 <script setup>
-import { useSelectOptions } from "@/Composables/useSelectOptions";
-import { useForm } from "@inertiajs/vue3";
-import { useConfirm } from "primevue/useconfirm";
-import { useToast } from "@/Composables/useToast";
-import { useBackButton } from "@/Composables/useBackButton";
-const { backButton } = useBackButton(route("store-orders.index"));
-
-const confirm = useConfirm();
-const { toast } = useToast();
+import { router, useForm } from "@inertiajs/vue3";
+import { ref, watch, computed, onMounted, nextTick } from 'vue';
+import { MinusCircle, PlusCircle, Trash2, Calendar as CalendarIcon, Loader2 } from 'lucide-vue-next';
+import { useToast } from "@/components/ui/toast/";
+import ConfirmationModal from '@/components/ConfirmationModal.vue';
+import axios from 'axios';
 
 const props = defineProps({
-    order: {
-        type: Object,
-        required: true,
-    },
-    orderedItems: {
-        type: Object,
-        required: true,
-    },
-    products: {
-        type: Object,
-        required: true,
-    },
-    branches: {
-        type: Object,
-        required: true,
-    },
-    suppliers: {
-        type: Object,
-        required: true,
-    },
+    order: { type: Object, required: true },
+    branches: { type: Array, required: true },
+    dtsSupplier: { type: Object, required: true },
+    variants: { type: Array, required: true },
+    deliverySchedules: { type: Object, required: true },
 });
 
-const addImportedItemsToOrderList = () => {
-    isLoading.value = true;
-    if (!excelFileForm.orders_file) {
-        toast.add({
-            severity: "error",
-            summary: "Error",
-            detail: "The order file is required.",
-            life: 5000,
-        });
-        isLoading.value = false;
-        return;
-    }
-    if (
-        !excelFileForm.orders_file.name.includes(
-            props.order.variant.replace(/ /g, "-")
-        )
-    ) {
-        toast.add({
-            severity: "error",
-            summary: "Error",
-            detail: "Please make sure that you are using the correct order template for the order variant.",
-            life: 5000,
-        });
-        isLoading.value = false;
-        return;
-    }
-    const formData = new FormData();
-    formData.append("orders_file", excelFileForm.orders_file);
+const { toast } = useToast();
 
-    axios
-        .post(route("store-orders.imported-file"), formData, {
-            headers: {
-                "Content-Type": "multipart/form-data",
-            },
-        })
-        .then((response) => {
-            response.data.orders.forEach((importedOrder) => {
-                const existingItemIndex = orderForm.orders.findIndex(
-                    (order) => order.id === importedOrder.id
-                );
-
-                if (existingItemIndex !== -1) {
-                    const updatedQuantity =
-                        orderForm.orders[existingItemIndex].quantity +
-                        Number(importedOrder.quantity);
-                    orderForm.orders[existingItemIndex].quantity =
-                        updatedQuantity;
-                    orderForm.orders[existingItemIndex].total_cost = parseFloat(
-                        updatedQuantity *
-                            orderForm.orders[existingItemIndex].cost
-                    ).toFixed(2);
-                } else {
-                    orderForm.orders.push({
-                        ...importedOrder,
-                        total_cost: parseFloat(
-                            importedOrder.quantity * importedOrder.cost
-                        ).toFixed(2),
-                    });
-                }
-            });
-
-            visible.value = false;
-            toast.add({
-                severity: "success",
-                summary: "Success",
-                detail: "Items added successfully.",
-                life: 5000,
-            });
-            excelFileForm.orders_file = null;
-        })
-        .catch((error) => {
-            toast.add({
-                severity: "error",
-                summary: "Error",
-                detail: "An error occured while trying to get the imported orders. Please make sure that you are using the correct format.",
-                life: 5000,
-            });
-            excelFileForm.setError("orders_file", error.response.data.message);
-            console.log(error);
-        })
-        .finally(() => (isLoading.value = false));
-};
-
-const drafts = ref(null);
-const previousStoreOrderNumber = ref(null);
-onBeforeMount(() => {
-    const previousData = localStorage.getItem("editDtsStoreOrderDraft");
-    const previousDtsStoreOrderNumber = localStorage.getItem(
-        "previousDtsStoreOrderNumber"
-    );
-
-    if (previousData) {
-        drafts.value = JSON.parse(previousData);
-        previousStoreOrderNumber.value = previousDtsStoreOrderNumber;
-    }
-});
-const excelFileForm = useForm({
-    orders_file: null,
-});
-
-onMounted(() => {
-    if (
-        drafts.value &&
-        previousStoreOrderNumber.value === props.order.order_number
-    ) {
-        confirm.require({
-            message:
-                "You have an unfinished draft. Would you like to continue where you left off or discard the draft?",
-            header: "Unfinished Draft Detected",
-            icon: "pi pi-exclamation-triangle",
-            rejectProps: {
-                label: "Discard",
-                severity: "danger",
-            },
-            acceptProps: {
-                label: "Continue",
-                severity: "primary",
-            },
-            accept: () => {
-                orderForm.supplier_id = drafts.value.supplier_id;
-                orderForm.branch_id = drafts.value.branch_id;
-                orderForm.order_date = drafts.value.order_date;
-                orderForm.orders = drafts.value.orders;
-            },
-        });
-    }
-});
-
-const { options: branchesOptions } = useSelectOptions(props.branches);
-const { options: productsOptions } = useSelectOptions(props.products);
-const { options: suppliersOptions } = useSelectOptions(props.suppliers);
-const productId = ref(null);
-const isLoading = ref(false);
-console.log(props.order);
-const orderForm = useForm({
-    supplier_id: props.order.supplier_id.toString(),
-    branch_id: props.order.store_branch_id + "",
-    order_date: props.order.order_date,
-    orders: [],
-    variant: props.order.variant,
-});
-
-watch(orderForm, (value) => {
-    localStorage.setItem("editDtsStoreOrderDraft", JSON.stringify(value));
-    localStorage.setItem(
-        "previousDtsStoreOrderNumber",
-        props.order.order_number
-    );
-});
-
-const itemForm = useForm({
-    item: null,
-});
-
-const productDetails = reactive({
-    id: null,
-    inventory_code: null,
-    name: null,
-    unit_of_measurement: null,
-    quantity: null,
-    cost: null,
-    total_cost: null,
-});
-
-props.orderedItems.forEach((item) => {
-    const product = {
-        id: item.product_inventory.id,
-        inventory_code: item.product_inventory.inventory_code,
-        name: item.product_inventory.name,
-        unit_of_measurement: item.product_inventory.unit_of_measurement.name,
+const form = useForm({
+    supplier_id: String(props.dtsSupplier.value),
+    items: props.order.store_order_items.map(item => ({
+        store_branch_id: props.order.store_branch_id, // From main order
+        variant: props.order.variant, // From main order
+        order_date: props.order.order_date, // From main order
+        initial_item_code: item.item_code, // Store the item_code temporarily
+        item_id: null, // Initialize as null, will be populated in onMounted
         quantity: item.quantity_ordered,
-        cost: item.product_inventory.cost,
-        total_cost: parseFloat(
-            item.quantity_ordered * item.product_inventory.cost
-        ).toFixed(2),
-    };
-    orderForm.orders.push(product);
+        cost: item.cost_per_quantity,
+        uom: item.uom,
+    })),
 });
 
-const addItemQuantity = (id) => {
-    const index = orderForm.orders.findIndex((item) => item.id === id);
-    // orderForm.orders[index].quantity += 1;
+// --- Global State ---
+const isVariantLocked = ref(false);
+const lockedVariant = ref(null);
+const specialVariants = ['ICE CREAM', 'SALMON', 'FRUITS AND VEGETABLES'];
+const isAddingNewItem = ref(false); // Flag to prevent watcher race condition
 
-    orderForm.orders[index].quantity = parseFloat(
-        (orderForm.orders[index].quantity + 0.1).toFixed(2)
-    );
-    orderForm.orders[index].total_cost = parseFloat(
-        orderForm.orders[index].quantity * orderForm.orders[index].cost
-    ).toFixed(2);
+// --- Per-Row State Management ---
+const rowItems = ref({});
+const loadingItems = ref({});
+const rowSchedules = ref({});
+const loadingSchedules = ref({});
+const branchSearchQueries = ref([]);
+const itemSearchQueries = ref([]);
+const isBranchSelectOpen = ref([]);
+const isItemSelectOpen = ref([]);
+const showCalendar = ref([]);
+const currentCalendarDate = ref([]);
+
+const showConfirmationModal = ref(false); // Add this line
+
+const dayMap = { 'SUNDAY': 0, 'MONDAY': 1, 'TUESDAY': 2, 'WEDNESDAY': 3, 'THURSDAY': 4, 'FRIDAY': 5, 'SATURDAY': 6 };
+
+// --- Date & Calendar Logic ---
+const getAvailableDays = (index) => {
+    const schedule = rowSchedules.value[index] || [];
+    return schedule.map(dayName => dayMap[dayName.toUpperCase()]).filter(day => day !== undefined);
 };
 
-const minusItemQuantity = (id) => {
-    const index = orderForm.orders.findIndex((item) => item.id === id);
-    // orderForm.orders[index].quantity -= 1;
-
-    orderForm.orders[index].quantity = parseFloat(
-        (orderForm.orders[index].quantity - 0.1).toFixed(2)
-    );
-    if (orderForm.orders[index].quantity < 0.1) {
-        orderForm.orders = orderForm.orders.filter((item) => item.id !== id);
-        return;
-    }
-    orderForm.orders[index].total_cost = parseFloat(
-        orderForm.orders[index].quantity * orderForm.orders[index].cost
-    ).toFixed(2);
+const getDisabledDates = (index) => {
+    const availableDaysArray = getAvailableDays(index);
+    if (availableDaysArray.length === 0 && (form.items[index].store_branch_id && form.items[index].variant)) return [0, 1, 2, 3, 4, 5, 6];
+    const allDays = [0, 1, 2, 3, 4, 5, 6];
+    return allDays.filter(day => !availableDaysArray.includes(day));
 };
 
-const removeItem = (id) => {
-    confirm.require({
-        message: "Are you sure you want to remove this item from your orders?",
-        header: "Confirmation",
-        icon: "pi pi-exclamation-triangle",
-        rejectProps: {
-            label: "Cancel",
-            severity: "secondary",
-            outlined: true,
-        },
-        acceptProps: {
-            label: "Remove",
-            severity: "danger",
-        },
-        accept: () => {
-            orderForm.orders = orderForm.orders.filter(
-                (item) => item.id !== id
-            );
-            toast.add({
-                severity: "success",
-                summary: "Confirmed",
-                detail: "Item Removed",
-                life: 3000,
-            });
-        },
-    });
+const getCalendarDays = (index) => {
+    const days = [];
+    const dateRef = currentCalendarDate.value[index] || new Date();
+    const year = dateRef.getFullYear();
+    const month = dateRef.getMonth();
+    const firstDayOfMonth = new Date(year, month, 1).getDay();
+    const daysInMonth = new Date(year, month + 1, 0).getDate();
+    const disabledWeekdays = getDisabledDates(index);
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    // Calculate the end of the current week (Saturday)
+    const endOfWeek = new Date(today);
+    endOfWeek.setDate(today.getDate() + (6 - today.getDay()));
+
+    for (let i = 0; i < firstDayOfMonth; i++) days.push(null);
+
+    for (let i = 1; i <= daysInMonth; i++) {
+        const date = new Date(year, month, i);
+        const dayOfWeek = date.getDay();
+
+        // A date is disabled if it's a non-delivery day, or if it falls within the current week.
+        const isDisabled = disabledWeekdays.includes(dayOfWeek) || date <= endOfWeek;
+        
+        days.push({ day: i, date, isDisabled });
+    }
+    return days;
 };
 
-const addToOrdersButton = () => {
-    itemForm.clearErrors();
-    if (!itemForm.item) {
-        itemForm.setError("item", "Item field is required");
-        return;
+const goToPrevMonth = (index) => currentCalendarDate.value[index] = new Date(currentCalendarDate.value[index].getFullYear(), currentCalendarDate.value[index].getMonth() - 1, 1);
+const goToNextMonth = (index) => currentCalendarDate.value[index] = new Date(currentCalendarDate.value[index].getFullYear(), currentCalendarDate.value[index].getMonth() + 1, 1);
+
+const selectDate = (index, day) => {
+    if (day && !day.isDisabled) {
+        const d = day.date;
+        const year = d.getFullYear();
+        const month = String(d.getMonth() + 1).padStart(2, '0');
+        const dayOfMonth = String(d.getDate()).padStart(2, '0');
+        form.items[index].order_date = `${year}-${month}-${dayOfMonth}`;
+        showCalendar.value[index] = false;
     }
-    if (Number(productDetails.quantity) < 0.1) {
-        itemForm.setError("quantity", "Quantity must be at least 0.1");
-        return;
-    }
-
-    if (
-        !productDetails.inventory_code ||
-        !productDetails.name ||
-        !productDetails.unit_of_measurement ||
-        !productDetails.quantity
-    ) {
-        return;
-    }
-
-    console.log(orderForm.orders);
-
-    const existingItemIndex = orderForm.orders.findIndex(
-        (order) => order.id === productDetails.id
-    );
-
-    if (existingItemIndex !== -1) {
-        const quantity = (orderForm.orders[existingItemIndex].quantity +=
-            Number(productDetails.quantity));
-        orderForm.orders[existingItemIndex].total_cost =
-            productDetails.cost * quantity;
-    } else {
-        productDetails.total_cost =
-            productDetails.cost * productDetails.quantity;
-        orderForm.orders.push({ ...productDetails });
-    }
-
-    Object.keys(productDetails).forEach((key) => {
-        productDetails[key] = null;
-    });
-    productId.value = null;
-    toast.add({
-        severity: "success",
-        summary: "Success",
-        detail: "Item added successfully.",
-        life: 5000,
-    });
-    itemForm.item = null;
-    itemForm.clearErrors();
 };
 
-const computeOverallTotal = computed(() => {
-    return orderForm.orders
-        .reduce((total, order) => total + parseFloat(order.total_cost), 0)
-        .toFixed(2);
-});
+const selectedItemLabel = (index) => {
+    const itemId = form.items[index].item_id;
+    if (!itemId) return "Select Item..."; // Default placeholder if no item is selected
 
-const update = () => {
-    if (orderForm.orders.length < 1) {
-        toast.add({
-            severity: "error",
-            summary: "Error",
-            detail: "Please select at least one item before proceeding.",
-            life: 5000,
+    const selected = (rowItems.value[index] || []).find(item => String(item.value) === String(itemId));
+    return selected ? selected.label : "Select Item..."; // Return label or default
+};
+
+// --- Data Fetching Logic ---
+const fetchSchedule = async (index) => {
+    const item = form.items[index];
+    if (!item.store_branch_id || !item.variant) {
+        rowSchedules.value[index] = [];
+        return;
+    }
+    loadingSchedules.value[index] = true;
+    try {
+        const response = await axios.get(route('dts-orders.get-schedule'), {
+            params: { store_branch_id: item.store_branch_id, variant: item.variant }
         });
-        return;
+        rowSchedules.value[index] = response.data;
+    } catch (error) {
+        toast({ title: 'Error', description: 'Could not fetch delivery schedule.', variant: 'destructive' });
+        rowSchedules.value[index] = [];
+    } finally {
+        loadingSchedules.value[index] = false;
     }
-    confirm.require({
-        message: "Are you sure you want to place update the order details?",
-        header: "Confirmation",
-        icon: "pi pi-exclamation-triangle",
-        rejectProps: {
-            label: "Cancel",
-            severity: "secondary",
-            outlined: true,
-        },
-        acceptProps: {
-            label: "Confirm",
-            severity: "info",
-        },
-        accept: () => {
-            orderForm.put(route("dts-orders.update", props.order.id), {
-                onSuccess: () => {
-                    toast.add({
-                        severity: "success",
-                        summary: "Success",
-                        detail: "Order Updated Successfully.",
-                        life: 5000,
-                    });
-                    localStorage.removeItem("editDtsStoreOrderDraft");
-                    localStorage.removeItem("previousDtsStoreOrderNumber");
-                },
-                onError: (e) => {
-                    toast.add({
-                        severity: "error",
-                        summary: "Error",
-                        detail: "Can't place update the order.",
-                        life: 5000,
-                    });
-                },
-            });
-        },
-    });
 };
 
-const allowedDays = ref([]);
+const fetchItemsByVariant = async (index, variant) => {
+    if (!variant) {
+        rowItems.value[index] = [];
+        return;
+    }
+    loadingItems.value[index] = true;
+    try {
+        const response = await axios.get(route('dts-orders.get-items-by-variant'), { params: { variant } });
+        rowItems.value[index] = response.data;
+    } catch (error) {
+        toast({ title: 'Error', description: 'Failed to load items.', variant: 'destructive' });
+    } finally {
+        loadingItems.value[index] = false;
+    }
+};
 
-watch(
-    () => orderForm.branch_id,
-    (value) => {
-        orderForm.order_date = null;
-        if (value) {
-            axios
-                .get(route("schedule.show", value), {
-                    params: { variant: variant },
-                })
-                .then((response) => {
-                    // [1, 3, 5]
-                    const days = response.data.map(
-                        (item) => dayNameToNumber[item]
-                    );
-                    // [Moday, Wednesay, Friday]
-                    let daysOfWeek = [0, 1, 2, 3, 4, 5, 6];
-                    allowedDays.value = daysOfWeek.filter(
-                        (item) => !days.includes(item)
-                    );
-                    // [Tuesday, THrusy, Sat]
-                })
-                .catch((err) => console.log(err));
+// --- Watchers for Reactivity ---
+watch(() => form.items.map(item => ({ branch: item.store_branch_id, variant: item.variant })), (newPairs, oldPairs) => {
+    if (isAddingNewItem.value) return;
+
+    newPairs.forEach((newPair, index) => {
+        const oldPair = oldPairs[index] || {};
+        if (newPair.branch !== oldPair.branch || newPair.variant !== oldPair.variant) {
+            form.items[index].order_date = null;
+            form.items[index].item_id = null;
+            form.items[index].uom = null;
+            itemSearchQueries.value[index] = '';
+            fetchSchedule(index);
+            if (newPair.variant) {
+                if (specialVariants.includes(newPair.variant)) {
+                    isVariantLocked.value = true;
+                    lockedVariant.value = newPair.variant;
+                }
+                fetchItemsByVariant(index, newPair.variant);
+            } else {
+                if (!form.items.some(item => specialVariants.includes(item.variant))) {
+                    isVariantLocked.value = false;
+                    lockedVariant.value = null;
+                }
+            }
+        }
+    });
+}, { deep: true });
+
+// --- General Functions ---
+const filteredBranches = (index) => {
+    const query = branchSearchQueries.value[index] || '';
+    return props.branches.filter(branch => branch.label.toLowerCase().includes(query.toLowerCase()));
+};
+
+const filteredItems = (index) => {
+    const query = itemSearchQueries.value[index] || '';
+    const items = rowItems.value[index] || [];
+    return items.filter(item => item.label.toLowerCase().includes(query.toLowerCase()));
+};
+
+const handleItemSelection = (index, itemId) => {
+    const selectedItem = (rowItems.value[index] || []).find(item => item.value === Number(itemId));
+    if (selectedItem) {
+        form.items[index].item_id = String(itemId);
+        form.items[index].uom = selectedItem.alt_uom;
+    }
+    itemSearchQueries.value[index] = '';
+    isItemSelectOpen.value[index] = false;
+};
+
+const addItem = async () => {
+    isAddingNewItem.value = true;
+
+    const lastItem = form.items[form.items.length - 1];
+    const newItem = {
+        store_branch_id: lastItem?.store_branch_id || null,
+        variant: isVariantLocked.value ? lockedVariant.value : (lastItem?.variant || null),
+        order_date: lastItem?.order_date || null,
+        item_id: null, // New item should not have an item_id pre-filled
+        quantity: 0,
+        cost: 0,
+        uom: null,
+    };
+
+    if (form.items.length > 0) {
+        const prevIndex = form.items.length - 1;
+        const newIndex = form.items.length;
+        if (rowItems.value[prevIndex]) {
+            rowItems.value[newIndex] = rowItems.value[prevIndex];
+        }
+        if (rowSchedules.value[prevIndex]) {
+            rowSchedules.value[newIndex] = rowSchedules.value[prevIndex];
         }
     }
-);
+    
+    form.items.push(newItem);
+    currentCalendarDate.value.push(new Date());
 
-const dayNameToNumber = {
-    SUNDAY: 0,
-    MONDAY: 1,
-    TUESDAY: 2,
-    WEDNESDAY: 3,
-    THURSDAY: 4,
-    FRIDAY: 5,
-    SATURDAY: 6,
+    await nextTick();
+    isAddingNewItem.value = false;
 };
 
-onMounted(() => {
-    axios
-        .get(route("schedule.show", orderForm.branch_id), {
-            params: { variant: "ice cream" },
-        })
-        .then((response) => {
-            // [1, 3, 5]
-            const days = response.data.map((item) => dayNameToNumber[item]);
-            // [Moday, Wednesay, Friday]
-            let daysOfWeek = [0, 1, 2, 3, 4, 5, 6];
-            allowedDays.value = daysOfWeek.filter(
-                (item) => !days.includes(item)
-            );
-            console.log(allowedDays.value);
-            // [Tuesday, THrusy, Sat]
-        })
-        .catch((err) => console.log(err));
-});
-
-const getNextMonday = () => {
-    const today = new Date();
-    const dayOfWeek = today.getDay();
-    const daysUntilNextSunday = (7 - dayOfWeek) % 7 || 7;
-
-    const nextSunday = new Date(today);
-    nextSunday.setDate(today.getDate() + daysUntilNextSunday + 1);
-    return nextSunday;
+const removeItem = (index) => {
+    form.items.splice(index, 1);
+    if (!form.items.some(item => specialVariants.includes(item.variant))) {
+        isVariantLocked.value = false;
+        lockedVariant.value = null;
+    }
+    const stateArrays = [rowItems, loadingItems, rowSchedules, loadingSchedules, branchSearchQueries, itemSearchQueries, isBranchSelectOpen, isItemSelectOpen, showCalendar, currentCalendarDate];
+    stateArrays.forEach(stateRef => {
+        if (Array.isArray(stateRef.value)) {
+            stateRef.value.splice(index, 1);
+        } else {
+            delete stateRef.value[index];
+        }
+    });
 };
 
-const getNextSaturday = () => {
-    const today = new Date();
-    const dayOfWeek = today.getDay();
-    const daysUntilNextSunday = (7 - dayOfWeek) % 7 || 7;
-
-    const nextSunday = new Date(today);
-    nextSunday.setDate(today.getDate() + daysUntilNextSunday + 6);
-    return nextSunday;
+const submit = () => {
+    showConfirmationModal.value = true;
 };
-const heading = `Edit Order #${props.order.order_number}`;
 
-watch(productId, (newValue) => {
-    if (newValue) {
-        isLoading.value = true;
-        itemForm.item = newValue;
-        axios
-            .get(route("product.show", newValue))
-            .then((response) => response.data)
-            .then((result) => {
-                productDetails.id = result.id;
-                productDetails.name = result.name;
-                productDetails.inventory_code = result.inventory_code;
-                productDetails.unit_of_measurement = result.unit_of_measurement;
-                productDetails.cost = result.cost;
-            })
-            .catch((err) => console.log(err))
-            .finally(() => (isLoading.value = false));
+const proceedWithSubmit = () => {
+    const submissionData = {
+        items: form.items.map(item => ({
+            store_branch_id: item.store_branch_id,
+            variant: item.variant,
+            order_date: item.order_date,
+            item_id: item.item_id,
+            quantity: item.quantity,
+            cost: item.cost,
+        }))
+    };
+
+    form.put(route('dts-orders.update', props.order.order_number), {
+        data: submissionData,
+        onSuccess: () => {
+            showConfirmationModal.value = false; // Close modal on success
+            toast({
+                title: 'Success!',
+                description: 'DTS order updated successfully.',
+                variant: 'success',
+            });
+        },
+        onError: (errors) => {
+            showConfirmationModal.value = false; // Close modal on error
+            console.error('Form errors:', errors);
+            const errorMessages = Object.entries(errors).map(([, value]) => `<li>${value}</li>`).join('');
+            toast({ title: 'Error Updating Order', description: `<ul class="list-disc pl-5">${errorMessages}</ul>`, variant: 'destructive', duration: 9000, isRaw: true });
+        },
+    });
+};
+
+const formatCurrency = (value) => new Intl.NumberFormat('en-PH', { style: 'currency', currency: 'PHP' }).format(value);
+const totalCostPerItem = (index) => (form.items[index].quantity || 0) * (form.items[index].cost || 0);
+const overallTotal = computed(() => form.items.reduce((sum, item) => sum + ((item.quantity || 0) * (item.cost || 0)), 0));
+
+onMounted(async () => {
+    // Initialize per-item state for existing items
+    for (let index = 0; index < form.items.length; index++) {
+        const item = form.items[index];
+        currentCalendarDate.value[index] = new Date(item.order_date);
+        branchSearchQueries.value[index] = '';
+        itemSearchQueries.value[index] = '';
+        isBranchSelectOpen.value[index] = false;
+        isItemSelectOpen.value[index] = false;
+        showCalendar.value[index] = false;
+
+        // Pre-fetch items and schedules for existing data
+        await fetchSchedule(index);
+        await fetchItemsByVariant(index, item.variant); // rowItems.value[index] is now populated
+
+        // Find the item_id based on initial_item_code
+        const foundItem = (rowItems.value[index] || []).find(
+            (ri) => ri.item_code === item.initial_item_code
+        );
+
+        if (foundItem) {
+            form.items[index].item_id = String(foundItem.value); // Set the actual item_id (SAPMasterfile ID)
+            form.items[index].uom = foundItem.alt_uom; // Also set UOM
+        }
+
+        // Check for variant locking on mount
+        if (specialVariants.includes(item.variant)) {
+            isVariantLocked.value = true;
+            lockedVariant.value = item.variant;
+        }
     }
 });
-
-import { useEditQuantity } from "@/Composables/useEditQuantity";
-const {
-    isEditQuantityModalOpen,
-    formQuantity,
-    openEditQuantityModal,
-    editQuantity,
-} = useEditQuantity(orderForm);
-
-const visible = ref(false);
-
-const importOrdersButton = () => {
-    visible.value = true;
-};
 </script>
+
 <template>
-    <Layout
-        :heading="heading"
-        :hasButton="true"
-        buttonName="Import Orders"
-        :handleClick="importOrdersButton"
-    >
-        <div class="grid sm:grid-cols-3 gap-5 grid-cols-1">
-            <section class="grid gap-5">
-                <Card>
-                    <CardHeader>
-                        <CardTitle>Order Details</CardTitle>
-                        <CardDescription
-                            >Status:
-                            <Badge>{{
-                                order.order_status.toUpperCase()
-                            }}</Badge></CardDescription
-                        >
-                    </CardHeader>
-                    <CardContent class="space-y-3">
-                        <div class="flex flex-col space-y-1">
-                            <InputLabel label="Supplier" />
-                            <Select
-                                filter
-                                placeholder="Select a Supplier"
-                                v-model="orderForm.supplier_id"
-                                :options="suppliersOptions"
-                                optionLabel="label"
-                                optionValue="value"
-                            >
-                            </Select>
-                            <FormError>{{
-                                orderForm.errors.supplier_id
-                            }}</FormError>
-                        </div>
-                        <div class="flex flex-col space-y-1">
-                            <InputLabel label="Store Branch" />
-                            <Select
-                                filter
-                                placeholder="Select a Store"
-                                v-model="orderForm.branch_id"
-                                :options="branchesOptions"
-                                optionLabel="label"
-                                optionValue="value"
-                            >
-                            </Select>
-                            <FormError>{{
-                                orderForm.errors.branch_id
-                            }}</FormError>
-                        </div>
-                        <div class="flex flex-col space-y-1">
-                            <InputLabel label="Order Date" />
-                            <DatePicker
-                                v-model="orderForm.order_date"
-                                showIcon
-                                fluid
-                                :disabledDays="allowedDays"
-                                dateFormat="yy/mm/dd"
-                                :showOnFocus="false"
-                                :minDate="getNextMonday()"
-                                :maxDate="getNextSaturday()"
-                            />
-                            <FormError>{{
-                                orderForm.errors.order_date
-                            }}</FormError>
-                        </div>
-                    </CardContent>
-                </Card>
-                <Card>
-                    <CardHeader>
-                        <CardTitle>Add Item</CardTitle>
-                        <CardDescription
-                            >Please input all the fields</CardDescription
-                        >
-                    </CardHeader>
-                    <CardContent class="space-y-3">
-                        <div class="flex flex-col space-y-1">
-                            <Label>Item</Label>
-                            <Select
-                                filter
-                                placeholder="Select an Item"
-                                v-model="productId"
-                                :options="productsOptions"
-                                optionLabel="label"
-                                optionValue="value"
-                            >
-                            </Select>
-                            <FormError>{{ itemForm.errors.item }}</FormError>
-                        </div>
-                        <div class="flex flex-col space-y-1">
-                            <Label>Unit Of Measurement (UOM)</Label>
-                            <Input
-                                type="text"
-                                disabled
-                                v-model="productDetails.unit_of_measurement"
-                            />
-                        </div>
-                        <div class="flex flex-col space-y-1">
-                            <Label>Cost</Label>
-                            <Input
-                                type="text"
-                                disabled
-                                v-model="productDetails.cost"
-                            />
-                        </div>
-                        <div class="flex flex-col space-y-1">
-                            <Label>Quantity</Label>
-                            <Input
-                                type="number"
-                                v-model="productDetails.quantity"
-                            />
-                            <FormError>{{
-                                itemForm.errors.quantity
-                            }}</FormError>
-                        </div>
-                    </CardContent>
-
-                    <CardFooter class="flex justify-end">
-                        <Button @click="addToOrdersButton">
-                            Add to Orders
-                        </Button>
-                    </CardFooter>
-                </Card>
-            </section>
-
-            <Card class="col-span-2 flex flex-col">
-                <CardHeader class="flex justify-between">
-                    <DivFlexCenter class="justify-between">
-                        <CardTitle>Items List</CardTitle>
-                        <DivFlexCenter class="gap-2">
-                            <LabelXS> Overall Total:</LabelXS>
-                            <SpanBold>{{ computeOverallTotal }}</SpanBold>
-                        </DivFlexCenter>
-                    </DivFlexCenter>
-                </CardHeader>
-                <CardContent class="flex-1">
-                    <Table>
-                        <TableHead>
-                            <TH> Name </TH>
-                            <TH> Code </TH>
-                            <TH> Quantity </TH>
-                            <TH> Unit </TH>
-                            <TH> Cost </TH>
-                            <TH> Total Cost </TH>
-                            <TH> Action </TH>
-                        </TableHead>
-
-                        <TableBody>
-                            <tr
-                                v-for="order in orderForm.orders"
-                                :key="order.item_code"
-                            >
-                                <TD>
-                                    {{ order.name }}
-                                </TD>
-                                <TD>
-                                    {{ order.inventory_code }}
-                                </TD>
-                                <TD>
-                                    {{ order.quantity }}
-                                </TD>
-                                <TD>
-                                    {{ order.unit_of_measurement }}
-                                </TD>
-                                <TD>
-                                    {{ order.cost }}
-                                </TD>
-                                <TD>
-                                    {{ order.total_cost }}
-                                </TD>
-                                <TD class="flex gap-3">
-                                    <LinkButton
-                                        @click="
-                                            openEditQuantityModal(
-                                                order.id,
-                                                order.quantity
-                                            )
-                                        "
-                                    >
-                                        Edit Quantity
-                                    </LinkButton>
-                                    <button
-                                        @click="removeItem(order.id)"
-                                        variant="outline"
-                                        class="text-red-500"
-                                    >
-                                        <Trash2 />
-                                    </button>
-                                </TD>
-                            </tr>
-                        </TableBody>
-                    </Table>
-
-                    <MobileTableContainer>
-                        <MobileTableRow
-                            v-for="order in orderForm.orders"
-                            :key="order.item_code"
-                        >
-                            <MobileTableHeading
-                                :title="`${order.name} (${order.inventory_code})`"
-                            >
-                                <button
-                                    class="text-red-500 size-5"
-                                    @click="minusItemQuantity(order.id)"
-                                >
-                                    <Minus />
-                                </button>
-                                <button
-                                    class="text-green-500 size-5"
-                                    @click="addItemQuantity(order.id)"
-                                >
-                                    <Plus />
-                                </button>
-                                <button
-                                    @click="removeItem(order.id)"
-                                    variant="outline"
-                                    class="text-red-500 size-5"
-                                >
-                                    <Trash2 />
-                                </button>
-                            </MobileTableHeading>
-                            <LabelXS
-                                >UOM: {{ order.unit_of_measurement }}</LabelXS
-                            >
-                            <LabelXS>Quantity: {{ order.quantity }}</LabelXS>
-                            <LabelXS>Cost: {{ order.cost }}</LabelXS>
-                        </MobileTableRow>
-                    </MobileTableContainer>
+    <Layout heading="Edit DTS Order">
+        <form @submit.prevent="submit" class="space-y-6">
+            <Card>
+                <CardHeader><CardTitle>DTS Order Details</CardTitle></CardHeader>
+                <CardContent>
+                    <InputContainer>
+                        <Label>Supplier</Label>
+                        <SelectShad :model-value="String(dtsSupplier.value)" disabled>
+                            <SelectTrigger><SelectValue :placeholder="dtsSupplier.label" /></SelectTrigger>
+                            <SelectContent><SelectItem :value="String(dtsSupplier.value)">{{ dtsSupplier.label }}</SelectItem></SelectContent>
+                        </SelectShad>
+                    </InputContainer>
                 </CardContent>
+            </Card>
 
-                <CardFooter class="flex justify-end">
-                    <Button @click="update">Save Changes</Button>
+            <!-- Debugging Section -->
+            <div class="p-4 border rounded-lg bg-yellow-100 text-sm">
+                <h3 class="font-bold mb-2">Debugging Info:</h3>
+                <div v-for="(item, index) in form.items" :key="index" class="mb-2">
+                    <p><strong>Item {{ index }}:</strong></p>
+                    <p>  - form.items[{{ index }}].item_id: {{ item.item_id }} (Type: {{ typeof item.item_id }})</p>
+                    <p>  - rowItems.value[{{ index }}] (count): {{ rowItems[index] ? rowItems[index].length : 0 }}</p>
+                    <p>  - selectedItemLabel({{ index }}): {{ selectedItemLabel(index) }}</p>
+                    <p>  - All rowItems[{{ index }}] values: {{ rowItems[index] ? rowItems[index].map(i => i.value + ' (' + typeof i.value + ')').join(', ') : 'N/A' }}</p>
+                    <p>  - Raw props.order.store_order_items[{{ index }}] object: {{ props.order.store_order_items[index] }}</p>
+                </div>
+            </div>
+            <!-- End Debugging Section -->
+
+            <Card>
+                <CardHeader><CardTitle>Order Items</CardTitle></CardHeader>
+                <CardContent>
+                    <div class="space-y-6">
+                        <div v-for="(item, index) in form.items" :key="index" class="p-4 border rounded-lg shadow-sm bg-gray-50 relative">
+                            <div class="grid grid-cols-1 md:grid-cols-3 gap-x-6 gap-y-4">
+                                <!-- Row 1: Branch, Variant, Item -->
+                                <InputContainer>
+                                    <Label :for="`branch_${index}`">Store Branch</Label>
+                                    <SelectShad v-model="item.store_branch_id" v-model:open="isBranchSelectOpen[index]">
+                                        <SelectTrigger :id="`branch_${index}`"><SelectValue placeholder="Select Branch..." /></SelectTrigger>
+                                        <SelectContent>
+                                            <div class="p-2 sticky top-0 bg-white z-10 border-b">
+                                                <input type="text" v-model="branchSearchQueries[index]" placeholder="Search..." class="w-full px-3 py-1.5 border rounded-md" @click.stop @keydown.stop/>
+                                            </div>
+                                            <SelectGroup>
+                                                <SelectLabel>Branches</SelectLabel>
+                                                <SelectItem v-for="branch in filteredBranches(index)" :key="branch.value" :value="String(branch.value)">{{ branch.label }}</SelectItem>
+                                            </SelectGroup>
+                                        </SelectContent>
+                                    </SelectShad>
+                                    <FormError :message="form.errors[`items.${index}.store_branch_id`]" />
+                                </InputContainer>
+
+                                <InputContainer>
+                                    <Label :for="`variant_${index}`">Variant</Label>
+                                    <SelectShad v-model="item.variant" :disabled="!item.store_branch_id || (isVariantLocked && item.variant !== lockedVariant) || (isVariantLocked && index > 0)">
+                                        <SelectTrigger :id="`variant_${index}`"><SelectValue placeholder="Select Variant..." /></SelectTrigger>
+                                        <SelectContent>
+                                            <SelectGroup>
+                                                <SelectLabel>Variants</SelectLabel>
+                                                <SelectItem v-for="variant in variants" :key="variant" :value="variant">{{ variant }}</SelectItem>
+                                            </SelectGroup>
+                                        </SelectContent>
+                                    </SelectShad>
+                                    <FormError :message="form.errors[`items.${index}.variant`]" />
+                                </InputContainer>
+
+                                <InputContainer>
+                                    <Label :for="`item_${index}`">Item</Label>
+                                    <SelectShad v-model="item.item_id" v-model:open="isItemSelectOpen[index]" @update:model-value="handleItemSelection(index, $event)" :disabled="loadingItems[index] || !item.variant">
+                                        <SelectTrigger :id="`item_${index}`"><SelectValue :placeholder="selectedItemLabel(index)" /></SelectTrigger>
+                                        <SelectContent>
+                                            <div class="p-2 sticky top-0 bg-white z-10 border-b"><input type="text" v-model="itemSearchQueries[index]" placeholder="Search..." class="w-full px-3 py-1.5 border rounded-md" @click.stop @keydown.stop/></div>
+                                            <SelectGroup>
+                                                <SelectLabel>Items</SelectLabel>
+                                                <div v-if="loadingItems[index]" class="text-center py-4">Loading...</div>
+                                                <template v-else-if="filteredItems(index).length > 0">
+                                                    <SelectItem v-for="filteredItem in filteredItems(index)" :key="filteredItem.value" :value="String(filteredItem.value)">{{ filteredItem.label }}</SelectItem>
+                                                </template>
+                                                <div v-else class="px-2 py-4 text-center text-gray-500">No items found</div>
+                                            </SelectGroup>
+                                        </SelectContent>
+                                    </SelectShad>
+                                    <FormError :message="form.errors[`items.${index}.item_id`]" />
+                                </InputContainer>
+
+                                <!-- Row 2: Date, UOM, Quantity, Cost -->
+                                <div class="relative">
+                                    <Label :for="`date_${index}`">Order Date</Label>
+                                    <div class="relative">
+                                        <input :id="`date_${index}`" type="text" readonly :value="item.order_date" @click="showCalendar[index] = !showCalendar[index]" :disabled="!item.store_branch_id || !item.variant || loadingSchedules[index]" class="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 cursor-pointer" placeholder="Select date" />
+                                        <Loader2 v-if="loadingSchedules[index]" class="absolute right-3 top-1/2 -translate-y-1/2 size-4 text-gray-500 animate-spin" />
+                                        <CalendarIcon v-else class="absolute right-3 top-1/2 -translate-y-1/2 size-4 text-gray-500 pointer-events-none" />
+                                    </div>
+                                    <FormError :message="form.errors[`items.${index}.order_date`]" />
+                                    <div v-show="showCalendar[index]" class="absolute z-50 mt-2 bg-white border border-gray-200 rounded-lg shadow-lg p-4 w-full min-w-[280px]">
+                                        <div class="flex justify-between items-center mb-4">
+                                            <button type="button" @click.stop="goToPrevMonth(index)" class="p-2 rounded-full hover:bg-gray-200">&lt;</button>
+                                            <h2 class="text-lg font-semibold">{{ (currentCalendarDate[index] || new Date()).toLocaleString('default', { month: 'long', year: 'numeric' }) }}</h2>
+                                            <button type="button" @click.stop="goToNextMonth(index)" class="p-2 rounded-full hover:bg-gray-200">&gt;</button>
+                                        </div>
+                                        <div class="grid grid-cols-7 gap-1 text-center text-xs font-medium text-gray-500 mb-2"><span>Su</span><span>Mo</span><span>Tu</span><span>We</span><span>Th</span><span>Fr</span><span>Sa</span></div>
+                                        <div class="grid grid-cols-7 gap-1">
+                                            <template v-for="(day, d_idx) in getCalendarDays(index)" :key="d_idx">
+                                                <div class="text-center py-1.5 rounded-full text-sm" :class="{ 'bg-gray-200 text-gray-400 cursor-not-allowed': day && day.isDisabled, 'bg-blue-500 text-white': day && !day.isDisabled && item.order_date && day.date.toDateString() === new Date(item.order_date + 'T00:00:00').toDateString(), 'hover:bg-gray-200 cursor-pointer': day && !day.isDisabled }" @click="selectDate(index, day)">{{ day ? day.day : '' }}</div>
+                                            </template>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <InputContainer>
+                                    <Label :for="`uom_${index}`">UOM</Label>
+                                    <Input :id="`uom_${index}`" :value="item.uom" disabled placeholder="UOM" />
+                                </InputContainer>
+
+                                <InputContainer>
+                                    <Label :for="`quantity_${index}`">Quantity</Label>
+                                    <Input :id="`quantity_${index}`" v-model.number="item.quantity" type="number" step="0.01" min="0" />
+                                    <FormError :message="form.errors[`items.${index}.quantity`]" />
+                                </InputContainer>
+                                
+                                <InputContainer>
+                                    <Label :for="`cost_${index}`">Cost</Label>
+                                    <Input :id="`cost_${index}`" v-model.number="item.cost" type="number" step="0.01" min="0" />
+                                    <FormError :message="form.errors[`items.${index}.cost`]" />
+                                </InputContainer>
+
+                                <div class="md:col-span-3 flex items-end justify-end">
+                                    <div class="text-sm font-semibold pt-2">Item Total: {{ formatCurrency(totalCostPerItem(index)) }}</div>
+                                </div>
+                            </div>
+                            
+                            <button type="button" @click="removeItem(index)" class="absolute top-2 right-2 text-red-500 hover:text-red-700 transition-colors">
+                                <Trash2 class="size-5" />
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <div class="mt-4 flex justify-end">
+                        <Button type="button" @click="addItem" variant="ghost" class="text-blue-500 hover:bg-blue-100"><PlusCircle class="size-4 mr-2" /> Add one more item</Button>
+                    </div>
+                </CardContent>
+                <CardFooter class="flex justify-between items-center mt-6 p-6 border-t">
+                    <div class="text-lg font-bold">Overall Total: {{ formatCurrency(overallTotal) }}</div>
+                    <Button type="submit" :disabled="form.processing">Update Order</Button>
                 </CardFooter>
             </Card>
-        </div>
+        </form>
 
-        <Dialog v-model:open="visible">
-            <DialogContent class="sm:max-w-[600px]">
-                <DialogHeader>
-                    <DialogTitle>Import Orders</DialogTitle>
-                    <DialogDescription>
-                        Import the excel file of your orders.
-                    </DialogDescription>
-                </DialogHeader>
-                <div class="space-y-5">
-                    <div class="flex flex-col space-y-1">
-                        <Label>Orders</Label>
-                        <Input
-                            type="file"
-                            @input="
-                                excelFileForm.orders_file =
-                                    $event.target.files[0]
-                            "
-                        />
-                        <FormError>{{
-                            excelFileForm.errors.orders_file
-                        }}</FormError>
-                    </div>
-                    <div class="flex flex-col space-y-1">
-                        <Label class="text-xs">Order Templates</Label>
-                        <ul>
-                            <li class="text-xs">
-                                Fruits And Vegetables:
-                                <a
-                                    class="text-blue-500 underline"
-                                    href="/excel/fruits-and-vegetables-south-template"
-                                    >Click to download</a
-                                >
-                            </li>
-                            <li class="text-xs">
-                                Salmon:
-                                <a
-                                    class="text-blue-500 underline"
-                                    href="/excel/salmon-template"
-                                    >Click to download</a
-                                >
-                            </li>
-                            <li class="text-xs">
-                                Ice Cream:
-                                <a
-                                    class="text-blue-500 underline"
-                                    href="/excel/ice-cream-template"
-                                    >Click to download</a
-                                >
-                            </li>
-                        </ul>
-                    </div>
-                </div>
-                <DialogFooter>
-                    <Button
-                        :disabled="isLoading"
-                        @click="addImportedItemsToOrderList"
-                        type="submit"
-                        class="gap-2"
-                    >
-                        Proceed
-                        <span v-if="isLoading"><Loading /></span>
-                    </Button>
-                </DialogFooter>
-            </DialogContent>
-        </Dialog>
-
-        <Dialog v-model:open="isEditQuantityModalOpen">
-            <DialogContent class="sm:max-w-[600px]">
-                <DialogHeader>
-                    <DialogTitle>Edit Quantity</DialogTitle>
-                    <DialogDescription>
-                        Please input all the required fields.
-                    </DialogDescription>
-                </DialogHeader>
-                <InputContainer>
-                    <LabelXS>Quantity</LabelXS>
-                    <Input type="number" v-model="formQuantity.quantity" />
-                    <FormError>{{ formQuantity.errors.quantity }}</FormError>
-                </InputContainer>
-
-                <DialogFooter>
-                    <Button
-                        @click="editQuantity"
-                        :disabled="isLoading"
-                        type="submit"
-                        class="gap-2"
-                    >
-                        Confirm
-                        <span v-if="isLoading"><Loading /></span>
-                    </Button>
-                </DialogFooter>
-            </DialogContent>
-        </Dialog>
-
-        <Button variant="outline" class="text-lg px-7" @click="backButton">
-            Back
-        </Button>
+        <ConfirmationModal 
+            :show="showConfirmationModal" 
+            title="Update Order" 
+            message="Are you sure you want to update this order? This action cannot be undone."
+            @confirm="proceedWithSubmit"
+            @cancel="showConfirmationModal = false"
+        />
     </Layout>
 </template>

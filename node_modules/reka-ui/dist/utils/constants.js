@@ -1,4 +1,6 @@
+//#region src/Splitter/utils/constants.ts
 const PRECISION = 10;
 
-export { PRECISION as P };
+//#endregion
+export { PRECISION };
 //# sourceMappingURL=constants.js.map

@@ -25,4 +25,12 @@ class DeliverySchedule extends Model implements Auditable
     {
         return $query->pluck('day', 'id');
     }
+
+    /**
+     * Get all of the DTS delivery schedules for the DeliverySchedule.
+     */
+    public function dtsDeliverySchedules()
+    {
+        return $this->hasMany(DTSDeliverySchedule::class);
+    }
 }

@@ -1,461 +1,135 @@
 <script setup>
-import { useBackButton } from "@/Composables/useBackButton";
-import { router } from "@inertiajs/vue3";
-
-const { backButton } = useBackButton(route("store-orders.index"));
-const statusBadgeColor = (status) => {
-    switch (status.toUpperCase()) {
-        case "APPROVED":
-            return "bg-green-500 text-white";
-        case "RECEIVED":
-            return "bg-green-500 text-white";
-        case "PENDING":
-            return "bg-yellow-500 text-white";
-        case "COMMITED":
-            return "bg-blue-500 text-white";
-        case "REJECTED":
-            return "bg-red-400 text-white";
-        default:
-            return "bg-yellow-500 text-white";
-    }
-};
+import { computed } from 'vue';
+import { Link } from '@inertiajs/vue3';
+import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import InputContainer from '@/components/form/InputContainer.vue';
+import { Label } from '@/components/ui/label';
 
 const props = defineProps({
     order: {
-        type: Object,
-    },
-    orderedItems: {
-        type: Object,
-    },
-    receiveDatesHistory: {
-        type: Object,
-        required: true,
-    },
-    images: {
         type: Object,
         required: true,
     },
 });
 
-const copyOrderAndCreateAnother = (id) => {
-    router.get(`/dts-orders/create/${props.order.variant}`, { orderId: id });
+// Helper function to parse remarks
+const getDetailFromRemark = (remark, detail) => {
+    if (!remark) return 'N/A';
+    const match = remark.match(new RegExp(`${detail}: (\\S+)`));
+    return match ? match[1] : 'N/A';
 };
 
-const isViewModalVisible = ref(false);
-const selectedItem = ref();
-const openViewModalForm = (id) => {
-    const data = props.receiveDatesHistory;
-    const existingItemIndex = data.findIndex((history) => history.id === id);
-    const history = data[existingItemIndex];
-    selectedItem.value = history;
-    isViewModalVisible.value = true;
+const overallTotal = computed(() => {
+    return props.order.store_order_items.reduce((sum, item) => sum + parseFloat(item.total_cost), 0);
+});
+
+const formatCurrency = (value) => {
+    return new Intl.NumberFormat('en-PH', { style: 'currency', currency: 'PHP' }).format(value);
 };
+
+const formatDate = (dateString) => {
+    if (!dateString) return 'N/A';
+    // Add 'T00:00:00' to handle potential timezone issues with date-only strings
+    return new Date(dateString + 'T00:00:00').toLocaleDateString('en-US', {
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric',
+    });
+};
+
 </script>
 
 <template>
-    <Layout
-        heading="Order Details"
-        :hasButton="true"
-        buttonName="Copy Order and Create Another"
-        :handleClick="() => copyOrderAndCreateAnother(order.id)"
-    >
-        <DivFlexCol class="gap-3">
-            <Card class="p-5 grid sm:grid-cols-4 gap-5">
-                <InputContainer>
-                    <LabelXS>Encoder: </LabelXS>
-                    <SpanBold
-                        >{{ order.encoder.first_name }}
-                        {{ order.encoder.last_name }}</SpanBold
-                    >
-                </InputContainer>
-                <InputContainer>
-                    <LabelXS>Order Number: </LabelXS>
-                    <SpanBold>{{ order.order_number }}</SpanBold>
-                </InputContainer>
-                <InputContainer>
-                    <LabelXS>Order Date: </LabelXS>
-                    <SpanBold>{{ order.order_date }}</SpanBold>
-                </InputContainer>
-                <InputContainer>
-                    <LabelXS>Approver: </LabelXS>
-                    <SpanBold v-if="order.approver"
-                        >{{ order.approver.first_name }}
-                        {{ order.approver.last_name }}</SpanBold
-                    >
-                    <SpanBold v-if="!order.approver">N/a</SpanBold>
-                </InputContainer>
-                <InputContainer>
-                    <LabelXS>Variant: </LabelXS>
-                    <SpanBold>{{ order.variant.toUpperCase() }}</SpanBold>
-                </InputContainer>
-                <InputContainer>
-                    <LabelXS>Approval Action Date: </LabelXS>
-                    <SpanBold>{{
-                        order.approval_action_date
-                            ? order.approval_action_date
-                            : "N/a"
-                    }}</SpanBold>
-                </InputContainer>
-
-                <InputContainer>
-                    <LabelXS>Commiter: </LabelXS>
-                    <SpanBold
-                        >{{ order.commiter?.first_name }}
-                        {{ order.commiter?.last_name }}</SpanBold
-                    >
-                </InputContainer>
-
-                <InputContainer>
-                    <LabelXS>Order Status: </LabelXS>
-                    <Badge
-                        class="w-fit"
-                        :class="statusBadgeColor(order.order_status)"
-                        >{{
-                            order.order_status.toUpperCase().replace("_", " ")
-                        }}</Badge
-                    >
-                </InputContainer>
+    <Layout :heading="`DTS Order: ${order.order_number}`">
+        <div class="space-y-6">
+            <Card>
+                <CardHeader>
+                    <CardTitle>DTS Order Details</CardTitle>
+                </CardHeader>
+                <CardContent>
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                        <InputContainer>
+                            <Label>Supplier</Label>
+                            <p class="font-semibold text-sm">{{ order.supplier.name }}</p>
+                        </InputContainer>
+                        <InputContainer>
+                            <Label>Order Number</Label>
+                            <p class="font-semibold text-sm">{{ order.order_number }}</p>
+                        </InputContainer>
+                        <InputContainer>
+                            <Label>Status</Label>
+                            <p class="font-semibold text-sm capitalize">{{ order.order_status }}</p>
+                        </InputContainer>
+                        <InputContainer>
+                            <Label>Encoded By</Label>
+                            <p class="font-semibold text-sm">{{ order.encoder.name }}</p>
+                        </InputContainer>
+                        <InputContainer>
+                            <Label>Main Order Date</Label>
+                            <p class="font-semibold text-sm">{{ formatDate(order.order_date) }}</p>
+                        </InputContainer>
+                    </div>
+                </CardContent>
             </Card>
 
-            <!-- Ordered Items -->
-            <TableContainer>
-                <!-- <DivFlexCenter class="justify-end">
-                    <Button
-                        class="bg-blue-500 hover:bg-blue-300"
-                        @click="copyOrderAndCreateAnother(order.id)"
-                    >
-                        Copy Order and Create Another
-                    </Button>
-                </DivFlexCenter> -->
+            <Card>
+                <CardHeader><CardTitle>Order Items</CardTitle></CardHeader>
+                <CardContent>
+                    <div class="space-y-6">
+                        <div v-for="item in order.store_order_items" :key="item.id" class="p-4 border rounded-lg shadow-sm bg-gray-50">
+                            <div class="grid grid-cols-1 md:grid-cols-3 gap-x-6 gap-y-4">
+                                <!-- Row 1: Branch, Variant, Item -->
+                                <InputContainer>
+                                    <Label>Store Branch</Label>
+                                    <p class="font-semibold text-sm">{{ order.store_branch.name }}</p>
+                                </InputContainer>
 
-                <!-- <TableHeader>
-                    <SearchBar>
-                        <Input class="pl-10" placeholder="Search..." />
-                    </SearchBar>
-                </TableHeader> -->
-                <TableHeader>
-                    <SpanBold class="sm:text-normal text-xs"
-                        >Ordered Items</SpanBold
-                    >
-                </TableHeader>
-                <Table>
-                    <TableHead>
-                        <TH> Item Code </TH>
-                        <TH> Name </TH>
-                        <TH>UOM</TH>
-                        <TH> Ordered</TH>
-                        <TH> Approved</TH>
-                        <TH> Comitted</TH>
-                        <TH> Delivered</TH>
-                        <TH> Received</TH>
-                        <!-- <TH> Total Cost </TH> -->
-                        <TH>
-                            <DivFlexCol>
-                                Variance
-                                <LabelXS>(Ordered vs Committed)</LabelXS>
-                            </DivFlexCol>
-                        </TH>
-                        <TH>
-                            <DivFlexCol>
-                                Variance
-                                <LabelXS>(Committed vs Received)</LabelXS>
-                            </DivFlexCol>
-                        </TH>
-                    </TableHead>
-                    <TableBody>
-                        <tr v-for="order in orderedItems" :key="order.id">
-                            <TD>{{
-                                order.product_inventory.inventory_code
-                            }}</TD>
-                            <TD>{{ order.product_inventory.name }}</TD>
-                            <TD>{{
-                                order.product_inventory.unit_of_measurement.name
-                            }}</TD>
-                            <TD>{{ order.quantity_ordered }}</TD>
-                            <TD>{{ order.quantity_approved }}</TD>
-                            <TD>{{ order.quantity_commited }}</TD>
-                            <TD>{{ order.quantity_received }}</TD>
-                            <TD>{{ order.quantity_received }}</TD>
-                            <!-- <TD
-                                >{{
-                                    parseFloat(
-                                        (order.quantity_approved /
-                                            order.quantity_ordered) *
-                                            100
-                                    ).toFixed(0, 2)
-                                }}%</TD -->
-                            <TD>{{
-                                Math.abs(
-                                    order.quantity_approved -
-                                        order.quantity_commited
-                                )
-                            }}</TD>
-                            <!-- <TD>{{ order.total_cost }}</TD> -->
-                            <TD>{{
-                                Math.abs(
-                                    order.quantity_commited -
-                                        order.quantity_received
-                                )
-                            }}</TD>
-                        </tr>
-                    </TableBody>
-                </Table>
+                                <InputContainer>
+                                    <Label>Variant</Label>
+                                    <p class="font-semibold text-sm">{{ getDetailFromRemark(item.remarks, 'Variant') }}</p>
+                                </InputContainer>
 
-                <MobileTableContainer>
-                    <MobileTableRow
-                        v-for="order in orderedItems"
-                        :key="order.id"
-                    >
-                        <MobileTableHeading
-                            :title="`${order.product_inventory.name} (${order.product_inventory.inventory_code})`"
-                        >
-                        </MobileTableHeading>
-                        <LabelXS>Ordered: {{ order.quantity_ordered }}</LabelXS>
-                        <LabelXS
-                            >Approved: {{ order.quantity_approved }}</LabelXS
-                        >
-                        <LabelXS
-                            >Received: {{ order.quantity_received }}</LabelXS
-                        >
-                    </MobileTableRow>
-                </MobileTableContainer>
-            </TableContainer>
+                                <InputContainer>
+                                    <Label>Item</Label>
+                                    <p class="font-semibold text-sm">{{ item.item_code }}</p>
+                                </InputContainer>
 
-            <!-- Delivery Receipts -->
-            <TableContainer>
-                <TableHeader>
-                    <SpanBold class="sm:text-normal text-xs"
-                        >Delivery Receipts</SpanBold
-                    >
-                </TableHeader>
-                <Table>
-                    <TableHead>
-                        <TH>Id</TH>
-                        <TH>Number</TH>
-                        <TH>Remarks</TH>
-                        <TH>Created at</TH>
-                    </TableHead>
-                    <TableBody>
-                        <tr v-for="receipt in order.delivery_receipts">
-                            <TD>{{ receipt.id }}</TD>
-                            <TD>{{ receipt.delivery_receipt_number }}</TD>
-                            <TD>{{ receipt.remarks }}</TD>
-                            <TD>{{ receipt.created_at }}</TD>
-                        </tr>
-                    </TableBody>
-                </Table>
+                                <!-- Row 2: Date, UOM, Quantity, Cost -->
+                                <InputContainer>
+                                    <Label>Delivery Date</Label>
+                                    <p class="font-semibold text-sm">{{ formatDate(getDetailFromRemark(item.remarks, 'Delivery Date')) }}</p>
+                                </InputContainer>
 
-                <MobileTableContainer>
-                    <MobileTableRow
-                        v-for="receipt in order.delivery_receipts"
-                        :key="receipt.id"
-                    >
-                        <MobileTableHeading
-                            :title="`${receipt.delivery_receipt_number}`"
-                        >
-                        </MobileTableHeading>
-                        <LabelXS>Remarks: {{ receipt.remarks }}</LabelXS>
-                        <LabelXS>Created at: {{ receipt.created_at }}</LabelXS>
-                    </MobileTableRow>
-                    <SpanBold v-if="order.delivery_receipts.length < 1"
-                        >None</SpanBold
-                    >
-                </MobileTableContainer>
-            </TableContainer>
+                                <InputContainer>
+                                    <Label>UOM</Label>
+                                    <p class="font-semibold text-sm">{{ item.uom }}</p>
+                                </InputContainer>
 
-            <TableContainer>
-                <TableHeader>
-                    <SpanBold class="sm:text-normal text-xs">Remarks</SpanBold>
-                </TableHeader>
-                <Table>
-                    <TableHead>
-                        <TH>Id</TH>
-                        <TH>Remarks By</TH>
-                        <TH>Action</TH>
-                        <TH>Remarks</TH>
-                        <TH>Created At</TH>
-                    </TableHead>
-                    <TableBody>
-                        <tr v-for="remarks in order.store_order_remarks">
-                            <TD>{{ remarks.id }}</TD>
-                            <TD
-                                >{{ remarks.user.first_name }}
-                                {{ remarks.user.last_name }}</TD
-                            >
-                            <TD>
-                                {{ remarks.action.toUpperCase() }}
-                            </TD>
-                            <TD>{{ remarks.remarks }}</TD>
-                            <TD>{{ remarks.created_at }}</TD>
-                        </tr>
-                    </TableBody>
-                </Table>
+                                <InputContainer>
+                                    <Label>Quantity</Label>
+                                    <p class="font-semibold text-sm">{{ item.quantity_ordered }}</p>
+                                </InputContainer>
+                                
+                                <InputContainer>
+                                    <Label>Cost</Label>
+                                    <p class="font-semibold text-sm">{{ formatCurrency(item.cost_per_quantity) }}</p>
+                                </InputContainer>
 
-                <MobileTableContainer>
-                    <MobileTableRow
-                        v-for="remarks in order.store_order_remarks"
-                        :key="remarks.id"
-                    >
-                        <MobileTableHeading
-                            :title="`${remarks.action.toUpperCase()}`"
-                        >
-                        </MobileTableHeading>
-                        <LabelXS>Remarks: {{ remarks.remarks }}</LabelXS>
-                    </MobileTableRow>
-                    <SpanBold v-if="order.delivery_receipts.length < 1"
-                        >None</SpanBold
-                    >
-                </MobileTableContainer>
-            </TableContainer>
-
-            <Card class="p-5">
-                <InputContainer class="col-span-4">
-                    <LabelXS>Image Attachments: </LabelXS>
-                    <DivFlexCenter
-                        class="gap-4 overflow-auto overflow-x-auto scrollbar-thin scrollbar-track-gray-100 scrollbar-thumb-gray-300 hover:scrollbar-thumb-gray-400"
-                    >
-                        <div
-                            v-for="image in images"
-                            :key="image.id"
-                            class="relative"
-                        >
-                            <img
-                                :src="image.image_url"
-                                class="size-24 min-w-24 cursor-pointer hover:opacity-80 transition-opacity"
-                                @click="enlargeImage(image)"
-                            />
+                                <div class="md:col-span-3 flex items-end justify-end">
+                                    <div class="text-sm font-semibold pt-2">Item Total: {{ formatCurrency(item.total_cost) }}</div>
+                                </div>
+                            </div>
                         </div>
-                    </DivFlexCenter>
-                    <SpanBold v-if="images.length < 1">None</SpanBold>
-                </InputContainer>
+                    </div>
+                </CardContent>
+                <CardFooter class="flex justify-between items-center mt-6 p-6 border-t">
+                    <div class="text-lg font-bold">Overall Total: {{ formatCurrency(overallTotal) }}</div>
+                    <Link :href="route('dts-orders.index')">
+                        <Button variant="outline">Back to Orders</Button>
+                    </Link>
+                </CardFooter>
             </Card>
-
-            <TableContainer>
-                <CardTitle class="sm:text-normal text-xs"
-                    >Receive Dates History</CardTitle
-                >
-                <Table>
-                    <TableHead>
-                        <TH> Id </TH>
-                        <TH> Item </TH>
-                        <TH> Item Code </TH>
-                        <!-- <TH> Received By </TH> -->
-                        <TH> Quantity Received</TH>
-                        <TH> Received At</TH>
-                        <TH> Status</TH>
-                        <TH>Actions</TH>
-                    </TableHead>
-                    <TableBody>
-                        <tr
-                            v-for="history in receiveDatesHistory"
-                            :key="history.id"
-                        >
-                            <TD>{{ history.id }}</TD>
-                            <TD>{{
-                                history.store_order_item.product_inventory.name
-                            }}</TD>
-                            <TD>{{
-                                history.store_order_item.product_inventory
-                                    .inventory_code
-                            }}</TD>
-                            <!-- <TD>
-                                {{ history.receiver.first_name }}
-                                {{ history.receiver.last_name }}
-                            </TD> -->
-                            <TD>{{ history.quantity_received }}</TD>
-                            <TD>{{ history.received_date }}</TD>
-                            <TD>{{ history.status }}</TD>
-                            <TD>
-                                <DivFlexCenter class="gap-3">
-                                    <ShowButton
-                                        @click="openViewModalForm(history.id)"
-                                    />
-                                </DivFlexCenter>
-                            </TD>
-                        </tr>
-                    </TableBody>
-                </Table>
-
-                <MobileTableContainer>
-                    <MobileTableRow
-                        v-for="history in receiveDatesHistory"
-                        :key="history.id"
-                    >
-                        <MobileTableHeading
-                            :title="`${history.store_order_item.product_inventory.name} (${history.store_order_item.product_inventory.inventory_code})`"
-                        >
-                        </MobileTableHeading>
-                        <LabelXS
-                            >Received: {{ history.quantity_received }}</LabelXS
-                        >
-                        <LabelXS
-                            >Status: {{ history.status.toUpperCase() }}</LabelXS
-                        >
-                        <SpanBold v-if="history.length < 1">None</SpanBold>
-                    </MobileTableRow>
-                </MobileTableContainer>
-            </TableContainer>
-        </DivFlexCol>
-        <Button variant="outline" class="text-lg px-7" @click="backButton">
-            Back
-        </Button>
-
-        <!-- View Modal -->
-        <Dialog v-model:open="isViewModalVisible">
-            <DialogContent class="sm:max-w-[600px]">
-                <DialogHeader>
-                    <DialogTitle>Received Item Details</DialogTitle>
-                </DialogHeader>
-                <section class="grid grid-cols-2 gap-5">
-                    <InputContainer>
-                        <LabelXS>Item</LabelXS>
-                        <SpanBold
-                            >{{
-                                selectedItem.store_order_item.product_inventory
-                                    .name
-                            }}
-                            ({{
-                                selectedItem.store_order_item.product_inventory
-                                    .inventory_code
-                            }})</SpanBold
-                        >
-                    </InputContainer>
-                    <InputContainer>
-                        <LabelXS>Received By</LabelXS>
-                        <SpanBold
-                            >{{ selectedItem.receiver.first_name }}
-                            {{ selectedItem.receiver.last_name }}</SpanBold
-                        >
-                    </InputContainer>
-
-                    <InputContainer>
-                        <LabelXS>Quantity Received</LabelXS>
-                        <SpanBold>{{
-                            selectedItem.quantity_received
-                        }}</SpanBold>
-                    </InputContainer>
-
-                    <InputContainer>
-                        <LabelXS>Received At</LabelXS>
-                        <SpanBold>{{ selectedItem.received_date }}</SpanBold>
-                    </InputContainer>
-
-                    <InputContainer>
-                        <LabelXS>Expiry Date</LabelXS>
-                        <SpanBold>{{ selectedItem.expiry_date }}</SpanBold>
-                    </InputContainer>
-
-                    <InputContainer>
-                        <LabelXS>Status</LabelXS>
-                        <SpanBold>{{ selectedItem.status }}</SpanBold>
-                    </InputContainer>
-
-                    <InputContainer>
-                        <LabelXS>Remarks</LabelXS>
-                        <SpanBold>{{ selectedItem.remarks ?? "N/a" }}</SpanBold>
-                    </InputContainer>
-                </section>
-            </DialogContent>
-        </Dialog>
+        </div>
     </Layout>
 </template>

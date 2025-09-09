@@ -1,6 +1,8 @@
+//#region src/shared/nullish.ts
 function isNullish(value) {
-  return value === null || value === void 0;
+	return value === null || value === void 0;
 }
 
-export { isNullish as i };
+//#endregion
+export { isNullish };
 //# sourceMappingURL=nullish.js.map

@@ -1,27 +1,44 @@
-'use strict';
+const require_rolldown_runtime = require('../rolldown-runtime.cjs');
+const require_Popper_PopperAnchor = require('../Popper/PopperAnchor.cjs');
+const vue = require_rolldown_runtime.__toESM(require("vue"));
 
-const vue = require('vue');
-const Popper_PopperAnchor = require('../Popper/PopperAnchor.cjs');
-
-const _sfc_main = /* @__PURE__ */ vue.defineComponent({
-  __name: "MenuAnchor",
-  props: {
-    reference: {},
-    asChild: { type: Boolean },
-    as: {}
-  },
-  setup(__props) {
-    const props = __props;
-    return (_ctx, _cache) => {
-      return vue.openBlock(), vue.createBlock(vue.unref(Popper_PopperAnchor._sfc_main), vue.normalizeProps(vue.guardReactiveProps(props)), {
-        default: vue.withCtx(() => [
-          vue.renderSlot(_ctx.$slots, "default")
-        ]),
-        _: 3
-      }, 16);
-    };
-  }
+//#region src/Menu/MenuAnchor.vue?vue&type=script&setup=true&lang.ts
+var MenuAnchor_vue_vue_type_script_setup_true_lang_default = /* @__PURE__ */ (0, vue.defineComponent)({
+	__name: "MenuAnchor",
+	props: {
+		reference: {
+			type: null,
+			required: false
+		},
+		asChild: {
+			type: Boolean,
+			required: false
+		},
+		as: {
+			type: null,
+			required: false
+		}
+	},
+	setup(__props) {
+		const props = __props;
+		return (_ctx, _cache) => {
+			return (0, vue.openBlock)(), (0, vue.createBlock)((0, vue.unref)(require_Popper_PopperAnchor.PopperAnchor_default), (0, vue.normalizeProps)((0, vue.guardReactiveProps)(props)), {
+				default: (0, vue.withCtx)(() => [(0, vue.renderSlot)(_ctx.$slots, "default")]),
+				_: 3
+			}, 16);
+		};
+	}
 });
 
-exports._sfc_main = _sfc_main;
+//#endregion
+//#region src/Menu/MenuAnchor.vue
+var MenuAnchor_default = MenuAnchor_vue_vue_type_script_setup_true_lang_default;
+
+//#endregion
+Object.defineProperty(exports, 'MenuAnchor_default', {
+  enumerable: true,
+  get: function () {
+    return MenuAnchor_default;
+  }
+});
 //# sourceMappingURL=MenuAnchor.cjs.map

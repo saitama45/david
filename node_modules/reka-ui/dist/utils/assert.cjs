@@ -1,11 +1,17 @@
-'use strict';
 
+//#region src/Splitter/utils/assert.ts
 function assert(expectedCondition, message = "Assertion failed!") {
-  if (!expectedCondition) {
-    console.error(message);
-    throw new Error(message);
-  }
+	if (!expectedCondition) {
+		console.error(message);
+		throw new Error(message);
+	}
 }
 
-exports.assert = assert;
+//#endregion
+Object.defineProperty(exports, 'assert', {
+  enumerable: true,
+  get: function () {
+    return assert;
+  }
+});
 //# sourceMappingURL=assert.cjs.map

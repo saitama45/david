@@ -287,12 +287,15 @@ Route::middleware('auth')
         // DTS Orders
         Route::controller(DTSController::class)->name('dts-orders.')->prefix('dts-orders')->group(function () {
             Route::middleware('permission:view dts orders')->get('/', 'index')->name('index');
-            Route::middleware('permission:create dts orders')->get('/create/{variant}', 'create')->name('create');
+            Route::middleware('permission:create dts orders')->get('/create', 'create')->name('create');
             Route::middleware('permission:create dts orders')->post('/store', 'store')->name('store');
             Route::middleware('permission:view dts order')->get('/show/{id}', 'show')->name('show');
             Route::middleware('permission:edit dts orders')->get('/edit/{id}', 'edit')->name('edit');
-            Route::middleware('permission:edit dts orders')->put('/update/{store_order}', 'update')->name('update');
-            Route::middleware('permission:export dts orders')->get('/export', 'export')->name('export'); // Added export
+            Route::middleware('permission:edit dts orders')->put('/update/{order_number}', 'update')->name('update');
+            Route::middleware('permission:export dts orders')->get('/export', 'export')->name('export');
+
+            Route::get('/get-items-by-variant', 'getItemsByVariant')->name('get-items-by-variant');
+            Route::get('/get-schedule', 'getSchedule')->name('get-schedule');
         });
 
         // Store Orders
