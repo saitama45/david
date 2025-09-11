@@ -29,35 +29,33 @@ const props = defineProps({
     },
 });
 
-console.log('Raw branches prop:', props.branches);
-console.log('Raw suppliers prop:', props.suppliers);
+const userCurrentRoles = Array.isArray(props.user.roles)
+    ? props.user.roles.map((role) => String(role.id))
+    : [];
 
-const { user, roles, branches, suppliers } = props;
-
-const userCurrentRoles = Array.isArray(user.roles) ? user.roles.map((role) => role.id.toString()) : [];
-// CRITICAL FIX: Ensure assignedSuppliers are mapped by their 'value' (supplier_code) from options
-// This assumes your suppliersOptions are structured as { label: '...', value: 'supplier_code' }
-const userCurrentAssignedSuppliers = Array.isArray(user.suppliers)
-    ? user.suppliers.map((supplier) => supplier.supplier_code)
+const userCurrentAssignedSuppliers = Array.isArray(props.user.suppliers)
+    ? props.user.suppliers.map((supplier) => supplier.supplier_code)
     : [];
 
 const form = useForm({
-    first_name: user.first_name,
-    middle_name: user.middle_name,
-    last_name: user.last_name,
-    phone_number: user.phone_number,
-    email: user.email,
+    first_name: props.user.first_name,
+    middle_name: props.user.middle_name,
+    last_name: props.user.last_name,
+    phone_number: props.user.phone_number,
+    email: props.user.email,
     password: null, // Password is null by default, only set if user types
     roles: userCurrentRoles,
-    remarks: user.remarks,
+    remarks: props.user.remarks,
     // FIX: Remove .toString() here, so assignedBranches stores actual integer IDs.
-    assignedBranches: user.store_branches.map((item) => item.id),
+    assignedBranches: props.user.store_branches.map((item) => item.id),
     assignedSuppliers: userCurrentAssignedSuppliers,
 });
 
-const { options: rolesOptions } = useSelectOptions(roles);
-const { options: branchesOptions } = useSelectOptions(branches);
-const { options: suppliersOptions } = useSelectOptions(suppliers);
+console.log('form.assignedSuppliers (after form init):', form.assignedSuppliers);
+
+const { options: rolesOptions } = useSelectOptions(props.roles);
+const { options: branchesOptions } = useSelectOptions(props.branches);
+const { options: suppliersOptions } = useSelectOptions(props.suppliers);
 
 console.log('branchesOptions.value after composable:', branchesOptions.value);
 console.log('suppliersOptions.value after composable:', suppliersOptions.value);
@@ -169,7 +167,7 @@ const handleUpdate = () => {
             // --- DEBUG LOG START ---
             console.log('Form data being submitted (Edit):', form.data());
             // --- DEBUG LOG END ---
-            form.post(route("users.update", user.id), {
+            form.post(route("users.update", props.user.id), {
                 _method: 'put',
                 preserveScroll: true,
                 onSuccess: () => {

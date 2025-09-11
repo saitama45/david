@@ -9,6 +9,13 @@ use Carbon\Carbon;
 
 class IsValidDTSOrder implements ValidationRule
 {
+    protected $globalOrderDate;
+
+    public function __construct($globalOrderDate)
+    {
+        $this->globalOrderDate = $globalOrderDate;
+    }
+
     /**
      * Run the validation rule.
      *
@@ -16,17 +23,26 @@ class IsValidDTSOrder implements ValidationRule
      */
     public function validate(string $attribute, mixed $value, Closure $fail): void
     {
+        $orderDate = $this->globalOrderDate;
+        if (!$orderDate) {
+            $fail("The order date is required.");
+            return;
+        }
+
+        $orderDayOfWeek = strtoupper(Carbon::parse($orderDate)->format('l'));
+
         foreach ($value as $index => $item) {
-            $orderDate = $item['order_date'] ?? null;
-            if (!$orderDate) {
-                $fail("The order date for item #" . ($index + 1) . " is required.");
+            $storeBranchId = $item['store_branch_id'] ?? null;
+            $variant = $item['variant'] ?? null;
+
+            if (!$storeBranchId || !$variant) {
+                // This case should ideally be caught by other validation rules, but as a fallback:
+                $fail("Branch and variant are required for item #" . ($index + 1) . ".");
                 return;
             }
 
-            $orderDayOfWeek = strtoupper(Carbon::parse($orderDate)->format('l'));
-
-            $validDays = DTSDeliverySchedule::where('store_branch_id', $item['store_branch_id'])
-                ->where('variant', $item['variant'])
+            $validDays = DTSDeliverySchedule::where('store_branch_id', $storeBranchId)
+                ->where('variant', $variant)
                 ->with('deliverySchedule')
                 ->get()
                 ->pluck('deliverySchedule.day')

@@ -16,8 +16,8 @@ const props = defineProps({
 // Helper function to parse remarks
 const getDetailFromRemark = (remark, detail) => {
     if (!remark) return 'N/A';
-    const match = remark.match(new RegExp(`${detail}: (\\S+)`));
-    return match ? match[1] : 'N/A';
+    const match = remark.match(new RegExp(`${detail}: ([^;]*)`));
+    return match ? match[1].trim() : 'N/A';
 };
 
 const overallTotal = computed(() => {
@@ -29,12 +29,16 @@ const formatCurrency = (value) => {
 };
 
 const formatDate = (dateString) => {
-    if (!dateString) return 'N/A';
+    if (!dateString || dateString === 'N/A') return 'N/A';
     // Add 'T00:00:00' to handle potential timezone issues with date-only strings
-    return new Date(dateString + 'T00:00:00').toLocaleDateString('en-US', {
+    const date = new Date(dateString + 'T00:00:00');
+    if (isNaN(date.getTime())) {
+        return 'Invalid Date';
+    }
+    return date.toLocaleDateString('en-US', {
         year: 'numeric',
-        month: 'long',
-        day: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
     });
 };
 
@@ -66,7 +70,7 @@ const formatDate = (dateString) => {
                             <p class="font-semibold text-sm">{{ order.encoder.name }}</p>
                         </InputContainer>
                         <InputContainer>
-                            <Label>Main Order Date</Label>
+                            <Label>Delivery Date</Label>
                             <p class="font-semibold text-sm">{{ formatDate(order.order_date) }}</p>
                         </InputContainer>
                     </div>
@@ -96,10 +100,7 @@ const formatDate = (dateString) => {
                                 </InputContainer>
 
                                 <!-- Row 2: Date, UOM, Quantity, Cost -->
-                                <InputContainer>
-                                    <Label>Delivery Date</Label>
-                                    <p class="font-semibold text-sm">{{ formatDate(getDetailFromRemark(item.remarks, 'Delivery Date')) }}</p>
-                                </InputContainer>
+                                
 
                                 <InputContainer>
                                     <Label>UOM</Label>

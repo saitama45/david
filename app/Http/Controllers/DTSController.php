@@ -8,6 +8,8 @@ use App\Models\StoreBranch;
 use App\Models\StoreOrder;
 use App\Models\DTSDeliverySchedule;
 use App\Models\DeliverySchedule;
+use App\Models\Supplier;
+use App\Models\SupplierItems;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Maatwebsite\Excel\Facades\Excel;
@@ -111,21 +113,28 @@ class DTSController extends Controller
      */
     public function store(Request $request)
     {
-        $validated = $request->validate([
-            'items' => ['required', 'array', new IsValidDTSOrder()],
-            'items.*.order_date' => 'required|date',
-            'items.*.store_branch_id' => 'required|exists:store_branches,id',
-            'items.*.variant' => 'required|string',
-            'items.*.item_id' => 'required|exists:sap_masterfiles,id',
-            'items.*.quantity' => 'required|numeric|min:0.01',
-            'items.*.cost' => 'required|numeric|min:0',
-        ]);
+        Log::info('DTSController@store: Request received.', ['request_data' => $request->all()]);
 
         try {
+            $validated = $request->validate([
+                'order_date' => 'required|date', // Global order date
+                'items' => ['required', 'array', new IsValidDTSOrder($request->input('order_date'))],
+                'items.*.store_branch_id' => 'required|exists:store_branches,id',
+                'items.*.variant' => 'required|string',
+                'items.*.item_id' => 'required|string|exists:supplier_items,ItemCode',
+                'items.*.quantity' => 'required|numeric|min:0.01',
+                'items.*.cost' => 'required|numeric|min:0',
+            ]);
+            Log::info('DTSController@store: Validation passed.', ['validated_data' => $validated]);
+
             $this->dtsStoreOrderService->createDTSOrder($validated);
+            Log::info('DTSController@store: Order created successfully.');
             return redirect()->route('dts-orders.index')->with('success', 'DTS Order(s) placed successfully!');
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            Log::error('DTSController@store: Validation failed.', ['errors' => $e->errors(), 'exception' => $e]);
+            return back()->withErrors($e->errors())->withInput();
         } catch (\Exception $e) {
-            Log::error('Error placing DTS order: ' . $e->getMessage(), ['exception' => $e]);
+            Log::error('DTSController@store: Error placing DTS order: ' . $e->getMessage(), ['exception' => $e]);
             return back()->with('error', 'Error placing DTS order: ' . $e->getMessage());
         }
     }
@@ -192,22 +201,31 @@ class DTSController extends Controller
      */
     public function update(Request $request, $order_number)
     {
-        $validated = $request->validate([
-            'items' => ['required', 'array', new IsValidDTSOrder()],
-            'items.*.order_date' => 'required|date',
-            'items.*.store_branch_id' => 'required|exists:store_branches,id',
-            'items.*.variant' => 'required|string',
-            'items.*.item_id' => 'required|exists:sap_masterfiles,id',
-            'items.*.quantity' => 'required|numeric|min:0.01',
-            'items.*.cost' => 'required|numeric|min:0',
-        ]);
+        Log::info('DTSController@update: Request received.', ['request_data' => $request->all()]);
 
         try {
+            $validated = $request->validate([
+                'order_date' => 'required|date', // Global order date
+                'items' => ['required', 'array', new IsValidDTSOrder($request->input('order_date'))],
+                'items.*.id' => 'sometimes|exists:store_order_items,id',
+                'items.*.store_branch_id' => 'required|exists:store_branches,id',
+                'items.*.variant' => 'required|string',
+                'items.*.item_id' => 'required|string|exists:supplier_items,ItemCode',
+                'items.*.quantity' => 'required|numeric|min:0.01',
+                'items.*.cost' => 'required|numeric|min:0',
+            ]);
+            Log::info('DTSController@update: Validation passed.', ['validated_data' => $validated]);
+
             $orderToUpdate = StoreOrder::where('order_number', $order_number)->firstOrFail();
             $this->dtsStoreOrderService->updateDTSOrder($orderToUpdate, $validated);
+            Log::info('DTSController@update: Order updated successfully.');
+
             return redirect()->route('dts-orders.index')->with('success', 'DTS Order updated successfully!');
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            Log::error('DTSController@update: Validation failed.', ['errors' => $e->errors(), 'exception' => $e]);
+            return back()->withErrors($e->errors())->withInput();
         } catch (\Exception $e) {
-            Log::error('Error updating DTS order: ' . $e->getMessage(), ['exception' => $e]);
+            Log::error('DTSController@update: Error updating DTS order: ' . $e->getMessage(), ['exception' => $e]);
             return back()->with('error', 'Error updating DTS order: ' . $e->getMessage());
         }
     }
@@ -232,10 +250,19 @@ class DTSController extends Controller
      */
     public function getItemsByVariant(Request $request)
     {
-        $request->validate(['variant' => 'required|string']);
+        $request->validate([
+            'variant' => 'required|string',
+            'supplier_id' => 'required|exists:suppliers,id', // Validate supplier_id
+        ]);
 
         $variant = $request->input('variant');
+        $supplierId = $request->input('supplier_id');
+        $supplierCode = Supplier::find($supplierId)->supplier_code; // Get supplier_code from supplier_id
+
         $itemCodes = [];
+        $query = SupplierItems::query()
+            ->where('SupplierCode', $supplierCode)
+            ->where('is_active', true);
 
         switch (trim(strtoupper($variant))) {
             case 'ICE CREAM':
@@ -257,20 +284,27 @@ class DTSController extends Controller
                 ];
                 break;
             default:
-                $items = SAPMasterfile::query()->where('is_active', true)->get();
-                return response()->json($items);
+                // For 'regular' variant, return all active supplier items for the given supplier
+                $items = $query->get();
+                return response()->json($items->map(fn($item) => [
+                    'label' => $item->item_name . ' (' . $item->ItemCode . ') ' . $item->uom,
+                    'value' => $item->ItemCode,
+                    'item_code' => $item->ItemCode,
+                    'uom' => $item->uom,
+                    'cost' => $item->cost,
+                    'sap_master_file' => $item->sap_master_file, // Include the accessor data
+                ])->values()->toArray());
         }
 
-        $items = SAPMasterfile::query()->whereIn('ItemCode', $itemCodes)->get();
+        $items = $query->whereIn('ItemCode', $itemCodes)->get();
         
         return response()->json($items->map(fn($item) => [
-            'label' => $item->ItemCode . ' - ' . $item->ItemDescription . ' (' . $item->AltUOM . ')',
-            'value' => $item->id,
+            'label' => $item->item_name . ' (' . $item->ItemCode . ') ' . $item->uom,
+            'value' => $item->ItemCode,
             'item_code' => $item->ItemCode,
-            'base_uom' => $item->BaseUOM,
-            'alt_uom' => $item->AltUOM,
-            'alt_qty' => $item->AltQty,
-            'base_qty' => $item->BaseQty,
+            'uom' => $item->uom,
+            'cost' => $item->cost,
+            'sap_master_file' => $item->sap_master_file, // Include the accessor data
         ])->values()->toArray());
     }
 

@@ -11,6 +11,8 @@ class StoreOrderItem extends Model implements Auditable
     /** @use HasFactory<\Database\Factories\StoreOrderItemFactory> */
     use HasFactory, \OwenIt\Auditing\Auditable;
 
+    protected $touches = ['store_order'];
+
     protected $fillable = [
         'store_order_id',
         'item_code',

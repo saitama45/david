@@ -1,5 +1,5 @@
 <script setup>
-import { useForm, router } from "@inertiajs/vue3";
+import { useForm } from "@inertiajs/vue3";
 import { useSelectOptions } from "@/Composables/useSelectOptions";
 import { useConfirm } from "primevue/useconfirm";
 import { useToast } from "primevue/usetoast";
@@ -115,6 +115,10 @@ const props = defineProps({
         required: false,
     },
 });
+
+console.log("User props in Create.vue (Edit context):", props.user);
+console.log("Assigned Suppliers from user props:", props.user?.suppliers);
+
 const handleCancel = () => {
     router.get(route("users.index"));
 };

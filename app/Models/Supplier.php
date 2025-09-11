@@ -53,7 +53,7 @@ class Supplier extends Model implements Auditable
                      ->map(function ($supplier) {
                          return [
                              'label' => $supplier->name . ' (' . $supplier->supplier_code . ')',
-                             'value' => $supplier->id,
+                             'value' => $supplier->supplier_code,
                          ];
                      });
     }
