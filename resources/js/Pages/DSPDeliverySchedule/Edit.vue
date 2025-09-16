@@ -35,12 +35,29 @@ const form = useForm({
 const stagedBranches = ref([]);
 const multiselectRef = ref(null);
 
-const branchOptions = computed(() => {
-    return props.storeBranches.map(branch => ({
+// --- Async Search State ---
+const filteredBranchOptions = ref([]);
+const isLoading = ref(false);
+
+const asyncFind = (query) => {
+    if (query.length < 2) {
+        filteredBranchOptions.value = [];
+        return;
+    }
+    isLoading.value = true;
+    const lowerQuery = query.toLowerCase();
+    const result = props.storeBranches.filter(branch => 
+        branch.name.toLowerCase().includes(lowerQuery) ||
+        branch.branch_code.toLowerCase().includes(lowerQuery)
+    ).map(branch => ({
         ...branch,
         display_label: `${branch.name} (${branch.branch_code})`
     }));
-});
+
+    filteredBranchOptions.value = result;
+    isLoading.value = false;
+};
+// ------------------------
 
 const selectedBranch = ref(null);
 
@@ -51,6 +68,7 @@ const onBranchSelect = (selectedOption) => {
             instance_id: `${selectedOption.id}_${Date.now()}_${Math.random()}`
         });
         selectedBranch.value = null;
+        filteredBranchOptions.value = []; // Clear options after select
         nextTick(() => {
             multiselectRef.value?.activate();
         });
@@ -123,6 +141,23 @@ const clearDay = (day) => {
     localSchedules.value[day] = [];
 };
 
+const removeStagedBranch = (instanceId) => {
+    const index = stagedBranches.value.findIndex(b => b.instance_id === instanceId);
+    if (index !== -1) {
+        stagedBranches.value.splice(index, 1);
+    }
+};
+
+const removeScheduledBranch = (day, instanceId) => {
+    const daySchedule = localSchedules.value[day];
+    if (daySchedule) {
+        const index = daySchedule.findIndex(b => b.instance_id === instanceId);
+        if (index !== -1) {
+            daySchedule.splice(index, 1);
+        }
+    }
+};
+
 const submit = () => {
     const schedulesPayload = {};
     for (const day of days) {
@@ -144,9 +179,9 @@ const submit = () => {
 </style>
 
 <template>
-    <Head :title="`Edit DSP Delivery Schedule for ${supplier.name}`" />
+    <Head :title="`DSP Delivery Schedule for ${supplier.name}`" />
 
-    <Layout :heading="`Edit DSP Delivery Schedule for ${supplier.name}`">
+    <Layout :heading="`DSP Delivery Schedule for ${supplier.name}`">
         <Toaster />
         <div class="p-4 bg-white shadow-md rounded-lg">
 
@@ -156,10 +191,13 @@ const submit = () => {
                 <Multiselect
                     ref="multiselectRef"
                     v-model="selectedBranch"
-                    :options="branchOptions"
+                    :options="filteredBranchOptions"
+                    :internal-search="false"
+                    :loading="isLoading"
+                    @search-change="asyncFind"
                     label="display_label"
                     track-by="id"
-                    placeholder="Search by name or branch code..."
+                    placeholder="Type to search for a branch..."
                     @select="onBranchSelect"
                     class="mb-4"
                 >
@@ -168,6 +206,12 @@ const submit = () => {
                             <span class="font-semibold">{{ option.name }}</span>
                             <span class="text-sm text-gray-500 ml-2">({{ option.branch_code }})</span>
                         </div>
+                    </template>
+                    <template #noResult>
+                        <span>No branches found. Try a different search.</span>
+                    </template>
+                     <template #noOptions>
+                        <span>Type at least 2 characters to begin searching.</span>
                     </template>
                 </Multiselect>
 
@@ -195,8 +239,9 @@ const submit = () => {
                     class="flex flex-wrap gap-2 p-4 bg-gray-100 rounded-lg min-h-[70px] border-2 border-dashed border-gray-300"
                 >
                     <template #item="{ element }">
-                        <div class="p-2 bg-gray-300 border border-gray-400 rounded cursor-move">
-                            {{ element.name }}
+                        <div class="relative p-2 pr-7 bg-gray-300 border border-gray-400 rounded cursor-move">
+                            <span>{{ element.name }}</span>
+                            <button @click="removeStagedBranch(element.instance_id)" class="absolute top-0 right-0 px-2 py-1 text-gray-500 hover:text-red-600 font-bold text-lg">&times;</button>
                         </div>
                     </template>
                 </draggable>
@@ -218,8 +263,9 @@ const submit = () => {
                         class="min-h-[200px] bg-green-50 p-4 rounded-lg border-2 border-dashed border-green-200 transition-colors duration-200"
                     >
                         <template #item="{ element }">
-                            <div class="p-2 mb-2 bg-blue-100 border border-blue-300 rounded cursor-move">
-                                {{ element.name }}
+                            <div class="relative p-2 pr-7 mb-2 bg-blue-100 border border-blue-300 rounded cursor-move">
+                                <span>{{ element.name }}</span>
+                                <button @click="removeScheduledBranch(day, element.instance_id)" class="absolute top-0 right-0 px-2 py-1 text-blue-500 hover:text-red-600 font-bold text-lg">&times;</button>
                             </div>
                         </template>
                     </draggable>
