@@ -40,6 +40,10 @@ class RolesAndPermissionSeeder extends Seeder
         Permission::firstOrCreate(['name' => 'edit dts delivery schedules']);
         Permission::firstOrCreate(['name' => 'export dts delivery schedules']); // Added export
 
+        // DSP Delivery Schedules
+        Permission::firstOrCreate(['name' => 'view dsp delivery schedules']);
+        Permission::firstOrCreate(['name' => 'edit dsp delivery schedules']);
+
         // Store Orders
         Permission::firstOrCreate(['name' => 'view store orders']);
         Permission::firstOrCreate(['name' => 'edit store orders']);

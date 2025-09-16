@@ -24,4 +24,9 @@ class DTSDeliverySchedule extends Model
     {
         return $this->belongsTo(DeliverySchedule::class, 'delivery_schedule_id');
     }
+
+    public function supplier(): BelongsTo
+    {
+        return $this->belongsTo(Supplier::class, 'variant', 'supplier_code');
+    }
 }

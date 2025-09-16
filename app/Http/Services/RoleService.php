@@ -69,6 +69,9 @@ class RoleService
                 'DTS Delivery Schedules' => [
                     'view dts delivery schedules', 'edit dts delivery schedules', 'export dts delivery schedules'
                 ],
+                'DSP Delivery Schedules' => [
+                    'view dsp delivery schedules', 'edit dsp delivery schedules'
+                ],
                 'Templates' => [
                     'view templates', 'create templates', 'edit templates', 'delete templates', 'export templates'
                 ],

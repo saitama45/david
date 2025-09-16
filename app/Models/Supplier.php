@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Builder;
 use OwenIt\Auditing\Contracts\Auditable;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Supplier extends Model implements Auditable
 {
@@ -23,6 +24,11 @@ class Supplier extends Model implements Auditable
     public function store_orders()
     {
         return $this->hasMany(StoreOrder::class);
+    }
+
+    public function dtsDeliverySchedules(): HasMany
+    {
+        return $this->hasMany(DTSDeliverySchedule::class, 'variant', 'supplier_code');
     }
 
     /**

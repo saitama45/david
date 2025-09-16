@@ -19,6 +19,7 @@ use App\Http\Controllers\DaysInventoryOutstanding;
 use App\Http\Controllers\DaysPayableOutStanding;
 use App\Http\Controllers\DeliveryScheduleController;
 use App\Http\Controllers\DirectReceivingController;
+use App\Http\Controllers\DSPDeliveryScheduleController;
 use App\Http\Controllers\DTSController;
 use App\Http\Controllers\EmergencyOrderApprovalController;
 use App\Http\Controllers\EmergencyOrderController;
@@ -282,6 +283,14 @@ Route::middleware('auth')
             });
             Route::middleware('permission:delete dts delivery schedules')->delete('/destroy/{id}', 'destroy')->name('destroy');
             Route::middleware('permission:export dts delivery schedules')->get('/export', 'export')->name('export');
+        });
+
+        Route::controller(DSPDeliveryScheduleController::class)->name('dsp-delivery-schedules.')->prefix('dsp-delivery-schedules')->group(function () {
+            Route::middleware('permission:view dsp delivery schedules')->get('/', 'index')->name('index');
+            Route::middleware('permission:edit dsp delivery schedules')->group(function () {
+                Route::get('/edit/{id}', 'edit')->name('edit');
+                Route::post('/update/{id}', 'update')->name('update');
+            });
         });
 
         // DTS Orders

@@ -87,7 +87,8 @@ const canViewSettingsGroup = computed(() =>
     hasAccess("view users") ||
     hasAccess("view roles") ||
     hasAccess("view templates") ||
-    hasAccess("view dts delivery schedules")
+    hasAccess("view dts delivery schedules") ||
+    hasAccess("view dsp delivery schedules")
 );
 
 const canViewOrderingGroup = computed(() =>
@@ -168,7 +169,7 @@ watchEffect(() => {
 
     // Define all collapsible sections and their associated paths
     const sections = [
-        { ref: settingsOpen, paths: ["/users", "/roles", "/templates", "/dts-delivery-schedules"] },
+        { ref: settingsOpen, paths: ["/users", "/roles", "/templates", "/dts-delivery-schedules", "/dsp-delivery-schedules"] },
         { ref: orderingOpen, paths: ["/store-orders", "/emergency-orders", "/additional-orders", "/dts-orders", "/orders-approval", "/cs-approvals", "/additional-orders-approval", "/emergency-orders-approval"] },
         { ref: receivingOpen, paths: ["/direct-receiving", "/orders-receiving", "/approved-orders", "/receiving-approvals"] },
         { ref: salesOpen, paths: ["/sales-orders", "/store-transactions", "/store-transactions-approval"] },
@@ -653,6 +654,14 @@ watchEffect(() => {
                     :is-active="isPathActive('/dts-delivery-schedules')"
                 >
                     DTS Delivery Schedules
+                </NavLink>
+                <NavLink
+                    v-if="hasAccess('view dsp delivery schedules')"
+                    href="/dsp-delivery-schedules"
+                    :icon="CalendarCheck2"
+                    :is-active="isPathActive('/dsp-delivery-schedules')"
+                >
+                    DSP Delivery Schedules
                 </NavLink>
             </CollapsibleContent>
         </Collapsible>
