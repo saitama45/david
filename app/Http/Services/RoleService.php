@@ -72,6 +72,9 @@ class RoleService
                 'DSP Delivery Schedules' => [
                     'view dsp delivery schedules', 'edit dsp delivery schedules'
                 ],
+                'Ordering Cut Off' => [
+                    'view orders cutoff', 'edit orders cutoff', 'create orders cutoff', 'show orders cutoff'
+                ],
                 'Templates' => [
                     'view templates', 'create templates', 'edit templates', 'delete templates', 'export templates'
                 ],

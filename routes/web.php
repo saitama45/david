@@ -69,6 +69,7 @@ use App\Http\Controllers\RolesController;
 use App\Http\Controllers\SAPMasterfileController;
 use App\Http\Controllers\SupplierItemsController;
 use App\Http\Controllers\WIPListController;
+use App\Http\Controllers\OrdersCutoffController;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 use Illuminate\Foundation\Application;
@@ -285,12 +286,27 @@ Route::middleware('auth')
             Route::middleware('permission:export dts delivery schedules')->get('/export', 'export')->name('export');
         });
 
+        // DSP Delivery Schedule
         Route::controller(DSPDeliveryScheduleController::class)->name('dsp-delivery-schedules.')->prefix('dsp-delivery-schedules')->group(function () {
             Route::middleware('permission:view dsp delivery schedules')->get('/', 'index')->name('index');
             Route::middleware('permission:edit dsp delivery schedules')->group(function () {
                 Route::get('/edit/{id}', 'edit')->name('edit');
                 Route::post('/update/{id}', 'update')->name('update');
             });
+        });
+
+        Route::controller(OrdersCutoffController::class)->name('orders-cutoff.')->prefix('orders-cutoff')->group(function () {
+            Route::middleware('permission:view orders cutoff')->get('/', 'index')->name('index');
+            Route::middleware('permission:show orders cutoff')->get('/show/{orders_cutoff}', 'show')->name('show');
+            Route::middleware('permission:create orders cutoff')->group(function () {
+                Route::get('/create', 'create')->name('create');
+                Route::post('/store', 'store')->name('store');
+            });
+            Route::middleware('permission:edit orders cutoff')->group(function () {
+                Route::get('/edit/{orders_cutoff}', 'edit')->name('edit');
+                Route::put('/update/{orders_cutoff}', 'update')->name('update');
+            });
+            Route::middleware('permission:delete orders cutoff')->delete('/destroy/{orders_cutoff}', 'destroy')->name('destroy');
         });
 
         // DTS Orders

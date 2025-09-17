@@ -44,6 +44,12 @@ class RolesAndPermissionSeeder extends Seeder
         Permission::firstOrCreate(['name' => 'view dsp delivery schedules']);
         Permission::firstOrCreate(['name' => 'edit dsp delivery schedules']);
 
+        // Ordering Cut Off
+        Permission::firstOrCreate(['name' => 'view orders cutoff']);
+        Permission::firstOrCreate(['name' => 'edit orders cutoff']);
+        Permission::firstOrCreate(['name' => 'create orders cutoff']);
+        Permission::firstOrCreate(['name' => 'show orders cutoff']);
+
         // Store Orders
         Permission::firstOrCreate(['name' => 'view store orders']);
         Permission::firstOrCreate(['name' => 'edit store orders']);
