@@ -30,6 +30,7 @@ use App\Http\Controllers\InventoryReportController;
 use App\Http\Controllers\InvetoryCategoryController;
 use App\Http\Controllers\ItemController;
 use App\Http\Controllers\LowOnStockController;
+use App\Http\Controllers\MassOrdersController;
 use App\Http\Controllers\MenuCategoryController;
 use App\Http\Controllers\MenuController;
 use App\Http\Controllers\OrderApprovalController;
@@ -394,6 +395,20 @@ Route::middleware('auth')
 
                 Route::put('/orders-receiving/confirm-receive/{id}', 'confirmReceive')->name('confirm-receive');
             });
+        });
+
+        // Mass Orders
+        Route::controller(MassOrdersController::class)->name('mass-orders.')->prefix('mass-orders')->group(function () {
+            Route::middleware('permission:view mass orders')->get('/', 'index')->name('index');
+            Route::get('/available-dates/{supplier_code}', 'getAvailableDates')->name('mass-orders.available-dates');
+            Route::get('/items/{supplier_code}', 'getItems')->name('mass-orders.items');
+            Route::get('/available-dates/{supplier_code}', 'getAvailableDates')->name('mass-orders.available-dates');
+            Route::get('/items/{supplier_code}', 'getItems')->name('mass-orders.items');
+            Route::middleware('permission:create mass orders')->group(function () {
+                Route::get('/create', 'create')->name('create');
+                Route::post('/store', 'store')->name('store');
+            });
+            Route::get('/available-dates/{supplier_code}', 'getAvailableDates')->name('available-dates');
         });
 
         // Approvals

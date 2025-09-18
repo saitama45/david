@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\DTSDeliverySchedule;
 use App\Models\OrdersCutoff;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Validator;
 use Inertia\Inertia;
 
@@ -26,8 +27,13 @@ class OrdersCutoffController extends Controller
      */
     public function index(Request $request)
     {
+        $user = Auth::user();
+        $assigned_supplier_codes = $user->suppliers()->pluck('suppliers.supplier_code');
+
         $filters = $request->only('search');
-        $query = OrdersCutoff::query()->with('dtsDeliverySchedules');
+        $query = OrdersCutoff::query()
+            ->with('dtsDeliverySchedules')
+            ->whereIn('ordering_template', $assigned_supplier_codes);
 
         if ($request->filled('search')) {
             $query->where('ordering_template', 'like', '%' . $request->input('search') . '%');
@@ -46,7 +52,7 @@ class OrdersCutoffController extends Controller
      */
     public function create()
     {
-        $variants = DTSDeliverySchedule::select('variant')->distinct()->get()->pluck('variant');
+        $variants = Auth::user()->suppliers()->pluck('suppliers.supplier_code');
         return Inertia::render('OrdersCutoff/Create', compact('variants'));
     }
 
@@ -102,7 +108,7 @@ class OrdersCutoffController extends Controller
      */
     public function edit(OrdersCutoff $ordersCutoff)
     {
-        $variants = DTSDeliverySchedule::select('variant')->distinct()->get()->pluck('variant');
+        $variants = Auth::user()->suppliers()->pluck('suppliers.supplier_code');
 
         // Convert string to array of days for the form
         $ordersCutoff->days_covered_1 = $this->convertStringToDayIds($ordersCutoff->days_covered_1);

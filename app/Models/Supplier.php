@@ -31,6 +31,18 @@ class Supplier extends Model implements Auditable
         return $this->hasMany(DTSDeliverySchedule::class, 'variant', 'supplier_code');
     }
 
+    public function users()
+    {
+        return $this->belongsToMany(
+            User::class,
+            'user_suppliers',
+            'supplier_code',
+            'user_id',
+            'supplier_code',
+            'id'
+        );
+    }
+
     /**
      * Original scopeOptions: Returns suppliers with supplier_code as value.
      * This remains unchanged to avoid breaking existing modules.

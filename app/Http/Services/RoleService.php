@@ -105,6 +105,9 @@ class RoleService
                 'Additional Order Approval' => [
                     'view additional order approval', 'approve additional order', 'decline additional order'
                 ],
+                'Mass Orders' => [
+                    'view mass orders', 'create mass orders'
+                ],
             ],
             'Receiving' => [
                 'Direct Receiving' => [

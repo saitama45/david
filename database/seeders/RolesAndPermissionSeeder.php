@@ -278,6 +278,10 @@ class RolesAndPermissionSeeder extends Seeder
         Permission::firstOrCreate(['name' => 'delete cost center']);
         Permission::firstOrCreate(['name' => 'export cost centers']);
 
+        // Mass Orders
+        Permission::firstOrCreate(['name' => 'view mass orders']);
+        Permission::firstOrCreate(['name' => 'create mass orders']);
+
         // Reports from DashboardController (Added for consistency)
         Permission::firstOrCreate(['name' => 'view top 10 inventories']);
         Permission::firstOrCreate(['name' => 'export top 10 inventories']);

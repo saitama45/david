@@ -7,19 +7,26 @@ use App\Models\StoreBranch;
 use App\Models\Supplier;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
+use Illuminate\Support\Facades\Auth;
 
 class DSPDeliveryScheduleController extends Controller
 {
     public function index()
     {
-        $suppliers = Supplier::query()
-            ->where('is_active', true)
-            ->when(request('search'), function ($query, $search) {
-                $query->where(function ($q) use ($search) {
-                    $q->where('name', 'like', "%{$search}%")
-                        ->orWhere('supplier_code', 'like', "%{$search}%");
-                });
-            })
+        $user = Auth::user();
+
+        $query = Supplier::query()->where('is_active', true);
+
+        $query->whereHas('users', function ($q) use ($user) {
+            $q->where('user_id', $user->id);
+        });
+
+        $suppliers = $query->when(request('search'), function ($query, $search) {
+            $query->where(function ($q) use ($search) {
+                $q->where('name', 'like', "%{$search}%")
+                    ->orWhere('supplier_code', 'like', "%{$search}%");
+            });
+        })
             ->select('id', 'supplier_code', 'name')
             ->paginate(15)
             ->withQueryString();
@@ -33,9 +40,12 @@ class DSPDeliveryScheduleController extends Controller
     public function edit($id)
     {
         $supplier = Supplier::findOrFail($id);
+        $user = Auth::user();
 
-        // Get all active store branches for the dropdowns
-        $storeBranches = StoreBranch::where('is_active', true)->select('id', 'name', 'branch_code')->get();
+        $storeBranches = $user->store_branches()
+            ->where('is_active', true)
+            ->select('store_branches.id', 'store_branches.name', 'store_branches.branch_code')
+            ->get();
 
         // Get existing schedules for this supplier
         $existingSchedules = DTSDeliverySchedule::where('variant', $supplier->supplier_code)
