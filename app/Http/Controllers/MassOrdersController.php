@@ -9,9 +9,24 @@ use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Inertia\Inertia;
+use App\Exports\MassOrderTemplateExport;
+use App\Models\DTSDeliverySchedule;
+use App\Models\StoreBranch;
+use Maatwebsite\Excel\Facades\Excel;
+use App\Imports\MassOrderImport;
+use App\Http\Services\MassOrderService;
+use Exception;
+use Illuminate\Support\Facades\DB;
 
 class MassOrdersController extends Controller
 {
+    protected $massOrderService;
+
+    public function __construct(MassOrderService $massOrderService)
+    {
+        $this->massOrderService = $massOrderService;
+    }
+
     /**
      * Display a listing of the resource.
      */
@@ -33,6 +48,64 @@ class MassOrdersController extends Controller
             'ordersCutoff' => OrdersCutoff::all(),
             'currentDate' => Carbon::now()->toDateString(), // Pass current server date
         ]);
+    }
+
+    public function uploadMassOrder(Request $request)
+    {
+        $request->validate([
+            'mass_order_file' => 'required|file|mimes:xlsx,xls',
+            'supplier_code' => 'required|string|exists:suppliers,supplier_code',
+            'order_date' => 'required|date',
+        ]);
+
+        try {
+            $import = new MassOrderImport();
+            $rows = Excel::toCollection($import, $request->file('mass_order_file'))->first();
+
+            $result = $this->massOrderService->processMassOrderUpload($rows, $request->input('supplier_code'), $request->input('order_date'));
+
+            return redirect()->back()->with([
+                'success' => $result['success'],
+                'message' => $result['message'],
+                'skipped_stores' => $result['skipped_stores'],
+            ]);
+
+        } catch (Exception $e) {
+            return redirect()->back()->with([
+                'success' => false,
+                'message' => 'Error processing file: ' . $e->getMessage(),
+            ]);
+        }
+    }
+
+    public function downloadTemplate(Request $request)
+    {
+        $request->validate([
+            'supplier_code' => 'required|string|exists:suppliers,supplier_code',
+            'order_date' => 'required|date',
+        ]);
+
+        $supplierCode = $request->input('supplier_code');
+        $orderDate = Carbon::parse($request->input('order_date'));
+        $dayName = strtoupper($orderDate->format('l')); // "MONDAY", "TUESDAY", etc.
+
+        $user = Auth::user();
+        $user->load('store_branches');
+
+        $finalBranches = $user->store_branches->filter(function ($branch) use ($supplierCode, $dayName) {
+            return $branch->delivery_schedules()
+                ->where('delivery_schedules.day', $dayName)
+                ->wherePivot('variant', $supplierCode)
+                ->exists();
+        });
+
+        $dynamicHeaders = $finalBranches->where('is_active', true)->pluck('brand_code')->unique()->sort()->values()->all();
+
+        $items = SupplierItems::where('SupplierCode', $supplierCode)->where('is_active', true)->get();
+
+        $staticHeaders = ['Category', 'Brand', 'Classification', 'Item Code', 'Item Name', 'Packaging Config', 'Unit', 'Cost', 'SRP', 'Supplier Code', 'ACTIVE'];
+
+        return Excel::download(new MassOrderTemplateExport($items, $staticHeaders, $dynamicHeaders), 'mass_order_template.xlsx');
     }
 
     /**

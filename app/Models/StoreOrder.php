@@ -30,11 +30,21 @@ class StoreOrder extends Model implements Auditable
     ];
 
     protected $casts = [
-        'created_at' => 'date:F d, Y',
         // 'order_date' => 'date:F d, Y',
         'order_approved_date' => 'date:F d, Y',
         'approval_action_date' => 'date:F d, Y h:i a',
     ];
+
+    /**
+     * Prepare a date for array / JSON serialization.
+     *
+     * @param  \DateTimeInterface  $date
+     * @return string
+     */
+    protected function serializeDate(\DateTimeInterface $date)
+    {
+        return $date->format('Y-m-d H:i:s');
+    }
 
     public function storeOrderItems()
     {

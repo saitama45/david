@@ -233,23 +233,45 @@ const exportPdf = () => {
     isPdfModalVisible.value = false;
 };
 
-// Function to format date and time for consistent display (now only date)
+// Function to format only the date, avoiding timezone conversion
+const formatDisplayDate = (dateString) => {
+    if (!dateString || !dateString.includes('-')) return 'N/A';
+    try {
+        const [year, month, day] = dateString.substring(0, 10).split('-');
+        const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+        const monthName = monthNames[parseInt(month, 10) - 1];
+        return `${monthName} ${parseInt(day, 10)}, ${year}`;
+    } catch (e) {
+        console.error("Error manually formatting date:", dateString, e);
+        return dateString;
+    }
+};
+
+// Function to format date and time, avoiding timezone conversion
 const formatDisplayDateTime = (dateString) => {
     if (!dateString) return 'N/A';
     try {
-        const date = new Date(dateString);
-        if (isNaN(date.getTime())) {
-            console.warn("Invalid date string for formatting:", dateString);
-            return dateString;
+        // Assumes a string like "2025-09-19 02:13:18"
+        const [datePart, timePart] = dateString.split(' ');
+        const [year, month, day] = datePart.split('-');
+        const [hourStr, minute] = timePart.split(':');
+
+        let hour = parseInt(hourStr, 10);
+        
+        let ampm = 'A.M.';
+        if (hour >= 12) {
+            ampm = 'P.M.';
+            if (hour > 12) {
+                hour -= 12;
+            }
         }
-        const options = {
-            year: 'numeric',
-            month: 'short',
-            day: 'numeric',
-        };
-        return new Intl.DateTimeFormat('en-US', options).format(date);
+        if (hour === 0) {
+            hour = 12; // Midnight case
+        }
+
+        return `${parseInt(month, 10)}/${parseInt(day, 10)}/${year} ${hour}:${minute} ${ampm}`;
     } catch (e) {
-        console.error("Error formatting date:", dateString, e);
+        console.error("Error manually formatting datetime:", dateString, e);
         return dateString;
     }
 };
@@ -412,7 +434,7 @@ console.log(props.branches);
                         <TD>{{ order.supplier?.name ?? "N/A" }}</TD>
                         <TD>{{ order.store_branch?.name ?? "N/A" }}</TD>
                         <TD>{{ order.order_number }}</TD>
-                        <TD>{{ formatDisplayDateTime(order.order_date) }}</TD>
+                        <TD>{{ formatDisplayDate(order.order_date) }}</TD>
                         <TD>{{ formatDisplayDateTime(order.created_at) }}</TD>
                         <TD>
                             <Badge

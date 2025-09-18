@@ -59,7 +59,7 @@ const isMountedAndReady = ref(false);
 const orderForm = useForm({
     // CRITICAL FIX: Initialize supplier_id with the supplier_code from the order prop
     supplier_id: props.order.supplier.supplier_code + "", 
-    branch_id: props.order.store_branch_id + "",
+    branch_id: Number(props.order.store_branch_id),
     order_date: props.order.order_date, // Initialize with string from props.order.order_date
     orders: [], // Initialize as empty, will be populated in onMounted
 });

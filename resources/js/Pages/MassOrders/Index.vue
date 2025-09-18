@@ -2,7 +2,7 @@
 import { Head, useForm } from '@inertiajs/vue3';
 import Select from 'primevue/select';
 import Button from 'primevue/button';
-import { ref, watch, onMounted } from 'vue';
+import { ref, watch, onMounted, computed, reactive } from 'vue';
 import axios from 'axios';
 import { Calendar as CalendarIcon } from 'lucide-vue-next';
 
@@ -28,6 +28,46 @@ const props = defineProps({
 const form = useForm({
     supplier_code: null,
     order_date: null,
+});
+
+const uploadForm = useForm({
+    mass_order_file: null,
+    supplier_code: null,
+    order_date: null,
+});
+
+const uploadResult = reactive({
+    success: false,
+    message: ''
+});
+
+const submitUpload = () => {
+    if (!form.supplier_code || !form.order_date) {
+        alert('Please select a supplier and a delivery date first.');
+        return;
+    }
+    uploadForm.supplier_code = form.supplier_code;
+    uploadForm.order_date = form.order_date;
+
+    uploadForm.post(route('mass-orders.upload'), {
+        onSuccess: (page) => {
+            uploadResult.success = page.props.flash.success;
+            uploadResult.message = page.props.flash.message;
+            uploadForm.reset('mass_order_file');
+        },
+        onError: (errors) => {
+            uploadResult.success = false;
+            uploadResult.message = 'An error occurred during upload. Please check the file and try again.';
+        }
+    });
+};
+
+const selectedDayInfo = computed(() => {
+    if (!form.order_date) return '';
+    const date = new Date(form.order_date + 'T00:00:00');
+    const dayName = date.toLocaleDateString('en-US', { weekday: 'long' });
+    const dayNumber = date.getDay();
+    return `${dayName} = ${dayNumber}`;
 });
 
 const submit = () => {
@@ -134,14 +174,39 @@ watch(() => form.supplier_code, async (newSupplierCode) => {
                                     </template>
                                 </div>
                             </div>
+                            <div v-if="form.order_date" class="mt-2 text-sm text-gray-600">
+                                {{ selectedDayInfo }}
+                            </div>
+                            <div v-if="form.order_date && form.supplier_code" class="mt-4">
+                                <a :href="route('mass-orders.download-template', { supplier_code: form.supplier_code, order_date: form.order_date })" class="text-sm font-medium text-blue-600 hover:text-blue-500">Download Order Template</a>
+                            </div>
                         </div>
-                    </div>
-                    <div class="mt-8 flex justify-end">
-                        <Button type="submit" label="Next" :disabled="!form.supplier_code || !form.order_date" />
                     </div>
                 </form>
 
-                
+                <div v-if="form.order_date && form.supplier_code" class="mt-8 border-t pt-6">
+                    <h3 class="text-lg font-medium leading-6 text-gray-900">Upload Completed Order File</h3>
+                    <form @submit.prevent="submitUpload" class="mt-4 space-y-4">
+                        <div>
+                            <label for="mass_order_file" class="block text-sm font-medium text-gray-700">Excel File</label>
+                            <input type="file" @input="uploadForm.mass_order_file = $event.target.files[0]" id="mass_order_file" class="mt-1 block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"/>
+                            <p v-if="uploadForm.errors.mass_order_file" class="mt-2 text-sm text-red-600">{{ uploadForm.errors.mass_order_file }}</p>
+                        </div>
+
+                        <div class="flex justify-end">
+                            <Button type="submit" label="Upload and Process" :disabled="!uploadForm.mass_order_file || uploadForm.processing" />
+                        </div>
+                    </form>
+                    
+                    <div v-if="uploadResult.message" class="mt-4 p-4 rounded-md" :class="uploadResult.success ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'">
+                        <p>{{ uploadResult.message }}</p>
+                        <ul v-if="uploadResult.skipped_stores && uploadResult.skipped_stores.length" class="mt-2 list-disc list-inside">
+                            <li v-for="skipped in uploadResult.skipped_stores" :key="skipped.brand_code">
+                                <strong>{{ skipped.brand_code }}:</strong> {{ skipped.reason }}
+                            </li>
+                        </ul>
+                    </div>
+                </div>
             </div>
         </div>
     </Layout>

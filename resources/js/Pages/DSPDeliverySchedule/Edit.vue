@@ -1,5 +1,5 @@
 <script setup>
-import { ref, computed, nextTick } from 'vue';
+import { ref, nextTick, onMounted } from 'vue';
 import { Head, useForm, Link } from '@inertiajs/vue3';
 import draggable from 'vuedraggable';
 import Multiselect from 'vue-multiselect';
@@ -15,7 +15,13 @@ const props = defineProps({
 const { toast } = useToast();
 const days = ['MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY', 'SATURDAY'];
 
-const initializeSchedules = () => {
+// Initialize with an empty structure
+const form = useForm({
+    schedules: days.reduce((acc, day) => ({ ...acc, [day]: [] }), {}),
+});
+
+// Populate the data after the component is mounted
+onMounted(() => {
     const initialSchedules = {};
     for (const day of days) {
         initialSchedules[day] = (props.schedulesByDay[day] || []).map(branch => ({
@@ -23,13 +29,7 @@ const initializeSchedules = () => {
             instance_id: `${branch.id}_${Date.now()}_${Math.random()}`
         }));
     }
-    return initialSchedules;
-};
-
-const localSchedules = ref(initializeSchedules());
-
-const form = useForm({
-    schedules: {},
+    form.schedules = initialSchedules;
 });
 
 const stagedBranches = ref([]);
@@ -78,7 +78,7 @@ const onBranchSelect = (selectedOption) => {
 const handleDayChange = (event, day) => {
     if (event.added) {
         const addedElement = event.added.element;
-        const targetList = localSchedules.value[day];
+        const targetList = form.schedules[day];
         const count = targetList.filter(item => item.id === addedElement.id).length;
 
         if (count > 1) {
@@ -89,14 +89,14 @@ const handleDayChange = (event, day) => {
             });
             const indexToRemove = targetList.findIndex(item => item.instance_id === addedElement.instance_id);
             if (indexToRemove !== -1) {
-                localSchedules.value[day].splice(indexToRemove, 1);
+                form.schedules[day].splice(indexToRemove, 1);
             }
         }
     }
 };
 
 const moveAllTo = (day) => {
-    const targetList = localSchedules.value[day];
+    const targetList = form.schedules[day];
     const targetIds = new Set(targetList.map(b => b.id));
     
     const branchesToMove = [];
@@ -129,7 +129,7 @@ const moveAllTo = (day) => {
         });
     }
 
-    localSchedules.value[day].push(...branchesToMove);
+    form.schedules[day].push(...branchesToMove);
     stagedBranches.value = branchesToKeep;
 };
 
@@ -138,7 +138,7 @@ const clearStagedBranches = () => {
 };
 
 const clearDay = (day) => {
-    localSchedules.value[day] = [];
+    form.schedules[day] = [];
 };
 
 const removeStagedBranch = (instanceId) => {
@@ -149,7 +149,7 @@ const removeStagedBranch = (instanceId) => {
 };
 
 const removeScheduledBranch = (day, instanceId) => {
-    const daySchedule = localSchedules.value[day];
+    const daySchedule = form.schedules[day];
     if (daySchedule) {
         const index = daySchedule.findIndex(b => b.instance_id === instanceId);
         if (index !== -1) {
@@ -161,7 +161,7 @@ const removeScheduledBranch = (day, instanceId) => {
 const submit = () => {
     const schedulesPayload = {};
     for (const day of days) {
-        schedulesPayload[day] = localSchedules.value[day] ? localSchedules.value[day].map(branch => branch.id) : [];
+        schedulesPayload[day] = form.schedules[day] ? form.schedules[day].map(branch => branch.id) : [];
     }
     
     form.schedules = schedulesPayload;
@@ -255,7 +255,7 @@ const submit = () => {
                         <button @click="clearDay(day)" title="Clear all for this day" class="absolute right-1 top-[-2px] text-gray-400 hover:text-red-600 text-xl font-bold">&times;</button>
                     </div>
                     <draggable
-                        v-model="localSchedules[day]"
+                        v-model="form.schedules[day]"
                         group="branches"
                         item-key="instance_id"
                         @change="(event) => handleDayChange(event, day)"
