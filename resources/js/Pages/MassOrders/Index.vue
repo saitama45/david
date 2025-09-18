@@ -4,7 +4,7 @@ import Select from 'primevue/select';
 import Button from 'primevue/button';
 import { ref, watch, onMounted, computed, reactive } from 'vue';
 import axios from 'axios';
-import { Calendar as CalendarIcon } from 'lucide-vue-next';
+import { Calendar as CalendarIcon, Download, Upload } from 'lucide-vue-next';
 
 const props = defineProps({
     massOrders: {
@@ -138,69 +138,97 @@ watch(() => form.supplier_code, async (newSupplierCode) => {
     <Head title="Mass Orders" />
 
     <Layout heading="Mass Orders">
-        <div class="flex justify-center items-center py-12">
-            <div class="w-full max-w-lg p-6 mx-auto bg-white rounded-lg shadow-md">
-                <form @submit.prevent="submit">
-                    <div class="space-y-6">
-                        <div>
-                            <label for="supplier" class="block text-sm font-medium text-gray-700">Supplier</label>
-                            <Select
-                                v-model="form.supplier_code"
-                                filter
-                                :options="props.suppliers"
-                                optionLabel="label"
-                                optionValue="value"
-                                placeholder="Select a Supplier"
-                                class="w-full mt-1"
-                            />
-                        </div>
+        <div class="w-full max-w-2xl mx-auto p-4 sm:p-6 lg:p-8">
+            
+            <!-- Step 1: Select Order Details -->
+            <div class="bg-white p-6 rounded-xl shadow-lg mb-8 border border-gray-200">
+                <div class="flex items-center mb-4">
+                    <span class="flex items-center justify-center size-8 rounded-full bg-blue-600 text-white font-bold text-lg mr-4">1</span>
+                    <h2 class="text-xl font-semibold text-gray-800">Select Order Details</h2>
+                </div>
+                <div class="space-y-6">
+                    <!-- Supplier -->
+                    <div>
+                        <label for="supplier" class="block text-sm font-medium text-gray-700 mb-1">Supplier</label>
+                        <Select
+                            v-model="form.supplier_code"
+                            filter
+                            :options="props.suppliers"
+                            optionLabel="label"
+                            optionValue="value"
+                            placeholder="Select a Supplier"
+                            class="w-full"
+                        />
+                    </div>
 
+                    <!-- Delivery Date -->
+                    <div class="relative">
+                        <label for="order_date" class="block text-sm font-medium text-gray-700 mb-1">Delivery Date</label>
                         <div class="relative">
-                            <label for="order_date" class="block text-sm font-medium text-gray-700">Delivery Date</label>
-                            <div class="relative">
-                                <input id="order_date" type="text" readonly :value="form.order_date" @click="showCalendar = !showCalendar" :disabled="isDatepickerDisabled" class="flex h-9 w-full rounded-md border border-gray-300 bg-white px-3 py-1 text-sm shadow-sm transition-colors placeholder:text-gray-500 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-gray-400 disabled:cursor-not-allowed disabled:opacity-50 cursor-pointer" placeholder="Select date" />
-                                <CalendarIcon class="absolute right-3 top-1/2 -translate-y-1/2 size-4 text-gray-500 pointer-events-none" />
+                            <input id="order_date" type="text" readonly :value="form.order_date" @click="showCalendar = !showCalendar" :disabled="isDatepickerDisabled" class="flex h-10 w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm shadow-sm transition-colors placeholder:text-gray-500 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-gray-400 disabled:cursor-not-allowed disabled:opacity-50 cursor-pointer" placeholder="Select a date" />
+                            <CalendarIcon class="absolute right-3 top-1/2 -translate-y-1/2 size-4 text-gray-500 pointer-events-none" />
+                        </div>
+                        <div v-if="form.order_date" class="mt-2 text-sm text-gray-500">
+                            Selected Day: <span class="font-semibold">{{ selectedDayInfo }}</span>
+                        </div>
+                        <!-- Calendar Popup -->
+                        <div v-show="showCalendar" class="absolute z-50 mt-2 bg-white border border-gray-200 rounded-lg shadow-lg p-4 w-full min-w-[300px]">
+                            <div class="flex justify-between items-center mb-4">
+                                <button type="button" @click.stop="goToPrevMonth()" class="p-2 rounded-full hover:bg-gray-100">&lt;</button>
+                                <h2 class="text-lg font-semibold">{{ (currentCalendarDate || new Date()).toLocaleString('default', { month: 'long', year: 'numeric' }) }}</h2>
+                                <button type="button" @click.stop="goToNextMonth()" class="p-2 rounded-full hover:bg-gray-100">&gt;</button>
                             </div>
-                            <div v-show="showCalendar" class="absolute z-50 mt-2 bg-white border border-gray-200 rounded-lg shadow-lg p-4 w-full min-w-[280px]">
-                                <div class="flex justify-between items-center mb-4">
-                                    <button type="button" @click.stop="goToPrevMonth()" class="p-2 rounded-full hover:bg-gray-200">&lt;</button>
-                                    <h2 class="text-lg font-semibold">{{ (currentCalendarDate || new Date()).toLocaleString('default', { month: 'long', year: 'numeric' }) }}</h2>
-                                    <button type="button" @click.stop="goToNextMonth()" class="p-2 rounded-full hover:bg-gray-200">&gt;</button>
-                                </div>
-                                <div class="grid grid-cols-7 gap-1 text-center text-xs font-medium text-gray-500 mb-2"><span>Su</span><span>Mo</span><span>Tu</span><span>We</span><span>Th</span><span>Fr</span><span>Sa</span></div>
-                                <div class="grid grid-cols-7 gap-1">
-                                    <template v-for="(day, d_idx) in getCalendarDays()" :key="d_idx">
-                                        <div class="text-center py-1.5 rounded-full text-sm" :class="[ !day ? '' : (day.isDisabled ? 'text-gray-400 line-through cursor-not-allowed' : (form.order_date && day.date.toDateString() === new Date(form.order_date + 'T00:00:00').toDateString() ? 'bg-blue-500 text-white font-bold' : 'bg-green-100 text-green-800 font-semibold cursor-pointer hover:bg-green-200')) ]" @click="selectDate(day)">{{ day ? day.day : '' }}</div>
-                                    </template>
-                                </div>
-                            </div>
-                            <div v-if="form.order_date" class="mt-2 text-sm text-gray-600">
-                                {{ selectedDayInfo }}
-                            </div>
-                            <div v-if="form.order_date && form.supplier_code" class="mt-4">
-                                <a :href="route('mass-orders.download-template', { supplier_code: form.supplier_code, order_date: form.order_date })" class="text-sm font-medium text-blue-600 hover:text-blue-500">Download Order Template</a>
+                            <div class="grid grid-cols-7 gap-1 text-center text-xs font-medium text-gray-500 mb-2"><span>Su</span><span>Mo</span><span>Tu</span><span>We</span><span>Th</span><span>Fr</span><span>Sa</span></div>
+                            <div class="grid grid-cols-7 gap-2">
+                                <template v-for="(day, d_idx) in getCalendarDays()" :key="d_idx">
+                                    <div class="text-center py-1.5 rounded-full text-sm" :class="[ !day ? '' : (day.isDisabled ? 'text-gray-300 line-through cursor-not-allowed' : (form.order_date && day.date.toDateString() === new Date(form.order_date + 'T00:00:00').toDateString() ? 'bg-blue-600 text-white font-bold shadow-md' : 'bg-gray-100 text-gray-800 font-semibold cursor-pointer hover:bg-blue-100')) ]" @click="selectDate(day)">{{ day ? day.day : '' }}</div>
+                                </template>
                             </div>
                         </div>
                     </div>
-                </form>
+                </div>
+            </div>
 
-                <div v-if="form.order_date && form.supplier_code" class="mt-8 border-t pt-6">
-                    <h3 class="text-lg font-medium leading-6 text-gray-900">Upload Completed Order File</h3>
+            <!-- Steps 2 & 3 -->
+            <div v-if="form.order_date && form.supplier_code" class="space-y-8 transition-opacity duration-500">
+                <!-- Step 2: Download -->
+                <div class="bg-white p-6 rounded-xl shadow-lg border border-gray-200">
+                    <div class="flex items-center mb-4">
+                        <span class="flex items-center justify-center size-8 rounded-full bg-blue-600 text-white font-bold text-lg mr-4">2</span>
+                        <h2 class="text-xl font-semibold text-gray-800">Download Template</h2>
+                    </div>
+                    <p class="text-gray-600 mb-5">Download the Excel template for the selected supplier. This file is pre-filled with the correct items and store columns for your order.</p>
+                    <a :href="route('mass-orders.download-template', { supplier_code: form.supplier_code, order_date: form.order_date })" 
+                       class="inline-flex items-center justify-center w-full px-4 py-3 border border-transparent text-base font-medium rounded-md shadow-sm text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 transition-all transform hover:scale-105">
+                        <Download class="mr-2 size-5" />
+                        Download Order Template
+                    </a>
+                </div>
+
+                <!-- Step 3: Upload -->
+                <div class="bg-white p-6 rounded-xl shadow-lg border border-gray-200">
+                    <div class="flex items-center mb-4">
+                        <span class="flex items-center justify-center size-8 rounded-full bg-blue-600 text-white font-bold text-lg mr-4">3</span>
+                        <h2 class="text-xl font-semibold text-gray-800">Upload Completed File</h2>
+                    </div>
                     <form @submit.prevent="submitUpload" class="mt-4 space-y-4">
                         <div>
                             <label for="mass_order_file" class="block text-sm font-medium text-gray-700">Excel File</label>
-                            <input type="file" @input="uploadForm.mass_order_file = $event.target.files[0]" id="mass_order_file" class="mt-1 block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"/>
+                            <input type="file" @input="uploadForm.mass_order_file = $event.target.files[0]" id="mass_order_file" class="mt-1 block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-gray-100 file:text-gray-700 hover:file:bg-gray-200"/>
                             <p v-if="uploadForm.errors.mass_order_file" class="mt-2 text-sm text-red-600">{{ uploadForm.errors.mass_order_file }}</p>
                         </div>
 
                         <div class="flex justify-end">
-                            <Button type="submit" label="Upload and Process" :disabled="!uploadForm.mass_order_file || uploadForm.processing" />
+                            <Button type="submit" :disabled="!uploadForm.mass_order_file || uploadForm.processing">
+                                <Upload class="mr-2 size-5" />
+                                Upload and Process
+                            </Button>
                         </div>
                     </form>
                     
                     <div v-if="uploadResult.message" class="mt-4 p-4 rounded-md" :class="uploadResult.success ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'">
-                        <p>{{ uploadResult.message }}</p>
-                        <ul v-if="uploadResult.skipped_stores && uploadResult.skipped_stores.length" class="mt-2 list-disc list-inside">
+                        <p class="font-semibold">{{ uploadResult.message }}</p>
+                        <ul v-if="uploadResult.skipped_stores && uploadResult.skipped_stores.length" class="mt-2 list-disc list-inside text-sm">
                             <li v-for="skipped in uploadResult.skipped_stores" :key="skipped.brand_code">
                                 <strong>{{ skipped.brand_code }}:</strong> {{ skipped.reason }}
                             </li>
