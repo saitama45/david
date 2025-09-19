@@ -59,15 +59,81 @@ class MassOrdersController extends Controller
         ]);
 
         try {
+            $supplierCodeFromDropdown = $request->input('supplier_code');
+
             $import = new MassOrderImport();
             $rows = Excel::toCollection($import, $request->file('mass_order_file'))->first();
 
-            $result = $this->massOrderService->processMassOrderUpload($rows, $request->input('supplier_code'), $request->input('order_date'));
+            // Validate that the supplier_code in each row matches the selected supplier
+            foreach ($rows as $index => $row) {
+                if (isset($row['supplier_code']) && $row['supplier_code']) {
+                    if (strcasecmp(trim($row['supplier_code']), $supplierCodeFromDropdown) !== 0) {
+                        $rowNumber = $index + 2; // +1 for 1-based index, +1 for header row
+                        throw new \Exception("Upload failed. The supplier code '{$row['supplier_code']}' in row {$rowNumber} does not match the selected supplier '{$supplierCodeFromDropdown}'.");
+                    }
+                }
+            }
+
+            // 1. Get list of ALL store brand codes from DB, and the valid ones for this specific order.
+            $allBrandCodes = \App\Models\StoreBranch::pluck('brand_code')->all();
+            
+            $orderDate = Carbon::parse($request->input('order_date'));
+            $dayName = strtoupper($orderDate->format('l'));
+            $user = Auth::user();
+            $user->load('store_branches');
+
+            $finalBranches = $user->store_branches->filter(function ($branch) use ($supplierCodeFromDropdown, $dayName) {
+                return $branch->delivery_schedules()
+                    ->where('delivery_schedules.day', $dayName)
+                    ->wherePivot('variant', $supplierCodeFromDropdown)
+                    ->exists();
+            });
+            $validStoresForThisOrder = $finalBranches->where('is_active', true)->pluck('brand_code')->all();
+
+            // 2. Get headers from uploaded file.
+            $headerRow = $rows->first() ? $rows->first()->keys()->toArray() : [];
+
+            // 3. Identify which headers in the file are meant to be store columns.
+            $uploadedStoreColumns = [];
+            foreach ($allBrandCodes as $dbBrandCode) {
+                $sluggedDbBrandCode = \Illuminate\Support\Str::slug($dbBrandCode, '_');
+                foreach ($headerRow as $header) {
+                    if ($sluggedDbBrandCode === $header) {
+                        $uploadedStoreColumns[] = $dbBrandCode; // Use the real name
+                    }
+                }
+            }
+            $uploadedStoreColumns = array_unique($uploadedStoreColumns);
+
+            // 4. Find the invalid stores by comparing the identified store columns against the valid list for this order.
+            $invalidStores = array_udiff($uploadedStoreColumns, $validStoresForThisOrder, 'strcasecmp');
+
+            $pre_skipped_stores = [];
+            if (!empty($invalidStores)) {
+                foreach ($invalidStores as $brandCode) {
+                    $pre_skipped_stores[] = [
+                        'brand_code' => $brandCode,
+                        'reason' => 'Store is not on the delivery schedule for the selected date.'
+                    ];
+                }
+            }
+
+            $result = $this->massOrderService->processMassOrderUpload($rows, $supplierCodeFromDropdown, $request->input('order_date'));
+
+            // Merge pre-validation skipped stores with the result from the service
+            $all_skipped_stores = array_merge($pre_skipped_stores, $result['skipped_stores']);
+            $unique_skipped_stores = collect($all_skipped_stores)->unique('brand_code')->values()->all();
+
+            $created_count = 0;
+            if (isset($result['message']) && preg_match('/created\s+(\d+)\s+store\s+order\(s\)/i', $result['message'], $matches)) {
+                $created_count = (int) $matches[1];
+            }
 
             return redirect()->back()->with([
                 'success' => $result['success'],
                 'message' => $result['message'],
-                'skipped_stores' => $result['skipped_stores'],
+                'skipped_stores' => $unique_skipped_stores,
+                'created_count' => $created_count,
             ]);
 
         } catch (Exception $e) {

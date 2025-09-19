@@ -37,9 +37,12 @@ const uploadForm = useForm({
 });
 
 const uploadResult = reactive({
-    success: false,
-    message: ''
+    type: null, // 'success', 'warning', 'error'
+    message: '',
+    skipped_stores: [],
 });
+
+const showUploadStep = ref(false);
 
 const submitUpload = () => {
     if (!form.supplier_code || !form.order_date) {
@@ -51,13 +54,68 @@ const submitUpload = () => {
 
     uploadForm.post(route('mass-orders.upload'), {
         onSuccess: (page) => {
-            uploadResult.success = page.props.flash.success;
-            uploadResult.message = page.props.flash.message;
+            const flash = page.props.flash || {};
+
+            const message = flash.message || '';
+            const skipped_stores = flash.skipped_stores || [];
+            const created_count = flash.created_count;
+            const success = flash.success;
+            const error = flash.error;
+
+            uploadResult.skipped_stores = skipped_stores;
+
+            if (error) {
+                uploadResult.type = 'error';
+                uploadResult.message = error;
+            } else if (success === false) { // Check for explicit false for controller exceptions
+                uploadResult.type = 'error';
+                uploadResult.message = message;
+            } else if (created_count !== undefined) {
+                const createdCount = created_count;
+                const skippedCount = skipped_stores.length;
+
+                if (createdCount > 0 && skippedCount === 0) {
+                    uploadResult.type = 'success';
+                    uploadResult.message = `Success: ${createdCount} store order(s) created successfully.`;
+                } else if (createdCount > 0 && skippedCount > 0) {
+                    uploadResult.type = 'warning';
+                    uploadResult.message = `Partial Success: ${createdCount} order(s) created, but ${skippedCount} store(s) were skipped.`;
+                } else if (createdCount === 0 && skippedCount > 0) {
+                    uploadResult.type = 'warning';
+                    uploadResult.message = `Warning: No orders were created. ${skippedCount} store(s) were skipped.`;
+                } else if (createdCount === 0 && skippedCount === 0) {
+                    uploadResult.type = 'warning';
+                    uploadResult.message = message || 'Warning: No orders were created. The uploaded file might be empty or contain no valid order data.';
+                } else {
+                    // Fallback for any unexpected case
+                    uploadResult.type = 'warning';
+                    uploadResult.message = message;
+                }
+            } else {
+                // Fallback to old logic if created_count is somehow not available
+                uploadResult.message = message;
+                if (skipped_stores.length > 0 || (message && message.toLowerCase().includes('skipped'))) {
+                    uploadResult.type = 'warning';
+                    if (message && message.toLowerCase().startsWith('successfully')) {
+                        uploadResult.message = message.replace(/Successfully/i, 'Warning:');
+                    }
+                } else if (success) {
+                    uploadResult.type = 'success';
+                } else {
+                    uploadResult.type = 'error';
+                    uploadResult.message = message || 'An unknown error occurred.';
+                }
+            }
+
             uploadForm.reset('mass_order_file');
         },
         onError: (errors) => {
-            uploadResult.success = false;
-            uploadResult.message = 'An error occurred during upload. Please check the file and try again.';
+            uploadResult.type = 'error';
+            // Display the first validation error if available
+            const firstError = Object.values(errors)[0];
+            uploadResult.message = firstError || 'An error occurred during upload. Please check the file and try again.';
+            uploadResult.skipped_stores = [];
+            uploadForm.reset('mass_order_file');
         }
     });
 };
@@ -132,6 +190,13 @@ watch(() => form.supplier_code, async (newSupplierCode) => {
     }
 });
 
+watch(() => form.order_date, () => {
+    showUploadStep.value = false;
+    uploadResult.type = null;
+    uploadResult.message = '';
+    uploadResult.skipped_stores = [];
+});
+
 </script>
 
 <template>
@@ -198,7 +263,7 @@ watch(() => form.supplier_code, async (newSupplierCode) => {
                         <h2 class="text-xl font-semibold text-gray-800">Download Template</h2>
                     </div>
                     <p class="text-gray-600 mb-5">Download the Excel template for the selected supplier. This file is pre-filled with the correct items and store columns for your order.</p>
-                    <a :href="route('mass-orders.download-template', { supplier_code: form.supplier_code, order_date: form.order_date })" 
+                    <a @click="showUploadStep = true" :href="route('mass-orders.download-template', { supplier_code: form.supplier_code, order_date: form.order_date })" 
                        class="inline-flex items-center justify-center w-full px-4 py-3 border border-transparent text-base font-medium rounded-md shadow-sm text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 transition-all transform hover:scale-105">
                         <Download class="mr-2 size-5" />
                         Download Order Template
@@ -206,7 +271,7 @@ watch(() => form.supplier_code, async (newSupplierCode) => {
                 </div>
 
                 <!-- Step 3: Upload -->
-                <div class="bg-white p-6 rounded-xl shadow-lg border border-gray-200">
+                <div v-if="showUploadStep" class="bg-white p-6 rounded-xl shadow-lg border border-gray-200">
                     <div class="flex items-center mb-4">
                         <span class="flex items-center justify-center size-8 rounded-full bg-blue-600 text-white font-bold text-lg mr-4">3</span>
                         <h2 class="text-xl font-semibold text-gray-800">Upload Completed File</h2>
@@ -226,7 +291,11 @@ watch(() => form.supplier_code, async (newSupplierCode) => {
                         </div>
                     </form>
                     
-                    <div v-if="uploadResult.message" class="mt-4 p-4 rounded-md" :class="uploadResult.success ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'">
+                    <div v-if="uploadResult.type" class="mt-4 p-4 rounded-md" :class="{
+                        'bg-green-100 text-green-800': uploadResult.type === 'success',
+                        'bg-yellow-100 text-yellow-800': uploadResult.type === 'warning',
+                        'bg-red-100 text-red-800': uploadResult.type === 'error',
+                    }">
                         <p class="font-semibold">{{ uploadResult.message }}</p>
                         <ul v-if="uploadResult.skipped_stores && uploadResult.skipped_stores.length" class="mt-2 list-disc list-inside text-sm">
                             <li v-for="skipped in uploadResult.skipped_stores" :key="skipped.brand_code">

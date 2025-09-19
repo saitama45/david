@@ -46,6 +46,8 @@ class HandleInertiaRequests extends Middleware
                 'skippedItems' => fn () => $request->session()->get('skippedItems'),
                 'warning' => fn () => $request->session()->get('warning'), // Explicitly shared
                 'skipped_import_rows' => fn () => $request->session()->get('skipped_import_rows'), // Explicitly shared
+                'created_count' => fn () => $request->session()->get('created_count'),
+                'skipped_stores' => fn () => $request->session()->get('skipped_stores'),
             ],
             'previous' => fn() => URL::previous(),
         ];
