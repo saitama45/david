@@ -1,10 +1,15 @@
 <script setup>
-import { Head, useForm } from '@inertiajs/vue3';
+import { router, Head, useForm, usePage } from "@inertiajs/vue3";
+import Dialog from "primevue/dialog";
 import Select from 'primevue/select';
 import Button from 'primevue/button';
-import { ref, watch, onMounted, computed, reactive } from 'vue';
+import { ref, watch, computed } from 'vue';
 import axios from 'axios';
-import { Calendar as CalendarIcon, Download, Upload } from 'lucide-vue-next';
+import { Calendar as CalendarIcon, Download, Upload, Eye, Pencil } from 'lucide-vue-next';
+import { throttle } from "lodash";
+import { useAuth } from "@/Composables/useAuth";
+import { useSelectOptions } from "@/Composables/useSelectOptions";
+
 
 const props = defineProps({
     massOrders: {
@@ -22,6 +27,46 @@ const props = defineProps({
     currentDate: {
         type: String,
         required: true,
+    },
+    branches: {
+        type: Object,
+    },
+    filters: {
+        type: Object,
+    }
+});
+
+const { hasAccess } = useAuth();
+const { options: branchesOptions } = useSelectOptions(props.branches);
+
+// --- Flash Notification Logic ---
+const flash = computed(() => usePage().props.flash);
+const notificationType = computed(() => {
+    if (!flash.value?.message) return null;
+    if (flash.value.success === false) return 'error';
+    if (flash.value.skipped_stores?.length > 0) return 'warning';
+    if (flash.value.success) return 'success';
+    return 'warning'; // Fallback for messages without a clear success/error status
+});
+// --- End Flash Notification Logic ---
+
+// Modal logic
+const isModalVisible = ref(false);
+const openCreateModal = () => {
+    isModalVisible.value = true;
+};
+
+const resetModalState = () => {
+    form.reset();
+    uploadForm.reset();
+    showUploadStep.value = false;
+    isDatepickerDisabled.value = true;
+    enabledDates.value = [];
+};
+
+watch(isModalVisible, (newValue) => {
+    if (newValue === false) {
+        setTimeout(() => resetModalState(), 200);
     }
 });
 
@@ -36,12 +81,6 @@ const uploadForm = useForm({
     order_date: null,
 });
 
-const uploadResult = reactive({
-    type: null, // 'success', 'warning', 'error'
-    message: '',
-    skipped_stores: [],
-});
-
 const showUploadStep = ref(false);
 
 const submitUpload = () => {
@@ -53,70 +92,9 @@ const submitUpload = () => {
     uploadForm.order_date = form.order_date;
 
     uploadForm.post(route('mass-orders.upload'), {
-        onSuccess: (page) => {
-            const flash = page.props.flash || {};
-
-            const message = flash.message || '';
-            const skipped_stores = flash.skipped_stores || [];
-            const created_count = flash.created_count;
-            const success = flash.success;
-            const error = flash.error;
-
-            uploadResult.skipped_stores = skipped_stores;
-
-            if (error) {
-                uploadResult.type = 'error';
-                uploadResult.message = error;
-            } else if (success === false) { // Check for explicit false for controller exceptions
-                uploadResult.type = 'error';
-                uploadResult.message = message;
-            } else if (created_count !== undefined) {
-                const createdCount = created_count;
-                const skippedCount = skipped_stores.length;
-
-                if (createdCount > 0 && skippedCount === 0) {
-                    uploadResult.type = 'success';
-                    uploadResult.message = `Success: ${createdCount} store order(s) created successfully.`;
-                } else if (createdCount > 0 && skippedCount > 0) {
-                    uploadResult.type = 'warning';
-                    uploadResult.message = `Partial Success: ${createdCount} order(s) created, but ${skippedCount} store(s) were skipped.`;
-                } else if (createdCount === 0 && skippedCount > 0) {
-                    uploadResult.type = 'warning';
-                    uploadResult.message = `Warning: No orders were created. ${skippedCount} store(s) were skipped.`;
-                } else if (createdCount === 0 && skippedCount === 0) {
-                    uploadResult.type = 'warning';
-                    uploadResult.message = message || 'Warning: No orders were created. The uploaded file might be empty or contain no valid order data.';
-                } else {
-                    // Fallback for any unexpected case
-                    uploadResult.type = 'warning';
-                    uploadResult.message = message;
-                }
-            } else {
-                // Fallback to old logic if created_count is somehow not available
-                uploadResult.message = message;
-                if (skipped_stores.length > 0 || (message && message.toLowerCase().includes('skipped'))) {
-                    uploadResult.type = 'warning';
-                    if (message && message.toLowerCase().startsWith('successfully')) {
-                        uploadResult.message = message.replace(/Successfully/i, 'Warning:');
-                    }
-                } else if (success) {
-                    uploadResult.type = 'success';
-                } else {
-                    uploadResult.type = 'error';
-                    uploadResult.message = message || 'An unknown error occurred.';
-                }
-            }
-
-            uploadForm.reset('mass_order_file');
+        onSuccess: () => {
+            isModalVisible.value = false;
         },
-        onError: (errors) => {
-            uploadResult.type = 'error';
-            // Display the first validation error if available
-            const firstError = Object.values(errors)[0];
-            uploadResult.message = firstError || 'An error occurred during upload. Please check the file and try again.';
-            uploadResult.skipped_stores = [];
-            uploadForm.reset('mass_order_file');
-        }
     });
 };
 
@@ -128,16 +106,34 @@ const selectedDayInfo = computed(() => {
     return `${dayName} = ${dayNumber}`;
 });
 
-const submit = () => {
-    // Handle form submission
-};
-
 const isDatepickerDisabled = ref(true);
 const enabledDates = ref([]);
 
-// --- Calendar Logic ---
 const showCalendar = ref(false);
 const currentCalendarDate = ref(new Date(props.currentDate + 'T00:00:00'));
+
+// --- Calendar Positioning & Flip Logic ---
+const dateInputRef = ref(null);
+const calendarPositionClass = ref('top-full mt-2');
+
+watch(showCalendar, (isShown) => {
+    const dialogContent = document.querySelector('.mass-order-dialog .p-dialog-content');
+    if (dialogContent) {
+        dialogContent.style.overflow = isShown ? 'visible' : 'auto';
+    }
+
+    if (isShown && dateInputRef.value) {
+        const inputRect = dateInputRef.value.getBoundingClientRect();
+        const calendarHeight = 400;
+        const spaceBelow = window.innerHeight - inputRect.bottom;
+
+        if (spaceBelow < calendarHeight && inputRect.top > calendarHeight) {
+            calendarPositionClass.value = 'bottom-full mb-2';
+        } else {
+            calendarPositionClass.value = 'top-full mt-2';
+        }
+    }
+});
 
 const getCalendarDays = () => {
     const days = [];
@@ -169,8 +165,6 @@ const selectDate = (day) => {
         showCalendar.value = false;
     }
 };
-// --- End Calendar Logic ---
-
 
 watch(() => form.supplier_code, async (newSupplierCode) => {
     form.order_date = null;
@@ -192,119 +186,304 @@ watch(() => form.supplier_code, async (newSupplierCode) => {
 
 watch(() => form.order_date, () => {
     showUploadStep.value = false;
-    uploadResult.type = null;
-    uploadResult.message = '';
-    uploadResult.skipped_stores = [];
 });
+
+
+// Table and filter logic
+let filterQuery = ref((usePage().props.filters.filterQuery || "all").toString());
+let from = ref(usePage().props.filters.from);
+let to = ref(usePage().props.filters.to);
+let branchId = ref(usePage().props.filters.branchId);
+let search = ref(usePage().props.filters.search);
+
+const performFilter = throttle(() => {
+    router.get(
+        route("mass-orders.index"),
+        {
+            search: search.value,
+            filterQuery: filterQuery.value,
+            from: from.value,
+            to: to.value,
+            branchId: branchId.value,
+        },
+        {
+            preserveState: true,
+            preserveScroll: true,
+            replace: true,
+        }
+    );
+}, 500);
+
+watch([from, to, branchId, search, filterQuery], performFilter);
+
+const changeFilter = (currentFilter) => {
+    filterQuery.value = currentFilter;
+};
+
+const statusBadgeColor = (status) => {
+    switch (status?.toUpperCase()) {
+        case "APPROVED": return "bg-green-500 text-white";
+        case "RECEIVED": return "bg-green-500 text-white";
+        case "PENDING": return "bg-yellow-500 text-white";
+        case "COMMITED": return "bg-blue-500 text-white";
+        case "REJECTED": return "bg-red-400 text-white";
+        default: return "bg-gray-500 text-white";
+    }
+};
+
+const formatDisplayDate = (dateString) => {
+    if (!dateString || !dateString.includes('-')) return 'N/A';
+    try {
+        const [year, month, day] = dateString.substring(0, 10).split('-');
+        const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+        const monthName = monthNames[parseInt(month, 10) - 1];
+        return `${monthName} ${parseInt(day, 10)}, ${year}`;
+    } catch (e) {
+        return dateString;
+    }
+};
+
+const formatDisplayDateTime = (dateString) => {
+    if (!dateString) return 'N/A';
+    try {
+        const [datePart, timePart] = dateString.split(' ');
+        const [year, month, day] = datePart.split('-');
+        const [hourStr, minute] = timePart.split(':');
+        let hour = parseInt(hourStr, 10);
+        let ampm = 'A.M.';
+        if (hour >= 12) {
+            ampm = 'P.M.';
+            if (hour > 12) hour -= 12;
+        }
+        if (hour === 0) hour = 12;
+        return `${parseInt(month, 10)}/${parseInt(day, 10)}/${year} ${hour}:${minute} ${ampm}`;
+    } catch (e) {
+        return dateString;
+    }
+};
+
+const showOrderDetails = (id) => router.get(route('mass-orders.show', id));
+const editOrderDetails = (id) => router.get(route('mass-orders.edit', id));
 
 </script>
 
 <template>
     <Head title="Mass Orders" />
 
-    <Layout heading="Mass Orders">
-        <div class="w-full max-w-2xl mx-auto p-4 sm:p-6 lg:p-8">
-            
-            <!-- Step 1: Select Order Details -->
-            <div class="bg-white p-6 rounded-xl shadow-lg mb-8 border border-gray-200">
-                <div class="flex items-center mb-4">
-                    <span class="flex items-center justify-center size-8 rounded-full bg-blue-600 text-white font-bold text-lg mr-4">1</span>
-                    <h2 class="text-xl font-semibold text-gray-800">Select Order Details</h2>
-                </div>
-                <div class="space-y-6">
-                    <!-- Supplier -->
-                    <div>
-                        <label for="supplier" class="block text-sm font-medium text-gray-700 mb-1">Supplier</label>
-                        <Select
-                            v-model="form.supplier_code"
-                            filter
-                            :options="props.suppliers"
-                            optionLabel="label"
-                            optionValue="value"
-                            placeholder="Select a Supplier"
-                            class="w-full"
-                        />
-                    </div>
-
-                    <!-- Delivery Date -->
-                    <div class="relative">
-                        <label for="order_date" class="block text-sm font-medium text-gray-700 mb-1">Delivery Date</label>
-                        <div class="relative">
-                            <input id="order_date" type="text" readonly :value="form.order_date" @click="showCalendar = !showCalendar" :disabled="isDatepickerDisabled" class="flex h-10 w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm shadow-sm transition-colors placeholder:text-gray-500 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-gray-400 disabled:cursor-not-allowed disabled:opacity-50 cursor-pointer" placeholder="Select a date" />
-                            <CalendarIcon class="absolute right-3 top-1/2 -translate-y-1/2 size-4 text-gray-500 pointer-events-none" />
-                        </div>
-                        <div v-if="form.order_date" class="mt-2 text-sm text-gray-500">
-                            Selected Day: <span class="font-semibold">{{ selectedDayInfo }}</span>
-                        </div>
-                        <!-- Calendar Popup -->
-                        <div v-show="showCalendar" class="absolute z-50 mt-2 bg-white border border-gray-200 rounded-lg shadow-lg p-4 w-full min-w-[300px]">
-                            <div class="flex justify-between items-center mb-4">
-                                <button type="button" @click.stop="goToPrevMonth()" class="p-2 rounded-full hover:bg-gray-100">&lt;</button>
-                                <h2 class="text-lg font-semibold">{{ (currentCalendarDate || new Date()).toLocaleString('default', { month: 'long', year: 'numeric' }) }}</h2>
-                                <button type="button" @click.stop="goToNextMonth()" class="p-2 rounded-full hover:bg-gray-100">&gt;</button>
-                            </div>
-                            <div class="grid grid-cols-7 gap-1 text-center text-xs font-medium text-gray-500 mb-2"><span>Su</span><span>Mo</span><span>Tu</span><span>We</span><span>Th</span><span>Fr</span><span>Sa</span></div>
-                            <div class="grid grid-cols-7 gap-2">
-                                <template v-for="(day, d_idx) in getCalendarDays()" :key="d_idx">
-                                    <div class="text-center py-1.5 rounded-full text-sm" :class="[ !day ? '' : (day.isDisabled ? 'text-gray-300 line-through cursor-not-allowed' : (form.order_date && day.date.toDateString() === new Date(form.order_date + 'T00:00:00').toDateString() ? 'bg-blue-600 text-white font-bold shadow-md' : 'bg-gray-100 text-gray-800 font-semibold cursor-pointer hover:bg-blue-100')) ]" @click="selectDate(day)">{{ day ? day.day : '' }}</div>
-                                </template>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Steps 2 & 3 -->
-            <div v-if="form.order_date && form.supplier_code" class="space-y-8 transition-opacity duration-500">
-                <!-- Step 2: Download -->
-                <div class="bg-white p-6 rounded-xl shadow-lg border border-gray-200">
-                    <div class="flex items-center mb-4">
-                        <span class="flex items-center justify-center size-8 rounded-full bg-blue-600 text-white font-bold text-lg mr-4">2</span>
-                        <h2 class="text-xl font-semibold text-gray-800">Download Template</h2>
-                    </div>
-                    <p class="text-gray-600 mb-5">Download the Excel template for the selected supplier. This file is pre-filled with the correct items and store columns for your order.</p>
-                    <a @click="showUploadStep = true" :href="route('mass-orders.download-template', { supplier_code: form.supplier_code, order_date: form.order_date })" 
-                       class="inline-flex items-center justify-center w-full px-4 py-3 border border-transparent text-base font-medium rounded-md shadow-sm text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 transition-all transform hover:scale-105">
-                        <Download class="mr-2 size-5" />
-                        Download Order Template
-                    </a>
-                </div>
-
-                <!-- Step 3: Upload -->
-                <div v-if="showUploadStep" class="bg-white p-6 rounded-xl shadow-lg border border-gray-200">
-                    <div class="flex items-center mb-4">
-                        <span class="flex items-center justify-center size-8 rounded-full bg-blue-600 text-white font-bold text-lg mr-4">3</span>
-                        <h2 class="text-xl font-semibold text-gray-800">Upload Completed File</h2>
-                    </div>
-                    <form @submit.prevent="submitUpload" class="mt-4 space-y-4">
-                        <div>
-                            <label for="mass_order_file" class="block text-sm font-medium text-gray-700">Excel File</label>
-                            <input type="file" @input="uploadForm.mass_order_file = $event.target.files[0]" id="mass_order_file" class="mt-1 block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-gray-100 file:text-gray-700 hover:file:bg-gray-200"/>
-                            <p v-if="uploadForm.errors.mass_order_file" class="mt-2 text-sm text-red-600">{{ uploadForm.errors.mass_order_file }}</p>
-                        </div>
-
-                        <div class="flex justify-end">
-                            <Button type="submit" :disabled="!uploadForm.mass_order_file || uploadForm.processing">
-                                <Upload class="mr-2 size-5" />
-                                Upload and Process
-                            </Button>
-                        </div>
-                    </form>
-                    
-                    <div v-if="uploadResult.type" class="mt-4 p-4 rounded-md" :class="{
-                        'bg-green-100 text-green-800': uploadResult.type === 'success',
-                        'bg-yellow-100 text-yellow-800': uploadResult.type === 'warning',
-                        'bg-red-100 text-red-800': uploadResult.type === 'error',
-                    }">
-                        <p class="font-semibold">{{ uploadResult.message }}</p>
-                        <ul v-if="uploadResult.skipped_stores && uploadResult.skipped_stores.length" class="mt-2 list-disc list-inside text-sm">
-                            <li v-for="skipped in uploadResult.skipped_stores" :key="skipped.brand_code">
-                                <strong>{{ skipped.brand_code }}:</strong> {{ skipped.reason }}
-                            </li>
-                        </ul>
-                    </div>
-                </div>
-            </div>
+    <Layout heading="Mass Orders" :hasButton="true" buttonName="Create New Mass Order" :handleClick="openCreateModal">
+        
+        <!-- Flash Notification Area -->
+        <div v-if="flash.message" class="mb-4 p-4 rounded-md" :class="{
+            'bg-green-100 text-green-800': notificationType === 'success',
+            'bg-yellow-100 text-yellow-800': notificationType === 'warning',
+            'bg-red-100 text-red-800': notificationType === 'error',
+        }">
+            <p class="font-semibold">{{ flash.message }}</p>
+            <ul v-if="flash.skipped_stores && flash.skipped_stores.length" class="mt-2 list-disc list-inside text-sm">
+                <li v-for="skipped in flash.skipped_stores" :key="skipped.brand_code">
+                    <strong>{{ skipped.brand_code }}:</strong> {{ skipped.reason }}
+                </li>
+            </ul>
         </div>
+
+        <Dialog v-model:visible="isModalVisible" modal header="Create New Mass Order" :style="{ width: '65rem', height: '90vh' }" class="mass-order-dialog">
+            <div class="w-full p-4 sm:p-6 lg:p-8">
+                
+                <!-- Step 1: Select Order Details -->
+                <div class="bg-white p-6 rounded-xl shadow-lg mb-8 border border-gray-200">
+                    <div class="flex items-center mb-4">
+                        <span class="flex items-center justify-center size-8 rounded-full bg-blue-600 text-white font-bold text-lg mr-4">1</span>
+                        <h2 class="text-xl font-semibold text-gray-800">Select Order Details</h2>
+                    </div>
+                    <div class="space-y-6">
+                        <!-- Supplier -->
+                        <div>
+                            <label for="supplier" class="block text-sm font-medium text-gray-700 mb-1">Supplier</label>
+                            <Select
+                                v-model="form.supplier_code"
+                                filter
+                                :options="props.suppliers"
+                                optionLabel="label"
+                                optionValue="value"
+                                placeholder="Select a Supplier"
+                                class="w-full"
+                            />
+                        </div>
+
+                        <!-- Delivery Date -->
+                        <div class="relative" ref="dateInputRef">
+                            <label for="order_date" class="block text-sm font-medium text-gray-700 mb-1">Delivery Date</label>
+                            <div class="relative">
+                                <input id="order_date" type="text" readonly :value="form.order_date" @click="showCalendar = !showCalendar" :disabled="isDatepickerDisabled" class="flex h-10 w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm shadow-sm transition-colors placeholder:text-gray-500 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-gray-400 disabled:cursor-not-allowed disabled:opacity-50 cursor-pointer" placeholder="Select a date" />
+                                <CalendarIcon class="absolute right-3 top-1/2 -translate-y-1/2 size-4 text-gray-500 pointer-events-none" />
+                            </div>
+                            <div v-if="form.order_date" class="mt-2 text-sm text-gray-500">
+                                Selected Day: <span class="font-semibold">{{ selectedDayInfo }}</span>
+                            </div>
+                            <!-- Calendar Popup -->
+                            <div v-show="showCalendar" :class="['absolute z-50 bg-white border border-gray-200 rounded-lg shadow-lg p-4 w-full min-w-[300px]', calendarPositionClass]">
+                                <div class="flex justify-between items-center mb-4">
+                                    <button type="button" @click.stop="goToPrevMonth()" class="p-2 rounded-full hover:bg-gray-100">&lt;</button>
+                                    <h2 class="text-lg font-semibold">{{ (currentCalendarDate || new Date()).toLocaleString('default', { month: 'long', year: 'numeric' }) }}</h2>
+                                    <button type="button" @click.stop="goToNextMonth()" class="p-2 rounded-full hover:bg-gray-100">&gt;</button>
+                                </div>
+                                <div class="grid grid-cols-7 gap-1 text-center text-xs font-medium text-gray-500 mb-2"><span>Su</span><span>Mo</span><span>Tu</span><span>We</span><span>Th</span><span>Fr</span><span>Sa</span></div>
+                                <div class="grid grid-cols-7 gap-2">
+                                    <template v-for="(day, d_idx) in getCalendarDays()" :key="d_idx">
+                                        <div class="text-center py-1.5 rounded-full text-sm" :class="[ !day ? '' : (day.isDisabled ? 'text-gray-300 line-through cursor-not-allowed' : (form.order_date && day.date.toDateString() === new Date(form.order_date + 'T00:00:00').toDateString() ? 'bg-blue-600 text-white font-bold shadow-md' : 'bg-gray-100 text-gray-800 font-semibold cursor-pointer hover:bg-blue-100')) ]" @click="selectDate(day)">{{ day ? day.day : '' }}</div>
+                                    </template>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Steps 2 & 3 -->
+                <div v-if="form.order_date && form.supplier_code" class="space-y-8 transition-opacity duration-500">
+                    <!-- Step 2: Download -->
+                    <div class="bg-white p-6 rounded-xl shadow-lg border border-gray-200">
+                        <div class="flex items-center mb-4">
+                            <span class="flex items-center justify-center size-8 rounded-full bg-blue-600 text-white font-bold text-lg mr-4">2</span>
+                            <h2 class="text-xl font-semibold text-gray-800">Download Template</h2>
+                        </div>
+                        <p class="text-gray-600 mb-5">Download the Excel template for the selected supplier. This file is pre-filled with the correct items and store columns for your order.</p>
+                        <a @click="showUploadStep = true" :href="route('mass-orders.download-template', { supplier_code: form.supplier_code, order_date: form.order_date })" 
+                           class="inline-flex items-center justify-center w-full px-4 py-3 border border-transparent text-base font-medium rounded-md shadow-sm text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 transition-all transform hover:scale-105">
+                            <Download class="mr-2 size-5" />
+                            Download Order Template
+                        </a>
+                    </div>
+
+                    <!-- Step 3: Upload -->
+                    <div v-if="showUploadStep" class="bg-white p-6 rounded-xl shadow-lg border border-gray-200">
+                        <div class="flex items-center mb-4">
+                            <span class="flex items-center justify-center size-8 rounded-full bg-blue-600 text-white font-bold text-lg mr-4">3</span>
+                            <h2 class="text-xl font-semibold text-gray-800">Upload Completed File</h2>
+                        </div>
+                        <form @submit.prevent="submitUpload" class="mt-4 space-y-4">
+                            <div>
+                                <label for="mass_order_file" class="block text-sm font-medium text-gray-700">Excel File</label>
+                                <input type="file" @input="uploadForm.mass_order_file = $event.target.files[0]" id="mass_order_file" class="mt-1 block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-gray-100 file:text-gray-700 hover:file:bg-gray-200"/>
+                                <p v-if="uploadForm.errors.mass_order_file" class="mt-2 text-sm text-red-600">{{ uploadForm.errors.mass_order_file }}</p>
+                            </div>
+
+                            <div class="flex justify-end">
+                                <Button type="submit" :disabled="!uploadForm.mass_order_file || uploadForm.processing">
+                                    <Upload class="mr-2 size-5" />
+                                    Upload and Process
+                                </Button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </Dialog>
+
+        <FilterTab>
+            <FilterTabButton label="All" filter="all" :currentFilter="filterQuery" @click="changeFilter('all')" />
+            <FilterTabButton label="Pending" filter="pending" :currentFilter="filterQuery" @click="changeFilter('pending')" />
+            <FilterTabButton label="Approved" filter="approved" :currentFilter="filterQuery" @click="changeFilter('approved')" />
+            <FilterTabButton label="Commited" filter="committed" :currentFilter="filterQuery" @click="changeFilter('committed')" />
+            <FilterTabButton label="Received" filter="received" :currentFilter="filterQuery" @click="changeFilter('received')" />
+            <FilterTabButton label="Rejected" filter="rejected" :currentFilter="filterQuery" @click="changeFilter('rejected')" />
+        </FilterTab>
+
+        <TableContainer>
+            <TableHeader>
+                <SearchBar>
+                    <Input v-model="search" id="search" type="text" placeholder="Search for order number" class="pl-10 sm:max-w-full max-w-64" />
+                </SearchBar>
+                <DivFlexCenter class="gap-5">
+                    <Popover>
+                        <PopoverTrigger> <Filter /> </PopoverTrigger>
+                        <PopoverContent>
+                            <div class="flex justify-end">
+                                <Button @click="() => { from = null; to = null; branchId = null; search = null; }" variant="link" class="text-end text-red-500 text-xs">
+                                    Reset Filter
+                                </Button>
+                            </div>
+                            <label class="text-xs">From</label>
+                            <Input type="date" v-model="from" />
+                            <label class="text-xs">To</label>
+                            <Input type="date" v-model="to" />
+                            <label class="text-xs">Store</label>
+                            <SelectShad v-model="branchId">
+                                <SelectTrigger>
+                                    <SelectValue placeholder="Select a store" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectGroup>
+                                        <SelectLabel>Stores</SelectLabel>
+                                        <SelectItem v-for="(value, key) in branches" :value="key">
+                                            {{ value }}
+                                        </SelectItem>
+                                    </SelectGroup>
+                                </SelectContent>
+                            </SelectShad>
+                        </PopoverContent>
+                    </Popover>
+                </DivFlexCenter>
+            </TableHeader>
+
+            <div class="hidden md:block">
+                <Table>
+                    <TableHead>
+                        <TH>Id</TH>
+                        <TH>Supplier</TH>
+                        <TH>Store</TH>
+                        <TH>Order #</TH>
+                        <TH>Delivery Date</TH>
+                        <TH>Order Placed Date</TH>
+                        <TH>Order Status</TH>
+                        <TH>Actions</TH>
+                    </TableHead>
+                    <TableBody>
+                        <tr v-if="!massOrders.data || massOrders.data.length === 0">
+                            <td colspan="8" class="text-center py-4">No orders found.</td>
+                        </tr>
+                        <tr v-for="order in massOrders.data" :key="order.id">
+                            <TD>{{ order.id }}</TD>
+                            <TD>{{ order.supplier?.name ?? "N/A" }}</TD>
+                            <TD>{{ order.store_branch?.name ?? "N/A" }}</TD>
+                            <TD>{{ order.order_number }}</TD>
+                            <TD>{{ formatDisplayDate(order.order_date) }}</TD>
+                            <TD>{{ formatDisplayDateTime(order.created_at) }}</TD>
+                            <TD>
+                                <Badge :class="statusBadgeColor(order.order_status)" class="font-bold">{{ order.order_status ? order.order_status.toUpperCase() : 'N/A' }}</Badge>
+                            </TD>
+                            <TD>
+                                <DivFlexCenter class="gap-3">
+                                    <button v-if="hasAccess('show mass orders')" @click="showOrderDetails(order.order_number)">
+                                        <Eye class="size-5" />
+                                    </button>
+                                    <button v-if="(order.order_status === 'pending' || order.order_status === 'approved') && hasAccess('edit mass orders')" class="text-blue-500" @click="editOrderDetails(order.order_number)">
+                                        <Pencil class="size-5" />
+                                    </button>
+                                </DivFlexCenter>
+                            </TD>
+                        </tr>
+                    </TableBody>
+                </Table>
+            </div>
+
+            <MobileTableContainer class="md:hidden">
+                <MobileTableRow v-for="order in massOrders.data" :key="order.id">
+                    <MobileTableHeading :title="order.order_number">
+                        <button v-if="hasAccess('show mass orders')" @click="showOrderDetails(order.order_number)">
+                            <Eye class="size-5" />
+                        </button>
+                        <button v-if="(order.order_status === 'pending' || order.order_status === 'approved') && hasAccess('edit mass orders')" class="text-blue-500" @click="editOrderDetails(order.order_number)">
+                            <Pencil class="size-5" />
+                        </button>
+                    </MobileTableHeading>
+                    <LabelXS>Status: <span :class="statusBadgeColor(order.order_status)" class="font-semibold p-1 rounded text-white">{{ order.order_status ? order.order_status.toUpperCase() : 'N/A' }}</span></LabelXS>
+                    <LabelXS>Store: {{ order.store_branch?.name ?? "N/A" }}</LabelXS>
+                    <LabelXS>Supplier: {{ order.supplier?.name ?? "N/A" }}</LabelXS>
+                    <LabelXS>Delivery Date: {{ formatDisplayDate(order.order_date) }}</LabelXS>
+                </MobileTableRow>
+            </MobileTableContainer>
+
+            <Pagination :data="massOrders" />
+        </TableContainer>
     </Layout>
 </template>

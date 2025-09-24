@@ -66,6 +66,10 @@ class MassOrderService
             }
         }
 
+        if (empty($ordersToCreate)) {
+            throw new Exception('The uploaded file contains no order quantities. Please enter a quantity for at least one item.');
+        }
+
         $skippedStores = [];
         $createdCount = 0;
 
@@ -98,15 +102,17 @@ class MassOrderService
                     'store_branch_id' => $storeBranch->id,
                     'order_number' => $this->storeOrderService->getOrderNumber($storeBranch->id),
                     'order_date' => Carbon::parse($orderDate)->toDateString(),
-                    'order_status' => OrderStatus::PENDING->value,
+                    'order_status' => 'approved',
                     'order_request_status' => OrderRequestStatus::PENDING->value,
-                    'variant' => 'regular', // Or another identifier
+                    'variant' => 'mass regular', // Or another identifier
                 ]);
 
                 foreach ($items as $itemData) {
                     $order->store_order_items()->create([
                         'item_code' => $itemData['item_code'],
                         'quantity_ordered' => $itemData['quantity'],
+                        'quantity_approved' => $itemData['quantity'],
+                        'quantity_commited' => $itemData['quantity'],
                         'cost_per_quantity' => $itemData['cost'],
                         'total_cost' => $itemData['quantity'] * $itemData['cost'],
                         'uom' => $itemData['uom'],

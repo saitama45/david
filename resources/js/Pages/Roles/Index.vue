@@ -63,13 +63,26 @@ const exportRoute = computed(() =>
                         </TD>
                         <TD>{{ role.name }}</TD>
                         <TD>
-                            <section class="space-x-3 space-y-3">
-                                <Badge
-                                    v-for="permission in role.permissions"
-                                    class="w-fit"
-                                >
-                                    {{ permission.name }}
-                                </Badge>
+                            <section class="flex flex-wrap gap-2">
+                                <template v-for="(permission, index) in role.permissions">
+                                    <Badge v-if="index < 3" :key="permission.id" class="w-fit">
+                                        {{ permission.name }}
+                                    </Badge>
+                                </template>
+                                <Popover v-if="role.permissions.length > 3">
+                                    <PopoverTrigger>
+                                        <Badge class="w-fit cursor-pointer">
+                                            +{{ role.permissions.length - 3 }} more
+                                        </Badge>
+                                    </PopoverTrigger>
+                                    <PopoverContent class="w-80 p-2">
+                                        <div class="flex flex-wrap gap-1">
+                                            <Badge v-for="permission in role.permissions" :key="permission.id" class="w-fit">
+                                                {{ permission.name }}
+                                            </Badge>
+                                        </div>
+                                    </PopoverContent>
+                                </Popover>
                             </section>
                         </TD>
                         <TD

@@ -21,18 +21,46 @@ use Illuminate\Support\Facades\DB;
 class MassOrdersController extends Controller
 {
     protected $massOrderService;
+    protected $storeOrderService;
 
-    public function __construct(MassOrderService $massOrderService)
+    public function __construct(MassOrderService $massOrderService, \App\Http\Services\StoreOrderService $storeOrderService)
     {
         $this->massOrderService = $massOrderService;
+        $this->storeOrderService = $storeOrderService;
     }
 
     /**
      * Display a listing of the resource.
      */
-    public function index()
+    public function index(Request $request)
     {
-        $suppliers = Auth::user()->suppliers()
+        $user = Auth::user();
+        $user->load('store_branches');
+        $branchIds = $user->store_branches->pluck('id');
+
+        $query = \App\Models\StoreOrder::with(['supplier', 'store_branch'])
+            ->where('variant', 'mass regular')
+            ->whereIn('store_branch_id', $branchIds);
+
+        if ($request->filled('search')) {
+            $query->where('order_number', 'like', '%' . $request->input('search') . '%');
+        }
+
+        if ($request->filled('from') && $request->filled('to')) {
+            $query->whereBetween('order_date', [$request->input('from'), $request->input('to')]);
+        }
+
+        if ($request->filled('branchId')) {
+            $query->where('store_branch_id', $request->input('branchId'));
+        }
+
+        if ($request->filled('filterQuery') && $request->input('filterQuery') !== 'all') {
+            $query->where('order_status', $request->input('filterQuery'));
+        }
+
+        $massOrders = $query->latest()->paginate(15)->withQueryString();
+
+        $suppliers = $user->suppliers()
             ->where('is_active', true)
             ->get()
             ->map(function ($supplier) {
@@ -42,11 +70,15 @@ class MassOrdersController extends Controller
                 ];
             });
 
+        $branches = $user->store_branches->pluck('name', 'id');
+
         return Inertia::render('MassOrders/Index', [
-            'massOrders' => [],
+            'massOrders' => $massOrders,
             'suppliers' => $suppliers,
             'ordersCutoff' => OrdersCutoff::all(),
-            'currentDate' => Carbon::now()->toDateString(), // Pass current server date
+            'currentDate' => Carbon::now()->toDateString(),
+            'branches' => $branches,
+            'filters' => $request->only(['search', 'from', 'to', 'branchId', 'filterQuery']),
         ]);
     }
 
@@ -107,6 +139,7 @@ class MassOrdersController extends Controller
 
             // 4. Find the invalid stores by comparing the identified store columns against the valid list for this order.
             $invalidStores = array_udiff($uploadedStoreColumns, $validStoresForThisOrder, 'strcasecmp');
+            $validUploadedStores = array_intersect($uploadedStoreColumns, $validStoresForThisOrder);
 
             $pre_skipped_stores = [];
             if (!empty($invalidStores)) {
@@ -116,6 +149,31 @@ class MassOrdersController extends Controller
                         'reason' => 'Store is not on the delivery schedule for the selected date.'
                     ];
                 }
+            }
+
+            // If there are no valid stores in the uploaded file for the selected date, stop processing.
+            if (empty($validUploadedStores)) {
+                return redirect()->back()->with([
+                    'success' => false,
+                    'message' => 'Upload failed. No stores in the uploaded file are on the delivery schedule for the selected date.',
+                    'skipped_stores' => $pre_skipped_stores,
+                    'created_count' => 0,
+                ]);
+            }
+
+            // Remove invalid store columns from the data before passing to the service
+            if (!empty($invalidStores)) {
+                $invalidStoreHeaders = [];
+                foreach ($invalidStores as $brandCode) {
+                    $invalidStoreHeaders[] = \Illuminate\Support\Str::slug($brandCode, '_');
+                }
+
+                $rows = $rows->map(function ($row) use ($invalidStoreHeaders) {
+                    foreach ($invalidStoreHeaders as $header) {
+                        unset($row[$header]);
+                    }
+                    return $row;
+                });
             }
 
             $result = $this->massOrderService->processMassOrderUpload($rows, $supplierCodeFromDropdown, $request->input('order_date'));
@@ -189,31 +247,7 @@ class MassOrdersController extends Controller
     {
         //
     }
-
-    /**
-     * Display the specified resource.
-     */
-    public function show(string $id)
-    {
-        //
-    }
-
-    /**
-     * Show the form for editing the specified resource.
-     */
-    public function edit(string $id)
-    {
-        //
-    }
-
-    /**
-     * Update the specified resource in storage.
-     */
-    public function update(Request $request, string $id)
-    {
-        //
-    }
-
+    
     /**
      * Remove the specified resource from storage.
      */
@@ -279,5 +313,60 @@ class MassOrdersController extends Controller
     {
         $items = \App\Models\SupplierItems::where('supplier_code', $supplier_code)->get();
         return response()->json($items);
+    }
+
+    public function show($id)
+    {
+        $order = $this->storeOrderService->getOrderDetails($id);
+        $orderedItems = $this->storeOrderService->getOrderItems($order);
+        $orderedItems->load('supplierItem.sapMasterfiles');
+
+        return \Inertia\Inertia::render('MassOrders/Show', [
+            'order' => $order,
+            'orderedItems' => $orderedItems,
+            'receiveDatesHistory' => $order->ordered_item_receive_dates,
+            'images' => $this->storeOrderService->getImageAttachments($order)
+        ]);
+    }
+
+    public function edit($id)
+    {
+        $order = $this->storeOrderService->getOrder($id);
+        $orderedItems = $this->storeOrderService->getOrderItems($order);
+        $orderedItems->load('supplierItem.sapMasterfiles');
+        $suppliers = \App\Models\Supplier::options();
+        $branches = \App\Models\StoreBranch::options();
+
+        return \Inertia\Inertia::render('MassOrders/Edit', [
+            'order' => $order,
+            'orderedItems' => $orderedItems,
+            'branches' => $branches,
+            'suppliers' => $suppliers
+        ]);
+    }
+
+    public function update(\App\Http\Requests\StoreOrder\UpdateOrderRequest $request, $id)
+    {
+        $storeOrder = \App\Models\StoreOrder::where('order_number', $id)->firstOrFail();
+        $order = $storeOrder->load('store_order_items');
+        try {
+            $validatedData = $request->validated();
+            // Force the variant to 'mass regular' for mass orders
+            $validatedData['variant'] = 'mass regular';
+
+            $this->storeOrderService->updateOrder($order, $validatedData);
+
+            // After the order and its items are updated by the service,
+            // update the approved and committed quantities for mass orders.
+            $order->storeOrderItems()->update([
+                'quantity_approved' => \Illuminate\Support\Facades\DB::raw('quantity_ordered'),
+                // 'quantity_commited' => \Illuminate\Support\Facades\DB::raw('quantity_ordered'),
+            ]);
+
+            return redirect()->route('mass-orders.index')->with('success', 'Order updated successfully!');
+        } catch (\Exception $e) {
+            \Illuminate\Support\Facades\Log::error("Error updating store order from MassOrders: " . $e->getMessage(), ['trace' => $e->getTraceAsString()]);
+            return back()->withErrors(['error' => 'Failed to update order: ' . $e->getMessage()]);
+        }
     }
 }

@@ -5,18 +5,23 @@ namespace App\Http\Services;
 use App\Models\StoreOrder;
 use App\Models\StoreBranch;
 use App\Models\Supplier;
+use App\Models\SupplierItems;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Collection; // Import Collection
 
 class ConsolidatedSOReportService
 {
-    public function getConsolidatedSOReportData(string $orderDate, $supplierId = 'all'): array
+    public function getConsolidatedSOReportData(string $orderDate, $supplierId = 'all', ?Collection $branchIds = null): array
     {
-        // Fetch all active branches for dynamic columns
-        $allBranches = StoreBranch::where('is_active', true)->orderBy('branch_code')->get();
-        $branchCodes = $allBranches->pluck('branch_code')->toArray();
-        $totalBranches = count($branchCodes);
+        // Fetch all active branches for dynamic columns, filtered if branchIds are provided
+        $branchQuery = StoreBranch::where('is_active', true)->orderBy('brand_code'); // Order by brand_code
+        if ($branchIds && $branchIds->isNotEmpty()) {
+            $branchQuery->whereIn('id', $branchIds);
+        }
+        $allBranches = $branchQuery->get();
+        $brandCodes = $allBranches->pluck('brand_code')->toArray(); // Use brand_code
+        $totalBranches = count($brandCodes);
 
         // Base query for StoreOrderItems
         $query = StoreOrder::query()
@@ -31,6 +36,11 @@ class ConsolidatedSOReportService
             $query->where('supplier_id', $supplierId);
         }
 
+        // Filter by branches if provided
+        if ($branchIds && $branchIds->isNotEmpty()) {
+            $query->whereIn('store_branch_id', $branchIds);
+        }
+
         $storeOrders = $query->get();
 
         // Group by ItemCode and ItemDescription for the main report rows
@@ -41,42 +51,42 @@ class ConsolidatedSOReportService
                 $sapMasterfile = $supplierItem ? $supplierItem->sap_master_file : null;
 
                 return [
+                    'category' => $supplierItem ? $supplierItem->category : 'N/A',
                     'item_code' => $orderItem->item_code,
                     'item_name' => $sapMasterfile ? $sapMasterfile->ItemDescription : ($supplierItem ? $supplierItem->item_name : 'N/A'),
                     'unit' => $orderItem->uom,
-                    'branch_code' => $order->store_branch->branch_code,
+                    'brand_code' => $order->store_branch->brand_code, // Use brand_code
                     'quantity_commited' => (float) $orderItem->quantity_commited,
                     'supplier_id' => $order->supplier_id, // Include supplier_id for WHSE logic
                 ];
             });
         })
         ->groupBy(function ($item) {
-            return $item['item_code'] . '|' . $item['item_name'] . '|' . $item['unit'];
+            return $item['category'] . '|' . $item['item_code'] . '|' . $item['item_name'] . '|' . $item['unit'];
         })
-        ->map(function ($groupedItems) use ($branchCodes, $allBranches) {
+        ->map(function ($groupedItems) use ($brandCodes, $allBranches) {
             $firstItem = $groupedItems->first();
             $row = [
+                'category' => $firstItem['category'],
                 'item_code' => $firstItem['item_code'],
                 'item_name' => $firstItem['item_name'],
                 'unit' => $firstItem['unit'],
             ];
 
             // Initialize quantities for all branches to 0
-            foreach ($branchCodes as $code) {
+            foreach ($brandCodes as $code) {
                 $row[$code] = 0.0;
             }
 
             // Populate quantities for branches that have committed items
             foreach ($groupedItems as $item) {
-                $row[$item['branch_code']] += $item['quantity_commited'];
+                $row[$item['brand_code']] += $item['quantity_commited']; // Use brand_code
             }
 
             // Calculate TOTAL (sum of all branch quantities)
-            $row['total_quantity'] = array_sum(array_intersect_key($row, array_flip($branchCodes)));
+            $row['total_quantity'] = array_sum(array_intersect_key($row, array_flip($brandCodes)));
 
             // Determine WHSE based on the first supplier_id found for the item
-            // This assumes an item is typically from one supplier for a given report.
-            // If an item can come from multiple suppliers within the same report, this logic might need refinement.
             $supplierCode = Supplier::find($firstItem['supplier_id'])?->supplier_code;
             $row['whse'] = $this->getWhseCode($supplierCode);
 
@@ -86,6 +96,7 @@ class ConsolidatedSOReportService
 
         // Define static headers
         $staticHeaders = [
+            ['label' => 'CATEGORY', 'field' => 'category'],
             ['label' => 'ITEM CODE', 'field' => 'item_code'],
             ['label' => 'ITEM NAME', 'field' => 'item_name'],
             ['label' => 'UNIT', 'field' => 'unit'],
@@ -93,7 +104,7 @@ class ConsolidatedSOReportService
 
         // Define dynamic branch headers
         $dynamicBranchHeaders = $allBranches->map(function ($branch) {
-            return ['label' => $branch->branch_code . ' Qty', 'field' => $branch->branch_code];
+            return ['label' => $branch->brand_code . ' Qty', 'field' => $branch->brand_code]; // Use brand_code
         })->toArray();
 
         // Define static trailing headers

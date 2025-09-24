@@ -22,40 +22,106 @@ class ConsolidatedSOReportController extends Controller
 
     public function index(Request $request)
     {
-        // Default to today's date if not provided
-        $orderDate = $request->input('order_date', Carbon::today()->format('Y-m-d'));
-        $supplierId = $request->input('supplier_id', 'all');
+        $user = \Illuminate\Support\Facades\Auth::user();
+        $orderDate = $request->input('order_date', \Carbon\Carbon::today()->format('Y-m-d'));
+        $supplierCode = $request->input('supplier_id', 'all');
 
-        $branches = StoreBranch::options();
-        $suppliers = Supplier::reportOptions(); // Use the new reportOptions scope for suppliers
+        // Get user's assigned suppliers for the dropdown
+        $userSuppliers = $user->suppliers()->get();
+        $suppliers = $userSuppliers->map(function ($supplier) {
+            return [
+                'label' => $supplier->name . ' (' . $supplier->supplier_code . ')',
+                'value' => $supplier->supplier_code,
+            ];
+        });
 
-        // Fetch report data including dynamic branch columns
+        // Convert supplier_code from request to supplier_id for the service
+        $supplierId = ($supplierCode === 'all') ? 'all' : \App\Models\Supplier::where('supplier_code', $supplierCode)->first()?->id;
+
+        // Get user's assigned branches that have a delivery on the selected date
+        $dayName = \Carbon\Carbon::parse($orderDate)->format('l');
+        $user->load('store_branches.delivery_schedules');
+
+        $branchesForReport = $user->store_branches->filter(function ($branch) use ($dayName, $supplierCode, $userSuppliers) {
+            $schedulesOnDay = $branch->delivery_schedules->where('day', strtoupper($dayName));
+            if ($schedulesOnDay->isEmpty()) {
+                return false;
+            }
+
+            if ($supplierCode !== 'all') {
+                // Check for the specific supplier
+                return $schedulesOnDay->contains(function ($schedule) use ($supplierCode) {
+                    return $schedule->pivot->variant === $supplierCode;
+                });
+            } else {
+                // Check for ANY of the user's assigned suppliers
+                $userSupplierCodes = $userSuppliers->pluck('supplier_code');
+                return $schedulesOnDay->contains(function ($schedule) use ($userSupplierCodes) {
+                    return $userSupplierCodes->contains($schedule->pivot->variant);
+                });
+            }
+        });
+
+        $branches = $branchesForReport->pluck('name', 'id');
+        $branchIdsForReport = $branchesForReport->pluck('id');
+
+        // Call the service with the filtered lists
         $reportData = $this->consolidatedSOReportService->getConsolidatedSOReportData(
             $orderDate,
-            $supplierId
+            $supplierId, // Pass the ID
+            $branchIdsForReport
         );
 
         return Inertia::render('ConsolidatedSOReport/Index', [
             'filters' => [
                 'order_date' => $orderDate,
-                'supplier_id' => $supplierId,
+                'supplier_id' => $supplierCode, // Send the code back to the view
             ],
             'branches' => $branches,
             'suppliers' => $suppliers,
             'report' => $reportData['report'],
             'dynamicHeaders' => $reportData['dynamicHeaders'],
-            'totalBranches' => $reportData['totalBranches'], // Pass total branches for column span
+            'totalBranches' => $reportData['totalBranches'],
         ]);
     }
 
     public function export(Request $request)
     {
-        $orderDate = $request->input('order_date', Carbon::today()->format('Y-m-d'));
-        $supplierId = $request->input('supplier_id', 'all');
+        $user = \Illuminate\Support\Facades\Auth::user();
+        $orderDate = $request->input('order_date', \Carbon\Carbon::today()->format('Y-m-d'));
+        $supplierCode = $request->input('supplier_id', 'all');
+
+        // Convert supplier_code from request to supplier_id for the service
+        $supplierId = ($supplierCode === 'all') ? 'all' : \App\Models\Supplier::where('supplier_code', $supplierCode)->first()?->id;
+
+        // Get user's assigned branches that have a delivery on the selected date
+        $userSuppliers = $user->suppliers()->get();
+        $dayName = \Carbon\Carbon::parse($orderDate)->format('l');
+        $user->load('store_branches.delivery_schedules');
+
+        $branchesForReport = $user->store_branches->filter(function ($branch) use ($dayName, $supplierCode, $userSuppliers) {
+            $schedulesOnDay = $branch->delivery_schedules->where('day', strtoupper($dayName));
+            if ($schedulesOnDay->isEmpty()) {
+                return false;
+            }
+
+            if ($supplierCode !== 'all') {
+                return $schedulesOnDay->contains(function ($schedule) use ($supplierCode) {
+                    return $schedule->pivot->variant === $supplierCode;
+                });
+            } else {
+                $userSupplierCodes = $userSuppliers->pluck('supplier_code');
+                return $schedulesOnDay->contains(function ($schedule) use ($userSupplierCodes) {
+                    return $userSupplierCodes->contains($schedule->pivot->variant);
+                });
+            }
+        });
+        $branchIdsForReport = $branchesForReport->pluck('id');
 
         $reportData = $this->consolidatedSOReportService->getConsolidatedSOReportData(
             $orderDate,
-            $supplierId
+            $supplierId,
+            $branchIdsForReport
         );
 
         return Excel::download(
@@ -63,7 +129,7 @@ class ConsolidatedSOReportController extends Controller
                 $reportData['report'],
                 $reportData['dynamicHeaders'],
                 $reportData['totalBranches'],
-                $orderDate // CRITICAL FIX: Pass the orderDate to the export constructor
+                $orderDate
             ),
             'consolidated-so-report-' . Carbon::parse($orderDate)->format('Y-m-d') . '.xlsx'
         );

@@ -281,6 +281,8 @@ class RolesAndPermissionSeeder extends Seeder
         // Mass Orders
         Permission::firstOrCreate(['name' => 'view mass orders']);
         Permission::firstOrCreate(['name' => 'create mass orders']);
+        Permission::firstOrCreate(['name' => 'edit mass orders']);
+        Permission::firstOrCreate(['name' => 'show mass orders']);
 
         // Reports from DashboardController (Added for consistency)
         Permission::firstOrCreate(['name' => 'view top 10 inventories']);

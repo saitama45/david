@@ -400,6 +400,7 @@ Route::middleware('auth')
         // Mass Orders
         Route::controller(MassOrdersController::class)->name('mass-orders.')->prefix('mass-orders')->group(function () {
             Route::middleware('permission:view mass orders')->get('/', 'index')->name('index');
+            Route::middleware('permission:show mass orders')->get('/show/{id}', 'show')->name('show');
             Route::get('/available-dates/{supplier_code}', 'getAvailableDates')->name('mass-orders.available-dates');
             Route::get('/items/{supplier_code}', 'getItems')->name('mass-orders.items');
             Route::get('/available-dates/{supplier_code}', 'getAvailableDates')->name('mass-orders.available-dates');
@@ -411,6 +412,11 @@ Route::middleware('auth')
             Route::get('/available-dates/{supplier_code}', 'getAvailableDates')->name('available-dates');
             Route::get('/download-template', 'downloadTemplate')->name('download-template');
             Route::post('/upload', 'uploadMassOrder')->name('upload');
+
+            Route::middleware('permission:edit mass orders')->group(function () {
+                Route::get('/edit/{id}', 'edit')->name('edit');
+                Route::put('/update/{id}', 'update')->name('update');
+            });
         });
 
         // Approvals
