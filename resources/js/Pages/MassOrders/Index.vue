@@ -60,8 +60,8 @@ const canEditOrder = (order) => {
     if (!order.created_at) {
         return false;
     }
-    const isoString = order.created_at.replace(' ', 'T') + 'Z';
-    const placedAtUTC = new Date(isoString);
+    const placedAtIsoString = order.created_at.replace(' ', 'T') + 'Z';
+    const placedAtUTC = new Date(placedAtIsoString);
 
     // 4. Parse all available cutoffs for the supplier and sort them
     const cutoffs = [];
@@ -113,8 +113,18 @@ const canEditOrder = (order) => {
     // 7. Convert the Manila deadline to a true UTC deadline
     const finalDeadlineUTC = new Date(deadlineManila.getTime() - manilaOffset);
 
-    // 8. Compare with current time
-    const nowUTC = new Date();
+    // 8. Compare with the current time, conditionally based on environment
+    let nowUTC;
+    // Use server time in production, local time otherwise for testing flexibility
+    if (import.meta.env.MODE === 'production') {
+        if (!props.currentDate) {
+            return false; // Failsafe if prop is missing in prod
+        }
+        const nowIsoString = props.currentDate.replace(' ', 'T') + 'Z';
+        nowUTC = new Date(nowIsoString);
+    } else {
+        nowUTC = new Date();
+    }
     
     return nowUTC < finalDeadlineUTC;
 };
