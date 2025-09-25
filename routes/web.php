@@ -428,6 +428,7 @@ Route::middleware('auth')
         Route::controller(CSMassCommitsController::class)->name('cs-mass-commits.')->prefix('cs-mass-commits')->group(function () {
             Route::middleware('permission:view cs mass commits')->get('/', 'index')->name('index');
             Route::middleware('permission:export cs mass commits')->get('/export', 'export')->name('export');
+            Route::middleware('permission:edit cs mass commits')->post('/confirm-all', 'confirmAll')->name('confirm-all');
             Route::middleware('permission:edit cs mass commits')->post('/update-commit', 'updateCommit')->name('update-commit');
         });
 

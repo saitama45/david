@@ -5,6 +5,7 @@ import { throttle } from 'lodash';
 import { Filter, Check, X } from 'lucide-vue-next';
 import { useSelectOptions } from "@/Composables/useSelectOptions";
 import { useToast } from "@/Composables/useToast";
+import { useConfirm } from "primevue/useconfirm";
 
 const props = defineProps({
     report: { type: Array, required: true },
@@ -13,9 +14,11 @@ const props = defineProps({
     suppliers: { type: Object, required: true },
     filters: { type: Object, required: true },
     totalBranches: { type: Number, required: true },
+    branchStatuses: { type: Object, required: true }, // NEW PROP
 });
 
 const { toast } = useToast();
+const confirm = useConfirm();
 
 const { options: branchesOptions } = useSelectOptions(props.branches);
 const { options: suppliersOptions } = useSelectOptions(props.suppliers);
@@ -30,13 +33,11 @@ const editValue = ref('');
 // Custom directive to focus and select text on mount
 const vFocusSelect = {
   mounted: (el) => {
-    // Find the actual input element, which might be nested inside the component
     const input = el.querySelector('input');
     if (input) {
       input.focus();
       input.select();
     } else if (typeof el.focus === 'function') {
-      // Fallback for plain elements or components that expose focus directly
       el.focus();
       if (typeof el.select === 'function') {
         el.select();
@@ -48,7 +49,6 @@ const vFocusSelect = {
 const startEditing = (row, field, rowIndex) => {
     editingCell.value = { rowIndex, field };
     editValue.value = row[field];
-    // The v-focus-select directive will handle focus and selection automatically
 };
 
 const cancelEditing = () => {
@@ -87,6 +87,42 @@ const saveCommit = () => {
     });
 };
 // --- End Inline Editing ---
+
+// --- Confirm All Logic ---
+const confirmAllCommits = () => {
+    confirm.require({
+        message: `Are you sure you want to commit all orders for ${orderDate.value}? This action cannot be undone.`,
+        header: 'Confirm All Commits',
+        icon: 'pi pi-exclamation-triangle',
+        acceptClass: 'p-button-danger',
+        accept: () => {
+            router.post(route('cs-mass-commits.confirm-all'), {
+                order_date: orderDate.value,
+                supplier_id: supplierId.value,
+            }, {
+                onSuccess: () => {
+                    toast.add({ severity: 'success', summary: 'Success', detail: 'All orders have been committed.', life: 3000 });
+                },
+                onError: (errors) => {
+                    const errorMsg = Object.values(errors)[0] || 'An unknown error occurred during the commit process.';
+                    toast.add({ severity: 'error', summary: 'Commit Failed', detail: errorMsg, life: 5000 });
+                }
+            });
+        },
+    });
+};
+
+// --- Status Badge Color (Copied from MassOrders/Index.vue) ---
+const statusBadgeColor = (status) => {
+    switch (status?.toUpperCase()) {
+        case "APPROVED": return "bg-green-500 text-white";
+        case "RECEIVED": return "bg-green-500 text-white";
+        case "PENDING": return "bg-yellow-500 text-white";
+        case "COMMITED": return "bg-blue-500 text-white";
+        case "REJECTED": return "bg-red-400 text-white";
+        default: return "bg-gray-500 text-white";
+    }
+};
 
 watch([orderDate, supplierId], throttle(() => {
     router.get(
@@ -152,9 +188,14 @@ const totalColumns = computed(() => staticHeaders.value.length + branchCount.val
                     />
                 </div>
 
-                <Button @click="resetFilters" variant="outline" class="ml-auto">
-                    Reset Filters
-                </Button>
+                <div class="flex items-center gap-2 ml-auto">
+                    <Button @click="resetFilters" variant="outline">
+                        Reset Filters
+                    </Button>
+                    <Button @click="confirmAllCommits" variant="destructive">
+                        Confirm All Commits
+                    </Button>
+                </div>
             </TableHeader>
             
             <div class="bg-white border rounded-md shadow-sm">
@@ -179,7 +220,12 @@ const totalColumns = computed(() => staticHeaders.value.length + branchCount.val
                             </tr>
                             <tr>
                                 <th v-for="header in branchHeaders" :key="header.field" class="px-4 py-3 text-right whitespace-nowrap font-semibold">
-                                    {{ header.label.replace(' Qty', '') }}
+                                    <div>{{ header.label.replace(' Qty', '') }}</div>
+                                    <div v-if="props.branchStatuses[header.field]" class="text-xs font-normal mt-1">
+                                        <span :class="statusBadgeColor(props.branchStatuses[header.field])" class="px-2 py-1 rounded-full">
+                                            {{ props.branchStatuses[header.field].toUpperCase() }}
+                                        </span>
+                                    </div>
                                 </th>
                             </tr>
                         </thead>

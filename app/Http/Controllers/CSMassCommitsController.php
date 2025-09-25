@@ -55,6 +55,31 @@ class CSMassCommitsController extends Controller
         $branches = $branchesForReport->pluck('name', 'id');
         $branchIdsForReport = $branchesForReport->pluck('id');
 
+        // --- NEW: Fetch order statuses for each branch ---
+        $branchStatuses = [];
+        if ($branchIdsForReport->isNotEmpty()) {
+            $orderStatusQuery = StoreOrder::query()
+                ->whereDate('order_date', $orderDate)
+                ->whereIn('store_branch_id', $branchIdsForReport);
+
+            if ($supplierCode !== 'all') {
+                $supplier = Supplier::where('supplier_code', $supplierCode)->first();
+                if ($supplier) {
+                    $orderStatusQuery->where('supplier_id', $supplier->id);
+                }
+            } else {
+                $userSupplierIds = $userSuppliers->pluck('id');
+                $orderStatusQuery->whereIn('supplier_id', $userSupplierIds);
+            }
+
+            $orders = $orderStatusQuery->with('store_branch')->get();
+
+            foreach ($orders as $order) {
+                $branchStatuses[$order->store_branch->brand_code] = $order->order_status;
+            }
+        }
+        // --- END NEW ---
+
         $reportData = $this->getCSMassCommitsData(
             $orderDate,
             $supplierId,
@@ -71,6 +96,7 @@ class CSMassCommitsController extends Controller
             'report' => $reportData['report'],
             'dynamicHeaders' => $reportData['dynamicHeaders'],
             'totalBranches' => $reportData['totalBranches'],
+            'branchStatuses' => $branchStatuses, // NEW PROP
         ]);
     }
 
@@ -258,5 +284,42 @@ class CSMassCommitsController extends Controller
         $orderItem->update(['quantity_commited' => $validated['new_quantity']]);
 
         return redirect()->back()->with('success', 'Commit quantity updated successfully.');
+    }
+
+    public function confirmAll(Request $request)
+    {
+        $validated = $request->validate([
+            'order_date' => 'required|date',
+            'supplier_id' => 'required|string',
+        ]);
+
+        $user = Auth::user();
+        $user->load('store_branches', 'suppliers');
+
+        $userBranchIds = $user->store_branches->pluck('id');
+        $userSupplierIds = $user->suppliers->pluck('id');
+
+        $query = StoreOrder::query()
+            ->whereDate('order_date', $validated['order_date'])
+            ->whereIn('store_branch_id', $userBranchIds);
+
+        // If a specific supplier is chosen, filter by it. Otherwise, filter by all user's assigned suppliers.
+        if ($validated['supplier_id'] !== 'all') {
+            $supplier = Supplier::where('supplier_code', $validated['supplier_id'])->first();
+            if ($supplier) {
+                $query->where('supplier_id', $supplier->id);
+            }
+        } else {
+            $query->whereIn('supplier_id', $userSupplierIds);
+        }
+
+        // Update the status and committer information
+        $updatedCount = $query->update([
+            'order_status' => 'committed',
+            'commiter_id' => $user->id,
+            'commited_action_date' => Carbon::now(),
+        ]);
+
+        return redirect()->back()->with('success', $updatedCount . ' order(s) have been committed.');
     }
 }
