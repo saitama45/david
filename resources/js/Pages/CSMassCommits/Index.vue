@@ -226,28 +226,36 @@ const totalColumns = computed(() => staticHeaders.value.length + branchCount.val
             <div class="bg-white border rounded-md shadow-sm">
                 <div class="overflow-x-auto max-h-[75vh] overflow-y-auto">
                     <table class="min-w-full">
-                        <thead class="bg-white sticky top-0 z-10">
-                            <tr class="text-sm text-gray-600">
-                                <th v-for="header in staticHeaders" :key="header.field" rowspan="2" class="px-4 py-3 text-left whitespace-nowrap font-semibold">
+                        <thead class="bg-slate-100 sticky top-0 z-10 text-slate-800 shadow-sm">
+                            <!-- Main Header Row -->
+                            <tr class="text-sm">
+                                <!-- Static Headers -->
+                                <th v-for="header in staticHeaders" :key="header.field" rowspan="2" 
+                                    class="px-4 py-3 text-left whitespace-nowrap font-bold border-b-2 border-slate-200 bg-slate-200">
                                     {{ header.label }}
                                 </th>
                                 
-                                <th :colspan="branchCount" class="px-4 py-3 text-center bg-gray-100">
-                                   <div class="flex justify-center items-center gap-2">
-                                        <span class="font-semibold">BRANCH QUANTITIES</span>
-                                        <Filter class="w-4 h-4 text-gray-500" />
+                                <!-- Group Header for Branches -->
+                                <th :colspan="branchCount" class="px-4 py-4 text-center bg-blue-100 border-b-2 border-slate-200">
+                                   <div class="flex justify-center items-center gap-2 font-bold text-blue-800">
+                                        <span>BRANCH QUANTITIES</span>
+                                        <Filter class="w-4 h-4" />
                                    </div>
                                 </th>
                                 
-                                <th v-for="header in trailingHeaders" :key="header.field" rowspan="2" class="px-4 py-3 text-right whitespace-nowrap font-semibold">
+                                <!-- Trailing Headers -->
+                                <th v-for="header in trailingHeaders" :key="header.field" rowspan="2" 
+                                    class="px-4 py-3 text-right whitespace-nowrap font-bold border-b-2 border-slate-200 bg-slate-200">
                                     {{ header.label }}
                                 </th>
                             </tr>
+                            <!-- Sub-Header Row for Branches -->
                             <tr>
-                                <th v-for="header in branchHeaders" :key="header.field" class="px-4 py-3 text-right whitespace-nowrap font-semibold">
+                                <th v-for="header in branchHeaders" :key="header.field" 
+                                    class="px-4 py-2 text-center whitespace-nowrap font-semibold border-b-2 border-slate-200 bg-blue-50">
                                     <div>{{ header.label.replace(' Qty', '') }}</div>
                                     <div v-if="props.branchStatuses[header.field]" class="text-xs font-normal mt-1">
-                                        <span :class="statusBadgeColor(props.branchStatuses[header.field])" class="px-2 py-1 rounded-full">
+                                        <span :class="statusBadgeColor(props.branchStatuses[header.field])" class="px-2 py-1 rounded-full shadow-sm">
                                             {{ props.branchStatuses[header.field].toUpperCase() }}
                                         </span>
                                     </div>
