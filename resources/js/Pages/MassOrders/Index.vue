@@ -39,6 +39,86 @@ const props = defineProps({
 const { hasAccess } = useAuth();
 const { options: branchesOptions } = useSelectOptions(props.branches);
 
+const canEditOrder = (order) => {
+    // 1. Initial checks for status and permissions
+    const initialCheck = (order.order_status === 'pending' || order.order_status === 'approved') && hasAccess('edit mass orders');
+    if (!initialCheck) {
+        return false;
+    }
+
+    // 2. Get supplier code and find its cutoff rules
+    const supplierCode = order.supplier?.supplier_code;
+    if (!supplierCode) {
+        return true; // Failsafe
+    }
+    const cutoffRules = props.ordersCutoff.find(c => c.ordering_template === supplierCode);
+    if (!cutoffRules) {
+        return true; // Failsafe
+    }
+
+    // 3. Get order placed time as a UTC Date object
+    if (!order.created_at) {
+        return false;
+    }
+    const isoString = order.created_at.replace(' ', 'T') + 'Z';
+    const placedAtUTC = new Date(isoString);
+
+    // 4. Parse all available cutoffs for the supplier and sort them
+    const cutoffs = [];
+    if (cutoffRules.cutoff_1_day !== null && cutoffRules.cutoff_1_time) {
+        const [h, m] = cutoffRules.cutoff_1_time.split(':').map(Number);
+        cutoffs.push({ day: cutoffRules.cutoff_1_day, timeInMinutes: h * 60 + m });
+    }
+    if (cutoffRules.cutoff_2_day !== null && cutoffRules.cutoff_2_time) {
+        const [h, m] = cutoffRules.cutoff_2_time.split(':').map(Number);
+        cutoffs.push({ day: cutoffRules.cutoff_2_day, timeInMinutes: h * 60 + m });
+    }
+
+    if (cutoffs.length === 0) {
+        return true; // No cutoffs defined
+    }
+
+    cutoffs.sort((a, b) => {
+        if (a.day !== b.day) return a.day - b.day;
+        return a.timeInMinutes - b.timeInMinutes;
+    });
+
+    // 5. Find the next cutoff rule relative to when the order was placed (in Manila time)
+    const manilaOffsetHours = 8;
+    const manilaOffset = manilaOffsetHours * 60 * 60 * 1000;
+    const placedAtManila = new Date(placedAtUTC.getTime() + manilaOffset);
+    const placedAtDay = placedAtManila.getUTCDay();
+    const placedAtTimeInMinutes = placedAtManila.getUTCHours() * 60 + placedAtManila.getUTCMinutes();
+
+    let nextCutoffRule = cutoffs.find(c => c.day > placedAtDay || (c.day === placedAtDay && c.timeInMinutes > placedAtTimeInMinutes));
+    
+    let daysToAdd;
+    if (nextCutoffRule) {
+        // Found a cutoff later in the same week
+        daysToAdd = (nextCutoffRule.day - placedAtDay + 7) % 7;
+    } else {
+        // It's the first one of the next week
+        nextCutoffRule = cutoffs[0];
+        daysToAdd = (7 - placedAtDay) + nextCutoffRule.day;
+    }
+
+    // 6. Construct deadline in "Manila-as-UTC" time
+    const deadlineManila = new Date(placedAtManila);
+    deadlineManila.setUTCDate(deadlineManila.getUTCDate() + daysToAdd);
+    
+    const deadlineHourManila = Math.floor(nextCutoffRule.timeInMinutes / 60);
+    const deadlineMinuteManila = nextCutoffRule.timeInMinutes % 60;
+    deadlineManila.setUTCHours(deadlineHourManila, deadlineMinuteManila, 0, 0);
+
+    // 7. Convert the Manila deadline to a true UTC deadline
+    const finalDeadlineUTC = new Date(deadlineManila.getTime() - manilaOffset);
+
+    // 8. Compare with current time
+    const nowUTC = new Date();
+    
+    return nowUTC < finalDeadlineUTC;
+};
+
 // --- Flash Notification Logic ---
 const flash = computed(() => usePage().props.flash);
 const notificationType = computed(() => {
@@ -456,7 +536,7 @@ const editOrderDetails = (id) => router.get(route('mass-orders.edit', id));
                                     <button v-if="hasAccess('show mass orders')" @click="showOrderDetails(order.order_number)">
                                         <Eye class="size-5" />
                                     </button>
-                                    <button v-if="(order.order_status === 'pending' || order.order_status === 'approved') && hasAccess('edit mass orders')" class="text-blue-500" @click="editOrderDetails(order.order_number)">
+                                    <button v-if="canEditOrder(order)" class="text-blue-500" @click="editOrderDetails(order.order_number)">
                                         <Pencil class="size-5" />
                                     </button>
                                 </DivFlexCenter>
@@ -472,7 +552,7 @@ const editOrderDetails = (id) => router.get(route('mass-orders.edit', id));
                         <button v-if="hasAccess('show mass orders')" @click="showOrderDetails(order.order_number)">
                             <Eye class="size-5" />
                         </button>
-                        <button v-if="(order.order_status === 'pending' || order.order_status === 'approved') && hasAccess('edit mass orders')" class="text-blue-500" @click="editOrderDetails(order.order_number)">
+                        <button v-if="canEditOrder(order)" class="text-blue-500" @click="editOrderDetails(order.order_number)">
                             <Pencil class="size-5" />
                         </button>
                     </MobileTableHeading>
