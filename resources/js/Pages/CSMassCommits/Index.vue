@@ -27,9 +27,28 @@ const supplierId = ref(props.filters.supplier_id || 'all');
 const editingCell = ref(null); // { rowIndex, field }
 const editValue = ref('');
 
+// Custom directive to focus and select text on mount
+const vFocusSelect = {
+  mounted: (el) => {
+    // Find the actual input element, which might be nested inside the component
+    const input = el.querySelector('input');
+    if (input) {
+      input.focus();
+      input.select();
+    } else if (typeof el.focus === 'function') {
+      // Fallback for plain elements or components that expose focus directly
+      el.focus();
+      if (typeof el.select === 'function') {
+        el.select();
+      }
+    }
+  }
+}
+
 const startEditing = (row, field, rowIndex) => {
     editingCell.value = { rowIndex, field };
     editValue.value = row[field];
+    // The v-focus-select directive will handle focus and selection automatically
 };
 
 const cancelEditing = () => {
@@ -59,7 +78,6 @@ const saveCommit = () => {
         preserveScroll: true,
         onSuccess: () => {
             toast.add({ severity: 'success', summary: 'Success', detail: 'Commit quantity updated.', life: 3000 });
-            // The page will reload with new props, so no need to manually update state
             cancelEditing();
         },
         onError: (errors) => {
@@ -176,11 +194,11 @@ const totalColumns = computed(() => staticHeaders.value.length + branchCount.val
                                 
                                 <td v-for="header in branchHeaders" :key="header.field" class="px-4 py-3 text-right whitespace-nowrap">
                                     <div v-if="editingCell && editingCell.rowIndex === rowIndex && editingCell.field === header.field" class="flex items-center justify-end gap-1">
-                                        <Input type="number" v-model="editValue" class="w-24 text-right py-1" @keyup.enter="saveCommit" @keyup.esc="cancelEditing" v-focustrap />
+                                        <Input v-focus-select type="number" v-model="editValue" class="w-24 text-right py-1" @keyup.enter="saveCommit" @keyup.esc="cancelEditing" />
                                         <Button variant="ghost" size="icon" class="h-7 w-7 text-green-600 hover:bg-green-100" @click="saveCommit"><Check class="h-4 w-4" /></Button>
                                         <Button variant="ghost" size="icon" class="h-7 w-7 text-red-600 hover:bg-red-100" @click="cancelEditing"><X class="h-4 w-4" /></Button>
                                     </div>
-                                    <div v-else @click="startEditing(row, header.field, rowIndex)" class="cursor-pointer hover:bg-gray-100 p-1 rounded min-h-[36px] flex items-center justify-end">
+                                    <div v-else @click="startEditing(row, header.field, rowIndex)" class="cursor-pointer p-1 rounded min-h-[36px] flex items-center justify-end transition-all duration-150 hover:bg-blue-100 hover:ring-1 hover:ring-blue-400">
                                         {{ row[header.field] }}
                                     </div>
                                 </td>
