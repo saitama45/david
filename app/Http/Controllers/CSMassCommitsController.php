@@ -83,7 +83,7 @@ class CSMassCommitsController extends Controller
         $reportData = $this->getCSMassCommitsData(
             $orderDate,
             $supplierId,
-            $branchIdsForReport
+            $branchesForReport
         );
 
         return Inertia::render('CSMassCommits/Index', [
@@ -134,7 +134,7 @@ class CSMassCommitsController extends Controller
         $reportData = $this->getCSMassCommitsData(
             $orderDate,
             $supplierId,
-            $branchIdsForReport
+            $branchesForReport
         );
 
         return Excel::download(
@@ -148,9 +148,15 @@ class CSMassCommitsController extends Controller
         );
     }
 
-    private function getCSMassCommitsData(string $orderDate, $supplierId = 'all', ?Collection $branchIds = null): array
+    private function getCSMassCommitsData(string $orderDate, $supplierId = 'all', ?Collection $scheduledBranches = null): array
     {
-        // 1. Build the query for actual StoreOrders first
+        // 1. Use the scheduled branches passed to the function to build the headers.
+        // This ensures all scheduled branches appear as columns, even if they have no committed orders yet.
+        $allBranches = $scheduledBranches ? $scheduledBranches->unique('id')->sortBy('brand_code') : collect();
+        $brandCodes = $allBranches->pluck('brand_code')->toArray();
+        $totalBranches = count($brandCodes);
+
+        // 2. Build the query for actual StoreOrders to populate the data
         $query = StoreOrder::query()
             ->with(['storeOrderItems.supplierItem.sapMasterfiles', 'store_branch'])
             ->whereDate('order_date', $orderDate)
@@ -162,17 +168,13 @@ class CSMassCommitsController extends Controller
             $query->where('supplier_id', $supplierId);
         }
 
-        if ($branchIds && $branchIds->isNotEmpty()) {
-            $query->whereIn('store_branch_id', $branchIds);
+        if ($scheduledBranches && $scheduledBranches->isNotEmpty()) {
+            $query->whereIn('store_branch_id', $scheduledBranches->pluck('id'));
         }
 
-        $storeOrders = $query->get(); // Get the actual orders
+        $storeOrders = $query->get(); // Get the actual orders with data
 
-        // 2. Now, extract the unique branches that actually have orders
-        $allBranches = $storeOrders->pluck('store_branch')->unique('id')->sortBy('brand_code');
-        $brandCodes = $allBranches->pluck('brand_code')->toArray();
-        $totalBranches = count($brandCodes);
-
+        // 3. Process the orders into the report structure
         $reportItems = $storeOrders->flatMap(function ($order) {
             return $order->storeOrderItems->map(function ($orderItem) use ($order) {
                 $supplierItem = $orderItem->supplierItem;
@@ -192,7 +194,7 @@ class CSMassCommitsController extends Controller
         ->groupBy(function ($item) {
             return $item['category'] . '|' . $item['item_code'] . '|' . $item['item_name'] . '|' . $item['unit'];
         })
-        ->map(function ($groupedItems) use ($brandCodes, $allBranches) {
+        ->map(function ($groupedItems) use ($brandCodes) { // Removed $allBranches from use() as it's not needed here
             $firstItem = $groupedItems->first();
             $row = [
                 'category' => $firstItem['category'],
@@ -201,12 +203,16 @@ class CSMassCommitsController extends Controller
                 'unit' => $firstItem['unit'],
             ];
 
+            // Initialize all possible branch columns to 0.0
             foreach ($brandCodes as $code) {
                 $row[$code] = 0.0;
             }
 
+            // Fill in the quantities for branches that have them
             foreach ($groupedItems as $item) {
-                $row[$item['brand_code']] += $item['quantity_commited'];
+                if (isset($row[$item['brand_code']])) { // Ensure the brand_code exists as a column
+                    $row[$item['brand_code']] += $item['quantity_commited'];
+                }
             }
 
             $row['total_quantity'] = array_sum(array_intersect_key($row, array_flip($brandCodes)));
@@ -218,6 +224,7 @@ class CSMassCommitsController extends Controller
         })
         ->values();
 
+        // 4. Build headers from the definitive $allBranches list
         $staticHeaders = [
             ['label' => 'CATEGORY', 'field' => 'category'],
             ['label' => 'ITEM CODE', 'field' => 'item_code'],
