@@ -131,19 +131,14 @@ watch(
 );
 
 const statusBadgeColor = (status) => {
-    switch (status.toUpperCase()) {
-        case "APPROVED":
-            return "bg-green-500 text-white";
-        case "RECEIVED":
-            return "bg-green-500 text-white";
-        case "PENDING":
-            return "bg-yellow-500 text-white";
-        case "COMMITED":
-            return "bg-blue-500 text-white";
-        case "REJECTED":
-            return "bg-red-400 text-white";
-        default:
-            return "bg-yellow-500 text-white";
+    switch (status?.toUpperCase()) {
+        case "RECEIVED": return "bg-green-500 text-white";
+        case "APPROVED": return "bg-teal-500 text-white";
+        case "INCOMPLETE": return "bg-orange-500 text-white";
+        case "PENDING": return "bg-yellow-500 text-white";
+        case "COMMITED": return "bg-blue-500 text-white";
+        case "REJECTED": return "bg-red-500 text-white";
+        default: return "bg-gray-500 text-white";
     }
 };
 const resetFilter = () => {
