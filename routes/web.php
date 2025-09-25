@@ -401,6 +401,7 @@ Route::middleware('auth')
         Route::controller(MassOrdersController::class)->name('mass-orders.')->prefix('mass-orders')->group(function () {
             Route::middleware('permission:view mass orders')->get('/', 'index')->name('index');
             Route::middleware('permission:show mass orders')->get('/show/{id}', 'show')->name('show');
+            Route::get('/get-branches', 'getBranchesForDateAndSupplier')->name('get-branches');
             Route::get('/available-dates/{supplier_code}', 'getAvailableDates')->name('mass-orders.available-dates');
             Route::get('/items/{supplier_code}', 'getItems')->name('mass-orders.items');
             Route::get('/available-dates/{supplier_code}', 'getAvailableDates')->name('mass-orders.available-dates');

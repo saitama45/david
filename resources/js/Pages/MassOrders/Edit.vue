@@ -1,18 +1,18 @@
 <script setup>
 import { ref, reactive, computed, watch, onMounted, onBeforeMount } from 'vue';
 import Select from "primevue/select";
-import DatePicker from "primevue/datepicker";
 import axios from 'axios';
+import { Calendar as CalendarIcon } from 'lucide-vue-next';
 
 import { useSelectOptions } from "@/Composables/useSelectOptions";
-import { useForm } from "@inertiajs/vue3";
+import { useForm, router } from "@inertiajs/vue3";
 import { useConfirm } from "primevue/useconfirm";
 import { useToast } from "@/Composables/useToast";
 import { useBackButton } from "@/Composables/useBackButton";
 const { backButton } = useBackButton(route("mass-orders.index"));
 
 // Lucide icons for table actions - Minus and Plus removed
-import { Trash2 } from "lucide-vue-next"; 
+import { Trash2 } from "lucide-vue-next";
 
 // Define props explicitly for <script setup>
 const props = defineProps({
@@ -30,6 +30,10 @@ const props = defineProps({
     },
     suppliers: {
         type: Object,
+        required: true,
+    },
+    enabledDates: {
+        type: Array,
         required: true,
     },
 });
@@ -57,15 +61,36 @@ onBeforeMount(() => {
 const isMountedAndReady = ref(false);
 
 const orderForm = useForm({
-    // CRITICAL FIX: Initialize supplier_id with the supplier_code from the order prop
-    supplier_id: props.order.supplier.supplier_code + "", 
-    branch_id: Number(props.order.store_branch_id),
+    supplier_id: props.order.supplier.supplier_code + "",
     order_date: props.order.order_date, // Initialize with string from props.order.order_date
+    branch_id: props.order.store_branch_id ? String(props.order.store_branch_id) : null,
     orders: [], // Initialize as empty, will be populated in onMounted
 });
 
-// CRITICAL FIX: Create a ref that will hold the reactive array from orderForm.orders
 const editableOrderItems = ref([]);
+
+// Function to fetch items for a given supplier
+const fetchSupplierItems = async (supplierCode) => {
+    if (!supplierCode) {
+        availableProductsOptions.value = [];
+        return;
+    }
+    isLoading.value = true;
+    try {
+        const response = await axios.get(route('store-orders.get-supplier-items', supplierCode));
+        availableProductsOptions.value = response.data.items;
+    } catch (err) {
+        toast.add({
+            severity: "error",
+            summary: "Error",
+            detail: "Failed to load items for the selected supplier.",
+            life: 5000,
+        });
+        availableProductsOptions.value = [];
+    } finally {
+        isLoading.value = false;
+    }
+};
 
 onMounted(() => {
     if (
@@ -88,29 +113,26 @@ onMounted(() => {
             accept: () => {
                 orderForm.supplier_id = drafts.value.supplier_id;
                 orderForm.branch_id = drafts.value.branch_id;
-                
-                // Prioritize props.order.order_date if draft's order_date is null or undefined
-                orderForm.order_date = drafts.value.order_date !== null && drafts.value.order_date !== undefined 
-                                         ? drafts.value.order_date 
+
+                orderForm.order_date = drafts.value.order_date !== null && drafts.value.order_date !== undefined
+                                         ? drafts.value.order_date
                                          : props.order.order_date; // Fallback to prop value
-                // Restore orders from draft
                 orderForm.orders = drafts.value.orders || [];
                 editableOrderItems.value = orderForm.orders;
+                // Fetch items for the draft's supplier
+                fetchSupplierItems(orderForm.supplier_id);
             },
             reject: () => {
-                // If discarded, populate from props.orderedItems
                 populateInitialOrdersFromProps();
+                 // Fetch initial items from props
+                fetchSupplierItems(props.order.supplier.supplier_code);
             }
         });
     } else {
-        // If no draft or draft is for a different order, populate from props.orderedItems
         populateInitialOrdersFromProps();
+        // Fetch initial items from props
+        fetchSupplierItems(props.order.supplier.supplier_code);
     }
-
-    // The initial supplier selection logic is now handled by the orderForm.supplier_id initialization below
-    // and the watch for orderForm.supplier_id.
-
-    // Set the flag after initial setup is complete
     isMountedAndReady.value = true;
 });
 
@@ -119,13 +141,11 @@ const populateInitialOrdersFromProps = () => {
     props.orderedItems.forEach((item, index) => {
         let baseQty = 1; // Default to 1
         let baseUom = null;
-        
-        // CRITICAL FIX: Always use the singular accessor 'sap_master_file'
-        // as this is designed to return the correct matching record.
+
         const supplierItemData = item.supplier_item; // Get the supplier_item data
         if (supplierItemData && supplierItemData.sap_master_file) {
             const sapMasterFileObject = supplierItemData.sap_master_file;
-            
+
             if (Object.prototype.hasOwnProperty.call(sapMasterFileObject, 'BaseQty')) {
                 const rawBaseQty = sapMasterFileObject.BaseQty; // Access directly from the object
                 baseQty = Number(rawBaseQty);
@@ -143,8 +163,8 @@ const populateInitialOrdersFromProps = () => {
         const calculatedTotalCost = parseFloat((calculatedBaseUomQty * itemCost).toFixed(2));
 
         const product = {
-            id: item.id, 
-            inventory_code: String(item.supplier_item.ItemCode), 
+            id: item.id,
+            inventory_code: String(item.supplier_item.ItemCode),
             name: item.supplier_item.item_name,
             unit_of_measurement: item.supplier_item.uom, // Use 'unit_of_measurement'
             base_uom: baseUom, // Use the determined BaseUOM
@@ -161,42 +181,77 @@ const populateInitialOrdersFromProps = () => {
     editableOrderItems.value = orderForm.orders; // CRITICAL FIX: Sync the ref with the initial data
 };
 
+const dynamicBranches = ref(props.branches);
+const { options: suppliersOptions } = useSelectOptions(props.suppliers);
 
-const { options: branchesOptions } = useSelectOptions(props.branches);
-// Suppliers options should return ItemCode as value, not ID, to match backend's 'item_code'
-const { options: suppliersOptions } = useSelectOptions(props.suppliers); 
+// Create computed property for branch options locally instead of using composable
+const branchesOptions = computed(() => {
+    return Object.entries(dynamicBranches.value || {}).map(([id, name]) => ({
+        value: id,
+        label: name,
+    }));
+});
 
 const availableProductsOptions = ref([]);
 
-// productId will now hold the ItemCode string of the supplier item
-const productId = ref(null); 
+const productId = ref(null);
 const isLoading = ref(false);
 
-// NEW: Reactive array to store skipped import messages
 const skippedImportMessages = ref([]);
 
+// --- Calendar Logic ---
+const isDatepickerDisabled = ref(false);
+const enabledDates = ref(props.enabledDates);
+const showCalendar = ref(false);
+const currentCalendarDate = ref(new Date(props.order.order_date + 'T00:00:00'));
+const dateInputRef = ref(null);
+const calendarPositionClass = ref('top-full mt-2');
 
-const datePickerDate = computed({
-    get() {
-        if (orderForm.order_date) {
-            const parts = orderForm.order_date.split('-');
-            return new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]));
-        }
-        return null;
-    },
-    set(value) {
-        if (value) {
-            const d = new Date(value);
-            const month = String(d.getMonth() + 1).padStart(2, '0');
-            const day = String(d.getDate()).padStart(2, '0');
-            const year = d.getFullYear();
-            orderForm.order_date = `${year}-${month}-${day}`;
+watch(showCalendar, (isShown) => {
+    if (isShown && dateInputRef.value) {
+        const inputRect = dateInputRef.value.getBoundingClientRect();
+        const calendarHeight = 400; // Approximate height of the calendar
+        const spaceBelow = window.innerHeight - inputRect.bottom;
+
+        if (spaceBelow < calendarHeight && inputRect.top > calendarHeight) {
+            calendarPositionClass.value = 'bottom-full mb-2'; // Flip up
         } else {
-            orderForm.order_date = null;
+            calendarPositionClass.value = 'top-full mt-2'; // Default position
         }
     }
 });
 
+const getCalendarDays = () => {
+    const days = [];
+    const dateRef = currentCalendarDate.value || new Date();
+    const year = dateRef.getFullYear();
+    const month = dateRef.getMonth();
+    const firstDayOfMonth = new Date(year, month, 1).getDay();
+    const daysInMonth = new Date(year, month + 1, 0).getDate();
+    const enabledDatesSet = new Set(enabledDates.value);
+
+    for (let i = 0; i < firstDayOfMonth; i++) days.push(null);
+    for (let i = 1; i <= daysInMonth; i++) {
+        const date = new Date(year, month, i);
+        const dateString = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+        const isDisabled = !enabledDatesSet.has(dateString);
+        days.push({ day: i, date, isDisabled });
+    }
+    return days;
+};
+const goToPrevMonth = () => currentCalendarDate.value = new Date(currentCalendarDate.value.getFullYear(), currentCalendarDate.value.getMonth() - 1, 1);
+const goToNextMonth = () => currentCalendarDate.value = new Date(currentCalendarDate.value.getFullYear(), currentCalendarDate.value.getMonth() + 1, 1);
+const selectDate = (day) => {
+    if (day && !day.isDisabled) {
+        const d = day.date;
+        const year = d.getFullYear();
+        const month = String(d.getMonth() + 1).padStart(2, '0');
+        const dayOfMonth = String(d.getDate()).padStart(2, '0');
+        orderForm.order_date = `${year}-${month}-${dayOfMonth}`;
+        showCalendar.value = false;
+    }
+};
+// --- End Calendar Logic ---
 
 watch(orderForm, (value) => {
     if (!isMountedAndReady.value) {
@@ -212,16 +267,16 @@ const itemForm = useForm({
 });
 
 const productDetails = reactive({
-    id: null, // This will hold the StoreOrderItem ID if editing an existing one, otherwise null for new
-    inventory_code: null, // This will now hold the SupplierItem ItemCode string
-    name: null, // This will be the item_name
-    unit_of_measurement: null, // This will be the uom for display
-    base_uom: null, // NEW: From sap_master_file
-    base_qty: null, // NEW: From sap_master_file
+    id: null,
+    inventory_code: null,
+    name: null,
+    unit_of_measurement: null,
+    base_uom: null,
+    base_qty: null,
     quantity: null,
     cost: null,
     total_cost: null,
-    uom: null, // This will be the uom for backend submission
+    uom: null,
 });
 
 
@@ -232,7 +287,7 @@ const addItemQuantity = (id) => {
         currentItem.quantity = parseFloat(
             (Number(currentItem.quantity) + 0.1).toFixed(2)
         );
-        
+
         const effectiveBaseQty = Number(currentItem.base_qty) > 0 ? Number(currentItem.base_qty) : 1;
         currentItem.base_uom_qty = parseFloat(
             (Number(currentItem.quantity) * effectiveBaseQty).toFixed(2)
@@ -254,7 +309,7 @@ const minusItemQuantity = (id) => {
             orderForm.orders = orderForm.orders.filter((item) => item.id !== id);
             return;
         }
-        
+
         const effectiveBaseQty = Number(currentItem.base_qty) > 0 ? Number(currentItem.base_qty) : 1;
         currentItem.base_uom_qty = parseFloat(
             (Number(currentItem.quantity) * effectiveBaseQty).toFixed(2)
@@ -293,7 +348,6 @@ const removeItem = (id) => {
     });
 };
 
-// Function to clear all orders
 const clearAllOrders = () => {
     confirm.require({
         message: "Are you sure you want to remove ALL items from your orders?",
@@ -331,7 +385,6 @@ const addToOrdersButton = () => {
         itemForm.setError("quantity", "Quantity must be at least 0.1 and a valid number");
         return;
     }
-    // CRITICAL FIX: Add validation for cost being 0 or null
     if (productDetails.cost === null || Number(productDetails.cost) === 0) {
         toast.add({
             severity: "error",
@@ -343,7 +396,7 @@ const addToOrdersButton = () => {
     }
 
     if (
-        !productDetails.inventory_code || // This will now be the ItemCode string
+        !productDetails.inventory_code ||
         !productDetails.name ||
         !productDetails.unit_of_measurement ||
         !productDetails.quantity ||
@@ -358,48 +411,43 @@ const addToOrdersButton = () => {
         return;
     }
 
-    // CRITICAL FIX: Find by ItemCode string for new items
     const existingItemIndex = orderForm.orders.findIndex(
         (order) => order.inventory_code === productDetails.inventory_code
     );
 
-    // Determine the effective BaseQTY for calculation. Default to 1 if not available or <= 0.
     const effectiveBaseQtyForNewItem = Number(productDetails.base_qty) > 0 ? Number(productDetails.base_qty) : 1;
     const currentQuantity = Number(productDetails.quantity);
     const currentCost = Number(productDetails.cost);
 
 
     if (existingItemIndex !== -1) {
-        // Update existing item
         const existingItem = orderForm.orders[existingItemIndex];
         const newTotalQuantity = existingItem.quantity + currentQuantity;
-        
-        // Use the base_qty already present in the existing item, or default to 1
+
         const effectiveBaseQtyForExistingItem = Number(existingItem.base_qty) > 0 ? Number(existingItem.base_qty) : 1;
 
         const newBaseUomQty = parseFloat((newTotalQuantity * effectiveBaseQtyForExistingItem).toFixed(2));
         const newTotalCost = parseFloat((newBaseUomQty * currentCost).toFixed(2));
-        
+
         existingItem.quantity = newTotalQuantity;
         existingItem.base_uom_qty = newBaseUomQty;
         existingItem.total_cost = newTotalCost;
 
     } else {
-        // Add new item
         productDetails.base_uom_qty = parseFloat((currentQuantity * effectiveBaseQtyForNewItem).toFixed(2));
         productDetails.total_cost = parseFloat((productDetails.base_uom_qty * currentCost).toFixed(2));
 
-        orderForm.orders.push({ 
+        orderForm.orders.push({
             id: null, // Explicitly set 'id' to null for imported items
-            inventory_code: String(productDetails.inventory_code), // This is now the ItemCode string - ensure it's a string
-            name: productDetails.name, 
-            unit_of_measurement: productDetails.unit_of_measurement, 
-            base_uom: productDetails.base_uom, // NEW: Add BaseUOM
-            base_qty: productDetails.base_qty, // NEW: Add BaseQTY
-            base_uom_qty: productDetails.base_uom_qty, // NEW: Add calculated BaseUoM Qty
-            quantity: parseFloat(Number(productDetails.quantity).toFixed(2)), // Ensure quantity is number and formatted
-            cost: Number(productDetails.cost), // Ensure cost is number
-            uom: productDetails.uom, 
+            inventory_code: String(productDetails.inventory_code),
+            name: productDetails.name,
+            unit_of_measurement: productDetails.unit_of_measurement,
+            base_uom: productDetails.base_uom,
+            base_qty: productDetails.base_qty,
+            base_uom_qty: productDetails.base_uom_qty,
+            quantity: parseFloat(Number(productDetails.quantity).toFixed(2)),
+            cost: Number(productDetails.cost),
+            uom: productDetails.uom,
             total_cost: productDetails.total_cost,
         });
     }
@@ -434,7 +482,7 @@ const update = () => {
         if (typeof date === 'string') {
             return date;
         }
-        const d = new Date(date); // Changed 'value' to 'date' to match parameter name
+        const d = new Date(date);
         const month = String(d.getMonth() + 1).padStart(2, "0");
         const day = String(d.getDate()).padStart(2, "0");
         const year = d.getFullYear();
@@ -445,7 +493,7 @@ const update = () => {
 
     try {
         confirm.require({
-            message: "Are you sure you want to update the order details?", // Changed message for clarity
+            message: "Are you sure you want to update the order details?",
             header: "Confirmation",
             icon: "pi pi-exclamation-triangle",
             rejectProps: {
@@ -469,13 +517,13 @@ const update = () => {
 
                         localStorage.removeItem("editStoreOrderDraft");
                         localStorage.removeItem("previoustoreOrderNumber");
-                        router.visit(route('mass-orders.index')); // Redirect after success
+                        router.visit(route('mass-orders.index'));
                     },
                     onError: (e) => {
                         toast.add({
                             severity: "error",
                             summary: "Error",
-                            detail: e.error || e.message || "Can't place update the order.", // Show error message if available
+                            detail: e.error || e.message || "Can't place update the order.",
                             life: 5000,
                         });
                     },
@@ -492,14 +540,13 @@ const update = () => {
     }
 };
 
-// productId will now hold the ItemCode string of the supplier item
-watch(productId, async (itemCode) => { 
+watch(productId, async (itemCode) => {
     if (itemCode) {
         isLoading.value = true;
-        itemForm.item = itemCode; // Store the ItemCode string in itemForm.item
+        itemForm.item = itemCode;
 
         try {
-            const supplierCode = orderForm.supplier_id; 
+            const supplierCode = orderForm.supplier_id;
 
             if (!supplierCode) {
                 toast.add({
@@ -512,42 +559,37 @@ watch(productId, async (itemCode) => {
                 return;
             }
 
-            // CRITICAL FIX: Fetch details using the ItemCode and SupplierCode
             const response = await axios.get(route("SupplierItems.get-details-by-code", {
-                itemCode: itemCode, // Pass the ItemCode string
-                supplierCode: supplierCode // Still need supplierCode to ensure it's the correct item for this supplier
+                itemCode: itemCode,
+                supplierCode: supplierCode
             }));
-            const result = response.data.item; // Assuming the API returns { item: {...} }
+            const result = response.data.item;
 
             if (result) {
-                // Store the ItemCode string in productDetails.inventory_code - ensure it's a string
-                productDetails.inventory_code = String(result.ItemCode); 
+                productDetails.inventory_code = String(result.ItemCode);
                 productDetails.name = result.item_name;
                 productDetails.unit_of_measurement = result.uom;
-                productDetails.cost = Number(result.cost); // Ensure cost is a number
-                productDetails.uom = result.uom; 
+                productDetails.cost = Number(result.cost);
+                productDetails.uom = result.uom;
 
-                // --- NEW LOGIC FOR BASE_UOM and BASE_QTY (from Create.vue) ---
                 let foundBaseUom = null;
-                let foundBaseQty = 1; // Default to 1 to prevent division by zero or NaN in calculations
+                let foundBaseQty = 1;
 
-                // CRITICAL FIX: Always use the singular accessor 'sap_master_file'
                 const apiResultSapMasterFile = result.sap_master_file;
                 if (apiResultSapMasterFile) {
                     if (Object.prototype.hasOwnProperty.call(apiResultSapMasterFile, 'BaseQty')) {
                         const rawFoundBaseQty = apiResultSapMasterFile.BaseQty;
                         foundBaseQty = Number(rawFoundBaseQty);
                         if (isNaN(foundBaseQty) || foundBaseQty <= 0) {
-                            foundBaseQty = 1; // Fallback if conversion results in NaN or non-positive
+                            foundBaseQty = 1;
                         }
                         foundBaseUom = apiResultSapMasterFile.BaseUOM;
                     }
                 }
-                // --- END NEW LOGIC ---
 
                 productDetails.base_uom = foundBaseUom;
                 productDetails.base_qty = foundBaseQty;
-                
+
             } else {
                 toast.add({
                     severity: "error",
@@ -573,61 +615,7 @@ watch(productId, async (itemCode) => {
     }
 }, { deep: true });
 
-const orderRestrictionDate = reactive({
-    minDate: null,
-    maxDate: null,
-});
-
-const calculatePULILANOrderDate = () => {
-    const now = new Date();
-
-    const nextSunday = new Date(now);
-    nextSunday.setDate(now.getDate() + (7 - now.getDay()));
-
-    const nextSaturday = new Date(nextSunday);
-    nextSaturday.setDate(nextSunday.getDate() + 6);
-
-    orderRestrictionDate.minDate = nextSunday;
-    orderRestrictionDate.maxDate = nextSaturday;
-};
-
-const calculateGSIOrderDate = () => {
-    const now = new Date();
-
-    const nextSunday = new Date(now);
-    nextSunday.setDate(now.getDate() + (7 - now.getDay()));
-
-    const nextWednesday = new Date(nextSunday);
-    nextWednesday.setDate(nextSunday.getDate() + 3);
-
-    const upcomingSunday = new Date(now);
-    upcomingSunday.setDate(now.getDate() + (7 - now.getDay()));
-
-    const secondBatchStartDate = new Date(upcomingSunday);
-    secondBatchStartDate.setDate(upcomingSunday.getDate() + 4);
-
-    const secondBatchEndDate = new Date(upcomingSunday);
-    secondBatchEndDate.setDate(upcomingSunday.getDate() + 6);
-
-    const currentDay = now.getDay();
-    const currentHour = now.getHours();
-
-    if (
-        currentDay === 0 ||
-        currentDay === 1 ||
-        currentDay === 2 ||
-        (currentDay === 3 && currentHour < 7)
-    ) {
-        orderRestrictionDate.minDate = upcomingSunday;
-        orderRestrictionDate.maxDate = nextWednesday;
-    } else {
-        orderRestrictionDate.minDate = secondBatchStartDate;
-        orderRestrictionDate.maxDate = secondBatchEndDate;
-    }
-};
-
 const computeOverallTotal = computed(() => {
-    // Format Overall Total with commas
     return orderForm.orders
         .reduce((total, order) => total + parseFloat(order.total_cost), 0)
         .toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -635,70 +623,77 @@ const computeOverallTotal = computed(() => {
 
 watch(
     () => orderForm.supplier_id,
-    async (supplierCode) => { // supplierCode is now the string code
-        // Only reset order_date if the component is mounted and ready,
-        // preventing it from nullifying the initial date from props.
-        if (isMountedAndReady.value) { 
-            orderForm.order_date = null; 
-        }
+    async (supplierCode) => {
+        if (!isMountedAndReady.value) return;
+
+        // Clear dependent fields
+        orderForm.order_date = null;
+        orderForm.branch_id = null;
+        dynamicBranches.value = {};
         productId.value = null;
         Object.keys(productDetails).forEach((key) => {
             productDetails[key] = null;
         });
 
-        availableProductsOptions.value = [];
+        // Fetch new data
+        fetchSupplierItems(supplierCode);
 
+        enabledDates.value = [];
         if (!supplierCode) {
+            isDatepickerDisabled.value = true;
             return;
         }
 
+        isDatepickerDisabled.value = true;
         try {
-            isLoading.value = true;
-            // CRITICAL FIX: Fetch items by supplier code, and ensure the options
-            // value is the ItemCode string of the supplier item.
-            const response = await axios.get(route('store-orders.get-supplier-items', supplierCode));
-            // Directly assign the response data, as the backend already formats it to { value, label }
-            availableProductsOptions.value = response.data.items; 
-            isLoading.value = false;
-
+            const datesResponse = await axios.get(route('mass-orders.available-dates', { supplier_code: supplierCode }));
+            enabledDates.value = datesResponse.data;
+            isDatepickerDisabled.value = false;
         } catch (error) {
             toast.add({
                 severity: "error",
                 summary: "Error",
-                detail: "Failed to load items for the selected supplier.",
+                detail: "Failed to load available dates.",
                 life: 5000,
             });
-            isLoading.value = false;
         }
-
-        const selectedSupplier = suppliersOptions.value.find(
-            (option) => option.value === supplierCode // Match by supplierCode (string)
-        );
-
-        if (selectedSupplier) {
-            if (
-                selectedSupplier.label === "GSI OT-BAKERY" ||
-                selectedSupplier.label === "GSI OT-PR"
-            ) {
-                calculateGSIOrderDate();
-            } else if (selectedSupplier.label === "PUL OT-DG") {
-                calculatePULILANOrderDate();
-            }
-        }
-    },
-    { immediate: true }
+    }
 );
+
+watch(() => orderForm.order_date, async (newDate) => {
+    if (!isMountedAndReady.value) return;
+
+    orderForm.branch_id = null;
+
+    if (newDate && orderForm.supplier_id) {
+        try {
+            const response = await axios.get(route('mass-orders.get-branches', {
+                order_date: newDate,
+                supplier_code: orderForm.supplier_id
+            }));
+            dynamicBranches.value = response.data;
+        } catch (error) {
+            console.error('Error fetching branches:', error);
+            toast.add({
+                severity: "error",
+                summary: "Error",
+                detail: "Failed to load store branches for the selected date.",
+                life: 5000,
+            });
+        }
+    } else {
+        dynamicBranches.value = {};
+    }
+});
 
 const isSupplierSelected = computed(() => {
     return orderForm.supplier_id !== null && orderForm.supplier_id !== '';
 });
 
-// NEW: Computed property to determine if dropdowns should be disabled
 const shouldLockDropdowns = computed(() => {
     return orderForm.orders.length > 0;
 });
 
-// NEW: Computed property to control the visibility of the "Import Orders" button
 const showImportOrdersButton = computed(() => {
     return (
         orderForm.orders.length === 0 &&
@@ -716,9 +711,8 @@ const {
     isEditQuantityModalOpen,
     formQuantity,
     openEditQuantityModal,
-} = useEditQuantity(orderForm, editableOrderItems, props.order); // CRITICAL FIX: Pass editableOrderItems ref here
+} = useEditQuantity(orderForm, editableOrderItems, props.order);
 
-// This is the function that is now called when "Save changes" is clicked
 const editQuantity = () => {
     const itemIndex = orderForm.orders.findIndex(item => item.id === formQuantity.id);
 
@@ -773,10 +767,9 @@ watch(visible, (newValue) => {
 
 const importOrdersButton = () => {
     visible.value = true;
-    skippedImportMessages.value = []; // Clear previous skipped messages when opening modal
+    skippedImportMessages.value = [];
 };
 
-// New function to handle downloading the dynamic template
 const downloadDynamicTemplate = async () => {
     const supplierCode = orderForm.supplier_id;
     if (!supplierCode) {
@@ -790,21 +783,18 @@ const downloadDynamicTemplate = async () => {
     }
 
     try {
-        // Use axios to make a GET request to the new backend route
         const response = await axios.get(route('store-orders.download-supplier-order-template', { supplierCode: supplierCode }), {
-            responseType: 'blob', // Important: responseType must be 'blob' to handle file download
+            responseType: 'blob',
         });
 
-        // Create a blob URL and trigger download
         const url = window.URL.createObjectURL(new Blob([response.data]));
         const link = document.createElement('a');
         link.href = url;
-        // Dynamically set the filename based on the supplier code
         link.setAttribute('download', `supplier_order_template_${supplierCode}.xlsx`);
         document.body.appendChild(link);
         link.click();
         link.remove();
-        window.URL.revokeObjectURL(url); // Clean up the URL object
+        window.URL.revokeObjectURL(url);
 
         toast.add({
             severity: "success",
@@ -827,11 +817,10 @@ const downloadDynamicTemplate = async () => {
 
 const addImportedItemsToOrderList = () => {
     isLoading.value = true;
-    skippedImportMessages.value = []; // Clear messages before new import attempt
+    skippedImportMessages.value = [];
     const formData = new FormData();
     formData.append("orders_file", excelFileForm.orders_file);
-    // Append the currently selected supplier_id to the form data
-    formData.append("supplier_id", orderForm.supplier_id); 
+    formData.append("supplier_id", orderForm.supplier_id);
 
     axios
         .post(route("store-orders.imported-file"), formData, {
@@ -841,22 +830,18 @@ const addImportedItemsToOrderList = () => {
         })
         .then((response) => {
             response.data.orders.forEach((importedOrder) => {
-                // Normalize keys from backend response for easier access
                 const itemCodeString = importedOrder.item_code || importedOrder.ItemCode || importedOrder.inventory_code;
                 const itemName = importedOrder.item_name || importedOrder.ItemName || importedOrder.name;
-                
-                // CRITICAL FIX: For imported items, we need the ItemCode string for 'id'
-                const importedItemId = itemCodeString; 
 
-                // CRITICAL DEBUGGING: Log the value before Number() conversion and after
+                const importedItemId = itemCodeString;
+
                 const rawQuantityValue = importedOrder.qty || importedOrder.Qty || importedOrder.quantity;
                 const quantity = Number(rawQuantityValue);
 
                 const cost = Number(importedOrder.cost || importedOrder.Cost);
                 const unit = importedOrder.unit || importedOrder.UOM || importedOrder.unit_of_measurement;
-                const baseQty = Number(importedOrder.base_qty || importedOrder.BaseQTY); // NEW: Get BaseQTY from imported data
+                const baseQty = Number(importedOrder.base_qty || importedOrder.BaseQTY);
 
-                // Validate cost for imported items
                 if (isNaN(cost) || cost === 0) {
                     toast.add({
                         severity: "error",
@@ -864,16 +849,13 @@ const addImportedItemsToOrderList = () => {
                         detail: `Imported item '${itemName || itemCodeString || 'Unknown Item'}' has a cost of zero or is invalid and will be skipped.`,
                         life: 7000,
                     });
-                    return; // Skip this item
+                    return;
                 }
 
-                // Validate quantity for imported items - REMOVED TOAST MESSAGE
-                if (isNaN(quantity) || quantity < 0.1) { 
-                    // The item will still be skipped, but no toast message will be displayed.
-                    return; // Skip this item
+                if (isNaN(quantity) || quantity < 0.1) {
+                    return;
                 }
-                
-                // NEW: Validate baseQty for imported items
+
                 if (isNaN(baseQty) || baseQty <= 0) {
                     toast.add({
                         severity: "error",
@@ -881,15 +863,12 @@ const addImportedItemsToOrderList = () => {
                         detail: `Imported item '${itemName || itemCodeString || 'Unknown Item'}' has an invalid BaseQTY and will be skipped. BaseQTY must be a positive number.`,
                         life: 7000,
                     });
-                    return; // Skip this item
+                    return;
                 }
 
-                // Calculate BaseUoM Qty for imported item
                 const importedBaseUomQty = parseFloat((quantity * baseQty).toFixed(2));
-                // Calculate Total Cost for imported item
                 const importedTotalCost = parseFloat((importedBaseUomQty * cost).toFixed(2));
 
-                // CRITICAL FIX: Find by ItemCode string (which is now in item.id)
                 const existingItemIndex = orderForm.orders.findIndex(
                     (order) => order.inventory_code === itemCodeString
                 );
@@ -897,25 +876,25 @@ const addImportedItemsToOrderList = () => {
                 if (existingItemIndex !== -1) {
                     const updatedQuantity =
                         Number(orderForm.orders[existingItemIndex].quantity) + quantity;
-                    const updatedBaseUomQty = parseFloat((updatedQuantity * baseQty).toFixed(2)); // Recalculate BaseUoM Qty
-                    
+                    const updatedBaseUomQty = parseFloat((updatedQuantity * baseQty).toFixed(2));
+
                     orderForm.orders[existingItemIndex].quantity = updatedQuantity;
-                    orderForm.orders[existingItemIndex].base_uom_qty = updatedBaseUomQty; // NEW: Update BaseUoM Qty
+                    orderForm.orders[existingItemIndex].base_uom_qty = updatedBaseUomQty;
                     orderForm.orders[existingItemIndex].total_cost = parseFloat(
-                        updatedBaseUomQty * cost // NEW: Total Cost = BaseUoM Qty * Cost
+                        updatedBaseUomQty * cost
                     ).toFixed(2);
                 } else {
                     const newItem = {
-                        id: null, // Explicitly set 'id' to null for imported items
-                        inventory_code: String(itemCodeString), // This is now the ItemCode string - ensure it's a string
-                        name: itemName, 
-                        unit_of_measurement: unit, 
-                        base_uom: importedOrder.base_uom || null, 
-                        base_qty: baseQty, // NEW: Add BaseQTY
-                        base_uom_qty: importedBaseUomQty, // NEW: Add calculated BaseUoM Qty
-                        quantity: parseFloat(quantity.toFixed(2)), // Ensure quantity is number and formatted
-                        cost: cost, 
-                        uom: unit, 
+                        id: null,
+                        inventory_code: String(itemCodeString),
+                        name: itemName,
+                        unit_of_measurement: unit,
+                        base_uom: importedOrder.base_uom || null,
+                        base_qty: baseQty,
+                        base_uom_qty: importedBaseUomQty,
+                        quantity: parseFloat(quantity.toFixed(2)),
+                        cost: cost,
+                        uom: unit,
                         total_cost: importedTotalCost,
                     };
                     orderForm.orders.push(newItem);
@@ -931,9 +910,8 @@ const addImportedItemsToOrderList = () => {
             });
             excelFileForm.orders_file = null;
 
-            // NEW: Display skipped items as persistent messages
             if (response.data.skipped_items && response.data.skipped_items.length > 0) {
-                skippedImportMessages.value = response.data.skipped_items.map(skippedItem => 
+                skippedImportMessages.value = response.data.skipped_items.map(skippedItem =>
                     `Item '${skippedItem.item_name || skippedItem.item_code || 'Unknown'}' was skipped: ${skippedItem.reason}`
                 );
             }
@@ -958,7 +936,6 @@ const addImportedItemsToOrderList = () => {
         buttonName="Import Orders"
         :handleClick="importOrdersButton"
     >
-        <!-- NEW: Display area for skipped import messages -->
         <div v-if="skippedImportMessages.length > 0" class="mb-4 p-4 rounded-lg bg-yellow-100 text-yellow-800 border border-yellow-200">
             <p class="font-bold mb-2">Skipped Items:</p>
             <ul class="list-disc list-inside">
@@ -990,10 +967,33 @@ const addImportedItemsToOrderList = () => {
                                 :disabled="shouldLockDropdowns"
                             >
                             </Select>
-                            <FormError>{{
-                                orderForm.errors.supplier_id
-                            }}</FormError>
+                            <FormError>{{ orderForm.errors.supplier_id }}</FormError>
                         </div>
+
+                        <div class="flex flex-col space-y-1">
+                            <InputLabel label="Order Date" />
+                            <div class="relative" ref="dateInputRef">
+                                <div class="relative">
+                                    <input id="order_date" type="text" readonly :value="orderForm.order_date" @click="showCalendar = !showCalendar" :disabled="isDatepickerDisabled || shouldLockDropdowns" class="flex h-10 w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm shadow-sm transition-colors placeholder:text-gray-500 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-gray-400 disabled:cursor-not-allowed disabled:opacity-50 cursor-pointer" placeholder="Select a date" />
+                                    <CalendarIcon class="absolute right-3 top-1/2 -translate-y-1/2 size-4 text-gray-500 pointer-events-none" />
+                                </div>
+                                <div v-show="showCalendar" :class="['absolute z-50 bg-white border border-gray-200 rounded-lg shadow-lg p-4 w-full min-w-[300px]', calendarPositionClass]">
+                                    <div class="flex justify-between items-center mb-4">
+                                        <button type="button" @click.stop="goToPrevMonth()" class="p-2 rounded-full hover:bg-gray-100">&lt;</button>
+                                        <h2 class="text-lg font-semibold">{{ (currentCalendarDate || new Date()).toLocaleString('default', { month: 'long', year: 'numeric' }) }}</h2>
+                                        <button type="button" @click.stop="goToNextMonth()" class="p-2 rounded-full hover:bg-gray-100">&gt;</button>
+                                    </div>
+                                    <div class="grid grid-cols-7 gap-1 text-center text-xs font-medium text-gray-500 mb-2"><span>Su</span><span>Mo</span><span>Tu</span><span>We</span><span>Th</span><span>Fr</span><span>Sa</span></div>
+                                    <div class="grid grid-cols-7 gap-2">
+                                        <template v-for="(day, d_idx) in getCalendarDays()" :key="d_idx">
+                                            <div class="text-center py-1.5 rounded-full text-sm" :class="[ !day ? '' : (day.isDisabled ? 'text-gray-300 line-through cursor-not-allowed' : (orderForm.order_date && day.date.toDateString() === new Date(orderForm.order_date + 'T00:00:00').toDateString() ? 'bg-blue-600 text-white font-bold shadow-md' : 'bg-gray-100 text-gray-800 font-semibold cursor-pointer hover:bg-blue-100')) ]" @click="selectDate(day)">{{ day ? day.day : '' }}</div>
+                                        </template>
+                                    </div>
+                                </div>
+                            </div>
+                            <FormError>{{ orderForm.errors.order_date }}</FormError>
+                        </div>
+
                         <div class="flex flex-col space-y-1">
                             <InputLabel label="Store Branch" />
                             <Select
@@ -1006,26 +1006,7 @@ const addImportedItemsToOrderList = () => {
                                 :disabled="shouldLockDropdowns"
                             >
                             </Select>
-                            <FormError>{{
-                                orderForm.errors.branch_id
-                            }}</FormError>
-                        </div>
-                        <div class="flex flex-col space-y-1">
-                            <InputLabel label="Order Date" />
-                            <DatePicker
-                                showIcon
-                                fluid
-                                dateFormat="yy/mm/dd"
-                                v-model="datePickerDate"
-                                :showOnFocus="false"
-                                :manualInput="true"
-                                :minDate="orderRestrictionDate.minDate"
-                                :maxDate="orderRestrictionDate.maxDate"
-                                :disabled="shouldLockDropdowns"
-                            />
-                            <FormError>{{
-                                orderForm.errors.order_date
-                            }}</FormError>
+                            <FormError>{{ orderForm.errors.branch_id }}</FormError>
                         </div>
                     </CardContent>
                 </Card>
@@ -1081,9 +1062,7 @@ const addImportedItemsToOrderList = () => {
                                 type="number"
                                 v-model="productDetails.quantity"
                             />
-                            <FormError>{{
-                                itemForm.errors.quantity
-                            }}</FormError>
+                            <FormError>{{ itemForm.errors.quantity }}</FormError>
                         </div>
                     </CardContent>
 
@@ -1102,7 +1081,6 @@ const addImportedItemsToOrderList = () => {
                         <DivFlexCenter class="gap-2">
                             <LabelXS> Overall Total:</LabelXS>
                             <SpanBold>{{ computeOverallTotal }}</SpanBold>
-                            <!-- Delete All Button -->
                             <Button
                                 @click="clearAllOrders"
                                 variant="outline"
@@ -1115,7 +1093,6 @@ const addImportedItemsToOrderList = () => {
                     </DivFlexCenter>
                 </CardHeader>
                 <CardContent class="flex-1">
-                    <!-- FIX: Added overflow-x-auto to handle horizontal scrolling -->
                     <div class="overflow-x-auto">
                         <Table>
                             <TableHead>
@@ -1123,7 +1100,7 @@ const addImportedItemsToOrderList = () => {
                                 <TH> Code </TH>
                                 <TH> Ordered Qty </TH>
                                 <TH> Unit </TH>
-                                <TH> BaseUOM Qty </TH> 
+                                <TH> BaseUOM Qty </TH>
                                 <TH> Base UOM </TH>
                                 <TH> Cost </TH>
                                 <TH> Total Cost </TH>
@@ -1170,7 +1147,6 @@ const addImportedItemsToOrderList = () => {
                                         >
                                             Edit Quantity
                                         </LinkButton>
-                                        <!-- Removed Minus and Plus buttons -->
                                         <button
                                             @click="removeItem(order.id)"
                                             variant="outline"
@@ -1192,7 +1168,6 @@ const addImportedItemsToOrderList = () => {
                             <MobileTableHeading
                                 :title="`${order.name} (${order.inventory_code})`"
                             >
-                                <!-- Removed Minus and Plus buttons from mobile heading -->
                                 <button
                                     class="text-red-500 size-5"
                                     @click="removeItem(order.id)"
@@ -1246,15 +1221,12 @@ const addImportedItemsToOrderList = () => {
                                         event.target.files[0])
                             "
                         />
-                        <FormError>{{
-                            excelFileForm.errors.orders_file
-                        }}</FormError>
+                        <FormError>{{ excelFileForm.errors.orders_file }}</FormError>
                     </div>
                     <div class="flex flex-col space-y-1">
                         <Label class="text-xs">Accepted Orders File Format</Label>
                         <ul>
                             <li class="text-xs">
-                                <!-- Updated to call the new dynamic download function -->
                                 <a
                                     class="text-blue-500 underline cursor-pointer"
                                     @click.prevent="downloadDynamicTemplate"

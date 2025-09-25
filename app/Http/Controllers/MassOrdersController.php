@@ -335,13 +335,78 @@ class MassOrdersController extends Controller
         $orderedItems = $this->storeOrderService->getOrderItems($order);
         $orderedItems->load('supplierItem.sapMasterfiles');
         $suppliers = \App\Models\Supplier::options();
-        $branches = \App\Models\StoreBranch::options();
+
+        // --- START: Get initial available branches ---
+        $initialSupplierCode = $order->supplier->supplier_code;
+        $initialOrderDate = Carbon::parse($order->order_date);
+        $initialDayName = strtoupper($initialOrderDate->format('l'));
+
+        $user = Auth::user();
+        $user->load('store_branches');
+
+        $initialFinalBranches = $user->store_branches->filter(function ($branch) use ($initialSupplierCode, $initialDayName) {
+            return $branch->delivery_schedules()
+                ->where('delivery_schedules.day', $initialDayName)
+                ->wherePivot('variant', $initialSupplierCode)
+                ->exists();
+        });
+
+        $initialActiveBranches = $initialFinalBranches->where('is_active', true);
+        $branches = $initialActiveBranches->mapWithKeys(function ($branch) {
+            return [$branch->id => $branch->name . ' (' . $branch->brand_code . ')'];
+        });
+        // --- END: Get initial available branches ---
+
+
+        // --- START: Get initial enabled dates ---
+        $enabledDates = [];
+        $cutoff = \App\Models\OrdersCutoff::where('ordering_template', $initialSupplierCode)->first();
+        if ($cutoff) {
+            $now = Carbon::now();
+            $getCutoffDate = function($day, $time) use ($now) {
+                if (!$day || !$time) return null;
+                $dayIndex = ($day == 7) ? 0 : $day;
+                return $now->copy()->startOfWeek(Carbon::SUNDAY)->addDays($dayIndex)->setTimeFromTimeString($time);
+            };
+
+            $cutoff1Date = $getCutoffDate($cutoff->cutoff_1_day, $cutoff->cutoff_1_time);
+            $cutoff2Date = $getCutoffDate($cutoff->cutoff_2_day, $cutoff->cutoff_2_time);
+
+            $daysToCoverStr = '';
+            $weekOffset = 0;
+
+            if ($cutoff1Date && $now->lt($cutoff1Date)) {
+                $daysToCoverStr = $cutoff->days_covered_1;
+                $weekOffset = str_starts_with($initialSupplierCode, 'GSI') ? 1 : 0;
+            } elseif ($cutoff2Date && $now->lt($cutoff2Date)) {
+                $daysToCoverStr = $cutoff->days_covered_2;
+                $weekOffset = str_starts_with($initialSupplierCode, 'GSI') ? 1 : 0;
+            } else {
+                $daysToCoverStr = $cutoff->days_covered_1;
+                $weekOffset = 1;
+            }
+
+            $startOfTargetWeek = $now->copy()->startOfWeek(Carbon::SUNDAY)->addWeeks($weekOffset);
+            $daysToCover = $daysToCoverStr ? explode(',', $daysToCoverStr) : [];
+            $dayMap = ['Sun' => 0, 'Mon' => 1, 'Tue' => 2, 'Wed' => 3, 'Thu' => 4, 'Fri' => 5, 'Sat' => 6];
+
+            foreach ($daysToCover as $day) {
+                $day = trim($day);
+                if (isset($dayMap[$day])) {
+                    $date = $startOfTargetWeek->copy()->addDays($dayMap[$day]);
+                    $enabledDates[] = $date->toDateString();
+                }
+            }
+        }
+        // --- END: Get initial enabled dates ---
+
 
         return \Inertia\Inertia::render('MassOrders/Edit', [
             'order' => $order,
             'orderedItems' => $orderedItems,
             'branches' => $branches,
-            'suppliers' => $suppliers
+            'suppliers' => $suppliers,
+            'enabledDates' => $enabledDates, // Pass new prop
         ]);
     }
 
@@ -368,5 +433,35 @@ class MassOrdersController extends Controller
             \Illuminate\Support\Facades\Log::error("Error updating store order from MassOrders: " . $e->getMessage(), ['trace' => $e->getTraceAsString()]);
             return back()->withErrors(['error' => 'Failed to update order: ' . $e->getMessage()]);
         }
+    }
+
+    public function getBranchesForDateAndSupplier(Request $request)
+    {
+        $request->validate([
+            'supplier_code' => 'required|string|exists:suppliers,supplier_code',
+            'order_date' => 'required|date',
+        ]);
+
+        $supplierCode = $request->input('supplier_code');
+        $orderDate = Carbon::parse($request->input('order_date'));
+        $dayName = strtoupper($orderDate->format('l'));
+
+        $user = Auth::user();
+        $user->load('store_branches');
+
+        $finalBranches = $user->store_branches->filter(function ($branch) use ($supplierCode, $dayName) {
+            return $branch->delivery_schedules()
+                ->where('delivery_schedules.day', $dayName)
+                ->wherePivot('variant', $supplierCode)
+                ->exists();
+        });
+
+        $activeBranches = $finalBranches->where('is_active', true);
+
+        $options = $activeBranches->mapWithKeys(function ($branch) {
+            return [$branch->id => $branch->name . ' (' . $branch->brand_code . ')'];
+        });
+
+        return response()->json($options);
     }
 }
