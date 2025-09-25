@@ -136,12 +136,43 @@ class CSMassCommitsController extends Controller
                 });
             }
         });
+
+        // --- START: Apply same status filtering as index method ---
         $branchIdsForReport = $branchesForReport->pluck('id');
+        $branchStatuses = [];
+        if ($branchIdsForReport->isNotEmpty()) {
+            $orderStatusQuery = StoreOrder::query()
+                ->whereDate('order_date', $orderDate)
+                ->whereIn('store_branch_id', $branchIdsForReport);
+
+            if ($supplierCode !== 'all') {
+                $supplier = Supplier::where('supplier_code', $supplierCode)->first();
+                if ($supplier) {
+                    $orderStatusQuery->where('supplier_id', $supplier->id);
+                }
+            } else {
+                $userSupplierIds = $userSuppliers->pluck('id');
+                $orderStatusQuery->whereIn('supplier_id', $userSupplierIds);
+            }
+
+            $orders = $orderStatusQuery->with('store_branch')->get();
+
+            foreach ($orders as $order) {
+                $branchStatuses[$order->store_branch->brand_code] = $order->order_status;
+            }
+        }
+
+        $allowedStatuses = ['approved', 'committed', 'received', 'incomplete'];
+        $finalBranchesForDisplay = $branchesForReport->filter(function ($branch) use ($branchStatuses, $allowedStatuses) {
+            $status = $branchStatuses[$branch->brand_code] ?? null;
+            return in_array(strtolower($status), $allowedStatuses, true);
+        });
+        // --- END: Apply same status filtering as index method ---
 
         $reportData = $this->getCSMassCommitsData(
             $orderDate,
             $supplierId,
-            $branchesForReport
+            $finalBranchesForDisplay
         );
 
         return Excel::download(
