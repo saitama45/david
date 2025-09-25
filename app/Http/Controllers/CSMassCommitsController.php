@@ -80,10 +80,17 @@ class CSMassCommitsController extends Controller
         }
         // --- END NEW ---
 
+        // Filter the scheduled branches to only include those with orders in an allowed status
+        $allowedStatuses = ['approved', 'committed', 'received', 'incomplete'];
+        $finalBranchesForDisplay = $branchesForReport->filter(function ($branch) use ($branchStatuses, $allowedStatuses) {
+            $status = $branchStatuses[$branch->brand_code] ?? null;
+            return in_array(strtolower($status), $allowedStatuses, true);
+        });
+
         $reportData = $this->getCSMassCommitsData(
             $orderDate,
             $supplierId,
-            $branchesForReport
+            $finalBranchesForDisplay
         );
 
         return Inertia::render('CSMassCommits/Index', [
@@ -91,7 +98,7 @@ class CSMassCommitsController extends Controller
                 'order_date' => $orderDate,
                 'supplier_id' => $supplierCode,
             ],
-            'branches' => $branches,
+            'branches' => $finalBranchesForDisplay->pluck('name', 'id'),
             'suppliers' => $suppliers,
             'report' => $reportData['report'],
             'dynamicHeaders' => $reportData['dynamicHeaders'],
