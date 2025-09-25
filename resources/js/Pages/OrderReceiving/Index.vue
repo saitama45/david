@@ -74,7 +74,7 @@ const exportRoute = computed(() => {
 
 <template>
     <Layout
-        heading="Approved Orders"
+        heading="Inbound Orders"
         :hasExcelDownload="true"
         :exportRoute="exportRoute"
     >

@@ -12,7 +12,7 @@ class StoreOrderRemark extends Model implements Auditable
     use HasFactory, \OwenIt\Auditing\Auditable;
     protected $fillable = [
         'user_id',
-        'order_id',
+        'store_order_id',
         'action',
         'remarks'
     ];

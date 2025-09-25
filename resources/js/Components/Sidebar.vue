@@ -328,7 +328,7 @@ watchEffect(() => {
                     :icon="ClipboardList"
                     :is-active="isPathActive('/orders-receiving')"
                 >
-                    Approved Orders
+                    Inbound Orders
                 </NavLink>
                 <NavLink
                     v-if="hasAccess('view received orders for approval list')"

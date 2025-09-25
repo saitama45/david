@@ -46,7 +46,21 @@ const vFocusSelect = {
   }
 }
 
+const isEditingDisabled = (brandCode) => {
+    const status = props.branchStatuses[brandCode]?.toLowerCase();
+    return status === 'received' || status === 'incomplete';
+};
+
 const startEditing = (row, field, rowIndex) => {
+    if (isEditingDisabled(field)) {
+        toast.add({
+            severity: 'warn',
+            summary: 'Editing Disabled',
+            detail: `Cannot edit commits for this branch as its order has already been processed.`,
+            life: 4000,
+        });
+        return;
+    }
     editingCell.value = { rowIndex, field };
     editValue.value = row[field];
 };
@@ -144,6 +158,17 @@ const resetFilters = () => {
     supplierId.value = 'all';
 };
 
+const canConfirmAny = computed(() => {
+    const statuses = Object.values(props.branchStatuses);
+    if (statuses.length === 0) {
+        return false;
+    }
+    // Check if there is at least one branch that is NOT received or incomplete
+    return statuses.some(status =>
+        status?.toLowerCase() !== 'received' && status?.toLowerCase() !== 'incomplete'
+    );
+});
+
 const exportRoute = computed(() =>
     route('cs-mass-commits.export', {
         order_date: orderDate.value,
@@ -192,7 +217,7 @@ const totalColumns = computed(() => staticHeaders.value.length + branchCount.val
                     <Button @click="resetFilters" variant="outline">
                         Reset Filters
                     </Button>
-                    <Button @click="confirmAllCommits" variant="destructive">
+                    <Button v-if="canConfirmAny" @click="confirmAllCommits" variant="destructive">
                         Confirm All Commits
                     </Button>
                 </div>
@@ -244,7 +269,14 @@ const totalColumns = computed(() => staticHeaders.value.length + branchCount.val
                                         <Button variant="ghost" size="icon" class="h-7 w-7 text-green-600 hover:bg-green-100" @click="saveCommit"><Check class="h-4 w-4" /></Button>
                                         <Button variant="ghost" size="icon" class="h-7 w-7 text-red-600 hover:bg-red-100" @click="cancelEditing"><X class="h-4 w-4" /></Button>
                                     </div>
-                                    <div v-else @click="startEditing(row, header.field, rowIndex)" class="cursor-pointer p-1 rounded min-h-[36px] flex items-center justify-end transition-all duration-150 hover:bg-blue-100 hover:ring-1 hover:ring-blue-400">
+                                                                        <div v-else
+                                        @click="startEditing(row, header.field, rowIndex)"
+                                        class="p-1 rounded min-h-[36px] flex items-center justify-end transition-all duration-150"
+                                        :class="{
+                                            'cursor-pointer hover:bg-blue-100 hover:ring-1 hover:ring-blue-400': !isEditingDisabled(header.field),
+                                            'cursor-not-allowed bg-gray-50 text-gray-500': isEditingDisabled(header.field)
+                                        }"
+                                    >
                                         {{ row[header.field] }}
                                     </div>
                                 </td>

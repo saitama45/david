@@ -279,6 +279,12 @@ class CSMassCommitsController extends Controller
             return response()->json(['message' => 'Order item not found for the specified criteria.'], 404);
         }
 
+        // Validate that the order is not already received or incomplete
+        $orderStatus = strtolower($orderItem->store_order->order_status);
+        if (in_array($orderStatus, ['received', 'incomplete'])) {
+            return response()->json(['message' => 'Cannot edit. Order is already ' . $orderStatus . '.'], 422);
+        }
+
         $orderItem->update(['quantity_commited' => $validated['new_quantity']]);
 
         return redirect()->back()->with('success', 'Commit quantity updated successfully.');
@@ -299,7 +305,8 @@ class CSMassCommitsController extends Controller
 
         $query = StoreOrder::query()
             ->whereDate('order_date', $validated['order_date'])
-            ->whereIn('store_branch_id', $userBranchIds);
+            ->whereIn('store_branch_id', $userBranchIds)
+            ->whereNotIn('order_status', ['received', 'incomplete']);
 
         // If a specific supplier is chosen, filter by it. Otherwise, filter by all user's assigned suppliers.
         if ($validated['supplier_id'] !== 'all') {
@@ -311,12 +318,31 @@ class CSMassCommitsController extends Controller
             $query->whereIn('supplier_id', $userSupplierIds);
         }
 
-        // Update the status and committer information
-        $updatedCount = $query->update([
-            'order_status' => 'committed',
-            'commiter_id' => $user->id,
-            'commited_action_date' => Carbon::now(),
-        ]);
+        // Get the orders that are about to be updated, along with their items.
+        $ordersToCommit = $query->with('store_order_items')->get();
+        $updatedCount = $ordersToCommit->count();
+
+        if ($updatedCount > 0) {
+            // Perform the mass update on the order status
+            StoreOrder::whereIn('id', $ordersToCommit->pluck('id'))->update([
+                'order_status' => 'committed',
+                'commiter_id' => $user->id,
+                'commited_action_date' => Carbon::now(),
+            ]);
+
+            // Now, create the placeholder receive date records
+            foreach ($ordersToCommit as $order) {
+                foreach ($order->store_order_items as $item) {
+                    if ($item->quantity_commited > 0 && $item->ordered_item_receive_dates()->doesntExist()) {
+                        $item->ordered_item_receive_dates()->create([
+                            'quantity_received' => $item->quantity_commited,
+                            'status' => 'pending',
+                            'received_by_user_id' => $user->id,
+                        ]);
+                    }
+                }
+            }
+        }
 
         return redirect()->back()->with('success', $updatedCount . ' order(s) have been committed.');
     }

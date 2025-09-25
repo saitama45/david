@@ -59,11 +59,13 @@ class OrderReceivingController extends Controller
 
         $orderedItems = $this->orderReceivingService->getOrderItems($order);
 
-        $receiveDatesHistory = $order->ordered_item_receive_dates()->with([
+        $receiveDatesHistory = OrderedItemReceiveDate::with([
             'store_order_item.supplierItem',
             'received_by_user',
             'approval_action_by_user'
-        ])->get();
+        ])->whereHas('store_order_item.store_order', function ($query) use ($id) {
+            $query->where('order_number', $id);
+        })->get();
 
         return Inertia::render('OrderReceiving/Show', [
             'order' => $order,
