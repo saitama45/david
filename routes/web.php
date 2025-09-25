@@ -8,6 +8,7 @@ use App\Http\Controllers\ApprovedOrderController;
 use App\Http\Controllers\AuditController;
 use App\Http\Controllers\CashPullOutApproval;
 use App\Http\Controllers\CashPullOutApprovalController;
+use App\Http\Controllers\CSMassCommitsController;
 use App\Http\Controllers\CashPullOutController;
 use App\Http\Controllers\CategoryController;
 use App\Http\Controllers\ConsolidatedSOReportController;
@@ -421,6 +422,13 @@ Route::middleware('auth')
                 Route::get('/edit/{id}', 'edit')->name('edit');
                 Route::put('/update/{id}', 'update')->name('update');
             });
+        });
+
+        // CS Mass Commits
+        Route::controller(CSMassCommitsController::class)->name('cs-mass-commits.')->prefix('cs-mass-commits')->group(function () {
+            Route::middleware('permission:view cs mass commits')->get('/', 'index')->name('index');
+            Route::middleware('permission:export cs mass commits')->get('/export', 'export')->name('export');
+            Route::middleware('permission:edit cs mass commits')->post('/update-commit', 'updateCommit')->name('update-commit');
         });
 
         // Approvals

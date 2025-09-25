@@ -284,6 +284,12 @@ class RolesAndPermissionSeeder extends Seeder
         Permission::firstOrCreate(['name' => 'edit mass orders']);
         Permission::firstOrCreate(['name' => 'show mass orders']);
 
+        // CS Mass Commit
+        Permission::firstOrCreate(['name' => 'view cs mass commits']);
+        Permission::firstOrCreate(['name' => 'create cs mass commits']);
+        Permission::firstOrCreate(['name' => 'edit cs mass commits']);
+        Permission::firstOrCreate(['name' => 'export cs mass commits']);
+
         // Reports from DashboardController (Added for consistency)
         Permission::firstOrCreate(['name' => 'view top 10 inventories']);
         Permission::firstOrCreate(['name' => 'export top 10 inventories']);
