@@ -150,14 +150,7 @@ class CSMassCommitsController extends Controller
 
     private function getCSMassCommitsData(string $orderDate, $supplierId = 'all', ?Collection $branchIds = null): array
     {
-        $branchQuery = StoreBranch::where('is_active', true)->orderBy('brand_code');
-        if ($branchIds && $branchIds->isNotEmpty()) {
-            $branchQuery->whereIn('id', $branchIds);
-        }
-        $allBranches = $branchQuery->get();
-        $brandCodes = $allBranches->pluck('brand_code')->toArray();
-        $totalBranches = count($brandCodes);
-
+        // 1. Build the query for actual StoreOrders first
         $query = StoreOrder::query()
             ->with(['storeOrderItems.supplierItem.sapMasterfiles', 'store_branch'])
             ->whereDate('order_date', $orderDate)
@@ -173,7 +166,12 @@ class CSMassCommitsController extends Controller
             $query->whereIn('store_branch_id', $branchIds);
         }
 
-        $storeOrders = $query->get();
+        $storeOrders = $query->get(); // Get the actual orders
+
+        // 2. Now, extract the unique branches that actually have orders
+        $allBranches = $storeOrders->pluck('store_branch')->unique('id')->sortBy('brand_code');
+        $brandCodes = $allBranches->pluck('brand_code')->toArray();
+        $totalBranches = count($brandCodes);
 
         $reportItems = $storeOrders->flatMap(function ($order) {
             return $order->storeOrderItems->map(function ($orderItem) use ($order) {
@@ -228,7 +226,7 @@ class CSMassCommitsController extends Controller
         ];
 
         $dynamicBranchHeaders = $allBranches->map(function ($branch) {
-            return ['label' => $branch->brand_code . ' Qty', 'field' => $branch->brand_code];
+            return ['label' => $branch->brand_code, 'field' => $branch->brand_code];
         })->toArray();
 
         $trailingHeaders = [
