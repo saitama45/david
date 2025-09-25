@@ -345,6 +345,9 @@ Route::middleware('auth')
 
             // ROUTE: To fetch supplier items based on supplier code
             Route::get('/get-supplier-items/{supplierCode}', 'getSupplierItems')->name('get-supplier-items');
+
+            Route::get('/available-dates/{supplier_code}', 'getAvailableDatesForSupplier')->name('available-dates');
+            Route::get('/get-branches', 'getBranchesForDateAndSupplier')->name('get-branches');
         });
 
         // Orders Approval
