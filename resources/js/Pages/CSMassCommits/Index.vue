@@ -16,6 +16,7 @@ const props = defineProps({
     totalBranches: { type: Number, required: true },
     branchStatuses: { type: Object, required: true }, // NEW PROP
     permissions: { type: Object, required: true },
+    availableCategories: { type: Array, required: true },
 });
 
 const { toast } = useToast();
@@ -26,6 +27,7 @@ const { options: suppliersOptions } = useSelectOptions(props.suppliers);
 
 const orderDate = ref(props.filters.order_date || new Date().toISOString().slice(0, 10));
 const supplierId = ref(props.filters.supplier_id || 'all');
+const categoryFilter = ref(props.filters.category || 'all');
 
 // --- Inline Editing State ---
 const editingCell = ref(null); // { rowIndex, field }
@@ -161,12 +163,13 @@ const statusBadgeColor = (status) => {
     }
 };
 
-watch([orderDate, supplierId], throttle(() => {
+watch([orderDate, supplierId, categoryFilter], throttle(() => {
     router.get(
         route('cs-mass-commits.index'),
         {
             order_date: orderDate.value,
             supplier_id: supplierId.value,
+            category: categoryFilter.value,
         },
         {
             preserveState: true,
@@ -179,6 +182,7 @@ watch([orderDate, supplierId], throttle(() => {
 const resetFilters = () => {
     orderDate.value = new Date().toISOString().slice(0, 10);
     supplierId.value = 'all';
+    categoryFilter.value = 'all';
 };
 
 const canConfirmAny = computed(() => {
@@ -234,6 +238,26 @@ const totalColumns = computed(() => staticHeaders.value.length + branchCount.val
                         optionValue="value"
                         class="w-64"
                     />
+                </div>
+
+                <div class="flex items-center gap-4">
+                    <label for="category_filter" class="text-sm font-medium text-gray-700">Category:</label>
+                    <Select
+                        id="category_filter"
+                        filter
+                        placeholder="All Categories"
+                        v-model="categoryFilter"
+                        :options="props.availableCategories.map(c => ({ label: c, value: c }))"
+                        optionLabel="label"
+                        optionValue="value"
+                        class="w-64"
+                    >
+                        <template #header>
+                            <div class="p-2">
+                                <Button text @click="categoryFilter = 'all'" class="w-full text-left">All Categories</Button>
+                            </div>
+                        </template>
+                    </Select>
                 </div>
 
                 <div class="flex items-center gap-2 ml-auto">

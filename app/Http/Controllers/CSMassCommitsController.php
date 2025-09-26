@@ -20,6 +20,7 @@ class CSMassCommitsController extends Controller
         $user = Auth::user();
         $orderDate = $request->input('order_date', Carbon::today()->format('Y-m-d'));
         $supplierCode = $request->input('supplier_id', 'all');
+        $categoryFilter = $request->input('category', 'all'); // Add category filter
 
         $userSuppliers = $user->suppliers()->get();
         $suppliers = $userSuppliers->map(function ($supplier) {
@@ -90,13 +91,17 @@ class CSMassCommitsController extends Controller
         $reportData = $this->getCSMassCommitsData(
             $orderDate,
             $supplierId,
-            $finalBranchesForDisplay
+            $finalBranchesForDisplay,
+            $categoryFilter // Pass category filter
         );
+
+        $availableCategories = $reportData['report']->pluck('category')->unique()->values()->all();
 
         return Inertia::render('CSMassCommits/Index', [
             'filters' => [
                 'order_date' => $orderDate,
                 'supplier_id' => $supplierCode,
+                'category' => $categoryFilter,
             ],
             'branches' => $finalBranchesForDisplay->pluck('name', 'id'),
             'suppliers' => $suppliers,
@@ -107,7 +112,8 @@ class CSMassCommitsController extends Controller
             'permissions' => [
                 'canEditFinishedGood' => $user->can('edit finished good commits'),
                 'canEditOther' => $user->can('edit other commits'),
-            ]
+            ],
+            'availableCategories' => $availableCategories,
         ]);
     }
 
@@ -190,7 +196,7 @@ class CSMassCommitsController extends Controller
         );
     }
 
-    private function getCSMassCommitsData(string $orderDate, $supplierId = 'all', ?Collection $scheduledBranches = null): array
+    private function getCSMassCommitsData(string $orderDate, $supplierId = 'all', ?Collection $scheduledBranches = null, string $categoryFilter = 'all'): array
     {
         // 1. Use the scheduled branches passed to the function to build the headers.
         // This ensures all scheduled branches appear as columns, even if they have no committed orders yet.
@@ -217,21 +223,44 @@ class CSMassCommitsController extends Controller
         $storeOrders = $query->get(); // Get the actual orders with data
 
         // 3. Process the orders into the report structure
-        $reportItems = $storeOrders->flatMap(function ($order) {
-            return $order->storeOrderItems->map(function ($orderItem) use ($order) {
-                $supplierItem = $orderItem->supplierItem;
-                $sapMasterfile = $supplierItem ? $supplierItem->sap_master_file : null;
+        $user = Auth::user();
+        $canEditFinishedGood = $user->can('edit finished good commits');
+        $canEditOther = $user->can('edit other commits');
 
-                return [
-                    'category' => $supplierItem ? $supplierItem->category : 'N/A',
-                    'item_code' => $orderItem->item_code,
-                    'item_name' => $sapMasterfile ? $sapMasterfile->ItemDescription : ($supplierItem ? $supplierItem->item_name : 'N/A'),
-                    'unit' => $orderItem->uom,
-                    'brand_code' => $order->store_branch->brand_code,
-                    'quantity_commited' => (float) $orderItem->quantity_commited,
-                    'supplier_id' => $order->supplier_id,
-                ];
-            });
+        $reportItems = $storeOrders->flatMap(function ($order) use ($canEditFinishedGood, $canEditOther, $categoryFilter) {
+            return $order->storeOrderItems
+                ->filter(function ($orderItem) use ($canEditFinishedGood, $canEditOther) { // First, filter by permissions
+                    if (!$orderItem->supplierItem) return false;
+                    $isFinishedGood = $orderItem->supplierItem->category === 'FINISHED GOOD';
+
+                    if ($canEditFinishedGood && !$canEditOther) {
+                        return $isFinishedGood;
+                    }
+                    if (!$canEditFinishedGood && $canEditOther) {
+                        return !$isFinishedGood;
+                    }
+                    return true; // User has both or neither permission, show all
+                })
+                ->filter(function ($orderItem) use ($categoryFilter) { // Then, filter by the user's dropdown selection
+                    if ($categoryFilter === 'all') {
+                        return true;
+                    }
+                    return $orderItem->supplierItem->category === $categoryFilter;
+                })
+                ->map(function ($orderItem) use ($order) {
+                    $supplierItem = $orderItem->supplierItem;
+                    $sapMasterfile = $supplierItem ? $supplierItem->sap_master_file : null;
+
+                    return [
+                        'category' => $supplierItem ? $supplierItem->category : 'N/A',
+                        'item_code' => $orderItem->item_code,
+                        'item_name' => $sapMasterfile ? $sapMasterfile->ItemDescription : ($supplierItem ? $supplierItem->item_name : 'N/A'),
+                        'unit' => $orderItem->uom,
+                        'brand_code' => $order->store_branch->brand_code,
+                        'quantity_commited' => (float) $orderItem->quantity_commited,
+                        'supplier_id' => $order->supplier_id,
+                    ];
+                });
         })
         ->groupBy(function ($item) {
             return $item['category'] . '|' . $item['item_code'] . '|' . $item['item_name'] . '|' . $item['unit'];
