@@ -263,7 +263,7 @@ class MassOrdersController extends Controller
             return response()->json([]);
         }
 
-        $now = Carbon::now();
+        $now = Carbon::now('Asia/Manila');
 
         $getCutoffDate = function($day, $time) use ($now) {
             if (!$day || !$time) return null;
@@ -287,9 +287,13 @@ class MassOrdersController extends Controller
             // If it's a GSI supplier, the delivery is always next week.
             $weekOffset = str_starts_with($supplier_code, 'GSI') ? 1 : 0;
         } else {
-            // After all cutoffs, it's always next week for everyone.
+            // After all cutoffs, it's next week for most, but week-after-next for GSI.
             $daysToCoverStr = $cutoff->days_covered_1;
-            $weekOffset = 1;
+            if (str_starts_with($supplier_code, 'GSI')) {
+                $weekOffset = 2;
+            } else {
+                $weekOffset = 1;
+            }
         }
 
         $startOfTargetWeek = $now->copy()->startOfWeek(Carbon::SUNDAY)->addWeeks($weekOffset);
@@ -362,7 +366,7 @@ class MassOrdersController extends Controller
         $enabledDates = [];
         $cutoff = \App\Models\OrdersCutoff::where('ordering_template', $initialSupplierCode)->first();
         if ($cutoff) {
-            $now = Carbon::now();
+            $now = Carbon::now('Asia/Manila');
             $getCutoffDate = function($day, $time) use ($now) {
                 if (!$day || !$time) return null;
                 $dayIndex = ($day == 7) ? 0 : $day;
@@ -383,7 +387,11 @@ class MassOrdersController extends Controller
                 $weekOffset = str_starts_with($initialSupplierCode, 'GSI') ? 1 : 0;
             } else {
                 $daysToCoverStr = $cutoff->days_covered_1;
-                $weekOffset = 1;
+                if (str_starts_with($initialSupplierCode, 'GSI')) {
+                    $weekOffset = 2;
+                } else {
+                    $weekOffset = 1;
+                }
             }
 
             $startOfTargetWeek = $now->copy()->startOfWeek(Carbon::SUNDAY)->addWeeks($weekOffset);
