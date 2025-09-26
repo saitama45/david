@@ -109,7 +109,7 @@ class RoleService
                     'view mass orders', 'create mass orders', 'edit mass orders', 'show mass orders'
                 ],
                 'CS Mass Commits' => [
-                    'view cs mass commits', 'create cs mass commits', 'edit cs mass commits'
+                    'view cs mass commits', 'create cs mass commits', 'edit cs mass commits', 'edit finished good commits', 'edit other commits'
                 ],
             ],
             'Receiving' => [

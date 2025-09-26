@@ -15,6 +15,7 @@ const props = defineProps({
     filters: { type: Object, required: true },
     totalBranches: { type: Number, required: true },
     branchStatuses: { type: Object, required: true }, // NEW PROP
+    permissions: { type: Object, required: true },
 });
 
 const { toast } = useToast();
@@ -51,6 +52,15 @@ const isEditingDisabled = (brandCode) => {
     return status === 'received' || status === 'incomplete';
 };
 
+const canUserEditRow = (row) => {
+    const isFinishedGood = row.category === 'FINISHED GOOD';
+    if (isFinishedGood) {
+        return props.permissions.canEditFinishedGood;
+    } else {
+        return props.permissions.canEditOther;
+    }
+};
+
 const startEditing = (row, field, rowIndex) => {
     if (isEditingDisabled(field)) {
         toast.add({
@@ -61,6 +71,18 @@ const startEditing = (row, field, rowIndex) => {
         });
         return;
     }
+
+    // New permission check
+    if (!canUserEditRow(row)) {
+        toast.add({
+            severity: 'warn',
+            summary: 'Permission Denied',
+            detail: 'You do not have permission to edit items in this category.',
+            life: 4000,
+        });
+        return;
+    }
+
     editingCell.value = { rowIndex, field };
     editValue.value = row[field];
 };
@@ -282,8 +304,8 @@ const totalColumns = computed(() => staticHeaders.value.length + branchCount.val
                                         @click="startEditing(row, header.field, rowIndex)"
                                         class="p-1 rounded min-h-[36px] flex items-center justify-end transition-all duration-150"
                                         :class="{
-                                            'cursor-pointer hover:bg-blue-100 hover:ring-1 hover:ring-blue-400': !isEditingDisabled(header.field),
-                                            'cursor-not-allowed bg-gray-50 text-gray-500': isEditingDisabled(header.field)
+                                            'cursor-pointer hover:bg-blue-100 hover:ring-1 hover:ring-blue-400': !isEditingDisabled(header.field) && canUserEditRow(row),
+                                            'cursor-not-allowed bg-gray-50 text-gray-500': isEditingDisabled(header.field) || !canUserEditRow(row)
                                         }"
                                     >
                                         {{ row[header.field] }}

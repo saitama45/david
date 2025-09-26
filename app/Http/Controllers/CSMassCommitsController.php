@@ -104,6 +104,10 @@ class CSMassCommitsController extends Controller
             'dynamicHeaders' => $reportData['dynamicHeaders'],
             'totalBranches' => $reportData['totalBranches'],
             'branchStatuses' => $branchStatuses, // NEW PROP
+            'permissions' => [
+                'canEditFinishedGood' => $user->can('edit finished good commits'),
+                'canEditOther' => $user->can('edit other commits'),
+            ]
         ]);
     }
 
@@ -310,6 +314,22 @@ class CSMassCommitsController extends Controller
             'brand_code' => 'required|string|exists:store_branches,brand_code',
             'new_quantity' => 'required|numeric|min:0',
         ]);
+
+        // Find the item's category for permission checking
+        $supplierItem = \App\Models\SupplierItems::where('ItemCode', $validated['item_code'])->firstOrFail();
+        $category = $supplierItem->category;
+
+        // Perform permission check
+        $user = Auth::user();
+        $isFinishedGood = $category === 'FINISHED GOOD';
+
+        if ($isFinishedGood && !$user->can('edit finished good commits')) {
+            return response()->json(['message' => 'You do not have permission to edit items in the FINISHED GOOD category.'], 403);
+        }
+
+        if (!$isFinishedGood && !$user->can('edit other commits')) {
+            return response()->json(['message' => 'You do not have permission to edit items in this category.'], 403);
+        }
 
         $orderItem = \App\Models\StoreOrderItem::where('item_code', $validated['item_code'])
             ->whereHas('store_order', function ($query) use ($validated) {

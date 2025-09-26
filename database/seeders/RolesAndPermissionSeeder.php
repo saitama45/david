@@ -290,6 +290,17 @@ class RolesAndPermissionSeeder extends Seeder
         Permission::firstOrCreate(['name' => 'edit cs mass commits']);
         Permission::firstOrCreate(['name' => 'export cs mass commits']);
 
+        // NEW: Permissions for category-specific editing in CS Mass Commits
+        $editFinishedGood = Permission::firstOrCreate(['name' => 'edit finished good commits']);
+        $editOther = Permission::firstOrCreate(['name' => 'edit other commits']);
+
+        // NEW: Roles for category-specific editing
+        $finishedGoodEditorRole = Role::firstOrCreate(['name' => 'Finished Goods CS']);
+        $finishedGoodEditorRole->syncPermissions([$editFinishedGood]); // Only this permission
+
+        $generalEditorRole = Role::firstOrCreate(['name' => 'General CS']);
+        $generalEditorRole->syncPermissions([$editOther]); // Only this permission
+
         // Reports from DashboardController (Added for consistency)
         Permission::firstOrCreate(['name' => 'view top 10 inventories']);
         Permission::firstOrCreate(['name' => 'export top 10 inventories']);
