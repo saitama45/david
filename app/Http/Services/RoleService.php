@@ -75,6 +75,12 @@ class RoleService
                 'Ordering Cut Off' => [
                     'view orders cutoff', 'edit orders cutoff', 'create orders cutoff', 'show orders cutoff'
                 ],
+                'Month End Schedules' => [
+                    'view month end schedules',
+                    'create month end schedules',
+                    'edit month end schedules',
+                    'delete month end schedules',
+                ],
                 'Templates' => [
                     'view templates', 'create templates', 'edit templates', 'delete templates', 'export templates'
                 ],
@@ -161,12 +167,6 @@ class RoleService
                 ],
                 'Low on Stocks' => [
                     'view low on stocks', 'export low on stocks'
-                ],
-                'Month End Schedules' => [
-                    'view month end schedules',
-                    'create month end schedules',
-                    'edit month end schedules',
-                    'delete month end schedules',
                 ],
                 'Month End Count' => [
                     'perform month end count',

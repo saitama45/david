@@ -97,7 +97,8 @@ const canViewSettingsGroup = computed(() =>
     hasAccess("view templates") ||
     hasAccess("view dts delivery schedules") ||
     hasAccess("view dsp delivery schedules") ||
-    hasAccess("view orders cutoff")
+    hasAccess("view orders cutoff") ||
+    hasAccess("view month end schedules")
 );
 
 const canViewOrderingGroup = computed(() =>
@@ -133,8 +134,7 @@ const canViewInventoryGroup = computed(() =>
     hasAccess("view bom list") || // Corrected from 'view menu list'
     hasAccess("view stock management") ||
     hasAccess("view soh adjustment") ||
-    hasAccess("view low on stocks") ||
-    hasAccess("view month end schedules") || // NEW
+    hasAccess("view low on stocks") || // NEW
     hasAccess("perform month end count") || // NEW
     hasAccess("view month end count approvals") || // NEW
     hasAccess("view month end count approvals level 2")
@@ -184,11 +184,11 @@ watchEffect(() => {
 
     // Define all collapsible sections and their associated paths
     const sections = [
-        { ref: settingsOpen, paths: ["/users", "/roles", "/templates", "/dts-delivery-schedules", "/dsp-delivery-schedules", "/orders-cutoff"] },
+        { ref: settingsOpen, paths: ["/users", "/roles", "/templates", "/dts-delivery-schedules", "/dsp-delivery-schedules", "/orders-cutoff", "/month-end-schedules"] },
         { ref: orderingOpen, paths: ["/store-orders", "/emergency-orders", "/additional-orders", "/dts-orders", "/orders-approval", "/cs-approvals", "/additional-orders-approval", "/emergency-orders-approval", "/mass-orders", "/cs-mass-commits"] },
         { ref: receivingOpen, paths: ["/direct-receiving", "/orders-receiving", "/approved-orders", "/receiving-approvals"] },
         { ref: salesOpen, paths: ["/sales-orders", "/store-transactions", "/store-transactions-approval"] },
-        { ref: inventoryOpen, paths: ["/items-list", "/sapitems-list", "/SupplierItems-list", "/POSMasterfile-list", "/pos-bom-list", "/stock-management", "/soh-adjustment", "/low-on-stocks", "/month-end-schedules", "/month-end-count", "/month-end-count-approvals", "/month-end-count-approvals-level2"] },
+        { ref: inventoryOpen, paths: ["/items-list", "/sapitems-list", "/SupplierItems-list", "/POSMasterfile-list", "/pos-bom-list", "/stock-management", "/soh-adjustment", "/low-on-stocks", "/month-end-count", "/month-end-count-approvals", "/month-end-count-approvals-level2"] },
         { ref: reportsOpen, paths: ["/reports/consolidated-so", "/top-10-inventories", "/days-inventory-outstanding", "/days-payable-outstanding", "/sales-report", "/inventories-report", "/upcoming-inventories", "/account-payable", "/cost-of-goods", "/product-orders-summary", "/ice-cream-orders", "/salmon-orders", "/fruits-and-vegetables"] }, // CRITICAL FIX: Added new path
         { ref: referencesOpen, paths: ["/category-list", "/wip-list", "/menu-categories", "/uom-conversions", "/inventory-categories", "/unit-of-measurements", "/branches", "/suppliers", "/cost-centers"] },
     ];
@@ -481,15 +481,6 @@ watchEffect(() => {
                     :is-active="isPathActive('/low-on-stocks')">
                     Low on Stocks
                 </NavLink>
-                <!-- NEW: Month End Schedules -->
-                <NavLink
-                    v-if="hasAccess('view month end schedules')"
-                    href="/month-end-schedules"
-                    :icon="CalendarCheck2"
-                    :is-active="isPathActive('/month-end-schedules')"
-                >
-                    Month End Schedules
-                </NavLink>
                 <!-- NEW: Month End Count -->
                 <NavLink
                     v-if="hasAccess('perform month end count')"
@@ -737,6 +728,14 @@ watchEffect(() => {
                     :is-active="isPathActive('/orders-cutoff')"
                 >
                     Ordering Cut Off
+                </NavLink>
+                <NavLink
+                    v-if="hasAccess('view month end schedules')"
+                    href="/month-end-schedules"
+                    :icon="CalendarCheck2"
+                    :is-active="isPathActive('/month-end-schedules')"
+                >
+                    Month End Schedules
                 </NavLink>
             </CollapsibleContent>
         </Collapsible>
