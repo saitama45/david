@@ -223,25 +223,12 @@ class CSMassCommitsController extends Controller
         $storeOrders = $query->get(); // Get the actual orders with data
 
         // 3. Process the orders into the report structure
-        $user = Auth::user();
-        $canEditFinishedGood = $user->can('edit finished good commits');
-        $canEditOther = $user->can('edit other commits');
-
-        $reportItems = $storeOrders->flatMap(function ($order) use ($canEditFinishedGood, $canEditOther, $categoryFilter) {
+        $reportItems = $storeOrders->flatMap(function ($order) use ($categoryFilter) {
             return $order->storeOrderItems
-                ->filter(function ($orderItem) use ($canEditFinishedGood, $canEditOther) { // First, filter by permissions
-                    if (!$orderItem->supplierItem) return false;
-                    $isFinishedGood = $orderItem->supplierItem->category === 'FINISHED GOOD';
-
-                    if ($canEditFinishedGood && !$canEditOther) {
-                        return $isFinishedGood;
-                    }
-                    if (!$canEditFinishedGood && $canEditOther) {
-                        return !$isFinishedGood;
-                    }
-                    return true; // User has both or neither permission, show all
+                ->filter(function ($orderItem) {
+                    return $orderItem->supplierItem !== null;
                 })
-                ->filter(function ($orderItem) use ($categoryFilter) { // Then, filter by the user's dropdown selection
+                ->filter(function ($orderItem) use ($categoryFilter) {
                     if ($categoryFilter === 'all') {
                         return true;
                     }
