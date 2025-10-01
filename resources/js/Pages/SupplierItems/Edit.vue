@@ -177,6 +177,12 @@ const activeStatuses = ref([
                 </InputContainer>
 
                 <InputContainer>
+                    <Label>Config</Label>
+                    <Input type="number" v-model="form.config" step="0.01" />
+                    <FormError>{{ form.errors.config }}</FormError>
+                </InputContainer>
+
+                <InputContainer>
                     <Label>UOM</Label>
                     <Input v-model="form.uom" />
                     <FormError>{{ form.errors.uom }}</FormError>

@@ -120,7 +120,7 @@ const viewApproval = (scheduleId, branchId) => {
                     </TH>
                     <TH>
                         <div class="flex items-center cursor-pointer" @click="sortBy('calculated_date')">
-                            Calculated Date
+                            MEC Schedule Date
                             <ArrowUp v-if="sortKey === 'calculated_date' && sortDir === 'asc'" class="h-4 w-4 ml-1" />
                             <ArrowDown v-if="sortKey === 'calculated_date' && sortDir === 'desc'" class="h-4 w-4 ml-1" />
                         </div>

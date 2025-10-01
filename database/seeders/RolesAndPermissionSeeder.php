@@ -301,12 +301,16 @@ class RolesAndPermissionSeeder extends Seeder
         $generalEditorRole = Role::firstOrCreate(['name' => 'General CS']);
         $generalEditorRole->syncPermissions([$editOther]); // Only this permission
 
-        // NEW: Month End Count
+        // NEW: Month End Schedules
         Permission::firstOrCreate(['name' => 'view month end schedules']);
         Permission::firstOrCreate(['name' => 'create month end schedules']);
+        Permission::firstOrCreate(['name' => 'edit month end schedules']);
         Permission::firstOrCreate(['name' => 'delete month end schedules']);
+
+        // NEW: Month End Count
         Permission::firstOrCreate(['name' => 'perform month end count']);
         Permission::firstOrCreate(['name' => 'edit month end count items']);
+        Permission::firstOrCreate(['name' => 'view month end count transaction']);
 
         // NEW: Month End Count Approvals
         Permission::firstOrCreate(['name' => 'view month end count approvals']);

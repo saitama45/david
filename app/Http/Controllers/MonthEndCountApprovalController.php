@@ -120,7 +120,7 @@ class MonthEndCountApprovalController extends Controller
             ->where('branch_id', $branch->id)
             ->where('status', 'pending_level1_approval')
             ->orderBy('item_name')
-            ->paginate(20);
+            ->get();
 
         return Inertia::render('MonthEndCountApproval/Show', [
             'schedule' => [
@@ -148,6 +148,10 @@ class MonthEndCountApprovalController extends Controller
             abort(403, 'You do not have permission to edit count items.');
         }
 
+        if ($request->has('config') && !empty($monthEndCountItem->packaging_config)) {
+            return redirect()->back()->withErrors(['error' => 'Config cannot be edited when Packaging Config has a value.']);
+        }
+
         // Allow editing only for items awaiting level 1 approval
         if ($monthEndCountItem->status !== 'pending_level1_approval') {
             return redirect()->back()->withErrors(['error' => 'Item can only be edited while awaiting Level 1 approval.']);
@@ -158,6 +162,7 @@ class MonthEndCountApprovalController extends Controller
             'loose_qty' => 'nullable|numeric|min:0',
             'loose_uom' => 'nullable|string|max:255',
             'remarks' => 'nullable|string|max:1000',
+            'config' => 'nullable|numeric|gt:0',
         ]);
 
         // Apply the validated updates to the model instance

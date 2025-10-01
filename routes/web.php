@@ -442,7 +442,9 @@ Route::middleware('auth')
             ->group(function () {
                 Route::middleware('permission:view month end schedules')->get('/', 'index')->name('index');
                 Route::middleware('permission:create month end schedules')->post('/', 'store')->name('store');
+                Route::middleware('permission:edit month end schedules')->put('/{schedule}', 'update')->name('update');
                 Route::middleware('permission:delete month end schedules')->delete('/{schedule}', 'destroy')->name('destroy');
+                Route::middleware('permission:view month end schedules')->get('/{schedule}/details', 'getDetails')->name('details');
             });
 
         // Month End Count Execution

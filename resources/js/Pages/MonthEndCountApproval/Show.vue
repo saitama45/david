@@ -1,15 +1,14 @@
 <script setup>
 import { Head, router } from '@inertiajs/vue3';
-import { ref, computed } from 'vue';
+import { ref, computed, nextTick } from 'vue';
 import { Check, X, Pencil, Save, Ban, ArrowLeft } from 'lucide-vue-next';
 import { useConfirm } from "primevue/useconfirm";
 import { useToast } from "@/Composables/useToast";
 
-// Correct props for the Approval page
 const props = defineProps({
     schedule: { type: Object, required: true },
     branch: { type: Object, required: true },
-    countItems: { type: Object, required: true },
+    countItems: { type: Array, required: true },
     canEditItems: { type: Boolean, required: true },
     canApproveLevel1: { type: Boolean, required: true },
     canApproveLevel2: { type: Boolean, required: true },
@@ -20,8 +19,8 @@ const { toast } = useToast();
 
 const editingCell = ref(null);
 const editValue = ref('');
+const editInput = ref(null);
 
-// Custom directive to focus and select text on mount
 const vFocusSelect = {
   mounted: (el) => {
     const input = el.tagName === 'INPUT' ? el : el.querySelector('input');
@@ -49,7 +48,6 @@ const formatDate = (dateString) => {
     }).format(correctedDate);
 };
 
-// Approver can edit items awaiting their approval
 const isEditableStatus = (itemStatus) => {
     return itemStatus === 'pending_level1_approval';
 };
@@ -68,8 +66,20 @@ const startEditing = (item, field) => {
         return;
     }
     if (field === 'total_qty') return;
+
+    if (field === 'config' && item.packaging_config) {
+        toast.add({ severity: 'warn', summary: 'Editing Disabled', detail: 'Config cannot be edited when Packaging Config has a value.', life: 4000 });
+        return;
+    }
+
     editingCell.value = { itemId: item.id, field };
     editValue.value = item[field];
+
+    nextTick(() => {
+        if (editInput.value) {
+            editInput.value.select();
+        }
+    });
 };
 
 const cancelEditing = () => {
@@ -82,10 +92,11 @@ const saveItemEdit = (item) => {
     const { field } = editingCell.value;
     let newValue = editValue.value;
 
-    if (['bulk_qty', 'loose_qty'].includes(field)) {
+    if (['bulk_qty', 'loose_qty', 'config'].includes(field)) {
         newValue = parseFloat(newValue);
-        if (isNaN(newValue) || newValue < 0) {
-            toast.add({ severity: 'error', summary: 'Invalid Input', detail: `${field} must be a non-negative number.`, life: 3000 });
+        if (isNaN(newValue) || (field === 'config' && newValue <= 0) || (field !== 'config' && newValue < 0)) {
+            const message = field === 'config' ? 'Config must be a positive number.' : `${field} must be a non-negative number.`;
+            toast.add({ severity: 'error', summary: 'Invalid Input', detail: message, life: 3000 });
             return;
         }
     }
@@ -105,7 +116,6 @@ const saveItemEdit = (item) => {
     });
 };
 
-// --- Approval/Rejection Logic ---
 const approve = () => {
     confirm.require({
         message: 'Are you sure you want to approve this count?',
@@ -129,13 +139,12 @@ const goBack = () => {
     router.get(route('month-end-count-approvals.index'));
 };
 
-// Check if there are any items that can be approved
 const hasPendingL1Items = computed(() => {
-    return props.countItems.data.some(item => item.status === 'pending_level1_approval');
+    return props.countItems.some(item => item.status === 'pending_level1_approval');
 });
 
 const branchStatus = computed(() => {
-    return props.countItems.data.length > 0 ? props.countItems.data[0].status : props.schedule.status;
+    return props.countItems.length > 0 ? props.countItems[0].status : props.schedule.status;
 });
 
 </script>
@@ -148,7 +157,7 @@ const branchStatus = computed(() => {
             <h3 class="text-lg font-semibold mb-2">Schedule Details</h3>
             <p><strong>Year:</strong> {{ schedule.year }}</p>
             <p><strong>Month:</strong> {{ getMonthName(schedule.month) }}</p>
-            <p><strong>Calculated Date:</strong> {{ formatDate(schedule.calculated_date) }}</p>
+            <p><strong>MEC Schedule Date:</strong> {{ formatDate(schedule.calculated_date) }}</p>
             <p><strong>Branch:</strong> {{ branch.name }}</p>
             <p><strong>Current Status:</strong>
                 <Badge class="capitalize" :class="{
@@ -190,15 +199,32 @@ const branchStatus = computed(() => {
                         <TH>Uploaded By</TH>
                     </TableHead>
                     <TableBody>
-                        <tr v-if="!countItems.data.length">
+                        <tr v-if="!countItems.length">
                             <td colspan="12" class="text-center py-4">No items awaiting approval found for this count.</td>
                         </tr>
-                        <tr v-for="item in countItems.data" :key="item.id">
+                        <tr v-for="item in countItems" :key="item.id">
                             <TD>{{ item.item_code }}</TD>
                             <TD>{{ item.item_name }}</TD>
                             <TD>{{ item.uom }}</TD>
                             <TD>{{ item.packaging_config }}</TD>
-                            <TD>{{ item.config }}</TD>
+                            <TD>
+                                <div v-if="editingCell && editingCell.itemId === item.id && editingCell.field === 'config'" class="flex items-center gap-1">
+                                    <Input v-focus-select type="number" v-model="editValue" class="w-24 text-right py-1" @keyup.enter="saveItemEdit(item)" @keyup.esc="cancelEditing" />
+                                    <Button variant="ghost" size="icon" class="h-7 w-7 text-green-600 hover:bg-green-100" @click="saveItemEdit(item)"><Save class="h-4 w-4" /></Button>
+                                    <Button variant="ghost" size="icon" class="h-7 w-7 text-red-600 hover:bg-red-100" @click="cancelEditing"><X class="h-4 w-4" /></Button>
+                                </div>
+                                <div v-else
+                                    @click="startEditing(item, 'config')"
+                                    class="p-1 rounded min-h-[36px] flex items-center justify-end transition-all duration-150"
+                                    :class="{
+                                        'cursor-pointer hover:bg-blue-100 hover:ring-1 hover:ring-blue-400 bg-blue-50': canEditItems && isEditableStatus(item.status) && !item.packaging_config,
+                                        'cursor-not-allowed bg-gray-50 text-gray-500': !canEditItems || !isEditableStatus(item.status) || item.packaging_config
+                                    }"
+                                >
+                                    {{ item.config }}
+                                    <Pencil v-if="canEditItems && isEditableStatus(item.status) && !item.packaging_config" class="h-3 w-3 ml-1 text-gray-500" />
+                                </div>
+                            </TD>
                             <TD>
                                 <div v-if="editingCell && editingCell.itemId === item.id && editingCell.field === 'bulk_qty'" class="flex items-center gap-1">
                                     <Input v-focus-select type="number" v-model="editValue" class="w-24 text-right py-1" @keyup.enter="saveItemEdit(item)" @keyup.esc="cancelEditing" />
@@ -285,7 +311,6 @@ const branchStatus = computed(() => {
                     </TableBody>
                 </Table>
             </div>
-            <Pagination :data="countItems" />
         </TableContainer>
     </Layout>
 </template>

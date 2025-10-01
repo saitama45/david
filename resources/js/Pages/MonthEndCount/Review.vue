@@ -8,8 +8,8 @@ import { useToast } from "@/Composables/useToast";
 const props = defineProps({
     schedule: { type: Object, required: true },
     branch: { type: Object, required: true },
-    countItems: { type: Object, required: true },
-    canEditItems: { type: Boolean, required: true }, // New prop
+    countItems: { type: Array, required: true }, // Changed from Object to Array
+    canEditItems: { type: Boolean, required: true },
 });
 
 const confirm = useConfirm();
@@ -42,17 +42,15 @@ const getMonthName = (monthNumber) => {
 };
 
 const isEditableStatus = (itemStatus) => {
-    return itemStatus === 'uploaded';
+    return itemStatus === 'uploaded' || itemStatus === 'upload';
 };
 
 const calculateTotalQty = (item) => {
     const bulk = parseFloat(item.bulk_qty) || 0;
     const loose = parseFloat(item.loose_qty) || 0;
-    const config = parseFloat(item.config) || 1; // Default to 1 to prevent division by zero
-
-    if (config === 0) return bulk + loose; // Handle config being zero if it's possible
-
-    return (bulk + (loose / config)).toFixed(4); // Format to 4 decimal places
+    const config = parseFloat(item.config) || 1;
+    if (config === 0) return bulk + loose;
+    return (bulk + (loose / config)).toFixed(4);
 };
 
 const startEditing = (item, field) => {
@@ -60,8 +58,12 @@ const startEditing = (item, field) => {
         toast.add({ severity: 'warn', summary: 'Editing Disabled', detail: 'You do not have permission or the item status prevents editing.', life: 3000 });
         return;
     }
-    // Total Qty is not editable, it's calculated
     if (field === 'total_qty') return;
+
+    if (field === 'config' && item.packaging_config) {
+        toast.add({ severity: 'warn', summary: 'Editing Disabled', detail: 'Config cannot be edited when Packaging Config has a value.', life: 4000 });
+        return;
+    }
 
     editingCell.value = { itemId: item.id, field };
     editValue.value = item[field];
@@ -81,14 +83,14 @@ const cancelEditing = () => {
 const saveItemEdit = (item) => {
     if (!editingCell.value) return;
 
-    const { itemId, field } = editingCell.value;
+    const { field } = editingCell.value;
     let newValue = editValue.value;
 
-    // Validate numeric fields
-    if (['bulk_qty', 'loose_qty'].includes(field)) {
+    if (['bulk_qty', 'loose_qty', 'config'].includes(field)) {
         newValue = parseFloat(newValue);
-        if (isNaN(newValue) || newValue < 0) {
-            toast.add({ severity: 'error', summary: 'Invalid Input', detail: `${field} must be a non-negative number.`, life: 3000 });
+        if (isNaN(newValue) || (field === 'config' && newValue <= 0) || (field !== 'config' && newValue < 0)) {
+            const message = field === 'config' ? 'Config must be a positive number.' : `${field} must be a non-negative number.`;
+            toast.add({ severity: 'error', summary: 'Invalid Input', detail: message, life: 3000 });
             return;
         }
     }
@@ -114,16 +116,15 @@ const submitForApproval = () => {
         header: 'Confirm Submission',
         icon: 'pi pi-exclamation-triangle',
         accept: () => {
-            router.post(route('month-end-count.submit-for-approval', { schedule: props.schedule.id, branch: props.branch.id }), {},
-                {
-                    onSuccess: () => {
-                        toast.add({ severity: 'success', summary: 'Success', detail: 'Count submitted for Level 1 approval.', life: 3000 });
-                    },
-                    onError: (errors) => {
-                        const errorMsg = Object.values(errors)[0] || 'An unknown error occurred.';
-                        toast.add({ severity: 'error', summary: 'Submission Failed', detail: errorMsg, life: 5000 });
-                    }
-                });
+            router.post(route('month-end-count.submit-for-approval', { schedule: props.schedule.id, branch: props.branch.id }), {}, {
+                onSuccess: () => {
+                    toast.add({ severity: 'success', summary: 'Success', detail: 'Count submitted for Level 1 approval.', life: 3000 });
+                },
+                onError: (errors) => {
+                    const errorMsg = Object.values(errors)[0] || 'An unknown error occurred.';
+                    toast.add({ severity: 'error', summary: 'Submission Failed', detail: errorMsg, life: 5000 });
+                }
+            });
         },
     });
 };
@@ -133,11 +134,11 @@ const goBack = () => {
 };
 
 const hasPendingItems = computed(() => {
-    return props.countItems.data.some(item => item.status === 'uploaded');
+    return props.countItems.some(item => item.status === 'uploaded');
 });
 
 const branchStatus = computed(() => {
-    return props.countItems.data.length > 0 ? props.countItems.data[0].status : props.schedule.status;
+    return props.countItems.length > 0 ? props.countItems[0].status : props.schedule.status;
 });
 
 </script>
@@ -150,7 +151,7 @@ const branchStatus = computed(() => {
             <h3 class="text-lg font-semibold mb-2">Schedule Details</h3>
             <p><strong>Year:</strong> {{ schedule.year }}</p>
             <p><strong>Month:</strong> {{ getMonthName(schedule.month) }}</p>
-            <p><strong>Calculated Date:</strong> {{ schedule.calculated_date }}</p>
+            <p><strong>MEC Schedule Date:</strong> {{ schedule.calculated_date }}</p>
             <p><strong>Branch:</strong> {{ branch.name }}</p>
             <p><strong>Current Status:</strong> 
                 <Badge class="capitalize" :class="{
@@ -189,15 +190,32 @@ const branchStatus = computed(() => {
                         <TH>Uploaded By</TH>
                     </TableHead>
                     <TableBody>
-                        <tr v-if="!countItems.data.length">
+                        <tr v-if="!countItems.length">
                             <td colspan="12" class="text-center py-4">No count items found for this schedule and branch.</td>
                         </tr>
-                        <tr v-for="item in countItems.data" :key="item.id">
+                        <tr v-for="item in countItems" :key="item.id">
                             <TD>{{ item.item_code }}</TD>
                             <TD>{{ item.item_name }}</TD>
                             <TD>{{ item.uom }}</TD>
                             <TD>{{ item.packaging_config }}</TD>
-                            <TD>{{ item.config }}</TD>
+                            <TD>
+                                <div v-if="editingCell && editingCell.itemId === item.id && editingCell.field === 'config'" class="flex items-center gap-1">
+                                    <Input ref="editInput" v-focus-select type="number" v-model="editValue" class="w-24 text-right py-1" @keyup.enter="saveItemEdit(item)" @keyup.esc="cancelEditing" />
+                                    <Button variant="ghost" size="icon" class="h-7 w-7 text-green-600 hover:bg-green-100" @click="saveItemEdit(item)"><Save class="h-4 w-4" /></Button>
+                                    <Button variant="ghost" size="icon" class="h-7 w-7 text-red-600 hover:bg-red-100" @click="cancelEditing"><X class="h-4 w-4" /></Button>
+                                </div>
+                                <div v-else
+                                    @click="startEditing(item, 'config')"
+                                    class="p-1 rounded min-h-[36px] flex items-center justify-end transition-all duration-150"
+                                    :class="{
+                                        'cursor-pointer hover:bg-blue-100 hover:ring-1 hover:ring-blue-400 bg-blue-50': props.canEditItems && isEditableStatus(item.status) && !item.packaging_config,
+                                        'cursor-not-allowed bg-gray-50 text-gray-500': !props.canEditItems || !isEditableStatus(item.status) || item.packaging_config
+                                    }"
+                                >
+                                    {{ item.config }}
+                                    <Pencil v-if="props.canEditItems && isEditableStatus(item.status) && !item.packaging_config" class="h-3 w-3 ml-1 text-gray-500" />
+                                </div>
+                            </TD>
                             <TD>
                                 <div v-if="editingCell && editingCell.itemId === item.id && editingCell.field === 'bulk_qty'" class="flex items-center gap-1">
                                     <Input ref="editInput" v-focus-select type="number" v-model="editValue" class="w-24 text-right py-1" @keyup.enter="saveItemEdit(item)" @keyup.esc="cancelEditing" />
@@ -284,7 +302,6 @@ const branchStatus = computed(() => {
                     </TableBody>
                 </Table>
             </div>
-            <Pagination :data="countItems" />
         </TableContainer>
     </Layout>
 </template>

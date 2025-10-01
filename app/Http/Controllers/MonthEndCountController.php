@@ -159,6 +159,9 @@ class MonthEndCountController extends Controller
             'uploadedCountsAwaitingSubmission' => $uploadedCountsAwaitingSubmission, // New prop
             'transactions' => $transactions,
             'filters' => $request->only(['year', 'month', 'calculated_date', 'status', 'branch_name', 'uploader_name', 'sort', 'direction']),
+            'can' => [
+                'view_transaction' => $user->can('view month end count transaction'),
+            ]
         ]);
     }
 
@@ -257,6 +260,10 @@ class MonthEndCountController extends Controller
 
     public function review(MonthEndSchedule $schedule, StoreBranch $branch)
     {
+        if (Auth::user()->cannot('view month end count transaction')) {
+            abort(403, 'This action is unauthorized.');
+        }
+
         // Ensure the user has access to this branch
         $user = Auth::user();
         if (!$user->store_branches->contains($branch->id)) {
@@ -267,9 +274,8 @@ class MonthEndCountController extends Controller
         $countItems = MonthEndCountItem::with(['sapMasterfile', 'uploader:id,first_name,last_name'])
             ->where('month_end_schedule_id', $schedule->id)
             ->where('branch_id', $branch->id)
-            ->where('status', 'uploaded')
             ->orderBy('item_name')
-            ->paginate(20);
+            ->get();
 
         if ($countItems->isEmpty()) {
             return redirect()->route('month-end-count.index')->with('error', 'No uploaded items found for review for this schedule and branch.');
@@ -347,6 +353,10 @@ class MonthEndCountController extends Controller
             abort(403, 'You do not have permission to edit count items.');
         }
 
+        if ($request->has('config') && !empty($monthEndCountItem->packaging_config)) {
+            return redirect()->back()->withErrors(['error' => 'Config cannot be edited when Packaging Config has a value.']);
+        }
+
         if ($monthEndCountItem->status !== 'uploaded') {
             return redirect()->back()->withErrors(['error' => 'Item can only be edited before it is submitted for approval.']);
         }
@@ -356,6 +366,7 @@ class MonthEndCountController extends Controller
             'loose_qty' => 'nullable|numeric|min:0',
             'loose_uom' => 'nullable|string|max:255',
             'remarks' => 'nullable|string|max:1000',
+            'config' => 'nullable|numeric|gt:0',
         ]);
 
         $monthEndCountItem->fill($validated);

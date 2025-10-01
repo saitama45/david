@@ -162,12 +162,16 @@ class RoleService
                 'Low on Stocks' => [
                     'view low on stocks', 'export low on stocks'
                 ],
-                'Month End Count' => [
+                'Month End Schedules' => [
                     'view month end schedules',
                     'create month end schedules',
+                    'edit month end schedules',
                     'delete month end schedules',
+                ],
+                'Month End Count' => [
                     'perform month end count',
                     'edit month end count items',
+                    'view month end count transaction',
                 ],
                 'Month End Count Approvals' => [
                     'view month end count approvals',
