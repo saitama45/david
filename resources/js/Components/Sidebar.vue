@@ -136,7 +136,8 @@ const canViewInventoryGroup = computed(() =>
     hasAccess("view low on stocks") ||
     hasAccess("view month end schedules") || // NEW
     hasAccess("perform month end count") || // NEW
-    hasAccess("view month end count approvals") // NEW
+    hasAccess("view month end count approvals") || // NEW
+    hasAccess("view month end count approvals level 2")
 );
 
 const canViewReportsGroup = computed(() =>
@@ -187,7 +188,7 @@ watchEffect(() => {
         { ref: orderingOpen, paths: ["/store-orders", "/emergency-orders", "/additional-orders", "/dts-orders", "/orders-approval", "/cs-approvals", "/additional-orders-approval", "/emergency-orders-approval", "/mass-orders", "/cs-mass-commits"] },
         { ref: receivingOpen, paths: ["/direct-receiving", "/orders-receiving", "/approved-orders", "/receiving-approvals"] },
         { ref: salesOpen, paths: ["/sales-orders", "/store-transactions", "/store-transactions-approval"] },
-        { ref: inventoryOpen, paths: ["/items-list", "/sapitems-list", "/SupplierItems-list", "/POSMasterfile-list", "/pos-bom-list", "/stock-management", "/soh-adjustment", "/low-on-stocks", "/month-end-schedules", "/month-end-count", "/month-end-count-approvals"] },
+        { ref: inventoryOpen, paths: ["/items-list", "/sapitems-list", "/SupplierItems-list", "/POSMasterfile-list", "/pos-bom-list", "/stock-management", "/soh-adjustment", "/low-on-stocks", "/month-end-schedules", "/month-end-count", "/month-end-count-approvals", "/month-end-count-approvals-level2"] },
         { ref: reportsOpen, paths: ["/reports/consolidated-so", "/top-10-inventories", "/days-inventory-outstanding", "/days-payable-outstanding", "/sales-report", "/inventories-report", "/upcoming-inventories", "/account-payable", "/cost-of-goods", "/product-orders-summary", "/ice-cream-orders", "/salmon-orders", "/fruits-and-vegetables"] }, // CRITICAL FIX: Added new path
         { ref: referencesOpen, paths: ["/category-list", "/wip-list", "/menu-categories", "/uom-conversions", "/inventory-categories", "/unit-of-measurements", "/branches", "/suppliers", "/cost-centers"] },
     ];
@@ -505,7 +506,16 @@ watchEffect(() => {
                     :icon="ClipboardCheck"
                     :is-active="isPathActive('/month-end-count-approvals')"
                 >
-                    Month End Count Approvals
+                    MEC Approval 1st Level
+                </NavLink>
+                <!-- NEW: MEC Approval 2nd Level -->
+                <NavLink
+                    v-if="hasAccess('view month end count approvals level 2')"
+                    href="/month-end-count-approvals-level2"
+                    :icon="ClipboardCheck"
+                    :is-active="isPathActive('/month-end-count-approvals-level2')"
+                >
+                    MEC Approval 2nd Level
                 </NavLink>
             </CollapsibleContent>
         </Collapsible>

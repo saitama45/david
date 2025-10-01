@@ -65,6 +65,11 @@ const isDeletable = (schedule) => {
     return submittedCount === 0;
 };
 
+const isProgressClickable = (schedule) => {
+    const submittedCount = Object.values(schedule.progress || {}).reduce((a, b) => a + b, 0);
+    return submittedCount > 0;
+};
+
 const detailItems = computed(() => detailsResponse.value?.data || []);
 
 // --- Methods ---
@@ -100,7 +105,18 @@ const goToDetailsPage = (page) => {
 const startEditing = (schedule) => {
     if (!isEditable(schedule)) return;
     editingScheduleId.value = schedule.id;
-    editForm.calculated_date = schedule.calculated_date.split('T')[0];
+
+    const date = new Date(schedule.calculated_date);
+    // The 'en-CA' locale formats dates as YYYY-MM-DD, which is what the date input expects.
+    // We specify the Manila timezone to ensure we get the correct date parts for that zone.
+    const formattedDate = new Intl.DateTimeFormat('en-CA', {
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        timeZone: 'Asia/Manila'
+    }).format(date);
+
+    editForm.calculated_date = formattedDate;
 };
 
 const cancelEditing = () => {
@@ -256,9 +272,16 @@ const getStatusColor = (status) => {
                         </div>
                     </div>
 
-                    <div @click="openDetailsModal(schedule)" class="cursor-pointer group">
+                    <div
+                        @click="isProgressClickable(schedule) ? openDetailsModal(schedule) : null"
+                        class="group"
+                        :class="{ 'cursor-pointer': isProgressClickable(schedule), 'cursor-default': !isProgressClickable(schedule) }"
+                    >
                         <div class="flex justify-between items-baseline mb-1">
-                            <Label class="text-xs font-semibold text-gray-500 uppercase tracking-wider group-hover:text-indigo-600">Progress</Label>
+                            <Label
+                                class="text-xs font-semibold text-gray-500 uppercase tracking-wider"
+                                :class="{ 'group-hover:text-indigo-600': isProgressClickable(schedule) }"
+                            >Progress</Label>
                             <span class="text-sm font-semibold text-gray-800">{{ progressSummary(schedule) }}</span>
                         </div>
                         <div v-if="schedule.total_stores > 0" class="w-full bg-gray-200 rounded-full h-3" :title="getProgressTooltip(getProgressSegments(schedule))">
@@ -281,7 +304,7 @@ const getStatusColor = (status) => {
             <h3 class="mt-4 text-lg font-medium text-gray-800">No Schedules Found</h3>
             <p class="mt-1 text-sm">No schedules have been generated for the selected year.</p>
         </div>
-        <Pagination :data="schedules" class="mt-6" />
+        <Pagination v-if="schedules.data.length > 0" :data="schedules" class="mt-6" />
     </Layout>
 
     <!-- Generate Modal -->

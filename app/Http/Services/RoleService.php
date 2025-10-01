@@ -173,10 +173,13 @@ class RoleService
                     'edit month end count items',
                     'view month end count transaction',
                 ],
-                'Month End Count Approvals' => [
+                'MEC Approval 1st Level' => [
                     'view month end count approvals',
                     'edit month end count approval items',
                     'approve month end count level 1',
+                ],
+                'MEC Approval 2nd Level' => [
+                    'view month end count approvals level 2',
                     'approve month end count level 2',
                 ],
             ],

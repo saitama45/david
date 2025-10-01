@@ -317,6 +317,7 @@ class RolesAndPermissionSeeder extends Seeder
         Permission::firstOrCreate(['name' => 'edit month end count approval items']);
         Permission::firstOrCreate(['name' => 'approve month end count level 1']);
         Permission::firstOrCreate(['name' => 'approve month end count level 2']);
+        Permission::firstOrCreate(['name' => 'view month end count approvals level 2']);
 
         // Reports from DashboardController (Added for consistency)
         Permission::firstOrCreate(['name' => 'view top 10 inventories']);

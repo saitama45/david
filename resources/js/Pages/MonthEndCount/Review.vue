@@ -155,10 +155,11 @@ const branchStatus = computed(() => {
             <p><strong>Branch:</strong> {{ branch.name }}</p>
             <p><strong>Current Status:</strong> 
                 <Badge class="capitalize" :class="{
-                    'bg-yellow-500 text-white': branchStatus === 'uploaded',
-                    'bg-teal-500 text-white': branchStatus === 'level1_approved',
+                    'bg-yellow-500 text-white': branchStatus === 'pending' || branchStatus === 'uploaded',
+                    'bg-blue-500 text-white': branchStatus === 'level1_approved',
                     'bg-green-500 text-white': branchStatus === 'level2_approved',
                     'bg-red-500 text-white': branchStatus === 'rejected' || branchStatus === 'expired',
+                    'bg-purple-500 text-white': branchStatus === 'pending_level1_approval',
                 }">{{ branchStatus.replace('_', ' ') }}</Badge>
             </p>
         </div>
@@ -206,14 +207,14 @@ const branchStatus = computed(() => {
                                 </div>
                                 <div v-else
                                     @click="startEditing(item, 'config')"
-                                    class="p-1 rounded min-h-[36px] flex items-center justify-end transition-all duration-150"
+                                    class="group p-1 rounded min-h-[36px] flex items-center justify-end transition-all duration-150"
                                     :class="{
                                         'cursor-pointer hover:bg-blue-100 hover:ring-1 hover:ring-blue-400 bg-blue-50': props.canEditItems && isEditableStatus(item.status) && !item.packaging_config,
                                         'cursor-not-allowed bg-gray-50 text-gray-500': !props.canEditItems || !isEditableStatus(item.status) || item.packaging_config
                                     }"
                                 >
                                     {{ item.config }}
-                                    <Pencil v-if="props.canEditItems && isEditableStatus(item.status) && !item.packaging_config" class="h-3 w-3 ml-1 text-gray-500" />
+                                    <Pencil v-if="props.canEditItems && isEditableStatus(item.status) && !item.packaging_config" class="h-3 w-3 ml-1 text-gray-500 opacity-0 group-hover:opacity-100" />
                                 </div>
                             </TD>
                             <TD>
@@ -224,14 +225,14 @@ const branchStatus = computed(() => {
                                 </div>
                                 <div v-else
                                     @click="startEditing(item, 'bulk_qty')"
-                                    class="p-1 rounded min-h-[36px] flex items-center justify-end transition-all duration-150"
+                                    class="group p-1 rounded min-h-[36px] flex items-center justify-end transition-all duration-150"
                                     :class="{
                                         'cursor-pointer hover:bg-blue-100 hover:ring-1 hover:ring-blue-400 bg-blue-50': props.canEditItems && isEditableStatus(item.status),
                                         'cursor-not-allowed bg-gray-50 text-gray-500': !props.canEditItems || !isEditableStatus(item.status)
                                     }"
                                 >
                                     {{ item.bulk_qty }}
-                                    <Pencil v-if="props.canEditItems && isEditableStatus(item.status)" class="h-3 w-3 ml-1 text-gray-500" />
+                                    <Pencil v-if="props.canEditItems && isEditableStatus(item.status)" class="h-3 w-3 ml-1 text-gray-500 opacity-0 group-hover:opacity-100" />
                                 </div>
                             </TD>
                             <TD>
@@ -242,14 +243,14 @@ const branchStatus = computed(() => {
                                 </div>
                                 <div v-else
                                     @click="startEditing(item, 'loose_qty')"
-                                    class="p-1 rounded min-h-[36px] flex items-center justify-end transition-all duration-150"
+                                    class="group p-1 rounded min-h-[36px] flex items-center justify-end transition-all duration-150"
                                     :class="{
                                         'cursor-pointer hover:bg-blue-100 hover:ring-1 hover:ring-blue-400 bg-blue-50': props.canEditItems && isEditableStatus(item.status),
                                         'cursor-not-allowed bg-gray-50 text-gray-500': !props.canEditItems || !isEditableStatus(item.status)
                                     }"
                                 >
                                     {{ item.loose_qty }}
-                                    <Pencil v-if="props.canEditItems && isEditableStatus(item.status)" class="h-3 w-3 ml-1 text-gray-500" />
+                                    <Pencil v-if="props.canEditItems && isEditableStatus(item.status)" class="h-3 w-3 ml-1 text-gray-500 opacity-0 group-hover:opacity-100" />
                                 </div>
                             </TD>
                             <TD>
@@ -260,14 +261,14 @@ const branchStatus = computed(() => {
                                 </div>
                                 <div v-else
                                     @click="startEditing(item, 'loose_uom')"
-                                    class="p-1 rounded min-h-[36px] flex items-center justify-end transition-all duration-150"
+                                    class="group p-1 rounded min-h-[36px] flex items-center justify-end transition-all duration-150"
                                     :class="{
                                         'cursor-pointer hover:bg-blue-100 hover:ring-1 hover:ring-blue-400 bg-blue-50': props.canEditItems && isEditableStatus(item.status),
                                         'cursor-not-allowed bg-gray-50 text-gray-500': !props.canEditItems || !isEditableStatus(item.status)
                                     }"
                                 >
                                     {{ item.loose_uom }}
-                                    <Pencil v-if="props.canEditItems && isEditableStatus(item.status)" class="h-3 w-3 ml-1 text-gray-500" />
+                                    <Pencil v-if="props.canEditItems && isEditableStatus(item.status)" class="h-3 w-3 ml-1 text-gray-500 opacity-0 group-hover:opacity-100" />
                                 </div>
                             </TD>
                             <TD>
@@ -278,23 +279,24 @@ const branchStatus = computed(() => {
                                 </div>
                                 <div v-else
                                     @click="startEditing(item, 'remarks')"
-                                    class="p-1 rounded min-h-[36px] flex items-center justify-end transition-all duration-150"
+                                    class="group p-1 rounded min-h-[36px] flex items-center justify-end transition-all duration-150"
                                     :class="{
                                         'cursor-pointer hover:bg-blue-100 hover:ring-1 hover:ring-blue-400 bg-blue-50': props.canEditItems && isEditableStatus(item.status),
                                         'cursor-not-allowed bg-gray-50 text-gray-500': !props.canEditItems || !isEditableStatus(item.status)
                                     }"
                                 >
                                     {{ item.remarks }}
-                                    <Pencil v-if="props.canEditItems && isEditableStatus(item.status)" class="h-3 w-3 ml-1 text-gray-500" />
+                                    <Pencil v-if="props.canEditItems && isEditableStatus(item.status)" class="h-3 w-3 ml-1 text-gray-500 opacity-0 group-hover:opacity-100" />
                                 </div>
                             </TD>
                             <TD>{{ calculateTotalQty(item) }}</TD>
                             <TD>
                                 <Badge class="capitalize" :class="{
-                                    'bg-yellow-500 text-white': item.status === 'uploaded',
-                                    'bg-teal-500 text-white': item.status === 'level1_approved',
+                                    'bg-yellow-500 text-white': item.status === 'pending' || item.status === 'uploaded',
+                                    'bg-blue-500 text-white': item.status === 'level1_approved',
                                     'bg-green-500 text-white': item.status === 'level2_approved',
                                     'bg-red-500 text-white': item.status === 'rejected' || item.status === 'expired',
+                                    'bg-purple-500 text-white': item.status === 'pending_level1_approval',
                                 }">{{ item.status.replace('_', ' ') }}</Badge>
                             </TD>
                             <TD>{{ item.uploader ? `${item.uploader.first_name} ${item.uploader.last_name}` : 'N/A' }}</TD>

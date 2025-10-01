@@ -17,6 +17,7 @@ use App\Http\Controllers\CostOfGoodController;
 use App\Http\Controllers\CSApprovalController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\MonthEndCountApprovalController;
+use App\Http\Controllers\MECApproval2Controller;
 use App\Http\Controllers\MonthEndCountController;
 use App\Http\Controllers\MonthEndScheduleController;
 use App\Http\Controllers\DaysInventoryOutstanding;
@@ -470,6 +471,16 @@ Route::middleware('auth')
                 Route::middleware('permission:edit month end count approval items')->put('/items/{monthEndCountItem}', 'updateItem')->name('update-item');
                 Route::middleware('permission:approve month end count level 1')->post('/{schedule_id}/{branch_id}/approve-level1', 'approveLevel1')->name('approve-level1');
                 Route::middleware('permission:approve month end count level 2')->post('/{schedule_id}/{branch_id}/approve-level2', 'approveLevel2')->name('approve-level2');
+            });
+
+        // NEW: MEC Approval 2nd Level
+        Route::controller(MECApproval2Controller::class)
+            ->prefix('month-end-count-approvals-level2')
+            ->name('month-end-count-approvals-level2.')
+            ->group(function () {
+                Route::middleware('permission:view month end count approvals level 2')->get('/', 'index')->name('index');
+                Route::middleware('permission:view month end count approvals level 2')->get('/{schedule_id}/{branch_id}', 'show')->name('show');
+                Route::middleware('permission:approve month end count level 2')->post('/{schedule_id}/{branch_id}/approve', 'approveLevel2')->name('approve');
             });
 
         // Approvals
