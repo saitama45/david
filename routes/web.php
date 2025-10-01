@@ -16,6 +16,9 @@ use App\Http\Controllers\CostCenterController;
 use App\Http\Controllers\CostOfGoodController;
 use App\Http\Controllers\CSApprovalController;
 use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\MonthEndCountApprovalController;
+use App\Http\Controllers\MonthEndCountController;
+use App\Http\Controllers\MonthEndScheduleController;
 use App\Http\Controllers\DaysInventoryOutstanding;
 use App\Http\Controllers\DaysPayableOutStanding;
 use App\Http\Controllers\DeliveryScheduleController;
@@ -431,6 +434,40 @@ Route::middleware('auth')
             Route::middleware('permission:edit cs mass commits')->post('/confirm-all', 'confirmAll')->name('confirm-all');
             Route::middleware('permission:edit cs mass commits')->post('/update-commit', 'updateCommit')->name('update-commit');
         });
+
+        // Month End Schedules
+        Route::controller(MonthEndScheduleController::class)
+            ->prefix('month-end-schedules')
+            ->name('month-end-schedules.')
+            ->group(function () {
+                Route::middleware('permission:view month end schedules')->get('/', 'index')->name('index');
+                Route::middleware('permission:create month end schedules')->post('/', 'store')->name('store');
+                Route::middleware('permission:delete month end schedules')->delete('/{schedule}', 'destroy')->name('destroy');
+            });
+
+        // Month End Count Execution
+        Route::controller(MonthEndCountController::class)
+            ->prefix('month-end-count')
+            ->name('month-end-count.')
+            ->group(function () {
+                Route::middleware('permission:perform month end count')->get('/', 'index')->name('index');
+                Route::middleware('permission:perform month end count')->get('/download', 'downloadTemplate')->name('download');
+                Route::middleware('permission:perform month end count')->post('/upload', 'upload')->name('upload');
+                Route::middleware('permission:perform month end count')->get('/review/{schedule}/{branch}', 'review')->name('review');
+                Route::middleware('permission:perform month end count')->post('/submit-for-approval/{schedule}/{branch}', 'submitForApproval')->name('submit-for-approval');
+            });
+
+        // Month End Count Approvals
+        Route::controller(MonthEndCountApprovalController::class)
+            ->prefix('month-end-count-approvals')
+            ->name('month-end-count-approvals.')
+            ->group(function () {
+                Route::middleware('permission:view month end count approvals')->get('/', 'index')->name('index');
+                Route::middleware('permission:view month end count approvals')->get('/{schedule_id}/{branch_id}', 'show')->name('show');
+                Route::middleware('permission:edit month end count approval items')->put('/items/{monthEndCountItem}', 'updateItem')->name('update-item');
+                Route::middleware('permission:approve month end count level 1')->post('/{schedule_id}/{branch_id}/approve-level1', 'approveLevel1')->name('approve-level1');
+                Route::middleware('permission:approve month end count level 2')->post('/{schedule_id}/{branch_id}/approve-level2', 'approveLevel2')->name('approve-level2');
+            });
 
         // Approvals
         Route::controller(ReceivingApprovalController::class)->prefix('receiving-approvals')->name('receiving-approvals.')->group(function () {

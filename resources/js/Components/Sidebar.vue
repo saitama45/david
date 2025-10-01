@@ -60,23 +60,31 @@ const isAdmin = is_admin;
 // Function to check if a given URL (or any of a list of URLs) is the current active page.
 // This uses usePage().url which gives the full current URL path (e.g., /users/1/edit).
 const isPathActive = (pathOrPaths) => {
-    const currentUrl = usePage().url;
+    const currentUrl = usePage().url.split('?')[0]; // Ignore query strings
+
     if (Array.isArray(pathOrPaths)) {
-        // If an array of paths is provided, check if any of them are active.
-        return pathOrPaths.some(path => {
-            if (path === currentUrl) {
-                return true;
-            }
-            // For prefix matches, ensure it's not just '/' matching everything.
-            return path !== '/' && currentUrl.startsWith(path);
-        });
-    } else {
-        // If a single path is provided, check for exact or prefix match.
-        if (pathOrPaths === currentUrl) {
-            return true;
-        }
-        return pathOrPaths !== '/' && currentUrl.startsWith(pathOrPaths);
+        return pathOrPaths.some(p => isPathActive(p));
     }
+
+    const path = pathOrPaths;
+
+    // Exact match
+    if (path === currentUrl) {
+        return true;
+    }
+
+    // Don't match root '/' as a prefix for everything
+    if (path === '/') {
+        return false;
+    }
+
+    // Prefix match for nested routes, but not for partial matches like
+    // '/users' matching '/users-roles'. It must be followed by a '/'.
+    if (currentUrl.startsWith(path) && currentUrl[path.length] === '/') {
+        return true;
+    }
+
+    return false;
 };
 
 // Grouping permissions for collapsible sections
@@ -125,7 +133,10 @@ const canViewInventoryGroup = computed(() =>
     hasAccess("view bom list") || // Corrected from 'view menu list'
     hasAccess("view stock management") ||
     hasAccess("view soh adjustment") ||
-    hasAccess("view low on stocks")
+    hasAccess("view low on stocks") ||
+    hasAccess("view month end schedules") || // NEW
+    hasAccess("perform month end count") || // NEW
+    hasAccess("view month end count approvals") // NEW
 );
 
 const canViewReportsGroup = computed(() =>
@@ -176,7 +187,7 @@ watchEffect(() => {
         { ref: orderingOpen, paths: ["/store-orders", "/emergency-orders", "/additional-orders", "/dts-orders", "/orders-approval", "/cs-approvals", "/additional-orders-approval", "/emergency-orders-approval", "/mass-orders", "/cs-mass-commits"] },
         { ref: receivingOpen, paths: ["/direct-receiving", "/orders-receiving", "/approved-orders", "/receiving-approvals"] },
         { ref: salesOpen, paths: ["/sales-orders", "/store-transactions", "/store-transactions-approval"] },
-        { ref: inventoryOpen, paths: ["/items-list", "/sapitems-list", "/SupplierItems-list", "/POSMasterfile-list", "/pos-bom-list", "/stock-management", "/soh-adjustment", "/low-on-stocks"] },
+        { ref: inventoryOpen, paths: ["/items-list", "/sapitems-list", "/SupplierItems-list", "/POSMasterfile-list", "/pos-bom-list", "/stock-management", "/soh-adjustment", "/low-on-stocks", "/month-end-schedules", "/month-end-count", "/month-end-count-approvals"] },
         { ref: reportsOpen, paths: ["/reports/consolidated-so", "/top-10-inventories", "/days-inventory-outstanding", "/days-payable-outstanding", "/sales-report", "/inventories-report", "/upcoming-inventories", "/account-payable", "/cost-of-goods", "/product-orders-summary", "/ice-cream-orders", "/salmon-orders", "/fruits-and-vegetables"] }, // CRITICAL FIX: Added new path
         { ref: referencesOpen, paths: ["/category-list", "/wip-list", "/menu-categories", "/uom-conversions", "/inventory-categories", "/unit-of-measurements", "/branches", "/suppliers", "/cost-centers"] },
     ];
@@ -468,6 +479,33 @@ watchEffect(() => {
                 <NavLink href="/low-on-stocks" :icon="FileCog" v-if="hasAccess('view low on stocks')"
                     :is-active="isPathActive('/low-on-stocks')">
                     Low on Stocks
+                </NavLink>
+                <!-- NEW: Month End Schedules -->
+                <NavLink
+                    v-if="hasAccess('view month end schedules')"
+                    href="/month-end-schedules"
+                    :icon="CalendarCheck2"
+                    :is-active="isPathActive('/month-end-schedules')"
+                >
+                    Month End Schedules
+                </NavLink>
+                <!-- NEW: Month End Count -->
+                <NavLink
+                    v-if="hasAccess('perform month end count')"
+                    href="/month-end-count"
+                    :icon="ScanBarcode"
+                    :is-active="usePage().url.split('?')[0] === '/month-end-count' || usePage().url.split('?')[0].startsWith('/month-end-count/')"
+                >
+                    Month End Count
+                </NavLink>
+                <!-- NEW: Month End Count Approvals -->
+                <NavLink
+                    v-if="hasAccess('view month end count approvals')"
+                    href="/month-end-count-approvals"
+                    :icon="ClipboardCheck"
+                    :is-active="isPathActive('/month-end-count-approvals')"
+                >
+                    Month End Count Approvals
                 </NavLink>
             </CollapsibleContent>
         </Collapsible>

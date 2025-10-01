@@ -301,6 +301,19 @@ class RolesAndPermissionSeeder extends Seeder
         $generalEditorRole = Role::firstOrCreate(['name' => 'General CS']);
         $generalEditorRole->syncPermissions([$editOther]); // Only this permission
 
+        // NEW: Month End Count
+        Permission::firstOrCreate(['name' => 'view month end schedules']);
+        Permission::firstOrCreate(['name' => 'create month end schedules']);
+        Permission::firstOrCreate(['name' => 'delete month end schedules']);
+        Permission::firstOrCreate(['name' => 'perform month end count']);
+        Permission::firstOrCreate(['name' => 'edit month end count items']);
+
+        // NEW: Month End Count Approvals
+        Permission::firstOrCreate(['name' => 'view month end count approvals']);
+        Permission::firstOrCreate(['name' => 'edit month end count approval items']);
+        Permission::firstOrCreate(['name' => 'approve month end count level 1']);
+        Permission::firstOrCreate(['name' => 'approve month end count level 2']);
+
         // Reports from DashboardController (Added for consistency)
         Permission::firstOrCreate(['name' => 'view top 10 inventories']);
         Permission::firstOrCreate(['name' => 'export top 10 inventories']);

@@ -2,8 +2,25 @@
 import { Link } from "@inertiajs/vue3";
 import { usePage } from "@inertiajs/vue3";
 
-const isActive = (route) => {
-    return usePage().url.includes(route);
+const isActive = (path) => {
+    const currentUrl = usePage().url.split('?')[0];
+
+    // Exact match
+    if (path === currentUrl) {
+        return true;
+    }
+
+    // Don't match root '/' as a prefix for everything
+    if (path === '/') {
+        return false;
+    }
+
+    // Prefix match for nested routes
+    if (currentUrl.startsWith(path) && currentUrl[path.length] === '/') {
+        return true;
+    }
+
+    return false;
 };
 
 defineProps({

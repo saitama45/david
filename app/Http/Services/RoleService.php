@@ -162,6 +162,19 @@ class RoleService
                 'Low on Stocks' => [
                     'view low on stocks', 'export low on stocks'
                 ],
+                'Month End Count' => [
+                    'view month end schedules',
+                    'create month end schedules',
+                    'delete month end schedules',
+                    'perform month end count',
+                    'edit month end count items',
+                ],
+                'Month End Count Approvals' => [
+                    'view month end count approvals',
+                    'edit month end count approval items',
+                    'approve month end count level 1',
+                    'approve month end count level 2',
+                ],
             ],
             'Reports' => [
                 // CRITICAL FIX: Added Consolidated SO Report here
