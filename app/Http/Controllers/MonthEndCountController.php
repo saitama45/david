@@ -22,7 +22,7 @@ use Illuminate\Support\Facades\Log;
 
 class MonthEndCountController extends Controller
 {
-    public function index()
+    public function index(Request $request)
     {
         $user = Auth::user();
         $user->load('store_branches');
@@ -98,6 +98,48 @@ class MonthEndCountController extends Controller
             $message = 'No pending month end count actions for your branches.';
         }
 
+        $query = DB::table('month_end_count_items as meci')
+            ->join('month_end_schedules as mes', 'meci.month_end_schedule_id', '=', 'mes.id')
+            ->join('store_branches as sb', 'meci.branch_id', '=', 'sb.id')
+            ->join('users as u', 'meci.created_by', '=', 'u.id')
+            ->whereIn('meci.branch_id', $userBranchIds)
+            ->select(
+                'mes.id as schedule_id',
+                'mes.year',
+                'mes.month',
+                'mes.calculated_date',
+                'sb.id as branch_id',
+                'sb.name as branch_name',
+                DB::raw("u.first_name + ' ' + u.last_name as uploader_name"),
+                DB::raw("STRING_AGG(meci.status, ', ') as statuses")
+            )
+            ->groupBy('mes.id', 'mes.year', 'mes.month', 'mes.calculated_date', 'sb.id', 'sb.name', 'u.first_name', 'u.last_name');
+
+        // Filtering
+        $query->when($request->input('year'), fn ($q, $year) => $q->where('mes.year', 'like', "%{$year}%"));
+        $query->when($request->input('month'), fn ($q, $month) => $q->where('mes.month', 'like', "%{$month}%"));
+        $query->when($request->input('calculated_date'), fn ($q, $date) => $q->whereDate('mes.calculated_date', $date));
+        $query->when($request->input('branch_name'), fn ($q, $name) => $q->where('sb.name', 'like', "%{$name}%"));
+        $query->when($request->input('uploader_name'), fn ($q, $name) => $q->where(DB::raw("u.first_name + ' ' + u.last_name"), 'like', "%{$name}%"));
+        $query->when($request->input('status'), fn ($q, $status) => $q->havingRaw("STRING_AGG(meci.status, ', ') LIKE ?", ["%{$status}%"]));
+
+
+        // Sorting
+        $sort = $request->input('sort', 'calculated_date');
+        $direction = $request->input('direction', 'desc');
+
+        if ($sort === 'uploader_name') {
+            $query->orderBy(DB::raw("u.first_name + ' ' + u.last_name"), $direction);
+        } elseif ($sort === 'branch_name') {
+            $query->orderBy('sb.name', $direction);
+        } elseif ($sort === 'statuses') {
+            $query->orderBy(DB::raw("STRING_AGG(meci.status, ', ')"), $direction);
+        } else {
+            $query->orderBy($sort, $direction);
+        }
+
+        $transactions = $query->paginate(15)->withQueryString();
+
         return Inertia::render('MonthEndCount/Index', [
             'downloadSchedule' => $downloadSchedule ? [
                 'id' => $downloadSchedule->id,
@@ -115,6 +157,8 @@ class MonthEndCountController extends Controller
             'userBranches' => $userBranches,
             'branchesAwaitingUpload' => $branchesAwaitingUpload, // Pass this to frontend
             'uploadedCountsAwaitingSubmission' => $uploadedCountsAwaitingSubmission, // New prop
+            'transactions' => $transactions,
+            'filters' => $request->only(['year', 'month', 'calculated_date', 'status', 'branch_name', 'uploader_name', 'sort', 'direction']),
         ]);
     }
 
@@ -184,10 +228,11 @@ class MonthEndCountController extends Controller
         }
         Log::info('MonthEndCountController@upload: Date validation passed.');
 
-        // Ensure the schedule is pending
-        if ($schedule->status !== 'pending') {
-            Log::warning('MonthEndCountController@upload: Schedule not pending.', ['schedule_id' => $schedule->id, 'status' => $schedule->status]);
-            return back()->withErrors(['error' => 'This schedule is no longer pending.']);
+        // Ensure the schedule is open for uploads
+        $allowed_statuses = ['pending', 'uploaded', 'level1_approved'];
+        if (!in_array($schedule->status, $allowed_statuses)) {
+            Log::warning('MonthEndCountController@upload: Schedule not open for upload.', ['schedule_id' => $schedule->id, 'status' => $schedule->status]);
+            return back()->withErrors(['error' => 'This schedule is no longer open for uploads.']);
         }
         Log::info('MonthEndCountController@upload: Status validation passed.');
 
@@ -268,6 +313,17 @@ class MonthEndCountController extends Controller
         DB::beginTransaction();
         try {
             foreach ($itemsToApprove as $item) {
+                // Recalculate total_qty before submission
+                $bulkQty = (float) $item->bulk_qty;
+                $looseQty = (float) $item->loose_qty;
+                $config = (float) $item->config;
+
+                if ($config > 0) {
+                    $item->total_qty = $bulkQty + ($looseQty / $config);
+                } else {
+                    $item->total_qty = $bulkQty + $looseQty;
+                }
+
                 $item->status = 'pending_level1_approval';
                 $item->save();
             }
@@ -278,5 +334,44 @@ class MonthEndCountController extends Controller
             Log::error('MonthEndCountController@submitForApproval: Error submitting items for approval.', ['error' => $e->getMessage(), 'trace' => $e->getTraceAsString()]);
             return back()->withErrors(['error' => 'Error submitting items for approval: ' . $e->getMessage()]);
         }
+    }
+
+    public function updateReviewItem(Request $request, MonthEndCountItem $monthEndCountItem)
+    {
+        $user = Auth::user();
+        if (!$user->store_branches->contains($monthEndCountItem->branch_id)) {
+            abort(403, 'You do not have access to this branch.');
+        }
+
+        if (!$user->can('edit month end count items')) {
+            abort(403, 'You do not have permission to edit count items.');
+        }
+
+        if ($monthEndCountItem->status !== 'uploaded') {
+            return redirect()->back()->withErrors(['error' => 'Item can only be edited before it is submitted for approval.']);
+        }
+
+        $validated = $request->validate([
+            'bulk_qty' => 'nullable|numeric|min:0',
+            'loose_qty' => 'nullable|numeric|min:0',
+            'loose_uom' => 'nullable|string|max:255',
+            'remarks' => 'nullable|string|max:1000',
+        ]);
+
+        $monthEndCountItem->fill($validated);
+
+        $bulkQty = (float) $monthEndCountItem->bulk_qty;
+        $looseQty = (float) $monthEndCountItem->loose_qty;
+        $config = (float) $monthEndCountItem->config;
+
+        if ($config > 0) {
+            $monthEndCountItem->total_qty = $bulkQty + ($looseQty / $config);
+        } else {
+            $monthEndCountItem->total_qty = $bulkQty + $looseQty;
+        }
+
+        $monthEndCountItem->save();
+
+        return redirect()->back()->with('success', 'Item updated successfully.');
     }
 }

@@ -162,12 +162,9 @@ const viewApproval = (scheduleId, branchId) => {
                         <TD>{{ getMonthName(schedule.month) }}</TD>
                         <TD>{{ formatDate(schedule.calculated_date) }}</TD>
                         <TD>
-                            <Badge class="capitalize" :class="{
-                                'bg-yellow-500 text-white': schedule.status === 'pending' || schedule.status === 'uploaded',
-                                'bg-blue-500 text-white': schedule.status === 'level1_approved',
-                                'bg-green-500 text-white': schedule.status === 'level2_approved',
-                                'bg-red-500 text-white': schedule.status === 'rejected' || schedule.status === 'expired',
-                            }">{{ schedule.status.replace('_', ' ') }}</Badge>
+                            <Badge class="capitalize bg-purple-500 text-white">
+                                Pending Level 1 Approval
+                            </Badge>
                         </TD>
                         <TD>{{ schedule.creator ? `${schedule.creator.first_name} ${schedule.creator.last_name}` : 'N/A' }}</TD>
                         <TD>

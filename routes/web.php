@@ -455,6 +455,7 @@ Route::middleware('auth')
                 Route::middleware('permission:perform month end count')->post('/upload', 'upload')->name('upload');
                 Route::middleware('permission:perform month end count')->get('/review/{schedule}/{branch}', 'review')->name('review');
                 Route::middleware('permission:perform month end count')->post('/submit-for-approval/{schedule}/{branch}', 'submitForApproval')->name('submit-for-approval');
+                Route::middleware('permission:edit month end count items')->put('/review/{monthEndCountItem}', 'updateReviewItem')->name('update-review-item');
             });
 
         // Month End Count Approvals

@@ -93,7 +93,7 @@ const saveItemEdit = (item) => {
         }
     }
 
-    router.put(route('month-end-count-approvals.update-item', item.id), {
+    router.put(route('month-end-count.update-review-item', item.id), {
         [field]: newValue,
     }, {
         preserveScroll: true,
@@ -136,6 +136,10 @@ const hasPendingItems = computed(() => {
     return props.countItems.data.some(item => item.status === 'uploaded');
 });
 
+const branchStatus = computed(() => {
+    return props.countItems.data.length > 0 ? props.countItems.data[0].status : props.schedule.status;
+});
+
 </script>
 
 <template>
@@ -150,11 +154,11 @@ const hasPendingItems = computed(() => {
             <p><strong>Branch:</strong> {{ branch.name }}</p>
             <p><strong>Current Status:</strong> 
                 <Badge class="capitalize" :class="{
-                    'bg-yellow-500 text-white': schedule.status === 'uploaded',
-                    'bg-teal-500 text-white': schedule.status === 'level1_approved',
-                    'bg-green-500 text-white': schedule.status === 'level2_approved',
-                    'bg-red-500 text-white': schedule.status === 'rejected' || schedule.status === 'expired',
-                }">{{ schedule.status.replace('_', ' ') }}</Badge>
+                    'bg-yellow-500 text-white': branchStatus === 'uploaded',
+                    'bg-teal-500 text-white': branchStatus === 'level1_approved',
+                    'bg-green-500 text-white': branchStatus === 'level2_approved',
+                    'bg-red-500 text-white': branchStatus === 'rejected' || branchStatus === 'expired',
+                }">{{ branchStatus.replace('_', ' ') }}</Badge>
             </p>
         </div>
 
@@ -168,116 +172,118 @@ const hasPendingItems = computed(() => {
         </div>
 
         <TableContainer>
-            <Table>
-                <TableHead>
-                    <TH>Item Code</TH>
-                    <TH>Item Name</TH>
-                    <TH>UOM</TH>
-                    <TH>Packaging Config</TH>
-                    <TH>Config</TH>
-                    <TH>Bulk Qty</TH>
-                    <TH>Loose Qty</TH>
-                    <TH>Loose UOM</TH>
-                    <TH>Remarks</TH>
-                    <TH>Total Qty</TH>
-                    <TH>Status</TH>
-                    <TH>Uploaded By</TH>
-                </TableHead>
-                <TableBody>
-                    <tr v-if="!countItems.data.length">
-                        <td colspan="12" class="text-center py-4">No count items found for this schedule and branch.</td>
-                    </tr>
-                    <tr v-for="item in countItems.data" :key="item.id">
-                        <TD>{{ item.item_code }}</TD>
-                        <TD>{{ item.item_name }}</TD>
-                        <TD>{{ item.uom }}</TD>
-                        <TD>{{ item.packaging_config }}</TD>
-                        <TD>{{ item.config }}</TD>
-                        <TD>
-                            <div v-if="editingCell && editingCell.itemId === item.id && editingCell.field === 'bulk_qty'" class="flex items-center gap-1">
-                                <Input ref="editInput" v-focus-select type="number" v-model="editValue" class="w-24 text-right py-1" @keyup.enter="saveItemEdit(item)" @keyup.esc="cancelEditing" />
-                                <Button variant="ghost" size="icon" class="h-7 w-7 text-green-600 hover:bg-green-100" @click="saveItemEdit(item)"><Save class="h-4 w-4" /></Button>
-                                <Button variant="ghost" size="icon" class="h-7 w-7 text-red-600 hover:bg-red-100" @click="cancelEditing"><X class="h-4 w-4" /></Button>
-                            </div>
-                            <div v-else
-                                @click="startEditing(item, 'bulk_qty')"
-                                class="p-1 rounded min-h-[36px] flex items-center justify-end transition-all duration-150"
-                                :class="{
-                                    'cursor-pointer hover:bg-blue-100 hover:ring-1 hover:ring-blue-400 bg-blue-50': props.canEditItems && isEditableStatus(item.status),
-                                    'cursor-not-allowed bg-gray-50 text-gray-500': !props.canEditItems || !isEditableStatus(item.status)
-                                }"
-                            >
-                                {{ item.bulk_qty }}
-                                <Pencil v-if="props.canEditItems && isEditableStatus(item.status)" class="h-3 w-3 ml-1 text-gray-500" />
-                            </div>
-                        </TD>
-                        <TD>
-                            <div v-if="editingCell && editingCell.itemId === item.id && editingCell.field === 'loose_qty'" class="flex items-center gap-1">
-                                <Input ref="editInput" v-focus-select type="number" v-model="editValue" class="w-24 text-right py-1" @keyup.enter="saveItemEdit(item)" @keyup.esc="cancelEditing" />
-                                <Button variant="ghost" size="icon" class="h-7 w-7 text-green-600 hover:bg-green-100" @click="saveItemEdit(item)"><Save class="h-4 w-4" /></Button>
-                                <Button variant="ghost" size="icon" class="h-7 w-7 text-red-600 hover:bg-red-100" @click="cancelEditing"><X class="h-4 w-4" /></Button>
-                            </div>
-                            <div v-else
-                                @click="startEditing(item, 'loose_qty')"
-                                class="p-1 rounded min-h-[36px] flex items-center justify-end transition-all duration-150"
-                                :class="{
-                                    'cursor-pointer hover:bg-blue-100 hover:ring-1 hover:ring-blue-400 bg-blue-50': props.canEditItems && isEditableStatus(item.status),
-                                    'cursor-not-allowed bg-gray-50 text-gray-500': !props.canEditItems || !isEditableStatus(item.status)
-                                }"
-                            >
-                                {{ item.loose_qty }}
-                                <Pencil v-if="props.canEditItems && isEditableStatus(item.status)" class="h-3 w-3 ml-1 text-gray-500" />
-                            </div>
-                        </TD>
-                        <TD>
-                            <div v-if="editingCell && editingCell.itemId === item.id && editingCell.field === 'loose_uom'" class="flex items-center gap-1">
-                                <Input ref="editInput" v-focus-select type="text" v-model="editValue" class="w-24 text-right py-1" @keyup.enter="saveItemEdit(item)" @keyup.esc="cancelEditing" />
-                                <Button variant="ghost" size="icon" class="h-7 w-7 text-green-600 hover:bg-green-100" @click="saveItemEdit(item)"><Save class="h-4 w-4" /></Button>
-                                <Button variant="ghost" size="icon" class="h-7 w-7 text-red-600 hover:bg-red-100" @click="cancelEditing"><X class="h-4 w-4" /></Button>
-                            </div>
-                            <div v-else
-                                @click="startEditing(item, 'loose_uom')"
-                                class="p-1 rounded min-h-[36px] flex items-center justify-end transition-all duration-150"
-                                :class="{
-                                    'cursor-pointer hover:bg-blue-100 hover:ring-1 hover:ring-blue-400 bg-blue-50': props.canEditItems && isEditableStatus(item.status),
-                                    'cursor-not-allowed bg-gray-50 text-gray-500': !props.canEditItems || !isEditableStatus(item.status)
-                                }"
-                            >
-                                {{ item.loose_uom }}
-                                <Pencil v-if="props.canEditItems && isEditableStatus(item.status)" class="h-3 w-3 ml-1 text-gray-500" />
-                            </div>
-                        </TD>
-                        <TD>
-                            <div v-if="editingCell && editingCell.itemId === item.id && editingCell.field === 'remarks'" class="flex items-center gap-1">
-                                <Input ref="editInput" v-focus-select type="text" v-model="editValue" class="w-24 text-right py-1" @keyup.enter="saveItemEdit(item)" @keyup.esc="cancelEditing" />
-                                <Button variant="ghost" size="icon" class="h-7 w-7 text-green-600 hover:bg-green-100" @click="saveItemEdit(item)"><Save class="h-4 w-4" /></Button>
-                                <Button variant="ghost" size="icon" class="h-7 w-7 text-red-600 hover:bg-red-100" @click="cancelEditing"><X class="h-4 w-4" /></Button>
-                            </div>
-                            <div v-else
-                                @click="startEditing(item, 'remarks')"
-                                class="p-1 rounded min-h-[36px] flex items-center justify-end transition-all duration-150"
-                                :class="{
-                                    'cursor-pointer hover:bg-blue-100 hover:ring-1 hover:ring-blue-400 bg-blue-50': props.canEditItems && isEditableStatus(item.status),
-                                    'cursor-not-allowed bg-gray-50 text-gray-500': !props.canEditItems || !isEditableStatus(item.status)
-                                }"
-                            >
-                                {{ item.remarks }}
-                                <Pencil v-if="props.canEditItems && isEditableStatus(item.status)" class="h-3 w-3 ml-1 text-gray-500" />
-                            </div>
-                        </TD>
-                        <TD>{{ calculateTotalQty(item) }}</TD>
-                        <TD>
-                            <Badge class="capitalize" :class="{
-                                'bg-yellow-500 text-white': item.status === 'uploaded',
-                                'bg-teal-500 text-white': item.status === 'level1_approved',
-                                'bg-green-500 text-white': item.status === 'level2_approved',
-                                'bg-red-500 text-white': item.status === 'rejected' || item.status === 'expired',
-                            }">{{ item.status.replace('_', ' ') }}</Badge>
-                        </TD>
-                        <TD>{{ item.uploader ? `${item.uploader.first_name} ${item.uploader.last_name}` : 'N/A' }}</TD>
-                    </tr>
-                </TableBody>
-            </Table>
+            <div class="overflow-y-auto max-h-[75vh]">
+                <Table>
+                    <TableHead class="sticky top-0 z-10 bg-gray-100">
+                        <TH>Item Code</TH>
+                        <TH>Item Name</TH>
+                        <TH>UOM</TH>
+                        <TH>Packaging Config</TH>
+                        <TH>Config</TH>
+                        <TH>Bulk Qty</TH>
+                        <TH>Loose Qty</TH>
+                        <TH>Loose UOM</TH>
+                        <TH>Remarks</TH>
+                        <TH>Total Qty</TH>
+                        <TH>Status</TH>
+                        <TH>Uploaded By</TH>
+                    </TableHead>
+                    <TableBody>
+                        <tr v-if="!countItems.data.length">
+                            <td colspan="12" class="text-center py-4">No count items found for this schedule and branch.</td>
+                        </tr>
+                        <tr v-for="item in countItems.data" :key="item.id">
+                            <TD>{{ item.item_code }}</TD>
+                            <TD>{{ item.item_name }}</TD>
+                            <TD>{{ item.uom }}</TD>
+                            <TD>{{ item.packaging_config }}</TD>
+                            <TD>{{ item.config }}</TD>
+                            <TD>
+                                <div v-if="editingCell && editingCell.itemId === item.id && editingCell.field === 'bulk_qty'" class="flex items-center gap-1">
+                                    <Input ref="editInput" v-focus-select type="number" v-model="editValue" class="w-24 text-right py-1" @keyup.enter="saveItemEdit(item)" @keyup.esc="cancelEditing" />
+                                    <Button variant="ghost" size="icon" class="h-7 w-7 text-green-600 hover:bg-green-100" @click="saveItemEdit(item)"><Save class="h-4 w-4" /></Button>
+                                    <Button variant="ghost" size="icon" class="h-7 w-7 text-red-600 hover:bg-red-100" @click="cancelEditing"><X class="h-4 w-4" /></Button>
+                                </div>
+                                <div v-else
+                                    @click="startEditing(item, 'bulk_qty')"
+                                    class="p-1 rounded min-h-[36px] flex items-center justify-end transition-all duration-150"
+                                    :class="{
+                                        'cursor-pointer hover:bg-blue-100 hover:ring-1 hover:ring-blue-400 bg-blue-50': props.canEditItems && isEditableStatus(item.status),
+                                        'cursor-not-allowed bg-gray-50 text-gray-500': !props.canEditItems || !isEditableStatus(item.status)
+                                    }"
+                                >
+                                    {{ item.bulk_qty }}
+                                    <Pencil v-if="props.canEditItems && isEditableStatus(item.status)" class="h-3 w-3 ml-1 text-gray-500" />
+                                </div>
+                            </TD>
+                            <TD>
+                                <div v-if="editingCell && editingCell.itemId === item.id && editingCell.field === 'loose_qty'" class="flex items-center gap-1">
+                                    <Input ref="editInput" v-focus-select type="number" v-model="editValue" class="w-24 text-right py-1" @keyup.enter="saveItemEdit(item)" @keyup.esc="cancelEditing" />
+                                    <Button variant="ghost" size="icon" class="h-7 w-7 text-green-600 hover:bg-green-100" @click="saveItemEdit(item)"><Save class="h-4 w-4" /></Button>
+                                    <Button variant="ghost" size="icon" class="h-7 w-7 text-red-600 hover:bg-red-100" @click="cancelEditing"><X class="h-4 w-4" /></Button>
+                                </div>
+                                <div v-else
+                                    @click="startEditing(item, 'loose_qty')"
+                                    class="p-1 rounded min-h-[36px] flex items-center justify-end transition-all duration-150"
+                                    :class="{
+                                        'cursor-pointer hover:bg-blue-100 hover:ring-1 hover:ring-blue-400 bg-blue-50': props.canEditItems && isEditableStatus(item.status),
+                                        'cursor-not-allowed bg-gray-50 text-gray-500': !props.canEditItems || !isEditableStatus(item.status)
+                                    }"
+                                >
+                                    {{ item.loose_qty }}
+                                    <Pencil v-if="props.canEditItems && isEditableStatus(item.status)" class="h-3 w-3 ml-1 text-gray-500" />
+                                </div>
+                            </TD>
+                            <TD>
+                                <div v-if="editingCell && editingCell.itemId === item.id && editingCell.field === 'loose_uom'" class="flex items-center gap-1">
+                                    <Input ref="editInput" v-focus-select type="text" v-model="editValue" class="w-24 text-right py-1" @keyup.enter="saveItemEdit(item)" @keyup.esc="cancelEditing" />
+                                    <Button variant="ghost" size="icon" class="h-7 w-7 text-green-600 hover:bg-green-100" @click="saveItemEdit(item)"><Save class="h-4 w-4" /></Button>
+                                    <Button variant="ghost" size="icon" class="h-7 w-7 text-red-600 hover:bg-red-100" @click="cancelEditing"><X class="h-4 w-4" /></Button>
+                                </div>
+                                <div v-else
+                                    @click="startEditing(item, 'loose_uom')"
+                                    class="p-1 rounded min-h-[36px] flex items-center justify-end transition-all duration-150"
+                                    :class="{
+                                        'cursor-pointer hover:bg-blue-100 hover:ring-1 hover:ring-blue-400 bg-blue-50': props.canEditItems && isEditableStatus(item.status),
+                                        'cursor-not-allowed bg-gray-50 text-gray-500': !props.canEditItems || !isEditableStatus(item.status)
+                                    }"
+                                >
+                                    {{ item.loose_uom }}
+                                    <Pencil v-if="props.canEditItems && isEditableStatus(item.status)" class="h-3 w-3 ml-1 text-gray-500" />
+                                </div>
+                            </TD>
+                            <TD>
+                                <div v-if="editingCell && editingCell.itemId === item.id && editingCell.field === 'remarks'" class="flex items-center gap-1">
+                                    <Input ref="editInput" v-focus-select type="text" v-model="editValue" class="w-24 text-right py-1" @keyup.enter="saveItemEdit(item)" @keyup.esc="cancelEditing" />
+                                    <Button variant="ghost" size="icon" class="h-7 w-7 text-green-600 hover:bg-green-100" @click="saveItemEdit(item)"><Save class="h-4 w-4" /></Button>
+                                    <Button variant="ghost" size="icon" class="h-7 w-7 text-red-600 hover:bg-red-100" @click="cancelEditing"><X class="h-4 w-4" /></Button>
+                                </div>
+                                <div v-else
+                                    @click="startEditing(item, 'remarks')"
+                                    class="p-1 rounded min-h-[36px] flex items-center justify-end transition-all duration-150"
+                                    :class="{
+                                        'cursor-pointer hover:bg-blue-100 hover:ring-1 hover:ring-blue-400 bg-blue-50': props.canEditItems && isEditableStatus(item.status),
+                                        'cursor-not-allowed bg-gray-50 text-gray-500': !props.canEditItems || !isEditableStatus(item.status)
+                                    }"
+                                >
+                                    {{ item.remarks }}
+                                    <Pencil v-if="props.canEditItems && isEditableStatus(item.status)" class="h-3 w-3 ml-1 text-gray-500" />
+                                </div>
+                            </TD>
+                            <TD>{{ calculateTotalQty(item) }}</TD>
+                            <TD>
+                                <Badge class="capitalize" :class="{
+                                    'bg-yellow-500 text-white': item.status === 'uploaded',
+                                    'bg-teal-500 text-white': item.status === 'level1_approved',
+                                    'bg-green-500 text-white': item.status === 'level2_approved',
+                                    'bg-red-500 text-white': item.status === 'rejected' || item.status === 'expired',
+                                }">{{ item.status.replace('_', ' ') }}</Badge>
+                            </TD>
+                            <TD>{{ item.uploader ? `${item.uploader.first_name} ${item.uploader.last_name}` : 'N/A' }}</TD>
+                        </tr>
+                    </TableBody>
+                </Table>
+            </div>
             <Pagination :data="countItems" />
         </TableContainer>
     </Layout>
