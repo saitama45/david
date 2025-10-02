@@ -719,7 +719,7 @@ watchEffect(() => {
                     :icon="CalendarCheck2"
                     :is-active="isPathActive('/dsp-delivery-schedules')"
                 >
-                    DSP Delivery Schedules
+                    Delivery Schedules
                 </NavLink>
                 <NavLink
                     v-if="hasAccess('view orders cutoff')"
