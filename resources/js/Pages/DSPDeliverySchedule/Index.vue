@@ -14,7 +14,7 @@ const { hasAccess } = useAuth();
 </script>
 
 <template>
-    <Layout heading="DSP Delivery Schedules">
+    <Layout heading="Delivery Schedules">
         <TableContainer>
             <TableHeader>
                 <!-- Search Bar-->

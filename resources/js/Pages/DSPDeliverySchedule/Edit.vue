@@ -179,9 +179,9 @@ const submit = () => {
 </style>
 
 <template>
-    <Head :title="`DSP Delivery Schedule for ${supplier.name}`" />
+    <Head :title="`Delivery Schedule for ${supplier.name}`" />
 
-    <Layout :heading="`DSP Delivery Schedule for ${supplier.name}`">
+    <Layout :heading="`Delivery Schedule for ${supplier.name}`">
         <Toaster />
         <div class="p-4 bg-white shadow-md rounded-lg">
 
