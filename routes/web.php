@@ -9,6 +9,7 @@ use App\Http\Controllers\AuditController;
 use App\Http\Controllers\CashPullOutApproval;
 use App\Http\Controllers\CashPullOutApprovalController;
 use App\Http\Controllers\CSMassCommitsController;
+use App\Http\Controllers\DTSMassOrdersController;
 use App\Http\Controllers\CashPullOutController;
 use App\Http\Controllers\CategoryController;
 use App\Http\Controllers\ConsolidatedSOReportController;
@@ -434,6 +435,22 @@ Route::middleware('auth')
             Route::middleware('permission:export cs mass commits')->get('/export', 'export')->name('export');
             Route::middleware('permission:edit cs mass commits')->post('/confirm-all', 'confirmAll')->name('confirm-all');
             Route::middleware('permission:edit cs mass commits')->post('/update-commit', 'updateCommit')->name('update-commit');
+        });
+
+        // DTS Mass Orders
+        Route::controller(DTSMassOrdersController::class)->name('dts-mass-orders.')->prefix('dts-mass-orders')->group(function () {
+            Route::middleware('permission:view dts mass orders')->get('/', 'index')->name('index');
+            Route::middleware('permission:view dts mass orders')->get('/show/{id}', 'show')->name('show');
+            Route::middleware('permission:create dts mass orders')->group(function () {
+                Route::get('/create', 'create')->name('create');
+                Route::post('/store', 'store')->name('store');
+            });
+            Route::middleware('permission:edit dts mass orders')->group(function () {
+                Route::get('/edit/{id}', 'edit')->name('edit');
+                Route::put('/update/{id}', 'update')->name('update');
+            });
+            Route::middleware('permission:export dts mass orders')->get('/export', 'export')->name('export');
+            Route::middleware('permission:view dts mass orders')->get('/available-dates/{variant}', 'getAvailableDates')->name('get-available-dates');
         });
 
         // Month End Schedules

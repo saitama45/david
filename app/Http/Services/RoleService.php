@@ -117,6 +117,9 @@ class RoleService
                 'CS Mass Commits' => [
                     'view cs mass commits', 'create cs mass commits', 'edit cs mass commits', 'edit finished good commits', 'edit other commits', 'export cs mass commits'
                 ],
+                'DTS Mass Orders' => [
+                    'view dts mass orders', 'create dts mass orders', 'edit dts mass orders', 'export dts mass orders'
+                ],
             ],
             'Receiving' => [
                 'Direct Receiving' => [

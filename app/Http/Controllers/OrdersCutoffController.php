@@ -30,10 +30,16 @@ class OrdersCutoffController extends Controller
         $user = Auth::user();
         $assigned_supplier_codes = $user->suppliers()->pluck('suppliers.supplier_code');
 
+        // Special variants that should always be visible
+        $specialVariants = ['ICE CREAM', 'SALMON', 'FRUITS AND VEGETABLES'];
+
         $filters = $request->only('search');
         $query = OrdersCutoff::query()
             ->with('dtsDeliverySchedules')
-            ->whereIn('ordering_template', $assigned_supplier_codes);
+            ->where(function ($q) use ($assigned_supplier_codes, $specialVariants) {
+                $q->whereIn('ordering_template', $assigned_supplier_codes)
+                  ->orWhereIn('ordering_template', $specialVariants);
+            });
 
         if ($request->filled('search')) {
             $query->where('ordering_template', 'like', '%' . $request->input('search') . '%');
@@ -52,7 +58,20 @@ class OrdersCutoffController extends Controller
      */
     public function create()
     {
-        $variants = Auth::user()->suppliers()->pluck('suppliers.supplier_code');
+        $user = Auth::user();
+
+        // Get user's assigned supplier codes
+        $assignedSupplierCodes = $user->suppliers()->pluck('suppliers.supplier_code');
+
+        // Get special variants (ICE CREAM, SALMON, FRUITS AND VEGETABLES)
+        $specialVariants = ['ICE CREAM', 'SALMON', 'FRUITS AND VEGETABLES'];
+        $specialVariantsFromDb = DTSDeliverySchedule::whereIn('variant', $specialVariants)
+            ->distinct()
+            ->pluck('variant');
+
+        // Merge assigned supplier codes with special variants
+        $variants = $assignedSupplierCodes->merge($specialVariantsFromDb)->unique()->values();
+
         return Inertia::render('OrdersCutoff/Create', compact('variants'));
     }
 
@@ -108,7 +127,19 @@ class OrdersCutoffController extends Controller
      */
     public function edit(OrdersCutoff $ordersCutoff)
     {
-        $variants = Auth::user()->suppliers()->pluck('suppliers.supplier_code');
+        $user = Auth::user();
+
+        // Get user's assigned supplier codes
+        $assignedSupplierCodes = $user->suppliers()->pluck('suppliers.supplier_code');
+
+        // Get special variants (ICE CREAM, SALMON, FRUITS AND VEGETABLES)
+        $specialVariants = ['ICE CREAM', 'SALMON', 'FRUITS AND VEGETABLES'];
+        $specialVariantsFromDb = DTSDeliverySchedule::whereIn('variant', $specialVariants)
+            ->distinct()
+            ->pluck('variant');
+
+        // Merge assigned supplier codes with special variants
+        $variants = $assignedSupplierCodes->merge($specialVariantsFromDb)->unique()->values();
 
         // Convert string to array of days for the form
         $ordersCutoff->days_covered_1 = $this->convertStringToDayIds($ordersCutoff->days_covered_1);

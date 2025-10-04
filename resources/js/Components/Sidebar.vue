@@ -111,7 +111,8 @@ const canViewOrderingGroup = computed(() =>
     hasAccess("view additional order approval") ||
     hasAccess("view emergency order approval") ||
     hasAccess("view mass orders") ||
-    hasAccess("view cs mass commits")
+    hasAccess("view cs mass commits") ||
+    hasAccess("view dts mass orders")
 );
 
 const canViewReceivingGroup = computed(() =>
@@ -185,7 +186,7 @@ watchEffect(() => {
     // Define all collapsible sections and their associated paths
     const sections = [
         { ref: settingsOpen, paths: ["/users", "/roles", "/templates", "/dts-delivery-schedules", "/dsp-delivery-schedules", "/orders-cutoff", "/month-end-schedules"] },
-        { ref: orderingOpen, paths: ["/store-orders", "/emergency-orders", "/additional-orders", "/dts-orders", "/orders-approval", "/cs-approvals", "/additional-orders-approval", "/emergency-orders-approval", "/mass-orders", "/cs-mass-commits"] },
+        { ref: orderingOpen, paths: ["/store-orders", "/emergency-orders", "/additional-orders", "/dts-orders", "/orders-approval", "/cs-approvals", "/additional-orders-approval", "/emergency-orders-approval", "/mass-orders", "/cs-mass-commits", "/dts-mass-orders"] },
         { ref: receivingOpen, paths: ["/direct-receiving", "/orders-receiving", "/approved-orders", "/receiving-approvals"] },
         { ref: salesOpen, paths: ["/sales-orders", "/store-transactions", "/store-transactions-approval"] },
         { ref: inventoryOpen, paths: ["/items-list", "/sapitems-list", "/SupplierItems-list", "/POSMasterfile-list", "/pos-bom-list", "/stock-management", "/soh-adjustment", "/low-on-stocks", "/month-end-count", "/month-end-count-approvals", "/month-end-count-approvals-level2"] },
@@ -311,6 +312,14 @@ watchEffect(() => {
                     :is-active="isPathActive('/cs-mass-commits')"
                 >
                     CS Mass Commits
+                </NavLink>
+                <NavLink
+                    v-if="hasAccess('view dts mass orders')"
+                    href="/dts-mass-orders"
+                    :icon="SquareChartGantt"
+                    :is-active="isPathActive('/dts-mass-orders')"
+                >
+                    DTS Mass Orders
                 </NavLink>
             </CollapsibleContent>
         </Collapsible>
