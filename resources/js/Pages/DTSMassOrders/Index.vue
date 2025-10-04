@@ -8,17 +8,9 @@ import Dialog from 'primevue/dialog';
 import Select from 'primevue/select';
 
 const props = defineProps({
-    dtsOrders: {
+    batches: {
         type: Object,
         default: () => ({ data: [] })
-    },
-    branches: {
-        type: Object,
-        default: () => ({})
-    },
-    filters: {
-        type: Object,
-        default: () => ({})
     },
     variants: {
         type: Array,
@@ -28,45 +20,12 @@ const props = defineProps({
 
 const { hasAccess } = useAuth();
 
-// Table and filter logic
-let filterQuery = ref(props.filters?.filterQuery || "all");
-let from = ref(props.filters?.from || null);
-let to = ref(props.filters?.to || null);
-let branchId = ref(props.filters?.branchId || null);
-let search = ref(props.filters?.search || null);
-
-const performFilter = throttle(() => {
-    router.get(
-        route("dts-mass-orders.index"),
-        {
-            search: search.value,
-            filterQuery: filterQuery.value,
-            from: from.value,
-            to: to.value,
-            branchId: branchId.value,
-        },
-        {
-            preserveState: true,
-            preserveScroll: true,
-            replace: true,
-        }
-    );
-}, 500);
-
-watch([from, to, branchId, search, filterQuery], performFilter);
-
-const changeFilter = (currentFilter) => {
-    filterQuery.value = currentFilter;
-};
-
 const statusBadgeColor = (status) => {
     switch (status?.toUpperCase()) {
-        case "RECEIVED": return "bg-green-500 text-white";
         case "APPROVED": return "bg-teal-500 text-white";
-        case "INCOMPLETE": return "bg-orange-500 text-white";
         case "PENDING": return "bg-yellow-500 text-white";
-        case "COMMITED": return "bg-blue-500 text-white";
-        case "REJECTED": return "bg-red-500 text-white";
+        case "COMPLETED": return "bg-green-500 text-white";
+        case "CANCELLED": return "bg-red-500 text-white";
         default: return "bg-gray-500 text-white";
     }
 };
@@ -102,8 +61,8 @@ const formatDisplayDateTime = (dateString) => {
     }
 };
 
-const showOrderDetails = (id) => router.get(route('dts-mass-orders.show', id));
-const editOrderDetails = (id) => router.get(route('dts-mass-orders.edit', id));
+const showBatchDetails = (batchNumber) => router.get(route('dts-mass-orders.show', batchNumber));
+const editBatchDetails = (batchNumber) => router.get(route('dts-mass-orders.edit', batchNumber));
 
 const showVariantModal = ref(false);
 const selectedVariant = ref(null);
@@ -218,84 +177,41 @@ const selectDate = (day, isFrom) => {
         :handleClick="navigateToCreate"
     >
 
-        <FilterTab>
-            <FilterTabButton label="All" filter="all" :currentFilter="filterQuery" @click="changeFilter('all')" />
-            <FilterTabButton label="Pending" filter="pending" :currentFilter="filterQuery" @click="changeFilter('pending')" />
-            <FilterTabButton label="Approved" filter="approved" :currentFilter="filterQuery" @click="changeFilter('approved')" />
-            <FilterTabButton label="Commited" filter="committed" :currentFilter="filterQuery" @click="changeFilter('committed')" />
-            <FilterTabButton label="Received" filter="received" :currentFilter="filterQuery" @click="changeFilter('received')" />
-            <FilterTabButton label="Rejected" filter="rejected" :currentFilter="filterQuery" @click="changeFilter('rejected')" />
-        </FilterTab>
-
         <TableContainer>
-            <TableHeader>
-                <SearchBar>
-                    <Input v-model="search" id="search" type="text" placeholder="Search for order number" class="pl-10 sm:max-w-full max-w-64" />
-                </SearchBar>
-                <DivFlexCenter class="gap-5">
-                    <Popover>
-                        <PopoverTrigger> <Filter /> </PopoverTrigger>
-                        <PopoverContent>
-                            <div class="flex justify-end">
-                                <Button @click="() => { from = null; to = null; branchId = null; search = null; }" variant="link" class="text-end text-red-500 text-xs">
-                                    Reset Filter
-                                </Button>
-                            </div>
-                            <label class="text-xs">From</label>
-                            <Input type="date" v-model="from" />
-                            <label class="text-xs">To</label>
-                            <Input type="date" v-model="to" />
-                            <label class="text-xs">Store</label>
-                            <SelectShad v-model="branchId">
-                                <SelectTrigger>
-                                    <SelectValue placeholder="Select a store" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    <SelectGroup>
-                                        <SelectLabel>Stores</SelectLabel>
-                                        <SelectItem v-for="(value, key) in branches" :value="key">
-                                            {{ value }}
-                                        </SelectItem>
-                                    </SelectGroup>
-                                </SelectContent>
-                            </SelectShad>
-                        </PopoverContent>
-                    </Popover>
-                </DivFlexCenter>
-            </TableHeader>
-
             <div class="hidden md:block">
                 <Table>
                     <TableHead>
-                        <TH>Id</TH>
-                        <TH>Supplier</TH>
-                        <TH>Store</TH>
-                        <TH>Order #</TH>
-                        <TH>Delivery Date</TH>
-                        <TH>Order Placed Date</TH>
-                        <TH>Order Status</TH>
+                        <TH>Batch #</TH>
+                        <TH>Variant</TH>
+                        <TH>Date Range</TH>
+                        <TH>Total Orders</TH>
+                        <TH>Total Quantity</TH>
+                        <TH>Status</TH>
+                        <TH>Created By</TH>
+                        <TH>Created At</TH>
                         <TH>Actions</TH>
                     </TableHead>
                     <TableBody>
-                        <tr v-if="!dtsOrders.data || dtsOrders.data.length === 0">
-                            <td colspan="8" class="text-center py-4">No orders found.</td>
+                        <tr v-if="!batches.data || batches.data.length === 0">
+                            <td colspan="9" class="text-center py-4">No mass orders found.</td>
                         </tr>
-                        <tr v-for="order in dtsOrders.data" :key="order.id">
-                            <TD>{{ order.id }}</TD>
-                            <TD>{{ order.supplier?.name ?? "N/A" }}</TD>
-                            <TD>{{ order.store_branch?.name ?? "N/A" }}</TD>
-                            <TD>{{ order.order_number }}</TD>
-                            <TD>{{ formatDisplayDate(order.order_date) }}</TD>
-                            <TD>{{ formatDisplayDateTime(order.created_at) }}</TD>
+                        <tr v-for="batch in batches.data" :key="batch.id">
+                            <TD>{{ batch.batch_number }}</TD>
+                            <TD><span class="font-semibold text-blue-600">{{ batch.variant }}</span></TD>
+                            <TD>{{ formatDisplayDate(batch.date_from) }} - {{ formatDisplayDate(batch.date_to) }}</TD>
+                            <TD>{{ batch.total_orders }}</TD>
+                            <TD>{{ batch.total_quantity }}</TD>
                             <TD>
-                                <Badge :class="statusBadgeColor(order.order_status)" class="font-bold">{{ order.order_status ? order.order_status.toUpperCase() : 'N/A' }}</Badge>
+                                <Badge :class="statusBadgeColor(batch.status)" class="font-bold">{{ batch.status ? batch.status.toUpperCase() : 'N/A' }}</Badge>
                             </TD>
+                            <TD>{{ batch.encoder?.first_name }} {{ batch.encoder?.last_name }}</TD>
+                            <TD>{{ formatDisplayDateTime(batch.created_at) }}</TD>
                             <TD>
                                 <DivFlexCenter class="gap-3">
-                                    <button v-if="hasAccess('view dts mass orders')" @click="showOrderDetails(order.order_number)">
+                                    <button v-if="hasAccess('view dts mass orders')" @click="showBatchDetails(batch.batch_number)">
                                         <Eye class="size-5" />
                                     </button>
-                                    <button v-if="hasAccess('edit dts mass orders')" class="text-blue-500" @click="editOrderDetails(order.order_number)">
+                                    <button v-if="hasAccess('edit dts mass orders')" class="text-blue-500" @click="editBatchDetails(batch.batch_number)">
                                         <Pencil class="size-5" />
                                     </button>
                                 </DivFlexCenter>
@@ -306,23 +222,25 @@ const selectDate = (day, isFrom) => {
             </div>
 
             <MobileTableContainer class="md:hidden">
-                <MobileTableRow v-for="order in dtsOrders.data" :key="order.id">
-                    <MobileTableHeading :title="order.order_number">
-                        <button v-if="hasAccess('view dts mass orders')" @click="showOrderDetails(order.order_number)">
+                <MobileTableRow v-for="batch in batches.data" :key="batch.id">
+                    <MobileTableHeading :title="batch.batch_number">
+                        <button v-if="hasAccess('view dts mass orders')" @click="showBatchDetails(batch.batch_number)">
                             <Eye class="size-5" />
                         </button>
-                        <button v-if="hasAccess('edit dts mass orders')" class="text-blue-500" @click="editOrderDetails(order.order_number)">
+                        <button v-if="hasAccess('edit dts mass orders')" class="text-blue-500" @click="editBatchDetails(batch.batch_number)">
                             <Pencil class="size-5" />
                         </button>
                     </MobileTableHeading>
-                    <LabelXS>Status: <span :class="statusBadgeColor(order.order_status)" class="font-semibold p-1 rounded text-white">{{ order.order_status ? order.order_status.toUpperCase() : 'N/A' }}</span></LabelXS>
-                    <LabelXS>Store: {{ order.store_branch?.name ?? "N/A" }}</LabelXS>
-                    <LabelXS>Supplier: {{ order.supplier?.name ?? "N/A" }}</LabelXS>
-                    <LabelXS>Delivery Date: {{ formatDisplayDate(order.order_date) }}</LabelXS>
+                    <LabelXS>Variant: <span class="font-semibold text-blue-600">{{ batch.variant }}</span></LabelXS>
+                    <LabelXS>Date Range: {{ formatDisplayDate(batch.date_from) }} - {{ formatDisplayDate(batch.date_to) }}</LabelXS>
+                    <LabelXS>Total Orders: {{ batch.total_orders }}</LabelXS>
+                    <LabelXS>Total Quantity: {{ batch.total_quantity }}</LabelXS>
+                    <LabelXS>Status: <span :class="statusBadgeColor(batch.status)" class="font-semibold p-1 rounded text-white">{{ batch.status ? batch.status.toUpperCase() : 'N/A' }}</span></LabelXS>
+                    <LabelXS>Created: {{ formatDisplayDateTime(batch.created_at) }}</LabelXS>
                 </MobileTableRow>
             </MobileTableContainer>
 
-            <Pagination :data="dtsOrders" />
+            <Pagination :data="batches" />
         </TableContainer>
 
         <!-- Variant Selection Modal -->

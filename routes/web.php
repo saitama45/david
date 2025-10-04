@@ -449,7 +449,7 @@ Route::middleware('auth')
                 Route::get('/edit/{id}', 'edit')->name('edit');
                 Route::put('/update/{id}', 'update')->name('update');
             });
-            Route::middleware('permission:export dts mass orders')->get('/export', 'export')->name('export');
+            Route::middleware('permission:export dts mass orders')->get('/export/{batch_number}', 'export')->name('export');
             Route::middleware('permission:view dts mass orders')->get('/available-dates/{variant}', 'getAvailableDates')->name('get-available-dates');
         });
 
