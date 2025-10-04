@@ -26,6 +26,8 @@ class SupplierItems extends Model implements Auditable
         'packaging_config',
         'config',
         'uom',
+        'area',
+        'category2',
         'cost',
         'srp',
         'is_active',

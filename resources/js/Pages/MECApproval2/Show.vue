@@ -44,6 +44,7 @@ const approve = () => {
         message: 'Are you sure you want to approve this count for Level 2?',
         header: 'Confirm Level 2 Approval',
         icon: 'pi pi-check-circle',
+        rejectClass: 'p-button-danger',
         accept: () => {
             router.post(route('month-end-count-approvals-level2.approve', { schedule_id: props.schedule.id, branch_id: props.branch.id }), {}, {
                 onSuccess: () => {
@@ -104,9 +105,14 @@ const hasItemsForApproval = computed(() => {
                     <TableHead class="sticky top-0 z-10 bg-gray-100">
                         <TH>Item Code</TH>
                         <TH>Item Name</TH>
-                        <TH>UOM</TH>
+                        <TH>Area</TH>
+                        <TH>Category 2</TH>
+                        <TH>Category</TH>
+                        <TH>Brand</TH>
                         <TH>Packaging Config</TH>
                         <TH>Config</TH>
+                        <TH>UOM</TH>
+                        <TH>Current SOH</TH>
                         <TH>Bulk Qty</TH>
                         <TH>Loose Qty</TH>
                         <TH>Loose UOM</TH>
@@ -117,14 +123,19 @@ const hasItemsForApproval = computed(() => {
                     </TableHead>
                     <TableBody>
                         <tr v-if="!countItems.length">
-                            <td colspan="12" class="text-center py-4">No items found for this count.</td>
+                            <td colspan="17" class="text-center py-4">No items found for this count.</td>
                         </tr>
                         <tr v-for="item in countItems" :key="item.id">
                             <TD>{{ item.item_code }}</TD>
                             <TD>{{ item.item_name }}</TD>
-                            <TD>{{ item.uom }}</TD>
+                            <TD>{{ item.area }}</TD>
+                            <TD>{{ item.category2 }}</TD>
+                            <TD>{{ item.category }}</TD>
+                            <TD>{{ item.brand }}</TD>
                             <TD>{{ item.packaging_config }}</TD>
                             <TD>{{ item.config }}</TD>
+                            <TD>{{ item.uom }}</TD>
+                            <TD>{{ item.current_soh }}</TD>
                             <TD>{{ item.bulk_qty }}</TD>
                             <TD>{{ item.loose_qty }}</TD>
                             <TD>{{ item.loose_uom }}</TD>

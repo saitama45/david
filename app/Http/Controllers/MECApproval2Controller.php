@@ -182,8 +182,9 @@ class MECApproval2Controller extends Controller
                     'store_branch_id' => $item->branch_id,
                 ]);
 
-                $oldQuantity = $productStock->exists ? $productStock->quantity : 0;
-                $adjustmentQuantity = $item->total_qty - $oldQuantity;
+                // Calculate the actual current SOH (quantity - used)
+                $currentSOH = $productStock->exists ? ($productStock->quantity - $productStock->used) : 0;
+                $adjustmentQuantity = $item->total_qty - $currentSOH;
 
                 $productStock->quantity = $item->total_qty;
                 $productStock->recently_added = 0;
@@ -197,9 +198,11 @@ class MECApproval2Controller extends Controller
                         'quantity' => abs($adjustmentQuantity),
                         'action' => $adjustmentQuantity > 0 ? 'add' : 'out',
                         'transaction_date' => Carbon::now(),
+                        'unit_cost' => 0,
+                        'total_cost' => 0,
                         'is_stock_adjustment' => true,
                         'is_stock_adjustment_approved' => true,
-                        'remarks' => $item->remarks ?? 'Month End Count Adjustment',
+                        'remarks' => 'Month End Count Approved',
                     ]);
                 }
 

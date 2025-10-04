@@ -115,6 +115,7 @@ const submitForApproval = () => {
         message: 'Are you sure you want to submit this count for Level 1 approval? You will no longer be able to edit it.',
         header: 'Confirm Submission',
         icon: 'pi pi-exclamation-triangle',
+        rejectClass: 'p-button-danger',
         accept: () => {
             router.post(route('month-end-count.submit-for-approval', { schedule: props.schedule.id, branch: props.branch.id }), {}, {
                 onSuccess: () => {
@@ -179,9 +180,14 @@ const branchStatus = computed(() => {
                     <TableHead class="sticky top-0 z-10 bg-gray-100">
                         <TH>Item Code</TH>
                         <TH>Item Name</TH>
-                        <TH>UOM</TH>
+                        <TH>Area</TH>
+                        <TH>Category 2</TH>
+                        <TH>Category</TH>
+                        <TH>Brand</TH>
                         <TH>Packaging Config</TH>
                         <TH>Config</TH>
+                        <TH>UOM</TH>
+                        <TH>Current SOH</TH>
                         <TH>Bulk Qty</TH>
                         <TH>Loose Qty</TH>
                         <TH>Loose UOM</TH>
@@ -192,12 +198,15 @@ const branchStatus = computed(() => {
                     </TableHead>
                     <TableBody>
                         <tr v-if="!countItems.length">
-                            <td colspan="12" class="text-center py-4">No count items found for this schedule and branch.</td>
+                            <td colspan="17" class="text-center py-4">No count items found for this schedule and branch.</td>
                         </tr>
                         <tr v-for="item in countItems" :key="item.id">
                             <TD>{{ item.item_code }}</TD>
                             <TD>{{ item.item_name }}</TD>
-                            <TD>{{ item.uom }}</TD>
+                            <TD>{{ item.area }}</TD>
+                            <TD>{{ item.category2 }}</TD>
+                            <TD>{{ item.category }}</TD>
+                            <TD>{{ item.brand }}</TD>
                             <TD>{{ item.packaging_config }}</TD>
                             <TD>
                                 <div v-if="editingCell && editingCell.itemId === item.id && editingCell.field === 'config'" class="flex items-center gap-1">
@@ -217,6 +226,8 @@ const branchStatus = computed(() => {
                                     <Pencil v-if="props.canEditItems && isEditableStatus(item.status) && !item.packaging_config" class="h-3 w-3 ml-1 text-gray-500 opacity-0 group-hover:opacity-100" />
                                 </div>
                             </TD>
+                            <TD>{{ item.uom }}</TD>
+                            <TD>{{ item.current_soh }}</TD>
                             <TD>
                                 <div v-if="editingCell && editingCell.itemId === item.id && editingCell.field === 'bulk_qty'" class="flex items-center gap-1">
                                     <Input ref="editInput" v-focus-select type="number" v-model="editValue" class="w-24 text-right py-1" @keyup.enter="saveItemEdit(item)" @keyup.esc="cancelEditing" />

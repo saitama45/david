@@ -185,25 +185,45 @@ class MonthEndCountController extends Controller
             return back()->withErrors(['error' => 'This schedule is no longer pending.']);
         }
 
-        // Fetch all active SupplierItems
-        $items = SupplierItems::where('is_active', true)->get()->map(function ($item) {
-            // Attempt to get the SAPMasterfile for the item's UOM
-            $sapMasterfile = $item->sap_master_file; // This uses the accessor on SupplierItems
+        // Fetch all active SupplierItems and get all their SAP Masterfiles
+        $supplierItems = SupplierItems::where('is_active', true)->get();
 
-            return [
-                'ItemCode' => $item->ItemCode,
-                'item_name' => $item->item_name,
-                'packaging_config' => $item->packaging_config,
-                'config' => $item->config,
-                'uom' => $item->uom,
-                'bulk_qty' => '', // User fillable
-                'loose_qty' => '', // User fillable
-                'loose_uom' => '', // User fillable
-                'remarks' => '', // User fillable
-                'total_qty' => '', // User fillable
-                'sap_masterfile_id' => $sapMasterfile ? $sapMasterfile->id : null, // Hidden field for upload
-            ];
-        });
+        $items = collect();
+
+        foreach ($supplierItems as $supplierItem) {
+            // Get all SAP Masterfiles for this ItemCode
+            $sapMasterfiles = SAPMasterfile::where('ItemCode', $supplierItem->ItemCode)
+                ->where('is_active', true)
+                ->get();
+
+            // Create a row for each SAP Masterfile UOM
+            foreach ($sapMasterfiles as $sapMasterfile) {
+                // Get the current stock for this specific SAP Masterfile and branch
+                $stock = ProductInventoryStock::where('product_inventory_id', $sapMasterfile->id)
+                    ->where('store_branch_id', $request->branch_id)
+                    ->first();
+
+                $currentSoh = $stock ? $stock->quantity : 0;
+
+                $items->push([
+                    'ItemCode' => $supplierItem->ItemCode,
+                    'item_name' => $supplierItem->item_name,
+                    'area' => $supplierItem->area,
+                    'category2' => $supplierItem->category2,
+                    'category' => $supplierItem->category,
+                    'brand' => $supplierItem->brand,
+                    'packaging_config' => $supplierItem->packaging_config,
+                    'config' => $supplierItem->config,
+                    'uom' => $sapMasterfile->AltUOM,
+                    'current_soh' => $currentSoh,
+                    'bulk_qty' => '', // User fillable
+                    'loose_qty' => '', // User fillable
+                    'loose_uom' => '', // User fillable
+                    'remarks' => '', // User fillable
+                    'total_qty' => '', // User fillable
+                ]);
+            }
+        }
 
         $fileName = 'month_end_count_template_' . $branch->name . '_' . $schedule->calculated_date->format('Ymd') . '.xlsx';
 
@@ -224,10 +244,17 @@ class MonthEndCountController extends Controller
         $branch = StoreBranch::findOrFail($request->branch_id);
         Log::info('MonthEndCountController@upload: Schedule and Branch found.', ['schedule_id' => $schedule->id, 'branch_id' => $branch->id]);
 
-        // Ensure the upload is happening the day after the calculated date
-        if ($schedule->calculated_date->addDay()->toDateString() !== Carbon::today()->toDateString()) {
-            Log::warning('MonthEndCountController@upload: Upload date mismatch.', ['calculated_date' => $schedule->calculated_date->toDateString(), 'today' => Carbon::today()->toDateString()]);
-            return back()->withErrors(['error' => 'File can only be uploaded the day after the scheduled count.']);
+        // Ensure the upload is happening on or after the calculated date (using Asia/Manila timezone)
+        $todayManila = Carbon::today('Asia/Manila');
+        $scheduleDatePlusOne = Carbon::parse($schedule->calculated_date)->addDay();
+
+        if ($todayManila->lt($scheduleDatePlusOne)) {
+            Log::warning('MonthEndCountController@upload: Upload date is before allowed date.', [
+                'calculated_date' => $schedule->calculated_date->toDateString(),
+                'allowed_upload_date' => $scheduleDatePlusOne->toDateString(),
+                'today_manila' => $todayManila->toDateString()
+            ]);
+            return back()->withErrors(['error' => 'File can only be uploaded the day after the scheduled count (' . $scheduleDatePlusOne->toDateString() . ').']);
         }
         Log::info('MonthEndCountController@upload: Date validation passed.');
 

@@ -52,37 +52,55 @@ class StockManagementController extends Controller
 
         Log::info("StockManagementController: Index method called for branchId: {$branchId}");
 
-        $productsQuery = SAPMasterfile::query();
+        // If no branch is selected, return empty result to avoid slow query on 261k+ rows
+        if ($branchId === null) {
+            Log::info("StockManagementController: No branch selected, returning empty result");
+            $products = new \Illuminate\Pagination\LengthAwarePaginator(
+                collect([]),
+                0,
+                10,
+                1,
+                ['path' => request()->url(), 'query' => request()->query()]
+            );
 
-        // Conditionally leftJoin based on branchId.
-        // The where clause for store_branch_id is only added if branchId is a valid, non-null integer.
-        $productsQuery->leftJoin('product_inventory_stocks', function ($join) use ($branchId) {
-            $join->on('sap_masterfiles.id', '=', 'product_inventory_stocks.product_inventory_id');
-            if ($branchId !== null) {
-                $join->where('product_inventory_stocks.store_branch_id', '=', $branchId);
-            }
-        });
+            return Inertia::render('StockManagement/Index', [
+                'products' => $products,
+                'branches' => $branches,
+                'filters' => request()->only(['search', 'branchId']),
+                'costCenters' => $costCenters
+            ]);
+        }
 
-        $productsQuery->select(
-                DB::raw('MIN(sap_masterfiles.id) as id'),
+        // Optimized approach: Use a subquery for stock data with branch filter to drastically reduce rows
+        $stockSubquery = DB::table('product_inventory_stocks')
+            ->select(
+                'product_inventory_id',
+                DB::raw('SUM(quantity) as total_quantity'),
+                DB::raw('SUM(used) as total_used')
+            )
+            ->where('store_branch_id', '=', $branchId)
+            ->groupBy('product_inventory_id');
+
+        $productsQuery = SAPMasterfile::query()
+            ->leftJoinSub($stockSubquery, 'stock', function ($join) {
+                $join->on('sap_masterfiles.id', '=', 'stock.product_inventory_id');
+            })
+            ->select(
+                'sap_masterfiles.id',
                 'sap_masterfiles.ItemDescription as name',
                 'sap_masterfiles.ItemCode as inventory_code',
                 'sap_masterfiles.BaseUOM as uom',
                 'sap_masterfiles.AltUOM as alt_uom',
-                DB::raw('COALESCE(MAX(product_inventory_stocks.quantity), 0) - COALESCE(MAX(product_inventory_stocks.used), 0) as stock_on_hand'),
-                DB::raw('COALESCE(MAX(product_inventory_stocks.used), 0) as recorded_used')
+                DB::raw('COALESCE(stock.total_quantity, 0) - COALESCE(stock.total_used, 0) as stock_on_hand'),
+                DB::raw('COALESCE(stock.total_used, 0) as recorded_used')
             )
             ->when($search, function ($query) use ($search) {
-                $query->where('sap_masterfiles.ItemDescription', 'like', "%{$search}%")
-                    ->orWhere('sap_masterfiles.ItemCode', 'like', "%{$search}%");
+                $query->where(function ($q) use ($search) {
+                    $q->where('sap_masterfiles.ItemDescription', 'like', "%{$search}%")
+                      ->orWhere('sap_masterfiles.ItemCode', 'like', "%{$search}%");
+                });
             })
-            ->groupBy(
-                'sap_masterfiles.ItemCode',
-                'sap_masterfiles.ItemDescription',
-                'sap_masterfiles.BaseUOM',
-                'sap_masterfiles.AltUOM'
-            )
-            ->orderBy('name');
+            ->orderBy('sap_masterfiles.ItemDescription');
 
         Log::info('StockManagementController: Products query SQL: ' . $productsQuery->toSql());
         Log::info('StockManagementController: Products query Bindings: ' . json_encode($productsQuery->getBindings()));
