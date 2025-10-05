@@ -893,7 +893,7 @@ class DTSMassOrdersController extends Controller
     {
         // Get all orders for this batch
         $orders = StoreOrder::where('batch_reference', $batchNumber)
-            ->with(['store_branch', 'encoder'])
+            ->with(['store_branch', 'encoder', 'store_order_items'])
             ->get();
 
         if ($orders->isEmpty()) {
@@ -981,11 +981,12 @@ class DTSMassOrdersController extends Controller
             // Build orders data: { itemId: { date: { storeId: quantity } } }
             $ordersData = [];
             foreach ($orders as $order) {
-                $orderItem = \App\Models\StoreOrderItem::where('store_order_id', $order->id)->first();
-                if ($orderItem) {
-                    $supplierItem = $supplierItems->firstWhere('ItemCode', $orderItem->item_code);
-                    if ($supplierItem) {
-                        $ordersData[$supplierItem->id][$order->order_date][$order->store_branch_id] = $orderItem->quantity_commited;
+                foreach ($order->store_order_items as $orderItem) {
+                    if ($orderItem) {
+                        $supplierItem = $supplierItems->firstWhere('ItemCode', $orderItem->item_code);
+                        if ($supplierItem) {
+                            $ordersData[$supplierItem->id][$order->order_date][$order->store_branch_id] = $orderItem->quantity_commited;
+                        }
                     }
                 }
             }
