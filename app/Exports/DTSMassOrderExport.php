@@ -576,7 +576,7 @@ class DTSMassOrderExport implements FromArray, WithStyles, WithColumnWidths, Wit
                 // Calculate wrapped lines for address (estimate based on column width)
                 $columnWidth = $storeSpan['colspan'] * 12; // Each date column is 12 wide
                 $addressLength = strlen($storeSpan['address']);
-                $charsPerLine = max(1, floor($columnWidth * 1.2)); // Approximate chars per line
+                $charsPerLine = max(1, floor($columnWidth * 1.0)); // Approximate chars per line
                 $addressLines = ceil($addressLength / $charsPerLine);
                 $lineCount += $addressLines;
             }

@@ -1157,76 +1157,85 @@ class DTSMassOrdersController extends Controller
 
     public function getAvailableDates($variant)
     {
+        \Log::info("--- DTS Mass Order Date Debug (v2) ---");
+        \Log::info("Starting getAvailableDates for variant: " . $variant);
+
         $cutoff = \App\Models\OrdersCutoff::where('ordering_template', $variant)->first();
-        if (!$cutoff) {
-            return response()->json([]);
-        }
-
-        $now = \Carbon\Carbon::now('Asia/Manila');
-
-        $getCutoffDate = function($day, $time) use ($now) {
-            if (!$day || !$time) return null;
-            $dayIndex = ($day == 7) ? 0 : $day;
-            return $now->copy()->startOfWeek(\Carbon\Carbon::SUNDAY)->addDays($dayIndex)->setTimeFromTimeString($time);
-        };
-
-        $cutoff1Date = $getCutoffDate($cutoff->cutoff_1_day, $cutoff->cutoff_1_time);
-        $cutoff2Date = $getCutoffDate($cutoff->cutoff_2_day, $cutoff->cutoff_2_time);
-
-        $daysToCoverStr = '';
-        $weekOffset = 0;
-
-        // Determine which set of days and which week to use
-        if ($cutoff1Date && $now->lt($cutoff1Date)) {
-            $daysToCoverStr = $cutoff->days_covered_1;
-            $weekOffset = 0; // Current week (next available days this week)
-        } elseif ($cutoff2Date && $now->lt($cutoff2Date)) {
-            $daysToCoverStr = $cutoff->days_covered_2;
-            $weekOffset = 0; // Current week (next available days this week)
-        } else {
-            // After all cutoffs, next week
-            $daysToCoverStr = $cutoff->days_covered_1;
-            $weekOffset = 1; // Next week
-        }
-
-        $startOfTargetWeek = $now->copy()->startOfWeek(\Carbon\Carbon::SUNDAY)->addWeeks($weekOffset);
-
-        $daysToCover = $daysToCoverStr ? explode(',', $daysToCoverStr) : [];
-        $dayMap = ['Sun' => 0, 'Mon' => 1, 'Tue' => 2, 'Wed' => 3, 'Thu' => 4, 'Fri' => 5, 'Sat' => 6];
-
         $enabledDates = [];
-        foreach ($daysToCover as $day) {
-            $day = trim($day);
-            if (isset($dayMap[$day])) {
-                $date = $startOfTargetWeek->copy()->addDays($dayMap[$day]);
-                $enabledDates[] = $date->toDateString();
+
+        if ($cutoff) {
+            $now = \Carbon\Carbon::now('Asia/Manila');
+
+            $getCutoffDate = function($day, $time) use ($now) {
+                if (!$day || !$time) return null;
+                $dayIndex = ($day == 7) ? 0 : $day;
+                return $now->copy()->startOfWeek(\Carbon\Carbon::SUNDAY)->addDays($dayIndex)->setTimeFromTimeString($time);
+            };
+
+            $cutoff1Date = $getCutoffDate($cutoff->cutoff_1_day, $cutoff->cutoff_1_time);
+            $cutoff2Date = $getCutoffDate($cutoff->cutoff_2_day, $cutoff->cutoff_2_time);
+
+            $daysToCoverStr = '';
+            $weekOffset = 0;
+
+            // Determine which set of days and which week to use
+            if ($cutoff1Date && $now->lt($cutoff1Date)) {
+                $daysToCoverStr = $cutoff->days_covered_1;
+                $weekOffset = 0; // Current week (next available days this week)
+            } elseif ($cutoff2Date && $now->lt($cutoff2Date)) {
+                $daysToCoverStr = $cutoff->days_covered_2;
+                $weekOffset = 0; // Current week (next available days this week)
+            } else {
+                // After all cutoffs, next week
+                $daysToCoverStr = $cutoff->days_covered_1;
+                $weekOffset = 1; // Next week
             }
-        }
 
-        // Get all existing batch date ranges for this variant
-        $existingBatches = StoreOrder::whereNotNull('batch_reference')
-            ->where('variant', 'mass dts')
-            ->where('remarks', 'LIKE', "Mass DTS Order - {$variant}")
-            ->select('batch_reference', \DB::raw('MIN(order_date) as date_from'), \DB::raw('MAX(order_date) as date_to'))
-            ->groupBy('batch_reference')
-            ->get();
+            $startOfTargetWeek = $now->copy()->startOfWeek(\Carbon\Carbon::SUNDAY)->addWeeks($weekOffset);
 
-        // Filter out dates that are already covered by existing batches
-        $availableDates = array_filter($enabledDates, function($date) use ($existingBatches) {
-            foreach ($existingBatches as $batch) {
-                $dateFrom = Carbon::parse($batch->date_from);
-                $dateTo = Carbon::parse($batch->date_to);
-                $checkDate = Carbon::parse($date);
+            $daysToCover = $daysToCoverStr ? explode(',', $daysToCoverStr) : [];
+            $dayMap = ['Sun' => 0, 'Mon' => 1, 'Tue' => 2, 'Wed' => 3, 'Thu' => 4, 'Fri' => 5, 'Sat' => 6];
 
-                // If the date falls within an existing batch's range, exclude it
-                if ($checkDate->between($dateFrom, $dateTo)) {
-                    return false;
+            foreach ($daysToCover as $day) {
+                $day = trim($day);
+                if (isset($dayMap[$day])) {
+                    $date = $startOfTargetWeek->copy()->addDays($dayMap[$day]);
+                    $enabledDates[] = $date->toDateString();
                 }
             }
-            return true;
+        } else {
+            // If no cutoff is defined (e.g., for Fruits and Vegetables), enable a default range.
+            $start = \Carbon\Carbon::tomorrow();
+            $end = \Carbon\Carbon::tomorrow()->addDays(59);
+            while($start->lte($end)) {
+                $enabledDates[] = $start->toDateString();
+                $start->addDay();
+            }
+        }
+        \Log::info("Initial enabled dates for {$variant}:", $enabledDates);
+
+        // Get all distinct booked dates for this variant
+        $bookedDates = StoreOrder::whereNotNull('batch_reference')
+            ->where('variant', 'mass dts')
+            ->where('remarks', 'LIKE', "Mass DTS Order - {$variant}")
+            ->distinct()
+            ->pluck('order_date')
+            ->map(function ($date) {
+                return \Carbon\Carbon::parse($date)->toDateString(); // Ensure format is Y-m-d
+            })
+            ->toArray();
+        \Log::info("Individually booked dates found for {$variant}:", $bookedDates);
+
+        // Filter out dates that are already booked
+        $availableDates = array_filter($enabledDates, function($date) use ($bookedDates) {
+            return !in_array($date, $bookedDates);
         });
 
-        return response()->json(array_values($availableDates));
+        $finalDates = array_values($availableDates);
+        \Log::info("Final available dates for {$variant}:", $finalDates);
+        \Log::info("--- End DTS Mass Order Date Debug (v2) ---");
+
+        return response()->json($finalDates);
     }
 
     private function canEditBatch($batch)

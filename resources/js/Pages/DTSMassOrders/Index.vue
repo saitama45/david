@@ -192,7 +192,7 @@ const getCalendarDays = (currentDate) => {
     for (let i = 1; i <= daysInMonth; i++) {
         const date = new Date(year, month, i);
         const dateString = `${year}-${String(month + 1).padStart(2, '0')}-${String(i).padStart(2, '0')}`;
-        const isDisabled = enabledDates.value.length > 0 && !enabledDates.value.includes(dateString);
+        const isDisabled = selectedVariant.value && !enabledDates.value.includes(dateString);
         days.push({ day: i, date, isDisabled });
     }
     return days;
@@ -373,7 +373,7 @@ const selectDate = (day, isFrom) => {
         </TableContainer>
 
         <!-- Variant Selection Modal -->
-        <Dialog v-model:visible="showVariantModal" modal header="Create DTS Mass Order" :style="{ width: '55rem', height: 'auto' }" :contentStyle="{ maxHeight: '85vh', overflowY: 'auto', padding: '1.5rem' }">
+        <Dialog v-model:visible="showVariantModal" modal header="Create DTS Mass Order" :style="{ width: '60rem', height: 'auto' }" :contentStyle="{ padding: '1.5rem' }">
             <div class="space-y-6">
                 <!-- Variant Selection -->
                 <div>
