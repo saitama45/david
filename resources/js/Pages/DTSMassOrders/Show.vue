@@ -31,6 +31,10 @@ const props = defineProps({
         type: Object,
         default: null
     },
+    supplier_items: {
+        type: Array,
+        default: () => []
+    },
     orders: {
         type: Object,
         default: () => ({})
@@ -130,6 +134,51 @@ const exportToExcel = () => {
     window.open(route('dts-mass-orders.export', props.batch_number), '_blank');
 };
 
+// FRUITS AND VEGETABLES helper functions
+const getDatesForStore = (store) => {
+    return props.dates.filter(dateObj => hasDeliverySchedule(store, dateObj));
+};
+
+const getTotalDateColumns = computed(() => {
+    return props.stores.reduce((total, store) => {
+        return total + getDatesForStore(store).length;
+    }, 0);
+});
+
+const getItemTotalOrder = (itemId) => {
+    let total = 0;
+    if (!props.orders[itemId]) return 0;
+    Object.keys(props.orders[itemId]).forEach(date => {
+        Object.keys(props.orders[itemId][date]).forEach(storeId => {
+            const qty = parseFloat(props.orders[itemId][date][storeId] || 0);
+            total += isNaN(qty) ? 0 : qty;
+        });
+    });
+    return total;
+};
+
+const getItemBuffer = () => {
+    return 10;
+};
+
+const getItemTotalPO = (itemId) => {
+    const totalOrder = getItemTotalOrder(itemId);
+    return totalOrder * 1.1;
+};
+
+const getItemTotalPrice = (itemId, price) => {
+    const totalPO = getItemTotalPO(itemId);
+    return totalPO * price;
+};
+
+const getGrandTotalPrice = computed(() => {
+    let total = 0;
+    props.supplier_items.forEach(item => {
+        total += getItemTotalPrice(item.id, item.price);
+    });
+    return total;
+});
+
 </script>
 
 <template>
@@ -188,8 +237,97 @@ const exportToExcel = () => {
                         </div>
                     </div>
 
-                    <!-- Order Details Table -->
-                    <div class="mt-6 overflow-x-auto">
+                    <!-- FRUITS AND VEGETABLES Layout -->
+                    <div v-if="variant === 'FRUITS AND VEGETABLES'" class="mt-6 overflow-x-auto">
+                        <table class="min-w-full border-collapse border border-gray-300 text-sm">
+                            <thead>
+                                <!-- First Header Row: Fixed columns + Store Names grouped -->
+                                <tr class="bg-gray-100">
+                                    <th rowspan="2" class="border border-gray-300 px-3 py-2 font-semibold text-center align-middle" style="min-width: 100px;">ITEM CODE</th>
+                                    <th rowspan="2" class="border border-gray-300 px-3 py-2 font-semibold text-center align-middle" style="min-width: 200px;">ITEM NAME</th>
+                                    <th rowspan="2" class="border border-gray-300 px-3 py-2 font-semibold text-center align-middle" style="min-width: 80px;">UOM</th>
+                                    <th rowspan="2" class="border border-gray-300 px-3 py-2 font-semibold text-center align-middle" style="min-width: 80px;">PRICE</th>
+
+                                    <!-- Store Name headers - each store spans its delivery dates -->
+                                    <template v-for="store in stores" :key="`store-${store.id}`">
+                                        <th
+                                            :colspan="getDatesForStore(store).length"
+                                            class="border border-gray-300 px-2 py-2 font-semibold text-center bg-blue-50"
+                                            style="min-width: 120px;"
+                                        >
+                                            <div class="text-xs font-bold">{{ store.name }}</div>
+                                            <div v-if="store.brand_code" class="text-xs text-gray-600 mt-1 font-bold">{{ store.brand_code }}</div>
+                                            <div v-if="store.complete_address" class="text-xs text-gray-500 mt-1">{{ store.complete_address }}</div>
+                                        </th>
+                                    </template>
+
+                                    <th rowspan="2" class="border border-gray-300 px-3 py-2 font-semibold text-center bg-yellow-100 align-middle">TOTAL ORDER</th>
+                                    <th rowspan="2" class="border border-gray-300 px-3 py-2 font-semibold text-center bg-yellow-100 align-middle">BUFFER</th>
+                                    <th rowspan="2" class="border border-gray-300 px-3 py-2 font-semibold text-center bg-yellow-100 align-middle">TOTAL PO</th>
+                                    <th rowspan="2" class="border border-gray-300 px-3 py-2 font-semibold text-center bg-green-100 align-middle">TOTAL PRICE</th>
+                                </tr>
+
+                                <!-- Second Header Row: Day and Date for each store -->
+                                <tr class="bg-gray-200">
+                                    <template v-for="store in stores" :key="`dates-${store.id}`">
+                                        <th
+                                            v-for="dateObj in getDatesForStore(store)"
+                                            :key="`date-${store.id}-${dateObj.date}`"
+                                            class="border border-gray-300 px-2 py-2 font-semibold text-center"
+                                        >
+                                            <div class="text-xs">{{ dateObj.day_of_week }}</div>
+                                            <div class="text-xs">{{ dateObj.display.split('- ')[1] }}</div>
+                                        </th>
+                                    </template>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <!-- Row for each supplier item -->
+                                <tr v-for="item in supplier_items" :key="item.id" class="hover:bg-gray-50">
+                                    <td class="border border-gray-300 px-3 py-2">{{ item.item_code }}</td>
+                                    <td class="border border-gray-300 px-3 py-2">{{ item.item_name }}</td>
+                                    <td class="border border-gray-300 px-3 py-2 text-center">{{ item.uom }}</td>
+                                    <td class="border border-gray-300 px-3 py-2 text-right">{{ item.price.toFixed(2) }}</td>
+
+                                    <!-- Quantity cells grouped by store, then dates for that store -->
+                                    <template v-for="store in stores" :key="`body-${store.id}`">
+                                        <td
+                                            v-for="dateObj in getDatesForStore(store)"
+                                            :key="`${item.id}-${store.id}-${dateObj.date}`"
+                                            class="border border-gray-300 px-3 py-2 text-center"
+                                        >
+                                            <span class="font-semibold text-blue-700">
+                                                {{ orders[item.id]?.[dateObj.date]?.[store.id] || 0 }}
+                                            </span>
+                                        </td>
+                                    </template>
+
+                                    <td class="border border-gray-300 px-3 py-2 text-center font-semibold bg-yellow-50">
+                                        {{ getItemTotalOrder(item.id).toFixed(2) }}
+                                    </td>
+                                    <td class="border border-gray-300 px-3 py-2 text-center font-semibold bg-yellow-50">
+                                        {{ getItemBuffer() }}%
+                                    </td>
+                                    <td class="border border-gray-300 px-3 py-2 text-center font-semibold bg-yellow-50">
+                                        {{ getItemTotalPO(item.id).toFixed(2) }}
+                                    </td>
+                                    <td class="border border-gray-300 px-3 py-2 text-right font-semibold bg-green-50">
+                                        {{ getItemTotalPrice(item.id, item.price).toFixed(2) }}
+                                    </td>
+                                </tr>
+
+                                <!-- Grand Total Row -->
+                                <tr class="bg-gray-700 text-white font-bold">
+                                    <td colspan="4" class="border border-gray-300 px-3 py-2 text-right">TOTAL PRICE</td>
+                                    <td :colspan="getTotalDateColumns + 3" class="border border-gray-300 px-3 py-2"></td>
+                                    <td class="border border-gray-300 px-3 py-2 text-right">{{ getGrandTotalPrice.toFixed(2) }}</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <!-- Order Details Table (ICE CREAM & SALMON) -->
+                    <div v-else class="mt-6 overflow-x-auto">
                         <table class="min-w-full border-collapse border border-gray-300 text-sm">
                             <!-- Header Rows -->
                             <thead>

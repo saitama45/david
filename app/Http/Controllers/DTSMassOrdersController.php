@@ -181,6 +181,7 @@ class DTSMassOrdersController extends Controller
             $user = auth()->user();
             $stores = $user->store_branches()
                 ->where('is_active', true)
+                ->orderBy('name')
                 ->get()
                 ->map(function ($store) use ($variant) {
                     // Get delivery schedule IDs for this store and variant
@@ -207,6 +208,28 @@ class DTSMassOrdersController extends Controller
                 ->toArray();
         }
 
+        // For FRUITS AND VEGETABLES, fetch all supplier items for DROPS supplier
+        // Exclude ICE CREAM (359A2A) and SALMON (269A2A)
+        $supplierItems = [];
+        if ($variant === 'FRUITS AND VEGETABLES') {
+            $supplierItems = \App\Models\SupplierItems::where('SupplierCode', 'DROPS')
+                ->where('is_active', 1)
+                ->whereNotIn('ItemCode', ['359A2A', '269A2A'])
+                ->select('id', 'ItemCode', 'item_name', 'uom', 'cost')
+                ->orderBy('item_name')
+                ->get()
+                ->map(function ($item) {
+                    return [
+                        'id' => $item->id,
+                        'item_code' => $item->ItemCode,
+                        'item_name' => $item->item_name,
+                        'uom' => $item->uom,
+                        'price' => $item->cost
+                    ];
+                })
+                ->toArray();
+        }
+
         return Inertia::render('DTSMassOrders/Create', [
             'variant' => $variant,
             'date_from' => $dateFrom,
@@ -218,100 +241,194 @@ class DTSMassOrdersController extends Controller
                 'item_description' => $sapItem->ItemDescription,
                 'alt_uom' => $sapItem->AltUOM,
                 'base_uom' => $sapItem->BaseUOM
-            ] : null
+            ] : null,
+            'supplier_items' => $supplierItems
         ]);
     }
 
     public function store(Request $request)
     {
-        $request->validate([
-            'variant' => 'required|string',
-            'orders' => 'required|array',
-            'orders.*' => 'array',
-            'sap_item' => 'required|array',
-        ]);
-
         $variant = $request->input('variant');
-        $orders = $request->input('orders');
-        $sapItem = $request->input('sap_item');
 
-        // Get date range from orders
-        $dates = array_keys($orders);
-        $dateFrom = min($dates);
-        $dateTo = max($dates);
+        // Different validation and processing for FRUITS AND VEGETABLES
+        if ($variant === 'FRUITS AND VEGETABLES') {
+            $request->validate([
+                'variant' => 'required|string',
+                'orders' => 'required|array',
+                'supplier_items' => 'required|array',
+            ]);
 
-        try {
-            \DB::beginTransaction();
+            $orders = $request->input('orders'); // { itemId: { date: { storeId: quantity } } }
+            $supplierItems = $request->input('supplier_items');
 
-            // Generate batch number: MDTS-YYYYMMDD-XXX
-            $batchNumber = $this->generateBatchNumber();
+            \Log::info('FRUITS AND VEGETABLES Order Debug', [
+                'orders_structure' => array_keys($orders),
+                'supplier_items_count' => count($supplierItems),
+                'first_item_structure' => !empty($orders) ? array_keys(reset($orders)) : 'empty'
+            ]);
 
-            $createdOrders = [];
-            $totalQuantity = 0;
+            try {
+                \DB::beginTransaction();
 
-            // Group orders by store_branch_id and date
-            foreach ($orders as $date => $stores) {
-                foreach ($stores as $storeBranchId => $quantity) {
-                    // Skip if quantity is 0 or empty
-                    if (empty($quantity) || $quantity <= 0) {
-                        continue;
+                // Generate batch number
+                $batchNumber = $this->generateBatchNumber();
+
+                // Process orders for each supplier item
+                foreach ($orders as $itemId => $dateOrders) {
+                    // Find the supplier item details
+                    $supplierItem = collect($supplierItems)->firstWhere('id', (int)$itemId);
+                    if (!$supplierItem) continue;
+
+                    foreach ($dateOrders as $date => $storeOrders) {
+                        foreach ($storeOrders as $storeBranchId => $quantity) {
+                            // Skip if quantity is 0 or empty
+                            if (empty($quantity) || $quantity <= 0) {
+                                continue;
+                            }
+
+                            // Get the latest order number for this store branch
+                            $lastOrder = StoreOrder::where('store_branch_id', $storeBranchId)
+                                ->orderBy('id', 'desc')
+                                ->first();
+
+                            $orderNumber = $this->generateOrderNumber($storeBranchId, $lastOrder);
+
+                            $costPerQuantity = $supplierItem['price'];
+                            $totalCost = $costPerQuantity * $quantity;
+
+                            // Create StoreOrder
+                            $storeOrder = StoreOrder::create([
+                                'encoder_id' => auth()->id(),
+                                'supplier_id' => 5, // DROPSHIPPING supplier
+                                'store_branch_id' => $storeBranchId,
+                                'order_number' => $orderNumber,
+                                'order_date' => $date,
+                                'order_status' => 'approved',
+                                'variant' => 'mass dts',
+                                'batch_reference' => $batchNumber,
+                                'remarks' => "Mass DTS Order - {$variant}",
+                            ]);
+
+                            // Create StoreOrderItem
+                            \App\Models\StoreOrderItem::create([
+                                'store_order_id' => $storeOrder->id,
+                                'item_code' => $supplierItem['item_code'],
+                                'quantity_ordered' => $quantity,
+                                'quantity_approved' => $quantity,
+                                'quantity_commited' => $quantity,
+                                'quantity_received' => 0,
+                                'cost_per_quantity' => $costPerQuantity,
+                                'total_cost' => $totalCost,
+                                'uom' => $supplierItem['uom'],
+                                'remarks' => null,
+                            ]);
+                        }
                     }
-
-                    $totalQuantity += $quantity;
-
-                    // Get the latest order number for this store branch
-                    $lastOrder = StoreOrder::where('store_branch_id', $storeBranchId)
-                        ->orderBy('id', 'desc')
-                        ->first();
-
-                    $orderNumber = $this->generateOrderNumber($storeBranchId, $lastOrder);
-
-                    // Get supplier item cost
-                    $supplierItem = \App\Models\SupplierItems::where('ItemCode', $sapItem['item_code'])
-                        ->where('is_active', true)
-                        ->first();
-
-                    $costPerQuantity = $supplierItem ? $supplierItem->cost : 0;
-                    $totalCost = $costPerQuantity * $quantity;
-
-                    // Create StoreOrder
-                    $storeOrder = StoreOrder::create([
-                        'encoder_id' => auth()->id(),
-                        'supplier_id' => 5, // DROPSHIPPING supplier
-                        'store_branch_id' => $storeBranchId,
-                        'order_number' => $orderNumber,
-                        'order_date' => $date,
-                        'order_status' => 'approved',
-                        'variant' => 'mass dts',
-                        'batch_reference' => $batchNumber,
-                        'remarks' => "Mass DTS Order - {$variant}",
-                    ]);
-
-                    // Create StoreOrderItem
-                    \App\Models\StoreOrderItem::create([
-                        'store_order_id' => $storeOrder->id,
-                        'item_code' => $sapItem['item_code'],
-                        'quantity_ordered' => $quantity,
-                        'quantity_approved' => $quantity,
-                        'quantity_commited' => $quantity,
-                        'quantity_received' => 0,
-                        'cost_per_quantity' => $costPerQuantity,
-                        'total_cost' => $totalCost,
-                        'uom' => $sapItem['alt_uom'],
-                        'remarks' => null,
-                    ]);
-
-                    $createdOrders[] = $storeOrder->order_number;
                 }
+
+                \DB::commit();
+
+                return redirect()->route('dts-mass-orders.index')->with('success', "Mass orders placed successfully! Batch: {$batchNumber}");
+            } catch (\Exception $e) {
+                \DB::rollBack();
+                \Log::error('Error creating FRUITS AND VEGETABLES mass DTS orders', [
+                    'message' => $e->getMessage(),
+                    'file' => $e->getFile(),
+                    'line' => $e->getLine(),
+                    'trace' => $e->getTraceAsString()
+                ]);
+                return back()->withErrors(['error' => 'Failed to place orders: ' . $e->getMessage()]);
             }
+        } else {
+            // Original logic for ICE CREAM and SALMON
+            $request->validate([
+                'variant' => 'required|string',
+                'orders' => 'required|array',
+                'orders.*' => 'array',
+                'sap_item' => 'required|array',
+            ]);
 
-            \DB::commit();
+            $orders = $request->input('orders');
+            $sapItem = $request->input('sap_item');
 
-            return redirect()->route('dts-mass-orders.index')->with('success', "Mass orders placed successfully! Batch: {$batchNumber}");
-        } catch (\Exception $e) {
-            \DB::rollBack();
-            \Log::error('Error creating mass DTS orders: ' . $e->getMessage(), ['trace' => $e->getTraceAsString()]);
-            return back()->withErrors(['error' => 'Failed to place orders: ' . $e->getMessage()]);
+            // Get date range from orders
+            $dates = array_keys($orders);
+            $dateFrom = min($dates);
+            $dateTo = max($dates);
+
+            try {
+                \DB::beginTransaction();
+
+                // Generate batch number: MDTS-YYYYMMDD-XXX
+                $batchNumber = $this->generateBatchNumber();
+
+                $createdOrders = [];
+                $totalQuantity = 0;
+
+                // Group orders by store_branch_id and date
+                foreach ($orders as $date => $stores) {
+                    foreach ($stores as $storeBranchId => $quantity) {
+                        // Skip if quantity is 0 or empty
+                        if (empty($quantity) || $quantity <= 0) {
+                            continue;
+                        }
+
+                        $totalQuantity += $quantity;
+
+                        // Get the latest order number for this store branch
+                        $lastOrder = StoreOrder::where('store_branch_id', $storeBranchId)
+                            ->orderBy('id', 'desc')
+                            ->first();
+
+                        $orderNumber = $this->generateOrderNumber($storeBranchId, $lastOrder);
+
+                        // Get supplier item cost
+                        $supplierItem = \App\Models\SupplierItems::where('ItemCode', $sapItem['item_code'])
+                            ->where('is_active', true)
+                            ->first();
+
+                        $costPerQuantity = $supplierItem ? $supplierItem->cost : 0;
+                        $totalCost = $costPerQuantity * $quantity;
+
+                        // Create StoreOrder
+                        $storeOrder = StoreOrder::create([
+                            'encoder_id' => auth()->id(),
+                            'supplier_id' => 5, // DROPSHIPPING supplier
+                            'store_branch_id' => $storeBranchId,
+                            'order_number' => $orderNumber,
+                            'order_date' => $date,
+                            'order_status' => 'approved',
+                            'variant' => 'mass dts',
+                            'batch_reference' => $batchNumber,
+                            'remarks' => "Mass DTS Order - {$variant}",
+                        ]);
+
+                        // Create StoreOrderItem
+                        \App\Models\StoreOrderItem::create([
+                            'store_order_id' => $storeOrder->id,
+                            'item_code' => $sapItem['item_code'],
+                            'quantity_ordered' => $quantity,
+                            'quantity_approved' => $quantity,
+                            'quantity_commited' => $quantity,
+                            'quantity_received' => 0,
+                            'cost_per_quantity' => $costPerQuantity,
+                            'total_cost' => $totalCost,
+                            'uom' => $sapItem['alt_uom'],
+                            'remarks' => null,
+                        ]);
+
+                        $createdOrders[] = $storeOrder->order_number;
+                    }
+                }
+
+                \DB::commit();
+
+                return redirect()->route('dts-mass-orders.index')->with('success', "Mass orders placed successfully! Batch: {$batchNumber}");
+            } catch (\Exception $e) {
+                \DB::rollBack();
+                \Log::error('Error creating mass DTS orders: ' . $e->getMessage(), ['trace' => $e->getTraceAsString()]);
+                return back()->withErrors(['error' => 'Failed to place orders: ' . $e->getMessage()]);
+            }
         }
     }
 
@@ -384,17 +501,45 @@ class DTSMassOrdersController extends Controller
         $dateFrom = $orders->min('order_date');
         $dateTo = $orders->max('order_date');
 
-        // Get SAP item info
+        // Get SAP item info or supplier items
         $itemCode = null;
         $sapItem = null;
+        $supplierItems = [];
 
         $firstOrderItem = \App\Models\StoreOrderItem::where('store_order_id', $firstOrder->id)->first();
         if ($firstOrderItem) {
             $itemCode = $firstOrderItem->item_code;
-            $sapItem = SAPMasterfile::where('ItemCode', $itemCode)
-                ->where('is_active', 1)
-                ->where('AltUOM', 'LIKE', $variant === 'ICE CREAM' ? '%GAL%' : '%')
-                ->first();
+
+            if ($variant === 'FRUITS AND VEGETABLES') {
+                // Get unique items from batch
+                $itemsInBatch = \App\Models\StoreOrderItem::whereIn('store_order_id', $orders->pluck('id'))
+                    ->select('item_code')
+                    ->distinct()
+                    ->pluck('item_code');
+
+                // Fetch supplier items
+                $supplierItems = \App\Models\SupplierItems::where('SupplierCode', 'DROPS')
+                    ->whereIn('ItemCode', $itemsInBatch)
+                    ->where('is_active', 1)
+                    ->select('id', 'ItemCode', 'item_name', 'uom', 'cost')
+                    ->orderBy('item_name')
+                    ->get()
+                    ->map(function ($item) {
+                        return [
+                            'id' => $item->id,
+                            'item_code' => $item->ItemCode,
+                            'item_name' => $item->item_name,
+                            'uom' => $item->uom,
+                            'price' => $item->cost
+                        ];
+                    })
+                    ->toArray();
+            } else {
+                $sapItem = SAPMasterfile::where('ItemCode', $itemCode)
+                    ->where('is_active', 1)
+                    ->where('AltUOM', 'LIKE', $variant === 'ICE CREAM' ? '%GAL%' : '%')
+                    ->first();
+            }
         }
 
         // Generate dates array
@@ -417,7 +562,7 @@ class DTSMassOrdersController extends Controller
             $start->addDay();
         }
 
-        // Get unique stores
+        // Get unique stores and sort by name
         $stores = $orders->map(function ($order) use ($variant) {
             $deliveryScheduleIds = \DB::table('d_t_s_delivery_schedules')
                 ->where('store_branch_id', $order->store_branch_id)
@@ -435,14 +580,29 @@ class DTSMassOrdersController extends Controller
                 'label' => $order->store_branch->name,
                 'delivery_schedule_ids' => $deliveryScheduleIds
             ];
-        })->unique('id')->values();
+        })->unique('id')->sortBy('name')->values();
 
         // Build orders data structure
         $ordersData = [];
-        foreach ($orders as $order) {
-            $orderItem = \App\Models\StoreOrderItem::where('store_order_id', $order->id)->first();
-            if ($orderItem) {
-                $ordersData[$order->order_date][$order->store_branch_id] = $orderItem->quantity_ordered;
+        if ($variant === 'FRUITS AND VEGETABLES') {
+            // Structure: { itemId: { date: { storeId: quantity } } }
+            foreach ($orders as $order) {
+                $orderItem = \App\Models\StoreOrderItem::where('store_order_id', $order->id)->first();
+                if ($orderItem) {
+                    // Find supplier item id
+                    $supplierItem = collect($supplierItems)->firstWhere('item_code', $orderItem->item_code);
+                    if ($supplierItem) {
+                        $ordersData[$supplierItem['id']][$order->order_date][$order->store_branch_id] = $orderItem->quantity_ordered;
+                    }
+                }
+            }
+        } else {
+            // Structure: { date: { storeId: quantity } }
+            foreach ($orders as $order) {
+                $orderItem = \App\Models\StoreOrderItem::where('store_order_id', $order->id)->first();
+                if ($orderItem) {
+                    $ordersData[$order->order_date][$order->store_branch_id] = $orderItem->quantity_ordered;
+                }
             }
         }
 
@@ -459,6 +619,7 @@ class DTSMassOrdersController extends Controller
                 'alt_uom' => $sapItem->AltUOM,
                 'base_uom' => $sapItem->BaseUOM
             ] : null,
+            'supplier_items' => $supplierItems,
             'orders' => $ordersData,
             'status' => $firstOrder->order_status,
             'created_at' => $firstOrder->created_at,
@@ -531,6 +692,7 @@ class DTSMassOrdersController extends Controller
             $user = auth()->user();
             $stores = $user->store_branches()
                 ->where('is_active', true)
+                ->orderBy('name')
                 ->get()
                 ->map(function ($store) use ($variant) {
                     // Get delivery schedule IDs for this store and variant
@@ -559,10 +721,52 @@ class DTSMassOrdersController extends Controller
 
         // Build existing orders array
         $existingOrders = [];
-        foreach ($orders as $order) {
-            $orderItem = $order->store_order_items->first();
-            if ($orderItem) {
-                $existingOrders[$order->order_date][$order->store_branch_id] = $orderItem->quantity_ordered;
+        $supplierItems = [];
+
+        if ($variant === 'FRUITS AND VEGETABLES') {
+            // For FRUITS AND VEGETABLES: group by item_code
+            // Get all unique items from the batch orders
+            $itemsInBatch = \App\Models\StoreOrderItem::whereIn('store_order_id', $orders->pluck('id'))
+                ->select('item_code')
+                ->distinct()
+                ->pluck('item_code');
+
+            // Fetch supplier items for these items
+            $supplierItems = \App\Models\SupplierItems::where('SupplierCode', 'DROPS')
+                ->whereIn('ItemCode', $itemsInBatch)
+                ->where('is_active', 1)
+                ->select('id', 'ItemCode', 'item_name', 'uom', 'cost')
+                ->orderBy('item_name')
+                ->get()
+                ->map(function ($item) {
+                    return [
+                        'id' => $item->id,
+                        'item_code' => $item->ItemCode,
+                        'item_name' => $item->item_name,
+                        'uom' => $item->uom,
+                        'price' => $item->cost
+                    ];
+                })
+                ->toArray();
+
+            // Build existing orders: { itemId: { date: { storeId: quantity } } }
+            foreach ($orders as $order) {
+                $orderItem = $order->store_order_items->first();
+                if ($orderItem) {
+                    // Find the supplier item id
+                    $supplierItem = collect($supplierItems)->firstWhere('item_code', $orderItem->item_code);
+                    if ($supplierItem) {
+                        $existingOrders[$supplierItem['id']][$order->order_date][$order->store_branch_id] = $orderItem->quantity_ordered;
+                    }
+                }
+            }
+        } else {
+            // For ICE CREAM/SALMON: { date: { storeId: quantity } }
+            foreach ($orders as $order) {
+                $orderItem = $order->store_order_items->first();
+                if ($orderItem) {
+                    $existingOrders[$order->order_date][$order->store_branch_id] = $orderItem->quantity_ordered;
+                }
             }
         }
 
@@ -580,7 +784,8 @@ class DTSMassOrdersController extends Controller
                 'cost_per_quantity' => $sapItem->CostPerQuantity ?? 0
             ] : null,
             'existing_orders' => $existingOrders,
-            'status' => $firstOrder->order_status
+            'status' => $firstOrder->order_status,
+            'supplier_items' => $supplierItems
         ]);
     }
 
@@ -590,55 +795,113 @@ class DTSMassOrdersController extends Controller
             \DB::beginTransaction();
 
             $orders = $request->input('orders', []);
-            $sapItem = $request->input('sap_item');
             $variant = $request->input('variant');
 
             // Delete all existing orders for this batch
             StoreOrder::where('batch_reference', $batchNumber)->delete();
 
-            // Re-create orders with updated quantities
-            foreach ($orders as $date => $storeOrders) {
-                foreach ($storeOrders as $storeBranchId => $quantity) {
-                    if (empty($quantity) || $quantity <= 0) {
-                        continue;
+            if ($variant === 'FRUITS AND VEGETABLES') {
+                // Handle FRUITS AND VEGETABLES variant
+                $supplierItems = $request->input('supplier_items', []);
+
+                // Re-create orders for each item
+                foreach ($orders as $itemId => $dateOrders) {
+                    $supplierItem = collect($supplierItems)->firstWhere('id', (int)$itemId);
+                    if (!$supplierItem) continue;
+
+                    foreach ($dateOrders as $date => $storeOrders) {
+                        foreach ($storeOrders as $storeBranchId => $quantity) {
+                            if (empty($quantity) || $quantity <= 0) {
+                                continue;
+                            }
+
+                            $costPerQuantity = $supplierItem['price'];
+                            $totalCost = $quantity * $costPerQuantity;
+
+                            // Get last order number for this store
+                            $lastOrder = StoreOrder::where('store_branch_id', $storeBranchId)
+                                ->orderBy('id', 'desc')
+                                ->first();
+
+                            $orderNumber = $this->generateOrderNumber($storeBranchId, $lastOrder);
+
+                            // Create StoreOrder
+                            $storeOrder = StoreOrder::create([
+                                'encoder_id' => auth()->id(),
+                                'supplier_id' => 5,
+                                'store_branch_id' => $storeBranchId,
+                                'order_number' => $orderNumber,
+                                'order_date' => $date,
+                                'order_status' => 'approved',
+                                'variant' => 'mass dts',
+                                'batch_reference' => $batchNumber,
+                                'remarks' => "Mass DTS Order - {$variant}",
+                            ]);
+
+                            // Create StoreOrderItem
+                            \App\Models\StoreOrderItem::create([
+                                'store_order_id' => $storeOrder->id,
+                                'item_code' => $supplierItem['item_code'],
+                                'quantity_ordered' => $quantity,
+                                'quantity_approved' => $quantity,
+                                'quantity_commited' => $quantity,
+                                'quantity_received' => 0,
+                                'cost_per_quantity' => $costPerQuantity,
+                                'total_cost' => $totalCost,
+                                'uom' => $supplierItem['uom'],
+                                'remarks' => null,
+                            ]);
+                        }
                     }
+                }
+            } else {
+                // Handle ICE CREAM/SALMON variant
+                $sapItem = $request->input('sap_item');
 
-                    $costPerQuantity = $sapItem['cost_per_quantity'] ?? 0;
-                    $totalCost = $quantity * $costPerQuantity;
+                // Re-create orders with updated quantities
+                foreach ($orders as $date => $storeOrders) {
+                    foreach ($storeOrders as $storeBranchId => $quantity) {
+                        if (empty($quantity) || $quantity <= 0) {
+                            continue;
+                        }
 
-                    // Get last order number for this store
-                    $lastOrder = StoreOrder::where('store_branch_id', $storeBranchId)
-                        ->orderBy('id', 'desc')
-                        ->first();
+                        $costPerQuantity = $sapItem['cost_per_quantity'] ?? 0;
+                        $totalCost = $quantity * $costPerQuantity;
 
-                    $orderNumber = $this->generateOrderNumber($storeBranchId, $lastOrder);
+                        // Get last order number for this store
+                        $lastOrder = StoreOrder::where('store_branch_id', $storeBranchId)
+                            ->orderBy('id', 'desc')
+                            ->first();
 
-                    // Create StoreOrder
-                    $storeOrder = StoreOrder::create([
-                        'encoder_id' => auth()->id(),
-                        'supplier_id' => 5,
-                        'store_branch_id' => $storeBranchId,
-                        'order_number' => $orderNumber,
-                        'order_date' => $date,
-                        'order_status' => 'approved',
-                        'variant' => 'mass dts',
-                        'batch_reference' => $batchNumber,
-                        'remarks' => "Mass DTS Order - {$variant}",
-                    ]);
+                        $orderNumber = $this->generateOrderNumber($storeBranchId, $lastOrder);
 
-                    // Create StoreOrderItem
-                    \App\Models\StoreOrderItem::create([
-                        'store_order_id' => $storeOrder->id,
-                        'item_code' => $sapItem['item_code'],
-                        'quantity_ordered' => $quantity,
-                        'quantity_approved' => $quantity,
-                        'quantity_commited' => $quantity,
-                        'quantity_received' => 0,
-                        'cost_per_quantity' => $costPerQuantity,
-                        'total_cost' => $totalCost,
-                        'uom' => $sapItem['alt_uom'],
-                        'remarks' => null,
-                    ]);
+                        // Create StoreOrder
+                        $storeOrder = StoreOrder::create([
+                            'encoder_id' => auth()->id(),
+                            'supplier_id' => 5,
+                            'store_branch_id' => $storeBranchId,
+                            'order_number' => $orderNumber,
+                            'order_date' => $date,
+                            'order_status' => 'approved',
+                            'variant' => 'mass dts',
+                            'batch_reference' => $batchNumber,
+                            'remarks' => "Mass DTS Order - {$variant}",
+                        ]);
+
+                        // Create StoreOrderItem
+                        \App\Models\StoreOrderItem::create([
+                            'store_order_id' => $storeOrder->id,
+                            'item_code' => $sapItem['item_code'],
+                            'quantity_ordered' => $quantity,
+                            'quantity_approved' => $quantity,
+                            'quantity_commited' => $quantity,
+                            'quantity_received' => 0,
+                            'cost_per_quantity' => $costPerQuantity,
+                            'total_cost' => $totalCost,
+                            'uom' => $sapItem['alt_uom'],
+                            'remarks' => null,
+                        ]);
+                    }
                 }
             }
 
@@ -675,73 +938,157 @@ class DTSMassOrdersController extends Controller
         $dateFrom = $orders->min('order_date');
         $dateTo = $orders->max('order_date');
 
-        // Get SAP item
-        $firstOrderItem = \App\Models\StoreOrderItem::where('store_order_id', $firstOrder->id)->first();
-        $sapItem = null;
-        if ($firstOrderItem) {
-            $sapItem = SAPMasterfile::where('ItemCode', $firstOrderItem->item_code)
-                ->where('is_active', 1)
-                ->where('AltUOM', 'LIKE', $variant === 'ICE CREAM' ? '%GAL%' : '%')
-                ->first();
-        }
-
-        // Prepare dates data
-        $datesData = [];
-        $start = Carbon::parse($dateFrom);
-        $end = Carbon::parse($dateTo);
-        $grandTotal = 0;
-
-        while ($start->lte($end)) {
-            $dateString = $start->format('Y-m-d');
-            $dayName = strtoupper($start->format('l'));
-            $display = $dayName . '- ' . strtoupper($start->format('M')) . ' ' . $start->format('j');
-
-            $storesForDate = [];
-            $dayTotal = 0;
-
-            foreach ($orders as $order) {
-                if ($order->order_date === $dateString) {
-                    $orderItem = \App\Models\StoreOrderItem::where('store_order_id', $order->id)->first();
-                    if ($orderItem) {
-                        $storesForDate[] = [
-                            'name' => $order->store_branch->name,
-                            'brand_code' => $order->store_branch->brand_code,
-                            'complete_address' => $order->store_branch->complete_address,
-                            'quantity' => $orderItem->quantity_ordered
-                        ];
-                        $dayTotal += $orderItem->quantity_ordered;
-                    }
-                }
-            }
-
-            if (!empty($storesForDate)) {
-                $datesData[] = [
-                    'display' => $display,
-                    'stores' => $storesForDate,
-                    'total' => $dayTotal
-                ];
-                $grandTotal += $dayTotal;
-            }
-
-            $start->addDay();
-        }
-
-        // Prepare batch data
         $batchData = [
             'batch_number' => $batchNumber,
             'variant' => $variant,
             'status' => $firstOrder->order_status,
             'date_range' => Carbon::parse($dateFrom)->format('M d, Y') . ' - ' . Carbon::parse($dateTo)->format('M d, Y'),
             'encoder' => $firstOrder->encoder->first_name . ' ' . $firstOrder->encoder->last_name,
-            'created_at' => Carbon::parse($firstOrder->created_at)->format('m/d/Y h:i A'),
-            'sap_item' => [
+            'created_at' => Carbon::parse($firstOrder->created_at)->format('m/d/Y h:i A')
+        ];
+
+        if ($variant === 'FRUITS AND VEGETABLES') {
+            // FRUITS AND VEGETABLES export structure
+            $firstOrderItem = \App\Models\StoreOrderItem::where('store_order_id', $firstOrder->id)->first();
+
+            // Get unique items from batch
+            $itemsInBatch = \App\Models\StoreOrderItem::whereIn('store_order_id', $orders->pluck('id'))
+                ->select('item_code')
+                ->distinct()
+                ->pluck('item_code');
+
+            // Fetch supplier items
+            $supplierItems = \App\Models\SupplierItems::where('SupplierCode', 'DROPS')
+                ->whereIn('ItemCode', $itemsInBatch)
+                ->where('is_active', 1)
+                ->select('id', 'ItemCode', 'item_name', 'uom', 'cost')
+                ->orderBy('item_name')
+                ->get();
+
+            // Generate dates array
+            $dates = [];
+            $start = Carbon::parse($dateFrom);
+            $end = Carbon::parse($dateTo);
+            $dayOfWeekMap = [
+                'MONDAY' => 1, 'TUESDAY' => 2, 'WEDNESDAY' => 3, 'THURSDAY' => 4,
+                'FRIDAY' => 5, 'SATURDAY' => 6, 'SUNDAY' => 7
+            ];
+
+            while ($start->lte($end)) {
+                $dayName = strtoupper($start->format('l'));
+                $dates[] = [
+                    'date' => $start->format('Y-m-d'),
+                    'display' => $dayName . '- ' . strtoupper($start->format('M')) . ' ' . $start->format('j'),
+                    'day_of_week' => $dayName,
+                    'delivery_schedule_id' => $dayOfWeekMap[$dayName] ?? null
+                ];
+                $start->addDay();
+            }
+
+            // Get unique stores and sort by name
+            $stores = $orders->map(function ($order) use ($variant) {
+                $deliveryScheduleIds = \DB::table('d_t_s_delivery_schedules')
+                    ->where('store_branch_id', $order->store_branch_id)
+                    ->where('variant', $variant)
+                    ->pluck('delivery_schedule_id')
+                    ->map(function ($id) { return (int) $id; })
+                    ->toArray();
+
+                return [
+                    'id' => $order->store_branch->id,
+                    'name' => $order->store_branch->name,
+                    'branch_code' => $order->store_branch->branch_code,
+                    'brand_code' => $order->store_branch->brand_code,
+                    'complete_address' => $order->store_branch->complete_address,
+                    'delivery_schedule_ids' => $deliveryScheduleIds
+                ];
+            })->unique('id')->sortBy('name')->values()->toArray();
+
+            // Build orders data: { itemId: { date: { storeId: quantity } } }
+            $ordersData = [];
+            foreach ($orders as $order) {
+                $orderItem = \App\Models\StoreOrderItem::where('store_order_id', $order->id)->first();
+                if ($orderItem) {
+                    $supplierItem = $supplierItems->firstWhere('ItemCode', $orderItem->item_code);
+                    if ($supplierItem) {
+                        $ordersData[$supplierItem->id][$order->order_date][$order->store_branch_id] = $orderItem->quantity_ordered;
+                    }
+                }
+            }
+
+            $batchData['supplier_items'] = $supplierItems->map(function ($item) {
+                return [
+                    'id' => $item->id,
+                    'item_code' => $item->ItemCode,
+                    'item_name' => $item->item_name,
+                    'uom' => $item->uom,
+                    'price' => $item->cost
+                ];
+            })->toArray();
+            $batchData['stores'] = $stores;
+            $batchData['dates'] = $dates;
+            $batchData['orders'] = $ordersData;
+
+        } else {
+            // ICE CREAM / SALMON export structure
+            $firstOrderItem = \App\Models\StoreOrderItem::where('store_order_id', $firstOrder->id)->first();
+            $sapItem = null;
+            if ($firstOrderItem) {
+                $sapItem = SAPMasterfile::where('ItemCode', $firstOrderItem->item_code)
+                    ->where('is_active', 1)
+                    ->where('AltUOM', 'LIKE', $variant === 'ICE CREAM' ? '%GAL%' : '%')
+                    ->first();
+            }
+
+            // Prepare dates data
+            $datesData = [];
+            $start = Carbon::parse($dateFrom);
+            $end = Carbon::parse($dateTo);
+            $grandTotal = 0;
+
+            while ($start->lte($end)) {
+                $dateString = $start->format('Y-m-d');
+                $dayName = strtoupper($start->format('l'));
+                $display = $dayName . '- ' . strtoupper($start->format('M')) . ' ' . $start->format('j');
+
+                $storesForDate = [];
+                $dayTotal = 0;
+
+                foreach ($orders as $order) {
+                    if ($order->order_date === $dateString) {
+                        $orderItem = \App\Models\StoreOrderItem::where('store_order_id', $order->id)->first();
+                        if ($orderItem) {
+                            $storesForDate[] = [
+                                'name' => $order->store_branch->name,
+                                'brand_code' => $order->store_branch->brand_code,
+                                'complete_address' => $order->store_branch->complete_address,
+                                'quantity' => $orderItem->quantity_ordered
+                            ];
+                            $dayTotal += $orderItem->quantity_ordered;
+                        }
+                    }
+                }
+
+                if (!empty($storesForDate)) {
+                    $datesData[] = [
+                        'display' => $display,
+                        'stores' => $storesForDate,
+                        'total' => $dayTotal
+                    ];
+                    $grandTotal += $dayTotal;
+                }
+
+                $start->addDay();
+            }
+
+            $batchData['sap_item'] = [
                 'item_code' => $sapItem->ItemCode ?? '',
                 'item_description' => $sapItem->ItemDescription ?? '',
                 'alt_uom' => $sapItem->AltUOM ?? ''
-            ],
-            'dates' => $datesData,
-            'grand_total' => $grandTotal
-        ];
+            ];
+            $batchData['dates'] = $datesData;
+            $batchData['grand_total'] = $grandTotal;
+        }
 
         $fileName = "DTS_Mass_Order_{$batchNumber}_" . date('Y-m-d') . ".xlsx";
 
@@ -774,7 +1121,7 @@ class DTSMassOrdersController extends Controller
         // Check if user has access to DROPS supplier
         $user = auth()->user();
         $hasSupplierAccess = $user->suppliers()
-            ->where('supplier_code', $config['supplier_code'])
+            ->where('suppliers.supplier_code', $config['supplier_code'])
             ->exists();
 
         if (!$hasSupplierAccess) {
@@ -784,7 +1131,7 @@ class DTSMassOrdersController extends Controller
             ]);
         }
 
-        // Check if item exists in supplier_items
+        // Check if item exists in supplier_items with exact match
         $supplierItem = \App\Models\SupplierItems::where('ItemCode', $config['item_code'])
             ->where('uom', $config['uom'])
             ->where('SupplierCode', $config['supplier_code'])
@@ -792,6 +1139,13 @@ class DTSMassOrdersController extends Controller
             ->first();
 
         if (!$supplierItem) {
+            // Log for debugging
+            \Log::info("Validation failed for {$variant}", [
+                'item_code' => $config['item_code'],
+                'uom' => $config['uom'],
+                'supplier_code' => $config['supplier_code']
+            ]);
+
             return response()->json([
                 'valid' => false,
                 'message' => "Item Code {$config['item_code']} with UOM {$config['uom']} for variant {$variant} does not exist in Supplier Items."

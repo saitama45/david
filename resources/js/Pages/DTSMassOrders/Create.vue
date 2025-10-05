@@ -28,6 +28,10 @@ const props = defineProps({
     sap_item: {
         type: Object,
         default: null
+    },
+    supplier_items: {
+        type: Array,
+        default: () => []
     }
 });
 
@@ -41,14 +45,32 @@ const goBack = () => {
 const handlePlaceOrders = () => {
     // Check if there are any orders
     let hasOrders = false;
-    for (const dateKey in orders.value) {
-        for (const storeId in orders.value[dateKey]) {
-            if (orders.value[dateKey][storeId] && parseFloat(orders.value[dateKey][storeId]) > 0) {
-                hasOrders = true;
-                break;
+
+    if (props.variant === 'FRUITS AND VEGETABLES') {
+        // For FRUITS AND VEGETABLES: orders[itemId][date][store]
+        for (const itemId in orders.value) {
+            for (const dateKey in orders.value[itemId]) {
+                for (const storeId in orders.value[itemId][dateKey]) {
+                    if (orders.value[itemId][dateKey][storeId] && parseFloat(orders.value[itemId][dateKey][storeId]) > 0) {
+                        hasOrders = true;
+                        break;
+                    }
+                }
+                if (hasOrders) break;
             }
+            if (hasOrders) break;
         }
-        if (hasOrders) break;
+    } else {
+        // For ICE CREAM/SALMON: orders[date][store]
+        for (const dateKey in orders.value) {
+            for (const storeId in orders.value[dateKey]) {
+                if (orders.value[dateKey][storeId] && parseFloat(orders.value[dateKey][storeId]) > 0) {
+                    hasOrders = true;
+                    break;
+                }
+            }
+            if (hasOrders) break;
+        }
     }
 
     if (!hasOrders) {
@@ -79,13 +101,29 @@ const handlePlaceOrders = () => {
 const form = useForm({
     variant: props.variant,
     orders: {},
-    sap_item: props.sap_item
+    sap_item: props.sap_item,
+    supplier_items: props.supplier_items || []
 });
 
 const submitOrders = () => {
     // Prepare the orders data
-    form.orders = orders.value;
-    form.sap_item = props.sap_item;
+    if (props.variant === 'FRUITS AND VEGETABLES') {
+        // Transform orders to include supplier item details
+        form.orders = orders.value;
+        form.supplier_items = props.supplier_items;
+        form.sap_item = null;
+
+        // Debug log
+        console.log('Submitting FRUITS AND VEGETABLES orders:', {
+            orders: orders.value,
+            supplier_items: props.supplier_items,
+            variant: props.variant
+        });
+    } else {
+        // For ICE CREAM and SALMON
+        form.orders = orders.value;
+        form.sap_item = props.sap_item;
+    }
     form.variant = props.variant;
 
     // Submit via Inertia
@@ -99,10 +137,11 @@ const submitOrders = () => {
             });
         },
         onError: (errors) => {
+            console.error('Error placing orders:', errors);
             toast.add({
                 severity: 'error',
                 summary: 'Error',
-                detail: errors.error || 'Failed to place orders. Please try again.',
+                detail: errors.error || JSON.stringify(errors) || 'Failed to place orders. Please try again.',
                 life: 5000
             });
         }
@@ -121,16 +160,32 @@ const formatDisplayDate = (dateString) => {
     }
 };
 
-// Initialize orders object: { date: { storeId: quantity } }
+// Initialize orders object
+// For FRUITS AND VEGETABLES: { itemId: { date: { storeId: quantity } } }
+// For ICE CREAM/SALMON: { date: { storeId: quantity } }
 const orders = ref({});
 
 // Initialize orders with empty values
-props.dates.forEach(dateObj => {
-    orders.value[dateObj.date] = {};
-    props.stores.forEach(store => {
-        orders.value[dateObj.date][store.id] = '';
+if (props.variant === 'FRUITS AND VEGETABLES') {
+    // For each supplier item, create nested structure
+    props.supplier_items.forEach(item => {
+        orders.value[item.id] = {};
+        props.dates.forEach(dateObj => {
+            orders.value[item.id][dateObj.date] = {};
+            props.stores.forEach(store => {
+                orders.value[item.id][dateObj.date][store.id] = '';
+            });
+        });
     });
-});
+} else {
+    // Original logic for ICE CREAM and SALMON
+    props.dates.forEach(dateObj => {
+        orders.value[dateObj.date] = {};
+        props.stores.forEach(store => {
+            orders.value[dateObj.date][store.id] = '';
+        });
+    });
+}
 
 // Calculate row totals
 const getRowTotal = (date) => {
@@ -173,6 +228,20 @@ const hasDeliverySchedule = (store, dateObj) => {
 const getStoresForDate = (dateObj) => {
     return props.stores.filter(store => hasDeliverySchedule(store, dateObj));
 };
+
+// Get dates that a store has delivery schedule for
+const getDatesForStore = (store) => {
+    return props.dates.filter(dateObj => hasDeliverySchedule(store, dateObj));
+};
+
+// Get total column count for store headers (each store shows its delivery dates)
+const getTotalDateColumns = computed(() => {
+    let total = 0;
+    props.stores.forEach(store => {
+        total += getDatesForStore(store).length;
+    });
+    return total;
+});
 
 // Get maximum number of stores for any single day (for colspan calculation)
 const maxStoresPerDay = computed(() => {
@@ -222,6 +291,42 @@ const handleEnterKey = (event) => {
     }
 };
 
+// Functions for FRUITS AND VEGETABLES layout
+const getItemTotalOrder = (itemId) => {
+    let total = 0;
+    if (!orders.value[itemId]) return 0;
+
+    Object.keys(orders.value[itemId]).forEach(date => {
+        Object.keys(orders.value[itemId][date]).forEach(storeId => {
+            const qty = parseFloat(orders.value[itemId][date][storeId] || 0);
+            total += isNaN(qty) ? 0 : qty;
+        });
+    });
+    return total;
+};
+
+const getItemBuffer = () => {
+    return 10; // Fixed 10%
+};
+
+const getItemTotalPO = (itemId) => {
+    const totalOrder = getItemTotalOrder(itemId);
+    return totalOrder * 1.1; // Total Order * 1.1
+};
+
+const getItemTotalPrice = (itemId, price) => {
+    const totalPO = getItemTotalPO(itemId);
+    return totalPO * price; // Price * Total PO
+};
+
+const getGrandTotalPrice = computed(() => {
+    let total = 0;
+    props.supplier_items.forEach(item => {
+        total += getItemTotalPrice(item.id, item.price);
+    });
+    return total;
+});
+
 </script>
 
 <template>
@@ -244,8 +349,102 @@ const handleEnterKey = (event) => {
                         </p>
                     </div>
 
-                    <!-- Excel-like Table -->
-                    <div class="mt-6 overflow-x-auto">
+                    <!-- FRUITS AND VEGETABLES Layout -->
+                    <div v-if="props.variant === 'FRUITS AND VEGETABLES'" class="mt-6 overflow-x-auto">
+                        <table class="min-w-full border-collapse border border-gray-300 text-sm">
+                            <thead>
+                                <!-- First Header Row: Fixed columns + Store Names grouped -->
+                                <tr class="bg-gray-100">
+                                    <th rowspan="2" class="border border-gray-300 px-3 py-2 font-semibold text-center align-middle" style="min-width: 100px;">ITEM CODE</th>
+                                    <th rowspan="2" class="border border-gray-300 px-3 py-2 font-semibold text-center align-middle" style="min-width: 200px;">ITEM NAME</th>
+                                    <th rowspan="2" class="border border-gray-300 px-3 py-2 font-semibold text-center align-middle" style="min-width: 80px;">UOM</th>
+                                    <th rowspan="2" class="border border-gray-300 px-3 py-2 font-semibold text-center align-middle" style="min-width: 80px;">PRICE</th>
+
+                                    <!-- Store Name headers - each store spans its delivery dates -->
+                                    <template v-for="store in props.stores" :key="`store-${store.id}`">
+                                        <th
+                                            :colspan="getDatesForStore(store).length"
+                                            class="border border-gray-300 px-2 py-2 font-semibold text-center bg-blue-50"
+                                            style="min-width: 120px;"
+                                        >
+                                            <div class="text-xs font-bold">{{ store.name }}</div>
+                                            <div v-if="store.brand_code" class="text-xs text-gray-600 mt-1 font-bold">{{ store.brand_code }}</div>
+                                            <div v-if="store.complete_address" class="text-xs text-gray-500 mt-1">{{ store.complete_address }}</div>
+                                        </th>
+                                    </template>
+
+                                    <th rowspan="2" class="border border-gray-300 px-3 py-2 font-semibold text-center bg-yellow-100 align-middle">TOTAL ORDER</th>
+                                    <th rowspan="2" class="border border-gray-300 px-3 py-2 font-semibold text-center bg-yellow-100 align-middle">BUFFER</th>
+                                    <th rowspan="2" class="border border-gray-300 px-3 py-2 font-semibold text-center bg-yellow-100 align-middle">TOTAL PO</th>
+                                    <th rowspan="2" class="border border-gray-300 px-3 py-2 font-semibold text-center bg-green-100 align-middle">TOTAL PRICE</th>
+                                </tr>
+
+                                <!-- Second Header Row: Day and Date for each store -->
+                                <tr class="bg-gray-200">
+                                    <template v-for="store in props.stores" :key="`dates-${store.id}`">
+                                        <th
+                                            v-for="dateObj in getDatesForStore(store)"
+                                            :key="`date-${store.id}-${dateObj.date}`"
+                                            class="border border-gray-300 px-2 py-2 font-semibold text-center"
+                                        >
+                                            <div class="text-xs">{{ dateObj.day_of_week }}</div>
+                                            <div class="text-xs">{{ dateObj.display.split('- ')[1] }}</div>
+                                        </th>
+                                    </template>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <!-- Row for each supplier item -->
+                                <tr v-for="item in props.supplier_items" :key="item.id" class="hover:bg-gray-50">
+                                    <td class="border border-gray-300 px-3 py-2">{{ item.item_code }}</td>
+                                    <td class="border border-gray-300 px-3 py-2">{{ item.item_name }}</td>
+                                    <td class="border border-gray-300 px-3 py-2 text-center">{{ item.uom }}</td>
+                                    <td class="border border-gray-300 px-3 py-2 text-right">{{ item.price.toFixed(2) }}</td>
+
+                                    <!-- Input cells grouped by store, then dates for that store -->
+                                    <template v-for="store in props.stores" :key="`body-${store.id}`">
+                                        <td
+                                            v-for="dateObj in getDatesForStore(store)"
+                                            :key="`${item.id}-${store.id}-${dateObj.date}`"
+                                            class="border border-gray-300 px-1 py-1"
+                                        >
+                                            <input
+                                                v-model="orders[item.id][dateObj.date][store.id]"
+                                                type="number"
+                                                step="0.01"
+                                                min="0"
+                                                class="w-full px-2 py-1 border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 text-center"
+                                                @keydown.enter="handleEnterKey"
+                                            />
+                                        </td>
+                                    </template>
+
+                                    <td class="border border-gray-300 px-3 py-2 text-center font-semibold bg-yellow-50">
+                                        {{ getItemTotalOrder(item.id).toFixed(2) }}
+                                    </td>
+                                    <td class="border border-gray-300 px-3 py-2 text-center font-semibold bg-yellow-50">
+                                        {{ getItemBuffer() }}%
+                                    </td>
+                                    <td class="border border-gray-300 px-3 py-2 text-center font-semibold bg-yellow-50">
+                                        {{ getItemTotalPO(item.id).toFixed(2) }}
+                                    </td>
+                                    <td class="border border-gray-300 px-3 py-2 text-right font-semibold bg-green-50">
+                                        {{ getItemTotalPrice(item.id, item.price).toFixed(2) }}
+                                    </td>
+                                </tr>
+
+                                <!-- Grand Total Row -->
+                                <tr class="bg-gray-700 text-white font-bold">
+                                    <td colspan="4" class="border border-gray-300 px-3 py-2 text-right">TOTAL PRICE</td>
+                                    <td :colspan="getTotalDateColumns + 3" class="border border-gray-300 px-3 py-2"></td>
+                                    <td class="border border-gray-300 px-3 py-2 text-right">{{ getGrandTotalPrice.toFixed(2) }}</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <!-- Excel-like Table (ICE CREAM & SALMON) -->
+                    <div v-else class="mt-6 overflow-x-auto">
                         <table class="min-w-full border-collapse border border-gray-300 text-sm">
                             <!-- Header Rows -->
                             <thead>
