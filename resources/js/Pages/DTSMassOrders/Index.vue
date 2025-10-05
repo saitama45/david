@@ -1,5 +1,5 @@
 <script setup>
-import { router, Head } from "@inertiajs/vue3";
+import { router, Head, usePage } from "@inertiajs/vue3";
 import { ref, watch } from 'vue';
 import { Eye, Pencil, Filter, Calendar as CalendarIcon } from 'lucide-vue-next';
 import { throttle } from "lodash";
@@ -16,15 +16,53 @@ const props = defineProps({
     variants: {
         type: Array,
         default: () => []
+    },
+    filters: {
+        type: Object,
+        default: () => ({})
+    },
+    counts: {
+        type: Object,
+        default: () => ({})
     }
 });
 
 const { hasAccess } = useAuth();
 const toast = useToast();
 
+// Filter logic
+let filterQuery = ref((usePage().props.filters?.filterQuery || "approved").toString());
+
+const performFilter = throttle(() => {
+    router.get(
+        route("dts-mass-orders.index"),
+        {
+            filterQuery: filterQuery.value,
+        },
+        {
+            preserveState: true,
+            preserveScroll: true,
+            replace: true,
+        }
+    );
+}, 500);
+
+watch(filterQuery, performFilter);
+
+const changeFilter = (currentFilter) => {
+    filterQuery.value = currentFilter;
+};
+
+const isFilterActive = (filter) => {
+    return filterQuery.value === filter ? "bg-primary text-white" : "";
+};
+
 const statusBadgeColor = (status) => {
     switch (status?.toUpperCase()) {
         case "APPROVED": return "bg-teal-500 text-white";
+        case "COMMITED": return "bg-blue-500 text-white";
+        case "INCOMPLETE": return "bg-orange-500 text-white";
+        case "RECEIVED": return "bg-green-500 text-white";
         case "PENDING": return "bg-yellow-500 text-white";
         case "COMPLETED": return "bg-green-500 text-white";
         case "CANCELLED": return "bg-red-500 text-white";
@@ -205,6 +243,68 @@ const selectDate = (day, isFrom) => {
         buttonName="Create DTS Mass Order"
         :handleClick="navigateToCreate"
     >
+
+        <FilterTab>
+            <Button
+                class="sm:px-10 px-3 bg-white/10 text-gray-800 hover:text-white gap-5 sm:text-sm text-xs"
+                :class="isFilterActive('all')"
+                @click="changeFilter('all')"
+            >
+                ALL
+                <Badge
+                    class="sm:flex hidden border border-gray bg-transparent text-gray-900 px-2"
+                    :class="isFilterActive('all')"
+                >{{ counts.all || 0 }}</Badge>
+            </Button>
+
+            <Button
+                class="sm:px-10 px-3 bg-white/10 text-gray-800 hover:text-white gap-5 sm:text-sm text-xs"
+                :class="isFilterActive('approved')"
+                @click="changeFilter('approved')"
+            >
+                APPROVED
+                <Badge
+                    class="sm:flex hidden border border-gray bg-transparent text-gray-900 px-2"
+                    :class="isFilterActive('approved')"
+                >{{ counts.approved || 0 }}</Badge>
+            </Button>
+
+            <Button
+                class="sm:px-10 px-3 bg-white/10 text-gray-800 hover:text-white gap-5 sm:text-sm text-xs"
+                :class="isFilterActive('commited')"
+                @click="changeFilter('commited')"
+            >
+                COMMITED
+                <Badge
+                    class="sm:flex hidden border border-gray bg-transparent text-gray-900 px-2"
+                    :class="isFilterActive('commited')"
+                >{{ counts.commited || 0 }}</Badge>
+            </Button>
+
+            <Button
+                class="sm:px-10 px-3 bg-white/10 text-gray-800 hover:text-white gap-5 sm:text-sm text-xs"
+                :class="isFilterActive('incomplete')"
+                @click="changeFilter('incomplete')"
+            >
+                INCOMPLETE
+                <Badge
+                    class="sm:flex hidden border border-gray bg-transparent text-gray-900 px-2"
+                    :class="isFilterActive('incomplete')"
+                >{{ counts.incomplete || 0 }}</Badge>
+            </Button>
+
+            <Button
+                class="sm:px-10 px-3 bg-white/10 text-gray-800 hover:text-white gap-5 sm:text-sm text-xs"
+                :class="isFilterActive('received')"
+                @click="changeFilter('received')"
+            >
+                RECEIVED
+                <Badge
+                    class="sm:flex hidden border border-gray bg-transparent text-gray-900 px-2"
+                    :class="isFilterActive('received')"
+                >{{ counts.received || 0 }}</Badge>
+            </Button>
+        </FilterTab>
 
         <TableContainer>
             <div class="hidden md:block">

@@ -29,8 +29,8 @@ class DTSMassOrdersController extends Controller
             })
             ->values();
 
-        // Fetch mass order batches grouped from store_orders
-        $batches = StoreOrder::select([
+        // Build query for mass order batches
+        $query = StoreOrder::select([
                 'batch_reference as batch_number',
                 'encoder_id',
                 \DB::raw('MIN(order_date) as date_from'),
@@ -44,9 +44,43 @@ class DTSMassOrdersController extends Controller
             ->whereNotNull('batch_reference')
             ->where('variant', 'mass dts')
             ->with('encoder')
-            ->groupBy('batch_reference', 'encoder_id')
-            ->orderBy('created_at', 'desc')
-            ->paginate(20);
+            ->groupBy('batch_reference', 'encoder_id');
+
+        // Apply filter
+        $filterQuery = $request->input('filterQuery', 'approved');
+        if ($filterQuery !== 'all') {
+            $query->havingRaw('MIN(order_status) = ?', [$filterQuery]);
+        }
+
+        $batches = $query->orderBy('created_at', 'desc')->paginate(20);
+
+        // Calculate counts for each status
+        $counts = [
+            'all' => StoreOrder::whereNotNull('batch_reference')
+                ->where('variant', 'mass dts')
+                ->distinct('batch_reference')
+                ->count('batch_reference'),
+            'approved' => StoreOrder::whereNotNull('batch_reference')
+                ->where('variant', 'mass dts')
+                ->where('order_status', 'approved')
+                ->distinct('batch_reference')
+                ->count('batch_reference'),
+            'commited' => StoreOrder::whereNotNull('batch_reference')
+                ->where('variant', 'mass dts')
+                ->where('order_status', 'commited')
+                ->distinct('batch_reference')
+                ->count('batch_reference'),
+            'incomplete' => StoreOrder::whereNotNull('batch_reference')
+                ->where('variant', 'mass dts')
+                ->where('order_status', 'incomplete')
+                ->distinct('batch_reference')
+                ->count('batch_reference'),
+            'received' => StoreOrder::whereNotNull('batch_reference')
+                ->where('variant', 'mass dts')
+                ->where('order_status', 'received')
+                ->distinct('batch_reference')
+                ->count('batch_reference'),
+        ];
 
         // Calculate total quantity for each batch and extract variant
         $batches->getCollection()->transform(function ($batch) {
@@ -72,7 +106,11 @@ class DTSMassOrdersController extends Controller
 
         return Inertia::render('DTSMassOrders/Index', [
             'variants' => $variants,
-            'batches' => $batches
+            'batches' => $batches,
+            'filters' => [
+                'filterQuery' => $filterQuery,
+            ],
+            'counts' => $counts
         ]);
     }
 

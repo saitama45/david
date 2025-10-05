@@ -26,7 +26,7 @@ class StoreOrder extends Model implements Auditable
         'variant',
         'approval_action_date',
         'commited_action_date', // New
-
+        'batch_reference',
     ];
 
     protected $casts = [
