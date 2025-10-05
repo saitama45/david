@@ -1,6 +1,8 @@
 <script setup>
-import { Head, router } from "@inertiajs/vue3";
+import { Head, router, useForm } from "@inertiajs/vue3";
 import { ref, computed } from "vue";
+import { useToast } from "@/Composables/useToast";
+import { useConfirm } from "primevue/useconfirm";
 
 const props = defineProps({
     batch_number: {
@@ -31,26 +33,92 @@ const props = defineProps({
         type: Object,
         default: null
     },
-    orders: {
+    existing_orders: {
         type: Object,
         default: () => ({})
     },
     status: {
         type: String,
         default: null
-    },
-    created_at: {
-        type: String,
-        default: null
-    },
-    encoder: {
-        type: Object,
-        default: null
     }
 });
 
+const { toast } = useToast();
+const confirm = useConfirm();
+
 const goBack = () => {
     router.get(route('dts-mass-orders.index'));
+};
+
+const handleUpdateOrders = () => {
+    // Check if there are any orders
+    let hasOrders = false;
+    for (const dateKey in orders.value) {
+        for (const storeId in orders.value[dateKey]) {
+            if (orders.value[dateKey][storeId] && parseFloat(orders.value[dateKey][storeId]) > 0) {
+                hasOrders = true;
+                break;
+            }
+        }
+        if (hasOrders) break;
+    }
+
+    if (!hasOrders) {
+        toast.add({
+            severity: 'warn',
+            summary: 'No Orders',
+            detail: 'Please enter at least one order quantity before updating orders.',
+            life: 3000
+        });
+        return;
+    }
+
+    confirm.require({
+        message: 'Are you sure you want to update these orders? This will replace all existing orders in this batch.',
+        header: 'Confirm Order Update',
+        icon: 'pi pi-exclamation-triangle',
+        accept: () => {
+            submitOrders();
+        },
+        reject: () => {
+            // Do nothing
+        },
+        acceptClass: 'p-button-success',
+        rejectClass: 'p-button-danger'
+    });
+};
+
+const form = useForm({
+    variant: props.variant,
+    orders: {},
+    sap_item: props.sap_item
+});
+
+const submitOrders = () => {
+    // Prepare the orders data
+    form.orders = orders.value;
+    form.sap_item = props.sap_item;
+    form.variant = props.variant;
+
+    // Submit via Inertia
+    form.put(route('dts-mass-orders.update', props.batch_number), {
+        onSuccess: () => {
+            toast.add({
+                severity: 'success',
+                summary: 'Orders Updated',
+                detail: 'Your mass orders have been successfully updated.',
+                life: 3000
+            });
+        },
+        onError: (errors) => {
+            toast.add({
+                severity: 'error',
+                summary: 'Error',
+                detail: errors.error || 'Failed to update orders. Please try again.',
+                life: 5000
+            });
+        }
+    });
 };
 
 const formatDisplayDate = (dateString) => {
@@ -65,30 +133,24 @@ const formatDisplayDate = (dateString) => {
     }
 };
 
-const formatDisplayDateTime = (dateString) => {
-    if (!dateString) return 'N/A';
-    try {
-        const [datePart, timePart] = dateString.split(' ');
-        const [year, month, day] = datePart.split('-');
-        const [hourStr, minute] = timePart.split(':');
-        let hour = parseInt(hourStr, 10);
-        let ampm = 'A.M.';
-        if (hour >= 12) {
-            ampm = 'P.M.';
-            if (hour > 12) hour -= 12;
-        }
-        if (hour === 0) hour = 12;
-        return `${parseInt(month, 10)}/${parseInt(day, 10)}/${year} ${hour}:${minute} ${ampm}`;
-    } catch (e) {
-        return dateString;
-    }
-};
+// Initialize orders object: { date: { storeId: quantity } }
+const orders = ref({});
+
+// Initialize orders with existing values or empty
+props.dates.forEach(dateObj => {
+    orders.value[dateObj.date] = {};
+    props.stores.forEach(store => {
+        // Pre-populate with existing order quantity if available
+        const existingQty = props.existing_orders[dateObj.date]?.[store.id] || '';
+        orders.value[dateObj.date][store.id] = existingQty;
+    });
+});
 
 // Calculate row totals
 const getRowTotal = (date) => {
     let total = 0;
     props.stores.forEach(store => {
-        const value = parseFloat(props.orders[date]?.[store.id] || 0);
+        const value = parseFloat(orders.value[date]?.[store.id] || 0);
         total += isNaN(value) ? 0 : value;
     });
     return total;
@@ -116,36 +178,55 @@ const getStoresForDate = (dateObj) => {
     return props.stores.filter(store => hasDeliverySchedule(store, dateObj));
 };
 
-const statusBadgeColor = (status) => {
-    switch (status?.toUpperCase()) {
-        case "APPROVED": return "bg-teal-500 text-white";
-        case "PENDING": return "bg-yellow-500 text-white";
-        case "COMPLETED": return "bg-green-500 text-white";
-        case "CANCELLED": return "bg-red-500 text-white";
-        default: return "bg-gray-500 text-white";
+// Validate quantity input for ICE CREAM variant
+const validateQuantity = (dateKey, storeId, value) => {
+    // Only validate for ICE CREAM variant
+    if (props.variant === 'ICE CREAM') {
+        const qty = parseFloat(value);
+
+        // Check if value is entered and less than 5
+        if (value !== '' && value !== null && !isNaN(qty)) {
+            if (qty > 0 && qty < 5) {
+                // Show toast message
+                toast.add({
+                    severity: 'warn',
+                    summary: 'Invalid Quantity',
+                    detail: 'ICE CREAM orders must be at least 5 gallons (GAL 3.8)',
+                    life: 4000
+                });
+
+                // Reset the value
+                orders.value[dateKey][storeId] = '';
+                return false;
+            }
+        }
     }
+    return true;
 };
 
-const exportToExcel = () => {
-    window.open(route('dts-mass-orders.export', props.batch_number), '_blank');
+// Handle Enter key to move to next input
+const handleEnterKey = (event) => {
+    const inputs = Array.from(document.querySelectorAll('input[type="number"]'));
+    const currentIndex = inputs.indexOf(event.target);
+
+    if (currentIndex > -1 && currentIndex < inputs.length - 1) {
+        event.preventDefault();
+        inputs[currentIndex + 1].focus();
+        inputs[currentIndex + 1].select();
+    }
 };
 
 </script>
 
 <template>
-    <Head title="View DTS Mass Order" />
+    <Head title="Edit DTS Mass Order" />
 
-    <Layout :heading="`View DTS Mass Order`">
+    <Layout :heading="`Edit DTS Mass Order`">
         <TableContainer>
             <TableHeader>
-                <div class="flex justify-between w-full">
-                    <Button @click="goBack" variant="outline" class="text-black border-black hover:bg-gray-100">
-                        Back
-                    </Button>
-                    <Button @click="exportToExcel" class="bg-green-600 hover:bg-green-700 text-white">
-                        Export to Excel
-                    </Button>
-                </div>
+                <Button @click="goBack" variant="outline" class="text-black border-black hover:bg-gray-100">
+                    Back
+                </Button>
             </TableHeader>
 
             <div class="bg-white border rounded-md shadow-sm p-6">
@@ -162,33 +243,15 @@ const exportToExcel = () => {
                                 <p class="text-lg font-bold text-blue-600">{{ variant }}</p>
                             </div>
                             <div>
-                                <label class="text-xs font-semibold text-gray-600 uppercase block mb-2">Status</label>
-                                <Badge :class="statusBadgeColor(status)" class="font-bold text-sm">
-                                    {{ status ? status.toUpperCase() : 'N/A' }}
-                                </Badge>
-                            </div>
-                        </div>
-                        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mt-3">
-                            <div>
                                 <label class="text-xs font-semibold text-gray-600 uppercase">Date Range</label>
                                 <p class="text-sm font-medium text-gray-700">
                                     {{ formatDisplayDate(date_from) }} - {{ formatDisplayDate(date_to) }}
                                 </p>
                             </div>
-                            <div>
-                                <label class="text-xs font-semibold text-gray-600 uppercase">Created By</label>
-                                <p class="text-sm font-medium text-gray-700">
-                                    {{ encoder?.first_name }} {{ encoder?.last_name }}
-                                </p>
-                            </div>
-                            <div>
-                                <label class="text-xs font-semibold text-gray-600 uppercase">Created At</label>
-                                <p class="text-sm font-medium text-gray-700">{{ formatDisplayDateTime(created_at) }}</p>
-                            </div>
                         </div>
                     </div>
 
-                    <!-- Order Details Table -->
+                    <!-- Excel-like Table -->
                     <div class="mt-6 overflow-x-auto">
                         <table class="min-w-full border-collapse border border-gray-300 text-sm">
                             <!-- Header Rows -->
@@ -249,10 +312,17 @@ const exportToExcel = () => {
                                                 <div v-if="store.complete_address" class="text-xs text-gray-500 mt-1">{{ store.complete_address }}</div>
                                             </div>
                                         </td>
-                                        <td class="border border-gray-300 px-3 py-2 text-center">
-                                            <span class="font-semibold text-blue-700">
-                                                {{ orders[dateObj.date]?.[store.id] || 0 }}
-                                            </span>
+                                        <td class="border border-gray-300 px-2 py-1">
+                                            <input
+                                                v-model="orders[dateObj.date][store.id]"
+                                                type="number"
+                                                step="0.01"
+                                                :min="variant === 'ICE CREAM' ? '5' : '0'"
+                                                class="w-full px-2 py-1 border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 text-center"
+                                                :placeholder="variant === 'ICE CREAM' ? 'Min: 5' : '0'"
+                                                @blur="validateQuantity(dateObj.date, store.id, orders[dateObj.date][store.id])"
+                                                @keydown.enter="handleEnterKey"
+                                            />
                                         </td>
                                     </tr>
 
@@ -278,6 +348,22 @@ const exportToExcel = () => {
                                 </tr>
                             </tbody>
                         </table>
+                    </div>
+
+                    <!-- Action Buttons -->
+                    <div class="flex justify-end gap-3 mt-6">
+                        <button
+                            @click="goBack"
+                            class="px-4 py-2 bg-red-600 text-white font-medium rounded-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500"
+                        >
+                            Cancel
+                        </button>
+                        <button
+                            @click="handleUpdateOrders"
+                            class="px-4 py-2 bg-green-600 text-white font-medium rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500"
+                        >
+                            Update Orders
+                        </button>
                     </div>
                 </div>
             </div>

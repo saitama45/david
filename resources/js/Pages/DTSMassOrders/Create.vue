@@ -230,8 +230,8 @@ const handleEnterKey = (event) => {
     <Layout :heading="`Create DTS Mass Order`">
         <TableContainer>
             <TableHeader>
-                <Button @click="goBack" variant="outline">
-                    Back to DTS Mass Orders
+                <Button @click="goBack" variant="outline" class="text-black border-black hover:bg-gray-100">
+                    Back
                 </Button>
             </TableHeader>
 
@@ -249,7 +249,7 @@ const handleEnterKey = (event) => {
                         <table class="min-w-full border-collapse border border-gray-300 text-sm">
                             <!-- Header Rows -->
                             <thead>
-                                <!-- First Row: ITEM CODE + ITEM DESCRIPTION + UOM + TOTAL -->
+                                <!-- First Row: ITEM CODE + ITEM DESCRIPTION + UOM -->
                                 <tr class="bg-gray-100">
                                     <th class="border border-gray-300 px-3 py-2 font-semibold text-left" style="min-width: 120px;">
                                         ITEM CODE
@@ -259,9 +259,6 @@ const handleEnterKey = (event) => {
                                     </th>
                                     <th class="border border-gray-300 px-3 py-2 font-semibold text-center" style="min-width: 100px;">
                                         UOM
-                                    </th>
-                                    <th class="border border-gray-300 px-3 py-2 font-semibold text-center bg-red-100" style="min-width: 100px;">
-                                        TOTAL
                                     </th>
                                 </tr>
 
@@ -276,9 +273,6 @@ const handleEnterKey = (event) => {
                                     <td class="border border-gray-300 px-3 py-2 text-center font-semibold">
                                         <span v-if="props.sap_item">{{ props.sap_item.alt_uom }}</span>
                                     </td>
-                                    <td class="border border-gray-300 px-3 py-2 text-center font-semibold bg-red-100">
-                                        <!-- Empty -->
-                                    </td>
                                 </tr>
                             </thead>
 
@@ -287,7 +281,7 @@ const handleEnterKey = (event) => {
                                 <template v-for="dateObj in props.dates" :key="dateObj.date">
                                     <!-- Date Header Row -->
                                     <tr class="bg-gray-200">
-                                        <td class="border border-gray-300 px-3 py-2 font-bold" colspan="4">
+                                        <td class="border border-gray-300 px-3 py-2 font-bold" colspan="3">
                                             {{ dateObj.display }}
                                         </td>
                                     </tr>
@@ -299,9 +293,6 @@ const handleEnterKey = (event) => {
                                         </td>
                                         <td class="border border-gray-300 px-3 py-2 font-semibold text-center">
                                             Quantity
-                                        </td>
-                                        <td class="border border-gray-300 px-3 py-2 font-semibold text-center bg-red-50">
-                                            Subtotal
                                         </td>
                                     </tr>
 
@@ -326,20 +317,14 @@ const handleEnterKey = (event) => {
                                                 @keydown.enter="handleEnterKey"
                                             />
                                         </td>
-                                        <td class="border border-gray-300 px-3 py-2 text-center bg-red-50">
-                                            {{ parseFloat(orders[dateObj.date][store.id] || 0) }}
-                                        </td>
                                     </tr>
 
                                     <!-- Day Total Row -->
                                     <tr class="bg-blue-50 font-semibold">
                                         <td class="border border-gray-300 px-3 py-2" colspan="2">
-                                            {{ dateObj.display }} - TOTAL
+                                            TOTAL
                                         </td>
                                         <td class="border border-gray-300 px-3 py-2 text-center">
-                                            {{ getRowTotal(dateObj.date) }}
-                                        </td>
-                                        <td class="border border-gray-300 px-3 py-2 text-center bg-red-100">
                                             {{ getRowTotal(dateObj.date) }}
                                         </td>
                                     </tr>
@@ -351,9 +336,6 @@ const handleEnterKey = (event) => {
                                         GRAND TOTAL
                                     </td>
                                     <td class="border border-gray-300 px-3 py-2 text-center">
-                                        {{ grandTotal }}
-                                    </td>
-                                    <td class="border border-gray-300 px-3 py-2 text-center bg-red-900">
                                         {{ grandTotal }}
                                     </td>
                                 </tr>

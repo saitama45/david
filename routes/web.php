@@ -451,6 +451,7 @@ Route::middleware('auth')
             });
             Route::middleware('permission:export dts mass orders')->get('/export/{batch_number}', 'export')->name('export');
             Route::middleware('permission:view dts mass orders')->get('/available-dates/{variant}', 'getAvailableDates')->name('get-available-dates');
+            Route::middleware('permission:create dts mass orders')->get('/validate-variant/{variant}', 'validateVariant')->name('validate-variant');
         });
 
         // Month End Schedules

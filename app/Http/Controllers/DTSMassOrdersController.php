@@ -64,6 +64,9 @@ class DTSMassOrdersController extends Controller
                 $batch->variant = str_replace('Mass DTS Order - ', '', $batch->remarks);
             }
 
+            // Check if batch can be edited based on cutoff
+            $batch->can_edit = $this->canEditBatch($batch);
+
             return $batch;
         });
 
@@ -460,53 +463,61 @@ class DTSMassOrdersController extends Controller
 
         // Generate dates between date_from and date_to
         $dates = [];
+        $dayOfWeekMap = [
+            'MONDAY' => 1,
+            'TUESDAY' => 2,
+            'WEDNESDAY' => 3,
+            'THURSDAY' => 4,
+            'FRIDAY' => 5,
+            'SATURDAY' => 6,
+            'SUNDAY' => 7
+        ];
+
         $start = Carbon::parse($dateFrom);
         $end = Carbon::parse($dateTo);
 
         while ($start->lte($end)) {
-            $dayOfWeek = $start->dayOfWeek; // 0 = Sunday, 1 = Monday, etc.
-
-            // Get delivery schedule ID for this day
-            $deliverySchedule = DTSDeliverySchedule::where('variant', $variant)
-                ->where('day_of_week', $dayOfWeek)
-                ->first();
-
-            if ($deliverySchedule) {
-                $dates[] = [
-                    'date' => $start->format('Y-m-d'),
-                    'display' => strtoupper($start->format('l')) . '- ' . strtoupper($start->format('M')) . ' ' . $start->format('j'),
-                    'delivery_schedule_id' => $deliverySchedule->id
-                ];
-            }
-
+            $dayName = strtoupper($start->format('l'));
+            $dates[] = [
+                'date' => $start->format('Y-m-d'),
+                'display' => $dayName . '- ' . strtoupper($start->format('M')) . ' ' . $start->format('j'),
+                'day_of_week' => $dayName,
+                'delivery_schedule_id' => $dayOfWeekMap[$dayName] ?? null
+            ];
             $start->addDay();
         }
 
-        // Get all stores with delivery schedules for this variant
-        $stores = StoreBranch::where('is_active', 1)
-            ->with(['delivery_schedules' => function ($query) use ($variant) {
-                $query->where('variant', $variant);
-            }])
-            ->get()
-            ->map(function ($store) {
-                $deliveryScheduleIds = $store->delivery_schedules->pluck('id')->toArray();
-                $deliveryScheduleIds = array_map(function ($id) {
-                    return (int) $id;
-                }, $deliveryScheduleIds);
+        // Fetch user assigned stores
+        $stores = [];
+        if (auth()->check()) {
+            $user = auth()->user();
+            $stores = $user->store_branches()
+                ->where('is_active', true)
+                ->get()
+                ->map(function ($store) use ($variant) {
+                    // Get delivery schedule IDs for this store and variant
+                    $deliveryScheduleIds = \DB::table('d_t_s_delivery_schedules')
+                        ->where('store_branch_id', $store->id)
+                        ->where('variant', $variant)
+                        ->pluck('delivery_schedule_id')
+                        ->map(function ($id) {
+                            return (int) $id; // Convert to integer
+                        })
+                        ->toArray();
 
-                return [
-                    'id' => $store->id,
-                    'name' => $store->name,
-                    'brand_code' => $store->brand_code,
-                    'complete_address' => $store->complete_address,
-                    'delivery_schedule_ids' => $deliveryScheduleIds
-                ];
-            })
-            ->filter(function ($store) {
-                return count($store['delivery_schedule_ids']) > 0;
-            })
-            ->values()
-            ->toArray();
+                    return [
+                        'id' => $store->id,
+                        'name' => $store->name,
+                        'branch_code' => $store->branch_code,
+                        'brand_code' => $store->brand_code,
+                        'complete_address' => $store->complete_address,
+                        'label' => $store->name,
+                        'delivery_schedule_ids' => $deliveryScheduleIds
+                    ];
+                })
+                ->values()
+                ->toArray();
+        }
 
         // Build existing orders array
         $existingOrders = [];
@@ -699,6 +710,59 @@ class DTSMassOrdersController extends Controller
         return Excel::download(new DTSMassOrderExport($batchData), $fileName);
     }
 
+    public function validateVariant($variant)
+    {
+        // Only validate ICE CREAM and SALMON
+        if (!in_array($variant, ['ICE CREAM', 'SALMON'])) {
+            return response()->json(['valid' => true]);
+        }
+
+        // Define variant requirements
+        $variantConfig = [
+            'ICE CREAM' => [
+                'item_code' => '359A2A',
+                'uom' => 'GAL(3.8)',
+                'supplier_code' => 'DROPS'
+            ],
+            'SALMON' => [
+                'item_code' => '269A2A',
+                'uom' => 'KG',
+                'supplier_code' => 'DROPS'
+            ]
+        ];
+
+        $config = $variantConfig[$variant];
+
+        // Check if user has access to DROPS supplier
+        $user = auth()->user();
+        $hasSupplierAccess = $user->suppliers()
+            ->where('supplier_code', $config['supplier_code'])
+            ->exists();
+
+        if (!$hasSupplierAccess) {
+            return response()->json([
+                'valid' => false,
+                'message' => "You do not have access to supplier {$config['supplier_code']} required for {$variant}."
+            ]);
+        }
+
+        // Check if item exists in supplier_items
+        $supplierItem = \App\Models\SupplierItems::where('ItemCode', $config['item_code'])
+            ->where('uom', $config['uom'])
+            ->where('SupplierCode', $config['supplier_code'])
+            ->where('is_active', 1)
+            ->first();
+
+        if (!$supplierItem) {
+            return response()->json([
+                'valid' => false,
+                'message' => "Item Code {$config['item_code']} with UOM {$config['uom']} for variant {$variant} does not exist in Supplier Items."
+            ]);
+        }
+
+        return response()->json(['valid' => true]);
+    }
+
     public function getAvailableDates($variant)
     {
         $cutoff = \App\Models\OrdersCutoff::where('ordering_template', $variant)->first();
@@ -747,6 +811,95 @@ class DTSMassOrdersController extends Controller
             }
         }
 
-        return response()->json($enabledDates);
+        // Get all existing batch date ranges for this variant
+        $existingBatches = StoreOrder::whereNotNull('batch_reference')
+            ->where('variant', 'mass dts')
+            ->where('remarks', 'LIKE', "Mass DTS Order - {$variant}")
+            ->select('batch_reference', \DB::raw('MIN(order_date) as date_from'), \DB::raw('MAX(order_date) as date_to'))
+            ->groupBy('batch_reference')
+            ->get();
+
+        // Filter out dates that are already covered by existing batches
+        $availableDates = array_filter($enabledDates, function($date) use ($existingBatches) {
+            foreach ($existingBatches as $batch) {
+                $dateFrom = Carbon::parse($batch->date_from);
+                $dateTo = Carbon::parse($batch->date_to);
+                $checkDate = Carbon::parse($date);
+
+                // If the date falls within an existing batch's range, exclude it
+                if ($checkDate->between($dateFrom, $dateTo)) {
+                    return false;
+                }
+            }
+            return true;
+        });
+
+        return response()->json(array_values($availableDates));
+    }
+
+    private function canEditBatch($batch)
+    {
+        // Check if the current time is past the cutoff for this batch's variant
+        $variant = $batch->variant;
+        if ($variant === 'N/A') {
+            return false;
+        }
+
+        $cutoff = \App\Models\OrdersCutoff::where('ordering_template', $variant)->first();
+        if (!$cutoff) {
+            return true; // If no cutoff defined, allow editing
+        }
+
+        $now = Carbon::now('Asia/Manila');
+
+        // Get the earliest order date from the batch
+        $dateFrom = Carbon::parse($batch->date_from);
+
+        // Determine which week the batch orders belong to
+        $batchWeekStart = $dateFrom->copy()->startOfWeek(Carbon::SUNDAY);
+        $currentWeekStart = $now->copy()->startOfWeek(Carbon::SUNDAY);
+
+        // If batch is from a past week, don't allow editing
+        if ($batchWeekStart->lt($currentWeekStart)) {
+            return false;
+        }
+
+        // If batch is from current week, check cutoffs
+        if ($batchWeekStart->eq($currentWeekStart)) {
+            $getCutoffDateTime = function($day, $time) use ($now) {
+                if (!$day || !$time) return null;
+                $dayIndex = ($day == 7) ? 0 : $day;
+                return $now->copy()->startOfWeek(Carbon::SUNDAY)->addDays($dayIndex)->setTimeFromTimeString($time);
+            };
+
+            $cutoff1DateTime = $getCutoffDateTime($cutoff->cutoff_1_day, $cutoff->cutoff_1_time);
+            $cutoff2DateTime = $getCutoffDateTime($cutoff->cutoff_2_day, $cutoff->cutoff_2_time);
+
+            // If current time is past cutoff2, don't allow editing
+            if ($cutoff2DateTime && $now->gte($cutoff2DateTime)) {
+                return false;
+            }
+
+            // If current time is past cutoff1 but before cutoff2, check if batch was for days_covered_1
+            // For simplicity, we'll check if any order dates match the days_covered_1
+            if ($cutoff1DateTime && $now->gte($cutoff1DateTime)) {
+                $dayMap = ['Sun' => 0, 'Mon' => 1, 'Tue' => 2, 'Wed' => 3, 'Thu' => 4, 'Fri' => 5, 'Sat' => 6];
+                $daysCovered1 = $cutoff->days_covered_1 ? explode(',', $cutoff->days_covered_1) : [];
+
+                foreach ($daysCovered1 as $day) {
+                    $day = trim($day);
+                    if (isset($dayMap[$day])) {
+                        $dayDate = $batchWeekStart->copy()->addDays($dayMap[$day]);
+                        if ($dateFrom->eq($dayDate)) {
+                            // This batch is for days_covered_1 and cutoff1 has passed
+                            return false;
+                        }
+                    }
+                }
+            }
+        }
+
+        // If batch is from future week, allow editing
+        return true;
     }
 }

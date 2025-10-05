@@ -45,7 +45,7 @@ class DTSMassOrderExport implements FromArray, WithStyles, WithColumnWidths, Wit
 
         // Table Headers - First Row (Gray background)
         $this->rowTracker['table_header_1'] = $currentRow;
-        $data[] = ['ITEM CODE', 'ITEM DESCRIPTION', 'UOM', 'TOTAL'];
+        $data[] = ['ITEM CODE', 'ITEM DESCRIPTION', 'UOM'];
         $currentRow++;
 
         // Table Headers - Second Row (Item values)
@@ -53,8 +53,7 @@ class DTSMassOrderExport implements FromArray, WithStyles, WithColumnWidths, Wit
         $data[] = [
             $this->batchData['sap_item']['item_code'] ?? '',
             $this->batchData['sap_item']['item_description'] ?? '',
-            $this->batchData['sap_item']['alt_uom'] ?? '',
-            ''
+            $this->batchData['sap_item']['alt_uom'] ?? ''
         ];
         $currentRow++;
 
@@ -65,12 +64,12 @@ class DTSMassOrderExport implements FromArray, WithStyles, WithColumnWidths, Wit
 
             // Date header (Gray background)
             $dateSection['header'] = $currentRow;
-            $data[] = [$dateInfo['display'], '', '', ''];
+            $data[] = [$dateInfo['display'], '', ''];
             $currentRow++;
 
             // Column headers for stores (Light gray background) - merged cells
             $dateSection['column_header'] = $currentRow;
-            $data[] = ['Store Name', '', 'Quantity', 'Subtotal'];
+            $data[] = ['Store Name', '', 'Quantity'];
             $currentRow++;
 
             // Stores for this date
@@ -92,7 +91,6 @@ class DTSMassOrderExport implements FromArray, WithStyles, WithColumnWidths, Wit
                 $data[] = [
                     $storeName,
                     '',
-                    $store['quantity'],
                     $store['quantity']
                 ];
                 $currentRow++;
@@ -101,7 +99,7 @@ class DTSMassOrderExport implements FromArray, WithStyles, WithColumnWidths, Wit
 
             // Day total (Blue background)
             $dateSection['total'] = $currentRow;
-            $data[] = ['TOTAL', '', $dateInfo['total'], $dateInfo['total']];
+            $data[] = ['TOTAL', '', $dateInfo['total']];
             $dateSection['end'] = $currentRow;
             $currentRow++;
 
@@ -110,7 +108,7 @@ class DTSMassOrderExport implements FromArray, WithStyles, WithColumnWidths, Wit
 
         // Grand total (Dark gray/black background with white text)
         $this->rowTracker['grand_total'] = $currentRow;
-        $data[] = ['GRAND TOTAL', '', $this->batchData['grand_total'], $this->batchData['grand_total']];
+        $data[] = ['GRAND TOTAL', '', $this->batchData['grand_total']];
 
         return $data;
     }
@@ -193,49 +191,7 @@ class DTSMassOrderExport implements FromArray, WithStyles, WithColumnWidths, Wit
             'borders' => $borderStyle['borders']
         ];
 
-        // Apply red background to column D (TOTAL/Subtotal columns)
-        $lastRow = $this->rowTracker['grand_total'];
-        for ($row = $this->rowTracker['table_header_1']; $row <= $lastRow; $row++) {
-            $sheet->getStyle("D{$row}")->applyFromArray([
-                'fill' => [
-                    'fillType' => Fill::FILL_SOLID,
-                    'color' => ['rgb' => $this->getRedColumnColor($row)]
-                ],
-                'borders' => $borderStyle['borders']
-            ]);
-        }
-
         return $styles;
-    }
-
-    protected function getRedColumnColor($row)
-    {
-        // Table header row 1
-        if ($row == $this->rowTracker['table_header_1']) {
-            return 'FEE2E2'; // Red-100
-        }
-
-        // Table header row 2
-        if ($row == $this->rowTracker['table_header_2']) {
-            return 'FEE2E2'; // Red-100
-        }
-
-        // Date sections
-        foreach ($this->rowTracker['date_sections'] as $section) {
-            if ($row == $section['column_header']) {
-                return 'FEF2F2'; // Red-50
-            }
-            if ($row == $section['total']) {
-                return 'FECACA'; // Red-100
-            }
-        }
-
-        // Grand total
-        if ($row == $this->rowTracker['grand_total']) {
-            return '7F1D1D'; // Red-900
-        }
-
-        return 'FEF2F2'; // Red-50 (default)
     }
 
     public function columnWidths(): array
@@ -243,8 +199,7 @@ class DTSMassOrderExport implements FromArray, WithStyles, WithColumnWidths, Wit
         return [
             'A' => 45,
             'B' => 25,
-            'C' => 15,
-            'D' => 15,
+            'C' => 15
         ];
     }
 
@@ -258,7 +213,7 @@ class DTSMassOrderExport implements FromArray, WithStyles, WithColumnWidths, Wit
                 foreach ($this->rowTracker['date_sections'] as $section) {
                     $row = $section['header'];
 
-                    $cellRange = "A{$row}:D{$row}";
+                    $cellRange = "A{$row}:C{$row}";
 
                     // Set font directly
                     $sheet->getStyle($cellRange)->getFont()->setBold(true)->setSize(16);

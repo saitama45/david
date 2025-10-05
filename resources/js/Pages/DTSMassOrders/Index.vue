@@ -4,6 +4,7 @@ import { ref, watch } from 'vue';
 import { Eye, Pencil, Filter, Calendar as CalendarIcon } from 'lucide-vue-next';
 import { throttle } from "lodash";
 import { useAuth } from "@/Composables/useAuth";
+import { useToast } from 'primevue/usetoast';
 import Dialog from 'primevue/dialog';
 import Select from 'primevue/select';
 
@@ -19,6 +20,7 @@ const props = defineProps({
 });
 
 const { hasAccess } = useAuth();
+const toast = useToast();
 
 const statusBadgeColor = (status) => {
     switch (status?.toUpperCase()) {
@@ -102,16 +104,43 @@ watch(selectedVariant, async (newVariant) => {
     }
 });
 
-const confirmVariantSelection = () => {
+const confirmVariantSelection = async () => {
     if (!selectedVariant.value || !dateFrom.value || !dateTo.value) {
         return;
     }
-    showVariantModal.value = false;
-    router.get(route('dts-mass-orders.create'), {
-        variant: selectedVariant.value,
-        date_from: dateFrom.value,
-        date_to: dateTo.value
-    });
+
+    // Validate the variant before proceeding (for ICE CREAM and SALMON only)
+    try {
+        const validationResponse = await fetch(route('dts-mass-orders.validate-variant', { variant: selectedVariant.value }));
+        const validationResult = await validationResponse.json();
+
+        if (!validationResult.valid) {
+            // Show toast error
+            toast.add({
+                severity: 'error',
+                summary: 'Validation Error',
+                detail: validationResult.message,
+                life: 5000
+            });
+            return;
+        }
+
+        // If validation passes, proceed to create page
+        showVariantModal.value = false;
+        router.get(route('dts-mass-orders.create'), {
+            variant: selectedVariant.value,
+            date_from: dateFrom.value,
+            date_to: dateTo.value
+        });
+    } catch (error) {
+        console.error('Error validating variant:', error);
+        toast.add({
+            severity: 'error',
+            summary: 'Error',
+            detail: 'Failed to validate variant. Please try again.',
+            life: 5000
+        });
+    }
 };
 
 const getCalendarDays = (currentDate) => {
@@ -211,7 +240,7 @@ const selectDate = (day, isFrom) => {
                                     <button v-if="hasAccess('view dts mass orders')" @click="showBatchDetails(batch.batch_number)">
                                         <Eye class="size-5" />
                                     </button>
-                                    <button v-if="hasAccess('edit dts mass orders')" class="text-blue-500" @click="editBatchDetails(batch.batch_number)">
+                                    <button v-if="hasAccess('edit dts mass orders') && batch.can_edit" class="text-blue-500" @click="editBatchDetails(batch.batch_number)">
                                         <Pencil class="size-5" />
                                     </button>
                                 </DivFlexCenter>
@@ -227,7 +256,7 @@ const selectDate = (day, isFrom) => {
                         <button v-if="hasAccess('view dts mass orders')" @click="showBatchDetails(batch.batch_number)">
                             <Eye class="size-5" />
                         </button>
-                        <button v-if="hasAccess('edit dts mass orders')" class="text-blue-500" @click="editBatchDetails(batch.batch_number)">
+                        <button v-if="hasAccess('edit dts mass orders') && batch.can_edit" class="text-blue-500" @click="editBatchDetails(batch.batch_number)">
                             <Pencil class="size-5" />
                         </button>
                     </MobileTableHeading>
