@@ -296,6 +296,10 @@ class RolesAndPermissionSeeder extends Seeder
         Permission::firstOrCreate(['name' => 'edit cs mass commits']);
         Permission::firstOrCreate(['name' => 'export cs mass commits']);
 
+        // CS DTS Mass Commit
+        Permission::firstOrCreate(['name' => 'view cs dts mass commit']);
+        Permission::firstOrCreate(['name' => 'edit cs dts mass commit']);
+
         // NEW: Permissions for category-specific editing in CS Mass Commits
         $editFinishedGood = Permission::firstOrCreate(['name' => 'edit finished good commits']);
         $editOther = Permission::firstOrCreate(['name' => 'edit other commits']);

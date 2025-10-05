@@ -60,7 +60,7 @@ const isFilterActive = (filter) => {
 const statusBadgeColor = (status) => {
     switch (status?.toUpperCase()) {
         case "APPROVED": return "bg-teal-500 text-white";
-        case "COMMITED": return "bg-blue-500 text-white";
+        case "COMMITTED": return "bg-blue-500 text-white";
         case "INCOMPLETE": return "bg-orange-500 text-white";
         case "RECEIVED": return "bg-green-500 text-white";
         case "PENDING": return "bg-yellow-500 text-white";
@@ -271,14 +271,14 @@ const selectDate = (day, isFrom) => {
 
             <Button
                 class="sm:px-10 px-3 bg-white/10 text-gray-800 hover:text-white gap-5 sm:text-sm text-xs"
-                :class="isFilterActive('commited')"
-                @click="changeFilter('commited')"
+                :class="isFilterActive('committed')"
+                @click="changeFilter('committed')"
             >
-                COMMITED
+                COMMITTED
                 <Badge
                     class="sm:flex hidden border border-gray bg-transparent text-gray-900 px-2"
-                    :class="isFilterActive('commited')"
-                >{{ counts.commited || 0 }}</Badge>
+                    :class="isFilterActive('committed')"
+                >{{ counts.committed || 0 }}</Badge>
             </Button>
 
             <Button
@@ -312,17 +312,15 @@ const selectDate = (day, isFrom) => {
                     <TableHead>
                         <TH>Batch #</TH>
                         <TH>Variant</TH>
-                        <TH>Date Range</TH>
+                        <TH>Delivery Dates</TH>
                         <TH>Total Orders</TH>
                         <TH>Total Quantity</TH>
                         <TH>Status</TH>
-                        <TH>Created By</TH>
-                        <TH>Created At</TH>
                         <TH>Actions</TH>
                     </TableHead>
                     <TableBody>
                         <tr v-if="!batches.data || batches.data.length === 0">
-                            <td colspan="9" class="text-center py-4">No mass orders found.</td>
+                            <td colspan="7" class="text-center py-4">No mass orders found.</td>
                         </tr>
                         <tr v-for="batch in batches.data" :key="batch.id">
                             <TD>{{ batch.batch_number }}</TD>
@@ -333,14 +331,12 @@ const selectDate = (day, isFrom) => {
                             <TD>
                                 <Badge :class="statusBadgeColor(batch.status)" class="font-bold">{{ batch.status ? batch.status.toUpperCase() : 'N/A' }}</Badge>
                             </TD>
-                            <TD>{{ batch.encoder?.first_name }} {{ batch.encoder?.last_name }}</TD>
-                            <TD>{{ formatDisplayDateTime(batch.created_at) }}</TD>
                             <TD>
                                 <DivFlexCenter class="gap-3">
                                     <button v-if="hasAccess('view dts mass orders')" @click="showBatchDetails(batch.batch_number)">
                                         <Eye class="size-5" />
                                     </button>
-                                    <button v-if="hasAccess('edit dts mass orders') && batch.can_edit" class="text-blue-500" @click="editBatchDetails(batch.batch_number)">
+                                    <button v-if="hasAccess('edit dts mass orders') && batch.can_edit && batch.status === 'approved'" class="text-blue-500" @click="editBatchDetails(batch.batch_number)">
                                         <Pencil class="size-5" />
                                     </button>
                                 </DivFlexCenter>
@@ -356,16 +352,15 @@ const selectDate = (day, isFrom) => {
                         <button v-if="hasAccess('view dts mass orders')" @click="showBatchDetails(batch.batch_number)">
                             <Eye class="size-5" />
                         </button>
-                        <button v-if="hasAccess('edit dts mass orders') && batch.can_edit" class="text-blue-500" @click="editBatchDetails(batch.batch_number)">
+                        <button v-if="hasAccess('edit dts mass orders') && batch.can_edit && batch.status === 'approved'" class="text-blue-500" @click="editBatchDetails(batch.batch_number)">
                             <Pencil class="size-5" />
                         </button>
                     </MobileTableHeading>
                     <LabelXS>Variant: <span class="font-semibold text-blue-600">{{ batch.variant }}</span></LabelXS>
-                    <LabelXS>Date Range: {{ formatDisplayDate(batch.date_from) }} - {{ formatDisplayDate(batch.date_to) }}</LabelXS>
+                    <LabelXS>Delivery Dates: {{ formatDisplayDate(batch.date_from) }} - {{ formatDisplayDate(batch.date_to) }}</LabelXS>
                     <LabelXS>Total Orders: {{ batch.total_orders }}</LabelXS>
                     <LabelXS>Total Quantity: {{ batch.total_quantity }}</LabelXS>
                     <LabelXS>Status: <span :class="statusBadgeColor(batch.status)" class="font-semibold p-1 rounded text-white">{{ batch.status ? batch.status.toUpperCase() : 'N/A' }}</span></LabelXS>
-                    <LabelXS>Created: {{ formatDisplayDateTime(batch.created_at) }}</LabelXS>
                 </MobileTableRow>
             </MobileTableContainer>
 

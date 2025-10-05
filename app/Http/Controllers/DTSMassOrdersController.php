@@ -65,9 +65,9 @@ class DTSMassOrdersController extends Controller
                 ->where('order_status', 'approved')
                 ->distinct('batch_reference')
                 ->count('batch_reference'),
-            'commited' => StoreOrder::whereNotNull('batch_reference')
+            'committed' => StoreOrder::whereNotNull('batch_reference')
                 ->where('variant', 'mass dts')
-                ->where('order_status', 'commited')
+                ->where('order_status', 'committed')
                 ->distinct('batch_reference')
                 ->count('batch_reference'),
             'incomplete' => StoreOrder::whereNotNull('batch_reference')
@@ -261,65 +261,56 @@ class DTSMassOrdersController extends Controller
             $orders = $request->input('orders'); // { itemId: { date: { storeId: quantity } } }
             $supplierItems = $request->input('supplier_items');
 
-            \Log::info('FRUITS AND VEGETABLES Order Debug', [
-                'orders_structure' => array_keys($orders),
-                'supplier_items_count' => count($supplierItems),
-                'first_item_structure' => !empty($orders) ? array_keys(reset($orders)) : 'empty'
-            ]);
-
             try {
                 \DB::beginTransaction();
 
-                // Generate batch number
                 $batchNumber = $this->generateBatchNumber();
 
-                // Process orders for each supplier item
+                // Pivot the orders data to be date/store centric
+                $pivotedOrders = [];
                 foreach ($orders as $itemId => $dateOrders) {
-                    // Find the supplier item details
-                    $supplierItem = collect($supplierItems)->firstWhere('id', (int)$itemId);
-                    if (!$supplierItem) continue;
-
                     foreach ($dateOrders as $date => $storeOrders) {
                         foreach ($storeOrders as $storeBranchId => $quantity) {
-                            // Skip if quantity is 0 or empty
-                            if (empty($quantity) || $quantity <= 0) {
-                                continue;
-                            }
+                            if (empty($quantity) || $quantity <= 0) continue;
+                            $pivotedOrders[$date][$storeBranchId][$itemId] = $quantity;
+                        }
+                    }
+                }
 
-                            // Get the latest order number for this store branch
-                            $lastOrder = StoreOrder::where('store_branch_id', $storeBranchId)
-                                ->orderBy('id', 'desc')
-                                ->first();
+                // Now iterate through the pivoted structure
+                foreach ($pivotedOrders as $date => $storeOrders) {
+                    foreach ($storeOrders as $storeBranchId => $itemOrders) {
+                        // 1. Create ONE StoreOrder for this date and store
+                        $lastOrder = StoreOrder::where('store_branch_id', $storeBranchId)->orderBy('id', 'desc')->first();
+                        $orderNumber = $this->generateOrderNumber($storeBranchId, $lastOrder);
 
-                            $orderNumber = $this->generateOrderNumber($storeBranchId, $lastOrder);
+                        $storeOrder = StoreOrder::create([
+                            'encoder_id' => auth()->id(),
+                            'supplier_id' => 5, // DROPSHIPPING supplier
+                            'store_branch_id' => $storeBranchId,
+                            'order_number' => $orderNumber,
+                            'order_date' => $date,
+                            'order_status' => 'approved',
+                            'variant' => 'mass dts',
+                            'batch_reference' => $batchNumber,
+                            'remarks' => "Mass DTS Order - {$variant}",
+                        ]);
 
-                            $costPerQuantity = $supplierItem['price'];
-                            $totalCost = $costPerQuantity * $quantity;
+                        // 2. Create multiple StoreOrderItems for this StoreOrder
+                        foreach ($itemOrders as $itemId => $quantity) {
+                            $supplierItemDetails = collect($supplierItems)->firstWhere('id', (int)$itemId);
+                            if (!$supplierItemDetails) continue;
 
-                            // Create StoreOrder
-                            $storeOrder = StoreOrder::create([
-                                'encoder_id' => auth()->id(),
-                                'supplier_id' => 5, // DROPSHIPPING supplier
-                                'store_branch_id' => $storeBranchId,
-                                'order_number' => $orderNumber,
-                                'order_date' => $date,
-                                'order_status' => 'approved',
-                                'variant' => 'mass dts',
-                                'batch_reference' => $batchNumber,
-                                'remarks' => "Mass DTS Order - {$variant}",
-                            ]);
-
-                            // Create StoreOrderItem
                             \App\Models\StoreOrderItem::create([
                                 'store_order_id' => $storeOrder->id,
-                                'item_code' => $supplierItem['item_code'],
+                                'item_code' => $supplierItemDetails['item_code'],
                                 'quantity_ordered' => $quantity,
                                 'quantity_approved' => $quantity,
                                 'quantity_commited' => $quantity,
                                 'quantity_received' => 0,
-                                'cost_per_quantity' => $costPerQuantity,
-                                'total_cost' => $totalCost,
-                                'uom' => $supplierItem['uom'],
+                                'cost_per_quantity' => $supplierItemDetails['price'],
+                                'total_cost' => $supplierItemDetails['price'] * $quantity,
+                                'uom' => $supplierItemDetails['uom'],
                                 'remarks' => null,
                             ]);
                         }
@@ -351,38 +342,23 @@ class DTSMassOrdersController extends Controller
             $orders = $request->input('orders');
             $sapItem = $request->input('sap_item');
 
-            // Get date range from orders
-            $dates = array_keys($orders);
-            $dateFrom = min($dates);
-            $dateTo = max($dates);
-
             try {
                 \DB::beginTransaction();
 
-                // Generate batch number: MDTS-YYYYMMDD-XXX
                 $batchNumber = $this->generateBatchNumber();
 
-                $createdOrders = [];
-                $totalQuantity = 0;
-
-                // Group orders by store_branch_id and date
                 foreach ($orders as $date => $stores) {
                     foreach ($stores as $storeBranchId => $quantity) {
-                        // Skip if quantity is 0 or empty
                         if (empty($quantity) || $quantity <= 0) {
                             continue;
                         }
 
-                        $totalQuantity += $quantity;
-
-                        // Get the latest order number for this store branch
                         $lastOrder = StoreOrder::where('store_branch_id', $storeBranchId)
                             ->orderBy('id', 'desc')
                             ->first();
 
                         $orderNumber = $this->generateOrderNumber($storeBranchId, $lastOrder);
 
-                        // Get supplier item cost
                         $supplierItem = \App\Models\SupplierItems::where('ItemCode', $sapItem['item_code'])
                             ->where('is_active', true)
                             ->first();
@@ -390,7 +366,6 @@ class DTSMassOrdersController extends Controller
                         $costPerQuantity = $supplierItem ? $supplierItem->cost : 0;
                         $totalCost = $costPerQuantity * $quantity;
 
-                        // Create StoreOrder
                         $storeOrder = StoreOrder::create([
                             'encoder_id' => auth()->id(),
                             'supplier_id' => 5, // DROPSHIPPING supplier
@@ -403,7 +378,6 @@ class DTSMassOrdersController extends Controller
                             'remarks' => "Mass DTS Order - {$variant}",
                         ]);
 
-                        // Create StoreOrderItem
                         \App\Models\StoreOrderItem::create([
                             'store_order_id' => $storeOrder->id,
                             'item_code' => $sapItem['item_code'],
@@ -416,8 +390,6 @@ class DTSMassOrdersController extends Controller
                             'uom' => $sapItem['alt_uom'],
                             'remarks' => null,
                         ]);
-
-                        $createdOrders[] = $storeOrder->order_number;
                     }
                 }
 
@@ -482,7 +454,7 @@ class DTSMassOrdersController extends Controller
     {
         // Get all orders for this batch
         $orders = StoreOrder::where('batch_reference', $batchNumber)
-            ->with(['store_branch', 'encoder'])
+            ->with(['store_branch', 'encoder', 'store_order_items'])
             ->get();
 
         if ($orders->isEmpty()) {
@@ -587,12 +559,13 @@ class DTSMassOrdersController extends Controller
         if ($variant === 'FRUITS AND VEGETABLES') {
             // Structure: { itemId: { date: { storeId: quantity } } }
             foreach ($orders as $order) {
-                $orderItem = \App\Models\StoreOrderItem::where('store_order_id', $order->id)->first();
-                if ($orderItem) {
-                    // Find supplier item id
-                    $supplierItem = collect($supplierItems)->firstWhere('item_code', $orderItem->item_code);
-                    if ($supplierItem) {
-                        $ordersData[$supplierItem['id']][$order->order_date][$order->store_branch_id] = $orderItem->quantity_ordered;
+                foreach($order->store_order_items as $orderItem) {
+                    if ($orderItem) {
+                        // Find supplier item id
+                        $supplierItem = collect($supplierItems)->firstWhere('item_code', $orderItem->item_code);
+                        if ($supplierItem) {
+                            $ordersData[$supplierItem['id']][$order->order_date][$order->store_branch_id] = $orderItem->quantity_commited;
+                        }
                     }
                 }
             }
@@ -601,7 +574,7 @@ class DTSMassOrdersController extends Controller
             foreach ($orders as $order) {
                 $orderItem = \App\Models\StoreOrderItem::where('store_order_id', $order->id)->first();
                 if ($orderItem) {
-                    $ordersData[$order->order_date][$order->store_branch_id] = $orderItem->quantity_ordered;
+                    $ordersData[$order->order_date][$order->store_branch_id] = $orderItem->quantity_commited;
                 }
             }
         }
@@ -751,12 +724,13 @@ class DTSMassOrdersController extends Controller
 
             // Build existing orders: { itemId: { date: { storeId: quantity } } }
             foreach ($orders as $order) {
-                $orderItem = $order->store_order_items->first();
-                if ($orderItem) {
-                    // Find the supplier item id
-                    $supplierItem = collect($supplierItems)->firstWhere('item_code', $orderItem->item_code);
-                    if ($supplierItem) {
-                        $existingOrders[$supplierItem['id']][$order->order_date][$order->store_branch_id] = $orderItem->quantity_ordered;
+                foreach ($order->store_order_items as $orderItem) {
+                    if ($orderItem) {
+                        // Find the supplier item id
+                        $supplierItem = collect($supplierItems)->firstWhere('item_code', $orderItem->item_code);
+                        if ($supplierItem) {
+                            $existingOrders[$supplierItem['id']][$order->order_date][$order->store_branch_id] = $orderItem->quantity_ordered;
+                        }
                     }
                 }
             }
@@ -1011,7 +985,7 @@ class DTSMassOrdersController extends Controller
                 if ($orderItem) {
                     $supplierItem = $supplierItems->firstWhere('ItemCode', $orderItem->item_code);
                     if ($supplierItem) {
-                        $ordersData[$supplierItem->id][$order->order_date][$order->store_branch_id] = $orderItem->quantity_ordered;
+                        $ordersData[$supplierItem->id][$order->order_date][$order->store_branch_id] = $orderItem->quantity_commited;
                     }
                 }
             }
@@ -1062,9 +1036,9 @@ class DTSMassOrdersController extends Controller
                                 'name' => $order->store_branch->name,
                                 'brand_code' => $order->store_branch->brand_code,
                                 'complete_address' => $order->store_branch->complete_address,
-                                'quantity' => $orderItem->quantity_ordered
+                                'quantity' => $orderItem->quantity_commited
                             ];
-                            $dayTotal += $orderItem->quantity_ordered;
+                            $dayTotal += $orderItem->quantity_commited;
                         }
                     }
                 }

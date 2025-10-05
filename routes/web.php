@@ -9,6 +9,7 @@ use App\Http\Controllers\AuditController;
 use App\Http\Controllers\CashPullOutApproval;
 use App\Http\Controllers\CashPullOutApprovalController;
 use App\Http\Controllers\CSMassCommitsController;
+use App\Http\Controllers\CSDTSMassCommitController;
 use App\Http\Controllers\DTSMassOrdersController;
 use App\Http\Controllers\CashPullOutController;
 use App\Http\Controllers\CategoryController;
@@ -452,6 +453,15 @@ Route::middleware('auth')
             Route::middleware('permission:export dts mass orders')->get('/export/{batch_number}', 'export')->name('export');
             Route::middleware('permission:view dts mass orders')->get('/available-dates/{variant}', 'getAvailableDates')->name('get-available-dates');
             Route::middleware('permission:create dts mass orders')->get('/validate-variant/{variant}', 'validateVariant')->name('validate-variant');
+        });
+
+        // CS DTS Mass Commits
+        Route::controller(CSDTSMassCommitController::class)->name('cs-dts-mass-commits.')->prefix('cs-dts-mass-commits')->group(function () {
+            Route::middleware('permission:view cs dts mass commit')->get('/', 'index')->name('index');
+            Route::middleware('permission:edit cs dts mass commit')->group(function () {
+                Route::get('/edit/{batchNumber}', 'edit')->name('edit');
+                Route::put('/update/{batchNumber}', 'update')->name('update');
+            });
         });
 
         // Month End Schedules

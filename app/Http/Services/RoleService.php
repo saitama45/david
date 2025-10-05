@@ -120,6 +120,9 @@ class RoleService
                 'DTS Mass Orders' => [
                     'view dts mass orders', 'create dts mass orders', 'edit dts mass orders', 'export dts mass orders'
                 ],
+                'CS DTS Mass Commit' => [
+                    'view cs dts mass commit', 'edit cs dts mass commit'
+                ],
             ],
             'Receiving' => [
                 'Direct Receiving' => [
