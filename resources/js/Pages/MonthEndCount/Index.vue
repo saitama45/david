@@ -159,9 +159,9 @@ const viewReviewPage = (scheduleId, branchId) => {
             </div>
 
             <!-- Upload Section -->
-            <div v-else-if="uploadSchedule && hasBranchesToUpload" class="mb-6 p-4 border border-green-300 bg-green-50 rounded-md text-green-800">
+            <div v-else-if="hasBranchesToUpload" class="mb-6 p-4 border border-green-300 bg-green-50 rounded-md text-green-800">
                 <p class="font-medium">{{ message }}</p>
-                <p class="text-sm mt-1">Scheduled for: {{ getMonthName(uploadSchedule.month) }} {{ uploadSchedule.year }} (MEC Schedule Date: {{ uploadSchedule.calculated_date }})</p>
+                <p v-if="uploadSchedule" class="text-sm mt-1">Scheduled for: {{ getMonthName(uploadSchedule.month) }} {{ uploadSchedule.year }} (MEC Schedule Date: {{ uploadSchedule.calculated_date }})</p>
                 
                 <form @submit.prevent="submitUpload" class="mt-4 space-y-4">
                     <div>

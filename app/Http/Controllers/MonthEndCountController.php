@@ -45,7 +45,7 @@ class MonthEndCountController extends Controller
 
         // Check for a global schedule for yesterday (for upload)
         $globalUploadSchedule = MonthEndSchedule::whereDate('calculated_date', $yesterday)
-            ->whereIn('status', ['pending', 'uploaded', 'level1_approved']) // Allow uploads as long as schedule is not fully completed/closed
+            ->whereIn('status', ['pending', 'uploaded', 'level1_approved', 'level2_approved', 'pending_level1_approval']) // Allow uploads as long as schedule is not fully completed/closed
             ->first();
 
         if ($globalUploadSchedule) {
