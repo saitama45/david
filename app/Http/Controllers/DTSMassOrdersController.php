@@ -565,17 +565,23 @@ class DTSMassOrdersController extends Controller
                         // Find supplier item id
                         $supplierItem = collect($supplierItems)->firstWhere('item_code', $orderItem->item_code);
                         if ($supplierItem) {
-                            $ordersData[$supplierItem['id']][$order->order_date][$order->store_branch_id] = $orderItem->quantity_commited;
+                            $ordersData[$supplierItem['id']][$order->order_date][$order->store_branch_id] = [
+                                'approved' => $orderItem->quantity_approved,
+                                'committed' => $orderItem->quantity_commited,
+                            ];
                         }
                     }
                 }
             }
         } else {
-            // Structure: { date: { storeId: quantity } }
+            // Structure: { date: { storeId: { approved: quantity, committed: quantity } } }
             foreach ($orders as $order) {
                 $orderItem = \App\Models\StoreOrderItem::where('store_order_id', $order->id)->first();
                 if ($orderItem) {
-                    $ordersData[$order->order_date][$order->store_branch_id] = $orderItem->quantity_commited;
+                    $ordersData[$order->order_date][$order->store_branch_id] = [
+                        'approved' => $orderItem->quantity_approved,
+                        'committed' => $orderItem->quantity_commited,
+                    ];
                 }
             }
         }

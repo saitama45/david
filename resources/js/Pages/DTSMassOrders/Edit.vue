@@ -167,9 +167,18 @@ const formatDisplayDate = (dateString) => {
 // For ICE CREAM/SALMON: { date: { storeId: quantity } }
 const orders = ref({});
 
+// Helper function to check delivery schedule
+const hasDeliverySchedule = (store, dateObj) => {
+    if (!store.delivery_schedule_ids || !dateObj.delivery_schedule_id) {
+        return false;
+    }
+    return store.delivery_schedule_ids.includes(dateObj.delivery_schedule_id);
+};
+
 // Initialize orders with existing values or empty
 if (props.variant === 'FRUITS AND VEGETABLES') {
     // For each supplier item, create nested structure
+    // For Edit view, show all dates for all stores (orders already exist)
     props.supplier_items.forEach(item => {
         orders.value[item.id] = {};
         props.dates.forEach(dateObj => {
@@ -181,7 +190,7 @@ if (props.variant === 'FRUITS AND VEGETABLES') {
             });
         });
     });
-} else {
+} else{
     // Original logic for ICE CREAM and SALMON
     props.dates.forEach(dateObj => {
         orders.value[dateObj.date] = {};
@@ -213,20 +222,24 @@ const grandTotal = computed(() => {
 });
 
 // Check if a store has delivery schedule for a specific date
-const hasDeliverySchedule = (store, dateObj) => {
-    if (!store.delivery_schedule_ids || !dateObj.delivery_schedule_id) {
-        return false;
-    }
-    return store.delivery_schedule_ids.includes(dateObj.delivery_schedule_id);
-};
-
 // Get stores that have delivery schedule for a specific date
 const getStoresForDate = (dateObj) => {
     return props.stores.filter(store => hasDeliverySchedule(store, dateObj));
 };
 
 // Get dates that a store has delivery schedule for
+// For Edit view, show dates where this store has existing orders
 const getDatesForStore = (store) => {
+    if (props.variant === 'FRUITS AND VEGETABLES') {
+        // Check if any item has orders for this store on each date
+        return props.dates.filter(dateObj => {
+            // Check if any supplier item has an existing order for this store/date
+            return props.supplier_items.some(item => {
+                return props.existing_orders[item.id]?.[dateObj.date]?.[store.id] !== undefined;
+            });
+        });
+    }
+    // For other variants, use delivery schedule
     return props.dates.filter(dateObj => hasDeliverySchedule(store, dateObj));
 };
 

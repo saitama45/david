@@ -92,19 +92,47 @@ const formatDisplayDateTime = (dateString) => {
 const getRowTotal = (date) => {
     let total = 0;
     props.stores.forEach(store => {
-        const value = parseFloat(props.orders[date]?.[store.id] || 0);
+        const value = parseFloat(props.orders[date]?.[store.id]?.approved || 0);
         total += isNaN(value) ? 0 : value;
     });
     return total;
 };
 
+const getRowTotalCommitted = (date) => {
+    if (props.status === 'approved') {
+        return 0;
+    }
+    let total = 0;
+    props.stores.forEach(store => {
+        const value = parseFloat(props.orders[date]?.[store.id]?.committed || 0);
+        total += isNaN(value) ? 0 : value;
+    });
+    return total;
+};
+
+const getRowTotalVariance = (date) => {
+    return getRowTotalCommitted(date) - getRowTotal(date);
+};
+
 // Calculate grand total
-const grandTotal = computed(() => {
+const grandTotalApproved = computed(() => {
     let total = 0;
     props.dates.forEach(dateObj => {
         total += getRowTotal(dateObj.date);
     });
     return total;
+});
+
+const grandTotalCommitted = computed(() => {
+    let total = 0;
+    props.dates.forEach(dateObj => {
+        total += getRowTotalCommitted(dateObj.date);
+    });
+    return total;
+});
+
+const grandTotalVariance = computed(() => {
+    return grandTotalApproved.value - grandTotalCommitted.value;
 });
 
 // Check if a store has delivery schedule for a specific date
@@ -135,8 +163,21 @@ const exportToExcel = () => {
 };
 
 // FRUITS AND VEGETABLES helper functions
+// For Show view, show dates where this store has existing orders
 const getDatesForStore = (store) => {
-    return props.dates.filter(dateObj => hasDeliverySchedule(store, dateObj));
+    if (props.variant === 'FRUITS AND VEGETABLES') {
+        // Check if any item has orders for this store on each date
+        return props.dates.filter(dateObj => {
+            // Check if any supplier item has an order for this store/date
+            return props.supplier_items.some(item => {
+                return props.orders[item.id]?.[dateObj.date]?.[store.id] !== undefined;
+            });
+        });
+    }
+    // For other variants, check if there's any order data
+    return props.dates.filter(dateObj => {
+        return props.orders[dateObj.date]?.[store.id] !== undefined;
+    });
 };
 
 const getTotalDateColumns = computed(() => {
@@ -145,16 +186,33 @@ const getTotalDateColumns = computed(() => {
     }, 0);
 });
 
-const getItemTotalOrder = (itemId) => {
+const getItemTotalApproved = (itemId) => {
     let total = 0;
     if (!props.orders[itemId]) return 0;
     Object.keys(props.orders[itemId]).forEach(date => {
         Object.keys(props.orders[itemId][date]).forEach(storeId => {
-            const qty = parseFloat(props.orders[itemId][date][storeId] || 0);
+            const qty = parseFloat(props.orders[itemId][date][storeId]?.approved || 0);
             total += isNaN(qty) ? 0 : qty;
         });
     });
     return total;
+};
+
+const getItemTotalCommitted = (itemId) => {
+    if (props.status === 'approved') return 0;
+    let total = 0;
+    if (!props.orders[itemId]) return 0;
+    Object.keys(props.orders[itemId]).forEach(date => {
+        Object.keys(props.orders[itemId][date]).forEach(storeId => {
+            const qty = parseFloat(props.orders[itemId][date][storeId]?.committed || 0);
+            total += isNaN(qty) ? 0 : qty;
+        });
+    });
+    return total;
+};
+
+const getItemVariance = (itemId) => {
+    return getItemTotalCommitted(itemId) - getItemTotalApproved(itemId);
 };
 
 const getItemBuffer = () => {
@@ -162,13 +220,13 @@ const getItemBuffer = () => {
 };
 
 const getItemTotalPO = (itemId) => {
-    const totalOrder = getItemTotalOrder(itemId);
-    return totalOrder * 1.1;
+    const totalOrder = getItemTotalApproved(itemId);
+    return totalOrder * 1.1; // Total Order * 1.1
 };
 
 const getItemTotalPrice = (itemId, price) => {
     const totalPO = getItemTotalPO(itemId);
-    return totalPO * price;
+    return totalPO * price; // Price * Total PO
 };
 
 const getGrandTotalPrice = computed(() => {
@@ -241,17 +299,16 @@ const getGrandTotalPrice = computed(() => {
                     <div v-if="variant === 'FRUITS AND VEGETABLES'" class="mt-6 overflow-x-auto">
                         <table class="min-w-full border-collapse border border-gray-300 text-sm">
                             <thead>
-                                <!-- First Header Row: Fixed columns + Store Names grouped -->
                                 <tr class="bg-gray-100">
-                                    <th rowspan="2" class="border border-gray-300 px-3 py-2 font-semibold text-center align-middle" style="min-width: 100px;">ITEM CODE</th>
-                                    <th rowspan="2" class="border border-gray-300 px-3 py-2 font-semibold text-center align-middle" style="min-width: 200px;">ITEM NAME</th>
-                                    <th rowspan="2" class="border border-gray-300 px-3 py-2 font-semibold text-center align-middle" style="min-width: 80px;">UOM</th>
-                                    <th rowspan="2" class="border border-gray-300 px-3 py-2 font-semibold text-center align-middle" style="min-width: 80px;">PRICE</th>
+                                    <th rowspan="3" class="border border-gray-300 px-3 py-2 font-semibold text-center align-middle" style="min-width: 100px;">ITEM CODE</th>
+                                    <th rowspan="3" class="border border-gray-300 px-3 py-2 font-semibold text-center align-middle" style="min-width: 200px;">ITEM NAME</th>
+                                    <th rowspan="3" class="border border-gray-300 px-3 py-2 font-semibold text-center align-middle" style="min-width: 80px;">UOM</th>
+                                    <th rowspan="3" class="border border-gray-300 px-3 py-2 font-semibold text-center align-middle" style="min-width: 80px;">PRICE</th>
 
-                                    <!-- Store Name headers - each store spans its delivery dates -->
+                                    <!-- Store Name headers -->
                                     <template v-for="store in stores" :key="`store-${store.id}`">
                                         <th
-                                            :colspan="getDatesForStore(store).length"
+                                            :colspan="getDatesForStore(store).length * 2"
                                             class="border border-gray-300 px-2 py-2 font-semibold text-center bg-blue-50"
                                             style="min-width: 120px;"
                                         >
@@ -261,10 +318,11 @@ const getGrandTotalPrice = computed(() => {
                                         </th>
                                     </template>
 
-                                    <th rowspan="2" class="border border-gray-300 px-3 py-2 font-semibold text-center bg-yellow-100 align-middle">TOTAL ORDER</th>
-                                    <th rowspan="2" class="border border-gray-300 px-3 py-2 font-semibold text-center bg-yellow-100 align-middle">BUFFER</th>
-                                    <th rowspan="2" class="border border-gray-300 px-3 py-2 font-semibold text-center bg-yellow-100 align-middle">TOTAL PO</th>
-                                    <th rowspan="2" class="border border-gray-300 px-3 py-2 font-semibold text-center bg-green-100 align-middle">TOTAL PRICE</th>
+                                    <th rowspan="3" class="border border-gray-300 px-3 py-2 font-semibold text-center bg-yellow-100 align-middle">TOTAL ORDER</th>
+                                    <th rowspan="3" class="border border-gray-300 px-3 py-2 font-semibold text-center bg-yellow-100 align-middle">BUFFER</th>
+                                    <th rowspan="3" class="border border-gray-300 px-3 py-2 font-semibold text-center bg-yellow-100 align-middle">TOTAL PO</th>
+                                    <th rowspan="3" class="border border-gray-300 px-3 py-2 font-semibold text-center bg-green-100 align-middle">TOTAL PRICE</th>
+                                    <th rowspan="3" class="border border-gray-300 px-3 py-2 font-semibold text-center bg-red-100 align-middle">Variance</th>
                                 </tr>
 
                                 <!-- Second Header Row: Day and Date for each store -->
@@ -273,11 +331,22 @@ const getGrandTotalPrice = computed(() => {
                                         <th
                                             v-for="dateObj in getDatesForStore(store)"
                                             :key="`date-${store.id}-${dateObj.date}`"
+                                            :colspan="2"
                                             class="border border-gray-300 px-2 py-2 font-semibold text-center"
                                         >
                                             <div class="text-xs">{{ dateObj.day_of_week }}</div>
                                             <div class="text-xs">{{ dateObj.display.split('- ')[1] }}</div>
                                         </th>
+                                    </template>
+                                </tr>
+
+                                <!-- Third Header Row: QTY and COMMITTED -->
+                                <tr class="bg-gray-300">
+                                    <template v-for="store in stores" :key="`sub-dates-${store.id}`">
+                                        <template v-for="dateObj in getDatesForStore(store)" :key="`sub-date-${store.id}-${dateObj.date}`">
+                                            <th class="border border-gray-300 px-2 py-1 font-semibold text-center text-xs">QTY</th>
+                                            <th class="border border-gray-300 px-2 py-1 font-semibold text-center text-xs">COMMITTED</th>
+                                        </template>
                                     </template>
                                 </tr>
                             </thead>
@@ -291,19 +360,22 @@ const getGrandTotalPrice = computed(() => {
 
                                     <!-- Quantity cells grouped by store, then dates for that store -->
                                     <template v-for="store in stores" :key="`body-${store.id}`">
-                                        <td
-                                            v-for="dateObj in getDatesForStore(store)"
-                                            :key="`${item.id}-${store.id}-${dateObj.date}`"
-                                            class="border border-gray-300 px-3 py-2 text-center"
-                                        >
-                                            <span class="font-semibold text-blue-700">
-                                                {{ orders[item.id]?.[dateObj.date]?.[store.id] || 0 }}
-                                            </span>
-                                        </td>
+                                        <template v-for="dateObj in getDatesForStore(store)" :key="`${item.id}-${store.id}-${dateObj.date}`">
+                                            <td class="border border-gray-300 px-3 py-2 text-center">
+                                                <span class="font-semibold text-blue-700">
+                                                    {{ orders[item.id]?.[dateObj.date]?.[store.id]?.approved || 0 }}
+                                                </span>
+                                            </td>
+                                            <td class="border border-gray-300 px-3 py-2 text-center">
+                                                <span class="font-semibold text-green-700">
+                                                    {{ props.status === 'approved' ? 0 : (orders[item.id]?.[dateObj.date]?.[store.id]?.committed || 0) }}
+                                                </span>
+                                            </td>
+                                        </template>
                                     </template>
 
                                     <td class="border border-gray-300 px-3 py-2 text-center font-semibold bg-yellow-50">
-                                        {{ getItemTotalOrder(item.id).toFixed(2) }}
+                                        {{ getItemTotalApproved(item.id).toFixed(2) }}
                                     </td>
                                     <td class="border border-gray-300 px-3 py-2 text-center font-semibold bg-yellow-50">
                                         {{ getItemBuffer() }}%
@@ -314,13 +386,17 @@ const getGrandTotalPrice = computed(() => {
                                     <td class="border border-gray-300 px-3 py-2 text-right font-semibold bg-green-50">
                                         {{ getItemTotalPrice(item.id, item.price).toFixed(2) }}
                                     </td>
+                                    <td class="border border-gray-300 px-3 py-2 text-right font-semibold bg-red-50">
+                                        {{ getItemVariance(item.id).toFixed(2) }}
+                                    </td>
                                 </tr>
 
                                 <!-- Grand Total Row -->
                                 <tr class="bg-gray-700 text-white font-bold">
-                                    <td colspan="4" class="border border-gray-300 px-3 py-2 text-right">TOTAL PRICE</td>
-                                    <td :colspan="getTotalDateColumns + 3" class="border border-gray-300 px-3 py-2"></td>
+                                    <td colspan="4" class="border border-gray-300 px-3 py-2 text-right">TOTAL PRICE & VARIANCE</td>
+                                    <td :colspan="getTotalDateColumns * 2 + 3" class="border border-gray-300 px-3 py-2"></td>
                                     <td class="border border-gray-300 px-3 py-2 text-right">{{ getGrandTotalPrice.toFixed(2) }}</td>
+                                    <td class="border border-gray-300 px-3 py-2 text-right">{{ grandTotalVariance.toFixed(2) }}</td>
                                 </tr>
                             </tbody>
                         </table>
@@ -363,24 +439,30 @@ const getGrandTotalPrice = computed(() => {
                                 <template v-for="dateObj in dates" :key="dateObj.date">
                                     <!-- Date Header Row -->
                                     <tr class="bg-gray-200">
-                                        <td class="border border-gray-300 px-3 py-2 font-bold text-base" colspan="3">
+                                        <td class="border border-gray-300 px-3 py-2 font-bold text-base" colspan="4">
                                             {{ dateObj.display }}
                                         </td>
                                     </tr>
 
                                     <!-- Store Names Row for this date -->
                                     <tr class="bg-gray-50">
-                                        <td class="border border-gray-300 px-3 py-2 font-semibold" colspan="2">
+                                        <td class="border border-gray-300 px-3 py-2 font-semibold">
                                             Store Name
                                         </td>
                                         <td class="border border-gray-300 px-3 py-2 font-semibold text-center">
                                             Quantity
                                         </td>
+                                        <td class="border border-gray-300 px-3 py-2 font-semibold text-center">
+                                            COMMITTED
+                                        </td>
+                                        <td class="border border-gray-300 px-3 py-2 font-semibold text-center">
+                                            Variance (Ordered vs Committed)
+                                        </td>
                                     </tr>
 
                                     <!-- Each store that has delivery on this day -->
                                     <tr v-for="store in getStoresForDate(dateObj)" :key="`${dateObj.date}-${store.id}`" class="hover:bg-gray-50">
-                                        <td class="border border-gray-300 px-3 py-2" colspan="2">
+                                        <td class="border border-gray-300 px-3 py-2" colspan="1">
                                             <div>
                                                 <div class="font-bold">{{ store.name }}</div>
                                                 <div v-if="store.brand_code" class="text-xs text-gray-600 mt-1 font-bold">{{ store.brand_code }}</div>
@@ -389,29 +471,51 @@ const getGrandTotalPrice = computed(() => {
                                         </td>
                                         <td class="border border-gray-300 px-3 py-2 text-center">
                                             <span class="font-semibold text-blue-700">
-                                                {{ orders[dateObj.date]?.[store.id] || 0 }}
+                                                {{ orders[dateObj.date]?.[store.id]?.approved || 0 }}
+                                            </span>
+                                        </td>
+                                        <td class="border border-gray-300 px-3 py-2 text-center">
+                                            <span class="font-semibold text-green-700">
+                                                {{ props.status === 'approved' ? 0 : (orders[dateObj.date]?.[store.id]?.committed || 0) }}
+                                            </span>
+                                        </td>
+                                        <td class="border border-gray-300 px-3 py-2 text-center">
+                                            <span class="font-semibold text-red-700">
+                                                {{ (props.status === 'approved' ? 0 : (orders[dateObj.date]?.[store.id]?.committed || 0)) - (orders[dateObj.date]?.[store.id]?.approved || 0) }}
                                             </span>
                                         </td>
                                     </tr>
 
                                     <!-- Day Total Row -->
                                     <tr class="bg-blue-50 font-semibold">
-                                        <td class="border border-gray-300 px-3 py-2" colspan="2">
+                                        <td class="border border-gray-300 px-3 py-2">
                                             TOTAL
                                         </td>
                                         <td class="border border-gray-300 px-3 py-2 text-center">
                                             {{ getRowTotal(dateObj.date) }}
+                                        </td>
+                                        <td class="border border-gray-300 px-3 py-2 text-center">
+                                            {{ getRowTotalCommitted(dateObj.date) }}
+                                        </td>
+                                        <td class="border border-gray-300 px-3 py-2 text-center">
+                                            {{ getRowTotalVariance(dateObj.date) }}
                                         </td>
                                     </tr>
                                 </template>
 
                                 <!-- Grand Total Row -->
                                 <tr class="bg-gray-700 text-white font-bold">
-                                    <td class="border border-gray-300 px-3 py-2" colspan="2">
+                                    <td class="border border-gray-300 px-3 py-2">
                                         GRAND TOTAL
                                     </td>
                                     <td class="border border-gray-300 px-3 py-2 text-center">
-                                        {{ grandTotal }}
+                                        {{ grandTotalApproved }}
+                                    </td>
+                                    <td class="border border-gray-300 px-3 py-2 text-center">
+                                        {{ grandTotalCommitted }}
+                                    </td>
+                                    <td class="border border-gray-300 px-3 py-2 text-center">
+                                        {{ grandTotalVariance }}
                                     </td>
                                 </tr>
                             </tbody>

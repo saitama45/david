@@ -108,14 +108,27 @@ const form = useForm({
 const submitOrders = () => {
     // Prepare the orders data
     if (props.variant === 'FRUITS AND VEGETABLES') {
-        // Transform orders to include supplier item details
-        form.orders = orders.value;
+        // Transform orders from [itemId][storeId][date] to [itemId][date][storeId]
+        const transformedOrders = {};
+        Object.keys(orders.value).forEach(itemId => {
+            transformedOrders[itemId] = {};
+            Object.keys(orders.value[itemId]).forEach(storeId => {
+                Object.keys(orders.value[itemId][storeId]).forEach(date => {
+                    if (!transformedOrders[itemId][date]) {
+                        transformedOrders[itemId][date] = {};
+                    }
+                    transformedOrders[itemId][date][storeId] = orders.value[itemId][storeId][date];
+                });
+            });
+        });
+
+        form.orders = transformedOrders;
         form.supplier_items = props.supplier_items;
         form.sap_item = null;
 
         // Debug log
         console.log('Submitting FRUITS AND VEGETABLES orders:', {
-            orders: orders.value,
+            orders: transformedOrders,
             supplier_items: props.supplier_items,
             variant: props.variant
         });
@@ -294,6 +307,18 @@ const handleEnterKey = (event) => {
     }
 };
 
+// Handle click on disabled input to show tooltip
+const handleDisabledInputClick = (store, dateObj, event) => {
+    if (!hasDeliverySchedule(store, dateObj)) {
+        toast.add({
+            severity: 'warn',
+            summary: 'No Delivery Schedule',
+            detail: `${store.name} does not have a delivery schedule for ${dateObj.day_of_week}.`,
+            life: 4000
+        });
+    }
+};
+
 // Functions for FRUITS AND VEGETABLES layout
 const getItemTotalOrder = (itemId) => {
     let total = 0;
@@ -409,15 +434,23 @@ const getGrandTotalPrice = computed(() => {
                                         <td
                                             v-for="dateObj in getDatesForStore(store)"
                                             :key="`${item.id}-${store.id}-${dateObj.date}`"
-                                            class="border border-gray-300 px-1 py-1"
+                                            :class="['border border-gray-300 px-1 py-1', !hasDeliverySchedule(store, dateObj) ? 'bg-gray-100' : '']"
                                         >
                                             <input
                                                 v-model="orders[item.id][store.id][dateObj.date]"
                                                 type="number"
                                                 step="0.01"
                                                 min="0"
-                                                class="w-full px-2 py-1 border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 text-center"
+                                                :disabled="!hasDeliverySchedule(store, dateObj)"
+                                                :class="[
+                                                    'w-full px-2 py-1 border rounded text-center',
+                                                    hasDeliverySchedule(store, dateObj)
+                                                        ? 'border-gray-300 focus:ring-1 focus:ring-blue-500'
+                                                        : 'border-gray-200 bg-gray-100 cursor-not-allowed text-gray-400'
+                                                ]"
+                                                :title="hasDeliverySchedule(store, dateObj) ? '' : 'No delivery schedule for this store on this day'"
                                                 @keydown.enter="handleEnterKey"
+                                                @click="handleDisabledInputClick(store, dateObj, $event)"
                                             />
                                         </td>
                                     </template>
