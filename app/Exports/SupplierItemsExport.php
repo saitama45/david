@@ -61,6 +61,8 @@ class SupplierItemsExport implements FromQuery, WithHeadings, WithMapping, WithS
         // Define your exact column headers for the Excel file
         return [
             'Category',
+            'Category 2',
+            'Area',
             'Brand',
             'Classification',
             'Item Code',
@@ -84,6 +86,8 @@ class SupplierItemsExport implements FromQuery, WithHeadings, WithMapping, WithS
         // Ensure these attributes exist on your SupplierItems model
         return [
             $item->category,
+            $item->category2,
+            $item->area,
             $item->brand,
             $item->classification,
             $item->ItemCode,

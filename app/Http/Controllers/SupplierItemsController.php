@@ -89,6 +89,7 @@ class SupplierItemsController extends Controller
             
             // Attach the BaseUOM to a new property on the item for frontend access
             $item->base_uom_display = $sapMasterfile ? $sapMasterfile->BaseUOM : null;
+            $item->category_2 = $item->category2;
             
             // Optionally, unset the 'sap_masterfiles' relationship to reduce payload size
             // if only 'base_uom_display' is needed in the frontend.

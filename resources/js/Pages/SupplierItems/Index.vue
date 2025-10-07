@@ -199,14 +199,16 @@ watch(importSummary, (newValue) => {
             <Table>
                 <TableHead>
                     <TH>Category</TH>
-                    <TH>Brand</TH> 
-                    <TH>Classification</TH> 
+                    <TH>Category 2</TH>
+                    <TH>Area</TH>
+                    <TH>Brand</TH>
+                    <TH>Classification</TH>
                     <TH>Item Code</TH>
                     <TH>Item Name</TH> <!-- Re-included Item Name header -->
                     <TH>Packaging Config</TH>
                     <TH>BaseUOM</TH> <!-- New column header for BaseUOM -->
                     <TH>Unit</TH>
-                    <TH>Cost</TH> 
+                    <TH>Cost</TH>
                     <TH>SRP</TH> <!-- Added SRP header -->
                     <TH>Supplier Code</TH>
                     <TH>Active</TH>
@@ -215,14 +217,16 @@ watch(importSummary, (newValue) => {
 
                 <TableBody>
                     <tr v-for="item in items.data" :key="item.id">
-                        <TD>{{ item.category }}</TD> 
-                        <TD>{{ item.brand }}</TD> 
+                        <TD>{{ item.category }}</TD>
+                        <TD>{{ item.category_2 }}</TD>
+                        <TD>{{ item.area }}</TD>
+                        <TD>{{ item.brand }}</TD>
                         <TD>{{ item.classification }}</TD>
                         <TD>{{ item.ItemCode }}</TD>
                         <TD>{{ item.item_name }}</TD> <!-- Re-included Item Name data -->
                         <TD>{{ item.packaging_config }}</TD>
                         <TD>{{ item.base_uom_display }}</TD> <!-- Use the new property -->
-                        <TD>{{ item.uom }}</TD> 
+                        <TD>{{ item.uom }}</TD>
                         <TD>{{ item.cost }}</TD>
                         <TD>{{ item.srp }}</TD> <!-- Display SRP -->
                         <TD>{{ item.SupplierCode }}</TD>
@@ -276,11 +280,13 @@ watch(importSummary, (newValue) => {
                     </MobileTableHeading>
                     <LabelXS>Item Code: {{ item.ItemCode }}</LabelXS>
                     <LabelXS>Item Name: {{ item.item_name }}</LabelXS> <!-- Re-included Item Name -->
-                    <LabelXS>Supplier Code: {{ item.SupplierCode }}</LabelXS> 
-                    <LabelXS>Category: {{ item.category }}</LabelXS> 
-                    <LabelXS>Brand: {{ item.brand }}</LabelXS> 
-                    <LabelXS>Classification: {{ item.classification }}</LabelXS> 
-                    <LabelXS>Packaging Config: {{ item.packaging_config }}</LabelXS> 
+                    <LabelXS>Supplier Code: {{ item.SupplierCode }}</LabelXS>
+                    <LabelXS>Category: {{ item.category }}</LabelXS>
+                    <LabelXS>Category 2: {{ item.category_2 }}</LabelXS>
+                    <LabelXS>Area: {{ item.area }}</LabelXS>
+                    <LabelXS>Brand: {{ item.brand }}</LabelXS>
+                    <LabelXS>Classification: {{ item.classification }}</LabelXS>
+                    <LabelXS>Packaging Config: {{ item.packaging_config }}</LabelXS>
                     <LabelXS>BaseUOM: {{ item.base_uom_display }}</LabelXS> <!-- Use the new property -->
                     <LabelXS>UOM: {{ item.uom }}</LabelXS> 
                     <LabelXS>Cost: {{ item.cost }}</LabelXS> 
@@ -320,7 +326,7 @@ watch(importSummary, (newValue) => {
                             <li class="text-xs">
                                 <a
                                     class="text-blue-500 underline"
-                                    :href="route('excel.SupplierItems-template')"
+                                    :href="route('excel.SupplierItems-template') + '?v=' + new Date().getTime()"
                                     >Click to download template</a
                                 >
                             </li>

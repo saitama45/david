@@ -2,8 +2,11 @@
 
 namespace App\Http\Controllers;
 
+use App\Exports\SupplierItemsExport;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Storage;
+use Maatwebsite\Excel\Facades\Excel;
 
 class ExcelTemplateController extends Controller
 {
@@ -87,20 +90,14 @@ class ExcelTemplateController extends Controller
 
     public function SupplierItemsTemplate()
     {
-        // Define the path to your new template file
-        // Use `storage_path('app/public/excel-templates/SupplierItems_template.xlsx')`
-        // for a more robust path that works across different OS.
-        $path = 'storage\excel-templates\SupplierItems_template.xlsx';
-
-        // Check if the file exists before attempting to download
-        if (!file_exists($path)) {
-            // Log an error or return a 404 response if the file is not found
-            // For production, you might want a more user-friendly error page.
-            abort(404, 'SupplierItems template file not found.');
+        $user = Auth::user();
+        if (!$user) {
+            return back()->with('error', 'Please log in to download the template.');
         }
 
-        // Return the download response
-        return response()->download($path);
+        $assignedSupplierCodes = $user->suppliers->pluck('supplier_code')->toArray();
+
+        return Excel::download(new SupplierItemsExport(null, null, $assignedSupplierCodes), 'SupplierItems_template.xlsx');
     }
 
     public function storeTransactionsTemplate()

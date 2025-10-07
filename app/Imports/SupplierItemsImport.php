@@ -100,6 +100,8 @@ class SupplierItemsImport implements ToCollection, WithHeadingRow, WithChunkRead
 
             // If valid and authorized, proceed with data preparation
             $category = trim($row['category'] ?? '');
+            $category2 = trim($row['category_2'] ?? '');
+            $area = trim($row['area'] ?? '');
             $brand = trim($row['brand'] ?? '');
             $classification = trim($row['classification'] ?? '');
             $itemName = trim($row['item_name'] ?? '');
@@ -116,6 +118,8 @@ class SupplierItemsImport implements ToCollection, WithHeadingRow, WithChunkRead
 
             $dataForCurrentChunk[] = [
                 'category'          => $category,
+                'category2'        => $category2,
+                'area'              => $area,
                 'brand'             => $brand,
                 'classification'    => $classification,
                 'ItemCode'          => $itemCode,
@@ -126,7 +130,7 @@ class SupplierItemsImport implements ToCollection, WithHeadingRow, WithChunkRead
                 'srp'               => $srp,
                 'SupplierCode'      => $supplierCode,
                 'is_active'         => $isActive,
-                'created_at'        => now(), 
+                'created_at'        => now(),
                 'updated_at'        => now(),
             ];
             $this->processedCount++;
@@ -140,7 +144,7 @@ class SupplierItemsImport implements ToCollection, WithHeadingRow, WithChunkRead
 
                 // Define the columns that should be updated if a match is found
                 $updateColumns = [
-                    'category', 'brand', 'classification', 'item_name', 'packaging_config',
+                    'category', 'category2', 'area', 'brand', 'classification', 'item_name', 'packaging_config',
                     'uom', 'cost', 'srp', 'is_active', 'updated_at' // SupplierCode is part of uniqueBy, not update
                 ];
 
