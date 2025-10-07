@@ -113,6 +113,7 @@ const showToCalendar = ref(false);
 const currentFromCalendarDate = ref(new Date());
 const currentToCalendarDate = ref(new Date());
 const enabledDates = ref([]);
+const isCutoffMissing = ref(false);
 
 const navigateToCreate = () => {
     selectedVariant.value = null;
@@ -134,21 +135,44 @@ watch([showFromCalendar, showToCalendar], ([isFromShown, isToShown]) => {
 
 // Fetch enabled dates when variant is selected
 watch(selectedVariant, async (newVariant) => {
+    // Reset state first
+    isCutoffMissing.value = false;
+    enabledDates.value = [];
+    dateFrom.value = null;
+    dateTo.value = null;
+
     if (newVariant) {
+        // 1. Check for cutoff
+        try {
+            const cutoffResponse = await fetch(route('dts-mass-orders.validate-cutoff', { variant: newVariant }));
+            const cutoffResult = await cutoffResponse.json();
+
+            if (!cutoffResult.exists) {
+                toast.add({
+                    severity: 'error',
+                    summary: 'Missing Cutoff',
+                    detail: `No order cutoff is defined for the variant "${newVariant}". Please define one before creating an order.`,
+                    life: 6000
+                });
+                isCutoffMissing.value = true;
+                return; // Stop further execution
+            }
+        } catch (error) {
+            console.error('Error checking cutoff:', error);
+            toast.add({ severity: 'error', summary: 'Error', detail: 'Could not verify order cutoff.', life: 5000 });
+            isCutoffMissing.value = true;
+            return;
+        }
+
+        // 2. Fetch enabled dates (if cutoff exists)
         try {
             const response = await fetch(route('dts-mass-orders.get-available-dates', { variant: newVariant }));
             const dates = await response.json();
             enabledDates.value = dates;
-
-            // Reset selected dates when variant changes
-            dateFrom.value = null;
-            dateTo.value = null;
         } catch (error) {
             console.error('Error fetching available dates:', error);
             enabledDates.value = [];
         }
-    } else {
-        enabledDates.value = [];
     }
 });
 
@@ -404,6 +428,7 @@ const selectDate = (day, isFrom) => {
                             readonly
                             :value="dateFrom"
                             @click="showFromCalendar = !showFromCalendar"
+                            :disabled="isCutoffMissing"
                             class="flex h-10 w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm shadow-sm transition-colors placeholder:text-gray-500 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-gray-400 cursor-pointer"
                             placeholder="Select start date"
                         />
@@ -449,6 +474,7 @@ const selectDate = (day, isFrom) => {
                             readonly
                             :value="dateTo"
                             @click="showToCalendar = !showToCalendar"
+                            :disabled="isCutoffMissing"
                             class="flex h-10 w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm shadow-sm transition-colors placeholder:text-gray-500 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-gray-400 cursor-pointer"
                             placeholder="Select end date"
                         />
@@ -495,7 +521,7 @@ const selectDate = (day, isFrom) => {
                     <Button
                         class="bg-green-600 hover:bg-green-700 text-white"
                         @click="confirmVariantSelection"
-                        :disabled="!selectedVariant || !dateFrom || !dateTo"
+                        :disabled="!selectedVariant || !dateFrom || !dateTo || isCutoffMissing"
                     >
                         Confirm
                     </Button>

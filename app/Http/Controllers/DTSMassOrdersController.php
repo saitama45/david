@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\DTSDeliverySchedule;
+use App\Models\OrdersCutoff;
 use App\Models\SAPMasterfile;
 use App\Models\StoreBranch;
 use App\Models\StoreOrder;
@@ -1211,6 +1212,12 @@ class DTSMassOrdersController extends Controller
         \Log::info("--- End DTS Mass Order Date Debug (v2) ---");
 
         return response()->json($finalDates);
+    }
+
+    public function validateCutoff(string $variant)
+    {
+        $exists = \App\Models\OrdersCutoff::where('ordering_template', $variant)->exists();
+        return response()->json(['exists' => $exists]);
     }
 
     private function canEditBatch($batch)
