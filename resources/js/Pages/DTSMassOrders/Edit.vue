@@ -228,19 +228,15 @@ const getStoresForDate = (dateObj) => {
 };
 
 // Get dates that a store has delivery schedule for
-// For Edit view, show dates where this store has existing orders
+// For Edit view, show ALL dates for all stores to maintain alignment
 const getDatesForStore = (store) => {
-    if (props.variant === 'FRUITS AND VEGETABLES') {
-        // Check if any item has orders for this store on each date
-        return props.dates.filter(dateObj => {
-            // Check if any supplier item has an existing order for this store/date
-            return props.supplier_items.some(item => {
-                return props.existing_orders[item.id]?.[dateObj.date]?.[store.id] !== undefined;
-            });
-        });
-    }
-    // For other variants, use delivery schedule
-    return props.dates.filter(dateObj => hasDeliverySchedule(store, dateObj));
+    // Show all dates for all stores to maintain column alignment
+    return props.dates;
+};
+
+// Check if a cell should be editable (has existing order data)
+const isEditableCell = (itemId, storeId, date) => {
+    return props.existing_orders[itemId]?.[date]?.[storeId] !== undefined;
 };
 
 // Get total column count for store headers (each store shows its delivery dates)
@@ -418,14 +414,20 @@ const validateQuantity = (dateKey, storeId, value) => {
                                         <td
                                             v-for="dateObj in getDatesForStore(store)"
                                             :key="`${item.id}-${store.id}-${dateObj.date}`"
-                                            class="border border-gray-300 px-1 py-1"
+                                            :class="['border border-gray-300 px-1 py-1', !isEditableCell(item.id, store.id, dateObj.date) ? 'bg-gray-100' : '']"
                                         >
                                             <input
                                                 v-model="orders[item.id][dateObj.date][store.id]"
                                                 type="number"
                                                 step="0.01"
                                                 min="0"
-                                                class="w-full px-2 py-1 border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 text-center"
+                                                :readonly="!isEditableCell(item.id, store.id, dateObj.date)"
+                                                :class="[
+                                                    'w-full px-2 py-1 border rounded text-center',
+                                                    isEditableCell(item.id, store.id, dateObj.date)
+                                                        ? 'border-gray-300 focus:ring-1 focus:ring-blue-500'
+                                                        : 'border-gray-200 bg-gray-100 cursor-not-allowed text-gray-400'
+                                                ]"
                                                 @keydown.enter="handleEnterKey"
                                             />
                                         </td>

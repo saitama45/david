@@ -163,21 +163,10 @@ const exportToExcel = () => {
 };
 
 // FRUITS AND VEGETABLES helper functions
-// For Show view, show dates where this store has existing orders
+// For Show view, show ALL dates for all stores to maintain alignment
 const getDatesForStore = (store) => {
-    if (props.variant === 'FRUITS AND VEGETABLES') {
-        // Check if any item has orders for this store on each date
-        return props.dates.filter(dateObj => {
-            // Check if any supplier item has an order for this store/date
-            return props.supplier_items.some(item => {
-                return props.orders[item.id]?.[dateObj.date]?.[store.id] !== undefined;
-            });
-        });
-    }
-    // For other variants, check if there's any order data
-    return props.dates.filter(dateObj => {
-        return props.orders[dateObj.date]?.[store.id] !== undefined;
-    });
+    // Show all dates for all stores to maintain column alignment
+    return props.dates;
 };
 
 const getTotalDateColumns = computed(() => {

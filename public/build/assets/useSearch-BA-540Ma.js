@@ -1,0 +1,1 @@
+import{Q as a,N as u}from"./app-DZB5krWT.js";import{l as c}from"./lodash-gd7BEsaJ.js";function n(e,r){let t=ref(a().props.filters.search);const o=()=>r?route(e,r):route(e);return watch(t,c.throttle(function(s){u.get(o(),{search:s},{preserveState:!0,replace:!0})},500)),{search:t}}export{n as u};

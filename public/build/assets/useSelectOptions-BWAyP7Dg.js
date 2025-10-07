@@ -1,1 +1,0 @@
-import{l as o}from"./app-Drfr7wPO.js";function u(e){return{options:o(()=>e?Array.isArray(e)&&e.length>0&&typeof e[0].value<"u"&&typeof e[0].label<"u"?e:Object.entries(e).map(([n,r])=>({value:n.toString(),label:r})):[])}}export{u};
