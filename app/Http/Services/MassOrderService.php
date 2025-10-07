@@ -84,17 +84,18 @@ class MassOrderService
                     continue;
                 }
 
-                // Validation: Check for existing order for the same store and date
+                $supplier = Supplier::where('supplier_code', $supplierCode)->firstOrFail();
+
+                // Validation: Check for existing order for the same store, date, AND supplier
                 $existingOrder = StoreOrder::where('store_branch_id', $storeBranch->id)
                     ->whereDate('order_date', Carbon::parse($orderDate)->toDateString())
+                    ->where('supplier_id', $supplier->id)
                     ->exists();
 
                 if ($existingOrder) {
-                    $skippedStores[] = ['brand_code' => $brandCode, 'reason' => 'An order for this delivery date already exists.'];
+                    $skippedStores[] = ['brand_code' => $brandCode, 'reason' => 'An order for this delivery date and supplier already exists.'];
                     continue;
                 }
-
-                $supplier = Supplier::where('supplier_code', $supplierCode)->firstOrFail();
 
                 $order = StoreOrder::create([
                     'encoder_id' => Auth::id(),

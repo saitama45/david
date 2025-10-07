@@ -429,11 +429,14 @@ class MassOrdersController extends Controller
 
             $this->storeOrderService->updateOrder($order, $validatedData);
 
+            // Refresh the order to get the latest items including newly added ones
+            $order->refresh();
+
             // After the order and its items are updated by the service,
             // update the approved and committed quantities for mass orders.
             $order->storeOrderItems()->update([
                 'quantity_approved' => \Illuminate\Support\Facades\DB::raw('quantity_ordered'),
-                // 'quantity_commited' => \Illuminate\Support\Facades\DB::raw('quantity_ordered'),
+                'quantity_commited' => \Illuminate\Support\Facades\DB::raw('quantity_ordered'),
             ]);
 
             return redirect()->route('mass-orders.index')->with('success', 'Order updated successfully!');

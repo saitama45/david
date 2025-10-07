@@ -177,11 +177,11 @@ const enlargeImage = (image) => {
                             <TD>{{ orderItem.supplier_item?.uom ?? 'N/a' }}</TD>
                             <TD>{{ orderItem.quantity_ordered }}</TD>
                             <TD>{{ orderItem.quantity_approved }}</TD>
-                            <TD>{{ orderItem.quantity_commited }}</TD>
+                            <TD>{{ order.order_status?.toUpperCase() === 'APPROVED' ? 0 : orderItem.quantity_commited }}</TD>
                             <TD>{{ orderItem.quantity_received }}</TD>
                             <TD>{{ orderItem.quantity_received }}</TD>
-                            <TD>{{ Math.abs(orderItem.quantity_approved - orderItem.quantity_commited) }}</TD>
-                            <TD>{{ Math.abs(orderItem.quantity_commited - orderItem.quantity_received) }}</TD>
+                            <TD>{{ Math.abs(orderItem.quantity_approved - (order.order_status?.toUpperCase() === 'APPROVED' ? 0 : orderItem.quantity_commited)) }}</TD>
+                            <TD>{{ Math.abs((order.order_status?.toUpperCase() === 'APPROVED' ? 0 : orderItem.quantity_commited) - orderItem.quantity_received) }}</TD>
                         </tr>
                     </TableBody>
                 </Table>
@@ -200,6 +200,9 @@ const enlargeImage = (image) => {
                         <LabelXS>Ordered: {{ orderItem.quantity_ordered }}</LabelXS>
                         <LabelXS
                             >Approved: {{ orderItem.quantity_approved }}</LabelXS
+                        >
+                        <LabelXS
+                            >Committed: {{ order.order_status?.toUpperCase() === 'APPROVED' ? 0 : orderItem.quantity_commited }}</LabelXS
                         >
                         <LabelXS
                             >Received: {{ orderItem.quantity_received }}</LabelXS

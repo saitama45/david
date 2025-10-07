@@ -97,6 +97,16 @@ class CSMassCommitsController extends Controller
 
         $availableCategories = $reportData['report']->pluck('category')->unique()->values()->all();
 
+        // Debug: Log if specific item exists
+        if ($supplierCode === 'GSI-B' && $orderDate === '2025-10-14') {
+            $has632 = $reportData['report']->contains(function($item) {
+                return $item['item_code'] === '632A2G';
+            });
+            \Log::info('CS Mass Commits - Item 632A2G present in report: ' . ($has632 ? 'YES' : 'NO'));
+            \Log::info('CS Mass Commits - Total items in report: ' . $reportData['report']->count());
+            \Log::info('CS Mass Commits - Category filter: ' . $categoryFilter);
+        }
+
         return Inertia::render('CSMassCommits/Index', [
             'filters' => [
                 'order_date' => $orderDate,

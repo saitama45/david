@@ -132,7 +132,8 @@ const confirmAllCommits = () => {
         message: `Are you sure you want to commit all orders for ${orderDate.value}? This action cannot be undone.`,
         header: 'Confirm All Commits',
         icon: 'pi pi-exclamation-triangle',
-        acceptClass: 'p-button-danger',
+        acceptClass: 'p-button-success',
+        rejectClass: 'p-button-danger',
         accept: () => {
             router.post(route('cs-mass-commits.confirm-all'), {
                 order_date: orderDate.value,
