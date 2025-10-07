@@ -1,6 +1,6 @@
 <script setup>
 import { Head, router, useForm } from "@inertiajs/vue3";
-import { ref, computed } from "vue";
+import { ref, computed, watch } from "vue";
 import { useToast } from "@/Composables/useToast";
 import { useConfirm } from "primevue/useconfirm";
 
@@ -47,11 +47,11 @@ const handlePlaceOrders = () => {
     let hasOrders = false;
 
     if (props.variant === 'FRUITS AND VEGETABLES') {
-        // For FRUITS AND VEGETABLES: orders[itemId][date][store]
+        // For FRUITS AND VEGETABLES: orders[itemId][storeId][date]
         for (const itemId in orders.value) {
-            for (const dateKey in orders.value[itemId]) {
-                for (const storeId in orders.value[itemId][dateKey]) {
-                    if (orders.value[itemId][dateKey][storeId] && parseFloat(orders.value[itemId][dateKey][storeId]) > 0) {
+            for (const storeId in orders.value[itemId]) {
+                for (const dateKey in orders.value[itemId][storeId]) {
+                    if (orders.value[itemId][storeId][dateKey] && parseFloat(orders.value[itemId][storeId][dateKey]) > 0) {
                         hasOrders = true;
                         break;
                     }
@@ -165,27 +165,30 @@ const formatDisplayDate = (dateString) => {
 // For ICE CREAM/SALMON: { date: { storeId: quantity } }
 const orders = ref({});
 
-// Initialize orders with empty values
-if (props.variant === 'FRUITS AND VEGETABLES') {
-    // For each supplier item, create nested structure
-    props.supplier_items.forEach(item => {
-        orders.value[item.id] = {};
-        props.dates.forEach(dateObj => {
-            orders.value[item.id][dateObj.date] = {};
+watch(() => [props.variant, props.supplier_items, props.dates, props.stores], () => {
+    if (props.variant === 'FRUITS AND VEGETABLES') {
+        const newOrders = {};
+        props.supplier_items.forEach(item => {
+            newOrders[item.id] = {};
             props.stores.forEach(store => {
-                orders.value[item.id][dateObj.date][store.id] = '';
+                newOrders[item.id][store.id] = {};
+                props.dates.forEach(dateObj => {
+                    newOrders[item.id][store.id][dateObj.date] = '';
+                });
             });
         });
-    });
-} else {
-    // Original logic for ICE CREAM and SALMON
-    props.dates.forEach(dateObj => {
-        orders.value[dateObj.date] = {};
-        props.stores.forEach(store => {
-            orders.value[dateObj.date][store.id] = '';
+        orders.value = newOrders;
+    } else {
+        const newOrders = {};
+        props.dates.forEach(dateObj => {
+            newOrders[dateObj.date] = {};
+            props.stores.forEach(store => {
+                newOrders[dateObj.date][store.id] = '';
+            });
         });
-    });
-}
+        orders.value = newOrders;
+    }
+}, { immediate: true });
 
 // Calculate row totals
 const getRowTotal = (date) => {
@@ -231,7 +234,7 @@ const getStoresForDate = (dateObj) => {
 
 // Get dates that a store has delivery schedule for
 const getDatesForStore = (store) => {
-    return props.dates.filter(dateObj => hasDeliverySchedule(store, dateObj));
+    return props.dates;
 };
 
 // Get total column count for store headers (each store shows its delivery dates)
@@ -296,9 +299,9 @@ const getItemTotalOrder = (itemId) => {
     let total = 0;
     if (!orders.value[itemId]) return 0;
 
-    Object.keys(orders.value[itemId]).forEach(date => {
-        Object.keys(orders.value[itemId][date]).forEach(storeId => {
-            const qty = parseFloat(orders.value[itemId][date][storeId] || 0);
+    Object.keys(orders.value[itemId]).forEach(storeId => {
+        Object.keys(orders.value[itemId][storeId]).forEach(date => {
+            const qty = parseFloat(orders.value[itemId][storeId][date] || 0);
             total += isNaN(qty) ? 0 : qty;
         });
     });
@@ -409,7 +412,7 @@ const getGrandTotalPrice = computed(() => {
                                             class="border border-gray-300 px-1 py-1"
                                         >
                                             <input
-                                                v-model="orders[item.id][dateObj.date][store.id]"
+                                                v-model="orders[item.id][store.id][dateObj.date]"
                                                 type="number"
                                                 step="0.01"
                                                 min="0"

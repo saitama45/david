@@ -1,6 +1,6 @@
 <script setup>
 import { router, Head, usePage } from "@inertiajs/vue3";
-import { ref, watch } from 'vue';
+import { ref, watch, nextTick } from 'vue';
 import { Eye, Pencil, Filter, Calendar as CalendarIcon } from 'lucide-vue-next';
 import { throttle } from "lodash";
 import { useAuth } from "@/Composables/useAuth";
@@ -121,6 +121,16 @@ const navigateToCreate = () => {
     enabledDates.value = [];
     showVariantModal.value = true;
 };
+
+watch([showFromCalendar, showToCalendar], ([isFromShown, isToShown]) => {
+    const isShown = isFromShown || isToShown;
+    nextTick(() => {
+        const dialogContent = document.querySelector('.mass-order-dialog .p-dialog-content');
+        if (dialogContent) {
+            dialogContent.style.overflow = isShown ? 'visible' : 'auto';
+        }
+    });
+});
 
 // Fetch enabled dates when variant is selected
 watch(selectedVariant, async (newVariant) => {
@@ -368,7 +378,7 @@ const selectDate = (day, isFrom) => {
         </TableContainer>
 
         <!-- Variant Selection Modal -->
-        <Dialog v-model:visible="showVariantModal" modal header="Create DTS Mass Order" :style="{ width: '60rem', height: 'auto' }" :contentStyle="{ padding: '1.5rem' }">
+        <Dialog v-model:visible="showVariantModal" modal header="Create DTS Mass Order" :style="{ width: '65rem', height: '90vh' }" class="mass-order-dialog">
             <div class="space-y-6">
                 <!-- Variant Selection -->
                 <div>
