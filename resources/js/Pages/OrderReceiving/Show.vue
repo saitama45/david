@@ -1,5 +1,5 @@
 <script setup>
-import { ref, watch } from "vue";
+import { ref, watch, computed } from "vue";
 import { useForm } from "@inertiajs/vue3";
 import { useToast } from "primevue/usetoast";
 import { router } from "@inertiajs/vue3";
@@ -23,7 +23,15 @@ const toast = useToast();
 const confirm = useConfirm();
 
 import { useBackButton } from "@/Composables/useBackButton";
+
 const { backButton } = useBackButton(route("orders-receiving.index"));
+
+// Define remarks options for the dropdown
+const remarksOptions = [
+    { label: 'Damaged goods', value: 'Damaged goods' },
+    { label: 'Missing goods', value: 'Missing goods' },
+    { label: 'Expired goods', value: 'Expired goods' }
+];
 
 const props = defineProps({
     order: {
@@ -235,18 +243,31 @@ const deleteReceiveDate = (id) => {
 };
 
 const isEditModalVisible = ref(false);
+const currentEditingItem = ref(null);
 
 watch(isEditModalVisible, (value) => {
     if (!value) {
         editReceiveDetailsForm.reset();
         editReceiveDetailsForm.clearErrors();
         isLoading.value = false;
+        currentEditingItem.value = null;
     }
 });
+
 const editReceiveDetailsForm = useForm({
     id: null,
     quantity_received: null,
     remarks: null,
+});
+
+// Computed property for variance calculation
+const variance = computed(() => {
+    if (!currentEditingItem.value || !editReceiveDetailsForm.quantity_received) {
+        return 0;
+    }
+    const committed = currentEditingItem.value.store_order_item.quantity_commited || 0;
+    const received = parseFloat(editReceiveDetailsForm.quantity_received) || 0;
+    return received - committed;
 });
 
 const openEditModalForm = (id) => {
@@ -254,6 +275,7 @@ const openEditModalForm = (id) => {
     const existingItemIndex = data.findIndex((history) => history.id === id);
     const history = data[existingItemIndex];
 
+    currentEditingItem.value = history;
     editReceiveDetailsForm.id = history.id;
     editReceiveDetailsForm.quantity_received = history.quantity_received;
     editReceiveDetailsForm.remarks = history.remarks;
@@ -1029,12 +1051,28 @@ const promptConfirmReceive = () => {
                         <FormError>{{
                             editReceiveDetailsForm.errors.quantity_received
                         }}</FormError>
+                        <!-- Variance Display -->
+                        <div v-if="currentEditingItem && editReceiveDetailsForm.quantity_received" class="mt-2 text-sm">
+                            <span class="font-medium">Variance: </span>
+                            <span :class="variance >= 0 ? 'text-green-600' : 'text-red-600'">
+                                {{ variance >= 0 ? '+' : '' }}{{ variance }}
+                            </span>
+                            <span class="text-gray-500 text-xs ml-1">
+                                (Committed: {{ currentEditingItem.store_order_item.quantity_commited }})
+                            </span>
+                        </div>
                     </InputContainer>
                     <InputContainer>
                         <Label class="text-xs">Remarks</Label>
-                        <Input
+                        <select
                             v-model="editReceiveDetailsForm.remarks"
-                        />
+                            class="flex h-10 w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm shadow-sm transition-colors placeholder:text-gray-500 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-gray-400 disabled:cursor-not-allowed disabled:opacity-50"
+                        >
+                            <option value="" disabled>Select a remark</option>
+                            <option v-for="option in remarksOptions" :key="option.value" :value="option.value">
+                                {{ option.label }}
+                            </option>
+                        </select>
                         <FormError>{{
                             editReceiveDetailsForm.errors.remarks
                         }}</FormError>
