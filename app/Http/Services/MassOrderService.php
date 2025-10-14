@@ -56,10 +56,15 @@ class MassOrderService
             foreach ($brandCodeHeaderMap as $headerKey => $realBrandCode) {
                 $quantity = (float) $row[$headerKey];
                 if ($quantity > 0) {
+                    // Get cost from database since cost column is removed from template
+                    $supplierItem = SupplierItems::where('ItemCode', $row['item_code'])
+                        ->where('SupplierCode', $supplierCode)
+                        ->first();
+
                     $ordersToCreate[$realBrandCode][] = [
                         'item_code' => $row['item_code'],
                         'quantity' => $quantity,
-                        'cost' => (float) $row['cost'],
+                        'cost' => $supplierItem ? (float) $supplierItem->cost : 0,
                         'uom' => $row['unit'],
                     ];
                 }

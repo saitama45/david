@@ -27,16 +27,11 @@ class MassOrderTemplateExport implements FromCollection, WithHeadings, ShouldAut
         return $this->items->map(function ($item) {
             $row = [];
             $row['Category'] = $item->category;
-            $row['Brand'] = $item->brand;
             $row['Classification'] = $item->classification;
             $row['Item Code'] = $item->ItemCode;
             $row['Item Name'] = $item->item_name;
             $row['Packaging Config'] = $item->packaging_config;
             $row['Unit'] = $item->uom;
-            $row['Cost'] = $item->cost;
-            $row['SRP'] = $item->srp;
-            $row['Supplier Code'] = $item->SupplierCode;
-            $row['ACTIVE'] = $item->is_active ? 'Yes' : 'No';
 
             foreach ($this->dynamicHeaders as $header) {
                 $row[$header] = ''; // Leave quantity cells empty

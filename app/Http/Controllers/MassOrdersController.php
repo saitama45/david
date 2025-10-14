@@ -227,7 +227,7 @@ class MassOrdersController extends Controller
 
         $items = SupplierItems::where('SupplierCode', $supplierCode)->where('is_active', true)->get();
 
-        $staticHeaders = ['Category', 'Brand', 'Classification', 'Item Code', 'Item Name', 'Packaging Config', 'Unit', 'Cost', 'SRP', 'Supplier Code', 'ACTIVE'];
+        $staticHeaders = ['Category', 'Classification', 'Item Code', 'Item Name', 'Packaging Config', 'Unit'];
 
         return Excel::download(new MassOrderTemplateExport($items, $staticHeaders, $dynamicHeaders), 'mass_order_template.xlsx');
     }
