@@ -56,6 +56,8 @@ class POSMasterfileExport implements FromQuery, WithHeadings, WithMapping
             'Category',
             'SubCategory',
             'SRP',
+            'Delivery Price',
+            'Table Vibe Price',
             'Active',
             'Created At',
             'Updated At',
@@ -77,6 +79,8 @@ class POSMasterfileExport implements FromQuery, WithHeadings, WithMapping
             $item->Category,
             $item->SubCategory,
             $item->SRP,
+            $item->DeliveryPrice,
+            $item->TableVibePrice,
             $item->is_active ? 'Yes' : 'No', // Convert boolean to readable string
             $item->created_at,
             $item->updated_at,

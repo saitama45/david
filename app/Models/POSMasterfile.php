@@ -20,11 +20,15 @@ class POSMasterfile extends Model implements Auditable
         'Category',
         'SubCategory',
         'SRP',
+        'DeliveryPrice',
+        'TableVibePrice',
         'is_active'
     ];
 
     protected $casts = [
         'SRP' => 'decimal:4', // Cast to decimal with 4 decimal places
+        'DeliveryPrice' => 'decimal:4', // Cast to decimal with 4 decimal places
+        'TableVibePrice' => 'decimal:4', // Cast to decimal with 4 decimal places
         'created_at' => 'datetime',
         'updated_at' => 'datetime',
     ];

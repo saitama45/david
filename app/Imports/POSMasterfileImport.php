@@ -84,6 +84,8 @@ class POSMasterfileImport implements ToModel, WithHeadingRow, WithBatchInserts, 
         $category = (string) ($row['category'] ?? $row['Category'] ?? null);
         $subCategory = (string) ($row['subcategory'] ?? $row['SubCategory'] ?? null);
         $srp = (float) str_replace(',', '', ($row['srp'] ?? $row['SRP'] ?? 0));
+        $deliveryPrice = (float) str_replace(',', '', ($row['delivery_price'] ?? $row['Delivery Price'] ?? $row['DeliveryPrice'] ?? 0));
+        $tableVibePrice = (float) str_replace(',', '', ($row['table_vibe_price'] ?? $row['Table Vibe Price'] ?? $row['TableVibePrice'] ?? 0));
         $isActive = (int) ($row['active'] ?? $row['Active'] ?? 1); // Default to 1 if not provided
 
         // Trim whitespace from posCode and check if it's empty
@@ -101,6 +103,8 @@ class POSMasterfileImport implements ToModel, WithHeadingRow, WithBatchInserts, 
             'Category' => $category,
             'SubCategory' => $subCategory,
             'SRP' => $srp,
+            'DeliveryPrice' => $deliveryPrice,
+            'TableVibePrice' => $tableVibePrice,
             'is_active' => $isActive,
         ]);
 
