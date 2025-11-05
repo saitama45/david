@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use OwenIt\Auditing\Contracts\Auditable;
+use App\Enums\IntercoStatus;
 
 class StoreOrder extends Model implements Auditable
 {
@@ -12,6 +13,15 @@ class StoreOrder extends Model implements Auditable
     use HasFactory, \OwenIt\Auditing\Auditable;
     // Ordering -> Store Order
     //NNSSR-00001
+
+    // Ensure relationships are always loaded for JSON serialization
+    protected $with = ['sendingStore', 'store_branch', 'encoder'];
+
+    // Append computed attributes to JSON
+    protected $appends = [
+        'from_store_name',
+        'to_store_name'
+    ];
 
     protected $fillable = [
         'encoder_id',
@@ -27,12 +37,18 @@ class StoreOrder extends Model implements Auditable
         'approval_action_date',
         'commited_action_date', // New
         'batch_reference',
+        // Interco fields
+        'interco_number',
+        'sending_store_branch_id',
+        'interco_reason',
+        'interco_status',
     ];
 
     protected $casts = [
         // 'order_date' => 'date:F d, Y',
         'order_approved_date' => 'date:F d, Y',
         'approval_action_date' => 'date:F d, Y h:i a',
+        'interco_status' => IntercoStatus::class,
     ];
 
     /**
@@ -76,6 +92,12 @@ class StoreOrder extends Model implements Auditable
         return $this->belongsTo(Supplier::class);
     }
 
+    // Interco relationship for sending store
+    public function sendingStore()
+    {
+        return $this->belongsTo(StoreBranch::class, 'sending_store_branch_id');
+    }
+
     public function store_order_items()
     {
         return $this->hasMany(StoreOrderItem::class);
@@ -99,5 +121,101 @@ class StoreOrder extends Model implements Auditable
     public function image_attachments()
     {
         return $this->hasMany(ImageAttachment::class);
+    }
+
+    // Interco-specific methods
+    public function isInterco()
+    {
+        return !is_null($this->interco_number) && !is_null($this->sending_store_branch_id);
+    }
+
+    public function getIntercoNumberDisplayAttribute()
+    {
+        if ($this->isInterco()) {
+            return $this->interco_number;
+        }
+        return null;
+    }
+
+    public function getIntercoStatusLabelAttribute()
+    {
+        return $this->interco_status?->getLabel() ?? 'N/A';
+    }
+
+    public function getIntercoStatusColorAttribute()
+    {
+        return $this->interco_status?->getColor() ?? 'gray';
+    }
+
+    public function canBeEditedByUser($user)
+    {
+        if (!$this->isInterco()) {
+            return false;
+        }
+
+        return $this->interco_status?->canBeEdited() &&
+               ($this->encoder_id === $user->id ||
+                $this->store_branch_id === $user->store_branch_id ||
+                $user->hasPermissionTo('edit interco requests'));
+    }
+
+    public function canBeApprovedByUser($user)
+    {
+        if (!$this->isInterco()) {
+            return false;
+        }
+
+        return $this->interco_status?->canBeApproved() &&
+               $user->hasPermissionTo('approve interco requests');
+    }
+
+    public function canBeCommittedByUser($user)
+    {
+        if (!$this->isInterco()) {
+            return false;
+        }
+
+        return $this->interco_status?->canBeCommitted() &&
+               $user->hasPermissionTo('commit interco requests');
+    }
+
+    public function canBeReceivedByUser($user)
+    {
+        if (!$this->isInterco()) {
+            return false;
+        }
+
+        return $this->interco_status?->canBeReceived() &&
+               $this->store_branch_id === $user->store_branch_id &&
+               $user->hasPermissionTo('receive orders');
+    }
+
+    /**
+     * Get the from store name attribute for JSON serialization
+     */
+    public function getFromStoreNameAttribute()
+    {
+        if (!$this->sendingStore) {
+            return 'Unknown Sending Store';
+        }
+
+        return $this->sendingStore->name ?:
+               $this->sendingStore->branch_name ?:
+               $this->sendingStore->brand_name ?:
+               'Unknown Sending Store';
+    }
+
+    /**
+     * Get the to store name attribute for JSON serialization
+     */
+    public function getToStoreNameAttribute()
+    {
+        if (!$this->store_branch) {
+            return 'Unknown Receiving Store';
+        }
+
+        return $this->store_branch->name ?:
+               $this->store_branch->branch_name ?:
+               'Unknown Receiving Store';
     }
 }

@@ -1,0 +1,15 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(php artisan tinker:*)",
+      "Bash(php artisan log:clear:*)",
+      "Bash(php artisan route:list:*)",
+      "Bash(php:*)",
+      "Bash(mysql:*)",
+      "Bash(find:*)",
+      "Bash(storage/logs/laravel.log)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}

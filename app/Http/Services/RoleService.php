@@ -95,6 +95,9 @@ class RoleService
                 'Additional Orders' => [
                     'view additional orders', 'create additional orders', 'edit additional orders', 'delete additional orders', 'export additional orders'
                 ],
+                'Interco Transfers' => [
+                    'view interco requests', 'create interco requests', 'edit interco requests', 'approve interco requests', 'commit interco requests', 'export interco requests'
+                ],
                 'DTS Orders' => [
                     'view dts orders', 'create dts orders', 'edit dts orders', 'view dts order', 'export dts orders'
                 ],

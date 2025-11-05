@@ -59,6 +59,7 @@ use App\Http\Controllers\StockController;
 use App\Http\Controllers\StockManagementController;
 use App\Http\Controllers\StoreBranchController;
 use App\Http\Controllers\StoreOrderController;
+use App\Http\Controllers\IntercoController;
 use App\Http\Controllers\StoreTransactionApprovalController;
 use App\Http\Controllers\StoreTransactionController;
 use App\Http\Controllers\SupplierController;
@@ -355,6 +356,22 @@ Route::middleware('auth')
 
             Route::get('/available-dates/{supplier_code}', 'getAvailableDatesForSupplier')->name('available-dates');
             Route::get('/get-branches', 'getBranchesForDateAndSupplier')->name('get-branches');
+        });
+
+        // Interco Transfers (Store-to-Store)
+        Route::controller(IntercoController::class)->name('interco.')->prefix('interco')->middleware(['auth'])->group(function () {
+            Route::middleware('permission:view interco requests')->get('/', 'index')->name('index');
+            Route::middleware('permission:create interco requests')->get('/create', 'create')->name('create');
+            Route::middleware('permission:create interco requests')->post('/', 'store')->name('store');
+            Route::middleware('permission:view interco requests')->get('/show/{interco}', 'show')->name('show');
+            Route::middleware('permission:edit interco requests')->get('/edit/{interco}', 'edit')->name('edit');
+            Route::middleware('permission:edit interco requests')->put('/{interco}', 'update')->name('update');
+            Route::middleware('permission:export interco requests')->get('/export', 'export')->name('export');
+            // API Routes for item fetching
+            Route::middleware('permission:create interco requests')->get('/get-available-items', 'getAvailableItems')->name('get-available-items');
+            Route::middleware('permission:create interco requests')->get('/get-item-details', 'getItemDetails')->name('get-item-details');
+            Route::middleware('permission:create interco requests')->get('/branch-inventory', 'getBranchInventory')->name('branch-inventory');
+            // Note: approve, commit, and receive actions are handled by existing approval and receiving systems
         });
 
         // Orders Approval

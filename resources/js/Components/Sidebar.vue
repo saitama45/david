@@ -44,6 +44,7 @@ import {
     AppWindowMac,
     Warehouse,
     TextSelect,
+    Truck,
     ChevronDown,
     ChevronRight,
 } from "lucide-vue-next";
@@ -105,6 +106,7 @@ const canViewOrderingGroup = computed(() =>
     hasAccess("view store orders") ||
     hasAccess("view emergency orders") ||
     hasAccess("view additional orders") ||
+    hasAccess("view interco requests") ||
     hasAccess("view dts orders") ||
     hasAccess("view orders for approval list") ||
     hasAccess("view orders for cs approval list") || // CS Review List
@@ -187,7 +189,7 @@ watchEffect(() => {
     // Define all collapsible sections and their associated paths
     const sections = [
         { ref: settingsOpen, paths: ["/users", "/roles", "/templates", "/dts-delivery-schedules", "/dsp-delivery-schedules", "/orders-cutoff", "/month-end-schedules"] },
-        { ref: orderingOpen, paths: ["/store-orders", "/emergency-orders", "/additional-orders", "/dts-orders", "/orders-approval", "/cs-approvals", "/additional-orders-approval", "/emergency-orders-approval", "/mass-orders", "/cs-mass-commits", "/dts-mass-orders", "/cs-dts-mass-commits"] },
+        { ref: orderingOpen, paths: ["/store-orders", "/emergency-orders", "/additional-orders", "/interco", "/dts-orders", "/orders-approval", "/cs-approvals", "/additional-orders-approval", "/emergency-orders-approval", "/mass-orders", "/cs-mass-commits", "/dts-mass-orders", "/cs-dts-mass-commits"] },
         { ref: receivingOpen, paths: ["/direct-receiving", "/orders-receiving", "/approved-orders", "/receiving-approvals"] },
         { ref: salesOpen, paths: ["/sales-orders", "/store-transactions", "/store-transactions-approval"] },
         { ref: inventoryOpen, paths: ["/items-list", "/sapitems-list", "/SupplierItems-list", "/POSMasterfile-list", "/pos-bom-list", "/stock-management", "/soh-adjustment", "/low-on-stocks", "/month-end-count", "/month-end-count-approvals", "/month-end-count-approvals-level2"] },
@@ -256,6 +258,14 @@ watchEffect(() => {
                     :is-active="isPathActive('/additional-orders')"
                 >
                     Additional Orders
+                </NavLink>
+                <NavLink
+                    v-if="hasAccess('view interco requests')"
+                    href="/interco"
+                    :icon="Truck"
+                    :is-active="isPathActive('/interco')"
+                >
+                    Interco Transfers
                 </NavLink>
                 <NavLink
                     v-if="hasAccess('view dts orders')"

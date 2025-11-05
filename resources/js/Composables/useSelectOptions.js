@@ -10,12 +10,16 @@ export function useSelectOptions(data) {
 
         // Check if data is already an array of {value, label} objects (like from API)
         if (Array.isArray(data) && data.length > 0 && typeof data[0].value !== 'undefined' && typeof data[0].label !== 'undefined') {
-            return data; // Data is already in the correct format
+            // Data is already in the correct format, but ensure consistent data types
+            return data.map(item => ({
+                value: isNaN(Number(item.value)) ? item.value : Number(item.value), // Preserve numeric values
+                label: item.label,
+            }));
         }
 
         // Otherwise, assume it's an object from pluck and convert it
         return Object.entries(data).map(([value, label]) => ({
-            value: value.toString(),
+            value: isNaN(Number(value)) ? value : Number(value), // Preserve numeric values instead of converting to string
             label: label,
         }));
     });
