@@ -15,6 +15,39 @@ const props = defineProps({
   }
 })
 
+// Format user name to show "Firstname Lastname" instead of email
+const formatUserName = (user) => {
+  if (!user) return 'Unknown User'
+
+  // If user has a proper name field, use it
+  if (user.name && user.name !== user.email) {
+    return user.name
+  }
+
+  // If we have first_name and last_name, combine them
+  if (user.first_name || user.last_name) {
+    return `${user.first_name || ''} ${user.last_name || ''}`.trim()
+  }
+
+  // Try to extract name from email (remove domain and capitalize)
+  if (user.email) {
+    const emailName = user.email.split('@')[0]
+    return emailName.replace(/[._]/g, ' ').replace(/\b\w/g, l => l.toUpperCase())
+  }
+
+  return 'Unknown User'
+}
+
+// Debug logging to help identify data issues
+console.log('TransferTimeline Debug - Transfer Data:', {
+  transfer: props.transfer,
+  approval_action_date: props.transfer.approval_action_date,
+  approver: props.transfer.approver,
+  commited_action_date: props.transfer.commited_action_date,
+  commiter: props.transfer.commiter,
+  interco_status: props.transfer.interco_status
+})
+
 const timeline = computed(() => {
   const events = []
 
@@ -24,7 +57,7 @@ const timeline = computed(() => {
     title: 'Transfer Created',
     description: 'Transfer request was created and submitted',
     date: props.transfer.created_at,
-    user: props.transfer.encoder?.name,
+    user: formatUserName(props.transfer.encoder),
     completed: true,
     icon: Clock,
     color: 'gray'
@@ -37,7 +70,7 @@ const timeline = computed(() => {
       title: 'Transfer Approved',
       description: 'Transfer was approved by management',
       date: props.transfer.approval_action_date,
-      user: props.transfer.approver?.name,
+      user: formatUserName(props.transfer.approver),
       completed: ['approved', 'committed', 'in_transit', 'received'].includes(props.transfer.interco_status),
       icon: CheckCircle,
       color: 'blue'
@@ -51,7 +84,7 @@ const timeline = computed(() => {
       title: 'Transfer Committed',
       description: 'Items were committed for transfer',
       date: props.transfer.commited_action_date,
-      user: props.transfer.commiter?.name,
+      user: formatUserName(props.transfer.commiter),
       completed: ['committed', 'in_transit', 'received'].includes(props.transfer.interco_status),
       icon: Package,
       color: 'yellow',
@@ -101,7 +134,7 @@ const timeline = computed(() => {
       title: 'Transfer Disapproved',
       description: 'Transfer was disapproved',
       date: props.transfer.updated_at,
-      user: props.transfer.approver?.name,
+      user: formatUserName(props.transfer.approver),
       completed: true,
       icon: XCircle,
       color: 'red',

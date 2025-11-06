@@ -1,6 +1,7 @@
 <script setup>
 import { ref, reactive, computed, watch, nextTick } from 'vue'
 import Select from "primevue/select";
+import ItemAutoComplete from '@/Components/ItemAutoComplete.vue';
 import axios from 'axios';
 import { useForm, Link, router } from '@inertiajs/vue3'
 import { useConfirm } from "primevue/useconfirm";
@@ -45,8 +46,8 @@ const { toast } = useToast();
 
 // Form state
 const form = useForm({
-  store_branch_id: props.user_store_branch_id,
-  sending_store_branch_id: null,
+  store_branch_id: props.user_store_branch_id, // Receiving Store - selected first
+  sending_store_branch_id: null, // Sending Store - selected second
   transfer_date: new Date().toISOString().split('T')[0],
   interco_reason: '',
   remarks: '',
@@ -65,6 +66,7 @@ const isSubmitting = ref(false)
 
 // MassOrders-style state management
 const productId = ref(null)
+const selectedAutoCompleteItem = ref(null)
 const isLoading = ref(false)
 const availableProductsOptions = ref([])
 
@@ -191,19 +193,19 @@ const isValidStoreSelection = computed(() => {
   return form.sending_store_branch_id && form.store_branch_id && form.sending_store_branch_id !== form.store_branch_id
 })
 
-// Computed property for filtered receiving store options
-const filteredReceivingStoreOptions = computed(() => {
-  if (!form.sending_store_branch_id) {
+// Computed property for filtered sending store options (reversed logic)
+const filteredSendingStoreOptions = computed(() => {
+  if (!form.store_branch_id) {
     return []
   }
   return branchesOptions.value.filter(branch =>
-    branch.value !== form.sending_store_branch_id
+    branch.value !== form.store_branch_id
   )
 })
 
-// Computed property for receiving store dropdown disabled state
-const isReceivingStoreDisabled = computed(() => {
-  return !form.sending_store_branch_id
+// Computed property for sending store dropdown disabled state (reversed logic)
+const isSendingStoreDisabled = computed(() => {
+  return !form.store_branch_id
 })
 
 // Methods (MassOrders-style)
@@ -746,30 +748,51 @@ const clearAllItems = () => {
   }
 }
 
-// Watch for sending store changes
-watch(() => form.sending_store_branch_id, (newValue) => {
-  if (newValue) {
-    // Clear selected items if they don't have stock in the new sending store
-    selectedItems.value = selectedItems.value.filter(item => {
-      return item.stock > 0
-    })
-
-    // Fetch items for the new sending store
-    fetchSendingStoreItems(newValue)
-  } else {
-    availableProductsOptions.value = []
-  }
-
-  // Clear dependent fields
+// Watch for receiving store changes
+watch(() => form.store_branch_id, (newValue) => {
+  // Clear dependent fields when receiving store changes
   productId.value = null
+  selectedAutoCompleteItem.value = null
   Object.keys(productDetails).forEach((key) => {
     productDetails[key] = null
   })
 
-  // Clear receiving store if it matches the new sending store
-  if (form.store_branch_id === newValue) {
-    form.store_branch_id = null
+  // Clear sending store if it matches the new receiving store (reversed logic)
+  if (form.sending_store_branch_id === newValue) {
+    form.sending_store_branch_id = null
   }
+
+  // Clear items since sending store changed
+  selectedItems.value = []
+  availableProductsOptions.value = []
+})
+
+// Watch for sending store changes (for item fetching)
+watch(() => form.sending_store_branch_id, (newValue) => {
+  if (newValue) {
+    // Clear available products - items will be loaded via auto-complete search
+    availableProductsOptions.value = []
+  } else {
+    availableProductsOptions.value = []
+  }
+
+  // Clear auto-complete selection when sending store changes
+  selectedAutoCompleteItem.value = null
+  Object.keys(productDetails).forEach((key) => {
+    productDetails[key] = null
+  })
+
+  // Clear selected items if they don't have stock in the new sending store
+  selectedItems.value = selectedItems.value.filter(item => {
+    return item.stock > 0
+  })
+
+  // Clear dependent fields
+  productId.value = null
+  selectedAutoCompleteItem.value = null
+  Object.keys(productDetails).forEach((key) => {
+    productDetails[key] = null
+  })
 })
 
 // Watch for productId changes (from MassOrders)
@@ -941,6 +964,55 @@ watch(productId, async (itemCode) => {
   }
 }, { deep: true })
 
+// Handler for auto-complete item selection
+const handleAutoCompleteItemSelect = (item) => {
+  if (!item) {
+    Object.keys(productDetails).forEach((key) => {
+      productDetails[key] = null
+    })
+    selectedAutoCompleteItem.value = null
+    return
+  }
+
+  console.log('🎯 DEBUG: Auto-complete item selected:', {
+    item_code: item.item_code,
+    description: item.description,
+    alt_uom: item.alt_uom,
+    stock: item.stock
+  })
+
+  // Directly populate productDetails from the auto-complete selection
+  productDetails.id = item.id
+  productDetails.inventory_code = String(item.item_code)
+  productDetails.description = item.description || 'No description'
+  productDetails.unit_of_measurement = item.alt_uom || item.uom
+  productDetails.cost = Number(item.cost_per_quantity || 1.0)
+  productDetails.uom = item.uom
+  productDetails.stock = item.stock || 0
+
+  // Set the selected item for reference
+  selectedAutoCompleteItem.value = item
+  itemForm.item = item.item_code
+
+  // Log specifically for 916A2C or 397A2D (your test case)
+  if (item.item_code === '916A2C' || item.item_code === '397A2D') {
+    console.log(`🎯 DEBUG: ${item.item_code} auto-complete selected - Product details set:`, {
+      inventory_code: productDetails.inventory_code,
+      description: productDetails.description,
+      unit_of_measurement: productDetails.unit_of_measurement,
+      stock: productDetails.stock,
+      item_code: item.item_code
+    })
+  }
+
+  console.log('✅ DEBUG: Auto-complete product details set:', {
+    inventory_code: productDetails.inventory_code,
+    description: productDetails.description,
+    unit_of_measurement: productDetails.unit_of_measurement,
+    stock: productDetails.stock
+  })
+}
+
 </script>
 
 <template>
@@ -978,23 +1050,6 @@ watch(productId, async (itemCode) => {
         <!-- Section Content -->
         <div v-show="openSections.transferDetails" class="px-4 sm:px-6 py-4">
           <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <!-- Sending Store -->
-            <div class="space-y-2">
-              <Label for="sending_store">Sending Store *</Label>
-              <Select
-                filter
-                placeholder="Select sending store"
-                v-model="form.sending_store_branch_id"
-                :options="branchesOptions"
-                optionLabel="label"
-                optionValue="value"
-                class="w-full"
-              />
-              <p v-if="formErrors.sending_store_branch_id" class="text-sm text-red-600">
-                {{ formErrors.sending_store_branch_id }}
-              </p>
-            </div>
-
             <!-- Receiving Store -->
             <div class="space-y-2">
               <Label for="receiving_store">Receiving Store *</Label>
@@ -1002,8 +1057,7 @@ watch(productId, async (itemCode) => {
                 filter
                 placeholder="Select receiving store"
                 v-model="form.store_branch_id"
-                :options="filteredReceivingStoreOptions"
-                :disabled="isReceivingStoreDisabled"
+                :options="branchesOptions"
                 optionLabel="label"
                 optionValue="value"
                 class="w-full"
@@ -1011,8 +1065,26 @@ watch(productId, async (itemCode) => {
               <p v-if="formErrors.store_branch_id" class="text-sm text-red-600">
                 {{ formErrors.store_branch_id }}
               </p>
-              <p v-if="!form.sending_store_branch_id" class="text-sm text-muted-foreground">
-                Select a sending store first
+            </div>
+
+            <!-- Sending Store -->
+            <div class="space-y-2">
+              <Label for="sending_store">Sending Store *</Label>
+              <Select
+                filter
+                placeholder="Select sending store"
+                v-model="form.sending_store_branch_id"
+                :options="filteredSendingStoreOptions"
+                :disabled="isSendingStoreDisabled"
+                optionLabel="label"
+                optionValue="value"
+                class="w-full"
+              />
+              <p v-if="formErrors.sending_store_branch_id" class="text-sm text-red-600">
+                {{ formErrors.sending_store_branch_id }}
+              </p>
+              <p v-if="!form.store_branch_id" class="text-sm text-muted-foreground">
+                Select a receiving store first
               </p>
             </div>
 
@@ -1093,25 +1165,13 @@ watch(productId, async (itemCode) => {
             <!-- Item -->
             <div class="space-y-2">
               <Label class="text-sm font-medium text-gray-700">Item</Label>
-              <Select
-                filter
-                placeholder="Select an Item"
-                v-model="productId"
-                :options="availableProductsOptions"
-                optionLabel="label"
-                optionValue="value"
+              <ItemAutoComplete
+                v-model="selectedAutoCompleteItem"
+                :sending-store-id="form.sending_store_branch_id"
+                placeholder="Type at least 3 characters to search for items..."
                 :disabled="!form.sending_store_branch_id || isLoading"
-                class="w-full"
-              >
-                <template #empty>
-                  <div v-if="isLoading" class="p-4 text-center text-gray-500">
-                    Loading items...
-                  </div>
-                  <div v-else class="p-4 text-center text-gray-500">
-                    No items available for this sending store.
-                  </div>
-                </template>
-              </Select>
+                @item-selected="handleAutoCompleteItemSelect"
+              />
               <p v-if="itemForm.errors.item" class="text-sm text-red-600">
                 {{ itemForm.errors.item }}
               </p>

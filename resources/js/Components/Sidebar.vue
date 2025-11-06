@@ -118,6 +118,39 @@ const canViewOrderingGroup = computed(() =>
     hasAccess("view cs dts mass commit")
 );
 
+// Nested ordering subcategory permissions
+const canViewRegularSubcategory = computed(() =>
+    hasAccess("view store orders") ||
+    hasAccess("view orders for approval list") ||
+    hasAccess("view orders for cs approval list")
+);
+
+const canViewRegularDTSSubcategory = computed(() =>
+    hasAccess("view dts orders")
+);
+
+const canViewRegularMassSubcategory = computed(() =>
+    hasAccess("view mass orders") ||
+    hasAccess("view cs mass commits")
+);
+
+const canViewDTSMassSubcategory = computed(() =>
+    hasAccess("view dts mass orders") ||
+    hasAccess("view cs dts mass commit")
+);
+
+const canViewStockTransferSubcategory = computed(() =>
+    hasAccess("view interco requests") ||
+    hasAccess("view interco approvals")
+);
+
+const canViewOthersSubcategory = computed(() =>
+    hasAccess("view emergency orders") ||
+    hasAccess("view emergency order approval") ||
+    hasAccess("view additional orders") ||
+    hasAccess("view additional order approval")
+);
+
 const canViewReceivingGroup = computed(() =>
     hasAccess("view direct receiving") ||
     hasAccess("view approved orders") ||
@@ -182,6 +215,14 @@ const inventoryOpen = ref(false);
 const reportsOpen = ref(false);
 const referencesOpen = ref(false);
 
+// Nested ordering section states
+const regularOpen = ref(false);
+const regularDTSOpen = ref(false);
+const regularMassOpen = ref(false);
+const dtsMassOpen = ref(false);
+const stockTransferOpen = ref(false);
+const othersOpen = ref(false);
+
 // Watch for route changes to automatically open the relevant collapsible section
 watchEffect(() => {
     const currentUrl = usePage().url;
@@ -189,12 +230,19 @@ watchEffect(() => {
     // Define all collapsible sections and their associated paths
     const sections = [
         { ref: settingsOpen, paths: ["/users", "/roles", "/templates", "/dts-delivery-schedules", "/dsp-delivery-schedules", "/orders-cutoff", "/month-end-schedules"] },
-        { ref: orderingOpen, paths: ["/store-orders", "/emergency-orders", "/additional-orders", "/interco", "/dts-orders", "/orders-approval", "/cs-approvals", "/additional-orders-approval", "/emergency-orders-approval", "/mass-orders", "/cs-mass-commits", "/dts-mass-orders", "/cs-dts-mass-commits"] },
+        { ref: orderingOpen, paths: ["/store-orders", "/emergency-orders", "/additional-orders", "/dts-orders", "/orders-approval", "/cs-approvals", "/additional-orders-approval", "/emergency-orders-approval", "/mass-orders", "/cs-mass-commits", "/dts-mass-orders", "/cs-dts-mass-commits", "/interco", "/interco-approval"] },
         { ref: receivingOpen, paths: ["/direct-receiving", "/orders-receiving", "/approved-orders", "/receiving-approvals"] },
         { ref: salesOpen, paths: ["/sales-orders", "/store-transactions", "/store-transactions-approval"] },
         { ref: inventoryOpen, paths: ["/items-list", "/sapitems-list", "/SupplierItems-list", "/POSMasterfile-list", "/pos-bom-list", "/stock-management", "/soh-adjustment", "/low-on-stocks", "/month-end-count", "/month-end-count-approvals", "/month-end-count-approvals-level2"] },
         { ref: reportsOpen, paths: ["/reports/consolidated-so", "/top-10-inventories", "/days-inventory-outstanding", "/days-payable-outstanding", "/sales-report", "/inventories-report", "/upcoming-inventories", "/account-payable", "/cost-of-goods", "/product-orders-summary", "/ice-cream-orders", "/salmon-orders", "/fruits-and-vegetables"] }, // CRITICAL FIX: Added new path
         { ref: referencesOpen, paths: ["/category-list", "/wip-list", "/menu-categories", "/uom-conversions", "/inventory-categories", "/unit-of-measurements", "/branches", "/suppliers", "/cost-centers"] },
+        // Nested ordering sections
+        { ref: regularOpen, paths: ["/store-orders", "/orders-approval", "/cs-approvals"] },
+        { ref: regularDTSOpen, paths: ["/dts-orders"] },
+        { ref: regularMassOpen, paths: ["/mass-orders", "/cs-mass-commits"] },
+        { ref: dtsMassOpen, paths: ["/dts-mass-orders", "/cs-dts-mass-commits"] },
+        { ref: stockTransferOpen, paths: ["/interco", "/interco-approval"] },
+        { ref: othersOpen, paths: ["/emergency-orders", "/emergency-orders-approval", "/additional-orders", "/additional-orders-approval"] },
     ];
 
     sections.forEach(section => {
@@ -235,111 +283,231 @@ watchEffect(() => {
                 <ChevronRight v-else class="h-4 w-4" />
             </CollapsibleTrigger>
             <CollapsibleContent class="pl-2">
-                <NavLink
-                    v-if="hasAccess('view store orders')"
-                    href="/store-orders"
-                    :icon="ShoppingCart"
-                    :is-active="isPathActive('/store-orders')"
+                <!-- Regular Subcategory -->
+                <Collapsible
+                    v-if="canViewRegularSubcategory"
+                    v-model:open="regularOpen"
+                    class="w-full"
                 >
-                    Store Orders
-                </NavLink>
-                <NavLink
-                    v-if="hasAccess('view emergency orders')"
-                    href="/emergency-orders"
-                    :icon="ShoppingCart"
-                    :is-active="isPathActive('/emergency-orders')"
-                >
-                    Emergency Orders
-                </NavLink>
-                <NavLink
-                    v-if="hasAccess('view additional orders')"
-                    href="/additional-orders"
-                    :icon="ShoppingCart"
-                    :is-active="isPathActive('/additional-orders')"
-                >
-                    Additional Orders
-                </NavLink>
-                <NavLink
-                    v-if="hasAccess('view interco requests')"
-                    href="/interco"
-                    :icon="Truck"
-                    :is-active="isPathActive('/interco')"
-                >
-                    Interco Transfers
-                </NavLink>
-                <NavLink
-                    v-if="hasAccess('view dts orders')"
-                    href="/dts-orders"
-                    :icon="ShoppingBasket"
-                    :is-active="isPathActive('/dts-orders')"
-                >
-                    DTS Orders
-                </NavLink>
-                <NavLink
-                    v-if="hasAccess('view orders for approval list')"
-                    href="/orders-approval"
-                    :icon="SquareChartGantt"
-                    :is-active="isPathActive('/orders-approval')"
-                >
-                    Orders Approval
-                </NavLink>
-                <NavLink
-                    v-if="hasAccess('view orders for cs approval list')"
-                    href="/cs-approvals"
-                    :icon="SquareChartGantt"
-                    :is-active="isPathActive('/cs-approvals')"
-                >
-                    CS Review List
-                </NavLink>
-                <NavLink
-                    v-if="hasAccess('view additional order approval')"
-                    href="/additional-orders-approval"
-                    :icon="SquareChartGantt"
-                    :is-active="isPathActive('/additional-orders-approval')"
-                >
-                    Additional Order Approval
-                </NavLink>
+                    <CollapsibleTrigger
+                        class="flex items-center justify-between w-full py-1 text-xs hover:bg-muted/30 rounded-md px-2"
+                    >
+                        <div class="flex items-center">
+                            <span class="text-muted-foreground">Regular</span>
+                        </div>
+                        <ChevronDown v-if="regularOpen" class="h-3 w-3" />
+                        <ChevronRight v-else class="h-3 w-3" />
+                    </CollapsibleTrigger>
+                    <CollapsibleContent class="pl-2">
+                        <NavLink
+                            v-if="hasAccess('view store orders')"
+                            href="/store-orders"
+                            :icon="ShoppingCart"
+                            :is-active="isPathActive('/store-orders')"
+                        >
+                            Store Orders
+                        </NavLink>
+                        <NavLink
+                            v-if="hasAccess('view orders for approval list')"
+                            href="/orders-approval"
+                            :icon="SquareChartGantt"
+                            :is-active="isPathActive('/orders-approval')"
+                        >
+                            Orders Approval
+                        </NavLink>
+                        <NavLink
+                            v-if="hasAccess('view orders for cs approval list')"
+                            href="/cs-approvals"
+                            :icon="SquareChartGantt"
+                            :is-active="isPathActive('/cs-approvals')"
+                        >
+                            CS Review List
+                        </NavLink>
+                    </CollapsibleContent>
+                </Collapsible>
 
-                <NavLink
-                    v-if="hasAccess('view emergency order approval')"
-                    href="/emergency-orders-approval"
-                    :icon="SquareChartGantt"
-                    :is-active="isPathActive('/emergency-orders-approval')"
+                <!-- Regular DTS Subcategory -->
+                <Collapsible
+                    v-if="canViewRegularDTSSubcategory"
+                    v-model:open="regularDTSOpen"
+                    class="w-full"
                 >
-                    Emergency Order Approval
-                </NavLink>
-                <NavLink
-                    v-if="hasAccess('view mass orders')"
-                    href="/mass-orders"
-                    :icon="SquareChartGantt"
-                    :is-active="isPathActive('/mass-orders')"
+                    <CollapsibleTrigger
+                        class="flex items-center justify-between w-full py-1 text-xs hover:bg-muted/30 rounded-md px-2"
+                    >
+                        <div class="flex items-center">
+                            <span class="text-muted-foreground">Regular DTS</span>
+                        </div>
+                        <ChevronDown v-if="regularDTSOpen" class="h-3 w-3" />
+                        <ChevronRight v-else class="h-3 w-3" />
+                    </CollapsibleTrigger>
+                    <CollapsibleContent class="pl-2">
+                        <NavLink
+                            v-if="hasAccess('view dts orders')"
+                            href="/dts-orders"
+                            :icon="ShoppingBasket"
+                            :is-active="isPathActive('/dts-orders')"
+                        >
+                            DTS Orders
+                        </NavLink>
+                    </CollapsibleContent>
+                </Collapsible>
+
+                <!-- Regular Mass Subcategory -->
+                <Collapsible
+                    v-if="canViewRegularMassSubcategory"
+                    v-model:open="regularMassOpen"
+                    class="w-full"
                 >
-                    Mass Orders
-                </NavLink>
-                <NavLink
-                    v-if="hasAccess('view cs mass commits')"
-                    href="/cs-mass-commits"
-                    :icon="SquareChartGantt"
-                    :is-active="isPathActive('/cs-mass-commits')"
+                    <CollapsibleTrigger
+                        class="flex items-center justify-between w-full py-1 text-xs hover:bg-muted/30 rounded-md px-2"
+                    >
+                        <div class="flex items-center">
+                            <span class="text-muted-foreground">Regular Mass</span>
+                        </div>
+                        <ChevronDown v-if="regularMassOpen" class="h-3 w-3" />
+                        <ChevronRight v-else class="h-3 w-3" />
+                    </CollapsibleTrigger>
+                    <CollapsibleContent class="pl-2">
+                        <NavLink
+                            v-if="hasAccess('view mass orders')"
+                            href="/mass-orders"
+                            :icon="SquareChartGantt"
+                            :is-active="isPathActive('/mass-orders')"
+                        >
+                            Mass Orders
+                        </NavLink>
+                        <NavLink
+                            v-if="hasAccess('view cs mass commits')"
+                            href="/cs-mass-commits"
+                            :icon="SquareChartGantt"
+                            :is-active="isPathActive('/cs-mass-commits')"
+                        >
+                            CS Mass Commits
+                        </NavLink>
+                    </CollapsibleContent>
+                </Collapsible>
+
+                <!-- DTS Mass Subcategory -->
+                <Collapsible
+                    v-if="canViewDTSMassSubcategory"
+                    v-model:open="dtsMassOpen"
+                    class="w-full"
                 >
-                    CS Mass Commits
-                </NavLink>
-                <NavLink
-                    v-if="hasAccess('view dts mass orders')"
-                    href="/dts-mass-orders"
-                    :icon="SquareChartGantt"
-                    :is-active="isPathActive('/dts-mass-orders')"
+                    <CollapsibleTrigger
+                        class="flex items-center justify-between w-full py-1 text-xs hover:bg-muted/30 rounded-md px-2"
+                    >
+                        <div class="flex items-center">
+                            <span class="text-muted-foreground">DTS Mass</span>
+                        </div>
+                        <ChevronDown v-if="dtsMassOpen" class="h-3 w-3" />
+                        <ChevronRight v-else class="h-3 w-3" />
+                    </CollapsibleTrigger>
+                    <CollapsibleContent class="pl-2">
+                        <NavLink
+                            v-if="hasAccess('view dts mass orders')"
+                            href="/dts-mass-orders"
+                            :icon="SquareChartGantt"
+                            :is-active="isPathActive('/dts-mass-orders')"
+                        >
+                            DTS Mass Orders
+                        </NavLink>
+                        <NavLink
+                            v-if="hasAccess('view cs dts mass commit')"
+                            href="/cs-dts-mass-commits"
+                            :icon="SquareChartGantt"
+                            :is-active="isPathActive('/cs-dts-mass-commits')"
+                        >
+                            CS DTS Mass Commits
+                        </NavLink>
+                    </CollapsibleContent>
+                </Collapsible>
+
+                <!-- Stock Transfer Subcategory -->
+                <Collapsible
+                    v-if="canViewStockTransferSubcategory"
+                    v-model:open="stockTransferOpen"
+                    class="w-full"
                 >
-                    DTS Mass Orders
-                </NavLink>
-                <NavLink
-                    v-if="hasAccess('view cs dts mass commit')"
-                    href="/cs-dts-mass-commits"
-                    :icon="SquareChartGantt"
-                    :is-active="isPathActive('/cs-dts-mass-commits')"
+                    <CollapsibleTrigger
+                        class="flex items-center justify-between w-full py-1 text-xs hover:bg-muted/30 rounded-md px-2"
+                    >
+                        <div class="flex items-center">
+                            <span class="text-muted-foreground">Stock Transfer</span>
+                        </div>
+                        <ChevronDown v-if="stockTransferOpen" class="h-3 w-3" />
+                        <ChevronRight v-else class="h-3 w-3" />
+                    </CollapsibleTrigger>
+                    <CollapsibleContent class="pl-2">
+                        <NavLink
+                            v-if="hasAccess('view interco requests')"
+                            href="/interco"
+                            :icon="Truck"
+                            :is-active="isPathActive('/interco')"
+                        >
+                            Interco Transfer
+                        </NavLink>
+                        <NavLink
+                            v-if="hasAccess('view interco approvals')"
+                            href="/interco-approval"
+                            :icon="ClipboardCheck"
+                            :is-active="isPathActive('/interco-approval')"
+                        >
+                            Interco Approval
+                        </NavLink>
+                    </CollapsibleContent>
+                </Collapsible>
+
+                <!-- Others Subcategory -->
+                <Collapsible
+                    v-if="canViewOthersSubcategory"
+                    v-model:open="othersOpen"
+                    class="w-full"
                 >
-                    CS DTS Mass Commits
-                </NavLink>
+                    <CollapsibleTrigger
+                        class="flex items-center justify-between w-full py-1 text-xs hover:bg-muted/30 rounded-md px-2"
+                    >
+                        <div class="flex items-center">
+                            <span class="text-muted-foreground">Others</span>
+                        </div>
+                        <ChevronDown v-if="othersOpen" class="h-3 w-3" />
+                        <ChevronRight v-else class="h-3 w-3" />
+                    </CollapsibleTrigger>
+                    <CollapsibleContent class="pl-2">
+                        <NavLink
+                            v-if="hasAccess('view emergency orders')"
+                            href="/emergency-orders"
+                            :icon="ShoppingCart"
+                            :is-active="isPathActive('/emergency-orders')"
+                        >
+                            Emergency Orders
+                        </NavLink>
+                        <NavLink
+                            v-if="hasAccess('view emergency order approval')"
+                            href="/emergency-orders-approval"
+                            :icon="SquareChartGantt"
+                            :is-active="isPathActive('/emergency-orders-approval')"
+                        >
+                            Emergency Order Approval
+                        </NavLink>
+                        <NavLink
+                            v-if="hasAccess('view additional orders')"
+                            href="/additional-orders"
+                            :icon="ShoppingCart"
+                            :is-active="isPathActive('/additional-orders')"
+                        >
+                            Additional Orders
+                        </NavLink>
+                        <NavLink
+                            v-if="hasAccess('view additional order approval')"
+                            href="/additional-orders-approval"
+                            :icon="SquareChartGantt"
+                            :is-active="isPathActive('/additional-orders-approval')"
+                        >
+                            Additional Order Approval
+                        </NavLink>
+                    </CollapsibleContent>
+                </Collapsible>
             </CollapsibleContent>
         </Collapsible>
 

@@ -79,6 +79,9 @@ class RolesAndPermissionSeeder extends Seeder
         Permission::firstOrCreate(['name' => 'commit interco requests']);
         Permission::firstOrCreate(['name' => 'export interco requests']);
 
+        // Interco Approvals
+        Permission::firstOrCreate(['name' => 'view interco approvals']);
+
         // DTS Orders
         Permission::firstOrCreate(['name' => 'view dts orders']);
         Permission::firstOrCreate(['name' => 'edit dts orders']);
@@ -403,6 +406,7 @@ class RolesAndPermissionSeeder extends Seeder
             'view store transactions approval', 'approve store transactions', 'decline store transactions',
             // Interco permissions for request approver
             'view interco requests', 'approve interco requests', 'commit interco requests',
+            'view interco approvals',
             // NEW: Export permission for CS Approval List for 'request approver'
             'export orders for cs approval list',
             // NEW: Consolidated SO Report permission for request approver

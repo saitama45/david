@@ -60,6 +60,7 @@ use App\Http\Controllers\StockManagementController;
 use App\Http\Controllers\StoreBranchController;
 use App\Http\Controllers\StoreOrderController;
 use App\Http\Controllers\IntercoController;
+use App\Http\Controllers\IntercoApprovalController;
 use App\Http\Controllers\StoreTransactionApprovalController;
 use App\Http\Controllers\StoreTransactionController;
 use App\Http\Controllers\SupplierController;
@@ -369,8 +370,14 @@ Route::middleware('auth')
             Route::middleware('permission:export interco requests')->get('/export', 'export')->name('export');
             // API Routes for item fetching
             Route::middleware('permission:create interco requests')->get('/get-available-items', 'getAvailableItems')->name('get-available-items');
+            Route::middleware('permission:create interco requests')->get('/items/search', 'getAvailableItems')->name('items.search');
             Route::middleware('permission:create interco requests')->get('/get-item-details', 'getItemDetails')->name('get-item-details');
             Route::middleware('permission:create interco requests')->get('/branch-inventory', 'getBranchInventory')->name('branch-inventory');
+
+            // Approval actions
+            Route::middleware('permission:approve interco requests')->patch('/{interco}/approve', 'approve')->name('approve');
+            Route::middleware('permission:approve interco requests')->patch('/{interco}/disapprove', 'disapprove')->name('disapprove');
+            Route::middleware('permission:commit interco requests')->patch('/{interco}/commit', 'commit')->name('commit');
             // Note: approve, commit, and receive actions are handled by existing approval and receiving systems
         });
 
@@ -528,6 +535,15 @@ Route::middleware('auth')
                 Route::middleware('permission:view month end count approvals level 2')->get('/{schedule_id}/{branch_id}', 'show')->name('show');
                 Route::middleware('permission:approve month end count level 2')->post('/{schedule_id}/{branch_id}/approve', 'approveLevel2')->name('approve');
             });
+
+        // Interco Approvals
+        Route::controller(IntercoApprovalController::class)->name('interco-approval.')->group(function () {
+            Route::middleware('permission:view interco approvals')->get('/interco-approval', 'index')->name('index');
+            Route::middleware('permission:view interco approvals')->get('/interco-approval/show/{id}', 'show')->name('show');
+            Route::middleware('permission:approve interco requests')->post('/interco-approval/approve', 'approve')->name('approve');
+            Route::middleware('permission:approve interco requests')->post('/interco-approval/disapprove', 'disapprove')->name('disapprove');
+            Route::middleware('permission:approve interco requests')->post('/interco-approval/update-quantity/{itemId}', 'updateQuantity')->name('update-quantity');
+        });
 
         // Approvals
         Route::controller(ReceivingApprovalController::class)->prefix('receiving-approvals')->name('receiving-approvals.')->group(function () {

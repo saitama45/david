@@ -48,6 +48,7 @@ class IntercoRequest extends FormRequest
                 'different:store_branch_id',
             ],
             'interco_reason' => 'required|string|max:1000',
+            'transfer_date' => 'required|date',
             'remarks' => 'nullable|string|max:500',
             'items' => [
                 'required',
@@ -98,6 +99,9 @@ class IntercoRequest extends FormRequest
 
             'interco_reason.required' => 'Please provide a reason for the interco transfer.',
             'interco_reason.max' => 'Reason must not exceed 1000 characters.',
+
+            'transfer_date.required' => 'Please select a transfer date.',
+            'transfer_date.date' => 'Transfer date must be a valid date.',
 
             'remarks.max' => 'Remarks must not exceed 500 characters.',
 
@@ -259,6 +263,7 @@ class IntercoRequest extends FormRequest
             'store_branch_id' => 'receiving store',
             'sending_store_branch_id' => 'sending store',
             'interco_reason' => 'reason for transfer',
+            'transfer_date' => 'transfer date',
             'remarks' => 'remarks',
             'items' => 'items',
             'items.*.item_code' => 'item',

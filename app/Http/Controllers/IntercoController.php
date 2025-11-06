@@ -10,6 +10,7 @@ use App\Models\ProductInventoryStock;
 use App\Enums\IntercoStatus;
 use App\Http\Requests\IntercoRequest;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -29,20 +30,25 @@ class IntercoController extends Controller
      */
     public function index(Request $request)
     {
-        $user = auth()->user();
         $status = $request->get('status');
         $search = $request->get('search');
+
+        // Get current user's assigned store branches
+        $user = Auth::user();
+        $user->load('store_branches');
+        $assignedStoreIds = $user->store_branches->pluck('id');
 
         $query = StoreOrder::whereNotNull('interco_number')
             ->whereNotNull('sending_store_branch_id')
             ->with(['store_branch', 'sendingStore', 'encoder', 'store_order_items.sapMasterfile']);
 
-        // Filter by user's store if not admin
-        if (!$user->hasPermissionTo('view interco requests')) {
-            $query->where(function($q) use ($user) {
-                $q->where('store_branch_id', $user->store_branch_id)
-                  ->orWhere('sending_store_branch_id', $user->store_branch_id);
-            });
+        // Apply store-based filtering for ALL users based on receiving store (store_branch_id)
+        // This matches the IntercoApproval pattern and UserAssignedStoreBranch model
+        if ($assignedStoreIds->isNotEmpty()) {
+            $query->whereIn('store_branch_id', $assignedStoreIds);
+        } else {
+            // User has no assigned stores - return empty results
+            $query->whereRaw('1 = 0');
         }
 
         // Filter by status
@@ -68,7 +74,7 @@ class IntercoController extends Controller
 
         $orders = $query->latest()->paginate(10);
         $statistics = $this->intercoService->getIntercoStatistics(
-            $user->hasPermissionTo('view interco requests') ? null : $user->store_branch_id
+            $assignedStoreIds->isNotEmpty() ? $assignedStoreIds->first() : null
         );
 
         return Inertia::render('Interco/Index', [
@@ -160,6 +166,7 @@ class IntercoController extends Controller
                     'interco_number' => $intercoNumber,
                     'sending_store_branch_id' => $data['sending_store_branch_id'],
                     'interco_reason' => $data['interco_reason'],
+                    'transfer_date' => $data['transfer_date'],
                     'interco_status' => IntercoStatus::OPEN,
                     'variant' => 'INTERCO',
                     'remarks' => $data['remarks'] ?? null,
@@ -261,6 +268,8 @@ class IntercoController extends Controller
             'store_branch',
             'sendingStore',
             'encoder',
+            'approver',
+            'commiter',
             'store_order_items.sapMasterfile',
             'store_order_remarks.user'
         ]);
@@ -391,6 +400,7 @@ class IntercoController extends Controller
                 'store_branch_id' => $data['store_branch_id'],
                 'sending_store_branch_id' => $data['sending_store_branch_id'],
                 'interco_reason' => $data['interco_reason'],
+                'transfer_date' => $data['transfer_date'],
                 'remarks' => $data['remarks'] ?? null,
             ]);
 
@@ -495,12 +505,14 @@ class IntercoController extends Controller
         ]);
 
         $sendingStoreId = $request->input('sending_store_id');
+        $search = $request->input('search');
 
         try {
-            // Highly optimized query - removed cost lookup for maximum performance
+            // Modified query to show ALL items regardless of stock, with better filtering
             $queryStartTime = microtime(true);
 
-            $items = SAPMasterfile::select([
+            // Start with base query (using the working JOIN logic from original)
+            $itemsQuery = SAPMasterfile::select([
                     'sap_masterfiles.id',
                     'sap_masterfiles.ItemCode',
                     'sap_masterfiles.ItemDescription',
@@ -517,14 +529,25 @@ class IntercoController extends Controller
                 ->whereNotNull('sap_masterfiles.ItemCode')
                 ->where('sap_masterfiles.ItemCode', '!=', '')
                 ->whereNotNull('sap_masterfiles.AltUOM')
-                ->where('sap_masterfiles.AltUOM', '!=', '')
-                ->orderBy('sap_masterfiles.ItemDescription')
-                ->limit(50) // Further reduced limit for faster response
-                ->get();
+                ->where('sap_masterfiles.AltUOM', '!=', '');
+
+            // Add search conditions if search term is provided (keeping search functionality)
+            if ($search) {
+                $itemsQuery->where(function($query) use ($search) {
+                    $query->where('sap_masterfiles.ItemCode', 'like', "%{$search}%")
+                          ->orWhere('sap_masterfiles.ItemDescription', 'like', "%{$search}%");
+                });
+                $itemsQuery->limit(50); // Smaller limit for search results
+            } else {
+                $itemsQuery->orderBy('sap_masterfiles.ItemDescription')
+                          ->limit(50); // Reduced limit like original
+            }
+
+            $items = $itemsQuery->get();
 
             $queryTime = (microtime(true) - $queryStartTime) * 1000; // Convert to milliseconds
 
-            // Process items directly without individual cost lookups (major performance bottleneck)
+            // Process items with better UOM fallback handling
             $processedItems = $items->map(function ($item) {
                 // Create fallback description if ItemDescription is null
                 $description = $item->ItemDescription;
@@ -533,13 +556,18 @@ class IntercoController extends Controller
                     \Log::warning("getAvailableItems: DESCRIPTION WAS NULL/EMPTY for item {$item->ItemCode}, using fallback: {$description}");
                 }
 
+                $effectiveAltUom = $item->AltUOM; // AltUOM is guaranteed due to JOIN condition
+                $stock = $item->stock_quantity; // Stock is guaranteed due to JOIN condition
+
                 // Log specifically for item 916A2C
                 if ($item->ItemCode === '916A2C') {
                     \Log::info("getAvailableItems: Processing 916A2C", [
                         'original_description' => $item->ItemDescription,
                         'final_description' => $description,
+                        'base_uom' => $item->BaseUOM,
                         'alt_uom' => $item->AltUOM,
-                        'stock' => $item->stock_quantity
+                        'effective_alt_uom' => $effectiveAltUom,
+                        'stock' => $stock
                     ]);
                 }
 
@@ -548,10 +576,10 @@ class IntercoController extends Controller
                     'item_code' => $item->ItemCode,
                     'description' => $description,
                     'uom' => $item->BaseUOM,
-                    'alt_uom' => $item->AltUOM,
+                    'alt_uom' => $effectiveAltUom, // Use fallback logic
                     'cost_per_quantity' => 1.0, // Default cost - removed expensive lookup
-                    'stock' => $item->stock_quantity,
-                    'is_available' => $item->stock_quantity > 0,
+                    'stock' => $stock,
+                    'is_available' => $stock > 0,
                 ];
             });
 
@@ -589,33 +617,23 @@ class IntercoController extends Controller
         $sendingStoreId = $request->input('sendingStoreId');
 
         try {
-            // Get the SAP masterfile item - try AltUOM match first, then fall back to ItemCode only
+            // Get the SAP masterfile item - try exact match first, then fallback to ItemCode only
             $item = SAPMasterfile::where('ItemCode', $itemCode)
-                ->where('AltUOM', $altUOM)
                 ->where('is_active', true)
                 ->whereNotNull('ItemDescription')
-                ->whereNotNull('AltUOM')
-                ->where('AltUOM', '!=', '')
                 ->first();
 
-            // If not found with AltUOM, try with ItemCode only (more flexible)
             if (!$item) {
-                $item = SAPMasterfile::where('ItemCode', $itemCode)
-                    ->where('is_active', true)
-                    ->whereNotNull('ItemDescription')
-                    ->whereNotNull('AltUOM')
-                    ->where('AltUOM', '!=', '')
-                    ->first();
-            }
-
-            if (!$item) {
-                \Log::info("Item not found for ItemCode: {$itemCode} (tried with and without AltUOM: {$altUOM})");
+                \Log::info("Item not found for ItemCode: {$itemCode}");
                 return response()->json([
                     'error' => 'Item not found'
                 ], 404);
             }
 
-            \Log::info("Found item: {$itemCode} - AltUOM: {$item->AltUOM}, BaseUOM: {$item->BaseUOM} (searching for AltUOM: {$altUOM})");
+            // Use AltUOM if available and matches request, otherwise fallback to BaseUOM
+            $effectiveAltUom = (!empty($item->AltUOM) && $item->AltUOM === $altUOM) ? $item->AltUOM : $item->BaseUOM;
+
+            \Log::info("Found item: {$itemCode} - AltUOM: {$item->AltUOM}, BaseUOM: {$item->BaseUOM} (effective: {$effectiveAltUom})");
 
             // Get stock information for this item at the sending store using optimized query
             $stock = ProductInventoryStock::where('store_branch_id', $sendingStoreId)
@@ -637,7 +655,7 @@ class IntercoController extends Controller
                 'item_code' => $item->ItemCode,
                 'description' => $description,
                 'uom' => $item->BaseUOM,
-                'alt_uom' => $item->AltUOM,
+                'alt_uom' => $effectiveAltUom, // Use effective UOM with fallback logic
                 'cost_per_quantity' => $cost,
                 'stock' => $stock,
                 'is_available' => $stock > 0,
@@ -768,6 +786,111 @@ class IntercoController extends Controller
                 'error' => 'Failed to fetch inventory data',
                 'items' => []
             ], 500);
+        }
+    }
+
+    /**
+     * Approve an interco order
+     */
+    public function approve(Request $request, StoreOrder $interco): RedirectResponse
+    {
+        $validated = $request->validate([
+            'remarks' => 'nullable|string|max:1000',
+        ]);
+
+        try {
+            $interco->update([
+                'interco_status' => 'approved',
+                'approver_id' => Auth::id(),
+                'approval_action_date' => now(),
+                'remarks' => $validated['remarks'] ?? $interco->remarks,
+                'updated_at' => now(),
+            ]);
+
+            return redirect()
+                ->route('interco.show', $interco)
+                ->with('success', 'Interco order approved successfully.');
+
+        } catch (\Exception $e) {
+            \Log::error('Failed to approve interco order: ' . $e->getMessage(), [
+                'interco_id' => $interco->id,
+                'user_id' => Auth::id(),
+                'trace' => $e->getTraceAsString()
+            ]);
+
+            return back()
+                ->with('error', 'Failed to approve interco order. Please try again.')
+                ->withInput();
+        }
+    }
+
+    /**
+     * Disapprove an interco order
+     */
+    public function disapprove(Request $request, StoreOrder $interco): RedirectResponse
+    {
+        $validated = $request->validate([
+            'remarks' => 'nullable|string|max:1000',
+        ]);
+
+        try {
+            $interco->update([
+                'interco_status' => 'disapproved',
+                'approver_id' => Auth::id(),
+                'approval_action_date' => now(),
+                'remarks' => $validated['remarks'] ?? $interco->remarks,
+                'updated_at' => now(),
+            ]);
+
+            return redirect()
+                ->route('interco.show', $interco)
+                ->with('success', 'Interco order disapproved successfully.');
+
+        } catch (\Exception $e) {
+            \Log::error('Failed to disapprove interco order: ' . $e->getMessage(), [
+                'interco_id' => $interco->id,
+                'user_id' => Auth::id(),
+                'trace' => $e->getTraceAsString()
+            ]);
+
+            return back()
+                ->with('error', 'Failed to disapprove interco order. Please try again.')
+                ->withInput();
+        }
+    }
+
+    /**
+     * Commit an interco order (mark as transferred/completed)
+     */
+    public function commit(Request $request, StoreOrder $interco): RedirectResponse
+    {
+        $validated = $request->validate([
+            'remarks' => 'nullable|string|max:1000',
+        ]);
+
+        try {
+            $interco->update([
+                'interco_status' => 'completed',
+                'commiter_id' => Auth::id(),
+                'commited_action_date' => now(),
+                'remarks' => $validated['remarks'] ?? $interco->remarks,
+                'updated_at' => now(),
+            ]);
+
+            return redirect()
+                ->route('interco.show', $interco)
+                ->with('success', 'Interco order committed successfully.');
+
+        } catch (\Exception $e) {
+            \Log::error('Failed to commit interco order: ' . $e->getMessage(), [
+                'interco_id' => $interco->id,
+                'user_id' => Auth::id(),
+                'trace' => $e->getTraceAsString()
+            ]);
+
+            return back()
+                ->with('error', 'Failed to commit interco order. Please try again.')
+                ->withInput();
         }
     }
 

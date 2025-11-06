@@ -42,12 +42,14 @@ class StoreOrder extends Model implements Auditable
         'sending_store_branch_id',
         'interco_reason',
         'interco_status',
+        'transfer_date',
     ];
 
     protected $casts = [
         // 'order_date' => 'date:F d, Y',
         'order_approved_date' => 'date:F d, Y',
         'approval_action_date' => 'date:F d, Y h:i a',
+        'transfer_date' => 'date',
         'interco_status' => IntercoStatus::class,
     ];
 
