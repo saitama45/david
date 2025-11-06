@@ -2,7 +2,21 @@
 import { Link } from "@inertiajs/vue3";
 import { usePage } from "@inertiajs/vue3";
 
-const isActive = (path) => {
+const props = defineProps({
+    href: {
+        type: String,
+        required: true,
+    },
+    icon: {
+        required: true,
+    },
+    isActive: {
+        type: Boolean,
+        default: false,
+    },
+});
+
+const internalIsActive = (path) => {
     const currentUrl = usePage().url.split('?')[0];
 
     // Exact match
@@ -22,23 +36,13 @@ const isActive = (path) => {
 
     return false;
 };
-
-defineProps({
-    href: {
-        type: String,
-        required: true,
-    },
-    icon: {
-        required: true,
-    },
-});
 </script>
 
 <template>
     <Link
         :href="href"
         class="flex items-center gap-3 rounded-l-lg px-3 py-2 text-muted-foreground transition-all hover:text-primary"
-        :class="{ 'text-primary bg-primary/10': isActive(href) }"
+        :class="{ 'text-primary bg-primary/10': isActive || internalIsActive(href) }"
     >
         <component :is="icon" class="h-4 w-4" />
         <slot></slot>

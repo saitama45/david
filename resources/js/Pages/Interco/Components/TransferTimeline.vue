@@ -90,7 +90,7 @@ const timeline = computed(() => {
       color: 'yellow',
       details: props.transfer.store_order_items ? [
         { label: 'Total Items', value: props.transfer.store_order_items.length },
-        { label: 'Total Value', value: `₱${calculateTotalValue()}` }
+        { label: 'Total Quantity', value: `${calculateTotalValue()}` }
       ] : []
     })
   }

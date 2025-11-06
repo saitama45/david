@@ -56,6 +56,7 @@ use App\Http\Controllers\SalesOrderController;
 use App\Http\Controllers\SalesReportController;
 use App\Http\Controllers\SOHAdjustmentController;
 use App\Http\Controllers\StockController;
+use App\Http\Controllers\StoreCommitsController;
 use App\Http\Controllers\StockManagementController;
 use App\Http\Controllers\StoreBranchController;
 use App\Http\Controllers\StoreOrderController;
@@ -543,6 +544,19 @@ Route::middleware('auth')
             Route::middleware('permission:approve interco requests')->post('/interco-approval/approve', 'approve')->name('approve');
             Route::middleware('permission:approve interco requests')->post('/interco-approval/disapprove', 'disapprove')->name('disapprove');
             Route::middleware('permission:approve interco requests')->post('/interco-approval/update-quantity/{itemId}', 'updateQuantity')->name('update-quantity');
+        });
+
+        // Store Commits
+        Route::controller(StoreCommitsController::class)->name('store-commits.')->prefix('store-commits')->group(function () {
+            Route::middleware('permission:view store commits')->get('/', 'index')->name('index');
+            Route::middleware('permission:view store commits')->get('/show/{id}', 'show')->name('show');
+            Route::middleware('permission:commit store orders')->post('/commit', 'commit')->name('commit');
+            Route::middleware('permission:commit store orders')->post('/update-quantity/{itemId}', 'updateCommitQuantity')->name('update-quantity');
+
+            // Test route without permission middleware for debugging
+            Route::post('/test-update-quantity/{itemId}', 'updateCommitQuantityTest');
+
+            Route::middleware('permission:export store commits')->get('/export', 'export')->name('export');
         });
 
         // Approvals

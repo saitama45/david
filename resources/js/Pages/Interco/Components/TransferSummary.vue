@@ -41,13 +41,18 @@ const totalItems = computed(() => {
 })
 
 const totalQuantity = computed(() => {
-  if (!props.transfer.store_order_items) return '0'
+  if (!props.transfer.store_order_items) return 0
   const total = props.transfer.store_order_items.reduce((total, item) => {
     const qty = Number(item.quantity_ordered) || 0
     return total + qty
   }, 0)
-  return new Intl.NumberFormat('en-PH').format(total)
+  return total
 })
+
+const formatNumber = (value, decimals = 2) => {
+  if (value === null || value === undefined || isNaN(value)) return '0.00'
+  return Number(value).toFixed(decimals)
+}
 
 const receivedItems = computed(() => {
   if (!props.transfer.store_order_items) return '0'
@@ -173,7 +178,7 @@ const formattedDate = computed(() => {
           <p class="text-xs text-muted-foreground">Total Items</p>
         </div>
         <div class="text-center p-2 md:p-3 rounded-lg bg-muted/50">
-          <p :class="compact ? 'text-lg' : 'text-2xl'" class="font-bold text-green-600">{{ totalQuantity }}</p>
+          <p :class="compact ? 'text-lg' : 'text-2xl'" class="font-bold text-green-600">{{ formatNumber(totalQuantity) }}</p>
           <p class="text-xs text-muted-foreground">Total Quantity</p>
         </div>
         <div class="text-center p-2 md:p-3 rounded-lg bg-muted/50">

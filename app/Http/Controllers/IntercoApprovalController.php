@@ -306,6 +306,7 @@ class IntercoApprovalController extends Controller
     {
         $validated = $request->validate([
             'quantity_approved' => 'required|numeric|min:0',
+            'quantity_commited' => 'required|numeric|min:0',
         ]);
 
         try {
@@ -313,9 +314,10 @@ class IntercoApprovalController extends Controller
 
             $item = StoreOrderItem::findOrFail($itemId);
 
-            // Update the approved quantity
+            // Update both approved and committed quantities
             $item->update([
                 'quantity_approved' => $validated['quantity_approved'],
+                'quantity_commited' => $validated['quantity_commited'],
                 'updated_at' => now(),
             ]);
 

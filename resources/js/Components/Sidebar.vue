@@ -141,7 +141,8 @@ const canViewDTSMassSubcategory = computed(() =>
 
 const canViewStockTransferSubcategory = computed(() =>
     hasAccess("view interco requests") ||
-    hasAccess("view interco approvals")
+    hasAccess("view interco approvals") ||
+    hasAccess("view store commits")
 );
 
 const canViewOthersSubcategory = computed(() =>
@@ -230,7 +231,7 @@ watchEffect(() => {
     // Define all collapsible sections and their associated paths
     const sections = [
         { ref: settingsOpen, paths: ["/users", "/roles", "/templates", "/dts-delivery-schedules", "/dsp-delivery-schedules", "/orders-cutoff", "/month-end-schedules"] },
-        { ref: orderingOpen, paths: ["/store-orders", "/emergency-orders", "/additional-orders", "/dts-orders", "/orders-approval", "/cs-approvals", "/additional-orders-approval", "/emergency-orders-approval", "/mass-orders", "/cs-mass-commits", "/dts-mass-orders", "/cs-dts-mass-commits", "/interco", "/interco-approval"] },
+        { ref: orderingOpen, paths: ["/store-orders", "/emergency-orders", "/additional-orders", "/dts-orders", "/orders-approval", "/cs-approvals", "/additional-orders-approval", "/emergency-orders-approval", "/mass-orders", "/cs-mass-commits", "/dts-mass-orders", "/cs-dts-mass-commits", "/interco", "/interco-approval", "/store-commits"] },
         { ref: receivingOpen, paths: ["/direct-receiving", "/orders-receiving", "/approved-orders", "/receiving-approvals"] },
         { ref: salesOpen, paths: ["/sales-orders", "/store-transactions", "/store-transactions-approval"] },
         { ref: inventoryOpen, paths: ["/items-list", "/sapitems-list", "/SupplierItems-list", "/POSMasterfile-list", "/pos-bom-list", "/stock-management", "/soh-adjustment", "/low-on-stocks", "/month-end-count", "/month-end-count-approvals", "/month-end-count-approvals-level2"] },
@@ -241,7 +242,7 @@ watchEffect(() => {
         { ref: regularDTSOpen, paths: ["/dts-orders"] },
         { ref: regularMassOpen, paths: ["/mass-orders", "/cs-mass-commits"] },
         { ref: dtsMassOpen, paths: ["/dts-mass-orders", "/cs-dts-mass-commits"] },
-        { ref: stockTransferOpen, paths: ["/interco", "/interco-approval"] },
+        { ref: stockTransferOpen, paths: ["/interco", "/interco-approval", "/store-commits"] },
         { ref: othersOpen, paths: ["/emergency-orders", "/emergency-orders-approval", "/additional-orders", "/additional-orders-approval"] },
     ];
 
@@ -454,6 +455,14 @@ watchEffect(() => {
                             :is-active="isPathActive('/interco-approval')"
                         >
                             Interco Approval
+                        </NavLink>
+                        <NavLink
+                            v-if="hasAccess('view store commits')"
+                            href="/store-commits"
+                            :icon="ClipboardCheck"
+                            :is-active="isPathActive('/store-commits')"
+                        >
+                            Store Commits
                         </NavLink>
                     </CollapsibleContent>
                 </Collapsible>

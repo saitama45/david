@@ -101,6 +101,9 @@ class RoleService
                 'Interco Approval' => [
                     'view interco approvals'
                 ],
+                'Store Commits' => [
+                    'view store commits', 'commit store orders', 'export store commits'
+                ],
                 'DTS Orders' => [
                     'view dts orders', 'create dts orders', 'edit dts orders', 'view dts order', 'export dts orders'
                 ],

@@ -85,16 +85,7 @@ const totalItems = computed(() => {
   return Number(total) || 0
 })
 
-const totalValue = computed(() => {
-  if (!props.order?.store_order_items || !Array.isArray(props.order.store_order_items)) return 0
-  const value = props.order.store_order_items.reduce((total, item) => {
-    return total + ((Number(item.quantity_ordered) || 0) * (Number(item.cost_per_quantity) || 0))
-  }, 0)
-  return new Intl.NumberFormat('en-PH', {
-    style: 'currency',
-    currency: 'PHP'
-  }).format(value)
-})
+
 
 const receivedItems = computed(() => {
   if (!props.order?.store_order_items || !Array.isArray(props.order.store_order_items)) return 0
@@ -270,72 +261,9 @@ const goToEdit = () => {
                   </div>
                 </div>
 
-                <Separator />
 
-                <!-- Dates -->
-                <div>
-                  <p class="text-sm font-medium text-muted-foreground mb-2">Timeline</p>
-                  <div class="space-y-2">
-                    <div class="flex items-center gap-2">
-                      <Calendar class="w-4 h-4 text-muted-foreground" />
-                      <div>
-                        <p class="text-xs text-muted-foreground">Created</p>
-                        <p class="text-sm">{{ formatDate(createdDate) }}</p>
-                      </div>
-                    </div>
-                    <div v-if="order.approval_action_date" class="flex items-center gap-2">
-                      <CheckCircle class="w-4 h-4 text-blue-600" />
-                      <div>
-                        <p class="text-xs text-muted-foreground">Approved</p>
-                        <p class="text-sm">{{ formatDate(order.approval_action_date) }}</p>
-                      </div>
-                    </div>
-                    <div v-if="order.commited_action_date" class="flex items-center gap-2">
-                      <Package class="w-4 h-4 text-yellow-600" />
-                      <div>
-                        <p class="text-xs text-muted-foreground">Committed</p>
-                        <p class="text-sm">{{ formatDate(order.commited_action_date) }}</p>
-                      </div>
-                    </div>
-                  </div>
-                </div>
 
-                <Separator />
 
-                <!-- People -->
-                <div>
-                  <p class="text-sm font-medium text-muted-foreground mb-2">People</p>
-                  <div class="space-y-2">
-                    <div v-if="order.encoder" class="flex items-center gap-2">
-                      <User class="w-4 h-4 text-muted-foreground" />
-                      <div>
-                        <p class="text-xs text-muted-foreground">Created by</p>
-                        <p class="text-sm">{{ formatUserName(order.encoder) }}</p>
-                      </div>
-                    </div>
-                    <div v-else class="flex items-center gap-2">
-                      <User class="w-4 h-4 text-muted-foreground" />
-                      <div>
-                        <p class="text-xs text-muted-foreground">Created by</p>
-                        <p class="text-sm text-muted-foreground">Not specified</p>
-                      </div>
-                    </div>
-                    <div v-if="order.approver" class="flex items-center gap-2">
-                      <CheckCircle class="w-4 h-4 text-blue-600" />
-                      <div>
-                        <p class="text-xs text-muted-foreground">Approved by</p>
-                        <p class="text-sm">{{ formatUserName(order.approver) }}</p>
-                      </div>
-                    </div>
-                    <div v-if="order.commiter" class="flex items-center gap-2">
-                      <Package class="w-4 h-4 text-yellow-600" />
-                      <div>
-                        <p class="text-xs text-muted-foreground">Committed by</p>
-                        <p class="text-sm">{{ formatUserName(order.commiter) }}</p>
-                      </div>
-                    </div>
-                  </div>
-                </div>
               </div>
             </CardContent>
           </Card>
@@ -379,19 +307,7 @@ const goToEdit = () => {
               <CardTitle>Transfer Items</CardTitle>
             </CardHeader>
             <CardContent>
-              <!-- Progress Bar -->
-              <div v-if="status !== 'open'" class="mb-6">
-                <div class="flex items-center justify-between mb-2">
-                  <span class="text-sm font-medium">Transfer Progress</span>
-                  <span class="text-sm text-muted-foreground">{{ formatNumber(progressPercentage) }}%</span>
-                </div>
-                <div class="w-full bg-secondary rounded-full h-2">
-                  <div
-                    class="bg-primary h-2 rounded-full transition-all duration-500"
-                    :style="{ width: `${formatNumber(progressPercentage)}%` }"
-                  ></div>
-                </div>
-              </div>
+
 
               <!-- Items Table -->
               <Table>
@@ -401,7 +317,6 @@ const goToEdit = () => {
                     <TableHead>Description</TableHead>
                     <TableHead>Quantity</TableHead>
                     <TableHead>Received</TableHead>
-                    <TableHead>Status</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -434,19 +349,7 @@ const goToEdit = () => {
                         </span>
                       </div>
                     </TableCell>
-                    <TableCell>
-                      <div class="flex items-center gap-2">
-                        <div v-if="item.quantity_received === item.quantity_ordered && item.quantity_received > 0"
-                             class="w-2 h-2 rounded-full bg-green-500"></div>
-                        <div v-else-if="item.quantity_received > 0"
-                             class="w-2 h-2 rounded-full bg-yellow-500"></div>
-                        <div v-else class="w-2 h-2 rounded-full bg-gray-300"></div>
-                        <span class="text-sm">
-                          {{ item.quantity_received === item.quantity_ordered && item.quantity_received > 0 ? 'Complete' :
-                             item.quantity_received > 0 ? 'Partial' : 'Pending' }}
-                        </span>
-                      </div>
-                    </TableCell>
+
                   </TableRow>
                 </TableBody>
               </Table>
@@ -454,7 +357,7 @@ const goToEdit = () => {
               <!-- Summary Row -->
               <div class="mt-4 pt-4 border-t">
                 <div class="flex justify-between items-center">
-                  <span class="text-sm font-medium">Total Items: {{ formatNumber(totalItems) }}</span>
+                  <span class="text-sm font-medium">Total Quantity: {{ formatNumber(totalItems) }}</span>
                   <!-- Removed totalValue currency display as requested -->
                 </div>
               </div>
