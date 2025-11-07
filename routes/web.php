@@ -62,6 +62,7 @@ use App\Http\Controllers\StoreBranchController;
 use App\Http\Controllers\StoreOrderController;
 use App\Http\Controllers\IntercoController;
 use App\Http\Controllers\IntercoApprovalController;
+use App\Http\Controllers\IntercoReceivingController;
 use App\Http\Controllers\StoreTransactionApprovalController;
 use App\Http\Controllers\StoreTransactionController;
 use App\Http\Controllers\SupplierController;
@@ -544,6 +545,16 @@ Route::middleware('auth')
             Route::middleware('permission:approve interco requests')->post('/interco-approval/approve', 'approve')->name('approve');
             Route::middleware('permission:approve interco requests')->post('/interco-approval/disapprove', 'disapprove')->name('disapprove');
             Route::middleware('permission:approve interco requests')->post('/interco-approval/update-quantity/{itemId}', 'updateQuantity')->name('update-quantity');
+        });
+
+        // Interco Receiving
+        Route::controller(IntercoReceivingController::class)->name('interco-receiving.')->prefix('interco-receiving')->group(function () {
+            Route::middleware('permission:view interco receiving')->get('/', 'index')->name('index');
+            Route::middleware('permission:view interco receiving')->get('/show/{id}', 'show')->name('show');
+            Route::middleware('permission:receive interco requests')->post('/receive/{id}', 'receive')->name('receive');
+            Route::middleware('permission:export interco receiving')->get('/export', 'export')->name('export');
+            Route::post('/update-receiving-history', 'updateReceiveDateHistory')->name('update-receiving-history');
+            Route::post('/confirm-receive/{intercoNumber}', 'confirmReceive')->name('confirm-receive');
         });
 
         // Store Commits

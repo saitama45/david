@@ -223,15 +223,15 @@ class IntercoService extends StoreOrderService
     /**
      * Get summary statistics for interco transfers
      */
-    public function getIntercoStatistics(?int $storeId = null): array
+    public function getIntercoStatistics(?array $storeIds = null): array
     {
         $query = StoreOrder::whereNotNull('interco_number')
             ->whereNotNull('sending_store_branch_id');
 
-        if ($storeId) {
-            $query->where(function($q) use ($storeId) {
-                $q->where('store_branch_id', $storeId)
-                  ->orWhere('sending_store_branch_id', $storeId);
+        if ($storeIds) {
+            $query->where(function($q) use ($storeIds) {
+                $q->whereIn('store_branch_id', $storeIds)
+                  ->orWhereIn('sending_store_branch_id', $storeIds);
             });
         }
 

@@ -156,7 +156,8 @@ const canViewReceivingGroup = computed(() =>
     hasAccess("view direct receiving") ||
     hasAccess("view approved orders") ||
     hasAccess("view received orders for approval list") ||
-    hasAccess("view approved received items")
+    hasAccess("view approved received items") ||
+    hasAccess("view interco receiving")
 );
 
 const canViewSalesGroup = computed(() =>
@@ -232,7 +233,7 @@ watchEffect(() => {
     const sections = [
         { ref: settingsOpen, paths: ["/users", "/roles", "/templates", "/dts-delivery-schedules", "/dsp-delivery-schedules", "/orders-cutoff", "/month-end-schedules"] },
         { ref: orderingOpen, paths: ["/store-orders", "/emergency-orders", "/additional-orders", "/dts-orders", "/orders-approval", "/cs-approvals", "/additional-orders-approval", "/emergency-orders-approval", "/mass-orders", "/cs-mass-commits", "/dts-mass-orders", "/cs-dts-mass-commits", "/interco", "/interco-approval", "/store-commits"] },
-        { ref: receivingOpen, paths: ["/direct-receiving", "/orders-receiving", "/approved-orders", "/receiving-approvals"] },
+        { ref: receivingOpen, paths: ["/direct-receiving", "/orders-receiving", "/approved-orders", "/receiving-approvals", "/interco-receiving"] },
         { ref: salesOpen, paths: ["/sales-orders", "/store-transactions", "/store-transactions-approval"] },
         { ref: inventoryOpen, paths: ["/items-list", "/sapitems-list", "/SupplierItems-list", "/POSMasterfile-list", "/pos-bom-list", "/stock-management", "/soh-adjustment", "/low-on-stocks", "/month-end-count", "/month-end-count-approvals", "/month-end-count-approvals-level2"] },
         { ref: reportsOpen, paths: ["/reports/consolidated-so", "/top-10-inventories", "/days-inventory-outstanding", "/days-payable-outstanding", "/sales-report", "/inventories-report", "/upcoming-inventories", "/account-payable", "/cost-of-goods", "/product-orders-summary", "/ice-cream-orders", "/salmon-orders", "/fruits-and-vegetables"] }, // CRITICAL FIX: Added new path
@@ -562,6 +563,14 @@ watchEffect(() => {
                     :is-active="isPathActive('/approved-orders')"
                 >
                     Confirmed/Approved Received SO
+                </NavLink>
+                <NavLink
+                    v-if="hasAccess('view interco receiving')"
+                    href="/interco-receiving"
+                    :icon="Truck"
+                    :is-active="isPathActive('/interco-receiving')"
+                >
+                    Interco Receiving
                 </NavLink>
             </CollapsibleContent>
         </Collapsible>

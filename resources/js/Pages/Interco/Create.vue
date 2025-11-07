@@ -607,6 +607,7 @@ const executeFormSubmission = () => {
       const mappedItem = {
         item_code: String(item.item_code),
         quantity_ordered: parseInt(Number(item.quantity_ordered)),
+        quantity_committed: parseInt(Number(item.quantity_ordered)),
         cost_per_quantity: Number(item.cost_per_quantity || 1.0),
         uom: String(item.unit_of_measurement || item.uom || 'PCS'),
         remarks: item.remarks || ''

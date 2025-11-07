@@ -18,7 +18,7 @@ class IntercoApprovalController extends Controller
      */
     public function index(Request $request)
     {
-        $currentFilter = $request->get('currentFilter', 'all');
+        $currentFilter = $request->get('currentFilter', 'open');
         $search = $request->get('search');
 
         // Get current user's assigned store branches

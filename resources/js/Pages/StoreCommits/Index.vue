@@ -11,7 +11,7 @@ const confirm = useConfirm();
 const { toast } = useToast();
 const { hasAccess } = useAuth();
 
-let filter = ref(usePage().props.filters.currentFilter || "all");
+let filter = ref(usePage().props.filters.currentFilter || "approved");
 let search = ref(usePage().props.filters.search);
 
 watch(filter, function (value) {

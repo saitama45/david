@@ -101,6 +101,9 @@ class RoleService
                 'Interco Approval' => [
                     'view interco approvals'
                 ],
+                'Interco Receiving' => [
+                    'view interco receiving', 'receive interco requests', 'view interco receiving approvals', 'export interco receiving'
+                ],
                 'Store Commits' => [
                     'view store commits', 'commit store orders', 'export store commits'
                 ],

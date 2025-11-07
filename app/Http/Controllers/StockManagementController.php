@@ -245,6 +245,7 @@ class StockManagementController extends Controller
             // If purchaseItemBatch, storeOrderItem, or store_order is null, the chain will safely return null.
             $item->display_ref_no = $item->purchaseItemBatch?->storeOrderItem?->store_order?->order_number ?? 'N/a';
             $item->is_link_ref = (bool)($item->purchaseItemBatch?->storeOrderItem?->store_order?->order_number);
+            $item->ref_type = $item->is_link_ref ? 'store-order' : null; // Add ref_type
 
             $chronologicalTransactions->push($item);
             Log::debug("StockManagementController: After ADD Item ID {$item->id}, Action: {$item->action}, Quantity: {$item->quantity}, Running SOH: {$runningSOH}, Display Ref: {$item->display_ref_no}");
@@ -256,14 +257,19 @@ class StockManagementController extends Controller
             $runningSOH += $quantityChange;
             $item->running_soh = $runningSOH;
 
-            // For 'out' actions, extract receipt number from remarks if present
-            // This logic was already robust for 'out' transactions.
-            if (preg_match('/Receipt No\. (\d+)/', $item->remarks, $matches)) {
+            // For 'out' actions, check for Interco transfer first
+            if (preg_match('/Interco transfer to .* \(Interco: (.*?)\)/', $item->remarks, $matches)) {
+                $item->display_ref_no = $matches[1]; // Extracted interco_number
+                $item->is_link_ref = true;
+                $item->ref_type = 'interco'; // Set ref_type to interco
+            } elseif (preg_match('/Receipt No\. (\d+)/', $item->remarks, $matches)) {
                 $item->display_ref_no = $matches[1];
-                $item->is_link_ref = false; // Store transaction receipts are not direct links in this context
+                $item->is_link_ref = false;
+                $item->ref_type = 'receipt'; // Or some other type if needed
             } else {
                 $item->display_ref_no = 'N/a';
                 $item->is_link_ref = false;
+                $item->ref_type = null;
             }
             $chronologicalTransactions->push($item);
             Log::debug("StockManagementController: After OUT Item ID {$item->id}, Action: {$item->action}, Quantity: {$item->quantity}, Running SOH: {$runningSOH}, Display Ref: {$item->display_ref_no}");

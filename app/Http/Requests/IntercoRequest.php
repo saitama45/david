@@ -66,6 +66,12 @@ class IntercoRequest extends FormRequest
                 'min:1',
                 'max:999999',
             ],
+            'items.*.quantity_committed' => [
+                'required',
+                'integer',
+                'min:1',
+                'max:999999',
+            ],
             'items.*.cost_per_quantity' => [
                 'required',
                 'numeric',

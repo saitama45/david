@@ -45,7 +45,10 @@ class IntercoController extends Controller
         // Apply store-based filtering for ALL users based on receiving store (store_branch_id)
         // This matches the IntercoApproval pattern and UserAssignedStoreBranch model
         if ($assignedStoreIds->isNotEmpty()) {
-            $query->whereIn('store_branch_id', $assignedStoreIds);
+            $query->where(function($q) use ($assignedStoreIds) {
+                $q->whereIn('store_branch_id', $assignedStoreIds)
+                  ->orWhereIn('sending_store_branch_id', $assignedStoreIds);
+            });
         } else {
             // User has no assigned stores - return empty results
             $query->whereRaw('1 = 0');
@@ -74,7 +77,7 @@ class IntercoController extends Controller
 
         $orders = $query->latest()->paginate(10);
         $statistics = $this->intercoService->getIntercoStatistics(
-            $assignedStoreIds->isNotEmpty() ? $assignedStoreIds->first() : null
+            $assignedStoreIds->isNotEmpty() ? $assignedStoreIds->toArray() : null
         );
 
         return Inertia::render('Interco/Index', [
@@ -210,6 +213,7 @@ class IntercoController extends Controller
                         'sap_masterfile_id' => $sapMasterfile->id, // CRITICAL: Set the relationship
                         'quantity_ordered' => $itemData['quantity_ordered'],
                         'quantity_approved' => $itemData['quantity_ordered'],
+                        'quantity_commited' => $itemData['quantity_ordered'],
                         'cost_per_quantity' => $itemData['cost_per_quantity'] ?? 1.0,
                         'total_cost' => ($itemData['quantity_ordered'] * ($itemData['cost_per_quantity'] ?? 1.0)),
                         'uom' => $itemData['uom'] ?? 'PCS',
@@ -416,6 +420,7 @@ class IntercoController extends Controller
                         'item_code' => $itemData['item_code'],
                         'quantity_ordered' => $itemData['quantity_ordered'],
                         'quantity_approved' => $itemData['quantity_ordered'],
+                        'quantity_commited' => $itemData['quantity_ordered'],
                         'cost_per_quantity' => $itemData['cost_per_quantity'],
                         'total_cost' => $itemData['quantity_ordered'] * $itemData['cost_per_quantity'],
                         'uom' => $itemData['uom'],
@@ -427,6 +432,7 @@ class IntercoController extends Controller
                         'item_code' => $itemData['item_code'],
                         'quantity_ordered' => $itemData['quantity_ordered'],
                         'quantity_approved' => $itemData['quantity_ordered'],
+                        'quantity_commited' => $itemData['quantity_ordered'],
                         'cost_per_quantity' => $itemData['cost_per_quantity'],
                         'total_cost' => $itemData['quantity_ordered'] * $itemData['cost_per_quantity'],
                         'uom' => $itemData['uom'],

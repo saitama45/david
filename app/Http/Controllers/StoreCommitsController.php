@@ -6,6 +6,7 @@ use App\Models\ProductInventoryStock;
 use App\Models\StoreOrder;
 use App\Models\StoreOrderItem;
 use App\Models\StoreOrderRemark;
+use App\Models\OrderedItemReceiveDate;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -30,7 +31,7 @@ class StoreCommitsController extends Controller
         });
 
         // Apply status filter using interco_status
-        $currentFilter = $request->get('currentFilter', 'all');
+        $currentFilter = $request->get('currentFilter', 'approved');
         if ($currentFilter === 'approved') {
             $query->where('interco_status', 'approved');
         } elseif ($currentFilter === 'in_transit') {
@@ -239,7 +240,8 @@ class StoreCommitsController extends Controller
         \Log::info('Request validation passed');
 
         $user = auth()->user();
-        $order = StoreOrder::whereNotNull('store_branch_id') // Validate it's a store order
+        $order = StoreOrder::with('store_order_items')
+            ->whereNotNull('store_branch_id') // Validate it's a store order
             ->findOrFail($request->order_id);
 
         \Log::info('Order found', [
@@ -295,6 +297,21 @@ class StoreCommitsController extends Controller
                 'commiter_id' => $user->id,
                 'commited_action_date' => now(),
             ]);
+
+            if ($newStatus === 'in_transit') {
+                foreach ($order->store_order_items as $item) {
+                    OrderedItemReceiveDate::create([
+                        'store_order_item_id' => $item->id,
+                        'received_by_user_id' => $user->id,
+                        'approval_action_by' => null,
+                        'quantity_received' => $item->quantity_commited,
+                        'received_date' => null,
+                        'expiry_date' => null,
+                        'remarks' => null,
+                        'status' => 'pending',
+                    ]);
+                }
+            }
 
             // Add remark
             StoreOrderRemark::create([

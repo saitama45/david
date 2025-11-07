@@ -356,6 +356,10 @@ const formatDisplayDateTime = (dateString) => {
 const showOrderDetails = (id) => router.get(route('mass-orders.show', id));
 const editOrderDetails = (id) => router.get(route('mass-orders.edit', id));
 
+const filteredSuppliers = computed(() => {
+    return props.suppliers.filter(supplier => supplier.value !== 'DROPS');
+});
+
 </script>
 
 <template>
@@ -389,14 +393,14 @@ const editOrderDetails = (id) => router.get(route('mass-orders.edit', id));
                     <div class="space-y-6">
                         <!-- Supplier -->
                         <div>
-                            <label for="supplier" class="block text-sm font-medium text-gray-700 mb-1">Supplier</label>
+                            <label for="supplier" class="block text-sm font-medium text-gray-700 mb-1">Ordering Template</label>
                             <Select
                                 v-model="form.supplier_code"
                                 filter
-                                :options="props.suppliers"
+                                :options="filteredSuppliers"
                                 optionLabel="label"
                                 optionValue="value"
-                                placeholder="Select a Supplier"
+                                placeholder="Select an Ordering Template"
                                 class="w-full"
                             />
                         </div>

@@ -100,7 +100,7 @@ const dynamicHeading = computed(() => {
                             <!-- CRITICAL FIX: Conditional display for Ref No. -->
                             <a
                                 v-if="data.is_link_ref && data.display_ref_no !== 'N/a'"
-                                :href="route('store-orders.show', data.display_ref_no)"
+                                :href="data.ref_type === 'interco' ? route('interco.show', data.display_ref_no) : route('store-orders.show', data.display_ref_no)"
                                 target="_blank"
                                 class="text-blue-600 hover:underline"
                             >
@@ -130,7 +130,7 @@ const dynamicHeading = computed(() => {
                         <!-- CRITICAL FIX: Conditional display for Ref No. -->
                         <a
                             v-if="data.is_link_ref && data.display_ref_no !== 'N/a'"
-                            :href="route('store-orders.show', data.display_ref_no)"
+                            :href="data.ref_type === 'interco' ? route('interco.show', data.display_ref_no) : route('store-orders.show', data.display_ref_no)"
                             target="_blank"
                             class="text-blue-600 hover:underline"
                         >
