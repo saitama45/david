@@ -46,8 +46,8 @@ class SupplierItemsController extends Controller
             // Eager load the sapMasterfiles (plural) relationship.
             // The accessor `sap_masterfile` will then filter this loaded collection.
             ->with(['sapMasterfiles' => function($q) {
-                // IMPORTANT FIX: Include 'BaseQTY' in the select statement
-                $q->select('id', 'ItemCode', 'BaseUOM', 'AltUOM', 'BaseQTY'); 
+                // IMPORTANT FIX: Include 'BaseQty' in the select statement
+                $q->select('id', 'ItemCode', 'BaseUOM', 'AltUOM', 'BaseQty');
             }])
             // Filter SupplierItems to only include those assigned to the current user
             ->whereIn('SupplierCode', $assignedSupplierCodes);
@@ -85,16 +85,24 @@ class SupplierItemsController extends Controller
         // Explicitly transform the collection to force accessor execution and attach BaseUOM
         $items->getCollection()->transform(function ($item) {
             // Access the accessor to get the matching SAPMasterfile model
-            $sapMasterfile = $item->sap_masterfile; 
-            
+            $sapMasterfile = $item->sap_masterfile;
+
             // Attach the BaseUOM to a new property on the item for frontend access
             $item->base_uom_display = $sapMasterfile ? $sapMasterfile->BaseUOM : null;
             $item->category_2 = $item->category2;
-            
+
+            // Calculate and attach actual cost using BaseQty * Cost
+            $baseQty = $sapMasterfile ? $sapMasterfile->BaseQTY : 1; // Default to 1 if no BaseQty
+            $cost = $item->cost ?? 0;
+            $item->actual_cost = ($baseQty * $cost);
+
+            // Also attach the base_qty for potential frontend use
+            $item->base_qty = $sapMasterfile ? $sapMasterfile->BaseQTY : null;
+
             // Optionally, unset the 'sap_masterfiles' relationship to reduce payload size
             // if only 'base_uom_display' is needed in the frontend.
-            unset($item->sapMasterfiles); 
-            
+            unset($item->sapMasterfiles);
+
             return $item;
         });
 
@@ -340,8 +348,8 @@ class SupplierItemsController extends Controller
         $item = SupplierItems::where('ItemCode', $itemCode)
                             ->where('SupplierCode', $supplierCode)
                             ->with(['sapMasterfiles' => function($q) {
-                                // IMPORTANT FIX: Include 'BaseQTY' in the select statement
-                                $q->select('id', 'ItemCode', 'BaseUOM', 'AltUOM', 'BaseQTY');
+                                // IMPORTANT FIX: Include 'BaseQty' in the select statement
+                                $q->select('id', 'ItemCode', 'BaseUOM', 'AltUOM', 'BaseQty');
                             }])
                             ->first();
 

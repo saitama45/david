@@ -209,6 +209,7 @@ watch(importSummary, (newValue) => {
                     <TH>BaseUOM</TH> <!-- New column header for BaseUOM -->
                     <TH>Unit</TH>
                     <TH>Cost</TH>
+                    <TH>Actual Cost</TH>
                     <TH>SRP</TH> <!-- Added SRP header -->
                     <TH>Supplier Code</TH>
                     <TH>Active</TH>
@@ -228,6 +229,9 @@ watch(importSummary, (newValue) => {
                         <TD>{{ item.base_uom_display }}</TD> <!-- Use the new property -->
                         <TD>{{ item.uom }}</TD>
                         <TD>{{ item.cost }}</TD>
+                        <TD class="font-bold text-blue-600">
+                            {{ item.base_qty ? (item.base_qty * item.cost).toFixed(2) : 'N/A' }}
+                        </TD>
                         <TD>{{ item.srp }}</TD> <!-- Display SRP -->
                         <TD>{{ item.SupplierCode }}</TD>
                         <TD>{{ Number(item.is_active) ? 'Yes' : 'No' }}</TD>
@@ -289,7 +293,8 @@ watch(importSummary, (newValue) => {
                     <LabelXS>Packaging Config: {{ item.packaging_config }}</LabelXS>
                     <LabelXS>BaseUOM: {{ item.base_uom_display }}</LabelXS> <!-- Use the new property -->
                     <LabelXS>UOM: {{ item.uom }}</LabelXS> 
-                    <LabelXS>Cost: {{ item.cost }}</LabelXS> 
+                    <LabelXS>Cost: {{ item.cost }}</LabelXS>
+                    <LabelXS class="font-bold text-blue-600">Actual Cost: {{ item.base_qty ? (item.base_qty * item.cost).toFixed(2) : 'N/A' }}</LabelXS>
                     <LabelXS>SRP: {{ item.srp }}</LabelXS> 
                     <LabelXS>Active: {{ Number(item.is_active) ? 'Yes' : 'No' }}</LabelXS>
                 </MobileTableRow>
