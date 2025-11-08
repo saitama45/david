@@ -136,7 +136,7 @@ const statusBadgeColor = (status) => {
         case "APPROVED": return "bg-teal-500 text-white";
         case "INCOMPLETE": return "bg-orange-500 text-white";
         case "PENDING": return "bg-yellow-500 text-white";
-        case "COMMITED": return "bg-blue-500 text-white";
+        case "COMMITTED": return "bg-blue-500 text-white";
         case "REJECTED": return "bg-red-500 text-white";
         default: return "bg-gray-500 text-white";
     }

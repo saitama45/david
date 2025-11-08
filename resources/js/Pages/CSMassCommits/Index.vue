@@ -55,7 +55,7 @@ const isEditingDisabled = (brandCode) => {
 };
 
 const canUserEditRow = (row) => {
-    const isFinishedGood = row.category === 'FINISHED GOOD';
+    const isFinishedGood = ['FINISHED GOODS', 'FG', 'FINISHED GOOD'].includes(row.category);
     if (isFinishedGood) {
         return props.permissions.canEditFinishedGood;
     } else {
@@ -127,7 +127,19 @@ const saveCommit = () => {
 // --- End Inline Editing ---
 
 // --- Confirm All Logic ---
+const isProcessing = ref(false);
+
 const confirmAllCommits = () => {
+    if (isProcessing.value) {
+        toast.add({
+            severity: 'warn',
+            summary: 'Processing',
+            detail: 'Commit process is already running. Please wait.',
+            life: 3000
+        });
+        return;
+    }
+
     confirm.require({
         message: `Are you sure you want to commit all orders for ${orderDate.value}? This action cannot be undone.`,
         header: 'Confirm All Commits',
@@ -135,19 +147,84 @@ const confirmAllCommits = () => {
         acceptClass: 'p-button-success',
         rejectClass: 'p-button-danger',
         accept: () => {
+            console.log('CS Mass Commits - Starting confirm-all request', {
+                order_date: orderDate.value,
+                supplier_id: supplierId.value,
+                timestamp: new Date().toISOString()
+            });
+
+            isProcessing.value = true;
+
             router.post(route('cs-mass-commits.confirm-all'), {
                 order_date: orderDate.value,
                 supplier_id: supplierId.value,
             }, {
-                onSuccess: () => {
-                    toast.add({ severity: 'success', summary: 'Success', detail: 'All orders have been committed.', life: 3000 });
+                preserveState: true,
+                preserveScroll: true,
+                onStart: () => {
+                    console.log('CS Mass Commits - Request started');
+                    toast.add({
+                        severity: 'info',
+                        summary: 'Processing',
+                        detail: 'Committing orders... This may take a moment.',
+                        life: 2000
+                    });
+                },
+                onSuccess: (page) => {
+                    console.log('CS Mass Commits - Request successful', {
+                        response: page,
+                        timestamp: new Date().toISOString()
+                    });
+
+                    isProcessing.value = false;
+
+                    // Extract message from flash data if available
+                    const flashMessage = page.props.flash?.success || page.props.flash?.info;
+                    const messageText = flashMessage || 'Orders have been processed.';
+                    const messageType = page.props.flash?.success ? 'success' : (page.props.flash?.info ? 'info' : 'success');
+
+                    toast.add({
+                        severity: messageType,
+                        summary: 'Success',
+                        detail: messageText,
+                        life: 4000
+                    });
+
+                    // Force a page reload to refresh the data
+                    setTimeout(() => {
+                        router.reload({
+                            preserveScroll: true,
+                            onSuccess: () => {
+                                console.log('CS Mass Commits - Page reloaded successfully');
+                            }
+                        });
+                    }, 500);
                 },
                 onError: (errors) => {
+                    console.error('CS Mass Commits - Request failed', {
+                        errors: errors,
+                        timestamp: new Date().toISOString()
+                    });
+
+                    isProcessing.value = false;
+
                     const errorMsg = Object.values(errors)[0] || 'An unknown error occurred during the commit process.';
-                    toast.add({ severity: 'error', summary: 'Commit Failed', detail: errorMsg, life: 5000 });
+                    toast.add({
+                        severity: 'error',
+                        summary: 'Commit Failed',
+                        detail: errorMsg,
+                        life: 6000
+                    });
+                },
+                onFinish: () => {
+                    console.log('CS Mass Commits - Request finished');
+                    isProcessing.value = false;
                 }
             });
         },
+        reject: () => {
+            console.log('CS Mass Commits - User cancelled the commit operation');
+        }
     });
 };
 
@@ -158,7 +235,8 @@ const statusBadgeColor = (status) => {
         case "APPROVED": return "bg-teal-500 text-white";
         case "INCOMPLETE": return "bg-orange-500 text-white";
         case "PENDING": return "bg-yellow-500 text-white";
-        case "COMMITED": return "bg-blue-500 text-white";
+        case "COMMITTED": return "bg-blue-500 text-white";
+        case "PARTIAL_COMMITTED": return "bg-indigo-500 text-white";
         case "REJECTED": return "bg-red-500 text-white";
         default: return "bg-gray-500 text-white";
     }
@@ -265,8 +343,21 @@ const totalColumns = computed(() => staticHeaders.value.length + branchCount.val
                     <Button @click="resetFilters" variant="outline">
                         Reset Filters
                     </Button>
-                    <Button v-if="canConfirmAny" @click="confirmAllCommits" variant="destructive">
-                        Confirm All Commits
+                    <Button
+                        v-if="canConfirmAny"
+                        @click="confirmAllCommits"
+                        variant="destructive"
+                        :disabled="isProcessing"
+                        :class="{ 'opacity-50 cursor-not-allowed': isProcessing }"
+                    >
+                        <span v-if="isProcessing" class="flex items-center gap-2">
+                            <svg class="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                            </svg>
+                            Processing...
+                        </span>
+                        <span v-else>Confirm All Commits</span>
                     </Button>
                 </div>
             </TableHeader>

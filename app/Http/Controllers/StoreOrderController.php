@@ -94,7 +94,7 @@ class StoreOrderController extends Controller
 
         $orderedItems = $this->storeOrderService->getOrderItems($order);
         // Eager load the 'sapMasterfiles' relationship (plural) for ordered items.
-        $orderedItems->load('supplierItem.sapMasterfiles');
+        $orderedItems->load(['supplierItem.sapMasterfiles', 'committedBy']);
 
         return Inertia::render('StoreOrder/Show', [
             'order' => $order,

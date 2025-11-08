@@ -143,7 +143,7 @@ class CSCommitService extends OrderApprovalService // Assuming OrderApprovalServ
         DB::beginTransaction();
         $storeOrder = StoreOrder::findOrFail($data['id']);
         $storeOrder->update([
-            'order_status' => OrderStatus::COMMITED->value,
+            'order_status' => OrderStatus::COMMITTED->value,
             'commiter_id' => Auth::user()->id,
             'commited_action_date' => Carbon::now()
         ]);

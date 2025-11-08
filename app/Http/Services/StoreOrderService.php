@@ -151,6 +151,7 @@ class StoreOrderService
             'store_branch',
             'supplier',
             'store_order_items.supplierItem.sapMasterfiles', // Eager load this for the main ordered items table
+            'store_order_items.committedBy', // Eager load committed users for order items
             'store_order_remarks',
             'store_order_remarks.user',
             'image_attachments',

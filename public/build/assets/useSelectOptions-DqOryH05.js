@@ -1,1 +1,0 @@
-import{l as n}from"./app-DPA7xop8.js";function s(r){return{options:n(()=>r?Array.isArray(r)&&r.length>0&&typeof r[0].value<"u"&&typeof r[0].label<"u"?r.map(e=>({value:isNaN(Number(e.value))?e.value:Number(e.value),label:e.label})):Object.entries(r).map(([e,u])=>({value:isNaN(Number(e))?e:Number(e),label:u})):[])}}export{s as u};

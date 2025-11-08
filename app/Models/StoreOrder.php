@@ -220,4 +220,116 @@ class StoreOrder extends Model implements Auditable
                $this->store_branch->branch_name ?:
                'Unknown Receiving Store';
     }
+
+    /**
+     * Check if this order has any committed items
+     */
+    public function hasCommittedItems()
+    {
+        return $this->store_order_items()->whereNotNull('committed_by')->exists();
+    }
+
+    /**
+     * Get the count of committed items
+     */
+    public function getCommittedItemsCount()
+    {
+        return $this->store_order_items()->whereNotNull('committed_by')->count();
+    }
+
+    /**
+     * Get the count of total items
+     */
+    public function getTotalItemsCount()
+    {
+        return $this->store_order_items()->count();
+    }
+
+    /**
+     * Check if all items in this order are committed
+     */
+    public function isFullyCommitted()
+    {
+        $totalItems = $this->getTotalItemsCount();
+        $committedItems = $this->getCommittedItemsCount();
+
+        return $totalItems > 0 && $totalItems === $committedItems;
+    }
+
+    /**
+     * Check if this order is partially committed (some but not all items)
+     */
+    public function isPartiallyCommitted()
+    {
+        $totalItems = $this->getTotalItemsCount();
+        $committedItems = $this->getCommittedItemsCount();
+
+        return $totalItems > 0 && $committedItems > 0 && $committedItems < $totalItems;
+    }
+
+    /**
+     * Get items that can be committed by the given user based on permissions
+     */
+    public function getCommittableItemsByUser($user)
+    {
+        if (!$user) {
+            return collect();
+        }
+
+        return $this->store_order_items->filter(function ($item) use ($user) {
+            return $item->canBeCommittedBy($user);
+        });
+    }
+
+    /**
+     * Get items that are already committed by the given user
+     */
+    public function getItemsCommittedByUser($user)
+    {
+        if (!$user) {
+            return collect();
+        }
+
+        return $this->store_order_items->filter(function ($item) use ($user) {
+            return $item->isCommittedBy($user->id);
+        });
+    }
+
+    /**
+     * Get items that are committed by other users
+     */
+    public function getItemsCommittedByOthers($user)
+    {
+        if (!$user) {
+            return collect();
+        }
+
+        return $this->store_order_items->filter(function ($item) use ($user) {
+            return $item->committed_by && $item->committed_by !== $user->id;
+        });
+    }
+
+    /**
+     * Get items that are not yet committed by anyone
+     */
+    public function getUncommittedItems()
+    {
+        return $this->store_order_items->filter(function ($item) {
+            return is_null($item->committed_by);
+        });
+    }
+
+    /**
+     * Update order status based on commit status of items
+     */
+    public function updateOrderStatusBasedOnCommits()
+    {
+        if ($this->isFullyCommitted()) {
+            $this->order_status = \App\Enum\OrderStatus::COMMITTED->value;
+        } elseif ($this->isPartiallyCommitted()) {
+            $this->order_status = \App\Enum\OrderStatus::PARTIAL_COMMITTED->value;
+        }
+
+        $this->save();
+    }
 }

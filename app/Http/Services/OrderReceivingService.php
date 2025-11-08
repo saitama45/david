@@ -63,17 +63,17 @@ class OrderReceivingService extends StoreOrderService
         if ($currentFilter === 'all') {
             // "All" for receiving means orders that are commited, received, or incomplete
             $query->whereIn('order_status', [
-                OrderStatus::COMMITED->value,
+                OrderStatus::COMMITTED->value,
                 OrderStatus::RECEIVED->value,
                 OrderStatus::INCOMPLETE->value
             ]);
-            Log::debug("OrderReceivingService: Applied 'all' status filter: COMMITED, RECEIVED, INCOMPLETE");
+            Log::debug("OrderReceivingService: Applied 'all' status filter: COMMITTED, RECEIVED, INCOMPLETE");
         } else {
             // Determine the canonical lowercase status value from the enum
             $statusToFilter = '';
             switch ($currentFilter) {
                 case 'commited':
-                    $statusToFilter = strtolower(OrderStatus::COMMITED->value);
+                    $statusToFilter = strtolower(OrderStatus::COMMITTED->value);
                     break;
                 case 'received':
                     $statusToFilter = strtolower(OrderStatus::RECEIVED->value);
@@ -119,7 +119,7 @@ class OrderReceivingService extends StoreOrderService
         $counts = [
             'received' => (clone $baseQuery)->where('order_status', OrderStatus::RECEIVED->value)->count(),
             'incomplete' => (clone $baseQuery)->where('order_status', OrderStatus::INCOMPLETE->value)->count(),
-            'commited' => (clone $baseQuery)->where('order_status', OrderStatus::COMMITED->value)->count(),
+            'commited' => (clone $baseQuery)->where('order_status', OrderStatus::COMMITTED->value)->count(),
         ];
         // The 'all' count is the sum of relevant receiving statuses
         $counts['all'] = $counts['received'] + $counts['incomplete'] + $counts['commited'];

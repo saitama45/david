@@ -2,7 +2,7 @@
 import { useBackButton } from "@/Composables/useBackButton";
 import { router } from "@inertiajs/vue3";
 import dayjs from "dayjs";
-import { ref } from "vue"; // Ensure ref is imported
+import { ref, computed } from "vue"; // Ensure ref and computed are imported
 
 const { backButton } = useBackButton(route("mass-orders.index"));
 const statusBadgeColor = (status) => {
@@ -41,6 +41,74 @@ const props = defineProps({
         type: Object,
         required: true,
     },
+});
+
+// Computed property to get committed users information
+const committedUsersInfo = computed(() => {
+    if (!props.orderedItems || !Array.isArray(props.orderedItems)) {
+        return {
+            hasCommittedItems: false,
+            uniqueCommitters: [],
+            formattedDisplay: 'N/a',
+            totalCommittedItems: 0,
+            totalItems: 0
+        };
+    }
+
+    const totalItems = props.orderedItems.length;
+
+    const committedItems = props.orderedItems.filter(item =>
+        item.committed_by
+    );
+
+    const totalCommittedItems = committedItems.length;
+
+    if (totalCommittedItems === 0) {
+        return {
+            hasCommittedItems: false,
+            uniqueCommitters: [],
+            formattedDisplay: 'N/a',
+            totalCommittedItems,
+            totalItems
+        };
+    }
+
+    const uniqueCommitters = committedItems.reduce((acc, item) => {
+        const committer = item.committed_by;
+        if (committer && !acc.find(user => user.id === committer.id)) {
+            acc.push({
+                id: committer.id,
+                name: `${committer.first_name} ${committer.last_name}`.trim()
+            });
+        }
+        return acc;
+    }, []);
+
+    let formattedDisplay = 'N/a';
+
+    if (totalCommittedItems > 0 && totalCommittedItems < totalItems) {
+        // Partially committed: show the first committer
+        if (uniqueCommitters.length > 0) {
+            formattedDisplay = uniqueCommitters[0].name;
+        }
+    } else { // This covers totalCommittedItems === totalItems (fully committed) and also the edge case where totalItems is 0 but committedItems > 0
+        // Fully committed or other cases where committed items exist
+        if (uniqueCommitters.length === 1) {
+            formattedDisplay = uniqueCommitters[0].name;
+        } else if (uniqueCommitters.length === 2) {
+            formattedDisplay = uniqueCommitters.map(u => u.name).join(', ');
+        } else if (uniqueCommitters.length > 2) {
+            formattedDisplay = `${uniqueCommitters[0].name} (+${uniqueCommitters.length - 1} more)`;
+        }
+    }
+
+    return {
+        hasCommittedItems: true,
+        uniqueCommitters,
+        formattedDisplay,
+        totalCommittedItems,
+        totalItems
+    };
 });
 
 // CONSOLE.LOGS REMOVED FROM TEMPLATE AND ADDED HERE TO AVOID ERRORS
@@ -120,11 +188,8 @@ const enlargeImage = (image) => {
                 </InputContainer>
 
                 <InputContainer>
-                    <LabelXS>Commiter: </LabelXS>
-                    <SpanBold
-                        >{{ order.commiter?.first_name }}
-                        {{ order.commiter?.last_name }}</SpanBold
-                    >
+                    <LabelXS>Committer(s): </LabelXS>
+                    <SpanBold>{{ committedUsersInfo.formattedDisplay }}</SpanBold>
                 </InputContainer>
 
                 <InputContainer>

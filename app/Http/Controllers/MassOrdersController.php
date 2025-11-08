@@ -437,6 +437,8 @@ class MassOrdersController extends Controller
             $order->storeOrderItems()->update([
                 'quantity_approved' => \Illuminate\Support\Facades\DB::raw('quantity_ordered'),
                 'quantity_commited' => \Illuminate\Support\Facades\DB::raw('quantity_ordered'),
+                'committed_by' => \Illuminate\Support\Facades\Auth::id(),
+                'committed_date' => now(),
             ]);
 
             return redirect()->route('mass-orders.index')->with('success', 'Order updated successfully!');

@@ -14,8 +14,8 @@ class StoreOrderItem extends Model implements Auditable
 
     protected $touches = ['store_order'];
 
-    // Ensure sapMasterfile relationship is always loaded for JSON serialization
-    protected $with = ['sapMasterfile'];
+    // Ensure relationships are always loaded for JSON serialization and permission checking
+    protected $with = ['sapMasterfile', 'supplierItem'];
 
     // Append computed attributes to JSON
     protected $appends = [
@@ -35,6 +35,8 @@ class StoreOrderItem extends Model implements Auditable
         'total_cost',
         'uom',
         'remarks',
+        'committed_by',
+        'committed_date',
     ];
 
     protected $casts = [
@@ -45,6 +47,11 @@ class StoreOrderItem extends Model implements Auditable
     public function store_order()
     {
         return $this->belongsTo(StoreOrder::class);
+    }
+
+    public function committedBy()
+    {
+        return $this->belongsTo(User::class, 'committed_by');
     }
 
     public function supplierItem()
@@ -207,5 +214,71 @@ class StoreOrderItem extends Model implements Auditable
     {
         // Use the actual UOM field from store_order_items table
         return $this->uom ?: '';
+    }
+
+    /**
+     * Check if this item is committed by a specific user
+     */
+    public function isCommittedBy($userId)
+    {
+        return $this->committed_by === $userId;
+    }
+
+    /**
+     * Mark this item as committed by a user
+     */
+    public function markAsCommittedBy($userId)
+    {
+        $this->committed_by = $userId;
+        $this->committed_date = now();
+        $this->save();
+    }
+
+    /**
+     * Remove commit status from this item
+     */
+    public function removeCommitStatus()
+    {
+        $this->committed_by = null;
+        $this->committed_date = null;
+        $this->save();
+    }
+
+    /**
+     * Check if this item can be committed by the current user based on permissions
+     */
+    public function canBeCommittedBy($user)
+    {
+        if (!$user) {
+            return false;
+        }
+
+        // If item is already committed by this user, they can modify it
+        if ($this->isCommittedBy($user->id)) {
+            return true;
+        }
+
+        // Check supplierItem relationship first (primary source for category)
+        $itemCategory = null;
+        if ($this->supplierItem) {
+            $itemCategory = $this->supplierItem->category;
+        } elseif ($this->sapMasterfile) {
+            // Fallback to SAP masterfile if supplierItem not available
+            $itemCategory = $this->sapMasterfile->Category;
+        }
+
+        if ($itemCategory) {
+            $isFinishedGood = in_array($itemCategory, ['FINISHED GOODS', 'FG', 'FINISHED GOOD']);
+
+            // User can commit if they have the appropriate permission for the item category
+            if ($isFinishedGood) {
+                return $user->can('edit finished good commits');
+            } else {
+                return $user->can('edit other commits');
+            }
+        }
+
+        // If no category found, require at least one permission
+        return $user->can('edit finished good commits') || $user->can('edit other commits');
     }
 }

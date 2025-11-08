@@ -122,6 +122,8 @@ class MassOrderService
                         'cost_per_quantity' => $itemData['cost'],
                         'total_cost' => $itemData['quantity'] * $itemData['cost'],
                         'uom' => $itemData['uom'],
+                        'committed_by' => Auth::id(),
+                        'committed_date' => now(),
                     ]);
                 }
                 $createdCount++;
