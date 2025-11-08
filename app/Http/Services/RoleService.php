@@ -209,6 +209,10 @@ class RoleService
                 'Interco Report' => [
                     'view interco report', 'export interco report'
                 ],
+                // NEW: PMIX Report
+                'PMIX Report' => [
+                    'view pmix report', 'export pmix report'
+                ],
                 'Top 10 Inventories' => [
                     'view top 10 inventories', 'export top 10 inventories'
                 ],

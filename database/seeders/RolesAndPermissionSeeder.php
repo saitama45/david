@@ -377,6 +377,10 @@ class RolesAndPermissionSeeder extends Seeder
         Permission::firstOrCreate(['name' => 'view consolidated so report']);
         Permission::firstOrCreate(['name' => 'export consolidated so report']);
 
+        // NEW: PMIX Report permissions
+        Permission::firstOrCreate(['name' => 'view pmix report']);
+        Permission::firstOrCreate(['name' => 'export pmix report']);
+
 
         // Assign all permissions to the 'admin' role
         $role->syncPermissions(Permission::all());
@@ -414,6 +418,8 @@ class RolesAndPermissionSeeder extends Seeder
             'view POSMasterfile BOM list', 'view POSMasterfile BOM', 'create POSMasterfile BOM', 'edit POSMasterfile BOM', 'import POSMasterfile BOM', 'export POSMasterfile BOM',
             // NEW: Consolidated SO Report permission for store representative
             'view consolidated so report',
+            // NEW: PMIX Report permission for store representative
+            'view pmix report',
         ]);
 
         // Assign specific permissions to 'request approver'
@@ -438,6 +444,8 @@ class RolesAndPermissionSeeder extends Seeder
             'export orders for cs approval list',
             // NEW: Consolidated SO Report permission for request approver
             'view consolidated so report',
+            // NEW: PMIX Report permission for request approver
+            'view pmix report', 'export pmix report',
         ]);
     }
 }

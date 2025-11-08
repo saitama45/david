@@ -64,6 +64,7 @@ use App\Http\Controllers\IntercoController;
 use App\Http\Controllers\IntercoApprovalController;
 use App\Http\Controllers\IntercoReceivingController;
 use App\Http\Controllers\IntercoReportController;
+use App\Http\Controllers\PMIXReportController;
 use App\Http\Controllers\StoreTransactionApprovalController;
 use App\Http\Controllers\StoreTransactionController;
 use App\Http\Controllers\SupplierController;
@@ -155,6 +156,8 @@ Route::middleware('auth')
             Route::get('/consolidated-so/export', [ConsolidatedSOReportController::class, 'export'])->name('reports.consolidated-so.export');
             Route::get('/interco-report', [IntercoReportController::class, 'index'])->name('reports.interco-report.index');
             Route::get('/interco-report/export', [IntercoReportController::class, 'export'])->name('reports.interco-report.export');
+            Route::middleware('permission:view pmix report')->get('/pmix-report', [PMIXReportController::class, 'index'])->name('reports.pmix-report.index');
+            Route::middleware('permission:export pmix report')->get('/pmix-report/export', [PMIXReportController::class, 'export'])->name('reports.pmix-report.export');
         });
 
         Route::controller(DaysPayableOutStanding::class)

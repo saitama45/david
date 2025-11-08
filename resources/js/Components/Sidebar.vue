@@ -182,6 +182,7 @@ const canViewInventoryGroup = computed(() =>
 const canViewReportsGroup = computed(() =>
     hasAccess("view consolidated so report") || // CRITICAL FIX: Added new permission for Consolidated SO Report
     hasAccess("view interco report") || // Added Interco Report permission
+    hasAccess("view pmix report") || // Added PMIX Report permission
     hasAccess("view top 10 inventories") ||
     hasAccess("view days inventory outstanding") ||
     hasAccess("view days payable outstanding") ||
@@ -237,7 +238,7 @@ watchEffect(() => {
         { ref: receivingOpen, paths: ["/direct-receiving", "/orders-receiving", "/approved-orders", "/receiving-approvals", "/interco-receiving"] },
         { ref: salesOpen, paths: ["/sales-orders", "/store-transactions", "/store-transactions-approval"] },
         { ref: inventoryOpen, paths: ["/items-list", "/sapitems-list", "/SupplierItems-list", "/POSMasterfile-list", "/pos-bom-list", "/stock-management", "/soh-adjustment", "/low-on-stocks", "/month-end-count", "/month-end-count-approvals", "/month-end-count-approvals-level2"] },
-        { ref: reportsOpen, paths: ["/reports/consolidated-so", "/reports/interco-report", "/top-10-inventories", "/days-inventory-outstanding", "/days-payable-outstanding", "/sales-report", "/inventories-report", "/upcoming-inventories", "/account-payable", "/cost-of-goods", "/product-orders-summary", "/ice-cream-orders", "/salmon-orders", "/fruits-and-vegetables"] }, // Added Interco Report path
+        { ref: reportsOpen, paths: ["/reports/consolidated-so", "/reports/pmix-report", "/reports/interco-report", "/top-10-inventories", "/days-inventory-outstanding", "/days-payable-outstanding", "/sales-report", "/inventories-report", "/upcoming-inventories", "/account-payable", "/cost-of-goods", "/product-orders-summary", "/ice-cream-orders", "/salmon-orders", "/fruits-and-vegetables"] }, // Added Interco Report and PMIX Report paths
         { ref: referencesOpen, paths: ["/category-list", "/wip-list", "/menu-categories", "/uom-conversions", "/inventory-categories", "/unit-of-measurements", "/branches", "/suppliers", "/cost-centers"] },
         // Nested ordering sections
         { ref: regularOpen, paths: ["/store-orders", "/orders-approval", "/cs-approvals"] },
@@ -750,6 +751,15 @@ watchEffect(() => {
                     :is-active="isPathActive('/reports/consolidated-so')"
                 >
                     Consolidated SO Report
+                </NavLink>
+                <!-- PMIX Report -->
+                <NavLink
+                    v-if="hasAccess('view pmix report')"
+                    href="/reports/pmix-report"
+                    :icon="ChartColumnBig"
+                    :is-active="isPathActive('/reports/pmix-report')"
+                >
+                    PMIX Report
                 </NavLink>
                 <!-- Interco Report -->
                 <NavLink
