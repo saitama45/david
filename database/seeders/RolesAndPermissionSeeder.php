@@ -88,6 +88,10 @@ class RolesAndPermissionSeeder extends Seeder
         Permission::firstOrCreate(['name' => 'view interco receiving approvals']);
         Permission::firstOrCreate(['name' => 'export interco receiving']);
 
+        // Interco Report (New Module)
+        Permission::firstOrCreate(['name' => 'view interco report']);
+        Permission::firstOrCreate(['name' => 'export interco report']);
+
         // Store Commits
         Permission::firstOrCreate(['name' => 'view store commits']);
         Permission::firstOrCreate(['name' => 'commit store orders']);
@@ -392,6 +396,8 @@ class RolesAndPermissionSeeder extends Seeder
             'view interco requests', 'create interco requests', 'edit interco requests',
             // Interco Receiving permissions for store representative
             'view interco receiving', 'receive interco requests',
+            // Interco Report permissions for store representative
+            'view interco report',
             // Store Commits permissions for store representative
             'view store commits',
             'view sapitems list', 'view SupplierItems list', 'view POSMasterfile list',
@@ -424,6 +430,8 @@ class RolesAndPermissionSeeder extends Seeder
             'view interco approvals',
             // Interco Receiving permissions for request approver
             'view interco receiving', 'view interco receiving approvals', 'export interco receiving',
+            // Interco Report permissions for request approver
+            'view interco report', 'export interco report',
             // Store Commits permissions for request approver
             'view store commits', 'commit store orders', 'export store commits',
             // NEW: Export permission for CS Approval List for 'request approver'

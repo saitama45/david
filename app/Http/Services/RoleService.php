@@ -206,6 +206,9 @@ class RoleService
                 'Consolidated SO Report' => [
                     'view consolidated so report', 'export consolidated so report'
                 ],
+                'Interco Report' => [
+                    'view interco report', 'export interco report'
+                ],
                 'Top 10 Inventories' => [
                     'view top 10 inventories', 'export top 10 inventories'
                 ],

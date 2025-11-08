@@ -6,6 +6,7 @@ $vendorDir = dirname(__DIR__);
 $baseDir = dirname($vendorDir);
 
 return array(
+    'App\\Console\\Commands\\CheckStoreData' => $baseDir . '/app/Console/Commands/CheckStoreData.php',
     'App\\Enum\\Days' => $baseDir . '/app/Enum/Days.php',
     'App\\Enum\\OrderRequestStatus' => $baseDir . '/app/Enum/OrderRequestStatus.php',
     'App\\Enum\\OrderStatus' => $baseDir . '/app/Enum/OrderStatus.php',
@@ -94,6 +95,8 @@ return array(
     'App\\Http\\Controllers\\IceCreamOrderController' => $baseDir . '/app/Http/Controllers/IceCreamOrderController.php',
     'App\\Http\\Controllers\\IntercoApprovalController' => $baseDir . '/app/Http/Controllers/IntercoApprovalController.php',
     'App\\Http\\Controllers\\IntercoController' => $baseDir . '/app/Http/Controllers/IntercoController.php',
+    'App\\Http\\Controllers\\IntercoReceivingController' => $baseDir . '/app/Http/Controllers/IntercoReceivingController.php',
+    'App\\Http\\Controllers\\IntercoReportController' => $baseDir . '/app/Http/Controllers/IntercoReportController.php',
     'App\\Http\\Controllers\\InventoryReportController' => $baseDir . '/app/Http/Controllers/InventoryReportController.php',
     'App\\Http\\Controllers\\InvetoryCategoryController' => $baseDir . '/app/Http/Controllers/InvetoryCategoryController.php',
     'App\\Http\\Controllers\\ItemController' => $baseDir . '/app/Http/Controllers/ItemController.php',
@@ -125,6 +128,7 @@ return array(
     'App\\Http\\Controllers\\StockController' => $baseDir . '/app/Http/Controllers/StockController.php',
     'App\\Http\\Controllers\\StockManagementController' => $baseDir . '/app/Http/Controllers/StockManagementController.php',
     'App\\Http\\Controllers\\StoreBranchController' => $baseDir . '/app/Http/Controllers/StoreBranchController.php',
+    'App\\Http\\Controllers\\StoreCommitsController' => $baseDir . '/app/Http/Controllers/StoreCommitsController.php',
     'App\\Http\\Controllers\\StoreOrderController' => $baseDir . '/app/Http/Controllers/StoreOrderController.php',
     'App\\Http\\Controllers\\StoreTransactionApprovalController' => $baseDir . '/app/Http/Controllers/StoreTransactionApprovalController.php',
     'App\\Http\\Controllers\\StoreTransactionController' => $baseDir . '/app/Http/Controllers/StoreTransactionController.php',

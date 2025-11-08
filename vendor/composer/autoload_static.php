@@ -717,6 +717,7 @@ class ComposerStaticInit9ff2c03f3b6c60fc6872bcbb1ed23495
     );
 
     public static $classMap = array (
+        'App\\Console\\Commands\\CheckStoreData' => __DIR__ . '/../..' . '/app/Console/Commands/CheckStoreData.php',
         'App\\Enum\\Days' => __DIR__ . '/../..' . '/app/Enum/Days.php',
         'App\\Enum\\OrderRequestStatus' => __DIR__ . '/../..' . '/app/Enum/OrderRequestStatus.php',
         'App\\Enum\\OrderStatus' => __DIR__ . '/../..' . '/app/Enum/OrderStatus.php',
@@ -805,6 +806,8 @@ class ComposerStaticInit9ff2c03f3b6c60fc6872bcbb1ed23495
         'App\\Http\\Controllers\\IceCreamOrderController' => __DIR__ . '/../..' . '/app/Http/Controllers/IceCreamOrderController.php',
         'App\\Http\\Controllers\\IntercoApprovalController' => __DIR__ . '/../..' . '/app/Http/Controllers/IntercoApprovalController.php',
         'App\\Http\\Controllers\\IntercoController' => __DIR__ . '/../..' . '/app/Http/Controllers/IntercoController.php',
+        'App\\Http\\Controllers\\IntercoReceivingController' => __DIR__ . '/../..' . '/app/Http/Controllers/IntercoReceivingController.php',
+        'App\\Http\\Controllers\\IntercoReportController' => __DIR__ . '/../..' . '/app/Http/Controllers/IntercoReportController.php',
         'App\\Http\\Controllers\\InventoryReportController' => __DIR__ . '/../..' . '/app/Http/Controllers/InventoryReportController.php',
         'App\\Http\\Controllers\\InvetoryCategoryController' => __DIR__ . '/../..' . '/app/Http/Controllers/InvetoryCategoryController.php',
         'App\\Http\\Controllers\\ItemController' => __DIR__ . '/../..' . '/app/Http/Controllers/ItemController.php',
@@ -836,6 +839,7 @@ class ComposerStaticInit9ff2c03f3b6c60fc6872bcbb1ed23495
         'App\\Http\\Controllers\\StockController' => __DIR__ . '/../..' . '/app/Http/Controllers/StockController.php',
         'App\\Http\\Controllers\\StockManagementController' => __DIR__ . '/../..' . '/app/Http/Controllers/StockManagementController.php',
         'App\\Http\\Controllers\\StoreBranchController' => __DIR__ . '/../..' . '/app/Http/Controllers/StoreBranchController.php',
+        'App\\Http\\Controllers\\StoreCommitsController' => __DIR__ . '/../..' . '/app/Http/Controllers/StoreCommitsController.php',
         'App\\Http\\Controllers\\StoreOrderController' => __DIR__ . '/../..' . '/app/Http/Controllers/StoreOrderController.php',
         'App\\Http\\Controllers\\StoreTransactionApprovalController' => __DIR__ . '/../..' . '/app/Http/Controllers/StoreTransactionApprovalController.php',
         'App\\Http\\Controllers\\StoreTransactionController' => __DIR__ . '/../..' . '/app/Http/Controllers/StoreTransactionController.php',

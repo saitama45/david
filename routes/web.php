@@ -63,6 +63,7 @@ use App\Http\Controllers\StoreOrderController;
 use App\Http\Controllers\IntercoController;
 use App\Http\Controllers\IntercoApprovalController;
 use App\Http\Controllers\IntercoReceivingController;
+use App\Http\Controllers\IntercoReportController;
 use App\Http\Controllers\StoreTransactionApprovalController;
 use App\Http\Controllers\StoreTransactionController;
 use App\Http\Controllers\SupplierController;
@@ -152,6 +153,8 @@ Route::middleware('auth')
         Route::prefix('reports')->group(function () {
             Route::get('/consolidated-so', [ConsolidatedSOReportController::class, 'index'])->name('reports.consolidated-so.index');
             Route::get('/consolidated-so/export', [ConsolidatedSOReportController::class, 'export'])->name('reports.consolidated-so.export');
+            Route::get('/interco-report', [IntercoReportController::class, 'index'])->name('reports.interco-report.index');
+            Route::get('/interco-report/export', [IntercoReportController::class, 'export'])->name('reports.interco-report.export');
         });
 
         Route::controller(DaysPayableOutStanding::class)
