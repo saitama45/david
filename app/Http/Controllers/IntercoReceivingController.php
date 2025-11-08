@@ -4,7 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\StoreOrder;
 use App\Models\StoreOrderItem;
-use App\Models\OrderedImageAttachment;
+use App\Models\ImageAttachment;
 use App\Models\OrderedItemReceiveDate;
 use App\Enums\OrderStatus;
 use App\Enums\IntercoStatus;
@@ -67,13 +67,6 @@ class IntercoReceivingController extends Controller
         switch ($currentFilter) {
             case 'received':
                 $query->where('interco_status', IntercoStatus::RECEIVED->value);
-                break;
-            case 'incomplete':
-                // For interco, incomplete means partially received
-                $query->where('interco_status', IntercoStatus::RECEIVED->value)
-                    ->whereHas('store_order_items', function ($q) {
-                        $q->whereRaw('quantity_received < quantity_commited');
-                    });
                 break;
             case 'in_transit':
                 $query->where('interco_status', IntercoStatus::IN_TRANSIT->value);
@@ -276,13 +269,13 @@ class IntercoReceivingController extends Controller
         }
 
         $file = $request->file('image');
-        $path = Storage::disk('public')->putFile('interco_attachments', $file);
+        $path = Storage::disk('public')->putFile('order_attachments', $file);
 
-        OrderedImageAttachment::create([
-            'store_order_id' => $order->id,
-            'file_path' => $path,
+        // Create a record in the database using the relationship
+        $order->image_attachments()->create([
+            'file_path' => $path, // This will be 'order_attachments/filename.jpg' relative to public/uploads
             'mime_type' => $file->getMimeType(),
-            'is_approved' => true,
+            'is_approved' => true, // Defaulting to true
             'uploaded_by_user_id' => Auth::id(),
         ]);
 
@@ -336,14 +329,7 @@ class IntercoReceivingController extends Controller
             'in_transit' => (clone $baseQuery)->where('interco_status', IntercoStatus::IN_TRANSIT->value)->count(),
         ];
 
-        // Calculate incomplete (partially received)
-        $counts['incomplete'] = (clone $baseQuery)
-            ->where('interco_status', IntercoStatus::RECEIVED->value)
-            ->whereHas('store_order_items', function ($q) {
-                $q->whereRaw('quantity_received < quantity_commited');
-            })->count();
-
-        $counts['all'] = $counts['received'] + $counts['in_transit'] + $counts['incomplete'];
+        $counts['all'] = $counts['received'] + $counts['in_transit'];
 
         return $counts;
     }

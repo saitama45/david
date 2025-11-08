@@ -135,18 +135,7 @@ const formatDate = (dateString) => {
                 >{{ counts.received }}</Badge>
             </Button>
 
-            <!-- "Incomplete" tab -->
-            <Button
-                class="sm:px-10 px-3 bg-white/10 text-gray-800 hover:text-white gap-5 sm:text-sm text-xs"
-                :class="isFilterActive('incomplete')"
-                @click="changeFilter('incomplete')"
-            >INCOMPLETE
-                <Badge
-                    class="sm:flex hidden border border-gray bg-transparent text-gray-900 px-2"
-                    :class="isFilterActive('incomplete')"
-                >{{ counts.incomplete }}</Badge>
-            </Button>
-
+  
             <!-- "In Transit" tab -->
             <Button
                 class="sm:px-10 px-3 bg-white/10 text-gray-800 hover:text-white gap-5 sm:text-sm text-xs"

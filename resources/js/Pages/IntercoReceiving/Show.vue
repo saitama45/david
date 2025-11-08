@@ -354,47 +354,7 @@ const promptConfirmReceive = () => {
                 </div>
             </div>
 
-            <!-- Delivery Receipts -->
-            <div class="bg-white rounded-lg shadow">
-                <div class="p-6 border-b border-gray-200">
-                    <h2 class="text-lg font-semibold">Delivery Receipts</h2>
-                </div>
-                <div class="overflow-x-auto">
-                    <table class="min-w-full divide-y divide-gray-200">
-                        <thead class="bg-gray-50">
-                            <tr>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Id</th>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Number</th>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">SAP SO Number</th>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Remarks</th>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Created at</th>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody class="bg-white divide-y divide-gray-200">
-                            <tr v-for="receipt in order?.delivery_receipts || []" :key="receipt.id">
-                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{{ receipt.id }}</td>
-                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{{ receipt.delivery_receipt_number }}</td>
-                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{{ receipt.sap_so_number }}</td>
-                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{{ receipt.remarks }}</td>
-                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                                    {{ dayjs.utc(receipt.created_at).tz("Asia/Manila").format("MMMM D, YYYY h:mm A") }}
-                                </td>
-                                <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                                    <div class="flex space-x-2">
-                                        <button class="text-indigo-600 hover:text-indigo-900">Edit</button>
-                                        <button class="text-red-600 hover:text-red-900">Delete</button>
-                                    </div>
-                                </td>
-                            </tr>
-                        </tbody>
-                    </table>
-                    <div v-if="!order?.delivery_receipts?.length" class="text-center py-8 text-gray-500">
-                        No delivery receipts found.
-                    </div>
-                </div>
-            </div>
-
+  
             <!-- Image Attachments -->
             <div class="bg-white rounded-lg shadow p-6">
                 <div class="flex justify-between items-center mb-4">
@@ -532,8 +492,42 @@ const promptConfirmReceive = () => {
             </div>
         </div>
 
-        <!-- Modals (Placeholders - to be implemented as needed) -->
         <!-- Image Upload Modal -->
+        <Dialog v-model:open="isImageModalVisible">
+            <DialogContent class="sm:max-w-[600px]">
+                <DialogHeader>
+                    <DialogTitle>Attach Image</DialogTitle>
+                    <DialogDescription>
+                        Select an image file to upload for this order.
+                    </DialogDescription>
+                </DialogHeader>
+                <div class="space-y-4">
+                    <InputContainer>
+                        <Label class="text-xs">Image File</Label>
+                        <Input
+                            type="file"
+                            @change="onFileChange"
+                            accept="image/png, image/jpeg, image/jpg"
+                            class="file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
+                        />
+                        <FormError>{{ imageUploadForm.errors.image }}</FormError>
+                    </InputContainer>
+                    <!-- Image preview container -->
+                    <div v-if="imagePreviewUrl" class="mt-4 max-h-64 overflow-y-auto">
+                        <Label class="text-xs">Preview</Label>
+                        <img :src="imagePreviewUrl" class="mt-2 max-w-full h-auto rounded-md border object-contain" />
+                    </div>
+                </div>
+                <DialogFooter>
+                    <Button variant="ghost" @click="isImageModalVisible = false">Cancel</Button>
+                    <Button @click="submitImageUpload" :disabled="imageUploadForm.processing">
+                        <span v-if="imageUploadForm.processing">Uploading...</span>
+                        <span v-else>Upload</span>
+                    </Button>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
+
         <!-- Receive Form Modal -->
         <!-- Edit Receive Details Modal -->
         <!-- View Receive History Modal -->

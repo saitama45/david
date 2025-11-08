@@ -13,7 +13,7 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { Separator } from '@/components/ui/separator'
-import { ArrowLeft, Edit, Package, Truck, CheckCircle, Clock, Calendar, User, AlertCircle } from 'lucide-vue-next'
+import { ArrowLeft, Edit, Package, CheckCircle, Clock, Calendar, User, AlertCircle, Truck } from 'lucide-vue-next'
 import TransferStatusBadge from './Components/TransferStatusBadge.vue'
 import TransferSummary from './Components/TransferSummary.vue'
 import TransferTimeline from './Components/TransferTimeline.vue'
@@ -21,8 +21,7 @@ import StockIndicator from './Components/StockIndicator.vue'
 
 const props = defineProps({
   order: Object,
-  permissions: Object,
-  statusTransitions: Array
+  permissions: Object
 })
 
 // Computed properties
@@ -110,7 +109,6 @@ const progressPercentage = computed(() => {
 const isEditable = computed(() => props.permissions.can_edit && status.value === 'open')
 const canApprove = computed(() => props.permissions.can_approve && status.value === 'open')
 const canCommit = computed(() => props.permissions.can_commit && status.value === 'approved')
-const canReceive = computed(() => props.permissions.can_receive)
 
 // Utility methods
 const formatDate = (dateString) => {
@@ -170,20 +168,6 @@ const getStatusIcon = (status) => {
   return icons[status] || Clock
 }
 
-const executeAction = (action) => {
-  const transition = props.statusTransitions.find(t => t.action === action)
-  if (transition) {
-    router.post(route(`interco.${action}`, props.order.id), {
-      _method: 'PATCH',
-      next_status: transition.nextStatus
-    })
-  }
-}
-
-const goToReceive = () => {
-  // Redirect to the existing OrderReceiving show page for this order
-  router.get(route('orders-receiving.show', props.order.id))
-}
 
 const goToEdit = () => {
   router.get(route('interco.edit', props.order.id))
@@ -274,33 +258,7 @@ const goToEdit = () => {
 
         <!-- Right Column - Items and Actions -->
         <div class="lg:col-span-2 space-y-6">
-          <!-- Actions Card -->
-          <Card v-if="statusTransitions.length > 0">
-            <CardHeader>
-              <CardTitle>Available Actions</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div class="flex flex-wrap gap-3">
-                <Button
-                  v-for="action in statusTransitions"
-                  :key="action.action"
-                  :variant="action.color === 'red' ? 'destructive' : 'default'"
-                  @click="executeAction(action.action)"
-                >
-                  <component :is="action.icon" class="w-4 h-4 mr-2" />
-                  {{ action.label }}
-                </Button>
-                <Button
-                  v-if="canReceive && ['committed', 'in_transit'].includes(status)"
-                  @click="goToReceive"
-                >
-                  <Truck class="w-4 h-4 mr-2" />
-                  Receive Items
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-
+  
           <!-- Items Card -->
           <Card>
             <CardHeader>

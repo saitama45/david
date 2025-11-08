@@ -552,6 +552,7 @@ Route::middleware('auth')
             Route::middleware('permission:view interco receiving')->get('/', 'index')->name('index');
             Route::middleware('permission:view interco receiving')->get('/show/{id}', 'show')->name('show');
             Route::middleware('permission:receive interco requests')->post('/receive/{id}', 'receive')->name('receive');
+            Route::middleware('permission:receive interco requests')->post('/attach-image/{id}', 'attachImage')->name('attach-image');
             Route::middleware('permission:export interco receiving')->get('/export', 'export')->name('export');
             Route::post('/update-receiving-history', 'updateReceiveDateHistory')->name('update-receiving-history');
             Route::post('/confirm-receive/{intercoNumber}', 'confirmReceive')->name('confirm-receive');
