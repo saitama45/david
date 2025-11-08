@@ -91,8 +91,10 @@ class StockManagementController extends Controller
                 'sap_masterfiles.ItemCode as inventory_code',
                 'sap_masterfiles.BaseUOM as uom',
                 'sap_masterfiles.AltUOM as alt_uom',
+                'sap_masterfiles.BaseQty as base_qty',
                 DB::raw('COALESCE(stock.total_quantity, 0) - COALESCE(stock.total_used, 0) as stock_on_hand'),
-                DB::raw('COALESCE(stock.total_used, 0) as recorded_used')
+                DB::raw('COALESCE(stock.total_used, 0) as recorded_used'),
+                DB::raw('(COALESCE(stock.total_quantity, 0) - COALESCE(stock.total_used, 0)) * COALESCE(sap_masterfiles.BaseQty, 1) as total_base_uom_soh')
             )
             ->when($search, function ($query) use ($search) {
                 $query->where(function ($q) use ($search) {
@@ -108,17 +110,61 @@ class StockManagementController extends Controller
         $products = $productsQuery->paginate(10)->withQueryString();
 
         $products->getCollection()->each(function ($product) {
-            Log::info("StockManagementController: Product '{$product->name}' (ID: {$product->id}) - SOH: {$product->stock_on_hand}, Recorded Used: {$product->recorded_used}");
+            Log::info("StockManagementController: Product '{$product->name}' (ID: {$product->id}) - SOH: {$product->stock_on_hand}, Recorded Used: {$product->recorded_used}, BaseUOM SOH: {$product->total_base_uom_soh}");
         });
 
         Log::info('StockManagementController: Final products data sent to Inertia:', ['products_data' => $products->toArray()]);
 
+        // Prepare store summary data for dashboard card
+        $storeSummary = null;
+        if ($search && $branchId) {
+            $selectedBranch = $branches->firstWhere('value', $branchId);
+            $productsCollection = $products->getCollection();
+
+            // Group by BaseUOM to create dashboard summary
+            $baseUomGroups = $productsCollection->groupBy('uom')->map(function ($group, $baseUom) {
+                return [
+                    'base_uom' => $baseUom,
+                    'total_soh' => $group->sum('stock_on_hand'),
+                    'total_base_uom_soh' => $group->sum('total_base_uom_soh'),
+                    'item_count' => $group->count(),
+                    'primary_item' => $group->first() // Get first item as representative
+                ];
+            });
+
+            // Get the primary BaseUOM (the one with highest total SOH)
+            $primaryBaseUom = $baseUomGroups->sortByDesc('total_soh')->first();
+
+            if ($primaryBaseUom) {
+                $storeSummary = [
+                    'store' => $selectedBranch ? $selectedBranch['label'] : 'Unknown Store',
+                    'store_id' => $branchId,
+                    'base_uom' => $primaryBaseUom['base_uom'],
+                    'total_soh' => $primaryBaseUom['total_soh'],
+                    'total_base_uom_soh' => $primaryBaseUom['total_base_uom_soh'],
+                    'item_count' => $primaryBaseUom['item_count'],
+                    'primary_item' => [
+                        'item_code' => $primaryBaseUom['primary_item']->inventory_code,
+                        'item_description' => $primaryBaseUom['primary_item']->name,
+                        'formatted_name' => $primaryBaseUom['primary_item']->inventory_code . ' - ' . $primaryBaseUom['primary_item']->name
+                    ],
+                    'all_base_uoms' => $baseUomGroups->values()->toArray(),
+                    'dashboard_stats' => [
+                        'total_items' => $products->total(),
+                        'total_unique_base_uoms' => $baseUomGroups->count(),
+                        'overall_total_soh' => $productsCollection->sum('stock_on_hand'),
+                        'overall_total_base_uom_soh' => $productsCollection->sum('total_base_uom_soh')
+                    ]
+                ];
+            }
+        }
 
         return Inertia::render('StockManagement/Index', [
             'products' => $products,
             'branches' => $branches,
             'filters' => request()->only(['search', 'branchId']),
-            'costCenters' => $costCenters
+            'costCenters' => $costCenters,
+            'storeSummary' => $storeSummary
         ]);
     }
 
