@@ -45,6 +45,7 @@ import {
     Warehouse,
     TextSelect,
     Truck,
+    Trash2,
     ChevronDown,
     ChevronRight,
 } from "lucide-vue-next";
@@ -173,6 +174,7 @@ const canViewInventoryGroup = computed(() =>
     hasAccess("view bom list") || // Corrected from 'view menu list'
     hasAccess("view stock management") ||
     hasAccess("view soh adjustment") ||
+    hasAccess("view wastage record") ||
     hasAccess("view low on stocks") || // NEW
     hasAccess("perform month end count") || // NEW
     hasAccess("view month end count approvals") || // NEW
@@ -237,7 +239,7 @@ watchEffect(() => {
         { ref: orderingOpen, paths: ["/store-orders", "/emergency-orders", "/additional-orders", "/dts-orders", "/orders-approval", "/cs-approvals", "/additional-orders-approval", "/emergency-orders-approval", "/mass-orders", "/cs-mass-commits", "/dts-mass-orders", "/cs-dts-mass-commits", "/interco", "/interco-approval", "/store-commits"] },
         { ref: receivingOpen, paths: ["/direct-receiving", "/orders-receiving", "/approved-orders", "/receiving-approvals", "/interco-receiving"] },
         { ref: salesOpen, paths: ["/sales-orders", "/store-transactions", "/store-transactions-approval"] },
-        { ref: inventoryOpen, paths: ["/items-list", "/sapitems-list", "/SupplierItems-list", "/POSMasterfile-list", "/pos-bom-list", "/stock-management", "/soh-adjustment", "/low-on-stocks", "/month-end-count", "/month-end-count-approvals", "/month-end-count-approvals-level2"] },
+        { ref: inventoryOpen, paths: ["/items-list", "/sapitems-list", "/SupplierItems-list", "/POSMasterfile-list", "/pos-bom-list", "/stock-management", "/soh-adjustment", "/wastage", "/low-on-stocks", "/month-end-count", "/month-end-count-approvals", "/month-end-count-approvals-level2"] },
         { ref: reportsOpen, paths: ["/reports/consolidated-so", "/reports/pmix-report", "/reports/interco-report", "/top-10-inventories", "/days-inventory-outstanding", "/days-payable-outstanding", "/sales-report", "/inventories-report", "/upcoming-inventories", "/account-payable", "/cost-of-goods", "/product-orders-summary", "/ice-cream-orders", "/salmon-orders", "/fruits-and-vegetables"] }, // Added Interco Report and PMIX Report paths
         { ref: referencesOpen, paths: ["/category-list", "/wip-list", "/menu-categories", "/uom-conversions", "/inventory-categories", "/unit-of-measurements", "/branches", "/suppliers", "/cost-centers"] },
         // Nested ordering sections
@@ -691,6 +693,14 @@ watchEffect(() => {
                     :is-active="isPathActive('/soh-adjustment')"
                 >
                     SOH Adjustment
+                </NavLink>
+                <NavLink
+                    v-if="hasAccess('view wastage record')"
+                    href="/wastage"
+                    :icon="Trash2"
+                    :is-active="isPathActive('/wastage')"
+                >
+                    Wastage Record
                 </NavLink>
                 <!-- Moved Low on Stocks here -->
                 <NavLink href="/low-on-stocks" :icon="FileCog" v-if="hasAccess('view low on stocks')"

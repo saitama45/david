@@ -183,6 +183,9 @@ class RoleService
                 'SOH Adjustment' => [
                     'view soh adjustment', 'create soh adjustment', 'edit soh adjustment', 'delete soh adjustment', 'export soh adjustment'
                 ],
+                'Wastage Record' => [
+                    'view wastage record', 'create wastage record', 'edit wastage record', 'delete wastage record', 'export wastage record'
+                ],
                 'Low on Stocks' => [
                     'view low on stocks', 'export low on stocks'
                 ],

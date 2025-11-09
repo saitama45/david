@@ -78,6 +78,7 @@ use App\Http\Controllers\UpcomingInventoryController;
 use App\Http\Controllers\UsageRecordController;
 use App\Http\Controllers\UserController;
 use App\Http\Controllers\WIPController;
+use App\Http\Controllers\WastageController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\RolesController;
 use App\Http\Controllers\SAPMasterfileController;
@@ -764,6 +765,22 @@ Route::middleware('auth')
             Route::middleware('permission:log stock usage')->post('/import/log-usage', 'importLogUsage')->name('import-log-usage');
 
             Route::middleware('permission:create soh adjustment')->post('/import/soh-update', 'importSOHUpdate')->name('import-soh-update');
+        });
+
+        // Wastage Record
+        Route::controller(WastageController::class)->name('wastage.')->prefix('wastage')->group(function () {
+            Route::middleware('permission:view wastage record')->get('/', 'index')->name('index');
+            Route::middleware('permission:create wastage record')->group(function () {
+                Route::get('/create', 'create')->name('create');
+                Route::post('/', 'store')->name('store');
+            });
+            Route::middleware('permission:view wastage record')->get('/show/{wastage}', 'show')->name('show');
+            Route::middleware('permission:edit wastage record')->group(function () {
+                Route::get('/edit/{wastage}', 'edit')->name('edit');
+                Route::put('/{wastage}', 'update')->name('update');
+            });
+            Route::middleware('permission:delete wastage record')->delete('/{wastage}', 'destroy')->name('destroy');
+            Route::middleware('permission:export wastage record')->get('/export', 'export')->name('export');
         });
 
         Route::controller(UOMConversionController::class)->name('uom-conversions.')->prefix('uom-conversions')->group(function () {

@@ -1,6 +1,6 @@
 <script setup>
 import { ref, reactive, computed, watch, nextTick, onMounted } from 'vue'
-import Select from "primevue/select";
+import ItemAutoComplete from '@/Components/ItemAutoComplete.vue';
 import axios from 'axios';
 import { useForm, Link, router } from '@inertiajs/vue3'
 import { useConfirm } from "primevue/useconfirm";
@@ -92,7 +92,7 @@ onMounted(() => {
       id: Date.now() + Math.random(), // Generate unique temp ID for Vue
       original_id: item.id, // Keep original database ID for submission
       item_code: String(item.sapMasterfile?.ItemCode || item.item_code),
-      description: item.sapMasterfile?.ItemDescription || item.description || 'No description',
+      description: item.item_description || item.sapMasterfile?.ItemDescription || item.sapMasterfile?.ItemName || 'No description',
       unit_of_measurement: String(item.uom || 'PCS'), // Use the actual uom from store_order_items
       alt_uom: String(item.sapMasterfile?.AltUOM || item.uom || 'PCS'), // Use SAP AltUOM if available, fallback to uom
       quantity_ordered: parseFloat(Number(item.quantity_ordered || 0)),
@@ -125,6 +125,7 @@ const isSubmitting = ref(false)
 
 // MassOrders-style state management
 const productId = ref(null)
+const selectedAutoCompleteItem = ref(null)
 const isLoading = ref(false)
 const availableProductsOptions = ref([])
 
@@ -328,22 +329,25 @@ const fetchSendingStoreItems = async (sendingStoreId) => {
 
     // Update existing items with rich description data
     selectedItems.value.forEach(existingItem => {
-      const fetchedItem = validItems.find(item =>
-        item.item_code === existingItem.item_code &&
-        item.alt_uom === (existingItem.alt_uom || existingItem.uom)
-      )
-      if (fetchedItem && fetchedItem.description && fetchedItem.description !== existingItem.description) {
-        // Use reactive assignment to ensure Vue reactivity triggers
-        Object.assign(existingItem, { description: fetchedItem.description })
+      // Only try to enrich description if it's currently empty or "No description"
+      if (!existingItem.description || existingItem.description === 'No description') {
+        const fetchedItem = validItems.find(item =>
+          item.item_code === existingItem.item_code &&
+          item.alt_uom && existingItem.unit_of_measurement &&
+          item.alt_uom.trim().toLowerCase() === existingItem.unit_of_measurement.trim().toLowerCase()
+        )
+        if (fetchedItem && fetchedItem.description) {
+          existingItem.description = fetchedItem.description
 
-        // Log specifically for 916A2C
-        if (existingItem.item_code === '916A2C') {
-          console.log('🎯 DEBUG: Reactively updated 916A2C item description:', {
-            item_code: existingItem.item_code,
-            old_description: existingItem.description,
-            new_description: fetchedItem.description,
-            matched_uom: existingItem.alt_uom || existingItem.uom
-          })
+          // Log specifically for 916A2C
+          if (existingItem.item_code === '916A2C') {
+            console.log('🎯 DEBUG: Reactively updated 916A2C item description:', {
+              item_code: existingItem.item_code,
+              old_description: existingItem.description,
+              new_description: fetchedItem.description,
+              matched_uom: existingItem.unit_of_measurement
+            })
+          }
         }
       }
     })
@@ -642,6 +646,7 @@ const executeFormSubmission = () => {
         id: item.original_id || null, // Include original ID for existing items
         item_code: String(item.item_code),
         quantity_ordered: parseInt(Number(item.quantity_ordered)),
+        quantity_committed: parseInt(Number(item.quantity_ordered)),
         cost_per_quantity: Number(item.cost_per_quantity || 1.0),
         uom: String(item.unit_of_measurement || item.uom || 'PCS'),
         remarks: item.remarks || ''
@@ -946,126 +951,54 @@ watch(() => form.sending_store_branch_id, (newValue) => {
   }
 })
 
-// Watch for productId changes (from MassOrders)
-watch(productId, async (itemCode) => {
-  if (itemCode) {
-    isLoading.value = true
-    itemForm.item = itemCode
-
-    // Parse composite identifier: ItemCode|AltUOM
-    const [parsedItemCode, selectedAltUOM] = itemCode.split('|')
-
-    try {
-      const sendingStoreId = form.sending_store_branch_id
-
-      if (!sendingStoreId) {
-        toast.add({
-          severity: "error",
-          summary: "Error",
-          detail: "Failed to determine sending store.",
-          life: 5000,
-        })
-        isLoading.value = false
-        return
-      }
-
-      const response = await axios.get(route("interco.get-item-details", {
-        itemCode: parsedItemCode,
-        altUOM: selectedAltUOM,
-        sendingStoreId: sendingStoreId
-      }))
-      const result = response.data.item
-
-      if (result) {
-        productDetails.inventory_code = String(result.item_code)
-        productDetails.description = result.description || 'No description'
-        productDetails.unit_of_measurement = result.alt_uom || result.uom  // Use AltUOM if available, fallback to BaseUOM
-        productDetails.cost = Number(result.cost_per_quantity)
-        productDetails.uom = result.uom
-        productDetails.stock = result.stock || 0
-
-        // Log specifically for 916A2C
-        if (parsedItemCode === '916A2C') {
-          console.log('🎯 DEBUG: 916A2C API success - Product details updated:', {
-            inventory_code: productDetails.inventory_code,
-            description: productDetails.description,
-            unit_of_measurement: productDetails.unit_of_measurement,
-            stock: productDetails.stock,
-            original_api_description: result.description,
-            fallback_used: result.description === null || result.description === undefined
-          })
-        }
-
-      } else {
-        // Fallback: try to get data from the stored original data in availableProductsOptions
-        const selectedOption = availableProductsOptions.value.find(option =>
-          option.value === itemCode
-        )
-
-        if (selectedOption && selectedOption._originalData) {
-          const data = selectedOption._originalData
-          productDetails.inventory_code = String(data.item_code)
-          productDetails.description = data.description || 'No description'
-          productDetails.unit_of_measurement = data.alt_uom || data.uom
-          productDetails.cost = Number(data.cost_per_quantity || 0)
-          productDetails.uom = data.uom
-          productDetails.stock = 0
-
-          // Log specifically for 916A2C
-          if (parsedItemCode === '916A2C') {
-            console.log('🎯 DEBUG: 916A2C fallback - Product details set:', {
-              inventory_code: productDetails.inventory_code,
-              description: productDetails.description,
-              unit_of_measurement: productDetails.unit_of_measurement,
-              original_fallback_description: data.description,
-              selected_option_label: selectedOption.label
-            })
-          }
-        } else {
-          toast.add({
-            severity: "error",
-            summary: "Error",
-            detail: "Item details not found.",
-            life: 5000,
-          })
-        }
-      }
-    } catch (err) {
-      // Fallback: try to get data from the stored original data in availableProductsOptions
-      const selectedOption = availableProductsOptions.value.find(option =>
-        option.value === itemCode
-      )
-
-      if (selectedOption && selectedOption._originalData) {
-        const data = selectedOption._originalData
-        productDetails.inventory_code = String(data.item_code)
-        productDetails.description = data.description || 'No description'
-        productDetails.unit_of_measurement = data.alt_uom || data.uom
-        productDetails.cost = Number(data.cost_per_quantity || 0)
-        productDetails.uom = data.uom
-        productDetails.stock = 0
-
-        console.log('✅ DEBUG: Catch fallback product details set:', {
-          inventory_code: productDetails.inventory_code,
-          description: productDetails.description
-        })
-      } else {
-        toast.add({
-          severity: "error",
-          summary: "Error",
-          detail: "Failed to load item details.",
-          life: 5000,
-        })
-      }
-    } finally {
-      isLoading.value = false
-    }
-  } else {
+// Handler for auto-complete item selection
+const handleAutoCompleteItemSelect = (item) => {
+  if (!item) {
     Object.keys(productDetails).forEach((key) => {
       productDetails[key] = null
     })
+    selectedAutoCompleteItem.value = null
+    return
   }
-}, { deep: true })
+
+  console.log('🎯 DEBUG: Auto-complete item selected:', {
+    item_code: item.item_code,
+    description: item.description,
+    alt_uom: item.alt_uom,
+    stock: item.stock
+  })
+
+  // Directly populate productDetails from the auto-complete selection
+  productDetails.id = item.id
+  productDetails.inventory_code = String(item.item_code)
+  productDetails.description = item.description || 'No description'
+  productDetails.unit_of_measurement = item.alt_uom || item.uom
+  productDetails.cost = Number(item.cost_per_quantity || 1.0)
+  productDetails.uom = item.uom
+  productDetails.stock = item.stock || 0
+
+  // Set the selected item for reference
+  selectedAutoCompleteItem.value = item
+  itemForm.item = item.item_code
+
+  // Log specifically for 916A2C or 397A2D (your test case)
+  if (item.item_code === '916A2C' || item.item_code === '397A2D') {
+    console.log(`🎯 DEBUG: ${item.item_code} auto-complete selected - Product details set:`, {
+      inventory_code: productDetails.inventory_code,
+      description: productDetails.description,
+      unit_of_measurement: productDetails.unit_of_measurement,
+      stock: productDetails.stock,
+      item_code: item.item_code
+    })
+  }
+
+  console.log('✅ DEBUG: Auto-complete product details set:', {
+    inventory_code: productDetails.inventory_code,
+    description: productDetails.description,
+    unit_of_measurement: productDetails.unit_of_measurement,
+    stock: productDetails.stock
+  })
+}
 
 </script>
 
@@ -1219,25 +1152,13 @@ watch(productId, async (itemCode) => {
             <!-- Item -->
             <div class="space-y-2">
               <Label class="text-sm font-medium text-gray-700">Item</Label>
-              <Select
-                filter
-                placeholder="Select an Item"
-                v-model="productId"
-                :options="availableProductsOptions"
-                optionLabel="label"
-                optionValue="value"
+              <ItemAutoComplete
+                v-model="selectedAutoCompleteItem"
+                :sending-store-id="form.sending_store_branch_id"
+                placeholder="Type at least 3 characters to search for items..."
                 :disabled="!form.sending_store_branch_id || isLoading"
-                class="w-full"
-              >
-                <template #empty>
-                  <div v-if="isLoading" class="p-4 text-center text-gray-500">
-                    Loading items...
-                  </div>
-                  <div v-else class="p-4 text-center text-gray-500">
-                    No items available for this sending store.
-                  </div>
-                </template>
-              </Select>
+                @item-selected="handleAutoCompleteItemSelect"
+              />
               <p v-if="itemForm.errors.item" class="text-sm text-red-600">
                 {{ itemForm.errors.item }}
               </p>

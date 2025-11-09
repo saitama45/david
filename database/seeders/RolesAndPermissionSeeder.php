@@ -225,6 +225,13 @@ class RolesAndPermissionSeeder extends Seeder
         Permission::firstOrCreate(['name' => 'delete soh adjustment']);
         Permission::firstOrCreate(['name' => 'export soh adjustment']);
 
+        // Wastage Record
+        Permission::firstOrCreate(['name' => 'view wastage record']);
+        Permission::firstOrCreate(['name' => 'create wastage record']);
+        Permission::firstOrCreate(['name' => 'edit wastage record']);
+        Permission::firstOrCreate(['name' => 'delete wastage record']);
+        Permission::firstOrCreate(['name' => 'export wastage record']);
+
         // Low on Stocks
         Permission::firstOrCreate(['name' => 'view low on stocks']);
         Permission::firstOrCreate(['name' => 'export low on stocks']); // Added export
@@ -407,6 +414,7 @@ class RolesAndPermissionSeeder extends Seeder
             'view sapitems list', 'view SupplierItems list', 'view POSMasterfile list',
             'view bom list', 'view bom', 'create bom', 'edit bom',
             'view soh adjustment', 'create soh adjustment', 'edit soh adjustment',
+            'view wastage record', 'create wastage record', 'edit wastage record',
             'view ice cream orders', 'view salmon orders', 'view fruits and vegetables orders',
             'view category list', 'view wip list', 'view menu categories', 'view uom conversions',
             'view inventory categories', 'view unit of measurements', 'view branches', 'view suppliers', 'view cost centers',
@@ -440,6 +448,8 @@ class RolesAndPermissionSeeder extends Seeder
             'view interco report', 'export interco report',
             // Store Commits permissions for request approver
             'view store commits', 'commit store orders', 'export store commits',
+            // Wastage Record permissions for request approver
+            'view wastage record',
             // NEW: Export permission for CS Approval List for 'request approver'
             'export orders for cs approval list',
             // NEW: Consolidated SO Report permission for request approver

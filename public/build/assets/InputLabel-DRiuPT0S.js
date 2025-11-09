@@ -1,1 +1,0 @@
-import{o as t,d as e,t as o,q as n}from"./app-Bp7xdNcv.js";const l={class:"block sm:text-sm text-xs font-medium text-gray-700"},r={key:0},c={key:1},m={__name:"InputLabel",props:{value:{type:String}},setup(s){return(a,_)=>(t(),e("label",l,[s.value?(t(),e("span",r,o(s.value),1)):(t(),e("span",c,[n(a.$slots,"default")]))]))}};export{m as _};
