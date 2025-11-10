@@ -402,6 +402,10 @@ class RolesAndPermissionSeeder extends Seeder
         Permission::firstOrCreate(['name' => 'view pmix report']);
         Permission::firstOrCreate(['name' => 'export pmix report']);
 
+        // NEW: Wastage Report permissions
+        Permission::firstOrCreate(['name' => 'view wastage report']);
+        Permission::firstOrCreate(['name' => 'export wastage report']);
+
 
         // Assign all permissions to the 'admin' role
         $role->syncPermissions(Permission::all());
@@ -442,6 +446,8 @@ class RolesAndPermissionSeeder extends Seeder
             'view consolidated so report',
             // NEW: PMIX Report permission for store representative
             'view pmix report',
+            // NEW: Wastage Report permission for store representative
+            'view wastage report',
         ]);
 
         // Assign specific permissions to 'request approver'
@@ -470,6 +476,8 @@ class RolesAndPermissionSeeder extends Seeder
             'view consolidated so report',
             // NEW: PMIX Report permission for request approver
             'view pmix report', 'export pmix report',
+            // NEW: Wastage Report permission for request approver
+            'view wastage report', 'export wastage report',
         ]);
     }
 }

@@ -222,6 +222,10 @@ class RoleService
                 'PMIX Report' => [
                     'view pmix report', 'export pmix report'
                 ],
+                // NEW: Wastage Report
+                'Wastage Report' => [
+                    'view wastage report', 'export wastage report'
+                ],
                 'Top 10 Inventories' => [
                     'view top 10 inventories', 'export top 10 inventories'
                 ],

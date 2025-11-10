@@ -81,6 +81,7 @@ use App\Http\Controllers\WIPController;
 use App\Http\Controllers\WastageController;
 use App\Http\Controllers\WastageApprovalLevel1Controller;
 use App\Http\Controllers\WastageApprovalLevel2Controller;
+use App\Http\Controllers\WastageReportController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\RolesController;
 use App\Http\Controllers\SAPMasterfileController;
@@ -161,6 +162,8 @@ Route::middleware('auth')
             Route::get('/interco-report/export', [IntercoReportController::class, 'export'])->name('reports.interco-report.export');
             Route::middleware('permission:view pmix report')->get('/pmix-report', [PMIXReportController::class, 'index'])->name('reports.pmix-report.index');
             Route::middleware('permission:export pmix report')->get('/pmix-report/export', [PMIXReportController::class, 'export'])->name('reports.pmix-report.export');
+            Route::middleware('permission:view wastage report')->get('/wastage-report', [WastageReportController::class, 'index'])->name('reports.wastage-report.index');
+            Route::middleware('permission:export wastage report')->get('/wastage-report/export', [WastageReportController::class, 'export'])->name('reports.wastage-report.export');
         });
 
         Route::controller(DaysPayableOutStanding::class)

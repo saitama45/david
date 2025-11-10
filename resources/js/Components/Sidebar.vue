@@ -187,6 +187,7 @@ const canViewReportsGroup = computed(() =>
     hasAccess("view consolidated so report") || // CRITICAL FIX: Added new permission for Consolidated SO Report
     hasAccess("view interco report") || // Added Interco Report permission
     hasAccess("view pmix report") || // Added PMIX Report permission
+    hasAccess("view wastage report") || // Added Wastage Report permission
     hasAccess("view top 10 inventories") ||
     hasAccess("view days inventory outstanding") ||
     hasAccess("view days payable outstanding") ||
@@ -242,7 +243,7 @@ watchEffect(() => {
         { ref: receivingOpen, paths: ["/direct-receiving", "/orders-receiving", "/approved-orders", "/receiving-approvals", "/interco-receiving"] },
         { ref: salesOpen, paths: ["/sales-orders", "/store-transactions", "/store-transactions-approval"] },
         { ref: inventoryOpen, paths: ["/items-list", "/sapitems-list", "/SupplierItems-list", "/POSMasterfile-list", "/pos-bom-list", "/stock-management", "/soh-adjustment", "/wastage", "/wastage-approval-level1", "/wastage-approval-level2", "/low-on-stocks", "/month-end-count", "/month-end-count-approvals", "/month-end-count-approvals-level2"] },
-        { ref: reportsOpen, paths: ["/reports/consolidated-so", "/reports/pmix-report", "/reports/interco-report", "/top-10-inventories", "/days-inventory-outstanding", "/days-payable-outstanding", "/sales-report", "/inventories-report", "/upcoming-inventories", "/account-payable", "/cost-of-goods", "/product-orders-summary", "/ice-cream-orders", "/salmon-orders", "/fruits-and-vegetables"] }, // Added Interco Report and PMIX Report paths
+        { ref: reportsOpen, paths: ["/reports/consolidated-so", "/reports/pmix-report", "/reports/interco-report", "/reports/wastage-report", "/top-10-inventories", "/days-inventory-outstanding", "/days-payable-outstanding", "/sales-report", "/inventories-report", "/upcoming-inventories", "/account-payable", "/cost-of-goods", "/product-orders-summary", "/ice-cream-orders", "/salmon-orders", "/fruits-and-vegetables"] }, // Added Interco Report, PMIX Report, and Wastage Report paths
         { ref: referencesOpen, paths: ["/category-list", "/wip-list", "/menu-categories", "/uom-conversions", "/inventory-categories", "/unit-of-measurements", "/branches", "/suppliers", "/cost-centers"] },
         // Nested ordering sections
         { ref: regularOpen, paths: ["/store-orders", "/orders-approval", "/cs-approvals"] },
@@ -788,6 +789,15 @@ watchEffect(() => {
                     :is-active="isPathActive('/reports/pmix-report')"
                 >
                     PMIX Report
+                </NavLink>
+                <!-- Wastage Report -->
+                <NavLink
+                    v-if="hasAccess('view wastage report')"
+                    href="/reports/wastage-report"
+                    :icon="Trash2"
+                    :is-active="isPathActive('/reports/wastage-report')"
+                >
+                    Wastage Report
                 </NavLink>
                 <!-- Interco Report -->
                 <NavLink
