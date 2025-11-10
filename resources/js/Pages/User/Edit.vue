@@ -30,7 +30,7 @@ const props = defineProps({
 });
 
 const userCurrentRoles = Array.isArray(props.user.roles)
-    ? props.user.roles.map((role) => String(role.id))
+    ? props.user.roles.map((role) => Number(role.id))
     : [];
 
 const userCurrentAssignedSuppliers = Array.isArray(props.user.suppliers)
@@ -46,8 +46,8 @@ const form = useForm({
     password: null, // Password is null by default, only set if user types
     roles: userCurrentRoles,
     remarks: props.user.remarks,
-    // FIX: Remove .toString() here, so assignedBranches stores actual integer IDs.
-    assignedBranches: props.user.store_branches.map((item) => item.id),
+    // Use Number() to ensure consistent integer IDs matching the options format
+    assignedBranches: props.user.store_branches.map((item) => Number(item.id)),
     assignedSuppliers: userCurrentAssignedSuppliers,
 });
 
@@ -57,6 +57,10 @@ const { options: rolesOptions } = useSelectOptions(props.roles);
 const { options: branchesOptions } = useSelectOptions(props.branches);
 const { options: suppliersOptions } = useSelectOptions(props.suppliers);
 
+// Debug logging to verify data types match
+console.log('userCurrentRoles (after Number conversion):', userCurrentRoles);
+console.log('rolesOptions.value:', rolesOptions.value);
+console.log('assignedBranches (after Number conversion):', form.assignedBranches);
 console.log('branchesOptions.value after composable:', branchesOptions.value);
 console.log('suppliersOptions.value after composable:', suppliersOptions.value);
 

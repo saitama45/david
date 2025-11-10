@@ -358,7 +358,7 @@ const executeFormSubmission = () => {
 
 
 const cancel = () => {
-  router.get(route('wastage.show', props.wastage.id))
+  router.get(route('wastage.index'))
 }
 
 const getSelectedBranchName = () => {

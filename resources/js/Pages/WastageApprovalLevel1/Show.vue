@@ -105,7 +105,7 @@ const approveWastage = (id) => {
                         detail: "Wastage record approved successfully.",
                         life: 3000,
                     });
-                    isLoading.value = false;
+                    router.get(route("wastage-approval-lvl1.index"), {}, { replace: true });
                 },
                 onError: () => {
                     isLoading.value = false;
@@ -140,7 +140,7 @@ const cancelWastage = (id) => {
                         detail: "Wastage record cancelled successfully.",
                         life: 3000,
                     });
-                    isLoading.value = false;
+                    router.get(route("wastage-approval-lvl1.index"), {}, { replace: true });
                 },
                 onError: () => {
                     isLoading.value = false;
