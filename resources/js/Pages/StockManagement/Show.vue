@@ -100,7 +100,7 @@ const dynamicHeading = computed(() => {
                             <!-- CRITICAL FIX: Conditional display for Ref No. -->
                             <a
                                 v-if="data.is_link_ref && data.display_ref_no !== 'N/a'"
-                                :href="data.ref_type === 'interco' ? route('interco.show', data.display_ref_no) : route('store-orders.show', data.display_ref_no)"
+                                :href="data.ref_type === 'interco' ? route('interco.show', data.display_ref_no) : data.ref_type === 'wastage' ? route('wastage.show.by-number', data.display_ref_no) : route('store-orders.show', data.display_ref_no)"
                                 target="_blank"
                                 class="text-blue-600 hover:underline"
                             >
@@ -117,7 +117,7 @@ const dynamicHeading = computed(() => {
                         <TD>{{ formatDisplayNumber(data.total_cost, 2, 4) }}</TD>
                         <TD>{{ formatDisplayDate(data.transaction_date) }}</TD>
                         <TD :class="{'font-bold text-green-600': index === 0}">{{ formatDisplayNumber(data.running_soh, 2, 10) }}</TD>
-                        <TD>{{ data.remarks ?? "None" }}</TD>
+                        <TD>{{ (data.remarks && data.remarks.replace(/testing/gi, '').trim()) ? data.remarks.replace(/testing/gi, '').trim() : "None" }}</TD>
                     </tr>
                 </TableBody>
             </Table>
@@ -130,7 +130,7 @@ const dynamicHeading = computed(() => {
                         <!-- CRITICAL FIX: Conditional display for Ref No. -->
                         <a
                             v-if="data.is_link_ref && data.display_ref_no !== 'N/a'"
-                            :href="data.ref_type === 'interco' ? route('interco.show', data.display_ref_no) : route('store-orders.show', data.display_ref_no)"
+                            :href="data.ref_type === 'interco' ? route('interco.show', data.display_ref_no) : data.ref_type === 'wastage' ? route('wastage.show.by-number', data.display_ref_no) : route('store-orders.show', data.display_ref_no)"
                             target="_blank"
                             class="text-blue-600 hover:underline"
                         >
@@ -148,7 +148,7 @@ const dynamicHeading = computed(() => {
                     <LabelXS>Unit Cost: {{ formatDisplayNumber(data.unit_cost, 2, 4) }}</LabelXS>
                     <LabelXS>Total Cost: {{ formatDisplayNumber(data.total_cost, 2, 4) }}</LabelXS>
                     <LabelXS>Transaction Date: {{ formatDisplayDate(data.transaction_date) }}</LabelXS>
-                    <LabelXS>Remarks: {{ data.remarks ?? "None" }}</LabelXS>
+                    <LabelXS>Remarks: {{ (data.remarks && data.remarks.replace(/testing/gi, '').trim()) ? data.remarks.replace(/testing/gi, '').trim() : "None" }}</LabelXS>
                 </MobileTableRow>
             </MobileTableContainer>
             <Pagination :data="history" />

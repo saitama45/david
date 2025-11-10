@@ -13,7 +13,7 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { Separator } from '@/components/ui/separator'
-import { ArrowLeft, Package, Calendar, User } from 'lucide-vue-next'
+import { ArrowLeft, Package, Calendar, User, CheckCircle, AlertTriangle } from 'lucide-vue-next'
 import WastageStatusBadge from './Components/WastageStatusBadge.vue'
 
 const props = defineProps({
@@ -25,7 +25,7 @@ const props = defineProps({
 
 // Computed properties
 const wastageNumber = computed(() => props.wastage.wastage_no || 'N/A')
-const status = computed(() => props.wastage.wastage_status?.value || 'PENDING')
+const status = computed(() => props.wastage.wastage_status || 'pending')
 const storeName = computed(() => {
   return props.wastage.storeBranch?.name ||
          props.wastage.storeBranch?.branch_name ||
@@ -33,6 +33,26 @@ const storeName = computed(() => {
 })
 const createdDate = computed(() => new Date(props.wastage.created_at).toLocaleDateString())
 const reason = computed(() => props.wastage.wastage_reason || 'No reason provided')
+
+// Format date and time
+const formatDateTime = (dateString) => {
+  if (!dateString) return 'N/A'
+  const date = new Date(dateString)
+
+  // Format date: MM/DD/YYYY
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const day = String(date.getDate()).padStart(2, '0')
+  const year = date.getFullYear()
+
+  // Format time: HH:MM A.M./P.M.
+  let hours = date.getHours()
+  const minutes = String(date.getMinutes()).padStart(2, '0')
+  const ampm = hours >= 12 ? 'P.M.' : 'A.M.'
+  hours = hours % 12
+  hours = hours ? hours : 12 // 0 should be 12
+
+  return `${month}/${day}/${year} ${String(hours).padStart(2, '0')}:${minutes} ${ampm}`
+}
 
 // Format user name to show "Firstname Lastname" instead of email
 const formatUserName = (user) => {
@@ -174,6 +194,8 @@ const formatCurrency = (amount) => {
               <TableRow>
                 <TableHead>Item</TableHead>
                 <TableHead class="text-center">Quantity</TableHead>
+                <TableHead class="text-center">Approved Lvl1 Qty</TableHead>
+                <TableHead class="text-center">Approved Lvl2 Qty</TableHead>
                 <TableHead class="text-right">Cost</TableHead>
                 <TableHead class="text-right">Total</TableHead>
               </TableRow>
@@ -186,19 +208,21 @@ const formatCurrency = (amount) => {
                     <div class="text-sm text-gray-500">{{ item.sap_masterfile?.ItemDescription || 'No description' }}</div>
                   </div>
                 </TableCell>
-                <TableCell class="text-center">{{ item.wastage_qty }} {{ item.sap_masterfile?.BaseUOM || 'PCS' }}</TableCell>
+                <TableCell class="text-center">{{ item.wastage_qty }} {{ (item.sap_masterfile?.AltUOM || item.sap_masterfile?.BaseUOM) ?? 'PCS' }}</TableCell>
+                <TableCell class="text-center">{{ item.approverlvl1_qty ?? 0 }} {{ (item.sap_masterfile?.AltUOM || item.sap_masterfile?.BaseUOM) ?? 'PCS' }}</TableCell>
+                <TableCell class="text-center">{{ item.approverlvl2_qty ?? 0 }} {{ (item.sap_masterfile?.AltUOM || item.sap_masterfile?.BaseUOM) ?? 'PCS' }}</TableCell>
                 <TableCell class="text-right">{{ formatCurrency(item.cost) }}</TableCell>
                 <TableCell class="text-right font-semibold">{{ formatCurrency(item.wastage_qty * item.cost) }}</TableCell>
               </TableRow>
               <TableRow v-else>
-                <TableCell colspan="4" class="text-center py-8 text-gray-500">
+                <TableCell colspan="6" class="text-center py-8 text-gray-500">
                   No items found
                 </TableCell>
               </TableRow>
             </TableBody>
             <tfoot v-if="wastage.items && wastage.items.length > 0">
               <TableRow>
-                <TableCell colspan="3" class="text-right font-bold">Total:</TableCell>
+                <TableCell colspan="5" class="text-right font-bold">Total:</TableCell>
                 <TableCell class="text-right font-bold text-green-600">{{ formatCurrency(totalCost) }}</TableCell>
               </TableRow>
             </tfoot>
@@ -223,7 +247,7 @@ const formatCurrency = (amount) => {
               </div>
               <div>
                 <div class="font-medium">{{ formatUserName(wastage.encoder) }}</div>
-                <div class="text-sm text-gray-500">Created on {{ new Date(wastage.created_at).toLocaleString() }}</div>
+                <div class="text-sm text-gray-500">Created on {{ formatDateTime(wastage.created_at) }}</div>
               </div>
             </div>
 
@@ -234,7 +258,7 @@ const formatCurrency = (amount) => {
               </div>
               <div>
                 <div class="font-medium">{{ formatUserName(wastage.approver1) }}</div>
-                <div class="text-sm text-gray-500">Approved Level 1</div>
+                <div class="text-sm text-gray-500">Approved Level 1 on {{ formatDateTime(wastage.approved_level1_date) }}</div>
               </div>
             </div>
 
@@ -245,7 +269,7 @@ const formatCurrency = (amount) => {
               </div>
               <div>
                 <div class="font-medium">{{ formatUserName(wastage.approver2) }}</div>
-                <div class="text-sm text-gray-500">Approved Level 2</div>
+                <div class="text-sm text-gray-500">Approved Level 2 on {{ formatDateTime(wastage.approved_level2_date) }}</div>
               </div>
             </div>
 
@@ -256,7 +280,7 @@ const formatCurrency = (amount) => {
               </div>
               <div>
                 <div class="font-medium">{{ formatUserName(wastage.canceller) }}</div>
-                <div class="text-sm text-gray-500">Cancelled</div>
+                <div class="text-sm text-gray-500">Cancelled on {{ formatDateTime(wastage.cancelled_date) }}</div>
               </div>
             </div>
           </div>

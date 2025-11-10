@@ -308,6 +308,11 @@ class StockManagementController extends Controller
                 $item->display_ref_no = $matches[1]; // Extracted interco_number
                 $item->is_link_ref = true;
                 $item->ref_type = 'interco'; // Set ref_type to interco
+            } elseif (preg_match('/Wastage Approval Level 2: (WASTE-[^-\s]+-\d+)/', $item->remarks, $matches)) {
+                // Extract wastage number from remarks like "Wastage Approval Level 2: WASTE-NNSSR-00001 - Expired items"
+                $item->display_ref_no = $matches[1];
+                $item->is_link_ref = true;
+                $item->ref_type = 'wastage'; // Set ref_type to wastage
             } elseif (preg_match('/Receipt No\. (\d+)/', $item->remarks, $matches)) {
                 $item->display_ref_no = $matches[1];
                 $item->is_link_ref = false;
@@ -372,14 +377,16 @@ class StockManagementController extends Controller
             ]);
         }
 
-        $stockOnHand = $productStock->quantity - $productStock->used;
+        $stockOnHand = $productStock->quantity;
         if ($validated['quantity'] > $stockOnHand) {
             DB::rollBack();
             return back()->withErrors([
                 "quantity" => "Quantity used can't be greater than stock on hand. (Stock on hand: " . number_format($stockOnHand, 2) . ")"
             ]);
         }
-        $productStock->used += $validated['quantity'];
+
+        // Update product_inventory_stocks table quantity
+        $productStock->quantity -= $validated['quantity'];
         $productStock->save();
 
         ProductInventoryStockManager::create([
@@ -483,7 +490,7 @@ class StockManagementController extends Controller
             'remaining_quantity' => $validated['quantity']
         ]);
 
-
+        // Update product_inventory_stocks table quantity
         $productStock->quantity += $validated['quantity'];
         $productStock->recently_added = $validated['quantity'];
         $productStock->save();

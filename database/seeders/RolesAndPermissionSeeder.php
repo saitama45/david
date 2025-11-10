@@ -239,6 +239,13 @@ class RolesAndPermissionSeeder extends Seeder
         Permission::firstOrCreate(['name' => 'edit wastage approval level 1']);
         Permission::firstOrCreate(['name' => 'delete wastage approval level 1']);
 
+        // Wastage Approval 2nd Level
+        Permission::firstOrCreate(['name' => 'view wastage approval level 2']);
+        Permission::firstOrCreate(['name' => 'approve wastage level 2']);
+        Permission::firstOrCreate(['name' => 'cancel wastage approval level 2']);
+        Permission::firstOrCreate(['name' => 'edit wastage approval level 2']);
+        Permission::firstOrCreate(['name' => 'delete wastage approval level 2']);
+
         // Low on Stocks
         Permission::firstOrCreate(['name' => 'view low on stocks']);
         Permission::firstOrCreate(['name' => 'export low on stocks']); // Added export

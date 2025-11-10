@@ -19,6 +19,7 @@ class Wastage extends Model implements Auditable
         'sap_masterfile_id',
         'wastage_qty',
         'approverlvl1_qty',
+        'approverlvl2_qty',
         'cost',
         'reason',
         'remarks',
@@ -35,6 +36,7 @@ class Wastage extends Model implements Auditable
     protected $casts = [
         'wastage_qty' => 'decimal:2',
         'approverlvl1_qty' => 'decimal:2',
+        'approverlvl2_qty' => 'decimal:2',
         'cost' => 'decimal:2',
         'wastage_status' => WastageStatus::class,
         'created_by' => 'integer',

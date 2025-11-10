@@ -189,6 +189,9 @@ class RoleService
                 'Wastage Approval 1st Level' => [
                     'view wastage approval level 1', 'approve wastage level 1', 'cancel wastage approval level 1', 'edit wastage approval level 1', 'delete wastage approval level 1'
                 ],
+                'Wastage Approval 2nd Level' => [
+                    'view wastage approval level 2', 'approve wastage level 2', 'cancel wastage approval level 2', 'edit wastage approval level 2', 'delete wastage approval level 2'
+                ],
                 'Low on Stocks' => [
                     'view low on stocks', 'export low on stocks'
                 ],

@@ -21,26 +21,26 @@ const props = defineProps({
 })
 
 const statusConfig = {
-  'PENDING': {
+  'pending': {
     label: 'Pending',
     color: 'yellow',
     icon: 'Clock',
     description: 'Awaiting level 1 approval',
     pulse: true
   },
-  'APPROVED_LVL1': {
+  'approved_lvl1': {
     label: 'Approved Level 1',
     color: 'blue',
     icon: 'CheckCircle',
     description: 'Approved at level 1, awaiting final approval'
   },
-  'APPROVED_LVL2': {
+  'approved_lvl2': {
     label: 'Approved Level 2',
     color: 'green',
     icon: 'CheckCircle',
     description: 'Fully approved and processed'
   },
-  'CANCELLED': {
+  'cancelled': {
     label: 'Cancelled',
     color: 'red',
     icon: 'XCircle',
@@ -48,7 +48,7 @@ const statusConfig = {
   }
 }
 
-const currentConfig = computed(() => statusConfig[props.status] || statusConfig['PENDING'])
+const currentConfig = computed(() => statusConfig[props.status] || statusConfig['pending'])
 
 const badgeClasses = computed(() => {
   const baseClasses = 'inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium transition-all duration-200'

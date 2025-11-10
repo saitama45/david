@@ -12,7 +12,7 @@ const confirm = useConfirm();
 const { toast } = useToast();
 const { hasAccess } = useAuth();
 
-const { backButton } = useBackButton(route("wastage-approval-lvl1.index"));
+const { backButton } = useBackButton(route("wastage-approval-lvl2.index"));
 
 const props = defineProps({
     wastage: {
@@ -46,6 +46,8 @@ const storeName = (wastage) => {
 
 const statusBadgeColor = (status) => {
     switch (status.toUpperCase()) {
+        case "APPROVED_LVL2":
+            return "bg-green-500 text-white";
         case "APPROVED_LVL1":
             return "bg-blue-500 text-white";
         case "PENDING":
@@ -97,7 +99,7 @@ const approveWastage = (id) => {
         accept: () => {
             isLoading.value = true;
             remarksForm.order_id = id;
-            remarksForm.post(route("wastage-approval-lvl1.approve"), {
+            remarksForm.post(route("wastage-approval-lvl2.approve"), {
                 onSuccess: () => {
                     toast.add({
                         severity: "success",
@@ -132,7 +134,7 @@ const cancelWastage = (id) => {
         accept: () => {
             isLoading.value = true;
             remarksForm.order_id = id;
-            remarksForm.post(route("wastage-approval-lvl1.cancel"), {
+            remarksForm.post(route("wastage-approval-lvl2.cancel"), {
                 onSuccess: () => {
                     toast.add({
                         severity: "success",
@@ -156,15 +158,20 @@ const itemsDetail = ref([]);
 // Initialize and watch for changes in props.wastage
 watch(() => props.wastage, (newWastage) => {
     if (newWastage && newWastage.items) {
-        itemsDetail.value = newWastage.items.map(item => ({
-            id: item.id,
-            wastage_qty: item.wastage_qty,
-            approverlvl1_qty: item.approverlvl1_qty ?? item.wastage_qty,
-            item_code: item.sap_masterfile?.ItemCode,
-            description: item.sap_masterfile?.ItemDescription,
-            cost: item.cost,
-            uom: item.sap_masterfile?.BaseUOM,
-        }));
+        // Only update itemsDetail if we're not currently editing
+        // This prevents reversion during/after edits
+        if (!editingItem.value) {
+            itemsDetail.value = newWastage.items.map(item => ({
+                id: item.id,
+                wastage_qty: item.wastage_qty,
+                approverlvl1_qty: item.approverlvl1_qty ?? item.wastage_qty,
+                approverlvl2_qty: item.approverlvl2_qty ?? item.approverlvl1_qty ?? item.wastage_qty,
+                item_code: item.sap_masterfile?.ItemCode,
+                description: item.sap_masterfile?.ItemDescription,
+                cost: item.cost,
+                uom: item.sap_masterfile?.BaseUOM,
+            }));
+        }
     }
 }, { immediate: true, deep: true });
 
@@ -172,8 +179,8 @@ watch(() => props.wastage, (newWastage) => {
 const startEdit = (itemId) => {
     const item = itemsDetail.value.find(item => item.id === itemId);
     if (item) {
-        editingItem.value = { id: itemId, originalValue: item.approverlvl1_qty };
-        editValue.value = item.approverlvl1_qty.toString();
+        editingItem.value = { id: itemId, originalValue: item.approverlvl2_qty };
+        editValue.value = item.approverlvl2_qty.toString();
     }
 };
 
@@ -198,7 +205,7 @@ const saveEdit = () => {
     // Update the local itemsDetail array immediately for reactive display
     const itemInDetails = itemsDetail.value.find(item => item.id === editingItemId);
     if (itemInDetails) {
-        itemInDetails.approverlvl1_qty = newQuantity;
+        itemInDetails.approverlvl2_qty = newQuantity;
     }
 
     updateItemQuantity(editingItemId, newQuantity, originalQuantity);
@@ -213,13 +220,24 @@ const cancelEdit = () => {
 
 const updateItemQuantity = (itemId, quantity, originalQuantity) => {
     router.post(
-        route("wastage-approval-lvl1.update-quantity", itemId),
+        route("wastage-approval-lvl2.update-quantity", itemId),
         {
-            approverlvl1_qty: quantity
+            approverlvl2_qty: quantity
         },
         {
             preserveScroll: true,
-            onSuccess: () => {
+            onSuccess: (page) => {
+                // Update local state with the actual data from the server response
+                if (page.props.wastage && page.props.wastage.items) {
+                    const updatedItem = page.props.wastage.items.find(item => item.id === itemId);
+                    if (updatedItem) {
+                        const itemInDetails = itemsDetail.value.find(item => item.id === itemId);
+                        if (itemInDetails) {
+                            itemInDetails.approverlvl2_qty = updatedItem.approverlvl2_qty;
+                        }
+                    }
+                }
+
                 toast.add({
                     severity: "success",
                     summary: "Success",
@@ -231,11 +249,11 @@ const updateItemQuantity = (itemId, quantity, originalQuantity) => {
                 // Revert the itemsDetail array to original value on API failure
                 const itemInDetails = itemsDetail.value.find(item => item.id === itemId);
                 if (itemInDetails) {
-                    itemInDetails.approverlvl1_qty = originalQuantity;
+                    itemInDetails.approverlvl2_qty = originalQuantity;
                 }
 
                 // Show specific error message if available
-                const errorMessage = errors.approverlvl1_qty ||
+                const errorMessage = errors.approverlvl2_qty ||
                                    errors.message ||
                                    "Failed to update quantity. Please refresh the page.";
 
@@ -265,7 +283,7 @@ const deleteItem = (itemId) => {
             severity: "danger",
         },
         accept: () => {
-            router.delete(route("wastage-approval-lvl1.destroy-item", itemId), {
+            router.delete(route("wastage-approval-lvl2.destroy-item", itemId), {
                 preserveScroll: true,
                 onSuccess: () => {
                     toast.add({
@@ -330,7 +348,7 @@ const deleteItem = (itemId) => {
 
                 <DivFlexCenter class="gap-5">
                     <Button
-                        v-if="wastage.wastage_status === 'pending' && hasAccess('cancel wastage approval level 1')"
+                        v-if="wastage.wastage_status === 'approved_lvl1' && hasAccess('cancel wastage approval level 2')"
                         variant="destructive"
                         @click="cancelWastage(wastage.id)"
                         :disabled="isLoading"
@@ -338,7 +356,7 @@ const deleteItem = (itemId) => {
                         Cancel Wastage
                     </Button>
                     <Button
-                        v-if="wastage.wastage_status === 'pending' && hasAccess('approve wastage level 1')"
+                        v-if="wastage.wastage_status === 'approved_lvl1' && hasAccess('approve wastage level 2')"
                         class="bg-green-500 hover:bg-green-300"
                         @click="approveWastage(wastage.id)"
                         :disabled="isLoading"
@@ -357,8 +375,9 @@ const deleteItem = (itemId) => {
                     <TH> Description </TH>
                     <TH> UOM </TH>
                     <TH> Wastage Qty </TH>
-                    <TH v-if="wastage.wastage_status === 'pending'">Approved Qty</TH>
-                    <TH v-else>Approved Qty</TH>
+                    <TH> Approved Lvl1 Qty </TH>
+                    <TH v-if="wastage.wastage_status === 'approved_lvl1'">Approved Lvl2 Qty</TH>
+                    <TH v-else>Approved Lvl2 Qty</TH>
                 </TableHead>
                 <TableBody>
                     <tr v-for="item in wastage.items" :key="item.id">
@@ -366,7 +385,8 @@ const deleteItem = (itemId) => {
                         <TD>{{ item.sap_masterfile?.ItemDescription || 'N/A' }}</TD>
                         <TD>{{ (item.sap_masterfile?.AltUOM || item.sap_masterfile?.BaseUOM) ?? "N/A" }}</TD>
                         <TD>{{ item.wastage_qty }}</TD>
-                        <TD class="flex items-center gap-3" v-if="wastage.wastage_status === 'pending'">
+                        <TD>{{ item.approverlvl1_qty }}</TD>
+                        <TD class="flex items-center gap-3" v-if="wastage.wastage_status === 'approved_lvl1'">
                         <div v-if="editingItem && editingItem.id === item.id">
                             <Input
                                 v-focus-select
@@ -384,22 +404,22 @@ const deleteItem = (itemId) => {
                         <div v-else class="flex items-center gap-4">
                             {{
                                 itemsDetail.find((data) => data.id === item.id)
-                                    ?.approverlvl1_qty ?? 0
+                                    ?.approverlvl2_qty ?? 0
                             }}
                             <Edit
-                                v-if="hasAccess('edit wastage approval level 1')"
+                                v-if="hasAccess('edit wastage approval level 2')"
                                 class="size-4 text-blue-500 cursor-pointer hover:text-blue-600"
                                 @click="startEdit(item.id)"
                             />
                             <Trash2
-                                v-if="hasAccess('delete wastage approval level 1')"
+                                v-if="hasAccess('delete wastage approval level 2')"
                                 class="size-4 text-red-500 cursor-pointer hover:text-red-600"
                                 @click="deleteItem(item.id)"
                             />
                         </div>
                     </TD>
                         <TD v-else>
-                            {{ item.approverlvl1_qty }}
+                            {{ item.approverlvl2_qty }}
                         </TD>
                     </tr>
                 </TableBody>
@@ -410,7 +430,7 @@ const deleteItem = (itemId) => {
                     <MobileTableHeading
                         :title="`${item.sap_masterfile?.ItemDescription || 'N/A'} (${item.sap_masterfile?.ItemCode || 'N/A'})`"
                     >
-                        <div v-if="wastage.wastage_status === 'pending' && hasAccess('edit wastage approval level 1')">
+                        <div v-if="wastage.wastage_status === 'approved_lvl1' && hasAccess('edit wastage approval level 2')">
                             <div v-if="editingItem && editingItem.id === item.id">
                                 <Input
                                     v-focus-select
@@ -435,15 +455,16 @@ const deleteItem = (itemId) => {
                     </MobileTableHeading>
                     <LabelXS>UOM: {{ (item.sap_masterfile?.AltUOM || item.sap_masterfile?.BaseUOM) ?? "N/A" }}</LabelXS>
                     <LabelXS>Wastage: {{ item.wastage_qty }}</LabelXS>
+                    <LabelXS>Lvl1 Approved: {{ item.approverlvl1_qty }}</LabelXS>
                     <LabelXS>
-                        Approved: {{
+                        Lvl2 Approved: {{
                             itemsDetail.find((data) => data.id === item.id)
-                                ?.approverlvl1_qty ?? 0
+                                ?.approverlvl2_qty ?? 0
                         }}
                     </LabelXS>
-                    <div v-if="wastage.wastage_status === 'pending'" class="flex justify-end mt-2">
+                    <div v-if="wastage.wastage_status === 'approved_lvl1'" class="flex justify-end mt-2">
                         <Trash2
-                            v-if="hasAccess('delete wastage approval level 1')"
+                            v-if="hasAccess('delete wastage approval level 2')"
                             class="size-4 text-red-500 cursor-pointer hover:text-red-600"
                             @click="deleteItem(item.id)"
                         />

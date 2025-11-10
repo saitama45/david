@@ -780,6 +780,58 @@ class WastageService
     }
 
     /**
+     * Generate a unique wastage number for the given store branch
+     * Format: WASTE-{branch_code}-{sequence} (e.g., WASTE-NNSSR-00001)
+     */
+    public function generateWastageNumber(StoreBranch $storeBranch): string
+    {
+        $branchCode = $storeBranch->branch_code;
+        $maxAttempts = 10;
+        $attempt = 0;
+
+        while ($attempt < $maxAttempts) {
+            // Get the latest wastage number for this branch pattern
+            $latestWastage = Wastage::where('wastage_no', 'like', "WASTE-{$branchCode}-%")
+                ->orderBy('wastage_no', 'desc')
+                ->first();
+
+            if ($latestWastage) {
+                // Extract the last sequence number and increment
+                $lastSequence = (int) substr($latestWastage->wastage_no, -5);
+                $newSequence = $lastSequence + 1;
+            } else {
+                $newSequence = 1;
+            }
+
+            $wastageNo = sprintf("WASTE-%s-%05d", $branchCode, $newSequence);
+
+            // Collision detection: ensure this number doesn't exist
+            $existingWastage = Wastage::where('wastage_no', $wastageNo)->first();
+            if (!$existingWastage) {
+                return $wastageNo;
+            }
+
+            // If collision occurred, increment and try again
+            $attempt++;
+            \Log::warning("Wastage number collision detected, retrying", [
+                'attempt' => $attempt,
+                'wastage_no' => $wastageNo,
+                'branch_code' => $branchCode
+            ]);
+        }
+
+        // Fallback: use timestamp if all attempts fail
+        $fallbackNumber = sprintf("WASTE-%s-%d", $branchCode, time());
+        \Log::error("Wastage number generation failed, using fallback", [
+            'fallback_number' => $fallbackNumber,
+            'branch_code' => $branchCode,
+            'attempts' => $maxAttempts
+        ]);
+
+        return $fallbackNumber;
+    }
+
+    /**
      * Prepare data for export
      */
     public function prepareExportData($user, ?array $filters = null): array

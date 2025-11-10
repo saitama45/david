@@ -149,6 +149,7 @@ return array(
     'App\\Http\\Controllers\\UserController' => $baseDir . '/app/Http/Controllers/UserController.php',
     'App\\Http\\Controllers\\WIPListController' => $baseDir . '/app/Http/Controllers/WIPListController.php',
     'App\\Http\\Controllers\\WastageApprovalLevel1Controller' => $baseDir . '/app/Http/Controllers/WastageApprovalLevel1Controller.php',
+    'App\\Http\\Controllers\\WastageApprovalLevel2Controller' => $baseDir . '/app/Http/Controllers/WastageApprovalLevel2Controller.php',
     'App\\Http\\Controllers\\WastageController' => $baseDir . '/app/Http/Controllers/WastageController.php',
     'App\\Http\\Middleware\\CheckUserPermission' => $baseDir . '/app/Http/Middleware/CheckUserPermission.php',
     'App\\Http\\Middleware\\HandleInertiaRequests' => $baseDir . '/app/Http/Middleware/HandleInertiaRequests.php',

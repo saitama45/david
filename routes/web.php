@@ -80,6 +80,7 @@ use App\Http\Controllers\UserController;
 use App\Http\Controllers\WIPController;
 use App\Http\Controllers\WastageController;
 use App\Http\Controllers\WastageApprovalLevel1Controller;
+use App\Http\Controllers\WastageApprovalLevel2Controller;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\RolesController;
 use App\Http\Controllers\SAPMasterfileController;
@@ -776,6 +777,7 @@ Route::middleware('auth')
                 Route::post('/', 'store')->name('store');
             });
             Route::middleware('permission:view wastage record')->get('/show/{wastage}', 'show')->name('show');
+            Route::middleware('permission:view wastage record')->get('/show/by-number/{wastage_no}', 'showByNumber')->name('show.by-number');
             Route::middleware('permission:edit wastage record')->group(function () {
                 Route::get('/edit/{wastage}', 'edit')->name('edit');
                 Route::put('/{wastage}', 'update')->name('update');
@@ -792,6 +794,16 @@ Route::middleware('auth')
             Route::middleware('permission:approve wastage level 1')->post('/cancel', 'cancel')->name('cancel');
             Route::middleware('permission:edit wastage approval level 1')->post('/update-quantity/{itemId}', 'updateQuantity')->name('update-quantity');
             Route::middleware('permission:delete wastage approval level 1')->delete('/destroy-item/{itemId}', 'destroyItem')->name('destroy-item');
+        });
+
+        // Wastage Approval Level 2
+        Route::controller(WastageApprovalLevel2Controller::class)->name('wastage-approval-lvl2.')->prefix('wastage-approval-level2')->group(function () {
+            Route::middleware('permission:view wastage approval level 2')->get('/', 'index')->name('index');
+            Route::middleware('permission:view wastage approval level 2')->get('/show/{wastage}', 'show')->name('show');
+            Route::middleware('permission:approve wastage level 2')->post('/approve', 'approve')->name('approve');
+            Route::middleware('permission:cancel wastage approval level 2')->post('/cancel', 'cancel')->name('cancel');
+            Route::middleware('permission:edit wastage approval level 2')->post('/update-quantity/{itemId}', 'updateQuantity')->name('update-quantity');
+            Route::middleware('permission:delete wastage approval level 2')->delete('/destroy-item/{itemId}', 'destroyItem')->name('destroy-item');
         });
 
         Route::controller(UOMConversionController::class)->name('uom-conversions.')->prefix('uom-conversions')->group(function () {

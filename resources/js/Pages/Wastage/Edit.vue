@@ -121,7 +121,7 @@ const populateFormFromProps = () => {
             description: itemDetails.description || 'No description',
             quantity: wastageItem.wastage_qty,
             cost: wastageItem.cost,
-            uom: itemDetails.uom,
+            uom: itemDetails.alt_uom || itemDetails.uom,
             total_cost: wastageItem.wastage_qty * wastageItem.cost
           }
         }
@@ -146,7 +146,7 @@ const populateFormFromProps = () => {
             description: item.description || 'No description',
             quantity: props.wastage.wastage_qty,
             cost: props.wastage.cost,
-            uom: item.uom,
+            uom: item.alt_uom || item.uom,
             total_cost: props.wastage.wastage_qty * props.wastage.cost
           }
           cartItems.value = [cartItem]

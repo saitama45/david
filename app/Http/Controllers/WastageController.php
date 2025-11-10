@@ -179,6 +179,7 @@ class WastageController extends Controller
             'store_branch_id' => $wastage->store_branch_id,
             'wastage_reason' => $wastage->reason,
             'wastage_status' => $wastage->wastage_status,
+            'status_label' => $wastage->status_label,
             'created_by' => $wastage->created_by,
             'created_at' => $wastage->created_at,
             'updated_at' => $wastage->updated_at,
@@ -195,6 +196,8 @@ class WastageController extends Controller
                     'id' => $record->id,
                     'sap_masterfile_id' => $record->sap_masterfile_id,
                     'wastage_qty' => $record->wastage_qty,
+                    'approverlvl1_qty' => $record->approverlvl1_qty,
+                    'approverlvl2_qty' => $record->approverlvl2_qty,
                     'cost' => $record->cost,
                     'reason' => $record->reason,
                     'sap_masterfile' => $record->sapMasterfile ? [
@@ -215,6 +218,28 @@ class WastageController extends Controller
             ],
             'statusTransitions' => [], // Empty since we're removing action buttons
         ]);
+    }
+
+    /**
+     * Display wastage record by wastage number and redirect to show page with ID
+     */
+    public function showByNumber(string $wastage_no)
+    {
+        try {
+            // Find the first wastage record with the given wastage_no
+            $wastage = Wastage::where('wastage_no', $wastage_no)->firstOrFail();
+
+            // Redirect to the show page with the actual wastage ID
+            return redirect()->route('wastage.show', $wastage->id);
+
+        } catch (\Exception $e) {
+            \Log::error('Wastage record not found by number: ' . $e->getMessage(), [
+                'wastage_no' => $wastage_no,
+                'error' => $e->getMessage()
+            ]);
+
+            abort(404, 'Wastage record not found: ' . $wastage_no);
+        }
     }
 
     /**

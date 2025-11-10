@@ -860,6 +860,7 @@ class ComposerStaticInit9ff2c03f3b6c60fc6872bcbb1ed23495
         'App\\Http\\Controllers\\UserController' => __DIR__ . '/../..' . '/app/Http/Controllers/UserController.php',
         'App\\Http\\Controllers\\WIPListController' => __DIR__ . '/../..' . '/app/Http/Controllers/WIPListController.php',
         'App\\Http\\Controllers\\WastageApprovalLevel1Controller' => __DIR__ . '/../..' . '/app/Http/Controllers/WastageApprovalLevel1Controller.php',
+        'App\\Http\\Controllers\\WastageApprovalLevel2Controller' => __DIR__ . '/../..' . '/app/Http/Controllers/WastageApprovalLevel2Controller.php',
         'App\\Http\\Controllers\\WastageController' => __DIR__ . '/../..' . '/app/Http/Controllers/WastageController.php',
         'App\\Http\\Middleware\\CheckUserPermission' => __DIR__ . '/../..' . '/app/Http/Middleware/CheckUserPermission.php',
         'App\\Http\\Middleware\\HandleInertiaRequests' => __DIR__ . '/../..' . '/app/Http/Middleware/HandleInertiaRequests.php',
