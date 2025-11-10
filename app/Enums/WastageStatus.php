@@ -4,10 +4,10 @@ namespace App\Enums;
 
 enum WastageStatus: string
 {
-    case PENDING = 'PENDING';
-    case APPROVED_LVL1 = 'APPROVED_LVL1';
-    case APPROVED_LVL2 = 'APPROVED_LVL2';
-    case CANCELLED = 'CANCELLED';
+    case PENDING = 'pending';
+    case APPROVED_LVL1 = 'approved_lvl1';
+    case APPROVED_LVL2 = 'approved_lvl2';
+    case CANCELLED = 'cancelled';
 
     /**
      * Get the label for display purposes

@@ -134,7 +134,7 @@ const canExportRecords = computed(() => props.permissions.can_export)
 // Check if a specific wastage record can be edited
 const canEditWastageRecord = (wastage) => {
   // Only PENDING records can be edited
-  return wastage.wastage_status === 'PENDING' && canEditRecord.value
+  return wastage.wastage_status === 'pending' && canEditRecord.value
 }
 
 const deleteRecord = (wastage) => {
@@ -298,7 +298,7 @@ let searchTimeout
                       <Edit class="w-4 h-4" />
                     </Button>
                     <Button
-                      v-if="canDeleteRecord && wastage.wastage_status === 'PENDING'"
+                      v-if="canDeleteRecord && wastage.wastage_status === 'pending'"
                       variant="ghost"
                       size="sm"
                       @click="deleteRecord(wastage)"

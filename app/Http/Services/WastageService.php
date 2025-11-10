@@ -10,35 +10,12 @@ use App\Enums\WastageStatus;
 use Illuminate\Support\Facades\DB;
 use Carbon\Carbon;
 use Exception;
+use Illuminate\Support\Collection;
+use App\Models\UserAssignedStoreBranch;
+use Illuminate\Pagination\LengthAwarePaginator;
 
 class WastageService
 {
-    /**
-     * Generate Wastage number format: WASTE-{branch_code}-00001
-     */
-    public function generateWastageNumber(StoreBranch $store): string
-    {
-        $branchCode = $store->branch_code;
-
-        // Get the latest wastage number for this store
-        $latestWastage = Wastage::where('wastage_no', 'like', "WASTE-{$branchCode}-%")
-            ->orderBy('wastage_no', 'desc')
-            ->first();
-
-        if ($latestWastage) {
-            // Extract the last sequence number and increment
-            $lastSequence = (int) substr($latestWastage->wastage_no, -5);
-            $newSequence = $lastSequence + 1;
-        } else {
-            $newSequence = 1;
-        }
-
-        return sprintf("WASTE-%s-%05d", $branchCode, $newSequence);
-    }
-
-    /**
-     * Create a new wastage record
-     */
     public function createWastage(array $data, int $encoderId): Wastage
     {
         DB::beginTransaction();
@@ -59,7 +36,7 @@ class WastageService
                 'wastage_qty' => $data['wastage_qty'],
                 'cost' => $data['cost'],
                 'reason' => $data['wastage_reason'],
-                'wastage_status' => WastageStatus::PENDING,
+                'wastage_status' => WastageStatus::PENDING->value,
                 'created_by' => $encoderId,
             ]);
 
@@ -92,7 +69,7 @@ class WastageService
                     'wastage_qty' => $item['quantity'],
                     'cost' => $item['cost'],
                     'reason' => $data['wastage_reason'],
-                    'wastage_status' => WastageStatus::PENDING,
+                    'wastage_status' => WastageStatus::PENDING->value,
                     'created_by' => $encoderId,
                 ]);
 
@@ -556,7 +533,7 @@ class WastageService
      */
     public function getWastageRecordsForLevel1Approval()
     {
-        return Wastage::where('wastage_status', WastageStatus::PENDING)
+        return Wastage::where('wastage_status', WastageStatus::PENDING->value)
             ->with(['storeBranch', 'sapMasterfile', 'encoder'])
             ->latest()
             ->paginate(10);
@@ -567,7 +544,7 @@ class WastageService
      */
     public function getWastageRecordsForLevel2Approval()
     {
-        return Wastage::where('wastage_status', WastageStatus::APPROVED_LVL1)
+        return Wastage::where('wastage_status', WastageStatus::APPROVED_LVL1->value)
             ->with(['storeBranch', 'sapMasterfile', 'encoder', 'approver1'])
             ->latest()
             ->paginate(10);
@@ -668,7 +645,7 @@ class WastageService
 
         // Apply filters
         if ($filters) {
-            if (!empty($filters['status'])) {
+            if (!empty($filters['status']) && $filters['status'] !== 'all') {
                 $query->where('wastage_status', $filters['status']);
             }
 
@@ -688,7 +665,15 @@ class WastageService
                 $search = $filters['search'];
                 $query->where(function($q) use ($search) {
                     $q->where('wastage_no', 'like', "%{$search}%")
-                      ->orWhere('reason', 'like', "%{$search}%");
+                      ->orWhere('reason', 'like', "%{$search}%")
+                      ->orWhereHas('storeBranch', function($storeQuery) use ($search) {
+                          $storeQuery->where('name', 'like', "%{$search}%")
+                                     ->orWhere('branch_code', 'like', "%{$search}%");
+                      })
+                      ->orWhereHas('sapMasterfile', function($itemQuery) use ($search) {
+                          $itemQuery->where('ItemCode', 'like', "%{$search}%")
+                                   ->orWhere('ItemDescription', 'like', "%{$search}%");
+                      });
                 });
             }
         }
@@ -768,10 +753,10 @@ class WastageService
 
         return [
             'total' => $query->distinct()->pluck('wastage_no')->count(),
-            'pending' => $query->clone()->where('wastage_status', WastageStatus::PENDING)->distinct()->pluck('wastage_no')->count(),
-            'approved_lvl1' => $query->clone()->where('wastage_status', WastageStatus::APPROVED_LVL1)->distinct()->pluck('wastage_no')->count(),
-            'approved_lvl2' => $query->clone()->where('wastage_status', WastageStatus::APPROVED_LVL2)->distinct()->pluck('wastage_no')->count(),
-            'cancelled' => $query->clone()->where('wastage_status', WastageStatus::CANCELLED)->distinct()->pluck('wastage_no')->count(),
+            'pending' => $query->clone()->where('wastage_status', WastageStatus::PENDING->value)->distinct()->pluck('wastage_no')->count(),
+            'approved_lvl1' => $query->clone()->where('wastage_status', WastageStatus::APPROVED_LVL1->value)->distinct()->pluck('wastage_no')->count(),
+            'approved_lvl2' => $query->clone()->where('wastage_status', WastageStatus::APPROVED_LVL2->value)->distinct()->pluck('wastage_no')->count(),
+            'cancelled' => $query->clone()->where('wastage_status', WastageStatus::CANCELLED->value)->distinct()->pluck('wastage_no')->count(),
             'total_cost' => $this->getTotalCost($storeIds),
         ];
     }

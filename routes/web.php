@@ -79,6 +79,7 @@ use App\Http\Controllers\UsageRecordController;
 use App\Http\Controllers\UserController;
 use App\Http\Controllers\WIPController;
 use App\Http\Controllers\WastageController;
+use App\Http\Controllers\WastageApprovalLevel1Controller;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\RolesController;
 use App\Http\Controllers\SAPMasterfileController;
@@ -781,6 +782,16 @@ Route::middleware('auth')
             });
             Route::middleware('permission:delete wastage record')->delete('/{wastage}', 'destroy')->name('destroy');
             Route::middleware('permission:export wastage record')->get('/export', 'export')->name('export');
+        });
+
+        // Wastage Approval Level 1
+        Route::controller(WastageApprovalLevel1Controller::class)->name('wastage-approval-lvl1.')->prefix('wastage-approval-level1')->group(function () {
+            Route::middleware('permission:view wastage approval level 1')->get('/', 'index')->name('index');
+            Route::middleware('permission:view wastage approval level 1')->get('/show/{wastage}', 'show')->name('show');
+            Route::middleware('permission:approve wastage level 1')->post('/approve', 'approve')->name('approve');
+            Route::middleware('permission:approve wastage level 1')->post('/cancel', 'cancel')->name('cancel');
+            Route::middleware('permission:edit wastage approval level 1')->post('/update-quantity/{itemId}', 'updateQuantity')->name('update-quantity');
+            Route::middleware('permission:delete wastage approval level 1')->delete('/destroy-item/{itemId}', 'destroyItem')->name('destroy-item');
         });
 
         Route::controller(UOMConversionController::class)->name('uom-conversions.')->prefix('uom-conversions')->group(function () {
