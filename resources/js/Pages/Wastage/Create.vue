@@ -1,6 +1,8 @@
 <script setup>
 import { ref, reactive, computed, watch } from 'vue'
 import { useForm, Link, router } from '@inertiajs/vue3'
+import { useConfirm } from 'primevue/useconfirm'
+import { useToast } from 'primevue/usetoast'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
@@ -19,6 +21,10 @@ const props = defineProps({
 
 // Create branch options using composable
 const { options: branchesOptions } = useSelectOptions(props.branches)
+
+// Initialize confirm and toast services
+const confirm = useConfirm()
+const toast = useToast()
 
 // Form state
 const form = useForm({
@@ -180,11 +186,7 @@ const clearCart = () => {
 }
 
 // Methods
-const submit = () => {
-  if (!isFormValid.value) {
-    return
-  }
-
+const performSubmit = () => {
   // Transform cart data for submission
   const submitData = {
     store_branch_id: form.store_branch_id,
@@ -200,10 +202,55 @@ const submit = () => {
     onSuccess: () => {
       // Clear cart and reset form
       clearCart()
-      // Success message will be shown via flash message
+      resetForm()
+      // Show success toast
+      toast.add({
+        severity: "success",
+        summary: "Success",
+        detail: "Wastage record saved successfully!",
+        life: 3000,
+      })
     },
     onError: (errors) => {
       console.error('Form validation errors:', errors)
+      // Show error toast
+      toast.add({
+        severity: "error",
+        summary: "Error",
+        detail: "Failed to save wastage record. Please check the form.",
+        life: 3000,
+      })
+    }
+  })
+}
+
+const submit = () => {
+  if (!isFormValid.value) {
+    return
+  }
+
+  // Show confirmation dialog
+  confirm.require({
+    message: 'Are you sure you want to save this wastage record?',
+    header: 'Confirm Save',
+    icon: 'pi pi-exclamation-triangle',
+    rejectProps: {
+      label: 'No',
+      severity: 'danger',
+      outlined: true,
+      size: 'small'
+    },
+    acceptProps: {
+      label: 'Yes',
+      severity: 'success',
+      size: 'small'
+    },
+    accept: () => {
+      // Proceed with form submission
+      performSubmit()
+    },
+    reject: () => {
+      // User cancelled - do nothing
     }
   })
 }
