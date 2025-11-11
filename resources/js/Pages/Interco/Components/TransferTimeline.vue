@@ -48,6 +48,18 @@ console.log('TransferTimeline Debug - Transfer Data:', {
   interco_status: props.transfer.interco_status
 })
 
+const totalCommittedQuantity = computed(() => {
+  if (!props.transfer.store_order_items) return 0
+  return props.transfer.store_order_items.reduce((total, item) => {
+    return total + (Number(item.quantity_commited) || 0)
+  }, 0)
+})
+
+const totalCommittedItems = computed(() => {
+  if (!props.transfer.store_order_items) return 0
+  return props.transfer.store_order_items.length
+})
+
 const timeline = computed(() => {
   const events = []
 
@@ -89,8 +101,8 @@ const timeline = computed(() => {
       icon: Package,
       color: 'yellow',
       details: props.transfer.store_order_items ? [
-        { label: 'Total Items', value: props.transfer.store_order_items.length },
-        { label: 'Total Quantity', value: `${calculateTotalValue()}` }
+        { label: 'Total Items', value: totalCommittedItems.value },
+        { label: 'Total Quantity', value: totalCommittedQuantity.value }
       ] : []
     })
   }
@@ -147,13 +159,6 @@ const timeline = computed(() => {
 
   return events
 })
-
-const calculateTotalValue = () => {
-  if (!props.transfer.store_order_items) return 0
-  return props.transfer.store_order_items.reduce((total, item) => {
-    return total + ((item.quantity_ordered || 0) * (item.cost_per_quantity || 0))
-  }, 0).toFixed(2)
-}
 
 const getInTransitDate = () => {
   // This would typically come from a dedicated in_transit_date field
@@ -253,7 +258,7 @@ const getEventClass = (status) => {
 
               <!-- Additional Details -->
               <div v-if="event.details && event.details.length > 0" class="mt-3 p-3 bg-muted/50 rounded-lg">
-                <div v-for="detail in event.details" :key="detail.label" class="flex justify-between text-sm mb-1 last:mb-0">
+                <div v-for="detail in event.details" :key="detail.label" class="flex items-baseline gap-2 text-sm mb-1 last:mb-0">
                   <span class="text-muted-foreground">{{ detail.label }}:</span>
                   <span class="font-medium">{{ detail.value }}</span>
                 </div>

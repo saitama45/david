@@ -55,7 +55,7 @@ class IntercoController extends Controller
         }
 
         // Filter by status
-        if ($status) {
+        if ($status && $status !== 'all') {
             $query->where('interco_status', $status);
         }
 
@@ -77,7 +77,8 @@ class IntercoController extends Controller
 
         $orders = $query->orderBy('id', 'desc')
                      ->orderBy('order_date', 'desc')
-                     ->paginate(10);
+                     ->paginate(10)
+                     ->withQueryString();
         $statistics = $this->intercoService->getIntercoStatistics(
             $assignedStoreIds->isNotEmpty() ? $assignedStoreIds->toArray() : null
         );

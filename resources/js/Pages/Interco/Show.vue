@@ -192,72 +192,9 @@ const goToEdit = () => {
       <TransferSummary :transfer="order" />
 
       <!-- Main Content Grid -->
-      <div class="grid lg:grid-cols-3 gap-6">
-        <!-- Left Column - Transfer Information -->
-        <div class="space-y-6">
-          <!-- Transfer Details Card -->
-          <Card>
-            <CardHeader>
-              <CardTitle class="flex items-center gap-2">
-                <component :is="getStatusIcon(status)" class="w-5 h-5" />
-                Transfer Information
-              </CardTitle>
-            </CardHeader>
-            <CardContent class="space-y-4">
-              <!-- Basic Information -->
-              <div class="space-y-3">
-                <div>
-                  <p class="text-sm font-medium text-muted-foreground">Transfer Number</p>
-                  <p class="font-mono text-lg">{{ intercoNumber }}</p>
-                </div>
-
-                <div>
-                  <p class="text-sm font-medium text-muted-foreground">Status</p>
-                  <TransferStatusBadge :status="status" />
-                </div>
-
-                <Separator />
-
-                <!-- Store Information -->
-                <div>
-                  <p class="text-sm font-medium text-muted-foreground mb-2">Stores</p>
-                  <div class="space-y-2">
-                    <div class="flex items-start gap-3">
-                      <div class="w-8 h-8 rounded-full bg-red-100 flex items-center justify-center flex-shrink-0 mt-0.5">
-                        <Package class="w-4 h-4 text-red-600" />
-                      </div>
-                      <div>
-                        <p class="text-xs text-muted-foreground">From</p>
-                        <p class="font-medium">{{ fromStoreName }}</p>
-                        <p class="text-xs text-muted-foreground">{{ order.sendingStore?.branch_code || order.sendingStore?.code || '' }}</p>
-                      </div>
-                    </div>
-                    <div class="flex items-start gap-3">
-                      <div class="w-8 h-8 rounded-full bg-green-100 flex items-center justify-center flex-shrink-0 mt-0.5">
-                        <Package class="w-4 h-4 text-green-600" />
-                      </div>
-                      <div>
-                        <p class="text-xs text-muted-foreground">To</p>
-                        <p class="font-medium">{{ toStoreName }}</p>
-                        <p class="text-xs text-muted-foreground">{{ order.store_branch?.branch_code || order.store_branch?.code || '' }}</p>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-
-
-
-              </div>
-            </CardContent>
-          </Card>
-
-          <!-- Transfer Timeline -->
-          <TransferTimeline :transfer="order" />
-        </div>
-
-        <!-- Right Column - Items and Actions -->
-        <div class="lg:col-span-2 space-y-6">
+      <div class="grid lg:grid-cols-1 gap-6">
+        <!-- Full Width Column - Items, Reason/Remarks, and Timeline -->
+        <div class="lg:col-span-3 space-y-6">
   
           <!-- Items Card -->
           <Card>
@@ -265,16 +202,17 @@ const goToEdit = () => {
               <CardTitle>Transfer Items</CardTitle>
             </CardHeader>
             <CardContent>
-
-
               <!-- Items Table -->
               <Table>
                 <TableHeader>
                   <TableRow>
                     <TableHead>Item Code</TableHead>
                     <TableHead>Description</TableHead>
-                    <TableHead>Quantity</TableHead>
-                    <TableHead>Received</TableHead>
+                    <TableHead>Ordered Qty</TableHead>
+                    <TableHead>Approved Qty</TableHead>
+                    <TableHead>Committed Qty</TableHead>
+                    <TableHead>Received Qty</TableHead>
+                    <TableHead>Variance</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -284,11 +222,6 @@ const goToEdit = () => {
                     </TableCell>
                     <TableCell>
                       <div>
-                        <!-- Debug: Log the item data in console -->
-                        <div v-if="false" style="font-size: 10px; color: gray;">
-                          Item Code: {{ item.item_code }}, UOM: {{ item.uom }},
-                          SAP Data: {{ JSON.stringify(item.sapMasterfile) }}
-                        </div>
                         <p class="font-medium">{{ getItemDescription(item) }}</p>
                         <Badge v-if="getItemUOM(item)" variant="outline" class="text-xs mt-1">
                           {{ getItemUOM(item) }}
@@ -299,15 +232,17 @@ const goToEdit = () => {
                       <span class="font-medium">{{ item.quantity_ordered || 0 }}</span>
                     </TableCell>
                     <TableCell>
-                      <div class="flex items-center gap-2">
-                        <span class="font-medium">{{ item.quantity_received || 0 }}</span>
-                        <span v-if="item.quantity_received > 0 && item.quantity_received < item.quantity_ordered"
-                              class="text-xs text-orange-600">
-                          ({{ item.quantity_ordered - item.quantity_received }} pending)
-                        </span>
-                      </div>
+                      <span class="font-medium">{{ item.quantity_approved || 0 }}</span>
                     </TableCell>
-
+                    <TableCell>
+                      <span class="font-medium">{{ item.quantity_commited || 0 }}</span>
+                    </TableCell>
+                    <TableCell>
+                      <span class="font-medium">{{ item.quantity_received || 0 }}</span>
+                    </TableCell>
+                    <TableCell>
+                      <span class="font-medium">{{ (item.quantity_commited || 0) - (item.quantity_received || 0) }}</span>
+                    </TableCell>
                   </TableRow>
                 </TableBody>
               </Table>
@@ -316,7 +251,6 @@ const goToEdit = () => {
               <div class="mt-4 pt-4 border-t">
                 <div class="flex justify-between items-center">
                   <span class="text-sm font-medium">Total Quantity: {{ formatNumber(totalItems) }}</span>
-                  <!-- Removed totalValue currency display as requested -->
                 </div>
               </div>
             </CardContent>
@@ -338,6 +272,9 @@ const goToEdit = () => {
               </div>
             </CardContent>
           </Card>
+
+          <!-- Transfer Timeline -->
+          <TransferTimeline :transfer="order" />
         </div>
       </div>
     </div>

@@ -58,7 +58,7 @@ const applyFilters = () => {
   const params = {}
 
   if (search.value) params.search = search.value
-  if (status.value && status.value !== 'all') params.status = status.value
+  if (status.value) params.status = status.value
   if (dateRange.value) params.date_range = dateRange.value
 
   router.get(route('interco.index'), params, {
