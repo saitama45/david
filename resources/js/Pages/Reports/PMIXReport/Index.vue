@@ -6,7 +6,7 @@ import { usePage } from "@inertiajs/vue3";
 import { useSelectOptions } from "@/Composables/useSelectOptions";
 import { Calendar, Search, RotateCcw, Download, Filter, ChevronDown, ChevronUp, Package, CalendarDays, Building2, Badge as BadgeIcon, ChartColumnBig } from "lucide-vue-next";
 import { useAuth } from "@/Composables/useAuth";
-import SearchableSelect from "@/Components/ui/select/SearchableSelect.vue";
+import MultiSelect from "primevue/multiselect";
 
 const props = defineProps({
     pmixData: {
@@ -268,15 +268,14 @@ const dynamicStoreColumns = computed(() => {
                             <Building2 class="w-4 h-4" />
                             Stores
                         </label>
-                        <SearchableSelect
+                        <MultiSelect
+                            filter
+                            placeholder="Select Stores"
                             v-model="storeIds"
-                            placeholder="All Stores"
                             :options="storeOptions"
                             optionLabel="label"
                             optionValue="value"
                             class="w-full"
-                            clearable
-                            multiple
                         />
                     </div>
 
