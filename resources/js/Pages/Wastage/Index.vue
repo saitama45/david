@@ -58,8 +58,11 @@ const applyFilters = () => {
   const params = {}
 
   if (search.value) params.search = search.value
-  if (status.value && status.value !== 'all') params.status = status.value
+  if (status.value) params.status = status.value
   if (dateRange.value) params.date_range = dateRange.value
+
+  console.log('Applying filters with params:', params)
+  console.log('Current status.value:', status.value)
 
   router.get(route('wastage.index'), params, {
     preserveState: true,
@@ -148,13 +151,24 @@ const deleteRecord = (wastage) => {
   }
 }
 
-// Watch for filter changes
-watch([search, status, dateRange], () => {
-  // Debounce search
+// Watch for filter changes (except status - handled by handleStatusChange)
+watch([search, dateRange], () => {
+  // Debounce search and date range changes
   clearTimeout(searchTimeout)
   searchTimeout = setTimeout(() => {
     applyFilters()
   }, 500)
+})
+
+// Watch for status changes separately to handle 'all' case properly
+watch(status, (newStatus, oldStatus) => {
+  if (newStatus !== oldStatus) {
+    console.log('Status watcher triggered:', { newStatus, oldStatus })
+    clearTimeout(searchTimeout)
+    searchTimeout = setTimeout(() => {
+      applyFilters()
+    }, 200) // Faster response for status changes
+  }
 })
 
 let searchTimeout

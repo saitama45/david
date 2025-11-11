@@ -26,10 +26,12 @@ const confirm = useConfirm();
 // Create branch options using composable
 const { options: branchesOptions } = useSelectOptions(props.branches)
 
+const reasonOptions = ref(['Spoilage', 'Wastage', 'Scrap', 'Others'])
+
 // Form state
 const form = useForm({
   store_branch_id: props.wastage?.store_branch_id ? Number(props.wastage.store_branch_id) : '',
-  wastage_reason: props.wastage?.wastage_reason || '',
+  remarks: props.wastage?.remarks || '',
   items: []
 })
 
@@ -85,12 +87,12 @@ const formattedCartTotal = computed(() => {
 
 const isFormValid = computed(() => {
   return form.store_branch_id &&
-         form.wastage_reason &&
          cartItems.value.length > 0 &&
          cartItems.value.every(item =>
            item.sap_masterfile_id &&
            parseFloat(item.quantity) > 0 &&
-           parseFloat(item.cost) >= 0
+           parseFloat(item.cost) >= 0 &&
+           item.reason
          )
 })
 
@@ -105,7 +107,7 @@ const populateFormFromProps = () => {
     nextTick(() => {
       // 1. Populate common form fields from the parent `wastage` object
       form.store_branch_id = Number(props.wastage.store_branch_id)
-      form.wastage_reason = props.wastage.wastage_reason || ''
+      form.remarks = props.wastage.remarks || ''
 
       // 2. Map over the nested `items` array to build the cart
       cartItems.value = props.wastage.items.map(wastageItem => {
@@ -122,7 +124,8 @@ const populateFormFromProps = () => {
             quantity: wastageItem.wastage_qty,
             cost: wastageItem.cost,
             uom: itemDetails.alt_uom || itemDetails.uom,
-            total_cost: wastageItem.wastage_qty * wastageItem.cost
+            total_cost: wastageItem.wastage_qty * wastageItem.cost,
+            reason: wastageItem.reason || 'Spoilage',
           }
         }
         return null
@@ -133,7 +136,7 @@ const populateFormFromProps = () => {
     if (props.wastage && props.items?.length > 0) {
       nextTick(() => {
         form.store_branch_id = Number(props.wastage.store_branch_id)
-        form.wastage_reason = props.wastage.wastage_reason || ''
+        form.remarks = props.wastage.remarks || ''
 
         const masterfileId = Number(props.wastage.sap_masterfile_id)
         const item = props.items.find(i => Number(i.id) === masterfileId)
@@ -147,7 +150,8 @@ const populateFormFromProps = () => {
             quantity: props.wastage.wastage_qty,
             cost: props.wastage.cost,
             uom: item.alt_uom || item.uom,
-            total_cost: props.wastage.wastage_qty * props.wastage.cost
+            total_cost: props.wastage.wastage_qty * props.wastage.cost,
+            reason: props.wastage.reason || 'Spoilage',
           }
           cartItems.value = [cartItem]
         } else {
@@ -211,7 +215,8 @@ const addToCart = () => {
     quantity: 1,
     cost: productDetails.cost || 0,
     uom: productDetails.unit_of_measurement,
-    total_cost: productDetails.cost || 0
+    total_cost: productDetails.cost || 0,
+    reason: 'Spoilage',
   }
 
   cartItems.value.push(cartItem)
@@ -303,12 +308,13 @@ const executeFormSubmission = () => {
   // Support both existing items (with DB IDs) and new items (with client-side IDs)
   const submitData = {
     store_branch_id: form.store_branch_id,
-    wastage_reason: form.wastage_reason,
+    remarks: form.remarks,
     items: cartItems.value.map(item => ({
       id: item.id, // Include ID (could be DB ID or client-side ID for new items)
       sap_masterfile_id: item.sap_masterfile_id,
       wastage_qty: parseFloat(item.quantity),
-      cost: parseFloat(item.cost)
+      cost: parseFloat(item.cost),
+      reason: item.reason,
     }))
   };
 
@@ -379,6 +385,24 @@ const formatCurrency = (amount) => {
   }).format(amount)
 }
 
+const handleReasonBlur = (item) => {
+  if (!item.reason || item.reason.trim() === '') {
+    item.reason = 'Spoilage'
+  }
+}
+
+// Watch for reason changes to automatically switch to text input when "Others" is selected
+watch(() => cartItems.value, (newItems) => {
+  newItems.forEach(item => {
+    if (item.reason === 'Others') {
+      // Set a brief timeout to ensure the dropdown selection completes first
+      setTimeout(() => {
+        item.reason = ''; // Clear to trigger text input
+      }, 0)
+    }
+  })
+}, { deep: true })
+
 </script>
 
 <template>
@@ -433,18 +457,18 @@ const formatCurrency = (amount) => {
               </p>
             </div>
 
-            <!-- Wastage Reason -->
+            <!-- Remarks -->
             <div class="space-y-2 md:col-span-2">
-              <Label for="wastage_reason">Wastage Reason *</Label>
+              <Label for="remarks">Remarks (Optional)</Label>
               <Textarea
-                id="wastage_reason"
-                v-model="form.wastage_reason"
+                id="remarks"
+                v-model="form.remarks"
                 rows="3"
-                placeholder="Enter reason for wastage"
-                :class="{ 'border-red-500': form.errors.wastage_reason }"
+                placeholder="Enter remarks"
+                :class="{ 'border-red-500': form.errors.remarks }"
               />
-              <p v-if="form.errors.wastage_reason" class="text-sm text-red-600">
-                {{ form.errors.wastage_reason }}
+              <p v-if="form.errors.remarks" class="text-sm text-red-600">
+                {{ form.errors.remarks }}
               </p>
             </div>
 
@@ -542,6 +566,7 @@ const formatCurrency = (amount) => {
                   <tr>
                     <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Item</th>
                     <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">UoM</th>
+                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Reason</th>
                     <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Quantity</th>
                     <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Cost</th>
                     <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Total</th>
@@ -558,6 +583,21 @@ const formatCurrency = (amount) => {
                     </td>
                     <td class="px-4 py-4">
                       <div class="text-sm text-gray-900">{{ item.uom }}</div>
+                    </td>
+                    <td class="px-4 py-4" style="min-width: 170px;">
+                      <Select
+                        v-if="item.reason && ['Spoilage', 'Wastage', 'Scrap'].includes(item.reason)"
+                        v-model="item.reason"
+                        :options="reasonOptions"
+                        class="w-full"
+                      />
+                      <Input
+                        v-else
+                        type="text"
+                        v-model="item.reason"
+                        @blur="handleReasonBlur(item)"
+                        placeholder="Specify reason"
+                      />
                     </td>
                     <td class="px-4 py-4">
                       <Input
@@ -598,7 +638,7 @@ const formatCurrency = (amount) => {
                 </tbody>
                 <tfoot class="bg-gray-50">
                   <tr>
-                    <td colspan="4" class="px-4 py-3 text-right font-medium text-gray-900">
+                    <td colspan="5" class="px-4 py-3 text-right font-medium text-gray-900">
                       Cart Total:
                     </td>
                     <td colspan="2" class="px-4 py-3 font-bold text-green-600">

@@ -25,17 +25,7 @@ class WastageReportExport implements FromCollection, WithHeadings, WithStyles, W
     public function collection()
     {
         return collect($this->data)->map(function ($item, $index) {
-            return [
-                '#' => $index + 1,
-                'wastage_no' => $item['wastage_no'] ?? 'N/A',
-                'store' => $item['store'] ?? 'N/A',
-                'total_qty' => number_format($item['total_qty'] ?? 0, 2, '.', ','),
-                'items_count' => $item['items_count'] ?? 0,
-                'total_cost' => $item['total_cost'] ?? 0,
-                'status' => $item['status'] ?? 'N/A',
-                'reason' => $item['reason'] ?? 'N/A',
-                'created_at' => $item['created_at'] ?? 'N/A',
-            ];
+            return array_merge(['#' => $index + 1], $item);
         });
     }
 
@@ -45,11 +35,15 @@ class WastageReportExport implements FromCollection, WithHeadings, WithStyles, W
             '#',
             'Wastage #',
             'Store',
-            'Total Qty',
-            'Items',
+            'Item Code',
+            'Item Description',
+            'UoM',
+            'Quantity',
+            'Unit Cost',
             'Total Cost',
             'Status',
             'Reason',
+            'Remarks',
             'Date',
         ];
     }
@@ -60,12 +54,16 @@ class WastageReportExport implements FromCollection, WithHeadings, WithStyles, W
             'A' => 5,    // #
             'B' => 20,   // Wastage #
             'C' => 30,   // Store
-            'D' => 12,   // Total Qty
-            'E' => 8,    // Items
-            'F' => 15,   // Total Cost
-            'G' => 15,   // Status
-            'H' => 20,   // Reason
-            'I' => 18,   // Date
+            'D' => 15,   // Item Code
+            'E' => 40,   // Item Description
+            'F' => 10,   // UoM
+            'G' => 12,   // Quantity
+            'H' => 15,   // Unit Cost
+            'I' => 15,   // Total Cost
+            'J' => 15,   // Status
+            'K' => 20,   // Reason
+            'L' => 30,   // Remarks
+            'M' => 20,   // Date
         ];
     }
 
@@ -103,7 +101,7 @@ class WastageReportExport implements FromCollection, WithHeadings, WithStyles, W
                 ],
             ],
             // Data row styling
-            'A2:I1000' => [
+            'A2:M1000' => [
                 'alignment' => [
                     'vertical' => Alignment::VERTICAL_CENTER,
                 ],
@@ -116,11 +114,9 @@ class WastageReportExport implements FromCollection, WithHeadings, WithStyles, W
             ],
             // Specific column alignments
             'A' => ['alignment' => ['horizontal' => Alignment::HORIZONTAL_CENTER]],
-            'D' => ['alignment' => ['horizontal' => Alignment::HORIZONTAL_CENTER]],
-            'E' => ['alignment' => ['horizontal' => Alignment::HORIZONTAL_CENTER]],
-            'F' => ['alignment' => ['horizontal' => Alignment::HORIZONTAL_RIGHT]],
-            'H' => ['alignment' => ['horizontal' => Alignment::HORIZONTAL_LEFT]],
-            'I' => ['alignment' => ['horizontal' => Alignment::HORIZONTAL_LEFT]],
+            'G' => ['alignment' => ['horizontal' => Alignment::HORIZONTAL_RIGHT]],
+            'H' => ['alignment' => ['horizontal' => Alignment::HORIZONTAL_RIGHT]],
+            'I' => ['alignment' => ['horizontal' => Alignment::HORIZONTAL_RIGHT]],
         ];
     }
 
@@ -132,10 +128,10 @@ class WastageReportExport implements FromCollection, WithHeadings, WithStyles, W
 
                 // Get the highest row with data
                 $highestRow = $sheet->getHighestRow();
-                $highestColumn = $sheet->getHighestColumn();
+                $highestColumn = 'M'; // Updated highest column
 
                 // Apply alternating row colors for better readability
-                for ($row = 2; $row <= $highestRow; $row++) {
+                for ($row = 4; $row <= $highestRow; $row++) {
                     if ($row % 2 == 0) {
                         $sheet->getStyle('A' . $row . ':' . $highestColumn . $row)
                             ->getFill()
@@ -146,28 +142,18 @@ class WastageReportExport implements FromCollection, WithHeadings, WithStyles, W
                 }
 
                 // Format currency columns
-                $sheet->getStyle('F2:F' . $highestRow)
+                $sheet->getStyle('H4:I' . $highestRow)
                     ->getNumberFormat()
                     ->setFormatCode('"₱"#,##0.00');
 
                 // Format quantity columns
-                $sheet->getStyle('D2:D' . $highestRow)
+                $sheet->getStyle('G4:G' . $highestRow)
                     ->getNumberFormat()
                     ->setFormatCode('#,##0.00');
 
-                // Auto-size columns for better fit
-                foreach (range('A', $highestColumn) as $column) {
-                    $sheet->getColumnDimension($column)->setAutoSize(true);
-                }
-
-                // Set a minimum width for certain columns
-                $sheet->getColumnDimension('B')->setWidth(20); // Wastage #
-                $sheet->getColumnDimension('C')->setWidth(30); // Store
-                $sheet->getColumnDimension('G')->setWidth(15); // Status
-
                 // Add title row with company info
                 $sheet->insertNewRowBefore(1, 2);
-                $sheet->mergeCells('A1:I1');
+                $sheet->mergeCells('A1:'.$highestColumn.'1');
                 $sheet->setCellValue('A1', 'WASTAGE REPORT');
                 $sheet->getStyle('A1')->applyFromArray([
                     'font' => [
@@ -182,7 +168,7 @@ class WastageReportExport implements FromCollection, WithHeadings, WithStyles, W
                 ]);
 
                 // Add generation date
-                $sheet->mergeCells('A2:I2');
+                $sheet->mergeCells('A2:'.$highestColumn.'2');
                 $sheet->setCellValue('A2', 'Generated on: ' . now()->format('F d, Y - h:i A'));
                 $sheet->getStyle('A2')->applyFromArray([
                     'font' => [
@@ -196,7 +182,7 @@ class WastageReportExport implements FromCollection, WithHeadings, WithStyles, W
                 ]);
 
                 // Update header row style to account for inserted rows
-                $sheet->getStyle('A3:I3')->applyFromArray([
+                $sheet->getStyle('A3:'.$highestColumn.'3')->applyFromArray([
                     'font' => [
                         'bold' => true,
                         'size' => 12,
@@ -221,7 +207,7 @@ class WastageReportExport implements FromCollection, WithHeadings, WithStyles, W
                 ]);
 
                 // Apply borders to all data
-                $sheet->getStyle('A4:I' . $highestRow)->applyFromArray([
+                $sheet->getStyle('A4:'.$highestColumn . $highestRow)->applyFromArray([
                     'borders' => [
                         'allBorders' => [
                             'borderStyle' => Border::BORDER_THIN,
@@ -236,23 +222,20 @@ class WastageReportExport implements FromCollection, WithHeadings, WithStyles, W
 
                     // Calculate totals
                     $totalQty = 0;
-                    $totalItems = 0;
                     $totalCost = 0;
 
                     foreach ($this->data as $item) {
-                        $totalQty += $item['total_qty'] ?? 0;
-                        $totalItems += $item['items_count'] ?? 0;
-                        $totalCost += $item['total_cost'] ?? 0;
+                        $totalQty += $item['Quantity'] ?? 0;
+                        $totalCost += $item['Total Cost'] ?? 0;
                     }
 
                     // Add summary row
-                    $sheet->setCellValue('C' . $summaryRow, 'TOTAL:');
-                    $sheet->setCellValue('D' . $summaryRow, $totalQty);
-                    $sheet->setCellValue('E' . $summaryRow, $totalItems);
-                    $sheet->setCellValue('F' . $summaryRow, $totalCost);
+                    $sheet->setCellValue('F' . $summaryRow, 'TOTAL:');
+                    $sheet->setCellValue('G' . $summaryRow, $totalQty);
+                    $sheet->setCellValue('I' . $summaryRow, $totalCost);
 
                     // Style summary row
-                    $sheet->getStyle('C' . $summaryRow . ':I' . $summaryRow)->applyFromArray([
+                    $sheet->getStyle('F' . $summaryRow . ':' . $highestColumn . $summaryRow)->applyFromArray([
                         'font' => [
                             'bold' => true,
                             'size' => 12,

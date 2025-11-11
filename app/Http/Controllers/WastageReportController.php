@@ -37,6 +37,7 @@ class WastageReportController extends Controller
         // Set default values (copied from PMIXReportController logic)
         $filters['date_from'] = $filters['date_from'] ?? Carbon::today()->startOfMonth()->format('Y-m-d');
         $filters['date_to'] = $filters['date_to'] ?? Carbon::today()->format('Y-m-d');
+        $filters['status'] = $filters['status'] ?? 'approved_lvl2';
         $filters['per_page'] = $filters['per_page'] ?? 50;
 
         // Get user's assigned store IDs
@@ -59,7 +60,9 @@ class WastageReportController extends Controller
                 $q->where('store_branch_id', $filters['store_branch_id']);
             })
             ->when(!empty($filters['status']), function ($q) use ($filters) {
-                $q->where('wastage_status', $filters['status']);
+                if ($filters['status'] !== 'all') {
+                    $q->where('wastage_status', $filters['status']);
+                }
             })
             ->when(!empty($filters['search']), function ($q) use ($filters) {
                 $search = $filters['search'];
@@ -68,56 +71,26 @@ class WastageReportController extends Controller
                           ->orWhereHas('storeBranch', function ($subQuery) use ($search) {
                               $subQuery->where('name', 'like', '%' . $search . '%')
                                        ->orWhere('branch_code', 'like', '%' . $search . '%');
+                          })
+                          ->orWhereHas('sapMasterfile', function ($subQuery) use ($search) {
+                              $subQuery->where('ItemDescription', 'like', '%' . $search . '%')
+                                       ->orWhere('ItemCode', 'like', '%' . $search . '%');
                           });
                 });
             });
 
-        // Group wastage records by wastage_no to get the report data
-        $wastageGroups = $query->orderBy('created_at', 'desc')
-            ->get()
-            ->groupBy('wastage_no');
-
-        // Transform the grouped data for the report
-        $reportData = $wastageGroups->map(function ($wastageItems, $wastageNo) {
-            $firstItem = $wastageItems->first();
-
-            // Calculate totals
-            $totalQty = $wastageItems->sum('wastage_qty');
-            $itemsCount = $wastageItems->count();
-            $totalCost = $wastageItems->sum(function ($item) {
-                return ($item->wastage_qty ?? 0) * ($item->cost ?? 0);
-            });
-
-            return [
-                'wastage_no' => $wastageNo,
-                'store' => $firstItem->storeBranch ? $firstItem->storeBranch->name : 'Unknown',
-                'store_branch_id' => $firstItem->store_branch_id,
-                'total_qty' => $totalQty,
-                'items_count' => $itemsCount,
-                'total_cost' => $totalCost,
-                'status' => $firstItem->wastage_status->value,
-                'status_label' => $firstItem->wastage_status->getLabel(),
-                'reason' => $firstItem->reason,
-                'created_at' => $firstItem->created_at,
-                'formatted_date' => $firstItem->created_at->format('m/d/Y h:i A'),
-            ];
-        })->values();
+        // Calculate summary totals before pagination
+        $summaryQuery = clone $query;
+        $summaryTotals = [
+            'total_records' => $summaryQuery->count(),
+            'total_quantity' => $summaryQuery->sum('wastage_qty'),
+            'total_cost' => $summaryQuery->sum(DB::raw('wastage_qty * cost')),
+        ];
 
         // Paginate the results
-        $currentPage = request()->get('page', 1);
-        $perPage = $filters['per_page'];
-        $offset = ($currentPage - 1) * $perPage;
-
-        $paginatedData = new \Illuminate\Pagination\LengthAwarePaginator(
-            $reportData->slice($offset, $perPage),
-            $reportData->count(),
-            $perPage,
-            $currentPage,
-            [
-                'path' => request()->url(),
-                'pageName' => 'page',
-            ]
-        );
+        $paginatedData = $query->orderBy('created_at', 'desc')
+            ->paginate($filters['per_page'])
+            ->withQueryString();
 
         // Get store options for filtering
         $storeOptions = StoreBranch::whereIn('id', $assignedStoreIds)
@@ -139,16 +112,10 @@ class WastageReportController extends Controller
                 'label' => $status->getLabel(),
             ];
         });
-
-        // Calculate summary totals for dashboard cards
-        $summaryTotals = [
-            'total_records' => $reportData->count(),
-            'total_quantity' => $reportData->sum('total_qty'),
-            'total_cost' => $reportData->sum('total_cost'),
-        ];
+        $statusOptions->prepend(['value' => 'all', 'label' => 'All Statuses']);
 
         return Inertia::render('Reports/WastageReport/Index', [
-            'wastages' => $paginatedData->items(),
+            'wastages' => $paginatedData->items(), // For consistency, though paginatedData contains everything
             'paginatedData' => $paginatedData,
             'filters' => $filters,
             'stores' => $storeOptions,
@@ -203,7 +170,9 @@ class WastageReportController extends Controller
                     $q->where('store_branch_id', $filters['store_branch_id']);
                 })
                 ->when(!empty($filters['status']), function ($q) use ($filters) {
-                    $q->where('wastage_status', $filters['status']);
+                    if ($filters['status'] !== 'all') {
+                        $q->where('wastage_status', $filters['status']);
+                    }
                 })
                 ->when(!empty($filters['search']), function ($q) use ($filters) {
                     $search = $filters['search'];
@@ -216,33 +185,26 @@ class WastageReportController extends Controller
                     });
                 });
 
-            // Group wastage records by wastage_no to get the report data
-            $wastageGroups = $query->orderBy('created_at', 'desc')
-                ->get()
-                ->groupBy('wastage_no');
+            // Get all filtered wastage records
+            $wastageRecords = $query->orderBy('created_at', 'desc')->get();
 
-            // Transform the grouped data for export
-            $exportData = $wastageGroups->map(function ($wastageItems, $wastageNo) {
-                $firstItem = $wastageItems->first();
-
-                // Calculate totals
-                $totalQty = $wastageItems->sum('wastage_qty');
-                $itemsCount = $wastageItems->count();
-                $totalCost = $wastageItems->sum(function ($item) {
-                    return ($item->wastage_qty ?? 0) * ($item->cost ?? 0);
-                });
-
+            // Transform the individual records for export
+            $exportData = $wastageRecords->map(function ($item) {
                 return [
-                    'wastage_no' => $wastageNo,
-                    'store' => $firstItem->storeBranch ? $firstItem->storeBranch->name : 'Unknown',
-                    'total_qty' => $totalQty,
-                    'items_count' => $itemsCount,
-                    'total_cost' => $totalCost,
-                    'status' => $firstItem->wastage_status->getLabel(),
-                    'reason' => $firstItem->reason,
-                    'created_at' => $firstItem->created_at->format('m/d/Y h:i A'),
+                    'Wastage #' => $item->wastage_no,
+                    'Store' => $item->storeBranch ? $item->storeBranch->name : 'N/A',
+                    'Item Code' => $item->sapMasterfile ? $item->sapMasterfile->ItemCode : 'N/A',
+                    'Item Description' => $item->sapMasterfile ? $item->sapMasterfile->ItemDescription : 'N/A',
+                    'UoM' => $item->sapMasterfile ? $item->sapMasterfile->BaseUOM : 'N/A',
+                    'Quantity' => $item->wastage_qty,
+                    'Unit Cost' => $item->cost,
+                    'Total Cost' => $item->wastage_qty * $item->cost,
+                    'Status' => $item->wastage_status->getLabel(),
+                    'Reason' => $item->reason,
+                    'Remarks' => $item->remarks,
+                    'Date' => $item->created_at->format('m/d/Y h:i A'),
                 ];
-            })->values()->toArray();
+            })->toArray();
 
             $export = new WastageReportExport($exportData);
 

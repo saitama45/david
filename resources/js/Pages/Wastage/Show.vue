@@ -32,7 +32,7 @@ const storeName = computed(() => {
          'Unknown Store'
 })
 const createdDate = computed(() => new Date(props.wastage.created_at).toLocaleDateString())
-const reason = computed(() => props.wastage.wastage_reason || 'No reason provided')
+const reason = computed(() => props.wastage.remarks || 'No remarks provided')
 
 // Format date and time
 const formatDateTime = (dateString) => {
@@ -155,7 +155,7 @@ const formatCurrency = (amount) => {
               <p class="text-lg font-semibold">{{ storeName }}</p>
             </div>
             <div>
-              <label class="text-sm font-medium text-gray-500">Reason for Wastage</label>
+              <label class="text-sm font-medium text-gray-500">Remarks</label>
               <p class="text-gray-900">{{ reason }}</p>
             </div>
           </CardContent>
@@ -193,6 +193,7 @@ const formatCurrency = (amount) => {
             <TableHeader>
               <TableRow>
                 <TableHead>Item</TableHead>
+                <TableHead>Reason</TableHead>
                 <TableHead class="text-center">Quantity</TableHead>
                 <TableHead class="text-center">Approved Lvl1 Qty</TableHead>
                 <TableHead class="text-center">Approved Lvl2 Qty</TableHead>
@@ -208,6 +209,7 @@ const formatCurrency = (amount) => {
                     <div class="text-sm text-gray-500">{{ item.sap_masterfile?.ItemDescription || 'No description' }}</div>
                   </div>
                 </TableCell>
+                <TableCell class="text-sm">{{ item.reason || 'No reason specified' }}</TableCell>
                 <TableCell class="text-center">{{ item.wastage_qty }} {{ (item.sap_masterfile?.AltUOM || item.sap_masterfile?.BaseUOM) ?? 'PCS' }}</TableCell>
                 <TableCell class="text-center">{{ item.approverlvl1_qty ?? 0 }} {{ (item.sap_masterfile?.AltUOM || item.sap_masterfile?.BaseUOM) ?? 'PCS' }}</TableCell>
                 <TableCell class="text-center">{{ item.approverlvl2_qty ?? 0 }} {{ (item.sap_masterfile?.AltUOM || item.sap_masterfile?.BaseUOM) ?? 'PCS' }}</TableCell>
@@ -215,14 +217,14 @@ const formatCurrency = (amount) => {
                 <TableCell class="text-right font-semibold">{{ formatCurrency(item.wastage_qty * item.cost) }}</TableCell>
               </TableRow>
               <TableRow v-else>
-                <TableCell colspan="6" class="text-center py-8 text-gray-500">
+                <TableCell colspan="7" class="text-center py-8 text-gray-500">
                   No items found
                 </TableCell>
               </TableRow>
             </TableBody>
             <tfoot v-if="wastage.items && wastage.items.length > 0">
               <TableRow>
-                <TableCell colspan="5" class="text-right font-bold">Total:</TableCell>
+                <TableCell colspan="6" class="text-right font-bold">Total:</TableCell>
                 <TableCell class="text-right font-bold text-green-600">{{ formatCurrency(totalCost) }}</TableCell>
               </TableRow>
             </tfoot>

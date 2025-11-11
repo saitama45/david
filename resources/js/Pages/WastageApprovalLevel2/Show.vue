@@ -341,8 +341,8 @@ const deleteItem = (itemId) => {
 
                 <section class="sm:flex-row flex flex-col gap-5">
                     <span class="text-gray-700 text-sm">
-                        Reason:
-                        <span class="font-bold"> {{ wastage.wastage_reason ?? "N/A" }}</span>
+                        Remarks:
+                        <span class="font-bold"> {{ wastage.remarks ?? "No remarks provided" }}</span>
                     </span>
                 </section>
 
@@ -373,6 +373,7 @@ const deleteItem = (itemId) => {
                 <TableHead>
                     <TH> Item Code </TH>
                     <TH> Description </TH>
+                    <TH> Reason </TH>
                     <TH> UOM </TH>
                     <TH> Wastage Qty </TH>
                     <TH> Approved Lvl1 Qty </TH>
@@ -383,6 +384,7 @@ const deleteItem = (itemId) => {
                     <tr v-for="item in wastage.items" :key="item.id">
                         <TD>{{ item.sap_masterfile?.ItemCode || 'N/A' }}</TD>
                         <TD>{{ item.sap_masterfile?.ItemDescription || 'N/A' }}</TD>
+                        <TD class="text-sm">{{ item.reason || 'No reason specified' }}</TD>
                         <TD>{{ (item.sap_masterfile?.AltUOM || item.sap_masterfile?.BaseUOM) ?? "N/A" }}</TD>
                         <TD>{{ item.wastage_qty }}</TD>
                         <TD>{{ item.approverlvl1_qty }}</TD>
@@ -453,6 +455,7 @@ const deleteItem = (itemId) => {
                             </div>
                         </div>
                     </MobileTableHeading>
+                    <LabelXS>Reason: {{ item.reason || 'No reason specified' }}</LabelXS>
                     <LabelXS>UOM: {{ (item.sap_masterfile?.AltUOM || item.sap_masterfile?.BaseUOM) ?? "N/A" }}</LabelXS>
                     <LabelXS>Wastage: {{ item.wastage_qty }}</LabelXS>
                     <LabelXS>Lvl1 Approved: {{ item.approverlvl1_qty }}</LabelXS>

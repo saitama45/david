@@ -35,7 +35,8 @@ class WastageService
                 'sap_masterfile_id' => $data['sap_masterfile_id'],
                 'wastage_qty' => $data['wastage_qty'],
                 'cost' => $data['cost'],
-                'reason' => $data['wastage_reason'],
+                'reason' => $data['reason'],
+                'remarks' => $data['remarks'] ?? null,
                 'wastage_status' => WastageStatus::PENDING->value,
                 'created_by' => $encoderId,
             ]);
@@ -68,7 +69,8 @@ class WastageService
                     'sap_masterfile_id' => $item['sap_masterfile_id'],
                     'wastage_qty' => $item['quantity'],
                     'cost' => $item['cost'],
-                    'reason' => $data['wastage_reason'],
+                    'reason' => $item['reason'],
+                    'remarks' => $data['remarks'] ?? null,
                     'wastage_status' => WastageStatus::PENDING->value,
                     'created_by' => $encoderId,
                 ]);
@@ -101,7 +103,8 @@ class WastageService
                 'sap_masterfile_id' => $data['sap_masterfile_id'],
                 'wastage_qty' => $data['wastage_qty'],
                 'cost' => $data['cost'],
-                'reason' => $data['wastage_reason'],
+                'reason' => $data['reason'],
+                'remarks' => $data['remarks'] ?? null,
             ];
 
             // Add updated_by if user ID is provided
@@ -236,7 +239,7 @@ class WastageService
 
             // Base update data
             $baseUpdateData = [
-                'reason' => $data['wastage_reason'],
+                'remarks' => $data['remarks'] ?? null,
             ];
 
             // Add updated_by if user ID is provided
@@ -254,6 +257,7 @@ class WastageService
                             'sap_masterfile_id' => $itemData['sap_masterfile_id'],
                             'wastage_qty' => $itemData['wastage_qty'],
                             'cost' => $itemData['cost'],
+                            'reason' => $itemData['reason'],
                         ]);
 
                         \Log::info('Updating wastage record', [
@@ -304,7 +308,8 @@ class WastageService
                         'sap_masterfile_id' => $itemData['sap_masterfile_id'],
                         'wastage_qty' => $itemData['wastage_qty'],
                         'cost' => $itemData['cost'],
-                        'reason' => $data['wastage_reason'],
+                        'reason' => $itemData['reason'],
+                        'remarks' => $data['remarks'] ?? null,
                         'wastage_status' => $allWastageRecords->first()->wastage_status,
                         'created_by' => $userId,
                     ]);
@@ -683,12 +688,14 @@ class WastageService
         $wastageNosWithIds = $wastageNosQuery->distinct()
             ->orderBy('id', 'desc')
             ->pluck('wastage_no', 'id');
+        
+        $uniqueWastageNos = $wastageNosWithIds->flip()->keys();
 
         // Manual pagination
         $page = request()->get('page', 1);
         $perPage = 10;
-        $total = $wastageNosWithIds->count();
-        $currentPageWastageNos = $wastageNosWithIds->forPage($page, $perPage);
+        $total = $uniqueWastageNos->count();
+        $currentPageWastageNos = $uniqueWastageNos->forPage($page, $perPage);
 
         // If no wastage numbers, return empty paginated result
         if ($currentPageWastageNos->isEmpty()) {

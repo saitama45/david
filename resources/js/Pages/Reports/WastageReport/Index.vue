@@ -73,7 +73,7 @@ const statusOptions = computed(() => {
 const dateFrom = ref(props.filters.date_from || '');
 const dateTo = ref(props.filters.date_to || '');
 const storeBranchId = ref(props.filters.store_branch_id || '');
-const status = ref(props.filters.status || '');
+const status = ref(props.filters.status || 'approved_lvl2');
 const search = ref(props.filters.search || '');
 const perPage = ref(props.filters.per_page || 50);
 
@@ -145,7 +145,7 @@ const resetFilters = () => {
     dateFrom.value = firstDayOfMonth.toISOString().split('T')[0];
     dateTo.value = today.toISOString().split('T')[0];
     storeBranchId.value = null;
-    status.value = null;
+    status.value = 'approved_lvl2';
     search.value = '';
     perPage.value = 50;
 };
@@ -175,6 +175,25 @@ const formatNumber = (num) => {
     if (!num) return '0';
     return new Intl.NumberFormat('en-PH').format(num);
 };
+
+function formatDate(dateString) {
+  if (!dateString) return 'N/A'
+  const date = new Date(dateString)
+
+  // Format date: MM/DD/YYYY
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const day = String(date.getDate()).padStart(2, '0')
+  const year = date.getFullYear()
+
+  // Format time: HH:MM A.M./P.M.
+  let hours = date.getHours()
+  const minutes = String(date.getMinutes()).padStart(2, '0')
+  const ampm = hours >= 12 ? 'P.M.' : 'A.M.'
+  hours = hours % 12
+  hours = hours ? hours : 12 // 0 should be 12
+
+  return `${month}/${day}/${year} ${String(hours).padStart(2, '0')}:${minutes} ${ampm}`
+}
 
 // Enhanced status badge styling with modern design
 const getStatusClass = (status) => {
@@ -407,8 +426,9 @@ const getStatusClass = (status) => {
                         <tr class="text-xs text-gray-500 uppercase tracking-wider">
                             <th class="px-6 py-4 text-left font-medium">Wastage #</th>
                             <th class="px-6 py-4 text-left font-medium">Store</th>
-                            <th class="px-6 py-4 text-center font-medium">Total Qty</th>
-                            <th class="px-6 py-4 text-center font-medium">Items</th>
+                            <th class="px-6 py-4 text-left font-medium">Item Description</th>
+                            <th class="px-6 py-4 text-center font-medium">Qty</th>
+                            <th class="px-6 py-4 text-right font-medium">Unit Cost</th>
                             <th class="px-6 py-4 text-right font-medium">Total Cost</th>
                             <th class="px-6 py-4 text-center font-medium">Status</th>
                             <th class="px-6 py-4 text-left font-medium">Reason</th>
@@ -417,7 +437,7 @@ const getStatusClass = (status) => {
                     </thead>
                     <tbody class="bg-white divide-y divide-gray-100">
                         <tr v-if="!paginatedData.data || paginatedData.data.length === 0" class="hover:bg-gray-50">
-                            <td colspan="8" class="text-center py-12 text-gray-500">
+                            <td colspan="10" class="text-center py-12 text-gray-500">
                                 <div class="flex flex-col items-center">
                                     <Trash2 class="w-12 h-12 text-gray-300 mb-3" />
                                     <span class="text-lg font-medium">No data available</span>
@@ -425,22 +445,27 @@ const getStatusClass = (status) => {
                                 </div>
                             </td>
                         </tr>
-                        <tr v-for="(item, index) in (paginatedData.data || [])" :key="item.wastage_no" class="hover:bg-gray-50 transition-colors">
+                        <tr v-for="item in paginatedData.data" :key="item.id" class="hover:bg-gray-50 transition-colors">
                             <td class="px-6 py-4 text-sm font-mono text-gray-900">{{ item.wastage_no || 'N/A' }}</td>
-                            <td class="px-6 py-4 text-sm text-gray-900 max-w-xs truncate" :title="item.store">{{ item.store || 'N/A' }}</td>
-                            <td class="px-6 py-4 text-sm text-center font-medium text-gray-900">{{ formatNumber(item.total_qty || 0) }}</td>
-                            <td class="px-6 py-4 text-sm text-center font-medium text-gray-900">{{ item.items_count || 0 }}</td>
-                            <td class="px-6 py-4 text-sm text-right font-medium text-gray-900">{{ formatCurrency(item.total_cost || 0) }}</td>
+                            <td class="px-6 py-4 text-sm text-gray-900 max-w-xs truncate" :title="item.store_branch.name">{{ item.store_branch.name || 'N/A' }}</td>
+                            <td class="px-6 py-4 text-sm text-gray-600">
+                                <span class="font-mono">{{ item.sap_masterfile.ItemCode || 'N/A' }}</span> -
+                                <span>{{ item.sap_masterfile.ItemDescription || 'No description' }}</span>
+                                <span class="text-gray-500">({{ item.sap_masterfile.BaseUOM || 'N/A' }})</span>
+                            </td>
+                            <td class="px-6 py-4 text-sm text-center font-medium text-gray-900">{{ formatNumber(item.wastage_qty || 0) }}</td>
+                            <td class="px-6 py-4 text-sm text-right font-medium text-gray-900">{{ formatCurrency(item.cost || 0) }}</td>
+                            <td class="px-6 py-4 text-sm text-right font-medium text-gray-900">{{ formatCurrency((item.wastage_qty || 0) * (item.cost || 0)) }}</td>
                             <td class="px-6 py-4 text-center">
-                                <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full border text-xs font-medium" :class="getStatusClass(item.status).bg">
-                                    <div :class="['w-2 h-2 rounded-full', getStatusClass(item.status).dot]"></div>
-                                    <span :class="getStatusClass(item.status).text">
-                                        {{ getStatusClass(item.status).label }}
+                                <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full border text-xs font-medium" :class="getStatusClass(item.wastage_status).bg">
+                                    <div :class="['w-2 h-2 rounded-full', getStatusClass(item.wastage_status).dot]"></div>
+                                    <span :class="getStatusClass(item.wastage_status).text">
+                                        {{ getStatusClass(item.wastage_status).label }}
                                     </span>
                                 </div>
                             </td>
-                            <td class="px-6 py-4 text-sm text-gray-600 max-w-xs truncate" :title="item.reason">{{ item.reason || 'N/A' }}</td>
-                            <td class="px-6 py-4 text-sm text-gray-600">{{ item.formatted_date || 'N/A' }}</td>
+                            <td class="px-6 py-4 text-sm text-gray-600 max-w-xs truncate" :title="item.reason">{{ item.reason || 'No reason specified' }}</td>
+                            <td class="px-6 py-4 text-sm text-gray-600">{{ formatDate(item.created_at) }}</td>
                         </tr>
                     </tbody>
                 </table>
@@ -455,32 +480,40 @@ const getStatusClass = (status) => {
                 </div>
 
                 <div class="divide-y divide-gray-100">
-                    <div v-for="(item, index) in (paginatedData.data || [])" :key="item.wastage_no" class="p-4 hover:bg-gray-50 transition-colors">
+                    <div v-for="item in paginatedData.data" :key="item.id" class="p-4 hover:bg-gray-50 transition-colors">
                         <!-- Header Row -->
                         <div class="flex items-center justify-between mb-3">
-                            <div class="flex flex-col">
+                            <div class="flex flex-col flex-1">
                                 <span class="text-sm font-mono text-gray-900">{{ item.wastage_no || 'N/A' }}</span>
-                                <span class="text-xs text-gray-500">{{ item.store || 'N/A' }}</span>
+                                <span class="text-xs text-gray-500">{{ item.store_branch.name || 'N/A' }}</span>
+                                <div class="text-xs text-gray-700 mt-1">
+                                    <span class="font-mono">{{ item.sap_masterfile.ItemCode || 'N/A' }}</span> - {{ item.sap_masterfile.ItemDescription || 'No description' }}
+                                </div>
                             </div>
                             <div class="text-right">
                                 <div class="text-sm font-semibold text-gray-900">
-                                    {{ formatCurrency(item.total_cost || 0) }}
+                                    {{ formatCurrency((item.wastage_qty || 0) * (item.cost || 0)) }}
                                 </div>
                                 <div class="text-xs text-gray-500">
-                                    {{ formatNumber(item.total_qty || 0) }} qty, {{ item.items_count || 0 }} items
+                                    {{ formatNumber(item.wastage_qty || 0) }} {{ item.sap_masterfile.BaseUOM || 'N/A' }} @ {{ formatCurrency(item.cost || 0) }}
                                 </div>
                             </div>
                         </div>
 
                         <!-- Status and Date -->
-                        <div class="flex items-center justify-between mb-3">
-                            <div class="inline-flex items-center gap-2 px-2 py-1 rounded-full border text-xs font-medium" :class="getStatusClass(item.status).bg">
-                                <div :class="['w-1.5 h-1.5 rounded-full', getStatusClass(item.status).dot]"></div>
-                                <span :class="getStatusClass(item.status).text">
-                                    {{ getStatusClass(item.status).label }}
+                        <div class="flex items-center justify-between mb-2">
+                            <div class="inline-flex items-center gap-2 px-2 py-1 rounded-full border text-xs font-medium" :class="getStatusClass(item.wastage_status).bg">
+                                <div :class="['w-1.5 h-1.5 rounded-full', getStatusClass(item.wastage_status).dot]"></div>
+                                <span :class="getStatusClass(item.wastage_status).text">
+                                    {{ getStatusClass(item.wastage_status).label }}
                                 </span>
                             </div>
-                            <span class="text-xs text-gray-500">{{ item.formatted_date || 'N/A' }}</span>
+                            <span class="text-xs text-gray-500">{{ formatDate(item.created_at) }}</span>
+                        </div>
+
+                        <!-- Reason -->
+                        <div v-if="item.reason" class="text-xs text-gray-600">
+                            <span class="font-medium">Reason:</span> {{ item.reason }}
                         </div>
                     </div>
                 </div>

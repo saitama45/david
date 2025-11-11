@@ -39,8 +39,8 @@ class WastageRequest extends FormRequest
                 'required',
                 'exists:store_branches,id',
             ],
-            'wastage_reason' => [
-                'required',
+            'remarks' => [
+                'nullable',
                 'string',
                 'max:1000',
             ],
@@ -69,6 +69,11 @@ class WastageRequest extends FormRequest
                 'min:0',
                 'max:999999.99',
             ];
+            $rules['cartItems.*.reason'] = [
+                'required',
+                'string',
+                'max:255',
+            ];
         } else {
             // For update method (PUT/PATCH) - support both multi-item and single item
             if ($this->has('items') && is_array($this->input('items'))) {
@@ -76,7 +81,6 @@ class WastageRequest extends FormRequest
                 $rules['items'] = [
                     'required',
                     'array',
-                    'min:1',
                 ];
                 $rules['items.*.sap_masterfile_id'] = [
                     'required',
@@ -93,6 +97,11 @@ class WastageRequest extends FormRequest
                     'numeric',
                     'min:0',
                     'max:999999.99',
+                ];
+                $rules['items.*.reason'] = [
+                    'required',
+                    'string',
+                    'max:255',
                 ];
 
                 // Handle mixed scenarios: existing items (with DB IDs) and new items (without DB IDs)
@@ -155,8 +164,7 @@ class WastageRequest extends FormRequest
             'store_branch_id.required' => 'Please select a store branch.',
             'store_branch_id.exists' => 'Selected store branch is invalid.',
 
-            'wastage_reason.required' => 'Please provide a reason for the wastage.',
-            'wastage_reason.max' => 'Wastage reason must not exceed 1000 characters.',
+            'remarks.max' => 'Remarks must not exceed 1000 characters.',
         ];
 
         // Multi-item cart validation messages
@@ -176,6 +184,10 @@ class WastageRequest extends FormRequest
         $messages['cartItems.*.cost.numeric'] = 'Cost must be a valid number.';
         $messages['cartItems.*.cost.min'] = 'Cost must be at least 0.';
         $messages['cartItems.*.cost.max'] = 'Cost must not exceed 999,999.99.';
+
+        $messages['cartItems.*.reason.required'] = 'Reason is required for each item.';
+        $messages['cartItems.*.reason.string'] = 'Reason must be a string.';
+        $messages['cartItems.*.reason.max'] = 'Reason must not exceed 255 characters.';
 
         // Multi-item update validation messages (for edit mode)
         $messages['items.required'] = 'Please provide at least one item to update.';
@@ -198,6 +210,10 @@ class WastageRequest extends FormRequest
         $messages['items.*.cost.min'] = 'Cost must be at least 0.';
         $messages['items.*.cost.max'] = 'Cost must not exceed 999,999.99.';
 
+        $messages['items.*.reason.required'] = 'Reason is required for each item.';
+        $messages['items.*.reason.string'] = 'Reason must be a string.';
+        $messages['items.*.reason.max'] = 'Reason must not exceed 255 characters.';
+
         // Single item validation messages (for edit mode - backward compatibility)
         $messages['sap_masterfile_id.required'] = 'Please select a product.';
         $messages['sap_masterfile_id.exists'] = 'Selected product is invalid.';
@@ -214,102 +230,7 @@ class WastageRequest extends FormRequest
 
         return $messages;
     }
-
-    /**
-     * Configure the validator instance.
-     *
-     * @param  \Illuminate\Validation\Validator  $validator
-     * @return void
-     */
-    public function withValidator($validator)
-    {
-        $validator->after(function ($validator) {
-            if ($this->isMethod('post') || $this->isMethod('put') || $this->isMethod('patch')) {
-                $this->validateStoreAccess($validator);
-
-                if ($this->isMethod('post')) {
-                    $this->validateCartItems($validator);
-                } else {
-                    $this->validateProductIsActive($validator);
-                }
-            }
-        });
-    }
-
-    /**
-     * Validate cart items for multi-item submission
-     */
-    protected function validateCartItems($validator)
-    {
-        $cartItems = $this->input('cartItems', []);
-
-        if (empty($cartItems)) {
-            return;
-        }
-
-        // Check for duplicate items in cart
-        $itemIds = array_filter(array_column($cartItems, 'sap_masterfile_id'));
-        if (count($itemIds) !== count(array_unique($itemIds))) {
-            $validator->errors()->add('cartItems', 'Duplicate items found in cart. Each item can only be added once.');
-        }
-
-        // Validate each cart item
-        foreach ($cartItems as $index => $item) {
-            if (!isset($item['sap_masterfile_id']) || !$item['sap_masterfile_id']) {
-                continue;
-            }
-
-            // Check if product is active
-            $product = \App\Models\SAPMasterfile::find($item['sap_masterfile_id']);
-            if (!$product || !$product->is_active) {
-                $validator->errors()->add("cartItems.{$index}.sap_masterfile_id",
-                    'Selected product is not active or does not exist.');
-            }
-        }
-    }
-
-    /**
-     * Validate that user has access to the selected store
-     */
-    protected function validateStoreAccess($validator)
-    {
-        $storeId = $this->input('store_branch_id');
-        $user = $this->user();
-
-        if (!$storeId || !$user) {
-            return;
-        }
-
-        // Check if user has access to this store
-        $hasAccess = \App\Models\UserAssignedStoreBranch::where('user_id', $user->id)
-            ->where('store_branch_id', $storeId)
-            ->exists();
-
-        if (!$hasAccess) {
-            $validator->errors()->add('store_branch_id',
-                'You do not have permission to create wastage records for this store.');
-        }
-    }
-
-    /**
-     * Validate that the product is active
-     */
-    protected function validateProductIsActive($validator)
-    {
-        $productId = $this->input('sap_masterfile_id');
-
-        if (!$productId) {
-            return;
-        }
-
-        $product = \App\Models\SAPMasterfile::find($productId);
-
-        if (!$product || !$product->is_active) {
-            $validator->errors()->add('sap_masterfile_id',
-                'Selected product is not active.');
-        }
-    }
-
+    
     /**
      * Get custom attributes for validator errors.
      *
@@ -319,11 +240,12 @@ class WastageRequest extends FormRequest
     {
         $attributes = [
             'store_branch_id' => 'store branch',
-            'wastage_reason' => 'wastage reason',
+            'remarks' => 'remarks',
             'cartItems' => 'cart items',
             'cartItems.*.sap_masterfile_id' => 'product',
             'cartItems.*.quantity' => 'quantity',
             'cartItems.*.cost' => 'cost',
+            'cartItems.*.reason' => 'reason',
         ];
 
         // Add multi-item update attributes for edit mode
@@ -332,6 +254,7 @@ class WastageRequest extends FormRequest
         $attributes['items.*.sap_masterfile_id'] = 'product';
         $attributes['items.*.wastage_qty'] = 'wastage quantity';
         $attributes['items.*.cost'] = 'cost';
+        $attributes['items.*.reason'] = 'reason';
 
         // Add single item attributes for edit mode (backward compatibility)
         $attributes['sap_masterfile_id'] = 'product';
