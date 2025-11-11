@@ -680,13 +680,15 @@ class WastageService
 
         // Get distinct wastage_no values first for pagination
         $wastageNosQuery = clone $query;
-        $wastageNos = $wastageNosQuery->distinct()->pluck('wastage_no');
+        $wastageNosWithIds = $wastageNosQuery->distinct()
+            ->orderBy('id', 'desc')
+            ->pluck('wastage_no', 'id');
 
         // Manual pagination
         $page = request()->get('page', 1);
         $perPage = 10;
-        $total = $wastageNos->count();
-        $currentPageWastageNos = $wastageNos->forPage($page, $perPage);
+        $total = $wastageNosWithIds->count();
+        $currentPageWastageNos = $wastageNosWithIds->forPage($page, $perPage);
 
         // If no wastage numbers, return empty paginated result
         if ($currentPageWastageNos->isEmpty()) {
@@ -700,7 +702,9 @@ class WastageService
         $groupedData = [];
         foreach ($currentPageWastageNos as $wastageNo) {
             $recordsQuery = clone $query;
-            $records = $recordsQuery->where('wastage_no', $wastageNo)->get();
+            $records = $recordsQuery->where('wastage_no', $wastageNo)
+                ->orderBy('id', 'desc')
+                ->get();
 
             if ($records->isNotEmpty()) {
                 $firstRecord = $records->first();

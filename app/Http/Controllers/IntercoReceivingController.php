@@ -16,6 +16,7 @@ use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Log;
 use App\Models\ProductInventoryStockManager;
 use App\Models\PurchaseItemBatch;
+use App\Models\SAPMasterfile;
 use Inertia\Inertia;
 use Carbon\Carbon;
 
@@ -79,7 +80,7 @@ class IntercoReceivingController extends Controller
         }
 
         // Get orders with relationships including store_order_items
-        $orders = $query->with(['store_branch', 'sendingStore', 'encoder', 'store_order_items.supplierItem.sapMasterfiles'])
+        $orders = $query->with(['store_branch', 'sendingStore', 'encoder', 'store_order_items.supplierItem.sapMasterfile'])
             ->orderBy('created_at', 'desc')
             ->paginate(15);
 
@@ -235,7 +236,13 @@ class IntercoReceivingController extends Controller
         DB::beginTransaction();
         try {
             foreach ($pendingItems as $item) {
-                $this->processReceivedItem($item);
+                try {
+                    $this->processReceivedItem($item);
+                } catch (\Exception $itemException) {
+                    // Log individual item failure but continue with other items
+                    Log::error("Failed to process item {$item->id}: " . $itemException->getMessage());
+                    // Continue to next item instead of breaking entire transaction
+                }
             }
 
             // Update final order status
@@ -387,10 +394,16 @@ class IntercoReceivingController extends Controller
                 'total_cost' => $data->quantity_received * $data->store_order_item->cost_per_quantity,
             ]);
 
-            // Update sending store stock (subtract)
-            $sendingStock->quantity -= $data->quantity_received;
-            $sendingStock->used += $data->quantity_received;
-            $sendingStock->save();
+            // ALWAYS INSERT new record for sending store - no existence checks
+            ProductInventoryStock::create([
+                'product_inventory_id' => $sapMasterfile->id,
+                'store_branch_id' => $storeOrder->sending_store_branch_id,
+                'quantity' => -$data->quantity_received, // Negative for OUT
+                'recently_added' => -$data->quantity_received, // Negative for OUT
+                'used' => 0,
+                'created_at' => Carbon::now('Asia/Manila'),
+                'updated_at' => Carbon::now('Asia/Manila')
+            ]);
 
             // Update PurchaseItemBatch for sending store
             $sendingBatch = PurchaseItemBatch::where('product_inventory_id', $sapMasterfile->id)
@@ -434,11 +447,18 @@ class IntercoReceivingController extends Controller
 
         $receiveDate->update($updateData);
 
-        $sapMasterfile = $receiveDate->store_order_item->sapMasterfile;
+        // Use sap_masterfile_id directly from store_order_items
+        $sapMasterfileId = $receiveDate->store_order_item->sap_masterfile_id;
+        if (!$sapMasterfileId) {
+            Log::error("IntercoReceivingController: Missing sap_masterfile_id for StoreOrderItem ID: {$receiveDate->store_order_item->id}");
+            throw new \Exception("Missing sap_masterfile_id for store order item: {$receiveDate->store_order_item->id}");
+        }
 
-        if (!$sapMasterfile) {
-            Log::error("IntercoReceivingController: SAPMasterfile not found for StoreOrderItem ID: {$receiveDate->store_order_item->id}");
-            throw new \Exception("SAP Masterfile not found for item: {$receiveDate->store_order_item->item_code}");
+        $sapMasterfile = SAPMasterfile::findOrFail($sapMasterfileId);
+
+        // Optional: Validate item_code matches for debugging
+        if ($sapMasterfile->ItemCode !== $receiveDate->store_order_item->item_code) {
+            Log::warning("IntercoReceivingController: Item code mismatch - store_order_item.item_code = {$receiveDate->store_order_item->item_code}, sap_masterfile.ItemCode = {$sapMasterfile->ItemCode}, sap_masterfile_id = {$sapMasterfileId}");
         }
 
         $storeOrder = $receiveDate->store_order_item->store_order;
@@ -448,20 +468,16 @@ class IntercoReceivingController extends Controller
 
         Log::info("IntercoReceivingController: Processing StoreOrderItem ID: {$receiveDate->store_order_item->id}, SAPMasterfile ID: {$sapMasterfile->id}, Quantity Received: {$receiveDate->quantity_received}");
 
-        $stock = ProductInventoryStock::firstOrNew([
+        // ALWAYS INSERT new record for receiving store - no existence checks
+        ProductInventoryStock::create([
             'product_inventory_id' => $sapMasterfile->id,
-            'store_branch_id' => $storeOrder->store_branch_id
+            'store_branch_id' => $storeOrder->store_branch_id,
+            'quantity' => $receiveDate->quantity_received,
+            'recently_added' => $receiveDate->quantity_received,
+            'used' => 0,
+            'created_at' => Carbon::now('Asia/Manila'),
+            'updated_at' => Carbon::now('Asia/Manila')
         ]);
-
-        if (!$stock->exists) {
-            $stock->quantity = 0;
-            $stock->recently_added = 0;
-            $stock->used = 0;
-        }
-
-        $stock->quantity += $receiveDate->quantity_received;
-        $stock->recently_added = $receiveDate->quantity_received;
-        $stock->save();
 
         $batch = PurchaseItemBatch::create([
             'store_order_item_id' => $receiveDate->store_order_item->id,

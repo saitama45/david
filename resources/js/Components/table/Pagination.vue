@@ -11,19 +11,59 @@ function filterLinks(links) {
 
     // Find the index of the active page
     const activeIndex = links.findIndex((link) => link.active);
+    const totalPages = links.length - 2; // Exclude Previous and Next
 
-    // Always include Previous (index 0), Next (last index)
-    // First page (index 1), Last page (second-to-last index)
-    // And the active page
-    const filteredLinks = links.filter((link, index) => {
-        return (
-            index === 0 || // Previous
-            index === links.length - 1 || // Next
-            index === 1 || // First page
-            index === links.length - 2 || // Last page
-            link.active // Current page
-        );
-    });
+    // Always include Previous (index 0) and Next (last index)
+    const filteredLinks = [links[0]]; // Previous
+
+    if (totalPages <= 11) {
+        // If total pages is small, show all pages
+        for (let i = 1; i <= totalPages; i++) {
+            filteredLinks.push(links[i]);
+        }
+    } else {
+        // Show 10 pages around current page
+        let startPage = Math.max(1, activeIndex - 5);
+        let endPage = Math.min(totalPages, startPage + 9);
+
+        // Adjust start if we're near the end
+        if (endPage - startPage < 9) {
+            startPage = Math.max(1, endPage - 9);
+        }
+
+        // Always include first page
+        if (startPage > 1) {
+            filteredLinks.push(links[1]); // First page
+            if (startPage > 2) {
+                // Add ellipsis placeholder
+                filteredLinks.push({
+                    label: '...',
+                    url: null,
+                    active: false
+                });
+            }
+        }
+
+        // Add pages around current page
+        for (let i = startPage; i <= endPage; i++) {
+            filteredLinks.push(links[i]);
+        }
+
+        // Always include last page
+        if (endPage < totalPages) {
+            if (endPage < totalPages - 1) {
+                // Add ellipsis placeholder
+                filteredLinks.push({
+                    label: '...',
+                    url: null,
+                    active: false
+                });
+            }
+            filteredLinks.push(links[totalPages]); // Last page
+        }
+    }
+
+    filteredLinks.push(links[links.length - 1]); // Next
 
     return filteredLinks;
 }

@@ -34,7 +34,7 @@ class WastageController extends Controller
     {
         $user = Auth::user();
         $filters = [
-            'status' => $request->get('status'),
+            'status' => $request->get('status') ?? 'pending',
             'store_branch_id' => $request->get('store_branch_id'),
             'date_range' => $request->get('date_range'),
             'search' => $request->get('search'),

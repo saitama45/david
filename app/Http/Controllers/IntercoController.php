@@ -30,7 +30,7 @@ class IntercoController extends Controller
      */
     public function index(Request $request)
     {
-        $status = $request->get('status');
+        $status = $request->get('status') ?? 'open';
         $search = $request->get('search');
 
         // Get current user's assigned store branches
@@ -75,7 +75,9 @@ class IntercoController extends Controller
             });
         }
 
-        $orders = $query->latest()->paginate(10);
+        $orders = $query->orderBy('id', 'desc')
+                     ->orderBy('order_date', 'desc')
+                     ->paginate(10);
         $statistics = $this->intercoService->getIntercoStatistics(
             $assignedStoreIds->isNotEmpty() ? $assignedStoreIds->toArray() : null
         );
@@ -201,11 +203,12 @@ class IntercoController extends Controller
 
                     // Find the corresponding SAP masterfile record to establish the relationship
                     $sapMasterfile = SAPMasterfile::where('ItemCode', $itemData['item_code'])
+                        ->where('AltUOM', $itemData['uom'])
                         ->where('is_active', true)
                         ->first();
 
                     if (!$sapMasterfile) {
-                        throw new \Exception("SAP Masterfile not found for item code: " . $itemData['item_code']);
+                        throw new \Exception("SAP Masterfile not found for item code: " . $itemData['item_code'] . " with UOM: " . $itemData['uom'] . ". Please ensure the item exists in SAP master data with the specified UOM.");
                     }
 
                     $order->store_order_items()->create([
@@ -414,30 +417,55 @@ class IntercoController extends Controller
 
             // Create or update items
             foreach ($data['items'] as $itemData) {
-                if (isset($itemData['id'])) {
-                    // Update existing item
-                    $interco->store_order_items()->where('id', $itemData['id'])->update([
-                        'item_code' => $itemData['item_code'],
-                        'quantity_ordered' => $itemData['quantity_ordered'],
-                        'quantity_approved' => $itemData['quantity_ordered'],
-                        'quantity_commited' => $itemData['quantity_ordered'],
-                        'cost_per_quantity' => $itemData['cost_per_quantity'],
-                        'total_cost' => $itemData['quantity_ordered'] * $itemData['cost_per_quantity'],
-                        'uom' => $itemData['uom'],
-                        'remarks' => $itemData['remarks'] ?? null,
-                    ]);
-                } else {
-                    // Create new item
-                    $interco->store_order_items()->create([
-                        'item_code' => $itemData['item_code'],
-                        'quantity_ordered' => $itemData['quantity_ordered'],
-                        'quantity_approved' => $itemData['quantity_ordered'],
-                        'quantity_commited' => $itemData['quantity_ordered'],
-                        'cost_per_quantity' => $itemData['cost_per_quantity'],
-                        'total_cost' => $itemData['quantity_ordered'] * $itemData['cost_per_quantity'],
-                        'uom' => $itemData['uom'],
-                        'remarks' => $itemData['remarks'] ?? null,
-                    ]);
+                try {
+                    // Validate item data
+                    if (!isset($itemData['item_code']) || !isset($itemData['quantity_ordered'])) {
+                        throw new \Exception("Item has missing required fields: item_code and quantity_ordered are required.");
+                    }
+
+                    if ($itemData['quantity_ordered'] <= 0) {
+                        throw new \Exception("Item quantity must be greater than 0 for item: " . $itemData['item_code']);
+                    }
+
+                    // Find the corresponding SAP masterfile record to establish the relationship
+                    $sapMasterfile = SAPMasterfile::where('ItemCode', $itemData['item_code'])
+                        ->where('AltUOM', $itemData['uom'])
+                        ->where('is_active', true)
+                        ->first();
+
+                    if (!$sapMasterfile) {
+                        throw new \Exception("SAP masterfile not found for item code: " . $itemData['item_code'] . " with UOM: " . $itemData['uom'] . ". Please ensure the item exists in SAP master data with the specified UOM.");
+                    }
+
+                    if (isset($itemData['id'])) {
+                        // Update existing item
+                        $interco->store_order_items()->where('id', $itemData['id'])->update([
+                            'item_code' => $itemData['item_code'],
+                            'quantity_ordered' => $itemData['quantity_ordered'],
+                            'quantity_approved' => $itemData['quantity_ordered'],
+                            'quantity_commited' => $itemData['quantity_ordered'],
+                            'cost_per_quantity' => $itemData['cost_per_quantity'],
+                            'total_cost' => $itemData['quantity_ordered'] * $itemData['cost_per_quantity'],
+                            'uom' => $itemData['uom'],
+                            'remarks' => $itemData['remarks'] ?? null,
+                            'sap_masterfile_id' => $sapMasterfile->id, // CRITICAL: Set the relationship
+                        ]);
+                    } else {
+                        // Create new item
+                        $interco->store_order_items()->create([
+                            'item_code' => $itemData['item_code'],
+                            'quantity_ordered' => $itemData['quantity_ordered'],
+                            'quantity_approved' => $itemData['quantity_ordered'],
+                            'quantity_commited' => $itemData['quantity_ordered'],
+                            'cost_per_quantity' => $itemData['cost_per_quantity'],
+                            'total_cost' => $itemData['quantity_ordered'] * $itemData['cost_per_quantity'],
+                            'uom' => $itemData['uom'],
+                            'remarks' => $itemData['remarks'] ?? null,
+                            'sap_masterfile_id' => $sapMasterfile->id, // CRITICAL: Set the relationship
+                        ]);
+                    }
+                } catch (\Exception $e) {
+                    throw new \Exception("Failed to process item '" . ($itemData['item_code'] ?? 'Unknown') . "': " . $e->getMessage());
                 }
             }
 

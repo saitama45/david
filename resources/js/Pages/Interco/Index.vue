@@ -32,7 +32,7 @@ const props = defineProps({
 
 // Local state
 const search = ref(props.filters.search || '')
-const status = ref(props.filters.status || 'all')
+const status = ref(props.filters.status || 'open')
 const dateRange = ref('')
 
 // Computed properties
@@ -48,6 +48,7 @@ const filteredStats = computed(() => {
     { label: 'Total Transfers', value: stats.total ? stats.total : 0, color: 'text-blue-600' },
     { label: 'Open', value: stats.open ? stats.open : 0, color: 'text-gray-600' },
     { label: 'In Transit', value: stats.in_transit ? stats.in_transit : 0, color: 'text-purple-600' },
+    { label: 'Approved', value: stats.approved ? stats.approved : 0, color: 'text-orange-600' },
     { label: 'Received', value: stats.received ? stats.received : 0, color: 'text-green-600' }
   ]
 })
@@ -152,7 +153,7 @@ let searchTimeout
     </template>
 
     <!-- Statistics Cards -->
-    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 mb-6">
       <Card v-for="stat in filteredStats" :key="stat.label">
         <CardContent class="p-4">
           <div class="flex items-center justify-between">
@@ -362,10 +363,7 @@ let searchTimeout
 
         <!-- Pagination -->
         <div v-if="orders.data.length > 0" class="mt-6">
-          <!-- Laravel pagination links would be rendered here -->
-          <div class="flex justify-center">
-            <!-- Pagination component from existing system -->
-          </div>
+          <Pagination :data="orders" />
         </div>
       </CardContent>
     </Card>

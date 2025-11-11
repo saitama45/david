@@ -100,7 +100,8 @@ onMounted(() => {
       uom: item.sapMasterfile?.BaseUOM || item.uom || 'PCS', // Use SAP BaseUOM for internal consistency
       stock: 0, // Will be populated when fetching item details via API
       total_cost: parseFloat((Number(item.quantity_ordered || 0) * Number(item.cost_per_quantity || 0)).toFixed(2)),
-      remarks: item.remarks || ''
+      remarks: item.remarks || '',
+      sap_masterfile_id: item.sap_masterfile_id || item.sapMasterfile?.id || null, // Store SAP masterfile ID
     }))
 
     // Fetch SOH stock data for existing items
@@ -451,6 +452,7 @@ const addToOrdersButton = () => {
       uom: productDetails.uom,
       stock: productDetails.stock || 0, // Preserve SOH stock data
       total_cost: parseFloat((Number(productDetails.quantity) * Number(productDetails.cost)).toFixed(2)),
+      sap_masterfile_id: productDetails.id || selectedAutoCompleteItem.value?.id || null, // Store SAP masterfile ID
     }
 
     selectedItems.value.push(newItem)
@@ -650,6 +652,7 @@ const executeFormSubmission = () => {
         cost_per_quantity: Number(item.cost_per_quantity || 1.0),
         uom: String(item.unit_of_measurement || item.uom || 'PCS'),
         remarks: item.remarks || ''
+        // Let backend handle sap_masterfile_id inference like Create.vue
       }
 
             return mappedItem

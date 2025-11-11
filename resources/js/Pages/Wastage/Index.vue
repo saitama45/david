@@ -32,7 +32,7 @@ const props = defineProps({
 
 // Local state
 const search = ref(props.filters.search || '')
-const status = ref(props.filters.status || 'all')
+const status = ref(props.filters.status || 'pending')
 const dateRange = ref('')
 
 // Computed properties
@@ -69,7 +69,7 @@ const applyFilters = () => {
 
 const clearFilters = () => {
   search.value = ''
-  status.value = 'all'
+  status.value = 'pending'
   dateRange.value = ''
 
   router.get(route('wastage.index'), {}, {
