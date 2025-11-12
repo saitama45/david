@@ -34,14 +34,14 @@ const form = useForm({
   store_branch_id: '',
   remarks: '',
   cartItems: [],
-  image: null
+  images: []
 })
 
 // Local state
 const selectedAutoCompleteItem = ref(null)
 const isLoading = ref(false)
 const cartItems = ref([])
-const selectedImage = ref(null)
+const selectedImages = ref([])
 
 // Product details reactive object for item search
 const productDetails = reactive({
@@ -205,7 +205,7 @@ const performSubmit = () => {
   form.cartItems = cartItemsData;
 
   // Assign the selected image to the form object
-  form.image = selectedImage.value;
+  form.images = selectedImages.value;
 
   // Submit with Inertia's form object directly
   form.post(route('wastage.store'), {
@@ -269,7 +269,7 @@ const resetForm = () => {
   form.reset()
   clearCart()
   selectedAutoCompleteItem.value = null
-  selectedImage.value = null
+  selectedImages.value = []
   Object.keys(productDetails).forEach((key) => {
     productDetails[key] = null
   })
@@ -387,13 +387,14 @@ watch(() => cartItems.value, (newItems) => {
             <!-- Image Upload -->
             <div class="space-y-2 md:col-span-2">
               <ImageUpload
-                v-model="selectedImage"
-                label="Wastage Image (Optional)"
-                helper-text="Upload JPG or PNG image as evidence (max 5MB)"
+                v-model="selectedImages"
+                label="Wastage Images (Optional)"
+                helper-text="Upload one or more JPG or PNG images as evidence (max 5MB each)"
                 :disabled="form.processing"
+                multiple
               />
-              <p v-if="form.errors.image" class="text-sm text-red-600">
-                {{ form.errors.image }}
+              <p v-if="form.errors.images" class="text-sm text-red-600">
+                {{ form.errors.images }}
               </p>
             </div>
 

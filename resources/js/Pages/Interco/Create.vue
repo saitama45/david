@@ -36,7 +36,8 @@ import StockIndicator from './Components/StockIndicator.vue'
 import ItemQuantityModal from './Components/ItemQuantityModal.vue'
 
 const props = defineProps({
-  branches: Array,
+  myStoreOptions: Array,
+  sendingStoreOptions: Array,
   items: Array,
   user_store_branch_id: Number
 })
@@ -90,8 +91,7 @@ const itemForm = useForm({
   item: null,
 });
 
-// Create branch options using composable
-const { options: branchesOptions } = useSelectOptions(props.branches);
+
 
 // Edit quantity functionality (from MassOrders)
 const {
@@ -196,9 +196,9 @@ const isValidStoreSelection = computed(() => {
 // Computed property for filtered sending store options (reversed logic)
 const filteredSendingStoreOptions = computed(() => {
   if (!form.store_branch_id) {
-    return []
+    return props.sendingStoreOptions;
   }
-  return branchesOptions.value.filter(branch =>
+  return props.sendingStoreOptions.filter(branch =>
     branch.value !== form.store_branch_id
   )
 })
@@ -1051,14 +1051,14 @@ const handleAutoCompleteItemSelect = (item) => {
         <!-- Section Content -->
         <div v-show="openSections.transferDetails" class="px-4 sm:px-6 py-4">
           <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <!-- Receiving Store -->
+            <!-- My Store -->
             <div class="space-y-2">
-              <Label for="receiving_store">Receiving Store *</Label>
+              <Label for="receiving_store">My Store *</Label>
               <Select
                 filter
-                placeholder="Select receiving store"
+                placeholder="Select your store"
                 v-model="form.store_branch_id"
-                :options="branchesOptions"
+                :options="props.myStoreOptions"
                 optionLabel="label"
                 optionValue="value"
                 class="w-full"
@@ -1085,7 +1085,7 @@ const handleAutoCompleteItemSelect = (item) => {
                 {{ formErrors.sending_store_branch_id }}
               </p>
               <p v-if="!form.store_branch_id" class="text-sm text-muted-foreground">
-                Select a receiving store first
+                Select My Store first
               </p>
             </div>
 
@@ -1406,12 +1406,6 @@ const handleAutoCompleteItemSelect = (item) => {
                     </td>
                     <td class="px-4 py-3 text-center">
                       <div class="flex justify-center gap-1">
-                        <button
-                          @click="editItemQuantity(item, index)"
-                          class="text-blue-600 hover:text-blue-800 text-sm font-medium"
-                        >
-                          Edit
-                        </button>
                         <button
                           @click="removeItem(index)"
                           class="text-red-600 hover:text-red-800"

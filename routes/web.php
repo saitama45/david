@@ -996,4 +996,122 @@ Route::middleware('auth')
         });
     });
 
+  // Google Drive Image Proxy Route
+    Route::get('/proxy/google-drive/{fileId}', function ($fileId) {
+        // Log the proxy attempt for debugging
+        \Log::info('Google Drive proxy attempt', [
+            'fileId' => $fileId,
+            'timestamp' => now()
+        ]);
+
+        // Multiple URL formats to try
+        $urlFormats = [
+            "https://drive.google.com/uc?export=view&id={$fileId}",
+            "https://drive.google.com/thumbnail?id={$fileId}&sz=s400",
+            "https://drive.google.com/uc?export=download&id={$fileId}",
+            "https://docs.google.com/uc?export=view&id={$fileId}",
+            "https://lh3.googleusercontent.com/d/{$fileId}=s400"
+        ];
+
+        $imageData = null;
+        $contentType = 'image/jpeg';
+        $lastError = null;
+
+        foreach ($urlFormats as $index => $url) {
+            try {
+                \Log::info('Trying Google Drive URL format', [
+                    'fileId' => $fileId,
+                    'format_index' => $index + 1,
+                    'url' => $url
+                ]);
+
+                $ch = curl_init();
+                curl_setopt($ch, CURLOPT_URL, $url);
+                curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+                curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true);
+                curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
+                curl_setopt($ch, CURLOPT_TIMEOUT, 5); // Reduced from 10 to 5 seconds
+                curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 3); // Add connection timeout
+                curl_setopt($ch, CURLOPT_USERAGENT, 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36');
+                curl_setopt($ch, CURLOPT_HTTPHEADER, [
+                    'Accept: image/*',
+                    'Accept-Language: en-US,en;q=0.9',
+                ]);
+
+                $startTime = microtime(true);
+                $response = curl_exec($ch);
+                $endTime = microtime(true);
+
+                $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+                $contentTypeHeader = curl_getinfo($ch, CURLINFO_CONTENT_TYPE);
+                $curlError = curl_error($ch);
+                $curlErrno = curl_errno($ch);
+
+                curl_close($ch);
+
+                $duration = round(($endTime - $startTime) * 1000); // Duration in milliseconds
+
+                \Log::info('Google Drive URL attempt result', [
+                    'fileId' => $fileId,
+                    'format_index' => $index + 1,
+                    'http_code' => $httpCode,
+                    'duration_ms' => $duration,
+                    'curl_error' => $curlError ?: 'none',
+                    'curl_errno' => $curlErrno,
+                    'response_size' => $response ? strlen($response) : 0
+                ]);
+
+                if ($httpCode === 200 && $response && !$curlError) {
+                    // Validate that we got image data
+                    $imageInfo = @getimagesizefromstring($response);
+                    if ($imageInfo !== false) {
+                        \Log::info('Google Drive proxy success', [
+                            'fileId' => $fileId,
+                            'format_index' => $index + 1,
+                            'content_type' => $contentTypeHeader ?: $imageInfo['mime'],
+                            'image_size' => strlen($response),
+                            'dimensions' => $imageInfo[0] . 'x' . $imageInfo[1]
+                        ]);
+
+                        $imageData = $response;
+                        $contentType = $contentTypeHeader ?: $imageInfo['mime'];
+                        break; // Success, exit the loop
+                    } else {
+                        $lastError = "Invalid image data for URL format " . ($index + 1) . " (not an image)";
+                    }
+                } else {
+                    $lastError = "HTTP {$httpCode} for URL format " . ($index + 1) . ($curlError ? " - CURL: {$curlError}" : "");
+                }
+            } catch (\Exception $e) {
+                $lastError = "Exception for URL format " . ($index + 1) . ": " . $e->getMessage();
+                \Log::error('Google Drive URL exception', [
+                    'fileId' => $fileId,
+                    'format_index' => $index + 1,
+                    'exception' => $e->getMessage(),
+                    'trace' => $e->getTraceAsString()
+                ]);
+                continue;
+            }
+        }
+
+        if ($imageData) {
+            return response($imageData, 200, [
+                'Content-Type' => $contentType,
+                'Cache-Control' => 'public, max-age=86400', // Cache for 1 day
+                'Access-Control-Allow-Origin' => '*',
+                'Access-Control-Allow-Headers' => 'Content-Type',
+                'Access-Control-Allow-Methods' => 'GET, HEAD, OPTIONS'
+            ]);
+        }
+
+        // Log the error for debugging
+        \Log::warning('Google Drive proxy failed', [
+            'fileId' => $fileId,
+            'error' => $lastError,
+            'formats_tried' => count($urlFormats)
+        ]);
+
+        return response('Image not found or inaccessible', 404);
+    })->name('proxy.google-drive');
+
 require __DIR__ . '/auth.php';

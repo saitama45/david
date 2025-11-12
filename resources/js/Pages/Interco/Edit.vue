@@ -35,7 +35,8 @@ import StockIndicator from './Components/StockIndicator.vue'
 import ItemQuantityModal from './Components/ItemQuantityModal.vue'
 
 const props = defineProps({
-  branches: Array,
+  myStoreOptions: Array,
+  sendingStoreOptions: Array,
   items: Array,
   user_store_branch_id: Number,
   order: Object  // Existing interco transfer data for editing (renamed from 'interco' to match backend)
@@ -150,8 +151,7 @@ const itemForm = useForm({
   item: null,
 });
 
-// Create branch options using composable
-const { options: branchesOptions } = useSelectOptions(props.branches);
+
 
 // Edit quantity functionality (from MassOrders)
 const {
@@ -254,31 +254,31 @@ const isValidStoreSelection = computed(() => {
 })
 
 // Computed property for filtered receiving store options
-const filteredReceivingStoreOptions = computed(() => {
+const filteredMyStoreOptions = computed(() => {
   if (!form.sending_store_branch_id) {
-    return []
+    return [];
   }
 
-  const filteredOptions = branchesOptions.value.filter(branch =>
+  const filteredOptions = props.myStoreOptions.filter(branch =>
     branch.value !== form.sending_store_branch_id
-  )
+  );
 
   // Ensure the currently selected receiving store is included in the options
   // This handles pre-populated values that might otherwise be filtered out
   if (form.store_branch_id && !filteredOptions.some(option => option.value === form.store_branch_id)) {
-    const selectedBranch = branchesOptions.value.find(branch => branch.value === form.store_branch_id)
+    const selectedBranch = props.myStoreOptions.find(branch => branch.value === form.store_branch_id);
     if (selectedBranch) {
-      filteredOptions.push(selectedBranch)
+      filteredOptions.push(selectedBranch);
     }
   }
 
-  return filteredOptions
-})
+  return filteredOptions;
+});
 
 // Computed property for receiving store dropdown disabled state
-const isReceivingStoreDisabled = computed(() => {
-  return !form.sending_store_branch_id
-})
+const isMyStoreDisabled = computed(() => {
+  return !form.sending_store_branch_id;
+});
 
 // Methods (MassOrders-style)
 // Function to fetch items for sending store (adapted from MassOrders fetchSupplierItems)
@@ -1040,32 +1040,15 @@ const handleAutoCompleteItemSelect = (item) => {
         <!-- Section Content -->
         <div v-show="openSections.transferDetails" class="px-4 sm:px-6 py-4">
           <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <!-- Sending Store -->
+            <!-- My Store -->
             <div class="space-y-2">
-              <Label for="sending_store">Sending Store *</Label>
+              <Label for="receiving_store">My Store *</Label>
               <Select
                 filter
-                placeholder="Select sending store"
-                v-model="form.sending_store_branch_id"
-                :options="branchesOptions"
-                optionLabel="label"
-                optionValue="value"
-                class="w-full"
-              />
-              <p v-if="formErrors.sending_store_branch_id" class="text-sm text-red-600">
-                {{ formErrors.sending_store_branch_id }}
-              </p>
-            </div>
-
-            <!-- Receiving Store -->
-            <div class="space-y-2">
-              <Label for="receiving_store">Receiving Store *</Label>
-              <Select
-                filter
-                placeholder="Select receiving store"
+                placeholder="Select your store"
                 v-model="form.store_branch_id"
-                :options="filteredReceivingStoreOptions"
-                :disabled="isReceivingStoreDisabled"
+                :options="filteredMyStoreOptions"
+                :disabled="isMyStoreDisabled"
                 optionLabel="label"
                 optionValue="value"
                 class="w-full"
@@ -1075,6 +1058,23 @@ const handleAutoCompleteItemSelect = (item) => {
               </p>
               <p v-if="!form.sending_store_branch_id" class="text-sm text-muted-foreground">
                 Select a sending store first
+              </p>
+            </div>
+
+            <!-- Sending Store -->
+            <div class="space-y-2">
+              <Label for="sending_store">Sending Store *</Label>
+              <Select
+                filter
+                placeholder="Select sending store"
+                v-model="form.sending_store_branch_id"
+                :options="props.sendingStoreOptions"
+                optionLabel="label"
+                optionValue="value"
+                class="w-full"
+              />
+              <p v-if="formErrors.sending_store_branch_id" class="text-sm text-red-600">
+                {{ formErrors.sending_store_branch_id }}
               </p>
             </div>
 
@@ -1395,12 +1395,6 @@ const handleAutoCompleteItemSelect = (item) => {
                     </td>
                     <td class="px-4 py-3 text-center">
                       <div class="flex justify-center gap-1">
-                        <button
-                          @click="editItemQuantity(item, index)"
-                          class="text-blue-600 hover:text-blue-800 text-sm font-medium"
-                        >
-                          Edit
-                        </button>
                         <button
                           @click="removeItem(index)"
                           class="text-red-600 hover:text-red-800"

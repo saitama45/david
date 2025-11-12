@@ -118,19 +118,20 @@ class WastageController extends Controller
         $data = $request->validated();
 
         try {
-            // Handle image upload
-            $imageUrl = null;
-            if ($request->hasFile('image')) {
-                $imageUrl = $this->googleDriveService->uploadImage($request->file('image'));
-                $data['image_url'] = $imageUrl;
+            // Handle multiple image uploads
+            $imageUrls = [];
+            if ($request->hasFile('images')) {
+                foreach ($request->file('images') as $file) {
+                    $imageUrls[] = $this->googleDriveService->uploadImage($file);
+                }
             }
+            // Store as JSON array, even if empty
+            $data['image_url'] = json_encode($imageUrls);
 
             // Check if this is multi-item submission (cart) or single item
             if (isset($data['cartItems'])) {
-                // Multi-item submission - apply image URL to all items
-                if ($imageUrl) {
-                    $data['image_url'] = $imageUrl;
-                }
+                // The service will now receive a JSON string in 'image_url'
+                // and should apply it to all created records.
                 $wastageRecords = $this->wastageService->createMultipleWastageRecords($data, $user->id);
 
                 return redirect()->route('wastage.index')
@@ -320,6 +321,7 @@ class WastageController extends Controller
             'created_by' => $wastage->created_by,
             'created_at' => $wastage->created_at,
             'updated_at' => $wastage->updated_at,
+            'image_urls' => json_decode($wastage->image_url, true) ?? [],
             'items' => $relatedWastageRecords->map(function ($record) {
                 return [
                     'id' => $record->id,
@@ -359,12 +361,6 @@ class WastageController extends Controller
      */
     public function update(WastageRequest $request, Wastage $wastage)
     {
-        \Illuminate\Support\Facades\Log::info('--- Wastage Update Request ---');
-        \Illuminate\Support\Facades\Log::info('hasFile(image): ' . ($request->hasFile('image') ? 'true' : 'false'));
-        \Illuminate\Support\Facades\Log::info('all(): ' . json_encode($request->all()));
-        \Illuminate\Support\Facades\Log::info('files->all(): ' . json_encode($request->files->all()));
-        \Illuminate\Support\Facades\Log::info('--- End Wastage Update Request ---');
-
         $user = auth()->user();
         $data = $request->validated();
 
@@ -374,32 +370,37 @@ class WastageController extends Controller
         }
 
         try {
-            // Handle image upload
-            $imageUrl = null;
-            $oldImageUrl = $wastage->image_url;
-
-            if ($request->hasFile('image')) {
-                // Delete old image if exists
-                if ($oldImageUrl) {
-                    $this->googleDriveService->deleteImage($oldImageUrl);
-                }
-                // Upload new image
-                $imageUrl = $this->googleDriveService->uploadImage($request->file('image'));
-                $data['image_url'] = $imageUrl;
-            } elseif (isset($data['image_url']) && $data['image_url']) {
-                // Handle image URL replacement (rare case)
-                if ($oldImageUrl && $oldImageUrl !== $data['image_url']) {
-                    $this->googleDriveService->deleteImage($oldImageUrl);
+            // Handle multiple image uploads
+            $newlyUploadedUrls = [];
+            if ($request->hasFile('images')) {
+                foreach ($request->file('images') as $file) {
+                    $newlyUploadedUrls[] = $this->googleDriveService->uploadImage($file);
                 }
             }
+
+            // Handle existing and deleted images
+            $originalUrls = json_decode($wastage->image_url, true) ?? [];
+            $remainingUrls = [];
+
+            if ($request->has('existing_image_urls')) {
+                $clientUrls = $request->input('existing_image_urls', []);
+                // Strip the "/storage/" prefix from the URLs sent by the client
+                $remainingUrls = array_map(fn($url) => preg_replace('/^\/storage\//', '', $url), $clientUrls);
+            }
+
+            $deletedUrls = array_diff($originalUrls, $remainingUrls);
+            foreach ($deletedUrls as $urlToDelete) {
+                $this->googleDriveService->deleteImage($urlToDelete);
+            }
+
+            // Combine remaining existing URLs with newly uploaded ones
+            $finalUrls = array_merge($remainingUrls, $newlyUploadedUrls);
+            $data['image_url'] = json_encode($finalUrls);
 
             // Check if this is a multi-item update or single item update
             if (isset($data['items']) && is_array($data['items'])) {
                 // Multi-item update with deletion support
-                if ($imageUrl) {
-                    $data['image_url'] = $imageUrl;
-                }
-                $result = $this->wastageService->updateMultipleWastageRecords($wastage, $data, $user->id, $imageUrl);
+                $result = $this->wastageService->updateMultipleWastageRecords($wastage, $data, $user->id, $data['image_url']);
 
                 // Build detailed success message
                 $existingUpdatedCount = $result['summary']['existing_updated_count'] ?? 0;

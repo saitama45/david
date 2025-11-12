@@ -110,11 +110,19 @@ class IntercoController extends Controller
     public function create()
     {
         $user = auth()->user();
-        $branches = StoreBranch::options();
+        $user->load('store_branches');
+
+        // Options for "My Store" dropdown - only user's assigned, active branches
+        $myStoreOptions = $user->store_branches()->where('is_active', true)->get();
+
+        // Options for "Sending Store" dropdown - all active branches
+        $sendingStoreOptions = StoreBranch::where('is_active', true)->orderBy('name')->get();
+
         $items = SAPMasterfile::where('is_active', true)->orderBy('ItemDescription')->get();
 
         return Inertia::render('Interco/Create', [
-            'branches' => $branches,
+            'myStoreOptions' => $myStoreOptions->map(fn($branch) => ['value' => $branch->id, 'label' => $branch->name]),
+            'sendingStoreOptions' => $sendingStoreOptions->map(fn($branch) => ['value' => $branch->id, 'label' => $branch->name]),
             'items' => $items->map(fn($item) => [
                 'id' => $item->id,
                 'item_code' => $item->ItemCode,
@@ -328,6 +336,7 @@ class IntercoController extends Controller
     public function edit(StoreOrder $interco)
     {
         $user = auth()->user();
+        $user->load('store_branches');
 
         // Check if this is an interco order and can be edited
         if (!$interco->isInterco() || !$this->intercoService->canUserPerformAction($interco, 'edit', $user)) {
@@ -342,37 +351,18 @@ class IntercoController extends Controller
             'store_order_items.sapMasterfile' // SAP Masterfile for item details
         ]);
 
-        $branches = StoreBranch::options();
+        // Options for "My Store" dropdown - only user's assigned, active branches
+        $myStoreOptions = $user->store_branches()->where('is_active', true)->get();
+
+        // Options for "Sending Store" dropdown - all active branches
+        $sendingStoreOptions = StoreBranch::where('is_active', true)->orderBy('name')->get();
+
         $items = SAPMasterfile::where('is_active', true)->orderBy('ItemDescription')->get();
-
-        // Debug: Log the branches data to investigate missing store options
-        \Log::info('Interco Edit - Branches data:', [
-            'branches_count' => $branches->count(),
-            'branches_data' => $branches->toArray(),
-            'order_sending_store_id' => $interco->sending_store_branch_id,
-            'order_receiving_store_id' => $interco->store_branch_id
-        ]);
-
-        // Check if the required stores exist in the branches
-        if ($interco->sending_store_branch_id) {
-            $sendingStoreExists = $branches->contains('value', $interco->sending_store_branch_id);
-            \Log::info('Sending store check:', [
-                'sending_store_id' => $interco->sending_store_branch_id,
-                'exists_in_options' => $sendingStoreExists
-            ]);
-        }
-
-        if ($interco->store_branch_id) {
-            $receivingStoreExists = $branches->contains('value', $interco->store_branch_id);
-            \Log::info('Receiving store check:', [
-                'receiving_store_id' => $interco->store_branch_id,
-                'exists_in_options' => $receivingStoreExists
-            ]);
-        }
 
         return Inertia::render('Interco/Edit', [
             'order' => $interco,
-            'branches' => $branches,
+            'myStoreOptions' => $myStoreOptions->map(fn($branch) => ['value' => $branch->id, 'label' => $branch->name]),
+            'sendingStoreOptions' => $sendingStoreOptions->map(fn($branch) => ['value' => $branch->id, 'label' => $branch->name]),
             'user_store_branch_id' => $user->store_branch_id, // REQUIRED for form defaults
             'items' => $items->map(fn($item) => [
                 'id' => $item->id,

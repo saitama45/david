@@ -67,7 +67,7 @@ class IntercoReportExport implements FromQuery, WithHeadings, WithMapping, Shoul
             $query->where('store_branch_id', $filters['receiving_store_id']);
         }
 
-        if (!empty($filters['interco_status'])) {
+        if (!empty($filters['interco_status']) && $filters['interco_status'] !== 'all') {
             $query->where('interco_status', $filters['interco_status']);
         }
 
@@ -90,6 +90,7 @@ class IntercoReportExport implements FromQuery, WithHeadings, WithMapping, Shoul
         return [
             'Item Code',
             'Item Description',
+            'Committed Qty',
             'Received Qty',
             'UoM',
             'Requested Date',
@@ -135,6 +136,7 @@ class IntercoReportExport implements FromQuery, WithHeadings, WithMapping, Shoul
                         $rows[] = [
                             $item->sapMasterfile->ItemCode,
                             $item->sapMasterfile->ItemDescription,
+                            $item->quantity_commited,
                             $totalReceivedQuantity,
                             $item->sapMasterfile->BaseUOM,
                             $order->order_date,
@@ -155,6 +157,7 @@ class IntercoReportExport implements FromQuery, WithHeadings, WithMapping, Shoul
                     $rows[] = [
                         $item->sapMasterfile->ItemCode,
                         $item->sapMasterfile->ItemDescription,
+                        $item->quantity_commited,
                         $totalReceivedQuantity,
                         $item->sapMasterfile->BaseUOM,
                         $order->order_date,
@@ -202,18 +205,19 @@ class IntercoReportExport implements FromQuery, WithHeadings, WithMapping, Shoul
         // Set column widths for better readability
         $sheet->getColumnDimension('A')->setWidth(15);  // Item Code
         $sheet->getColumnDimension('B')->setWidth(40);  // Item Description
-        $sheet->getColumnDimension('C')->setWidth(15);  // Received Qty
-        $sheet->getColumnDimension('D')->setWidth(10);  // UoM
-        $sheet->getColumnDimension('E')->setWidth(15);  // Requested Date
-        $sheet->getColumnDimension('F')->setWidth(20);  // Reason
-        $sheet->getColumnDimension('G')->setWidth(25);  // From Store
-        $sheet->getColumnDimension('H')->setWidth(25);  // To Store
-        $sheet->getColumnDimension('I')->setWidth(15);  // Interco Number
-        $sheet->getColumnDimension('J')->setWidth(15);  // Status
-        $sheet->getColumnDimension('K')->setWidth(15);  // Expiry Date
-        $sheet->getColumnDimension('L')->setWidth(15);  // Unit Cost
-        $sheet->getColumnDimension('M')->setWidth(15);  // Total Cost
-        $sheet->getColumnDimension('N')->setWidth(15);  // Shipped Date
-        $sheet->getColumnDimension('O')->setWidth(15);  // Received Date
+        $sheet->getColumnDimension('C')->setWidth(15);  // Committed Qty
+        $sheet->getColumnDimension('D')->setWidth(15);  // Received Qty
+        $sheet->getColumnDimension('E')->setWidth(10);  // UoM
+        $sheet->getColumnDimension('F')->setWidth(15);  // Requested Date
+        $sheet->getColumnDimension('G')->setWidth(20);  // Reason
+        $sheet->getColumnDimension('H')->setWidth(25);  // From Store
+        $sheet->getColumnDimension('I')->setWidth(25);  // To Store
+        $sheet->getColumnDimension('J')->setWidth(15);  // Interco Number
+        $sheet->getColumnDimension('K')->setWidth(15);  // Status
+        $sheet->getColumnDimension('L')->setWidth(15);  // Expiry Date
+        $sheet->getColumnDimension('M')->setWidth(15);  // Unit Cost
+        $sheet->getColumnDimension('N')->setWidth(15);  // Total Cost
+        $sheet->getColumnDimension('O')->setWidth(15);  // Shipped Date
+        $sheet->getColumnDimension('P')->setWidth(15);  // Received Date
     }
 }

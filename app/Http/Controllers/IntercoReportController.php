@@ -81,7 +81,7 @@ class IntercoReportController extends Controller
             $query->where('store_branch_id', $filters['receiving_store_id']);
         }
 
-        if (!empty($filters['interco_status'])) {
+        if (!empty($filters['interco_status']) && $filters['interco_status'] !== 'all') {
             $query->where('interco_status', $filters['interco_status']);
         }
 
@@ -129,6 +129,7 @@ class IntercoReportController extends Controller
                         'id' => $item->id,
                         'item_code' => $item->sapMasterfile->ItemCode,
                         'item_description' => $item->sapMasterfile->ItemDescription,
+                        'committed_qty' => $item->quantity_commited,
                         'received_qty' => $totalReceivedQuantity,
                         'uom' => $item->sapMasterfile->BaseUOM,
                         'requested_delivery_date' => $order->order_date,
@@ -149,10 +150,15 @@ class IntercoReportController extends Controller
         }
 
         // Get status options for filter
-        $statusOptions = collect(IntercoStatus::cases())->map(fn($status) => [
-            'value' => $status->value,
-            'label' => $status->getLabel()
-        ]);
+        $statusOptions = collect(IntercoStatus::cases())
+            ->filter(fn($status) => $status->value !== 'committed') // Remove 'committed'
+            ->map(fn($status) => [
+                'value' => $status->value,
+                'label' => $status->getLabel()
+            ])
+            ->prepend(['value' => 'all', 'label' => 'All Statuses']) // Add 'All Statuses'
+            ->values();
+
 
         return Inertia::render('Reports/IntercoReport/Index', [
             'lineItems' => $lineItems,
@@ -169,9 +175,7 @@ class IntercoReportController extends Controller
      */
     public function export(Request $request)
     {
-        // Get the same filtered data as index method
-        $user = Auth::user();
-
+        // Get filter parameters from the request
         $filters = $request->only([
             'date_from',
             'date_to',
@@ -180,125 +184,6 @@ class IntercoReportController extends Controller
             'interco_status',
             'search'
         ]);
-
-        // Set defaults for export
-        $filters['date_from'] = $filters['date_from'] ?? Carbon::today()->startOfMonth()->format('Y-m-d');
-        $filters['date_to'] = $filters['date_to'] ?? Carbon::today()->format('Y-m-d');
-        $filters['interco_status'] = $filters['interco_status'] ?? 'received';
-
-        // Get user's assigned stores
-        $user->load('store_branches');
-        $assignedStoreIds = $user->store_branches->pluck('id');
-
-        // Build same query as index but without pagination for export
-        $query = StoreOrder::whereNotNull('interco_number')
-            ->whereNotNull('sending_store_branch_id')
-            ->with([
-                'sendingStore',
-                'store_branch',
-                'store_order_items.sapMasterfile',
-                'store_order_items.ordered_item_receive_dates' => fn($q) => $q->where('status', 'approved'),
-                'store_order_remarks' => fn($q) => $q->where('action', 'COMMIT')
-            ])
-            ->whereHas('store_order_items.sapMasterfile')
-            ->whereBetween('order_date', [$filters['date_from'], $filters['date_to']]);
-
-        // Apply user permissions
-        if ($assignedStoreIds->isNotEmpty()) {
-            $query->where(function($q) use ($assignedStoreIds) {
-                $q->whereIn('store_branch_id', $assignedStoreIds)
-                  ->orWhereIn('sending_store_branch_id', $assignedStoreIds);
-            });
-        }
-
-        // Apply filters
-        if (!empty($filters['sending_store_id'])) {
-            $query->where('sending_store_branch_id', $filters['sending_store_id']);
-        }
-
-        if (!empty($filters['receiving_store_id'])) {
-            $query->where('store_branch_id', $filters['receiving_store_id']);
-        }
-
-        if (!empty($filters['interco_status'])) {
-            $query->where('interco_status', $filters['interco_status']);
-        }
-
-        if (!empty($filters['search'])) {
-            $search = $filters['search'];
-            $query->where(function($q) use ($search) {
-                $q->where('interco_number', 'like', "%{$search}%")
-                  ->orWhereHas('sendingStore', fn($sq) => $sq->where('name', 'like', "%{$search}%"))
-                  ->orWhereHas('store_branch', fn($rq) => $rq->where('name', 'like', "%{$search}%"))
-                  ->orWhereHas('store_order_items.sapMasterfile', fn($iq) => $iq->where('ItemCode', 'like', "%{$search}%")
-                                                                                                    ->orWhere('ItemDescription', 'like', "%{$search}%"));
-            });
-        }
-
-        // Get all data for export
-        $orders = $query->orderBy('order_date', 'desc')->get();
-
-        // Transform to export format
-        $exportData = [];
-        foreach ($orders as $order) {
-            foreach ($order->store_order_items as $item) {
-                if ($item->sapMasterfile) {
-                    $shippedDate = $order->store_order_remarks->first()?->created_at;
-
-                    // Get received and expiry dates
-                    $approvedReceiveDates = $item->ordered_item_receive_dates
-                        ->where('status', 'approved');
-
-                    $receivedDates = $approvedReceiveDates->pluck('received_date')->unique();
-                    $expiryDates = $approvedReceiveDates->pluck('expiry_date')->unique();
-
-                    // Calculate total received quantity for this item
-                    $totalReceivedQuantity = $approvedReceiveDates->sum('quantity_received');
-
-                    // Create separate rows for each received date if multiple
-                    if ($receivedDates->count() > 0) {
-                        foreach ($receivedDates as $index => $receivedDate) {
-                            $exportData[] = [
-                                'item_code' => $item->sapMasterfile->ItemCode,
-                                'item_description' => $item->sapMasterfile->ItemDescription,
-                                'received_qty' => $totalReceivedQuantity,
-                                'uom' => $item->sapMasterfile->BaseUOM,
-                                'requested_delivery_date' => $order->order_date,
-                                'interco_reason' => $order->interco_reason,
-                                'to_store' => $order->store_branch->name . ' (' . $order->store_branch->brand_name . ')',
-                                'from_store' => $order->sendingStore->name . ' (' . $order->sendingStore->brand_name . ')',
-                                'interco_number' => $order->interco_number,
-                                'status' => $order->interco_status,
-                                'expiry_date' => $expiryDates[$index] ?? null,
-                                'unit_cost' => $item->cost_per_quantity,
-                                'total_cost' => $item->total_cost,
-                                'shipped_date' => $shippedDate ? Carbon::parse($shippedDate)->format('Y-m-d') : null,
-                                'received_date' => $receivedDate ? Carbon::parse($receivedDate)->format('Y-m-d') : null
-                            ];
-                        }
-                    } else {
-                        // Single row if no received dates
-                        $exportData[] = [
-                            'item_code' => $item->sapMasterfile->ItemCode,
-                            'item_description' => $item->sapMasterfile->ItemDescription,
-                            'received_qty' => $totalReceivedQuantity,
-                            'uom' => $item->sapMasterfile->BaseUOM,
-                            'requested_delivery_date' => $order->order_date,
-                            'interco_reason' => $order->interco_reason,
-                            'to_store' => $order->store_branch->name . ' (' . $order->store_branch->brand_name . ')',
-                            'from_store' => $order->sendingStore->name . ' (' . $order->sendingStore->brand_name . ')',
-                            'interco_number' => $order->interco_number,
-                            'status' => $order->interco_status,
-                            'expiry_date' => $expiryDates->first(),
-                            'unit_cost' => $item->cost_per_quantity,
-                            'total_cost' => $item->total_cost,
-                            'shipped_date' => $shippedDate ? Carbon::parse($shippedDate)->format('Y-m-d') : null,
-                            'received_date' => null
-                        ];
-                    }
-                }
-            }
-        }
 
         // Export to Excel using IntercoReportExport class
         return Excel::download(

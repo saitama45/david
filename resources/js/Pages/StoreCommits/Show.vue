@@ -43,6 +43,21 @@ const storeName = (order) => {
            'Unknown Store'
 }
 
+const fromStoreName = (order) => {
+    return order.from_store_name ||
+           order.sending_store?.name ||
+           order.sending_store?.branch_name ||
+           order.sending_store?.brand_name ||
+           'Unknown From Store'
+}
+
+const toStoreName = (order) => {
+    return order.to_store_name ||
+           order.store_branch?.name || // This is likely the receiving store
+           order.store_branch?.branch_name ||
+           'Unknown To Store'
+}
+
 const statusBadgeColor = (status) => {
     switch (status?.toUpperCase()) {
         case "APPROVED":
@@ -304,47 +319,44 @@ const updateItemQuantity = (itemId, quantity) => {
     <Layout heading="Store Order Details">
         <TableContainer>
             <section class="flex flex-col gap-5">
-                <section class="sm:flex-row flex flex-col gap-5">
-                    <span class="text-gray-700 text-sm">
-                        Order Number:
-                        <span class="font-bold"> {{ order.order_number }}</span>
-                    </span>
-                    <span class="text-gray-700 text-sm">
-                        Store:
-                        <span class="font-bold"> {{ storeName(order) }}</span>
-                    </span>
-                    <span class="text-gray-700 text-sm">
-                        Supplier:
-                        <span class="font-bold"> {{ order.supplier?.name ?? 'N/A' }}</span>
-                    </span>
-                </section>
-
-                <section class="sm:flex-row flex flex-col gap-5">
-                    <span class="text-gray-700 text-sm">
-                        Order Date:
-                        <span class="font-bold"> {{ formatDate(order.order_date) }}</span>
-                    </span>
-                    <span class="text-gray-700 text-sm">
-                        Interco Status:
-                        <Badge
-                            :class="statusBadgeColor(order.interco_status)"
-                            class="font-bold"
-                        >
-                            {{ order.interco_status?.toUpperCase() ?? "N/A" }}
-                        </Badge>
-                    </span>
-                </section>
-
-                <section class="sm:flex-row flex flex-col gap-5">
-                    <span class="text-gray-700 text-sm">
-                        Interco Reason:
-                        <span class="font-bold"> {{ order.interco_reason ?? "N/A" }}</span>
-                    </span>
-                    <span class="text-gray-700 text-sm">
-                        Remarks:
-                        <span class="font-bold"> {{ order.remarks ?? "N/A" }}</span>
-                    </span>
-                </section>
+                <Card class="p-4 sm:p-6 bg-white shadow-sm rounded-lg">
+                    <CardTitle class="text-lg font-semibold mb-4">Store Transfer Details</CardTitle>
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 text-sm">
+                        <div class="flex flex-col">
+                            <span class="text-gray-500">Transfer Number:</span>
+                            <span class="font-bold text-gray-900">{{ order.order_number }}</span>
+                        </div>
+                        <div class="flex flex-col">
+                            <span class="text-gray-500">From Store:</span>
+                            <span class="font-bold text-gray-900">{{ fromStoreName(order) }}</span>
+                        </div>
+                        <div class="flex flex-col">
+                            <span class="text-gray-500">To Store:</span>
+                            <span class="font-bold text-gray-900">{{ toStoreName(order) }}</span>
+                        </div>
+                        <div class="flex flex-col">
+                            <span class="text-gray-500">Transfer Date:</span>
+                            <span class="font-bold text-gray-900">{{ formatDate(order.order_date) }}</span>
+                        </div>
+                        <div class="flex flex-col">
+                            <span class="text-gray-500">Interco Status:</span>
+                            <Badge
+                                :class="statusBadgeColor(order.interco_status)"
+                                class="font-bold w-fit"
+                            >
+                                {{ order.interco_status?.toUpperCase() ?? "N/A" }}
+                            </Badge>
+                        </div>
+                        <div class="flex flex-col">
+                            <span class="text-gray-500">Interco Reason:</span>
+                            <span class="font-bold text-gray-900">{{ order.interco_reason ?? "N/A" }}</span>
+                        </div>
+                        <div class="flex flex-col">
+                            <span class="text-gray-500">Remarks:</span>
+                            <span class="font-bold text-gray-900">{{ order.remarks ?? "N/A" }}</span>
+                        </div>
+                    </div>
+                </Card>
 
                 <DivFlexCenter class="gap-5">
                     <Button

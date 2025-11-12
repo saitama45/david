@@ -34,15 +34,20 @@ const form = useForm({
   store_branch_id: props.wastage?.store_branch_id ? Number(props.wastage.store_branch_id) : '',
   remarks: props.wastage?.remarks || '',
   items: [],
-  image: null
+  images: []
 })
 
 // Local state
 const selectedAutoCompleteItem = ref(null)
 const isLoading = ref(false)
 const cartItems = ref([])
-const selectedImage = ref(null)
-const existingImageUrl = ref(props.wastage?.image_url || null)
+const selectedImages = ref([])
+// Initialize existing image URLs synchronously during component setup
+const existingImageUrls = ref(
+  props.wastage?.image_urls && Array.isArray(props.wastage.image_urls)
+    ? props.wastage.image_urls
+    : (props.wastage?.image_url ? [props.wastage.image_url] : [])
+)
 
 // Product details reactive object for item search
 const productDetails = reactive({
@@ -321,18 +326,18 @@ const executeFormSubmission = () => {
   form.items = itemsData;
 
   // Assign the selected image to the form object
-  form.image = selectedImage.value;
+  form.images = selectedImages.value || [];
 
   // Assign existing image URL for reference
-  form.existing_image_url = existingImageUrl.value;
+  form.existing_image_urls = existingImageUrls.value;
 
   // Debug logging
   console.log('Submitting wastage update:', {
     wastageId: props.wastage.id,
     itemCount: cartItems.value.length,
     items: itemsData,
-    hasNewImage: !!selectedImage.value,
-    existingImageUrl: existingImageUrl.value
+    hasNewImage: !!(selectedImages.value && selectedImages.value.length > 0),
+    existingImageUrls: existingImageUrls.value
   });
 
   const wastageId = props.wastage.id;
@@ -485,14 +490,15 @@ watch(() => cartItems.value, (newItems) => {
             <!-- Image Upload -->
             <div class="space-y-2 md:col-span-2">
               <ImageUpload
-                v-model="selectedImage"
-                v-model:existing-image-url="existingImageUrl"
-                label="Wastage Image (Optional)"
-                helper-text="Upload JPG or PNG image as evidence (max 5MB)"
+                v-model="selectedImages"
+                v-model:existing-image-urls="existingImageUrls"
+                label="Wastage Images (Optional)"
+                helper-text="Upload one or more JPG or PNG images as evidence (max 5MB each)"
                 :disabled="form.processing"
+                multiple
               />
-              <p v-if="form.errors.image" class="text-sm text-red-600">
-                {{ form.errors.image }}
+              <p v-if="form.errors.images" class="text-sm text-red-600">
+                {{ form.errors.images }}
               </p>
             </div>
 

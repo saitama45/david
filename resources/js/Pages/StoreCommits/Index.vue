@@ -173,8 +173,8 @@ const toStoreName = (order) => {
             <Table>
                 <TableHead>
                     <TH>Id</TH>
-                    <TH>Sending Store</TH>
-                    <TH>Receiving Store</TH>
+                    <TH>From Store</TH>
+                    <TH>To Store</TH>
                     <TH>Interco #</TH>
                     <TH>Transfer Date</TH>
                     <TH>Status</TH>

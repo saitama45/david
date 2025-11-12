@@ -413,6 +413,7 @@ const formatCurrency = (amount) => {
                             <tr class="text-xs text-gray-500 uppercase tracking-wider">
                                 <th class="px-6 py-4 text-left font-medium">Item Code</th>
                                 <th class="px-6 py-4 text-left font-medium">Item Description</th>
+                                <th class="px-6 py-4 text-center font-medium">Committed Qty</th>
                                 <th class="px-6 py-4 text-center font-medium">Received Qty</th>
                                 <th class="px-6 py-4 text-left font-medium">UoM</th>
                                 <th class="px-6 py-4 text-left font-medium">Requested Date</th>
@@ -441,6 +442,7 @@ const formatCurrency = (amount) => {
                             <tr v-for="(item, index) in lineItems" :key="item.id" class="hover:bg-gray-50 transition-colors">
                                 <td class="px-6 py-4 text-sm font-mono text-gray-900">{{ item.item_code || 'N/A' }}</td>
                                 <td class="px-6 py-4 text-sm text-gray-900 max-w-xs truncate" :title="item.item_description">{{ item.item_description || 'N/A' }}</td>
+                                <td class="px-6 py-4 text-sm text-center font-medium text-gray-900">{{ item.committed_qty || 0 }}</td>
                                 <td class="px-6 py-4 text-sm text-center font-medium text-gray-900">{{ item.received_qty || 0 }}</td>
                                 <td class="px-6 py-4 text-sm text-gray-600">{{ item.uom || 'N/A' }}</td>
                                 <td class="px-6 py-4 text-sm text-gray-600">{{ formatDate(item.requested_delivery_date) }}</td>
