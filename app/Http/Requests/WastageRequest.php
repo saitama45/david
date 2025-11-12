@@ -44,38 +44,23 @@ class WastageRequest extends FormRequest
                 'string',
                 'max:1000',
             ],
+            'image' => [
+                'nullable',
+                'file',
+                'image',
+                'mimes:jpeg,jpg,png',
+                'max:5120', // 5MB max
+            ],
+            'image_url' => [
+                'nullable',
+                'string',
+                'url',
+            ],
         ];
 
-        // For multi-item submission (store method)
-        if ($this->isMethod('post')) {
-            $rules['cartItems'] = [
-                'required',
-                'array',
-                'min:1',
-            ];
-            $rules['cartItems.*.sap_masterfile_id'] = [
-                'required',
-                'exists:sap_masterfiles,id',
-            ];
-            $rules['cartItems.*.quantity'] = [
-                'required',
-                'numeric',
-                'min:0.01',
-                'max:999999.99',
-            ];
-            $rules['cartItems.*.cost'] = [
-                'required',
-                'numeric',
-                'min:0',
-                'max:999999.99',
-            ];
-            $rules['cartItems.*.reason'] = [
-                'required',
-                'string',
-                'max:255',
-            ];
-        } else {
-            // For update method (PUT/PATCH) - support both multi-item and single item
+        // Distinguish between create and update based on route parameter, not HTTP method
+        if ($this->route('wastage')) {
+            // This is an UPDATE request
             if ($this->has('items') && is_array($this->input('items'))) {
                 // Multi-item update for edit method
                 $rules['items'] = [
@@ -148,6 +133,34 @@ class WastageRequest extends FormRequest
                     'max:999999.99',
                 ];
             }
+        } else {
+            // This is a CREATE request
+            $rules['cartItems'] = [
+                'required',
+                'array',
+                'min:1',
+            ];
+            $rules['cartItems.*.sap_masterfile_id'] = [
+                'required',
+                'exists:sap_masterfiles,id',
+            ];
+            $rules['cartItems.*.quantity'] = [
+                'required',
+                'numeric',
+                'min:0.01',
+                'max:999999.99',
+            ];
+            $rules['cartItems.*.cost'] = [
+                'required',
+                'numeric',
+                'min:0',
+                'max:999999.99',
+            ];
+            $rules['cartItems.*.reason'] = [
+                'required',
+                'string',
+                'max:255',
+            ];
         }
 
         return $rules;
@@ -165,6 +178,13 @@ class WastageRequest extends FormRequest
             'store_branch_id.exists' => 'Selected store branch is invalid.',
 
             'remarks.max' => 'Remarks must not exceed 1000 characters.',
+
+            'image.file' => 'Please upload a valid file.',
+            'image.image' => 'Please upload a valid image file.',
+            'image.mimes' => 'Image must be a JPEG, JPG, or PNG file.',
+            'image.max' => 'Image size must not exceed 5MB.',
+
+            'image_url.url' => 'Please provide a valid URL.',
         ];
 
         // Multi-item cart validation messages

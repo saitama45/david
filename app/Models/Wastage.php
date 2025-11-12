@@ -23,6 +23,7 @@ class Wastage extends Model implements Auditable
         'cost',
         'reason',
         'remarks',
+        'image_url',
         'created_by',
         'updated_by',
         'approved_level1_by',
@@ -315,6 +316,7 @@ class Wastage extends Model implements Auditable
             'cost',
             'reason',
             'remarks',
+            'image_url',
             'wastage_status',
         ];
     }

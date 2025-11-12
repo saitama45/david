@@ -12,6 +12,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert'
 import { ArrowLeft, Package, AlertTriangle, Calculator, ChevronDown, Plus, Trash2 } from 'lucide-vue-next'
 import Select from 'primevue/select'
 import ItemAutoComplete from '@/Components/ItemAutoComplete.vue'
+import ImageUpload from '@/Components/ImageUpload.vue'
 import { useSelectOptions } from '@/Composables/useSelectOptions'
 
 const props = defineProps({
@@ -32,13 +33,16 @@ const reasonOptions = ref(['Spoilage', 'Wastage', 'Scrap', 'Others'])
 const form = useForm({
   store_branch_id: props.wastage?.store_branch_id ? Number(props.wastage.store_branch_id) : '',
   remarks: props.wastage?.remarks || '',
-  items: []
+  items: [],
+  image: null
 })
 
 // Local state
 const selectedAutoCompleteItem = ref(null)
 const isLoading = ref(false)
 const cartItems = ref([])
+const selectedImage = ref(null)
+const existingImageUrl = ref(props.wastage?.image_url || null)
 
 // Product details reactive object for item search
 const productDetails = reactive({
@@ -304,31 +308,37 @@ const submit = () => {
 }
 
 const executeFormSubmission = () => {
-  // Transform form data to include all cart items - apply Create.vue working logic
-  // Support both existing items (with DB IDs) and new items (with client-side IDs)
-  const submitData = {
-    store_branch_id: form.store_branch_id,
-    remarks: form.remarks,
-    items: cartItems.value.map(item => ({
-      id: item.id, // Include ID (could be DB ID or client-side ID for new items)
-      sap_masterfile_id: item.sap_masterfile_id,
-      wastage_qty: parseFloat(item.quantity),
-      cost: parseFloat(item.cost),
-      reason: item.reason,
-    }))
-  };
+  // Map cart items to the format expected by the backend
+  const itemsData = cartItems.value.map(item => ({
+    id: item.id, // Include ID (could be DB ID or client-side ID for new items)
+    sap_masterfile_id: item.sap_masterfile_id,
+    wastage_qty: parseFloat(item.quantity),
+    cost: parseFloat(item.cost),
+    reason: item.reason,
+  }))
+
+  // Assign the mapped cart items to the form object
+  form.items = itemsData;
+
+  // Assign the selected image to the form object
+  form.image = selectedImage.value;
+
+  // Assign existing image URL for reference
+  form.existing_image_url = existingImageUrl.value;
 
   // Debug logging
   console.log('Submitting wastage update:', {
     wastageId: props.wastage.id,
     itemCount: cartItems.value.length,
-    items: submitData.items,
-    cartItems: cartItems.value
+    items: itemsData,
+    hasNewImage: !!selectedImage.value,
+    existingImageUrl: existingImageUrl.value
   });
 
   const wastageId = props.wastage.id;
 
-  form.transform(() => submitData).put(route('wastage.update', wastageId), {
+  // Submit with Inertia's form object directly
+  form.post(route('wastage.update', wastageId), {
     onSuccess: (page) => {
       // Extract the success message from the backend response
       const successMessage = page.props.flash?.success || 'Wastage record updated successfully!';
@@ -469,6 +479,20 @@ watch(() => cartItems.value, (newItems) => {
               />
               <p v-if="form.errors.remarks" class="text-sm text-red-600">
                 {{ form.errors.remarks }}
+              </p>
+            </div>
+
+            <!-- Image Upload -->
+            <div class="space-y-2 md:col-span-2">
+              <ImageUpload
+                v-model="selectedImage"
+                v-model:existing-image-url="existingImageUrl"
+                label="Wastage Image (Optional)"
+                helper-text="Upload JPG or PNG image as evidence (max 5MB)"
+                :disabled="form.processing"
+              />
+              <p v-if="form.errors.image" class="text-sm text-red-600">
+                {{ form.errors.image }}
               </p>
             </div>
 

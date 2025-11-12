@@ -71,6 +71,7 @@ class WastageService
                     'cost' => $item['cost'],
                     'reason' => $item['reason'],
                     'remarks' => $data['remarks'] ?? null,
+                    'image_url' => $data['image_url'] ?? null,
                     'wastage_status' => WastageStatus::PENDING->value,
                     'created_by' => $encoderId,
                 ]);
@@ -139,69 +140,10 @@ class WastageService
     /**
      * Update multiple wastage records for the same wastage_no
      */
-    public function updateMultipleWastageRecords(Wastage $wastage, array $data, ?int $userId = null): array
+    public function updateMultipleWastageRecords(Wastage $wastage, array $data, ?int $userId = null, ?string $imageUrl = null): array
     {
-        // Pre-validate all items before transaction
-        $wastageNo = $wastage->wastage_no;
-        $allWastageRecords = Wastage::where('wastage_no', $wastageNo)->get();
-
-        \Log::info('Starting multi-item wastage update with deletion support', [
-            'wastage_no' => $wastageNo,
-            'submitted_items_count' => count($data['items'] ?? []),
-            'existing_records_count' => $allWastageRecords->count(),
-            'user_id' => $userId,
-            'available_records' => $allWastageRecords->pluck('id')->toArray()
-        ]);
-
-        // Validate each item before transaction - support mixed scenarios (existing + new items)
-        $validationErrors = [];
-        foreach ($data['items'] as $index => $itemData) {
-            // Only validate items with database-style IDs (positive integers) as existing records
-            if (isset($itemData['id']) && is_numeric($itemData['id']) && $itemData['id'] > 0) {
-                $wastageRecord = $allWastageRecords->find($itemData['id']);
-
-                if (!$wastageRecord) {
-                    $validationErrors[] = "Existing item at index {$index}: Database record with ID {$itemData['id']} not found";
-                    \Log::error('Existing wastage record not found during validation', [
-                        'index' => $index,
-                        'item_id' => $itemData['id'],
-                        'wastage_no' => $wastageNo,
-                        'available_ids' => $allWastageRecords->pluck('id')->toArray()
-                    ]);
-                } else {
-                    \Log::info('Existing wastage record validation passed', [
-                        'index' => $index,
-                        'item_id' => $itemData['id'],
-                        'wastage_no' => $wastageNo
-                    ]);
-                }
-            } else {
-                // New items with client-side IDs are allowed to pass validation
-                \Log::info('New item validation passed (client-side ID)', [
-                    'index' => $index,
-                    'client_id' => $itemData['id'] ?? 'not_set',
-                    'wastage_no' => $wastageNo,
-                    'sap_masterfile_id' => $itemData['sap_masterfile_id'] ?? 'not_set'
-                ]);
-            }
-        }
-
-        if (!empty($validationErrors)) {
-            $errorMessage = "Validation failed: " . implode('; ', $validationErrors);
-            \Log::error('Multi-item wastage update validation failed', [
-                'errors' => $validationErrors,
-                'wastage_no' => $wastageNo,
-                'items_data' => $data['items'],
-                'total_submitted' => count($data['items'])
-            ]);
-            throw new Exception($errorMessage);
-        }
-
-        \Log::info('Multi-item wastage update validation passed', [
-            'wastage_no' => $wastageNo,
-            'total_items' => count($data['items']),
-            'validation_passed' => true
-        ]);
+        \Illuminate\Support\Facades\Log::info('--- Service: updateMultipleWastageRecords ---');
+        \Illuminate\Support\Facades\Log::info('Explicit imageUrl received: ' . ($imageUrl ?? 'NULL'));
 
         DB::beginTransaction();
         try {
@@ -210,235 +152,83 @@ class WastageService
                 throw new Exception("Wastage record cannot be edited in current status: {$wastage->wastage_status->getLabel()}");
             }
 
-            $updatedRecords = [];
-            $deletedRecords = [];
-            $updateErrors = [];
-            $deletionErrors = [];
+            $wastageNo = $wastage->wastage_no;
+            $submittedItems = collect($data['items']);
+            $allWastageRecords = Wastage::where('wastage_no', $wastageNo)->get();
 
-            // Separate existing items from new items
-            $existingItems = [];
-            $newItems = [];
-            $existingItemIds = [];
+            $summary = [
+                'existing_updated_count' => 0,
+                'new_created_count' => 0,
+                'deleted_count' => 0,
+            ];
 
-            foreach ($data['items'] as $index => $itemData) {
-                // Check if item has a valid database ID (positive integer)
-                if (isset($itemData['id']) && is_numeric($itemData['id']) && $itemData['id'] > 0) {
-                    $existingItems[$index] = $itemData;
-                    $existingItemIds[] = $itemData['id'];
-                } else {
-                    // New item with client-side ID
-                    $newItems[$index] = $itemData;
-                }
-            }
-
-            // Get IDs of existing items that should remain (items in cart)
-            $submittedItemIds = $existingItemIds;
-
-            // Identify items to delete (existing records not in submitted items)
+            $submittedItemIds = $submittedItems->pluck('id')->filter()->toArray();
             $itemsToDelete = $allWastageRecords->whereNotIn('id', $submittedItemIds);
 
-            // Base update data
-            $baseUpdateData = [
-                'remarks' => $data['remarks'] ?? null,
-            ];
-
-            // Add updated_by if user ID is provided
-            if ($userId) {
-                $baseUpdateData['updated_by'] = $userId;
-            }
-
-            // First, handle updates for existing items that remain in cart
-            foreach ($existingItems as $index => $itemData) {
-                try {
-                    $wastageRecord = $allWastageRecords->find($itemData['id']);
-
-                    if ($wastageRecord) {
-                        $updateData = array_merge($baseUpdateData, [
-                            'sap_masterfile_id' => $itemData['sap_masterfile_id'],
-                            'wastage_qty' => $itemData['wastage_qty'],
-                            'cost' => $itemData['cost'],
-                            'reason' => $itemData['reason'],
-                        ]);
-
-                        \Log::info('Updating wastage record', [
-                            'index' => $index,
-                            'wastage_id' => $wastageRecord->id,
-                            'wastage_no' => $wastageNo,
-                            'update_data' => $updateData
-                        ]);
-
-                        $wastageRecord->update($updateData);
-                        $updatedRecords[] = $wastageRecord;
-
-                        \Log::info('Successfully updated wastage record', [
-                            'index' => $index,
-                            'wastage_id' => $wastageRecord->id,
-                            'wastage_no' => $wastageNo
-                        ]);
-                    }
-                } catch (Exception $itemError) {
-                    $errorKey = "Existing item at index {$index} (ID: {$itemData['id']})";
-                    $updateErrors[$errorKey] = $itemError->getMessage();
-
-                    \Log::error('Failed to update individual wastage record', [
-                        'index' => $index,
-                        'item_id' => $itemData['id'],
-                        'error' => $itemError->getMessage(),
-                        'wastage_no' => $wastageNo
-                    ]);
-                }
-            }
-
-            // Then, handle creation of new items added in Edit mode
-            foreach ($newItems as $index => $itemData) {
-                try {
-                    \Log::info('Creating new wastage record in Edit mode', [
-                        'index' => $index,
-                        'client_id' => $itemData['id'],
-                        'wastage_no' => $wastageNo,
-                        'sap_masterfile_id' => $itemData['sap_masterfile_id'],
-                        'wastage_qty' => $itemData['wastage_qty'],
-                        'cost' => $itemData['cost'],
-                        'user_id' => $userId
-                    ]);
-
-                    $newWastage = Wastage::create([
-                        'wastage_no' => $wastageNo, // Use same wastage number for the group
-                        'store_branch_id' => $allWastageRecords->first()->store_branch_id,
-                        'sap_masterfile_id' => $itemData['sap_masterfile_id'],
-                        'wastage_qty' => $itemData['wastage_qty'],
-                        'cost' => $itemData['cost'],
-                        'reason' => $itemData['reason'],
-                        'remarks' => $data['remarks'] ?? null,
-                        'wastage_status' => $allWastageRecords->first()->wastage_status,
-                        'created_by' => $userId,
-                    ]);
-
-                    $updatedRecords[] = $newWastage;
-
-                    \Log::info('Successfully created new wastage record in Edit mode', [
-                        'index' => $index,
-                        'client_id' => $itemData['id'],
-                        'new_wastage_id' => $newWastage->id,
-                        'wastage_no' => $wastageNo
-                    ]);
-
-                } catch (Exception $creationError) {
-                    $errorKey = "New item at index {$index} (Client ID: {$itemData['id']})";
-                    $updateErrors[$errorKey] = $creationError->getMessage();
-
-                    \Log::error('Failed to create new wastage record in Edit mode', [
-                        'index' => $index,
-                        'client_id' => $itemData['id'],
-                        'error' => $creationError->getMessage(),
-                        'wastage_no' => $wastageNo
-                    ]);
-                }
-            }
-
-            // Then, handle deletions for items removed from cart
+            // Handle Deletions
             foreach ($itemsToDelete as $recordToDelete) {
-                try {
-                    \Log::info('Deleting wastage record', [
-                        'wastage_id' => $recordToDelete->id,
+                $recordToDelete->delete();
+                $summary['deleted_count']++;
+            }
+
+            // Handle Updates and Creations
+            foreach ($submittedItems as $itemData) {
+                $updateData = [
+                    'remarks' => $data['remarks'] ?? null,
+                    'updated_by' => $userId,
+                    'sap_masterfile_id' => $itemData['sap_masterfile_id'],
+                    'wastage_qty' => $itemData['wastage_qty'],
+                    'cost' => $itemData['cost'],
+                    'reason' => $itemData['reason'],
+                ];
+
+                // Use the explicitly passed imageUrl for all items in the transaction
+                \Illuminate\Support\Facades\Log::info('Checking for imageUrl before adding to updateData. URL: ' . ($imageUrl ?? 'NULL'));
+                if ($imageUrl !== null) {
+                    $updateData['image_url'] = $imageUrl;
+                    \Illuminate\Support\Facades\Log::info('image_url has been added to updateData.');
+                }
+
+                if (isset($itemData['id']) && is_numeric($itemData['id']) && $itemData['id'] > 0) {
+                    // Update existing record
+                    $recordToUpdate = $allWastageRecords->find($itemData['id']);
+                    if ($recordToUpdate) {
+                        \Illuminate\Support\Facades\Log::info('Preparing to update record ID: ' . $recordToUpdate->id . ' with data: ' . json_encode($updateData));
+                        $recordToUpdate->update($updateData);
+                        \Illuminate\Support\Facades\Log::info('Eloquent update call finished for record ID: ' . $recordToUpdate->id);
+                        $summary['existing_updated_count']++;
+                    }
+                } else {
+                    // Create new record
+                    $newWastageData = array_merge($updateData, [
                         'wastage_no' => $wastageNo,
-                        'sap_masterfile_id' => $recordToDelete->sap_masterfile_id,
-                        'wastage_qty' => $recordToDelete->wastage_qty,
-                        'cost' => $recordToDelete->cost,
-                        'user_id' => $userId
+                        'store_branch_id' => $wastage->store_branch_id,
+                        'created_by' => $userId,
+                        'wastage_status' => $wastage->wastage_status,
                     ]);
-
-                    // Store deletion info for audit trail before deleting
-                    $deletionInfo = [
-                        'id' => $recordToDelete->id,
-                        'wastage_no' => $recordToDelete->wastage_no,
-                        'sap_masterfile_id' => $recordToDelete->sap_masterfile_id,
-                        'wastage_qty' => $recordToDelete->wastage_qty,
-                        'cost' => $recordToDelete->cost,
-                        'reason' => $recordToDelete->reason,
-                        'deleted_by' => $userId,
-                        'deleted_at' => now()
-                    ];
-
-                    $recordToDelete->delete();
-                    $deletedRecords[] = $deletionInfo;
-
-                    \Log::info('Successfully deleted wastage record', [
-                        'wastage_id' => $recordToDelete->id,
-                        'wastage_no' => $wastageNo,
-                        'user_id' => $userId
-                    ]);
-
-                } catch (Exception $deletionError) {
-                    $errorKey = "Deletion failed (ID: {$recordToDelete->id})";
-                    $deletionErrors[$errorKey] = $deletionError->getMessage();
-
-                    \Log::error('Failed to delete wastage record', [
-                        'wastage_id' => $recordToDelete->id,
-                        'wastage_no' => $wastageNo,
-                        'error' => $deletionError->getMessage(),
-                        'user_id' => $userId
-                    ]);
+                    \Illuminate\Support\Facades\Log::info('Preparing to create new record with data: ' . json_encode($newWastageData));
+                    Wastage::create($newWastageData);
+                    \Illuminate\Support\Facades\Log::info('Eloquent create call finished.');
+                    $summary['new_created_count']++;
                 }
             }
-
-            // Check for any errors
-            $allErrors = array_merge($updateErrors, $deletionErrors);
-            if (!empty($allErrors)) {
-                $errorMessage = "Some operations failed: " . json_encode($allErrors);
-                \Log::error('Multi-item wastage update/delete partially failed', [
-                    'update_errors' => $updateErrors,
-                    'deletion_errors' => $deletionErrors,
-                    'successful_updates' => count($updatedRecords),
-                    'successful_deletions' => count($deletedRecords),
-                    'total_submitted' => count($data['items']),
-                    'total_existing' => $allWastageRecords->count(),
-                    'wastage_no' => $wastageNo
-                ]);
-                throw new Exception($errorMessage);
-            }
-
-            \Log::info('Multi-item wastage update/create/delete completed successfully', [
-                'wastage_no' => $wastageNo,
-                'existing_updated_count' => count($existingItems),
-                'new_created_count' => count($newItems),
-                'deleted_count' => count($deletedRecords),
-                'total_submitted' => count($data['items']),
-                'total_existing_before' => $allWastageRecords->count(),
-                'user_id' => $userId
-            ]);
-
-            // Find a remaining record for redirect purposes (after commit but still in transaction)
-            $remainingRecord = null;
-            if (!empty($updatedRecords)) {
-                // Use the first updated record for redirect
-                $remainingRecord = $updatedRecords[0];
-            }
-
-            // Return updated, created and deleted records for proper feedback
-            $result = [
-                'updated_records' => $updatedRecords, // Includes both updated existing and newly created records
-                'deleted_records' => $deletedRecords,
-                'remaining_record_for_redirect' => $remainingRecord,
-                'summary' => [
-                    'existing_updated_count' => count($existingItems),
-                    'new_created_count' => count($newItems),
-                    'deleted_count' => count($deletedRecords),
-                    'total_processed' => count($updatedRecords) + count($deletedRecords)
-                ]
-            ];
 
             DB::commit();
-            return $result;
-        } catch (Exception $e) {
+
+            return [
+                'summary' => $summary,
+                'remaining_record_for_redirect' => Wastage::where('wastage_no', $wastageNo)->first(),
+            ];
+
+        } catch (\Exception $e) {
             DB::rollBack();
-            \Log::error('Multi-item wastage update/delete transaction failed', [
+            \Log::error('Multi-item wastage update failed', [
                 'error' => $e->getMessage(),
-                'wastage_no' => $wastageNo,
-                'items_count' => count($data['items'] ?? []),
-                'user_id' => $userId
+                'wastage_no' => $wastage->wastage_no,
+                'user_id' => $userId,
+                'trace' => $e->getTraceAsString()
             ]);
-            throw new Exception("Failed to update wastage records: " . $e->getMessage());
+            throw $e;
         }
     }
 

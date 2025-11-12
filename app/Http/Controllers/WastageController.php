@@ -8,6 +8,7 @@ use App\Models\StoreBranch;
 use App\Models\SAPMasterfile;
 use App\Enums\WastageStatus;
 use App\Http\Requests\WastageRequest;
+use App\Services\GoogleDriveService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -21,10 +22,12 @@ use App\Exports\WastageExport;
 class WastageController extends Controller
 {
     protected $wastageService;
+    protected $googleDriveService;
 
-    public function __construct(WastageService $wastageService)
+    public function __construct(WastageService $wastageService, GoogleDriveService $googleDriveService)
     {
         $this->wastageService = $wastageService;
+        $this->googleDriveService = $googleDriveService;
     }
 
     /**
@@ -115,9 +118,19 @@ class WastageController extends Controller
         $data = $request->validated();
 
         try {
+            // Handle image upload
+            $imageUrl = null;
+            if ($request->hasFile('image')) {
+                $imageUrl = $this->googleDriveService->uploadImage($request->file('image'));
+                $data['image_url'] = $imageUrl;
+            }
+
             // Check if this is multi-item submission (cart) or single item
             if (isset($data['cartItems'])) {
-                // Multi-item submission
+                // Multi-item submission - apply image URL to all items
+                if ($imageUrl) {
+                    $data['image_url'] = $imageUrl;
+                }
                 $wastageRecords = $this->wastageService->createMultipleWastageRecords($data, $user->id);
 
                 return redirect()->route('wastage.index')
@@ -346,6 +359,12 @@ class WastageController extends Controller
      */
     public function update(WastageRequest $request, Wastage $wastage)
     {
+        \Illuminate\Support\Facades\Log::info('--- Wastage Update Request ---');
+        \Illuminate\Support\Facades\Log::info('hasFile(image): ' . ($request->hasFile('image') ? 'true' : 'false'));
+        \Illuminate\Support\Facades\Log::info('all(): ' . json_encode($request->all()));
+        \Illuminate\Support\Facades\Log::info('files->all(): ' . json_encode($request->files->all()));
+        \Illuminate\Support\Facades\Log::info('--- End Wastage Update Request ---');
+
         $user = auth()->user();
         $data = $request->validated();
 
@@ -355,10 +374,32 @@ class WastageController extends Controller
         }
 
         try {
+            // Handle image upload
+            $imageUrl = null;
+            $oldImageUrl = $wastage->image_url;
+
+            if ($request->hasFile('image')) {
+                // Delete old image if exists
+                if ($oldImageUrl) {
+                    $this->googleDriveService->deleteImage($oldImageUrl);
+                }
+                // Upload new image
+                $imageUrl = $this->googleDriveService->uploadImage($request->file('image'));
+                $data['image_url'] = $imageUrl;
+            } elseif (isset($data['image_url']) && $data['image_url']) {
+                // Handle image URL replacement (rare case)
+                if ($oldImageUrl && $oldImageUrl !== $data['image_url']) {
+                    $this->googleDriveService->deleteImage($oldImageUrl);
+                }
+            }
+
             // Check if this is a multi-item update or single item update
             if (isset($data['items']) && is_array($data['items'])) {
                 // Multi-item update with deletion support
-                $result = $this->wastageService->updateMultipleWastageRecords($wastage, $data, $user->id);
+                if ($imageUrl) {
+                    $data['image_url'] = $imageUrl;
+                }
+                $result = $this->wastageService->updateMultipleWastageRecords($wastage, $data, $user->id, $imageUrl);
 
                 // Build detailed success message
                 $existingUpdatedCount = $result['summary']['existing_updated_count'] ?? 0;

@@ -783,7 +783,7 @@ Route::middleware('auth')
             Route::middleware('permission:view wastage record')->get('/show/by-number/{wastage_no}', 'showByNumber')->name('show.by-number');
             Route::middleware('permission:edit wastage record')->group(function () {
                 Route::get('/edit/{wastage}', 'edit')->name('edit');
-                Route::put('/{wastage}', 'update')->name('update');
+                Route::post('/{wastage}', 'update')->name('update');
             });
             Route::middleware('permission:delete wastage record')->delete('/{wastage}', 'destroy')->name('destroy');
             Route::middleware('permission:export wastage record')->get('/export', 'export')->name('export');

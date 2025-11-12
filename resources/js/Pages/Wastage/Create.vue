@@ -12,6 +12,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert'
 import { ArrowLeft, Package, AlertTriangle, Calculator, ChevronDown, Plus, Trash2 } from 'lucide-vue-next'
 import Select from 'primevue/select'
 import ItemAutoComplete from '@/Components/ItemAutoComplete.vue'
+import ImageUpload from '@/Components/ImageUpload.vue'
 import { useSelectOptions } from '@/Composables/useSelectOptions'
 
 const props = defineProps({
@@ -32,13 +33,15 @@ const toast = useToast()
 const form = useForm({
   store_branch_id: '',
   remarks: '',
-  cartItems: []
+  cartItems: [],
+  image: null
 })
 
 // Local state
 const selectedAutoCompleteItem = ref(null)
 const isLoading = ref(false)
 const cartItems = ref([])
+const selectedImage = ref(null)
 
 // Product details reactive object for item search
 const productDetails = reactive({
@@ -190,19 +193,22 @@ const clearCart = () => {
 
 // Methods
 const performSubmit = () => {
-  // Transform cart data for submission
-  const submitData = {
-    store_branch_id: form.store_branch_id,
-    remarks: form.remarks,
-    cartItems: cartItems.value.map(item => ({
-      sap_masterfile_id: item.sap_masterfile_id,
-      quantity: parseFloat(item.quantity),
-      cost: parseFloat(item.cost),
-      reason: item.reason,
-    }))
-  }
+  // Map cart items to the format expected by the backend
+  const cartItemsData = cartItems.value.map(item => ({
+    sap_masterfile_id: item.sap_masterfile_id,
+    quantity: parseFloat(item.quantity),
+    cost: parseFloat(item.cost),
+    reason: item.reason,
+  }))
 
-  form.transform(() => submitData).post(route('wastage.store'), {
+  // Assign the mapped cart items to the form object
+  form.cartItems = cartItemsData;
+
+  // Assign the selected image to the form object
+  form.image = selectedImage.value;
+
+  // Submit with Inertia's form object directly
+  form.post(route('wastage.store'), {
     onSuccess: () => {
       // Clear cart and reset form
       clearCart()
@@ -263,6 +269,7 @@ const resetForm = () => {
   form.reset()
   clearCart()
   selectedAutoCompleteItem.value = null
+  selectedImage.value = null
   Object.keys(productDetails).forEach((key) => {
     productDetails[key] = null
   })
@@ -377,7 +384,20 @@ watch(() => cartItems.value, (newItems) => {
               </p>
             </div>
 
-                      </div>
+            <!-- Image Upload -->
+            <div class="space-y-2 md:col-span-2">
+              <ImageUpload
+                v-model="selectedImage"
+                label="Wastage Image (Optional)"
+                helper-text="Upload JPG or PNG image as evidence (max 5MB)"
+                :disabled="form.processing"
+              />
+              <p v-if="form.errors.image" class="text-sm text-red-600">
+                {{ form.errors.image }}
+              </p>
+            </div>
+
+          </div>
         </div>
       </div>
 

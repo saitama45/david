@@ -266,6 +266,7 @@ class DTSMassOrdersController extends Controller
                 \DB::beginTransaction();
 
                 $batchNumber = $this->generateBatchNumber();
+                $lastOrderNumbers = []; // Initialize map to track last order numbers for each store branch
 
                 // Pivot the orders data to be date/store centric
                 $pivotedOrders = [];
@@ -282,8 +283,7 @@ class DTSMassOrdersController extends Controller
                 foreach ($pivotedOrders as $date => $storeOrders) {
                     foreach ($storeOrders as $storeBranchId => $itemOrders) {
                         // 1. Create ONE StoreOrder for this date and store
-                        $lastOrder = StoreOrder::where('store_branch_id', $storeBranchId)->orderBy('id', 'desc')->first();
-                        $orderNumber = $this->generateOrderNumber($storeBranchId, $lastOrder);
+                        $orderNumber = $this->generateOrderNumber($storeBranchId, $lastOrderNumbers);
 
                         $storeOrder = StoreOrder::create([
                             'encoder_id' => auth()->id(),
@@ -347,6 +347,7 @@ class DTSMassOrdersController extends Controller
                 \DB::beginTransaction();
 
                 $batchNumber = $this->generateBatchNumber();
+                $lastOrderNumbers = []; // Initialize map to track last order numbers for each store branch
 
                 foreach ($orders as $date => $stores) {
                     foreach ($stores as $storeBranchId => $quantity) {
@@ -354,11 +355,7 @@ class DTSMassOrdersController extends Controller
                             continue;
                         }
 
-                        $lastOrder = StoreOrder::where('store_branch_id', $storeBranchId)
-                            ->orderBy('id', 'desc')
-                            ->first();
-
-                        $orderNumber = $this->generateOrderNumber($storeBranchId, $lastOrder);
+                        $orderNumber = $this->generateOrderNumber($storeBranchId, $lastOrderNumbers);
 
                         $supplierItem = \App\Models\SupplierItems::where('ItemCode', $sapItem['item_code'])
                             ->where('is_active', true)
@@ -428,27 +425,48 @@ class DTSMassOrdersController extends Controller
         return $prefix . str_pad($newSequence, 3, '0', STR_PAD_LEFT);
     }
 
-    private function generateOrderNumber($storeBranchId, $lastOrder)
+    private function generateOrderNumber($storeBranchId, &$lastOrderNumberMap)
     {
         $branch = StoreBranch::find($storeBranchId);
         if (!$branch) {
             throw new \Exception("Store branch not found");
         }
 
-        $branchCode = $branch->branch_code;
+        // If we haven't determined the starting number for this branch yet, do it now.
+        if (!isset($lastOrderNumberMap[$storeBranchId])) {
+            $lastOrder = StoreOrder::where('store_branch_id', $storeBranchId)
+                ->where('variant', '<>', 'INTERCO')
+                ->orderBy('id', 'desc')
+                ->first();
 
-        if ($lastOrder) {
-            // Extract the numeric part from the last order number
-            // Format example: NNSSR-00001
-            preg_match('/(\d+)$/', $lastOrder->order_number, $matches);
-            $lastNumber = isset($matches[1]) ? (int)$matches[1] : 0;
-            $newNumber = $lastNumber + 1;
-        } else {
-            $newNumber = 1;
+            if ($lastOrder && $lastOrder->order_number) {
+                // Set the last known order number in the map. The next step will increment it.
+                $lastOrderNumberMap[$storeBranchId] = $lastOrder->order_number;
+            } else {
+                // No previous orders, so we'll start the sequence from 0, so the first number is 1.
+                $lastOrderNumberMap[$storeBranchId] = $branch->branch_code . '-00000';
+            }
         }
 
-        // Format: BRANCHCODE-XXXXX (5 digits)
-        return $branchCode . '-' . str_pad($newNumber, 5, '0', STR_PAD_LEFT);
+        $lastOrderNumberString = $lastOrderNumberMap[$storeBranchId];
+
+        // Default prefix and number in case the regex doesn't match
+        $prefix = $branch->branch_code . '-';
+        $lastNumber = 0;
+
+        // Match the prefix (everything up to the last hyphen) and the number
+        if (preg_match('/^(.*-)(\d+)$/', $lastOrderNumberString, $matches)) {
+            $prefix = $matches[1];
+            $lastNumber = (int)$matches[2];
+        }
+
+        $newNumber = $lastNumber + 1;
+        $newOrderNumber = $prefix . str_pad($newNumber, 5, '0', STR_PAD_LEFT);
+
+        // Update the map for the next call.
+        $lastOrderNumberMap[$storeBranchId] = $newOrderNumber;
+
+        return $newOrderNumber;
     }
 
     public function show($batchNumber)
@@ -784,6 +802,7 @@ class DTSMassOrdersController extends Controller
             if ($variant === 'FRUITS AND VEGETABLES') {
                 // Handle FRUITS AND VEGETABLES variant
                 $supplierItems = $request->input('supplier_items', []);
+                $lastOrderNumbers = []; // Initialize map
 
                 // Re-create orders for each item
                 foreach ($orders as $itemId => $dateOrders) {
@@ -800,11 +819,7 @@ class DTSMassOrdersController extends Controller
                             $totalCost = $quantity * $costPerQuantity;
 
                             // Get last order number for this store
-                            $lastOrder = StoreOrder::where('store_branch_id', $storeBranchId)
-                                ->orderBy('id', 'desc')
-                                ->first();
-
-                            $orderNumber = $this->generateOrderNumber($storeBranchId, $lastOrder);
+                            $orderNumber = $this->generateOrderNumber($storeBranchId, $lastOrderNumbers);
 
                             // Create StoreOrder
                             $storeOrder = StoreOrder::create([
@@ -838,6 +853,7 @@ class DTSMassOrdersController extends Controller
             } else {
                 // Handle ICE CREAM/SALMON variant
                 $sapItem = $request->input('sap_item');
+                $lastOrderNumbers = []; // Initialize map
 
                 // Re-create orders with updated quantities
                 foreach ($orders as $date => $storeOrders) {
@@ -850,11 +866,7 @@ class DTSMassOrdersController extends Controller
                         $totalCost = $quantity * $costPerQuantity;
 
                         // Get last order number for this store
-                        $lastOrder = StoreOrder::where('store_branch_id', $storeBranchId)
-                            ->orderBy('id', 'desc')
-                            ->first();
-
-                        $orderNumber = $this->generateOrderNumber($storeBranchId, $lastOrder);
+                        $orderNumber = $this->generateOrderNumber($storeBranchId, $lastOrderNumbers);
 
                         // Create StoreOrder
                         $storeOrder = StoreOrder::create([

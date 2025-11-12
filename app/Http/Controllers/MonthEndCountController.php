@@ -111,7 +111,7 @@ class MonthEndCountController extends Controller
                 'sb.id as branch_id',
                 'sb.name as branch_name',
                 DB::raw("u.first_name + ' ' + u.last_name as uploader_name"),
-                DB::raw("STRING_AGG(meci.status, ', ') as statuses")
+                DB::raw("STRING_AGG(CAST(meci.status AS NVARCHAR(MAX)), ', ') as statuses")
             )
             ->groupBy('mes.id', 'mes.year', 'mes.month', 'mes.calculated_date', 'sb.id', 'sb.name', 'u.first_name', 'u.last_name');
 
@@ -121,7 +121,7 @@ class MonthEndCountController extends Controller
         $query->when($request->input('calculated_date'), fn ($q, $date) => $q->whereDate('mes.calculated_date', $date));
         $query->when($request->input('branch_name'), fn ($q, $name) => $q->where('sb.name', 'like', "%{$name}%"));
         $query->when($request->input('uploader_name'), fn ($q, $name) => $q->where(DB::raw("u.first_name + ' ' + u.last_name"), 'like', "%{$name}%"));
-        $query->when($request->input('status'), fn ($q, $status) => $q->havingRaw("STRING_AGG(meci.status, ', ') LIKE ?", ["%{$status}%"]));
+        $query->when($request->input('status'), fn ($q, $status) => $q->havingRaw("STRING_AGG(CAST(meci.status AS NVARCHAR(MAX)), ', ') LIKE ?", ["%{$status}%"]));
 
 
         // Sorting
@@ -133,7 +133,7 @@ class MonthEndCountController extends Controller
         } elseif ($sort === 'branch_name') {
             $query->orderBy('sb.name', $direction);
         } elseif ($sort === 'statuses') {
-            $query->orderBy(DB::raw("STRING_AGG(meci.status, ', ')"), $direction);
+            $query->orderBy(DB::raw("STRING_AGG(CAST(meci.status AS NVARCHAR(MAX)), ', ')"), $direction);
         } else {
             $query->orderBy($sort, $direction);
         }
