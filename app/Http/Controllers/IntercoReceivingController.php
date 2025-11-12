@@ -80,7 +80,7 @@ class IntercoReceivingController extends Controller
         }
 
         // Get orders with relationships including store_order_items
-        $orders = $query->with(['store_branch', 'sendingStore', 'encoder', 'store_order_items.supplierItem.sapMasterfile'])
+        $orders = $query->with(['store_branch', 'sendingStore', 'encoder', 'store_order_items.sapMasterfile'])
             ->orderBy('created_at', 'desc')
             ->paginate(15);
 
