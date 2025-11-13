@@ -217,7 +217,6 @@ const enlargeImage = (image) => {
                         <TH>Base UOM</TH>
                         <TH>UOM</TH>
                         <TH> Ordered</TH>
-                        <TH> Approved</TH>
                         <TH> Comitted</TH>
                         <TH> Delivered</TH>
                         <TH> Received</TH>
@@ -241,7 +240,6 @@ const enlargeImage = (image) => {
                             <TD>{{ orderItem.supplier_item?.sap_master_file?.BaseUOM ?? 'N/a' }}</TD>
                             <TD>{{ orderItem.supplier_item?.uom ?? 'N/a' }}</TD>
                             <TD>{{ orderItem.quantity_ordered }}</TD>
-                            <TD>{{ orderItem.quantity_approved }}</TD>
                             <TD>{{ order.order_status?.toUpperCase() === 'APPROVED' ? 0 : orderItem.quantity_commited }}</TD>
                             <TD>{{ orderItem.quantity_received }}</TD>
                             <TD>{{ orderItem.quantity_received }}</TD>
@@ -263,9 +261,6 @@ const enlargeImage = (image) => {
                         <LabelXS>Base UOM: {{ orderItem.supplier_item?.sap_master_file?.BaseUOM ?? 'N/a' }}</LabelXS>
                         <LabelXS>UOM: {{ orderItem.supplier_item?.uom ?? 'N/a' }}</LabelXS>
                         <LabelXS>Ordered: {{ orderItem.quantity_ordered }}</LabelXS>
-                        <LabelXS
-                            >Approved: {{ orderItem.quantity_approved }}</LabelXS
-                        >
                         <LabelXS
                             >Committed: {{ order.order_status?.toUpperCase() === 'APPROVED' ? 0 : orderItem.quantity_commited }}</LabelXS
                         >
