@@ -61,6 +61,7 @@ const statusBadgeColor = (status) => {
     switch (status?.toUpperCase()) {
         case "APPROVED": return "bg-teal-500 text-white";
         case "COMMITTED": return "bg-blue-500 text-white";
+        case "PARTIAL_RECEIVED": return "bg-purple-500 text-white";
         case "INCOMPLETE": return "bg-orange-500 text-white";
         case "RECEIVED": return "bg-green-500 text-white";
         case "PENDING": return "bg-yellow-500 text-white";
@@ -317,14 +318,14 @@ const selectDate = (day, isFrom) => {
 
             <Button
                 class="sm:px-10 px-3 bg-white/10 text-gray-800 hover:text-white gap-5 sm:text-sm text-xs"
-                :class="isFilterActive('incomplete')"
-                @click="changeFilter('incomplete')"
+                :class="isFilterActive('partial_received')"
+                @click="changeFilter('partial_received')"
             >
-                INCOMPLETE
+                PARTIAL RECEIVED
                 <Badge
                     class="sm:flex hidden border border-gray bg-transparent text-gray-900 px-2"
-                    :class="isFilterActive('incomplete')"
-                >{{ counts.incomplete || 0 }}</Badge>
+                    :class="isFilterActive('partial_received')"
+                >{{ counts.partial_received || 0 }}</Badge>
             </Button>
 
             <Button

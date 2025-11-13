@@ -44,6 +44,10 @@ const props = defineProps({
     supplier_items: {
         type: Array,
         default: () => []
+    },
+    store_order_status: {
+        type: Object,
+        default: () => ({})
     }
 });
 
@@ -289,6 +293,11 @@ const validateQuantity = (dateKey, storeId, value) => {
     return true;
 };
 
+const isInputDisabled = (storeId, date) => {
+    const key = `${storeId}-${date}`;
+    return props.store_order_status[key] === 'received';
+};
+
 </script>
 
 <template>
@@ -378,7 +387,9 @@ const validateQuantity = (dateKey, storeId, value) => {
                                                 type="number"
                                                 step="0.01"
                                                 min="0"
+                                                :disabled="isInputDisabled(store.id, dateObj.date)"
                                                 class="w-full px-2 py-1 border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 text-center"
+                                                :class="{ 'bg-gray-100 cursor-not-allowed opacity-60': isInputDisabled(store.id, dateObj.date) }"
                                                 @keydown.enter="handleEnterKey"
                                             />
                                         </td>
@@ -445,7 +456,9 @@ const validateQuantity = (dateKey, storeId, value) => {
                                                 type="number"
                                                 step="0.01"
                                                 :min="variant === 'ICE CREAM' ? '5' : '0'"
+                                                :disabled="isInputDisabled(store.id, dateObj.date)"
                                                 class="w-full px-2 py-1 border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 text-center"
+                                                :class="{ 'bg-gray-100 cursor-not-allowed opacity-60': isInputDisabled(store.id, dateObj.date) }"
                                                 :placeholder="variant === 'ICE CREAM' ? 'Min: 5' : '0'"
                                                 @blur="validateQuantity(dateObj.date, store.id, orders[dateObj.date][store.id])"
                                                 @keydown.enter="handleEnterKey"

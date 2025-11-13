@@ -228,6 +228,13 @@ class CSDTSMassCommitController extends Controller
             }
         }
 
+        // Build store order status mapping for disabling received orders
+        $storeOrderStatus = [];
+        foreach ($orders as $order) {
+            $key = $order->store_branch_id . '-' . $order->order_date;
+            $storeOrderStatus[$key] = $order->order_status;
+        }
+
         return Inertia::render('CSDTSMassCommits/Edit', [
             'batch_number' => $batchNumber,
             'variant' => $variant,
@@ -243,7 +250,8 @@ class CSDTSMassCommitController extends Controller
             ] : null,
             'existing_orders' => $existingOrders,
             'status' => $firstOrder->order_status,
-            'supplier_items' => $supplierItems
+            'supplier_items' => $supplierItems,
+            'store_order_status' => $storeOrderStatus
         ]);
     }
 

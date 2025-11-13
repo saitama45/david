@@ -70,6 +70,23 @@ const exportRoute = computed(() => {
         currentFilter: filter.value, // Pass the current filter to the export route
     });
 });
+
+// Debug logging to check orders data
+watch(() => props.orders, (newOrders) => {
+    console.log('OrderReceiving Index - Orders data updated:', newOrders);
+    if (newOrders.data) {
+        newOrders.data.forEach((order, index) => {
+            console.log(`Order ${index + 1}:`, {
+                id: order.id,
+                supplier_id: order.supplier_id,
+                supplier_name: order.supplier?.name,
+                variant: order.variant,
+                remarks: order.remarks,
+                is_dropshipping: order.supplier_id === 5
+            });
+        });
+    }
+}, { immediate: true, deep: true });
 </script>
 
 <template>
@@ -147,6 +164,7 @@ const exportRoute = computed(() => {
                     <TH>Order #</TH>
                     <TH>Order Date</TH>
                     <TH>Order Placed Date</TH>
+                    <TH>Variant</TH>
                     <TH>Receiving Status</TH>
                     <TH v-if="hasAccess('view approved order')">Actions</TH>
                 </TableHead>
@@ -158,6 +176,11 @@ const exportRoute = computed(() => {
                         <TD>{{ order.order_number }}</TD>
                         <TD>{{ order.order_date }}</TD>
                         <TD>{{ order.created_at }}</TD>
+                        <TD>
+                            <span v-if="String(order.supplier_id) === '5' && order.variant && order.variant !== 'N/A' && order.variant !== 'mass dts'">
+                                {{ order.variant }}
+                            </span>
+                        </TD>
                         <TD>
                             <Badge
                                 :class="statusBadgeColor(order.order_status)"
@@ -194,6 +217,9 @@ const exportRoute = computed(() => {
                         {{ order.order_status.toUpperCase() }}</LabelXS
                     >
                     <LabelXS>Order Date: {{ order.order_date }}</LabelXS>
+                    <LabelXS v-if="String(order.supplier_id) === '5' && order.variant && order.variant !== 'N/A' && order.variant !== 'mass dts'">
+                        Variant: {{ order.variant }}
+                    </LabelXS>
                 </MobileTableRow>
             </MobileTableContainer>
             <Pagination :data="orders" />

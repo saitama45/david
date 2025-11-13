@@ -15,6 +15,17 @@ use Maatwebsite\Excel\Facades\Excel;
 
 class DTSMassOrdersController extends Controller
 {
+    /**
+     * Get base query for DTS mass orders with proper filtering
+     * Ensures consistent filtering across all queries
+     */
+    private function getBaseBatchQuery()
+    {
+        return StoreOrder::whereNotNull('batch_reference')
+            ->where('variant', 'mass dts')
+            ->whereHas('store_order_items'); // Only include batches with valid order items
+    }
+
     public function index(Request $request)
     {
         $allowedVariants = ['ICE CREAM', 'SALMON', 'FRUITS AND VEGETABLES'];
@@ -31,7 +42,7 @@ class DTSMassOrdersController extends Controller
             ->values();
 
         // Build query for mass order batches
-        $query = StoreOrder::select([
+        $query = $this->getBaseBatchQuery()->select([
                 'batch_reference as batch_number',
                 'encoder_id',
                 \DB::raw('MIN(order_date) as date_from'),
@@ -42,45 +53,89 @@ class DTSMassOrdersController extends Controller
                 \DB::raw('MIN(created_at) as created_at'),
                 \DB::raw('MAX(updated_at) as updated_at')
             ])
-            ->whereNotNull('batch_reference')
-            ->where('variant', 'mass dts')
             ->with('encoder')
             ->groupBy('batch_reference', 'encoder_id');
 
         // Apply filter
         $filterQuery = $request->input('filterQuery', 'approved');
         if ($filterQuery !== 'all') {
-            $query->havingRaw('MIN(order_status) = ?', [$filterQuery]);
+            switch ($filterQuery) {
+                case 'approved':
+                    $query->whereNotExists(function ($subquery) {
+                        $subquery->select(\DB::raw(1))
+                            ->from('store_orders as so')
+                            ->whereRaw('so.batch_reference = store_orders.batch_reference')
+                            ->where('so.order_status', '!=', 'approved');
+                    });
+                    break;
+                case 'committed':
+                    $query->whereNotExists(function ($subquery) {
+                        $subquery->select(\DB::raw(1))
+                            ->from('store_orders as so')
+                            ->whereRaw('so.batch_reference = store_orders.batch_reference')
+                            ->where('so.order_status', '!=', 'committed');
+                    });
+                    break;
+                case 'partial_received':
+                    $query->whereExists(function ($subquery) {
+                        $subquery->select(\DB::raw(1))
+                            ->from('store_orders as so')
+                            ->whereRaw('so.batch_reference = store_orders.batch_reference')
+                            ->where('so.order_status', 'received');
+                    })->whereExists(function ($subquery) {
+                        $subquery->select(\DB::raw(1))
+                            ->from('store_orders as so')
+                            ->whereRaw('so.batch_reference = store_orders.batch_reference')
+                            ->where('so.order_status', '!=', 'received');
+                    });
+                    break;
+                case 'received':
+                    $query->whereNotExists(function ($subquery) {
+                        $subquery->select(\DB::raw(1))
+                            ->from('store_orders as so')
+                            ->whereRaw('so.batch_reference = store_orders.batch_reference')
+                            ->where('so.order_status', '!=', 'received');
+                    });
+                    break;
+            }
         }
 
         $batches = $query->orderBy('created_at', 'desc')->paginate(20);
 
-        // Calculate counts for each status
+        // Calculate counts for each status with proper batch-level filtering to ensure data integrity
+        $baseBatchQuery = $this->getBaseBatchQuery()->select('batch_reference')->distinct();
+
         $counts = [
-            'all' => StoreOrder::whereNotNull('batch_reference')
-                ->where('variant', 'mass dts')
-                ->distinct('batch_reference')
-                ->count('batch_reference'),
-            'approved' => StoreOrder::whereNotNull('batch_reference')
-                ->where('variant', 'mass dts')
-                ->where('order_status', 'approved')
-                ->distinct('batch_reference')
-                ->count('batch_reference'),
-            'committed' => StoreOrder::whereNotNull('batch_reference')
-                ->where('variant', 'mass dts')
-                ->where('order_status', 'committed')
-                ->distinct('batch_reference')
-                ->count('batch_reference'),
-            'incomplete' => StoreOrder::whereNotNull('batch_reference')
-                ->where('variant', 'mass dts')
-                ->where('order_status', 'incomplete')
-                ->distinct('batch_reference')
-                ->count('batch_reference'),
-            'received' => StoreOrder::whereNotNull('batch_reference')
-                ->where('variant', 'mass dts')
-                ->where('order_status', 'received')
-                ->distinct('batch_reference')
-                ->count('batch_reference'),
+            'all' => $baseBatchQuery->count('batch_reference'),
+            'approved' => (clone $baseBatchQuery)->whereNotExists(function ($subquery) {
+                $subquery->select(\DB::raw(1))
+                    ->from('store_orders as so')
+                    ->whereRaw('so.batch_reference = store_orders.batch_reference')
+                    ->where('so.order_status', '!=', 'approved');
+            })->count('batch_reference'),
+            'committed' => (clone $baseBatchQuery)->whereNotExists(function ($subquery) {
+                $subquery->select(\DB::raw(1))
+                    ->from('store_orders as so')
+                    ->whereRaw('so.batch_reference = store_orders.batch_reference')
+                    ->where('so.order_status', '!=', 'committed');
+            })->count('batch_reference'),
+            'partial_received' => (clone $baseBatchQuery)->whereExists(function ($subquery) {
+                $subquery->select(\DB::raw(1))
+                    ->from('store_orders as so')
+                    ->whereRaw('so.batch_reference = store_orders.batch_reference')
+                    ->where('so.order_status', 'received');
+            })->whereExists(function ($subquery) {
+                $subquery->select(\DB::raw(1))
+                    ->from('store_orders as so')
+                    ->whereRaw('so.batch_reference = store_orders.batch_reference')
+                    ->where('so.order_status', '!=', 'received');
+            })->count('batch_reference'),
+            'received' => (clone $baseBatchQuery)->whereNotExists(function ($subquery) {
+                $subquery->select(\DB::raw(1))
+                    ->from('store_orders as so')
+                    ->whereRaw('so.batch_reference = store_orders.batch_reference')
+                    ->where('so.order_status', '!=', 'received');
+            })->count('batch_reference'),
         ];
 
         // Calculate total quantity for each batch and extract variant
@@ -1208,9 +1263,8 @@ class DTSMassOrdersController extends Controller
         }
         \Log::info("Initial enabled dates for {$variant}:", $enabledDates);
 
-        // Get all distinct booked dates for this variant
-        $bookedDates = StoreOrder::whereNotNull('batch_reference')
-            ->where('variant', 'mass dts')
+        // Get all distinct booked dates for this variant with consistent filtering
+        $bookedDates = $this->getBaseBatchQuery()
             ->where('remarks', 'LIKE', "Mass DTS Order - {$variant}")
             ->distinct()
             ->pluck('order_date')

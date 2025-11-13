@@ -100,6 +100,51 @@ class OrderReceivingService extends StoreOrderService
             ->paginate(10)
             ->withQueryString();
 
+        // Process variant information for each order
+        $orders->getCollection()->transform(function ($order) {
+            // Debug logging for variant processing
+            Log::info("OrderReceivingService: Processing order ID {$order->id}", [
+                'supplier_id' => $order->supplier_id,
+                'supplier_name' => $order->supplier?->name,
+                'variant_field' => $order->variant,
+                'remarks' => $order->remarks,
+                'is_dropshipping' => ((string)$order->supplier_id === "5") ? 'YES' : 'NO'
+            ]);
+
+            // Check if this is a DROPSHIPPING order first (string comparison fix)
+            if ((string)$order->supplier_id === "5") {
+                Log::info("OrderReceivingService: DROPSHIPPING order found", [
+                    'order_id' => $order->id,
+                    'current_variant' => $order->variant,
+                    'remarks_content' => $order->remarks
+                ]);
+
+                // For DROPSHIPPING orders with "mass dts" variant, extract from remarks
+                if ($order->variant === 'mass dts' || $order->variant === 'N/A' || $order->variant === 'regular') {
+                    // Extract variant from remarks using "Mass DTS Order - {variant}" pattern
+                    if ($order->remarks && strpos($order->remarks, 'Mass DTS Order - ') !== false) {
+                        $order->variant = str_replace('Mass DTS Order - ', '', $order->remarks);
+                        Log::info("OrderReceivingService: Extracted variant from remarks", [
+                            'order_id' => $order->id,
+                            'extracted_variant' => $order->variant
+                        ]);
+                    }
+                }
+            }
+
+            // Only set to N/A if variant is truly empty for non-DROPSHIPPING orders
+            if (!$order->variant) {
+                $order->variant = 'N/A';
+            }
+
+            Log::info("OrderReceivingService: Final variant for order ID {$order->id}", [
+                'final_variant' => $order->variant,
+                'supplier_id' => $order->supplier_id
+            ]);
+
+            return $order;
+        });
+
         Log::debug("OrderReceivingService: Orders query executed. Total orders found: " . $orders->total());
 
         return [
