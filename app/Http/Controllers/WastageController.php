@@ -205,6 +205,7 @@ class WastageController extends Controller
             'approved_level1_date' => $wastage->approved_level1_date,
             'approved_level2_date' => $wastage->approved_level2_date,
             'cancelled_date' => $wastage->cancelled_date,
+            'image_urls' => json_decode($wastage->image_url, true) ?? [],
             'items' => $relatedWastageRecords->map(function ($record) {
                 return [
                     'id' => $record->id,
