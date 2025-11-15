@@ -797,7 +797,7 @@ const addToOrdersButton = () => {
         orderForm.orders.push(newItem);
 
         // Also add the item to editableOrderItems to keep them synchronized
-        editableOrderItems.value.push({ ...newItem });
+        // editableOrderItems.value.push({ ...newItem });
     }
 
     Object.keys(productDetails).forEach((key) => {
