@@ -364,6 +364,14 @@ class RolesAndPermissionSeeder extends Seeder
         Permission::firstOrCreate(['name' => 'edit month end schedules']);
         Permission::firstOrCreate(['name' => 'delete month end schedules']);
 
+        // NEW: Month End Count Templates
+        Permission::firstOrCreate(['name' => 'view month end count templates']);
+        Permission::firstOrCreate(['name' => 'create month end count templates']);
+        Permission::firstOrCreate(['name' => 'edit month end count templates']);
+        Permission::firstOrCreate(['name' => 'delete month end count templates']);
+        Permission::firstOrCreate(['name' => 'export month end count templates']);
+        Permission::firstOrCreate(['name' => 'import month end count templates']);
+
         // NEW: Month End Count
         Permission::firstOrCreate(['name' => 'perform month end count']);
         Permission::firstOrCreate(['name' => 'edit month end count items']);

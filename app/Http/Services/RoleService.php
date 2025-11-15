@@ -81,6 +81,14 @@ class RoleService
                     'edit month end schedules',
                     'delete month end schedules',
                 ],
+                'Month End Count Templates' => [
+                    'view month end count templates',
+                    'create month end count templates',
+                    'edit month end count templates',
+                    'delete month end count templates',
+                    'export month end count templates',
+                    'import month end count templates',
+                ],
                 'Templates' => [
                     'view templates', 'create templates', 'edit templates', 'delete templates', 'export templates'
                 ],

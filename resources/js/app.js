@@ -84,6 +84,7 @@ import InfolistLabel from "./Components/InfolistLabel.vue";
 import BackButton from "./Components/BackButton.vue";
 import DeleteButton from "./Components/button/DeleteButton.vue";
 import Select from "primevue/select";
+import PrimeDialog from "primevue/dialog";
 import {
     Select as SelectShad,
     SelectContent,
@@ -139,7 +140,7 @@ createInertiaApp({
             .component("Label", Label)
             .component("FormError", FormError)
             .component("Pagination", Pagination)
-            .component("Dialog", Dialog)
+            .component("PrimeDialog", Dialog)
             .component("DialogContent", DialogContent)
             .component("DialogDescription", DialogDescription)
             .component("DialogHeader", DialogHeader)

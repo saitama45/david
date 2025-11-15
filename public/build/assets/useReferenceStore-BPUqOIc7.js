@@ -1,0 +1,1 @@
+import{G as a}from"./app-p8ycGfai.js";function n(){const t=a(),e=ref(!1);return{isCreateModalVisible:e,openCreateModal:()=>{e.value=!0,console.log(e)},store:(o,s,r)=>{s.post(o,{preserveScroll:!0,onSuccess:()=>{t.add({severity:"success",summary:"Success",detail:r+" Create Successfully.",life:5e3}),s.reset(),e.value=!1}})}}}export{n as u};

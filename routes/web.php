@@ -19,6 +19,7 @@ use App\Http\Controllers\CostOfGoodController;
 use App\Http\Controllers\CSApprovalController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\MonthEndCountApprovalController;
+use App\Http\Controllers\MonthEndCountTemplateController;
 use App\Http\Controllers\MECApproval2Controller;
 use App\Http\Controllers\MonthEndCountController;
 use App\Http\Controllers\MonthEndScheduleController;
@@ -513,6 +514,23 @@ Route::middleware('auth')
                 Route::middleware('permission:edit month end schedules')->put('/{schedule}', 'update')->name('update');
                 Route::middleware('permission:delete month end schedules')->delete('/{schedule}', 'destroy')->name('destroy');
                 Route::middleware('permission:view month end schedules')->get('/{schedule}/details', 'getDetails')->name('details');
+            });
+
+        // Month End Count Templates
+        Route::controller(MonthEndCountTemplateController::class)
+            ->name('month-end-count-templates.')
+            ->prefix('month-end-count-templates')
+            ->group(function () {
+                Route::middleware('permission:view month end count templates')->get('/', 'index')->name('index');
+                Route::middleware('permission:create month end count templates')->get('/create', 'create')->name('create');
+                Route::middleware('permission:create month end count templates')->post('/', 'store')->name('store');
+                Route::middleware('permission:view month end count templates')->get('/show/{monthEndCountTemplate}', 'show')->name('show');
+                Route::middleware('permission:edit month end count templates')->get('/edit/{monthEndCountTemplate}', 'edit')->name('edit');
+                Route::middleware('permission:edit month end count templates')->put('/{monthEndCountTemplate}', 'update')->name('update');
+                Route::middleware('permission:delete month end count templates')->delete('/{monthEndCountTemplate}', 'destroy')->name('destroy');
+                Route::middleware('permission:export month end count templates')->get('/export', 'export')->name('export');
+                Route::middleware('permission:import month end count templates')->post('/import', 'import')->name('import');
+                Route::middleware('permission:view month end count templates')->get('/download-template', 'downloadTemplate')->name('download-template');
             });
 
         // Month End Count Execution

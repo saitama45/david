@@ -100,7 +100,8 @@ const canViewSettingsGroup = computed(() =>
     hasAccess("view dts delivery schedules") ||
     hasAccess("view dsp delivery schedules") ||
     hasAccess("view orders cutoff") ||
-    hasAccess("view month end schedules")
+    hasAccess("view month end schedules") ||
+    hasAccess("view month end count templates")
 );
 
 const canViewOrderingGroup = computed(() =>
@@ -238,7 +239,7 @@ watchEffect(() => {
 
     // Define all collapsible sections and their associated paths
     const sections = [
-        { ref: settingsOpen, paths: ["/users", "/roles", "/templates", "/dts-delivery-schedules", "/dsp-delivery-schedules", "/orders-cutoff", "/month-end-schedules"] },
+        { ref: settingsOpen, paths: ["/users", "/roles", "/templates", "/dts-delivery-schedules", "/dsp-delivery-schedules", "/orders-cutoff", "/month-end-schedules", "/month-end-count-templates"] },
         { ref: orderingOpen, paths: ["/store-orders", "/emergency-orders", "/additional-orders", "/dts-orders", "/orders-approval", "/cs-approvals", "/additional-orders-approval", "/emergency-orders-approval", "/mass-orders", "/cs-mass-commits", "/dts-mass-orders", "/cs-dts-mass-commits", "/interco", "/interco-approval", "/store-commits"] },
         { ref: receivingOpen, paths: ["/direct-receiving", "/orders-receiving", "/approved-orders", "/receiving-approvals", "/interco-receiving"] },
         { ref: salesOpen, paths: ["/sales-orders", "/store-transactions", "/store-transactions-approval"] },
@@ -1008,6 +1009,14 @@ watchEffect(() => {
                     :is-active="isPathActive('/month-end-schedules')"
                 >
                     Month End Schedules
+                </NavLink>
+                <NavLink
+                    v-if="hasAccess('view month end count templates')"
+                    href="/month-end-count-templates"
+                    :icon="Scroll"
+                    :is-active="isPathActive('/month-end-count-templates')"
+                >
+                    Month End Count Templates
                 </NavLink>
             </CollapsibleContent>
         </Collapsible>

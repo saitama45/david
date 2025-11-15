@@ -9,6 +9,7 @@ use App\Models\SupplierItems;
 use App\Models\SAPMasterfile;
 use App\Models\ProductInventoryStock;
 use App\Models\ProductInventoryStockManager;
+use App\Models\MonthEndCountTemplate;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Carbon;
@@ -185,44 +186,44 @@ class MonthEndCountController extends Controller
             return back()->withErrors(['error' => 'This schedule is no longer pending.']);
         }
 
-        // Fetch all active SupplierItems and get all their SAP Masterfiles
-        $supplierItems = SupplierItems::where('is_active', true)->get();
+        // Fetch all records from MonthEndCountTemplate
+        $templates = MonthEndCountTemplate::all();
 
         $items = collect();
 
-        foreach ($supplierItems as $supplierItem) {
-            // Get all SAP Masterfiles for this ItemCode
-            $sapMasterfiles = SAPMasterfile::where('ItemCode', $supplierItem->ItemCode)
+        foreach ($templates as $template) {
+            // For each template, find the current stock on hand (SOH).
+            // This requires finding the corresponding SAPMasterfile entry.
+            $sapMasterfile = SAPMasterfile::where('ItemCode', $template->item_code)
+                ->where('AltUOM', $template->uom)
                 ->where('is_active', true)
-                ->get();
+                ->first();
 
-            // Create a row for each SAP Masterfile UOM
-            foreach ($sapMasterfiles as $sapMasterfile) {
-                // Get the current stock for this specific SAP Masterfile and branch
+            $currentSoh = 0;
+            if ($sapMasterfile) {
                 $stock = ProductInventoryStock::where('product_inventory_id', $sapMasterfile->id)
                     ->where('store_branch_id', $request->branch_id)
                     ->first();
-
                 $currentSoh = $stock ? $stock->quantity : 0;
-
-                $items->push([
-                    'ItemCode' => $supplierItem->ItemCode,
-                    'item_name' => $supplierItem->item_name,
-                    'area' => $supplierItem->area,
-                    'category2' => $supplierItem->category2,
-                    'category' => $supplierItem->category,
-                    'brand' => $supplierItem->brand,
-                    'packaging_config' => $supplierItem->packaging_config,
-                    'config' => $supplierItem->config,
-                    'uom' => $sapMasterfile->AltUOM,
-                    'current_soh' => $currentSoh,
-                    'bulk_qty' => '', // User fillable
-                    'loose_qty' => '', // User fillable
-                    'loose_uom' => '', // User fillable
-                    'remarks' => '', // User fillable
-                    'total_qty' => '', // User fillable
-                ]);
             }
+
+            $items->push([
+                'ItemCode' => $template->item_code,
+                'item_name' => $template->item_name,
+                'area' => $template->area,
+                'category2' => $template->category_2,
+                'category' => $template->category,
+                'brand' => $template->brand,
+                'packaging_config' => $template->packaging_config,
+                'config' => $template->config,
+                'uom' => $template->uom,
+                'current_soh' => $currentSoh,
+                'bulk_qty' => '', // User fillable
+                'loose_qty' => '', // User fillable
+                'loose_uom' => '', // User fillable
+                'remarks' => '', // User fillable
+                'total_qty' => '', // User fillable
+            ]);
         }
 
         $fileName = 'month_end_count_template_' . $branch->name . '_' . $schedule->calculated_date->format('Ymd') . '.xlsx';
