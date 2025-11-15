@@ -1,6 +1,6 @@
 <script setup>
 import { reactiveOmit } from "@vueuse/core";
-import { ToastTitle } from "reka-ui";
+import { ToastTitle } from "radix-vue";
 import { cn } from "@/lib/utils";
 
 const props = defineProps({

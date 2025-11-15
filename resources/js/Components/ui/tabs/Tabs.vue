@@ -1,5 +1,5 @@
 <script setup>
-import { TabsRoot, useForwardPropsEmits } from 'reka-ui';
+import { TabsRoot, useForwardPropsEmits } from 'radix-vue';
 
 const props = defineProps({
   defaultValue: { type: null, required: false },

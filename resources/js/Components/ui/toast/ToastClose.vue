@@ -1,7 +1,7 @@
 <script setup>
 import { reactiveOmit } from "@vueuse/core";
 import { X } from "lucide-vue-next";
-import { ToastClose } from "reka-ui";
+import { ToastClose } from "radix-vue";
 import { cn } from "@/lib/utils";
 
 const props = defineProps({

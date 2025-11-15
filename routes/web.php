@@ -83,6 +83,7 @@ use App\Http\Controllers\WastageController;
 use App\Http\Controllers\WastageApprovalLevel1Controller;
 use App\Http\Controllers\WastageApprovalLevel2Controller;
 use App\Http\Controllers\WastageReportController;
+use App\Http\Controllers\QtyVarianceCostVarianceReportController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\RolesController;
 use App\Http\Controllers\SAPMasterfileController;
@@ -165,6 +166,8 @@ Route::middleware('auth')
             Route::middleware('permission:export pmix report')->get('/pmix-report/export', [PMIXReportController::class, 'export'])->name('reports.pmix-report.export');
             Route::middleware('permission:view wastage report')->get('/wastage-report', [WastageReportController::class, 'index'])->name('reports.wastage-report.index');
             Route::middleware('permission:export wastage report')->get('/wastage-report/export', [WastageReportController::class, 'export'])->name('reports.wastage-report.export');
+            Route::middleware('permission:view qty variance cost variance report')->get('/qty-variance-cost-variance-report', [QtyVarianceCostVarianceReportController::class, 'index'])->name('reports.qty-variance-cost-variance-report.index');
+            Route::middleware('permission:export qty variance cost variance report')->get('/qty-variance-cost-variance-report/export', [QtyVarianceCostVarianceReportController::class, 'export'])->name('reports.qty-variance-cost-variance-report.export');
         });
 
         Route::controller(DaysPayableOutStanding::class)

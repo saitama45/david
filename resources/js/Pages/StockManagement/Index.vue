@@ -1,9 +1,11 @@
 <script setup>
 import { useSelectOptions } from "@/Composables/useSelectOptions";
-import { usePage, router, useForm } from "@inertiajs/vue3";
+import { usePage, router, useForm, Link } from "@inertiajs/vue3";
+import { Eye } from "lucide-vue-next";
+import { DialogRoot } from "radix-vue";
 
 import { throttle, update } from "lodash";
-import { ref, watch, computed } from "vue"; // Added 'watch' and 'computed' to imports
+import { ref, watch, computed, onBeforeUnmount } from "vue"; // Added 'onBeforeUnmount' to imports
 import { useConfirm } from "primevue/useconfirm";
 import { useToast } from "@/Composables/useToast";
 const confirm = useConfirm();
@@ -25,6 +27,12 @@ const { products, branches, costCenters, storeSummary } = defineProps({
         type: Object,
         default: null,
     },
+});
+
+onBeforeUnmount(() => {
+    isUpdateModalVisible.value = false;
+    isLogUsageModalOpen.value = false;
+    isAddQuantityModalOpen.value = false;
 });
 
 const { options: branchesOptions } = useSelectOptions(branches);
@@ -153,16 +161,7 @@ const addQuantity = () => {
     });
 };
 
-// Updated showDetails function for explicit parameter passing
-const showDetails = (productId, selectedBranchId) => {
-    router.get(
-        route("stock-management.show", productId), // Product ID is the route parameter
-        {
-            branchId: selectedBranchId, // Branch ID is the query parameter
-        },
-        {}
-    );
-};
+
 
 import { useAuth } from "@/Composables/useAuth";
 
@@ -306,86 +305,87 @@ const getTotalBaseUOMSOH = (product) => {
 };
 </script>
 <template>
-    <Dialog v-model:open="isUpdateModalVisible">
-        <DialogContent class="sm:max-w-[600px]">
-            <DialogHeader>
-                <DialogTitle>Update Stock</DialogTitle>
-                <DialogDescription>
-                    Please input all the required fields.
-                </DialogDescription>
-            </DialogHeader>
-            <InputContainer>
-                <Label>Action</Label>
-                <SelectShad v-model="updateForm.action">
-                    <SelectTrigger>
-                        <SelectValue placeholder="Select from options" />
-                    </SelectTrigger>
-                    <SelectContent>
-                        <SelectGroup>
-                            <SelectLabel>Options</SelectLabel>
-                            <SelectItem
-                                v-for="variant in options"
-                                :value="variant.value"
-                            >
-                                {{ variant.label }}
-                            </SelectItem>
-                        </SelectGroup>
-                    </SelectContent>
-                </SelectShad>
-            </InputContainer>
-            <InputContainer>
-                <Label>Store Branch</Label>
-                <Select
-                    filter
-                    class="min-w-72"
-                    placeholder="Select a Supplier"
-                    :options="branchesOptions"
-                    optionLabel="label"
-                    optionValue="value"
-                    v-model="branchId"
-                    disabled
-                />
-            </InputContainer>
-            <InputContainer>
-                <Label>Excel File</Label>
-                <Input
-                    type="file"
-                    @input="updateForm.file = $event.target.files[0]"
-                />
-            </InputContainer>
-            <InputContainer>
-                <LabelXS>Accepted Excel File Format: </LabelXS>
-                <a
-                    :href="route('stock-management.export-add')"
-                    class="text-xs text-blue-500 underline"
-                    >Add Quantity</a
-                >
-
-                <a
-                    :href="route('stock-management.export-log')"
-                    class="text-xs text-blue-500 underline"
-                    >Log Usage</a
-                >
-                <a
-                    :href="route('stock-management.export-soh')"
-                    class="text-xs text-blue-500 underline"
-                    >SOH Update</a
-                >
-            </InputContainer>
-            <DivFlexCenter class="justify-end">
-                <Button :disabled="isLoading" @click="updateImport"
-                    >Submit
-                    <span class="ml-1" v-if="isLoading"><Loading /></span
-                ></Button>
-            </DivFlexCenter>
-        </DialogContent>
-    </Dialog>
-
     <Layout
         heading="Stock Management"
         :hasExcelDownload="true"
         :exportRoute="exportRoute"
     >
+        <DialogRoot v-model:open="isUpdateModalVisible">
+            <Dialog>
+                <DialogContent class="sm:max-w-[600px]">
+                    <DialogHeader>
+                        <DialogTitle>Update Stock</DialogTitle>
+                        <DialogDescription>
+                            Please input all the required fields.
+                        </DialogDescription>
+                    </DialogHeader>
+                <InputContainer>
+                    <Label>Action</Label>
+                    <SelectShad v-model="updateForm.action">
+                        <SelectTrigger>
+                            <SelectValue placeholder="Select from options" />
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectGroup>
+                                <SelectLabel>Options</SelectLabel>
+                                <SelectItem
+                                    v-for="variant in options"
+                                    :value="variant.value"
+                                >
+                                    {{ variant.label }}
+                                </SelectItem>
+                            </SelectGroup>
+                        </SelectContent>
+                    </SelectShad>
+                </InputContainer>
+                <InputContainer>
+                    <Label>Store Branch</Label>
+                    <Select
+                        filter
+                        class="min-w-72"
+                        placeholder="Select a Supplier"
+                        :options="branchesOptions"
+                        optionLabel="label"
+                        optionValue="value"
+                        v-model="branchId"
+                        disabled
+                    />
+                </InputContainer>
+                <InputContainer>
+                    <Label>Excel File</Label>
+                    <Input
+                        type="file"
+                        @input="updateForm.file = $event.target.files[0]"
+                    />
+                </InputContainer>
+                <InputContainer>
+                    <LabelXS>Accepted Excel File Format: </LabelXS>
+                    <a
+                        :href="route('stock-management.export-add')"
+                        class="text-xs text-blue-500 underline"
+                        >Add Quantity</a
+                    >
+
+                    <a
+                        :href="route('stock-management.export-log')"
+                        class="text-xs text-blue-500 underline"
+                        >Log Usage</a
+                    >
+                    <a
+                        :href="route('stock-management.export-soh')"
+                        class="text-xs text-blue-500 underline"
+                        >SOH Update</a
+                    >
+                </InputContainer>
+                <DivFlexCenter class="justify-end">
+                    <Button :disabled="isLoading" @click="updateImport"
+                        >Submit
+                        <span class="ml-1" v-if="isLoading"><Loading /></span
+                    ></Button>
+                </DivFlexCenter>
+            </DialogContent>
+        </Dialog>
+    </DialogRoot>
         <TableContainer>
             <DivFlexCenter class="justify-between sm:flex-row flex-col gap-3">
                 <SearchBar>
@@ -589,14 +589,26 @@ const getTotalBaseUOMSOH = (product) => {
                         <TD>{{ getProductRecordedUsedForDisplay(product) }}</TD>
                         <TD>
                             <DivFlexCenter class="gap-3">
-                                <ShowButton
+                                <Link
                                     v-if="
                                         hasAccess(
                                             'view stock management history'
+                                        ) && product.id
+                                    "
+                                    :href="
+                                        route(
+                                            'stock-management.show',
+                                            {
+                                                id: product.id,
+                                                branchId: branchId
+                                            }
                                         )
                                     "
-                                    @click="showDetails(product.id, branchId)"
-                                />
+                                    class="p-1.5 text-gray-600 hover:bg-gray-100 rounded-md"
+                                    title="View Details"
+                                >
+                                    <Eye class="h-5 w-5" />
+                                </Link>
                                 <Button
                                     v-if="hasAccess('log stock usage')"
                                     @click="openLogUsageModal(product.id)"
@@ -622,16 +634,26 @@ const getTotalBaseUOMSOH = (product) => {
                     <MobileTableHeading
                         :title="`${product.name} (${product.inventory_code})`"
                     >
-                        <ShowButton
-                            v-if="hasAccess('view stock management history')"
-                            @click="showDetails(product.id, branchId)"
-                        />
+                        <Link
+                            v-if="hasAccess('view stock management history') && product.id"
+                            :href="
+                                route('stock-management.show', {
+                                    id: product.id,
+                                    branchId: branchId
+                                })
+                            "
+                            class="p-1.5 text-gray-600 hover:bg-gray-100 rounded-md"
+                            title="View Details"
+                        >
+                            <Eye class="h-5 w-5" />
+                        </Link>
                     </MobileTableHeading>
                     <LabelXS>UOM: {{ product.uom }}</LabelXS>
                     <LabelXS>Alt UOM: {{ product.alt_uom }}</LabelXS> <!-- Display Alt UOM in mobile view -->
                     <LabelXS>SOH: {{ getProductSOHForDisplay(product) }}</LabelXS>
                     <LabelXS>Total BaseUOM SOH: {{ getTotalBaseUOMSOH(product) }}</LabelXS>
                     <LabelXS
+                        v-if="product.estimated_used && product.ingredient_units"
                         >Estimated Used: {{ product.estimated_used }}
                         {{ product.ingredient_units }}</LabelXS
                     >
@@ -659,14 +681,15 @@ const getTotalBaseUOMSOH = (product) => {
             <Pagination :data="products" />
         </TableContainer>
 
-        <Dialog v-model:open="isLogUsageModalOpen">
-            <DialogContent class="sm:max-w-[600px]">
-                <DialogHeader>
-                    <DialogTitle>Log Usage</DialogTitle>
-                    <DialogDescription>
-                        Please input all the required fields.
-                    </DialogDescription>
-                </DialogHeader>
+        <DialogRoot v-model:open="isLogUsageModalOpen">
+            <Dialog>
+                <DialogContent class="sm:max-w-[600px]">
+                    <DialogHeader>
+                        <DialogTitle>Log Usage</DialogTitle>
+                        <DialogDescription>
+                            Please input all the required fields.
+                        </DialogDescription>
+                    </DialogHeader>
                 <DivFlexCol class="gap-3">
                     <InputContainer>
                         <LabelXS>Store Branch</LabelXS>
@@ -730,15 +753,17 @@ const getTotalBaseUOMSOH = (product) => {
                 </DialogFooter>
             </DialogContent>
         </Dialog>
+    </DialogRoot>
 
-        <Dialog v-model:open="isAddQuantityModalOpen">
-            <DialogContent class="sm:max-w-[600px]">
-                <DialogHeader>
-                    <DialogTitle>Add Quantity</DialogTitle>
-                    <DialogDescription>
-                        Please input all the required fields.
-                    </DialogDescription>
-                </DialogHeader>
+        <DialogRoot v-model:open="isAddQuantityModalOpen">
+            <Dialog>
+                <DialogContent class="sm:max-w-[600px]">
+                    <DialogHeader>
+                        <DialogTitle>Add Quantity</DialogTitle>
+                        <DialogDescription>
+                            Please input all the required fields.
+                        </DialogDescription>
+                    </DialogHeader>
                 <DivFlexCol class="gap-3">
                     <InputContainer>
                         <LabelXS>Store Branch</LabelXS>
@@ -786,5 +811,6 @@ const getTotalBaseUOMSOH = (product) => {
                 </DialogFooter>
             </DialogContent>
         </Dialog>
+    </DialogRoot>
     </Layout>
 </template>

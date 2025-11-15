@@ -1,5 +1,5 @@
 <script setup>
-import { CollapsibleTrigger } from 'reka-ui';
+import { CollapsibleTrigger } from 'radix-vue';
 
 const props = defineProps({
   asChild: { type: Boolean, required: false },

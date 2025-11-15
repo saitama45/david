@@ -234,6 +234,10 @@ class RoleService
                 'Wastage Report' => [
                     'view wastage report', 'export wastage report'
                 ],
+                // NEW: Qty Variance / Cost Variance Report
+                'Qty Variance / Cost Variance Report' => [
+                    'view qty variance cost variance report', 'export qty variance cost variance report'
+                ],
                 'Top 10 Inventories' => [
                     'view top 10 inventories', 'export top 10 inventories'
                 ],

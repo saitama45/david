@@ -1,6 +1,6 @@
 <script setup>
 import { reactiveOmit } from "@vueuse/core";
-import { ToastRoot, useForwardPropsEmits } from "reka-ui";
+import { ToastRoot, useForwardPropsEmits } from "radix-vue";
 import { cn } from "@/lib/utils";
 import { toastVariants } from ".";
 

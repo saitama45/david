@@ -1,5 +1,5 @@
 <script setup>
-import { ToastProvider } from "reka-ui";
+import { ToastProvider } from "radix-vue";
 
 const props = defineProps({
   label: { type: String, required: false },

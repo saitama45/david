@@ -414,6 +414,10 @@ class RolesAndPermissionSeeder extends Seeder
         Permission::firstOrCreate(['name' => 'view wastage report']);
         Permission::firstOrCreate(['name' => 'export wastage report']);
 
+        // NEW: Qty Variance / Cost Variance Report permissions
+        Permission::firstOrCreate(['name' => 'view qty variance cost variance report']);
+        Permission::firstOrCreate(['name' => 'export qty variance cost variance report']);
+
 
         // Assign all permissions to the 'admin' role
         $role->syncPermissions(Permission::all());
@@ -456,6 +460,8 @@ class RolesAndPermissionSeeder extends Seeder
             'view pmix report',
             // NEW: Wastage Report permission for store representative
             'view wastage report',
+            // NEW: Qty Variance / Cost Variance Report permission for store representative
+            'view qty variance cost variance report',
         ]);
 
         // Assign specific permissions to 'request approver'
@@ -486,6 +492,8 @@ class RolesAndPermissionSeeder extends Seeder
             'view pmix report', 'export pmix report',
             // NEW: Wastage Report permission for request approver
             'view wastage report', 'export wastage report',
+            // NEW: Qty Variance / Cost Variance Report permission for request approver
+            'view qty variance cost variance report', 'export qty variance cost variance report',
         ]);
     }
 }

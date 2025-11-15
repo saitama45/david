@@ -52,6 +52,7 @@ import {
     DialogTitle,
     DialogFooter,
 } from "@/components/ui/dialog";
+import { Presence } from "@/components/ui/presence";
 import { Badge } from "@/components/ui/badge";
 import Textarea from "./Components/ui/textarea/Textarea.vue";
 import InputContainer from "./Components/form/InputContainer.vue";
@@ -147,6 +148,7 @@ createInertiaApp({
             .component("DialogTitle", DialogTitle)
             .component("Badge", Badge)
             .component("DialogFooter", DialogFooter)
+            .component("Presence", Presence)
             .component("Textarea", Textarea)
             .component("Select", Select)
             .component("InputContainer", InputContainer)

@@ -68,9 +68,10 @@ const formatDisplayDate = (dateString) => {
 
 // Computed property for the dynamic heading
 const dynamicHeading = computed(() => {
-    if (history.data && history.data.length > 0 && history.data[0].sap_masterfile) {
-        const itemDescription = history.data[0].sap_masterfile.ItemDescription;
-        const altUOM = history.data[0].sap_masterfile.AltUOM;
+    const firstHistoryItem = history?.data?.[0];
+    if (firstHistoryItem && firstHistoryItem.sap_masterfile) {
+        const itemDescription = firstHistoryItem.sap_masterfile.ItemDescription;
+        const altUOM = firstHistoryItem.sap_masterfile.AltUOM;
         return `${itemDescription} with AltUOM: ${altUOM}`;
     }
     return 'Stock Details'; // Default title if data is not available
