@@ -238,6 +238,10 @@ class RoleService
                 'Qty Variance / Cost Variance Report' => [
                     'view qty variance cost variance report', 'export qty variance cost variance report'
                 ],
+                // NEW: Actual Cost / Cost of Goods Sold Report
+                'Actual Cost / COGS Report' => [
+                    'view actual cost cogs report', 'export actual cost cogs report'
+                ],
                 'Top 10 Inventories' => [
                     'view top 10 inventories', 'export top 10 inventories'
                 ],

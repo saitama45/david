@@ -418,6 +418,10 @@ class RolesAndPermissionSeeder extends Seeder
         Permission::firstOrCreate(['name' => 'view qty variance cost variance report']);
         Permission::firstOrCreate(['name' => 'export qty variance cost variance report']);
 
+        // NEW: Actual Cost / Cost of Goods Sold Report permissions
+        Permission::firstOrCreate(['name' => 'view actual cost cogs report']);
+        Permission::firstOrCreate(['name' => 'export actual cost cogs report']);
+
 
         // Assign all permissions to the 'admin' role
         $role->syncPermissions(Permission::all());
@@ -462,6 +466,8 @@ class RolesAndPermissionSeeder extends Seeder
             'view wastage report',
             // NEW: Qty Variance / Cost Variance Report permission for store representative
             'view qty variance cost variance report',
+            // NEW: Actual Cost / Cost of Goods Sold Report permission for store representative
+            'view actual cost cogs report',
         ]);
 
         // Assign specific permissions to 'request approver'
@@ -494,6 +500,8 @@ class RolesAndPermissionSeeder extends Seeder
             'view wastage report', 'export wastage report',
             // NEW: Qty Variance / Cost Variance Report permission for request approver
             'view qty variance cost variance report', 'export qty variance cost variance report',
+            // NEW: Actual Cost / Cost of Goods Sold Report permission for request approver
+            'view actual cost cogs report', 'export actual cost cogs report',
         ]);
     }
 }
