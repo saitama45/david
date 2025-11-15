@@ -47,9 +47,9 @@ const perPageOptions = [
 // Store options with proper formatting
 const storeOptions = computed(() => {
     return props.stores.map(store => ({
-        label: `${store.name} (${store.brand_code})`,
+        label: `${store.name} (${store.branch_code})`,
         value: store.id,
-        searchTerms: [store.name, store.brand_code].join(' ').toLowerCase()
+        searchTerms: [store.name, store.branch_code].join(' ').toLowerCase()
     }));
 });
 
