@@ -27,7 +27,7 @@ const confirm = useConfirm();
 // Create branch options using composable
 const { options: branchesOptions } = useSelectOptions(props.branches)
 
-const reasonOptions = ref(['Spoilage', 'Wastage', 'Scrap', 'Others'])
+const reasonOptions = ref(['Spoilage', 'Wastage', 'Scrap'])
 
 // Form state
 const form = useForm({
@@ -96,6 +96,8 @@ const formattedCartTotal = computed(() => {
 
 const isFormValid = computed(() => {
   return form.store_branch_id &&
+         form.remarks && form.remarks.trim() !== '' &&  // Required remarks
+         (selectedImages.value.length > 0 || existingImageUrls.value.length > 0) &&  // Required images (new or existing)
          cartItems.value.length > 0 &&
          cartItems.value.every(item =>
            item.sap_masterfile_id &&
@@ -406,17 +408,7 @@ const handleReasonBlur = (item) => {
   }
 }
 
-// Watch for reason changes to automatically switch to text input when "Others" is selected
-watch(() => cartItems.value, (newItems) => {
-  newItems.forEach(item => {
-    if (item.reason === 'Others') {
-      // Set a brief timeout to ensure the dropdown selection completes first
-      setTimeout(() => {
-        item.reason = ''; // Clear to trigger text input
-      }, 0)
-    }
-  })
-}, { deep: true })
+// No longer needed - "Others" option removed from reason dropdown
 
 </script>
 
@@ -474,13 +466,14 @@ watch(() => cartItems.value, (newItems) => {
 
             <!-- Remarks -->
             <div class="space-y-2 md:col-span-2">
-              <Label for="remarks">Remarks (Optional)</Label>
+              <Label for="remarks">Remarks *</Label>
               <Textarea
                 id="remarks"
                 v-model="form.remarks"
                 rows="3"
                 placeholder="Enter remarks"
                 :class="{ 'border-red-500': form.errors.remarks }"
+                required
               />
               <p v-if="form.errors.remarks" class="text-sm text-red-600">
                 {{ form.errors.remarks }}
@@ -492,10 +485,11 @@ watch(() => cartItems.value, (newItems) => {
               <ImageUpload
                 v-model="selectedImages"
                 v-model:existing-image-urls="existingImageUrls"
-                label="Wastage Images (Optional)"
+                label="Wastage Images *"
                 helper-text="Upload one or more JPG or PNG images as evidence (max 5MB each)"
                 :disabled="form.processing"
                 multiple
+                required
               />
               <p v-if="form.errors.images" class="text-sm text-red-600">
                 {{ form.errors.images }}
@@ -595,8 +589,8 @@ watch(() => cartItems.value, (newItems) => {
                 <thead class="bg-gray-50">
                   <tr>
                     <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Item</th>
-                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">UoM</th>
                     <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Reason</th>
+                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">UoM</th>
                     <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Quantity</th>
                     <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Cost</th>
                     <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Total</th>
@@ -611,23 +605,16 @@ watch(() => cartItems.value, (newItems) => {
                         <div class="text-sm text-gray-500">{{ item.description }}</div>
                       </div>
                     </td>
-                    <td class="px-4 py-4">
-                      <div class="text-sm text-gray-900">{{ item.uom }}</div>
-                    </td>
                     <td class="px-4 py-4" style="min-width: 170px;">
                       <Select
-                        v-if="item.reason && ['Spoilage', 'Wastage', 'Scrap'].includes(item.reason)"
                         v-model="item.reason"
                         :options="reasonOptions"
                         class="w-full"
-                      />
-                      <Input
-                        v-else
-                        type="text"
-                        v-model="item.reason"
                         @blur="handleReasonBlur(item)"
-                        placeholder="Specify reason"
                       />
+                    </td>
+                    <td class="px-4 py-4">
+                      <div class="text-sm text-gray-900">{{ item.uom }}</div>
                     </td>
                     <td class="px-4 py-4">
                       <Input

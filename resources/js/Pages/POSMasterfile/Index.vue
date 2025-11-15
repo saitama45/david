@@ -197,6 +197,7 @@ onMounted(() => {
                    <TH>Id</TH>
                     <TH>POS Code</TH> <!-- Changed from Item Code -->
                     <TH>POS Desc</TH> <!-- Changed from Item Desc -->
+                    <TH>POS Name</TH> <!-- New POS Name column -->
                     <TH>Category</TH>
                     <TH>SubCategory</TH>
                     <TH>SRP</TH>
@@ -211,6 +212,7 @@ onMounted(() => {
                         <TD>{{ item.id }}</TD>
                         <TD>{{ item.POSCode }}</TD> <!-- Changed from item.ItemCode -->
                         <TD>{{ item.POSDescription }}</TD> <!-- Changed from item.ItemDescription -->
+                        <TD>{{ item.POSName }}</TD> <!-- New POS Name data -->
                         <TD>{{ item.Category }}</TD>
                         <TD>{{ item.SubCategory }}</TD>
                         <TD>{{ item.SRP }}</TD>
@@ -265,6 +267,7 @@ onMounted(() => {
                     </MobileTableHeading>
                     <LabelXS>POS Code: {{ item.POSCode }}</LabelXS> <!-- Changed from Item Code -->
                     <LabelXS>POS Desc: {{ item.POSDescription }}</LabelXS> <!-- Changed from Item Desc -->
+                    <LabelXS>POS Name: {{ item.POSName }}</LabelXS> <!-- New POS Name display -->
                     <LabelXS>Category: {{ item.Category }}</LabelXS>
                     <LabelXS>SubCategory: {{ item.SubCategory }}</LabelXS>
                     <LabelXS>SRP: {{ item.SRP }}</LabelXS>

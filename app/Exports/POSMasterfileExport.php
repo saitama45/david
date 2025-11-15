@@ -25,9 +25,10 @@ class POSMasterfileExport implements FromQuery, WithHeadings, WithMapping
         // Apply search logic
         if ($this->search) {
             $query->where(function ($q) {
-                // CRITICAL FIX: Changed ItemCode to POSCode and ItemDescription to POSDescription
+                // CRITICAL FIX: Changed ItemCode to POSCode and ItemDescription to POSDescription, added POSName
                 $q->where('POSCode', 'like', '%' . $this->search . '%')
-                    ->orWhere('POSDescription', 'like', '%' . $this->search . '%');
+                    ->orWhere('POSDescription', 'like', '%' . $this->search . '%')
+                    ->orWhere('POSName', 'like', '%' . $this->search . '%');
                 // Add more fields here if you want to search by them
             });
         }
@@ -48,11 +49,12 @@ class POSMasterfileExport implements FromQuery, WithHeadings, WithMapping
     public function headings(): array
     {
         // Define your exact column headers for the Excel file
-        // CRITICAL FIX: Changed Item Code to POS Code and Item Description to POS Description
+        // CRITICAL FIX: Changed Item Code to POS Code and Item Description to POS Description, added POS Name
         return [
             'ID',
             'POS Code',
             'POS Description',
+            'POS Name',
             'Category',
             'SubCategory',
             'SRP',
@@ -71,11 +73,12 @@ class POSMasterfileExport implements FromQuery, WithHeadings, WithMapping
     public function map($item): array
     {
         // Map the model attributes to the array that will be a row in Excel
-        // CRITICAL FIX: Changed ItemCode to POSCode and ItemDescription to POSDescription
+        // CRITICAL FIX: Changed ItemCode to POSCode and ItemDescription to POSDescription, added POSName
         return [
             $item->id,
             $item->POSCode,
             $item->POSDescription,
+            $item->POSName,
             $item->Category,
             $item->SubCategory,
             $item->SRP,

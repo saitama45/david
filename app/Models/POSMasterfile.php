@@ -17,6 +17,7 @@ class POSMasterfile extends Model implements Auditable
     protected $fillable = [
         'POSCode',
         'POSDescription',
+        'POSName',
         'Category',
         'SubCategory',
         'SRP',

@@ -34,7 +34,7 @@ class POSMasterfileController extends Controller
             $query->where('is_active', '=', 1);
 
         if ($search)
-            $query->whereAny(['POSCode', 'POSDescription'], 'like', "%$search%"); // Corrected: Searching by POSDescription
+            $query->whereAny(['POSCode', 'POSDescription', 'POSName'], 'like', "%$search%"); // Include POSName in search
 
         $items = $query->latest()->paginate(10)->withQueryString();
 
@@ -71,6 +71,7 @@ class POSMasterfileController extends Controller
         $validated = $request->validate([
             'POSCode' => ['nullable'],
             'POSDescription' => ['nullable'], // Corrected: Validating POSDescription
+            'POSName' => ['nullable'],
             'Category' => ['nullable'],
             'SubCategory' => ['nullable'],
             'SRP' => ['nullable'],
@@ -179,6 +180,7 @@ class POSMasterfileController extends Controller
         $validated = $request->validate([
             'POSCode' => ['nullable'],
             'POSDescription' => ['nullable'], // Corrected: Validating POSDescription
+            'POSName' => ['nullable'],
             'Category' => ['nullable'],
             'SubCategory' => ['nullable'],
             'SRP' => ['nullable'],

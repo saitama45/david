@@ -77,10 +77,11 @@ class POSMasterfileImport implements ToModel, WithHeadingRow, WithBatchInserts, 
         Log::debug('POSMasterfileImport: Available row keys: ' . implode(', ', array_keys($row)));
 
 
-        // Robustly get POSCode and POSDescription, checking for common header variations
+        // Robustly get POSCode, POSDescription, and POSName, checking for common header variations
         // CRITICAL FIX: Changed variable names and checked keys to match new column names
         $posCode = (string) ($row['pos_code'] ?? $row['POS Code'] ?? $row['POSCode'] ?? $row['item_code'] ?? $row['Item Code'] ?? $row['ItemCode'] ?? null);
         $posDescription = (string) ($row['pos_description'] ?? $row['POS Description'] ?? $row['POSDescription'] ?? $row['item_description'] ?? $row['Item Description'] ?? $row['ItemDescription'] ?? null);
+        $posName = (string) ($row['pos_name'] ?? $row['POS Name'] ?? $row['POSName'] ?? null);
         $category = (string) ($row['category'] ?? $row['Category'] ?? null);
         $subCategory = (string) ($row['subcategory'] ?? $row['SubCategory'] ?? null);
         $srp = (float) str_replace(',', '', ($row['srp'] ?? $row['SRP'] ?? 0));
@@ -96,10 +97,11 @@ class POSMasterfileImport implements ToModel, WithHeadingRow, WithBatchInserts, 
             return null; // Skip this row
         }
 
-        // CRITICAL FIX: Updated model instantiation to use POSCode and POSDescription
+        // CRITICAL FIX: Updated model instantiation to use POSCode, POSDescription, and POSName
         $posMasterfile = new POSMasterfile([
             'POSCode' => $posCode,
             'POSDescription' => $posDescription,
+            'POSName' => $posName,
             'Category' => $category,
             'SubCategory' => $subCategory,
             'SRP' => $srp,

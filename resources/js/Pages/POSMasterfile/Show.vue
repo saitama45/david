@@ -93,6 +93,10 @@ const sortIngredients = (column) => {
                     <span class="text-gray-900">{{ item.POSDescription }}</span>
                 </div>
                 <div class="detail-item">
+                    <span class="font-semibold text-gray-600">POS Name:</span>
+                    <span class="text-gray-900">{{ item.POSName || 'N/A' }}</span>
+                </div>
+                <div class="detail-item">
                     <span class="font-semibold text-gray-600">Category:</span>
                     <span class="text-gray-900">{{ item.Category || 'N/A' }}</span>
                 </div>

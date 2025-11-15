@@ -23,6 +23,7 @@ const item = props.item;
 const form = useForm({
     POSCode: item.POSCode ?? null, // Changed from ItemCode
     POSDescription: item.POSDescription ?? null, // Changed from ItemDescription
+    POSName: item.POSName ?? null, // New POSName field
     Category: item.Category ?? null,
     SubCategory: item.SubCategory ?? null,
     SRP: item.SRP ?? 0,
@@ -164,6 +165,12 @@ const handleUpdate = () => {
                         <Label>POS Desc</Label> <!-- Changed from Item Desc -->
                         <Input v-model="form.POSDescription" /> <!-- Changed from form.ItemDescription -->
                         <FormError v-if="form.errors.POSDescription">{{ form.errors.POSDescription }}</FormError> <!-- Changed from form.errors.ItemDescription -->
+                    </InputContainer>
+
+                    <InputContainer>
+                        <Label>POS Name</Label> <!-- New POS Name field -->
+                        <Input v-model="form.POSName" />
+                        <FormError v-if="form.errors.POSName">{{ form.errors.POSName }}</FormError>
                     </InputContainer>
 
                     <InputContainer>

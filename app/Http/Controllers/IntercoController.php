@@ -596,13 +596,16 @@ class IntercoController extends Controller
                     ]);
                 }
 
+                // Get cost from SupplierItems table
+                $cost = $this->getItemCostFromSupplier($item->ItemCode);
+
                 return [
                     'id' => $item->id,
                     'item_code' => $item->ItemCode,
                     'description' => $description,
                     'uom' => $item->BaseUOM,
                     'alt_uom' => $effectiveAltUom, // Use fallback logic
-                    'cost_per_quantity' => 1.0, // Default cost - removed expensive lookup
+                    'cost_per_quantity' => $cost,
                     'stock' => $stock,
                     'is_available' => $stock > 0,
                 ];
@@ -721,6 +724,24 @@ class IntercoController extends Controller
 
         } catch (\Exception $e) {
             \Log::warning('getItemCost error for product ID ' . $productId . ': ' . $e->getMessage());
+            return 1.0;
+        }
+    }
+
+    /**
+     * Get cost from SupplierItems table for a given ItemCode
+     */
+    private function getItemCostFromSupplier(string $itemCode): float
+    {
+        try {
+            $cost = \App\Models\SupplierItems::where('ItemCode', $itemCode)
+                ->where('is_active', true)
+                ->value('cost');
+
+            return $cost ?: 1.0;
+
+        } catch (\Exception $e) {
+            \Log::warning('getItemCostFromSupplier error for ItemCode ' . $itemCode . ': ' . $e->getMessage());
             return 1.0;
         }
     }

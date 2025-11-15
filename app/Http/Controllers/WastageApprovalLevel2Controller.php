@@ -176,6 +176,7 @@ class WastageApprovalLevel2Controller extends Controller
             'approved_level1_date' => $wastage->approved_level1_date,
             'approved_level2_date' => $wastage->approved_level2_date,
             'cancelled_date' => $wastage->cancelled_date,
+            'image_urls' => json_decode($wastage->image_url, true) ?? [],
             'items' => $relatedWastageRecords->map(function ($record) {
                 return [
                     'id' => $record->id,
@@ -243,6 +244,18 @@ class WastageApprovalLevel2Controller extends Controller
                     ->where('transaction_date', $relatedWastage->created_at->format('Y-m-d'))
                     ->where('remarks', 'LIKE', '%Wastage Approval Level 2: ' . $relatedWastage->wastage_no . '%')
                     ->exists()) {
+                    continue;
+                }
+
+                // Skip SOH update for Scrap items
+                if ($relatedWastage->reason === 'Scrap') {
+                    \Log::info('Skipping Scrap reason item from SOH update', [
+                        'wastage_id' => $relatedWastage->id,
+                        'item_code' => $relatedWastage->sapMasterfile->ItemCode ?? 'N/A',
+                        'reason' => $relatedWastage->reason,
+                        'approved_qty' => $relatedWastage->approverlvl2_qty ?? $relatedWastage->approverlvl1_qty ?? $relatedWastage->wastage_qty,
+                        'wastage_no' => $relatedWastage->wastage_no
+                    ]);
                     continue;
                 }
 
