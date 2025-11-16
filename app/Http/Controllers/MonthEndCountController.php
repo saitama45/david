@@ -162,6 +162,8 @@ class MonthEndCountController extends Controller
             'filters' => $request->only(['year', 'month', 'calculated_date', 'status', 'branch_name', 'uploader_name', 'sort', 'direction']),
             'can' => [
                 'view_transaction' => $user->can('view month end count transaction'),
+                'download_month_end_count_template' => $user->can('download month end count template'),
+                'upload_month_end_count_transaction' => $user->can('upload month end count transaction'),
             ]
         ]);
     }

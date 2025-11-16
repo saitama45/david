@@ -205,6 +205,8 @@ class RoleService
                 ],
                 'Month End Count' => [
                     'perform month end count',
+                    'download month end count template',
+                    'upload month end count transaction',
                     'edit month end count items',
                     'view month end count transaction',
                 ],

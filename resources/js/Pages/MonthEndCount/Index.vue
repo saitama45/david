@@ -133,37 +133,41 @@ const viewReviewPage = (scheduleId, branchId) => {
 
             <!-- Download Section -->
             <div v-if="downloadSchedule" class="mb-6 p-4 border border-blue-300 bg-blue-50 rounded-md text-blue-800">
-                <p class="font-medium">{{ message }}</p>
+                <p v-if="can.download_month_end_count_template" class="font-medium">{{ message }}</p>
+                <p v-else class="font-medium">A month end count is scheduled. Please contact your administrator to get the required permissions to download the template.</p>
                 <p class="text-sm mt-1">Scheduled for: {{ getMonthName(downloadSchedule.month) }} {{ downloadSchedule.year }} (MEC Schedule Date: {{ downloadSchedule.calculated_date }})</p>
 
-                <div class="mt-4">
-                    <Label for="download_branch">Select Branch for Download</Label>
-                    <Select
-                        id="download_branch"
-                        v-model="selectedBranchId"
-                        :options="Object.entries(userBranches).map(([id, name]) => ({ value: id, label: name }))"
-                        optionLabel="label"
-                        optionValue="value"
-                        placeholder="Select a Branch"
-                        filter
-                        class="w-full"
-                    />
-                </div>
+                <div v-if="can.download_month_end_count_template">
+                    <div class="mt-4">
+                        <Label for="download_branch">Select Branch for Download</Label>
+                        <Select
+                            id="download_branch"
+                            v-model="selectedBranchId"
+                            :options="Object.entries(userBranches).map(([id, name]) => ({ value: id, label: name }))"
+                            optionLabel="label"
+                            optionValue="value"
+                            placeholder="Select a Branch"
+                            filter
+                            class="w-full"
+                        />
+                    </div>
 
-                <a v-if="selectedBranchId" :href="route('month-end-count.download', { schedule_id: downloadSchedule.id, branch_id: selectedBranchId })"
-                   class="mt-4 inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
-                    <Download class="-ml-1 mr-2 h-5 w-5" />
-                    Download Count Template
-                </a>
-                <p v-else class="mt-4 text-sm text-gray-600">Please select a branch to enable download.</p>
+                    <a v-if="selectedBranchId" :href="route('month-end-count.download', { schedule_id: downloadSchedule.id, branch_id: selectedBranchId })"
+                       class="mt-4 inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+                        <Download class="-ml-1 mr-2 h-5 w-5" />
+                        Download Count Template
+                    </a>
+                    <p v-else class="mt-4 text-sm text-gray-600">Please select a branch to enable download.</p>
+                </div>
             </div>
 
             <!-- Upload Section -->
             <div v-else-if="hasBranchesToUpload" class="mb-6 p-4 border border-green-300 bg-green-50 rounded-md text-green-800">
-                <p class="font-medium">{{ message }}</p>
+                <p v-if="can.upload_month_end_count_transaction" class="font-medium">{{ message }}</p>
+                <p v-else class="font-medium">A month end count is pending upload. Please contact your administrator to get the required permissions to upload the count sheet.</p>
                 <p v-if="uploadSchedule" class="text-sm mt-1">Scheduled for: {{ getMonthName(uploadSchedule.month) }} {{ uploadSchedule.year }} (MEC Schedule Date: {{ uploadSchedule.calculated_date }})</p>
                 
-                <form @submit.prevent="submitUpload" class="mt-4 space-y-4">
+                <form v-if="can.upload_month_end_count_transaction" @submit.prevent="submitUpload" class="mt-4 space-y-4">
                     <div>
                         <Label for="upload_branch">Select Branch for Upload</Label>
                         <Select
@@ -193,7 +197,7 @@ const viewReviewPage = (scheduleId, branchId) => {
             </div>
 
             <!-- Uploaded Counts Awaiting Submission -->
-            <div v-if="uploadedCountsAwaitingSubmission.length" class="mt-6 p-4 border border-purple-300 bg-purple-50 rounded-md text-purple-800">
+            <div v-if="can.upload_month_end_count_transaction && uploadedCountsAwaitingSubmission.length" class="mt-6 p-4 border border-purple-300 bg-purple-50 rounded-md text-purple-800">
                 <p class="font-medium mb-2">Your Uploaded Counts Awaiting Submission:</p>
                 <ul class="list-disc pl-5 space-y-1">
                     <li v-for="item in uploadedCountsAwaitingSubmission" :key="`${item.schedule_id}-${item.branch_id}`">
@@ -205,9 +209,7 @@ const viewReviewPage = (scheduleId, branchId) => {
                 </ul>
             </div>
 
-            <div v-else class="mb-6 p-4 border border-gray-300 bg-gray-50 rounded-md text-gray-800">
-                <p class="font-medium">{{ message }}</p>
-            </div>
+
         </div>
 
         <div class="mt-8">

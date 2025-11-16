@@ -374,6 +374,8 @@ class RolesAndPermissionSeeder extends Seeder
 
         // NEW: Month End Count
         Permission::firstOrCreate(['name' => 'perform month end count']);
+        Permission::firstOrCreate(['name' => 'download month end count template']);
+        Permission::firstOrCreate(['name' => 'upload month end count transaction']);
         Permission::firstOrCreate(['name' => 'edit month end count items']);
         Permission::firstOrCreate(['name' => 'view month end count transaction']);
 
@@ -468,6 +470,8 @@ class RolesAndPermissionSeeder extends Seeder
             'view qty variance cost variance report',
             // NEW: Actual Cost / Cost of Goods Sold Report permission for store representative
             'view actual cost cogs report',
+            'download month end count template',
+            'upload month end count transaction',
         ]);
 
         // Assign specific permissions to 'request approver'
