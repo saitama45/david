@@ -321,6 +321,7 @@ Route::middleware('auth')
         // DSP Delivery Schedule
         Route::controller(DSPDeliveryScheduleController::class)->name('dsp-delivery-schedules.')->prefix('dsp-delivery-schedules')->group(function () {
             Route::middleware('permission:view dsp delivery schedules')->get('/', 'index')->name('index');
+            Route::middleware('permission:view dsp delivery schedule')->get('/show/{id}', 'show')->name('show');
             Route::middleware('permission:edit dsp delivery schedules')->group(function () {
                 Route::get('/edit/{id}', 'edit')->name('edit');
                 Route::post('/update/{id}', 'update')->name('update');

@@ -33,7 +33,7 @@ const { hasAccess } = useAuth();
                     <TH>ID</TH>
                     <TH>Supplier Code</TH>
                     <TH>Name</TH>
-                    <TH v-if="hasAccess('edit dsp delivery schedules')">Actions</TH>
+                    <TH v-if="hasAccess('edit dsp delivery schedules') || hasAccess('view dsp delivery schedule')">Actions</TH>
                 </TableHead>
 
                 <TableBody>
@@ -41,8 +41,14 @@ const { hasAccess } = useAuth();
                         <TD>{{ supplier.id }}</TD>
                         <TD>{{ supplier.supplier_code }}</TD>
                         <TD>{{ supplier.name }}</TD>
-                        <TD v-if="hasAccess('edit dsp delivery schedules')">
+                        <TD class="flex items-center" v-if="hasAccess('edit dsp delivery schedules') || hasAccess('view dsp delivery schedule')">
+                            <ShowButton
+                                v-if="hasAccess('view dsp delivery schedule')"
+                                :isLink="true"
+                                :href="route('dsp-delivery-schedules.show', supplier.id)"
+                            />
                             <EditButton
+                                v-if="hasAccess('edit dsp delivery schedules')"
                                 :isLink="true"
                                 :href="route('dsp-delivery-schedules.edit', supplier.id)"
                             />
@@ -54,12 +60,20 @@ const { hasAccess } = useAuth();
             <MobileTableContainer>
                 <MobileTableRow v-for="supplier in suppliers.data" :key="supplier.id">
                     <MobileTableHeading :title="supplier.name">
-                        <EditButton
-                            v-if="hasAccess('edit dsp delivery schedules')"
-                            class="size-5"
-                            :isLink="true"
-                            :href="route('dsp-delivery-schedules.edit', supplier.id)"
-                        />
+                        <div class="flex items-center gap-2">
+                            <ShowButton
+                                v-if="hasAccess('view dsp delivery schedule')"
+                                class="size-5"
+                                :isLink="true"
+                                :href="route('dsp-delivery-schedules.show', supplier.id)"
+                            />
+                            <EditButton
+                                v-if="hasAccess('edit dsp delivery schedules')"
+                                class="size-5"
+                                :isLink="true"
+                                :href="route('dsp-delivery-schedules.edit', supplier.id)"
+                            />
+                        </div>
                     </MobileTableHeading>
                     <LabelXS>{{ supplier.supplier_code }}</LabelXS>
                 </MobileTableRow>

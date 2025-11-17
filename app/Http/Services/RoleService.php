@@ -70,7 +70,7 @@ class RoleService
                     'view dts delivery schedules', 'edit dts delivery schedules', 'export dts delivery schedules'
                 ],
                 'DSP Delivery Schedules' => [
-                    'view dsp delivery schedules', 'edit dsp delivery schedules'
+                    'view dsp delivery schedules', 'view dsp delivery schedule', 'edit dsp delivery schedules'
                 ],
                 'Ordering Cut Off' => [
                     'view orders cutoff', 'edit orders cutoff', 'create orders cutoff', 'show orders cutoff'

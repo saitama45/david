@@ -11,6 +11,35 @@ use Illuminate\Support\Facades\Auth;
 
 class DSPDeliveryScheduleController extends Controller
 {
+    public function show($id)
+    {
+        $supplier = Supplier::findOrFail($id);
+
+        // Get existing schedules for this supplier, similar to edit method
+        $schedules = DTSDeliverySchedule::where('variant', $supplier->supplier_code)
+            ->with('store_branch:id,name,branch_code') // Eager load branch details
+            ->get();
+
+        // Group schedules by day of the week
+        $days = [
+            1 => 'MONDAY', 2 => 'TUESDAY', 3 => 'WEDNESDAY',
+            4 => 'THURSDAY', 5 => 'FRIDAY', 6 => 'SATURDAY'
+        ];
+
+        $schedulesByDay = [];
+        foreach ($days as $dayId => $dayName) {
+            $branchesForDay = $schedules->where('delivery_schedule_id', $dayId)->pluck('store_branch')->filter();
+            if ($branchesForDay->isNotEmpty()) {
+                $schedulesByDay[$dayName] = $branchesForDay->values();
+            }
+        }
+
+        return Inertia::render('DSPDeliverySchedule/Show', [
+            'supplier' => $supplier,
+            'schedulesByDay' => $schedulesByDay,
+        ]);
+    }
+
     public function index()
     {
         $user = Auth::user();

@@ -42,6 +42,7 @@ class RolesAndPermissionSeeder extends Seeder
 
         // DSP Delivery Schedules
         Permission::firstOrCreate(['name' => 'view dsp delivery schedules']);
+        Permission::firstOrCreate(['name' => 'view dsp delivery schedule']);
         Permission::firstOrCreate(['name' => 'edit dsp delivery schedules']);
 
         // Ordering Cut Off
