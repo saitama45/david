@@ -1,6 +1,7 @@
 <script setup>
 import { useForm, Head, router } from '@inertiajs/vue3';
 import { useConfirm } from "primevue/useconfirm";
+import { useToast } from "primevue/usetoast";
 import { CalendarCheck2, Trash2, Pencil, Save, X, Plus, Loader2, Search } from 'lucide-vue-next';
 import InputError from '@/Components/InputError.vue';
 import { ref, reactive, watch, computed } from 'vue';
@@ -15,6 +16,7 @@ const props = defineProps({
 });
 
 const confirm = useConfirm();
+const toast = useToast();
 
 // --- Forms ---
 const generateForm = useForm({
@@ -130,7 +132,10 @@ const updateSchedule = (scheduleId) => {
         calculated_date: editForm.calculated_date,
     }, {
         preserveScroll: true,
-        onSuccess: () => cancelEditing(),
+        onSuccess: () => {
+            cancelEditing();
+            toast.add({ severity: 'success', summary: 'Success', detail: 'MEC Schedule Date updated successfully', life: 3000 });
+        },
     });
 };
 

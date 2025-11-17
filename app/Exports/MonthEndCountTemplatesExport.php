@@ -36,40 +36,30 @@ class MonthEndCountTemplatesExport implements FromQuery, WithHeadings, WithMappi
     public function headings(): array
     {
         return [
-            // 'ID',
             'Item Code',
             'Item Name',
+            'Category 1',
             'Area',
             'Category 2',
-            'Category',
-            'Brand',
-            'Packaging Config',
-            'Config',
-            'UOM',
-            // 'Created By',
-            // 'Updated By',
-            // 'Created At',
-            // 'Updated At'
+            'Packaging',
+            'Conversion',
+            'Bulk UOM',
+            'Loose UOM',
         ];
     }
 
     public function map($template): array
     {
         return [
-            // $template->id,
             $template->item_code,
             $template->item_name,
+            $template->category,
             $template->area,
             $template->category_2,
-            $template->category,
-            $template->brand,
             $template->packaging_config,
             $template->config,
             $template->uom,
-            // $template->createdBy->name ?? 'N/A',
-            // $template->updatedBy->name ?? 'N/A',
-            // $template->created_at->format('Y-m-d H:i:s'),
-            // $template->updated_at->format('Y-m-d H:i:s')
+            $template->loose_uom,
         ];
     }
 

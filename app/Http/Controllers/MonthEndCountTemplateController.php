@@ -40,10 +40,10 @@ class MonthEndCountTemplateController extends Controller
             'area' => 'nullable|string|max:255',
             'category_2' => 'nullable|string|max:255',
             'category' => 'nullable|string|max:255',
-            'brand' => 'nullable|string|max:255',
             'packaging_config' => 'nullable|string|max:255',
             'config' => 'nullable|string|max:255',
             'uom' => 'nullable|string|max:255',
+            'loose_uom' => 'nullable|string|max:255',
         ]);
 
         $validated['created_by'] = auth()->id();
@@ -76,10 +76,10 @@ class MonthEndCountTemplateController extends Controller
             'area' => 'nullable|string|max:255',
             'category_2' => 'nullable|string|max:255',
             'category' => 'nullable|string|max:255',
-            'brand' => 'nullable|string|max:255',
             'packaging_config' => 'nullable|string|max:255',
             'config' => 'nullable|string|max:255',
             'uom' => 'nullable|string|max:255',
+            'loose_uom' => 'nullable|string|max:255',
         ]);
 
         $validated['updated_by'] = auth()->id();
@@ -127,8 +127,8 @@ class MonthEndCountTemplateController extends Controller
         // Create a simple template file if it doesn't exist
         if (!file_exists($path)) {
             $templateData = [
-                ['Item Code', 'Item Name', 'Area', 'Category 2', 'Category', 'Brand', 'Packaging Config', 'Config', 'UOM'],
-                ['EXAMPLE001', 'Example Item', 'Example Area', 'Example Category 2', 'Example Category', 'Example Brand', 'Example Packaging', 'Example Config', 'PCS'],
+                ['Item Code', 'Item Name', 'Category 1', 'Area', 'Category 2', 'Packaging', 'Conversion', 'Bulk UOM', 'Loose UOM'],
+                ['EXAMPLE001', 'Example Item', 'Example Category 1', 'Example Area', 'Example Category 2', 'Example Packaging', '1', 'PCS', 'PCS'],
             ];
 
             Excel::download(new class($templateData) implements \Maatwebsite\Excel\Concerns\FromCollection, \Maatwebsite\Excel\Concerns\WithHeadings {

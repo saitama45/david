@@ -110,6 +110,19 @@ const { deleteModel } = useReferenceDelete();
 const handleClick = () => {
     router.get("/month-end-count-templates/create");
 };
+
+const formatDateTime = (dateString) => {
+    if (!dateString) return 'N/A';
+    const date = new Date(dateString);
+    return new Intl.DateTimeFormat('en-US', {
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: true
+    }).format(date);
+};
 </script>
 
 <template>
@@ -147,13 +160,13 @@ const handleClick = () => {
                     <TH>Id</TH>
                     <TH>Item Code</TH>
                     <TH>Item Name</TH>
+                    <TH>Category 1</TH>
                     <TH>Area</TH>
                     <TH>Category 2</TH>
-                    <TH>Category</TH>
-                    <TH>Brand</TH>
-                    <TH>Packaging Config</TH>
-                    <TH>Config</TH>
-                    <TH>UOM</TH>
+                    <TH>Packaging</TH>
+                    <TH>Conversion</TH>
+                    <TH>Bulk UOM</TH>
+                    <TH>Loose UOM</TH>
                     <TH>Created By</TH>
                     <TH>Created At</TH>
                     <TH>Actions</TH>
@@ -163,15 +176,15 @@ const handleClick = () => {
                         <TD>{{ template.id }}</TD>
                         <TD>{{ template.item_code }}</TD>
                         <TD>{{ template.item_name }}</TD>
+                        <TD>{{ template.category || 'N/A' }}</TD>
                         <TD>{{ template.area || 'N/A' }}</TD>
                         <TD>{{ template.category_2 || 'N/A' }}</TD>
-                        <TD>{{ template.category || 'N/A' }}</TD>
-                        <TD>{{ template.brand || 'N/A' }}</TD>
                         <TD>{{ template.packaging_config || 'N/A' }}</TD>
                         <TD>{{ template.config || 'N/A' }}</TD>
                         <TD>{{ template.uom || 'N/A' }}</TD>
-                        <TD>{{ template.created_by?.name || 'N/A' }}</TD>
-                        <TD>{{ new Date(template.created_at).toLocaleDateString() }}</TD>
+                        <TD>{{ template.loose_uom || 'N/A' }}</TD>
+                        <TD>{{ template.created_by ? `${template.created_by.first_name} ${template.created_by.last_name}` : 'N/A' }}</TD>
+                        <TD>{{ formatDateTime(template.created_at) }}</TD>
                         <TD>
                             <DivFlexCenter class="sm:gap-3">
                                 
@@ -218,9 +231,15 @@ const handleClick = () => {
                         />
                     </MobileTableHeading>
                     <LabelXS>Item Code: {{ template.item_code }}</LabelXS>
-                    <LabelXS>Category: {{ template.category || 'N/A' }}</LabelXS>
-                    <LabelXS>Brand: {{ template.brand || 'N/A' }}</LabelXS>
-                    <LabelXS>Created: {{ new Date(template.created_at).toLocaleDateString() }}</LabelXS>
+                    <LabelXS>Category 1: {{ template.category || 'N/A' }}</LabelXS>
+                    <LabelXS>Area: {{ template.area || 'N/A' }}</LabelXS>
+                    <LabelXS>Category 2: {{ template.category_2 || 'N/A' }}</LabelXS>
+                    <LabelXS>Packaging: {{ template.packaging_config || 'N/A' }}</LabelXS>
+                    <LabelXS>Conversion: {{ template.config || 'N/A' }}</LabelXS>
+                    <LabelXS>Bulk UOM: {{ template.uom || 'N/A' }}</LabelXS>
+                    <LabelXS>Loose UOM: {{ template.loose_uom || 'N/A' }}</LabelXS>
+                    <LabelXS>Created By: {{ template.created_by ? `${template.created_by.first_name} ${template.created_by.last_name}` : 'N/A' }}</LabelXS>
+                    <LabelXS>Created At: {{ formatDateTime(template.created_at) }}</LabelXS>
                 </DivFlexCol>
             </DivFlexCol>
 

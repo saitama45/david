@@ -166,7 +166,6 @@ class MonthEndCountApprovalController extends Controller
         $countItems = MonthEndCountItem::with(['sapMasterfile', 'uploader:id,first_name,last_name', 'level1Approver:id,first_name,last_name', 'level2Approver:id,first_name,last_name'])
             ->where('month_end_schedule_id', $schedule->id)
             ->where('branch_id', $branch->id)
-            ->whereIn('status', ['pending_level1_approval', 'level1_approved'])
             ->orderBy('item_name')
             ->get();
 

@@ -170,67 +170,47 @@ class MonthEndCountController extends Controller
 
     public function downloadTemplate(Request $request)
     {
-        $request->validate([
-            'schedule_id' => 'required|exists:month_end_schedules,id',
-            'branch_id' => 'required|exists:store_branches,id',
-        ]);
-
-        $schedule = MonthEndSchedule::findOrFail($request->schedule_id);
-        $branch = StoreBranch::findOrFail($request->branch_id);
-
-        // Ensure the download is happening on the calculated date
-        if ($schedule->calculated_date->toDateString() !== Carbon::today()->toDateString()) {
-            return back()->withErrors(['error' => 'Template can only be downloaded on the scheduled date.']);
-        }
-
-        // Ensure the schedule is pending
-        if ($schedule->status !== 'pending') {
-            return back()->withErrors(['error' => 'This schedule is no longer pending.']);
-        }
-
         // Fetch all records from MonthEndCountTemplate
         $templates = MonthEndCountTemplate::all();
 
         $items = collect();
 
         foreach ($templates as $template) {
-            // For each template, find the current stock on hand (SOH).
-            // This requires finding the corresponding SAPMasterfile entry.
-            $sapMasterfile = SAPMasterfile::where('ItemCode', $template->item_code)
-                ->where('AltUOM', $template->uom)
-                ->where('is_active', true)
-                ->first();
-
             $currentSoh = 0;
-            if ($sapMasterfile) {
-                $stock = ProductInventoryStock::where('product_inventory_id', $sapMasterfile->id)
-                    ->where('store_branch_id', $request->branch_id)
+            if ($request->has('branch_id')) {
+                $sapMasterfile = SAPMasterfile::where('ItemCode', $template->item_code)
+                    ->where('AltUOM', $template->uom)
+                    ->where('is_active', true)
                     ->first();
-                $currentSoh = $stock ? $stock->quantity : 0;
+
+                if ($sapMasterfile) {
+                    $stock = ProductInventoryStock::where('product_inventory_id', $sapMasterfile->id)
+                        ->where('store_branch_id', $request->branch_id)
+                        ->first();
+                    $currentSoh = $stock ? $stock->quantity : 0;
+                }
             }
 
             $items->push([
-                'ItemCode' => $template->item_code,
-                'item_name' => $template->item_name,
-                'area' => $template->area,
-                'category2' => $template->category_2,
-                'category' => $template->category,
-                'brand' => $template->brand,
-                'packaging_config' => $template->packaging_config,
-                'config' => $template->config,
-                'uom' => $template->uom,
-                'current_soh' => $currentSoh,
-                'bulk_qty' => '', // User fillable
-                'loose_qty' => '', // User fillable
-                'loose_uom' => '', // User fillable
-                'remarks' => '', // User fillable
-                'total_qty' => '', // User fillable
+                'Item Code' => $template->item_code,
+                'Item Name' => $template->item_name,
+                'Category 1' => $template->category,
+                'Area' => $template->area,
+                'Category 2' => $template->category_2,
+                'Packaging' => $template->packaging_config,
+                'Conversion' => $template->config,
+                'Bulk UOM' => $template->uom,
+                'Loose UOM' => $template->loose_uom,
+                'Current SOH' => $currentSoh,
+                'Bulk Qty' => '', // User fillable
+                'Loose Qty' => '', // User fillable
+                'Remarks' => '', // User fillable
             ]);
         }
 
-        $fileName = 'month_end_count_template_' . $branch->name . '_' . $schedule->calculated_date->format('Ymd') . '.xlsx';
+        $fileName = 'month_end_count_template_' . Carbon::now()->format('Ymd_His') . '.xlsx';
 
-        return Excel::download(new MonthEndCountTemplateExport($items), $fileName);
+        return Excel::download(new \App\Exports\MonthEndCountDownloadExport($items), $fileName);
     }
 
     public function upload(Request $request)

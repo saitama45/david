@@ -16,13 +16,13 @@ const props = defineProps({
 const form = useForm({
     item_code: props.template.item_code,
     item_name: props.template.item_name,
+    category: props.template.category,
     area: props.template.area,
     category_2: props.template.category_2,
-    category: props.template.category,
-    brand: props.template.brand,
     packaging_config: props.template.packaging_config,
     config: props.template.config,
     uom: props.template.uom,
+    loose_uom: props.template.loose_uom,
 });
 
 const handleUpdate = () => {
@@ -116,6 +116,11 @@ const handleCancel = () => {
                         <FormError>{{ form.errors.item_name }}</FormError>
                     </InputContainer>
                     <InputContainer>
+                        <Label>Category 1</Label>
+                        <Input v-model="form.category" />
+                        <FormError>{{ form.errors.category }}</FormError>
+                    </InputContainer>
+                    <InputContainer>
                         <Label>Area</Label>
                         <Input v-model="form.area" />
                         <FormError>{{ form.errors.area }}</FormError>
@@ -126,29 +131,24 @@ const handleCancel = () => {
                         <FormError>{{ form.errors.category_2 }}</FormError>
                     </InputContainer>
                     <InputContainer>
-                        <Label>Category</Label>
-                        <Input v-model="form.category" />
-                        <FormError>{{ form.errors.category }}</FormError>
-                    </InputContainer>
-                    <InputContainer>
-                        <Label>Brand</Label>
-                        <Input v-model="form.brand" />
-                        <FormError>{{ form.errors.brand }}</FormError>
-                    </InputContainer>
-                    <InputContainer>
-                        <Label>Packaging Config</Label>
+                        <Label>Packaging</Label>
                         <Input v-model="form.packaging_config" />
                         <FormError>{{ form.errors.packaging_config }}</FormError>
                     </InputContainer>
                     <InputContainer>
-                        <Label>Config</Label>
+                        <Label>Conversion</Label>
                         <Input v-model="form.config" />
                         <FormError>{{ form.errors.config }}</FormError>
                     </InputContainer>
                     <InputContainer>
-                        <Label>UOM</Label>
+                        <Label>Bulk UOM</Label>
                         <Input v-model="form.uom" />
                         <FormError>{{ form.errors.uom }}</FormError>
+                    </InputContainer>
+                    <InputContainer>
+                        <Label>Loose UOM</Label>
+                        <Input v-model="form.loose_uom" />
+                        <FormError>{{ form.errors.loose_uom }}</FormError>
                     </InputContainer>
                 </section>
             </CardContent>

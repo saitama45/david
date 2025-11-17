@@ -33,7 +33,7 @@ class MonthEndCountImport implements ToCollection, WithHeadingRow
     {
         $user = Auth::user();
         if (!$user) {
-            throw new Exception("User not authenticated for import.");
+            throw new \Exception("User not authenticated for import.");
         }
 
         foreach ($rows as $rowIndex => $row) {
@@ -42,64 +42,55 @@ class MonthEndCountImport implements ToCollection, WithHeadingRow
                 continue;
             }
 
-            // Skip rows missing required fields or values
-            if (!isset($row['itemcode']) || empty($row['itemcode']) ||
-                !isset($row['uom']) || empty($row['uom']) ||
-                !isset($row['total_qty']) || $row['total_qty'] === null || $row['total_qty'] === '') {
-                Log::warning("MonthEndCountImport: Skipping row due to missing required fields", [
-                    'row_index' => $rowIndex,
-                    'itemcode' => $row['itemcode'] ?? 'missing',
-                    'uom' => $row['uom'] ?? 'missing',
-                    'total_qty' => $row['total_qty'] ?? 'missing'
-                ]);
+            // Use snake_cased headers from the downloaded template
+            $itemCode = $row['item_code'] ?? null;
+            $bulkUom = $row['bulk_uom'] ?? null;
+
+            // Skip rows where user did not enter any quantity
+            if (!isset($row['bulk_qty']) && !isset($row['loose_qty'])) {
                 continue;
             }
 
-            $itemCode = $row['itemcode'];
-            $uom = $row['uom'];
-            $totalQty = (float) $row['total_qty'];
-            $remarks = $row['remarks'] ?? null;
-            $packagingConfig = $row['packaging_config'] ?? null;
-            $config = $row['config'] ?? null;
+            // Skip rows missing required identifiers
+            if (empty($itemCode)) {
+                Log::warning("MonthEndCountImport: Skipping row due to missing item_code", [
+                    'row_index' => $rowIndex,
+                    'item_code' => $itemCode ?? 'missing',
+                ]);
+                $this->errors[] = "Skipping row " . ($rowIndex + 2) . " due to missing Item Code.";
+                continue;
+            }
+
+            // Read quantities and other data
             $bulkQty = (float) ($row['bulk_qty'] ?? 0);
             $looseQty = (float) ($row['loose_qty'] ?? 0);
-            $looseUom = $row['loose_uom'] ?? null;
-            $itemName = $row['item_name'] ?? 'N/A';
-            $area = $row['area'] ?? null;
-            $category2 = $row['category2'] ?? null;
-            $category = $row['category'] ?? null;
-            $brand = $row['brand'] ?? null;
-            $currentSoh = (float) ($row['current_soh'] ?? 0);
+            $config = (float) ($row['conversion'] ?? 0);
+            $remarks = $row['remarks'] ?? null;
 
-            // Find SAP Masterfile by ItemCode and UOM (AltUOM)
+            // Calculate total_qty
+            $totalQty = 0;
+            if ($config > 0) {
+                $totalQty = $bulkQty + ($looseQty / $config);
+            } else {
+                $totalQty = $bulkQty + $looseQty;
+            }
+
+            // Find SAP Masterfile by ItemCode and UOM (Bulk UOM)
             $sapMasterfile = SAPMasterfile::where('ItemCode', $itemCode)
-                ->where('AltUOM', $uom)
+                ->where('AltUOM', $bulkUom)
                 ->first();
 
             if (!$sapMasterfile) {
                 Log::error("MonthEndCountImport: SAP Masterfile not found", [
                     'row_index' => $rowIndex,
                     'itemcode' => $itemCode,
-                    'uom' => $uom
+                    'uom' => $bulkUom
                 ]);
-                $this->errors[] = "SAP Masterfile not found for ItemCode {$itemCode} with UOM {$uom} (Row " . ($rowIndex + 2) . ")";
+                $this->errors[] = "SAP Masterfile not found for ItemCode {$itemCode} with UOM {$bulkUom} (Row " . ($rowIndex + 2) . ")";
                 continue;
             }
 
             $sapMasterfileId = $sapMasterfile->id;
-
-            if ($totalQty < 0) {
-                $this->errors[] = "Invalid total_qty for ItemCode {$itemCode}: Quantity cannot be negative (Row " . ($rowIndex + 2) . ")";
-                continue;
-            }
-
-            Log::info("MonthEndCountImport: Processing row", [
-                'row_index' => $rowIndex,
-                'itemcode' => $itemCode,
-                'uom' => $uom,
-                'sap_masterfile_id' => $sapMasterfileId,
-                'total_qty' => $totalQty
-            ]);
 
             // Save to MonthEndCountItem staging table
             MonthEndCountItem::updateOrCreate(
@@ -110,20 +101,20 @@ class MonthEndCountImport implements ToCollection, WithHeadingRow
                 ],
                 [
                     'item_code' => $itemCode,
-                    'item_name' => $itemName,
-                    'area' => $area,
-                    'category2' => $category2,
-                    'category' => $category,
-                    'brand' => $brand,
-                    'packaging_config' => $packagingConfig,
+                    'item_name' => $row['item_name'] ?? 'N/A',
+                    'area' => $row['area'] ?? null,
+                    'category2' => $row['category_2'] ?? null, // Fixed key
+                    'category' => $row['category_1'] ?? null, // Fixed key
+                    'brand' => null, // Removed 'brand' from import
+                    'packaging_config' => $row['packaging'] ?? null, // Fixed key
                     'config' => $config,
-                    'uom' => $uom,
-                    'current_soh' => $currentSoh,
+                    'uom' => $bulkUom,
+                    'current_soh' => (float) ($row['current_soh'] ?? 0),
                     'bulk_qty' => $bulkQty,
                     'loose_qty' => $looseQty,
-                    'loose_uom' => $looseUom,
+                    'loose_uom' => $row['loose_uom'] ?? null,
                     'remarks' => $remarks,
-                    'total_qty' => $totalQty,
+                    'total_qty' => $totalQty, // Use calculated value
                     'status' => 'uploaded',
                     'created_by' => $user->id,
                 ]

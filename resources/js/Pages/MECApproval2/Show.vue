@@ -105,17 +105,16 @@ const hasItemsForApproval = computed(() => {
                     <TableHead class="sticky top-0 z-10 bg-gray-100">
                         <TH>Item Code</TH>
                         <TH>Item Name</TH>
+                        <TH>Category 1</TH>
                         <TH>Area</TH>
                         <TH>Category 2</TH>
-                        <TH>Category</TH>
-                        <TH>Brand</TH>
-                        <TH>Packaging Config</TH>
-                        <TH>Config</TH>
-                        <TH>UOM</TH>
+                        <TH>Packaging</TH>
+                        <TH>Conversion</TH>
+                        <TH>Bulk UOM</TH>
+                        <TH>Loose UOM</TH>
                         <TH>Current SOH</TH>
                         <TH>Bulk Qty</TH>
                         <TH>Loose Qty</TH>
-                        <TH>Loose UOM</TH>
                         <TH>Remarks</TH>
                         <TH>Total Qty</TH>
                         <TH>Status</TH>
@@ -123,22 +122,21 @@ const hasItemsForApproval = computed(() => {
                     </TableHead>
                     <TableBody>
                         <tr v-if="!countItems.length">
-                            <td colspan="17" class="text-center py-4">No items found for this count.</td>
+                            <td colspan="16" class="text-center py-4">No items found for this count.</td>
                         </tr>
                         <tr v-for="item in countItems" :key="item.id">
                             <TD>{{ item.item_code }}</TD>
                             <TD>{{ item.item_name }}</TD>
+                            <TD>{{ item.category }}</TD>
                             <TD>{{ item.area }}</TD>
                             <TD>{{ item.category2 }}</TD>
-                            <TD>{{ item.category }}</TD>
-                            <TD>{{ item.brand }}</TD>
                             <TD>{{ item.packaging_config }}</TD>
                             <TD>{{ item.config }}</TD>
                             <TD>{{ item.uom }}</TD>
+                            <TD>{{ item.loose_uom }}</TD>
                             <TD>{{ item.current_soh }}</TD>
                             <TD>{{ item.bulk_qty }}</TD>
                             <TD>{{ item.loose_qty }}</TD>
-                            <TD>{{ item.loose_uom }}</TD>
                             <TD>{{ item.remarks }}</TD>
                             <TD>{{ calculateTotalQty(item) }}</TD>
                             <TD>

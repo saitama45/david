@@ -15,10 +15,10 @@ class MonthEndCountTemplate extends Model
         'area',
         'category_2',
         'category',
-        'brand',
         'packaging_config',
         'config',
         'uom',
+        'loose_uom',
         'created_by',
         'updated_by',
     ];
@@ -48,10 +48,10 @@ class MonthEndCountTemplate extends Model
                         ->orWhere('area', 'like', "%$search%")
                         ->orWhere('category_2', 'like', "%$search%")
                         ->orWhere('category', 'like', "%$search%")
-                        ->orWhere('brand', 'like', "%$search%")
                         ->orWhere('packaging_config', 'like', "%$search%")
                         ->orWhere('config', 'like', "%$search%")
-                        ->orWhere('uom', 'like', "%$search%");
+                        ->orWhere('uom', 'like', "%$search%")
+                        ->orWhere('loose_uom', 'like', "%$search%");
         }
         return $query;
     }

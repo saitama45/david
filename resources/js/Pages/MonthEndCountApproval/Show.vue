@@ -188,17 +188,16 @@ const branchStatus = computed(() => {
                     <TableHead class="sticky top-0 z-10 bg-gray-100">
                         <TH>Item Code</TH>
                         <TH>Item Name</TH>
+                        <TH>Category 1</TH>
                         <TH>Area</TH>
                         <TH>Category 2</TH>
-                        <TH>Category</TH>
-                        <TH>Brand</TH>
-                        <TH>Packaging Config</TH>
-                        <TH>Config</TH>
-                        <TH>UOM</TH>
+                        <TH>Packaging</TH>
+                        <TH>Conversion</TH>
+                        <TH>Bulk UOM</TH>
+                        <TH>Loose UOM</TH>
                         <TH>Current SOH</TH>
                         <TH>Bulk Qty</TH>
                         <TH>Loose Qty</TH>
-                        <TH>Loose UOM</TH>
                         <TH>Remarks</TH>
                         <TH>Total Qty</TH>
                         <TH>Status</TH>
@@ -206,15 +205,14 @@ const branchStatus = computed(() => {
                     </TableHead>
                     <TableBody>
                         <tr v-if="!countItems.length">
-                            <td colspan="17" class="text-center py-4">No items awaiting approval found for this count.</td>
+                            <td colspan="16" class="text-center py-4">No items awaiting approval found for this count.</td>
                         </tr>
                         <tr v-for="item in countItems" :key="item.id">
                             <TD>{{ item.item_code }}</TD>
                             <TD>{{ item.item_name }}</TD>
-                            <TD>{{ item.area }}</TD>
-                            <TD>{{ item.category2 }}</TD>
                             <TD>{{ item.category }}</TD>
-                            <TD>{{ item.brand }}</TD>
+                            <TD>{{ item.area }}</TD>
+                            <TD>{{ item.category_2 }}</TD>
                             <TD>{{ item.packaging_config }}</TD>
                             <TD>
                                 <div v-if="editingCell && editingCell.itemId === item.id && editingCell.field === 'config'" class="flex items-center gap-1">
@@ -235,6 +233,24 @@ const branchStatus = computed(() => {
                                 </div>
                             </TD>
                             <TD>{{ item.uom }}</TD>
+                            <TD>
+                                <div v-if="editingCell && editingCell.itemId === item.id && editingCell.field === 'loose_uom'" class="flex items-center gap-1">
+                                    <Input v-focus-select type="text" v-model="editValue" class="w-24 text-right py-1" @keyup.enter="saveItemEdit(item)" @keyup.esc="cancelEditing" />
+                                    <Button variant="ghost" size="icon" class="h-7 w-7 text-green-600 hover:bg-green-100" @click="saveItemEdit(item)"><Save class="h-4 w-4" /></Button>
+                                    <Button variant="ghost" size="icon" class="h-7 w-7 text-red-600 hover:bg-red-100" @click="cancelEditing"><X class="h-4 w-4" /></Button>
+                                </div>
+                                <div v-else
+                                    @click="startEditing(item, 'loose_uom')"
+                                    class="group p-1 rounded min-h-[36px] flex items-center justify-end transition-all duration-150"
+                                    :class="{
+                                        'cursor-pointer hover:bg-blue-100 hover:ring-1 hover:ring-blue-400 bg-blue-50': canEditItems && isEditableStatus(item.status),
+                                        'cursor-not-allowed bg-gray-50 text-gray-500': !canEditItems || !isEditableStatus(item.status)
+                                    }"
+                                >
+                                    {{ item.loose_uom }}
+                                    <Pencil v-if="canEditItems && isEditableStatus(item.status)" class="h-3 w-3 ml-1 text-gray-500 opacity-0 group-hover:opacity-100" />
+                                </div>
+                            </TD>
                             <TD>{{ item.current_soh }}</TD>
                             <TD>
                                 <div v-if="editingCell && editingCell.itemId === item.id && editingCell.field === 'bulk_qty'" class="flex items-center gap-1">
@@ -269,24 +285,6 @@ const branchStatus = computed(() => {
                                     }"
                                 >
                                     {{ item.loose_qty }}
-                                    <Pencil v-if="canEditItems && isEditableStatus(item.status)" class="h-3 w-3 ml-1 text-gray-500 opacity-0 group-hover:opacity-100" />
-                                </div>
-                            </TD>
-                            <TD>
-                                <div v-if="editingCell && editingCell.itemId === item.id && editingCell.field === 'loose_uom'" class="flex items-center gap-1">
-                                    <Input v-focus-select type="text" v-model="editValue" class="w-24 text-right py-1" @keyup.enter="saveItemEdit(item)" @keyup.esc="cancelEditing" />
-                                    <Button variant="ghost" size="icon" class="h-7 w-7 text-green-600 hover:bg-green-100" @click="saveItemEdit(item)"><Save class="h-4 w-4" /></Button>
-                                    <Button variant="ghost" size="icon" class="h-7 w-7 text-red-600 hover:bg-red-100" @click="cancelEditing"><X class="h-4 w-4" /></Button>
-                                </div>
-                                <div v-else
-                                    @click="startEditing(item, 'loose_uom')"
-                                    class="group p-1 rounded min-h-[36px] flex items-center justify-end transition-all duration-150"
-                                    :class="{
-                                        'cursor-pointer hover:bg-blue-100 hover:ring-1 hover:ring-blue-400 bg-blue-50': canEditItems && isEditableStatus(item.status),
-                                        'cursor-not-allowed bg-gray-50 text-gray-500': !canEditItems || !isEditableStatus(item.status)
-                                    }"
-                                >
-                                    {{ item.loose_uom }}
                                     <Pencil v-if="canEditItems && isEditableStatus(item.status)" class="h-3 w-3 ml-1 text-gray-500 opacity-0 group-hover:opacity-100" />
                                 </div>
                             </TD>

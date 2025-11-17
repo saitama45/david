@@ -1,5 +1,5 @@
 <script setup>
-import { useForm } from "@inertiajs/vue3";
+import { useForm, router } from "@inertiajs/vue3";
 import { useConfirm } from "primevue/useconfirm";
 import { useToast } from "primevue/usetoast";
 
@@ -78,13 +78,13 @@ const handleCancel = () => {
 const form = useForm({
     item_code: null,
     item_name: null,
+    category: null,
     area: null,
     category_2: null,
-    category: null,
-    brand: null,
     packaging_config: null,
     config: null,
     uom: null,
+    loose_uom: null,
 });
 
 </script>
@@ -111,6 +111,11 @@ const form = useForm({
                         <FormError>{{ form.errors.item_name }}</FormError>
                     </InputContainer>
                     <InputContainer>
+                        <LabelXS>Category 1</LabelXS>
+                        <Input v-model="form.category" />
+                        <FormError>{{ form.errors.category }}</FormError>
+                    </InputContainer>
+                    <InputContainer>
                         <LabelXS>Area</LabelXS>
                         <Input v-model="form.area" />
                         <FormError>{{ form.errors.area }}</FormError>
@@ -121,29 +126,24 @@ const form = useForm({
                         <FormError>{{ form.errors.category_2 }}</FormError>
                     </InputContainer>
                     <InputContainer>
-                        <LabelXS>Category</LabelXS>
-                        <Input v-model="form.category" />
-                        <FormError>{{ form.errors.category }}</FormError>
-                    </InputContainer>
-                    <InputContainer>
-                        <LabelXS>Brand</LabelXS>
-                        <Input v-model="form.brand" />
-                        <FormError>{{ form.errors.brand }}</FormError>
-                    </InputContainer>
-                    <InputContainer>
-                        <LabelXS>Packaging Config</LabelXS>
+                        <LabelXS>Packaging</LabelXS>
                         <Input v-model="form.packaging_config" />
                         <FormError>{{ form.errors.packaging_config }}</FormError>
                     </InputContainer>
                     <InputContainer>
-                        <LabelXS>Config</LabelXS>
+                        <LabelXS>Conversion</LabelXS>
                         <Input v-model="form.config" />
                         <FormError>{{ form.errors.config }}</FormError>
                     </InputContainer>
                     <InputContainer>
-                        <LabelXS>UOM</LabelXS>
+                        <LabelXS>Bulk UOM</LabelXS>
                         <Input v-model="form.uom" />
                         <FormError>{{ form.errors.uom }}</FormError>
+                    </InputContainer>
+                    <InputContainer>
+                        <LabelXS>Loose UOM</LabelXS>
+                        <Input v-model="form.loose_uom" />
+                        <FormError>{{ form.errors.loose_uom }}</FormError>
                     </InputContainer>
                 </section>
             </CardContent>
