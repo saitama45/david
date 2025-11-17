@@ -2,12 +2,12 @@
 import { useSelectOptions } from "@/Composables/useSelectOptions";
 import { usePage, router, useForm, Link } from "@inertiajs/vue3";
 import { Eye } from "lucide-vue-next";
-import { DialogRoot } from "radix-vue";
 
 import { throttle, update } from "lodash";
 import { ref, watch, computed, onBeforeUnmount } from "vue"; // Added 'onBeforeUnmount' to imports
 import { useConfirm } from "primevue/useconfirm";
 import { useToast } from "@/Composables/useToast";
+import Dialog from "primevue/dialog";
 const confirm = useConfirm();
 const { toast } = useToast();
 const { products, branches, costCenters, storeSummary } = defineProps({
@@ -310,15 +310,16 @@ const getTotalBaseUOMSOH = (product) => {
         :hasExcelDownload="true"
         :exportRoute="exportRoute"
     >
-        <DialogRoot v-model:open="isUpdateModalVisible">
-            <Dialog>
-                <DialogContent class="sm:max-w-[600px]">
-                    <DialogHeader>
-                        <DialogTitle>Update Stock</DialogTitle>
-                        <DialogDescription>
-                            Please input all the required fields.
-                        </DialogDescription>
-                    </DialogHeader>
+        <Dialog
+            v-model:visible="isUpdateModalVisible"
+            modal
+            header="Update Stock"
+            :style="{ width: '600px' }"
+            :breakpoints="{ '1199px': '75vw', '575px': '90vw' }"
+        >
+            <div class="space-y-4">
+                <p class="text-sm text-gray-600">Please input all the required fields.</p>
+
                 <InputContainer>
                     <Label>Action</Label>
                     <SelectShad v-model="updateForm.action">
@@ -338,6 +339,7 @@ const getTotalBaseUOMSOH = (product) => {
                         </SelectContent>
                     </SelectShad>
                 </InputContainer>
+
                 <InputContainer>
                     <Label>Store Branch</Label>
                     <Select
@@ -351,6 +353,7 @@ const getTotalBaseUOMSOH = (product) => {
                         disabled
                     />
                 </InputContainer>
+
                 <InputContainer>
                     <Label>Excel File</Label>
                     <Input
@@ -358,6 +361,7 @@ const getTotalBaseUOMSOH = (product) => {
                         @input="updateForm.file = $event.target.files[0]"
                     />
                 </InputContainer>
+
                 <InputContainer>
                     <LabelXS>Accepted Excel File Format: </LabelXS>
                     <a
@@ -377,15 +381,17 @@ const getTotalBaseUOMSOH = (product) => {
                         >SOH Update</a
                     >
                 </InputContainer>
+            </div>
+
+            <template #footer>
                 <DivFlexCenter class="justify-end">
                     <Button :disabled="isLoading" @click="updateImport"
                         >Submit
                         <span class="ml-1" v-if="isLoading"><Loading /></span
                     ></Button>
                 </DivFlexCenter>
-            </DialogContent>
+            </template>
         </Dialog>
-    </DialogRoot>
         <TableContainer>
             <DivFlexCenter class="justify-between sm:flex-row flex-col gap-3">
                 <SearchBar>
@@ -681,15 +687,16 @@ const getTotalBaseUOMSOH = (product) => {
             <Pagination :data="products" />
         </TableContainer>
 
-        <DialogRoot v-model:open="isLogUsageModalOpen">
-            <Dialog>
-                <DialogContent class="sm:max-w-[600px]">
-                    <DialogHeader>
-                        <DialogTitle>Log Usage</DialogTitle>
-                        <DialogDescription>
-                            Please input all the required fields.
-                        </DialogDescription>
-                    </DialogHeader>
+        <Dialog
+            v-model:visible="isLogUsageModalOpen"
+            modal
+            header="Log Usage"
+            :style="{ width: '600px' }"
+            :breakpoints="{ '1199px': '75vw', '575px': '90vw' }"
+        >
+            <div class="space-y-4">
+                <p class="text-sm text-gray-600">Please input all the required fields.</p>
+
                 <DivFlexCol class="gap-3">
                     <InputContainer>
                         <LabelXS>Store Branch</LabelXS>
@@ -742,28 +749,32 @@ const getTotalBaseUOMSOH = (product) => {
                             form.errors.transaction_date
                         }}</FormError>
                     </InputContainer>
+
                     <InputContainer>
                         <LabelXS>Remarks</LabelXS>
                         <Textarea type="number" v-model="form.remarks" />
                         <FormError>{{ form.errors.remarks }}</FormError>
                     </InputContainer>
                 </DivFlexCol>
-                <DialogFooter class="justify-end">
-                    <Button @click="logUsage">Submit</Button>
-                </DialogFooter>
-            </DialogContent>
-        </Dialog>
-    </DialogRoot>
+            </div>
 
-        <DialogRoot v-model:open="isAddQuantityModalOpen">
-            <Dialog>
-                <DialogContent class="sm:max-w-[600px]">
-                    <DialogHeader>
-                        <DialogTitle>Add Quantity</DialogTitle>
-                        <DialogDescription>
-                            Please input all the required fields.
-                        </DialogDescription>
-                    </DialogHeader>
+            <template #footer>
+                <DivFlexCenter class="justify-end">
+                    <Button @click="logUsage">Submit</Button>
+                </DivFlexCenter>
+            </template>
+        </Dialog>
+
+        <Dialog
+            v-model:visible="isAddQuantityModalOpen"
+            modal
+            header="Add Quantity"
+            :style="{ width: '600px' }"
+            :breakpoints="{ '1199px': '75vw', '575px': '90vw' }"
+        >
+            <div class="space-y-4">
+                <p class="text-sm text-gray-600">Please input all the required fields.</p>
+
                 <DivFlexCol class="gap-3">
                     <InputContainer>
                         <LabelXS>Store Branch</LabelXS>
@@ -800,17 +811,20 @@ const getTotalBaseUOMSOH = (product) => {
                             form.errors.transaction_date
                         }}</FormError>
                     </InputContainer>
+
                     <InputContainer>
                         <LabelXS>Remarks</LabelXS>
                         <Textarea type="number" v-model="form.remarks" />
                         <FormError>{{ form.errors.remarks }}</FormError>
                     </InputContainer>
                 </DivFlexCol>
-                <DialogFooter class="justify-end">
+            </div>
+
+            <template #footer>
+                <DivFlexCenter class="justify-end">
                     <Button @click="addQuantity">Submit</Button>
-                </DialogFooter>
-            </DialogContent>
+                </DivFlexCenter>
+            </template>
         </Dialog>
-    </DialogRoot>
     </Layout>
 </template>

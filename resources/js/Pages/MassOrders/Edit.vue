@@ -1,4 +1,15 @@
 <script setup>
+import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogFooter,
+    DialogHeader,
+    DialogTitle,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Button } from "@/components/ui/button";
 import { ref, reactive, computed, watch, onMounted, onBeforeMount, onUnmounted } from 'vue';
 import Select from "primevue/select";
 import axios from 'axios';

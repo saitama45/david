@@ -8,7 +8,6 @@ import {
     DropdownMenuSeparator,
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import {
     FileCog,
     Bell,
@@ -48,6 +47,7 @@ import {
 import Toast from "primevue/toast";
 import { router } from "@inertiajs/vue3";
 import ConfirmDialog from "primevue/confirmdialog";
+import { ref, onMounted, onUnmounted } from 'vue';
 
 const props = defineProps({
     heading: String,
@@ -92,6 +92,44 @@ const exportExcel = () => {
 const exportPdf = () => {
     window.open(props.pdfRoute, "_blank");
 };
+
+// Custom mobile sidebar state management
+const isMobileSidebarOpen = ref(false);
+
+const openMobileSidebar = () => {
+    isMobileSidebarOpen.value = true;
+    // Prevent body scroll when sidebar is open
+    document.body.style.overflow = 'hidden';
+};
+
+const closeMobileSidebar = () => {
+    isMobileSidebarOpen.value = false;
+    // Restore body scroll
+    document.body.style.overflow = '';
+};
+
+const handleEscapeKey = (event) => {
+    if (event.key === 'Escape' && isMobileSidebarOpen.value) {
+        closeMobileSidebar();
+    }
+};
+
+const handleBackdropClick = (event) => {
+    if (event.target === event.currentTarget) {
+        closeMobileSidebar();
+    }
+};
+
+// Add and remove event listeners
+onMounted(() => {
+    document.addEventListener('keydown', handleEscapeKey);
+});
+
+onUnmounted(() => {
+    document.removeEventListener('keydown', handleEscapeKey);
+    // Restore body scroll in case component is unmounted while sidebar is open
+    document.body.style.overflow = '';
+});
 </script>
 
 <template>
@@ -122,25 +160,51 @@ const exportPdf = () => {
             <header
                 class="flex-shrink-0 flex h-14 items-center gap-4 border-b bg-muted/40 px-4 lg:h-[60px] lg:px-6"
             >
-                <Sheet class="overflow-scroll">
-                    <SheetTrigger as-child>
-                        <Button
-                            variant="outline"
-                            size="icon"
-                            class="shrink-0 md:hidden"
-                        >
-                            <Menu class="h-5 w-5" />
-                            <span class="sr-only">Toggle navigation menu</span>
-                        </Button>
-                    </SheetTrigger>
-                    <SheetContent
-                        side="left"
-                        class="flex flex-col overflow-scroll"
-                    >
-                        <!-- Phone Sidebar -->
-                        <Sidebar />
-                    </SheetContent>
-                </Sheet>
+                <!-- Custom Mobile Menu Button -->
+                <Button
+                    variant="outline"
+                    size="icon"
+                    class="shrink-0 md:hidden"
+                    @click="openMobileSidebar"
+                >
+                    <Menu class="h-5 w-5" />
+                    <span class="sr-only">Toggle navigation menu</span>
+                </Button>
+
+                <!-- Custom Mobile Sidebar -->
+                <div
+                    v-if="isMobileSidebarOpen"
+                    class="fixed inset-0 z-50 flex md:hidden"
+                    @click="handleBackdropClick"
+                >
+                    <!-- Backdrop -->
+                    <div class="fixed inset-0 bg-black/50 backdrop-blur-sm"></div>
+
+                    <!-- Mobile Sidebar Content -->
+                    <div class="relative flex flex-col w-80 h-full bg-white border-r shadow-xl">
+                        <!-- Sidebar Header with Close Button -->
+                        <div class="flex items-center justify-between p-4 border-b bg-muted/40">
+                            <a href="/" class="flex items-center font-semibold">
+                                <img :src="Logo" alt="logo" class="h-12" />
+                            </a>
+                            <Button
+                                variant="ghost"
+                                size="sm"
+                                @click="closeMobileSidebar"
+                                class="h-8 w-8 p-0 hover:bg-gray-100"
+                            >
+                                <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                                </svg>
+                            </Button>
+                        </div>
+
+                        <!-- Mobile Sidebar Navigation -->
+                        <div class="flex-1 overflow-y-auto p-4">
+                            <Sidebar />
+                        </div>
+                    </div>
+                </div>
 
                 <div class="w-full flex-1">
                     <!-- <form>

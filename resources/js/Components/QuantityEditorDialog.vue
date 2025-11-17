@@ -1,4 +1,6 @@
 <script setup>
+import Dialog from "primevue/dialog";
+
 const props = defineProps({
     modelValue: {
         type: Boolean,
@@ -23,16 +25,15 @@ defineEmits(["update:modelValue", "update:quantity", "confirm"]);
 
 <template>
     <Dialog
-        :open="modelValue"
-        @update:open="$emit('update:modelValue', $event)"
+        :visible="modelValue"
+        @update:visible="$emit('update:modelValue', $event)"
+        modal
+        header="Edit Quantity"
+        :style="{ width: '600px' }"
+        :breakpoints="{ '1199px': '75vw', '575px': '90vw' }"
     >
-        <DialogContent class="sm:max-w-[600px]">
-            <DialogHeader>
-                <DialogTitle>Edit Quantity</DialogTitle>
-                <DialogDescription>
-                    Please input all the required fields.
-                </DialogDescription>
-            </DialogHeader>
+        <div class="space-y-4">
+            <p class="text-sm text-gray-600">Please input all the required fields.</p>
 
             <InputContainer>
                 <LabelXS>Quantity</LabelXS>
@@ -43,18 +44,18 @@ defineEmits(["update:modelValue", "update:quantity", "confirm"]);
                 />
                 <FormError>{{ error }}</FormError>
             </InputContainer>
+        </div>
 
-            <DialogFooter>
-                <Button
-                    @click="$emit('confirm')"
-                    :disabled="isLoading"
-                    type="submit"
-                    class="gap-2"
-                >
-                    Confirm
-                    <span v-if="isLoading"><Loading /></span>
-                </Button>
-            </DialogFooter>
-        </DialogContent>
+        <template #footer>
+            <Button
+                @click="$emit('confirm')"
+                :disabled="isLoading"
+                type="submit"
+                class="gap-2"
+            >
+                Confirm
+                <span v-if="isLoading"><Loading /></span>
+            </Button>
+        </template>
     </Dialog>
 </template>

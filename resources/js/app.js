@@ -44,14 +44,6 @@ import ConfirmationService from "primevue/confirmationservice";
 import { Label } from "@/components/ui/label";
 import FormError from "@/Components/FormError.vue";
 import Pagination from "./Components/table/Pagination.vue";
-import {
-    Dialog,
-    DialogContent,
-    DialogDescription,
-    DialogHeader,
-    DialogTitle,
-    DialogFooter,
-} from "@/components/ui/dialog";
 import { Presence } from "@/components/ui/presence";
 import { Badge } from "@/components/ui/badge";
 import Textarea from "./Components/ui/textarea/Textarea.vue";
@@ -141,13 +133,7 @@ createInertiaApp({
             .component("Label", Label)
             .component("FormError", FormError)
             .component("Pagination", Pagination)
-            .component("PrimeDialog", Dialog)
-            .component("DialogContent", DialogContent)
-            .component("DialogDescription", DialogDescription)
-            .component("DialogHeader", DialogHeader)
-            .component("DialogTitle", DialogTitle)
             .component("Badge", Badge)
-            .component("DialogFooter", DialogFooter)
             .component("Presence", Presence)
             .component("Textarea", Textarea)
             .component("Select", Select)

@@ -2,7 +2,10 @@
 import { router } from "@inertiajs/vue3";
 import { usePage } from "@inertiajs/vue3";
 import { throttle } from "lodash";
-import { ref, watch, computed, onMounted } from 'vue';
+import { ref, watch, computed, onMounted, onUnmounted } from 'vue';
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Filter } from "lucide-vue-next";
 
 const { transactions, order_date, branches } = defineProps({
     transactions: {
@@ -32,6 +35,39 @@ let to = ref(usePage().props.filters.to);
 
 // branchId is now passed directly from the route/filters
 const branchId = usePage().props.filters.branchId;
+
+// Custom dialog state management
+const isFilterDialogOpen = ref(false);
+
+// Custom dialog functions
+const openFilterDialog = () => {
+    isFilterDialogOpen.value = true;
+};
+
+const closeFilterDialog = () => {
+    isFilterDialogOpen.value = false;
+};
+
+const handleEscapeKey = (event) => {
+    if (event.key === 'Escape' && isFilterDialogOpen.value) {
+        closeFilterDialog();
+    }
+};
+
+const handleBackdropClick = (event) => {
+    if (event.target === event.currentTarget) {
+        closeFilterDialog();
+    }
+};
+
+// Add and remove event listeners for escape key
+onMounted(() => {
+    document.addEventListener('keydown', handleEscapeKey);
+});
+
+onUnmounted(() => {
+    document.removeEventListener('keydown', handleEscapeKey);
+});
 
 
 watch(from, (value) => {
@@ -164,25 +200,76 @@ onMounted(() => {
                 </SearchBar>
 
                 <DivFlexCenter class="gap-5">
-                    <Popover>
-                        <PopoverTrigger> <Filter /> </PopoverTrigger>
-                        <PopoverContent>
+                    <Button variant="outline" @click="openFilterDialog">
+                        <Filter />
+                    </Button>
+                </DivFlexCenter>
+
+                <!-- Custom Modal Dialog -->
+                <div
+                    v-if="isFilterDialogOpen"
+                    class="fixed inset-0 z-50 flex items-center justify-center"
+                    @click="handleBackdropClick"
+                >
+                    <!-- Backdrop -->
+                    <div class="absolute inset-0 bg-black/50 backdrop-blur-sm"></div>
+
+                    <!-- Modal Content -->
+                    <div class="relative z-10 w-full max-w-md mx-4 bg-white rounded-lg shadow-xl border border-gray-200 p-6 transform transition-all">
+                        <!-- Header -->
+                        <div class="flex items-center justify-between mb-4">
+                            <div>
+                                <h2 class="text-lg font-semibold text-gray-900">Filter Transactions</h2>
+                                <p class="text-sm text-gray-600 mt-1">Set date range to filter store transactions.</p>
+                            </div>
+                            <Button
+                                variant="ghost"
+                                size="sm"
+                                @click="closeFilterDialog"
+                                class="h-8 w-8 p-0 hover:bg-gray-100"
+                            >
+                                <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                                </svg>
+                            </Button>
+                        </div>
+
+                        <!-- Form Content -->
+                        <div class="space-y-4">
+                            <!-- Reset Filter Button -->
                             <div class="flex justify-end">
                                 <Button
                                     @click="resetFilter"
                                     variant="link"
-                                    class="text-end text-red-500 text-xs"
+                                    class="text-red-500 text-xs hover:text-red-600 p-0 h-auto"
                                 >
                                     Reset Filter
                                 </Button>
                             </div>
-                            <label class="text-xs">From</label>
-                            <Input type="date" v-model="from" />
-                            <label class="text-xs">To</label>
-                            <Input type="date" v-model="to" />
-                        </PopoverContent>
-                    </Popover>
-                </DivFlexCenter>
+
+                            <!-- Date Fields -->
+                            <div class="space-y-4">
+                                <div class="space-y-2">
+                                    <label class="text-sm font-medium text-gray-900">From</label>
+                                    <Input
+                                        type="date"
+                                        v-model="from"
+                                        class="w-full"
+                                    />
+                                </div>
+
+                                <div class="space-y-2">
+                                    <label class="text-sm font-medium text-gray-900">To</label>
+                                    <Input
+                                        type="date"
+                                        v-model="to"
+                                        class="w-full"
+                                    />
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
             </TableHeader>
             <Table>
                 <TableHead>
