@@ -34,6 +34,7 @@ class RolesAndPermissionSeeder extends Seeder
         Permission::firstOrCreate(['name' => 'create roles']);
         Permission::firstOrCreate(['name' => 'edit roles']);
         Permission::firstOrCreate(['name' => 'delete roles']);
+        Permission::firstOrCreate(['name' => 'show roles']);
 
         // DTS Delivery Schedules
         Permission::firstOrCreate(['name' => 'view dts delivery schedules']);

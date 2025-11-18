@@ -52,7 +52,7 @@ const exportRoute = computed(() =>
                     <TH>Id</TH>
                     <TH>Name</TH>
                     <TH>Permissions</TH>
-                    <TH v-if="hasAccess('edit roles')">Actions</TH>
+                    <TH v-if="hasAccess('edit roles') || hasAccess('show roles')">Actions</TH>
                 </TableHead>
                 <TableBody>
                     <tr v-for="role in roles.data" class="h-full">
@@ -87,9 +87,15 @@ const exportRoute = computed(() =>
                         </TD>
                         <TD
                             class="items-center flex"
-                            v-if="hasAccess('edit roles')"
+                            v-if="hasAccess('edit roles') || hasAccess('show roles')"
                         >
+                            <ShowButton
+                                v-if="hasAccess('show roles')"
+                                :isLink="true"
+                                :href="route('roles.show', role.id)"
+                            />
                             <EditButton
+                                v-if="hasAccess('edit roles')"
                                 :isLink="true"
                                 :href="route('roles.edit', role.id)"
                             />
@@ -112,6 +118,11 @@ const exportRoute = computed(() =>
                         v-for="role in roles.data"
                     >
                         <MobileTableHeading :title="role.name.toUpperCase()">
+                            <ShowButton
+                                v-if="hasAccess('show roles')"
+                                :isLink="true"
+                                :href="route('roles.show', role.id)"
+                            />
                             <EditButton
                                 class="size-5"
                                 v-if="hasAccess('edit roles')"

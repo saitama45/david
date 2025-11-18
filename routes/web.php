@@ -294,12 +294,14 @@ Route::middleware('auth')
         // Role Management Routes
         Route::controller(RolesController::class)->prefix('roles')->name('roles.')->group(function () {
             Route::middleware('permission:view roles')->get('/', 'index')->name('index');
+            Route::middleware('permission:show roles')->get('/show/{role}', 'show')->name('show');
             Route::middleware('permission:create roles')->get('/create', 'create')->name('create');
             Route::middleware('permission:create roles')->post('/store', 'store')->name('store');
             Route::middleware('permission:edit roles')->get('/edit/{role}', 'edit')->name('edit');
             Route::middleware('permission:edit roles')->put('/update/{role}', 'update')->name('update');
             Route::middleware('permission:delete roles')->delete('/destroy/{role}', 'destroy')->name('destroy');
             Route::middleware('permission:view roles')->get('/export', 'export')->name('export');
+            Route::middleware('permission:show roles')->get('/export-role/{role}', 'exportRole')->name('export-role');
         });
 
         // MODIFIED: DTS Delivery Schedules Routes - Renamed and expanded

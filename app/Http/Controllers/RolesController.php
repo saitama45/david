@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Exports\RoleExport;
 use App\Exports\RolesExport;
 use App\Http\Requests\Role\StoreRoleRequest;
 use App\Http\Requests\Role\UpdateRoleRequest;
@@ -13,6 +14,7 @@ use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
 use Maatwebsite\Excel\Facades\Excel;
 use Spatie\Permission\Models\Permission;
+
 
 
 class RolesController extends Controller
@@ -28,6 +30,16 @@ class RolesController extends Controller
         return Inertia::render('Roles/Index', [
             'roles' => $this->roleService->getRolesList(),
             'filters' => request()->only(['search'])
+        ]);
+    }
+
+    public function show(Role $role)
+    {
+        $role->load(['permissions']);
+        $groupedPermissions = $this->roleService->getPermissionsGroup();
+        return Inertia::render('Roles/Show', [
+            'role' => $role,
+            'permissions' => $groupedPermissions,
         ]);
     }
 
@@ -82,6 +94,15 @@ class RolesController extends Controller
         return Excel::download(
             new RolesExport($search),
             'roles-' . now()->format('Y-m-d') . '.xlsx'
+        );
+    }
+
+    public function exportRole(Role $role)
+    {
+        $groupedPermissions = $this->roleService->getPermissionsGroup();
+        return Excel::download(
+            new RoleExport($role, $groupedPermissions),
+            'role-' . $role->name . '-' . now()->format('Y-m-d') . '.xlsx'
         );
     }
 

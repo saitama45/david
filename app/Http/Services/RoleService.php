@@ -64,7 +64,7 @@ class RoleService
                     'view users', 'create users', 'edit users', 'view user', 'delete users'
                 ],
                 'Roles' => [
-                    'view roles', 'create roles', 'edit roles', 'delete roles'
+                    'view roles', 'create roles', 'edit roles', 'delete roles', 'show roles'
                 ],
                 'DTS Delivery Schedules' => [
                     'view dts delivery schedules', 'edit dts delivery schedules', 'export dts delivery schedules'
