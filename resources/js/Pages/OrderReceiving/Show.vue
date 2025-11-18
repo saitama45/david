@@ -1,16 +1,14 @@
 <script setup>
-import { ref, watch, computed } from "vue";
+import { ref, watch, computed, onMounted, onUnmounted } from "vue";
 import { useForm } from "@inertiajs/vue3";
 import { useToast } from "primevue/usetoast";
 import { router } from "@inertiajs/vue3";
 import { X, Eye } from "lucide-vue-next";
-
 import { useConfirm } from "primevue/useconfirm";
-// Camera component is no longer needed.
-// import Camera from "@/Pages/Camera.vue";
 import dayjs from "dayjs";
 import utc from "dayjs/plugin/utc"; // Import UTC plugin
 import timezone from "dayjs/plugin/timezone"; // Import Timezone plugin
+import { useBackButton } from "@/Composables/useBackButton";
 
 // Extend dayjs with the plugins
 dayjs.extend(utc);
@@ -21,8 +19,6 @@ dayjs.tz.setDefault("Asia/Manila");
 
 const toast = useToast();
 const confirm = useConfirm();
-
-import { useBackButton } from "@/Composables/useBackButton";
 
 const { backButton } = useBackButton(route("orders-receiving.index"));
 
@@ -244,6 +240,30 @@ const deleteReceiveDate = (id) => {
 
 const isEditModalVisible = ref(false);
 const currentEditingItem = ref(null);
+
+const closeEditModal = () => {
+    isEditModalVisible.value = false;
+};
+
+const handleEscapeKey = (event) => {
+    if (event.key === "Escape" && isEditModalVisible.value) {
+        closeEditModal();
+    }
+};
+
+const handleBackdropClick = (event) => {
+    if (event.target === event.currentTarget) {
+        closeEditModal();
+    }
+};
+
+onMounted(() => {
+    document.addEventListener("keydown", handleEscapeKey);
+});
+
+onUnmounted(() => {
+    document.removeEventListener("keydown", handleEscapeKey);
+});
 
 watch(isEditModalVisible, (value) => {
     if (!value) {
@@ -1033,14 +1053,53 @@ const promptConfirmReceive = () => {
             </DialogContent>
         </Dialog>
 
-        <Dialog v-model:open="isEditModalVisible">
-            <DialogContent class="sm:max-w-[600px]">
-                <DialogHeader>
-                    <DialogTitle>Edit Receive Details</DialogTitle>
-                    <DialogDescription
-                        >Update the receive information below.</DialogDescription
+        <div
+            v-if="isEditModalVisible"
+            class="fixed inset-0 z-50 flex items-center justify-center"
+            @click="handleBackdropClick"
+        >
+            <!-- Backdrop -->
+            <div
+                class="absolute inset-0 bg-black/50 backdrop-blur-sm"
+            ></div>
+
+            <!-- Modal Content -->
+            <div
+                class="relative z-10 w-full sm:max-w-[600px] mx-4 bg-white rounded-lg shadow-xl border border-gray-200 p-6 transform transition-all"
+            >
+                <!-- Header -->
+                <div class="flex items-center justify-between mb-4">
+                    <div>
+                        <h2 class="text-lg font-semibold text-gray-900">
+                            Edit Receive Details
+                        </h2>
+                        <p class="text-sm text-gray-600 mt-1">
+                            Update the receive information below.
+                        </p>
+                    </div>
+                    <Button
+                        variant="ghost"
+                        size="sm"
+                        @click="closeEditModal"
+                        class="h-8 w-8 p-0 hover:bg-gray-100"
                     >
-                </DialogHeader>
+                        <svg
+                            class="h-4 w-4"
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                        >
+                            <path
+                                stroke-linecap="round"
+                                stroke-linejoin="round"
+                                stroke-width="2"
+                                d="M6 18L18 6M6 6l12 12"
+                            ></path>
+                        </svg>
+                    </Button>
+                </div>
+
+                <!-- Form Content -->
                 <div class="space-y-3">
                     <InputContainer>
                         <Label class="text-xs">Quantity Received</Label>
@@ -1052,13 +1111,30 @@ const promptConfirmReceive = () => {
                             editReceiveDetailsForm.errors.quantity_received
                         }}</FormError>
                         <!-- Variance Display -->
-                        <div v-if="currentEditingItem && editReceiveDetailsForm.quantity_received" class="mt-2 text-sm">
+                        <div
+                            v-if="
+                                currentEditingItem &&
+                                editReceiveDetailsForm.quantity_received
+                            "
+                            class="mt-2 text-sm"
+                        >
                             <span class="font-medium">Variance: </span>
-                            <span :class="variance >= 0 ? 'text-green-600' : 'text-red-600'">
-                                {{ variance >= 0 ? '+' : '' }}{{ variance }}
+                            <span
+                                :class="
+                                    variance >= 0
+                                        ? 'text-green-600'
+                                        : 'text-red-600'
+                                "
+                            >
+                                {{ variance >= 0 ? "+" : ""
+                                }}{{ variance }}
                             </span>
                             <span class="text-gray-500 text-xs ml-1">
-                                (Committed: {{ currentEditingItem.store_order_item.quantity_commited }})
+                                (Committed:
+                                {{
+                                    currentEditingItem.store_order_item
+                                        .quantity_commited
+                                }})
                             </span>
                         </div>
                     </InputContainer>
@@ -1069,7 +1145,11 @@ const promptConfirmReceive = () => {
                             class="flex h-10 w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm shadow-sm transition-colors placeholder:text-gray-500 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-gray-400 disabled:cursor-not-allowed disabled:opacity-50"
                         >
                             <option value="" disabled>Select a remark</option>
-                            <option v-for="option in remarksOptions" :key="option.value" :value="option.value">
+                            <option
+                                v-for="option in remarksOptions"
+                                :key="option.value"
+                                :value="option.value"
+                            >
                                 {{ option.label }}
                             </option>
                         </select>
@@ -1078,18 +1158,16 @@ const promptConfirmReceive = () => {
                         }}</FormError>
                     </InputContainer>
                 </div>
-                <DialogFooter>
-                    <Button
-                        variant="ghost"
-                        @click="isEditModalVisible = false"
+
+                <!-- Footer -->
+                <div class="flex justify-end items-center gap-3 mt-6">
+                    <Button variant="ghost" @click="closeEditModal"
                         >Cancel</Button
                     >
-                    <Button @click="updateReceiveDetails"
-                        >Update</Button
-                    >
-                </DialogFooter>
-            </DialogContent>
-        </Dialog>
+                    <Button @click="updateReceiveDetails">Update</Button>
+                </div>
+            </div>
+        </div>
 
         <Dialog v-model:open="isViewModalVisible">
             <DialogContent class="sm:max-w-[600px]">
