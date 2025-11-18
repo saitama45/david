@@ -64,7 +64,35 @@ const exportRoute = computed(() =>
     })
 );
 
-const isImportModalVisible = ref(false);
+const isUpdateListModalOpen = ref(false);
+
+const openUpdateListModal = () => {
+    isUpdateListModalOpen.value = true;
+};
+
+const closeUpdateListModal = () => {
+    isUpdateListModalOpen.value = false;
+};
+
+const handleEscapeKey = (event) => {
+    if (event.key === 'Escape' && isUpdateListModalOpen.value) {
+        closeUpdateListModal();
+    }
+};
+
+const handleBackdropClick = (event) => {
+    if (event.target === event.currentTarget) {
+        closeUpdateListModal();
+    }
+};
+
+onMounted(() => {
+    document.addEventListener('keydown', handleEscapeKey);
+});
+
+onUnmounted(() => {
+    document.removeEventListener('keydown', handleEscapeKey);
+});
 
 const importForm = useForm({
     products_file: null,
@@ -76,7 +104,7 @@ const importFile = () => {
         onSuccess: () => {
             // Toast will be handled by the watch(importSummary) below
             isLoading.value = false;
-            isImportModalVisible.value = false;
+            isUpdateListModalOpen.value = false;
         },
         onError: (e) => {
             isLoading.value = false;
@@ -92,10 +120,6 @@ const importFile = () => {
             isLoading.value = false;
         },
     });
-};
-
-const openFormModal = () => {
-    return (isImportModalVisible.value = true);
 };
 
 const isLoading = ref(false);
@@ -193,7 +217,7 @@ watch(importSummary, (newValue) => {
                         placeholder="Search..."
                     />
                 </SearchBar>
-                <Button @click="openFormModal">Update List</Button>
+                <Button @click="openUpdateListModal">Update List</Button>
             </TableHeader>
 
             <Table>
@@ -302,14 +326,36 @@ watch(importSummary, (newValue) => {
             <Pagination :data="items" />
         </TableContainer>
 
-        <Dialog v-model:open="isImportModalVisible">
-            <DialogContent class="sm:max-w-[600px]">
-                <DialogHeader>
-                    <DialogTitle>Import Supplier Items</DialogTitle>
-                    <DialogDescription>
-                        Import the Excel file of the supplier items.
-                    </DialogDescription>
-                </DialogHeader>
+        <!-- Custom Modal Dialog -->
+        <div
+            v-if="isUpdateListModalOpen"
+            class="fixed inset-0 z-50 flex items-center justify-center"
+            @click="handleBackdropClick"
+        >
+            <!-- Backdrop -->
+            <div class="absolute inset-0 bg-black/50 backdrop-blur-sm"></div>
+
+            <!-- Modal Content -->
+            <div class="relative z-10 w-full max-w-md mx-4 bg-white rounded-lg shadow-xl border border-gray-200 p-6 transform transition-all">
+                <!-- Header -->
+                <div class="flex items-center justify-between mb-4">
+                    <div>
+                        <h2 class="text-lg font-semibold text-gray-900">Import Supplier Items</h2>
+                        <p class="text-sm text-gray-600 mt-1">Import the Excel file of the supplier items.</p>
+                    </div>
+                    <Button
+                        variant="ghost"
+                        size="sm"
+                        @click="closeUpdateListModal"
+                        class="h-8 w-8 p-0 hover:bg-gray-100"
+                    >
+                        <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                        </svg>
+                    </Button>
+                </div>
+
+                <!-- Form Content -->
                 <div class="space-y-5">
                     <div class="flex flex-col space-y-1">
                         <Input
@@ -338,7 +384,7 @@ watch(importSummary, (newValue) => {
                         </ul>
                     </div>
                 </div>
-                <DialogFooter>
+                <div class="flex justify-end mt-4">
                     <Button
                         :disabled="isLoading"
                         @click="importFile"
@@ -348,8 +394,8 @@ watch(importSummary, (newValue) => {
                         Proceed
                         <span><Loading v-if="isLoading" /></span>
                     </Button>
-                </DialogFooter>
-            </DialogContent>
-        </Dialog>
+                </div>
+            </div>
+        </div>
     </Layout>
 </template>
