@@ -50,9 +50,9 @@ const props = defineProps({
 
 const orderStatus = ref(props.order.order_status);
 
-const isImageModalVisible = ref(false);
-const openImageModal = () => {
-    isImageModalVisible.value = true;
+const isImageUploadModalVisible = ref(false);
+const openImageUploadModal = () => {
+    isImageUploadModalVisible.value = true;
 };
 
 const targetId = ref(null);
@@ -89,7 +89,7 @@ const submitImageUpload = () => {
                 detail: 'Image attached successfully.',
                 life: 3000,
             });
-            isImageModalVisible.value = false;
+            isImageUploadModalVisible.value = false;
             imageUploadForm.reset();
             imagePreviewUrl.value = null;
         },
@@ -124,7 +124,7 @@ const opentItemDetails = (id) => {
 };
 
 const showReceiveForm = ref(false);
-const showDeliveryReceiptForm = ref(false);
+const isDeliveryReceiptModalVisible = ref(false);
 
 const openReceiveForm = (id) => {
     targetId.value = id;
@@ -173,7 +173,7 @@ const submitDeliveryReceiptForm = () => {
                         detail: "Delivery Receipt Added Successfully.",
                         life: 5000,
                     });
-                    showDeliveryReceiptForm.value = false;
+                    isDeliveryReceiptModalVisible.value = false;
                     isLoading.value = false;
                     deliveryReceiptForm.reset();
                 },
@@ -185,7 +185,7 @@ const submitDeliveryReceiptForm = () => {
                         detail: "Failed to add delivery receipt.",
                         life: 5000,
                     });
-                    showDeliveryReceiptForm.value = false;
+                    isDeliveryReceiptModalVisible.value = false;
                     isLoading.value = false;
                 },
             }
@@ -245,15 +245,23 @@ const closeEditModal = () => {
     isEditModalVisible.value = false;
 };
 
+const closeAllModals = () => {
+    isEditModalVisible.value = false;
+    isImageUploadModalVisible.value = false;
+    isDeliveryReceiptModalVisible.value = false;
+};
+
 const handleEscapeKey = (event) => {
-    if (event.key === "Escape" && isEditModalVisible.value) {
-        closeEditModal();
+    if (event.key === "Escape") {
+        if (isEditModalVisible.value || isImageUploadModalVisible.value || isDeliveryReceiptModalVisible.value) {
+            closeAllModals();
+        }
     }
 };
 
 const handleBackdropClick = (event) => {
     if (event.target === event.currentTarget) {
-        closeEditModal();
+        closeAllModals();
     }
 };
 
@@ -390,7 +398,7 @@ const editDeliveryReceiptNumber = (id, number, sapSoNumber, remarks) => {
     deliveryReceiptForm.delivery_receipt_number = number;
     deliveryReceiptForm.sap_so_number = sapSoNumber;
     deliveryReceiptForm.remarks = remarks;
-    showDeliveryReceiptForm.value = true;
+    isDeliveryReceiptModalVisible.value = true;
 };
 
 const updateDeliveryReceiptNumber = () => {
@@ -753,12 +761,12 @@ const promptConfirmReceive = () => {
                     <DivFlexCenter class="gap-3">
                         <Button
                             class="text-xs px-2 sm:px-4"
-                            @click="openImageModal"
+                            @click="openImageUploadModal"
                             >Attach Image</Button
                         >
                         <Button
                             class="text-xs px-2 sm:px-4"
-                            @click="showDeliveryReceiptForm = true"
+                            @click="isDeliveryReceiptModalVisible = true"
                             >Add Delivery Number</Button
                         >
                     </DivFlexCenter>
@@ -935,14 +943,53 @@ const promptConfirmReceive = () => {
                 </MobileTableContainer>
             </TableContainer>
         </DivFlexCol>
-        <Dialog v-model:open="showDeliveryReceiptForm">
-            <DialogContent class="sm:max-w-[600px]">
-                <DialogHeader>
-                    <DialogTitle>Delivery Receipt Form</DialogTitle>
-                    <DialogDescription
-                        >Input all the important details</DialogDescription
+        <div
+            v-if="isDeliveryReceiptModalVisible"
+            class="fixed inset-0 z-50 flex items-center justify-center"
+            @click="handleBackdropClick"
+        >
+            <!-- Backdrop -->
+            <div
+                class="absolute inset-0 bg-black/50 backdrop-blur-sm"
+            ></div>
+
+            <!-- Modal Content -->
+            <div
+                class="relative z-10 w-full sm:max-w-[600px] mx-4 bg-white rounded-lg shadow-xl border border-gray-200 p-6 transform transition-all"
+            >
+                <!-- Header -->
+                <div class="flex items-center justify-between mb-4">
+                    <div>
+                        <h2 class="text-lg font-semibold text-gray-900">
+                            Delivery Receipt Form
+                        </h2>
+                        <p class="text-sm text-gray-600 mt-1">
+                            Input all the important details
+                        </p>
+                    </div>
+                    <Button
+                        variant="ghost"
+                        size="sm"
+                        @click="isDeliveryReceiptModalVisible = false"
+                        class="h-8 w-8 p-0 hover:bg-gray-100"
                     >
-                </DialogHeader>
+                        <svg
+                            class="h-4 w-4"
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                        >
+                            <path
+                                stroke-linecap="round"
+                                stroke-linejoin="round"
+                                stroke-width="2"
+                                d="M6 18L18 6M6 6l12 12"
+                            ></path>
+                        </svg>
+                    </Button>
+                </div>
+
+                <!-- Form Content -->
                 <div class="space-y-3">
                     <InputContainer>
                         <Label class="text-xs">Delivery Receipt Number</Label>
@@ -978,18 +1025,18 @@ const promptConfirmReceive = () => {
                         }}</FormError>
                     </InputContainer>
                 </div>
-                <DialogFooter>
+                <div class="flex justify-end items-center gap-3 mt-6">
                     <Button
                         variant="ghost"
-                        @click="showDeliveryReceiptForm = false"
+                        @click="isDeliveryReceiptModalVisible = false"
                         >Cancel</Button
                     >
                     <Button @click="submitDeliveryReceiptForm"
                         >Submit</Button
                     >
-                </DialogFooter>
-            </DialogContent>
-        </Dialog>
+                </div>
+            </div>
+        </div>
 
         <Dialog v-model:open="showReceiveForm">
             <DialogContent class="sm:max-w-[600px]">
@@ -1253,14 +1300,53 @@ const promptConfirmReceive = () => {
             </DialogContent>
         </Dialog>
 
-        <Dialog v-model:open="isImageModalVisible">
-            <DialogContent class="sm:max-w-[600px]">
-                <DialogHeader>
-                    <DialogTitle>Attach Image</DialogTitle>
-                    <DialogDescription>
-                        Select an image file to upload for this order.
-                    </DialogDescription>
-                </DialogHeader>
+        <div
+            v-if="isImageUploadModalVisible"
+            class="fixed inset-0 z-50 flex items-center justify-center"
+            @click="handleBackdropClick"
+        >
+            <!-- Backdrop -->
+            <div
+                class="absolute inset-0 bg-black/50 backdrop-blur-sm"
+            ></div>
+
+            <!-- Modal Content -->
+            <div
+                class="relative z-10 w-full sm:max-w-[600px] mx-4 bg-white rounded-lg shadow-xl border border-gray-200 p-6 transform transition-all"
+            >
+                <!-- Header -->
+                <div class="flex items-center justify-between mb-4">
+                    <div>
+                        <h2 class="text-lg font-semibold text-gray-900">
+                            Attach Image
+                        </h2>
+                        <p class="text-sm text-gray-600 mt-1">
+                            Select an image file to upload for this order.
+                        </p>
+                    </div>
+                    <Button
+                        variant="ghost"
+                        size="sm"
+                        @click="isImageUploadModalVisible = false"
+                        class="h-8 w-8 p-0 hover:bg-gray-100"
+                    >
+                        <svg
+                            class="h-4 w-4"
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                        >
+                            <path
+                                stroke-linecap="round"
+                                stroke-linejoin="round"
+                                stroke-width="2"
+                                d="M6 18L18 6M6 6l12 12"
+                            ></path>
+                        </svg>
+                    </Button>
+                </div>
+
+                <!-- Form Content -->
                 <div class="space-y-4">
                     <InputContainer>
                         <Label class="text-xs">Image File</Label>
@@ -1270,7 +1356,7 @@ const promptConfirmReceive = () => {
                             accept="image/png, image/jpeg, image/jpg"
                             class="file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
                         />
-                           <FormError>{{ imageUploadForm.errors.image }}</FormError>
+                        <FormError>{{ imageUploadForm.errors.image }}</FormError>
                     </InputContainer>
                     <!-- Apply max-height and overflow to the preview container -->
                     <div v-if="imagePreviewUrl" class="mt-4 max-h-64 overflow-y-auto">
@@ -1278,14 +1364,14 @@ const promptConfirmReceive = () => {
                         <img :src="imagePreviewUrl" class="mt-2 max-w-full h-auto rounded-md border object-contain" />
                     </div>
                 </div>
-                <DialogFooter>
-                    <Button variant="ghost" @click="isImageModalVisible = false">Cancel</Button>
+                <div class="flex justify-end items-center gap-3 mt-6">
+                    <Button variant="ghost" @click="isImageUploadModalVisible = false">Cancel</Button>
                     <Button @click="submitImageUpload" :disabled="imageUploadForm.processing">
                         <span v-if="imageUploadForm.processing">Uploading...</span>
                         <span v-else>Upload</span>
                     </Button>
-                </DialogFooter>
-            </DialogContent>
-        </Dialog>
+                </div>
+            </div>
+        </div>
     </Layout>
 </template>
