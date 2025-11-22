@@ -335,7 +335,7 @@ const addToOrdersButton = () => {
   }
 
   const existingItemIndex = selectedItems.value.findIndex(
-    (item) => item.item_code === productDetails.inventory_code
+    (item) => item.item_code === productDetails.inventory_code && item.unit_of_measurement === productDetails.unit_of_measurement
   )
 
   const currentQuantity = Number(productDetails.quantity)
@@ -364,6 +364,8 @@ const addToOrdersButton = () => {
       uom: productDetails.uom,
       stock: productDetails.stock || 0, // Preserve SOH stock data
       total_cost: parseFloat((Number(productDetails.quantity) * Number(productDetails.cost)).toFixed(2)),
+      sap_masterfile_id: productDetails.id || null,
+      sap_masterfile_id: productDetails.id || null,
     }
 
     
@@ -610,12 +612,14 @@ const executeFormSubmission = () => {
         quantity_committed: parseInt(Number(item.quantity_ordered)),
         cost_per_quantity: Number(item.cost_per_quantity || 1.0),
         uom: String(item.unit_of_measurement || item.uom || 'PCS'),
-        remarks: item.remarks || ''
+        remarks: item.remarks || '',
+        sap_masterfile_id: item.sap_masterfile_id || null,
+        sap_masterfile_id: item.sap_masterfile_id || null,
       }
 
       console.log(`📦 Item ${index + 1}:`, mappedItem)
       return mappedItem
-    })
+    }),
   }
 
   console.log('📤 Submitting data to backend:', submitData)

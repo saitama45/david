@@ -24,122 +24,75 @@ class MonthEndCountApprovalController extends Controller
         $userBranchIds = $user->store_branches->pluck('id');
         $tab = $request->input('tab', 'for_approval');
 
-        // --- Count Calculation ---
-        $forApprovalCount = MonthEndSchedule::query()
-            ->whereHas('countItems', function ($q) use ($userBranchIds) {
-                $q->whereIn('branch_id', $userBranchIds)
-                    ->where('status', 'pending_level1_approval');
-            })->count();
+        // --- Main Query ---
+        $statusesToQuery = ($tab === 'for_approval')
+            ? ['pending_level1_approval']
+            : ['level1_approved',];
+            
+        $query = DB::table('month_end_count_items as meci')
+            ->join('month_end_schedules as mes', 'meci.month_end_schedule_id', '=', 'mes.id')
+            ->join('store_branches as sb', 'meci.branch_id', '=', 'sb.id')
+            ->join('users as u', 'mes.created_by', '=', 'u.id')
+            ->whereIn('meci.branch_id', $userBranchIds)
+            ->whereIn('meci.status', $statusesToQuery)
+            ->select(
+                'mes.id as schedule_id',
+                'mes.year',
+                'mes.month',
+                'mes.calculated_date',
+                'sb.id as branch_id',
+                'sb.name as branch_name',
+                DB::raw("u.first_name + ' ' + u.last_name as creator_name"),
+                'meci.status'
+            )
+            ->distinct();
 
-        $approvedCount = MonthEndSchedule::query()
-            ->whereHas('countItems', function ($q) use ($userBranchIds) {
-                $q->whereIn('branch_id', $userBranchIds)
-                  ->whereIn('status', ['level1_approved', 'level2_approved']);
-            })->count();
+        // Filtering
+        $query->when($request->input('year'), fn ($q, $year) => $q->where('mes.year', 'like', "%{$year}%"));
+        $query->when($request->input('month'), fn ($q, $month) => $q->where('mes.month', 'like', "%{$month}%"));
+        $query->when($request->input('calculated_date'), fn ($q, $date) => $q->whereDate('mes.calculated_date', $date));
+        $query->when($request->input('status'), fn ($q, $status) => $q->where('meci.status', 'like', "%{$status}%"));
+        $query->when($request->input('creator_name'), fn ($q, $name) => $q->where(DB::raw("u.first_name + ' ' + u.last_name"), 'like', "%{$name}%"));
+        $query->when($request->input('branch_name'), fn ($q, $name) => $q->where('sb.name', 'like', "%{$name}%"));
+
+        // Sorting
+        $sort = $request->input('sort', 'id');
+        $direction = $request->input('direction', 'desc');
+        $sort_map = [
+            'id' => 'mes.id',
+            'year' => 'mes.year',
+            'month' => 'mes.month',
+            'calculated_date' => 'mes.calculated_date',
+            'status' => 'meci.status',
+            'creator_name' => 'creator_name',
+            'branch_name' => 'sb.name',
+        ];
+        if (array_key_exists($sort, $sort_map)) {
+            $query->orderBy($sort_map[$sort], $direction);
+        }
+
+        $approvals = $query->paginate(15)->withQueryString();
+
+        // --- Count Calculation ---
+        $forApprovalCount = DB::table('month_end_count_items')
+            ->whereIn('branch_id', $userBranchIds)
+            ->where('status', 'pending_level1_approval')
+            ->distinct()
+            ->count('branch_id');
+
+        $approvedCount = DB::table('month_end_count_items')
+            ->whereIn('branch_id', $userBranchIds)
+            ->where('status', ['level1_approved',])
+            ->distinct()
+            ->count('branch_id');
 
         $counts = [
             'for_approval' => $forApprovalCount,
             'approved' => $approvedCount,
         ];
 
-        // --- Main Query ---
-        $query = MonthEndSchedule::query()
-            ->with(['creator:id,first_name,last_name']);
-
-        if ($tab === 'for_approval') {
-            $query->whereHas('countItems', function ($q) use ($userBranchIds) {
-                $q->whereIn('branch_id', $userBranchIds)
-                    ->where('status', 'pending_level1_approval');
-            });
-        } else { // approved tab
-            $query->whereHas('countItems', function ($q) use ($userBranchIds) {
-                $q->whereIn('branch_id', $userBranchIds)
-                  ->whereIn('status', ['level1_approved', 'level2_approved']);
-            });
-        }
-
-        // Filtering
-        $query->when($request->input('year'), fn ($q, $year) => $q->where('year', 'like', "%{$year}%"));
-        $query->when($request->input('month'), fn ($q, $month) => $q->where('month', 'like', "%{$month}%"));
-        $query->when($request->input('calculated_date'), fn ($q, $date) => $q->whereDate('calculated_date', $date));
-
-        if ($tab === 'approved' && $request->input('status')) {
-            $status = $request->input('status');
-            $query->whereHas('countItems', function ($q) use ($status) {
-                $q->where('status', 'like', "%{$status}%");
-            });
-        }
-
-        $query->when($request->input('creator_name'), function ($q, $name) {
-            $q->whereHas('creator', function ($userQuery) use ($name) {
-                $userQuery->where(DB::raw("first_name + ' ' + last_name"), 'like', "%{$name}%");
-            });
-        });
-
-        $query->when($request->input('branch_name'), function ($q, $name) use ($userBranchIds) {
-            $q->whereHas('countItems.branch', function ($branchQuery) use ($name, $userBranchIds) {
-                $branchQuery->whereIn('id', $userBranchIds)->where('name', 'like', "%{$name}%");
-            });
-        });
-
-        // Sorting
-        $sort = $request->input('sort', 'id');
-        $direction = $request->input('direction', 'desc');
-
-        if ($sort === 'creator_name') {
-            $query->join('users', 'users.id', '=', 'month_end_schedules.created_by')
-                  ->orderBy('users.first_name', $direction)
-                  ->select('month_end_schedules.*');
-        } elseif ($sort === 'branch_name') {
-            $subQuery = StoreBranch::select('name')
-                ->join('month_end_count_items', 'store_branches.id', '=', 'month_end_count_items.branch_id')
-                ->whereColumn('month_end_count_items.month_end_schedule_id', 'month_end_schedules.id')
-                ->whereIn('month_end_count_items.branch_id', $userBranchIds)
-                ->when($tab === 'for_approval', function($q) {
-                    $q->where('month_end_count_items.status', 'pending_level1_approval');
-                })
-                ->orderBy('name')
-                ->limit(1);
-            $query->orderBy($subQuery, $direction);
-        } else {
-            $query->orderBy($sort, $direction);
-        }
-
-        $schedules = $query->paginate(15)->withQueryString();
-
-        $schedules->getCollection()->transform(function ($schedule) use ($userBranchIds, $tab) {
-            if ($tab === 'for_approval') {
-                $branchesWithItems = MonthEndCountItem::where('month_end_schedule_id', $schedule->id)
-                    ->whereIn('branch_id', $userBranchIds)
-                    ->where('status', 'pending_level1_approval')
-                    ->with('branch:id,name')
-                    ->get()
-                    ->pluck('branch')
-                    ->unique('id')
-                    ->map(fn($branch) => ['id' => $branch->id, 'name' => $branch->name])
-                    ->values();
-                $schedule->branches_awaiting_approval = $branchesWithItems;
-            } else {
-                $branchData = MonthEndCountItem::where('month_end_schedule_id', $schedule->id)
-                    ->whereIn('branch_id', $userBranchIds)
-                    ->whereIn('status', ['level1_approved', 'level2_approved'])
-                    ->with('branch:id,name')
-                    ->get()
-                    ->groupBy('branch.name')
-                    ->map(function ($items, $branchName) {
-                        return [
-                            'name' => $branchName,
-                            'id' => $items->first()->branch_id,
-                            'statuses' => $items->pluck('status')->unique()->values()->all(),
-                        ];
-                    })->values();
-                $schedule->branch_data = $branchData;
-            }
-            return $schedule;
-        });
-
         return Inertia::render('MonthEndCountApproval/Index', [
-            'schedules' => $schedules,
+            'approvals' => $approvals,
             'filters' => $request->only(['year', 'month', 'calculated_date', 'status', 'creator_name', 'branch_name', 'sort', 'direction', 'tab']),
             'tab' => $tab,
             'counts' => $counts,
@@ -343,11 +296,12 @@ class MonthEndCountApprovalController extends Controller
             }
 
             // Update the schedule status if all items for this schedule are now level2_approved
-            $pendingItems = MonthEndCountItem::where('month_end_schedule_id', $schedule->id)
-                ->whereIn('status', ['uploaded', 'level1_approved'])
+            // Only mark schedule as level2_approved when ALL branches have completed Level 2 approval
+            $hasUnapprovedItems = MonthEndCountItem::where('month_end_schedule_id', $schedule->id)
+                ->whereIn('status', ['uploaded', 'pending_level1_approval', 'level1_approved'])
                 ->exists();
 
-            if (!$pendingItems) {
+            if (!$hasUnapprovedItems) {
                 $schedule->status = 'level2_approved';
                 $schedule->save();
             }

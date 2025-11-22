@@ -21,8 +21,6 @@ const formatAction = (action) => {
         return 'IN';
     } else if (action === 'out' || action === 'deduct' || action === 'log_usage') {
         return 'OUT';
-    } else if (action === 'initial_balance' || action === 'BEG BAL') { // CRITICAL FIX: Handle both for robustness
-        return 'BEG BAL';
     }
     return action.replace(/_/g, " ").toUpperCase();
 };
@@ -101,7 +99,12 @@ const dynamicHeading = computed(() => {
                             <!-- CRITICAL FIX: Conditional display for Ref No. -->
                             <a
                                 v-if="data.is_link_ref && data.display_ref_no !== 'N/a'"
-                                :href="data.ref_type === 'interco' ? route('interco.show', data.display_ref_no) : data.ref_type === 'wastage' ? route('wastage.show.by-number', data.display_ref_no) : route('store-orders.show', data.display_ref_no)"
+                                :href="
+                                    data.ref_type === 'month_end_count' ? route('month-end-count.review', { schedule: data.ref_schedule_id, branch: data.ref_branch_id }) :
+                                    data.ref_type === 'interco' ? route('interco.show', data.display_ref_no) :
+                                    data.ref_type === 'wastage' ? route('wastage.show.by-number', data.display_ref_no) :
+                                    route('mass-orders.show', data.display_ref_no)
+                                "
                                 target="_blank"
                                 class="text-blue-600 hover:underline"
                             >
@@ -131,7 +134,12 @@ const dynamicHeading = computed(() => {
                         <!-- CRITICAL FIX: Conditional display for Ref No. -->
                         <a
                             v-if="data.is_link_ref && data.display_ref_no !== 'N/a'"
-                            :href="data.ref_type === 'interco' ? route('interco.show', data.display_ref_no) : data.ref_type === 'wastage' ? route('wastage.show.by-number', data.display_ref_no) : route('store-orders.show', data.display_ref_no)"
+                            :href="
+                                data.ref_type === 'month_end_count' ? route('month-end-count.review', { schedule: data.ref_schedule_id, branch: data.ref_branch_id }) :
+                                data.ref_type === 'interco' ? route('interco.show', data.display_ref_no) :
+                                data.ref_type === 'wastage' ? route('wastage.show.by-number', data.display_ref_no) :
+                                route('store-orders.show', data.display_ref_no)
+                            "
                             target="_blank"
                             class="text-blue-600 hover:underline"
                         >

@@ -72,11 +72,15 @@ class StockManagementController extends Controller
         }
 
         // Optimized approach: Use a subquery for stock data with branch filter to drastically reduce rows
-        $stockSubquery = DB::table('product_inventory_stocks')
+        $stockSubquery = DB::table('product_inventory_stock_managers')
             ->select(
                 'product_inventory_id',
-                DB::raw('SUM(quantity) as total_quantity'),
-                DB::raw('SUM(used) as total_used')
+                DB::raw('SUM(CASE
+                    WHEN action IN (\'add\', \'add_quantity\') THEN quantity
+                    WHEN action = \'out\' THEN -quantity
+                    ELSE 0
+                END) as total_current_soh'),
+                DB::raw('SUM(CASE WHEN action = \'out\' THEN quantity ELSE 0 END) as total_recorded_used')
             )
             ->where('store_branch_id', '=', $branchId)
             ->groupBy('product_inventory_id');
@@ -92,10 +96,11 @@ class StockManagementController extends Controller
                 'sap_masterfiles.BaseUOM as uom',
                 'sap_masterfiles.AltUOM as alt_uom',
                 'sap_masterfiles.BaseQty as base_qty',
-                DB::raw('COALESCE(stock.total_quantity, 0) - COALESCE(stock.total_used, 0) as stock_on_hand'),
-                DB::raw('COALESCE(stock.total_used, 0) as recorded_used'),
-                DB::raw('(COALESCE(stock.total_quantity, 0) - COALESCE(stock.total_used, 0)) * COALESCE(sap_masterfiles.BaseQty, 1) as total_base_uom_soh')
+                DB::raw('COALESCE(stock.total_current_soh, 0) as stock_on_hand'),
+                DB::raw('COALESCE(stock.total_recorded_used, 0) as recorded_used'),
+                DB::raw('COALESCE(stock.total_current_soh, 0) * COALESCE(sap_masterfiles.BaseQty, 1) as total_base_uom_soh')
             )
+            ->whereColumn('sap_masterfiles.BaseUOM', 'sap_masterfiles.AltUOM')
             ->when($search, function ($query) use ($search) {
                 $query->where(function ($q) use ($search) {
                     $q->where('sap_masterfiles.ItemDescription', 'like', "%{$search}%")
@@ -256,81 +261,54 @@ class StockManagementController extends Controller
 
         $chronologicalTransactions = collect(); // To hold transactions in chronological order with running SOH
 
-        // Separate 'add' and 'out' actions
-        $addMovements = $rawHistory->filter(fn($item) => in_array($item->action, ['add', 'add_quantity']))->sortBy('id')->values();
-        $outMovements = $rawHistory->filter(fn($item) => in_array($item->action, ['out', 'deduct', 'log_usage']))->sortBy('id')->values();
-
-        $runningSOH = 0; // Initialize running SOH to 0 for the conceptual 'initial_balance'
-        Log::info('StockManagementController: Running SOH initialized to: ' . $runningSOH);
-
-        // Add the conceptual "Initial Stock Balance" entry first
-        $initialBalanceEntry = (object)[
-            'id' => 'initial',
-            'purchase_item_batch_id' => null,
-            'quantity' => 0,
-            'action' => 'BEG BAL',
-            'cost_center_id' => null,
-            'unit_cost' => 0,
-            'total_cost' => 0,
-            'transaction_date' => $rawHistory->first() ? Carbon::parse($rawHistory->first()->transaction_date)->subDay()->format('Y-m-d') : Carbon::today()->format('Y-m-d'),
-            'remarks' => 'Beginning Balance',
-            'sap_masterfile' => $currentProductStock ? $currentProductStock->sapMasterfile : null,
-            'purchase_item_batch' => null,
-            'running_soh' => $runningSOH, // Initial SOH is 0
-        ];
-        $chronologicalTransactions->push($initialBalanceEntry);
-        Log::debug('StockManagementController: Initial Balance Entry added with Running SOH: ' . $initialBalanceEntry->running_soh);
-
-        // Process 'add' movements first to build up stock logically
-        foreach ($addMovements as $item) {
-            $quantityChange = $item->quantity;
+        $runningSOH = 0;
+        // Process all transactions chronologically to calculate running SOH correctly
+        foreach ($rawHistory as $item) {
+            $quantityChange = in_array($item->action, ['add', 'add_quantity']) ? $item->quantity : -$item->quantity;
             $runningSOH += $quantityChange;
             $item->running_soh = $runningSOH;
 
-            // CRITICAL FIX: Use nullsafe operator for nested relations to prevent errors on null.
-            // If purchaseItemBatch, storeOrderItem, or store_order is null, the chain will safely return null.
-            $item->display_ref_no = $item->purchaseItemBatch?->storeOrderItem?->store_order?->order_number ?? 'N/a';
-            $item->is_link_ref = (bool)($item->purchaseItemBatch?->storeOrderItem?->store_order?->order_number);
-            $item->ref_type = $item->is_link_ref ? 'store-order' : null; // Add ref_type
+            // --- Start Ref No Parsing Logic ---
+            $item->is_link_ref = false;
+            $item->ref_type = null;
+            $item->display_ref_no = 'N/a';
+            $remarkText = $item->remarks; // Default to the full remark text
 
-            $chronologicalTransactions->push($item);
-            Log::debug("StockManagementController: After ADD Item ID {$item->id}, Action: {$item->action}, Quantity: {$item->quantity}, Running SOH: {$runningSOH}, Display Ref: {$item->display_ref_no}");
-        }
-
-        // Then process 'out' movements to deduct from stock logically
-        foreach ($outMovements as $item) {
-            $quantityChange = -$item->quantity; // Out actions are negative
-            $runningSOH += $quantityChange;
-            $item->running_soh = $runningSOH;
-
-            // For 'out' actions, check for Interco transfer first
-            if (preg_match('/Interco transfer to .* \(Interco: (.*?)\)/', $item->remarks, $matches)) {
-                $item->display_ref_no = $matches[1]; // Extracted interco_number
+            if (str_contains((string)$item->remarks, '||MEC_REF::')) {
+                $parts = explode('||', $item->remarks);
+                $remarkText = $parts[0]; // The user-friendly part
+                $refPart = $parts[1] ?? '';
+                                    if (preg_match('/MEC_REF::(\d+),(\d+)/', $refPart, $matches)) {
+                                        $item->display_ref_no = "MEC-{$matches[1]}-{$matches[2]}"; // Corrected to show full format
+                                        $item->is_link_ref = true;
+                                        $item->ref_type = 'month_end_count';
+                                        $item->ref_schedule_id = (int)$matches[1];
+                                        $item->ref_branch_id = (int)$matches[2];
+                                    }            } elseif ($item->purchaseItemBatch?->storeOrderItem?->store_order?->order_number) {
+                $item->display_ref_no = $item->purchaseItemBatch->storeOrderItem->store_order->order_number;
                 $item->is_link_ref = true;
-                $item->ref_type = 'interco'; // Set ref_type to interco
-            } elseif (preg_match('/Wastage Approval Level 2: (WASTE-[^-\s]+-\d+)/', $item->remarks, $matches)) {
-                // Extract wastage number from remarks like "Wastage Approval Level 2: WASTE-NNSSR-00001 - Expired items"
+                $item->ref_type = 'store-order';
+            } elseif (preg_match('/Interco transfer to .* \(Interco: (.*?)\)/', $item->remarks, $matches)) {
                 $item->display_ref_no = $matches[1];
                 $item->is_link_ref = true;
-                $item->ref_type = 'wastage'; // Set ref_type to wastage
+                $item->ref_type = 'interco';
+            } elseif (preg_match('/Wastage Approval Level 2: (WASTE-[^-\s]+-\d+)/', $item->remarks, $matches)) {
+                $item->display_ref_no = $matches[1];
+                $item->is_link_ref = true;
+                $item->ref_type = 'wastage';
             } elseif (preg_match('/Receipt No\. (\d+)/', $item->remarks, $matches)) {
                 $item->display_ref_no = $matches[1];
                 $item->is_link_ref = false;
-                $item->ref_type = 'receipt'; // Or some other type if needed
-            } else {
-                $item->display_ref_no = 'N/a';
-                $item->is_link_ref = false;
-                $item->ref_type = null;
+                $item->ref_type = 'receipt';
             }
+            // --- End Ref No Parsing Logic ---
+
+            $item->remarks = $remarkText; // Set the final, clean remark for display
             $chronologicalTransactions->push($item);
-            Log::debug("StockManagementController: After OUT Item ID {$item->id}, Action: {$item->action}, Quantity: {$item->quantity}, Running SOH: {$runningSOH}, Display Ref: {$item->display_ref_no}");
         }
 
-        // Now, prepare the final display order: newest transactions first, then initial balance last.
-        // Sort the entire chronologicalTransactions collection by ID descending for display.
-        $processedHistory = $chronologicalTransactions->sortByDesc(function ($item) {
-            return is_numeric($item->id) ? $item->id : -1; // Treat 'initial' as having a very low ID for sorting to the bottom
-        })->values();
+        // Now, prepare the final display order: newest transactions first.
+        $processedHistory = $chronologicalTransactions->sortByDesc('id')->values();
 
         Log::info('StockManagementController: Processed History for Show (final order):', ['history' => $processedHistory->toArray()]);
 

@@ -48,7 +48,9 @@ const approve = () => {
         accept: () => {
             router.post(route('month-end-count-approvals-level2.approve', { schedule_id: props.schedule.id, branch_id: props.branch.id }), {}, {
                 onSuccess: () => {
-                    toast.add({ severity: 'success', summary: 'Approved', detail: 'Count has been approved for Level 2.', life: 3000 });
+                    const reviewUrl = route('month-end-count.review', { schedule: props.schedule.id, branch: props.branch.id });
+                    const linkHtml = `Count has been approved for Level 2. <a href="${reviewUrl}" target="_blank" class="text-blue-500 hover:text-blue-700 underline">View Ref No. ${props.schedule.id}/${props.branch.id}</a>`;
+                    toast.add({ severity: 'success', summary: 'Approved', detail: linkHtml, life: 5000 });
                 },
                 onError: (errors) => {
                     const errorMsg = Object.values(errors)[0] || 'An unknown error occurred.';

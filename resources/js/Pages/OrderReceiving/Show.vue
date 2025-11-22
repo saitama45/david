@@ -796,7 +796,7 @@ const promptConfirmReceive = () => {
                                     ?.BaseUOM
                             }}</TD>
                             <TD class="text-xs">{{
-                                orderItem.supplier_item.uom
+                                orderItem.uom
                             }}</TD>
                             <TD>{{ orderItem.quantity_ordered }}</TD>
                             <TD>{{ orderItem.quantity_approved }}</TD>

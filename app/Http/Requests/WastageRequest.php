@@ -140,6 +140,17 @@ class WastageRequest extends FormRequest
                 'array',
                 'min:1',
             ];
+            $rules['images'] = [
+                'required',
+                'array',
+                'min:1',
+            ];
+            $rules['images.*'] = [
+                'file',
+                'image',
+                'mimes:jpeg,jpg,png',
+                'max:5120', // 5MB max
+            ];
             $rules['cartItems.*.sap_masterfile_id'] = [
                 'required',
                 'exists:sap_masterfiles,id',

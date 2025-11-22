@@ -510,14 +510,14 @@ const populateInitialOrdersFromProps = () => {
             id: item.id,
             inventory_code: String(item.supplier_item.ItemCode),
             name: item.supplier_item.item_name,
-            unit_of_measurement: item.supplier_item.uom, // Use 'unit_of_measurement'
+            unit_of_measurement: item.uom,
             base_uom: baseUom, // Use the determined BaseUOM
             base_qty: baseQty, // Use the determined BaseQTY
             base_uom_qty: calculatedBaseUomQty,
             quantity: quantityOrdered,
             cost: itemCost,
             total_cost: calculatedTotalCost, // Use calculated total cost
-            uom: item.supplier_item.uom,
+            uom: item.uom,
         };
         initialOrders.push(product);
     });

@@ -90,11 +90,13 @@ class IntercoController extends Controller
                 'status' => $status,
                 'search' => $search,
             ],
-            'statusOptions' => collect(IntercoStatus::cases())->map(fn($status) => [
+            'statusOptions' => collect([
+                ['value' => 'all', 'label' => 'All Statuses', 'color' => ''], // Prepend All Statuses
+            ])->concat(collect(IntercoStatus::cases())->map(fn($status) => [
                 'value' => $status->value,
                 'label' => $status->getLabel(),
                 'color' => $status->getColor(),
-            ]),
+            ])),
             'permissions' => [
                 'can_create' => $user->hasPermissionTo('create interco requests'),
                 'can_edit' => $user->hasPermissionTo('edit interco requests'),
@@ -526,106 +528,78 @@ class IntercoController extends Controller
     public function getAvailableItems(Request $request): JsonResponse
     {
         $request->validate([
-            'sending_store_id' => 'required|integer|exists:store_branches,id'
+            'sending_store_id' => 'required|integer|exists:store_branches,id',
+            'search' => 'nullable|string|min:3',
         ]);
 
         $sendingStoreId = $request->input('sending_store_id');
         $search = $request->input('search');
 
+        if (!$search) {
+            return response()->json(['items' => []]);
+        }
+
         try {
-            // Modified query to show ALL items regardless of stock, with better filtering
-            $queryStartTime = microtime(true);
-
-            // Start with base query (using the working JOIN logic from original)
-            $itemsQuery = SAPMasterfile::select([
-                    'sap_masterfiles.id',
-                    'sap_masterfiles.ItemCode',
-                    'sap_masterfiles.ItemDescription',
-                    'sap_masterfiles.BaseUOM',
-                    'sap_masterfiles.AltUOM',
-                    'product_inventory_stocks.quantity as stock_quantity'
-                ])
-                ->join('product_inventory_stocks', function($join) use ($sendingStoreId) {
-                    $join->on('sap_masterfiles.id', '=', 'product_inventory_stocks.product_inventory_id')
-                         ->where('product_inventory_stocks.store_branch_id', '=', $sendingStoreId)
-                         ->where('product_inventory_stocks.quantity', '>', 0);
+            // 1. Find all active SAP masterfiles matching the search term.
+            $foundItems = SAPMasterfile::where('is_active', true)
+                ->where(function ($query) use ($search) {
+                    $query->where('ItemCode', 'like', "%{$search}%")
+                          ->orWhere('ItemDescription', 'like', "%{$search}%");
                 })
-                ->where('sap_masterfiles.is_active', true)
-                ->whereNotNull('sap_masterfiles.ItemCode')
-                ->where('sap_masterfiles.ItemCode', '!=', '')
-                ->whereNotNull('sap_masterfiles.AltUOM')
-                ->where('sap_masterfiles.AltUOM', '!=', '');
+                ->whereNotNull('ItemCode')->where('ItemCode', '!=', '')
+                ->limit(50)
+                ->get();
 
-            // Add search conditions if search term is provided (keeping search functionality)
-            if ($search) {
-                $itemsQuery->where(function($query) use ($search) {
-                    $query->where('sap_masterfiles.ItemCode', 'like', "%{$search}%")
-                          ->orWhere('sap_masterfiles.ItemDescription', 'like', "%{$search}%");
-                });
-                $itemsQuery->limit(50); // Smaller limit for search results
-            } else {
-                $itemsQuery->orderBy('sap_masterfiles.ItemDescription')
-                          ->limit(50); // Reduced limit like original
+            if ($foundItems->isEmpty()) {
+                return response()->json(['items' => []]);
             }
 
-            $items = $itemsQuery->get();
+            // 2. Get all unique ItemCodes from the found items.
+            $itemCodes = $foundItems->pluck('ItemCode')->unique()->toArray();
 
-            $queryTime = (microtime(true) - $queryStartTime) * 1000; // Convert to milliseconds
+            // 3. Find the corresponding "stock-holding" masterfile records (where BaseUOM = AltUOM).
+            $stockHoldingMasterfiles = SAPMasterfile::whereIn('ItemCode', $itemCodes)
+                ->whereColumn('BaseUOM', 'AltUOM')
+                ->get()
+                ->keyBy('ItemCode');
 
-            // Process items with better UOM fallback handling
-            $processedItems = $items->map(function ($item) {
-                // Create fallback description if ItemDescription is null
-                $description = $item->ItemDescription;
-                if (empty($description)) {
-                    $description = "Product Item {$item->ItemCode}";
-                    \Log::warning("getAvailableItems: DESCRIPTION WAS NULL/EMPTY for item {$item->ItemCode}, using fallback: {$description}");
+            // 4. Get the stock levels for these specific stock-holding records.
+            $stockLevels = ProductInventoryStock::where('store_branch_id', $sendingStoreId)
+                ->whereIn('product_inventory_id', $stockHoldingMasterfiles->pluck('id'))
+                ->get()
+                ->keyBy('product_inventory_id');
+
+            // 5. Map the results.
+            $processedItems = $foundItems->map(function ($item) use ($stockHoldingMasterfiles, $stockLevels) {
+                // Find the corresponding stock-holding masterfile by ItemCode.
+                $stockMasterfile = $stockHoldingMasterfiles->get($item->ItemCode);
+                
+                // Get the stock quantity from that stock-holding masterfile's ID.
+                $stockQty = 0;
+                if ($stockMasterfile) {
+                    $stockRecord = $stockLevels->get($stockMasterfile->id);
+                    if ($stockRecord) {
+                        $stockQty = $stockRecord->quantity;
+                    }
                 }
-
-                $effectiveAltUom = $item->AltUOM; // AltUOM is guaranteed due to JOIN condition
-                $stock = $item->stock_quantity; // Stock is guaranteed due to JOIN condition
-
-                // Log specifically for item 916A2C
-                if ($item->ItemCode === '916A2C') {
-                    \Log::info("getAvailableItems: Processing 916A2C", [
-                        'original_description' => $item->ItemDescription,
-                        'final_description' => $description,
-                        'base_uom' => $item->BaseUOM,
-                        'alt_uom' => $item->AltUOM,
-                        'effective_alt_uom' => $effectiveAltUom,
-                        'stock' => $stock
-                    ]);
-                }
-
-                // Get cost from SupplierItems table
-                $cost = $this->getItemCostFromSupplier($item->ItemCode);
 
                 return [
                     'id' => $item->id,
                     'item_code' => $item->ItemCode,
-                    'description' => $description,
+                    'description' => $item->ItemDescription ?? "Product Item {$item->ItemCode}",
                     'uom' => $item->BaseUOM,
-                    'alt_uom' => $effectiveAltUom, // Use fallback logic
-                    'cost_per_quantity' => $cost,
-                    'stock' => $stock,
-                    'is_available' => $stock > 0,
+                    'alt_uom' => $item->AltUOM,
+                    'cost_per_quantity' => $this->getItemCostFromSupplier($item->ItemCode),
+                    'stock' => $stockQty, // Use the stock from the BaseUOM=AltUOM record.
+                    'is_available' => $stockQty > 0,
                 ];
             });
 
-            return response()->json([
-                'items' => $processedItems,
-                'query_time_ms' => round($queryTime, 2),
-                'total_items' => $processedItems->count()
-            ]);
+            return response()->json(['items' => $processedItems]);
 
         } catch (\Exception $e) {
-            $errorMessage = 'getAvailableItems error for store ' . $sendingStoreId . ': ' . $e->getMessage();
-            \Log::error($errorMessage);
-
-            return response()->json([
-                'error' => 'Failed to fetch items',
-                'message' => 'Database query timeout or error. Please try again.',
-                'items' => [] // Return empty array instead of error to prevent frontend breaking
-            ], 500);
+            \Log::error('getAvailableItems error for store ' . $sendingStoreId . ': ' . $e->getMessage());
+            return response()->json(['error' => 'Failed to fetch items'], 500);
         }
     }
 
@@ -645,60 +619,40 @@ class IntercoController extends Controller
         $sendingStoreId = $request->input('sendingStoreId');
 
         try {
-            // Get the SAP masterfile item - try exact match first, then fallback to ItemCode only
-            $item = SAPMasterfile::where('ItemCode', $itemCode)
+            // Get the specific SAP masterfile item that was selected.
+            $selectedItem = SAPMasterfile::where('ItemCode', $itemCode)
+                ->where('AltUOM', $altUOM)
                 ->where('is_active', true)
-                ->whereNotNull('ItemDescription')
                 ->first();
 
-            if (!$item) {
-                \Log::info("Item not found for ItemCode: {$itemCode}");
-                return response()->json([
-                    'error' => 'Item not found'
-                ], 404);
+            if (!$selectedItem) {
+                return response()->json(['error' => 'Item not found'], 404);
             }
 
-            // Use AltUOM if available and matches request, otherwise fallback to BaseUOM
-            $effectiveAltUom = (!empty($item->AltUOM) && $item->AltUOM === $altUOM) ? $item->AltUOM : $item->BaseUOM;
+            // Now, find the stock-holding record for that ItemCode.
+            $stockHoldingMasterfile = SAPMasterfile::where('ItemCode', $itemCode)
+                ->whereColumn('BaseUOM', 'AltUOM')
+                ->first();
 
-            \Log::info("Found item: {$itemCode} - AltUOM: {$item->AltUOM}, BaseUOM: {$item->BaseUOM} (effective: {$effectiveAltUom})");
-
-            // Get stock information for this item at the sending store using optimized query
-            $stock = ProductInventoryStock::where('store_branch_id', $sendingStoreId)
-                ->where('product_inventory_id', $item->id)
-                ->value('quantity') ?? 0;
-
-            // Get cost information using optimized helper method
-            $cost = $this->getItemCost($item->id);
-
-            // Create fallback description if ItemDescription is null
-            $description = $item->ItemDescription;
-            if (empty($description)) {
-                $description = "Product Item {$item->ItemCode}";
-                \Log::warning("DESCRIPTION WAS NULL/EMPTY for item {$itemCode}, using fallback: {$description}");
+            $stock = 0;
+            if ($stockHoldingMasterfile) {
+                $stock = ProductInventoryStock::where('store_branch_id', $sendingStoreId)
+                    ->where('product_inventory_id', $stockHoldingMasterfile->id)
+                    ->value('quantity') ?? 0;
             }
 
             $itemDetails = [
-                'id' => $item->id,
-                'item_code' => $item->ItemCode,
-                'description' => $description,
-                'uom' => $item->BaseUOM,
-                'alt_uom' => $effectiveAltUom, // Use effective UOM with fallback logic
-                'cost_per_quantity' => $cost,
-                'stock' => $stock,
+                'id' => $selectedItem->id,
+                'item_code' => $selectedItem->ItemCode,
+                'description' => $selectedItem->ItemDescription ?? "Product Item {$selectedItem->ItemCode}",
+                'uom' => $selectedItem->BaseUOM,
+                'alt_uom' => $selectedItem->AltUOM,
+                'cost_per_quantity' => $this->getItemCostFromSupplier($selectedItem->ItemCode),
+                'stock' => $stock, // Use the stock from the BaseUOM=AltUOM record.
                 'is_available' => $stock > 0,
             ];
 
-            \Log::info("Returning itemDetails for {$itemCode}: ", [
-                'original_description' => $item->ItemDescription,
-                'final_description' => $description,
-                'description_length' => strlen($description),
-                'item_details' => $itemDetails
-            ]);
-
-            return response()->json([
-                'item' => $itemDetails
-            ]);
+            return response()->json(['item' => $itemDetails]);
 
         } catch (\Exception $e) {
             return response()->json([

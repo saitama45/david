@@ -169,9 +169,21 @@ const getStatusIcon = (status) => {
 }
 
 
-const goToEdit = () => {
-  router.get(route('interco.edit', props.order.id))
-}
+const displayApprovedQty = (item) => {
+  const currentStatus = props.order.interco_status;
+  if (['approved', 'committed', 'in_transit', 'received'].includes(currentStatus)) {
+    return item.quantity_approved || 0;
+  }
+  return 0;
+};
+
+const displayCommittedQty = (item) => {
+  const currentStatus = props.order.interco_status;
+  if (['committed', 'in_transit', 'received'].includes(currentStatus)) {
+    return item.quantity_commited || 0;
+  }
+  return 0;
+};
 </script>
 
 <template>
@@ -232,16 +244,16 @@ const goToEdit = () => {
                       <span class="font-medium">{{ item.quantity_ordered || 0 }}</span>
                     </TableCell>
                     <TableCell>
-                      <span class="font-medium">{{ item.quantity_approved || 0 }}</span>
+                      <span class="font-medium">{{ displayApprovedQty(item) }}</span>
                     </TableCell>
                     <TableCell>
-                      <span class="font-medium">{{ item.quantity_commited || 0 }}</span>
+                      <span class="font-medium">{{ displayCommittedQty(item) }}</span>
                     </TableCell>
                     <TableCell>
                       <span class="font-medium">{{ item.quantity_received || 0 }}</span>
                     </TableCell>
                     <TableCell>
-                      <span class="font-medium">{{ (item.quantity_commited || 0) - (item.quantity_received || 0) }}</span>
+                      <span class="font-medium">{{ (displayCommittedQty(item) || 0) - (item.quantity_received || 0) }}</span>
                     </TableCell>
                   </TableRow>
                 </TableBody>

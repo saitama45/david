@@ -220,121 +220,111 @@ class WastageApprovalLevel2Controller extends Controller
 
         try {
             $wastage = Wastage::findOrFail($validated['order_id']);
+            $storeBranchId = $wastage->store_branch_id;
 
-            // Check if user can approve this wastage record
+            // Authorization Check
             $assignedStoreIds = UserAssignedStoreBranch::where('user_id', $user->id)
                 ->pluck('store_branch_id')
                 ->toArray();
-
-            if (!in_array($wastage->store_branch_id, $assignedStoreIds)) {
+            if (!in_array($storeBranchId, $assignedStoreIds)) {
                 abort(403, 'You do not have permission to approve this wastage record');
             }
 
-            // Get all wastage records with the same wastage_no
-            $relatedWastages = Wastage::where('wastage_no', $wastage->wastage_no)->get();
+            // Get all related wastage items that are ready for level 2 approval
+            $relatedWastages = Wastage::where('wastage_no', $wastage->wastage_no)
+                ->where('wastage_status', WastageStatus::APPROVED_LVL1)
+                ->with('sapMasterfile')
+                ->get();
 
-            // Use database transaction for atomic operations
-            \DB::beginTransaction();
-
-            // Process inventory stock management for each wastage item
-            foreach ($relatedWastages as $relatedWastage) {
-                // Skip if already has inventory stock entry for this transaction
-                if (ProductInventoryStockManager::where('store_branch_id', $relatedWastage->store_branch_id)
-                    ->where('product_inventory_id', $relatedWastage->sap_masterfile_id)
-                    ->where('transaction_date', $relatedWastage->created_at->format('Y-m-d'))
-                    ->where('remarks', 'LIKE', '%Wastage Approval Level 2: ' . $relatedWastage->wastage_no . '%')
-                    ->exists()) {
-                    continue;
-                }
-
-                // Skip SOH update for Scrap items
-                if ($relatedWastage->reason === 'Scrap') {
-                    \Log::info('Skipping Scrap reason item from SOH update', [
-                        'wastage_id' => $relatedWastage->id,
-                        'item_code' => $relatedWastage->sapMasterfile->ItemCode ?? 'N/A',
-                        'reason' => $relatedWastage->reason,
-                        'approved_qty' => $relatedWastage->approverlvl2_qty ?? $relatedWastage->approverlvl1_qty ?? $relatedWastage->wastage_qty,
-                        'wastage_no' => $relatedWastage->wastage_no
-                    ]);
-                    continue;
-                }
-
-                // Get the SAP masterfile for cost lookup
-                $sapMasterfile = $relatedWastage->sapMasterfile;
-                if (!$sapMasterfile) {
-                    \Log::warning('SAP Masterfile not found for wastage item', [
-                        'wastage_id' => $relatedWastage->id,
-                        'sap_masterfile_id' => $relatedWastage->sap_masterfile_id
-                    ]);
-                    continue;
-                }
-
-                // Get cost from supplier_items using ItemCode and AltUOM
-                $unitCost = SupplierItems::where('ItemCode', $sapMasterfile->ItemCode)
-                    ->where('uom', $sapMasterfile->AltUOM)
-                    ->value('cost') ?? 0;
-
-                // Get the approved quantity
-                $approvedQty = $relatedWastage->approverlvl2_qty ?? $relatedWastage->approverlvl1_qty ?? $relatedWastage->wastage_qty;
-
-                // Find or create ProductInventoryStock record
-                $productStock = \App\Models\ProductInventoryStock::where('product_inventory_id', $relatedWastage->sap_masterfile_id)
-                    ->where('store_branch_id', $relatedWastage->store_branch_id)
-                    ->first();
-
-                if (!$productStock) {
-                    \Log::warning('ProductInventoryStock not found for wastage item', [
-                        'wastage_id' => $relatedWastage->id,
-                        'product_inventory_id' => $relatedWastage->sap_masterfile_id,
-                        'store_branch_id' => $relatedWastage->store_branch_id
-                    ]);
-                    continue;
-                }
-
-                // Validate sufficient stock
-                if ($productStock->quantity < $approvedQty) {
-                    throw new \Exception("Insufficient stock for item {$sapMasterfile->ItemDescription}. Available: {$productStock->quantity}, Required: {$approvedQty}");
-                }
-
-                // Create new ProductInventoryStock record instead of updating existing one
-                \App\Models\ProductInventoryStock::create([
-                    'product_inventory_id' => $productStock->product_inventory_id,
-                    'store_branch_id' => $productStock->store_branch_id,
-                    'quantity' => -$approvedQty, // Negative value for OUT action
-                    'recently_added' => $productStock->quantity - $approvedQty, // Remaining stock after wastage
-                    'used' => 0, // Always 0 as per requirements
-                    'created_at' => now(),
-                ]);
-
-                // Create inventory stock management record with OUT action
-                ProductInventoryStockManager::create([
-                    'product_inventory_id' => $relatedWastage->sap_masterfile_id,
-                    'store_branch_id' => $relatedWastage->store_branch_id,
-                    'cost_center_id' => null, // Optional: Add cost center logic if needed
-                    'quantity' => $approvedQty,
-                    'action' => 'out',
-                    'unit_cost' => $unitCost,
-                    'total_cost' => $approvedQty * $unitCost,
-                    'transaction_date' => $relatedWastage->created_at,
-                    'remarks' => 'Wastage Approval Level 2: ' . $relatedWastage->wastage_no . ' - ' . ($relatedWastage->reason ?? 'No reason specified'),
-                ]);
-
-                // Update the wastage record with approved quantity if not already set
-                if (is_null($relatedWastage->approverlvl2_qty)) {
-                    $relatedWastage->approverlvl2_qty = $approvedQty;
-                    $relatedWastage->save();
-                }
+            if ($relatedWastages->isEmpty()) {
+                return back()->with('info', 'No items are awaiting Level 2 approval.');
             }
 
-            // Update all records with the same wastage_no
+            \DB::beginTransaction();
+
+            // Group items by their base ItemCode
+            $groupedItems = $relatedWastages->filter(fn($item) => $item->sapMasterfile !== null)
+                                            ->groupBy('sapMasterfile.ItemCode');
+
+            foreach ($groupedItems as $itemCode => $items) {
+                $totalQtyToDeductInBaseUom = 0;
+                $totalCostOfWastage = 0;
+                $targetSapMasterfile = null;
+
+                // 1. Aggregate quantities for this group into BaseUOM
+                foreach ($items as $item) {
+                    // Skip 'Scrap' items from SOH deduction
+                    if ($item->reason === 'Scrap') {
+                        continue;
+                    }
+
+                    $originalSapMasterfile = $item->sapMasterfile;
+                    $conversionFactor = $originalSapMasterfile->BaseQty > 0 ? $originalSapMasterfile->BaseQty : 1;
+                    $approvedQty = $item->approverlvl2_qty ?? $item->approverlvl1_qty ?? $item->wastage_qty;
+
+                    $totalQtyToDeductInBaseUom += $approvedQty * $conversionFactor;
+                    $totalCostOfWastage += $approvedQty * $item->cost;
+                }
+                
+                // If all items in group were 'Scrap', skip to next group
+                if ($totalQtyToDeductInBaseUom <= 0) {
+                    continue;
+                }
+
+                // 2. Find the single target masterfile for SOH update (where BaseUOM = AltUOM)
+                $targetSapMasterfile = \App\Models\SAPMasterfile::where('ItemCode', $itemCode)
+                    ->whereColumn('BaseUOM', 'AltUOM')
+                    ->first();
+
+                if (!$targetSapMasterfile) {
+                    \Log::warning('SOH Update Skipped: No target SAP Masterfile (BaseUOM=AltUOM) found for ItemCode.', ['item_code' => $itemCode]);
+                    continue;
+                }
+                
+                // 3. Find and update the ProductInventoryStock record
+                $productStock = \App\Models\ProductInventoryStock::where('product_inventory_id', $targetSapMasterfile->id)
+                    ->where('store_branch_id', $storeBranchId)
+                    ->first();
+
+                if (!$productStock || $productStock->quantity < $totalQtyToDeductInBaseUom) {
+                     throw new \Exception("Insufficient stock for item {$targetSapMasterfile->ItemDescription}. Available: " . ($productStock->quantity ?? 0) . ", Required: {$totalQtyToDeductInBaseUom}");
+                }
+
+                // Decrement stock and update 'used'
+                $productStock->quantity -= $totalQtyToDeductInBaseUom;
+                $productStock->used += $totalQtyToDeductInBaseUom;
+                $productStock->save();
+                
+                // 4. Create a single stock manager entry for the aggregated deduction
+                ProductInventoryStockManager::create([
+                    'product_inventory_id' => $targetSapMasterfile->id,
+                    'store_branch_id' => $storeBranchId,
+                    'quantity' => $totalQtyToDeductInBaseUom,
+                    'action' => 'out',
+                    'unit_cost' => $totalCostOfWastage / ($totalQtyToDeductInBaseUom ?: 1), // Avoid division by zero
+                    'total_cost' => $totalCostOfWastage,
+                    'transaction_date' => now(),
+                    'remarks' => 'Wastage Approval Level 2: ' . $wastage->wastage_no,
+                ]);
+            }
+            
+            // 5. Update status for all processed items
             Wastage::where('wastage_no', $wastage->wastage_no)
+                ->where('wastage_status', WastageStatus::APPROVED_LVL1)
                 ->update([
                     'wastage_status' => WastageStatus::APPROVED_LVL2->value,
                     'approved_level2_by' => $user->id,
                     'approved_level2_date' => now(),
                 ]);
+                
+            // Set approverlvl2_qty for items that didn't have it set
+            foreach ($relatedWastages as $item) {
+                 if (is_null($item->approverlvl2_qty)) {
+                    $item->approverlvl2_qty = $item->approverlvl1_qty ?? $item->wastage_qty;
+                    $item->save();
+                }
+            }
 
-            // Commit the transaction
             \DB::commit();
 
             return redirect()
@@ -342,7 +332,6 @@ class WastageApprovalLevel2Controller extends Controller
                 ->with('success', 'Wastage record approved at level 2 successfully. Inventory stock updated.');
 
         } catch (\Exception $e) {
-            // Rollback the transaction if something went wrong
             \DB::rollBack();
 
             \Log::error('Failed to approve wastage record at level 2: ' . $e->getMessage(), [

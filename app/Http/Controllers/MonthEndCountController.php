@@ -31,43 +31,38 @@ class MonthEndCountController extends Controller
         $userBranchIds = $user->store_branches->pluck('id');
 
         $today = Carbon::today('Asia/Manila');
-        $yesterday = Carbon::yesterday('Asia/Manila');
+        $yesterday = Carbon::yesterday('Asia/Manila'); // Re-introduce yesterday
 
         $downloadSchedule = null;
         $uploadSchedule = null;
-        $message = 'No month end count scheduled for today or yesterday.';
-        $branchesAwaitingUpload = collect(); // Initialize as empty collection
-        $uploadedCountsAwaitingSubmission = collect(); // New: For uploaded counts awaiting user submission
+        $message = 'No month end count scheduled.';
+        $branchesAwaitingUpload = collect();
+        $uploadedCountsAwaitingSubmission = collect();
 
-        // Check for a global schedule for today (for download)
-        $downloadSchedule = MonthEndSchedule::whereDate('calculated_date', $today)
-            ->where('status', 'pending')
-            ->first();
+        // Download schedule: any schedule for today, regardless of status.
+        $downloadSchedule = MonthEndSchedule::whereDate('calculated_date', $today)->first();
 
-        // Check for a global schedule for yesterday (for upload)
+        // Upload schedule: the schedule whose calculated_date was yesterday.
         $globalUploadSchedule = MonthEndSchedule::whereDate('calculated_date', $yesterday)
-            ->whereIn('status', ['pending', 'uploaded', 'level1_approved', 'level2_approved', 'pending_level1_approval']) // Allow uploads as long as schedule is not fully completed/closed
-            ->first();
+            ->first(); // No status filter
 
         if ($globalUploadSchedule) {
             $allUserBranchIds = $user->store_branches->pluck('id');
 
-            // Find branches that have any non-rejected item for this schedule
+            // Find branches that have already uploaded (and not rejected) for this schedule.
             $branchesWithNonRejectedItems = MonthEndCountItem::where('month_end_schedule_id', $globalUploadSchedule->id)
                 ->whereIn('branch_id', $allUserBranchIds)
-                ->whereNotIn('status', ['rejected']) // Exclude rejected items
+                ->whereNotIn('status', ['rejected'])
                 ->select('branch_id')
                 ->distinct()
                 ->pluck('branch_id');
 
-            // Branches that still need to upload are those assigned to the user
-            // AND do not have any non-rejected items for this schedule.
+            // Branches that still need to upload are those assigned to the user that are not in the above list.
             $branchesAwaitingUploadIds = $allUserBranchIds->diff($branchesWithNonRejectedItems);
-
             $branchesAwaitingUpload = StoreBranch::whereIn('id', $branchesAwaitingUploadIds)->pluck('name', 'id');
 
             if ($branchesAwaitingUpload->isNotEmpty()) {
-                $uploadSchedule = $globalUploadSchedule; // Set uploadSchedule if there are branches still needing to upload
+                $uploadSchedule = $globalUploadSchedule;
             }
         }
 
@@ -241,13 +236,29 @@ class MonthEndCountController extends Controller
         }
         Log::info('MonthEndCountController@upload: Date validation passed.');
 
-        // Ensure the schedule is open for uploads
-        $allowed_statuses = ['pending', 'uploaded', 'level1_approved'];
-        if (!in_array($schedule->status, $allowed_statuses)) {
-            Log::warning('MonthEndCountController@upload: Schedule not open for upload.', ['schedule_id' => $schedule->id, 'status' => $schedule->status]);
-            return back()->withErrors(['error' => 'This schedule is no longer open for uploads.']);
+        // Check for branch-specific upload validation
+        // Allow upload if this branch hasn't uploaded for this schedule yet
+        $existingUpload = MonthEndCountItem::where('month_end_schedule_id', $schedule->id)
+            ->where('branch_id', $branch->id)
+            ->whereNotIn('status', ['rejected'])
+            ->first();
+
+        if ($existingUpload) {
+            Log::warning('MonthEndCountController@upload: Branch already uploaded for this schedule.', [
+                'schedule_id' => $schedule->id,
+                'branch_id' => $branch->id,
+                'branch_name' => $branch->name,
+                'existing_status' => $existingUpload->status
+            ]);
+            return back()->withErrors(['error' => "The branch \"{$branch->name}\" has already uploaded for this schedule. Multiple uploads from the same branch are not allowed."]);
         }
-        Log::info('MonthEndCountController@upload: Status validation passed.');
+
+        // Additional schedule-level validation - only block if schedule is expired (not level2_approved since different branches can upload)
+        if ($schedule->status === 'expired') {
+            Log::warning('MonthEndCountController@upload: Schedule is expired.', ['schedule_id' => $schedule->id, 'status' => $schedule->status]);
+            return back()->withErrors(['error' => 'This schedule has expired and is no longer open for uploads.']);
+        }
+        Log::info('MonthEndCountController@upload: Branch-specific validation passed.');
 
         DB::beginTransaction();
         try {

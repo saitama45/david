@@ -325,11 +325,24 @@ class MassOrdersController extends Controller
         $orderedItems = $this->storeOrderService->getOrderItems($order);
         $orderedItems->load('supplierItem.sapMasterfiles');
 
+        // Fetch images directly from the relationship to ensure the accessor is called
+        $images = $order->image_attachments()->get();
+
+        // Explicitly load receive dates history with necessary relationships
+        $receiveDatesHistory = \App\Models\OrderedItemReceiveDate::with([
+            'store_order_item.supplierItem',
+            'received_by_user',
+            'approval_action_by_user'
+        ])
+        ->whereHas('store_order_item', function ($query) use ($order) {
+            $query->where('store_order_id', $order->id);
+        })->get();
+
         return \Inertia\Inertia::render('MassOrders/Show', [
             'order' => $order,
             'orderedItems' => $orderedItems,
-            'receiveDatesHistory' => $order->ordered_item_receive_dates,
-            'images' => $this->storeOrderService->getImageAttachments($order)
+            'receiveDatesHistory' => $receiveDatesHistory,
+            'images' => $images
         ]);
     }
 

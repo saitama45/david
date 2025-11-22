@@ -5,7 +5,7 @@ import { throttle } from 'lodash';
 import { Eye, ArrowUp, ArrowDown } from 'lucide-vue-next';
 
 const props = defineProps({
-    schedules: { type: Object, required: true },
+    approvals: { type: Object, required: true },
     filters: { type: Object, default: () => ({}) },
     tab: { type: String, required: true },
     counts: { type: Object, required: true },
@@ -164,58 +164,34 @@ const getStatusClass = (status) => {
                     <TH>Actions</TH>
                 </TableHead>
                 <TableBody>
-                    <tr v-if="!schedules.data.length">
+                    <tr v-if="!approvals.data.length">
                         <td :colspan="8" class="text-center py-4">{{ activeTab === 'for_approval' ? 'No schedules awaiting approval.' : 'No schedules found.' }}</td>
                     </tr>
-                    <tr v-for="schedule in schedules.data" :key="schedule.id">
-                        <TD>{{ schedule.id }}</TD>
-                        <TD>{{ schedule.year }}</TD>
-                        <TD>{{ getMonthName(schedule.month) }}</TD>
-                        <TD>{{ formatDate(schedule.calculated_date) }}</TD>
+                    <tr v-for="approval in approvals.data" :key="`${approval.schedule_id}-${approval.branch_id}`">
+                        <TD>{{ approval.schedule_id }}</TD>
+                        <TD>{{ approval.year }}</TD>
+                        <TD>{{ getMonthName(approval.month) }}</TD>
+                        <TD>{{ formatDate(approval.calculated_date) }}</TD>
                         <TD>
-                            <Badge v-if="activeTab === 'for_approval'" class="capitalize bg-purple-500 text-white">
-                                Pending Level 1 Approval
+                            <Badge class="capitalize" :class="getStatusClass(approval.status)">
+                                {{ approval.status.replace(/_/g, ' ') }}
                             </Badge>
-                            <div v-else-if="activeTab === 'approved'" class="flex flex-wrap gap-1">
-                                <template v-for="branch in schedule.branch_data">
-                                    <Badge v-for="status in branch.statuses" :key="status" class="capitalize" :class="getStatusClass(status)">
-                                        {{ status.replace(/_/g, ' ') }}
-                                    </Badge>
-                                </template>
-                            </div>
                         </TD>
-                        <TD>{{ schedule.creator ? `${schedule.creator.first_name} ${schedule.creator.last_name}` : 'N/A' }}</TD>
+                        <TD>{{ approval.creator_name }}</TD>
                         <TD>
-                            <div v-if="activeTab === 'for_approval' && schedule.branches_awaiting_approval?.length">
-                                <Badge v-for="branch in schedule.branches_awaiting_approval" :key="branch.id" class="bg-gray-200 text-gray-800 mr-1 mb-1">{{ branch.name }}</Badge>
-                            </div>
-                            <div v-else-if="activeTab === 'approved' && schedule.branch_data?.length" class="flex flex-wrap gap-1">
-                                <Badge v-for="branch in schedule.branch_data" :key="branch.id" class="bg-gray-200 text-gray-800">
-                                    {{ branch.name }}
-                                </Badge>
-                            </div>
-                            <span v-else>N/A</span>
+                             <Badge class="bg-gray-200 text-gray-800">
+                                {{ approval.branch_name }}
+                            </Badge>
                         </TD>
                         <TD>
-                            <div class="flex gap-2 items-start">
-                                <template v-if="activeTab === 'for_approval'">
-                                    <Button v-for="branch in schedule.branches_awaiting_approval" :key="branch.id" @click="viewApproval(schedule.id, branch.id)" variant="outline" size="icon" :title="`View ${branch.name}`">
-                                        <Eye class="h-4 w-4" />
-                                    </Button>
-                                </template>
-                                <template v-if="activeTab === 'approved'">
-                                    <template v-for="branch in schedule.branch_data" :key="branch.id">
-                                        <Button @click="viewApproval(schedule.id, branch.id)" variant="outline" size="icon" :title="`View ${branch.name}`">
-                                            <Eye class="h-4 w-4" />
-                                        </Button>
-                                    </template>
-                                </template>
-                            </div>
+                            <Button @click="viewApproval(approval.schedule_id, approval.branch_id)" variant="outline" size="icon" :title="`View ${approval.branch_name}`">
+                                <Eye class="h-4 w-4" />
+                            </Button>
                         </TD>
                     </tr>
                 </TableBody>
             </Table>
-            <Pagination v-if="schedules.data.length > 0" :data="schedules" />
+            <Pagination v-if="approvals.data.length > 0" :data="approvals" />
         </TableContainer>
     </Layout>
 </template>

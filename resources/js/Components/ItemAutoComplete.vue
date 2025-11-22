@@ -112,7 +112,7 @@ const debouncedSearch = debounce(async (searchTerm) => {
             }
         });
 
-        searchResults.value = response.data.items || []
+        searchResults.value = (response.data.items || []).filter(item => item.stock > 0)
         isDropdownOpen.value = searchResults.value.length > 0
         highlightedIndex.value = -1
 

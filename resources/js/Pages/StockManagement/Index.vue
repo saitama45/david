@@ -31,8 +31,6 @@ const { products, branches, costCenters, storeSummary } = defineProps({
 
 onBeforeUnmount(() => {
     isUpdateModalVisible.value = false;
-    isLogUsageModalOpen.value = false;
-    isAddQuantityModalOpen.value = false;
 });
 
 const { options: branchesOptions } = useSelectOptions(branches);
@@ -80,8 +78,7 @@ watch(
     }, 500)
 );
 
-const isLogUsageModalOpen = ref(false);
-const isAddQuantityModalOpen = ref(false);
+
 
 const form = useForm({
     id: null,
@@ -92,74 +89,8 @@ const form = useForm({
     transaction_date: null,
     remarks: null,
 });
-watch(isLogUsageModalOpen, (value) => {
-    if (!value) {
-        form.reset();
-        form.clearErrors();
-    }
-});
 
-watch(isAddQuantityModalOpen, (value) => {
-    if (!value) {
-        form.reset();
-        form.clearErrors();
-    }
-});
-const openLogUsageModal = (id) => {
-    form.id = id;
-    form.store_branch_id = branchId.value;
-    isLogUsageModalOpen.value = true;
-};
 
-const openAddQuantityModal = (id) => {
-    form.id = id;
-    form.store_branch_id = branchId.value;
-    isAddQuantityModalOpen.value = true;
-};
-
-const logUsage = () => {
-    form.post(route("stock-management.log-usage"), {
-        onSuccess: () => {
-            toast.add({
-                severity: "success",
-                summary: "Success",
-                detail: "Usage logged Successfully.",
-                life: 5000,
-            });
-            isLogUsageModalOpen.value = false;
-        },
-        onError: () => {
-            toast.add({
-                severity: "error",
-                summary: "Error",
-                detail: "An error occurred while trying to log the usage.",
-                life: 5000,
-            });
-        },
-    });
-};
-
-const addQuantity = () => {
-    form.post(route("stock-management.add-quantity"), {
-        onSuccess: () => {
-            toast.add({
-                severity: "success",
-                summary: "Success",
-                detail: "Quantity added Successfully.", // Changed detail message for clarity
-                life: 10000,
-            });
-            isAddQuantityModalOpen.value = false;
-        },
-        onError: () => {
-            toast.add({
-                severity: "error",
-                summary: "Error",
-                detail: "An error occurred while trying to add quantity.", // Changed detail message for clarity
-                life: 10000,
-            });
-        },
-    });
-};
 
 
 
@@ -180,14 +111,6 @@ const openUpdateModal = () => {
 };
 
 const options = [
-    {
-        label: "Add Quantity",
-        value: "add-quantity",
-    },
-    {
-        label: "Log Usage",
-        value: "log-usage",
-    },
     {
         label: "SOH Update",
         value: "soh-update",
@@ -211,11 +134,20 @@ const isLoading = ref(false);
 
 const updateImport = () => {
     const routeLocation =
-        updateForm.action == "add-quantity"
-            ? "stock-management.import-add"
-            : updateForm.action == "log-usage"
-            ? "stock-management.import-log-usage"
-            : "stock-management.import-soh-update";
+        updateForm.action == "soh-update"
+            ? "stock-management.import-soh-update"
+            : null;
+
+    if (!routeLocation) {
+        toast.add({
+            severity: "error",
+            summary: "Error",
+            detail: "Invalid update action selected.",
+            life: 3000,
+        });
+        isLoading.value = false;
+        return;
+    }
 
     updateForm.branch = branchId.value;
 
@@ -293,11 +225,7 @@ const getProductSOHForDisplay = (product) => {
     return parseFloat(product.stock_on_hand).toFixed(2);
 };
 
-// Helper function to log product Recorded Used and return formatted value
-const getProductRecordedUsedForDisplay = (product) => {
-    console.log(`Product ID: ${product.id}, Recorded Used: ${product.recorded_used}, Name: ${product.name}`);
-    return parseFloat(product.recorded_used).toFixed(2);
-};
+
 
 // Helper function to format Total BaseUOM SOH
 const getTotalBaseUOMSOH = (product) => {
@@ -463,9 +391,9 @@ const getTotalBaseUOMSOH = (product) => {
                         </div>
 
                         <!-- Metrics Grid -->
-                        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                        <div class="flex flex-wrap justify-center gap-6">
                             <!-- SOH Metric -->
-                            <div class="relative group">
+                            <div class="relative group w-full sm:w-96">
                                 <div class="absolute inset-0 bg-gradient-to-r from-blue-500 to-blue-600 rounded-xl transform scale-95 group-hover:scale-100 transition-transform duration-300 opacity-10"></div>
                                 <div class="relative bg-white/60 backdrop-blur-sm rounded-xl p-6 border border-blue-200/50 hover:border-blue-300/70 transition-all duration-300">
                                     <div class="flex items-center justify-between mb-3">
@@ -486,7 +414,7 @@ const getTotalBaseUOMSOH = (product) => {
                             </div>
 
                             <!-- BaseUOM SOH Metric -->
-                            <div class="relative group">
+                            <div class="relative group w-full sm:w-96">
                                 <div class="absolute inset-0 bg-gradient-to-r from-purple-500 to-purple-600 rounded-xl transform scale-95 group-hover:scale-100 transition-transform duration-300 opacity-10"></div>
                                 <div class="relative bg-white/60 backdrop-blur-sm rounded-xl p-6 border border-purple-200/50 hover:border-purple-300/70 transition-all duration-300">
                                     <div class="flex items-center justify-between mb-3">
@@ -507,7 +435,7 @@ const getTotalBaseUOMSOH = (product) => {
                             </div>
 
                             <!-- Items Count Metric -->
-                            <div class="relative group">
+                            <div class="relative group w-full sm:w-96">
                                 <div class="absolute inset-0 bg-gradient-to-r from-green-500 to-green-600 rounded-xl transform scale-95 group-hover:scale-100 transition-transform duration-300 opacity-10"></div>
                                 <div class="relative bg-white/60 backdrop-blur-sm rounded-xl p-6 border border-green-200/50 hover:border-green-300/70 transition-all duration-300">
                                     <div class="flex items-center justify-between mb-3">
@@ -524,27 +452,6 @@ const getTotalBaseUOMSOH = (product) => {
                                     <h4 class="text-sm font-medium text-gray-600 mb-1">Items Found</h4>
                                     <p class="text-2xl font-bold text-gray-900">{{ storeSummary.dashboard_stats.total_items.toLocaleString() }}</p>
                                     <p class="text-xs text-gray-500 mt-1">In {{ storeSummary.dashboard_stats.total_unique_base_uoms }} BaseUOMs</p>
-                                </div>
-                            </div>
-
-                            <!-- Efficiency Metric -->
-                            <div class="relative group">
-                                <div class="absolute inset-0 bg-gradient-to-r from-amber-500 to-orange-600 rounded-xl transform scale-95 group-hover:scale-100 transition-transform duration-300 opacity-10"></div>
-                                <div class="relative bg-white/60 backdrop-blur-sm rounded-xl p-6 border border-amber-200/50 hover:border-amber-300/70 transition-all duration-300">
-                                    <div class="flex items-center justify-between mb-3">
-                                        <div class="w-12 h-12 bg-gradient-to-br from-amber-500 to-orange-600 rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform duration-300">
-                                            <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path>
-                                            </svg>
-                                        </div>
-                                        <div class="flex items-center gap-1">
-                                            <div class="w-2 h-2 bg-amber-500 rounded-full"></div>
-                                            <span class="text-xs font-medium text-amber-600">Live</span>
-                                        </div>
-                                    </div>
-                                    <h4 class="text-sm font-medium text-gray-600 mb-1">Coverage</h4>
-                                    <p class="text-2xl font-bold text-gray-900">{{ Math.round((storeSummary.total_base_uom_soh / Math.max(storeSummary.dashboard_stats.overall_total_base_uom_soh, 1)) * 100) }}%</p>
-                                    <p class="text-xs text-gray-500 mt-1">Of total inventory</p>
                                 </div>
                             </div>
                         </div>
@@ -581,7 +488,6 @@ const getTotalBaseUOMSOH = (product) => {
                     <TH>Alt UOM</TH> <!-- Added new column for Alt UOM -->
                     <TH>SOH</TH>
                     <TH>Total BaseUOM SOH</TH>
-                    <TH>Recorded Used</TH>
                     <TH>Actions</TH>
                 </TableHead>
                 <TableBody>
@@ -592,43 +498,21 @@ const getTotalBaseUOMSOH = (product) => {
                         <TD>{{ product.alt_uom }}</TD> <!-- Display Alt UOM -->
                         <TD>{{ getProductSOHForDisplay(product) }}</TD>
                         <TD>{{ getTotalBaseUOMSOH(product) }}</TD>
-                        <TD>{{ getProductRecordedUsedForDisplay(product) }}</TD>
                         <TD>
                             <DivFlexCenter class="gap-3">
                                 <Link
-                                    v-if="
-                                        hasAccess(
-                                            'view stock management history'
-                                        ) && product.id
-                                    "
+                                    v-if="hasAccess('view stock management history') && product.id"
                                     :href="
-                                        route(
-                                            'stock-management.show',
-                                            {
-                                                id: product.id,
-                                                branchId: branchId
-                                            }
-                                        )
+                                        route('stock-management.show', {
+                                            id: product.id,
+                                            branchId: branchId
+                                        })
                                     "
                                     class="p-1.5 text-gray-600 hover:bg-gray-100 rounded-md"
                                     title="View Details"
                                 >
                                     <Eye class="h-5 w-5" />
                                 </Link>
-                                <Button
-                                    v-if="hasAccess('log stock usage')"
-                                    @click="openLogUsageModal(product.id)"
-                                    variant="link"
-                                    class="text-xs text-orange-500"
-                                    >Log Usage</Button
-                                >
-                                <Button
-                                    v-if="hasAccess('add stock quantity')"
-                                    @click="openAddQuantityModal(product.id)"
-                                    variant="link"
-                                    class="text-xs text-green-500"
-                                    >Add Quantity</Button
-                                >
                             </DivFlexCenter>
                         </TD>
                     </tr>
@@ -663,168 +547,11 @@ const getTotalBaseUOMSOH = (product) => {
                         >Estimated Used: {{ product.estimated_used }}
                         {{ product.ingredient_units }}</LabelXS
                     >
-                    <LabelXS
-                        >Recorded Used: {{ getProductRecordedUsedForDisplay(product) }}</LabelXS
-                    >
-                    <DivFlexCenter class="gap-3">
-                        <Button
-                            v-if="hasAccess('log stock usage')"
-                            @click="openLogUsageModal(product.id)"
-                            variant="link"
-                            class="text-xs text-orange-500 p-0"
-                            >Log Usage</Button
-                        >
-                        <Button
-                            v-if="hasAccess('add stock quantity')"
-                            @click="openAddQuantityModal(product.id)"
-                            variant="link"
-                            class="text-xs teMNaxt-green-500 p-0"
-                            >Add Quantity</Button
-                        >
-                    </DivFlexCenter>
                 </MobileTableRow>
             </MobileTableContainer>
             <Pagination :data="products" />
         </TableContainer>
 
-        <Dialog
-            v-model:visible="isLogUsageModalOpen"
-            modal
-            header="Log Usage"
-            :style="{ width: '600px' }"
-            :breakpoints="{ '1199px': '75vw', '575px': '90vw' }"
-        >
-            <div class="space-y-4">
-                <p class="text-sm text-gray-600">Please input all the required fields.</p>
 
-                <DivFlexCol class="gap-3">
-                    <InputContainer>
-                        <LabelXS>Store Branch</LabelXS>
-                        <Select
-                            disabled
-                            filter
-                            class="min-w-72"
-                            placeholder="Select a Supplier"
-                            :options="branchesOptions"
-                            optionLabel="label"
-                            optionValue="value"
-                            v-model="form.store_branch_id"
-                        >
-                        </Select>
-                        <FormError>{{ form.errors.store_branch_id }}</FormError>
-                    </InputContainer>
-
-                    <InputContainer>
-                        <LabelXS>Cost Center</LabelXS>
-                        <SelectShad v-model="form.cost_center_id">
-                            <SelectTrigger>
-                                <SelectValue
-                                    placeholder="Select from choices"
-                                />
-                            </SelectTrigger>
-                            <SelectContent>
-                                <SelectGroup>
-                                    <SelectItem
-                                        v-for="costCenter in costCentersOptions"
-                                        :value="costCenter.value"
-                                    >
-                                        {{ costCenter.label }}
-                                    </SelectItem>
-                                </SelectGroup>
-                            </SelectContent>
-                        </SelectShad>
-                        <FormError>{{ form.errors.cost_center_id }}</FormError>
-                    </InputContainer>
-
-                    <InputContainer>
-                        <LabelXS>Quantity Used</LabelXS>
-                        <Input type="number" v-model="form.quantity" />
-                        <FormError>{{ form.errors.quantity }}</FormError>
-                    </InputContainer>
-
-                    <InputContainer>
-                        <LabelXS>Transaction Date</LabelXS>
-                        <Input type="date" v-model="form.transaction_date" />
-                        <FormError>{{
-                            form.errors.transaction_date
-                        }}</FormError>
-                    </InputContainer>
-
-                    <InputContainer>
-                        <LabelXS>Remarks</LabelXS>
-                        <Textarea type="number" v-model="form.remarks" />
-                        <FormError>{{ form.errors.remarks }}</FormError>
-                    </InputContainer>
-                </DivFlexCol>
-            </div>
-
-            <template #footer>
-                <DivFlexCenter class="justify-end">
-                    <Button @click="logUsage">Submit</Button>
-                </DivFlexCenter>
-            </template>
-        </Dialog>
-
-        <Dialog
-            v-model:visible="isAddQuantityModalOpen"
-            modal
-            header="Add Quantity"
-            :style="{ width: '600px' }"
-            :breakpoints="{ '1199px': '75vw', '575px': '90vw' }"
-        >
-            <div class="space-y-4">
-                <p class="text-sm text-gray-600">Please input all the required fields.</p>
-
-                <DivFlexCol class="gap-3">
-                    <InputContainer>
-                        <LabelXS>Store Branch</LabelXS>
-                        <Select
-                            disabled
-                            filter
-                            class="min-w-72"
-                            placeholder="Select a Supplier"
-                            :options="branchesOptions"
-                            optionLabel="label"
-                            optionValue="value"
-                            v-model="form.store_branch_id"
-                        >
-                        </Select>
-                        <FormError>{{ form.errors.store_branch_id }}</FormError>
-                    </InputContainer>
-
-                    <InputContainer>
-                        <LabelXS>Quantity</LabelXS>
-                        <Input type="number" v-model="form.quantity" />
-                        <FormError>{{ form.errors.quantity }}</FormError>
-                    </InputContainer>
-
-                    <InputContainer>
-                        <LabelXS>Unit Cost</LabelXS>
-                        <Input type="number" v-model="form.unit_cost" />
-                        <FormError>{{ form.errors.unit_cost }}</FormError>
-                    </InputContainer>
-
-                    <InputContainer>
-                        <LabelXS>Transaction Date</LabelXS>
-                        <Input type="date" v-model="form.transaction_date" />
-                        <FormError>{{
-                            form.errors.transaction_date
-                        }}</FormError>
-                    </InputContainer>
-
-                    <InputContainer>
-                        <LabelXS>Remarks</LabelXS>
-                        <Textarea type="number" v-model="form.remarks" />
-                        <FormError>{{ form.errors.remarks }}</FormError>
-                    </InputContainer>
-                </DivFlexCol>
-            </div>
-
-            <template #footer>
-                <DivFlexCenter class="justify-end">
-                    <Button @click="addQuantity">Submit</Button>
-                </DivFlexCenter>
-            </template>
-        </Dialog>
     </Layout>
 </template>

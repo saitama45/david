@@ -211,29 +211,38 @@ class IntercoRequest extends FormRequest
     }
 
     /**
-     * Validate that items are unique within the request
+     * Validate that items are unique within the request (item_code + uom)
      */
     protected function validateUniqueItems($validator)
     {
         $items = $this->input('items', []);
-        $itemCodes = [];
+        $uniqueKeys = []; // Stores composite keys 'item_code-uom' => itemId
 
         foreach ($items as $index => $item) {
             $itemCode = $item['item_code'] ?? null;
+            $uom = $item['uom'] ?? null;
             $itemId = $item['id'] ?? null;
 
-            // For updates, skip checking if it's the same item being updated
-            if ($itemId && isset($itemCodes[$itemCode])) {
-                if ($itemCodes[$itemCode] === $itemId) {
-                    continue; // Same item, skip
+            if (!$itemCode || !$uom) {
+                continue; // Let other rules handle missing fields
+            }
+
+            $compositeKey = "{$itemCode}-{$uom}";
+
+            // For updates, if the key exists, check if it's the same DB record.
+            if ($itemId && isset($uniqueKeys[$compositeKey])) {
+                if ($uniqueKeys[$compositeKey] === $itemId) {
+                    continue; // This is the same item being updated, which is fine.
                 }
             }
 
-            if (isset($itemCodes[$itemCode])) {
+            // If the composite key has already been seen, it's a duplicate.
+            if (isset($uniqueKeys[$compositeKey])) {
                 $validator->errors()->add("items.{$index}.item_code",
-                    "This item has already been added to the transfer.");
+                    "This item with UOM '{$uom}' has already been added to the transfer.");
             } else {
-                $itemCodes[$itemCode] = $itemId ?? true;
+                // Store the key with its DB ID if available, for update checks.
+                $uniqueKeys[$compositeKey] = $itemId ?? true;
             }
         }
     }

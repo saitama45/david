@@ -414,8 +414,9 @@ const handleImageLoad = (imageId) => {
 const handleImageError = (imageId, image) => {
   if (image.urlInfo && image.urlInfo.isGoogleDrive && image.urlInfo.hasMoreFallbacks) {
     const nextAttempt = (urlAttempts.value[imageId] || 0) + 1;
-    urlAttempts.value[imageId] = nextAttempt;
-    // Trigger reactivity update by forcing computed property to recompute
+    const newAttempts = { ...urlAttempts.value };
+    newAttempts[imageId] = nextAttempt;
+    urlAttempts.value = newAttempts;
     return;
   }
 

@@ -151,24 +151,13 @@ const deleteRecord = (wastage) => {
   }
 }
 
-// Watch for filter changes (except status - handled by handleStatusChange)
-watch([search, dateRange], () => {
-  // Debounce search and date range changes
+// Watch for filter changes
+watch([search, status, dateRange], () => {
+  // Debounce search
   clearTimeout(searchTimeout)
   searchTimeout = setTimeout(() => {
     applyFilters()
   }, 500)
-})
-
-// Watch for status changes separately to handle 'all' case properly
-watch(status, (newStatus, oldStatus) => {
-  if (newStatus !== oldStatus) {
-    console.log('Status watcher triggered:', { newStatus, oldStatus })
-    clearTimeout(searchTimeout)
-    searchTimeout = setTimeout(() => {
-      applyFilters()
-    }, 200) // Faster response for status changes
-  }
 })
 
 let searchTimeout
@@ -222,16 +211,16 @@ let searchTimeout
           </div>
 
           <!-- Status Filter -->
-          <Select v-model="status">
+          <Select v-model="status" :options="statusOptions">
             <SelectTrigger>
               <SelectValue placeholder="All Statuses" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">All Statuses</SelectItem>
+              <SelectItem :value="'all'">All Statuses</SelectItem>
               <SelectItem
                 v-for="option in statusOptions"
                 :key="option.value"
-                :value="String(option.value)"
+                :value="option.value"
               >
                 {{ option.label }}
               </SelectItem>

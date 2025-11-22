@@ -23,102 +23,75 @@ class MECApproval2Controller extends Controller
         $userBranchIds = $user->store_branches->pluck('id');
         $tab = $request->input('tab', 'for_approval');
 
-        // --- Count Calculation ---
-        $forApprovalCount = MonthEndSchedule::query()
-            ->whereHas('countItems', function ($q) use ($userBranchIds) {
-                $q->whereIn('branch_id', $userBranchIds)
-                    ->where('status', 'level1_approved');
-            })->count();
+        // --- Main Query ---
+        $statusesToQuery = ($tab === 'for_approval')
+            ? ['level1_approved']
+            : ['level2_approved'];
 
-        $approvedCount = MonthEndSchedule::query()
-            ->whereHas('countItems', function ($q) use ($userBranchIds) {
-                $q->whereIn('branch_id', $userBranchIds)
-                  ->where('status', 'level2_approved');
-            })->count();
+        $query = DB::table('month_end_count_items as meci')
+            ->join('month_end_schedules as mes', 'meci.month_end_schedule_id', '=', 'mes.id')
+            ->join('store_branches as sb', 'meci.branch_id', '=', 'sb.id')
+            ->join('users as u', 'mes.created_by', '=', 'u.id')
+            ->whereIn('meci.branch_id', $userBranchIds)
+            ->whereIn('meci.status', $statusesToQuery)
+            ->select(
+                'mes.id as schedule_id',
+                'mes.year',
+                'mes.month',
+                'mes.calculated_date',
+                'sb.id as branch_id',
+                'sb.name as branch_name',
+                DB::raw("u.first_name + ' ' + u.last_name as creator_name"),
+                'meci.status'
+            )
+            ->distinct();
+
+        // Filtering
+        $query->when($request->input('year'), fn ($q, $year) => $q->where('mes.year', 'like', "%{$year}%"));
+        $query->when($request->input('month'), fn ($q, $month) => $q->where('mes.month', 'like', "%{$month}%"));
+        $query->when($request->input('calculated_date'), fn ($q, $date) => $q->whereDate('mes.calculated_date', $date));
+        $query->when($request->input('status'), fn ($q, $status) => $q->where('meci.status', 'like', "%{$status}%"));
+        $query->when($request->input('creator_name'), fn ($q, $name) => $q->where(DB::raw("u.first_name + ' ' + u.last_name"), 'like', "%{$name}%"));
+        $query->when($request->input('branch_name'), fn ($q, $name) => $q->where('sb.name', 'like', "%{$name}%"));
+
+        // Sorting
+        $sort = $request->input('sort', 'id');
+        $direction = $request->input('direction', 'desc');
+        $sort_map = [
+            'id' => 'mes.id',
+            'year' => 'mes.year',
+            'month' => 'mes.month',
+            'calculated_date' => 'mes.calculated_date',
+            'status' => 'meci.status',
+            'creator_name' => 'creator_name',
+            'branch_name' => 'sb.name',
+        ];
+        if (array_key_exists($sort, $sort_map)) {
+            $query->orderBy($sort_map[$sort], $direction);
+        }
+
+        $approvals = $query->paginate(15)->withQueryString();
+
+        // --- Count Calculation ---
+        $forApprovalCount = DB::table('month_end_count_items')
+            ->whereIn('branch_id', $userBranchIds)
+            ->where('status', 'level1_approved')
+            ->distinct()
+            ->count('branch_id');
+
+        $approvedCount = DB::table('month_end_count_items')
+            ->whereIn('branch_id', $userBranchIds)
+            ->where('status', 'level2_approved')
+            ->distinct()
+            ->count('branch_id');
 
         $counts = [
             'for_approval' => $forApprovalCount,
             'approved' => $approvedCount,
         ];
 
-        // --- Main Query ---
-        $query = MonthEndSchedule::query()
-            ->with(['creator:id,first_name,last_name']);
-
-        if ($tab === 'for_approval') {
-            $query->whereHas('countItems', function ($q) use ($userBranchIds) {
-                $q->whereIn('branch_id', $userBranchIds)
-                    ->where('status', 'level1_approved');
-            });
-        } else { // approved tab
-            $query->whereHas('countItems', function ($q) use ($userBranchIds) {
-                $q->whereIn('branch_id', $userBranchIds)
-                  ->where('status', 'level2_approved');
-            });
-        }
-
-        // Filtering
-        $query->when($request->input('year'), fn ($q, $year) => $q->where('year', 'like', "%{$year}%"));
-        $query->when($request->input('month'), fn ($q, $month) => $q->where('month', 'like', "%{$month}%"));
-        $query->when($request->input('calculated_date'), fn ($q, $date) => $q->whereDate('calculated_date', $date));
-
-        if ($tab === 'approved' && $request->input('status')) {
-            $status = $request->input('status');
-            $query->whereHas('countItems', function ($q) use ($status) {
-                $q->where('status', 'like', "%{$status}%");
-            });
-        }
-
-        $query->when($request->input('creator_name'), function ($q, $name) {
-            $q->whereHas('creator', function ($userQuery) use ($name) {
-                $userQuery->where(DB::raw("first_name + ' ' + last_name"), 'like', "%{$name}%");
-            });
-        });
-
-        $query->when($request->input('branch_name'), function ($q, $name) use ($userBranchIds) {
-            $q->whereHas('countItems.branch', function ($branchQuery) use ($name, $userBranchIds) {
-                $branchQuery->whereIn('id', $userBranchIds)->where('name', 'like', "%{$name}%");
-            });
-        });
-
-        // Sorting
-        $sort = $request->input('sort', 'id');
-        $direction = $request->input('direction', 'desc');
-
-        if ($sort === 'creator_name') {
-            $query->join('users', 'users.id', '=', 'month_end_schedules.created_by')
-                  ->orderBy('users.first_name', $direction)
-                  ->select('month_end_schedules.*');
-        } else {
-            $query->orderBy($sort, $direction);
-        }
-
-        $schedules = $query->paginate(15)->withQueryString();
-
-        $schedules->getCollection()->transform(function ($schedule) use ($userBranchIds, $tab) {
-            $statusesToQuery = ($tab === 'for_approval')
-                ? ['level1_approved']
-                : ['level2_approved'];
-
-            $branchData = MonthEndCountItem::where('month_end_schedule_id', $schedule->id)
-                ->whereIn('branch_id', $userBranchIds)
-                ->whereIn('status', $statusesToQuery)
-                ->with('branch:id,name')
-                ->get()
-                ->groupBy('branch.name')
-                ->map(function ($items, $branchName) {
-                    return [
-                        'name' => $branchName,
-                        'id' => $items->first()->branch_id,
-                        'statuses' => $items->pluck('status')->unique()->values()->all(),
-                    ];
-                })->values();
-            $schedule->branch_data = $branchData;
-            return $schedule;
-        });
-
         return Inertia::render('MECApproval2/Index', [
-            'schedules' => $schedules,
+            'approvals' => $approvals,
             'filters' => $request->only(['year', 'month', 'calculated_date', 'status', 'creator_name', 'branch_name', 'sort', 'direction', 'tab']),
             'tab' => $tab,
             'counts' => $counts,
@@ -173,38 +146,63 @@ class MECApproval2Controller extends Controller
             $countItems = MonthEndCountItem::where('month_end_schedule_id', $schedule->id)
                 ->where('branch_id', $branch->id)
                 ->where('status', 'level1_approved')
+                ->with('sapMasterfile') // Eager load the original masterfile to get the ItemCode
                 ->get();
 
-            foreach ($countItems as $item) {
-                $productStock = ProductInventoryStock::firstOrNew([
-                    'product_inventory_id' => $item->sap_masterfile_id,
-                    'store_branch_id' => $item->branch_id,
-                ]);
+            // Group items by the ItemCode of their related SAP Masterfile to aggregate quantities
+            $groupedItems = $countItems->filter(function ($item) {
+                return $item->sapMasterfile !== null;
+            })->groupBy('sapMasterfile.ItemCode');
 
-                // Calculate the actual current SOH (quantity - used)
-                $currentSOH = $productStock->exists ? ($productStock->quantity - $productStock->used) : 0;
-                $adjustmentQuantity = $item->total_qty - $currentSOH;
+            foreach ($groupedItems as $itemCode => $items) {
+                // 1. Calculate the total aggregated quantity for this group (same ItemCode).
+                $totalAggregatedQty = $items->sum('total_qty');
 
-                $productStock->quantity = $item->total_qty;
-                $productStock->recently_added = 0;
-                $productStock->used = 0;
-                $productStock->save();
+                // 2. Find the single target masterfile for this group.
+                // The target has the same ItemCode, but its BaseUOM = AltUOM.
+                $targetSapMasterfile = DB::table('sap_masterfiles')
+                    ->where('ItemCode', $itemCode)
+                    ->whereColumn('BaseUOM', 'AltUOM')
+                    ->first();
 
-                if ($adjustmentQuantity != 0) {
-                    ProductInventoryStockManager::create([
-                        'product_inventory_id' => $item->sap_masterfile_id,
-                        'store_branch_id' => $item->branch_id,
-                        'quantity' => abs($adjustmentQuantity),
-                        'action' => $adjustmentQuantity > 0 ? 'add' : 'out',
-                        'transaction_date' => Carbon::now(),
-                        'unit_cost' => 0,
-                        'total_cost' => 0,
-                        'is_stock_adjustment' => true,
-                        'is_stock_adjustment_approved' => true,
-                        'remarks' => 'Month End Count Approved',
+                if ($targetSapMasterfile) {
+                    // 3. Update ProductInventoryStock with the final aggregated quantity.
+                    $productStock = ProductInventoryStock::firstOrNew([
+                        'product_inventory_id' => $targetSapMasterfile->id,
+                        'store_branch_id' => $branch->id,
                     ]);
-                }
 
+                    $currentSOH = $productStock->exists ? $productStock->quantity : 0;
+                    $adjustmentQuantity = $totalAggregatedQty - $currentSOH;
+
+                    $productStock->quantity = $totalAggregatedQty; // Set to the final aggregated count
+                    $productStock->recently_added = 0;
+                    $productStock->used = 0;
+                    $productStock->save();
+
+                    // 4. Create ONE stock manager entry for the total adjustment for this product.
+                    if ($adjustmentQuantity != 0) {
+                        $remarkText = "Month End Count Approved for the month of " . Carbon::createFromDate(null, $schedule->month)->format('F') . " {$schedule->year}";
+                        $remarkData = "MEC_REF::{$schedule->id},{$branch->id}";
+
+                        ProductInventoryStockManager::create([
+                            'product_inventory_id' => $targetSapMasterfile->id,
+                            'store_branch_id' => $branch->id,
+                            'quantity' => abs($adjustmentQuantity),
+                            'action' => $adjustmentQuantity > 0 ? 'add' : 'out',
+                            'transaction_date' => Carbon::now(),
+                            'unit_cost' => 0,
+                            'total_cost' => 0,
+                            'is_stock_adjustment' => true,
+                            'is_stock_adjustment_approved' => true,
+                            'remarks' => "{$remarkText}||{$remarkData}",
+                        ]);
+                    }
+                }
+            }
+
+            // 5. After processing all groups, update the status of all original items.
+            foreach ($countItems as $item) {
                 $item->update([
                     'status' => 'level2_approved',
                     'level2_approved_by' => Auth::id(),
@@ -225,6 +223,7 @@ class MECApproval2Controller extends Controller
             return redirect()->route('month-end-count-approvals-level2.index')->with('success', 'Level 2 approval completed and inventory updated.');
         } catch (Exception $e) {
             DB::rollBack();
+            \Log::error('Error during Level 2 approval: ' . $e->getMessage(), ['trace' => $e->getTraceAsString()]);
             return back()->withErrors(['error' => 'Error during Level 2 approval: ' . $e->getMessage()]);
         }
     }

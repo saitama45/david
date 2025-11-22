@@ -190,7 +190,7 @@ let searchTimeout
           </div>
 
           <!-- Status Filter -->
-          <Select v-model="status">
+          <Select v-model="status" :options="statusOptions">
             <SelectTrigger>
               <SelectValue placeholder="All Statuses" />
             </SelectTrigger>

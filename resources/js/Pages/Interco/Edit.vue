@@ -338,7 +338,7 @@ const fetchSendingStoreItems = async (sendingStoreId) => {
           item.alt_uom.trim().toLowerCase() === existingItem.unit_of_measurement.trim().toLowerCase()
         )
         if (fetchedItem && fetchedItem.description) {
-          existingItem.description = fetchedItem.description
+          existingItem.description = fetchedItem.description;
 
           // Log specifically for 916A2C
           if (existingItem.item_code === '916A2C') {
@@ -423,7 +423,7 @@ const addToOrdersButton = () => {
   }
 
   const existingItemIndex = selectedItems.value.findIndex(
-    (item) => item.item_code === productDetails.inventory_code
+    (item) => item.item_code === productDetails.inventory_code && item.unit_of_measurement === productDetails.unit_of_measurement
   )
 
   const currentQuantity = Number(productDetails.quantity)
@@ -651,12 +651,13 @@ const executeFormSubmission = () => {
         quantity_committed: parseInt(Number(item.quantity_ordered)),
         cost_per_quantity: Number(item.cost_per_quantity || 1.0),
         uom: String(item.unit_of_measurement || item.uom || 'PCS'),
-        remarks: item.remarks || ''
+        remarks: item.remarks || '',
+        sap_masterfile_id: item.sap_masterfile_id || null,
         // Let backend handle sap_masterfile_id inference like Create.vue
       }
 
             return mappedItem
-    })
+    }),
   }
 
   isSubmitting.value = true

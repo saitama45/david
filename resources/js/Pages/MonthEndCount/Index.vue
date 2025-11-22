@@ -4,6 +4,7 @@ import { Download, Upload, Eye, ArrowUp, ArrowDown } from 'lucide-vue-next';
 import { ref, computed, watch } from 'vue';
 import { throttle } from 'lodash';
 import InputError from '@/Components/InputError.vue';
+import { useToast } from '@/Composables/useToast';
 
 const props = defineProps({
     downloadSchedule: { type: Object, default: null },
@@ -17,6 +18,7 @@ const props = defineProps({
     can: { type: Object, required: true },
 });
 
+const { toast } = useToast();
 const selectedBranchId = ref(null);
 
 const uploadForm = useForm({
@@ -78,22 +80,31 @@ const formatDate = (dateString) => {
     if (isNaN(date.getTime())) {
         return dateString;
     }
-    const userTimezoneOffset = date.getTimezoneOffset() * 60000;
-    const correctedDate = new Date(date.getTime() + userTimezoneOffset);
     return new Intl.DateTimeFormat('en-US', {
         year: 'numeric',
         month: '2-digit',
         day: '2-digit',
-    }).format(correctedDate);
+        timeZone: 'Asia/Manila', // Set to Manila timezone
+    }).format(date);
 };
 
 const submitUpload = () => {
     if (!uploadForm.branch_id) {
-        alert('Please select a branch.');
+        toast.add({
+            severity: 'warn',
+            summary: 'Validation Error',
+            detail: 'Please select a branch.',
+            life: 3000
+        });
         return;
     }
     if (!uploadForm.file) {
-        alert('Please select a file to upload.');
+        toast.add({
+            severity: 'warn',
+            summary: 'Validation Error',
+            detail: 'Please select a file to upload.',
+            life: 3000
+        });
         return;
     }
     uploadForm.post(route('month-end-count.upload'), {
@@ -102,8 +113,13 @@ const submitUpload = () => {
             selectedBranchId.value = null;
         },
         onError: (errors) => {
-            console.error('Upload Error:', errors);
-            alert('Upload failed. Check console for details.');
+            const errorMessage = errors.error || errors.file || errors.branch_id || 'Upload failed. Please try again.';
+            toast.add({
+                severity: 'error',
+                summary: 'Upload Failed',
+                detail: errorMessage,
+                life: 5000
+            });
         }
     });
 };

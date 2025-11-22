@@ -11,14 +11,14 @@
 // Configuration - Update these with your Google API credentials
 define('GOOGLE_CLIENT_ID', 'your_google_client_id_here');
 define('GOOGLE_CLIENT_SECRET', 'your_google_client_secret_here');
-define('REDIRECT_URI', 'http://localhost:8000/'); // Must match what's configured in Google Console
+define('REDIRECT_URI', 'http://127.0.0.1:8000/'); // Must match what's configured in Google Console
 
 // Google OAuth URLs
 define('AUTH_URL', 'https://accounts.google.com/o/oauth2/v2/auth');
 define('TOKEN_URL', 'https://oauth2.googleapis.com/token');
 
 // Required scope for Google Drive
-define('SCOPE', 'https://www.googleapis.com/auth/drive.file');
+define('SCOPE', 'https://www.googleapis.com/auth/drive');
 
 // Helper function to make HTTP requests
 function makeRequest($url, $data = null, $method = 'GET', $headers = []) {

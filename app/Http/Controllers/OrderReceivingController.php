@@ -171,115 +171,137 @@ class OrderReceivingController extends Controller
 
     public function confirmReceive($id)
     {
-        $historyItems = OrderedItemReceiveDate::with([
-            'store_order_item.store_order.store_order_items',
-            'store_order_item.supplierItem.sapMasterfiles'
-        ])
-        ->whereHas('store_order_item.store_order', function ($query) use ($id) {
-            $query->where('id', $id);
-        })
-        ->where('status', 'pending')
-        ->get();
+        DB::beginTransaction();
+        try {
+            $historyItems = OrderedItemReceiveDate::with([
+                'store_order_item.store_order',
+                'store_order_item.supplierItem'
+            ])
+            ->whereHas('store_order_item.store_order', fn ($q) => $q->where('id', $id))
+            ->where('status', 'pending')
+            ->get();
 
-        foreach ($historyItems as $data) {
-            DB::beginTransaction();
-            try {
-                $this->extracted($data);
-                $data->store_order_item->save();
-                $data->save();
-                $this->getOrderStatus($id);
-                DB::commit();
-            } catch (\Exception $e) {
-                DB::rollBack();
-                Log::error("OrderReceivingController: Error confirming receive for order item history ID {$data->id}: " . $e->getMessage(), [
-                    'trace' => $e->getTraceAsString()
-                ]);
-                return back()->with('error', 'Failed to confirm receive for some items. Check logs for details.');
+            if ($historyItems->isEmpty()) {
+                DB::commit(); // Nothing to do
+                return back()->with('info', 'No pending items to confirm.');
             }
+
+            $aggregatedData = [];
+
+            // 1. Aggregate quantities in BASE UOM
+            foreach ($historyItems as $history) {
+                $itemCode = optional($history->store_order_item->supplierItem)->ItemCode;
+                $uom = optional($history->store_order_item)->uom;
+
+                if (!$itemCode || !$uom) {
+                    Log::warning("OrderReceivingController: Skipping history item ID {$history->id} due to incomplete data (ItemCode or UOM missing).");
+                    continue;
+                }
+
+                // Find the SAP Masterfile for the specific UOM it was ordered/received in
+                $originalSapMasterfile = SAPMasterfile::where('ItemCode', $itemCode)->where('AltUOM', $uom)->first();
+
+                if (!$originalSapMasterfile) {
+                    Log::warning("OrderReceivingController: Could not find original SAP Masterfile for ItemCode '{$itemCode}' and UOM '{$uom}'. Skipping history item ID {$history->id}.");
+                    continue;
+                }
+
+                // Find the target SAP Masterfile for SOH (where BaseUOM = AltUOM)
+                $targetSapMasterfile = SAPMasterfile::where('ItemCode', $itemCode)->whereColumn('BaseUOM', 'AltUOM')->first();
+
+                if (!$targetSapMasterfile) {
+                    Log::warning("OrderReceivingController: Could not find target SOH SAP Masterfile for ItemCode '{$itemCode}'. Skipping history item ID {$history->id}.");
+                    continue;
+                }
+
+                // Calculate conversion and quantities
+                $conversionFactor = (is_numeric($originalSapMasterfile->BaseQty) && $originalSapMasterfile->BaseQty > 0)
+                    ? $originalSapMasterfile->BaseQty
+                    : 1;
+                $quantityInBaseUom = $history->quantity_received * $conversionFactor;
+                $costInBaseUom = ($conversionFactor != 0)
+                    ? $history->store_order_item->cost_per_quantity / $conversionFactor
+                    : $history->store_order_item->cost_per_quantity;
+
+                // Aggregate data by the target SOH item's ID
+                $targetId = $targetSapMasterfile->id;
+                if (!isset($aggregatedData[$targetId])) {
+                    $aggregatedData[$targetId] = [
+                        'total_base_qty' => 0,
+                        'total_cost' => 0,
+                        'unit_cost' => $costInBaseUom, // Base cost per base UOM
+                        'target_masterfile' => $targetSapMasterfile,
+                        'store_order' => $history->store_order_item->store_order,
+                        'store_order_item' => $history->store_order_item, // Pass for context
+                    ];
+                }
+                $aggregatedData[$targetId]['total_base_qty'] += $quantityInBaseUom;
+                $aggregatedData[$targetId]['total_cost'] += $history->quantity_received * $history->store_order_item->cost_per_quantity;
+            }
+
+            // 2. Process aggregated data
+            foreach ($aggregatedData as $data) {
+                $finalSOHToAdd = $data['total_base_qty'];
+                $storeOrder = $data['store_order'];
+                $targetSapMasterfile = $data['target_masterfile'];
+
+                if ($storeOrder->isInterco()) {
+                    $this->processInventoryOutForInterco($storeOrder, $finalSOHToAdd, $targetSapMasterfile);
+                }
+
+                $stock = ProductInventoryStock::firstOrNew([
+                    'product_inventory_id' => $targetSapMasterfile->id,
+                    'store_branch_id' => $storeOrder->store_branch_id
+                ]);
+                $stock->quantity += $finalSOHToAdd;
+                $stock->recently_added = ($stock->recently_added ?? 0) + $finalSOHToAdd;
+                $stock->save();
+
+                $batch = PurchaseItemBatch::create([
+                    'store_order_item_id' => $data['store_order_item']->id,
+                    'product_inventory_id' => $targetSapMasterfile->id,
+                    'store_branch_id' => $storeOrder->store_branch_id,
+                    'purchase_date' => Carbon::today()->format('Y-m-d'),
+                    'quantity' => $finalSOHToAdd,
+                    'unit_cost' => $data['unit_cost'],
+                    'remaining_quantity' => $finalSOHToAdd
+                ]);
+
+                $batch->product_inventory_stock_managers()->create([
+                    'product_inventory_id' => $targetSapMasterfile->id,
+                    'store_branch_id' => $storeOrder->store_branch_id,
+                    'quantity' => $finalSOHToAdd,
+                    'action' => 'add_quantity',
+                    'transaction_date' => Carbon::today()->format('Y-m-d'),
+                    'unit_cost' => $data['unit_cost'],
+                    'total_cost' => $data['total_cost'],
+                    'remarks' => 'From newly received items. (Order Number: ' . $storeOrder->order_number . ')'
+                ]);
+            }
+
+            // 3. Update individual history and order item records
+            foreach ($historyItems as $history) {
+                $history->update([
+                    'status' => 'approved',
+                    'approval_action_by' => Auth::id(),
+                    'received_date' => $history->received_date ?? Carbon::now('Asia/Manila'),
+                ]);
+                $history->store_order_item->quantity_received += $history->quantity_received;
+                $history->store_order_item->save();
+            }
+
+            $this->getOrderStatus($id);
+            DB::commit();
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+            Log::error("OrderReceivingController: Error confirming receive for order ID {$id}: " . $e->getMessage(), [
+                'trace' => $e->getTraceAsString()
+            ]);
+            return back()->with('error', 'Failed to confirm receive. Check logs for details.');
         }
 
         return back();
-    }
-
-    public function extracted($data): void
-    {
-        $updateData = [
-            'status' => 'approved',
-            'approval_action_by' => Auth::user()->id,
-            'received_by_user_id' => Auth::user()->id,
-        ];
-
-        if (is_null($data->received_date)) {
-            $updateData['received_date'] = Carbon::now('Asia/Manila');
-        }
-
-        $data->update($updateData);
-
-        $sapMasterfile = $data->store_order_item->supplierItem->sapMasterfile;
-
-        if (!$sapMasterfile) {
-            Log::error("OrderReceivingController: SAPMasterfile not found for StoreOrderItem ID: {$data->store_order_item->id} (ItemCode: {$data->store_order_item->item_code}, UOM: {$data->store_order_item->uom})");
-            throw new \Exception("SAP Masterfile not found for item: {$data->store_order_item->item_code}");
-        }
-        
-        $storeOrder = $data->store_order_item->store_order;
-
-        // NEW: Check if this is an interco order and process inventory OUT for sending store
-        if ($storeOrder->isInterco()) {
-            $this->processInventoryOutForInterco($storeOrder, $data, $sapMasterfile);
-        }
-
-        Log::info("OrderReceivingController: Processing StoreOrderItem ID: {$data->store_order_item->id}, SAPMasterfile ID: {$sapMasterfile->id}, Quantity Received: {$data->quantity_received}");
-
-        $stock = ProductInventoryStock::firstOrNew([
-            'product_inventory_id' => $sapMasterfile->id,
-            'store_branch_id' => $storeOrder->store_branch_id
-        ]);
-
-        if (!$stock->exists) {
-            $stock->quantity = 0;
-            $stock->recently_added = 0;
-            $stock->used = 0;
-            Log::info("OrderReceivingController: New ProductInventoryStock record being initialized for product_inventory_id: {$sapMasterfile->id}.");
-        } else {
-            Log::info("OrderReceivingController: Existing ProductInventoryStock record found (ID: {$stock->id}) for product_inventory_id: {$sapMasterfile->id}. Current quantity: {$stock->quantity}.");
-        }
-        
-        $stock->quantity += $data->quantity_received;
-        $stock->recently_added = $data->quantity_received;
-        
-        Log::info("OrderReceivingController: ProductInventoryStock BEFORE save (ID: " . (isset($stock->id) ? $stock->id : 'NEW') . "): Calculated Quantity = {$stock->quantity}, Recently Added = {$stock->recently_added}");
-        
-        $stock->save();
-
-        Log::info("OrderReceivingController: ProductInventoryStock AFTER save (ID: {$stock->id}): Persisted Quantity = {$stock->quantity}, Persisted Recently Added = {$stock->recently_added}");
-
-        $batch = PurchaseItemBatch::create([
-            'store_order_item_id' => $data->store_order_item->id,
-            'product_inventory_id' => $sapMasterfile->id,
-            'store_branch_id' => $storeOrder->store_branch_id,
-            'purchase_date' => Carbon::today()->format('Y-m-d'),
-            'quantity' => $data->quantity_received,
-            'unit_cost' => $data->store_order_item->cost_per_quantity,
-            'remaining_quantity' => $data->quantity_received
-        ]);
-
-        Log::info("OrderReceivingController: PurchaseItemBatch created with ID: {$batch->id}, Quantity: {$batch->quantity}");
-
-        $batch->product_inventory_stock_managers()->create([
-            'product_inventory_id' => $sapMasterfile->id,
-            'store_branch_id' => $storeOrder->store_branch_id,
-            'quantity' => $data->quantity_received,
-            'action' => 'add_quantity',
-            'transaction_date' => Carbon::today()->format('Y-m-d'),
-            'unit_cost' =>  $data->store_order_item->cost_per_quantity,
-            'total_cost' => $data->quantity_received * $data->store_order_item->cost_per_quantity,
-            'remarks' => 'From newly received items. (Order Number: ' . $storeOrder->order_number . ')'
-        ]);
-
-        Log::info("OrderReceivingController: ProductInventoryStockManager entry created for batch ID: {$batch->id}");
-
-        $data->store_order_item->quantity_received += $data->quantity_received;
     }
 
     public function getOrderStatus($id)
@@ -298,63 +320,62 @@ class OrderReceivingController extends Controller
     /**
      * Process inventory OUT for interco transfers from sending store
      */
-    private function processInventoryOutForInterco($storeOrder, $data, $sapMasterfile): void
+    private function processInventoryOutForInterco($storeOrder, $quantityToDeduct, $targetSapMasterfile): void
     {
         try {
-            Log::info("OrderReceivingController: Processing inventory OUT for interco order {$storeOrder->interco_number}, item {$sapMasterfile->item_code}, quantity {$data->quantity_received}");
+            Log::info("OrderReceivingController: Processing inventory OUT for interco order {$storeOrder->interco_number}, item {$targetSapMasterfile->ItemCode}, quantity {$quantityToDeduct}");
 
-            // Get sending store stock
-            $sendingStock = ProductInventoryStock::where('product_inventory_id', $sapMasterfile->id)
+            // Get sending store stock using the target masterfile ID
+            $sendingStock = ProductInventoryStock::where('product_inventory_id', $targetSapMasterfile->id)
                 ->where('store_branch_id', $storeOrder->sending_store_branch_id)
                 ->first();
 
             if (!$sendingStock) {
-                Log::error("OrderReceivingController: No stock record found in sending store for item {$sapMasterfile->item_code}");
-                throw new \Exception("No stock record found in sending store for item: {$sapMasterfile->item_code}");
+                Log::error("OrderReceivingController: No stock record found in sending store for item {$targetSapMasterfile->ItemCode}");
+                throw new \Exception("No stock record found in sending store for item: {$targetSapMasterfile->ItemCode}");
             }
 
-            // Check if sending store has sufficient stock
-            if ($sendingStock->quantity < $data->quantity_received) {
+            if ($sendingStock->quantity < $quantityToDeduct) {
                 $available = $sendingStock->quantity;
-                $requested = $data->quantity_received;
-                Log::error("OrderReceivingController: Insufficient stock in sending store. Available: {$available}, Requested: {$requested}");
-                throw new \Exception("Insufficient stock in sending store for item {$sapMasterfile->item_code}. Available: {$available}, Requested: {$requested}");
+                Log::error("OrderReceivingController: Insufficient stock in sending store. Available: {$available}, Requested: {$quantityToDeduct}");
+                throw new \Exception("Insufficient stock in sending store for item {$targetSapMasterfile->ItemCode}. Available: {$available}, Requested: {$quantityToDeduct}");
             }
 
             // Create inventory OUT record for sending store
             ProductInventoryStockManager::create([
-                'product_inventory_id' => $sapMasterfile->id,
+                'product_inventory_id' => $targetSapMasterfile->id,
                 'store_branch_id' => $storeOrder->sending_store_branch_id,
-                'quantity' => $data->quantity_received,
+                'quantity' => $quantityToDeduct,
                 'action' => 'out',
                 'transaction_date' => Carbon::today()->format('Y-m-d'),
                 'remarks' => "Interco transfer to {$storeOrder->store_branch->name} (Interco: {$storeOrder->interco_number})"
             ]);
 
-            Log::info("OrderReceivingController: Created ProductInventoryStockManager entry for inventory OUT");
-
             // Update sending store stock (subtract)
-            $sendingStock->quantity -= $data->quantity_received;
-            $sendingStock->used += $data->quantity_received;
+            $sendingStock->quantity -= $quantityToDeduct;
+            $sendingStock->used += $quantityToDeduct;
             $sendingStock->save();
 
-            Log::info("OrderReceivingController: Updated sending store stock. New quantity: {$sendingStock->quantity}, Used: {$sendingStock->used}");
-
             // Update PurchaseItemBatch for sending store
-            $sendingBatch = PurchaseItemBatch::where('product_inventory_id', $sapMasterfile->id)
+            $deductedFromBatches = $quantityToDeduct;
+            $sendingBatches = PurchaseItemBatch::where('product_inventory_id', $targetSapMasterfile->id)
                 ->where('store_branch_id', $storeOrder->sending_store_branch_id)
                 ->where('remaining_quantity', '>', 0)
                 ->orderBy('purchase_date', 'asc')
-                ->first();
+                ->get();
 
-            if ($sendingBatch) {
-                $quantityToDeduct = min($data->quantity_received, $sendingBatch->remaining_quantity);
-                $sendingBatch->remaining_quantity -= $quantityToDeduct;
-                $sendingBatch->save();
+            foreach ($sendingBatches as $batch) {
+                if ($deductedFromBatches <= 0) {
+                    break;
+                }
+                $deductAmount = min($deductedFromBatches, $batch->remaining_quantity);
+                $batch->remaining_quantity -= $deductAmount;
+                $batch->save();
+                $deductedFromBatches -= $deductAmount;
+            }
 
-                Log::info("OrderReceivingController: Updated PurchaseItemBatch {$sendingBatch->id}. Remaining quantity: {$sendingBatch->remaining_quantity}");
-            } else {
-                Log::warning("OrderReceivingController: No PurchaseItemBatch found for sending store to update remaining quantity");
+            if ($deductedFromBatches > 0) {
+                 Log::warning("OrderReceivingController: Could not deduct full quantity from purchase batches for sending store.");
             }
 
             Log::info("OrderReceivingController: Successfully processed inventory OUT for interco transfer");

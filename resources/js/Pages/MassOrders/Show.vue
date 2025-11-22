@@ -3,6 +3,14 @@ import { useBackButton } from "@/Composables/useBackButton";
 import { router } from "@inertiajs/vue3";
 import dayjs from "dayjs";
 import { ref, computed } from "vue"; // Ensure ref and computed are imported
+import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogFooter, // <-- Add this
+    DialogHeader,
+    DialogTitle,
+} from "@/components/ui/dialog"; // Add these imports
 
 const { backButton } = useBackButton(route("mass-orders.index"));
 const statusBadgeColor = (status) => {
@@ -31,10 +39,10 @@ const props = defineProps({
         type: Object,
     },
     orderedItems: {
-        type: Object,
+        type: Array,
     },
     receiveDatesHistory: {
-        type: Object,
+        type: Array,
         required: true,
     },
     images: {
@@ -45,7 +53,20 @@ const props = defineProps({
 
 // Computed property to get committed users information
 const committedUsersInfo = computed(() => {
-    if (!props.orderedItems || !Array.isArray(props.orderedItems)) {
+    if (!props.orderedItems || typeof props.orderedItems !== 'object') {
+        return {
+            hasCommittedItems: false,
+            uniqueCommitters: [],
+            formattedDisplay: 'N/a',
+            totalCommittedItems: 0,
+            totalItems: 0,
+        };
+    }
+
+    const itemsArray = Array.isArray(props.orderedItems) ? props.orderedItems : Object.values(props.orderedItems);
+    const totalItems = itemsArray.length;
+
+    if (totalItems === 0) {
         return {
             hasCommittedItems: false,
             uniqueCommitters: [],
@@ -55,12 +76,7 @@ const committedUsersInfo = computed(() => {
         };
     }
 
-    const totalItems = props.orderedItems.length;
-
-    const committedItems = props.orderedItems.filter(item =>
-        item.committed_by
-    );
-
+    const committedItems = itemsArray.filter(item => item && item.committed_by);
     const totalCommittedItems = committedItems.length;
 
     if (totalCommittedItems === 0) {
@@ -87,12 +103,10 @@ const committedUsersInfo = computed(() => {
     let formattedDisplay = 'N/a';
 
     if (totalCommittedItems > 0 && totalCommittedItems < totalItems) {
-        // Partially committed: show the first committer
         if (uniqueCommitters.length > 0) {
             formattedDisplay = uniqueCommitters[0].name;
         }
-    } else { // This covers totalCommittedItems === totalItems (fully committed) and also the edge case where totalItems is 0 but committedItems > 0
-        // Fully committed or other cases where committed items exist
+    } else {
         if (uniqueCommitters.length === 1) {
             formattedDisplay = uniqueCommitters[0].name;
         } else if (uniqueCommitters.length === 2) {
@@ -111,14 +125,6 @@ const committedUsersInfo = computed(() => {
     };
 });
 
-// CONSOLE.LOGS REMOVED FROM TEMPLATE AND ADDED HERE TO AVOID ERRORS
-console.log("Ordered Items Prop:", props.orderedItems);
-console.log("Receive Dates History Prop:", props.receiveDatesHistory);
-// Add these new lines to inspect the prop more thoroughly
-console.log("Type of receiveDatesHistory:", typeof props.receiveDatesHistory, Array.isArray(props.receiveDatesHistory));
-console.log("Length of receiveDatesHistory:", props.receiveDatesHistory?.length);
-
-
 const copyOrderAndCreateAnother = (id) => {
     router.get(route("mass-orders.create"), { orderId: id });
 };
@@ -131,14 +137,6 @@ const openViewModalForm = (id) => {
     const history = data.find((item) => item.id === id);
     selectedItem.value = history;
     isViewModalVisible.value = true;
-};
-
-const selectedImage = ref(null);
-const isEnlargedImageVisible = ref(false);
-
-const enlargeImage = (image) => {
-    selectedImage.value = image;
-    isEnlargedImageVisible.value = true;
 };
 </script>
 
@@ -187,7 +185,7 @@ const enlargeImage = (image) => {
                     }}</SpanBold>
                 </InputContainer>
 
-                <InputContainer>
+                <InputContainer v-if="committedUsersInfo">
                     <LabelXS>Committer(s): </LabelXS>
                     <SpanBold>{{ committedUsersInfo.formattedDisplay }}</SpanBold>
                 </InputContainer>
@@ -238,7 +236,7 @@ const enlargeImage = (image) => {
                             <TD>{{ orderItem.supplier_item?.ItemCode ?? 'N/a' }}</TD>
                             <TD>{{ orderItem.supplier_item?.item_name ?? 'N/a' }}</TD>
                             <TD>{{ orderItem.supplier_item?.sap_master_file?.BaseUOM ?? 'N/a' }}</TD>
-                            <TD>{{ orderItem.supplier_item?.uom ?? 'N/a' }}</TD>
+                            <TD>{{ orderItem.uom ?? 'N/a' }}</TD>
                             <TD>{{ orderItem.quantity_ordered }}</TD>
                             <TD>{{ order.order_status?.toUpperCase() === 'APPROVED' ? 0 : orderItem.quantity_commited }}</TD>
                             <TD>{{ orderItem.quantity_received }}</TD>
@@ -259,7 +257,7 @@ const enlargeImage = (image) => {
                         >
                         </MobileTableHeading>
                         <LabelXS>Base UOM: {{ orderItem.supplier_item?.sap_master_file?.BaseUOM ?? 'N/a' }}</LabelXS>
-                        <LabelXS>UOM: {{ orderItem.supplier_item?.uom ?? 'N/a' }}</LabelXS>
+                        <LabelXS>UOM: {{ orderItem.uom ?? 'N/a' }}</LabelXS>
                         <LabelXS>Ordered: {{ orderItem.quantity_ordered }}</LabelXS>
                         <LabelXS
                             >Committed: {{ order.order_status?.toUpperCase() === 'APPROVED' ? 0 : orderItem.quantity_commited }}</LabelXS
@@ -312,55 +310,7 @@ const enlargeImage = (image) => {
                 </MobileTableContainer>
             </TableContainer>
 
-            <TableContainer>
-                <TableHeader>
-                    <SpanBold class="sm:text-normal text-xs">Remarks</SpanBold>
-                </TableHeader>
-                <Table>
-                    <TableHead>
-                        <TH>Id</TH>
-                        <TH>Remarks By</TH>
-                        <TH>Action</TH>
-                        <TH>Remarks</TH>
-                        <TH>Created At</TH>
-                    </TableHead>
-                    <TableBody>
-                        <tr v-for="remarks in order.store_order_remarks" :key="remarks.id">
-                            <TD>{{ remarks.id }}</TD>
-                            <TD
-                                >{{ remarks.user?.first_name }}
-                                {{ remarks.user?.last_name }}</TD
-                            >
-                            <TD>
-                                {{ remarks.action?.toUpperCase() }}
-                            </TD>
-                            <TD>{{ remarks.remarks }}</TD>
-                            <TD>{{
-                                dayjs(remarks.created_at).format("MMMM D, YYYY h:mm A")
-                            }}</TD>
-                        </tr>
-                    </TableBody>
-                </Table>
 
-                <MobileTableContainer>
-                    <MobileTableRow
-                        v-for="remarks in order.store_order_remarks"
-                        :key="remarks.id"
-                    >
-                        <MobileTableHeading
-                            :title="`${remarks.action?.toUpperCase()}`"
-                        >
-                        </MobileTableHeading>
-                        <LabelXS>Remarks: {{ remarks.remarks }}</LabelXS>
-                        <LabelXS>Created at: {{
-                            dayjs(remarks.created_at).format("MMMM D, YYYY h:mm A")
-                        }}</LabelXS>
-                    </MobileTableRow>
-                    <SpanBold v-if="order.store_order_remarks.length < 1"
-                        >None</SpanBold
-                    >
-                </MobileTableContainer>
-            </TableContainer>
 
             <Card class="p-5">
                 <InputContainer class="col-span-4">
@@ -373,11 +323,12 @@ const enlargeImage = (image) => {
                             :key="image.id"
                             class="relative"
                         >
-                            <img
-                                :src="image.image_url"
-                                class="size-24 min-w-24 cursor-pointer hover:opacity-80 transition-opacity"
-                                @click="enlargeImage(image)"
-                            />
+                            <a :href="image.image_url" target="_blank" rel="noopener noreferrer">
+                                <img
+                                    :src="image.image_url"
+                                    class="size-24 min-w-24 cursor-pointer hover:opacity-80 transition-opacity"
+                                />
+                            </a>
                         </div>
                     </DivFlexCenter>
                     <SpanBold v-if="images.length < 1">None</SpanBold>
@@ -473,8 +424,8 @@ const enlargeImage = (image) => {
                     <InputContainer>
                         <LabelXS>Received By</LabelXS>
                         <SpanBold
-                            >{{ selectedItem.receiver?.first_name }}
-                            {{ selectedItem.receiver?.last_name }}</SpanBold
+                            >{{ selectedItem.received_by_user?.first_name }}
+                            {{ selectedItem.received_by_user?.last_name }}</SpanBold
                         >
                     </InputContainer>
 
@@ -508,21 +459,5 @@ const enlargeImage = (image) => {
             </DialogContent>
         </Dialog>
 
-        <Dialog v-model:open="isEnlargedImageVisible">
-            <DialogContent
-                class="sm:max-w-[90vw] h-[90vh] p-0 flex items-center justify-center"
-            >
-                <button
-                    @click="isEnlargedImageVisible = false"
-                    class="absolute right-4 top-4 rounded-sm ring-offset-background transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 bg-white/80 p-2"
-                ></button>
-                <img
-                    v-if="selectedImage"
-                    :src="selectedImage.image_url"
-                    class="max-h-full max-w-full object-contain"
-                    alt="Enlarged image"
-                />
-            </DialogContent>
-        </Dialog>
     </Layout>
 </template>
