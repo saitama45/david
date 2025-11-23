@@ -60,6 +60,29 @@ const totalCommittedItems = computed(() => {
   return props.transfer.store_order_items.length
 })
 
+const latestReceiver = computed(() => {
+    if (props.transfer.interco_status !== 'received' || !props.transfer.store_order_items) {
+        return null;
+    }
+
+    let allReceiveDates = [];
+    props.transfer.store_order_items.forEach(item => {
+        if (item.ordered_item_receive_dates && item.ordered_item_receive_dates.length > 0) {
+            allReceiveDates.push(...item.ordered_item_receive_dates);
+        }
+    });
+
+    if (allReceiveDates.length === 0) {
+        return null;
+    }
+
+    // Sort by date to find the latest
+    allReceiveDates.sort((a, b) => new Date(b.received_date) - new Date(a.received_date));
+
+    const latestReceive = allReceiveDates[0];
+    return latestReceive.received_by_user;
+});
+
 const timeline = computed(() => {
   const events = []
 
@@ -123,12 +146,15 @@ const timeline = computed(() => {
 
   // Received event
   if (props.transfer.interco_status === 'received') {
+    const receiverName = latestReceiver.value ? formatUserName(latestReceiver.value) : null;
+    const description = receiverName ? `All items have been received successfully by ${receiverName}` : 'All items have been received successfully';
+
     events.push({
       status: 'received',
       title: 'Transfer Completed',
-      description: 'All items have been received successfully',
+      description: description,
       date: getReceivedDate(),
-      user: 'Receiving Store',
+      user: receiverName || 'Receiving Store',
       completed: true,
       icon: CheckCircle,
       color: 'green',

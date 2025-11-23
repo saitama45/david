@@ -289,6 +289,7 @@ class IntercoController extends Controller
             'approver',
             'commiter',
             'store_order_items.sapMasterfile',
+            'store_order_items.ordered_item_receive_dates.received_by_user',
             'store_order_remarks.user'
         ]);
 

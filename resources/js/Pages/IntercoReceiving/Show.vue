@@ -452,6 +452,7 @@ const promptConfirmReceive = () => {
                                 <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">UOM</th>
                                 <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Quantity Received</th>
                                 <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Received At</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Received By</th>
                                 <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
                                 <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
                             </tr>
@@ -466,6 +467,7 @@ const promptConfirmReceive = () => {
                                 <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                                     {{ dayjs(history.received_date).tz("Asia/Manila").format("MMMM D, YYYY h:mm A") }}
                                 </td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{{ history.received_by_user?.first_name }} {{ history.received_by_user?.last_name }}</td>
                                 <td class="px-6 py-4 whitespace-nowrap">
                                     <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-blue-100 text-blue-800">
                                         {{ history.status }}
