@@ -285,8 +285,8 @@ watch(() => form.supplier_code, async (newSupplierCode) => {
     }
 });
 
-watch(() => form.order_date, () => {
-    showUploadStep.value = false;
+watch(() => form.order_date, (newDate) => {
+    showUploadStep.value = !!newDate;
 });
 
 
@@ -463,7 +463,7 @@ const downloadFileName = computed(() => {
                             <h2 class="text-xl font-semibold text-gray-800">Download Template</h2>
                         </div>
                         <p class="text-gray-600 mb-5">Download the Excel template for the selected supplier. This file is pre-filled with the correct items and store columns for your order.</p>
-                        <a @click="showUploadStep = true" :href="route('mass-orders.download-template', { supplier_code: form.supplier_code, order_date: form.order_date, filename: downloadFileName })" 
+                        <a :href="route('mass-orders.download-template', { supplier_code: form.supplier_code, order_date: form.order_date, filename: downloadFileName })" 
                            class="inline-flex items-center justify-center w-full px-4 py-3 border border-transparent text-base font-medium rounded-md shadow-sm text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 transition-all transform hover:scale-105">
                             <Download class="mr-2 size-5" />
                             Download Order Template
