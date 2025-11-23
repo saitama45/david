@@ -131,6 +131,17 @@ const canEditOrder = (order) => {
 
 // --- Flash Notification Logic ---
 const flash = computed(() => usePage().props.flash);
+const flashMessageVisible = ref(false);
+
+watch(flash, (newFlash) => {
+    if (newFlash && newFlash.message) {
+        flashMessageVisible.value = true;
+        setTimeout(() => {
+            flashMessageVisible.value = false;
+        }, 30000); // 30 seconds
+    }
+}, { deep: true, immediate: true });
+
 const notificationType = computed(() => {
     if (!flash.value?.message) return null;
     if (flash.value.success === false) return 'error';
@@ -360,6 +371,16 @@ const filteredSuppliers = computed(() => {
     return props.suppliers.filter(supplier => supplier.value !== 'DROPS');
 });
 
+const downloadFileName = computed(() => {
+    if (!form.supplier_code || !form.order_date) {
+        return 'MassOrderTemplate';
+    }
+    const date = new Date(form.order_date + 'T00:00:00');
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${form.supplier_code}_${month}-${day}`;
+});
+
 </script>
 
 <template>
@@ -368,7 +389,7 @@ const filteredSuppliers = computed(() => {
     <Layout heading="Mass Orders" :hasButton="true" buttonName="Create New Mass Order" :handleClick="openCreateModal">
         
         <!-- Flash Notification Area -->
-        <div v-if="flash.message" class="mb-4 p-4 rounded-md" :class="{
+        <div v-if="flash.message && flashMessageVisible" class="mb-4 p-4 rounded-md" :class="{
             'bg-green-100 text-green-800': notificationType === 'success',
             'bg-yellow-100 text-yellow-800': notificationType === 'warning',
             'bg-red-100 text-red-800': notificationType === 'error',
@@ -442,7 +463,7 @@ const filteredSuppliers = computed(() => {
                             <h2 class="text-xl font-semibold text-gray-800">Download Template</h2>
                         </div>
                         <p class="text-gray-600 mb-5">Download the Excel template for the selected supplier. This file is pre-filled with the correct items and store columns for your order.</p>
-                        <a @click="showUploadStep = true" :href="route('mass-orders.download-template', { supplier_code: form.supplier_code, order_date: form.order_date })" 
+                        <a @click="showUploadStep = true" :href="route('mass-orders.download-template', { supplier_code: form.supplier_code, order_date: form.order_date, filename: downloadFileName })" 
                            class="inline-flex items-center justify-center w-full px-4 py-3 border border-transparent text-base font-medium rounded-md shadow-sm text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 transition-all transform hover:scale-105">
                             <Download class="mr-2 size-5" />
                             Download Order Template

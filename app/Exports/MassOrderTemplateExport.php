@@ -14,18 +14,21 @@ class MassOrderTemplateExport implements FromCollection, WithHeadings, ShouldAut
     protected $items;
     protected $staticHeaders;
     protected $dynamicHeaders;
+    protected $supplierCode;
 
-    public function __construct($items, $staticHeaders, $dynamicHeaders)
+    public function __construct($items, $staticHeaders, $dynamicHeaders, $supplierCode)
     {
         $this->items = $items;
         $this->staticHeaders = $staticHeaders;
         $this->dynamicHeaders = $dynamicHeaders;
+        $this->supplierCode = $supplierCode;
     }
 
     public function collection()
     {
         return $this->items->map(function ($item) {
             $row = [];
+            $row['Ordering Template'] = $this->supplierCode;
             $row['Category'] = $item->category;
             $row['Classification'] = $item->classification;
             $row['Item Code'] = $item->ItemCode;
@@ -42,7 +45,7 @@ class MassOrderTemplateExport implements FromCollection, WithHeadings, ShouldAut
 
     public function headings(): array
     {
-        return array_merge($this->staticHeaders, $this->dynamicHeaders);
+        return array_merge(['Ordering Template'], $this->staticHeaders, $this->dynamicHeaders);
     }
 
     public function styles(Worksheet $sheet)

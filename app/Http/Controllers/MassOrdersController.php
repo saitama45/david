@@ -96,12 +96,11 @@ class MassOrdersController extends Controller
             $import = new MassOrderImport();
             $rows = Excel::toCollection($import, $request->file('mass_order_file'))->first();
 
-            // Validate that the supplier_code in each row matches the selected supplier
+            // Validate that the ordering_template in each row matches the selected supplier
             foreach ($rows as $index => $row) {
-                if (isset($row['supplier_code']) && $row['supplier_code']) {
-                    if (strcasecmp(trim($row['supplier_code']), $supplierCodeFromDropdown) !== 0) {
-                        $rowNumber = $index + 2; // +1 for 1-based index, +1 for header row
-                        throw new \Exception("Upload failed. The supplier code '{$row['supplier_code']}' in row {$rowNumber} does not match the selected supplier '{$supplierCodeFromDropdown}'.");
+                if (isset($row['ordering_template']) && $row['ordering_template']) {
+                    if (strcasecmp(trim($row['ordering_template']), $supplierCodeFromDropdown) !== 0) {
+                        throw new \Exception("Upload failed. It seems you are using an incorrect template. The supplier code '{$row['ordering_template']}' in the file does not match the selected Ordering Template '{$supplierCodeFromDropdown}'.");
                     }
                 }
             }
@@ -229,7 +228,8 @@ class MassOrdersController extends Controller
 
         $staticHeaders = ['Category', 'Classification', 'Item Code', 'Item Name', 'Packaging Config', 'Unit'];
 
-        return Excel::download(new MassOrderTemplateExport($items, $staticHeaders, $dynamicHeaders), 'mass_order_template.xlsx');
+        $fileName = $request->input('filename', 'mass_order_template');
+        return Excel::download(new MassOrderTemplateExport($items, $staticHeaders, $dynamicHeaders, $supplierCode), $fileName . '.xlsx');
     }
 
     /**
