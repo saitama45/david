@@ -28,7 +28,7 @@ class DTSMassOrdersController extends Controller
 
     public function index(Request $request)
     {
-        $allowedVariants = ['ICE CREAM', 'SALMON', 'FRUITS AND VEGETABLES'];
+        $allowedVariants = ['ICE CREAM', 'FRUITS AND VEGETABLES'];
 
         $variants = DTSDeliverySchedule::whereIn('variant', $allowedVariants)
             ->distinct()
@@ -57,7 +57,7 @@ class DTSMassOrdersController extends Controller
             ->groupBy('batch_reference', 'encoder_id');
 
         // Apply filter
-        $filterQuery = $request->input('filterQuery', 'approved');
+        $filterQuery = $request->input('filterQuery', 'committed');
         if ($filterQuery !== 'all') {
             switch ($filterQuery) {
                 case 'approved':

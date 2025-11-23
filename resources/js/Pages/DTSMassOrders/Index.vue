@@ -31,7 +31,7 @@ const { hasAccess } = useAuth();
 const toast = useToast();
 
 // Filter logic
-let filterQuery = ref((usePage().props.filters?.filterQuery || "approved").toString());
+let filterQuery = ref((usePage().props.filters?.filterQuery || "committed").toString());
 
 const performFilter = throttle(() => {
     router.get(
@@ -371,7 +371,7 @@ const selectDate = (day, isFrom) => {
                                     <button v-if="hasAccess('view dts mass orders')" @click="showBatchDetails(batch.batch_number)">
                                         <Eye class="size-5" />
                                     </button>
-                                    <button v-if="hasAccess('edit dts mass orders') && batch.can_edit && batch.status === 'approved'" class="text-blue-500" @click="editBatchDetails(batch.batch_number)">
+                                    <button v-if="hasAccess('edit dts mass orders') && batch.can_edit && batch.status !== 'received'" class="text-blue-500" @click="editBatchDetails(batch.batch_number)">
                                         <Pencil class="size-5" />
                                     </button>
                                 </DivFlexCenter>
@@ -387,7 +387,7 @@ const selectDate = (day, isFrom) => {
                         <button v-if="hasAccess('view dts mass orders')" @click="showBatchDetails(batch.batch_number)">
                             <Eye class="size-5" />
                         </button>
-                        <button v-if="hasAccess('edit dts mass orders') && batch.can_edit && batch.status === 'approved'" class="text-blue-500" @click="editBatchDetails(batch.batch_number)">
+                        <button v-if="hasAccess('edit dts mass orders') && batch.can_edit && batch.status !== 'received'" class="text-blue-500" @click="editBatchDetails(batch.batch_number)">
                             <Pencil class="size-5" />
                         </button>
                     </MobileTableHeading>
