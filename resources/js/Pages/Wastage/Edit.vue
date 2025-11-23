@@ -254,14 +254,6 @@ const updateCartItemQuantity = (itemId, quantity) => {
   }
 }
 
-const updateCartItemCost = (itemId, cost) => {
-  const item = cartItems.value.find(item => item.id === itemId)
-  if (item) {
-    item.cost = parseFloat(cost) || 0
-    item.total_cost = item.quantity * item.cost
-  }
-}
-
 const clearCart = () => {
   cartItems.value = []
 }
@@ -630,10 +622,10 @@ const handleReasonBlur = (item) => {
                       <Input
                         type="number"
                         v-model="item.cost"
-                        @input="updateCartItemCost(item.id, $event.target.value)"
                         step="0.01"
                         min="0"
-                        class="w-24 h-8 text-sm"
+                        class="w-24 h-8 text-sm bg-gray-100"
+                        readonly
                       />
                     </td>
                     <td class="px-4 py-4">
