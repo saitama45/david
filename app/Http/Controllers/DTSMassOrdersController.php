@@ -346,7 +346,7 @@ class DTSMassOrdersController extends Controller
                             'store_branch_id' => $storeBranchId,
                             'order_number' => $orderNumber,
                             'order_date' => $date,
-                            'order_status' => 'approved',
+                            'order_status' => 'committed',
                             'variant' => 'mass dts',
                             'batch_reference' => $batchNumber,
                             'remarks' => "Mass DTS Order - {$variant}",
@@ -357,7 +357,7 @@ class DTSMassOrdersController extends Controller
                             $supplierItemDetails = collect($supplierItems)->firstWhere('id', (int)$itemId);
                             if (!$supplierItemDetails) continue;
 
-                            \App\Models\StoreOrderItem::create([
+                            $storeOrderItem = \App\Models\StoreOrderItem::create([
                                 'store_order_id' => $storeOrder->id,
                                 'item_code' => $supplierItemDetails['item_code'],
                                 'quantity_ordered' => $quantity,
@@ -369,6 +369,14 @@ class DTSMassOrdersController extends Controller
                                 'uom' => $supplierItemDetails['uom'],
                                 'remarks' => null,
                             ]);
+
+                            if ($storeOrderItem->quantity_commited > 0 && $storeOrderItem->ordered_item_receive_dates()->doesntExist()) {
+                                $storeOrderItem->ordered_item_receive_dates()->create([
+                                    'quantity_received' => $storeOrderItem->quantity_commited,
+                                    'status' => 'pending',
+                                    'received_by_user_id' => auth()->id(),
+                                ]);
+                            }
                         }
                     }
                 }
@@ -425,13 +433,13 @@ class DTSMassOrdersController extends Controller
                             'store_branch_id' => $storeBranchId,
                             'order_number' => $orderNumber,
                             'order_date' => $date,
-                            'order_status' => 'approved',
+                            'order_status' => 'committed',
                             'variant' => 'mass dts',
                             'batch_reference' => $batchNumber,
                             'remarks' => "Mass DTS Order - {$variant}",
                         ]);
 
-                        \App\Models\StoreOrderItem::create([
+                        $storeOrderItem = \App\Models\StoreOrderItem::create([
                             'store_order_id' => $storeOrder->id,
                             'item_code' => $sapItem['item_code'],
                             'quantity_ordered' => $quantity,
@@ -443,6 +451,14 @@ class DTSMassOrdersController extends Controller
                             'uom' => $sapItem['alt_uom'],
                             'remarks' => null,
                         ]);
+
+                        if ($storeOrderItem->quantity_commited > 0 && $storeOrderItem->ordered_item_receive_dates()->doesntExist()) {
+                            $storeOrderItem->ordered_item_receive_dates()->create([
+                                'quantity_received' => $storeOrderItem->quantity_commited,
+                                'status' => 'pending',
+                                'received_by_user_id' => auth()->id(),
+                            ]);
+                        }
                     }
                 }
 
@@ -883,14 +899,14 @@ class DTSMassOrdersController extends Controller
                                 'store_branch_id' => $storeBranchId,
                                 'order_number' => $orderNumber,
                                 'order_date' => $date,
-                                'order_status' => 'approved',
+                                'order_status' => 'committed',
                                 'variant' => 'mass dts',
                                 'batch_reference' => $batchNumber,
                                 'remarks' => "Mass DTS Order - {$variant}",
                             ]);
 
                             // Create StoreOrderItem
-                            \App\Models\StoreOrderItem::create([
+                            $storeOrderItem = \App\Models\StoreOrderItem::create([
                                 'store_order_id' => $storeOrder->id,
                                 'item_code' => $supplierItem['item_code'],
                                 'quantity_ordered' => $quantity,
@@ -902,6 +918,14 @@ class DTSMassOrdersController extends Controller
                                 'uom' => $supplierItem['uom'],
                                 'remarks' => null,
                             ]);
+
+                            if ($storeOrderItem->quantity_commited > 0 && $storeOrderItem->ordered_item_receive_dates()->doesntExist()) {
+                                $storeOrderItem->ordered_item_receive_dates()->create([
+                                    'quantity_received' => $storeOrderItem->quantity_commited,
+                                    'status' => 'pending',
+                                    'received_by_user_id' => auth()->id(),
+                                ]);
+                            }
                         }
                     }
                 }
@@ -930,14 +954,14 @@ class DTSMassOrdersController extends Controller
                             'store_branch_id' => $storeBranchId,
                             'order_number' => $orderNumber,
                             'order_date' => $date,
-                            'order_status' => 'approved',
+                            'order_status' => 'committed',
                             'variant' => 'mass dts',
                             'batch_reference' => $batchNumber,
                             'remarks' => "Mass DTS Order - {$variant}",
                         ]);
 
                         // Create StoreOrderItem
-                        \App\Models\StoreOrderItem::create([
+                        $storeOrderItem = \App\Models\StoreOrderItem::create([
                             'store_order_id' => $storeOrder->id,
                             'item_code' => $sapItem['item_code'],
                             'quantity_ordered' => $quantity,
@@ -949,6 +973,14 @@ class DTSMassOrdersController extends Controller
                             'uom' => $sapItem['alt_uom'],
                             'remarks' => null,
                         ]);
+
+                        if ($storeOrderItem->quantity_commited > 0 && $storeOrderItem->ordered_item_receive_dates()->doesntExist()) {
+                            $storeOrderItem->ordered_item_receive_dates()->create([
+                                'quantity_received' => $storeOrderItem->quantity_commited,
+                                'status' => 'pending',
+                                'received_by_user_id' => auth()->id(),
+                            ]);
+                        }
                     }
                 }
             }
