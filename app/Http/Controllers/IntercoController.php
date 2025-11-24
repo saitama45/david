@@ -541,11 +541,11 @@ class IntercoController extends Controller
         }
 
         try {
-            // 1. Find initial set of items from search.
+            // 1. Find ALL item variants matching the search term.
             $foundItems = SAPMasterfile::where('is_active', true)
                 ->where(function ($query) use ($search) {
                     $query->where('ItemCode', 'like', "%{$search}%")
-                            ->orWhere('ItemDescription', 'like', "%{$search}%");
+                          ->orWhere('ItemDescription', 'like', "%{$search}%");
                 })
                 ->whereNotNull('ItemCode')->where('ItemCode', '!=', '')
                 ->limit(50)
@@ -555,62 +555,43 @@ class IntercoController extends Controller
                 return response()->json(['items' => []]);
             }
 
-            $itemCodes = $foundItems->pluck('ItemCode')->unique()->toArray();
-            $foundItemIds = $foundItems->pluck('id')->toArray();
-            
-            // --- BATCH STOCK LOOKUP with FALLBACK ---
-            
-            // Final map to hold stock for each ItemCode
-            $itemCodeToStockMap = array_fill_keys($itemCodes, 0);
-            $masterfileIdToItemCode = $foundItems->pluck('ItemCode', 'id');
+            // 2. Get unique ItemCodes from the results.
+            $itemCodes = $foundItems->pluck('ItemCode')->unique()->all();
 
-            // Primary lookup: Stock for the specific masterfiles found by search
-            $primaryStocks = ProductInventoryStock::where('store_branch_id', $sendingStoreId)
-                ->whereIn('product_inventory_id', $foundItemIds)
+            // 3. Find the specific masterfile records used for stock tracking (where BaseUOM = AltUOM).
+            $stockTrackingItems = SAPMasterfile::whereIn('ItemCode', $itemCodes)
+                ->whereColumn('BaseUOM', 'AltUOM')
                 ->get();
-
-            foreach ($primaryStocks as $stock) {
-                $itemCode = $masterfileIdToItemCode[$stock->product_inventory_id] ?? null;
-                if ($itemCode) {
-                    // Use += in case a single masterfile ID has multiple stock entries (e.g. batches)
-                    $itemCodeToStockMap[$itemCode] += $stock->quantity;
-                }
-            }
             
-            // Fallback 1: For items that still have 0 stock, look at other masterfiles with the same ItemCode.
-            $itemCodesWithZeroStock = collect($itemCodeToStockMap)->filter(fn($q) => $q == 0)->keys();
+            $stockTrackingItemIds = $stockTrackingItems->pluck('id')->all();
 
-            if ($itemCodesWithZeroStock->isNotEmpty()) {
-                // ** FIX: Explicitly cast item codes to string to prevent SQL Server conversion errors **
-                $stringItemCodes = $itemCodesWithZeroStock->map(fn($code) => (string)$code)->all();
+            // 4. Calculate SOH for ONLY these stock-tracking items from the managers table.
+            $stockData = DB::table('product_inventory_stock_managers')
+                ->select(
+                    'product_inventory_id',
+                    DB::raw('SUM(CASE
+                        WHEN action IN (\'add\', \'add_quantity\') THEN quantity
+                        WHEN action = \'out\' THEN -quantity
+                        ELSE 0
+                    END) as stock_on_hand')
+                )
+                ->where('store_branch_id', $sendingStoreId)
+                ->whereIn('product_inventory_id', $stockTrackingItemIds)
+                ->groupBy('product_inventory_id')
+                ->get()
+                ->keyBy('product_inventory_id');
 
-                $altMasterfiles = SAPMasterfile::whereIn('ItemCode', $stringItemCodes)
-                    ->whereNotIn('id', $foundItemIds) // Exclude masterfiles we already checked
-                    ->where('is_active', true)
-                    ->get();
-                
-                if ($altMasterfiles->isNotEmpty()) {
-                    $altStocks = ProductInventoryStock::where('store_branch_id', $sendingStoreId)
-                        ->whereIn('product_inventory_id', $altMasterfiles->pluck('id'))
-                        ->where('quantity', '>', 0) // Only get records with stock
-                        ->get();
-                        
-                    $altMasterfileIdToCode = $altMasterfiles->pluck('ItemCode', 'id');
-                    
-                    foreach ($altStocks as $stock) {
-                        $code = $altMasterfileIdToCode[$stock->product_inventory_id] ?? null;
-                        // If we find stock for an item code that currently has 0, update it.
-                        // This takes the first positive stock found from an alternative masterfile.
-                        if ($code && $itemCodeToStockMap[$code] == 0) {
-                            $itemCodeToStockMap[$code] = $stock->quantity;
-                        }
-                    }
-                }
+            // 5. Create a map from ItemCode -> SOH
+            $itemCodeToSohMap = [];
+            foreach ($stockTrackingItems as $item) {
+                $stockValue = $stockData->get($item->id)->stock_on_hand ?? 0;
+                $itemCodeToSohMap[$item->ItemCode] = $stockValue;
             }
 
-            // Final mapping
-            $processedItems = $foundItems->map(function ($item) use ($itemCodeToStockMap) {
-                $stockQty = $itemCodeToStockMap[$item->ItemCode] ?? 0;
+            // 6. Map the original search results and apply the correct SOH to each variant.
+            $processedItems = $foundItems->map(function ($item) use ($itemCodeToSohMap) {
+                $stockQty = $itemCodeToSohMap[$item->ItemCode] ?? 0;
+
                 return [
                     'id' => $item->id,
                     'item_code' => $item->ItemCode,
@@ -618,7 +599,7 @@ class IntercoController extends Controller
                     'uom' => $item->BaseUOM,
                     'alt_uom' => $item->AltUOM,
                     'cost_per_quantity' => $this->getItemCostFromSupplier($item->ItemCode),
-                    'stock' => $stockQty,
+                    'stock' => number_format($stockQty, 2, '.', ''), // Format to 2 decimal places
                     'is_available' => $stockQty > 0,
                 ];
             });
@@ -657,16 +638,20 @@ class IntercoController extends Controller
                 return response()->json(['error' => 'Item not found'], 404);
             }
 
-            // Now, find the stock-holding record for that ItemCode.
-            $stockHoldingMasterfile = SAPMasterfile::where('ItemCode', $itemCode)
+            // Find the stock-tracking masterfile for this item's ItemCode
+            $stockTrackingItem = SAPMasterfile::where('ItemCode', $itemCode)
                 ->whereColumn('BaseUOM', 'AltUOM')
                 ->first();
 
             $stock = 0;
-            if ($stockHoldingMasterfile) {
-                $stock = ProductInventoryStock::where('store_branch_id', $sendingStoreId)
-                    ->where('product_inventory_id', $stockHoldingMasterfile->id)
-                    ->value('quantity') ?? 0;
+            if ($stockTrackingItem) {
+                // Calculate SOH from the managers table
+                $calculatedStock = DB::table('product_inventory_stock_managers')
+                    ->where('store_branch_id', $sendingStoreId)
+                    ->where('product_inventory_id', $stockTrackingItem->id)
+                    ->sum(DB::raw('CASE WHEN action IN (\'add\', \'add_quantity\') THEN quantity WHEN action = \'out\' THEN -quantity ELSE 0 END'));
+                
+                $stock = $calculatedStock ?? 0;
             }
 
             $itemDetails = [
@@ -676,13 +661,14 @@ class IntercoController extends Controller
                 'uom' => $selectedItem->BaseUOM,
                 'alt_uom' => $selectedItem->AltUOM,
                 'cost_per_quantity' => $this->getItemCostFromSupplier($selectedItem->ItemCode),
-                'stock' => $stock, // Use the stock from the BaseUOM=AltUOM record.
+                'stock' => number_format($stock, 2, '.', ''), // Format to 2 decimal places
                 'is_available' => $stock > 0,
             ];
 
             return response()->json(['item' => $itemDetails]);
 
         } catch (\Exception $e) {
+            \Log::error('getItemDetails error: ' . $e->getMessage(), ['trace' => $e->getTraceAsString()]);
             return response()->json([
                 'error' => 'Failed to fetch item details: ' . $e->getMessage()
             ], 500);

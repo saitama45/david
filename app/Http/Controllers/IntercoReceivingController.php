@@ -102,24 +102,28 @@ class IntercoReceivingController extends Controller
             abort(403, 'Unauthorized access to this interco order.');
         }
 
-        // Load supplierItem relationship
+        // Load supplierItem relationship, but we'll process it manually
         $orderedItems = StoreOrderItem::where('store_order_id', $order->id)
             ->with('supplierItem')
             ->get();
 
-        // Manually attach sap_master_file and calculate soh_stock
+        // Manually attach details to avoid deep nesting and null issues on the frontend
         $orderedItems->each(function ($item) use ($order) {
             $item->soh_stock = 0;
-            if ($item->supplierItem) {
-                // Find the master file based on the supplier item's code
-                $sapMasterfile = SAPMasterfile::where('ItemCode', $item->supplierItem->ItemCode)
-                                     ->whereColumn('BaseUOM', 'AltUOM')
-                                     ->first();
+            // Use supplierItem's ItemCode or fall back to the one on the order item itself
+            $itemCode = $item->supplierItem->ItemCode ?? $item->item_code;
 
-                // Attach it for the frontend, following the structure from OrderReceiving
-                $item->supplierItem->sap_master_file = $sapMasterfile;
+            if ($itemCode) {
+                // Find the master file based on the determined item code
+                $sapMasterfile = SAPMasterfile::where('ItemCode', $itemCode)->first();
 
                 if ($sapMasterfile) {
+                    // Flatten the structure for the frontend
+                    $item->ItemCode = $sapMasterfile->ItemCode;
+                    $item->item_name = $sapMasterfile->ItemDescription; // Match `item_name` used in OrderReceiving
+                    $item->BaseUOM = $sapMasterfile->BaseUOM;
+                    
+                    // Attach for SOH calculation
                     $stock = ProductInventoryStock::where('product_inventory_id', $sapMasterfile->id)
                         ->where('store_branch_id', $order->store_branch_id)
                         ->sum('quantity');
@@ -136,12 +140,18 @@ class IntercoReceivingController extends Controller
             $query->where('store_order_id', $order->id);
         })->get();
         
-        // Manually attach sap_master_file for history items too
+        // Manually attach flattened data for history items too
         $receiveDatesHistory->each(function ($history) {
-            if ($history->store_order_item && $history->store_order_item->supplierItem) {
-                 $history->store_order_item->supplierItem->sap_master_file = SAPMasterfile::where('ItemCode', $history->store_order_item->supplierItem->ItemCode)
-                                    ->whereColumn('BaseUOM', 'AltUOM')
-                                    ->first();
+            if ($history->store_order_item) {
+                $itemCode = $history->store_order_item->supplierItem->ItemCode ?? $history->store_order_item->item_code;
+                if ($itemCode) {
+                    $sapMasterfile = SAPMasterfile::where('ItemCode', $itemCode)->first();
+                    if ($sapMasterfile) {
+                        // Attach flattened data directly to the history's store_order_item
+                        $history->store_order_item->ItemCode = $sapMasterfile->ItemCode;
+                        $history->store_order_item->item_name = $sapMasterfile->ItemDescription;
+                    }
+                }
             }
         });
 

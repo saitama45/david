@@ -453,9 +453,9 @@ const promptConfirmReceive = () => {
                         </thead>
                         <tbody class="bg-white divide-y divide-gray-200">
                             <tr v-for="orderItem in orderedItems" :key="orderItem.id">
-                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{{ orderItem.supplier_item.sap_master_file?.ItemCode }}</td>
-                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{{ orderItem.supplier_item.sap_master_file?.ItemDescription }}</td>
-                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{{ orderItem.supplier_item.sap_master_file?.BaseUOM }}</td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{{ orderItem.ItemCode }}</td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{{ orderItem.item_name }}</td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{{ orderItem.BaseUOM }}</td>
                                 <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{{ orderItem.uom }}</td>
                                 <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{{ orderItem.soh_stock }}</td>
                                 <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{{ orderItem.quantity_ordered }}</td>
@@ -506,8 +506,8 @@ const promptConfirmReceive = () => {
                         <tbody class="bg-white divide-y divide-gray-200">
                             <tr v-for="history in receiveDatesHistory" :key="history.id">
                                 <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{{ history.id }}</td>
-                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{{ history.store_order_item?.supplier_item.sap_master_file?.ItemDescription }}</td>
-                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{{ history.store_order_item?.supplier_item.sap_master_file?.ItemCode }}</td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{{ history.store_order_item?.item_name }}</td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{{ history.store_order_item?.ItemCode }}</td>
                                 <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{{ history.store_order_item?.uom }}</td>
                                 <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{{ history.quantity_received }}</td>
                                 <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
