@@ -102,29 +102,48 @@ class IntercoReceivingController extends Controller
             abort(403, 'Unauthorized access to this interco order.');
         }
 
+        // Load supplierItem relationship
         $orderedItems = StoreOrderItem::where('store_order_id', $order->id)
-            ->with('supplierItem.sapMasterfiles')
+            ->with('supplierItem')
             ->get();
 
+        // Manually attach sap_master_file and calculate soh_stock
         $orderedItems->each(function ($item) use ($order) {
-            $stockUpdateTarget = SAPMasterfile::where('ItemCode', optional($item->supplierItem->sap_master_file)->ItemCode)->whereColumn('BaseUOM', 'AltUOM')->first() ?? $item->supplierItem->sap_master_file;
-            if ($stockUpdateTarget) {
-                $stock = ProductInventoryStock::where('product_inventory_id', $stockUpdateTarget->id)
-                    ->where('store_branch_id', $order->store_branch_id)
-                    ->sum('quantity');
-                $item->soh_stock = $stock ?? 0;
-            } else {
-                $item->soh_stock = 0;
+            $item->soh_stock = 0;
+            if ($item->supplierItem) {
+                // Find the master file based on the supplier item's code
+                $sapMasterfile = SAPMasterfile::where('ItemCode', $item->supplierItem->ItemCode)
+                                     ->whereColumn('BaseUOM', 'AltUOM')
+                                     ->first();
+
+                // Attach it for the frontend, following the structure from OrderReceiving
+                $item->supplierItem->sap_master_file = $sapMasterfile;
+
+                if ($sapMasterfile) {
+                    $stock = ProductInventoryStock::where('product_inventory_id', $sapMasterfile->id)
+                        ->where('store_branch_id', $order->store_branch_id)
+                        ->sum('quantity');
+                    $item->soh_stock = $stock ?? 0;
+                }
             }
         });
 
         $receiveDatesHistory = OrderedItemReceiveDate::with([
-            'store_order_item.supplierItem.sapMasterfiles',
+            'store_order_item.supplierItem', // Load up to supplierItem
             'received_by_user',
             'approval_action_by_user'
         ])->whereHas('store_order_item', function ($query) use ($order) {
             $query->where('store_order_id', $order->id);
         })->get();
+        
+        // Manually attach sap_master_file for history items too
+        $receiveDatesHistory->each(function ($history) {
+            if ($history->store_order_item && $history->store_order_item->supplierItem) {
+                 $history->store_order_item->supplierItem->sap_master_file = SAPMasterfile::where('ItemCode', $history->store_order_item->supplierItem->ItemCode)
+                                    ->whereColumn('BaseUOM', 'AltUOM')
+                                    ->first();
+            }
+        });
 
         $images = $order->image_attachments()->get();
 

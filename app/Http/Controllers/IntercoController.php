@@ -541,11 +541,11 @@ class IntercoController extends Controller
         }
 
         try {
-            // 1. Find all active SAP masterfiles matching the search term.
+            // 1. Find initial set of items from search.
             $foundItems = SAPMasterfile::where('is_active', true)
                 ->where(function ($query) use ($search) {
                     $query->where('ItemCode', 'like', "%{$search}%")
-                          ->orWhere('ItemDescription', 'like', "%{$search}%");
+                            ->orWhere('ItemDescription', 'like', "%{$search}%");
                 })
                 ->whereNotNull('ItemCode')->where('ItemCode', '!=', '')
                 ->limit(50)
@@ -555,38 +555,62 @@ class IntercoController extends Controller
                 return response()->json(['items' => []]);
             }
 
-            // 2. Get all unique ItemCodes from the found items.
             $itemCodes = $foundItems->pluck('ItemCode')->unique()->toArray();
+            $foundItemIds = $foundItems->pluck('id')->toArray();
+            
+            // --- BATCH STOCK LOOKUP with FALLBACK ---
+            
+            // Final map to hold stock for each ItemCode
+            $itemCodeToStockMap = array_fill_keys($itemCodes, 0);
+            $masterfileIdToItemCode = $foundItems->pluck('ItemCode', 'id');
 
-            // 3. Find all SAP Masterfile entries for these item codes.
-            $allItemMasterfiles = SAPMasterfile::whereIn('ItemCode', $itemCodes)->get();
-
-            // 4. Create a map of product_inventory_id (sap_masterfile.id) to ItemCode.
-            $idToItemCodeMap = $allItemMasterfiles->pluck('ItemCode', 'id');
-
-            // 5. Get all stock levels for these masterfiles at the specified store.
-            $stockLevels = ProductInventoryStock::where('store_branch_id', $sendingStoreId)
-                ->whereIn('product_inventory_id', $allItemMasterfiles->pluck('id'))
+            // Primary lookup: Stock for the specific masterfiles found by search
+            $primaryStocks = ProductInventoryStock::where('store_branch_id', $sendingStoreId)
+                ->whereIn('product_inventory_id', $foundItemIds)
                 ->get();
 
-            // 6. Aggregate stock quantities per ItemCode.
-            // WARNING: This assumes all UOMs for a single ItemCode can be summed, which might not be accurate
-            // if conversion factors are not 1. This is a compromise to ensure items appear.
-            $itemCodeToStockMap = [];
-            foreach ($stockLevels as $stock) {
-                $itemCode = $idToItemCodeMap[$stock->product_inventory_id] ?? null;
+            foreach ($primaryStocks as $stock) {
+                $itemCode = $masterfileIdToItemCode[$stock->product_inventory_id] ?? null;
                 if ($itemCode) {
-                    if (!isset($itemCodeToStockMap[$itemCode])) {
-                        $itemCodeToStockMap[$itemCode] = 0;
-                    }
+                    // Use += in case a single masterfile ID has multiple stock entries (e.g. batches)
                     $itemCodeToStockMap[$itemCode] += $stock->quantity;
                 }
             }
+            
+            // Fallback 1: For items that still have 0 stock, look at other masterfiles with the same ItemCode.
+            $itemCodesWithZeroStock = collect($itemCodeToStockMap)->filter(fn($q) => $q == 0)->keys();
 
-            // 7. Map the originally found items to include the aggregated stock.
+            if ($itemCodesWithZeroStock->isNotEmpty()) {
+                // ** FIX: Explicitly cast item codes to string to prevent SQL Server conversion errors **
+                $stringItemCodes = $itemCodesWithZeroStock->map(fn($code) => (string)$code)->all();
+
+                $altMasterfiles = SAPMasterfile::whereIn('ItemCode', $stringItemCodes)
+                    ->whereNotIn('id', $foundItemIds) // Exclude masterfiles we already checked
+                    ->where('is_active', true)
+                    ->get();
+                
+                if ($altMasterfiles->isNotEmpty()) {
+                    $altStocks = ProductInventoryStock::where('store_branch_id', $sendingStoreId)
+                        ->whereIn('product_inventory_id', $altMasterfiles->pluck('id'))
+                        ->where('quantity', '>', 0) // Only get records with stock
+                        ->get();
+                        
+                    $altMasterfileIdToCode = $altMasterfiles->pluck('ItemCode', 'id');
+                    
+                    foreach ($altStocks as $stock) {
+                        $code = $altMasterfileIdToCode[$stock->product_inventory_id] ?? null;
+                        // If we find stock for an item code that currently has 0, update it.
+                        // This takes the first positive stock found from an alternative masterfile.
+                        if ($code && $itemCodeToStockMap[$code] == 0) {
+                            $itemCodeToStockMap[$code] = $stock->quantity;
+                        }
+                    }
+                }
+            }
+
+            // Final mapping
             $processedItems = $foundItems->map(function ($item) use ($itemCodeToStockMap) {
                 $stockQty = $itemCodeToStockMap[$item->ItemCode] ?? 0;
-
                 return [
                     'id' => $item->id,
                     'item_code' => $item->ItemCode,
@@ -602,7 +626,7 @@ class IntercoController extends Controller
             return response()->json(['items' => $processedItems]);
 
         } catch (\Exception $e) {
-            \Log::error('getAvailableItems error for store ' . $sendingStoreId . ': ' . $e->getMessage());
+            \Log::error('getAvailableItems error for store ' . $sendingStoreId . ': ' . $e->getMessage(), ['trace' => $e->getTraceAsString()]);
             return response()->json(['error' => 'Failed to fetch items'], 500);
         }
     }
