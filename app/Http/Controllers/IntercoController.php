@@ -558,31 +558,34 @@ class IntercoController extends Controller
             // 2. Get all unique ItemCodes from the found items.
             $itemCodes = $foundItems->pluck('ItemCode')->unique()->toArray();
 
-            // 3. Find the corresponding "stock-holding" masterfile records (where BaseUOM = AltUOM).
-            $stockHoldingMasterfiles = SAPMasterfile::whereIn('ItemCode', $itemCodes)
-                ->whereColumn('BaseUOM', 'AltUOM')
-                ->get()
-                ->keyBy('ItemCode');
+            // 3. Find all SAP Masterfile entries for these item codes.
+            $allItemMasterfiles = SAPMasterfile::whereIn('ItemCode', $itemCodes)->get();
 
-            // 4. Get the stock levels for these specific stock-holding records.
+            // 4. Create a map of product_inventory_id (sap_masterfile.id) to ItemCode.
+            $idToItemCodeMap = $allItemMasterfiles->pluck('ItemCode', 'id');
+
+            // 5. Get all stock levels for these masterfiles at the specified store.
             $stockLevels = ProductInventoryStock::where('store_branch_id', $sendingStoreId)
-                ->whereIn('product_inventory_id', $stockHoldingMasterfiles->pluck('id'))
-                ->get()
-                ->keyBy('product_inventory_id');
+                ->whereIn('product_inventory_id', $allItemMasterfiles->pluck('id'))
+                ->get();
 
-            // 5. Map the results.
-            $processedItems = $foundItems->map(function ($item) use ($stockHoldingMasterfiles, $stockLevels) {
-                // Find the corresponding stock-holding masterfile by ItemCode.
-                $stockMasterfile = $stockHoldingMasterfiles->get($item->ItemCode);
-                
-                // Get the stock quantity from that stock-holding masterfile's ID.
-                $stockQty = 0;
-                if ($stockMasterfile) {
-                    $stockRecord = $stockLevels->get($stockMasterfile->id);
-                    if ($stockRecord) {
-                        $stockQty = $stockRecord->quantity;
+            // 6. Aggregate stock quantities per ItemCode.
+            // WARNING: This assumes all UOMs for a single ItemCode can be summed, which might not be accurate
+            // if conversion factors are not 1. This is a compromise to ensure items appear.
+            $itemCodeToStockMap = [];
+            foreach ($stockLevels as $stock) {
+                $itemCode = $idToItemCodeMap[$stock->product_inventory_id] ?? null;
+                if ($itemCode) {
+                    if (!isset($itemCodeToStockMap[$itemCode])) {
+                        $itemCodeToStockMap[$itemCode] = 0;
                     }
+                    $itemCodeToStockMap[$itemCode] += $stock->quantity;
                 }
+            }
+
+            // 7. Map the originally found items to include the aggregated stock.
+            $processedItems = $foundItems->map(function ($item) use ($itemCodeToStockMap) {
+                $stockQty = $itemCodeToStockMap[$item->ItemCode] ?? 0;
 
                 return [
                     'id' => $item->id,
@@ -591,7 +594,7 @@ class IntercoController extends Controller
                     'uom' => $item->BaseUOM,
                     'alt_uom' => $item->AltUOM,
                     'cost_per_quantity' => $this->getItemCostFromSupplier($item->ItemCode),
-                    'stock' => $stockQty, // Use the stock from the BaseUOM=AltUOM record.
+                    'stock' => $stockQty,
                     'is_available' => $stockQty > 0,
                 ];
             });

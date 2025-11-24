@@ -87,6 +87,7 @@ class StoreCommitsController extends Controller
 
         $order = StoreOrder::with([
             'store_branch',
+            'sendingStore', // Eager load sendingStore
             'supplier',
             'store_order_items.sapMasterfile',
             'encoder',
@@ -100,7 +101,7 @@ class StoreCommitsController extends Controller
         })
         ->findOrFail($id);
 
-        // Get SOH stock for store branch for each item (adapted from IntercoApprovalController)
+        // Get SOH stock for SENDING store for each item (corrected logic)
         $itemsWithStock = $order->store_order_items->map(function ($item) use ($order) {
             $stock = 0;
             $description = 'No description';
@@ -113,8 +114,8 @@ class StoreCommitsController extends Controller
                 if ($sapMasterfile) {
                     $description = $sapMasterfile->ItemDescription ?? $sapMasterfile->ItemName ?? 'No description';
 
-                    // Primary stock lookup using main sapMasterfile relationship for store branch
-                    $stock = ProductInventoryStock::where('store_branch_id', $order->store_branch_id)
+                    // Primary stock lookup using main sapMasterfile relationship for SENDING store
+                    $stock = ProductInventoryStock::where('store_branch_id', $order->sending_store_branch_id)
                         ->where('product_inventory_id', $sapMasterfile->id)
                         ->sum('quantity');
 
@@ -129,7 +130,7 @@ class StoreCommitsController extends Controller
                             ->get();
 
                         foreach ($alternativeMasterfiles as $alternative) {
-                            $alternativeStock = ProductInventoryStock::where('store_branch_id', $order->store_branch_id)
+                            $alternativeStock = ProductInventoryStock::where('store_branch_id', $order->sending_store_branch_id)
                                 ->where('product_inventory_id', $alternative->id)
                                 ->sum('quantity');
 
@@ -139,10 +140,10 @@ class StoreCommitsController extends Controller
                                 $description = $alternative->ItemDescription ?? $alternative->ItemName ?? 'No description';
 
                                 Log::info("Found stock using alternative SAP masterfile for item {$item->item_code}", [
-                                    'original_sap_masterfile_id' => $item->sapMasterfile->id,
+                                    'original_sap_masterfile_id' => optional($item->sapMasterfile)->id,
                                     'working_sap_masterfile_id' => $alternative->id,
                                     'stock_found' => $stock,
-                                    'store_branch_id' => $order->store_branch_id,
+                                    'store_branch_id' => $order->sending_store_branch_id,
                                     'method' => 'duplicate_itemcode_fallback'
                                 ]);
                                 break;
@@ -154,7 +155,7 @@ class StoreCommitsController extends Controller
                     if ($stock == 0) {
                         $stockLookupMethod = 'direct_itemcode_lookup';
                         $directStock = ProductInventoryStock::join('sap_masterfiles', 'sap_masterfiles.id', '=', 'product_inventory_stocks.product_inventory_id')
-                            ->where('product_inventory_stocks.store_branch_id', $order->store_branch_id)
+                            ->where('product_inventory_stocks.store_branch_id', $order->sending_store_branch_id)
                             ->where('sap_masterfiles.ItemCode', $item->item_code)
                             ->sum('product_inventory_stocks.quantity');
 
@@ -163,7 +164,7 @@ class StoreCommitsController extends Controller
                             Log::info("Found stock using direct ItemCode lookup for item {$item->item_code}", [
                                 'item_code' => $item->item_code,
                                 'stock_found' => $stock,
-                                'store_branch_id' => $order->store_branch_id,
+                                'store_branch_id' => $order->sending_store_branch_id,
                                 'method' => 'direct_itemcode_lookup'
                             ]);
                         }
@@ -171,10 +172,10 @@ class StoreCommitsController extends Controller
 
                     // Final logging
                     if ($stock == 0) {
-                        Log::warning("No SOH stock found for item {$item->item_code} in store {$order->store_branch_id}", [
+                        Log::warning("No SOH stock found for item {$item->item_code} in store {$order->sending_store_branch_id}", [
                             'sap_masterfile_id' => $sapMasterfile->id,
                             'product_inventory_id' => $sapMasterfile->id,
-                            'store_branch_id' => $order->store_branch_id,
+                            'store_branch_id' => $order->sending_store_branch_id,
                             'item_uom' => $item->uom,
                             'stock_lookup_method' => $stockLookupMethod
                         ]);
@@ -182,7 +183,7 @@ class StoreCommitsController extends Controller
                         Log::info("SOH stock found for item {$item->item_code}", [
                             'stock_amount' => $stock,
                             'sap_masterfile_id' => $sapMasterfile->id,
-                            'store_branch_id' => $order->store_branch_id,
+                            'store_branch_id' => $order->sending_store_branch_id,
                             'stock_lookup_method' => $stockLookupMethod
                         ]);
                     }

@@ -1,9 +1,19 @@
 <script setup>
-import { ref, watch, computed } from "vue";
+import { ref, watch, computed, onMounted, onUnmounted } from "vue";
 import { useForm } from "@inertiajs/vue3";
 import { useToast } from "primevue/usetoast";
 import { router } from "@inertiajs/vue3";
 import { X, Pencil } from "lucide-vue-next";
+
+import { Button } from '@/components/ui/button';
+import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogFooter,
+    DialogHeader,
+    DialogTitle,
+} from '@/components/ui/dialog';
 
 import { useConfirm } from "primevue/useconfirm";
 import dayjs from "dayjs";
@@ -57,6 +67,33 @@ const openImageModal = () => {
     isImageModalVisible.value = true;
 };
 
+const closeImageModal = () => {
+    isImageModalVisible.value = false;
+    imageUploadForm.reset();
+    imagePreviewUrl.value = null;
+    imageUploadForm.clearErrors();
+};
+
+const handleEscapeKey = (event) => {
+    if (event.key === 'Escape' && isImageModalVisible.value) {
+        closeImageModal();
+    }
+};
+
+const handleBackdropClick = (event) => {
+    if (event.target === event.currentTarget) {
+        closeImageModal();
+    }
+};
+
+onMounted(() => {
+    document.addEventListener('keydown', handleEscapeKey);
+});
+
+onUnmounted(() => {
+    document.removeEventListener('keydown', handleEscapeKey);
+});
+
 const targetId = ref(null);
 const itemDetails = ref(null);
 const form = useForm({
@@ -91,9 +128,7 @@ const submitImageUpload = () => {
                 detail: 'Image attached successfully.',
                 life: 3000,
             });
-            isImageModalVisible.value = false;
-            imageUploadForm.reset();
-            imagePreviewUrl.value = null;
+            closeImageModal();
         },
         onError: (errors) => {
             // Display the first validation error message
@@ -285,6 +320,15 @@ const confirmReceive = () => {
 };
 
 const promptConfirmReceive = () => {
+    if (!props.images || props.images.length === 0) {
+        toast.add({
+            severity: 'error',
+            summary: 'Image Required',
+            detail: 'Please attach at least one image before confirming receipt.',
+            life: 5000,
+        });
+        return;
+    }
     confirm.require({
         message: 'Are you sure you want to confirm all pending received items?',
         header: 'Confirm Receiving',
@@ -436,7 +480,9 @@ const promptConfirmReceive = () => {
                         <button
                             v-if="order?.interco_status !== 'received'"
                             @click="promptConfirmReceive"
+                            :disabled="!images || images.length === 0"
                             class="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors"
+                            :class="{ 'opacity-50 cursor-not-allowed': !images || images.length === 0 }"
                         >
                             Confirm Receive
                         </button>
@@ -494,15 +540,36 @@ const promptConfirmReceive = () => {
             </div>
         </div>
 
-        <!-- Image Upload Modal -->
-        <Dialog v-model:open="isImageModalVisible">
-            <DialogContent class="sm:max-w-[600px]">
-                <DialogHeader>
-                    <DialogTitle>Attach Image</DialogTitle>
-                    <DialogDescription>
-                        Select an image file to upload for this order.
-                    </DialogDescription>
-                </DialogHeader>
+        <!-- Custom Modal Dialog for Image Upload -->
+        <div
+            v-if="isImageModalVisible"
+            class="fixed inset-0 z-50 flex items-center justify-center"
+            @click="handleBackdropClick"
+        >
+            <!-- Backdrop -->
+            <div class="absolute inset-0 bg-black/50 backdrop-blur-sm"></div>
+
+            <!-- Modal Content -->
+            <div class="relative z-10 w-full max-w-md mx-4 bg-white rounded-lg shadow-xl border border-gray-200 p-6 transform transition-all">
+                <!-- Header -->
+                <div class="flex items-center justify-between mb-4">
+                    <div>
+                        <h2 class="text-lg font-semibold text-gray-900">Attach Image</h2>
+                        <p class="text-sm text-gray-600 mt-1">Select an image file to upload for this order.</p>
+                    </div>
+                    <Button
+                        variant="ghost"
+                        size="sm"
+                        @click="closeImageModal"
+                        class="h-8 w-8 p-0 hover:bg-gray-100"
+                    >
+                        <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                        </svg>
+                    </Button>
+                </div>
+
+                <!-- Form Content -->
                 <div class="space-y-4">
                     <InputContainer>
                         <Label class="text-xs">Image File</Label>
@@ -520,15 +587,17 @@ const promptConfirmReceive = () => {
                         <img :src="imagePreviewUrl" class="mt-2 max-w-full h-auto rounded-md border object-contain" />
                     </div>
                 </div>
-                <DialogFooter>
-                    <Button variant="ghost" @click="isImageModalVisible = false">Cancel</Button>
+
+                <!-- Footer -->
+                <div class="flex justify-end items-center mt-6 space-x-2">
+                    <Button variant="ghost" @click="closeImageModal">Cancel</Button>
                     <Button @click="submitImageUpload" :disabled="imageUploadForm.processing">
                         <span v-if="imageUploadForm.processing">Uploading...</span>
                         <span v-else>Upload</span>
                     </Button>
-                </DialogFooter>
-            </DialogContent>
-        </Dialog>
+                </div>
+            </div>
+        </div>
 
         <!-- Receive Form Modal -->
         <!-- Edit Receive Details Modal -->
