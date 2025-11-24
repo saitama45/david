@@ -27,6 +27,7 @@ class StoreTransactionImport implements ToModel, WithHeadingRow, WithStartRow
     private $maxEmptyRows = 5;
     private $rowNumber = 0;
     protected $skippedRows = [];
+    private $processedReceipts = [];
 
     public function startRow(): int
     {
@@ -96,6 +97,29 @@ class StoreTransactionImport implements ToModel, WithHeadingRow, WithStartRow
                     'location_code' => $currentRawRow['branch'],
                     'branch' => $branch
                 ]);
+            }
+
+            $receiptNumber = $currentRawRow['receipt_no'];
+            $receiptKey = $branch->id . '-' . $receiptNumber;
+
+            // If we have not processed this receipt in the current import session
+            if (!in_array($receiptKey, $this->processedReceipts)) {
+                // Check if a transaction with this receipt number and branch already exists in the database
+                $existingTransaction = StoreTransaction::where('store_branch_id', $branch->id)
+                    ->where('receipt_number', $receiptNumber)
+                    ->exists();
+
+                if ($existingTransaction) {
+                    $this->skippedRows[] = [
+                        'row_number' => $this->rowNumber,
+                        'reason' => "Skipped: Transaction with Receipt No. '{$receiptNumber}' for Branch '{$currentRawRow['branch']}' already exists in the database.",
+                        'data' => $currentRawRow,
+                    ];
+                    return null; // Skip this row completely
+                }
+
+                // Mark this receipt as processed for the current import session
+                $this->processedReceipts[] = $receiptKey;
             }
 
             $excelPosCode = strtoupper(trim($currentRawRow['product_id']));
