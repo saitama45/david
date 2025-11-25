@@ -380,7 +380,7 @@ const getGrandTotalPrice = computed(() => {
                     <!-- FRUITS AND VEGETABLES Layout -->
                     <div v-if="props.variant === 'FRUITS AND VEGETABLES'" class="mt-6 overflow-x-auto">
                         <table class="min-w-full border-collapse border border-gray-300 text-sm frozen-pane-table">
-                            <thead>
+                            <thead class="sticky-header-top">
                                 <!-- First Header Row: Fixed columns + Store Names grouped -->
                                 <tr class="bg-gray-100">
                                     <th rowspan="2" class="border border-gray-300 px-3 py-2 font-semibold text-center align-middle frozen frozen-1" style="min-width: 100px;">ITEM CODE</th>
@@ -603,7 +603,15 @@ const getGrandTotalPrice = computed(() => {
 .frozen-pane-table .frozen {
     position: -webkit-sticky; /* for Safari */
     position: sticky;
-    z-index: 1;
+    z-index: 11; /* Higher z-index for horizontally frozen columns to appear over sticky header */
+}
+
+/* Make the whole table header sticky vertically */
+.frozen-pane-table .sticky-header-top {
+    position: -webkit-sticky; /* for Safari */
+    position: sticky;
+    top: 0;
+    z-index: 10; /* Lower than horizontally frozen cells but higher than scrolling content */
 }
 
 /* We need to set background colors for sticky cells to prevent content from showing through */
