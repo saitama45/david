@@ -379,14 +379,14 @@ const getGrandTotalPrice = computed(() => {
 
                     <!-- FRUITS AND VEGETABLES Layout -->
                     <div v-if="props.variant === 'FRUITS AND VEGETABLES'" class="mt-6 overflow-x-auto">
-                        <table class="min-w-full border-collapse border border-gray-300 text-sm">
+                        <table class="min-w-full border-collapse border border-gray-300 text-sm frozen-pane-table">
                             <thead>
                                 <!-- First Header Row: Fixed columns + Store Names grouped -->
                                 <tr class="bg-gray-100">
-                                    <th rowspan="2" class="border border-gray-300 px-3 py-2 font-semibold text-center align-middle" style="min-width: 100px;">ITEM CODE</th>
-                                    <th rowspan="2" class="border border-gray-300 px-3 py-2 font-semibold text-center align-middle" style="min-width: 200px;">ITEM NAME</th>
-                                    <th rowspan="2" class="border border-gray-300 px-3 py-2 font-semibold text-center align-middle" style="min-width: 80px;">UOM</th>
-                                    <th rowspan="2" class="border border-gray-300 px-3 py-2 font-semibold text-center align-middle" style="min-width: 80px;">PRICE</th>
+                                    <th rowspan="2" class="border border-gray-300 px-3 py-2 font-semibold text-center align-middle frozen frozen-1" style="min-width: 100px;">ITEM CODE</th>
+                                    <th rowspan="2" class="border border-gray-300 px-3 py-2 font-semibold text-center align-middle frozen frozen-2" style="min-width: 200px;">ITEM NAME</th>
+                                    <th rowspan="2" class="border border-gray-300 px-3 py-2 font-semibold text-center align-middle frozen frozen-3" style="min-width: 80px;">UOM</th>
+                                    <th rowspan="2" class="border border-gray-300 px-3 py-2 font-semibold text-center align-middle frozen frozen-4" style="min-width: 80px;">PRICE</th>
 
                                     <!-- Store Name headers - each store spans its delivery dates -->
                                     <template v-for="store in props.stores" :key="`store-${store.id}`">
@@ -424,10 +424,10 @@ const getGrandTotalPrice = computed(() => {
                             <tbody>
                                 <!-- Row for each supplier item -->
                                 <tr v-for="item in props.supplier_items" :key="item.id" class="hover:bg-gray-50">
-                                    <td class="border border-gray-300 px-3 py-2">{{ item.item_code }}</td>
-                                    <td class="border border-gray-300 px-3 py-2">{{ item.item_name }}</td>
-                                    <td class="border border-gray-300 px-3 py-2 text-center">{{ item.uom }}</td>
-                                    <td class="border border-gray-300 px-3 py-2 text-right">{{ item.price.toFixed(2) }}</td>
+                                    <td class="border border-gray-300 px-3 py-2 frozen frozen-1">{{ item.item_code }}</td>
+                                    <td class="border border-gray-300 px-3 py-2 frozen frozen-2">{{ item.item_name }}</td>
+                                    <td class="border border-gray-300 px-3 py-2 text-center frozen frozen-3">{{ item.uom }}</td>
+                                    <td class="border border-gray-300 px-3 py-2 text-right frozen frozen-4">{{ item.price.toFixed(2) }}</td>
 
                                     <!-- Input cells grouped by store, then dates for that store -->
                                     <template v-for="store in props.stores" :key="`body-${store.id}`">
@@ -471,7 +471,7 @@ const getGrandTotalPrice = computed(() => {
 
                                 <!-- Grand Total Row -->
                                 <tr class="bg-gray-700 text-white font-bold">
-                                    <td colspan="4" class="border border-gray-300 px-3 py-2 text-right">TOTAL PRICE</td>
+                                    <td colspan="4" class="border border-gray-300 px-3 py-2 text-right frozen frozen-1">TOTAL PRICE</td>
                                     <td :colspan="getTotalDateColumns + 3" class="border border-gray-300 px-3 py-2"></td>
                                     <td class="border border-gray-300 px-3 py-2 text-right">{{ getGrandTotalPrice.toFixed(2) }}</td>
                                 </tr>
@@ -598,3 +598,44 @@ const getGrandTotalPrice = computed(() => {
         </TableContainer>
     </Layout>
 </template>
+
+<style>
+.frozen-pane-table .frozen {
+    position: -webkit-sticky; /* for Safari */
+    position: sticky;
+    z-index: 1;
+}
+
+/* We need to set background colors for sticky cells to prevent content from showing through */
+.frozen-pane-table thead .frozen {
+    background-color: #f3f4f6; /* Corresponds to bg-gray-100 */
+}
+
+.frozen-pane-table tbody tr:hover .frozen {
+    /* To handle hover state on rows */
+    background-color: #f9fafb; /* Corresponds to hover:bg-gray-50 */
+}
+
+.frozen-pane-table tbody .frozen {
+    /* Default for body rows */
+    background-color: #ffffff;
+}
+
+.frozen-pane-table tbody tr.bg-gray-700 .frozen {
+    background-color: #374151; /* for total row */
+}
+
+
+.frozen-pane-table .frozen-1 {
+    left: 0;
+}
+.frozen-pane-table .frozen-2 {
+    left: 100px; /* Based on min-width of the first column */
+}
+.frozen-pane-table .frozen-3 {
+    left: 300px; /* 100 + 200 */
+}
+.frozen-pane-table .frozen-4 {
+    left: 380px; /* 300 + 80 */
+}
+</style>
