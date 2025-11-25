@@ -216,7 +216,6 @@ const openViewModalForm = (id) => {
                         <TH>UOM</TH>
                         <TH> Ordered</TH>
                         <TH> Comitted</TH>
-                        <TH> Delivered</TH>
                         <TH> Received</TH>
                         <TH>
                             <DivFlexCol>
@@ -239,7 +238,6 @@ const openViewModalForm = (id) => {
                             <TD>{{ orderItem.uom ?? 'N/a' }}</TD>
                             <TD>{{ orderItem.quantity_ordered }}</TD>
                             <TD>{{ order.order_status?.toUpperCase() === 'APPROVED' ? 0 : orderItem.quantity_commited }}</TD>
-                            <TD>{{ orderItem.quantity_received }}</TD>
                             <TD>{{ orderItem.quantity_received }}</TD>
                             <TD>{{ Math.abs(orderItem.quantity_approved - (order.order_status?.toUpperCase() === 'APPROVED' ? 0 : orderItem.quantity_commited)) }}</TD>
                             <TD>{{ Math.abs((order.order_status?.toUpperCase() === 'APPROVED' ? 0 : orderItem.quantity_commited) - orderItem.quantity_received) }}</TD>
