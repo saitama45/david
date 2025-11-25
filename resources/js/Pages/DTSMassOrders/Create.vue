@@ -378,9 +378,9 @@ const getGrandTotalPrice = computed(() => {
                     </div>
 
                     <!-- FRUITS AND VEGETABLES Layout -->
-                    <div v-if="props.variant === 'FRUITS AND VEGETABLES'" class="mt-6 overflow-x-auto">
+                    <div v-if="props.variant === 'FRUITS AND VEGETABLES'" class="mt-6 overflow-x-auto overflow-y-auto max-h-[80vh]">
                         <table class="min-w-full border-collapse border border-gray-300 text-sm frozen-pane-table">
-                            <thead class="sticky-header-top">
+                            <thead>
                                 <!-- First Header Row: Fixed columns + Store Names grouped -->
                                 <tr class="bg-gray-100">
                                     <th rowspan="2" class="border border-gray-300 px-3 py-2 font-semibold text-center align-middle frozen frozen-1" style="min-width: 100px;">ITEM CODE</th>
@@ -600,50 +600,54 @@ const getGrandTotalPrice = computed(() => {
 </template>
 
 <style>
-.frozen-pane-table .frozen {
-    position: -webkit-sticky; /* for Safari */
+/* --- FROZEN PANE STYLES --- */
+
+/* Base for all sticky elements */
+.frozen-pane-table .frozen,
+.frozen-pane-table thead th {
+    position: -webkit-sticky;
     position: sticky;
-    z-index: 11; /* Higher z-index for horizontally frozen columns to appear over sticky header */
 }
 
-/* Make the whole table header sticky vertically */
-.frozen-pane-table .sticky-header-top {
-    position: -webkit-sticky; /* for Safari */
-    position: sticky;
+/* HORIZONTAL FREEZE (COLUMNS) */
+.frozen-pane-table .frozen-1 { left: 0; }
+.frozen-pane-table .frozen-2 { left: 100px; }
+.frozen-pane-table .frozen-3 { left: 300px; }
+.frozen-pane-table .frozen-4 { left: 380px; }
+
+/* VERTICAL FREEZE (HEADER) */
+.frozen-pane-table thead tr:first-of-type th {
     top: 0;
-    z-index: 10; /* Lower than horizontally frozen cells but higher than scrolling content */
+}
+.frozen-pane-table thead tr:nth-of-type(2) th {
+    top: 80px; /* Estimated height of the first header row. Adjust if needed. */
 }
 
-/* We need to set background colors for sticky cells to prevent content from showing through */
-.frozen-pane-table thead .frozen {
-    background-color: #f3f4f6; /* Corresponds to bg-gray-100 */
-}
+/* Z-INDEX LAYERING */
+.frozen-pane-table tbody .frozen { z-index: 1; }
+.frozen-pane-table thead th { z-index: 2; }
+.frozen-pane-table thead .frozen { z-index: 3; }
 
-.frozen-pane-table tbody tr:hover .frozen {
-    /* To handle hover state on rows */
-    background-color: #f9fafb; /* Corresponds to hover:bg-gray-50 */
+/* BACKGROUNDS for sticky elements to avoid transparency */
+.frozen-pane-table thead th {
+    background-color: #f3f4f6; /* Default: bg-gray-100 */
 }
+.frozen-pane-table thead tr:nth-of-type(2) th {
+    background-color: #e5e7eb; /* Default: bg-gray-200 */
+}
+/* Override for specific header cells to maintain original color */
+.frozen-pane-table thead th.bg-blue-50 { background-color: #eff6ff !important; }
+.frozen-pane-table thead th.bg-yellow-100 { background-color: #fef9c3 !important; }
+.frozen-pane-table thead th.bg-green-100 { background-color: #dcfce7 !important; }
 
+/* Background for body's frozen columns */
 .frozen-pane-table tbody .frozen {
-    /* Default for body rows */
     background-color: #ffffff;
 }
-
+.frozen-pane-table tbody tr:hover .frozen {
+    background-color: #f9fafb; /* hover:bg-gray-50 */
+}
 .frozen-pane-table tbody tr.bg-gray-700 .frozen {
     background-color: #374151; /* for total row */
-}
-
-
-.frozen-pane-table .frozen-1 {
-    left: 0;
-}
-.frozen-pane-table .frozen-2 {
-    left: 100px; /* Based on min-width of the first column */
-}
-.frozen-pane-table .frozen-3 {
-    left: 300px; /* 100 + 200 */
-}
-.frozen-pane-table .frozen-4 {
-    left: 380px; /* 300 + 80 */
 }
 </style>
