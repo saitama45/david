@@ -252,6 +252,11 @@ const formatCurrency = (amount) => {
   }).format(amount)
 }
 
+const formatQty = (qty) => {
+    if (qty === null || qty === undefined) return '0.000';
+    return Number(qty).toFixed(3);
+};
+
 </script>
 
 <template>
@@ -321,7 +326,7 @@ const formatCurrency = (amount) => {
           <CardContent class="space-y-4">
             <div class="flex justify-between items-center">
               <span class="text-gray-600">Total Items</span>
-              <span class="text-2xl font-bold">{{ totalItems }}</span>
+              <span class="text-2xl font-bold">{{ formatQty(totalItems) }}</span>
             </div>
             <Separator />
             <div class="flex justify-between items-center">
@@ -440,9 +445,9 @@ const formatCurrency = (amount) => {
                   </div>
                 </TableCell>
                 <TableCell class="text-sm">{{ item.reason || 'No reason specified' }}</TableCell>
-                <TableCell class="text-center">{{ item.wastage_qty }} {{ (item.sap_masterfile?.AltUOM || item.sap_masterfile?.BaseUOM) ?? 'PCS' }}</TableCell>
-                <TableCell class="text-center">{{ item.approverlvl1_qty ?? 0 }} {{ (item.sap_masterfile?.AltUOM || item.sap_masterfile?.BaseUOM) ?? 'PCS' }}</TableCell>
-                <TableCell class="text-center">{{ item.approverlvl2_qty ?? 0 }} {{ (item.sap_masterfile?.AltUOM || item.sap_masterfile?.BaseUOM) ?? 'PCS' }}</TableCell>
+                <TableCell class="text-center">{{ formatQty(item.wastage_qty) }} {{ (item.sap_masterfile?.AltUOM || item.sap_masterfile?.BaseUOM) ?? 'PCS' }}</TableCell>
+                <TableCell class="text-center">{{ formatQty(item.approverlvl1_qty) }} {{ (item.sap_masterfile?.AltUOM || item.sap_masterfile?.BaseUOM) ?? 'PCS' }}</TableCell>
+                <TableCell class="text-center">{{ formatQty(item.approverlvl2_qty) }} {{ (item.sap_masterfile?.AltUOM || item.sap_masterfile?.BaseUOM) ?? 'PCS' }}</TableCell>
                 <TableCell class="text-right">{{ formatCurrency(item.cost) }}</TableCell>
                 <TableCell class="text-right font-semibold">{{ formatCurrency(item.wastage_qty * item.cost) }}</TableCell>
               </TableRow>

@@ -118,6 +118,11 @@ const formatCurrency = (amount) => {
   }).format(amount)
 }
 
+const formatQty = (qty) => {
+    if (qty === null || qty === undefined) return '0.000';
+    return Number(qty).toFixed(3);
+};
+
 const getStoreName = (wastage) => {
   return wastage.storeBranch?.name ||
          wastage.store_branch?.name ||
@@ -271,7 +276,7 @@ let searchTimeout
                   {{ getStoreName(wastage) }}
                 </TableCell>
                 <TableCell>
-                  {{ wastage.total_quantity }}
+                  {{ formatQty(wastage.total_quantity) }}
                 </TableCell>
                 <TableCell>
                   {{ wastage.items_count }}
@@ -365,7 +370,7 @@ let searchTimeout
             <div class="grid grid-cols-2 gap-3 text-sm">
               <div>
                 <span class="text-muted-foreground text-xs">Total Qty:</span>
-                <div class="font-medium">{{ wastage.total_quantity }}</div>
+                <div class="font-medium">{{ formatQty(wastage.total_quantity) }}</div>
               </div>
               <div>
                 <span class="text-muted-foreground text-xs">Items:</span>

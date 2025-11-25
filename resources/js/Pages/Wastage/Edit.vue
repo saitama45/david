@@ -613,8 +613,8 @@ const handleReasonBlur = (item) => {
                         type="number"
                         v-model="item.quantity"
                         @input="updateCartItemQuantity(item.id, $event.target.value)"
-                        step="0.01"
-                        min="0.01"
+                        step="0.001"
+                        min="0.001"
                         class="w-24 h-8 text-sm"
                       />
                     </td>
