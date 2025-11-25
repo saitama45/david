@@ -25,8 +25,9 @@ const { backButton } = useBackButton(route("orders-receiving.index"));
 // Define remarks options for the dropdown
 const remarksOptions = [
     { label: 'Damaged goods', value: 'Damaged goods' },
-    { label: 'Missing goods', value: 'Missing goods' },
-    { label: 'Expired goods', value: 'Expired goods' }
+    { label: 'Under Issuance', value: 'Under Issuance' },
+    { label: 'Expired goods', value: 'Expired goods' },
+    { label: 'Others', value: 'Others' }
 ];
 
 const props = defineProps({
@@ -249,11 +250,12 @@ const closeAllModals = () => {
     isEditModalVisible.value = false;
     isImageUploadModalVisible.value = false;
     isDeliveryReceiptModalVisible.value = false;
+    isViewModalVisible.value = false;
 };
 
 const handleEscapeKey = (event) => {
     if (event.key === "Escape") {
-        if (isEditModalVisible.value || isImageUploadModalVisible.value || isDeliveryReceiptModalVisible.value) {
+        if (isEditModalVisible.value || isImageUploadModalVisible.value || isDeliveryReceiptModalVisible.value || isViewModalVisible.value) {
             closeAllModals();
         }
     }
@@ -279,8 +281,23 @@ watch(isEditModalVisible, (value) => {
         editReceiveDetailsForm.clearErrors();
         isLoading.value = false;
         currentEditingItem.value = null;
+        isTypingCustomRemark.value = false;
     }
 });
+
+const isTypingCustomRemark = ref(false);
+
+const onRemarksSelectChange = (event) => {
+    if (event.target.value === 'Others') {
+        isTypingCustomRemark.value = true;
+        editReceiveDetailsForm.remarks = '';
+    }
+};
+
+const goBackToPresetRemarks = () => {
+    isTypingCustomRemark.value = false;
+    editReceiveDetailsForm.remarks = '';
+};
 
 const editReceiveDetailsForm = useForm({
     id: null,
@@ -298,6 +315,10 @@ const variance = computed(() => {
     return received - committed;
 });
 
+const canConfirmReceive = computed(() => {
+    return props.order.delivery_receipts.length > 0 && props.images.length > 0;
+});
+
 const openEditModalForm = (id) => {
     const data = props.receiveDatesHistory;
     const existingItemIndex = data.findIndex((history) => history.id === id);
@@ -307,6 +328,17 @@ const openEditModalForm = (id) => {
     editReceiveDetailsForm.id = history.id;
     editReceiveDetailsForm.quantity_received = history.quantity_received;
     editReceiveDetailsForm.remarks = history.remarks;
+
+    const predefinedRemarks = remarksOptions.map(option => option.value);
+    if (history.remarks && !predefinedRemarks.includes(history.remarks)) {
+        isTypingCustomRemark.value = true;
+    } else if (history.remarks === 'Others') {
+        isTypingCustomRemark.value = true;
+        editReceiveDetailsForm.remarks = '';
+    } else {
+        isTypingCustomRemark.value = false;
+    }
+
     isEditModalVisible.value = true;
 };
 
@@ -502,6 +534,16 @@ const confirmReceive = () => {
 };
 
 const promptConfirmReceive = () => {
+    if (!canConfirmReceive.value) {
+        toast.add({
+            severity: "error",
+            summary: "Unable to Confirm",
+            detail: "A delivery receipt and image are required before confirming.",
+            life: 5000,
+        });
+        return;
+    }
+
     confirm.require({
         message: 'Are you sure you want to confirm all pending received items? This action cannot be undone.',
         header: 'Confirm Receiving',
@@ -565,13 +607,19 @@ const promptConfirmReceive = () => {
 
             <TableContainer>
                 <TableHeader>
-                    <SpanBold class="text-xs">Delivery Receipts</SpanBold>
+                    <CardTitle>Delivery Receipts <span class="text-red-500">*</span></CardTitle>
+                    <Button @click="isDeliveryReceiptModalVisible = true"
+                        >Add Delivery Number</Button
+                    >
                 </TableHeader>
                 <Table>
                     <TableHead>
                         <TH>Id</TH>
                         <TH>Number</TH>
-                        <TH>SAP SO Number</TH>
+                        <TH>
+                            <span v-if="order.variant.toLowerCase() === 'mass dts'">PO Number</span>
+                            <span v-else>SAP SO Number</span>
+                        </TH>
                         <TH>Remarks</TH>
                         <TH>Created at</TH>
                         <TH>Actions</TH>
@@ -638,10 +686,11 @@ const promptConfirmReceive = () => {
                                 @click="deleteDeliveryReceiptNumber(receipt.id)"
                             />
                         </MobileTableHeading>
-                        <LabelXS
-                            >SAP SO Number:
-                            {{ receipt.sap_so_number ?? "N/a" }}</LabelXS
-                        >
+                        <LabelXS>
+                            <span v-if="order.variant.toLowerCase() === 'mass dts'">PO Number:</span>
+                            <span v-else>SAP SO Number:</span>
+                            {{ receipt.sap_so_number ?? "N/a" }}
+                        </LabelXS>
                         <LabelXS
                             >Remarks: {{ receipt.remarks ?? "N/a" }}</LabelXS
                         >
@@ -722,10 +771,14 @@ const promptConfirmReceive = () => {
                 </MobileTableContainer>
             </TableContainer>
 
-            <Card class="p-5">
-                <InputContainer class="col-span-4">
-                    <LabelXS>Image Attachments: </LabelXS>
+            <Card>
+                <TableHeader>
+                    <CardTitle>Image Attachments <span class="text-red-500">*</span></CardTitle>
+                    <Button @click="openImageUploadModal">Attach Image</Button>
+                </TableHeader>
+                <div class="p-5">
                     <DivFlexCenter
+                        v-if="images.length > 0"
                         class="gap-4 overflow-auto overflow-x-auto scrollbar-thin scrollbar-track-gray-100 scrollbar-thumb-gray-300 hover:scrollbar-thumb-gray-400"
                     >
                         <div
@@ -751,26 +804,14 @@ const promptConfirmReceive = () => {
                             </a>
                         </div>
                     </DivFlexCenter>
-                    <SpanBold v-if="images.length < 1">None</SpanBold>
-                </InputContainer>
+                    <SpanBold v-else>None</SpanBold>
+                </div>
             </Card>
 
             <TableContainer class="col-span-2 min-w-fit">
-                <DivFlexCenter class="justify-between">
-                    <SpanBold class="text-xs">Ordered Items</SpanBold>
-                    <DivFlexCenter class="gap-3">
-                        <Button
-                            class="text-xs px-2 sm:px-4"
-                            @click="openImageUploadModal"
-                            >Attach Image</Button
-                        >
-                        <Button
-                            class="text-xs px-2 sm:px-4"
-                            @click="isDeliveryReceiptModalVisible = true"
-                            >Add Delivery Number</Button
-                        >
-                    </DivFlexCenter>
-                </DivFlexCenter>
+                <TableHeader>
+                    <CardTitle>Ordered Items</CardTitle>
+                </TableHeader>
                 <Table>
                     <TableHead>
                         <TH> Item Code </TH>
@@ -781,7 +822,6 @@ const promptConfirmReceive = () => {
                         <TH>Approved</TH>
                         <TH> Commited</TH>
                         <TH> Received</TH>
-                        <TH> Actions </TH>
                     </TableHead>
 
                     <TableBody>
@@ -802,23 +842,6 @@ const promptConfirmReceive = () => {
                             <TD>{{ orderItem.quantity_approved }}</TD>
                             <TD>{{ orderItem.quantity_commited }}</TD>
                             <TD>{{ orderItem.quantity_received }}</TD>
-                            <TD class="w-[90px]">
-                                <DivFlexCenter class="gap-1">
-                                    <ShowButton
-                                        @click="opentItemDetails(orderItem.id)"
-                                    >
-                                        <Eye />
-                                    </ShowButton>
-                                    <Button
-                                        v-if="orderStatus === 'incomplete'"
-                                        @click="openReceiveForm(orderItem.id)"
-                                        class="text-green-500"
-                                        variant="link"
-                                    >
-                                        Receive
-                                    </Button>
-                                </DivFlexCenter>
-                            </TD>
                         </tr>
                     </TableBody>
                 </Table>
@@ -831,14 +854,6 @@ const promptConfirmReceive = () => {
                         <MobileTableHeading
                             :title="`${orderItem.supplier_item.item_name} (${orderItem.supplier_item.ItemCode})`"
                         >
-                            <Button
-                                v-if="canReceive"
-                                @click="openReceiveForm(orderItem.id)"
-                                class="text-green-500"
-                                variant="link"
-                            >
-                                Receive
-                            </Button>
                         </MobileTableHeading>
                         <LabelXS
                             >BaseUOM:
@@ -858,10 +873,12 @@ const promptConfirmReceive = () => {
 
             <TableContainer>
                 <TableHeader>
-                    <CardTitle>Receiving History</CardTitle>
+                    <CardTitle>Receiving History <span class="text-red-500">*</span></CardTitle>
                     <Button
                         v-if="order.order_status != 'received'"
                         @click="promptConfirmReceive"
+                        :disabled="!canConfirmReceive"
+                        :title="!canConfirmReceive ? 'A delivery receipt and image are required before confirming.' : 'Confirm all pending received items'"
                     >
                         Confirm Receive
                     </Button>
@@ -874,6 +891,7 @@ const promptConfirmReceive = () => {
                         <TH> Quantity Received</TH>
                         <TH> Received At</TH>
                         <TH> Status</TH>
+                        <TH> Remarks </TH>
                         <TH>Actions</TH>
                     </TableHead>
                     <TableBody>
@@ -897,6 +915,7 @@ const promptConfirmReceive = () => {
                                     .format("MMMM D, YYYY h:mm A")
                             }}</TD>
                             <TD>{{ history.status }}</TD>
+                            <TD class="max-w-[200px] truncate">{{ history.remarks }}</TD>
                             <TD>
                                 <DivFlexCenter class="gap-3">
                                     <ShowButton
@@ -935,6 +954,9 @@ const promptConfirmReceive = () => {
                         >
                         <LabelXS
                             >Status: {{ history.status.toUpperCase() }}</LabelXS
+                        >
+                        <LabelXS v-if="history.remarks"
+                            >Remarks: {{ history.remarks }}</LabelXS
                         >
                     </MobileTableRow>
                     <SpanBold v-if="receiveDatesHistory.length < 1"
@@ -992,7 +1014,7 @@ const promptConfirmReceive = () => {
                 <!-- Form Content -->
                 <div class="space-y-3">
                     <InputContainer>
-                        <Label class="text-xs">Delivery Receipt Number</Label>
+                        <Label class="text-xs">Delivery Receipt Number <span class="text-red-500">*</span></Label>
                         <Input
                             v-model="
                                 deliveryReceiptForm.delivery_receipt_number
@@ -1003,7 +1025,11 @@ const promptConfirmReceive = () => {
                         }}</FormError>
                     </InputContainer>
                     <InputContainer>
-                        <Label class="text-xs">SAP SO Number</Label>
+                        <Label class="text-xs">
+                            <span v-if="order.variant.toLowerCase() === 'mass dts'">PO Number</span>
+                            <span v-else>SAP SO Number</span>
+                            <span class="text-red-500">*</span>
+                        </Label>
                         <Input
                             v-model="
                                 deliveryReceiptForm.sap_so_number
@@ -1048,7 +1074,7 @@ const promptConfirmReceive = () => {
                 </DialogHeader>
                 <div class="space-y-3">
                     <InputContainer>
-                        <Label class="text-xs">Quantity Received</Label>
+                        <Label class="text-xs">Quantity Received <span class="text-red-500">*</span></Label>
                         <Input
                             v-model="form.quantity_received"
                             type="number"
@@ -1058,7 +1084,7 @@ const promptConfirmReceive = () => {
                         }}</FormError>
                     </InputContainer>
                     <InputContainer>
-                        <Label class="text-xs">Received Date</Label>
+                        <Label class="text-xs">Received Date <span class="text-red-500">*</span></Label>
                         <Input
                             v-model="form.received_date"
                             type="datetime-local"
@@ -1149,7 +1175,7 @@ const promptConfirmReceive = () => {
                 <!-- Form Content -->
                 <div class="space-y-3">
                     <InputContainer>
-                        <Label class="text-xs">Quantity Received</Label>
+                        <Label class="text-xs">Quantity Received <span class="text-red-500">*</span></Label>
                         <Input
                             v-model="editReceiveDetailsForm.quantity_received"
                             type="number"
@@ -1186,20 +1212,31 @@ const promptConfirmReceive = () => {
                         </div>
                     </InputContainer>
                     <InputContainer>
-                        <Label class="text-xs">Remarks</Label>
-                        <select
-                            v-model="editReceiveDetailsForm.remarks"
-                            class="flex h-10 w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm shadow-sm transition-colors placeholder:text-gray-500 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-gray-400 disabled:cursor-not-allowed disabled:opacity-50"
-                        >
-                            <option value="" disabled>Select a remark</option>
-                            <option
-                                v-for="option in remarksOptions"
-                                :key="option.value"
-                                :value="option.value"
+                        <Label class="text-xs">Remarks <span class="text-red-500">*</span></Label>
+                        <div v-if="!isTypingCustomRemark">
+                            <select
+                                v-model="editReceiveDetailsForm.remarks"
+                                @change="onRemarksSelectChange"
+                                class="flex h-10 w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm shadow-sm transition-colors placeholder:text-gray-500 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-gray-400 disabled:cursor-not-allowed disabled:opacity-50"
                             >
-                                {{ option.label }}
-                            </option>
-                        </select>
+                                <option value="" disabled>Select a remark</option>
+                                <option
+                                    v-for="option in remarksOptions"
+                                    :key="option.value"
+                                    :value="option.value"
+                                >
+                                    {{ option.label }}
+                                </option>
+                            </select>
+                        </div>
+                        <div v-else>
+                            <textarea
+                                v-model="editReceiveDetailsForm.remarks"
+                                placeholder="Enter remarks"
+                                class="flex min-h-[60px] w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm shadow-sm transition-colors placeholder:text-gray-500 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-gray-400 disabled:cursor-not-allowed disabled:opacity-50"
+                            ></textarea>
+                            <Button variant="link" class="mt-2 text-xs" @click="goBackToPresetRemarks">Use Presets</Button>
+                        </div>
                         <FormError>{{
                             editReceiveDetailsForm.errors.remarks
                         }}</FormError>
@@ -1216,14 +1253,53 @@ const promptConfirmReceive = () => {
             </div>
         </div>
 
-        <Dialog v-model:open="isViewModalVisible">
-            <DialogContent class="sm:max-w-[600px]">
-                <DialogHeader>
-                    <DialogTitle>Receive History Details</DialogTitle>
-                    <DialogDescription
-                        >View the details of the received item.</DialogDescription
+        <div
+            v-if="isViewModalVisible"
+            class="fixed inset-0 z-50 flex items-center justify-center"
+            @click="handleBackdropClick"
+        >
+            <!-- Backdrop -->
+            <div
+                class="absolute inset-0 bg-black/50 backdrop-blur-sm"
+            ></div>
+
+            <!-- Modal Content -->
+            <div
+                class="relative z-10 w-full sm:max-w-[600px] mx-4 bg-white rounded-lg shadow-xl border border-gray-200 p-6 transform transition-all"
+            >
+                <!-- Header -->
+                <div class="flex items-center justify-between mb-4">
+                    <div>
+                        <h2 class="text-lg font-semibold text-gray-900">
+                            Receive History Details
+                        </h2>
+                        <p class="text-sm text-gray-600 mt-1">
+                            View the details of the received item.
+                        </p>
+                    </div>
+                    <Button
+                        variant="ghost"
+                        size="sm"
+                        @click="isViewModalVisible = false"
+                        class="h-8 w-8 p-0 hover:bg-gray-100"
                     >
-                </DialogHeader>
+                        <svg
+                            class="h-4 w-4"
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                        >
+                            <path
+                                stroke-linecap="round"
+                                stroke-linejoin="round"
+                                stroke-width="2"
+                                d="M6 18L18 6M6 6l12 12"
+                            ></path>
+                        </svg>
+                    </Button>
+                </div>
+
+                <!-- Form Content -->
                 <div class="space-y-3">
                     <InputContainer>
                         <LabelXS>Item Name:</LabelXS>
@@ -1290,15 +1366,17 @@ const promptConfirmReceive = () => {
                         >
                     </InputContainer>
                 </div>
-                <DialogFooter>
+
+                <!-- Footer -->
+                <div class="flex justify-end items-center gap-3 mt-6">
                     <Button
                         variant="ghost"
                         @click="isViewModalVisible = false"
                         >Close</Button
                     >
-                </DialogFooter>
-            </DialogContent>
-        </Dialog>
+                </div>
+            </div>
+        </div>
 
         <div
             v-if="isImageUploadModalVisible"

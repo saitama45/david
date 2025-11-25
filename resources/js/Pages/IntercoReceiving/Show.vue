@@ -62,6 +62,10 @@ const props = defineProps({
 
 const orderStatus = ref(props.order?.interco_status);
 
+const canConfirmReceive = computed(() => {
+    return props.images && props.images.length > 0;
+});
+
 const isImageModalVisible = ref(false);
 const openImageModal = () => {
     isImageModalVisible.value = true;
@@ -320,7 +324,7 @@ const confirmReceive = () => {
 };
 
 const promptConfirmReceive = () => {
-    if (!props.images || props.images.length === 0) {
+    if (!canConfirmReceive.value) {
         toast.add({
             severity: 'error',
             summary: 'Image Required',
@@ -480,9 +484,10 @@ const promptConfirmReceive = () => {
                         <button
                             v-if="order?.interco_status !== 'received'"
                             @click="promptConfirmReceive"
-                            :disabled="!images || images.length === 0"
+                            :disabled="!canConfirmReceive"
                             class="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors"
-                            :class="{ 'opacity-50 cursor-not-allowed': !images || images.length === 0 }"
+                            :class="{ 'opacity-50 cursor-not-allowed': !canConfirmReceive }"
+                            :title="!canConfirmReceive ? 'An image is required before confirming.' : 'Confirm all pending received items'"
                         >
                             Confirm Receive
                         </button>
