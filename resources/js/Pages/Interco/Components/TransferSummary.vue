@@ -190,7 +190,7 @@ const formattedDate = computed(() => {
       <!-- Progress Bar -->
       <div v-if="!compact" class="mt-4">
         <div class="flex items-center justify-between mb-2">
-          <span class="text-sm font-medium">Transfer Progress</span>
+          <span class="text-sm font-medium">Variance</span>
           <span class="text-sm text-muted-foreground">{{ progressPercentage }}%</span>
         </div>
         <div class="w-full bg-secondary rounded-full h-2">
