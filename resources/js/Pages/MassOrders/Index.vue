@@ -507,7 +507,7 @@ const downloadFileName = computed(() => {
         <TableContainer>
             <TableHeader>
                 <SearchBar>
-                    <Input v-model="search" id="search" type="text" placeholder="Search for order number" class="pl-10 sm:max-w-full max-w-64" />
+                    <Input v-model="search" id="search" type="text" placeholder="Search for order or SO number" class="pl-10 sm:max-w-full max-w-64" />
                 </SearchBar>
                 <DivFlexCenter class="gap-5">
                     <Popover>
@@ -548,6 +548,7 @@ const downloadFileName = computed(() => {
                         <TH>Supplier</TH>
                         <TH>Store</TH>
                         <TH>Order #</TH>
+                        <TH>SO Number</TH>
                         <TH>Delivery Date</TH>
                         <TH>Order Placed Date</TH>
                         <TH>Order Status</TH>
@@ -555,13 +556,14 @@ const downloadFileName = computed(() => {
                     </TableHead>
                     <TableBody>
                         <tr v-if="!massOrders.data || massOrders.data.length === 0">
-                            <td colspan="8" class="text-center py-4">No orders found.</td>
+                            <td colspan="9" class="text-center py-4">No orders found.</td>
                         </tr>
                         <tr v-for="order in massOrders.data" :key="order.id">
                             <TD>{{ order.id }}</TD>
                             <TD>{{ order.supplier?.name ?? "N/A" }}</TD>
                             <TD>{{ order.store_branch?.name ?? "N/A" }}</TD>
                             <TD>{{ order.order_number }}</TD>
+                            <TD>{{ order.delivery_receipts && order.delivery_receipts.length > 0 ? order.delivery_receipts[0].sap_so_number : "N/A" }}</TD>
                             <TD>{{ formatDisplayDate(order.order_date) }}</TD>
                             <TD>{{ formatDisplayDateTime(order.created_at) }}</TD>
                             <TD>
@@ -592,6 +594,7 @@ const downloadFileName = computed(() => {
                             <Pencil class="size-5" />
                         </button>
                     </MobileTableHeading>
+                    <LabelXS>SO Number: {{ order.delivery_receipts && order.delivery_receipts.length > 0 ? order.delivery_receipts[0].sap_so_number : "N/A" }}</LabelXS>
                     <LabelXS>Status: <span :class="statusBadgeColor(order.order_status)" class="font-semibold p-1 rounded text-white">{{ order.order_status ? order.order_status.toUpperCase() : 'N/A' }}</span></LabelXS>
                     <LabelXS>Store: {{ order.store_branch?.name ?? "N/A" }}</LabelXS>
                     <LabelXS>Supplier: {{ order.supplier?.name ?? "N/A" }}</LabelXS>

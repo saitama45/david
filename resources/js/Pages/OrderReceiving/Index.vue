@@ -161,6 +161,7 @@ watch(() => props.orders, (newOrders) => {
                     <TH>Id</TH>
                     <TH>Supplier</TH>
                     <TH>Store</TH>
+                    <TH>SO/PO Number</TH>
                     <TH>Order #</TH>
                     <TH>Order Date</TH>
                     <TH>Order Placed Date</TH>
@@ -173,6 +174,7 @@ watch(() => props.orders, (newOrders) => {
                         <TD>{{ order.id }}</TD>
                         <TD>{{ order.supplier?.name ?? "N/A" }}</TD>
                         <TD>{{ order.store_branch?.name ?? "N/A" }}</TD>
+                        <TD>{{ order.delivery_receipts && order.delivery_receipts.length > 0 ? order.delivery_receipts[0].sap_so_number : "N/A" }}</TD>
                         <TD>{{ order.order_number }}</TD>
                         <TD>{{ order.order_date }}</TD>
                         <TD>{{ order.created_at }}</TD>
@@ -212,6 +214,8 @@ watch(() => props.orders, (newOrders) => {
                             @click="viewDetails(order.order_number)"
                         />
                     </MobileTableHeading>
+                    <LabelXS>Store: {{ order.store_branch?.name ?? "N/A" }}</LabelXS>
+                    <LabelXS>SO/PO Number: {{ order.delivery_receipts && order.delivery_receipts.length > 0 ? order.delivery_receipts[0].sap_so_number : "N/A" }}</LabelXS>
                     <LabelXS
                         >Receiving Status:
                         {{ order.order_status.toUpperCase() }}</LabelXS

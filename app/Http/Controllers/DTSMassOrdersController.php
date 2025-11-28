@@ -41,23 +41,44 @@ class DTSMassOrdersController extends Controller
             })
             ->values();
 
+        $filterQuery = $request->input('filterQuery', 'committed');
+        $search = $request->input('search');
+
         // Build query for mass order batches
-        $query = $this->getBaseBatchQuery()->select([
+        $query = $this->getBaseBatchQuery()
+            ->leftJoin('delivery_receipts', 'store_orders.id', '=', 'delivery_receipts.store_order_id')
+            ->select([
                 'batch_reference as batch_number',
                 'encoder_id',
                 \DB::raw('MIN(order_date) as date_from'),
                 \DB::raw('MAX(order_date) as date_to'),
-                \DB::raw('COUNT(*) as total_orders'),
-                \DB::raw('MIN(order_status) as status'),
-                \DB::raw('MIN(remarks) as remarks'),
-                \DB::raw('MIN(created_at) as created_at'),
-                \DB::raw('MAX(updated_at) as updated_at')
+                \DB::raw('COUNT(DISTINCT store_orders.id) as total_orders'),
+                \DB::raw('MIN(store_orders.order_status) as status'),
+                \DB::raw('MIN(store_orders.remarks) as remarks'),
+                \DB::raw('MIN(store_orders.created_at) as created_at'),
+                \DB::raw('MAX(store_orders.updated_at) as updated_at'),
+                \DB::raw('MIN(delivery_receipts.sap_so_number) as sap_so_number_for_batch') // Taking MIN as a representative
             ])
             ->with('encoder')
             ->groupBy('batch_reference', 'encoder_id');
 
-        // Apply filter
-        $filterQuery = $request->input('filterQuery', 'committed');
+        if ($request->filled('search')) {
+            $searchTerm = $request->input('search');
+
+            // Find batch_references that have a matching sap_so_number
+            $matchingBatches = \DB::table('store_orders')
+                ->join('delivery_receipts', 'store_orders.id', '=', 'delivery_receipts.store_order_id')
+                ->where('delivery_receipts.sap_so_number', 'like', '%' . $searchTerm . '%')
+                ->whereNotNull('store_orders.batch_reference')
+                ->distinct()
+                ->pluck('store_orders.batch_reference');
+
+            $query->where(function($q) use ($searchTerm, $matchingBatches) {
+                $q->where('batch_reference', 'like', '%' . $searchTerm . '%')
+                  ->orWhereIn('batch_reference', $matchingBatches);
+            });
+        }
+
         if ($filterQuery !== 'all') {
             switch ($filterQuery) {
                 case 'approved':
@@ -165,6 +186,7 @@ class DTSMassOrdersController extends Controller
             'batches' => $batches,
             'filters' => [
                 'filterQuery' => $filterQuery,
+                'search' => $search,
             ],
             'counts' => $counts
         ]);

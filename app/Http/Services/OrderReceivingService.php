@@ -33,7 +33,7 @@ class OrderReceivingService extends StoreOrderService
         $user = User::rolesAndAssignedBranches();
 
         // Start with a base query that includes relationships
-        $query = StoreOrder::query()->with(['store_branch', 'supplier']);
+        $query = StoreOrder::query()->with(['store_branch', 'supplier', 'delivery_receipts']);
 
         // Apply branch filtering based on user roles
         if (!$user['isAdmin']) {
@@ -50,6 +50,9 @@ class OrderReceivingService extends StoreOrderService
                     })
                     ->orWhereHas('store_branch', function ($bq) use ($search) {
                         $bq->where('name', 'like', '%' . $search . '%');
+                    })
+                    ->orWhereHas('delivery_receipts', function ($drq) use ($search) {
+                        $drq->where('sap_so_number', 'like', '%' . $search . '%');
                     });
             });
             Log::debug("OrderReceivingService: Applied search filter: {$search}");

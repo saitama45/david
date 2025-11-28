@@ -38,12 +38,18 @@ class MassOrdersController extends Controller
         $user->load('store_branches');
         $branchIds = $user->store_branches->pluck('id');
 
-        $query = \App\Models\StoreOrder::with(['supplier', 'store_branch'])
+        $query = \App\Models\StoreOrder::with(['supplier', 'store_branch', 'delivery_receipts'])
             ->where('variant', 'mass regular')
             ->whereIn('store_branch_id', $branchIds);
 
         if ($request->filled('search')) {
-            $query->where('order_number', 'like', '%' . $request->input('search') . '%');
+            $searchTerm = $request->input('search');
+            $query->where(function($q) use ($searchTerm) {
+                $q->where('order_number', 'like', '%' . $searchTerm . '%')
+                  ->orWhereHas('delivery_receipts', function($drq) use ($searchTerm) {
+                      $drq->where('sap_so_number', 'like', '%' . $searchTerm . '%');
+                  });
+            });
         }
 
         if ($request->filled('from') && $request->filled('to')) {

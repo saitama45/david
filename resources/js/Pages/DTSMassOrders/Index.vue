@@ -32,12 +32,14 @@ const toast = useToast();
 
 // Filter logic
 let filterQuery = ref((usePage().props.filters?.filterQuery || "committed").toString());
+let search = ref(usePage().props.filters.search);
 
 const performFilter = throttle(() => {
     router.get(
         route("dts-mass-orders.index"),
         {
             filterQuery: filterQuery.value,
+            search: search.value,
         },
         {
             preserveState: true,
@@ -47,7 +49,7 @@ const performFilter = throttle(() => {
     );
 }, 500);
 
-watch(filterQuery, performFilter);
+watch([filterQuery, search], performFilter);
 
 const changeFilter = (currentFilter) => {
     filterQuery.value = currentFilter;
@@ -342,10 +344,16 @@ const selectDate = (day, isFrom) => {
         </FilterTab>
 
         <TableContainer>
+            <TableHeader>
+                <SearchBar>
+                    <Input v-model="search" id="search" type="text" placeholder="Search for batch or PO number" class="pl-10 sm:max-w-full max-w-64" />
+                </SearchBar>
+            </TableHeader>
             <div class="hidden md:block">
                 <Table>
                     <TableHead>
                         <TH>Batch #</TH>
+                        <TH>PO Number</TH>
                         <TH>Variant</TH>
                         <TH>Delivery Dates</TH>
                         <TH>Total Orders</TH>
@@ -355,10 +363,11 @@ const selectDate = (day, isFrom) => {
                     </TableHead>
                     <TableBody>
                         <tr v-if="!batches.data || batches.data.length === 0">
-                            <td colspan="7" class="text-center py-4">No mass orders found.</td>
+                            <td colspan="8" class="text-center py-4">No mass orders found.</td>
                         </tr>
                         <tr v-for="batch in batches.data" :key="batch.id">
                             <TD>{{ batch.batch_number }}</TD>
+                            <TD>{{ batch.sap_so_number_for_batch ?? "N/A" }}</TD>
                             <TD><span class="font-semibold text-blue-600">{{ batch.variant }}</span></TD>
                             <TD>{{ formatDisplayDate(batch.date_from) }} - {{ formatDisplayDate(batch.date_to) }}</TD>
                             <TD>{{ batch.total_orders }}</TD>
@@ -391,6 +400,7 @@ const selectDate = (day, isFrom) => {
                             <Pencil class="size-5" />
                         </button>
                     </MobileTableHeading>
+                    <LabelXS>PO Number: {{ batch.sap_so_number_for_batch ?? "N/A" }}</LabelXS>
                     <LabelXS>Variant: <span class="font-semibold text-blue-600">{{ batch.variant }}</span></LabelXS>
                     <LabelXS>Delivery Dates: {{ formatDisplayDate(batch.date_from) }} - {{ formatDisplayDate(batch.date_to) }}</LabelXS>
                     <LabelXS>Total Orders: {{ batch.total_orders }}</LabelXS>
