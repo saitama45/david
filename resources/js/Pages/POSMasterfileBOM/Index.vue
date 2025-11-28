@@ -7,7 +7,7 @@ import { router } from "@inertiajs/vue3";
 import { usePage } from "@inertiajs/vue3";
 import { useAuth } from "@/Composables/useAuth";
 import { useReferenceDelete } from "@/Composables/useReferenceDelete";
-import { ref, computed, watch } from 'vue'; // Import necessary Vue functions
+import { ref, computed, watch, onMounted, onUnmounted } from 'vue'; // Import necessary Vue functions
 import Toast from 'primevue/toast'; // Ensure Toast component is imported
 
 const toast = useToast();
@@ -94,7 +94,23 @@ const importFile = () => {
 };
 
 const openFormModal = () => {
-    return (isImportModalVisible.value = true);
+    isImportModalVisible.value = true;
+};
+
+const closeFormModal = () => {
+    isImportModalVisible.value = false;
+};
+
+const handleEscapeKey = (event) => {
+    if (event.key === 'Escape' && isImportModalVisible.value) {
+        closeFormModal();
+    }
+};
+
+const handleBackdropClick = (event) => {
+    if (event.target === event.currentTarget) {
+        closeFormModal();
+    }
 };
 
 const isLoading = ref(false);
@@ -136,6 +152,14 @@ watch(importSummary, (newValue) => {
         });
     }
 }, { immediate: true });
+
+onMounted(() => {
+    document.addEventListener('keydown', handleEscapeKey);
+});
+
+onUnmounted(() => {
+    document.removeEventListener('keydown', handleEscapeKey);
+});
 
 </script>
 
@@ -291,14 +315,36 @@ watch(importSummary, (newValue) => {
             <Pagination :data="boms" />
         </TableContainer>
 
-        <Dialog v-model:open="isImportModalVisible">
-            <DialogContent class="sm:max-w-[600px]">
-                <DialogHeader>
-                    <DialogTitle>Import POS BOMs</DialogTitle>
-                    <DialogDescription>
-                        Import the excel file of the POS BOMs.
-                    </DialogDescription>
-                </DialogHeader>
+        <!-- Custom Modal Dialog -->
+        <div
+            v-if="isImportModalVisible"
+            class="fixed inset-0 z-50 flex items-center justify-center"
+            @click="handleBackdropClick"
+        >
+            <!-- Backdrop -->
+            <div class="absolute inset-0 bg-black/50 backdrop-blur-sm"></div>
+
+            <!-- Modal Content -->
+            <div class="relative z-10 w-full max-w-md mx-4 bg-white rounded-lg shadow-xl border border-gray-200 p-6 transform transition-all">
+                <!-- Header -->
+                <div class="flex items-center justify-between mb-4">
+                    <div>
+                        <h2 class="text-lg font-semibold text-gray-900">Import POS BOMs</h2>
+                        <p class="text-sm text-gray-600 mt-1">Import the excel file of the POS BOMs.</p>
+                    </div>
+                    <Button
+                        variant="ghost"
+                        size="sm"
+                        @click="closeFormModal"
+                        class="h-8 w-8 p-0 hover:bg-gray-100"
+                    >
+                        <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                        </svg>
+                    </Button>
+                </div>
+
+                <!-- Form Content -->
                 <div class="space-y-5">
                     <div class="flex flex-col space-y-1">
                         <Input
@@ -327,7 +373,9 @@ watch(importSummary, (newValue) => {
                         </ul>
                     </div>
                 </div>
-                <DialogFooter>
+
+                <!-- Footer -->
+                <div class="mt-6 flex justify-end">
                     <Button
                         :disabled="isLoading"
                         @click="importFile"
@@ -337,8 +385,8 @@ watch(importSummary, (newValue) => {
                         Proceed
                         <span><Loading v-if="isLoading" /></span>
                     </Button>
-                </DialogFooter>
-            </DialogContent>
-        </Dialog>
+                </div>
+            </div>
+        </div>
     </Layout>
 </template>
