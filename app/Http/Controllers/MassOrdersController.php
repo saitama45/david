@@ -275,25 +275,19 @@ class MassOrdersController extends Controller
         $cutoff2Date = $getCutoffDate($cutoff->cutoff_2_day, $cutoff->cutoff_2_time);
 
         $daysToCoverStr = '';
-        $weekOffset = 0; // How many weeks to add to the current week's start
+        $isSpecialLogic = str_starts_with($supplier_code, 'GSI') || $supplier_code === 'PUL-O'; // Define special logic once
 
         // Determine which set of days and which week to use
         if ($cutoff1Date && $now->lt($cutoff1Date)) {
             $daysToCoverStr = $cutoff->days_covered_1;
-            // If it's a GSI supplier, the delivery is always next week.
-            $weekOffset = str_starts_with($supplier_code, 'GSI') ? 1 : 0;
+            $weekOffset = $isSpecialLogic ? 1 : 0; // Apply special logic
         } elseif ($cutoff2Date && $now->lt($cutoff2Date)) {
             $daysToCoverStr = $cutoff->days_covered_2;
-            // If it's a GSI supplier, the delivery is always next week.
-            $weekOffset = str_starts_with($supplier_code, 'GSI') ? 1 : 0;
+            $weekOffset = $isSpecialLogic ? 1 : 0; // Apply special logic
         } else {
-            // After all cutoffs, it's next week for most, but week-after-next for GSI.
+            // After all cutoffs, it's next week for most, but week-after-next for special logic.
             $daysToCoverStr = $cutoff->days_covered_1;
-            if (str_starts_with($supplier_code, 'GSI')) {
-                $weekOffset = 2;
-            } else {
-                $weekOffset = 1;
-            }
+            $weekOffset = $isSpecialLogic ? 2 : 1; // Apply special logic
         }
 
         $startOfTargetWeek = $now->copy()->startOfWeek(Carbon::SUNDAY)->addWeeks($weekOffset);
