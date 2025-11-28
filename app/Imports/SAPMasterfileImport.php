@@ -52,18 +52,7 @@ class SAPMasterfileImport implements ToCollection, WithHeadingRow, WithChunkRead
 
                 // Check for duplicates in the current import
                 if (in_array($combination, self::$seenCombinations)) {
-                    $this->addSkippedItem($itemCode, $altUOM, $row['item_description'] ?? '', 'Duplicate item within the import file.');
-                    $this->skippedCount++;
-                    continue;
-                }
-
-                // Check if record already exists in database
-                $existingRecord = SAPMasterfile::where('ItemCode', $itemCode)
-                    ->where('AltUOM', $altUOM)
-                    ->first();
-
-                if ($existingRecord) {
-                    $this->addSkippedItem($itemCode, $altUOM, $row['item_description'] ?? '', 'Item already exists in the database.');
+                    $this->addSkippedItem($itemCode, $altUOM, $row['item_description'] ?? '', 'Duplicate item within the import file. Only the first occurrence was processed.');
                     $this->skippedCount++;
                     continue;
                 }
@@ -71,16 +60,20 @@ class SAPMasterfileImport implements ToCollection, WithHeadingRow, WithChunkRead
                 // Add to seen combinations
                 self::$seenCombinations[] = $combination;
 
-                // Create new record
-                SAPMasterfile::create([
-                    'ItemCode' => $itemCode,
-                    'ItemDescription' => (string) ($row['item_description'] ?? $row['Item Description'] ?? $row['ItemDescription'] ?? null),
-                    'AltQty' => (float) ($row['altqty'] ?? 0),
-                    'BaseQty' => (float) ($row['baseqty'] ?? 0),
-                    'AltUOM' => $altUOM,
-                    'BaseUOM' => (string) ($row['baseuom'] ?? $row['BaseUOM'] ?? null),
-                    'is_active' => (int) ($row['active'] ?? $row['Active'] ?? 1),
-                ]);
+                // Using updateOrCreate to update existing records or create new ones.
+                SAPMasterfile::updateOrCreate(
+                    [
+                        'ItemCode' => $itemCode,
+                        'AltUOM' => $altUOM
+                    ],
+                    [
+                        'ItemDescription' => (string) ($row['item_description'] ?? $row['Item Description'] ?? $row['ItemDescription'] ?? null),
+                        'AltQty' => (float) ($row['altqty'] ?? 0),
+                        'BaseQty' => (float) ($row['baseqty'] ?? 0),
+                        'BaseUOM' => (string) ($row['baseuom'] ?? $row['BaseUOM'] ?? null),
+                        'is_active' => (int) ($row['active'] ?? $row['Active'] ?? 1),
+                    ]
+                );
 
                 $this->processedCount++;
                 

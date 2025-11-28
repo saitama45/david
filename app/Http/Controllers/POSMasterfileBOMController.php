@@ -215,6 +215,7 @@ class POSMasterfileBOMController extends Controller
      */
     public function import(Request $request)
     {
+        set_time_limit(0);
         $user = Auth::user();
         if (!$user) {
             return redirect('/login')->with('error', 'Please log in to import POS BOMs.');

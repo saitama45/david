@@ -115,7 +115,7 @@ class SAPMasterfileController extends Controller
 
     public function import(Request $request)
     {
-        set_time_limit(300);
+        set_time_limit(0);
         Log::debug('SAPMasterfile Import: Import method started.');
 
         $request->validate([
