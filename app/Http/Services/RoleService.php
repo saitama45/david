@@ -244,6 +244,10 @@ class RoleService
                 'Actual Cost / COGS Report' => [
                     'view actual cost cogs report', 'export actual cost cogs report'
                 ],
+                // NEW: Delivery Report
+                'Delivery Report' => [
+                    'view delivery report', 'export delivery report'
+                ],
                 'Top 10 Inventories' => [
                     'view top 10 inventories', 'export top 10 inventories'
                 ],

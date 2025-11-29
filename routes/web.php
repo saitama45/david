@@ -67,6 +67,7 @@ use App\Http\Controllers\IntercoApprovalController;
 use App\Http\Controllers\IntercoReceivingController;
 use App\Http\Controllers\IntercoReportController;
 use App\Http\Controllers\PMIXReportController;
+use App\Http\Controllers\DeliveryReportController;
 use App\Http\Controllers\StoreTransactionApprovalController;
 use App\Http\Controllers\StoreTransactionController;
 use App\Http\Controllers\SupplierController;
@@ -166,6 +167,8 @@ Route::middleware('auth')
             Route::get('/interco-report/export', [IntercoReportController::class, 'export'])->name('reports.interco-report.export');
             Route::middleware('permission:view pmix report')->get('/pmix-report', [PMIXReportController::class, 'index'])->name('reports.pmix-report.index');
             Route::middleware('permission:export pmix report')->get('/pmix-report/export', [PMIXReportController::class, 'export'])->name('reports.pmix-report.export');
+            Route::middleware('permission:view delivery report')->get('/delivery-report', [DeliveryReportController::class, 'index'])->name('reports.delivery-report.index');
+            Route::middleware('permission:export delivery report')->get('/delivery-report/export', [DeliveryReportController::class, 'export'])->name('reports.delivery-report.export');
             Route::middleware('permission:view wastage report')->get('/wastage-report', [WastageReportController::class, 'index'])->name('reports.wastage-report.index');
             Route::middleware('permission:export wastage report')->get('/wastage-report/export', [WastageReportController::class, 'export'])->name('reports.wastage-report.export');
             Route::middleware('permission:view qty variance cost variance report')->get('/qty-variance-cost-variance-report', [QtyVarianceCostVarianceReportController::class, 'index'])->name('reports.qty-variance-cost-variance-report.index');
