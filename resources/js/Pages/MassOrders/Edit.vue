@@ -1293,6 +1293,8 @@ const addImportedItemsToOrderList = () => {
                 }
             });
 
+            editableOrderItems.value = orderForm.orders;
+
             visible.value = false;
             toast.add({
                 severity: "success",
