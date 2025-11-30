@@ -3,186 +3,150 @@
 namespace App\Imports;
 
 use App\Models\POSMasterfileBOM;
-use App\Models\POSMasterfile; // Import POSMasterfile model for validation
-use App\Models\SAPMasterfile; // Import SAPMasterfile model for validation
+use App\Models\POSMasterfile;
+use App\Models\SAPMasterfile;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Log;
 use Maatwebsite\Excel\Concerns\ToCollection;
 use Maatwebsite\Excel\Concerns\WithHeadingRow;
 use Maatwebsite\Excel\Concerns\WithChunkReading;
-use Carbon\Carbon;
-use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Str; // Import Str for slugging/normalizing column names
-use Illuminate\Support\Facades\Auth; // Import Auth facade
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Str;
 
 class POSMasterfileBOMImport implements ToCollection, WithHeadingRow, WithChunkReading
 {
-    protected $skippedDetails = [];
+    protected $skippedItems = [];
     protected $processedCount = 0;
-    protected $skippedEmptyKeysCount = 0;
-    protected $skippedByPosMasterfileValidationCount = 0; // New counter for POS Masterfile validation
-    protected $skippedBySapMasterfileValidationCount = 0; // New counter for SAP Masterfile validation
+    protected $skippedCount = 0;
+    protected static $seenCombinations = [];
 
-    // Constructor can be used if you need to pass assigned POS codes for authorization, similar to SupplierItemsImport
-    // public function __construct(array $assignedPOSCodes = [])
-    // {
-    //     $this->assignedCodes = $assignedPOSCodes; // Renamed for clarity
-    // }
+    public static function resetSeenCombinations()
+    {
+        self::$seenCombinations = [];
+    }
 
-    /**
-     * @param Collection $rows
-     *
-     * @return void
-     */
     public function collection(Collection $rows)
     {
-        Log::debug("POSMasterfileBOMImport: Starting collection processing.");
-        Log::debug("POSMasterfileBOMImport: Raw collection received (" . $rows->count() . " rows): " . json_encode($rows->toArray()));
+        $toFloat = fn($value) => is_numeric($value) ? (float)$value : (float)str_replace(',', '', (string)$value);
 
-        // Log the count before deduplication (if it were still active)
-        Log::debug("POSMasterfileBOMImport: Rows before deduplication: " . $rows->count());
+        foreach ($rows as $row) {
+            $posCode = null;
+            $itemCode = null;
+            $assembly = null;
+            $bomUOM = null; // Declare early
 
-        $upsertBatchSize = 100;    
-
-        // We are processing all rows, as deduplication was removed.
-        $rowsToProcess = $rows;    
-
-        // Log the count of rows that will be processed
-        Log::debug("POSMasterfileBOMImport: Rows to process (all rows): " . $rowsToProcess->count());
-
-
-        $dataForCurrentChunk = [];
-
-        foreach ($rowsToProcess as $row) {
-            $getCellValue = function($row, $keys) {
-                foreach ($keys as $key) {
-                    if (isset($row[$key]) && (is_string($row[$key]) ? trim($row[$key]) !== '' : $row[$key] !== null)) {
-                        return trim($row[$key]);
-                    }
+            try {
+                // If the row is completely empty, skip it silently.
+                if ($row instanceof Collection && $row->filter(fn($val) => !is_null($val) && trim((string) $val) !== '')->isEmpty()) {
+                    continue;
                 }
-                return null;
-            };
 
-            $posCode = $getCellValue($row, ['pos_code', 'POS Code']);
-            $itemCode = $getCellValue($row, ['item_code', 'ITEM CODE']);
-            $posDescription = $getCellValue($row, ['pos_description', 'POS Description', 'Item Description']);
-            $assembly = $getCellValue($row, ['assembly', 'ASSEMBLY']);
-            $itemDescription = $getCellValue($row, ['item_description', 'PRODUCT DESCRIPTION']);
-            $recPercent = is_numeric($getCellValue($row, ['rec_percent', 'REC%'])) ? (float)$getCellValue($row, ['rec_percent', 'REC%']) : null;
-            $recipeQty = is_numeric($getCellValue($row, ['recipe_qty', 'RECIPE QTY'])) ? (float)$getCellValue($row, ['recipe_qty', 'RECIPE QTY']) : null;
-            $recipeUOM = $getCellValue($row, ['recipe_uom', 'RECIPE UOM', 'UOM']);    
-            $bomQty = is_numeric($getCellValue($row, ['bom_qty', 'BOM QTY'])) ? (float)$getCellValue($row, ['bom_qty', 'BOM QTY']) : null;
-            $bomUOM = $getCellValue($row, ['bom_uom', 'BOM UOM', 'UOM']);    
-            $unitCost = is_numeric($getCellValue($row, ['unit_cost', 'UNIT COST'])) ? (float)$getCellValue($row, ['unit_cost', 'UNIT COST']) : null;
-            $totalCost = is_numeric($getCellValue($row, ['total_cost', 'TOTAL COST'])) ? (float)$getCellValue($row, ['total_cost', 'TOTAL COST']) : null;
+                // Robustly get key fields
+                $posCode = (string) Str::of($row['pos_code'] ?? $row['POS Code'] ?? null)->trim();
+                $itemCode = (string) Str::of($row['item_code'] ?? $row['ITEM CODE'] ?? null)->trim();
+                $assembly = (string) Str::of($row['assembly'] ?? $row['ASSEMBLY'] ?? null)->trim();
+                $bomUOM = (string) Str::of($row['bom_uom'] ?? $row['BOM UOM'] ?? null)->trim(); // Get BOM UOM early for validation
+                $bomQtyRaw = $row['bom_qty'] ?? $row['BOM QTY'] ?? 0; // Get raw BOM Qty for validation
 
+                // --- Start Validation ---
+                if (empty($posCode) || empty($itemCode)) {
+                    $this->addSkippedItem($posCode, $itemCode, $assembly, 'POS Code or Item Code is missing.');
+                    $this->skippedCount++;
+                    continue;
+                }
+                
+                if (!POSMasterfile::where('POSCode', $posCode)->exists()) {
+                    $this->addSkippedItem($posCode, $itemCode, $assembly, 'POS Code not found in POS Masterfile.');
+                    $this->skippedCount++;
+                    continue;
+                }
 
-            Log::debug("POSMasterfileBOMImport: Extracted for row. POSCode: '{$posCode}', ItemCode: '{$itemCode}', Assembly: '{$assembly}', RecipeQty: '{$recipeQty}', UnitCost: '{$unitCost}', ItemDescription: '{$itemDescription}'");
+                if (!SAPMasterfile::where('ItemCode', $itemCode)->exists()) {
+                    $this->addSkippedItem($posCode, $itemCode, $assembly, 'Item Code not found in SAP Masterfile.');
+                    $this->skippedCount++;
+                    continue;
+                }
 
-            if (empty($posCode) || empty($itemCode) || empty($assembly)) { // Added Assembly to basic validation
-                $this->skippedEmptyKeysCount++;
-                $reason = 'Empty POS Code, Item Code, or Assembly';
-                $details = ['POSCode' => $posCode, 'ItemCode' => $itemCode, 'Assembly' => $assembly];
-                $this->addSkippedDetail($row, $reason, $details);
-                Log::warning('POSMasterfileBOM Import Skipped (Empty Keys): ' . $reason . ' - ' . json_encode($details) . ' - Original Row: ' . json_encode($row->toArray()));
-                continue;
-            }
+                // Validate BOM Qty must be > 0
+                $bomQty = $toFloat($bomQtyRaw);
+                if ($bomQty <= 0) {
+                    $this->addSkippedItem($posCode, $itemCode, $assembly, 'BOM Qty must be greater than 0.');
+                    $this->skippedCount++;
+                    continue;
+                }
 
-            // CRITICAL FIX: Changed 'ItemCode' to 'POSCode' for POSMasterfile validation
-            $posMasterfileExists = POSMasterfile::where('POSCode', $posCode)->exists();
-            if (!$posMasterfileExists) {
-                $this->skippedByPosMasterfileValidationCount++;
-                $reason = 'POS Code not found in POS Masterfile';
-                $details = ['POSCode' => $posCode, 'ExcelRow' => $row->toArray()];
-                $this->addSkippedDetail($row, $reason, $details);
-                Log::warning('POSMasterfileBOM Import Skipped (POS Masterfile Validation): ' . $reason . ' - ' . json_encode($details) . ' - Original Row: ' . json_encode($row->toArray()));
-                continue;
-            }
+                // Duplicate check using POS Code, Item Code, and BOM UOM
+                $combination = "{$posCode}_{$itemCode}_{$bomUOM}";
+                if (in_array($combination, self::$seenCombinations)) {
+                    $this->addSkippedItem($posCode, $itemCode, $assembly, 'Duplicate entry (POS Code, Item Code, BOM UOM) within the import file.');
+                    $this->skippedCount++;
+                    continue;
+                }
+                self::$seenCombinations[] = $combination;
+                // --- End Validation ---
 
-            $sapMasterfileExists = SAPMasterfile::where('ItemCode', $itemCode)->exists();
-            if (!$sapMasterfileExists) {
-                $this->skippedBySapMasterfileValidationCount++;
-                $reason = 'Item Code not found in SAP Masterfile';
-                $details = ['ItemCode' => $itemCode, 'ExcelRow' => $row->toArray()];
-                $this->addSkippedDetail($row, $reason, $details);
-                Log::warning('POSMasterfileBOM Import Skipped (SAP Masterfile Validation): ' . $reason . ' - ' . json_encode($details) . ' - Original Row: ' . json_encode($row->toArray()));
-                continue;
-            }
+                // Robustly get other fields
+                $posDescription = (string) Str::of($row['pos_description'] ?? $row['POS Description'] ?? null)->trim();
+                $itemDescription = (string) Str::of($row['item_description'] ?? $row['PRODUCT DESCRIPTION'] ?? null)->trim();
+                $recPercent = $toFloat($row['rec_percent'] ?? $row['REC%'] ?? 0);
+                $recipeQty = $toFloat($row['recipe_qty'] ?? $row['RECIPE QTY'] ?? 0);
+                $recipeUOM = (string)Str::of($row['recipe_uom'] ?? $row['RECIPE UOM'] ?? null)->trim();
+                $unitCost = $toFloat($row['unit_cost'] ?? $row['UNIT COST'] ?? 0);
+                $totalCost = $toFloat($row['total_cost'] ?? $row['TOTAL COST'] ?? 0);
 
-            if ($recipeQty === null || $recipeQty < 0) {
-                $reason = 'Recipe Quantity is missing or invalid (negative)';
-                $details = ['POSCode' => $posCode, 'ItemCode' => $itemCode, 'RecipeQty' => $recipeQty, 'ExcelRow' => $row->toArray()];
-                $this->addSkippedDetail($row, $reason, $details);
-                Log::warning('POSMasterfileBOM Import Skipped (Invalid RecipeQty): ' . $reason . ' - ' . json_encode($details) . ' - Original Row: ' . json_encode($row->toArray()));
-                continue;
-            }
-            if ($bomQty === null || $bomQty < 0) {
-                $reason = 'BOM Quantity is missing or invalid (negative)';
-                $details = ['POSCode' => $posCode, 'ItemCode' => $itemCode, 'BOMQty' => $bomQty, 'ExcelRow' => $row->toArray()];
-                $this->addSkippedDetail($row, $reason, $details);
-                Log::warning('POSMasterfileBOM Import Skipped (Invalid BOMQty): ' . $reason . ' - ' . json_encode($details) . ' - Original Row: ' . json_encode($row->toArray()));
-                continue;
-            }
-            if ($unitCost === null || $unitCost < 0) {
-                $reason = 'Unit Cost is missing or invalid (negative)';
-                $details = ['POSCode' => $posCode, 'ItemCode' => $itemCode, 'UnitCost' => $unitCost, 'ExcelRow' => $row->toArray()];
-                $this->addSkippedDetail($row, $reason, $details);
-                Log::warning('POSMasterfileBOM Import Skipped (Invalid UnitCost): ' . $reason . ' - ' . json_encode($details) . ' - Original Row: ' . json_encode($row->toArray()));
-                continue;
-            }
-            if ($totalCost === null || $totalCost < 0) {
-                $reason = 'Total Cost is missing or invalid (negative)';
-                $details = ['POSCode' => $posCode, 'ItemCode' => $itemCode, 'TotalCost' => $totalCost, 'ExcelRow' => $row->toArray()];
-                $this->addSkippedDetail($row, $reason, $details);
-                Log::warning('POSMasterfileBOM Import Skipped (Invalid TotalCost): ' . $reason . ' - ' . json_encode($details) . ' - Original Row: ' . json_encode($row->toArray()));
-                continue;
-            }
-
-            $dataForCurrentChunk[] = [
-                'POSCode' => $posCode,
-                'POSDescription' => $posDescription,
-                'Assembly' => $assembly,
-                'ItemCode' => $itemCode,
-                'ItemDescription' => $itemDescription,
-                'RecPercent' => $recPercent,
-                'RecipeQty' => $recipeQty,
-                'RecipeUOM' => $recipeUOM,
-                'BOMQty' => $bomQty,
-                'BOMUOM' => $bomUOM,
-                'UnitCost' => $unitCost,
-                'TotalCost' => $totalCost,
-                'created_by' => Auth::id(),
-                'updated_by' => Auth::id(),
-                'created_at' => now(),
-                'updated_at' => now(),
-            ];
-            $this->processedCount++;
-        }
-
-        if (!empty($dataForCurrentChunk)) {
-            foreach (array_chunk($dataForCurrentChunk, $upsertBatchSize) as $miniBatch) {
-                // CRITICAL FIX: Changed uniqueBy to include 'Assembly'
-                $uniqueBy = ['POSCode', 'ItemCode', 'Assembly'];    
-
-                $updateColumns = [
-                    'POSDescription', 'ItemDescription', 'RecPercent',
-                    'RecipeQty', 'RecipeUOM', 'BOMQty', 'BOMUOM', 'UnitCost', 'TotalCost',
-                    'updated_by', 'updated_at'
+                // Define attributes to find the record (unique key for the database)
+                $attributes = [
+                    'POSCode' => $posCode,
+                    'ItemCode' => $itemCode,
+                    'BOMUOM' => $bomUOM,
                 ];
 
-                DB::table('pos_masterfiles_bom')->upsert($miniBatch, $uniqueBy, $updateColumns);
+                // Define values to be updated or created (all other columns)
+                $values = [
+                    'POSDescription' => $posDescription,
+                    'Assembly' => $assembly, // Assembly is now an updatable field
+                    'ItemDescription' => $itemDescription,
+                    'RecPercent' => $recPercent,
+                    'RecipeQty' => $recipeQty,
+                    'RecipeUOM' => $recipeUOM,
+                    'BOMQty' => $bomQty,
+                    'UnitCost' => $unitCost,
+                    'TotalCost' => $totalCost,
+                    'updated_by' => Auth::id(), // Always update updated_by
+                ];
+                
+                $posMasterfileBOM = POSMasterfileBOM::firstOrNew($attributes);
+                
+                // Only set created_by if the record is new
+                if (!$posMasterfileBOM->exists) {
+                    $posMasterfileBOM->created_by = Auth::id();
+                }
+
+                $posMasterfileBOM->fill($values)->save();
+
+                $this->processedCount++;
+            } catch (\Exception $e) {
+                $this->addSkippedItem($posCode, $itemCode, $assembly, 'Error processing row: ' . $e->getMessage());
+                $this->skippedCount++;
+                Log::error("Error processing POSMasterfileBOM row: " . $e->getMessage(), ['row' => $row->toArray()]);
             }
         }
     }
 
-    protected function addSkippedDetail(\Illuminate\Support\Collection $row, $reason, $specificDetails = [])
+    protected function addSkippedItem(?string $posCode, ?string $itemCode, ?string $assembly, string $reason): void
     {
-        $this->skippedDetails[] = [
-            'original_row' => $row->toArray(),
+        $this->skippedItems[] = [
+            'pos_code' => $posCode,
+            'item_code' => $itemCode,
+            'assembly' => $assembly,
             'reason' => $reason,
-            'details' => $specificDetails,
-            'timestamp' => Carbon::now()->toDateTimeString(),
         ];
+        Log::warning("POSMasterfileBOMImport: Skipped item - POS Code: '{$posCode}', Item Code: '{$itemCode}', Assembly: '{$assembly}', Reason: '{$reason}'");
+    }
+
+    public function getSkippedItems(): array
+    {
+        return $this->skippedItems;
     }
 
     public function getProcessedCount(): int
@@ -190,24 +154,9 @@ class POSMasterfileBOMImport implements ToCollection, WithHeadingRow, WithChunkR
         return $this->processedCount;
     }
 
-    public function getSkippedEmptyKeysCount(): int
+    public function getSkippedCount(): int
     {
-        return $this->skippedEmptyKeysCount;
-    }
-
-    public function getSkippedByPosMasterfileValidationCount(): int
-    {
-        return $this->skippedByPosMasterfileValidationCount;
-    }
-
-    public function getSkippedBySapMasterfileValidationCount(): int
-    {
-        return $this->skippedBySapMasterfileValidationCount;
-    }
-
-    public function getSkippedDetails(): array
-    {
-        return $this->skippedDetails;
+        return $this->skippedCount;
     }
 
     public function chunkSize(): int

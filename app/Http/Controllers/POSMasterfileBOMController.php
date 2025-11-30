@@ -216,78 +216,49 @@ class POSMasterfileBOMController extends Controller
     public function import(Request $request)
     {
         set_time_limit(0);
-        $user = Auth::user();
-        if (!$user) {
-            return redirect('/login')->with('error', 'Please log in to import POS BOMs.');
-        }
+        Log::debug('POSMasterfileBOM Import: Import method started.');
 
         $request->validate([
-            'pos_bom_file' => 'required|mimes:xlsx,xls,csv',
+            'pos_bom_file' => 'required|mimes:xlsx,xls,csv'
         ]);
+
+        POSMasterfileBOMImport::resetSeenCombinations();
 
         try {
-            // Use the POSMasterfileBOMImport class
             $import = new POSMasterfileBOMImport();
             Excel::import($import, $request->file('pos_bom_file'));
-
-            // Retrieve import summary details
+            
+            $skippedItems = $import->getSkippedItems();
             $processedCount = $import->getProcessedCount();
-            $skippedEmptyKeysCount = $import->getSkippedEmptyKeysCount();
-            $skippedByPosMasterfileValidationCount = $import->getSkippedByPosMasterfileValidationCount();
-            $skippedBySapMasterfileValidationCount = $import->getSkippedBySapMasterfileValidationCount();
-            $skippedDetails = $import->getSkippedDetails();
+            $skippedCount = $import->getSkippedCount();
 
-            // Flash session data for frontend display
-            session()->flash('import_summary', [
-                'success_message' => 'POS BOM import successful!',
-                'processed_count' => $processedCount,
-                'skipped_empty_keys_count' => $skippedEmptyKeysCount,
-                'skipped_pos_masterfile_validation_count' => $skippedByPosMasterfileValidationCount,
-                'skipped_sap_masterfile_validation_count' => $skippedBySapMasterfileValidationCount,
-                'skipped_details_present' => !empty($skippedDetails),
+            if ($processedCount > 0) {
+                $message = 'Import successful. Processed ' . $processedCount . ' items.';
+                
+                if ($skippedCount > 0) {
+                    $message .= ' ' . $skippedCount . ' rows were skipped due to validation errors or duplicates.';
+                    session()->flash('skippedItems', $skippedItems);
+                    session()->flash('warning', $message);
+                } else {
+                    session()->flash('success', $message);
+                }
+            } else if ($skippedCount > 0) {
+                $message = 'No items were imported. ' . $skippedCount . ' rows were skipped due to validation errors or duplicates.';
+                session()->flash('skippedItems', $skippedItems);
+                session()->flash('warning', $message);
+            } else {
+                session()->flash('warning', 'No valid items found in the import file.');
+            }
+
+            return redirect()->route('pos-bom.index');
+
+        } catch (\Exception $e) {
+            Log::error('POSMasterfileBOM Import Error: ' . $e->getMessage(), [
+                'file_name' => $request->file('pos_bom_file')->getClientOriginalName(),
+                'trace' => $e->getTraceAsString(),
             ]);
 
-            // Store skipped details in a session flash for download
-            session(['last_import_skipped_details' => $skippedDetails]);
-
-            return redirect()->route('pos-bom.index'); // Redirect to the index page
-        } catch (Exception $e) {
-            Log::error("Error importing POS BOM: " . $e->getMessage(), ['trace' => $e->getTraceAsString()]);
-            return back()->withErrors(['error' => 'Failed to import POS BOM: ' . $e->getMessage()]);
+            return back()->with('error', 'Import failed: ' . $e->getMessage() . '. Please check logs for details.');
         }
-    }
-
-    /**
-     * Download a log file of skipped import details.
-     */
-    public function downloadSkippedImportLog(Request $request)
-    {
-        // Retrieve skipped details from session
-        $skippedDetails = session('last_import_skipped_details', []);
-
-        if (empty($skippedDetails)) {
-            return back()->with('error', 'No skipped import details found to download.');
-        }
-
-        $fileName = 'skipped_pos_bom_log_' . now()->format('Y-m-d_His') . '.txt';
-        $content = "Skipped POS Masterfile BOM Import Log\n";
-        $content .= "Generated on: " . now()->toDateTimeString() . "\n\n";
-
-        foreach ($skippedDetails as $index => $detail) {
-            $content .= "--- Skipped Row " . ($index + 1) . " ---\n";
-            $content .= "Reason: " . ($detail['reason'] ?? 'N/A') . "\n";
-            if (!empty($detail['details'])) {
-                $content .= "Specific Details: " . json_encode($detail['details'], JSON_PRETTY_PRINT) . "\n";
-            }
-            if (!empty($detail['original_row'])) {
-                $content .= "Original Row Data: " . json_encode($detail['original_row'], JSON_PRETTY_PRINT) . "\n";
-            }
-            $content .= "\n";
-        }
-
-        return Response::make($content, 200, [
-            'Content-Type' => 'text/plain',
-            'Content-Disposition' => 'attachment; filename="' . $fileName . '"',
-        ]);
     }
 }

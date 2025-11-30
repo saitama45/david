@@ -7,11 +7,11 @@ import { router } from "@inertiajs/vue3";
 import { usePage } from "@inertiajs/vue3";
 import { useAuth } from "@/Composables/useAuth";
 import { useReferenceDelete } from "@/Composables/useReferenceDelete";
-import { ref, computed, watch, onMounted, onUnmounted } from 'vue'; // Import necessary Vue functions
-import Toast from 'primevue/toast'; // Ensure Toast component is imported
+import { ref, watch, computed, onMounted, onUnmounted } from 'vue';
 
 const toast = useToast();
 const confirm = useConfirm();
+const page = usePage();
 
 const props = defineProps({
     boms: {
@@ -20,30 +20,17 @@ const props = defineProps({
     },
 });
 
-// Removed handleClick as 'Create New BOM' button is being removed
-// const handleClick = () => {
-//     router.get(route("pos-bom.create"));
-// };
+let filter = ref(page.props.filter || "all");
 
-let filter = ref(usePage().props.filter || "all");
-
-const { search } = useSearch("pos-bom.index"); // Changed to pos-bom.index
+const { search } = useSearch("pos-bom.index");
 
 const changeFilter = (currentFilter) => {
     filter.value = currentFilter;
-    router.get(
-        route("pos-bom.index"), // Changed to pos-bom.index
-        { filter: currentFilter, search: search.value },
-        {
-            preserveState: true,
-            replace: true,
-        }
-    );
 };
 
 watch(filter, function (value) {
     router.get(
-        route("pos-bom.index"), // Changed to pos-bom.index
+        route("pos-bom.index"),
         { filter: value, search: search.value },
         {
             preserveState: true,
@@ -53,42 +40,105 @@ watch(filter, function (value) {
 });
 
 const { hasAccess } = useAuth();
-
 const { deleteModel } = useReferenceDelete();
 
 const exportRoute = computed(() =>
-    route("pos-bom.export", { // Changed to pos-bom.export
+    route("pos-bom.export", {
         search: search.value,
         filter: filter.value,
     })
 );
 
 const isImportModalVisible = ref(false);
+const skippedItems = ref([]);
+const persistentSkippedItemsMessage = ref('');
+const isLoading = ref(false);
+
+const formatSkippedItemsMessage = (items) => {
+    if (!items || items.length === 0) {
+        return '';
+    }
+
+    let message = 'The following items were skipped during import due to validation issues:\n\n';
+    items.forEach(item => {
+        message += `- POS Code: ${item.pos_code || 'N/A'}, Item Code: ${item.item_code || 'N/A'}, Assembly: ${item.assembly || 'N/A'}, Reason: ${item.reason}\n`;
+    });
+    return message;
+};
+
+const downloadSkippedItems = () => {
+    if (skippedItems.value.length === 0) return;
+    
+    const content = formatSkippedItemsMessage(skippedItems.value);
+    const blob = new Blob([content], { type: 'text/plain' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `pos_bom_skipped_items_${new Date().toISOString().split('T')[0]}.txt`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+};
 
 const importForm = useForm({
-    pos_bom_file: null, // Changed to pos_bom_file for BOM import
+    pos_bom_file: null,
 });
 
 const importFile = () => {
     isLoading.value = true;
-    importForm.post(route("pos-bom.import"), { // Changed route to pos-bom.import
+    importForm.post(route("pos-bom.import"), {
         onSuccess: () => {
-            // Toast will be handled by the watch(importSummary) below, as per SupplierItems/Index.vue
             isLoading.value = false;
             isImportModalVisible.value = false;
+
+            if (page.props.flash && page.props.flash.skippedItems && page.props.flash.skippedItems.length > 0) {
+                skippedItems.value = page.props.flash.skippedItems;
+                
+                if (skippedItems.value.length <= 15) {
+                    persistentSkippedItemsMessage.value = formatSkippedItemsMessage(skippedItems.value);
+                } else {
+                    persistentSkippedItemsMessage.value = '';
+                }
+                
+                toast.add({
+                    severity: "warn",
+                    summary: "Import Completed with Warnings",
+                    detail: page.props.flash.warning || `${skippedItems.value.length} items were skipped.`, // Changed message and error key
+                    life: 5000,
+                });
+            } else if (page.props.flash && page.props.flash.success) {
+                persistentSkippedItemsMessage.value = '';
+                skippedItems.value = [];
+                toast.add({
+                    severity: "success",
+                    summary: "Success",
+                    detail: page.props.flash.success,
+                    life: 3000,
+                });
+            } else if (page.props.flash && page.props.flash.warning) {
+                persistentSkippedItemsMessage.value = '';
+                skippedItems.value = [];
+                 toast.add({
+                    severity: "warn",
+                    summary: "Import Warning",
+                    detail: page.props.flash.warning,
+                    life: 5000,
+                });
+            }
         },
         onError: (e) => {
             isLoading.value = false;
-            console.error('Import Error:', e);
             toast.add({
                 severity: "error",
-                summary: "Import Error",
-                detail: e.pos_bom_file || "An error occurred while trying to update POS BOMs. Please make sure that you are using the correct format.", // Changed message and error key
-                life: 5000,
+                summary: "Error",
+                detail: "An error occurred during import. Please ensure you are using the correct file format.",
+                life: 3000,
             });
         },
         onFinish: () => {
             isLoading.value = false;
+            importForm.reset('pos_bom_file');
         },
     });
 };
@@ -113,54 +163,43 @@ const handleBackdropClick = (event) => {
     }
 };
 
-const isLoading = ref(false);
-
-const flash = computed(() => usePage().props.flash);
-
-const importSummary = computed(() => flash.value.import_summary || null);
-
-const hasSkippedDetails = computed(() => {
-    return importSummary.value && importSummary.value.skipped_details_present;
-});
-
-const downloadLogLink = computed(() => {
-    // Assuming you will create a route for downloading skipped BOM import logs
-    return route('pos-bom.downloadSkippedImportLog'); 
-});
-
-watch(importSummary, (newValue) => {
-    if (newValue) {
-        let detailMessage = `Processed: ${newValue.processed_count}. `;
-        if (newValue.skipped_empty_keys_count > 0) {
-            detailMessage += `Skipped (Empty Keys): ${newValue.skipped_empty_keys_count}. `;
+onMounted(() => {
+    if (page.props.flash && page.props.flash.skippedItems && page.props.flash.skippedItems.length > 0) {
+        skippedItems.value = page.props.flash.skippedItems;
+        
+        if (skippedItems.value.length <= 15) {
+            persistentSkippedItemsMessage.value = formatSkippedItemsMessage(skippedItems.value);
         }
-        // NEW: Add specific skipped counts for POS and SAP Masterfile validation
-        if (newValue.skipped_pos_masterfile_validation_count > 0) {
-            detailMessage += `Skipped (POS Masterfile Validation): ${newValue.skipped_pos_masterfile_validation_count}. `;
+        
+        if(page.props.flash.warning) {
+            toast.add({
+                severity: "warn",
+                summary: "Import Completed with Warnings",
+                detail: page.props.flash.warning,
+                life: 5000,
+            });
         }
-        if (newValue.skipped_sap_masterfile_validation_count > 0) {
-            detailMessage += `Skipped (SAP Masterfile Validation): ${newValue.skipped_sap_masterfile_validation_count}. `;
-        }
-        // Note: SupplierItems had skipped_unauthorized_count, POS BOM might not need it unless you implement specific user-based POS BOM permissions.
-        // If you add it, ensure it's returned by your POSMasterfileBOMImport.
-
+    } else if (page.props.flash && page.props.flash.success) {
         toast.add({
-            severity: newValue.skipped_details_present ? 'warn' : 'success',
-            summary: newValue.skipped_details_present ? 'Import with Skips' : 'Import Successful',
-            detail: detailMessage,
-            life: 8000
+            severity: "success",
+            summary: "Success",
+            detail: page.props.flash.success,
+            life: 3000,
+        });
+    } else if (page.props.flash && page.props.flash.error) {
+        toast.add({
+            severity: "error",
+            summary: "Error",
+            detail: page.props.flash.error,
+            life: 3000,
         });
     }
-}, { immediate: true });
-
-onMounted(() => {
     document.addEventListener('keydown', handleEscapeKey);
 });
 
 onUnmounted(() => {
     document.removeEventListener('keydown', handleEscapeKey);
 });
-
 </script>
 
 <template>
@@ -171,24 +210,36 @@ onUnmounted(() => {
         :hasExcelDownload="true"
         :exportRoute="exportRoute"
     >
-        <Toast /> 
+        <!-- Persistent Skipped Items Message -->
+        <div v-if="persistentSkippedItemsMessage && skippedItems.length <= 15" class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4" role="alert">
+            <strong class="font-bold">Import Warnings:</strong>
+            <span class="block sm:inline whitespace-pre-line">{{ persistentSkippedItemsMessage }}</span>
+            <span class="absolute top-0 bottom-0 right-0 px-4 py-3 cursor-pointer" @click="persistentSkippedItemsMessage = ''">
+                <svg class="fill-current h-6 w-6 text-red-500" role="button" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20"><title>Close</title><path d="M14.348 14.849a1.2 1.2 0 0 1-1.697 0L10 11.819l-2.651 3.029a1.2 1.2 0 1 1-1.697-1.697l2.758-3.15-2.759-3.152a1.2 1.2 0 1 1 1.697-1.697L10 8.183l2.651-3.031a1.2 1.2 0 1 1 1.697 1.697l-2.758 3.152 2.758 3.15a1.2 1.2 0 0 1 0 1.698z"/></svg>
+            </span>
+        </div>
+        
+        <!-- Download button -->
+        <div v-if="skippedItems.length > 0" class="bg-blue-100 border border-blue-400 text-blue-700 px-4 py-3 rounded mb-4" role="alert">
+            <strong class="font-bold">Import Summary:</strong>
+            <span class="block sm:inline"> {{ skippedItems.length }} items were skipped during import.</span>
+            
+            <button 
+                @click="downloadSkippedItems"
+                class="mt-2 bg-blue-500 hover:bg-blue-700 text-white font-bold py-1 px-2 rounded text-sm"
+            >
+                Download Skipped Items Report
+            </button>
 
-        <div v-if="importSummary" class="mb-6">
-            <div v-if="importSummary.success_message" class="bg-green-100 border-l-4 border-green-500 text-green-700 p-4 mb-4" role="alert">
-                <p class="font-bold">{{ importSummary.success_message }}</p>
-                <p>Processed: {{ importSummary.processed_count }}</p>
-                <p>Skipped (Empty Keys): {{ importSummary.skipped_empty_keys_count }}</p>
-                <p>Skipped (POS Masterfile Validation): {{ importSummary.skipped_pos_masterfile_validation_count }}</p>
-                <p>Skipped (SAP Masterfile Validation): {{ importSummary.skipped_sap_masterfile_validation_count }}</p>
-                <p v-if="importSummary.skipped_unauthorized_count !== undefined">Skipped (Unauthorized): {{ importSummary.skipped_unauthorized_count }}</p>
-            </div>
-
-            <div v-if="hasSkippedDetails" class="mt-4 p-4 bg-yellow-100 border-l-4 border-yellow-500 text-yellow-700">
-                <p>Some rows were skipped during the import due to validation errors or missing masterfile data.</p>
-                <a :href="downloadLogLink" class="font-bold underline cursor-pointer hover:text-yellow-900">
-                    Click here to download a log file with details
-                </a>
-            </div>
+            <p class="text-sm mt-2">
+                Common reasons for skipped items:
+                <ul class="list-disc list-inside text-sm ml-4">
+                    <li>POS Code, Item Code, or Assembly is missing</li>
+                    <li>POS Code not found in POS Masterfile</li>
+                    <li>Item Code not found in SAP Masterfile</li>
+                    <li>Duplicate items within the import file</li>
+                </ul>
+            </p>
         </div>
 
         <FilterTab>
@@ -249,7 +300,7 @@ onUnmounted(() => {
                         <TD>{{ bom.Assembly }}</TD>
                         <TD>{{ bom.ItemCode }}</TD>
                         <TD>{{ bom.ItemDescription }}</TD>
-                        <TD>{{ Number(bom.RecPercent * 100).toFixed(2) }}%</TD> <!-- Display as percentage -->
+                        <TD>{{ Number(bom.RecPercent * 100).toFixed(2) }}%</TD>
                         <TD>{{ bom.RecipeQty }}</TD>
                         <TD>{{ bom.RecipeUOM }}</TD>
                         <TD>{{ bom.BOMQty }}</TD>
@@ -305,7 +356,7 @@ onUnmounted(() => {
                     <LabelXS>POS Code: {{ bom.POSCode }}</LabelXS>
                     <LabelXS>Item Code: {{ bom.ItemCode }}</LabelXS>
                     <LabelXS>Assembly: {{ bom.Assembly }}</LabelXS>
-                    <LabelXS>Rec Percent: {{ Number(bom.RecPercent * 100).toFixed(2) }}%</LabelXS> <!-- Display as percentage -->
+                    <LabelXS>Rec Percent: {{ Number(bom.RecPercent * 100).toFixed(2) }}%</LabelXS>
                     <LabelXS>Recipe Qty: {{ bom.RecipeQty }} {{ bom.RecipeUOM }}</LabelXS>
                     <LabelXS>BOM Qty: {{ bom.BOMQty }} {{ bom.BOMUOM }}</LabelXS>
                     <LabelXS>Unit Cost: {{ bom.UnitCost }}</LabelXS>
