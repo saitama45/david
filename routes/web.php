@@ -39,6 +39,7 @@ use App\Http\Controllers\InventoryReportController;
 use App\Http\Controllers\InvetoryCategoryController;
 use App\Http\Controllers\ItemController;
 use App\Http\Controllers\LowOnStockController;
+use App\Http\Controllers\MassOrdersApprovalController;
 use App\Http\Controllers\MassOrdersController;
 use App\Http\Controllers\MenuCategoryController;
 use App\Http\Controllers\MenuController;
@@ -93,6 +94,7 @@ use App\Http\Controllers\SAPMasterfileController;
 use App\Http\Controllers\SupplierItemsController;
 use App\Http\Controllers\WIPListController;
 use App\Http\Controllers\OrdersCutoffController;
+use App\Http\Controllers\OrderingTemplateApprovalController;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 use Illuminate\Foundation\Application;
@@ -480,6 +482,13 @@ Route::middleware('auth')
                 Route::get('/edit/{id}', 'edit')->name('edit');
                 Route::put('/update/{id}', 'update')->name('update');
             });
+        });
+
+        Route::controller(MassOrdersApprovalController::class)->name('mass-orders-approval.')->prefix('mass-orders-approval')->group(function () {
+            Route::middleware('permission:view mass order approval')->get('/', 'index')->name('index');
+            Route::middleware('permission:view mass order approval')->get('/show/{id}', 'show')->name('show');
+            Route::middleware('permission:approve mass order')->post('/approve/{id}', 'approve')->name('approve');
+            Route::middleware('permission:reject mass order')->post('/reject/{id}', 'reject')->name('reject');
         });
 
         // CS Mass Commits
@@ -1003,6 +1012,11 @@ Route::middleware('auth')
             Route::middleware('permission:edit cost center')->post('/update/{id}', 'update')->name('update');
             Route::middleware('permission:delete cost center')->delete('/destroy/{id}', 'destroy')->name('destroy');
             Route::middleware('permission:export cost centers')->get('/export', 'export')->name('export');
+        });
+
+        Route::controller(OrderingTemplateApprovalController::class)->name('ordering-template-approval.')->prefix('ordering-template-approval')->group(function () {
+            Route::middleware('permission:view ordering template approval')->get('/', 'index')->name('index');
+            Route::middleware('permission:edit ordering template approval')->post('/update/{supplier}', 'update')->name('update');
         });
 
         // Consolidated Profile Routes

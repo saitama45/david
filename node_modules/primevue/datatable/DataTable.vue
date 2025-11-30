@@ -401,8 +401,8 @@ export default {
     ],
     provide() {
         return {
-            $columns: this.d_columns.get(),
-            $columnGroups: this.d_columnGroups.get()
+            $columns: this.d_columns,
+            $columnGroups: this.d_columnGroups
         };
     },
     data() {
@@ -2155,7 +2155,10 @@ export default {
         dataP() {
             return cn({
                 scrollable: this.scrollable,
-                'flex-scrollable': this.scrollable && this.scrollHeight === 'flex'
+                'flex-scrollable': this.scrollable && this.scrollHeight === 'flex',
+                [this.size]: this.size,
+                loading: this.loading,
+                empty: this.empty
             });
         }
     },

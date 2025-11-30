@@ -1,5 +1,5 @@
 <template>
-    <div :class="cx('root')" data-scrollselectors=".p-treetable-scrollable-body" v-bind="ptmi('root')">
+    <div :class="cx('root')" data-scrollselectors=".p-treetable-scrollable-body" :data-p="dataP" v-bind="ptmi('root')">
         <slot></slot>
         <div v-if="loading && loadingMode === 'mask'" :class="cx('loading')" v-bind="ptm('loading')">
             <div :class="cx('mask')" v-bind="ptm('mask')">
@@ -40,6 +40,8 @@
                     :prevPageCallback="slotProps.prevPageCallback"
                     :nextPageCallback="slotProps.nextPageCallback"
                     :rowChangeCallback="slotProps.rowChangeCallback"
+                    :pageLinks="slotProps.pageLinks"
+                    :changePageCallback="slotProps.changePageCallback"
                 ></slot>
             </template>
             <template v-if="$slots.paginatorstart" #start>
@@ -162,12 +164,14 @@
                     :rows="slotProps.rows"
                     :page="slotProps.page"
                     :pageCount="slotProps.pageCount"
+                    :pageLinks="slotProps.pageLinks"
                     :totalRecords="slotProps.totalRecords"
                     :firstPageCallback="slotProps.firstPageCallback"
                     :lastPageCallback="slotProps.lastPageCallback"
                     :prevPageCallback="slotProps.prevPageCallback"
                     :nextPageCallback="slotProps.nextPageCallback"
                     :rowChangeCallback="slotProps.rowChangeCallback"
+                    :changePageCallback="slotProps.changePageCallback"
                 ></slot>
             </template>
             <template v-if="$slots.paginatorstart" #start>
@@ -203,6 +207,7 @@
 </template>
 
 <script>
+import { cn } from '@primeuix/utils';
 import { addStyle, clearSelection, find, getAttribute, getIndex, getOffset, getOuterWidth, isRTL, setAttribute } from '@primeuix/utils/dom';
 import { localeComparator, resolveFieldData, sort } from '@primeuix/utils/object';
 import { FilterService } from '@primevue/core/api';
@@ -906,6 +911,15 @@ export default {
 
                 return data ? data.length : 0;
             }
+        },
+        dataP() {
+            return cn({
+                scrollable: this.scrollable,
+                'flex-scrollable': this.scrollable && this.scrollHeight === 'flex',
+                [this.size]: this.size,
+                loading: this.loading,
+                empty: this.empty
+            });
         }
     },
     components: {

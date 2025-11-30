@@ -1,24 +1,14 @@
 <template>
     <div :class="cx('root')" :data-p="dataP" v-bind="ptmi('root')">
         <div :class="cx('header')" :data-p="dataP" v-bind="ptm('header')">
-            <slot :id="$id + '_header'" name="header" :class="cx('title')">
+            <slot :id="$id + '_header'" name="header" :class="cx('title')" :collapsed="d_collapsed">
                 <span v-if="header" :id="$id + '_header'" :class="cx('title')" v-bind="ptm('title')">{{ header }}</span>
             </slot>
             <div :class="cx('headerActions')" v-bind="ptm('headerActions')">
                 <slot name="icons"></slot>
                 <slot v-if="toggleable" name="togglebutton" :collapsed="d_collapsed" :toggleCallback="(event) => toggle(event)" :keydownCallback="(event) => onKeyDown(event)">
-                    <Button
-                        :id="$id + '_header'"
-                        :class="cx('pcToggleButton')"
-                        :aria-label="buttonAriaLabel"
-                        :aria-controls="$id + '_content'"
-                        :aria-expanded="!d_collapsed"
-                        :unstyled="unstyled"
-                        @click="toggle($event)"
-                        @keydown="onKeyDown($event)"
-                        v-bind="toggleButtonProps"
-                        :pt="ptm('pcToggleButton')"
-                    >
+                    <Button :id="$id + '_header'" :class="cx('pcToggleButton')" :aria-label="buttonAriaLabel" :aria-controls="$id + '_content'" :aria-expanded="!d_collapsed" :unstyled="unstyled"
+                        @click="toggle($event)" @keydown="onKeyDown($event)" v-bind="toggleButtonProps" :pt="ptm('pcToggleButton')">
                         <template #icon="slotProps">
                             <!--TODO: togglericon deprecated since v4.0-->
                             <slot :name="$slots.toggleicon ? 'toggleicon' : 'togglericon'" :collapsed="d_collapsed">
@@ -29,13 +19,15 @@
                 </slot>
             </div>
         </div>
-        <transition name="p-toggleable-content" v-bind="ptm('transition')">
+        <transition name="p-collapsible" v-bind="ptm('transition')">
             <div v-show="!d_collapsed" :id="$id + '_content'" :class="cx('contentContainer')" role="region" :aria-labelledby="$id + '_header'" v-bind="ptm('contentContainer')">
-                <div :class="cx('content')" v-bind="ptm('content')">
-                    <slot></slot>
-                </div>
-                <div v-if="$slots.footer" :class="cx('footer')" v-bind="ptm('footer')">
-                    <slot name="footer"></slot>
+                <div :class="cx('contentWrapper')" v-bind="ptm('contentWrapper')">
+                    <div :class="cx('content')" v-bind="ptm('content')">
+                        <slot></slot>
+                    </div>
+                    <div v-if="$slots.footer" :class="cx('footer')" v-bind="ptm('footer')">
+                        <slot name="footer"></slot>
+                    </div>
                 </div>
             </div>
         </transition>

@@ -24,7 +24,7 @@ class MassOrderService
         $this->storeOrderService = $storeOrderService;
     }
 
-    public function processMassOrderUpload(Collection $rows, $supplierCode, $orderDate)
+    public function processMassOrderUpload(Collection $rows, $supplierCode, $orderDate, $initialOrderStatus = 'approved')
     {
         if ($rows->isEmpty()) {
             throw new Exception('The uploaded file is empty or invalid.');
@@ -108,7 +108,7 @@ class MassOrderService
                     'store_branch_id' => $storeBranch->id,
                     'order_number' => $this->storeOrderService->getOrderNumber($storeBranch->id),
                     'order_date' => Carbon::parse($orderDate)->toDateString(),
-                    'order_status' => 'approved',
+                    'order_status' => $initialOrderStatus, // Use the provided status
                     'order_request_status' => OrderRequestStatus::PENDING->value,
                     'variant' => 'mass regular', // Or another identifier
                 ]);

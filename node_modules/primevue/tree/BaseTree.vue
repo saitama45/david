@@ -70,6 +70,26 @@ export default {
             type: Number,
             default: 0
         },
+        draggableNodes: {
+            type: Boolean,
+            default: null
+        },
+        droppableNodes: {
+            type: Boolean,
+            default: null
+        },
+        draggableScope: {
+            type: [String, Array],
+            default: null
+        },
+        droppableScope: {
+            type: [String, Array],
+            default: null
+        },
+        validateDrop: {
+            type: Boolean,
+            default: false
+        },
         ariaLabelledby: {
             type: String,
             default: null

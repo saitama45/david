@@ -327,11 +327,20 @@ class RolesAndPermissionSeeder extends Seeder
         Permission::firstOrCreate(['name' => 'delete cost center']);
         Permission::firstOrCreate(['name' => 'export cost centers']);
 
+        // NEW: Ordering Template Approval
+        Permission::firstOrCreate(['name' => 'view ordering template approval']);
+        Permission::firstOrCreate(['name' => 'edit ordering template approval']);
+
         // Mass Orders
         Permission::firstOrCreate(['name' => 'view mass orders']);
         Permission::firstOrCreate(['name' => 'create mass orders']);
         Permission::firstOrCreate(['name' => 'edit mass orders']);
         Permission::firstOrCreate(['name' => 'show mass orders']);
+
+        // Mass Orders Approval
+        Permission::firstOrCreate(['name' => 'view mass order approval']);
+        Permission::firstOrCreate(['name' => 'approve mass order']);
+        Permission::firstOrCreate(['name' => 'reject mass order']);
 
         // DTS Mass Orders
         Permission::firstOrCreate(['name' => 'view dts mass orders']);

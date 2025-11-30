@@ -94,10 +94,14 @@ class MassOrdersController extends Controller
             'mass_order_file' => 'required|file|mimes:xlsx,xls',
             'supplier_code' => 'required|string|exists:suppliers,supplier_code',
             'order_date' => 'required|date',
+            // Removed 'order_status' validation
         ]);
 
         try {
             $supplierCodeFromDropdown = $request->input('supplier_code');
+            // Fetch the supplier to check the approval flag
+            $supplier = Supplier::where('supplier_code', $supplierCodeFromDropdown)->firstOrFail();
+            $determinedOrderStatus = $supplier->is_forapproval_massorders ? 'pending' : 'approved';
 
             $import = new MassOrderImport();
             $rows = Excel::toCollection($import, $request->file('mass_order_file'))->first();
@@ -181,7 +185,7 @@ class MassOrdersController extends Controller
                 });
             }
 
-            $result = $this->massOrderService->processMassOrderUpload($rows, $supplierCodeFromDropdown, $request->input('order_date'));
+            $result = $this->massOrderService->processMassOrderUpload($rows, $supplierCodeFromDropdown, $request->input('order_date'), $determinedOrderStatus);
 
             // Merge pre-validation skipped stores with the result from the service
             $all_skipped_stores = array_merge($pre_skipped_stores, $result['skipped_stores']);

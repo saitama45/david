@@ -19,6 +19,12 @@ class Supplier extends Model implements Auditable
         'name',
         'is_active',
         'remarks',
+        'is_forapproval_massorders',
+    ];
+
+    protected $casts = [
+        'is_forapproval_massorders' => 'boolean',
+        'is_active' => 'boolean',
     ];
 
     public function store_orders()

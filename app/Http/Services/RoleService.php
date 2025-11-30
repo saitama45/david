@@ -92,6 +92,9 @@ class RoleService
                 'Templates' => [
                     'view templates', 'create templates', 'edit templates', 'delete templates', 'export templates'
                 ],
+                'Ordering Template Approval' => [
+                    'view ordering template approval', 'edit ordering template approval'
+                ],
             ],
             'Ordering' => [
                 'Store Orders' => [
@@ -133,6 +136,9 @@ class RoleService
                 ],
                 'Mass Orders' => [
                     'view mass orders', 'create mass orders', 'edit mass orders', 'show mass orders'
+                ],
+                'Mass Order Approval' => [
+                    'view mass order approval', 'approve mass order', 'reject mass order'
                 ],
                 'CS Mass Commits' => [
                     'view cs mass commits', 'create cs mass commits', 'edit cs mass commits', 'edit finished good commits', 'edit other commits', 'export cs mass commits'

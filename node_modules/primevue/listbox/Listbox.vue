@@ -11,7 +11,7 @@
             :data-p-hidden-accessible="true"
             :data-p-hidden-focusable="true"
         ></span>
-        <div v-if="$slots.header" :class="cx('header')">
+        <div v-if="$slots.header" :class="cx('header')" v-bind="ptm('header')">
             <slot name="header" :value="d_value" :options="visibleOptions"></slot>
         </div>
         <div v-if="filter" :class="cx('header')" v-bind="ptm('header')">
@@ -29,7 +29,6 @@
                     :aria-activedescendant="focusedOptionId"
                     :tabindex="!disabled && !focused ? tabindex : -1"
                     @input="onFilterChange"
-                    @blur="onFilterBlur"
                     @keydown="onFilterKeyDown"
                     :pt="ptm('pcFilter')"
                 />
@@ -177,7 +176,7 @@ export default {
             return this.virtualScrollerDisabled ? index : fn && fn(index)['index'];
         },
         getOptionLabel(option) {
-            return this.optionLabel ? resolveFieldData(option, this.optionLabel) : typeof option === 'string' ? option : null;
+            return this.optionLabel ? resolveFieldData(option, this.optionLabel) : typeof option === 'string' || typeof option === 'number' || typeof option === 'boolean' ? option : null;
         },
         getOptionValue(option) {
             return this.optionValue ? resolveFieldData(option, this.optionValue) : option;
@@ -349,7 +348,6 @@ export default {
             let valueChanged = false;
             let value = null;
             let metaSelection = this.optionTouched ? false : this.metaKeySelection;
-            const _value = this.getOptionValue(option) !== '' ? this.getOptionValue(option) : this.getOptionLabel(option);
 
             if (metaSelection) {
                 let metaKey = event && (event.metaKey || event.ctrlKey);
@@ -360,11 +358,11 @@ export default {
                         valueChanged = true;
                     }
                 } else {
-                    value = _value;
+                    value = this.getOptionValue(option);
                     valueChanged = true;
                 }
             } else {
-                value = selected ? null : _value;
+                value = selected ? null : this.getOptionValue(option);
                 valueChanged = true;
             }
 
@@ -376,19 +374,18 @@ export default {
             let selected = this.isSelected(option);
             let value = null;
             let metaSelection = this.optionTouched ? false : this.metaKeySelection;
-            const _value = this.getOptionValue(option) !== '' ? this.getOptionValue(option) : this.getOptionLabel(option);
 
             if (metaSelection) {
                 let metaKey = event.metaKey || event.ctrlKey;
 
                 if (selected) {
-                    value = metaKey ? this.removeOption(option) : [_value];
+                    value = metaKey ? this.removeOption(option) : [this.getOptionValue(option)];
                 } else {
                     value = metaKey ? this.d_value || [] : [];
-                    value = [...value, _value];
+                    value = [...value, this.getOptionValue(option)];
                 }
             } else {
-                value = selected ? this.removeOption(option) : [...(this.d_value || []), _value];
+                value = selected ? this.removeOption(option) : [...(this.d_value || []), this.getOptionValue(option)];
             }
 
             this.updateModel(event, value);
@@ -410,9 +407,6 @@ export default {
         },
         onFilterChange(event) {
             this.$emit('filter', { originalEvent: event, value: event.target.value, filterValue: this.visibleOptions });
-            this.focusedOptionIndex = this.startRangeIndex = -1;
-        },
-        onFilterBlur() {
             this.focusedOptionIndex = this.startRangeIndex = -1;
         },
         onFilterKeyDown(event) {
@@ -557,7 +551,7 @@ export default {
             return equals(value1, value2, this.equalityKey);
         },
         isSelected(option) {
-            const optionValue = this.getOptionValue(option) !== '' ? this.getOptionValue(option) : this.getOptionLabel(option);
+            const optionValue = this.getOptionValue(option);
 
             if (this.multiple) return (this.d_value || []).some((value) => this.isEquals(value, optionValue));
             else return this.isEquals(this.d_value, optionValue);

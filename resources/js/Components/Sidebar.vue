@@ -102,7 +102,8 @@ const canViewSettingsGroup = computed(() =>
     hasAccess("view dsp delivery schedules") ||
     hasAccess("view orders cutoff") ||
     hasAccess("view month end schedules") ||
-    hasAccess("view month end count templates")
+    hasAccess("view month end count templates") ||
+    hasAccess("view ordering template approval")
 );
 
 const canViewOrderingGroup = computed(() =>
@@ -134,6 +135,7 @@ const canViewRegularDTSSubcategory = computed(() =>
 
 const canViewRegularMassSubcategory = computed(() =>
     hasAccess("view mass orders") ||
+    hasAccess("view mass order approval") ||
     hasAccess("view cs mass commits")
 );
 
@@ -243,8 +245,8 @@ watchEffect(() => {
 
     // Define all collapsible sections and their associated paths
     const sections = [
-        { ref: settingsOpen, paths: ["/users", "/roles", "/templates", "/dts-delivery-schedules", "/dsp-delivery-schedules", "/orders-cutoff", "/month-end-schedules", "/month-end-count-templates"] },
-        { ref: orderingOpen, paths: ["/store-orders", "/emergency-orders", "/additional-orders", "/dts-orders", "/orders-approval", "/cs-approvals", "/additional-orders-approval", "/emergency-orders-approval", "/mass-orders", "/cs-mass-commits", "/dts-mass-orders", "/cs-dts-mass-commits", "/interco", "/interco-approval", "/store-commits"] },
+        { ref: settingsOpen, paths: ["/users", "/roles", "/templates", "/dts-delivery-schedules", "/dsp-delivery-schedules", "/orders-cutoff", "/month-end-schedules", "/month-end-count-templates", "/ordering-template-approval"] },
+        { ref: orderingOpen, paths: ["/store-orders", "/emergency-orders", "/additional-orders", "/dts-orders", "/orders-approval", "/cs-approvals", "/additional-orders-approval", "/emergency-orders-approval", "/mass-orders", "/mass-orders-approval", "/cs-mass-commits", "/dts-mass-orders", "/cs-dts-mass-commits", "/interco", "/interco-approval", "/store-commits"] },
         { ref: receivingOpen, paths: ["/direct-receiving", "/orders-receiving", "/approved-orders", "/receiving-approvals", "/interco-receiving"] },
         { ref: salesOpen, paths: ["/sales-orders", "/store-transactions", "/store-transactions-approval"] },
         { ref: inventoryOpen, paths: ["/items-list", "/sapitems-list", "/SupplierItems-list", "/POSMasterfile-list", "/pos-bom-list", "/stock-management", "/soh-adjustment", "/wastage", "/wastage-approval-level1", "/wastage-approval-level2", "/low-on-stocks", "/month-end-count", "/month-end-count-approvals", "/month-end-count-approvals-level2"] },
@@ -253,7 +255,7 @@ watchEffect(() => {
         // Nested ordering sections
         { ref: regularOpen, paths: ["/store-orders", "/orders-approval", "/cs-approvals"] },
         { ref: regularDTSOpen, paths: ["/dts-orders"] },
-        { ref: regularMassOpen, paths: ["/mass-orders", "/cs-mass-commits"] },
+        { ref: regularMassOpen, paths: ["/mass-orders", "/mass-orders-approval", "/cs-mass-commits"] },
         { ref: dtsMassOpen, paths: ["/dts-mass-orders", "/cs-dts-mass-commits"] },
         { ref: stockTransferOpen, paths: ["/interco", "/interco-approval", "/store-commits"] },
         { ref: othersOpen, paths: ["/emergency-orders", "/emergency-orders-approval", "/additional-orders", "/additional-orders-approval"] },
@@ -390,6 +392,14 @@ watchEffect(() => {
                             :is-active="isPathActive('/mass-orders')"
                         >
                             Mass Orders
+                        </NavLink>
+                        <NavLink
+                            v-if="hasAccess('view mass order approval')"
+                            href="/mass-orders-approval"
+                            :icon="SquareChartGantt"
+                            :is-active="isPathActive('/mass-orders-approval')"
+                        >
+                            Mass Orders Approval
                         </NavLink>
                         <NavLink
                             v-if="hasAccess('view cs mass commits')"
@@ -1048,6 +1058,14 @@ watchEffect(() => {
                     :is-active="isPathActive('/month-end-count-templates')"
                 >
                     Month End Count Templates
+                </NavLink>
+                <NavLink
+                    v-if="hasAccess('view ordering template approval')"
+                    href="/ordering-template-approval"
+                    :icon="FileCheck"
+                    :is-active="isPathActive('/ordering-template-approval')"
+                >
+                    Ordering Template Approval
                 </NavLink>
             </CollapsibleContent>
         </Collapsible>

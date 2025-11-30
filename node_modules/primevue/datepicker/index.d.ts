@@ -82,7 +82,7 @@ export interface DatePickerResponsiveOptions {
 
 /**
  * Custom DatePicker month change event.
- * @see {@link DatePickerEmitsOptions['month-change']]}
+ * @see {@link DatePickerEmitsOptions['month-change']}
  */
 export interface DatePickerMonthChangeEvent {
     /**
@@ -97,7 +97,7 @@ export interface DatePickerMonthChangeEvent {
 
 /**
  * Custom DatePicker year change event.
- * @see {@link DatePickerEmitsOptions['year-change']]}
+ * @see {@link DatePickerEmitsOptions['year-change']}
  */
 export interface DatePickerYearChangeEvent {
     /**
@@ -155,6 +155,10 @@ export interface DatePickerPassThroughOptions {
      * Used to pass attributes to the input icon's DOM element.
      */
     inputIcon?: DatePickerPassThroughOptionType;
+    /**
+     * Used to pass attributes to the label's DOM element.
+     */
+    clearIcon?: DatePickerPassThroughOptionType;
     /**
      * Used to pass attributes to the panel's DOM element.
      */
@@ -535,6 +539,11 @@ export interface DatePickerProps {
      */
     dateFormat?: string | undefined;
     /**
+     * Type of the value to write back to modelValue.
+     * @defaultValue date
+     */
+    updateModelType?: HintedString<'date' | 'string'> | undefined;
+    /**
      * When enabled, displays the datepicker as inline instead of an overlay.
      * @defaultValue false
      */
@@ -704,6 +713,11 @@ export interface DatePickerProps {
      */
     manualInput?: boolean | undefined;
     /**
+     * When enabled, a clear icon is displayed to clear the value.
+     * @defaultValue false
+     */
+    showClear?: boolean | undefined;
+    /**
      * Defines the size of the component.
      */
     size?: HintedString<'small' | 'large'> | undefined;
@@ -731,6 +745,10 @@ export interface DatePickerProps {
      * Placeholder text for the input.
      */
     placeholder?: string | undefined;
+    /*
+     * When present, it specifies that the component is a required field.
+     */
+    required?: boolean | undefined;
     /**
      * A valid query selector or an HTMLElement to specify where the overlay gets attached.
      * @defaultValue body
@@ -885,8 +903,24 @@ export interface DatePickerSlots {
         keydownCallback: (event: Event) => void;
     }): VNode[];
     /**
+     * Custom buttonbar template
+     * @param {Object} scope - buttonbar slot's params.
+     */
+    buttonbar(scope: {
+        /**
+         * Today click function.
+         * @param {Event} event - Browser event
+         */
+        todayCallback: (event: Event) => void;
+        /**
+         * Clear click function.
+         * @param {Event} event - Browser event
+         */
+        clearCallback: (event: Event) => void;
+    }): VNode[];
+    /**
      * Custom today button template
-     * @param {Object} scope - button slot's params.
+     * @param {Object} scope - today button slot's params.
      */
     todaybutton(scope: {
         /**
@@ -902,7 +936,7 @@ export interface DatePickerSlots {
     }): VNode[];
     /**
      * Custom clear button template
-     * @param {Object} scope - button slot's params.
+     * @param {Object} scope - clear button slot's params.
      */
     clearbutton(scope: {
         /**
@@ -1117,6 +1151,17 @@ export interface DatePickerSlots {
          * @param {Event} event - Browser event
          */
         toggleCallback: (event: Event) => void;
+    }): VNode[];
+    /**
+     * Custom clear icon template.
+     * @param {Object} scope - clear icon slot's params.
+     */
+    clearicon(scope: {
+        /**
+         * Clear icon click function.
+         * @param {Event} event - Browser event
+         */
+        clearCallback: (event: Event) => void;
     }): VNode[];
 }
 

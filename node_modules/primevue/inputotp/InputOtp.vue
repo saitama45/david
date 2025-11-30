@@ -130,7 +130,7 @@ export default {
                 return;
             }
 
-            switch (event.code) {
+            switch (event.key) {
                 case 'ArrowLeft':
                     this.moveToPrev(event);
                     event.preventDefault();
@@ -158,12 +158,16 @@ export default {
                     break;
 
                 case 'Enter':
-                case 'NumpadEnter':
                 case 'Tab':
                     break;
 
                 default:
-                    if ((this.integerOnly && !(event.code !== 'Space' && Number(event.key) >= 0 && Number(event.key) <= 9)) || (this.tokens.join('').length >= this.length && event.code !== 'Delete')) {
+                    const target = event.target;
+                    const hasSelection = target.selectionStart !== target.selectionEnd;
+                    const isAtMaxLength = this.tokens.join('').length >= this.length;
+                    const isValidKey = this.integerOnly ? /^[0-9]$/.test(event.key) : true;
+
+                    if (!isValidKey || (isAtMaxLength && event.key !== 'Delete' && !hasSelection)) {
                         event.preventDefault();
                     }
 

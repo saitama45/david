@@ -107,6 +107,10 @@ export interface PanelPassThroughOptions {
      */
     contentContainer?: PanelPassThroughOptionType;
     /**
+     * Used to pass attributes to the content wrapper DOM element.
+     */
+    contentWrapper?: PanelPassThroughOptionType;
+    /**
      * Used to pass attributes to the content's DOM element.
      */
     content?: PanelPassThroughOptionType;
@@ -208,6 +212,10 @@ export interface PanelSlots {
          * Style class of the icon
          */
         class: string;
+        /**
+         * Collapsed state as a boolean
+         */
+        collapsed: boolean;
     }): VNode[];
     /**
      * Custom icons template.

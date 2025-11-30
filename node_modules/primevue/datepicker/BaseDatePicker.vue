@@ -14,6 +14,10 @@ export default {
             type: String,
             default: null
         },
+        updateModelType: {
+            type: String,
+            default: 'date'
+        },
         inline: {
             type: Boolean,
             default: false
@@ -155,6 +159,10 @@ export default {
             type: Boolean,
             default: true
         },
+        showClear: {
+            type: Boolean,
+            default: false
+        },
         appendTo: {
             type: [String, Object],
             default: 'body'
@@ -165,6 +173,10 @@ export default {
         },
         placeholder: {
             type: String,
+            default: null
+        },
+        required: {
+            type: Boolean,
             default: null
         },
         inputId: {

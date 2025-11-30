@@ -14,7 +14,23 @@
         @keydown="onKeyDown"
         v-bind="getPTOptions('node')"
     >
-        <div :class="cx('nodeContent')" @click="onClick" @touchend="onTouchEnd" :style="node.style" v-bind="getPTOptions('nodeContent')" :data-p-selected="checkboxMode ? checked : selected" :data-p-selectable="selectable">
+        <div v-if="isPrevDropPointActive" :class="cx('dropPoint')" aria-hidden="true" />
+        <div
+            :class="cx('nodeContent')"
+            :style="node.style"
+            :draggable="isDraggable"
+            @click="onClick"
+            @touchend="onTouchEnd"
+            @dragstart="onNodeDragStart"
+            @dragover="onNodeDragOver"
+            @dragenter="onNodeDragEnter"
+            @dragleave="onNodeDragLeave"
+            @dragend="onNodeDragEnd"
+            @drop="onNodeDrop"
+            v-bind="getPTOptions('nodeContent')"
+            :data-p-selected="checkboxMode ? checked : selected"
+            :data-p-selectable="selectable"
+        >
             <button v-ripple type="button" :class="cx('nodeToggleButton')" @click="toggle" tabindex="-1" :data-p-leaf="leaf" v-bind="getPTOptions('nodeToggleButton')">
                 <template v-if="node.loading && loadingMode === 'icon'">
                     <!-- TODO: nodetogglericon deprecated since v4.0-->
@@ -50,13 +66,17 @@
                 <template v-else>{{ label(node) }}</template>
             </span>
         </div>
+        <div v-if="isNextDropPointActive" :class="cx('dropPoint')" aria-hidden="true" />
         <ul v-if="hasChildren && expanded" :class="cx('nodeChildren')" role="group" v-bind="ptm('nodeChildren')">
             <TreeNode
-                v-for="childNode of node.children"
+                v-for="(childNode, index) of node.children"
                 :key="childNode.key"
                 :node="childNode"
+                :parentNode="node"
+                :rootNodes="rootNodes"
                 :templates="templates"
                 :level="level + 1"
+                :index="index"
                 :loadingMode="loadingMode"
                 :expandedKeys="expandedKeys"
                 @node-toggle="onChildNodeToggle"
@@ -64,6 +84,14 @@
                 :selectionMode="selectionMode"
                 :selectionKeys="selectionKeys"
                 @checkbox-change="propagateUp"
+                :draggableScope="draggableScope"
+                :draggableNodes="draggableNodes"
+                :droppableNodes="droppableNodes"
+                :validateDrop="validateDrop"
+                @node-drop="$emit('node-drop', $event)"
+                @node-dragenter="$emit('node-dragenter', $event)"
+                @node-dragleave="$emit('node-dragleave', $event)"
+                @value-change="$emit('value-change', $event)"
                 :unstyled="unstyled"
                 :pt="pt"
             />
@@ -72,7 +100,7 @@
 </template>
 
 <script>
-import { find, findSingle, getAttribute } from '@primeuix/utils/dom';
+import { find, findSingle, getAttribute, getOuterHeight, getOuterWidth } from '@primeuix/utils';
 import BaseComponent from '@primevue/core/basecomponent';
 import CheckIcon from '@primevue/icons/check';
 import ChevronDownIcon from '@primevue/icons/chevrondown';
@@ -86,10 +114,18 @@ export default {
     name: 'TreeNode',
     hostName: 'Tree',
     extends: BaseComponent,
-    emits: ['node-toggle', 'node-click', 'checkbox-change'],
+    emits: ['node-toggle', 'node-click', 'checkbox-change', 'node-drop', 'value-change', 'node-dragenter', 'node-dragleave'],
     props: {
         node: {
             type: null,
+            default: null
+        },
+        parentNode: {
+            type: null,
+            default: null
+        },
+        rootNodes: {
+            type: Array,
             default: null
         },
         expandedKeys: {
@@ -116,10 +152,38 @@ export default {
             type: Number,
             default: null
         },
+        draggableScope: {
+            type: [String, Array],
+            default: null
+        },
+        draggableNodes: {
+            type: Boolean,
+            default: null
+        },
+        droppableNodes: {
+            type: Boolean,
+            default: null
+        },
+        validateDrop: {
+            type: Boolean,
+            default: false
+        },
         index: null
     },
     nodeTouched: false,
     toggleClicked: false,
+    inject: {
+        $pcTree: {
+            default: undefined
+        }
+    },
+    data() {
+        return {
+            isPrevDropPointHovered: false,
+            isNextDropPointHovered: false,
+            isNodeDropHovered: false
+        };
+    },
     mounted() {
         this.setAllNodesTabIndexes();
     },
@@ -286,6 +350,208 @@ export default {
         },
         onTabKey() {
             this.setAllNodesTabIndexes();
+        },
+        removeNodeFromTree(nodes, nodeToRemove) {
+            return nodes.reduce((acc, node) => {
+                if (node.key === nodeToRemove.key) {
+                    return acc;
+                }
+                if (node.children && node.children.length > 0) {
+                    const updatedChildren = this.removeNodeFromTree(node.children, nodeToRemove);
+                    acc.push({ ...node, children: updatedChildren });
+                } else {
+                    acc.push(node);
+                }
+
+                return acc;
+            }, []);
+        },
+        insertNodeInSiblings(nodes, targetKey, nodeToInsert, offset) {
+            const targetIndex = nodes.findIndex((n) => n.key === targetKey);
+
+            if (targetIndex !== -1) {
+                return nodes.toSpliced(targetIndex + offset, 0, nodeToInsert);
+            }
+
+            return nodes.map((node) => {
+                if (node.children && node.children.length > 0) {
+                    return { ...node, children: this.insertNodeInSiblings(node.children, targetKey, nodeToInsert, offset) };
+                }
+
+                return node;
+            });
+        },
+        addNodeAsChild(nodes, parentKey, nodeToInsert) {
+            return nodes.map((node) => {
+                if (node.key === parentKey) {
+                    return { ...node, children: [...(node.children || []), nodeToInsert] };
+                }
+
+                if (node.children && node.children.length > 0) {
+                    return { ...node, children: this.addNodeAsChild(node.children, parentKey, nodeToInsert) };
+                }
+
+                return node;
+            });
+        },
+        insertNodeOnDrop() {
+            const { dragNode, dragNodeIndex, dragNodeSubNodes, dragDropService } = this.$pcTree;
+
+            if (!this.node || dragNodeIndex == null || !dragNode || !dragNodeSubNodes) {
+                return null;
+            }
+
+            const position = this.dropPosition;
+            let updatedNodes = this.removeNodeFromTree(this.rootNodes, dragNode);
+
+            if (position < 0) {
+                // insert before a Node
+                updatedNodes = this.insertNodeInSiblings(updatedNodes, this.node.key, dragNode, 0);
+            } else if (position > 0) {
+                // insert after a Node
+                updatedNodes = this.insertNodeInSiblings(updatedNodes, this.node.key, dragNode, 1);
+            } else {
+                // insert as child of a Node
+                updatedNodes = this.addNodeAsChild(updatedNodes, this.node.key, dragNode);
+            }
+
+            this.$emit('value-change', { nodes: updatedNodes });
+
+            dragDropService.stopDrag({
+                node: dragNode,
+                subNodes: updatedNodes,
+                index: dragNodeIndex
+            });
+
+            return updatedNodes;
+        },
+        onNodeDrop(event) {
+            if (this.isDroppable) {
+                event.preventDefault();
+                event.stopPropagation();
+
+                const { dragNode } = this.$pcTree;
+                const position = this.dropPosition;
+                const isValidDrop = position !== 0 || (position === 0 && this.isNodeDroppable);
+
+                if (isValidDrop) {
+                    if (this.validateDrop) {
+                        this.$emit('node-drop', {
+                            originalEvent: event,
+                            value: this.rootNodes,
+                            dragNode: dragNode,
+                            dropNode: this.node,
+                            index: this.index,
+                            accept: () => {
+                                const updatedNodes = this.insertNodeOnDrop();
+
+                                this.$emit('node-drop', {
+                                    originalEvent: event,
+                                    value: updatedNodes,
+                                    dragNode: dragNode,
+                                    dropNode: this.node,
+                                    index: this.index
+                                });
+                            }
+                        });
+                    } else {
+                        const updatedNodes = this.insertNodeOnDrop();
+
+                        this.$emit('node-drop', {
+                            originalEvent: event,
+                            value: updatedNodes,
+                            dragNode: dragNode,
+                            dropNode: this.node,
+                            index: this.index
+                        });
+                    }
+                }
+
+                this.isPrevDropPointHovered = false;
+                this.isNextDropPointHovered = false;
+                this.isNodeDropHovered = false;
+            }
+        },
+        onNodeDragStart(event) {
+            if (this.isNodeDraggable) {
+                event.dataTransfer.effectAllowed = 'all';
+                event.dataTransfer.setData('text', 'data');
+
+                const target = event.currentTarget;
+                const dragEl = target.cloneNode(true);
+                const toggler = dragEl.querySelector('[data-pc-section="nodetogglebutton"]');
+                const checkbox = dragEl.querySelector('[data-pc-name="pcnodecheckbox"]');
+
+                target.setAttribute('data-p-dragging', 'true');
+                dragEl.style.width = getOuterWidth(target) + 'px';
+                dragEl.style.height = getOuterHeight(target) + 'px';
+                dragEl.setAttribute('data-pc-section', 'drag-image');
+                toggler.style.visibility = 'hidden';
+                checkbox?.remove();
+                document.body.appendChild(dragEl);
+                event.dataTransfer.setDragImage(dragEl, 0, 0);
+
+                setTimeout(() => document.body.removeChild(dragEl), 0);
+
+                this.$pcTree.dragDropService.startDrag({
+                    node: this.node,
+                    subNodes: this.subNodes,
+                    index: this.index,
+                    scope: this.draggableScope
+                });
+            } else {
+                event.preventDefault();
+            }
+        },
+        onNodeDragOver(event) {
+            if (this.isDroppable) {
+                event.dataTransfer.dropEffect = 'copy';
+                const nodeElement = event.currentTarget;
+                const rect = nodeElement.getBoundingClientRect();
+                const y = event.clientY - rect.top;
+
+                this.isPrevDropPointHovered = false;
+                this.isNextDropPointHovered = false;
+                this.isNodeDropHovered = false;
+
+                if (y < rect.height * 0.25) {
+                    this.isPrevDropPointHovered = true;
+                } else if (y > rect.height * 0.75) {
+                    this.isNextDropPointHovered = true;
+                } else if (this.isNodeDroppable) {
+                    this.isNodeDropHovered = true;
+                }
+            } else {
+                event.dataTransfer.dropEffect = 'none';
+            }
+
+            if (this.droppableNodes) {
+                event.preventDefault();
+                event.stopPropagation();
+            }
+        },
+        onNodeDragEnter() {
+            this.$emit('node-dragenter', {
+                node: this.node
+            });
+        },
+        onNodeDragLeave() {
+            this.$emit('node-dragleave', {
+                node: this.node
+            });
+
+            this.isPrevDropPointHovered = false;
+            this.isNextDropPointHovered = false;
+            this.isNodeDropHovered = false;
+        },
+        onNodeDragEnd(event) {
+            event.currentTarget?.removeAttribute('data-p-dragging');
+
+            this.$pcTree.dragDropService.stopDrag({
+                node: this.node,
+                subNodes: this.subNodes,
+                index: this.index
+            });
         },
         setAllNodesTabIndexes() {
             const nodes = find(this.$refs.currentNode.closest('[data-pc-section="rootchildren"]'), '[role="treeitem"]');
@@ -457,6 +723,33 @@ export default {
         },
         ariaSelected() {
             return this.checkboxMode ? this.checked : undefined;
+        },
+        isPrevDropPointActive() {
+            return this.isPrevDropPointHovered && this.isDroppable;
+        },
+        isNextDropPointActive() {
+            return this.isNextDropPointHovered && this.isDroppable;
+        },
+        dropPosition() {
+            return this.isPrevDropPointActive ? -1 : this.isNextDropPointActive ? 1 : 0;
+        },
+        subNodes() {
+            return this.parentNode ? this.parentNode.children : this.rootNodes;
+        },
+        isDraggable() {
+            return this.draggableNodes;
+        },
+        isDroppable() {
+            return this.droppableNodes && this.$pcTree.allowNodeDrop(this.node);
+        },
+        isNodeDraggable() {
+            return this.node?.draggable !== false && this.isDraggable;
+        },
+        isNodeDroppable() {
+            return this.node?.droppable !== false && this.isDroppable;
+        },
+        isNodeDropActive() {
+            return this.isNodeDropHovered && this.isNodeDroppable;
         }
     },
     components: {
