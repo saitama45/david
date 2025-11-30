@@ -324,7 +324,7 @@ onUnmounted(() => {
                                 @click="
                                     deleteModel(
                                         route('POSMasterfile.destroy', item.id),
-                                        'SAP Masterfile Item'
+                                        'Item'
                                     )
                                 "
                             />
@@ -350,7 +350,7 @@ onUnmounted(() => {
                             @click="
                                 deleteModel(
                                     route('POSMasterfile.destroy', item.id),
-                                    'POSMasterfile Item'
+                                    'Item'
                                 )
                             "
                         />
