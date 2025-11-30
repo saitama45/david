@@ -215,7 +215,7 @@ class POSMasterfileController extends Controller
      */
     public function import(Request $request)
     {
-        set_time_limit(300);
+        set_time_limit(0);
         Log::debug('POSMasterfileController: Import method started.');
 
         $request->validate([
@@ -224,31 +224,39 @@ class POSMasterfileController extends Controller
 
         POSMasterfileImport::resetSeenCombinations();
 
-        DB::beginTransaction();
-        Log::debug('POSMasterfileController: Database transaction started.');
-
         try {
             $import = new POSMasterfileImport();
             Excel::import($import, $request->file('products_file'));
+            
             $skippedItems = $import->getSkippedItems();
+            $processedCount = $import->getProcessedCount();
+            $skippedCount = $import->getSkippedCount();
 
-            DB::commit();
-
-            $message = 'Import successful.';
-            if (!empty($skippedItems)) {
-                $message .= ' Some rows were skipped due to validation errors.';
+            if ($processedCount > 0) {
+                $message = 'Import successful. Processed ' . $processedCount . ' items.';
+                
+                if ($skippedCount > 0) {
+                    $message .= ' ' . $skippedCount . ' rows were skipped due to validation errors or duplicates.';
+                    session()->flash('skippedItems', $skippedItems);
+                    session()->flash('warning', $message);
+                } else {
+                    session()->flash('success', $message);
+                }
+            } else if ($skippedCount > 0) {
+                $message = 'No items were imported. ' . $skippedCount . ' rows were skipped due to validation errors or duplicates.';
                 session()->flash('skippedItems', $skippedItems);
+                session()->flash('warning', $message);
+            } else {
+                session()->flash('warning', 'No valid items found in the import file.');
             }
 
-            return redirect()->route('POSMasterfile.index')->with('success', $message);
+            return redirect()->route('POSMasterfile.index');
 
         } catch (\Exception $e) {
-            DB::rollBack();
             Log::error('POSMasterfile Import Error: ' . $e->getMessage(), [
                 'file_name' => $request->file('products_file')->getClientOriginalName(),
                 'trace' => $e->getTraceAsString(),
             ]);
-            Log::debug('POSMasterfileController: Database transaction rolled back due to error.');
 
             return back()->with('error', 'Import failed: ' . $e->getMessage() . '. Please check logs for details.');
         }

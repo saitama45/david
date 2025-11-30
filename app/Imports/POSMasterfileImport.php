@@ -3,147 +3,122 @@
 namespace App\Imports;
 
 use App\Models\POSMasterfile;
-use Maatwebsite\Excel\Concerns\ToModel;
+use Illuminate\Support\Collection;
+use Maatwebsite\Excel\Concerns\ToCollection;
 use Maatwebsite\Excel\Concerns\WithHeadingRow;
-use Maatwebsite\Excel\Concerns\WithBatchInserts;
 use Maatwebsite\Excel\Concerns\WithChunkReading;
-use Maatwebsite\Excel\Concerns\WithUpserts; // Added for upsert functionality
-use Illuminate\Support\Facades\Log; // Added for logging
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Str;
 
-class POSMasterfileImport implements ToModel, WithHeadingRow, WithBatchInserts, WithChunkReading, WithUpserts
+class POSMasterfileImport implements ToCollection, WithHeadingRow, WithChunkReading
 {
-    /**
-     * Property to store skipped items and their reasons.
-     * @var array
-     */
     protected $skippedItems = [];
+    protected $processedCount = 0;
+    protected $skippedCount = 0;
+    protected static $seenCombinations = [];
 
-    /**
-     * Static property to store hashes of combinations already processed during the current import run.
-     * This is crucial for checking duplicates across different chunks.
-     * It must be reset before each new import operation.
-     * @var array
-     */
-    private static $seenCombinations = [];
-
-    /**
-     * Static method to reset the seen combinations tracker.
-     * Called by the controller before a new import starts.
-     */
     public static function resetSeenCombinations()
     {
         self::$seenCombinations = [];
-        Log::debug('POSMasterfileImport: resetSeenCombinations called.');
     }
 
-    /**
-     * Adds a skipped item to the internal list.
-     *
-     * @param string|null $posCode
-     * @param string|null $posDescription
-     * @param string $reason
-     * @return void
-     */
-    // CRITICAL FIX: Changed parameters to posCode and posDescription for clarity and consistency
+    public function collection(Collection $rows)
+    {
+        foreach ($rows as $row) {
+            try {
+                // If the row is completely empty, skip it silently.
+                if ($row instanceof Collection && $row->filter()->isEmpty()) {
+                    continue;
+                }
+
+                // Robustly get the POS code and description, trying multiple possible header formats.
+                $posCode = (string) Str::of($row['item_code'] ?? $row['Item Code'] ?? $row['pos_code'] ?? null)->trim();
+                $posDescription = (string) Str::of($row['item_description'] ?? $row['Item Description'] ?? $row['pos_description'] ?? null)->trim();
+
+                // If even after checking multiple keys, the code is empty, we log it as a skipped item.
+                if (empty($posCode)) {
+                    // Check if the row was just empty space or similar, and if so, skip silently.
+                    if ($row instanceof Collection && $row->filter(fn($val) => !is_null($val) && trim((string) $val) !== '')->isEmpty()) {
+                        continue;
+                    }
+                    $this->addSkippedItem(null, null, 'Item Code is missing or empty in a non-empty row.');
+                    $this->skippedCount++;
+                    continue;
+                }
+                
+                if (in_array($posCode, self::$seenCombinations)) {
+                    $this->addSkippedItem($posCode, $posDescription, 'Duplicate item within the import file. Only the first occurrence was processed.');
+                    $this->skippedCount++;
+                    continue;
+                }
+
+                self::$seenCombinations[] = $posCode;
+
+                // Robustly get other fields
+                $posName = (string) Str::of($row['pos_name'] ?? $row['POS Name'] ?? null)->trim();
+                $category = (string) Str::of($row['category'] ?? $row['Category'] ?? null)->trim();
+                $subCategory = (string) Str::of($row['subcategory'] ?? $row['SubCategory'] ?? $row['sub_category'] ?? null)->trim();
+                
+                // For prices, check multiple header variations and handle surrounding whitespace in headers like ' SRP '
+                $srp = $row['srp'] ?? $row[' SRP '] ?? 0;
+                $deliveryPrice = $row['deliveryprice'] ?? $row['DeliveryPrice'] ?? $row['delivery_price'] ?? 0;
+                $tableVibePrice = $row['tablevibeprice'] ?? $row['TableVibePrice'] ?? $row['table_vibe_price'] ?? 0;
+                
+                $toFloat = fn($value) => is_numeric($value) ? (float)$value : (float)str_replace(',', '', (string)$value);
+
+                POSMasterfile::updateOrCreate(
+                    ['POSCode' => $posCode],
+                    [
+                        'POSDescription' => $posDescription,
+                        'POSName' => empty($posName) ? $posDescription : $posName,
+                        'Category' => $category,
+                        'SubCategory' => $subCategory,
+                        'SRP' => $toFloat($srp),
+                        'DeliveryPrice' => $toFloat($deliveryPrice),
+                        'TableVibePrice' => $toFloat($tableVibePrice),
+                        'is_active' => filter_var($row['active'] ?? $row['Active'] ?? 1, FILTER_VALIDATE_BOOLEAN),
+                    ]
+                );
+
+                $this->processedCount++;
+
+            } catch (\Exception $e) {
+                // Try to get a pos code for the error log, even if it failed before
+                $errorCode = (string) Str::of($row['item_code'] ?? $row['Item Code'] ?? $row['pos_code'] ?? 'N/A')->trim();
+                $this->addSkippedItem($errorCode, null, 'Error processing row: ' . $e->getMessage());
+                $this->skippedCount++;
+                Log::error("Error processing POSMasterfile row: " . $e->getMessage(), ['row' => $row->toArray()]);
+            }
+        }
+    }
+
     protected function addSkippedItem(?string $posCode, ?string $posDescription, string $reason): void
     {
         $this->skippedItems[] = [
-            'pos_code' => $posCode, // Changed from item_code
-            'pos_description' => $posDescription, // Changed from item_description
+            'pos_code' => $posCode,
+            'pos_description' => $posDescription,
             'reason' => $reason,
         ];
         Log::warning("POSMasterfileImport: Skipped item - POS Code: '{$posCode}', Description: '{$posDescription}', Reason: '{$reason}'");
     }
 
-    /**
-     * Get the list of skipped items.
-     *
-     * @return array
-     */
     public function getSkippedItems(): array
     {
         return $this->skippedItems;
     }
 
-    /**
-     * @param array $row
-     *
-     * @return \Illuminate\Database\Eloquent\Model|null
-     */
-    public function model(array $row)
+    public function getProcessedCount(): int
     {
-        Log::debug('POSMasterfileImport: Processing raw row data: ' . json_encode($row));
-        // NEW DEBUG: Log all available keys from the row to help identify correct header name
-        Log::debug('POSMasterfileImport: Available row keys: ' . implode(', ', array_keys($row)));
-
-
-        // Robustly get POSCode, POSDescription, and POSName, checking for common header variations
-        // CRITICAL FIX: Changed variable names and checked keys to match new column names
-        $posCode = (string) ($row['pos_code'] ?? $row['POS Code'] ?? $row['POSCode'] ?? $row['item_code'] ?? $row['Item Code'] ?? $row['ItemCode'] ?? null);
-        $posDescription = (string) ($row['pos_description'] ?? $row['POS Description'] ?? $row['POSDescription'] ?? $row['item_description'] ?? $row['Item Description'] ?? $row['ItemDescription'] ?? null);
-        $posName = (string) ($row['pos_name'] ?? $row['POS Name'] ?? $row['POSName'] ?? null);
-        $category = (string) ($row['category'] ?? $row['Category'] ?? null);
-        $subCategory = (string) ($row['subcategory'] ?? $row['SubCategory'] ?? null);
-        $srp = (float) str_replace(',', '', ($row['srp'] ?? $row['SRP'] ?? 0));
-        $deliveryPrice = (float) str_replace(',', '', ($row['delivery_price'] ?? $row['Delivery Price'] ?? $row['DeliveryPrice'] ?? 0));
-        $tableVibePrice = (float) str_replace(',', '', ($row['table_vibe_price'] ?? $row['Table Vibe Price'] ?? $row['TableVibePrice'] ?? 0));
-        $isActive = (int) ($row['active'] ?? $row['Active'] ?? 1); // Default to 1 if not provided
-
-        // Trim whitespace from posCode and check if it's empty
-        if (empty(trim($posCode))) {
-            // CRITICAL FIX: Pass posCode and posDescription to addSkippedItem
-            $this->addSkippedItem($posCode, $posDescription, 'POS Code is missing or empty.');
-            Log::warning("POSMasterfileImport: Skipping row due to blank POS Code after robust check: " . json_encode($row));
-            return null; // Skip this row
-        }
-
-        // CRITICAL FIX: Updated model instantiation to use POSCode, POSDescription, and POSName
-        $posMasterfile = new POSMasterfile([
-            'POSCode' => $posCode,
-            'POSDescription' => $posDescription,
-            'POSName' => $posName,
-            'Category' => $category,
-            'SubCategory' => $subCategory,
-            'SRP' => $srp,
-            'DeliveryPrice' => $deliveryPrice,
-            'TableVibePrice' => $tableVibePrice,
-            'is_active' => $isActive,
-        ]);
-
-        Log::debug('POSMasterfileImport: Created model for row: ' . json_encode($posMasterfile->toArray()));
-
-        // Return the model instance. Maatwebsite\Excel with WithUpserts will handle insert/update.
-        return $posMasterfile;
+        return $this->processedCount;
     }
 
-    /**
-     * Define the column(s) that should be used to uniquely identify a row.
-     * This is used by the WithUpserts trait to determine if a record should be updated or inserted.
-     *
-     * @return string|array
-     */
-    public function uniqueBy()
+    public function getSkippedCount(): int
     {
-        return 'POSCode'; // CRITICAL FIX: Changed from ItemCode to POSCode
+        return $this->skippedCount;
     }
 
-    /**
-     * Define the batch size for batch inserts.
-     * This improves performance by inserting multiple rows at once.
-     * @return int
-     */
-    public function batchSize(): int
-    {
-        return 200;
-    }
-
-    /**
-     * Define the chunk size for chunk reading.
-     * This helps process very large files without running out of memory.
-     * @return int
-     */
     public function chunkSize(): int
     {
-        return 1000;
+        return 100;
     }
 }
