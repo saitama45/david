@@ -1,4 +1,14 @@
 <script setup>
+import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
+import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogFooter,
+    DialogHeader,
+    DialogTitle,
+} from "@/components/ui/dialog";
+import DatePicker from "primevue/calendar";
 import { useSelectOptions } from "@/Composables/useSelectOptions";
 import { useToast } from "@/Composables/useToast";
 const { toast } = useToast();
@@ -6,7 +16,6 @@ import { useConfirm } from "primevue/useconfirm";
 const confirm = useConfirm();
 import { useForm } from "@inertiajs/vue3";
 import { ref, watch, onMounted } from 'vue';
-
 const { posMasterfiles, branches, transaction } = defineProps({
     transaction: {
         type: Object,
@@ -76,7 +85,7 @@ const itemForm = useForm({
 });
 
 const form = useForm({
-    order_date: transaction.order_date,
+    order_date: transaction.order_date ? new Date(transaction.order_date) : null,
     lot_serial: transaction.lot_serial,
     posted: transaction.posted,
     tim_number: transaction.tim_number,

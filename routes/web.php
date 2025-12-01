@@ -673,6 +673,7 @@ Route::middleware('auth')
 
             Route::middleware('permission:export store transactions')->get('export', 'export')->name('export');
             Route::middleware('permission:export store transactions')->get('main-index/export', 'exportMainIndex')->name('export-main-index');
+            Route::get('export-skipped', 'downloadSkippedReport')->name('export-skipped');
         });
 
         // Items
