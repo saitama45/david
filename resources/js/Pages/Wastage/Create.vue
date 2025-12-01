@@ -17,7 +17,8 @@ import { useSelectOptions } from '@/Composables/useSelectOptions'
 
 const props = defineProps({
   branches: Array,
-  items: Array
+  items: Array,
+  canViewCost: Boolean
 })
 
 // Create branch options using composable
@@ -428,6 +429,7 @@ const handleReasonBlur = (item) => {
               <ItemAutoComplete
                 v-model="selectedAutoCompleteItem"
                 :sending-store-id="parseInt(form.store_branch_id)"
+                search-route="wastage.items.search"
                 placeholder="Type at least 3 characters to search for items..."
                 :disabled="!form.store_branch_id || isLoading"
                 @item-selected="handleAutoCompleteItemSelect"
@@ -480,8 +482,8 @@ const handleReasonBlur = (item) => {
                     <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Reason</th>
                     <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">UoM</th>
                     <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Quantity</th>
-                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Cost</th>
-                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Total</th>
+                    <th v-if="canViewCost" class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Cost</th>
+                    <th v-if="canViewCost" class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Total</th>
                     <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase">Action</th>
                   </tr>
                 </thead>
@@ -514,7 +516,7 @@ const handleReasonBlur = (item) => {
                         class="w-24 h-8 text-sm"
                       />
                     </td>
-                    <td class="px-4 py-4">
+                    <td v-if="canViewCost" class="px-4 py-4">
                       <Input
                         type="number"
                         v-model="item.cost"
@@ -524,7 +526,7 @@ const handleReasonBlur = (item) => {
                         readonly
                       />
                     </td>
-                    <td class="px-4 py-4">
+                    <td v-if="canViewCost" class="px-4 py-4">
                       <div class="text-sm font-medium text-gray-900">
                         {{ formatCurrency(item.total_cost) }}
                       </div>
@@ -541,7 +543,7 @@ const handleReasonBlur = (item) => {
                     </td>
                   </tr>
                 </tbody>
-                <tfoot class="bg-gray-50">
+                <tfoot class="bg-gray-50" v-if="canViewCost">
                   <tr>
                     <td colspan="5" class="px-4 py-3 text-right font-medium text-gray-900">
                       Cart Total:
@@ -596,7 +598,7 @@ const handleReasonBlur = (item) => {
                 <div class="text-2xl font-bold text-blue-600">{{ cartItemsCount }}</div>
                 <div class="text-sm text-gray-600">Items in Cart</div>
               </div>
-              <div class="text-center">
+              <div class="text-center" v-if="canViewCost">
                 <div class="text-2xl font-bold text-green-600">{{ formattedCartTotal }}</div>
                 <div class="text-sm text-gray-600">Total Cost</div>
               </div>

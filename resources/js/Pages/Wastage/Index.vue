@@ -138,6 +138,7 @@ const canCreateRecord = computed(() => props.permissions.can_create)
 const canEditRecord = computed(() => props.permissions.can_edit)
 const canDeleteRecord = computed(() => props.permissions.can_delete)
 const canExportRecords = computed(() => props.permissions.can_export)
+const canViewCost = computed(() => props.permissions.can_view_cost)
 
 // Check if a specific wastage record can be edited
 const canEditWastageRecord = (wastage) => {
@@ -261,7 +262,7 @@ let searchTimeout
                 <TableHead>Store</TableHead>
                 <TableHead>Total Qty</TableHead>
                 <TableHead>Items</TableHead>
-                <TableHead>Total Cost</TableHead>
+                <TableHead v-if="canViewCost">Total Cost</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead>Date</TableHead>
                 <TableHead class="text-right">Actions</TableHead>
@@ -281,7 +282,7 @@ let searchTimeout
                 <TableCell>
                   {{ wastage.items_count }}
                 </TableCell>
-                <TableCell>
+                <TableCell v-if="canViewCost">
                   {{ formatCurrency(wastage.total_cost) }}
                 </TableCell>
                 <TableCell>
@@ -379,7 +380,7 @@ let searchTimeout
             </div>
 
             <!-- Total Cost -->
-            <div class="text-sm">
+            <div class="text-sm" v-if="canViewCost">
               <span class="text-muted-foreground text-xs">Total Cost:</span>
               <div class="font-medium">{{ formatCurrency(wastage.total_cost) }}</div>
             </div>

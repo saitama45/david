@@ -326,6 +326,10 @@ const props = defineProps({
         type: Array,
         required: true,
     },
+    canViewCost: {
+        type: Boolean,
+        default: false,
+    }
 });
 
 
@@ -1527,7 +1531,7 @@ onUnmounted(() => {
                         </div>
 
                         <!-- Cost -->
-                        <div class="space-y-2">
+                        <div class="space-y-2" v-if="canViewCost">
                             <label class="text-sm font-medium text-gray-700">Cost</label>
                             <input
                                 type="text"
@@ -1630,7 +1634,7 @@ onUnmounted(() => {
                                 />
                             </div>
 
-                            <div class="flex items-center gap-2 ml-auto">
+                            <div class="flex items-center gap-2 ml-auto" v-if="canViewCost">
                                 <span class="text-sm text-gray-600">Total:</span>
                                 <span class="font-bold text-lg">{{ computeOverallTotal }}</span>
                             </div>
@@ -1688,7 +1692,7 @@ onUnmounted(() => {
                                     <span class="text-gray-600">Qty:</span>
                                     <span class="font-medium ml-1">{{ order.quantity }}</span>
                                 </div>
-                                <div>
+                                <div v-if="canViewCost">
                                     <span class="text-gray-600">Cost:</span>
                                     <span class="font-medium ml-1">{{ Number(order.cost).toFixed(2) }}</span>
                                 </div>
@@ -1696,7 +1700,7 @@ onUnmounted(() => {
                                     <span class="text-gray-600">Base Qty:</span>
                                     <span class="font-medium ml-1">{{ order.base_uom_qty }}</span>
                                 </div>
-                                <div>
+                                <div v-if="canViewCost">
                                     <span class="text-gray-600">Total:</span>
                                     <span class="font-medium ml-1">{{ Number(order.total_cost).toFixed(2) }}</span>
                                 </div>
@@ -1732,8 +1736,8 @@ onUnmounted(() => {
                                         <th class="px-4 py-3 text-left font-medium text-gray-900">UOM</th>
                                         <th class="px-4 py-3 text-center font-medium text-gray-900">Quantity</th>
                                         <th class="px-4 py-3 text-center font-medium text-gray-900">Base Qty</th>
-                                        <th class="px-4 py-3 text-center font-medium text-gray-900">Cost</th>
-                                        <th class="px-4 py-3 text-center font-medium text-gray-900">Total Cost</th>
+                                        <th v-if="canViewCost" class="px-4 py-3 text-center font-medium text-gray-900">Cost</th>
+                                        <th v-if="canViewCost" class="px-4 py-3 text-center font-medium text-gray-900">Total Cost</th>
                                         <th class="px-4 py-3 text-center font-medium text-gray-900">Actions</th>
                                     </tr>
                                 </thead>
@@ -1746,8 +1750,8 @@ onUnmounted(() => {
                                         <td class="px-4 py-3 text-gray-900">{{ order.unit_of_measurement }}</td>
                                         <td class="px-4 py-3 text-center">{{ order.quantity }}</td>
                                         <td class="px-4 py-3 text-center">{{ order.base_uom_qty }}</td>
-                                        <td class="px-4 py-3 text-center">{{ Number(order.cost).toFixed(2) }}</td>
-                                        <td class="px-4 py-3 text-center">{{ Number(order.total_cost).toFixed(2) }}</td>
+                                        <td v-if="canViewCost" class="px-4 py-3 text-center">{{ Number(order.cost).toFixed(2) }}</td>
+                                        <td v-if="canViewCost" class="px-4 py-3 text-center">{{ Number(order.total_cost).toFixed(2) }}</td>
                                         <td class="px-4 py-3 text-center">
                                             <div class="flex justify-center gap-1">
                                                 <button

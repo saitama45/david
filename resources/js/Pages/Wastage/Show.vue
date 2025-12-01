@@ -78,6 +78,8 @@ const formatUserName = (user) => {
 }
 
 // Wastage statistics
+const canViewCost = computed(() => props.permissions?.can_view_cost)
+
 const totalItems = computed(() => {
   if (!props.wastage?.items || !Array.isArray(props.wastage.items)) return 0
   const total = props.wastage.items.reduce((total, item) => total + (Number(item.wastage_qty) || 0), 0)
@@ -329,7 +331,7 @@ const formatQty = (qty) => {
               <span class="text-2xl font-bold">{{ formatQty(totalItems) }}</span>
             </div>
             <Separator />
-            <div class="flex justify-between items-center">
+            <div class="flex justify-between items-center" v-if="canViewCost">
               <span class="text-gray-600">Total Cost</span>
               <span class="text-2xl font-bold text-green-600">{{ formatCurrency(totalCost) }}</span>
             </div>
@@ -432,8 +434,8 @@ const formatQty = (qty) => {
                 <TableHead class="text-center">Quantity</TableHead>
                 <TableHead class="text-center">Approved Lvl1 Qty</TableHead>
                 <TableHead class="text-center">Approved Lvl2 Qty</TableHead>
-                <TableHead class="text-right">Cost</TableHead>
-                <TableHead class="text-right">Total</TableHead>
+                <TableHead v-if="canViewCost" class="text-right">Cost</TableHead>
+                <TableHead v-if="canViewCost" class="text-right">Total</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -448,8 +450,8 @@ const formatQty = (qty) => {
                 <TableCell class="text-center">{{ formatQty(item.wastage_qty) }} {{ (item.sap_masterfile?.AltUOM || item.sap_masterfile?.BaseUOM) ?? 'PCS' }}</TableCell>
                 <TableCell class="text-center">{{ formatQty(item.approverlvl1_qty) }} {{ (item.sap_masterfile?.AltUOM || item.sap_masterfile?.BaseUOM) ?? 'PCS' }}</TableCell>
                 <TableCell class="text-center">{{ formatQty(item.approverlvl2_qty) }} {{ (item.sap_masterfile?.AltUOM || item.sap_masterfile?.BaseUOM) ?? 'PCS' }}</TableCell>
-                <TableCell class="text-right">{{ formatCurrency(item.cost) }}</TableCell>
-                <TableCell class="text-right font-semibold">{{ formatCurrency(item.wastage_qty * item.cost) }}</TableCell>
+                <TableCell v-if="canViewCost" class="text-right">{{ formatCurrency(item.cost) }}</TableCell>
+                <TableCell v-if="canViewCost" class="text-right font-semibold">{{ formatCurrency(item.wastage_qty * item.cost) }}</TableCell>
               </TableRow>
               <TableRow v-else>
                 <TableCell colspan="7" class="text-center py-8 text-gray-500">
@@ -457,7 +459,7 @@ const formatQty = (qty) => {
                 </TableCell>
               </TableRow>
             </TableBody>
-            <tfoot v-if="wastage.items && wastage.items.length > 0">
+            <tfoot v-if="wastage.items && wastage.items.length > 0 && canViewCost">
               <TableRow>
                 <TableCell colspan="6" class="text-right font-bold">Total:</TableCell>
                 <TableCell class="text-right font-bold text-green-600">{{ formatCurrency(totalCost) }}</TableCell>

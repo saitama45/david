@@ -135,7 +135,7 @@ class RoleService
                     'view additional order approval', 'approve additional order', 'decline additional order'
                 ],
                 'Mass Orders' => [
-                    'view mass orders', 'create mass orders', 'edit mass orders', 'show mass orders'
+                    'view mass orders', 'create mass orders', 'edit mass orders', 'show mass orders', 'view cost mass orders'
                 ],
                 'Mass Order Approval' => [
                     'view mass order approval', 'approve mass order', 'reject mass order'
@@ -198,7 +198,7 @@ class RoleService
                     'view soh adjustment', 'create soh adjustment', 'edit soh adjustment', 'delete soh adjustment', 'export soh adjustment'
                 ],
                 'Wastage Record' => [
-                    'view wastage record', 'create wastage record', 'edit wastage record', 'delete wastage record', 'export wastage record'
+                    'view wastage record', 'create wastage record', 'edit wastage record', 'delete wastage record', 'export wastage record', 'view cost wastage record'
                 ],
                 'Wastage Approval 1st Level' => [
                     'view wastage approval level 1', 'approve wastage level 1', 'cancel wastage approval level 1', 'edit wastage approval level 1', 'delete wastage approval level 1'

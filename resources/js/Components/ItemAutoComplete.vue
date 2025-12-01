@@ -19,6 +19,10 @@ const props = defineProps({
     disabled: {
         type: Boolean,
         default: false
+    },
+    searchRoute: {
+        type: String,
+        default: 'interco.items.search'
     }
 })
 
@@ -105,14 +109,19 @@ const debouncedSearch = debounce(async (searchTerm) => {
     errorMessage.value = ''
 
     try {
-        const response = await axios.get(route('interco.items.search'), {
-            params: {
-                sending_store_id: props.sendingStoreId,
-                search: searchTerm
-            }
+        // Determine the param key based on the route
+        const storeParamKey = props.searchRoute === 'wastage.items.search' ? 'store_id' : 'sending_store_id';
+        
+        const params = {
+            search: searchTerm
+        };
+        params[storeParamKey] = props.sendingStoreId;
+
+        const response = await axios.get(route(props.searchRoute), {
+            params: params
         });
 
-        searchResults.value = (response.data.items || []).filter(item => item.stock > 0)
+        searchResults.value = (response.data.items || []).filter(item => item.stock > 0 || props.searchRoute === 'wastage.items.search')
         isDropdownOpen.value = searchResults.value.length > 0
         highlightedIndex.value = -1
 

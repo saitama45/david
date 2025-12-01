@@ -85,6 +85,7 @@ class MassOrdersController extends Controller
             'currentDate' => Carbon::now()->toDateString(),
             'branches' => $branches,
             'filters' => $request->only(['search', 'from', 'to', 'branchId', 'filterQuery']),
+            'canViewCost' => Auth::user()->hasPermissionTo('view cost mass orders'),
         ]);
     }
 
@@ -346,7 +347,8 @@ class MassOrdersController extends Controller
             'order' => $order,
             'orderedItems' => $orderedItems,
             'receiveDatesHistory' => $receiveDatesHistory,
-            'images' => $images
+            'images' => $images,
+            'canViewCost' => Auth::user()->hasPermissionTo('view cost mass orders'),
         ]);
     }
 
@@ -432,6 +434,7 @@ class MassOrdersController extends Controller
             'branches' => $branches,
             'suppliers' => $suppliers,
             'enabledDates' => $enabledDates, // Pass new prop
+            'canViewCost' => Auth::user()->hasPermissionTo('view cost mass orders'),
         ]);
     }
 

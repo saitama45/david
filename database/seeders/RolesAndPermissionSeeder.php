@@ -233,6 +233,7 @@ class RolesAndPermissionSeeder extends Seeder
         Permission::firstOrCreate(['name' => 'edit wastage record']);
         Permission::firstOrCreate(['name' => 'delete wastage record']);
         Permission::firstOrCreate(['name' => 'export wastage record']);
+        Permission::firstOrCreate(['name' => 'view cost wastage record']);
 
         // Wastage Approval 1st Level
         Permission::firstOrCreate(['name' => 'view wastage approval level 1']);
@@ -336,6 +337,7 @@ class RolesAndPermissionSeeder extends Seeder
         Permission::firstOrCreate(['name' => 'create mass orders']);
         Permission::firstOrCreate(['name' => 'edit mass orders']);
         Permission::firstOrCreate(['name' => 'show mass orders']);
+        Permission::firstOrCreate(['name' => 'view cost mass orders']);
 
         // Mass Orders Approval
         Permission::firstOrCreate(['name' => 'view mass order approval']);

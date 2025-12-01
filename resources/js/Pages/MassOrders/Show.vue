@@ -49,6 +49,10 @@ const props = defineProps({
         type: Object,
         required: true,
     },
+    canViewCost: {
+        type: Boolean,
+        default: false,
+    }
 });
 
 // Computed property to get committed users information

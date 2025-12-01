@@ -818,6 +818,7 @@ Route::middleware('auth')
             Route::middleware('permission:create wastage record')->group(function () {
                 Route::get('/create', 'create')->name('create');
                 Route::post('/', 'store')->name('store');
+                Route::get('/items/search', 'getAvailableItems')->name('items.search');
             });
             Route::middleware('permission:view wastage record')->get('/show/{wastage}', 'show')->name('show');
             Route::middleware('permission:view wastage record')->get('/show/by-number/{wastage_no}', 'showByNumber')->name('show.by-number');

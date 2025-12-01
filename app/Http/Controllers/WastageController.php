@@ -75,6 +75,7 @@ class WastageController extends Controller
                 'can_edit' => $user->hasPermissionTo('edit wastage record'),
                 'can_delete' => $user->hasPermissionTo('delete wastage record'),
                 'can_export' => $user->hasPermissionTo('export wastage record'),
+                'can_view_cost' => $user->hasPermissionTo('view cost wastage record'),
             ]
         ]);
     }
@@ -106,6 +107,7 @@ class WastageController extends Controller
                 'uom' => $item->BaseUOM,
                 'alt_uom' => $item->AltUOM,
             ]),
+            'canViewCost' => $user->hasPermissionTo('view cost wastage record'),
         ]);
     }
 
@@ -230,6 +232,7 @@ class WastageController extends Controller
             'wastage' => $wastageData,
             'permissions' => [
                 'can_view' => true, // Always true for show page
+                'can_view_cost' => $user->hasPermissionTo('view cost wastage record'),
             ],
             'statusTransitions' => [], // Empty since we're removing action buttons
         ]);
@@ -354,6 +357,7 @@ class WastageController extends Controller
                 'uom' => $item->BaseUOM,
                 'alt_uom' => $item->AltUOM,
             ]),
+            'canViewCost' => $user->hasPermissionTo('view cost wastage record'),
         ]);
     }
 
@@ -656,6 +660,24 @@ class WastageController extends Controller
     }
 
     /**
+     * Get cost from SupplierItems table for a given ItemCode
+     */
+    private function getItemCostFromSupplier(string $itemCode): float
+    {
+        try {
+            $cost = \App\Models\SupplierItems::where('ItemCode', $itemCode)
+                ->where('is_active', true)
+                ->value('cost');
+
+            return $cost ?: 1.0;
+
+        } catch (\Exception $e) {
+            \Log::warning('getItemCostFromSupplier error for ItemCode ' . $itemCode . ': ' . $e->getMessage());
+            return 1.0;
+        }
+    }
+
+    /**
      * Get available items for wastage from a specific store
      */
     public function getAvailableItems(Request $request): JsonResponse
@@ -693,6 +715,7 @@ class WastageController extends Controller
                     'description' => $item->ItemDescription ?: "Product Item {$item->ItemCode}",
                     'uom' => $item->BaseUOM,
                     'alt_uom' => $item->AltUOM,
+                    'cost_per_quantity' => $this->getItemCostFromSupplier($item->ItemCode),
                 ];
             });
 

@@ -33,6 +33,10 @@ const props = defineProps({
     },
     filters: {
         type: Object,
+    },
+    canViewCost: {
+        type: Boolean,
+        default: false,
     }
 });
 
