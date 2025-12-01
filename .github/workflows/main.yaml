@@ -52,3 +52,18 @@ jobs:
             **/.git*/**
             **/node_modules/**
             README.md
+
+      - name: Deploy to FTP (Site10)
+        uses: SamKirkland/FTP-Deploy-Action@v4.3.4
+        with:
+          server: ${{ secrets.FTP_SERVER_SITE10 }}
+          username: ${{ secrets.FTP_USERNAME_SITE10 }}
+          password: ${{ secrets.FTP_PASSWORD_SITE10 }}
+          protocol: ftp
+          port: 21
+          timeout: 120000
+          exclude: |
+            **/.git*
+            **/.git*/**
+            **/node_modules/**
+            README.md
