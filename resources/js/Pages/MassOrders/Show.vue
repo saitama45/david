@@ -237,10 +237,10 @@ const openViewModalForm = (id) => {
                             <TD>{{ orderItem.supplier_item?.sap_master_file?.BaseUOM ?? 'N/a' }}</TD>
                             <TD>{{ orderItem.uom ?? 'N/a' }}</TD>
                             <TD>{{ orderItem.quantity_ordered }}</TD>
-                            <TD>{{ order.order_status?.toUpperCase() === 'APPROVED' ? 0 : orderItem.quantity_commited }}</TD>
+                            <TD>{{ ['APPROVED', 'PENDING'].includes(order.order_status?.toUpperCase()) ? 0 : orderItem.quantity_commited }}</TD>
                             <TD>{{ orderItem.quantity_received }}</TD>
-                            <TD>{{ Math.abs(orderItem.quantity_approved - (order.order_status?.toUpperCase() === 'APPROVED' ? 0 : orderItem.quantity_commited)) }}</TD>
-                            <TD>{{ Math.abs((order.order_status?.toUpperCase() === 'APPROVED' ? 0 : orderItem.quantity_commited) - orderItem.quantity_received) }}</TD>
+                            <TD>{{ Math.abs(orderItem.quantity_approved - (['APPROVED', 'PENDING'].includes(order.order_status?.toUpperCase()) ? 0 : orderItem.quantity_commited)) }}</TD>
+                            <TD>{{ Math.abs((['APPROVED', 'PENDING'].includes(order.order_status?.toUpperCase()) ? 0 : orderItem.quantity_commited) - orderItem.quantity_received) }}</TD>
                         </tr>
                     </TableBody>
                 </Table>
@@ -258,7 +258,7 @@ const openViewModalForm = (id) => {
                         <LabelXS>UOM: {{ orderItem.uom ?? 'N/a' }}</LabelXS>
                         <LabelXS>Ordered: {{ orderItem.quantity_ordered }}</LabelXS>
                         <LabelXS
-                            >Committed: {{ order.order_status?.toUpperCase() === 'APPROVED' ? 0 : orderItem.quantity_commited }}</LabelXS
+                            >Committed: {{ ['APPROVED', 'PENDING'].includes(order.order_status?.toUpperCase()) ? 0 : orderItem.quantity_commited }}</LabelXS
                         >
                         <LabelXS
                             >Received: {{ orderItem.quantity_received }}</LabelXS
