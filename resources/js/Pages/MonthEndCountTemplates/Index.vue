@@ -1,16 +1,14 @@
 <script setup>
-import { router } from "@inertiajs/vue3";
+import { router, useForm, usePage } from "@inertiajs/vue3";
 import { throttle } from "lodash";
 import { useAuth } from "@/Composables/useAuth";
-import { useSelectOptions } from "@/Composables/useSelectOptions";
 import { useToast } from "primevue/usetoast";
-import { useConfirm } from "primevue/useconfirm";
-import { ref, computed, watch } from "vue";
+import { ref, computed, watch, onMounted, onUnmounted } from "vue";
 import Dialog from "primevue/dialog";
 
 const { hasAccess } = useAuth();
 const toast = useToast();
-const confirm = useConfirm();
+const page = usePage();
 
 const props = defineProps({
     templates: {
@@ -27,7 +25,9 @@ let filter = ref(props.filters.search);
 const search = ref(filter.value);
 const isImportModalVisible = ref(false);
 const isLoading = ref(false);
-const selectedFile = ref(null);
+
+const skippedItems = ref([]);
+const persistentSkippedItemsMessage = ref('');
 
 const exportRoute = computed(() =>
     route("month-end-count-templates.export", { search: search.value })
@@ -54,15 +54,15 @@ const openImportModal = () => {
 
 const closeImportModal = () => {
     isImportModalVisible.value = false;
-    selectedFile.value = null;
+    importForm.reset();
 };
 
-const handleFileSelect = (event) => {
-    selectedFile.value = event.target.files[0];
-};
+const importForm = useForm({
+    file: null,
+});
 
 const handleImport = () => {
-    if (!selectedFile.value) {
+    if (!importForm.file) {
         toast.add({
             severity: "error",
             summary: "Error",
@@ -72,36 +72,115 @@ const handleImport = () => {
         return;
     }
 
-    const formData = new FormData();
-    formData.append('file', selectedFile.value);
-
     isLoading.value = true;
-
-    router.post(route('month-end-count-templates.import'), formData, {
+    importForm.post(route('month-end-count-templates.import'), {
         onSuccess: () => {
-            toast.add({
-                severity: "success",
-                summary: "Success",
-                detail: "Templates imported successfully.",
-                life: 3000,
-            });
             closeImportModal();
-            isLoading.value = false;
+            const flash = page.props.flash;
+            if (flash && flash.skippedItems && flash.skippedItems.length > 0) {
+                skippedItems.value = flash.skippedItems;
+                if (skippedItems.value.length <= 15) {
+                    persistentSkippedItemsMessage.value = formatSkippedItemsMessage(skippedItems.value);
+                } else {
+                    persistentSkippedItemsMessage.value = '';
+                }
+                toast.add({
+                    severity: "warn",
+                    summary: "Import Completed with Warnings",
+                    detail: `${skippedItems.value.length} rows were skipped. Download the report for details.`,
+                    life: 5000,
+                });
+            } else if (flash && flash.success) {
+                persistentSkippedItemsMessage.value = '';
+                toast.add({
+                    severity: "success",
+                    summary: "Success",
+                    detail: flash.success || "Templates imported successfully.",
+                    life: 3000,
+                });
+            } else if (flash && flash.error) {
+                persistentSkippedItemsMessage.value = '';
+                 toast.add({
+                    severity: "error",
+                    summary: "Import Error",
+                    detail: flash.error,
+                    life: 5000,
+                });
+            }
         },
         onError: (errors) => {
+            closeImportModal();
             toast.add({
                 severity: "error",
                 summary: "Import Error",
-                detail: errors.file || 'Failed to import file.',
+                detail: errors.file || page.props.flash.error || 'Failed to import file.',
                 life: 3000,
             });
-            isLoading.value = false;
         },
         onFinish: () => {
             isLoading.value = false;
         }
     });
 };
+
+const formatSkippedItemsMessage = (items) => {
+    if (!items || items.length === 0) return '';
+    let message = 'The following rows were skipped during import:\n\n';
+    items.forEach(item => {
+        message += `- Row ${item.row_number}: (Item Code: ${item.item_code || 'N/A'}, UOM: ${item.uom || 'N/A'}) - Reason: ${item.reason}\n`;
+    });
+    return message;
+};
+
+const downloadSkippedItems = () => {
+    if (skippedItems.value.length === 0) return;
+    
+    const content = formatSkippedItemsMessage(skippedItems.value);
+    const blob = new Blob([content], { type: 'text/plain' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `skipped_template_items_${new Date().toISOString().split('T')[0]}.txt`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+};
+
+
+onMounted(() => {
+    if (page.props.flash) {
+        if (page.props.flash.skippedItems && page.props.flash.skippedItems.length > 0) {
+            skippedItems.value = page.props.flash.skippedItems;
+             if (skippedItems.value.length <= 15) {
+                persistentSkippedItemsMessage.value = formatSkippedItemsMessage(skippedItems.value);
+            } else {
+                persistentSkippedItemsMessage.value = '';
+            }
+            toast.add({
+                severity: "warn",
+                summary: "Import Completed with Warnings",
+                detail: `${skippedItems.value.length} rows were skipped during the last import. Download the report for details.`,
+                life: 5000,
+            });
+        } else if (page.props.flash.success) {
+            toast.add({
+                severity: "success",
+                summary: "Success",
+                detail: page.props.flash.success,
+                life: 3000,
+            });
+        } else if (page.props.flash.error) {
+            toast.add({
+                severity: "error",
+                summary: "Error",
+                detail: page.props.flash.error,
+                life: 3000,
+            });
+        }
+    }
+});
+
 
 // Delete functionality using composable
 import { useReferenceDelete } from "@/Composables/useReferenceDelete";
@@ -134,6 +213,38 @@ const formatDateTime = (dateString) => {
         :hasExcelDownload="true"
         :exportRoute="exportRoute"
     >
+        <!-- Persistent Skipped Items Message (only shown for 15 or fewer items) -->
+        <div v-if="persistentSkippedItemsMessage && skippedItems.length <= 15" class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative mb-4" role="alert">
+            <strong class="font-bold">Import Warnings:</strong>
+            <span class="block sm:inline whitespace-pre-line">{{ persistentSkippedItemsMessage }}</span>
+            
+            <span class="absolute top-0 bottom-0 right-0 px-4 py-3 cursor-pointer" @click="persistentSkippedItemsMessage = ''">
+                <svg class="fill-current h-6 w-6 text-red-500" role="button" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20"><title>Close</title><path d="M14.348 14.849a1.2 1.2 0 0 1-1.697 0L10 11.819l-2.651 3.029a1.2 1.2 0 1 1-1.697-1.697l2.758-3.15-2.759-3.152a1.2 1.2 0 1 1 1.697-1.697L10 8.183l2.651-3.031a1.2 1.2 0 1 1 1.697 1.697l-2.758 3.152 2.758 3.15a1.2 1.2 0 0 1 0 1.698z"/></svg>
+            </span>
+        </div>
+
+        <!-- Download button (always shown when there are skipped items) -->
+        <div v-if="skippedItems.length > 0" class="bg-blue-100 border border-blue-400 text-blue-700 px-4 py-3 rounded mb-4" role="alert">
+            <strong class="font-bold">Import Summary:</strong>
+            <span class="block sm:inline"> {{ skippedItems.length }} items were skipped during import.</span>
+            
+            <button 
+                @click="downloadSkippedItems"
+                class="mt-2 bg-blue-500 hover:bg-blue-700 text-white font-bold py-1 px-2 rounded text-sm"
+            >
+                Download Skipped Items Report
+            </button>
+
+            <p class="text-sm mt-2">
+                Common reasons for skipped items:
+                <ul class="list-disc list-inside text-sm ml-4">
+                    <li>Item already exists in the database with no changes</li>
+                    <li>Missing Item Code or Item Name</li>
+                    <li>Invalid data format</li>
+                </ul>
+            </p>
+        </div>
+
         <template #header-actions v-if="hasAccess('import month end count templates')">
             <Button
                 @click="openImportModal"
@@ -263,12 +374,12 @@ const formatDateTime = (dateString) => {
                 <InputContainer>
                     <input
                         type="file"
-                        @change="handleFileSelect"
+                        @input="importForm.file = $event.target.files[0]"
                         accept=".xlsx,.csv,.txt"
                         class="w-full p-2 border border-gray-300 rounded-md"
                     />
-                    <FormError v-if="selectedFile">
-                        Selected: {{ selectedFile.name }}
+                    <FormError v-if="importForm.errors.file">
+                        {{ importForm.errors.file }}
                     </FormError>
                 </InputContainer>
 
@@ -282,7 +393,7 @@ const formatDateTime = (dateString) => {
                     </Button>
                     <Button
                         @click="handleImport"
-                        :disabled="isLoading || !selectedFile"
+                        :disabled="isLoading || !importForm.file"
                     >
                         <span v-if="isLoading">
                             <div class="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>

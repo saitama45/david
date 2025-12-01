@@ -10,6 +10,8 @@ use App\Exports\MonthEndCountTemplatesExport;
 use App\Imports\MonthEndCountTemplatesImport;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\Log;
+use Maatwebsite\Excel\Validators\ValidationException;
 
 class MonthEndCountTemplateController extends Controller
 {
@@ -108,15 +110,84 @@ class MonthEndCountTemplateController extends Controller
 
     public function import(Request $request)
     {
+        set_time_limit(300); // 5 minutes
+
         $request->validate([
             'file' => 'required|mimes:xlsx,csv,txt|max:10240', // Max 10MB
         ]);
 
+        $import = new MonthEndCountTemplatesImport;
+
         try {
-            Excel::import(new MonthEndCountTemplatesImport, $request->file('file'));
-            return back()->with('success', 'Templates imported successfully.');
-        } catch (\Exception $e) {
-            return back()->with('error', 'Error importing file: ' . $e->getMessage());
+            Excel::import($import, $request->file('file'));
+
+            $createdCount = $import->getCreatedCount();
+            $updatedCount = $import->getUpdatedCount();
+            $skippedRows = $import->getSkippedRows();
+            $collectionCalled = $import->getCollectionCalled();
+
+            // Log the results for debugging
+            Log::info('Month End Count Template Import Results:', [
+                'created' => $createdCount,
+                'updated' => $updatedCount,
+                'skipped_count' => count($skippedRows),
+                'collection_called' => $collectionCalled,
+                'skipped_rows' => $skippedRows,
+            ]);
+
+            $message = [];
+            if ($createdCount > 0) {
+                $message[] = "{$createdCount} templates created.";
+            }
+            if ($updatedCount > 0) {
+                $message[] = "{$updatedCount} templates updated.";
+            }
+            
+            $redirect = back();
+
+            if (!empty($skippedRows)) {
+                $redirect->with('skippedItems', $skippedRows);
+                // Add a generic message if no other message is present
+                if (empty($message)) {
+                    $message[] = 'Import processed with some skipped rows.';
+                }
+            }
+            
+            if (!$collectionCalled) {
+                return $redirect->with('error', 'No valid data rows were found in the file. Please check the file content.');
+            } 
+            
+            if (empty($message) && empty($skippedRows)) {
+                return $redirect->with('error', 'No valid templates were imported or updated. Please check your file for valid data.');
+            }
+
+            return $redirect->with('success', implode(' ', $message));
+
+        } catch (ValidationException $e) {
+            $failures = $e->failures();
+            $errorMessages = collect($failures)->map(function ($failure) {
+                return "Row " . $failure->row() . ": " . implode(", ", $failure->errors());
+            })->implode('; ');
+            Log::error('Month End Count Template Import Validation Failed:', ['errors' => $errorMessages]);
+            return back()->with('error', 'Validation failed: ' . $errorMessages);
+              } catch (\Exception $e) {
+            Log::error('Month End Count Template Import Exception:', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+                'file' => $request->file('file') ? $request->file('file')->getClientOriginalName() : 'No file'
+            ]);
+
+            // Provide more user-friendly error messages
+            $errorMessage = 'Error importing file: ' . $e->getMessage();
+
+            // Add specific guidance for common issues
+            if (strpos($e->getMessage(), 'heading') !== false) {
+                $errorMessage .= ' Please ensure your Excel file has the correct column headers: Item Code, Item Name, Category 1, Area, Category 2, Packaging, Conversion, Bulk UOM, Loose UOM.';
+            } elseif (strpos($e->getMessage(), 'required') !== false) {
+                $errorMessage .= ' Please check that Item Code and Item Name columns are not empty.';
+            }
+
+            return back()->with('error', $errorMessage);
         }
     }
 
@@ -153,3 +224,4 @@ class MonthEndCountTemplateController extends Controller
         return response()->download($path)->deleteFileAfterSend(true);
     }
 }
+
