@@ -71,22 +71,28 @@ function filterLinks(links) {
 <template>
     <div
         v-if="data.data.length !== 0"
-        class="flex items-center justify-end gap-2"
+        class="flex flex-col sm:flex-row items-center justify-between gap-4 w-full"
     >
-        <Component
-            preserve-scroll
-            preserve-state
-            v-for="(link, index) in filterLinks(data.links)"
-            :key="index"
-            :is="link.url ? 'Link' : 'span'"
-            :href="link.url"
-            v-html="link.label"
-            class="px-3 py-1 border border-gray-200 text-primary-font font-bold rounded-lg sm:text-sm text-xs"
-            :class="{
-                'bg-primary text-white': link.active,
-                'hover:bg-primary/50 transition-colors transition-duration duration-300':
-                    link.url,
-            }"
-        />
+        <div class="text-sm text-gray-600">
+            Showing {{ data.from }} to {{ data.to }} of {{ data.total }} records
+        </div>
+        
+        <div class="flex items-center justify-end gap-2">
+            <Component
+                preserve-scroll
+                preserve-state
+                v-for="(link, index) in filterLinks(data.links)"
+                :key="index"
+                :is="link.url ? 'Link' : 'span'"
+                :href="link.url"
+                v-html="link.label"
+                class="px-3 py-1 border border-gray-200 text-primary-font font-bold rounded-lg sm:text-sm text-xs"
+                :class="{
+                    'bg-primary text-white': link.active,
+                    'hover:bg-primary/50 transition-colors transition-duration duration-300':
+                        link.url,
+                }"
+            />
+        </div>
     </div>
 </template>

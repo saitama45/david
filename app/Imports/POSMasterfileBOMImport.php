@@ -18,6 +18,7 @@ class POSMasterfileBOMImport implements ToCollection, WithHeadingRow, WithChunkR
     protected $skippedItems = [];
     protected $processedCount = 0;
     protected $skippedCount = 0;
+    protected $emptyCount = 0;
     protected static $seenCombinations = [];
 
     public static function resetSeenCombinations()
@@ -38,6 +39,7 @@ class POSMasterfileBOMImport implements ToCollection, WithHeadingRow, WithChunkR
             try {
                 // If the row is completely empty, skip it silently.
                 if ($row instanceof Collection && $row->filter(fn($val) => !is_null($val) && trim((string) $val) !== '')->isEmpty()) {
+                    $this->emptyCount++;
                     continue;
                 }
 
@@ -75,10 +77,10 @@ class POSMasterfileBOMImport implements ToCollection, WithHeadingRow, WithChunkR
                     continue;
                 }
 
-                // Duplicate check using POS Code, Item Code, and BOM UOM
-                $combination = "{$posCode}_{$itemCode}_{$bomUOM}";
+                // Duplicate check using POS Code, Assembly, Item Code, and BOM UOM
+                $combination = strtolower("{$posCode}_{$assembly}_{$itemCode}_{$bomUOM}");
                 if (in_array($combination, self::$seenCombinations)) {
-                    $this->addSkippedItem($posCode, $itemCode, $assembly, 'Duplicate entry (POS Code, Item Code, BOM UOM) within the import file.');
+                    $this->addSkippedItem($posCode, $itemCode, $assembly, 'Duplicate entry (POS Code, Assembly, Item Code, BOM UOM) within the import file.');
                     $this->skippedCount++;
                     continue;
                 }
@@ -99,12 +101,12 @@ class POSMasterfileBOMImport implements ToCollection, WithHeadingRow, WithChunkR
                     'POSCode' => $posCode,
                     'ItemCode' => $itemCode,
                     'BOMUOM' => $bomUOM,
+                    'Assembly' => $assembly,
                 ];
 
                 // Define values to be updated or created (all other columns)
                 $values = [
                     'POSDescription' => $posDescription,
-                    'Assembly' => $assembly, // Assembly is now an updatable field
                     'ItemDescription' => $itemDescription,
                     'RecPercent' => $recPercent,
                     'RecipeQty' => $recipeQty,
@@ -157,6 +159,11 @@ class POSMasterfileBOMImport implements ToCollection, WithHeadingRow, WithChunkR
     public function getSkippedCount(): int
     {
         return $this->skippedCount;
+    }
+
+    public function getEmptyCount(): int
+    {
+        return $this->emptyCount;
     }
 
     public function chunkSize(): int

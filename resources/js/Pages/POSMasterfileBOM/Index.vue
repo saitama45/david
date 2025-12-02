@@ -51,6 +51,7 @@ const exportRoute = computed(() =>
 
 const isImportModalVisible = ref(false);
 const skippedItems = ref([]);
+const importedItemsCount = ref(0);
 const persistentSkippedItemsMessage = ref('');
 const isLoading = ref(false);
 
@@ -92,39 +93,46 @@ const importFile = () => {
             isLoading.value = false;
             isImportModalVisible.value = false;
 
-            if (page.props.flash && page.props.flash.skippedItems && page.props.flash.skippedItems.length > 0) {
-                skippedItems.value = page.props.flash.skippedItems;
-                
-                if (skippedItems.value.length <= 15) {
-                    persistentSkippedItemsMessage.value = formatSkippedItemsMessage(skippedItems.value);
+            if (page.props.flash) {
+                if (page.props.flash.skippedItems) {
+                    skippedItems.value = page.props.flash.skippedItems;
                 } else {
-                    persistentSkippedItemsMessage.value = '';
+                    skippedItems.value = [];
                 }
-                
-                toast.add({
-                    severity: "warn",
-                    summary: "Import Completed with Warnings",
-                    detail: page.props.flash.warning || `${skippedItems.value.length} items were skipped.`, // Changed message and error key
-                    life: 5000,
-                });
-            } else if (page.props.flash && page.props.flash.success) {
-                persistentSkippedItemsMessage.value = '';
-                skippedItems.value = [];
-                toast.add({
-                    severity: "success",
-                    summary: "Success",
-                    detail: page.props.flash.success,
-                    life: 3000,
-                });
-            } else if (page.props.flash && page.props.flash.warning) {
-                persistentSkippedItemsMessage.value = '';
-                skippedItems.value = [];
-                 toast.add({
-                    severity: "warn",
-                    summary: "Import Warning",
-                    detail: page.props.flash.warning,
-                    life: 5000,
-                });
+
+                if (page.props.flash.success_count) {
+                    importedItemsCount.value = page.props.flash.success_count;
+                } else {
+                    importedItemsCount.value = 0;
+                }
+
+                if (skippedItems.value.length > 0) {
+                    if (skippedItems.value.length <= 15) {
+                        persistentSkippedItemsMessage.value = formatSkippedItemsMessage(skippedItems.value);
+                    } else {
+                        persistentSkippedItemsMessage.value = '';
+                    }
+                    
+                    toast.add({
+                        severity: "warn",
+                        summary: "Import Completed with Warnings",
+                        detail: page.props.flash.warning || `${skippedItems.value.length} items were skipped.`, 
+                        life: 5000,
+                    });
+                } else if (page.props.flash.success) {
+                    // Removed toast.add for success as per user request to use a static box
+                    persistentSkippedItemsMessage.value = '';
+                    skippedItems.value = [];
+                } else if (page.props.flash.warning) {
+                    persistentSkippedItemsMessage.value = '';
+                    skippedItems.value = [];
+                     toast.add({
+                        severity: "warn",
+                        summary: "Import Warning",
+                        detail: page.props.flash.warning,
+                        life: 5000,
+                    });
+                }
             }
         },
         onError: (e) => {
@@ -164,10 +172,16 @@ const handleBackdropClick = (event) => {
 };
 
 onMounted(() => {
-    if (page.props.flash && page.props.flash.skippedItems && page.props.flash.skippedItems.length > 0) {
-        skippedItems.value = page.props.flash.skippedItems;
+    if (page.props.flash) {
+        if (page.props.flash.skippedItems) {
+            skippedItems.value = page.props.flash.skippedItems;
+        }
         
-        if (skippedItems.value.length <= 15) {
+        if (page.props.flash.success_count) {
+            importedItemsCount.value = page.props.flash.success_count;
+        }
+
+        if (skippedItems.value.length > 0 && skippedItems.value.length <= 15) {
             persistentSkippedItemsMessage.value = formatSkippedItemsMessage(skippedItems.value);
         }
         
@@ -180,19 +194,8 @@ onMounted(() => {
             });
         }
     } else if (page.props.flash && page.props.flash.success) {
-        toast.add({
-            severity: "success",
-            summary: "Success",
-            detail: page.props.flash.success,
-            life: 3000,
-        });
+        // Success toast removed to use static green box
     } else if (page.props.flash && page.props.flash.error) {
-        toast.add({
-            severity: "error",
-            summary: "Error",
-            detail: page.props.flash.error,
-            life: 3000,
-        });
     }
     document.addEventListener('keydown', handleEscapeKey);
 });
@@ -210,6 +213,15 @@ onUnmounted(() => {
         :hasExcelDownload="true"
         :exportRoute="exportRoute"
     >
+        <!-- Success Message Box -->
+        <div v-if="importedItemsCount > 0 && skippedItems.length === 0" class="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded relative mb-4" role="alert">
+            <strong class="font-bold">Success!</strong>
+            <span class="block sm:inline"> {{ importedItemsCount }} items were successfully imported.</span>
+            <span class="absolute top-0 bottom-0 right-0 px-4 py-3 cursor-pointer" @click="importedItemsCount = 0">
+                <svg class="fill-current h-6 w-6 text-green-500" role="button" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20"><title>Close</title><path d="M14.348 14.849a1.2 1.2 0 0 1-1.697 0L10 11.819l-2.651 3.029a1.2 1.2 0 1 1-1.697-1.697l2.758-3.15-2.759-3.152a1.2 1.2 0 1 1 1.697-1.697L10 8.183l2.651-3.031a1.2 1.2 0 1 1 1.697 1.697l-2.758 3.152 2.758 3.15a1.2 1.2 0 0 1 0 1.698z"/></svg>
+            </span>
+        </div>
+
         <!-- Persistent Skipped Items Message -->
         <div v-if="persistentSkippedItemsMessage && skippedItems.length <= 15" class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4" role="alert">
             <strong class="font-bold">Import Warnings:</strong>
@@ -223,6 +235,7 @@ onUnmounted(() => {
         <div v-if="skippedItems.length > 0" class="bg-blue-100 border border-blue-400 text-blue-700 px-4 py-3 rounded mb-4" role="alert">
             <strong class="font-bold">Import Summary:</strong>
             <span class="block sm:inline"> {{ skippedItems.length }} items were skipped during import.</span>
+            <span v-if="importedItemsCount > 0" class="block sm:inline ml-2"> {{ importedItemsCount }} items were successfully imported.</span>
             
             <button 
                 @click="downloadSkippedItems"

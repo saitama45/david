@@ -231,23 +231,42 @@ class POSMasterfileBOMController extends Controller
             $skippedItems = $import->getSkippedItems();
             $processedCount = $import->getProcessedCount();
             $skippedCount = $import->getSkippedCount();
+            $emptyCount = $import->getEmptyCount();
 
             if ($processedCount > 0) {
                 $message = 'Import successful. Processed ' . $processedCount . ' items.';
                 
                 if ($skippedCount > 0) {
                     $message .= ' ' . $skippedCount . ' rows were skipped due to validation errors or duplicates.';
+                    if ($emptyCount > 0) {
+                        $message .= ' ' . $emptyCount . ' empty rows were ignored.';
+                    }
                     session()->flash('skippedItems', $skippedItems);
                     session()->flash('warning', $message);
                 } else {
-                    session()->flash('success', $message);
+                    if ($emptyCount > 0) {
+                        $message .= ' ' . $emptyCount . ' empty rows were ignored.';
+                        session()->flash('warning', $message);
+                    } else {
+                        session()->flash('success', $message);
+                    }
                 }
+                // Pass success count to flash for the frontend to display
+                session()->flash('success_count', $processedCount);
+
             } else if ($skippedCount > 0) {
                 $message = 'No items were imported. ' . $skippedCount . ' rows were skipped due to validation errors or duplicates.';
+                if ($emptyCount > 0) {
+                    $message .= ' ' . $emptyCount . ' empty rows were ignored.';
+                }
                 session()->flash('skippedItems', $skippedItems);
                 session()->flash('warning', $message);
             } else {
-                session()->flash('warning', 'No valid items found in the import file.');
+                $message = 'No valid items found in the import file.';
+                if ($emptyCount > 0) {
+                    $message .= ' ' . $emptyCount . ' empty rows were ignored.';
+                }
+                session()->flash('warning', $message);
             }
 
             return redirect()->route('pos-bom.index');
