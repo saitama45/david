@@ -1284,12 +1284,20 @@ class DTSMassOrdersController extends Controller
             // Determine which set of days and which week to use
             if ($cutoff1Date && $now->lt($cutoff1Date)) {
                 $daysToCoverStr = $cutoff->days_covered_1;
-                $weekOffset = 0; // Current week (next available days this week)
+                // If there is no second cutoff (i.e., a single weekly cutoff),
+                // ordering before this cutoff is for the *next* week's delivery cycle.
+                if (!$cutoff->cutoff_2_day) {
+                    $weekOffset = 1; // Next week
+                } else {
+                    // For variants with multiple cutoffs, being before the first cutoff
+                    // means ordering for the current week's first set of delivery days.
+                    $weekOffset = 0; // Current week
+                }
             } elseif ($cutoff2Date && $now->lt($cutoff2Date)) {
                 $daysToCoverStr = $cutoff->days_covered_2;
-                $weekOffset = 0; // Current week (next available days this week)
+                $weekOffset = 0; // Current week (ordering for the second set of delivery days)
             } else {
-                // After all cutoffs, next week
+                // After all cutoffs for the current week have passed, ordering is for the next week's first cycle.
                 $daysToCoverStr = $cutoff->days_covered_1;
                 $weekOffset = 1; // Next week
             }
