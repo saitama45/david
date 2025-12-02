@@ -43,11 +43,15 @@ import {
     AppWindowMac,
     Warehouse,
     TextSelect,
+    BookOpen,
 } from "lucide-vue-next";
 import Toast from "primevue/toast";
-import { router } from "@inertiajs/vue3";
+import { router, usePage } from "@inertiajs/vue3";
 import ConfirmDialog from "primevue/confirmdialog";
-import { ref, onMounted, onUnmounted } from 'vue';
+import { ref, onMounted, onUnmounted, computed } from 'vue';
+
+const page = usePage();
+const user = computed(() => page.props.auth.user);
 
 const props = defineProps({
     heading: String,
@@ -220,6 +224,11 @@ onUnmounted(() => {
                         </div>
                     </form> -->
                 </div>
+                <Link href="/knowledge-base" class="inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 h-9 px-4 py-2 bg-secondary text-secondary-foreground shadow-sm hover:bg-secondary/80">
+                    <BookOpen class="h-4 w-4 mr-2" />
+                    Knowledge Base
+                </Link>
+                <span class="text-sm font-medium">{{ user?.first_name }}</span>
                 <DropdownMenu>
                     <DropdownMenuTrigger as-child>
                         <Button

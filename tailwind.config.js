@@ -129,5 +129,5 @@ module.exports = {
     		}
     	}
     },
-    plugins: [animate, require("tailwind-scrollbar"), require("tailwindcss-animate")],
+    plugins: [animate, require("tailwind-scrollbar"), require("tailwindcss-animate"), require('@tailwindcss/typography')],
 };

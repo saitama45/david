@@ -95,6 +95,8 @@ use App\Http\Controllers\SupplierItemsController;
 use App\Http\Controllers\WIPListController;
 use App\Http\Controllers\OrdersCutoffController;
 use App\Http\Controllers\OrderingTemplateApprovalController;
+use App\Http\Controllers\KnowledgeBaseController;
+use App\Http\Controllers\ManageKnowledgeBaseController;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 use Illuminate\Foundation\Application;
@@ -1021,6 +1023,17 @@ Route::middleware('auth')
             Route::middleware('permission:edit ordering template approval')->post('/update/{supplier}', 'update')->name('update');
         });
 
+        // Manage Knowledge Base Articles (Admin Side)
+        Route::controller(ManageKnowledgeBaseController::class)->name('manage-knowledge-base.')->prefix('manage-knowledge-base')->group(function () {
+            Route::middleware('permission:view knowledge base articles')->get('/', 'index')->name('index');
+            Route::middleware('permission:create knowledge base articles')->get('/create', 'create')->name('create');
+            Route::middleware('permission:create knowledge base articles')->post('/store', 'store')->name('store');
+            Route::middleware('permission:edit knowledge base articles')->get('/edit/{id}', 'edit')->name('edit');
+            Route::middleware('permission:edit knowledge base articles')->put('/update/{id}', 'update')->name('update');
+            Route::middleware('permission:delete knowledge base articles')->delete('/destroy/{id}', 'destroy')->name('destroy');
+            Route::middleware('permission:view knowledge base articles')->get('/export', 'export')->name('export');
+        });
+
         // Consolidated Profile Routes
         Route::controller(ProfileController::class)->name('profile.')
             ->prefix('profile')
@@ -1160,5 +1173,16 @@ Route::middleware('auth')
 
         return response('Image not found or inaccessible', 404);
     })->name('proxy.google-drive');
+
+    // Knowledge Base
+    Route::controller(KnowledgeBaseController::class)->prefix('knowledge-base')->name('knowledge-base.')->group(function () {
+        Route::get('/', 'index')->name('index');
+        Route::get('/create', 'create')->name('create');
+        Route::post('/', 'store')->name('store');
+        Route::get('/{knowledgeBase}', 'show')->name('show');
+        Route::get('/{knowledgeBase}/edit', 'edit')->name('edit');
+        Route::put('/{knowledgeBase}', 'update')->name('update');
+        Route::delete('/{knowledgeBase}', 'destroy')->name('destroy');
+    });
 
 require __DIR__ . '/auth.php';

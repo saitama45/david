@@ -1,4 +1,5 @@
 import "../css/app.css";
+import '@vueup/vue-quill/dist/vue-quill.snow.css'; // Global Quill CSS
 import "./bootstrap";
 import "primeicons/primeicons.css";
 
@@ -74,7 +75,7 @@ import LabelXS from "./Components/LabelXS.vue";
 import SpanBold from "./Components/SpanBold.vue";
 import EditButton from "./Components/button/EditButton.vue";
 import InfolistLabel from "./Components/InfolistLabel.vue";
-import BackButton from "./Components/BackButton.vue";
+import BackButton from "./Components/button/BackButton.vue";
 import DeleteButton from "./Components/button/DeleteButton.vue";
 import Select from "primevue/select";
 import PrimeDialog from "primevue/dialog";

@@ -442,6 +442,12 @@ class RolesAndPermissionSeeder extends Seeder
         Permission::firstOrCreate(['name' => 'export delivery report']);
 
 
+        // NEW: Knowledge Base Articles
+        Permission::firstOrCreate(['name' => 'view knowledge base articles']);
+        Permission::firstOrCreate(['name' => 'create knowledge base articles']);
+        Permission::firstOrCreate(['name' => 'edit knowledge base articles']);
+        Permission::firstOrCreate(['name' => 'delete knowledge base articles']);
+
         // Assign all permissions to the 'admin' role
         $role->syncPermissions(Permission::all());
 
@@ -491,6 +497,8 @@ class RolesAndPermissionSeeder extends Seeder
             'view delivery report',
             'download month end count template',
             'upload month end count transaction',
+            // NEW: Knowledge Base permissions for store representative
+            'view knowledge base articles',
         ]);
 
         // Assign specific permissions to 'request approver'

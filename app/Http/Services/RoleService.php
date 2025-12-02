@@ -95,6 +95,9 @@ class RoleService
                 'Ordering Template Approval' => [
                     'view ordering template approval', 'edit ordering template approval'
                 ],
+                'Knowledge Base Articles' => [
+                    'view knowledge base articles', 'create knowledge base articles', 'edit knowledge base articles', 'delete knowledge base articles'
+                ],
             ],
             'Ordering' => [
                 'Store Orders' => [

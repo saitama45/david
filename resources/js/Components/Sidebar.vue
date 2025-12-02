@@ -103,7 +103,8 @@ const canViewSettingsGroup = computed(() =>
     hasAccess("view orders cutoff") ||
     hasAccess("view month end schedules") ||
     hasAccess("view month end count templates") ||
-    hasAccess("view ordering template approval")
+    hasAccess("view ordering template approval") ||
+    hasAccess("view knowledge base articles")
 );
 
 const canViewOrderingGroup = computed(() =>
@@ -245,7 +246,7 @@ watchEffect(() => {
 
     // Define all collapsible sections and their associated paths
     const sections = [
-        { ref: settingsOpen, paths: ["/users", "/roles", "/templates", "/dts-delivery-schedules", "/dsp-delivery-schedules", "/orders-cutoff", "/month-end-schedules", "/month-end-count-templates", "/ordering-template-approval"] },
+        { ref: settingsOpen, paths: ["/users", "/roles", "/templates", "/dts-delivery-schedules", "/dsp-delivery-schedules", "/orders-cutoff", "/month-end-schedules", "/month-end-count-templates", "/ordering-template-approval", "/manage-knowledge-base"] },
         { ref: orderingOpen, paths: ["/store-orders", "/emergency-orders", "/additional-orders", "/dts-orders", "/orders-approval", "/cs-approvals", "/additional-orders-approval", "/emergency-orders-approval", "/mass-orders", "/mass-orders-approval", "/cs-mass-commits", "/dts-mass-orders", "/cs-dts-mass-commits", "/interco", "/interco-approval", "/store-commits"] },
         { ref: receivingOpen, paths: ["/direct-receiving", "/orders-receiving", "/approved-orders", "/receiving-approvals", "/interco-receiving"] },
         { ref: salesOpen, paths: ["/sales-orders", "/store-transactions", "/store-transactions-approval"] },
@@ -1066,6 +1067,14 @@ watchEffect(() => {
                     :is-active="isPathActive('/ordering-template-approval')"
                 >
                     Ordering Template Approval
+                </NavLink>
+                <NavLink
+                    v-if="hasAccess('view knowledge base articles')"
+                    href="/manage-knowledge-base"
+                    :icon="FileCheck"
+                    :is-active="isPathActive('/manage-knowledge-base')"
+                >
+                    Knowledge Base Articles
                 </NavLink>
             </CollapsibleContent>
         </Collapsible>
