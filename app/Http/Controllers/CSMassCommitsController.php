@@ -30,12 +30,26 @@ class CSMassCommitsController extends Controller
             ];
         });
 
-        $supplierId = ($supplierCode === 'all') ? 'all' : Supplier::where('supplier_code', $supplierCode)->first()?->id;
-
         $dayName = Carbon::parse($orderDate)->format('l');
         $user->load('store_branches.delivery_schedules');
 
-        $branchesForReport = $user->store_branches->filter(function ($branch) use ($dayName, $supplierCode, $userSuppliers) {
+        // Find branches that actually have orders today
+        $userBranchIds = $user->store_branches->pluck('id');
+        $branchesWithOrdersIds = StoreOrder::whereDate('order_date', $orderDate)
+            ->whereIn('store_branch_id', $userBranchIds)
+            ->when($supplierId !== 'all', function ($q) use ($supplierId) {
+                $q->where('supplier_id', $supplierId);
+            })
+            ->pluck('store_branch_id')
+            ->unique();
+
+        $branchesForReport = $user->store_branches->filter(function ($branch) use ($dayName, $supplierCode, $userSuppliers, $branchesWithOrdersIds) {
+            // 1. If branch has an order, include it immediately
+            if ($branchesWithOrdersIds->contains($branch->id)) {
+                return true;
+            }
+
+            // 2. Otherwise, check schedules
             $schedulesOnDay = $branch->delivery_schedules->where('day', strtoupper($dayName));
             if ($schedulesOnDay->isEmpty()) {
                 return false;
@@ -139,7 +153,23 @@ class CSMassCommitsController extends Controller
         $dayName = Carbon::parse($orderDate)->format('l');
         $user->load('store_branches.delivery_schedules');
 
-        $branchesForReport = $user->store_branches->filter(function ($branch) use ($dayName, $supplierCode, $userSuppliers) {
+        // Find branches that actually have orders today
+        $userBranchIds = $user->store_branches->pluck('id');
+        $branchesWithOrdersIds = StoreOrder::whereDate('order_date', $orderDate)
+            ->whereIn('store_branch_id', $userBranchIds)
+            ->when($supplierId !== 'all', function ($q) use ($supplierId) {
+                $q->where('supplier_id', $supplierId);
+            })
+            ->pluck('store_branch_id')
+            ->unique();
+
+        $branchesForReport = $user->store_branches->filter(function ($branch) use ($dayName, $supplierCode, $userSuppliers, $branchesWithOrdersIds) {
+            // 1. If branch has an order, include it immediately
+            if ($branchesWithOrdersIds->contains($branch->id)) {
+                return true;
+            }
+
+            // 2. Otherwise, check schedules
             $schedulesOnDay = $branch->delivery_schedules->where('day', strtoupper($dayName));
             if ($schedulesOnDay->isEmpty()) {
                 return false;
