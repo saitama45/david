@@ -17,6 +17,7 @@ class CSMassCommitsController extends Controller
 {
     public function index(Request $request)
     {
+        set_time_limit(300);
         $user = Auth::user();
         $orderDate = $request->input('order_date', Carbon::today()->format('Y-m-d'));
         $supplierCode = $request->input('supplier_id', 'all');
@@ -145,6 +146,7 @@ class CSMassCommitsController extends Controller
 
     public function export(Request $request)
     {
+        set_time_limit(300);
         $user = Auth::user();
         $orderDate = $request->input('order_date', Carbon::today()->format('Y-m-d'));
         $supplierCode = $request->input('supplier_id', 'all');
@@ -321,6 +323,25 @@ class CSMassCommitsController extends Controller
             $row['whse'] = $this->getWhseCode($supplierCode);
 
             return $row;
+        })
+        ->sort(function ($a, $b) {
+            $getRank = function ($category) {
+                return match (strtoupper(trim($category ?? ''))) {
+                    'FINISHED GOOD', 'FINISHED GOODS', 'FG' => 1,
+                    'TRADED' => 2,
+                    'TRADED( DRY )' => 3,
+                    default => 4,
+                };
+            };
+
+            $rankA = $getRank($a['category']);
+            $rankB = $getRank($b['category']);
+
+            if ($rankA !== $rankB) {
+                return $rankA <=> $rankB;
+            }
+
+            return strcasecmp($a['item_name'] ?? '', $b['item_name'] ?? '');
         })
         ->values();
 
