@@ -30,6 +30,8 @@ class CSMassCommitsController extends Controller
             ];
         });
 
+        $supplierId = ($supplierCode === 'all') ? 'all' : Supplier::where('supplier_code', $supplierCode)->first()?->id;
+
         $dayName = Carbon::parse($orderDate)->format('l');
         $user->load('store_branches.delivery_schedules');
 
