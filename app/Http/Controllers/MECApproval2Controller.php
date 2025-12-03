@@ -73,17 +73,19 @@ class MECApproval2Controller extends Controller
         $approvals = $query->paginate(15)->withQueryString();
 
         // --- Count Calculation ---
-        $forApprovalCount = DB::table('month_end_count_items')
+        $forApprovalSubQuery = DB::table('month_end_count_items')
             ->whereIn('branch_id', $userBranchIds)
             ->where('status', 'level1_approved')
-            ->distinct()
-            ->count('branch_id');
+            ->select('month_end_schedule_id', 'branch_id')
+            ->distinct();
+        $forApprovalCount = DB::table($forApprovalSubQuery, 'sub')->count();
 
-        $approvedCount = DB::table('month_end_count_items')
+        $approvedSubQuery = DB::table('month_end_count_items')
             ->whereIn('branch_id', $userBranchIds)
             ->where('status', 'level2_approved')
-            ->distinct()
-            ->count('branch_id');
+            ->select('month_end_schedule_id', 'branch_id')
+            ->distinct();
+        $approvedCount = DB::table($approvedSubQuery, 'sub')->count();
 
         $counts = [
             'for_approval' => $forApprovalCount,

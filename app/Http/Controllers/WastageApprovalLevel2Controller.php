@@ -50,12 +50,23 @@ class WastageApprovalLevel2Controller extends Controller
         $wastages = $this->wastageService->getGroupedWastageRecordsForUser($user, $filters);
 
         // Get counts for status tabs - Level 2 specific
-        $statistics = $this->wastageService->getWastageStatistics($assignedStoreIds);
+        $baseQuery = Wastage::whereIn('store_branch_id', $assignedStoreIds);
+
+        $allSubQuery = (clone $baseQuery)->select('wastage_no', 'store_branch_id')->distinct();
+        $allCount = \Illuminate\Support\Facades\DB::table($allSubQuery, 'sub')->count();
+
+        $approvedLvl1SubQuery = (clone $baseQuery)->where('wastage_status', WastageStatus::APPROVED_LVL1)
+            ->select('wastage_no', 'store_branch_id')->distinct();
+        $approvedLvl1Count = \Illuminate\Support\Facades\DB::table($approvedLvl1SubQuery, 'sub')->count();
+
+        $cancelledSubQuery = (clone $baseQuery)->where('wastage_status', WastageStatus::CANCELLED)
+            ->select('wastage_no', 'store_branch_id')->distinct();
+        $cancelledCount = \Illuminate\Support\Facades\DB::table($cancelledSubQuery, 'sub')->count();
 
         $counts = [
-            'all' => $statistics['total'] ?? 0,
-            'approved_lvl1' => $statistics['approved_lvl1'] ?? 0,
-            'cancelled' => $statistics['cancelled'] ?? 0,
+            'all' => $allCount,
+            'approved_lvl1' => $approvedLvl1Count,
+            'cancelled' => $cancelledCount,
         ];
 
         return Inertia::render('WastageApprovalLevel2/Index', [

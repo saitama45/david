@@ -228,6 +228,127 @@ onUnmounted(() => {
                     <BookOpen class="h-4 w-4 mr-2" />
                     Knowledge Base
                 </Link>
+                
+                <!-- Notification Bell -->
+                <DropdownMenu>
+                    <DropdownMenuTrigger as-child>
+                        <Button variant="ghost" size="icon" class="relative rounded-full">
+                            <Bell class="h-7 w-7" />
+                            <span v-if="(page.props.notifications?.massOrdersApprovalCount + page.props.notifications?.csMassCommitsCount + page.props.notifications?.csDtsMassCommitsCount + page.props.notifications?.intercoApprovalCount + page.props.notifications?.storeCommitsCount + page.props.notifications?.wastageLvl1Count + page.props.notifications?.wastageLvl2Count + page.props.notifications?.monthEndLvl1Count + page.props.notifications?.monthEndLvl2Count) > 0" 
+                                  class="absolute -top-2 -right-2 flex h-6 w-6 items-center justify-center rounded-full bg-red-600 p-1 text-sm font-bold text-white">
+                                {{ (page.props.notifications?.massOrdersApprovalCount || 0) + (page.props.notifications?.csMassCommitsCount || 0) + (page.props.notifications?.csDtsMassCommitsCount || 0) + (page.props.notifications?.intercoApprovalCount || 0) + (page.props.notifications?.storeCommitsCount || 0) + (page.props.notifications?.wastageLvl1Count || 0) + (page.props.notifications?.wastageLvl2Count || 0) + (page.props.notifications?.monthEndLvl1Count || 0) + (page.props.notifications?.monthEndLvl2Count || 0) }}
+                            </span>
+                            <span class="sr-only">Notifications</span>
+                        </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end" class="w-80 max-h-96 overflow-y-auto">
+                        <div class="sticky top-0 bg-white border-b px-4 py-3 z-10">
+                            <h2 class="font-semibold text-sm text-gray-900">Notifications</h2>
+                            <p class="text-xs text-gray-500 mt-1">{{ (page.props.notifications?.massOrdersApprovalCount || 0) + (page.props.notifications?.csMassCommitsCount || 0) + (page.props.notifications?.csDtsMassCommitsCount || 0) + (page.props.notifications?.intercoApprovalCount || 0) + (page.props.notifications?.storeCommitsCount || 0) + (page.props.notifications?.wastageLvl1Count || 0) + (page.props.notifications?.wastageLvl2Count || 0) + (page.props.notifications?.monthEndLvl1Count || 0) + (page.props.notifications?.monthEndLvl2Count || 0) }} pending item(s)</p>
+                        </div>
+                        <div v-if="(page.props.notifications?.massOrdersApprovalCount + page.props.notifications?.csMassCommitsCount + page.props.notifications?.csDtsMassCommitsCount + page.props.notifications?.intercoApprovalCount + page.props.notifications?.storeCommitsCount + page.props.notifications?.wastageLvl1Count + page.props.notifications?.wastageLvl2Count + page.props.notifications?.monthEndLvl1Count + page.props.notifications?.monthEndLvl2Count) > 0" class="divide-y pr-2">
+                            <DropdownMenuItem v-if="page.props.notifications?.massOrdersApprovalCount > 0" class="cursor-pointer px-4 py-3 hover:bg-gray-50 flex items-start gap-3" @click="router.visit(route('mass-orders-approval.index'))">
+                                <div class="flex-shrink-0 w-2 h-2 rounded-full bg-red-500 mt-1.5"></div>
+                                <div class="flex-1 min-w-0">
+                                    <p class="text-sm font-medium text-gray-900">Mass Orders Approval</p>
+                                    <p class="text-xs text-gray-600 mt-0.5"><span class="font-bold text-red-600">{{ page.props.notifications.massOrdersApprovalCount }}</span> pending orders</p>
+                                </div>
+                            </DropdownMenuItem>
+                            <DropdownMenuItem v-if="page.props.notifications?.csMassCommitsCount > 0" class="cursor-pointer px-4 py-3 hover:bg-gray-50 flex items-start gap-3" @click="router.visit(route('cs-mass-commits.index'))">
+                                <div class="flex-shrink-0 w-2 h-2 rounded-full bg-orange-500 mt-1.5"></div>
+                                <div class="flex-1 min-w-0">
+                                    <p class="text-sm font-medium text-gray-900">CS Mass Commits</p>
+                                    <p class="text-xs text-gray-600 mt-0.5"><span class="font-bold text-orange-600">{{ page.props.notifications.csMassCommitsCount }}</span> orders to commit</p>
+                                    <div v-if="page.props.notifications?.csMassCommitsDates?.length" class="mt-1 space-y-0.5">
+                                        <span v-for="date in page.props.notifications.csMassCommitsDates.slice(0, 2)" :key="date" class="text-xs text-gray-500 block">📅 {{ date }}</span>
+                                        <span v-if="page.props.notifications.csMassCommitsDates.length > 2" class="text-xs text-gray-400">+{{ page.props.notifications.csMassCommitsDates.length - 2 }} more</span>
+                                    </div>
+                                </div>
+                            </DropdownMenuItem>
+                            <DropdownMenuItem v-if="page.props.notifications?.csDtsMassCommitsCount > 0" class="cursor-pointer px-4 py-3 hover:bg-gray-50 flex items-start gap-3" @click="router.visit(route('cs-dts-mass-commits.index'))">
+                                <div class="flex-shrink-0 w-2 h-2 rounded-full bg-yellow-500 mt-1.5"></div>
+                                <div class="flex-1 min-w-0">
+                                    <p class="text-sm font-medium text-gray-900">CS DTS Mass Commits</p>
+                                    <p class="text-xs text-gray-600 mt-0.5"><span class="font-bold text-yellow-600">{{ page.props.notifications.csDtsMassCommitsCount }}</span> batch(es) to commit</p>
+                                    <div v-if="page.props.notifications?.csDtsMassCommitsBatches?.length" class="mt-1 space-y-0.5">
+                                        <span v-for="batch in page.props.notifications.csDtsMassCommitsBatches.slice(0, 2)" :key="batch" class="text-xs text-gray-500 block">📦 {{ batch }}</span>
+                                        <span v-if="page.props.notifications.csDtsMassCommitsBatches.length > 2" class="text-xs text-gray-400">+{{ page.props.notifications.csDtsMassCommitsBatches.length - 2 }} more</span>
+                                    </div>
+                                </div>
+                            </DropdownMenuItem>
+                            <DropdownMenuItem v-if="page.props.notifications?.intercoApprovalCount > 0" class="cursor-pointer px-4 py-3 hover:bg-gray-50 flex items-start gap-3" @click="router.visit(route('interco-approval.index'))">
+                                <div class="flex-shrink-0 w-2 h-2 rounded-full bg-blue-500 mt-1.5"></div>
+                                <div class="flex-1 min-w-0">
+                                    <p class="text-sm font-medium text-gray-900">Interco Approvals</p>
+                                    <p class="text-xs text-gray-600 mt-0.5"><span class="font-bold text-blue-600">{{ page.props.notifications.intercoApprovalCount }}</span> order(s) to approve</p>
+                                    <div v-if="page.props.notifications?.intercoApprovalDates?.length" class="mt-1 space-y-0.5">
+                                        <span v-for="date in page.props.notifications.intercoApprovalDates.slice(0, 2)" :key="date" class="text-xs text-gray-500 block">📅 {{ date }}</span>
+                                        <span v-if="page.props.notifications.intercoApprovalDates.length > 2" class="text-xs text-gray-400">+{{ page.props.notifications.intercoApprovalDates.length - 2 }} more</span>
+                                    </div>
+                                </div>
+                            </DropdownMenuItem>
+                            <DropdownMenuItem v-if="page.props.notifications?.storeCommitsCount > 0" class="cursor-pointer px-4 py-3 hover:bg-gray-50 flex items-start gap-3" @click="router.visit(route('store-commits.index'))">
+                                <div class="flex-shrink-0 w-2 h-2 rounded-full bg-green-500 mt-1.5"></div>
+                                <div class="flex-1 min-w-0">
+                                    <p class="text-sm font-medium text-gray-900">Store Commits</p>
+                                    <p class="text-xs text-gray-600 mt-0.5"><span class="font-bold text-green-600">{{ page.props.notifications.storeCommitsCount }}</span> order(s) to commit</p>
+                                    <div v-if="page.props.notifications?.storeCommitsDates?.length" class="mt-1 space-y-0.5">
+                                        <span v-for="date in page.props.notifications.storeCommitsDates.slice(0, 2)" :key="date" class="text-xs text-gray-500 block">📅 {{ date }}</span>
+                                        <span v-if="page.props.notifications.storeCommitsDates.length > 2" class="text-xs text-gray-400">+{{ page.props.notifications.storeCommitsDates.length - 2 }} more</span>
+                                    </div>
+                                </div>
+                            </DropdownMenuItem>
+                            <DropdownMenuItem v-if="page.props.notifications?.wastageLvl1Count > 0" class="cursor-pointer px-4 py-3 hover:bg-gray-50 flex items-start gap-3" @click="router.visit(route('wastage-approval-lvl1.index'))">
+                                <div class="flex-shrink-0 w-2 h-2 rounded-full bg-purple-500 mt-1.5"></div>
+                                <div class="flex-1 min-w-0">
+                                    <p class="text-sm font-medium text-gray-900">Wastage Approval Lvl 1</p>
+                                    <p class="text-xs text-gray-600 mt-0.5"><span class="font-bold text-purple-600">{{ page.props.notifications.wastageLvl1Count }}</span> wastage(s) to approve</p>
+                                    <div v-if="page.props.notifications?.wastageLvl1Dates?.length" class="mt-1 space-y-0.5">
+                                        <span v-for="date in page.props.notifications.wastageLvl1Dates.slice(0, 2)" :key="date" class="text-xs text-gray-500 block">📅 {{ date }}</span>
+                                        <span v-if="page.props.notifications.wastageLvl1Dates.length > 2" class="text-xs text-gray-400">+{{ page.props.notifications.wastageLvl1Dates.length - 2 }} more</span>
+                                    </div>
+                                </div>
+                            </DropdownMenuItem>
+                            <DropdownMenuItem v-if="page.props.notifications?.wastageLvl2Count > 0" class="cursor-pointer px-4 py-3 hover:bg-gray-50 flex items-start gap-3" @click="router.visit(route('wastage-approval-lvl2.index'))">
+                                <div class="flex-shrink-0 w-2 h-2 rounded-full bg-indigo-500 mt-1.5"></div>
+                                <div class="flex-1 min-w-0">
+                                    <p class="text-sm font-medium text-gray-900">Wastage Approval Lvl 2</p>
+                                    <p class="text-xs text-gray-600 mt-0.5"><span class="font-bold text-indigo-600">{{ page.props.notifications.wastageLvl2Count }}</span> wastage(s) to approve</p>
+                                    <div v-if="page.props.notifications?.wastageLvl2Dates?.length" class="mt-1 space-y-0.5">
+                                        <span v-for="date in page.props.notifications.wastageLvl2Dates.slice(0, 2)" :key="date" class="text-xs text-gray-500 block">📅 {{ date }}</span>
+                                        <span v-if="page.props.notifications.wastageLvl2Dates.length > 2" class="text-xs text-gray-400">+{{ page.props.notifications.wastageLvl2Dates.length - 2 }} more</span>
+                                    </div>
+                                </div>
+                            </DropdownMenuItem>
+                            <DropdownMenuItem v-if="page.props.notifications?.monthEndLvl1Count > 0" class="cursor-pointer px-4 py-3 hover:bg-gray-50 flex items-start gap-3" @click="router.visit(route('month-end-count-approvals.index'))">
+                                <div class="flex-shrink-0 w-2 h-2 rounded-full bg-cyan-500 mt-1.5"></div>
+                                <div class="flex-1 min-w-0">
+                                    <p class="text-sm font-medium text-gray-900">Month End Approval Lvl 1</p>
+                                    <p class="text-xs text-gray-600 mt-0.5"><span class="font-bold text-cyan-600">{{ page.props.notifications.monthEndLvl1Count }}</span> record(s) to approve</p>
+                                    <div v-if="page.props.notifications?.monthEndLvl1Dates?.length" class="mt-1 space-y-0.5">
+                                        <span v-for="date in page.props.notifications.monthEndLvl1Dates.slice(0, 2)" :key="date" class="text-xs text-gray-500 block">📅 {{ date }}</span>
+                                        <span v-if="page.props.notifications.monthEndLvl1Dates.length > 2" class="text-xs text-gray-400">+{{ page.props.notifications.monthEndLvl1Dates.length - 2 }} more</span>
+                                    </div>
+                                </div>
+                            </DropdownMenuItem>
+                            <DropdownMenuItem v-if="page.props.notifications?.monthEndLvl2Count > 0" class="cursor-pointer px-4 py-3 hover:bg-gray-50 flex items-start gap-3" @click="router.visit(route('month-end-count-approvals-level2.index'))">
+                                <div class="flex-shrink-0 w-2 h-2 rounded-full bg-teal-500 mt-1.5"></div>
+                                <div class="flex-1 min-w-0">
+                                    <p class="text-sm font-medium text-gray-900">Month End Approval Lvl 2</p>
+                                    <p class="text-xs text-gray-600 mt-0.5"><span class="font-bold text-teal-600">{{ page.props.notifications.monthEndLvl2Count }}</span> record(s) to approve</p>
+                                    <div v-if="page.props.notifications?.monthEndLvl2Dates?.length" class="mt-1 space-y-0.5">
+                                        <span v-for="date in page.props.notifications.monthEndLvl2Dates.slice(0, 2)" :key="date" class="text-xs text-gray-500 block">📅 {{ date }}</span>
+                                        <span v-if="page.props.notifications.monthEndLvl2Dates.length > 2" class="text-xs text-gray-400">+{{ page.props.notifications.monthEndLvl2Dates.length - 2 }} more</span>
+                                    </div>
+                                </div>
+                            </DropdownMenuItem>
+                        </div>
+                        <div v-else class="p-6 text-center">
+                            <div class="text-gray-400 mb-2">🔔</div>
+                            <p class="text-sm text-gray-600">No new notifications</p>
+                        </div>
+                    </DropdownMenuContent>
+                </DropdownMenu>
                 <span class="text-sm font-medium">{{ user?.first_name }}</span>
                 <DropdownMenu>
                     <DropdownMenuTrigger as-child>

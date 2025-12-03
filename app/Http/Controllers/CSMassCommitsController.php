@@ -34,76 +34,34 @@ class CSMassCommitsController extends Controller
         $supplierId = ($supplierCode === 'all') ? 'all' : Supplier::where('supplier_code', $supplierCode)->first()?->id;
 
         $dayName = Carbon::parse($orderDate)->format('l');
-        $user->load('store_branches.delivery_schedules');
-
-        // Find branches that actually have orders today
+        
+        // Get User Branch IDs
         $userBranchIds = $user->store_branches->pluck('id');
-        $branchesWithOrdersIds = StoreOrder::whereDate('order_date', $orderDate)
+
+        // Direct query for orders matching all criteria (Date, User Branches, Supplier, Allowed Statuses)
+        $allowedStatuses = ['approved', 'committed', 'partial_committed', 'received', 'incomplete'];
+        
+        $orders = StoreOrder::with('store_branch')
+            ->whereDate('order_date', $orderDate)
             ->whereIn('store_branch_id', $userBranchIds)
+            ->where('variant', 'mass regular')
             ->when($supplierId !== 'all', function ($q) use ($supplierId) {
                 $q->where('supplier_id', $supplierId);
             })
-            ->pluck('store_branch_id')
-            ->unique();
+            ->whereIn('order_status', $allowedStatuses)
+            ->whereHas('storeOrderItems', function ($q) {
+                $q->where('quantity_commited', '>', 0);
+            })
+            ->get();
 
-        $branchesForReport = $user->store_branches->filter(function ($branch) use ($dayName, $supplierCode, $userSuppliers, $branchesWithOrdersIds) {
-            // 1. If branch has an order, include it immediately
-            if ($branchesWithOrdersIds->contains($branch->id)) {
-                return true;
-            }
-
-            // 2. Otherwise, check schedules
-            $schedulesOnDay = $branch->delivery_schedules->where('day', strtoupper($dayName));
-            if ($schedulesOnDay->isEmpty()) {
-                return false;
-            }
-
-            if ($supplierCode !== 'all') {
-                return $schedulesOnDay->contains(function ($schedule) use ($supplierCode) {
-                    return $schedule->pivot->variant === $supplierCode;
-                });
-            } else {
-                $userSupplierCodes = $userSuppliers->pluck('supplier_code');
-                return $schedulesOnDay->contains(function ($schedule) use ($userSupplierCodes) {
-                    return $userSupplierCodes->contains($schedule->pivot->variant);
-                });
-            }
-        });
-
-        $branches = $branchesForReport->pluck('name', 'id');
-        $branchIdsForReport = $branchesForReport->pluck('id');
-
-        // --- NEW: Fetch order statuses for each branch ---
+        // Extract unique branches directly from the orders
+        $finalBranchesForDisplay = $orders->pluck('store_branch')->unique('id')->values();
+        
+        // Map statuses
         $branchStatuses = [];
-        if ($branchIdsForReport->isNotEmpty()) {
-            $orderStatusQuery = StoreOrder::query()
-                ->whereDate('order_date', $orderDate)
-                ->whereIn('store_branch_id', $branchIdsForReport);
-
-            if ($supplierCode !== 'all') {
-                $supplier = Supplier::where('supplier_code', $supplierCode)->first();
-                if ($supplier) {
-                    $orderStatusQuery->where('supplier_id', $supplier->id);
-                }
-            } else {
-                $userSupplierIds = $userSuppliers->pluck('id');
-                $orderStatusQuery->whereIn('supplier_id', $userSupplierIds);
-            }
-
-            $orders = $orderStatusQuery->with('store_branch')->get();
-
-            foreach ($orders as $order) {
-                $branchStatuses[$order->store_branch->brand_code] = $order->order_status;
-            }
+        foreach ($orders as $order) {
+            $branchStatuses[$order->store_branch->brand_code] = $order->order_status;
         }
-        // --- END NEW ---
-
-        // Filter the scheduled branches to only include those with orders in an allowed status
-        $allowedStatuses = ['approved', 'committed', 'partial_committed', 'received', 'incomplete'];
-        $finalBranchesForDisplay = $branchesForReport->filter(function ($branch) use ($branchStatuses, $allowedStatuses) {
-            $status = $branchStatuses[$branch->brand_code] ?? null;
-            return in_array(strtolower($status), $allowedStatuses, true);
-        });
 
         $reportData = $this->getCSMassCommitsData(
             $orderDate,
@@ -155,73 +113,34 @@ class CSMassCommitsController extends Controller
 
         $userSuppliers = $user->suppliers()->get();
         $dayName = Carbon::parse($orderDate)->format('l');
-        $user->load('store_branches.delivery_schedules');
-
-        // Find branches that actually have orders today
+        
+        // Get User Branch IDs
         $userBranchIds = $user->store_branches->pluck('id');
-        $branchesWithOrdersIds = StoreOrder::whereDate('order_date', $orderDate)
+
+        // Direct query for orders matching all criteria (Date, User Branches, Supplier, Allowed Statuses)
+        $allowedStatuses = ['approved', 'committed', 'partial_committed', 'received', 'incomplete'];
+        
+        $orders = StoreOrder::with('store_branch')
+            ->whereDate('order_date', $orderDate)
             ->whereIn('store_branch_id', $userBranchIds)
+            ->where('variant', 'mass regular')
             ->when($supplierId !== 'all', function ($q) use ($supplierId) {
                 $q->where('supplier_id', $supplierId);
             })
-            ->pluck('store_branch_id')
-            ->unique();
+            ->whereIn('order_status', $allowedStatuses)
+            ->whereHas('storeOrderItems', function ($q) {
+                $q->where('quantity_commited', '>', 0);
+            })
+            ->get();
 
-        $branchesForReport = $user->store_branches->filter(function ($branch) use ($dayName, $supplierCode, $userSuppliers, $branchesWithOrdersIds) {
-            // 1. If branch has an order, include it immediately
-            if ($branchesWithOrdersIds->contains($branch->id)) {
-                return true;
-            }
-
-            // 2. Otherwise, check schedules
-            $schedulesOnDay = $branch->delivery_schedules->where('day', strtoupper($dayName));
-            if ($schedulesOnDay->isEmpty()) {
-                return false;
-            }
-
-            if ($supplierCode !== 'all') {
-                return $schedulesOnDay->contains(function ($schedule) use ($supplierCode) {
-                    return $schedule->pivot->variant === $supplierCode;
-                });
-            } else {
-                $userSupplierCodes = $userSuppliers->pluck('supplier_code');
-                return $schedulesOnDay->contains(function ($schedule) use ($userSupplierCodes) {
-                    return $userSupplierCodes->contains($schedule->pivot->variant);
-                });
-            }
-        });
-
-        // --- START: Apply same status filtering as index method ---
-        $branchIdsForReport = $branchesForReport->pluck('id');
+        // Extract unique branches directly from the orders
+        $finalBranchesForDisplay = $orders->pluck('store_branch')->unique('id')->values();
+        
+        // Map statuses (though not strictly needed for export logic itself if not passed to view, but kept for consistency if used by helper)
         $branchStatuses = [];
-        if ($branchIdsForReport->isNotEmpty()) {
-            $orderStatusQuery = StoreOrder::query()
-                ->whereDate('order_date', $orderDate)
-                ->whereIn('store_branch_id', $branchIdsForReport);
-
-            if ($supplierCode !== 'all') {
-                $supplier = Supplier::where('supplier_code', $supplierCode)->first();
-                if ($supplier) {
-                    $orderStatusQuery->where('supplier_id', $supplier->id);
-                }
-            } else {
-                $userSupplierIds = $userSuppliers->pluck('id');
-                $orderStatusQuery->whereIn('supplier_id', $userSupplierIds);
-            }
-
-            $orders = $orderStatusQuery->with('store_branch')->get();
-
-            foreach ($orders as $order) {
-                $branchStatuses[$order->store_branch->brand_code] = $order->order_status;
-            }
+        foreach ($orders as $order) {
+            $branchStatuses[$order->store_branch->brand_code] = $order->order_status;
         }
-
-        $allowedStatuses = ['approved', 'committed', 'partial_committed', 'received', 'incomplete'];
-        $finalBranchesForDisplay = $branchesForReport->filter(function ($branch) use ($branchStatuses, $allowedStatuses) {
-            $status = $branchStatuses[$branch->brand_code] ?? null;
-            return in_array(strtolower($status), $allowedStatuses, true);
-        });
-        // --- END: Apply same status filtering as index method ---
 
         $reportData = $this->getCSMassCommitsData(
             $orderDate,
@@ -242,6 +161,25 @@ class CSMassCommitsController extends Controller
 
     private function getCSMassCommitsData(string $orderDate, $supplierId = 'all', ?Collection $scheduledBranches = null, string $categoryFilter = 'all'): array
     {
+        // If scheduledBranches is passed but empty (e.g. all orders are pending), return empty report
+        if ($scheduledBranches !== null && $scheduledBranches->isEmpty()) {
+            $staticHeaders = [
+                ['label' => 'CATEGORY', 'field' => 'category'],
+                ['label' => 'ITEM CODE', 'field' => 'item_code'],
+                ['label' => 'ITEM NAME', 'field' => 'item_name'],
+                ['label' => 'UNIT', 'field' => 'unit'],
+            ];
+            $trailingHeaders = [
+                ['label' => 'TOTAL', 'field' => 'total_quantity'],
+                ['label' => 'WHSE', 'field' => 'whse'],
+            ];
+            return [
+                'report' => collect(),
+                'dynamicHeaders' => array_merge($staticHeaders, $trailingHeaders),
+                'totalBranches' => 0,
+            ];
+        }
+
         // 1. Use the scheduled branches passed to the function to build the headers.
         // This ensures all scheduled branches appear as columns, even if they have no committed orders yet.
         $allBranches = $scheduledBranches ? $scheduledBranches->unique('id')->sortBy('brand_code') : collect();
