@@ -529,7 +529,7 @@ class DTSMassOrdersController extends Controller
         if (!isset($lastOrderNumberMap[$storeBranchId])) {
             $lastOrder = StoreOrder::where('store_branch_id', $storeBranchId)
                 ->where('variant', '<>', 'INTERCO')
-                ->orderBy('id', 'desc')
+                ->orderBy('order_number', 'desc')
                 ->first();
 
             if ($lastOrder && $lastOrder->order_number) {
