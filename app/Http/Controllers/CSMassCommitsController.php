@@ -263,23 +263,7 @@ class CSMassCommitsController extends Controller
             return $row;
         })
         ->sort(function ($a, $b) {
-            $getRank = function ($category) {
-                return match (strtoupper(trim($category ?? ''))) {
-                    'FINISHED GOOD', 'FINISHED GOODS', 'FG' => 1,
-                    'TRADED' => 2,
-                    'TRADED( DRY )' => 3,
-                    default => 4,
-                };
-            };
-
-            $rankA = $getRank($a['category']);
-            $rankB = $getRank($b['category']);
-
-            if ($rankA !== $rankB) {
-                return $rankA <=> $rankB;
-            }
-
-            return strcasecmp($a['item_name'] ?? '', $b['item_name'] ?? '');
+            return strcasecmp($a['category'] ?? '', $b['category'] ?? '');
         })
         ->values();
 

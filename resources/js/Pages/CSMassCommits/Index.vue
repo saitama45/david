@@ -289,6 +289,14 @@ const trailingHeaders = computed(() => props.dynamicHeaders.slice(-2));
 const branchCount = computed(() => branchHeaders.value.length);
 const totalColumns = computed(() => staticHeaders.value.length + branchCount.value + trailingHeaders.value.length);
 
+const sortedReport = computed(() => {
+    return [...props.report].sort((a, b) => {
+        const categoryA = (a.category || '').toString().toLowerCase();
+        const categoryB = (b.category || '').toString().toLowerCase();
+        return categoryA.localeCompare(categoryB);
+    });
+});
+
 </script>
 
 <template>
@@ -402,10 +410,10 @@ const totalColumns = computed(() => staticHeaders.value.length + branchCount.val
                             </tr>
                         </thead>
                         <tbody>
-                            <tr v-if="report.length === 0">
+                            <tr v-if="sortedReport.length === 0">
                                 <td :colspan="totalColumns" class="text-center p-4">No data available for the selected filters.</td>
                             </tr>
-                            <tr v-for="(row, rowIndex) in report" :key="rowIndex" class="border-t">
+                            <tr v-for="(row, rowIndex) in sortedReport" :key="rowIndex" class="border-t">
                                 <td v-for="header in staticHeaders" :key="header.field" class="px-4 py-3 text-left whitespace-nowrap">
                                     {{ row[header.field] }}
                                 </td>

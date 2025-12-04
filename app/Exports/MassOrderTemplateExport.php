@@ -26,7 +26,11 @@ class MassOrderTemplateExport implements FromCollection, WithHeadings, ShouldAut
 
     public function collection()
     {
-        return $this->items->map(function ($item) {
+        $sortedItems = $this->items->sortBy(function ($item) {
+            return strtolower($item->category ?? '');
+        })->values();
+
+        return $sortedItems->map(function ($item) {
             $row = [];
             $row['Ordering Template'] = $this->supplierCode;
             $row['Category'] = $item->category;
@@ -37,7 +41,7 @@ class MassOrderTemplateExport implements FromCollection, WithHeadings, ShouldAut
             $row['Unit'] = $item->uom;
 
             foreach ($this->dynamicHeaders as $header) {
-                $row[$header] = ''; // Leave quantity cells empty
+                $row[$header] = '';
             }
             return $row;
         });
