@@ -33,7 +33,7 @@ class POSMasterfileBOM extends Model implements Auditable
     protected $casts = [
         'RecPercent' => 'decimal:4',
         'RecipeQty' => 'decimal:4',
-        'BOMQty' => 'decimal:4',
+        'BOMQty' => 'decimal:7',
         'UnitCost' => 'decimal:4',
         'TotalCost' => 'decimal:4',
         'created_at' => 'datetime',

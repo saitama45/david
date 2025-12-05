@@ -12,6 +12,7 @@ use Maatwebsite\Excel\Concerns\WithHeadingRow;
 use Maatwebsite\Excel\Concerns\WithChunkReading;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Str;
+use Illuminate\Support\Facades\DB;
 
 class POSMasterfileBOMImport implements ToCollection, WithHeadingRow, WithChunkReading
 {
@@ -34,23 +35,20 @@ class POSMasterfileBOMImport implements ToCollection, WithHeadingRow, WithChunkR
             $posCode = null;
             $itemCode = null;
             $assembly = null;
-            $bomUOM = null; // Declare early
+            $bomUOM = null;
 
             try {
-                // If the row is completely empty, skip it silently.
                 if ($row instanceof Collection && $row->filter(fn($val) => !is_null($val) && trim((string) $val) !== '')->isEmpty()) {
                     $this->emptyCount++;
                     continue;
                 }
 
-                // Robustly get key fields
                 $posCode = (string) Str::of($row['pos_code'] ?? $row['POS Code'] ?? null)->trim();
                 $itemCode = (string) Str::of($row['item_code'] ?? $row['ITEM CODE'] ?? null)->trim();
                 $assembly = (string) Str::of($row['assembly'] ?? $row['ASSEMBLY'] ?? null)->trim();
-                $bomUOM = (string) Str::of($row['bom_uom'] ?? $row['BOM UOM'] ?? null)->trim(); // Get BOM UOM early for validation
-                $bomQtyRaw = $row['bom_qty'] ?? $row['BOM QTY'] ?? 0; // Get raw BOM Qty for validation
+                $bomUOM = (string) Str::of($row['bom_uom'] ?? $row['BOM UOM'] ?? null)->trim();
+                $bomQtyRaw = $row['bom_qty'] ?? $row['BOM QTY'] ?? 0;
 
-                // --- Start Validation ---
                 if (empty($posCode) || empty($itemCode)) {
                     $this->addSkippedItem($posCode, $itemCode, $assembly, 'POS Code or Item Code is missing.');
                     $this->skippedCount++;
@@ -69,7 +67,6 @@ class POSMasterfileBOMImport implements ToCollection, WithHeadingRow, WithChunkR
                     continue;
                 }
 
-                // Validate BOM Qty must be > 0
                 $bomQty = $toFloat($bomQtyRaw);
                 if ($bomQty <= 0) {
                     $this->addSkippedItem($posCode, $itemCode, $assembly, 'BOM Qty must be greater than 0.');
@@ -77,7 +74,6 @@ class POSMasterfileBOMImport implements ToCollection, WithHeadingRow, WithChunkR
                     continue;
                 }
 
-                // Duplicate check using POS Code, Assembly, Item Code, and BOM UOM
                 $combination = strtolower("{$posCode}_{$assembly}_{$itemCode}_{$bomUOM}");
                 if (in_array($combination, self::$seenCombinations)) {
                     $this->addSkippedItem($posCode, $itemCode, $assembly, 'Duplicate entry (POS Code, Assembly, Item Code, BOM UOM) within the import file.');
@@ -85,9 +81,7 @@ class POSMasterfileBOMImport implements ToCollection, WithHeadingRow, WithChunkR
                     continue;
                 }
                 self::$seenCombinations[] = $combination;
-                // --- End Validation ---
 
-                // Robustly get other fields
                 $posDescription = (string) Str::of($row['pos_description'] ?? $row['POS Description'] ?? null)->trim();
                 $itemDescription = (string) Str::of($row['item_description'] ?? $row['PRODUCT DESCRIPTION'] ?? null)->trim();
                 $recPercent = $toFloat($row['rec_percent'] ?? $row['REC%'] ?? 0);
@@ -96,7 +90,6 @@ class POSMasterfileBOMImport implements ToCollection, WithHeadingRow, WithChunkR
                 $unitCost = $toFloat($row['unit_cost'] ?? $row['UNIT COST'] ?? 0);
                 $totalCost = $toFloat($row['total_cost'] ?? $row['TOTAL COST'] ?? 0);
 
-                // Define attributes to find the record (unique key for the database)
                 $attributes = [
                     'POSCode' => $posCode,
                     'ItemCode' => $itemCode,
@@ -104,27 +97,43 @@ class POSMasterfileBOMImport implements ToCollection, WithHeadingRow, WithChunkR
                     'Assembly' => $assembly,
                 ];
 
-                // Define values to be updated or created (all other columns)
-                $values = [
-                    'POSDescription' => $posDescription,
-                    'ItemDescription' => $itemDescription,
-                    'RecPercent' => (float) $recPercent,
-                    'RecipeQty' => (float) $recipeQty,
-                    'RecipeUOM' => $recipeUOM,
-                    'BOMQty' => (float) $bomQty,
-                    'UnitCost' => (float) $unitCost,
-                    'TotalCost' => (float) $totalCost,
-                    'updated_by' => Auth::id(), // Always update updated_by
-                ];
+                $exists = POSMasterfileBOM::where($attributes)->exists();
                 
-                $posMasterfileBOM = POSMasterfileBOM::firstOrNew($attributes);
-                
-                // Only set created_by if the record is new
-                if (!$posMasterfileBOM->exists) {
-                    $posMasterfileBOM->created_by = Auth::id();
+                if ($exists) {
+                    DB::table('pos_masterfiles_bom')
+                        ->where($attributes)
+                        ->update([
+                            'POSDescription' => $posDescription,
+                            'ItemDescription' => $itemDescription,
+                            'RecPercent' => number_format($recPercent, 4, '.', ''),
+                            'RecipeQty' => number_format($recipeQty, 4, '.', ''),
+                            'RecipeUOM' => $recipeUOM,
+                            'BOMQty' => number_format($bomQty, 7, '.', ''),
+                            'UnitCost' => number_format($unitCost, 4, '.', ''),
+                            'TotalCost' => number_format($totalCost, 4, '.', ''),
+                            'updated_by' => Auth::id(),
+                            'updated_at' => now(),
+                        ]);
+                } else {
+                    DB::table('pos_masterfiles_bom')->insert([
+                        'POSCode' => $posCode,
+                        'ItemCode' => $itemCode,
+                        'BOMUOM' => $bomUOM,
+                        'Assembly' => $assembly,
+                        'POSDescription' => $posDescription,
+                        'ItemDescription' => $itemDescription,
+                        'RecPercent' => number_format($recPercent, 4, '.', ''),
+                        'RecipeQty' => number_format($recipeQty, 4, '.', ''),
+                        'RecipeUOM' => $recipeUOM,
+                        'BOMQty' => number_format($bomQty, 7, '.', ''),
+                        'UnitCost' => number_format($unitCost, 4, '.', ''),
+                        'TotalCost' => number_format($totalCost, 4, '.', ''),
+                        'created_by' => Auth::id(),
+                        'updated_by' => Auth::id(),
+                        'created_at' => now(),
+                        'updated_at' => now(),
+                    ]);
                 }
-
-                $posMasterfileBOM->fill($values)->save();
 
                 $this->processedCount++;
             } catch (\Exception $e) {

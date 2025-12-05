@@ -222,14 +222,14 @@ watch(isUpdateModalVisible, (value) => {
 // Helper function to log product SOH and return formatted value
 const getProductSOHForDisplay = (product) => {
     console.log(`Product ID: ${product.id}, SOH: ${product.stock_on_hand}, Name: ${product.name}`);
-    return parseFloat(product.stock_on_hand).toFixed(2);
+    return parseFloat(product.stock_on_hand).toFixed(7);
 };
 
 
 
 // Helper function to format Total BaseUOM SOH
 const getTotalBaseUOMSOH = (product) => {
-    return parseFloat(product.total_base_uom_soh || 0).toFixed(2);
+    return parseFloat(product.total_base_uom_soh || 0).toFixed(7);
 };
 </script>
 <template>
@@ -408,7 +408,7 @@ const getTotalBaseUOMSOH = (product) => {
                                         </div>
                                     </div>
                                     <h4 class="text-sm font-medium text-gray-600 mb-1">Total SOH</h4>
-                                    <p class="text-2xl font-bold text-gray-900">{{ parseFloat(storeSummary.total_soh).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2}) }}</p>
+                                    <p class="text-2xl font-bold text-gray-900">{{ parseFloat(storeSummary.total_soh).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 7}) }}</p>
                                     <p class="text-xs text-gray-500 mt-1">{{ storeSummary.item_count }} items</p>
                                 </div>
                             </div>
@@ -429,7 +429,7 @@ const getTotalBaseUOMSOH = (product) => {
                                         </div>
                                     </div>
                                     <h4 class="text-sm font-medium text-gray-600 mb-1">Total BaseUOM SOH</h4>
-                                    <p class="text-2xl font-bold text-gray-900">{{ parseFloat(storeSummary.total_base_uom_soh).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2}) }}</p>
+                                    <p class="text-2xl font-bold text-gray-900">{{ parseFloat(storeSummary.total_base_uom_soh).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 7}) }}</p>
                                     <p class="text-xs text-gray-500 mt-1">Base units</p>
                                 </div>
                             </div>
