@@ -709,6 +709,12 @@ class WastageController extends Controller
             $items = $query->get();
 
             $processedItems = $items->map(function ($item) use ($storeId) {
+                // Get SOH from product_inventory_stock_managers table
+                $soh = DB::table('product_inventory_stock_managers')
+                    ->where('product_inventory_id', $item->id)
+                    ->where('store_branch_id', $storeId)
+                    ->sum('quantity');
+
                 return [
                     'id' => $item->id,
                     'item_code' => $item->ItemCode,
@@ -716,6 +722,7 @@ class WastageController extends Controller
                     'uom' => $item->BaseUOM,
                     'alt_uom' => $item->AltUOM,
                     'cost_per_quantity' => $this->getItemCostFromSupplier($item->ItemCode),
+                    'stock' => round($soh ?: 0, 4),
                 ];
             });
 
