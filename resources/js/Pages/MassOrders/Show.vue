@@ -191,7 +191,7 @@ const openViewModalForm = (id) => {
 
                 <InputContainer v-if="committedUsersInfo">
                     <LabelXS>Committer(s): </LabelXS>
-                    <SpanBold>{{ committedUsersInfo.formattedDisplay }}</SpanBold>
+                    <SpanBold>{{ order.order_status?.toUpperCase() === 'committed' ? committedUsersInfo.formattedDisplay : '' }}</SpanBold>
                 </InputContainer>
 
                 <InputContainer>
