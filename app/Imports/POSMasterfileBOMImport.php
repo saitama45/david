@@ -108,12 +108,12 @@ class POSMasterfileBOMImport implements ToCollection, WithHeadingRow, WithChunkR
                 $values = [
                     'POSDescription' => $posDescription,
                     'ItemDescription' => $itemDescription,
-                    'RecPercent' => $recPercent,
-                    'RecipeQty' => $recipeQty,
+                    'RecPercent' => (float) $recPercent,
+                    'RecipeQty' => (float) $recipeQty,
                     'RecipeUOM' => $recipeUOM,
-                    'BOMQty' => $bomQty,
-                    'UnitCost' => $unitCost,
-                    'TotalCost' => $totalCost,
+                    'BOMQty' => (float) $bomQty,
+                    'UnitCost' => (float) $unitCost,
+                    'TotalCost' => (float) $totalCost,
                     'updated_by' => Auth::id(), // Always update updated_by
                 ];
                 
