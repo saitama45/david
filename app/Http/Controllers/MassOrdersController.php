@@ -235,7 +235,7 @@ class MassOrdersController extends Controller
 
         $dynamicHeaders = $finalBranches->where('is_active', true)->pluck('brand_code')->unique()->sort()->values()->all();
 
-        $items = SupplierItems::where('SupplierCode', $supplierCode)->where('is_active', true)->get();
+        $items = SupplierItems::where('SupplierCode', $supplierCode)->where('is_active', true)->orderBy('category')->orderBy('sort_order')->get();
 
         $staticHeaders = ['Category', 'Classification', 'Item Code', 'Item Name', 'Packaging Config', 'Unit'];
 

@@ -293,7 +293,13 @@ const sortedReport = computed(() => {
     return [...props.report].sort((a, b) => {
         const categoryA = (a.category || '').toString().toLowerCase();
         const categoryB = (b.category || '').toString().toLowerCase();
-        return categoryA.localeCompare(categoryB);
+        const categoryCompare = categoryA.localeCompare(categoryB);
+        if (categoryCompare !== 0) {
+            return categoryCompare;
+        }
+        const sortOrderA = a.sort_order ?? 0;
+        const sortOrderB = b.sort_order ?? 0;
+        return sortOrderA - sortOrderB;
     });
 });
 

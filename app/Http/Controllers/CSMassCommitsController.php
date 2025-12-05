@@ -228,6 +228,7 @@ class CSMassCommitsController extends Controller
                         'brand_code' => $order->store_branch->brand_code,
                         'quantity_commited' => (float) $orderItem->quantity_commited,
                         'supplier_id' => $order->supplier_id,
+                        'sort_order' => $supplierItem ? $supplierItem->sort_order : 0,
                     ];
                 });
         })
@@ -263,7 +264,14 @@ class CSMassCommitsController extends Controller
             return $row;
         })
         ->sort(function ($a, $b) {
-            return strcasecmp($a['category'] ?? '', $b['category'] ?? '');
+            $categoryCompare = strcasecmp($a['category'] ?? '', $b['category'] ?? '');
+            if ($categoryCompare !== 0) {
+                return $categoryCompare;
+            }
+            // If categories are equal, sort by sort_order
+            $aOrder = $a['sort_order'] ?? 0;
+            $bOrder = $b['sort_order'] ?? 0;
+            return $aOrder <=> $bOrder;
         })
         ->values();
 

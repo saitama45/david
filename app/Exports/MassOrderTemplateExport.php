@@ -27,7 +27,7 @@ class MassOrderTemplateExport implements FromCollection, WithHeadings, ShouldAut
     public function collection()
     {
         $sortedItems = $this->items->sortBy(function ($item) {
-            return strtolower($item->category ?? '');
+            return [strtolower($item->category ?? ''), $item->sort_order ?? 0];
         })->values();
 
         return $sortedItems->map(function ($item) {
