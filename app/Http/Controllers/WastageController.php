@@ -694,6 +694,7 @@ class WastageController extends Controller
                 ->whereNotNull('ItemCode')
                 ->where('ItemCode', '!=', '')
                 ->whereNotNull('ItemDescription')
+                ->whereColumn('BaseUOM', 'AltUOM')
                 ->orderBy('ItemDescription');
 
             if ($search) {
