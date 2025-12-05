@@ -38,13 +38,15 @@ class SupplierItemsImport implements ToCollection, WithHeadingRow, WithChunkRead
         // Even if more columns are added later, this batch size should remain safe.
         $upsertBatchSize = 100; 
 
-        // Group rows by ItemCode to handle duplicates within the Excel chunk itself
-        // This ensures that for a given ItemCode, only the LAST occurrence in the Excel chunk is processed,
-        // preventing issues if the chunk has duplicate ItemCodes.
+        // Group rows by ItemCode + UOM + SupplierCode to handle duplicates within the Excel chunk itself
+        // This ensures that for a given combination, only the LAST occurrence in the Excel chunk is processed
         $deduplicatedRows = $rows->groupBy(function($row) {
-            return trim($row['item_code'] ?? '');
+            $itemCode = trim($row['item_code'] ?? '');
+            $unit = trim($row['unit'] ?? '');
+            $supplierCode = trim($row['supplier_code'] ?? '');
+            return $itemCode . '|' . $unit . '|' . $supplierCode;
         })->map(function($group) {
-            return $group->last(); // Take the last occurrence for each ItemCode
+            return $group->last(); // Take the last occurrence for each combination
         })->values(); // Re-index the collection
 
         $dataForCurrentChunk = [];
@@ -82,16 +84,20 @@ class SupplierItemsImport implements ToCollection, WithHeadingRow, WithChunkRead
             }
 
             // 3. SAP Validation: Check if ItemCode and AltUOM (from Excel's UNIT) exist in sap_masterfiles
-            $sapMasterfileExists = SAPMasterfile::where('ItemCode', $itemCode)
-                                                ->where('AltUOM', $unit)
+            // Use case-insensitive comparison for both ItemCode and AltUOM
+            $sapMasterfileExists = SAPMasterfile::whereRaw('UPPER(ItemCode) = ?', [strtoupper($itemCode)])
+                                                ->whereRaw('UPPER(AltUOM) = ?', [strtoupper($unit)])
                                                 ->exists();
 
             if (!$sapMasterfileExists) {
                 $this->skippedBySapValidationCount++;
+                // Get all matching records for debugging
+                $matchingRecords = SAPMasterfile::where('ItemCode', $itemCode)->get(['ItemCode', 'AltUOM', 'BaseUOM']);
                 $reason = 'Item Code and UOM combination not found in SAP Masterfile';
                 $details = [
                     'ItemCode' => $itemCode,
-                    'UOM_from_Excel' => $unit
+                    'UOM_from_Excel' => $unit,
+                    'matching_sap_records' => $matchingRecords->map(fn($r) => ['AltUOM' => $r->AltUOM, 'BaseUOM' => $r->BaseUOM])->toArray()
                 ];
                 $this->addSkippedDetail($row, $reason, $details);
                 Log::warning('SupplierItems Import Skipped (SAP Validation): ' . $reason . ' - ' . json_encode($details) . ' - Original Row: ' . json_encode($row->toArray()));
@@ -108,6 +114,7 @@ class SupplierItemsImport implements ToCollection, WithHeadingRow, WithChunkRead
             $packagingConfig = trim($row['packaging_config'] ?? '');
             $cost = (float) ($row['cost'] ?? 0.00);
             $srp = (float) ($row['srp'] ?? 0.00);
+            $sortOrder = (int) ($row['sort_order'] ?? 0);
             
             // Handle 'ACTIVE' column (0 or 1)
             $isActive = filter_var($row['active'] ?? 1, FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE);
@@ -130,6 +137,7 @@ class SupplierItemsImport implements ToCollection, WithHeadingRow, WithChunkRead
                 'srp'               => $srp,
                 'SupplierCode'      => $supplierCode,
                 'is_active'         => $isActive,
+                'sort_order'        => $sortOrder,
                 'created_at'        => now(),
                 'updated_at'        => now(),
             ];
@@ -139,13 +147,14 @@ class SupplierItemsImport implements ToCollection, WithHeadingRow, WithChunkRead
         // Now, process the collected dataForCurrentChunk in smaller batches for upsert
         if (!empty($dataForCurrentChunk)) {
             foreach (array_chunk($dataForCurrentChunk, $upsertBatchSize) as $miniBatch) {
-                // Define the unique key for upserting: 'ItemCode' and 'SupplierCode'
-                $uniqueBy = ['ItemCode', 'SupplierCode'];
+                // Define the unique key for upserting: 'ItemCode', 'UOM', and 'SupplierCode'
+                $uniqueBy = ['ItemCode', 'uom', 'SupplierCode'];
 
                 // Define the columns that should be updated if a match is found
+                // Exclude: id, ItemCode, uom, SupplierCode (these are the unique identifiers)
                 $updateColumns = [
                     'category', 'category2', 'area', 'brand', 'classification', 'item_name', 'packaging_config',
-                    'uom', 'cost', 'srp', 'is_active', 'updated_at' // SupplierCode is part of uniqueBy, not update
+                    'cost', 'srp', 'is_active', 'sort_order', 'updated_at'
                 ];
 
                 DB::table('supplier_items')->upsert($miniBatch, $uniqueBy, $updateColumns);

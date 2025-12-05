@@ -31,6 +31,7 @@ class SupplierItems extends Model implements Auditable
         'cost',
         'srp',
         'is_active',
+        'sort_order',
     ];
 
     protected $casts = [

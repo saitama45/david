@@ -72,6 +72,7 @@ class SupplierItemsExport implements FromQuery, WithHeadings, WithMapping, WithS
             'Cost',
             'SRP', // Re-included SRP
             'Supplier Code',
+            'Sort Order',
             'ACTIVE',
         ];
     }
@@ -95,9 +96,10 @@ class SupplierItemsExport implements FromQuery, WithHeadings, WithMapping, WithS
             $item->packaging_config,
             $item->uom,
             $item->cost,
-            $item->srp, // Re-included SRP
+            $item->srp,
             $item->SupplierCode,
-            (int) $item->is_active, // Cast to integer (0 or 1) for Excel
+            $item->sort_order,
+            (int) $item->is_active,
         ];
     }
 

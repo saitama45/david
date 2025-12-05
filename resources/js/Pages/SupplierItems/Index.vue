@@ -381,6 +381,7 @@ watch(importSummary, (newValue) => {
                                     >Click to download template</a
                                 >
                             </li>
+                            <li class="text-xs text-gray-600 mt-2">Note: Existing items are matched by ItemCode and SupplierCode combination. Matching items will be updated (except ID, ItemCode, and SupplierCode).</li>
                         </ul>
                     </div>
                 </div>
