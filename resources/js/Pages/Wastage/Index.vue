@@ -35,6 +35,11 @@ const search = ref(props.filters.search || '')
 const status = ref(props.filters.status || 'pending')
 const dateRange = ref('')
 
+// Watch for status changes to apply filters
+watch(status, () => {
+  applyFilters()
+})
+
 // Computed properties
 const hasActiveFilters = computed(() => {
   return search.value ||
@@ -157,8 +162,8 @@ const deleteRecord = (wastage) => {
   }
 }
 
-// Watch for filter changes
-watch([search, status, dateRange], () => {
+// Watch for filter changes (search and dateRange only, status has its own watcher)
+watch([search, dateRange], () => {
   // Debounce search
   clearTimeout(searchTimeout)
   searchTimeout = setTimeout(() => {

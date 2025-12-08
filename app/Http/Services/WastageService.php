@@ -424,33 +424,28 @@ class WastageService
      */
     public function getGroupedWastageRecordsForUser($user, ?array $filters = null)
     {
-        // Get user's assigned stores
         $assignedStoreIds = \App\Models\UserAssignedStoreBranch::where('user_id', $user->id)
             ->pluck('store_branch_id')
             ->toArray();
 
-        
         if (empty($assignedStoreIds)) {
-            // User has no assigned stores, return empty paginated result
             return new \Illuminate\Pagination\LengthAwarePaginator([], 0, 10);
         }
 
-        // Start with base query
-        $query = Wastage::whereIn('store_branch_id', $assignedStoreIds);
+        $baseQuery = Wastage::whereIn('store_branch_id', $assignedStoreIds);
 
-        // Apply filters
         if ($filters) {
             if (!empty($filters['status']) && $filters['status'] !== 'all') {
-                $query->where('wastage_status', $filters['status']);
+                $baseQuery->where('wastage_status', $filters['status']);
             }
 
             if (!empty($filters['store_branch_id'])) {
-                $query->where('store_branch_id', $filters['store_branch_id']);
+                $baseQuery->where('store_branch_id', $filters['store_branch_id']);
             }
 
             if (!empty($filters['date_range'])) {
                 [$startDate, $endDate] = explode(',', $filters['date_range']);
-                $query->whereBetween('created_at', [
+                $baseQuery->whereBetween('created_at', [
                     Carbon::parse($startDate)->startOfDay(),
                     Carbon::parse($endDate)->endOfDay()
                 ]);
@@ -458,7 +453,7 @@ class WastageService
 
             if (!empty($filters['search'])) {
                 $search = $filters['search'];
-                $query->where(function($q) use ($search) {
+                $baseQuery->where(function($q) use ($search) {
                     $q->where('wastage_no', 'like', "%{$search}%")
                       ->orWhere('reason', 'like', "%{$search}%")
                       ->orWhereHas('storeBranch', function($storeQuery) use ($search) {
@@ -473,41 +468,29 @@ class WastageService
             }
         }
 
-        // Get distinct wastage_no values first for pagination
-        $wastageNosQuery = clone $query;
-        $wastageNosWithIds = $wastageNosQuery->distinct()
-            ->orderBy('id', 'desc')
-            ->pluck('wastage_no', 'id');
-        
-        $uniqueWastageNos = $wastageNosWithIds->flip()->keys();
+        $wastageNos = $baseQuery->selectRaw('wastage_no, MAX(id) as max_id')
+            ->groupBy('wastage_no')
+            ->orderByDesc('max_id')
+            ->paginate(10);
 
-        // Manual pagination
-        $page = request()->get('page', 1);
-        $perPage = 10;
-        $total = $uniqueWastageNos->count();
-        $currentPageWastageNos = $uniqueWastageNos->forPage($page, $perPage);
+        $pageWastageNos = $wastageNos->pluck('wastage_no')->toArray();
 
-        // If no wastage numbers, return empty paginated result
-        if ($currentPageWastageNos->isEmpty()) {
-            return new \Illuminate\Pagination\LengthAwarePaginator([], $total, $perPage, $page, [
-                'path' => request()->url(),
-                'pageName' => 'page',
-            ]);
+        if (empty($pageWastageNos)) {
+            return new \Illuminate\Pagination\LengthAwarePaginator([], 0, 10);
         }
 
-        // Get grouped data for current page
-        $groupedData = [];
-        foreach ($currentPageWastageNos as $wastageNo) {
-            $recordsQuery = clone $query;
-            $records = $recordsQuery->where('wastage_no', $wastageNo)
-                ->orderBy('id', 'desc')
-                ->get();
+        $allRecords = Wastage::whereIn('wastage_no', $pageWastageNos)
+            ->with(['storeBranch', 'sapMasterfile', 'encoder', 'approver1', 'approver2'])
+            ->get()
+            ->groupBy('wastage_no');
 
+        $groupedData = [];
+        foreach ($pageWastageNos as $wastageNo) {
+            $records = $allRecords->get($wastageNo, collect());
             if ($records->isNotEmpty()) {
                 $firstRecord = $records->first();
-
                 $groupedData[] = [
-                    'id' => $firstRecord->id, // Use first record's ID for show/edit links
+                    'id' => $firstRecord->id,
                     'wastage_no' => $wastageNo,
                     'store_branch_id' => $firstRecord->store_branch_id,
                     'wastage_status' => $firstRecord->wastage_status,
@@ -519,26 +502,22 @@ class WastageService
                     'items_count' => $records->count(),
                     'storeBranch' => $firstRecord->storeBranch,
                     'encoder' => $firstRecord->encoder,
-                    // Use accessor for formatted data
                     'encoded_date' => $firstRecord->created_at,
                     'status_label' => $firstRecord->status_label,
                 ];
             }
         }
 
-        // Create custom paginator
-        $paginator = new \Illuminate\Pagination\LengthAwarePaginator(
+        return new \Illuminate\Pagination\LengthAwarePaginator(
             $groupedData,
-            $total,
-            $perPage,
-            $page,
+            $wastageNos->total(),
+            $wastageNos->perPage(),
+            $wastageNos->currentPage(),
             [
-                'path' => request()->url(),
+                'path' => $wastageNos->path(),
                 'pageName' => 'page',
             ]
         );
-
-        return $paginator;
     }
 
     /**
