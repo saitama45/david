@@ -45,6 +45,7 @@ class WastageController extends Controller
 
         // Get grouped wastage records for display
         $wastages = $this->wastageService->getGroupedWastageRecordsForUser($user, $filters);
+        $wastages->appends($request->query());
 
         // Get statistics for user's assigned stores
         $assignedStoreIds = \App\Models\UserAssignedStoreBranch::where('user_id', $user->id)
@@ -59,12 +60,13 @@ class WastageController extends Controller
             'wastages' => $wastages,
             'statistics' => $statistics,
             'filters' => $filters,
-            'statusOptions' => collect(WastageStatus::cases())->map(fn($status) => [
-                'value' => $status->value,
-                'label' => $status->getLabel(),
-                'color' => $status->getColor(),
-                'bg_color' => $status->getBackgroundColor(),
-            ]),
+            'statusOptions' => collect([['value' => 'all', 'label' => 'All Statuses', 'color' => 'text-gray-600', 'bg_color' => 'bg-gray-100']])
+                ->concat(collect(WastageStatus::cases())->map(fn($status) => [
+                    'value' => $status->value,
+                    'label' => $status->getLabel(),
+                    'color' => $status->getColor(),
+                    'bg_color' => $status->getBackgroundColor(),
+                ])),
             'storeOptions' => StoreBranch::whereIn('id', $assignedStoreIds)->get()
                 ->map(fn($store) => [
                     'value' => $store->id,

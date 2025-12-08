@@ -227,7 +227,6 @@ let searchTimeout
               <SelectValue placeholder="All Statuses" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem :value="'all'">All Statuses</SelectItem>
               <SelectItem
                 v-for="option in statusOptions"
                 :key="option.value"
