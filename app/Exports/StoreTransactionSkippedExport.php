@@ -9,6 +9,7 @@ use Maatwebsite\Excel\Concerns\ShouldAutoSize;
 use PhpOffice\PhpSpreadsheet\Worksheet\Worksheet;
 use PhpOffice\PhpSpreadsheet\Style\Fill;
 use PhpOffice\PhpSpreadsheet\Style\Color;
+use PhpOffice\PhpSpreadsheet\Style\NumberFormat;
 
 class StoreTransactionSkippedExport implements FromArray, WithHeadings, WithStyles, ShouldAutoSize
 {
@@ -23,6 +24,16 @@ class StoreTransactionSkippedExport implements FromArray, WithHeadings, WithStyl
     {
         // Map the data to the specific column order requested
         return array_map(function ($item) {
+            $dateOfSales = $item['date_of_sales'] ?? '';
+            if ($dateOfSales) {
+                // Handle numeric Excel serial dates (e.g., 45999)
+                if (is_numeric($dateOfSales)) {
+                    $dateOfSales = \Carbon\Carbon::createFromDate(1900, 1, 1)->addDays((int)$dateOfSales - 2)->format('m/d/Y');
+                } else {
+                    $dateOfSales = \Carbon\Carbon::parse($dateOfSales)->format('m/d/Y');
+                }
+            }
+            
             return [
                 $item['item_code'] ?? '',
                 $item['item_description'] ?? '',
@@ -34,7 +45,7 @@ class StoreTransactionSkippedExport implements FromArray, WithHeadings, WithStyl
                 $item['total_deduction'] ?? '',
                 $item['current_soh'] ?? '',
                 $item['variance'] ?? '',
-                $item['date_of_sales'] ?? '',
+                $dateOfSales,
                 $item['reason'] ?? '',
             ];
         }, $this->skippedItems);
@@ -67,6 +78,12 @@ class StoreTransactionSkippedExport implements FromArray, WithHeadings, WithStyl
                 'fill' => [
                     'fillType' => Fill::FILL_SOLID,
                     'startColor' => ['argb' => 'E0F2FE'], // Light blue (Tailwind blue-100 equivalent approx)
+                ],
+            ],
+            // Format Date of Sales column (K) as short date
+            'K' => [
+                'numberFormat' => [
+                    'formatCode' => NumberFormat::FORMAT_DATE_XLSX14,
                 ],
             ],
         ];
