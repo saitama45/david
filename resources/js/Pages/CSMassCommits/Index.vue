@@ -289,15 +289,7 @@ const trailingHeaders = computed(() => props.dynamicHeaders.slice(-2));
 const branchCount = computed(() => branchHeaders.value.length);
 const totalColumns = computed(() => staticHeaders.value.length + branchCount.value + trailingHeaders.value.length);
 
-const sortedReport = computed(() => {
-    return [...props.report].sort((a, b) => {
-        let sortOrderA = a.sort_order ?? 0;
-        let sortOrderB = b.sort_order ?? 0;
-        sortOrderA = sortOrderA === 0 ? Number.MAX_SAFE_INTEGER : sortOrderA;
-        sortOrderB = sortOrderB === 0 ? Number.MAX_SAFE_INTEGER : sortOrderB;
-        return sortOrderA - sortOrderB;
-    });
-});
+const sortedReport = computed(() => props.report);
 
 </script>
 

@@ -178,7 +178,7 @@ class CSMassCommitsController extends Controller
 
         // 2. Build the query for actual StoreOrders to populate the data
         $query = StoreOrder::query()
-            ->with(['storeOrderItems.supplierItem.sapMasterfiles', 'store_branch'])
+            ->with(['storeOrderItems', 'store_branch', 'supplier'])
             ->whereDate('order_date', $orderDate)
             ->whereHas('storeOrderItems', function ($q) {
                 $q->where('quantity_commited', '>', 0);
@@ -194,33 +194,52 @@ class CSMassCommitsController extends Controller
 
         $storeOrders = $query->get(); // Get the actual orders with data
 
+        // Optimization: Pre-fetch SupplierItems to avoid N+1 and ensure correct UOM matching
+        $itemCodes = $storeOrders->flatMap(function ($order) {
+            return $order->storeOrderItems->pluck('item_code');
+        })->unique();
+
+        $supplierItems = \App\Models\SupplierItems::whereIn('ItemCode', $itemCodes)
+            ->with('sapMasterfiles') // Eager load for name/description access
+            ->get()
+            ->keyBy(function ($item) {
+                return $item->ItemCode . '|' . $item->uom; // Strict Key: ItemCode + UOM
+            });
+
         // 3. Process the orders into the report structure
-        $reportItems = $storeOrders->flatMap(function ($order) use ($categoryFilter) {
+        $reportItems = $storeOrders->flatMap(function ($order) use ($categoryFilter, $supplierItems) {
             return $order->storeOrderItems
-                ->filter(function ($orderItem) {
-                    return $orderItem->supplierItem !== null;
+                ->filter(function ($orderItem) use ($supplierItems) {
+                    // Strict Check: Must have a matching SupplierItem (ItemCode + UOM)
+                    // This replaces the imperfect 'supplierItem !== null' check which only relied on ItemCode
+                    $key = $orderItem->item_code . '|' . $orderItem->uom;
+                    return $supplierItems->has($key);
                 })
-                ->filter(function ($orderItem) use ($categoryFilter) {
+                ->filter(function ($orderItem) use ($categoryFilter, $supplierItems) {
                     if ($categoryFilter === 'all') {
                         return true;
                     }
-                    return $orderItem->supplierItem->category === $categoryFilter;
+                    $key = $orderItem->item_code . '|' . $orderItem->uom;
+                    $supplierItem = $supplierItems->get($key);
+                    return $supplierItem && $supplierItem->category === $categoryFilter;
                 })
-                ->map(function ($orderItem) use ($order) {
-                    $supplierItem = \App\Models\SupplierItems::where('ItemCode', $orderItem->item_code)
-                        ->where('uom', $orderItem->uom)
-                        ->first();
-                    $sapMasterfile = $supplierItem ? $supplierItem->sap_master_file : null;
+                ->map(function ($orderItem) use ($order, $supplierItems) {
+                    $key = $orderItem->item_code . '|' . $orderItem->uom;
+                    $supplierItem = $supplierItems->get($key); // Guaranteed to exist due to filter above
+                    
+                    // Accessor uses loaded relationship if available
+                    $sapMasterfile = $supplierItem->sap_master_file;
 
                     return [
-                        'category' => $supplierItem ? $supplierItem->category : 'N/A',
+                        'category' => $supplierItem->category,
                         'item_code' => $orderItem->item_code,
-                        'item_name' => $sapMasterfile ? $sapMasterfile->ItemDescription : ($supplierItem ? $supplierItem->item_name : 'N/A'),
+                        'item_name' => $sapMasterfile ? $sapMasterfile->ItemDescription : $supplierItem->item_name,
                         'unit' => $orderItem->uom,
                         'brand_code' => $order->store_branch->brand_code,
                         'quantity_commited' => (float) $orderItem->quantity_commited,
                         'supplier_id' => $order->supplier_id,
-                        'sort_order' => $supplierItem ? $supplierItem->sort_order : 0,
+                        'supplier_code' => $order->supplier ? $order->supplier->supplier_code : null, // Pass supplier code for getWhseCode
+                        'sort_order' => (int) $supplierItem->sort_order, // Ensure integer for sorting
                     ];
                 });
         })
@@ -229,9 +248,6 @@ class CSMassCommitsController extends Controller
         })
         ->map(function ($groupedItems) use ($brandCodes) {
             $firstItem = $groupedItems->first();
-            $supplierItem = \App\Models\SupplierItems::where('ItemCode', $firstItem['item_code'])
-                ->where('uom', $firstItem['unit'])
-                ->first();
             
             $row = [
                 'category' => $firstItem['category'],
@@ -254,18 +270,15 @@ class CSMassCommitsController extends Controller
 
             $row['total_quantity'] = array_sum(array_intersect_key($row, array_flip($brandCodes)));
 
-            $supplierCode = Supplier::find($firstItem['supplier_id'])?->supplier_code;
-            $row['whse'] = $this->getWhseCode($supplierCode);
-            $row['sort_order'] = $supplierItem ? $supplierItem->sort_order : 0;
+            // Use passed supplier_code to avoid N+1 query
+            $row['whse'] = $this->getWhseCode($firstItem['supplier_code']);
+            $row['sort_order'] = $firstItem['sort_order'];
 
             return $row;
         })
-        ->sort(function ($a, $b) {
-            $aOrder = $a['sort_order'] ?? 0;
-            $bOrder = $b['sort_order'] ?? 0;
-            $aOrder = $aOrder == 0 ? PHP_INT_MAX : $aOrder;
-            $bOrder = $bOrder == 0 ? PHP_INT_MAX : $bOrder;
-            return $aOrder <=> $bOrder;
+        ->sortBy(function ($item) {
+            $sortOrder = $item['sort_order']; // Already cast to int
+            return $sortOrder === 0 ? PHP_INT_MAX : $sortOrder;
         })
         ->values();
 
