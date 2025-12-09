@@ -291,14 +291,10 @@ const totalColumns = computed(() => staticHeaders.value.length + branchCount.val
 
 const sortedReport = computed(() => {
     return [...props.report].sort((a, b) => {
-        const categoryA = (a.category || '').toString().toLowerCase();
-        const categoryB = (b.category || '').toString().toLowerCase();
-        const categoryCompare = categoryA.localeCompare(categoryB);
-        if (categoryCompare !== 0) {
-            return categoryCompare;
-        }
-        const sortOrderA = a.sort_order ?? 0;
-        const sortOrderB = b.sort_order ?? 0;
+        let sortOrderA = a.sort_order ?? 0;
+        let sortOrderB = b.sort_order ?? 0;
+        sortOrderA = sortOrderA === 0 ? Number.MAX_SAFE_INTEGER : sortOrderA;
+        sortOrderB = sortOrderB === 0 ? Number.MAX_SAFE_INTEGER : sortOrderB;
         return sortOrderA - sortOrderB;
     });
 });
@@ -453,3 +449,4 @@ const sortedReport = computed(() => {
         </TableContainer>
     </Layout>
 </template>
+

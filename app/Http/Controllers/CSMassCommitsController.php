@@ -21,7 +21,7 @@ class CSMassCommitsController extends Controller
         $user = Auth::user();
         $orderDate = $request->input('order_date', Carbon::today()->format('Y-m-d'));
         $supplierCode = $request->input('supplier_id', 'all');
-        $categoryFilter = $request->input('category', 'all'); // Add category filter
+        $categoryFilter = $request->input('category', 'all');
 
         $userSuppliers = $user->suppliers()->get();
         $suppliers = $userSuppliers->map(function ($supplier) {
@@ -67,20 +67,10 @@ class CSMassCommitsController extends Controller
             $orderDate,
             $supplierId,
             $finalBranchesForDisplay,
-            $categoryFilter // Pass category filter
+            $categoryFilter
         );
 
         $availableCategories = $reportData['report']->pluck('category')->unique()->values()->all();
-
-        // Debug: Log if specific item exists
-        if ($supplierCode === 'GSI-B' && $orderDate === '2025-10-14') {
-            $has632 = $reportData['report']->contains(function($item) {
-                return $item['item_code'] === '632A2G';
-            });
-            \Log::info('CS Mass Commits - Item 632A2G present in report: ' . ($has632 ? 'YES' : 'NO'));
-            \Log::info('CS Mass Commits - Total items in report: ' . $reportData['report']->count());
-            \Log::info('CS Mass Commits - Category filter: ' . $categoryFilter);
-        }
 
         return Inertia::render('CSMassCommits/Index', [
             'filters' => [
@@ -93,7 +83,7 @@ class CSMassCommitsController extends Controller
             'report' => $reportData['report'],
             'dynamicHeaders' => $reportData['dynamicHeaders'],
             'totalBranches' => $reportData['totalBranches'],
-            'branchStatuses' => $branchStatuses, // NEW PROP
+            'branchStatuses' => $branchStatuses,
             'permissions' => [
                 'canEditFinishedGood' => $user->can('edit finished good commits'),
                 'canEditOther' => $user->can('edit other commits'),
@@ -217,7 +207,9 @@ class CSMassCommitsController extends Controller
                     return $orderItem->supplierItem->category === $categoryFilter;
                 })
                 ->map(function ($orderItem) use ($order) {
-                    $supplierItem = $orderItem->supplierItem;
+                    $supplierItem = \App\Models\SupplierItems::where('ItemCode', $orderItem->item_code)
+                        ->where('uom', $orderItem->uom)
+                        ->first();
                     $sapMasterfile = $supplierItem ? $supplierItem->sap_master_file : null;
 
                     return [
@@ -233,10 +225,14 @@ class CSMassCommitsController extends Controller
                 });
         })
         ->groupBy(function ($item) {
-            return $item['category'] . '|' . $item['item_code'] . '|' . $item['item_name'] . '|' . $item['unit'];
+            return $item['item_code'] . '|' . $item['unit'];
         })
-        ->map(function ($groupedItems) use ($brandCodes) { // Removed $allBranches from use() as it's not needed here
+        ->map(function ($groupedItems) use ($brandCodes) {
             $firstItem = $groupedItems->first();
+            $supplierItem = \App\Models\SupplierItems::where('ItemCode', $firstItem['item_code'])
+                ->where('uom', $firstItem['unit'])
+                ->first();
+            
             $row = [
                 'category' => $firstItem['category'],
                 'item_code' => $firstItem['item_code'],
@@ -260,17 +256,15 @@ class CSMassCommitsController extends Controller
 
             $supplierCode = Supplier::find($firstItem['supplier_id'])?->supplier_code;
             $row['whse'] = $this->getWhseCode($supplierCode);
+            $row['sort_order'] = $supplierItem ? $supplierItem->sort_order : 0;
 
             return $row;
         })
         ->sort(function ($a, $b) {
-            $categoryCompare = strcasecmp($a['category'] ?? '', $b['category'] ?? '');
-            if ($categoryCompare !== 0) {
-                return $categoryCompare;
-            }
-            // If categories are equal, sort by sort_order
             $aOrder = $a['sort_order'] ?? 0;
             $bOrder = $b['sort_order'] ?? 0;
+            $aOrder = $aOrder == 0 ? PHP_INT_MAX : $aOrder;
+            $bOrder = $bOrder == 0 ? PHP_INT_MAX : $bOrder;
             return $aOrder <=> $bOrder;
         })
         ->values();
