@@ -155,6 +155,7 @@ class CSMassCommitsController extends Controller
         if ($scheduledBranches !== null && $scheduledBranches->isEmpty()) {
             $staticHeaders = [
                 ['label' => 'CATEGORY', 'field' => 'category'],
+                ['label' => 'CLASSIFICATION', 'field' => 'classification'],
                 ['label' => 'ITEM CODE', 'field' => 'item_code'],
                 ['label' => 'ITEM NAME', 'field' => 'item_name'],
                 ['label' => 'UNIT', 'field' => 'unit'],
@@ -171,122 +172,125 @@ class CSMassCommitsController extends Controller
         }
 
         // 1. Use the scheduled branches passed to the function to build the headers.
-        // This ensures all scheduled branches appear as columns, even if they have no committed orders yet.
         $allBranches = $scheduledBranches ? $scheduledBranches->unique('id')->sortBy('brand_code') : collect();
         $brandCodes = $allBranches->pluck('brand_code')->toArray();
         $totalBranches = count($brandCodes);
 
-        // 2. Build the query for actual StoreOrders to populate the data
-        $query = StoreOrder::query()
-            ->with(['storeOrderItems', 'store_branch', 'supplier'])
-            ->whereDate('order_date', $orderDate)
-            ->whereHas('storeOrderItems', function ($q) {
-                $q->where('quantity_commited', '>', 0);
-            });
+        // 2. Build the query to mirror the provided SQL structure
+        // Select necessary columns
+        $query = \App\Models\StoreOrderItem::query()
+            ->select(
+                'store_order_items.*',
+                'supplier_items.sort_order as supplier_sort_order',
+                'supplier_items.category as supplier_category',
+                'supplier_items.classification as supplier_classification',
+                'supplier_items.item_name as supplier_item_name',
+                'sap_masterfiles.ItemDescription as sap_item_description'
+            )
+            // Left Join store_orders
+            ->leftJoin('store_orders', 'store_orders.id', '=', 'store_order_items.store_order_id')
+            // Left Join suppliers (needed for linking supplier_items via SupplierCode)
+            ->leftJoin('suppliers', 'suppliers.id', '=', 'store_orders.supplier_id')
+            // Left Join sap_masterfiles (Key bridge: ItemCode AND AltUOM matches store_order_items)
+            ->leftJoin('sap_masterfiles', function($join) {
+                $join->on('sap_masterfiles.ItemCode', '=', 'store_order_items.item_code')
+                     ->on('sap_masterfiles.AltUOM', '=', 'store_order_items.uom');
+            })
+            // Left Join supplier_items (Linked via SAP ItemCode/UOM and SupplierCode from suppliers table)
+            ->leftJoin('supplier_items', function($join) {
+                $join->on('supplier_items.ItemCode', '=', 'sap_masterfiles.ItemCode')
+                     ->on('supplier_items.uom', '=', 'sap_masterfiles.AltUOM')
+                     ->on('supplier_items.SupplierCode', '=', 'suppliers.supplier_code');
+            })
+            // Eager load for PHP side access (branches/suppliers/etc)
+            ->with(['store_order.store_branch', 'store_order.supplier'])
+            // Filters
+            ->whereDate('store_orders.order_date', $orderDate)
+            ->where('store_order_items.quantity_commited', '>', 0);
 
         if ($supplierId !== 'all') {
-            $query->where('supplier_id', $supplierId);
+             $query->where('store_orders.supplier_id', $supplierId);
         }
 
         if ($scheduledBranches && $scheduledBranches->isNotEmpty()) {
-            $query->whereIn('store_branch_id', $scheduledBranches->pluck('id'));
+             $query->whereIn('store_orders.store_branch_id', $scheduledBranches->pluck('id'));
         }
 
-        $storeOrders = $query->get(); // Get the actual orders with data
+        if ($categoryFilter !== 'all') {
+            $query->where('supplier_items.category', $categoryFilter);
+        }
 
-        // Optimization: Pre-fetch SupplierItems to avoid N+1 and ensure correct UOM matching
-        $itemCodes = $storeOrders->flatMap(function ($order) {
-            return $order->storeOrderItems->pluck('item_code');
-        })->unique();
+        // Apply Sorting: items with sort_order = 0 or NULL go to the end
+        $query->orderByRaw('CASE WHEN ISNULL(supplier_items.sort_order, 0) = 0 THEN 1 ELSE 0 END, supplier_items.sort_order ASC');
 
-        $supplierItems = \App\Models\SupplierItems::whereIn('ItemCode', $itemCodes)
-            ->with('sapMasterfiles') // Eager load for name/description access
-            ->get()
-            ->keyBy(function ($item) {
-                return $item->ItemCode . '|' . $item->uom; // Strict Key: ItemCode + UOM
-            });
+        $storeOrderItems = $query->get();
 
-        // 3. Process the orders into the report structure
-        $reportItems = $storeOrders->flatMap(function ($order) use ($categoryFilter, $supplierItems) {
-            return $order->storeOrderItems
-                ->filter(function ($orderItem) use ($supplierItems) {
-                    // Strict Check: Must have a matching SupplierItem (ItemCode + UOM)
-                    // This replaces the imperfect 'supplierItem !== null' check which only relied on ItemCode
-                    $key = $orderItem->item_code . '|' . $orderItem->uom;
-                    return $supplierItems->has($key);
-                })
-                ->filter(function ($orderItem) use ($categoryFilter, $supplierItems) {
-                    if ($categoryFilter === 'all') {
-                        return true;
-                    }
-                    $key = $orderItem->item_code . '|' . $orderItem->uom;
-                    $supplierItem = $supplierItems->get($key);
-                    return $supplierItem && $supplierItem->category === $categoryFilter;
-                })
-                ->map(function ($orderItem) use ($order, $supplierItems) {
-                    $key = $orderItem->item_code . '|' . $orderItem->uom;
-                    $supplierItem = $supplierItems->get($key); // Guaranteed to exist due to filter above
-                    
-                    // Accessor uses loaded relationship if available
-                    $sapMasterfile = $supplierItem->sap_master_file;
-
-                    return [
-                        'category' => $supplierItem->category,
-                        'classification' => $supplierItem->classification, // Added classification
-                        'item_code' => $orderItem->item_code,
-                        'item_name' => $sapMasterfile ? $sapMasterfile->ItemDescription : $supplierItem->item_name,
-                        'unit' => $orderItem->uom,
-                        'brand_code' => $order->store_branch->brand_code,
-                        'quantity_commited' => (float) $orderItem->quantity_commited,
-                        'supplier_id' => $order->supplier_id,
-                        'supplier_code' => $order->supplier ? $order->supplier->supplier_code : null, // Pass supplier code for getWhseCode
-                        'sort_order' => (int) $supplierItem->sort_order, // Ensure integer for sorting
-                    ];
-                });
-        })
-        ->groupBy(function ($item) {
-            return $item['item_code'] . '|' . $item['unit'];
-        })
-        ->map(function ($groupedItems) use ($brandCodes) {
-            $firstItem = $groupedItems->first();
+        // 3. Aggregate and pivot in PHP
+        $reportItems = $storeOrderItems->groupBy(function ($item) {
+            return strtoupper(trim($item->item_code)) . '|' . strtoupper(trim($item->uom));
+        })->map(function ($group) use ($brandCodes) {
+            $first = $group->first();
             
+            $category = $first->supplier_category ?? 'N/A';
+            $classification = $first->supplier_classification;
+
+            // CRITICAL FIX: Iterate through group to find the definitive sort order.
+            // If ANY item in this group has sort_order 0 (or null), the whole row is treated as sort_order 0.
+            // This ensures it gets pushed to the end, overriding any non-zero sort_orders that might have been picked up by first().
+            $sortOrder = null;
+            foreach ($group as $item) {
+                $s = $item->supplier_sort_order;
+                if ($s === 0 || $s === '0' || $s === null) {
+                    $sortOrder = 0;
+                    break; 
+                }
+                 // Keep the first non-zero sort order encountered as a fallback
+                if ($sortOrder === null) {
+                    $sortOrder = $s;
+                }
+            }
+            // If loop finishes and sortOrder is still null (e.g. empty group), default to 0
+            if ($sortOrder === null) {
+                 $sortOrder = 0;
+            }
+            
+            // Item Name Priority: SAP Description > SAP Name > Supplier Item Name > N/A
+            $itemName = $first->sap_item_description ?: ($first->sap_item_name_alt ?: ($first->supplier_item_name ?? 'N/A'));
+
             $row = [
-                'category' => $firstItem['category'],
-                'item_code' => $firstItem['item_code'],
-                'item_name' => $firstItem['item_name'],
-                'unit' => $firstItem['unit'],
+                'category' => $category,
+                'classification' => $classification,
+                'item_code' => $first->item_code,
+                'item_name' => $itemName,
+                'unit' => $first->uom,
+                'sort_order' => $sortOrder, 
+                'whse' => $this->getWhseCode($first->store_order->supplier->supplier_code ?? null),
             ];
 
-            // Initialize all possible branch columns to 0.0
+            // Initialize branches
             foreach ($brandCodes as $code) {
                 $row[$code] = 0.0;
             }
 
-            // Fill in the quantities for branches that have them
-            foreach ($groupedItems as $item) {
-                if (isset($row[$item['brand_code']])) { // Ensure the brand_code exists as a column
-                    $row[$item['brand_code']] += $item['quantity_commited'];
+            // Sum quantities
+            foreach ($group as $item) {
+                if ($item->store_order && $item->store_order->store_branch) {
+                    $brand = $item->store_order->store_branch->brand_code;
+                    if (isset($row[$brand])) {
+                        $row[$brand] += $item->quantity_commited;
+                    }
                 }
             }
 
             $row['total_quantity'] = array_sum(array_intersect_key($row, array_flip($brandCodes)));
 
-            // Use passed supplier_code to avoid N+1 query
-            $row['whse'] = $this->getWhseCode($firstItem['supplier_code']);
-            $row['sort_order'] = $firstItem['sort_order'];
-
             return $row;
         })
-        ->sortBy(function ($item) {
-            $sortOrder = $item['sort_order']; // Already cast to int
-            return $sortOrder === 0 ? PHP_INT_MAX : $sortOrder;
-        })
         ->values();
-
-        // 4. Build headers from the definitive $allBranches list
+        // 4. Build headers
         $staticHeaders = [
             ['label' => 'CATEGORY', 'field' => 'category'],
-            ['label' => 'CLASSIFICATION', 'field' => 'classification'], // Added Classification
+            ['label' => 'CLASSIFICATION', 'field' => 'classification'],
             ['label' => 'ITEM CODE', 'field' => 'item_code'],
             ['label' => 'ITEM NAME', 'field' => 'item_name'],
             ['label' => 'UNIT', 'field' => 'unit'],
