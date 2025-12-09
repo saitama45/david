@@ -74,9 +74,9 @@ class POSMasterfileBOMImport implements ToCollection, WithHeadingRow, WithChunkR
                     continue;
                 }
 
-                $combination = strtolower("{$posCode}_{$assembly}_{$itemCode}_{$bomUOM}");
+                $combination = strtolower("{$posCode}_{$itemCode}_{$assembly}_{$bomQty}");
                 if (in_array($combination, self::$seenCombinations)) {
-                    $this->addSkippedItem($posCode, $itemCode, $assembly, 'Duplicate entry (POS Code, Assembly, Item Code, BOM UOM) within the import file.');
+                    $this->addSkippedItem($posCode, $itemCode, $assembly, 'Duplicate entry (POS Code, Item Code, Assembly, BOM Qty) within the import file.');
                     $this->skippedCount++;
                     continue;
                 }
