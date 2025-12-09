@@ -232,6 +232,7 @@ class CSMassCommitsController extends Controller
 
                     return [
                         'category' => $supplierItem->category,
+                        'classification' => $supplierItem->classification, // Added classification
                         'item_code' => $orderItem->item_code,
                         'item_name' => $sapMasterfile ? $sapMasterfile->ItemDescription : $supplierItem->item_name,
                         'unit' => $orderItem->uom,
@@ -285,6 +286,7 @@ class CSMassCommitsController extends Controller
         // 4. Build headers from the definitive $allBranches list
         $staticHeaders = [
             ['label' => 'CATEGORY', 'field' => 'category'],
+            ['label' => 'CLASSIFICATION', 'field' => 'classification'], // Added Classification
             ['label' => 'ITEM CODE', 'field' => 'item_code'],
             ['label' => 'ITEM NAME', 'field' => 'item_name'],
             ['label' => 'UNIT', 'field' => 'unit'],

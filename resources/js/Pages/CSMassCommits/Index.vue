@@ -282,8 +282,8 @@ const exportRoute = computed(() =>
     })
 );
 
-const staticHeaders = computed(() => props.dynamicHeaders.slice(0, 4));
-const branchHeaders = computed(() => props.dynamicHeaders.slice(4, -2));
+const staticHeaders = computed(() => props.dynamicHeaders.slice(0, 5));
+const branchHeaders = computed(() => props.dynamicHeaders.slice(5, -2));
 const trailingHeaders = computed(() => props.dynamicHeaders.slice(-2));
 
 const branchCount = computed(() => branchHeaders.value.length);
