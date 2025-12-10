@@ -308,7 +308,10 @@ class StockManagementController extends Controller
         }
 
         // Now, prepare the final display order: newest transactions first.
-        $processedHistory = $chronologicalTransactions->sortByDesc('id')->values();
+        // We use reverse() to strictly invert the chronological order used for calculation (Date ASC, ID ASC).
+        // This ensures the "Running SOH" column makes visual sense (Latest Date -> Earliest Date).
+        // Previously, sortByDesc('id') caused issues when backdated entries (High ID, Low Date) appeared out of context.
+        $processedHistory = $chronologicalTransactions->reverse()->values();
 
         Log::info('StockManagementController: Processed History for Show (final order):', ['history' => $processedHistory->toArray()]);
 
