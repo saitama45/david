@@ -166,7 +166,8 @@ const formatCurrency = (amount) => {
                     <TH>Store</TH>
                     <TH>Total Qty</TH>
                     <TH>Items</TH>
-                    <TH>Total Cost</TH>
+                    <TH v-if="hasAccess('view total cost in wastage approval level 1')">Total Cost</TH>
+                    <TH v-else></TH>
                     <TH>Status</TH>
                     <TH>Date</TH>
                     <TH>Actions</TH>
@@ -213,7 +214,8 @@ const formatCurrency = (amount) => {
                         >Status: {{ wastage.wastage_status?.toUpperCase().replace('_', ' ') }}</LabelXS
                     >
                     <LabelXS
-                        >Total: {{ formatCurrency(wastage.total_cost) }} ({{ wastage.total_quantity || 0 }} items)</LabelXS
+                        v-if="hasAccess('view total cost in wastage approval level 1')"
+                    >Total: {{ formatCurrency(wastage.total_cost) }} ({{ wastage.total_quantity || 0 }} items)</LabelXS
                     >
                     <LabelXS>Date: {{ formatDate(wastage.created_at) }}</LabelXS>
                 </MobileTableRow>
