@@ -5,9 +5,10 @@ namespace App\Exports;
 use Maatwebsite\Excel\Concerns\FromCollection;
 use Maatwebsite\Excel\Concerns\WithHeadings;
 use Maatwebsite\Excel\Concerns\WithStyles;
+use Maatwebsite\Excel\Concerns\WithStrictNullComparison;
 use PhpOffice\PhpSpreadsheet\Worksheet\Worksheet;
 
-class CSMassCommitsExport implements FromCollection, WithHeadings, WithStyles
+class CSMassCommitsExport implements FromCollection, WithHeadings, WithStyles, WithStrictNullComparison
 {
     protected $reportData;
     protected $headers;
@@ -24,11 +25,25 @@ class CSMassCommitsExport implements FromCollection, WithHeadings, WithStyles
 
     public function collection()
     {
+        // Define fields that are text-based and should not default to 0
+        $textFields = ['category', 'classification', 'item_code', 'item_name', 'unit', 'whse', 'remarks'];
+
         // Map each report item to an ordered array based on the header fields
-        return collect($this->reportData)->map(function ($row) {
+        return collect($this->reportData)->map(function ($row) use ($textFields) {
             $orderedRow = [];
             foreach ($this->headers as $header) {
-                $orderedRow[] = $row[$header['field']] ?? null; // Use null for missing values
+                $field = $header['field'];
+                $value = $row[$field] ?? null;
+
+                // If it's not a text field (i.e., it's a quantity column)
+                if (!in_array($field, $textFields)) {
+                    // Force any falsy value (0, 0.0, null, '') to integer 0
+                    if (!$value) {
+                        $value = 0;
+                    }
+                }
+
+                $orderedRow[] = $value;
             }
             return $orderedRow;
         });
