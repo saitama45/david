@@ -163,7 +163,7 @@ watch(() => props.orders, (newOrders) => {
                     <TH>Store</TH>
                     <TH>SO/PO Number</TH>
                     <TH>Order #</TH>
-                    <TH>Order Date</TH>
+                    <TH>Delivery Date</TH>
                     <TH>Order Placed Date</TH>
                     <TH>Variant</TH>
                     <TH>Receiving Status</TH>
