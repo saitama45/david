@@ -2,10 +2,11 @@
 import { ref, watch, computed } from 'vue';
 import { router, usePage } from '@inertiajs/vue3';
 import { throttle } from 'lodash';
-import { Filter, Check, X } from 'lucide-vue-next';
+import { Filter } from 'lucide-vue-next';
 import { useSelectOptions } from "@/Composables/useSelectOptions";
 import { useToast } from "@/Composables/useToast";
 import { useConfirm } from "primevue/useconfirm";
+import axios from 'axios';
 
 const props = defineProps({
     report: { type: Array, required: true },
@@ -14,7 +15,7 @@ const props = defineProps({
     suppliers: { type: Object, required: true },
     filters: { type: Object, required: true },
     totalBranches: { type: Number, required: true },
-    branchStatuses: { type: Object, required: true }, // NEW PROP
+    branchStatuses: { type: Object, required: true },
     permissions: { type: Object, required: true },
     availableCategories: { type: Array, required: true },
 });
@@ -29,25 +30,13 @@ const orderDate = ref(props.filters.order_date || new Date().toISOString().slice
 const supplierId = ref(props.filters.supplier_id || 'all');
 const categoryFilter = ref(props.filters.category || 'all');
 
-// --- Inline Editing State ---
-const editingCell = ref(null); // { rowIndex, field }
-const editValue = ref('');
+// --- Local Report State ---
+const localReport = ref([]);
 
-// Custom directive to focus and select text on mount
-const vFocusSelect = {
-  mounted: (el) => {
-    const input = el.querySelector('input');
-    if (input) {
-      input.focus();
-      input.select();
-    } else if (typeof el.focus === 'function') {
-      el.focus();
-      if (typeof el.select === 'function') {
-        el.select();
-      }
-    }
-  }
-}
+watch(() => props.report, (newVal) => {
+    // Deep copy to detach from props
+    localReport.value = JSON.parse(JSON.stringify(newVal));
+}, { immediate: true, deep: true });
 
 const isEditingDisabled = (brandCode) => {
     const status = props.branchStatuses[brandCode]?.toLowerCase();
@@ -63,68 +52,130 @@ const canUserEditRow = (row) => {
     }
 };
 
-const startEditing = (row, field, rowIndex) => {
-    if (isEditingDisabled(field)) {
-        toast.add({
-            severity: 'warn',
-            summary: 'Editing Disabled',
-            detail: `Cannot edit commits for this branch as its order has already been processed.`,
-            life: 4000,
-        });
-        return;
-    }
-
-    // New permission check
-    if (!canUserEditRow(row)) {
-        toast.add({
-            severity: 'warn',
-            summary: 'Permission Denied',
-            detail: 'You do not have permission to edit items in this category.',
-            life: 4000,
-        });
-        return;
-    }
-
-    editingCell.value = { rowIndex, field };
-    editValue.value = row[field];
-};
-
-const cancelEditing = () => {
-    editingCell.value = null;
-    editValue.value = '';
-};
-
-const saveCommit = () => {
-    if (!editingCell.value) return;
-
-    const { rowIndex, field } = editingCell.value;
-    const row = props.report[rowIndex];
-    const newValue = parseFloat(editValue.value);
-
-    if (isNaN(newValue) || newValue < 0) {
-        toast.add({ severity: 'error', summary: 'Invalid Input', detail: 'Quantity must be a non-negative number.', life: 3000 });
-        return;
-    }
-
-    router.post(route('cs-mass-commits.update-commit'), {
-        order_date: orderDate.value,
-        item_code: row.item_code,
-        brand_code: field,
-        new_quantity: newValue,
-    }, {
-        preserveState: true,
-        preserveScroll: true,
-        onSuccess: () => {
-            toast.add({ severity: 'success', summary: 'Success', detail: 'Commit quantity updated.', life: 3000 });
-            cancelEditing();
-        },
-        onError: (errors) => {
-            const errorMsg = Object.values(errors)[0] || 'An unknown error occurred.';
-            toast.add({ severity: 'error', summary: 'Update Failed', detail: errorMsg, life: 5000 });
+const recalculateRow = (row) => {
+    let totalQty = 0;
+    let allZero = true;
+    let isAllocation = false;
+    
+    // Iterate over branch headers to calculate totals and check logic
+    for (const header of branchHeaders.value) {
+        const code = header.field;
+        // Handle empty strings or invalid numbers as 0
+        const val = row[code];
+        const committed = (val === '' || val === null || isNaN(parseFloat(val))) ? 0 : parseFloat(val);
+        const approved = parseFloat(row['approved_' + code] || 0);
+        
+        totalQty += committed;
+        
+        if (committed > 0) {
+            allZero = false;
         }
-    });
+        
+        // Allocation: Committed < Approved
+        // Using a small epsilon for float comparison safety if needed, but direct comparison usually suffices for this context
+        if (committed < approved) {
+            isAllocation = true;
+        }
+    }
+    
+    row.total_quantity = totalQty;
+    
+    if (allZero) {
+        row.remarks = '86';
+    } else if (isAllocation) {
+        row.remarks = 'Allocation';
+    } else {
+        row.remarks = 'Stock Supported';
+    }
 };
-// --- End Inline Editing ---
+
+const handleInput = (row, field) => {
+    // If user clears the input, set it to 0 immediately
+    if (row[field] === '' || row[field] === null) {
+        row[field] = 0;
+    }
+    recalculateRow(row);
+};
+
+const updateCommit = async (rowIndex, field) => {
+    const row = localReport.value[rowIndex];
+    // Ensure we send a valid number to backend
+    const val = row[field];
+    const newValue = (val === '' || val === null || isNaN(parseFloat(val))) ? 0 : parseFloat(val);
+    const originalValue = props.report[rowIndex] ? parseFloat(props.report[rowIndex][field]) : 0;
+
+    // If value hasn't changed effectively, do nothing
+    if (newValue === originalValue) return;
+
+    if (newValue < 0) {
+        toast.add({ severity: 'error', summary: 'Invalid Input', detail: 'Quantity must be a non-negative number.', life: 3000 });
+        // Revert to original
+        row[field] = originalValue;
+        recalculateRow(row); // Recalc back to original
+        return;
+    }
+
+    // --- Optimistic Update ---
+    // Update the "last saved" reference immediately so subsequent blurs don't re-trigger
+    if (props.report[rowIndex]) {
+        props.report[rowIndex][field] = newValue;
+        // CRITICAL FIX: Also update the derived fields in props so the watcher (which fires on prop change)
+        // doesn't revert localReport's derived values to the old state.
+        props.report[rowIndex].total_quantity = row.total_quantity;
+        props.report[rowIndex].remarks = row.remarks;
+    }
+
+    // Show Success Feedback Immediately
+    toast.add({ severity: 'success', summary: 'Saved', detail: 'Quantity updated successfully.', life: 2000 });
+
+    try {
+        await axios.post(route('cs-mass-commits.update-commit'), {
+            order_date: orderDate.value,
+            item_code: row.item_code,
+            brand_code: field,
+            new_quantity: newValue,
+        });
+
+        // Ensure calculations are consistent
+        recalculateRow(row);
+
+    } catch (error) {
+        console.error('Update failed', error);
+        
+        // --- Revert on Failure ---
+        // Revert local state
+        row[field] = originalValue;
+        
+        // Revert the "last saved" reference
+        if (props.report[rowIndex]) {
+            props.report[rowIndex][field] = originalValue;
+        }
+        
+        recalculateRow(row);
+        
+        const errorMsg = error.response?.data?.message || 'Failed to update quantity.';
+        toast.add({ severity: 'error', summary: 'Update Failed', detail: errorMsg, life: 5000 });
+    }
+};
+
+const handleEnterKey = (event) => {
+    event.preventDefault(); // Prevent default Enter key behavior (e.g., form submission)
+
+    const inputs = Array.from(
+        document.querySelectorAll('td input[type="number"]:not([disabled])')
+    ); // Select all editable number inputs in table cells
+    
+    const currentIndex = inputs.indexOf(event.target);
+
+    if (currentIndex > -1 && currentIndex < inputs.length - 1) {
+        const nextInput = inputs[currentIndex + 1];
+        nextInput.focus();
+        nextInput.select(); // Select text for easy overwriting
+    } else {
+        // If it's the last input, or no other input found, just blur
+        event.target.blur();
+    }
+};
 
 // --- Confirm All Logic ---
 const isProcessing = ref(false);
@@ -283,13 +334,13 @@ const exportRoute = computed(() =>
 );
 
 const staticHeaders = computed(() => props.dynamicHeaders.slice(0, 5));
-const branchHeaders = computed(() => props.dynamicHeaders.slice(5, -2));
-const trailingHeaders = computed(() => props.dynamicHeaders.slice(-2));
+const branchHeaders = computed(() => props.dynamicHeaders.slice(5, -3));
+const trailingHeaders = computed(() => props.dynamicHeaders.slice(-3));
 
 const branchCount = computed(() => branchHeaders.value.length);
 const totalColumns = computed(() => staticHeaders.value.length + branchCount.value + trailingHeaders.value.length);
 
-const sortedReport = computed(() => props.report);
+const sortedReport = computed(() => localReport.value);
 
 </script>
 
@@ -385,7 +436,7 @@ const sortedReport = computed(() => props.report);
                                 </th>
                                 
                                 <!-- Trailing Headers -->
-                                <th v-for="header in trailingHeaders" :key="header.field" rowspan="2" 
+                                <th v-for="header in trailingHeaders" :key="header.field" rowspan="2"
                                     class="px-4 py-3 text-right whitespace-nowrap font-bold border-b-2 border-slate-200 bg-slate-200">
                                     {{ header.label }}
                                 </th>
@@ -413,24 +464,33 @@ const sortedReport = computed(() => props.report);
                                 </td>
                                 
                                 <td v-for="header in branchHeaders" :key="header.field" class="px-4 py-3 text-right whitespace-nowrap">
-                                    <div v-if="editingCell && editingCell.rowIndex === rowIndex && editingCell.field === header.field" class="flex items-center justify-end gap-1">
-                                        <Input v-focus-select type="number" v-model="editValue" class="w-24 text-right py-1" @keyup.enter="saveCommit" @keyup.esc="cancelEditing" />
-                                        <Button variant="ghost" size="icon" class="h-7 w-7 text-green-600 hover:bg-green-100" @click="saveCommit"><Check class="h-4 w-4" /></Button>
-                                        <Button variant="ghost" size="icon" class="h-7 w-7 text-red-600 hover:bg-red-100" @click="cancelEditing"><X class="h-4 w-4" /></Button>
-                                    </div>
-                                                                        <div v-else
-                                        @click="startEditing(row, header.field, rowIndex)"
-                                        class="p-1 rounded min-h-[36px] flex items-center justify-end transition-all duration-150"
-                                        :class="{
-                                            'cursor-pointer hover:bg-blue-100 hover:ring-1 hover:ring-blue-400': !isEditingDisabled(header.field) && canUserEditRow(row),
-                                            'cursor-not-allowed bg-gray-50 text-gray-500': isEditingDisabled(header.field) || !canUserEditRow(row)
-                                        }"
-                                    >
-                                        {{ row[header.field] }}
+                                    <div class="flex items-center justify-end gap-1">
+                                        <span 
+                                            v-if="row['approved_' + header.field] !== undefined && parseFloat(row['approved_' + header.field]) > 0"
+                                            class="text-xs font-medium px-2 py-1 rounded-md bg-blue-100 text-blue-800"
+                                            title="Approved Quantity"
+                                        >
+                                            {{ parseFloat(row['approved_' + header.field]).toFixed(2) }}
+                                        </span>
+                                        <input
+                                            type="number"
+                                            v-model="row[header.field]"
+                                            class="w-24 px-2 py-1 border rounded text-right transition-colors"
+                                            :class="[
+                                                !isEditingDisabled(header.field) && canUserEditRow(row)
+                                                    ? 'border-gray-300 focus:ring-1 focus:ring-blue-500 focus:border-blue-500'
+                                                    : 'border-gray-200 bg-gray-50 text-gray-400 cursor-not-allowed'
+                                            ]"
+                                            :disabled="isEditingDisabled(header.field) || !canUserEditRow(row)"
+                                            @input="handleInput(row, header.field)"
+                                            @blur="updateCommit(rowIndex, header.field)"
+                                            @keydown.enter="handleEnterKey"
+                                        />
                                     </div>
                                 </td>
 
-                                <td v-for="header in trailingHeaders" :key="header.field" class="px-4 py-3 text-right whitespace-nowrap">
+                                <td v-for="header in trailingHeaders" :key="header.field"
+                                    class="px-4 py-3 text-right whitespace-nowrap">
                                     {{ row[header.field] }}
                                 </td>
                             </tr>

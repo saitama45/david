@@ -206,7 +206,7 @@ class CSMassCommitsController extends Controller
             ->with(['store_order.store_branch', 'store_order.supplier'])
             // Filters
             ->whereDate('store_orders.order_date', $orderDate)
-            ->where('store_order_items.quantity_commited', '>', 0);
+            ->where('store_order_items.quantity_commited', '>=', 0);
 
         if ($supplierId !== 'all') {
              $query->where('store_orders.supplier_id', $supplierId);
@@ -230,7 +230,7 @@ class CSMassCommitsController extends Controller
             return strtoupper(trim($item->item_code)) . '|' . strtoupper(trim($item->uom));
         })->map(function ($group) use ($brandCodes) {
             $first = $group->first();
-            
+
             $category = $first->supplier_category ?? 'N/A';
             $classification = $first->supplier_classification;
 
@@ -242,7 +242,7 @@ class CSMassCommitsController extends Controller
                 $s = $item->supplier_sort_order;
                 if ($s === 0 || $s === '0' || $s === null) {
                     $sortOrder = 0;
-                    break; 
+                    break;
                 }
                  // Keep the first non-zero sort order encountered as a fallback
                 if ($sortOrder === null) {
@@ -253,7 +253,7 @@ class CSMassCommitsController extends Controller
             if ($sortOrder === null) {
                  $sortOrder = 0;
             }
-            
+
             // Item Name Priority: SAP Description > SAP Name > Supplier Item Name > N/A
             $itemName = $first->sap_item_description ?: ($first->sap_item_name_alt ?: ($first->supplier_item_name ?? 'N/A'));
 
@@ -263,13 +263,14 @@ class CSMassCommitsController extends Controller
                 'item_code' => $first->item_code,
                 'item_name' => $itemName,
                 'unit' => $first->uom,
-                'sort_order' => $sortOrder, 
+                'sort_order' => $sortOrder,
                 'whse' => $this->getWhseCode($first->store_order->supplier->supplier_code ?? null),
             ];
 
             // Initialize branches
             foreach ($brandCodes as $code) {
                 $row[$code] = 0.0;
+                $row['approved_' . $code] = 0.0;
             }
 
             // Sum quantities
@@ -278,11 +279,60 @@ class CSMassCommitsController extends Controller
                     $brand = $item->store_order->store_branch->brand_code;
                     if (isset($row[$brand])) {
                         $row[$brand] += $item->quantity_commited;
+                        $row['approved_' . $brand] += $item->quantity_approved;
                     }
                 }
             }
 
             $row['total_quantity'] = array_sum(array_intersect_key($row, array_flip($brandCodes)));
+
+            // Calculate remarks based on conditions
+            $remarks = '';
+
+            // Condition a: All stores have 0 committed quantity
+            $allZero = true;
+            foreach ($brandCodes as $code) {
+                if (isset($row[$code]) && $row[$code] > 0) {
+                    $allZero = false;
+                    break;
+                }
+            }
+
+            if ($allZero) {
+                $remarks = '86';
+            } else {
+                // Condition b: Check if committed >= approved for all branches
+                $isStockSupported = true;
+                $hasAllocation = false;
+
+                // Get approved quantities for comparison
+                foreach ($brandCodes as $code) {
+                    if (isset($row[$code])) {
+                        // Find the approved quantity for this branch
+                        $approvedQty = 0;
+                        foreach ($group as $item) {
+                            if ($item->store_order && $item->store_order->store_branch &&
+                                $item->store_order->store_branch->brand_code === $code) {
+                                $approvedQty = $item->quantity_approved;
+                                break;
+                            }
+                        }
+
+                        if ($row[$code] < $approvedQty) {
+                            $isStockSupported = false;
+                            $hasAllocation = true;
+                        }
+                    }
+                }
+
+                if ($isStockSupported) {
+                    $remarks = 'Stock Supported';
+                } elseif ($hasAllocation) {
+                    $remarks = 'Allocation';
+                }
+            }
+
+            $row['remarks'] = $remarks;
 
             return $row;
         })
@@ -303,6 +353,7 @@ class CSMassCommitsController extends Controller
         $trailingHeaders = [
             ['label' => 'TOTAL', 'field' => 'total_quantity'],
             ['label' => 'WHSE', 'field' => 'whse'],
+            ['label' => 'Remarks', 'field' => 'remarks'],
         ];
 
         $allHeaders = array_merge($staticHeaders, $dynamicBranchHeaders, $trailingHeaders);
