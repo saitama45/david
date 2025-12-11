@@ -232,6 +232,198 @@ const grandTotal = computed(() => {
     return total;
 });
 
+// --- EXCEL-LIKE FEATURES (Navigation & Drag-to-Fill) ---
+
+// 1. Flatten Columns for F&V Grid
+// Maps colIndex -> { store, dateObj }
+const flatColumns = computed(() => {
+    if (props.variant !== 'FRUITS AND VEGETABLES') return [];
+    const cols = [];
+    props.stores.forEach(store => {
+        getDatesForStore(store).forEach(dateObj => {
+            cols.push({ store, dateObj });
+        });
+    });
+    return cols;
+});
+
+// 2. State
+const isDragging = ref(false);
+const dragStart = ref(null); // { r, c }
+const dragEnd = ref(null);   // { r, c }
+
+// 3. Helpers
+const getInputEl = (r, c) => {
+    // We use data attributes to find specific inputs
+    return document.querySelector(`input[data-r="${r}"][data-c="${c}"]`);
+};
+
+// Selection Checks
+const isSelected = (r, c) => {
+    if (!dragStart.value || !dragEnd.value) return false;
+    const minR = Math.min(dragStart.value.r, dragEnd.value.r);
+    const maxR = Math.max(dragStart.value.r, dragEnd.value.r);
+    const minC = Math.min(dragStart.value.c, dragEnd.value.c);
+    const maxC = Math.max(dragStart.value.c, dragEnd.value.c);
+    return r >= minR && r <= maxR && c >= minC && c <= maxC;
+};
+
+const isDragEndCell = (r, c) => {
+    if (!dragEnd.value) return false;
+    return dragEnd.value.r === r && dragEnd.value.c === c;
+};
+
+// 4. Focus Handling
+const onFocus = (r, c) => {
+    // If we are NOT currently dragging, reset selection to this single cell
+    if (!isDragging.value) {
+        dragStart.value = { r, c };
+        dragEnd.value = { r, c };
+    }
+};
+
+// 5. Arrow Key Navigation
+const handleKeyDown = (r, c, event) => {
+    let nextR = r;
+    let nextC = c;
+    const maxR = props.supplier_items.length - 1;
+    const maxC = flatColumns.value.length - 1;
+
+    switch (event.key) {
+        case 'ArrowUp': nextR--; break;
+        case 'ArrowDown': nextR++; break;
+        case 'ArrowLeft': nextC--; break;
+        case 'ArrowRight': nextC++; break;
+        case 'Enter': 
+            event.preventDefault(); 
+            nextR++; 
+            break;
+        default: return; // Allow other keys
+    }
+
+    if (nextR >= 0 && nextR <= maxR && nextC >= 0 && nextC <= maxC) {
+        event.preventDefault();
+        const el = getInputEl(nextR, nextC);
+        if (el) {
+            el.focus();
+            // Optional: Select text logic if needed, but standard Excel doesn't always select all on arrow move
+            if (!el.disabled) el.select();
+        }
+    }
+};
+
+// 6. Drag Logic
+const startDrag = (r, c, event) => {
+    // Start dragging from the handle
+    event.preventDefault(); 
+    event.stopPropagation();
+    isDragging.value = true;
+    
+    // The start of the copy source is the current selection start
+    // (Usually where the handle is attached, which is dragEnd, but logically we copy FROM the primary selected cell if we implemented ranges)
+    // For simple drag-fill, we copy from the cell that owns the handle.
+    dragStart.value = { r, c };
+    dragEnd.value = { r, c };
+    
+    document.addEventListener('mouseup', endDrag);
+};
+
+const onMouseEnter = (r, c) => {
+    if (isDragging.value) {
+        dragEnd.value = { r, c };
+    }
+};
+
+const endDrag = () => {
+    if (!isDragging.value) return;
+    
+    applyFill();
+    
+    isDragging.value = false;
+    document.removeEventListener('mouseup', endDrag);
+};
+
+const applyFill = () => {
+    if (!dragStart.value || !dragEnd.value) return;
+
+    // Define Range
+    const startR = Math.min(dragStart.value.r, dragEnd.value.r);
+    const endR = Math.max(dragStart.value.r, dragEnd.value.r);
+    const startC = Math.min(dragStart.value.c, dragEnd.value.c);
+    const endC = Math.max(dragStart.value.c, dragEnd.value.c);
+
+    // Source Value: The value of the cell where dragging started (the handle's cell)
+    // Note: In Excel, if you drag down, you copy the top cell. If you drag up, you copy the bottom cell.
+    // For simplicity, we assume we copy from the `dragStart` (which we set to the cell having the handle on mousedown).
+    
+    const sourceColDef = flatColumns.value[dragStart.value.c];
+    const sourceItem = props.supplier_items[dragStart.value.r];
+    
+    if (!sourceColDef || !sourceItem) return;
+
+    const sourceVal = orders.value[sourceItem.id][sourceColDef.store.id][sourceColDef.dateObj.date];
+
+    // Apply to target range
+    for (let r = startR; r <= endR; r++) {
+        for (let c = startC; c <= endC; c++) {
+            // Skip source cell itself if you want, but overwriting it with itself is fine
+            
+            const targetColDef = flatColumns.value[c];
+            const targetItem = props.supplier_items[r];
+            const targetEl = getInputEl(r, c);
+
+            // Check if target is valid and not disabled
+            if (targetColDef && targetItem && targetEl && !targetEl.disabled) {
+                // Update Model
+                orders.value[targetItem.id][targetColDef.store.id][targetColDef.dateObj.date] = sourceVal;
+            }
+        }
+    }
+};
+
+// 8. Formula Evaluation
+const evaluateCellFormula = (item, store, dateObj) => {
+    let value = orders.value[item.id][store.id][dateObj.date];
+    
+    // Convert to string to check for '='
+    if (typeof value === 'string' && value.startsWith('=')) {
+        try {
+            // Remove the '='
+            let expression = value.substring(1);
+            
+            // Sanitize: Allow only numbers, operators (+, -, *, /, %, .), and parentheses
+            // Reject any letters or other characters to prevent XSS/Code Injection
+            if (/^[0-9+\-*/().\s%]+$/.test(expression)) {
+                // Use Function constructor for safer evaluation than eval()
+                // It runs in global scope, but our regex limits what can be passed.
+                const result = new Function('return ' + expression)();
+                
+                // Format result (optional: keep decimals or limit them)
+                // orders values are generally strings or numbers. 
+                // Maintaining 2 decimals if it's a float is usually good for currency/qty.
+                orders.value[item.id][store.id][dateObj.date] = result;
+            } else {
+                // Invalid characters found
+                toast.add({
+                    severity: 'error',
+                    summary: 'Invalid Formula',
+                    detail: 'Only numbers and basic math operators (+ - * /) are allowed.',
+                    life: 3000
+                });
+            }
+        } catch (e) {
+            toast.add({
+                severity: 'error',
+                summary: 'Formula Error',
+                detail: 'Could not evaluate expression.',
+                life: 3000
+            });
+        }
+    }
+};
+
+// --- END EXCEL-LIKE FEATURES ---
+
 // Check if a store has delivery schedule for a specific date
 const hasDeliverySchedule = (store, dateObj) => {
     if (!store.delivery_schedule_ids || !dateObj.delivery_schedule_id) {
@@ -297,6 +489,7 @@ const validateQuantity = (dateKey, storeId, value) => {
 
 // Handle Enter key to move to next input
 const handleEnterKey = (event) => {
+    // This is now largely handled by handleKeyDown, but kept for non-grid inputs if any
     const inputs = Array.from(document.querySelectorAll('input[type="number"]'));
     const currentIndex = inputs.indexOf(event.target);
 
@@ -379,7 +572,7 @@ const getGrandTotalPrice = computed(() => {
 
                     <!-- FRUITS AND VEGETABLES Layout -->
                     <div v-if="props.variant === 'FRUITS AND VEGETABLES'" class="mt-6 overflow-x-auto overflow-y-auto max-h-[80vh]">
-                        <table class="min-w-full border-collapse border border-gray-300 text-sm frozen-pane-table">
+                        <table class="min-w-full border-collapse border border-gray-300 text-sm frozen-pane-table select-none">
                             <thead>
                                 <!-- First Header Row: Fixed columns + Store Names grouped -->
                                 <tr class="bg-gray-100">
@@ -395,9 +588,11 @@ const getGrandTotalPrice = computed(() => {
                                             class="border border-gray-300 px-2 py-2 font-semibold text-center bg-blue-50"
                                             style="min-width: 120px;"
                                         >
-                                            <div class="text-xs font-bold">{{ store.name }}</div>
-                                            <div v-if="store.brand_code" class="text-xs text-gray-600 mt-1 font-bold">{{ store.brand_code }}</div>
-                                            <div v-if="store.complete_address" class="text-xs text-gray-500 mt-1">{{ store.complete_address }}</div>
+                                            <div class="h-[140px] flex flex-col justify-start items-center overflow-hidden">
+                                                <div class="text-xs font-bold">{{ store.name }}</div>
+                                                <div v-if="store.brand_code" class="text-xs text-gray-600 mt-1 font-bold">{{ store.brand_code }}</div>
+                                                <div v-if="store.complete_address" class="text-xs text-gray-500 mt-1">{{ store.complete_address }}</div>
+                                            </div>
                                         </th>
                                     </template>
 
@@ -413,7 +608,8 @@ const getGrandTotalPrice = computed(() => {
                                         <th
                                             v-for="dateObj in getDatesForStore(store)"
                                             :key="`date-${store.id}-${dateObj.date}`"
-                                            class="border border-gray-300 px-2 py-2 font-semibold text-center"
+                                            class="border border-gray-300 px-2 py-2 font-semibold text-center h-[40px] sticky-date-header"
+                                            style="position: sticky; top: 157px; z-index: 15;"
                                         >
                                             <div class="text-xs">{{ dateObj.day_of_week }}</div>
                                             <div class="text-xs">{{ dateObj.display.split('- ')[1] }}</div>
@@ -423,35 +619,47 @@ const getGrandTotalPrice = computed(() => {
                             </thead>
                             <tbody>
                                 <!-- Row for each supplier item -->
-                                <tr v-for="item in props.supplier_items" :key="item.id" class="hover:bg-gray-50">
+                                <tr v-for="(item, rIndex) in props.supplier_items" :key="item.id" class="hover:bg-gray-50">
                                     <td class="border border-gray-300 px-3 py-2 frozen frozen-1">{{ item.item_code }}</td>
                                     <td class="border border-gray-300 px-3 py-2 frozen frozen-2">{{ item.item_name }}</td>
                                     <td class="border border-gray-300 px-3 py-2 text-center frozen frozen-3">{{ item.uom }}</td>
                                     <td class="border border-gray-300 px-3 py-2 text-right frozen frozen-4">{{ item.price.toFixed(2) }}</td>
 
                                     <!-- Input cells grouped by store, then dates for that store -->
-                                    <template v-for="store in props.stores" :key="`body-${store.id}`">
+                                    <template v-for="(store, sIndex) in props.stores" :key="`body-${store.id}`">
                                         <td
-                                            v-for="dateObj in getDatesForStore(store)"
+                                            v-for="(dateObj, dIndex) in getDatesForStore(store)"
                                             :key="`${item.id}-${store.id}-${dateObj.date}`"
                                             :class="['border border-gray-300 px-1 py-1', !hasDeliverySchedule(store, dateObj) ? 'bg-gray-100' : '']"
                                         >
-                                            <input
-                                                v-model="orders[item.id][store.id][dateObj.date]"
-                                                type="number"
-                                                step="0.01"
-                                                min="0"
-                                                :disabled="!hasDeliverySchedule(store, dateObj)"
-                                                :class="[
-                                                    'w-full px-2 py-1 border rounded text-center',
-                                                    hasDeliverySchedule(store, dateObj)
-                                                        ? 'border-gray-300 focus:ring-1 focus:ring-blue-500'
-                                                        : 'border-gray-200 bg-gray-100 cursor-not-allowed text-gray-400'
-                                                ]"
-                                                :title="hasDeliverySchedule(store, dateObj) ? '' : 'No delivery schedule for this store on this day'"
-                                                @keydown.enter="handleEnterKey"
-                                                @click="handleDisabledInputClick(store, dateObj, $event)"
-                                            />
+                                            <div class="relative w-full h-full">
+                                                <input
+                                                    v-model="orders[item.id][store.id][dateObj.date]"
+                                                    type="text"
+                                                    :data-r="rIndex"
+                                                    :data-c="flatColumns.findIndex(c => c.store.id === store.id && c.dateObj.date === dateObj.date)"
+                                                    :disabled="!hasDeliverySchedule(store, dateObj)"
+                                                    :class="[
+                                                        'w-full px-2 py-1 border text-center outline-none',
+                                                        hasDeliverySchedule(store, dateObj)
+                                                            ? (isSelected(rIndex, flatColumns.findIndex(c => c.store.id === store.id && c.dateObj.date === dateObj.date)) ? 'bg-blue-50 border-blue-500 z-10' : 'border-gray-300')
+                                                            : 'border-gray-200 bg-gray-100 cursor-not-allowed text-gray-400'
+                                                    ]"
+                                                    :title="hasDeliverySchedule(store, dateObj) ? '' : 'No delivery schedule for this store on this day'"
+                                                    @focus="onFocus(rIndex, flatColumns.findIndex(c => c.store.id === store.id && c.dateObj.date === dateObj.date))"
+                                                    @keydown="handleKeyDown(rIndex, flatColumns.findIndex(c => c.store.id === store.id && c.dateObj.date === dateObj.date), $event)"
+                                                    @mouseenter="onMouseEnter(rIndex, flatColumns.findIndex(c => c.store.id === store.id && c.dateObj.date === dateObj.date))"
+                                                    @click="handleDisabledInputClick(store, dateObj, $event)"
+                                                    @change="evaluateCellFormula(item, store, dateObj)"
+                                                />
+                                                
+                                                <!-- Fill Handle -->
+                                                <div 
+                                                    v-if="isDragEndCell(rIndex, flatColumns.findIndex(c => c.store.id === store.id && c.dateObj.date === dateObj.date)) && hasDeliverySchedule(store, dateObj)"
+                                                    class="absolute -bottom-1 -right-1 w-3 h-3 bg-blue-600 border border-white cursor-crosshair z-20 pointer-events-auto shadow-sm"
+                                                    @mousedown="startDrag(rIndex, flatColumns.findIndex(c => c.store.id === store.id && c.dateObj.date === dateObj.date), $event)"
+                                                ></div>
+                                            </div>
                                         </td>
                                     </template>
 
@@ -618,15 +826,20 @@ const getGrandTotalPrice = computed(() => {
 /* VERTICAL FREEZE (HEADER) */
 .frozen-pane-table thead tr:first-of-type th {
     top: 0;
+    z-index: 20;
 }
-.frozen-pane-table thead tr:nth-of-type(2) th {
-    top: 80px; /* Estimated height of the first header row. Adjust if needed. */
+.frozen-pane-table th.sticky-date-header {
+    top: 140px !important; /* Matched to fixed height of first row */
+    z-index: 15;
+    position: sticky !important;
 }
 
 /* Z-INDEX LAYERING */
-.frozen-pane-table tbody .frozen { z-index: 1; }
-.frozen-pane-table thead th { z-index: 2; }
-.frozen-pane-table thead .frozen { z-index: 3; }
+.frozen-pane-table thead th.frozen { z-index: 50 !important; } /* Top-Left Intersection (Highest) */
+.frozen-pane-table thead th { z-index: 20; } /* Standard Headers */
+.frozen-pane-table th.sticky-date-header { z-index: 20 !important; } /* Date Row */
+.frozen-pane-table tbody .frozen { z-index: 10; } /* Left Fixed Columns (Body) */
+.frozen-pane-table tbody td { z-index: 1; } /* Standard Cells */
 
 /* BACKGROUNDS for sticky elements to avoid transparency */
 .frozen-pane-table thead th {

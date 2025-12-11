@@ -248,19 +248,192 @@ const getTotalDateColumns = computed(() => {
     return total;
 });
 
-// Functions for FRUITS AND VEGETABLES layout
-const getItemTotalOrder = (itemId) => {
-    let total = 0;
-    if (!orders.value[itemId]) return 0;
+// --- EXCEL-LIKE FEATURES (Navigation & Drag-to-Fill) ---
 
-    Object.keys(orders.value[itemId]).forEach(date => {
-        Object.keys(orders.value[itemId][date]).forEach(storeId => {
-            const qty = parseFloat(orders.value[itemId][date][storeId] || 0);
-            total += isNaN(qty) ? 0 : qty;
+// 1. Flatten Columns for F&V Grid
+// Maps colIndex -> { store, dateObj }
+const flatColumns = computed(() => {
+    if (props.variant !== 'FRUITS AND VEGETABLES') return [];
+    const cols = [];
+    props.stores.forEach(store => {
+        getDatesForStore(store).forEach(dateObj => {
+            cols.push({ store, dateObj });
         });
     });
-    return total;
+    return cols;
+});
+
+// 2. State
+const isDragging = ref(false);
+const dragStart = ref(null); // { r, c }
+const dragEnd = ref(null);   // { r, c }
+const activeCell = ref(null);
+
+// 3. Helpers
+const getInputEl = (r, c) => {
+    return document.querySelector(`input[data-r="${r}"][data-c="${c}"]`);
 };
+
+const isSelected = (r, c) => {
+    if (!dragStart.value || !dragEnd.value) return false;
+    const minR = Math.min(dragStart.value.r, dragEnd.value.r);
+    const maxR = Math.max(dragStart.value.r, dragEnd.value.r);
+    const minC = Math.min(dragStart.value.c, dragEnd.value.c);
+    const maxC = Math.max(dragStart.value.c, dragEnd.value.c);
+    return r >= minR && r <= maxR && c >= minC && c <= maxC;
+};
+
+const isDragEndCell = (r, c) => {
+    if (!dragEnd.value) return false;
+    return dragEnd.value.r === r && dragEnd.value.c === c;
+};
+
+// 4. Focus Handling
+const onFocus = (r, c) => {
+    if (!isDragging.value) {
+        dragStart.value = { r, c };
+        dragEnd.value = { r, c };
+        activeCell.value = { r, c };
+    }
+};
+
+// 5. Arrow Key Navigation
+const handleKeyDown = (r, c, event) => {
+    let nextR = r;
+    let nextC = c;
+    const maxR = props.supplier_items.length - 1;
+    const maxC = flatColumns.value.length - 1;
+
+    switch (event.key) {
+        case 'ArrowUp': nextR--; break;
+        case 'ArrowDown': nextR++; break;
+        case 'ArrowLeft': nextC--; break;
+        case 'ArrowRight': nextC++; break;
+        case 'Enter': 
+            event.preventDefault(); 
+            nextR++; 
+            break;
+        default: return; // Allow other keys
+    }
+
+    if (nextR >= 0 && nextR <= maxR && nextC >= 0 && nextC <= maxC) {
+        event.preventDefault();
+        const el = getInputEl(nextR, nextC);
+        if (el) {
+            el.focus();
+            if (!el.disabled && !el.readOnly) el.select();
+        }
+    }
+};
+
+// 6. Drag Logic
+const startDrag = (r, c, event) => {
+    event.preventDefault(); 
+    event.stopPropagation();
+    isDragging.value = true;
+    dragStart.value = { r, c };
+    dragEnd.value = { r, c };
+    document.addEventListener('mouseup', endDrag);
+};
+
+const onMouseEnter = (r, c) => {
+    if (isDragging.value) {
+        dragEnd.value = { r, c };
+    }
+};
+
+const endDrag = () => {
+    if (!isDragging.value) return;
+    applyFill();
+    isDragging.value = false;
+    document.removeEventListener('mouseup', endDrag);
+};
+
+const applyFill = () => {
+    if (!dragStart.value || !dragEnd.value) return;
+
+    const startR = Math.min(dragStart.value.r, dragEnd.value.r);
+    const endR = Math.max(dragStart.value.r, dragEnd.value.r);
+    const startC = Math.min(dragStart.value.c, dragEnd.value.c);
+    const endC = Math.max(dragStart.value.c, dragEnd.value.c);
+
+    const sourceColDef = flatColumns.value[dragStart.value.c];
+    const sourceItem = props.supplier_items[dragStart.value.r];
+    
+    if (!sourceColDef || !sourceItem) return;
+
+    // ADAPTED ACCESS PATH: item -> date -> store
+    const sourceVal = orders.value[sourceItem.id][sourceColDef.dateObj.date][sourceColDef.store.id];
+
+    for (let r = startR; r <= endR; r++) {
+        for (let c = startC; c <= endC; c++) {
+            const targetColDef = flatColumns.value[c];
+            const targetItem = props.supplier_items[r];
+            const targetEl = getInputEl(r, c);
+
+            if (targetColDef && targetItem && targetEl && !targetEl.disabled && !targetEl.readOnly) {
+                // ADAPTED ACCESS PATH
+                orders.value[targetItem.id][targetColDef.dateObj.date][targetColDef.store.id] = sourceVal;
+            }
+        }
+    }
+};
+
+// 7. Styles for Selection Overlay
+const selectionStyle = computed(() => {
+    if (!dragStart.value || !dragEnd.value) return { display: 'none' };
+
+    const startR = Math.min(dragStart.value.r, dragEnd.value.r);
+    const endR = Math.max(dragStart.value.r, dragEnd.value.r);
+    const startC = Math.min(dragStart.value.c, dragEnd.value.c);
+    const endC = Math.max(dragStart.value.c, dragEnd.value.c);
+
+    const tlEl = getInputEl(startR, startC);
+    const brEl = getInputEl(endR, endC);
+
+    if (!tlEl || !brEl) return { display: 'none' };
+
+    const container = tlEl.closest('.relative-container');
+    if (!container) return { display: 'none' };
+
+    const containerRect = container.getBoundingClientRect();
+    const tlRect = tlEl.getBoundingClientRect();
+    const brRect = brEl.getBoundingClientRect();
+
+    return {
+        top: (tlRect.top - containerRect.top) + 'px',
+        left: (tlRect.left - containerRect.left) + 'px',
+        width: (brRect.right - tlRect.left) + 'px',
+        height: (brRect.bottom - tlRect.top) + 'px',
+        position: 'absolute',
+        pointerEvents: 'none',
+        border: '2px solid #3b82f6',
+        zIndex: 10
+    };
+});
+
+// 8. Formula Evaluation
+const evaluateCellFormula = (item, store, dateObj) => {
+    // ADAPTED ACCESS PATH
+    let value = orders.value[item.id][dateObj.date][store.id];
+    
+    if (typeof value === 'string' && value.startsWith('=')) {
+        try {
+            let expression = value.substring(1);
+            if (/^[0-9+\-*/().\s%]+$/.test(expression)) {
+                const result = new Function('return ' + expression)();
+                // ADAPTED ACCESS PATH
+                orders.value[item.id][dateObj.date][store.id] = result;
+            } else {
+                toast.add({ severity: 'error', summary: 'Invalid Formula', detail: 'Only numbers and basic math operators are allowed.', life: 3000 });
+            }
+        } catch (e) {
+            toast.add({ severity: 'error', summary: 'Formula Error', detail: 'Could not evaluate expression.', life: 3000 });
+        }
+    }
+};
+
+// --- END EXCEL-LIKE FEATURES ---
 
 const getItemBuffer = () => {
     return 10; // Fixed 10%
@@ -358,8 +531,18 @@ const validateQuantity = (dateKey, storeId, value) => {
                     </div>
 
                     <!-- FRUITS AND VEGETABLES Layout -->
-                    <div v-if="variant === 'FRUITS AND VEGETABLES'" class="mt-6 overflow-x-auto overflow-y-auto max-h-[80vh]">
-                        <table class="min-w-full border-collapse border border-gray-300 text-sm frozen-pane-table">
+                    <div v-if="variant === 'FRUITS AND VEGETABLES'" class="relative-container relative mt-6 overflow-x-auto overflow-y-auto max-h-[80vh]">
+                        
+                        <!-- SELECTION OVERLAY -->
+                        <div :style="selectionStyle">
+                            <!-- Fill Handle -->
+                             <div 
+                                class="absolute -bottom-1 -right-1 w-3 h-3 bg-blue-500 border border-white cursor-crosshair z-20 pointer-events-auto"
+                                @mousedown="startDrag(dragEnd.r, dragEnd.c, $event)"
+                             ></div>
+                        </div>
+
+                        <table class="min-w-full border-collapse border border-gray-300 text-sm frozen-pane-table select-none">
                             <thead>
                                 <!-- First Header Row: Fixed columns + Store Names grouped -->
                                 <tr class="bg-gray-100">
@@ -375,9 +558,11 @@ const validateQuantity = (dateKey, storeId, value) => {
                                             class="border border-gray-300 px-2 py-2 font-semibold text-center bg-blue-50"
                                             style="min-width: 120px;"
                                         >
-                                            <div class="text-xs font-bold">{{ store.name }}</div>
-                                            <div v-if="store.brand_code" class="text-xs text-gray-600 mt-1 font-bold">{{ store.brand_code }}</div>
-                                            <div v-if="store.complete_address" class="text-xs text-gray-500 mt-1">{{ store.complete_address }}</div>
+                                            <div class="h-[140px] flex flex-col justify-start items-center overflow-hidden">
+                                                <div class="text-xs font-bold">{{ store.name }}</div>
+                                                <div v-if="store.brand_code" class="text-xs text-gray-600 mt-1 font-bold">{{ store.brand_code }}</div>
+                                                <div v-if="store.complete_address" class="text-xs text-gray-500 mt-1">{{ store.complete_address }}</div>
+                                            </div>
                                         </th>
                                     </template>
 
@@ -393,7 +578,8 @@ const validateQuantity = (dateKey, storeId, value) => {
                                         <th
                                             v-for="dateObj in getDatesForStore(store)"
                                             :key="`date-${store.id}-${dateObj.date}`"
-                                            class="border border-gray-300 px-2 py-2 font-semibold text-center"
+                                            class="border border-gray-300 px-2 py-2 font-semibold text-center h-[40px] sticky-date-header"
+                                            style="position: sticky; top: 157px; z-index: 15;"
                                         >
                                             <div class="text-xs">{{ dateObj.day_of_week }}</div>
                                             <div class="text-xs">{{ dateObj.display.split('- ')[1] }}</div>
@@ -403,7 +589,7 @@ const validateQuantity = (dateKey, storeId, value) => {
                             </thead>
                             <tbody>
                                 <!-- Row for each supplier item -->
-                                <tr v-for="item in supplier_items" :key="item.id" class="hover:bg-gray-50">
+                                <tr v-for="(item, rIndex) in supplier_items" :key="item.id" class="hover:bg-gray-50">
                                     <td class="border border-gray-300 px-3 py-2 frozen frozen-1">{{ item.item_code }}</td>
                                     <td class="border border-gray-300 px-3 py-2 frozen frozen-2">{{ item.item_name }}</td>
                                     <td class="border border-gray-300 px-3 py-2 text-center frozen frozen-3">{{ item.uom }}</td>
@@ -412,24 +598,36 @@ const validateQuantity = (dateKey, storeId, value) => {
                                     <!-- Input cells grouped by store, then dates for that store -->
                                     <template v-for="store in stores" :key="`body-${store.id}`">
                                         <td
-                                            v-for="dateObj in getDatesForStore(store)"
+                                            v-for="(dateObj, dIndex) in getDatesForStore(store)"
                                             :key="`${item.id}-${store.id}-${dateObj.date}`"
                                             :class="['border border-gray-300 px-1 py-1', !isEditableCell(item.id, store.id, dateObj.date) ? 'bg-gray-100' : '']"
                                         >
-                                            <input
-                                                v-model="orders[item.id][dateObj.date][store.id]"
-                                                type="number"
-                                                step="0.01"
-                                                min="0"
-                                                :readonly="!isEditableCell(item.id, store.id, dateObj.date)"
-                                                :class="[
-                                                    'w-full px-2 py-1 border rounded text-center',
-                                                    isEditableCell(item.id, store.id, dateObj.date)
-                                                        ? 'border-gray-300 focus:ring-1 focus:ring-blue-500'
-                                                        : 'border-gray-200 bg-gray-100 cursor-not-allowed text-gray-400'
-                                                ]"
-                                                @keydown.enter="handleEnterKey"
-                                            />
+                                            <div class="relative w-full h-full">
+                                                <input
+                                                    v-model="orders[item.id][dateObj.date][store.id]"
+                                                    type="text"
+                                                    :data-r="rIndex"
+                                                    :data-c="flatColumns.findIndex(c => c.store.id === store.id && c.dateObj.date === dateObj.date)"
+                                                    :readonly="!isEditableCell(item.id, store.id, dateObj.date)"
+                                                    :class="[
+                                                        'w-full px-2 py-1 border text-center outline-none',
+                                                        isEditableCell(item.id, store.id, dateObj.date)
+                                                            ? (isSelected(rIndex, flatColumns.findIndex(c => c.store.id === store.id && c.dateObj.date === dateObj.date)) ? 'bg-blue-50 border-blue-500 z-10' : 'border-gray-300')
+                                                            : 'border-gray-200 bg-gray-100 cursor-not-allowed text-gray-400'
+                                                    ]"
+                                                    @keydown.enter="handleEnterKey"
+                                                    @focus="onFocus(rIndex, flatColumns.findIndex(c => c.store.id === store.id && c.dateObj.date === dateObj.date))"
+                                                    @keydown="handleKeyDown(rIndex, flatColumns.findIndex(c => c.store.id === store.id && c.dateObj.date === dateObj.date), $event)"
+                                                    @mouseenter="onMouseEnter(rIndex, flatColumns.findIndex(c => c.store.id === store.id && c.dateObj.date === dateObj.date))"
+                                                    @change="evaluateCellFormula(item, store, dateObj)"
+                                                />
+                                                <!-- Fill Handle -->
+                                                <div 
+                                                    v-if="isDragEndCell(rIndex, flatColumns.findIndex(c => c.store.id === store.id && c.dateObj.date === dateObj.date)) && isEditableCell(item.id, store.id, dateObj.date)"
+                                                    class="absolute -bottom-1 -right-1 w-3 h-3 bg-blue-600 border border-white cursor-crosshair z-20 pointer-events-auto shadow-sm"
+                                                    @mousedown="startDrag(rIndex, flatColumns.findIndex(c => c.store.id === store.id && c.dateObj.date === dateObj.date), $event)"
+                                                ></div>
+                                            </div>
                                         </td>
                                     </template>
 
@@ -596,15 +794,20 @@ const validateQuantity = (dateKey, storeId, value) => {
 /* VERTICAL FREEZE (HEADER) */
 .frozen-pane-table thead tr:first-of-type th {
     top: 0;
+    z-index: 20;
 }
-.frozen-pane-table thead tr:nth-of-type(2) th {
-    top: 80px; /* Estimated height of the first header row. Adjust if needed. */
+.frozen-pane-table th.sticky-date-header {
+    top: 140px !important; /* Matched to fixed height of first row */
+    z-index: 15;
+    position: sticky !important;
 }
 
 /* Z-INDEX LAYERING */
-.frozen-pane-table tbody .frozen { z-index: 1; }
-.frozen-pane-table thead th { z-index: 2; }
-.frozen-pane-table thead .frozen { z-index: 3; }
+.frozen-pane-table thead th.frozen { z-index: 50 !important; } /* Top-Left Intersection (Highest) */
+.frozen-pane-table thead th { z-index: 20; } /* Standard Headers */
+.frozen-pane-table th.sticky-date-header { z-index: 20 !important; } /* Date Row */
+.frozen-pane-table tbody .frozen { z-index: 10; } /* Left Fixed Columns (Body) */
+.frozen-pane-table tbody td { z-index: 1; } /* Standard Cells */
 
 /* BACKGROUNDS for sticky elements to avoid transparency */
 .frozen-pane-table thead th {
