@@ -179,7 +179,7 @@ const formatCurrency = (amount) => {
                         <TD>{{ storeName(wastage) }}</TD>
                         <TD>{{ wastage.total_quantity || 0 }}</TD>
                         <TD>{{ wastage.items_count || 0 }}</TD>
-                        <TD>{{ formatCurrency(wastage.total_cost) }}</TD>
+                        <TD v-if="hasAccess('view total cost in wastage approval level 1')">{{ formatCurrency(wastage.total_cost) }}</TD>
                         <TD>
                             <Badge
                                 :class="statusBadgeColor(wastage.wastage_status)"
