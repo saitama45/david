@@ -167,7 +167,6 @@ const formatCurrency = (amount) => {
                     <TH>Total Qty</TH>
                     <TH>Items</TH>
                     <TH v-if="hasAccess('view total cost in wastage approval level 1')">Total Cost</TH>
-                    <TH v-else></TH>
                     <TH>Status</TH>
                     <TH>Date</TH>
                     <TH>Actions</TH>
@@ -180,14 +179,24 @@ const formatCurrency = (amount) => {
                         <TD>{{ wastage.total_quantity || 0 }}</TD>
                         <TD>{{ wastage.items_count || 0 }}</TD>
                         <TD v-if="hasAccess('view total cost in wastage approval level 1')">{{ formatCurrency(wastage.total_cost) }}</TD>
-                        <TD>
+                        <TD :class="hasAccess('view total cost in wastage approval level 1') ? '' : 'w-32'">
                             <Badge
                                 :class="statusBadgeColor(wastage.wastage_status)"
                                 class="font-bold"
                             >{{ wastage.wastage_status?.toUpperCase().replace('_', ' ') ?? "N/A" }}</Badge>
                         </TD>
-                        <TD>{{ formatDate(wastage.created_at) }}</TD>
-                        <TD class="flex">
+                        <TD v-if="hasAccess('view total cost in wastage approval level 1')">{{ formatDate(wastage.created_at) }}</TD>
+                        <TD v-if="hasAccess('view total cost in wastage approval level 1')" class="flex">
+                            <Button
+                                v-if="hasAccess('view wastage approval level 1')"
+                                @click="showWastageDetails(wastage.id)"
+                                variant="link"
+                            >
+                                <Eye />
+                            </Button>
+                        </TD>
+                        <TD v-if="!hasAccess('view total cost in wastage approval level 1')">{{ formatDate(wastage.created_at) }}</TD>
+                        <TD v-if="!hasAccess('view total cost in wastage approval level 1')" class="flex">
                             <Button
                                 v-if="hasAccess('view wastage approval level 1')"
                                 @click="showWastageDetails(wastage.id)"
