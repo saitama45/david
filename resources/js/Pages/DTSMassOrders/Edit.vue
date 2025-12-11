@@ -1,6 +1,6 @@
 <script setup>
 import { Head, router, useForm } from "@inertiajs/vue3";
-import { ref, computed } from "vue";
+import { ref, computed, watch } from "vue";
 import { useToast } from "@/Composables/useToast";
 import { useConfirm } from "primevue/useconfirm";
 
@@ -163,8 +163,6 @@ const formatDisplayDate = (dateString) => {
 };
 
 // Initialize orders object
-// For FRUITS AND VEGETABLES: { itemId: { date: { storeId: quantity } } }
-// For ICE CREAM/SALMON: { date: { storeId: quantity } }
 const orders = ref({});
 
 // Helper function to check delivery schedule
@@ -177,30 +175,30 @@ const hasDeliverySchedule = (store, dateObj) => {
 
 // Initialize orders with existing values or empty
 if (props.variant === 'FRUITS AND VEGETABLES') {
-    // For each supplier item, create nested structure
-    // For Edit view, show all dates for all stores (orders already exist)
     props.supplier_items.forEach(item => {
         orders.value[item.id] = {};
         props.dates.forEach(dateObj => {
             orders.value[item.id][dateObj.date] = {};
             props.stores.forEach(store => {
-                // Pre-populate with existing order quantity if available
                 const existingQty = props.existing_orders[item.id]?.[dateObj.date]?.[store.id] || '';
                 orders.value[item.id][dateObj.date][store.id] = existingQty;
             });
         });
     });
-} else{
-    // Original logic for ICE CREAM and SALMON
+} else {
     props.dates.forEach(dateObj => {
         orders.value[dateObj.date] = {};
         props.stores.forEach(store => {
-            // Pre-populate with existing order quantity if available
             const existingQty = props.existing_orders[dateObj.date]?.[store.id] || '';
             orders.value[dateObj.date][store.id] = existingQty;
         });
     });
 }
+
+// Check if a cell should be editable (has existing order data)
+const isEditableCell = (itemId, storeId, date) => {
+    return props.existing_orders[itemId]?.[date]?.[storeId] !== undefined;
+};
 
 // Calculate row totals
 const getRowTotal = (date) => {
@@ -221,22 +219,15 @@ const grandTotal = computed(() => {
     return total;
 });
 
-// Check if a store has delivery schedule for a specific date
 // Get stores that have delivery schedule for a specific date
 const getStoresForDate = (dateObj) => {
     return props.stores.filter(store => hasDeliverySchedule(store, dateObj));
 };
 
 // Get dates that a store has delivery schedule for
-// For Edit view, show ALL dates for all stores to maintain alignment
 const getDatesForStore = (store) => {
-    // Show all dates for all stores to maintain column alignment
+    // Show all dates for all stores to maintain column alignment in Edit view
     return props.dates;
-};
-
-// Check if a cell should be editable (has existing order data)
-const isEditableCell = (itemId, storeId, date) => {
-    return props.existing_orders[itemId]?.[date]?.[storeId] !== undefined;
 };
 
 // Get total column count for store headers (each store shows its delivery dates)
@@ -244,6 +235,42 @@ const getTotalDateColumns = computed(() => {
     let total = 0;
     props.stores.forEach(store => {
         total += getDatesForStore(store).length;
+    });
+    return total;
+});
+
+// --- Calculation Functions ---
+const getItemTotalOrder = (itemId) => {
+    let total = 0;
+    if (!orders.value[itemId]) return 0;
+
+    Object.keys(orders.value[itemId]).forEach(date => {
+        Object.keys(orders.value[itemId][date]).forEach(storeId => {
+            const qty = parseFloat(orders.value[itemId][date][storeId] || 0);
+            total += isNaN(qty) ? 0 : qty;
+        });
+    });
+    return total;
+};
+
+const getItemBuffer = () => {
+    return 10; // Fixed 10%
+};
+
+const getItemTotalPO = (itemId) => {
+    const totalOrder = getItemTotalOrder(itemId);
+    return totalOrder * 1.1; // Total Order * 1.1
+};
+
+const getItemTotalPrice = (itemId, price) => {
+    const totalPO = getItemTotalPO(itemId);
+    return totalPO * price; // Price * Total PO
+};
+
+const getGrandTotalPrice = computed(() => {
+    let total = 0;
+    props.supplier_items.forEach(item => {
+        total += getItemTotalPrice(item.id, item.price);
     });
     return total;
 });
@@ -371,8 +398,11 @@ const applyFill = () => {
             const targetItem = props.supplier_items[r];
             const targetEl = getInputEl(r, c);
 
-            if (targetColDef && targetItem && targetEl && !targetEl.disabled && !targetEl.readOnly) {
-                // ADAPTED ACCESS PATH
+            // Check if target is valid, not disabled by logic, and not readonly
+            if (targetColDef && targetItem && targetEl && 
+                !targetEl.disabled && !targetEl.readOnly && 
+                isEditableCell(targetItem.id, targetColDef.store.id, targetColDef.dateObj.date)) {
+                
                 orders.value[targetItem.id][targetColDef.dateObj.date][targetColDef.store.id] = sourceVal;
             }
         }
@@ -414,7 +444,8 @@ const selectionStyle = computed(() => {
 
 // 8. Formula Evaluation
 const evaluateCellFormula = (item, store, dateObj) => {
-    // ADAPTED ACCESS PATH
+    if (!isEditableCell(item.id, store.id, dateObj.date)) return;
+
     let value = orders.value[item.id][dateObj.date][store.id];
     
     if (typeof value === 'string' && value.startsWith('=')) {
@@ -422,7 +453,6 @@ const evaluateCellFormula = (item, store, dateObj) => {
             let expression = value.substring(1);
             if (/^[0-9+\-*/().\s%]+$/.test(expression)) {
                 const result = new Function('return ' + expression)();
-                // ADAPTED ACCESS PATH
                 orders.value[item.id][dateObj.date][store.id] = result;
             } else {
                 toast.add({ severity: 'error', summary: 'Invalid Formula', detail: 'Only numbers and basic math operators are allowed.', life: 3000 });
@@ -435,29 +465,6 @@ const evaluateCellFormula = (item, store, dateObj) => {
 
 // --- END EXCEL-LIKE FEATURES ---
 
-const getItemBuffer = () => {
-    return 10; // Fixed 10%
-};
-
-const getItemTotalPO = (itemId) => {
-    const totalOrder = getItemTotalOrder(itemId);
-    return totalOrder * 1.1; // Total Order * 1.1
-};
-
-const getItemTotalPrice = (itemId, price) => {
-    const totalPO = getItemTotalPO(itemId);
-    return totalPO * price; // Price * Total PO
-};
-
-const getGrandTotalPrice = computed(() => {
-    let total = 0;
-    props.supplier_items.forEach(item => {
-        total += getItemTotalPrice(item.id, item.price);
-    });
-    return total;
-});
-
-// Handle Enter key to move to next input
 const handleEnterKey = (event) => {
     const inputs = Array.from(document.querySelectorAll('input[type="number"]'));
     const currentIndex = inputs.indexOf(event.target);
@@ -469,24 +476,18 @@ const handleEnterKey = (event) => {
     }
 };
 
-// Validate quantity input for ICE CREAM variant
 const validateQuantity = (dateKey, storeId, value) => {
-    // Only validate for ICE CREAM variant
     if (props.variant === 'ICE CREAM') {
         const qty = parseFloat(value);
 
-        // Check if value is entered and less than 5
         if (value !== '' && value !== null && !isNaN(qty)) {
             if (qty > 0 && qty < 5) {
-                // Show toast message
                 toast.add({
                     severity: 'warn',
                     summary: 'Invalid Quantity',
                     detail: 'ICE CREAM orders must be at least 5 gallons (GAL 3.8)',
                     life: 4000
                 });
-
-                // Reset the value
                 orders.value[dateKey][storeId] = '';
                 return false;
             }
@@ -537,6 +538,7 @@ const validateQuantity = (dateKey, storeId, value) => {
                         <div :style="selectionStyle">
                             <!-- Fill Handle -->
                              <div 
+                                v-if="isEditableCell(props.supplier_items[dragEnd?.r]?.id, flatColumns[dragEnd?.c]?.store?.id, flatColumns[dragEnd?.c]?.dateObj?.date)"
                                 class="absolute -bottom-1 -right-1 w-3 h-3 bg-blue-500 border border-white cursor-crosshair z-20 pointer-events-auto"
                                 @mousedown="startDrag(dragEnd.r, dragEnd.c, $event)"
                              ></div>
@@ -544,14 +546,11 @@ const validateQuantity = (dateKey, storeId, value) => {
 
                         <table class="min-w-full border-collapse border border-gray-300 text-sm frozen-pane-table select-none">
                             <thead>
-                                <!-- First Header Row: Fixed columns + Store Names grouped -->
                                 <tr class="bg-gray-100">
                                     <th rowspan="2" class="border border-gray-300 px-3 py-2 font-semibold text-center align-middle frozen frozen-1" style="min-width: 100px;">ITEM CODE</th>
                                     <th rowspan="2" class="border border-gray-300 px-3 py-2 font-semibold text-center align-middle frozen frozen-2" style="min-width: 200px;">ITEM NAME</th>
                                     <th rowspan="2" class="border border-gray-300 px-3 py-2 font-semibold text-center align-middle frozen frozen-3" style="min-width: 80px;">UOM</th>
                                     <th rowspan="2" class="border border-gray-300 px-3 py-2 font-semibold text-center align-middle frozen frozen-4" style="min-width: 80px;">PRICE</th>
-
-                                    <!-- Store Name headers - each store spans its delivery dates -->
                                     <template v-for="store in stores" :key="`store-${store.id}`">
                                         <th
                                             :colspan="getDatesForStore(store).length"
@@ -565,14 +564,11 @@ const validateQuantity = (dateKey, storeId, value) => {
                                             </div>
                                         </th>
                                     </template>
-
                                     <th rowspan="2" class="border border-gray-300 px-3 py-2 font-semibold text-center bg-yellow-100 align-middle">TOTAL ORDER</th>
                                     <th rowspan="2" class="border border-gray-300 px-3 py-2 font-semibold text-center bg-yellow-100 align-middle">BUFFER</th>
                                     <th rowspan="2" class="border border-gray-300 px-3 py-2 font-semibold text-center bg-yellow-100 align-middle">TOTAL PO</th>
                                     <th rowspan="2" class="border border-gray-300 px-3 py-2 font-semibold text-center bg-green-100 align-middle">TOTAL PRICE</th>
                                 </tr>
-
-                                <!-- Second Header Row: Day and Date for each store -->
                                 <tr class="bg-gray-200">
                                     <template v-for="store in stores" :key="`dates-${store.id}`">
                                         <th
@@ -588,14 +584,11 @@ const validateQuantity = (dateKey, storeId, value) => {
                                 </tr>
                             </thead>
                             <tbody>
-                                <!-- Row for each supplier item -->
                                 <tr v-for="(item, rIndex) in supplier_items" :key="item.id" class="hover:bg-gray-50">
                                     <td class="border border-gray-300 px-3 py-2 frozen frozen-1">{{ item.item_code }}</td>
                                     <td class="border border-gray-300 px-3 py-2 frozen frozen-2">{{ item.item_name }}</td>
                                     <td class="border border-gray-300 px-3 py-2 text-center frozen frozen-3">{{ item.uom }}</td>
                                     <td class="border border-gray-300 px-3 py-2 text-right frozen frozen-4">{{ item.price.toFixed(2) }}</td>
-
-                                    <!-- Input cells grouped by store, then dates for that store -->
                                     <template v-for="store in stores" :key="`body-${store.id}`">
                                         <td
                                             v-for="(dateObj, dIndex) in getDatesForStore(store)"
@@ -630,7 +623,6 @@ const validateQuantity = (dateKey, storeId, value) => {
                                             </div>
                                         </td>
                                     </template>
-
                                     <td class="border border-gray-300 px-3 py-2 text-center font-semibold bg-yellow-50">
                                         {{ getItemTotalOrder(item.id).toFixed(2) }}
                                     </td>
@@ -644,8 +636,6 @@ const validateQuantity = (dateKey, storeId, value) => {
                                         {{ getItemTotalPrice(item.id, item.price).toFixed(2) }}
                                     </td>
                                 </tr>
-
-                                <!-- Grand Total Row -->
                                 <tr class="bg-gray-700 text-white font-bold">
                                     <td colspan="4" class="border border-gray-300 px-3 py-2 text-right frozen frozen-1">TOTAL PRICE</td>
                                     <td :colspan="getTotalDateColumns + 3" class="border border-gray-300 px-3 py-2"></td>
@@ -655,59 +645,32 @@ const validateQuantity = (dateKey, storeId, value) => {
                         </table>
                     </div>
 
-                    <!-- Excel-like Table (ICE CREAM & SALMON) -->
+                    <!-- ICE CREAM & SALMON Layout -->
                     <div v-else class="mt-6 overflow-x-auto">
                         <table class="min-w-full border-collapse border border-gray-300 text-sm">
-                            <!-- Header Rows -->
                             <thead>
-                                <!-- First Row: ITEM CODE + ITEM DESCRIPTION + UOM -->
                                 <tr class="bg-gray-100">
-                                    <th class="border border-gray-300 px-3 py-2 font-semibold text-left" style="min-width: 120px;">
-                                        ITEM CODE
-                                    </th>
-                                    <th class="border border-gray-300 px-3 py-2 font-semibold text-left" style="min-width: 200px;">
-                                        ITEM DESCRIPTION
-                                    </th>
-                                    <th class="border border-gray-300 px-3 py-2 font-semibold text-center" style="min-width: 100px;">
-                                        UOM
-                                    </th>
+                                    <th class="border border-gray-300 px-3 py-2 font-semibold text-left" style="min-width: 120px;">ITEM CODE</th>
+                                    <th class="border border-gray-300 px-3 py-2 font-semibold text-left" style="min-width: 200px;">ITEM DESCRIPTION</th>
+                                    <th class="border border-gray-300 px-3 py-2 font-semibold text-center" style="min-width: 100px;">UOM</th>
                                 </tr>
-
-                                <!-- Second Row: Item Code value + Description value + UOM value -->
                                 <tr class="bg-white">
-                                    <td class="border border-gray-300 px-3 py-2">
-                                        {{ sap_item?.item_code || '' }}
-                                    </td>
-                                    <td class="border border-gray-300 px-3 py-2">
-                                        {{ sap_item?.item_description || '' }}
-                                    </td>
+                                    <td class="border border-gray-300 px-3 py-2">{{ sap_item?.item_code || '' }}</td>
+                                    <td class="border border-gray-300 px-3 py-2">{{ sap_item?.item_description || '' }}</td>
                                     <td class="border border-gray-300 px-3 py-2 text-center font-semibold">
                                         <span v-if="sap_item">{{ sap_item.alt_uom }}</span>
                                     </td>
                                 </tr>
                             </thead>
-
-                            <!-- Body: Dates as rows with dynamic store columns -->
                             <tbody>
                                 <template v-for="dateObj in dates" :key="dateObj.date">
-                                    <!-- Date Header Row -->
                                     <tr class="bg-gray-200">
-                                        <td class="border border-gray-300 px-3 py-2 font-bold text-base" colspan="3">
-                                            {{ dateObj.display }}
-                                        </td>
+                                        <td class="border border-gray-300 px-3 py-2 font-bold text-base" colspan="3">{{ dateObj.display }}</td>
                                     </tr>
-
-                                    <!-- Store Names Row for this date -->
                                     <tr class="bg-gray-50">
-                                        <td class="border border-gray-300 px-3 py-2 font-semibold" colspan="2">
-                                            Store Name
-                                        </td>
-                                        <td class="border border-gray-300 px-3 py-2 font-semibold text-center">
-                                            Quantity
-                                        </td>
+                                        <td class="border border-gray-300 px-3 py-2 font-semibold" colspan="2">Store Name</td>
+                                        <td class="border border-gray-300 px-3 py-2 font-semibold text-center">Quantity</td>
                                     </tr>
-
-                                    <!-- Each store that has delivery on this day -->
                                     <tr v-for="store in getStoresForDate(dateObj)" :key="`${dateObj.date}-${store.id}`" class="hover:bg-gray-50">
                                         <td class="border border-gray-300 px-3 py-2" colspan="2">
                                             <div>
@@ -722,39 +685,28 @@ const validateQuantity = (dateKey, storeId, value) => {
                                                 type="number"
                                                 step="0.01"
                                                 :min="variant === 'ICE CREAM' ? '5' : '0'"
+                                                :disabled="isEditableCell && !isEditableCell(null, store.id, dateObj.date)"
                                                 class="w-full px-2 py-1 border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 text-center"
+                                                :class="{ 'bg-gray-100 cursor-not-allowed opacity-60': isEditableCell && !isEditableCell(null, store.id, dateObj.date) }"
                                                 :placeholder="variant === 'ICE CREAM' ? 'Min: 5' : '0'"
                                                 @blur="validateQuantity(dateObj.date, store.id, orders[dateObj.date][store.id])"
                                                 @keydown.enter="handleEnterKey"
                                             />
                                         </td>
                                     </tr>
-
-                                    <!-- Day Total Row -->
                                     <tr class="bg-blue-50 font-semibold">
-                                        <td class="border border-gray-300 px-3 py-2" colspan="2">
-                                            TOTAL
-                                        </td>
-                                        <td class="border border-gray-300 px-3 py-2 text-center">
-                                            {{ getRowTotal(dateObj.date) }}
-                                        </td>
+                                        <td class="border border-gray-300 px-3 py-2" colspan="2">TOTAL</td>
+                                        <td class="border border-gray-300 px-3 py-2 text-center">{{ getRowTotal(dateObj.date) }}</td>
                                     </tr>
                                 </template>
-
-                                <!-- Grand Total Row -->
                                 <tr class="bg-gray-700 text-white font-bold">
-                                    <td class="border border-gray-300 px-3 py-2" colspan="2">
-                                        GRAND TOTAL
-                                    </td>
-                                    <td class="border border-gray-300 px-3 py-2 text-center">
-                                        {{ grandTotal }}
-                                    </td>
+                                    <td class="border border-gray-300 px-3 py-2" colspan="2">GRAND TOTAL</td>
+                                    <td class="border border-gray-300 px-3 py-2 text-center">{{ grandTotal }}</td>
                                 </tr>
                             </tbody>
                         </table>
                     </div>
 
-                    <!-- Action Buttons -->
                     <div class="flex justify-end gap-3 mt-6">
                         <button
                             @click="goBack"
