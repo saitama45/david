@@ -12,7 +12,10 @@ use Illuminate\Support\Facades\Log;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB; // Import DB facade for upsert
 
-class SupplierItemsImport implements ToCollection, WithHeadingRow, WithChunkReading
+use Maatwebsite\Excel\Concerns\WithEvents;
+use Maatwebsite\Excel\Events\AfterImport;
+
+class SupplierItemsImport implements ToCollection, WithHeadingRow, WithChunkReading, WithEvents
 {
     protected $skippedDetails = [];
     protected $processedCount = 0;
@@ -20,6 +23,9 @@ class SupplierItemsImport implements ToCollection, WithHeadingRow, WithChunkRead
     protected $skippedBySapValidationCount = 0;
     protected $skippedUnauthorizedCount = 0;
     protected $assignedSupplierCodes;
+    
+    // Store imported keys as: [SupplierCode => [ItemCode|UOM, ...]]
+    protected $importedItems = [];
 
     public function __construct(array $assignedSupplierCodes)
     {
@@ -141,6 +147,14 @@ class SupplierItemsImport implements ToCollection, WithHeadingRow, WithChunkRead
                 'created_at'        => now(),
                 'updated_at'        => now(),
             ];
+            
+            // Track this item as successfully processed
+            if (!isset($this->importedItems[$supplierCode])) {
+                $this->importedItems[$supplierCode] = [];
+            }
+            // Use a composite key of ItemCode|UOM for tracking
+            $this->importedItems[$supplierCode][] = $itemCode . '|' . $unit;
+
             $this->processedCount++;
         }
 
@@ -160,6 +174,54 @@ class SupplierItemsImport implements ToCollection, WithHeadingRow, WithChunkRead
                 DB::table('supplier_items')->upsert($miniBatch, $uniqueBy, $updateColumns);
             }
         }
+    }
+
+    /**
+     * @return array
+     */
+    public function registerEvents(): array
+    {
+        return [
+            AfterImport::class => function(AfterImport $event) {
+                // Perform deactivation logic after the entire import is complete
+                foreach ($this->importedItems as $supplierCode => $importedKeys) {
+                    // $importedKeys is an array of "ItemCode|UOM" strings
+                    // We need to find all items in DB for this SupplierCode that are NOT in $importedKeys
+                    // and set their is_active to 0.
+
+                    // Since DB does not support "where not in" with composite keys natively and efficiently across all drivers,
+                    // and concatenating columns in SQL can be slow or driver-specific, 
+                    // we will fetch all active items for this supplier and filter in PHP if the dataset is manageable,
+                    // or use a more complex query.
+                    // Given typical supplier item counts (thousands), fetching IDs and keys is feasible.
+                    
+                    // Fetch all IDs and keys (ItemCode, UOM) for this supplier
+                    $dbItems = DB::table('supplier_items')
+                        ->where('SupplierCode', $supplierCode)
+                        ->where('is_active', 1) // Only interested in currently active items to potentially deactivate
+                        ->select('id', 'ItemCode', 'uom')
+                        ->get();
+
+                    $idsToDeactivate = [];
+                    $importedKeysSet = array_flip($importedKeys); // Faster lookup
+
+                    foreach ($dbItems as $dbItem) {
+                        $key = $dbItem->ItemCode . '|' . $dbItem->uom;
+                        if (!isset($importedKeysSet[$key])) {
+                            $idsToDeactivate[] = $dbItem->id;
+                        }
+                    }
+
+                    if (!empty($idsToDeactivate)) {
+                        DB::table('supplier_items')
+                            ->whereIn('id', $idsToDeactivate)
+                            ->update(['is_active' => 0, 'updated_at' => now()]);
+                            
+                        Log::info("Deactivated " . count($idsToDeactivate) . " items for SupplierCode: $supplierCode that were missing from import.");
+                    }
+                }
+            },
+        ];
     }
 
     /**
