@@ -107,6 +107,7 @@ class StockManagementController extends Controller
                       ->orWhere('sap_masterfiles.ItemCode', 'like', "%{$search}%");
                 });
             })
+            ->orderByRaw('CASE WHEN COALESCE(stock.total_current_soh, 0) > 0 THEN 0 ELSE 1 END')
             ->orderBy('sap_masterfiles.ItemDescription');
 
         Log::info('StockManagementController: Products query SQL: ' . $productsQuery->toSql());
