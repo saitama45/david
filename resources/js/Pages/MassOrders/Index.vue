@@ -373,7 +373,7 @@ const showOrderDetails = (id) => router.get(route('mass-orders.show', id));
 const editOrderDetails = (id) => router.get(route('mass-orders.edit', id));
 
 const filteredSuppliers = computed(() => {
-    return props.suppliers.filter(supplier => supplier.value !== 'DROPS');
+    return props.suppliers;
 });
 
 const downloadFileName = computed(() => {
