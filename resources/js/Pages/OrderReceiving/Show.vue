@@ -9,6 +9,14 @@ import dayjs from "dayjs";
 import utc from "dayjs/plugin/utc"; // Import UTC plugin
 import timezone from "dayjs/plugin/timezone"; // Import Timezone plugin
 import { useBackButton } from "@/Composables/useBackButton";
+import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogFooter,
+    DialogHeader,
+    DialogTitle,
+} from "@/Components/ui/dialog";
 
 // Extend dayjs with the plugins
 dayjs.extend(utc);
@@ -21,6 +29,21 @@ const toast = useToast();
 const confirm = useConfirm();
 
 const { backButton } = useBackButton(route("orders-receiving.index"));
+
+const getStatusClass = (status) => {
+    switch (status?.toLowerCase()) {
+        case "approved":
+        case "received":
+            return "bg-green-100 text-green-800 border-green-200";
+        case "pending":
+            return "bg-yellow-100 text-yellow-800 border-yellow-200";
+        case "rejected":
+        case "cancelled":
+            return "bg-red-100 text-red-800 border-red-200";
+        default:
+            return "bg-gray-100 text-gray-800 border-gray-200";
+    }
+};
 
 // Define remarks options for the dropdown
 const remarksOptions = [
@@ -566,318 +589,307 @@ const promptConfirmReceive = () => {
 
 <template>
     <Layout heading="Order Details">
-        <DivFlexCol class="gap-3">
-            <Card class="p-5 grid sm:grid-cols-4 gap-5">
-                <InputContainer>
-                    <LabelXS>Encoder: </LabelXS>
-                    <SpanBold
-                        >{{ order.encoder.first_name }}
-                        {{ order.encoder.last_name }}</SpanBold
-                    >
-                </InputContainer>
-                <InputContainer>
-                    <LabelXS>Order Number: </LabelXS>
-                    <SpanBold>{{ order.order_number }}</SpanBold>
-                </InputContainer>
-                <InputContainer>
-                    <LabelXS>Order Date: </LabelXS>
-                    <SpanBold>{{ order.order_date }}</SpanBold>
-                </InputContainer>
-                <InputContainer>
-                    <LabelXS>Order Status: </LabelXS>
-                    <SpanBold>{{ order.order_status.toUpperCase() }}</SpanBold>
-                </InputContainer>
-                <InputContainer>
-                    <LabelXS>Approver: </LabelXS>
-                    <SpanBold
-                        >{{ order.approver?.first_name }}
-                        {{ order.approver?.last_name }}</SpanBold
-                    >
-                    <SpanBold v-if="!order.approver">N/a</SpanBold>
-                </InputContainer>
-                <InputContainer>
-                    <LabelXS>Variant: </LabelXS>
-                    <SpanBold>{{ order.variant.toUpperCase() }}</SpanBold>
-                </InputContainer>
-                <InputContainer>
-                    <LabelXS>Approval Action Date: </LabelXS>
-                    <SpanBold>{{ order.approval_action_date }}</SpanBold>
-                </InputContainer>
-            </Card>
-
-            <TableContainer>
-                <TableHeader>
-                    <CardTitle>Delivery Receipts <span class="text-red-500">*</span></CardTitle>
-                    <Button @click="isDeliveryReceiptModalVisible = true"
-                        >Add Delivery Number</Button
-                    >
-                </TableHeader>
-                <Table>
-                    <TableHead>
-                        <TH>Id</TH>
-                        <TH>Number</TH>
-                        <TH>
-                            <span v-if="order.variant.toLowerCase() === 'mass dts'">PO Number</span>
-                            <span v-else>SAP SO Number</span>
-                        </TH>
-                        <TH>Remarks</TH>
-                        <TH>Created at</TH>
-                        <TH>Actions</TH>
-                    </TableHead>
-                    <TableBody>
-                        <tr
-                            v-for="receipt in order.delivery_receipts"
-                            :key="receipt.id"
-                        >
-                            <TD>{{ receipt.id }}</TD>
-                            <TD>{{ receipt.delivery_receipt_number }}</TD>
-                            <TD>{{ receipt.sap_so_number }}</TD>
-                            <TD>{{ receipt.remarks }}</TD>
-                            <TD>{{
-                                dayjs
-                                    .utc(receipt.created_at)
-                                    .tz("Asia/Manila")
-                                    .format("MMMM D, YYYY h:mm A")
-                            }}</TD>
-                            <TD>
-                                <DivFlexCenter class="gap-3">
-                                    <EditButton
-                                        @click="
-                                            editDeliveryReceiptNumber(
-                                                receipt.id,
-                                                receipt.delivery_receipt_number,
-                                                receipt.sap_so_number,
-                                                receipt.remarks
-                                            )
-                                        "
-                                    />
-                                    <DeleteButton
-                                        @click="
-                                            deleteDeliveryReceiptNumber(
-                                                receipt.id
-                                            )
-                                        "
-                                    />
-                                </DivFlexCenter>
-                            </TD>
-                        </tr>
-                    </TableBody>
-                </Table>
-
-                <MobileTableContainer>
-                    <MobileTableRow
-                        v-for="receipt in order.delivery_receipts"
-                        :key="receipt.id"
-                    >
-                        <MobileTableHeading
-                            :title="`${receipt.delivery_receipt_number}`"
-                        >
-                            <EditButton
-                                @click="
-                                    editDeliveryReceiptNumber(
-                                        receipt.id,
-                                        receipt.delivery_receipt_number,
-                                        receipt.sap_so_number,
-                                        receipt.remarks
-                                    )
-                                "
-                            />
-                            <DeleteButton
-                                @click="deleteDeliveryReceiptNumber(receipt.id)"
-                            />
-                        </MobileTableHeading>
-                        <LabelXS>
-                            <span v-if="order.variant.toLowerCase() === 'mass dts'">PO Number:</span>
-                            <span v-else>SAP SO Number:</span>
-                            {{ receipt.sap_so_number ?? "N/a" }}
-                        </LabelXS>
-                        <LabelXS
-                            >Remarks: {{ receipt.remarks ?? "N/a" }}</LabelXS
-                        >
-                        <LabelXS
-                            >Created at:
-                            {{
-                                dayjs
-                                    .utc(receipt.created_at)
-                                    .tz("Asia/Manila")
-                                    .format("MMMM D, YYYY h:mm A")
-                            }}</LabelXS
-                        >
-                    </MobileTableRow>
-                    <SpanBold v-if="order.delivery_receipts.length < 1"
-                        >None</SpanBold
-                    >
-                </MobileTableContainer>
-            </TableContainer>
-
-            <TableContainer>
-                <TableHeader>
-                    <SpanBold class="text-xs">Remarks</SpanBold>
-                </TableHeader>
-                <Table>
-                    <TableHead>
-                        <TH> Id </TH>
-                        <TH> Remarks By</TH>
-                        <TH>Action</TH>
-                        <TH>Remarks</TH>
-                        <TH>Created At</TH>
-                    </TableHead>
-                    <TableBody>
-                        <tr
-                            v-for="remarks in order.store_order_remarks"
-                            :key="remarks.id"
-                        >
-                            <TD>{{ remarks.id }}</TD>
-                            <TD
-                                >{{ remarks.user.first_name }}
-                                {{ remarks.user.last_name }}</TD
-                            >
-                            <TD>
-                                {{ remarks.action.toUpperCase() }}
-                            </TD>
-                            <TD>{{ remarks.remarks }}</TD>
-                            <TD>{{
-                                dayjs(remarks.created_at)
-                                    .tz("Asia/Manila")
-                                    .format("MMMM D, YYYY h:mm A")
-                            }}</TD>
-                        </tr>
-                    </TableBody>
-                </Table>
-
-                <MobileTableContainer>
-                    <MobileTableRow
-                        v-for="remarks in order.store_order_remarks"
-                        :key="remarks.id"
-                    >
-                        <MobileTableHeading
-                            :title="`${remarks.action.toUpperCase()}`"
-                        >
-                            <ShowButton />
-                        </MobileTableHeading>
-                        <LabelXS>Remarks: {{ remarks.remarks }}</LabelXS>
-                        <LabelXS
-                            >Created at:
-                            {{
-                                dayjs(remarks.created_at)
-                                    .tz("Asia/Manila")
-                                    .format("MMMM D, YYYY h:mm A")
-                            }}</LabelXS
-                        >
-                    </MobileTableRow>
-                    <SpanBold v-if="order.store_order_remarks.length < 1"
-                        >None</SpanBold
-                    >
-                </MobileTableContainer>
-            </TableContainer>
-
-            <Card>
-                <TableHeader>
-                    <CardTitle>Image Attachments <span class="text-red-500">*</span></CardTitle>
-                    <Button @click="openImageUploadModal">Attach Image</Button>
-                </TableHeader>
-                <div class="p-5">
-                    <DivFlexCenter
-                        v-if="images.length > 0"
-                        class="gap-4 overflow-auto overflow-x-auto scrollbar-thin scrollbar-track-gray-100 scrollbar-thumb-gray-300 hover:scrollbar-thumb-gray-400"
-                    >
-                        <div
-                            v-for="image in images"
-                            :key="image.id"
-                            class="relative"
-                        >
-                            <button
-                                @click="
-                                    deleteImageForm.id = image.id;
-                                    deleteImage();
-                                "
-                                class="absolute -right-2 -top-2 text-white size-5 rounded-full bg-red-500"
-                            >
-                                <X class="size-5" />
-                            </button>
-                            <!-- Image URL is bound correctly here -->
-                            <a :href="image.image_url" target="_blank" rel="noopener noreferrer">
-                                <img
-                                    :src="image.image_url"
-                                    class="size-24 cursor-pointer hover:opacity-80 transition-opacity"
-                                />
-                            </a>
+        <div class="space-y-6">
+            <!-- Order Information Card -->
+            <Card class="overflow-hidden bg-white shadow-sm border border-gray-200 rounded-xl">
+                <div class="p-6">
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                        <!-- Order Info -->
+                        <div class="space-y-4">
+                            <h3 class="text-sm font-semibold text-gray-500 uppercase tracking-wider">Order Info</h3>
+                            <div class="space-y-3">
+                                <div>
+                                    <span class="text-xs text-gray-400 block">Order Number</span>
+                                    <span class="font-medium text-gray-900">{{ order.order_number }}</span>
+                                </div>
+                                <div>
+                                    <span class="text-xs text-gray-400 block">Order Date</span>
+                                    <span class="font-medium text-gray-900">{{ order.order_date }}</span>
+                                </div>
+                                <div>
+                                    <span class="text-xs text-gray-400 block">Variant</span>
+                                    <span class="font-medium text-gray-900">{{ order.variant.toUpperCase() }}</span>
+                                </div>
+                            </div>
                         </div>
-                    </DivFlexCenter>
-                    <SpanBold v-else>None</SpanBold>
+
+                        <!-- Status Info -->
+                        <div class="space-y-4">
+                            <h3 class="text-sm font-semibold text-gray-500 uppercase tracking-wider">Status</h3>
+                            <div class="space-y-3">
+                                <div>
+                                    <span class="text-xs text-gray-400 block mb-1">Current Status</span>
+                                    <span :class="['px-2.5 py-0.5 rounded-full text-xs font-medium border', getStatusClass(order.order_status)]">
+                                        {{ order.order_status.toUpperCase() }}
+                                    </span>
+                                </div>
+                                <div>
+                                    <span class="text-xs text-gray-400 block">Approval Date</span>
+                                    <span class="font-medium text-gray-900">{{ order.approval_action_date || 'N/A' }}</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Personnel -->
+                        <div class="space-y-4">
+                            <h3 class="text-sm font-semibold text-gray-500 uppercase tracking-wider">Personnel</h3>
+                            <div class="space-y-3">
+                                <div>
+                                    <span class="text-xs text-gray-400 block">Encoder</span>
+                                    <div class="flex items-center gap-2">
+                                        <div class="size-6 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 text-xs font-bold">
+                                            {{ order.encoder.first_name[0] }}
+                                        </div>
+                                        <span class="font-medium text-gray-900">{{ order.encoder.first_name }} {{ order.encoder.last_name }}</span>
+                                    </div>
+                                </div>
+                                <div>
+                                    <span class="text-xs text-gray-400 block">Approver</span>
+                                    <div class="flex items-center gap-2">
+                                        <div v-if="order.approver" class="size-6 rounded-full bg-purple-100 flex items-center justify-center text-purple-600 text-xs font-bold">
+                                            {{ order.approver.first_name[0] }}
+                                        </div>
+                                        <span class="font-medium text-gray-900">
+                                            {{ order.approver ? `${order.approver.first_name} ${order.approver.last_name}` : 'N/A' }}
+                                        </span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Actions/Summary -->
+                        <div class="space-y-4 flex flex-col justify-between">
+                            <h3 class="text-sm font-semibold text-gray-500 uppercase tracking-wider">Summary</h3>
+                             <div class="p-3 bg-gray-50 rounded-lg border border-gray-100">
+                                <div class="flex justify-between items-center mb-1">
+                                    <span class="text-xs text-gray-500">Items Ordered</span>
+                                    <span class="font-bold text-gray-900">{{ orderedItems.length }}</span>
+                                </div>
+                                <div class="flex justify-between items-center">
+                                    <span class="text-xs text-gray-500">Delivery Receipts</span>
+                                    <span class="font-bold text-gray-900">{{ order.delivery_receipts.length }}</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </Card>
 
-            <TableContainer class="col-span-2 min-w-fit">
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <!-- Delivery Receipts Table -->
+                <TableContainer>
+                    <TableHeader>
+                        <CardTitle class="text-lg font-semibold text-gray-800">Delivery Receipts <span class="text-red-500 text-sm">*</span></CardTitle>
+                        <Button size="sm" @click="isDeliveryReceiptModalVisible = true">
+                            <span class="mr-1">+</span> Add Receipt
+                        </Button>
+                    </TableHeader>
+                    <Table>
+                        <TableHead>
+                            <TH>Number</TH>
+                            <TH>
+                                <span v-if="order.variant.toLowerCase() === 'mass dts'">PO #</span>
+                                <span v-else>SAP SO #</span>
+                            </TH>
+                            <TH>Remarks</TH>
+                            <TH>Created</TH>
+                            <TH class="text-right">Actions</TH>
+                        </TableHead>
+                        <TableBody>
+                            <tr v-if="order.delivery_receipts.length === 0">
+                                <td colspan="5" class="text-center py-6 text-gray-500 italic text-sm">No delivery receipts added yet.</td>
+                            </tr>
+                            <tr v-for="receipt in order.delivery_receipts" :key="receipt.id" class="hover:bg-gray-50 transition-colors">
+                                <TD class="font-medium">{{ receipt.delivery_receipt_number }}</TD>
+                                <TD class="font-mono text-xs">{{ receipt.sap_so_number }}</TD>
+                                <TD class="text-gray-600 truncate max-w-[150px]">{{ receipt.remarks || '-' }}</TD>
+                                <TD class="text-xs text-gray-500">
+                                    {{ dayjs.utc(receipt.created_at).tz("Asia/Manila").format("MMM D, YYYY") }}
+                                </TD>
+                                <TD>
+                                    <div class="flex justify-end gap-2">
+                                        <EditButton @click="editDeliveryReceiptNumber(receipt.id, receipt.delivery_receipt_number, receipt.sap_so_number, receipt.remarks)" />
+                                        <DeleteButton @click="deleteDeliveryReceiptNumber(receipt.id)" />
+                                    </div>
+                                </TD>
+                            </tr>
+                        </TableBody>
+                    </Table>
+                    
+                     <!-- Mobile View for Delivery Receipts -->
+                     <MobileTableContainer>
+                        <MobileTableRow v-for="receipt in order.delivery_receipts" :key="receipt.id">
+                            <MobileTableHeading :title="receipt.delivery_receipt_number">
+                                <div class="flex gap-2">
+                                    <EditButton @click="editDeliveryReceiptNumber(receipt.id, receipt.delivery_receipt_number, receipt.sap_so_number, receipt.remarks)" />
+                                    <DeleteButton @click="deleteDeliveryReceiptNumber(receipt.id)" />
+                                </div>
+                            </MobileTableHeading>
+                             <div class="grid grid-cols-2 gap-2 text-sm mt-2">
+                                <div class="flex flex-col">
+                                    <span class="text-xs text-gray-500">
+                                         <span v-if="order.variant.toLowerCase() === 'mass dts'">PO #</span>
+                                         <span v-else>SAP SO #</span>
+                                    </span>
+                                    <span class="font-medium">{{ receipt.sap_so_number ?? "N/A" }}</span>
+                                </div>
+                                <div class="flex flex-col">
+                                    <span class="text-xs text-gray-500">Created</span>
+                                    <span>{{ dayjs.utc(receipt.created_at).tz("Asia/Manila").format("MMM D, YYYY") }}</span>
+                                </div>
+                                <div class="col-span-2 flex flex-col">
+                                    <span class="text-xs text-gray-500">Remarks</span>
+                                    <span>{{ receipt.remarks ?? "N/A" }}</span>
+                                </div>
+                            </div>
+                        </MobileTableRow>
+                        <div v-if="order.delivery_receipts.length === 0" class="p-4 text-center text-gray-500 italic">None</div>
+                    </MobileTableContainer>
+                </TableContainer>
+
+                <!-- Remarks Table -->
+                <TableContainer>
+                     <TableHeader>
+                        <CardTitle class="text-lg font-semibold text-gray-800">History & Remarks</CardTitle>
+                    </TableHeader>
+                    <Table>
+                        <TableHead>
+                            <TH>User</TH>
+                            <TH>Action</TH>
+                            <TH>Remarks</TH>
+                            <TH>Date</TH>
+                        </TableHead>
+                        <TableBody>
+                             <tr v-if="order.store_order_remarks.length === 0">
+                                <td colspan="4" class="text-center py-6 text-gray-500 italic text-sm">No remarks found.</td>
+                            </tr>
+                            <tr v-for="remarks in order.store_order_remarks" :key="remarks.id" class="hover:bg-gray-50 transition-colors">
+                                <TD class="font-medium text-xs">{{ remarks.user.first_name }} {{ remarks.user.last_name }}</TD>
+                                <TD>
+                                    <span class="px-2 py-0.5 rounded text-[10px] font-bold bg-gray-100 text-gray-600 border border-gray-200 uppercase tracking-wide">
+                                        {{ remarks.action }}
+                                    </span>
+                                </TD>
+                                <TD class="text-gray-600 italic text-sm">{{ remarks.remarks }}</TD>
+                                <TD class="text-xs text-gray-500">
+                                    {{ dayjs(remarks.created_at).tz("Asia/Manila").format("MMM D, h:mm A") }}
+                                </TD>
+                            </tr>
+                        </TableBody>
+                    </Table>
+
+                     <MobileTableContainer>
+                        <MobileTableRow v-for="remarks in order.store_order_remarks" :key="remarks.id">
+                            <MobileTableHeading :title="remarks.action.toUpperCase()">
+                                <span class="text-xs text-gray-500">{{ dayjs(remarks.created_at).tz("Asia/Manila").format("MMM D, h:mm A") }}</span>
+                            </MobileTableHeading>
+                            <div class="mt-2 text-sm">
+                                <p class="text-gray-900 font-medium">{{ remarks.user.first_name }} {{ remarks.user.last_name }}</p>
+                                <p class="text-gray-600 italic mt-1">"{{ remarks.remarks }}"</p>
+                            </div>
+                        </MobileTableRow>
+                        <div v-if="order.store_order_remarks.length === 0" class="p-4 text-center text-gray-500 italic">None</div>
+                    </MobileTableContainer>
+                </TableContainer>
+            </div>
+
+            <!-- Image Attachments -->
+             <Card class="bg-white shadow-sm border border-gray-200 rounded-xl overflow-hidden">
+                <div class="p-4 border-b border-gray-100 flex justify-between items-center bg-gray-50/50">
+                    <CardTitle class="text-lg font-semibold text-gray-800 flex items-center gap-2">
+                        Image Attachments <span class="text-red-500 text-sm">*</span>
+                        <span class="px-2 py-0.5 rounded-full bg-gray-200 text-gray-600 text-xs">{{ images.length }}</span>
+                    </CardTitle>
+                    <Button size="sm" variant="outline" @click="openImageUploadModal">
+                         Upload Image
+                    </Button>
+                </div>
+                <div class="p-6">
+                    <div v-if="images.length > 0" class="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 gap-4">
+                        <div v-for="image in images" :key="image.id" class="group relative aspect-square bg-gray-100 rounded-lg border border-gray-200 overflow-hidden">
+                             <a :href="image.image_url" target="_blank" rel="noopener noreferrer" class="block w-full h-full">
+                                <img :src="image.image_url" class="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105" />
+                            </a>
+                            <button
+                                @click="deleteImageForm.id = image.id; deleteImage();"
+                                class="absolute top-2 right-2 p-1.5 bg-red-500/90 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-600 shadow-sm"
+                                title="Delete Image"
+                            >
+                                <X class="size-3" />
+                            </button>
+                        </div>
+                    </div>
+                    <div v-else class="text-center py-8 bg-gray-50 rounded-lg border border-dashed border-gray-300">
+                        <div class="flex flex-col items-center justify-center text-gray-400">
+                             <svg class="size-10 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
+                            <span class="text-sm">No images attached</span>
+                        </div>
+                    </div>
+                </div>
+            </Card>
+
+            <!-- Ordered Items Table -->
+            <TableContainer>
                 <TableHeader>
-                    <CardTitle>Ordered Items</CardTitle>
+                    <CardTitle class="text-lg font-semibold text-gray-800">Ordered Items</CardTitle>
+                    <span class="text-sm text-gray-500 font-normal">Total Items: {{ orderedItems.length }}</span>
                 </TableHeader>
                 <Table>
                     <TableHead>
-                        <TH> Item Code </TH>
-                        <TH> Name </TH>
-                        <TH>BaseUOM</TH>
-                        <TH>UOM</TH>
-                        <TH> Ordered </TH>
-                        <TH>Approved</TH>
-                        <TH> Commited</TH>
-                        <TH> Received</TH>
+                        <TH>Item Code</TH>
+                        <TH>Name</TH>
+                        <TH>UOM Details</TH>
+                        <TH class="text-center">Ordered</TH>
+                        <TH class="text-center">Approved</TH>
+                        <TH class="text-center">Committed</TH>
+                        <TH class="text-center">Received</TH>
                     </TableHead>
-
                     <TableBody>
-                        <tr
-                            v-for="orderItem in orderedItems"
-                            :key="orderItem.id"
-                        >
-                            <TD>{{ orderItem.supplier_item.ItemCode }}</TD>
-                            <TD>{{ orderItem.supplier_item.item_name }}</TD>
-                            <TD>{{
-                                orderItem.supplier_item.sap_master_file
-                                    ?.BaseUOM
-                            }}</TD>
-                            <TD class="text-xs">{{
-                                orderItem.uom
-                            }}</TD>
-                            <TD>{{ orderItem.quantity_ordered }}</TD>
-                            <TD>{{ orderItem.quantity_approved }}</TD>
-                            <TD>{{ orderItem.quantity_commited }}</TD>
-                            <TD>{{ orderItem.quantity_received }}</TD>
+                        <tr v-for="orderItem in orderedItems" :key="orderItem.id" class="hover:bg-gray-50 transition-colors">
+                            <TD class="font-mono text-gray-600">{{ orderItem.supplier_item.ItemCode }}</TD>
+                            <TD class="font-medium text-gray-900">{{ orderItem.supplier_item.item_name }}</TD>
+                            <TD>
+                                <div class="flex flex-col text-xs">
+                                    <span class="text-gray-500">Base: <span class="text-gray-900 font-medium">{{ orderItem.supplier_item.sap_master_file?.BaseUOM || '-' }}</span></span>
+                                    <span class="text-gray-500">Order: <span class="text-gray-900 font-medium">{{ orderItem.uom }}</span></span>
+                                </div>
+                            </TD>
+                            <TD class="text-center font-mono">{{ orderItem.quantity_ordered }}</TD>
+                            <TD class="text-center font-mono">{{ orderItem.quantity_approved }}</TD>
+                            <TD class="text-center font-mono">{{ orderItem.quantity_commited }}</TD>
+                            <TD class="text-center font-mono font-bold text-blue-600">{{ orderItem.quantity_received }}</TD>
                         </tr>
                     </TableBody>
                 </Table>
 
-                <MobileTableContainer>
-                    <MobileTableRow
-                        v-for="orderItem in orderedItems"
-                        :key="orderItem.id"
-                    >
-                        <MobileTableHeading
-                            :title="`${orderItem.supplier_item.item_name} (${orderItem.supplier_item.ItemCode})`"
-                        >
+                 <MobileTableContainer>
+                    <MobileTableRow v-for="orderItem in orderedItems" :key="orderItem.id">
+                        <MobileTableHeading :title="`${orderItem.supplier_item.item_name}`">
+                             <span class="text-xs font-mono bg-gray-100 px-1 py-0.5 rounded">{{ orderItem.supplier_item.ItemCode }}</span>
                         </MobileTableHeading>
-                        <LabelXS
-                            >BaseUOM:
-                            {{
-                                orderItem.supplier_item.sap_master_file
-                                    ?.BaseUOM
-                            }}</LabelXS
-                        >
-                        <LabelXS>UOM: {{ orderItem.uom }}</LabelXS>
-                        <LabelXS
-                            >Quantity Received:
-                            {{ orderItem.quantity_received }}</LabelXS
-                        >
+                        <div class="grid grid-cols-2 gap-2 mt-2 text-sm">
+                            <div class="flex flex-col">
+                                <span class="text-xs text-gray-500">UOM</span>
+                                <span>{{ orderItem.uom }}</span>
+                            </div>
+                             <div class="flex flex-col text-right">
+                                <span class="text-xs text-gray-500">Received</span>
+                                <span class="font-bold text-blue-600">{{ orderItem.quantity_received }}</span>
+                            </div>
+                        </div>
                     </MobileTableRow>
                 </MobileTableContainer>
             </TableContainer>
 
+            <!-- Receiving History Table -->
             <TableContainer>
                 <TableHeader>
-                    <CardTitle>Receiving History <span class="text-red-500">*</span></CardTitle>
+                    <CardTitle class="text-lg font-semibold text-gray-800">Receiving History <span class="text-sm font-normal text-gray-500">({{ receiveDatesHistory.length }} records)</span> <span class="text-red-500 text-sm">*</span></CardTitle>
                     <Button
                         v-if="order.order_status != 'received'"
                         @click="promptConfirmReceive"
                         :disabled="!canConfirmReceive"
+                        :variant="!canConfirmReceive ? 'secondary' : 'default'"
                         :title="!canConfirmReceive ? 'A delivery receipt and image are required before confirming.' : 'Confirm all pending received items'"
                     >
                         Confirm Receive
@@ -885,47 +897,60 @@ const promptConfirmReceive = () => {
                 </TableHeader>
                 <Table>
                     <TableHead>
-                        <TH> Id </TH>
-                        <TH> Item </TH>
-                        <TH> Item Code </TH>
-                        <TH> Quantity Received</TH>
-                        <TH> Received At</TH>
-                        <TH> Status</TH>
-                        <TH> Remarks </TH>
-                        <TH>Actions</TH>
+                        <TH>Item</TH>
+                        <TH>Code</TH>
+                        <TH class="text-center">Qty Received</TH>
+                        <TH>Received At</TH>
+                        <TH class="text-center">Status</TH>
+                        <TH>Remarks</TH>
+                        <TH class="text-right">Actions</TH>
                     </TableHead>
                     <TableBody>
+                         <tr v-if="receiveDatesHistory.length === 0">
+                            <td colspan="7" class="text-center py-8 text-gray-500 italic bg-gray-50/50">
+                                No receiving history available.
+                            </td>
+                        </tr>
                         <tr
                             v-for="history in receiveDatesHistory"
                             :key="history.id"
+                            class="hover:bg-gray-50 transition-colors duration-150"
                         >
-                            <TD>{{ history.id }}</TD>
-                            <TD>{{
+                            <TD class="font-medium text-gray-800">{{
                                 history.store_order_item.supplier_item
                                     .item_name
                             }}</TD>
-                            <TD>{{
+                            <TD class="font-mono text-xs text-gray-600">{{
                                 history.store_order_item.supplier_item
                                     .ItemCode
                             }}</TD>
-                            <TD>{{ history.quantity_received }}</TD>
-                            <TD>{{
+                            <TD class="text-center font-mono font-bold pr-6">{{ history.quantity_received }}</TD>
+                            <TD class="text-sm text-gray-600">{{
                                 dayjs(history.received_date)
                                     .tz("Asia/Manila")
-                                    .format("MMMM D, YYYY h:mm A")
+                                    .format("MMM D, YYYY h:mm A")
                             }}</TD>
-                            <TD>{{ history.status }}</TD>
-                            <TD class="max-w-[200px] truncate">{{ history.remarks }}</TD>
+                            <TD class="text-center">
+                                <span :class="[
+                                    'px-2.5 py-0.5 text-xs font-semibold rounded-full border',
+                                    getStatusClass(history.status)
+                                ]">
+                                    {{ history.status.toUpperCase() }}
+                                </span>
+                            </TD>
+                            <TD class="max-w-[200px] truncate text-sm text-gray-600" :title="history.remarks">{{ history.remarks || '-' }}</TD>
                             <TD>
-                                <DivFlexCenter class="gap-3">
+                                <div class="flex justify-end gap-2">
                                     <ShowButton
                                         @click="openViewModalForm(history.id)"
+                                        title="View Details"
                                     />
                                     <EditButton
                                         v-if="history.status === 'pending'"
                                         @click="openEditModalForm(history.id)"
+                                        title="Edit Item"
                                     />
-                                </DivFlexCenter>
+                                </div>
                             </TD>
                         </tr>
                     </TableBody>
@@ -937,516 +962,298 @@ const promptConfirmReceive = () => {
                         :key="history.id"
                     >
                         <MobileTableHeading
-                            :title="`${history.store_order_item.supplier_item.item_name} (${history.store_order_item.supplier_item.ItemCode})`"
+                            :title="`${history.store_order_item.supplier_item.item_name}`"
                         >
-                            <ShowButton
-                                class="size-5 gap mr-0"
-                                @click="openViewModalForm(history.id)"
-                            />
-                            <EditButton
-                                class="size-5 gap mr-1"
-                                v-if="history.status === 'pending'"
-                                @click="openEditModalForm(history.id)"
-                            />
+                            <div class="flex gap-1">
+                                <ShowButton
+                                    class="size-8"
+                                    @click="openViewModalForm(history.id)"
+                                />
+                                <EditButton
+                                    class="size-8"
+                                    v-if="history.status === 'pending'"
+                                    @click="openEditModalForm(history.id)"
+                                />
+                            </div>
                         </MobileTableHeading>
-                        <LabelXS
-                            >Received: {{ history.quantity_received }}</LabelXS
-                        >
-                        <LabelXS
-                            >Status: {{ history.status.toUpperCase() }}</LabelXS
-                        >
-                        <LabelXS v-if="history.remarks"
-                            >Remarks: {{ history.remarks }}</LabelXS
-                        >
+                         <div class="grid grid-cols-2 gap-2 mt-2 text-sm">
+                            <div class="flex flex-col">
+                                 <span class="text-xs text-gray-500">Received</span>
+                                 <span class="font-bold">{{ history.quantity_received }}</span>
+                            </div>
+                            <div class="flex flex-col items-end">
+                                <span class="text-xs text-gray-500 mb-1">Status</span>
+                                <span :class="['px-2 py-0.5 rounded text-xs font-bold border', getStatusClass(history.status)]">{{ history.status.toUpperCase() }}</span>
+                            </div>
+                             <div class="col-span-2 flex flex-col" v-if="history.remarks">
+                                <span class="text-xs text-gray-500">Remarks</span>
+                                <span class="italic text-gray-600">{{ history.remarks }}</span>
+                            </div>
+                        </div>
                     </MobileTableRow>
-                    <SpanBold v-if="receiveDatesHistory.length < 1"
-                        >None</SpanBold
-                    >
+                    <div v-if="receiveDatesHistory.length < 1" class="p-4 text-center text-gray-500 italic">None</div>
                 </MobileTableContainer>
             </TableContainer>
-        </DivFlexCol>
+        </div>
+
+        <!-- Modals -->
         <div
             v-if="isDeliveryReceiptModalVisible"
             class="fixed inset-0 z-50 flex items-center justify-center"
             @click="handleBackdropClick"
         >
-            <!-- Backdrop -->
-            <div
-                class="absolute inset-0 bg-black/50 backdrop-blur-sm"
-            ></div>
-
-            <!-- Modal Content -->
-            <div
-                class="relative z-10 w-full sm:max-w-[600px] mx-4 bg-white rounded-lg shadow-xl border border-gray-200 p-6 transform transition-all"
-            >
-                <!-- Header -->
-                <div class="flex items-center justify-between mb-4">
+            <div class="absolute inset-0 bg-black/50 backdrop-blur-sm"></div>
+            <div class="relative z-10 w-full sm:max-w-[500px] mx-4 bg-white rounded-xl shadow-2xl border border-gray-200 p-6 transform transition-all">
+                <div class="flex items-center justify-between mb-6">
                     <div>
-                        <h2 class="text-lg font-semibold text-gray-900">
-                            Delivery Receipt Form
-                        </h2>
-                        <p class="text-sm text-gray-600 mt-1">
-                            Input all the important details
-                        </p>
+                        <h2 class="text-xl font-bold text-gray-900">Delivery Receipt</h2>
+                        <p class="text-sm text-gray-500">Enter receipt details below</p>
                     </div>
-                    <Button
-                        variant="ghost"
-                        size="sm"
-                        @click="isDeliveryReceiptModalVisible = false"
-                        class="h-8 w-8 p-0 hover:bg-gray-100"
-                    >
-                        <svg
-                            class="h-4 w-4"
-                            fill="none"
-                            stroke="currentColor"
-                            viewBox="0 0 24 24"
-                        >
-                            <path
-                                stroke-linecap="round"
-                                stroke-linejoin="round"
-                                stroke-width="2"
-                                d="M6 18L18 6M6 6l12 12"
-                            ></path>
-                        </svg>
-                    </Button>
+                    <button @click="isDeliveryReceiptModalVisible = false" class="text-gray-400 hover:text-gray-600 transition-colors">
+                        <X class="size-6" />
+                    </button>
                 </div>
 
-                <!-- Form Content -->
-                <div class="space-y-3">
+                <div class="space-y-4">
                     <InputContainer>
-                        <Label class="text-xs">Delivery Receipt Number <span class="text-red-500">*</span></Label>
-                        <Input
-                            v-model="
-                                deliveryReceiptForm.delivery_receipt_number
-                            "
-                        />
-                        <FormError>{{
-                            deliveryReceiptForm.errors.delivery_receipt_number
-                        }}</FormError>
+                        <Label class="text-xs font-medium uppercase text-gray-500">DR Number <span class="text-red-500">*</span></Label>
+                        <Input v-model="deliveryReceiptForm.delivery_receipt_number" class="font-medium" />
+                        <FormError>{{ deliveryReceiptForm.errors.delivery_receipt_number }}</FormError>
                     </InputContainer>
                     <InputContainer>
-                        <Label class="text-xs">
+                        <Label class="text-xs font-medium uppercase text-gray-500">
                             <span v-if="order.variant.toLowerCase() === 'mass dts'">PO Number</span>
                             <span v-else>SAP SO Number</span>
                             <span class="text-red-500">*</span>
                         </Label>
-                        <Input
-                            v-model="
-                                deliveryReceiptForm.sap_so_number
-                            "
-                        />
-                        <FormError>{{
-                            deliveryReceiptForm.errors.sap_so_number
-                        }}</FormError>
+                        <Input v-model="deliveryReceiptForm.sap_so_number" class="font-medium" />
+                        <FormError>{{ deliveryReceiptForm.errors.sap_so_number }}</FormError>
                     </InputContainer>
                     <InputContainer>
-                        <Label class="text-xs">Remarks</Label>
-                        <Input
-                            v-model="
-                                deliveryReceiptForm.remarks
-                            "
-                        />
-                        <FormError>{{
-                            deliveryReceiptForm.errors.remarks
-                        }}</FormError>
+                        <Label class="text-xs font-medium uppercase text-gray-500">Remarks</Label>
+                        <Input v-model="deliveryReceiptForm.remarks" />
+                        <FormError>{{ deliveryReceiptForm.errors.remarks }}</FormError>
                     </InputContainer>
                 </div>
-                <div class="flex justify-end items-center gap-3 mt-6">
-                    <Button
-                        variant="ghost"
-                        @click="isDeliveryReceiptModalVisible = false"
-                        >Cancel</Button
-                    >
-                    <Button @click="submitDeliveryReceiptForm"
-                        >Submit</Button
-                    >
+                <div class="flex justify-end items-center gap-3 mt-8">
+                    <Button variant="ghost" @click="isDeliveryReceiptModalVisible = false">Cancel</Button>
+                    <Button @click="submitDeliveryReceiptForm">Save Receipt</Button>
                 </div>
             </div>
         </div>
 
         <Dialog v-model:open="showReceiveForm">
-            <DialogContent class="sm:max-w-[600px]">
+            <DialogContent class="sm:max-w-[500px]">
                 <DialogHeader>
-                    <DialogTitle>Receive Form</DialogTitle>
-                    <DialogDescription
-                        >Input all the important details</DialogDescription
-                    >
+                    <DialogTitle>Receive Item</DialogTitle>
+                    <DialogDescription>Enter the quantity and details of the item received.</DialogDescription>
                 </DialogHeader>
-                <div class="space-y-3">
+                <div class="space-y-4 py-4">
                     <InputContainer>
-                        <Label class="text-xs">Quantity Received <span class="text-red-500">*</span></Label>
-                        <Input
-                            v-model="form.quantity_received"
-                            type="number"
-                        />
-                        <FormError>{{
-                            form.errors.quantity_received
-                        }}</FormError>
+                        <Label class="text-xs font-medium uppercase text-gray-500">Quantity Received <span class="text-red-500">*</span></Label>
+                        <Input v-model="form.quantity_received" type="number" step="any" class="font-bold text-lg" />
+                        <FormError>{{ form.errors.quantity_received }}</FormError>
                     </InputContainer>
                     <InputContainer>
-                        <Label class="text-xs">Received Date <span class="text-red-500">*</span></Label>
-                        <Input
-                            v-model="form.received_date"
-                            type="datetime-local"
-                        />
-                        <FormError>{{
-                            form.errors.received_date
-                        }}</FormError>
+                        <Label class="text-xs font-medium uppercase text-gray-500">Received Date <span class="text-red-500">*</span></Label>
+                        <Input v-model="form.received_date" type="datetime-local" />
+                        <FormError>{{ form.errors.received_date }}</FormError>
                     </InputContainer>
                     <InputContainer>
-                        <Label class="text-xs">Expiry Date</Label>
-                        <Input
-                            v-model="form.expiry_date"
-                            type="date"
-                        />
-                        <FormError>{{
-                            form.errors.expiry_date
-                        }}</FormError>
+                        <Label class="text-xs font-medium uppercase text-gray-500">Expiry Date</Label>
+                        <Input v-model="form.expiry_date" type="date" />
+                        <FormError>{{ form.errors.expiry_date }}</FormError>
                     </InputContainer>
                     <InputContainer>
-                        <Label class="text-xs">Remarks</Label>
-                        <Input
-                            v-model="form.remarks"
-                        />
-                        <FormError>{{
-                            form.errors.remarks
-                        }}</FormError>
+                        <Label class="text-xs font-medium uppercase text-gray-500">Remarks</Label>
+                        <Input v-model="form.remarks" placeholder="Optional remarks" />
+                        <FormError>{{ form.errors.remarks }}</FormError>
                     </InputContainer>
                 </div>
                 <DialogFooter>
-                    <Button
-                        variant="ghost"
-                        @click="showReceiveForm = false"
-                        >Cancel</Button
-                    >
-                    <Button @click="submitReceivingForm"
-                        >Submit</Button
-                    >
+                    <Button variant="ghost" @click="showReceiveForm = false">Cancel</Button>
+                    <Button @click="submitReceivingForm">Submit Receive</Button>
                 </DialogFooter>
             </DialogContent>
         </Dialog>
 
+        <!-- Edit Modal (Custom styled to match) -->
         <div
             v-if="isEditModalVisible"
             class="fixed inset-0 z-50 flex items-center justify-center"
             @click="handleBackdropClick"
         >
-            <!-- Backdrop -->
-            <div
-                class="absolute inset-0 bg-black/50 backdrop-blur-sm"
-            ></div>
-
-            <!-- Modal Content -->
-            <div
-                class="relative z-10 w-full sm:max-w-[600px] mx-4 bg-white rounded-lg shadow-xl border border-gray-200 p-6 transform transition-all"
-            >
-                <!-- Header -->
-                <div class="flex items-center justify-between mb-4">
+            <div class="absolute inset-0 bg-black/50 backdrop-blur-sm"></div>
+            <div class="relative z-10 w-full sm:max-w-[500px] mx-4 bg-white rounded-xl shadow-2xl border border-gray-200 p-6 transform transition-all">
+                <div class="flex items-center justify-between mb-6">
                     <div>
-                        <h2 class="text-lg font-semibold text-gray-900">
-                            Edit Receive Details
-                        </h2>
-                        <p class="text-sm text-gray-600 mt-1">
-                            Update the receive information below.
-                        </p>
+                        <h2 class="text-xl font-bold text-gray-900">Edit Receive Details</h2>
+                        <p class="text-sm text-gray-500">Modify the received quantity or remarks.</p>
                     </div>
-                    <Button
-                        variant="ghost"
-                        size="sm"
-                        @click="closeEditModal"
-                        class="h-8 w-8 p-0 hover:bg-gray-100"
-                    >
-                        <svg
-                            class="h-4 w-4"
-                            fill="none"
-                            stroke="currentColor"
-                            viewBox="0 0 24 24"
-                        >
-                            <path
-                                stroke-linecap="round"
-                                stroke-linejoin="round"
-                                stroke-width="2"
-                                d="M6 18L18 6M6 6l12 12"
-                            ></path>
-                        </svg>
-                    </Button>
+                    <button @click="closeEditModal" class="text-gray-400 hover:text-gray-600 transition-colors">
+                        <X class="size-6" />
+                    </button>
                 </div>
 
-                <!-- Form Content -->
-                <div class="space-y-3">
+                <div class="space-y-4">
                     <InputContainer>
-                        <Label class="text-xs">Quantity Received <span class="text-red-500">*</span></Label>
-                        <Input
-                            v-model="editReceiveDetailsForm.quantity_received"
-                            type="number"
-                        />
-                        <FormError>{{
-                            editReceiveDetailsForm.errors.quantity_received
-                        }}</FormError>
-                        <!-- Variance Display -->
-                        <div
-                            v-if="
-                                currentEditingItem &&
-                                editReceiveDetailsForm.quantity_received
-                            "
-                            class="mt-2 text-sm"
-                        >
-                            <span class="font-medium">Variance: </span>
-                            <span
-                                :class="
-                                    variance >= 0
-                                        ? 'text-green-600'
-                                        : 'text-red-600'
-                                "
-                            >
-                                {{ variance >= 0 ? "+" : ""
-                                }}{{ variance }}
+                        <Label class="text-xs font-medium uppercase text-gray-500">Quantity Received <span class="text-red-500">*</span></Label>
+                        <Input v-model="editReceiveDetailsForm.quantity_received" type="number" step="any" class="font-bold text-lg" />
+                        <FormError>{{ editReceiveDetailsForm.errors.quantity_received }}</FormError>
+                        
+                        <div v-if="currentEditingItem && editReceiveDetailsForm.quantity_received" class="mt-2 text-sm flex items-center gap-2 p-2 bg-gray-50 rounded border border-gray-100">
+                            <span class="text-gray-500">Variance:</span>
+                            <span :class="variance >= 0 ? 'text-green-600 font-bold' : 'text-red-600 font-bold'">
+                                {{ variance >= 0 ? "+" : "" }}{{ variance }}
                             </span>
-                            <span class="text-gray-500 text-xs ml-1">
-                                (Committed:
-                                {{
-                                    currentEditingItem.store_order_item
-                                        .quantity_commited
-                                }})
-                            </span>
+                            <span class="text-gray-400 text-xs ml-auto">(Committed: {{ currentEditingItem.store_order_item.quantity_commited }})</span>
                         </div>
                     </InputContainer>
+
                     <InputContainer>
-                        <Label class="text-xs">Remarks <span class="text-red-500">*</span></Label>
+                        <Label class="text-xs font-medium uppercase text-gray-500">Remarks <span class="text-red-500">*</span></Label>
                         <div v-if="!isTypingCustomRemark">
                             <select
                                 v-model="editReceiveDetailsForm.remarks"
                                 @change="onRemarksSelectChange"
-                                class="flex h-10 w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm shadow-sm transition-colors placeholder:text-gray-500 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-gray-400 disabled:cursor-not-allowed disabled:opacity-50"
+                                class="flex h-10 w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm shadow-sm transition-colors focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
                             >
                                 <option value="" disabled>Select a remark</option>
-                                <option
-                                    v-for="option in remarksOptions"
-                                    :key="option.value"
-                                    :value="option.value"
-                                >
-                                    {{ option.label }}
-                                </option>
+                                <option v-for="option in remarksOptions" :key="option.value" :value="option.value">{{ option.label }}</option>
                             </select>
                         </div>
                         <div v-else>
                             <textarea
                                 v-model="editReceiveDetailsForm.remarks"
-                                placeholder="Enter remarks"
-                                class="flex min-h-[60px] w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm shadow-sm transition-colors placeholder:text-gray-500 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-gray-400 disabled:cursor-not-allowed disabled:opacity-50"
+                                placeholder="Enter specific remarks..."
+                                class="flex min-h-[80px] w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm shadow-sm transition-colors focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none resize-none"
                             ></textarea>
-                            <Button variant="link" class="mt-2 text-xs" @click="goBackToPresetRemarks">Use Presets</Button>
+                            <button type="button" class="mt-2 text-xs text-blue-600 hover:text-blue-800 hover:underline" @click="goBackToPresetRemarks">Back to Presets</button>
                         </div>
-                        <FormError>{{
-                            editReceiveDetailsForm.errors.remarks
-                        }}</FormError>
+                        <FormError>{{ editReceiveDetailsForm.errors.remarks }}</FormError>
                     </InputContainer>
                 </div>
 
-                <!-- Footer -->
-                <div class="flex justify-end items-center gap-3 mt-6">
-                    <Button variant="ghost" @click="closeEditModal"
-                        >Cancel</Button
-                    >
-                    <Button @click="updateReceiveDetails">Update</Button>
+                <div class="flex justify-end items-center gap-3 mt-8">
+                    <Button variant="ghost" @click="closeEditModal">Cancel</Button>
+                    <Button @click="updateReceiveDetails">Update Details</Button>
                 </div>
             </div>
         </div>
 
-        <div
+        <!-- View Details Modal -->
+         <div
             v-if="isViewModalVisible"
             class="fixed inset-0 z-50 flex items-center justify-center"
             @click="handleBackdropClick"
         >
-            <!-- Backdrop -->
-            <div
-                class="absolute inset-0 bg-black/50 backdrop-blur-sm"
-            ></div>
-
-            <!-- Modal Content -->
-            <div
-                class="relative z-10 w-full sm:max-w-[600px] mx-4 bg-white rounded-lg shadow-xl border border-gray-200 p-6 transform transition-all"
-            >
-                <!-- Header -->
-                <div class="flex items-center justify-between mb-4">
+            <div class="absolute inset-0 bg-black/50 backdrop-blur-sm"></div>
+            <div class="relative z-10 w-full sm:max-w-[500px] mx-4 bg-white rounded-xl shadow-2xl border border-gray-200 p-6 transform transition-all">
+                <div class="flex items-center justify-between mb-6">
                     <div>
-                        <h2 class="text-lg font-semibold text-gray-900">
-                            Receive History Details
-                        </h2>
-                        <p class="text-sm text-gray-600 mt-1">
-                            View the details of the received item.
-                        </p>
+                        <h2 class="text-xl font-bold text-gray-900">Transaction Details</h2>
+                        <p class="text-sm text-gray-500">ID: #{{ selectedItem?.id }}</p>
                     </div>
-                    <Button
-                        variant="ghost"
-                        size="sm"
-                        @click="isViewModalVisible = false"
-                        class="h-8 w-8 p-0 hover:bg-gray-100"
-                    >
-                        <svg
-                            class="h-4 w-4"
-                            fill="none"
-                            stroke="currentColor"
-                            viewBox="0 0 24 24"
-                        >
-                            <path
-                                stroke-linecap="round"
-                                stroke-linejoin="round"
-                                stroke-width="2"
-                                d="M6 18L18 6M6 6l12 12"
-                            ></path>
-                        </svg>
-                    </Button>
+                    <button @click="isViewModalVisible = false" class="text-gray-400 hover:text-gray-600 transition-colors">
+                        <X class="size-6" />
+                    </button>
                 </div>
 
-                <!-- Form Content -->
-                <div class="space-y-3">
-                    <InputContainer>
-                        <LabelXS>Item Name:</LabelXS>
-                        <SpanBold>{{
-                            selectedItem?.store_order_item.supplier_item
-                                .item_name
-                        }}</SpanBold>
-                    </InputContainer>
-                    <InputContainer>
-                        <LabelXS>Item Code:</LabelXS>
-                        <SpanBold>{{
-                            selectedItem?.store_order_item.supplier_item
-                                .ItemCode
-                        }}</SpanBold>
-                    </InputContainer>
-                    <InputContainer>
-                        <LabelXS>Quantity Received:</LabelXS>
-                        <SpanBold>{{
-                            selectedItem?.quantity_received
-                        }}</SpanBold>
-                    </InputContainer>
-                    <InputContainer>
-                        <LabelXS>Received By:</LabelXS>
-                        <SpanBold
-                            >{{
-                                selectedItem?.received_by_user?.first_name
-                            }}
-                            {{
-                                selectedItem?.received_by_user?.last_name
-                            }}</SpanBold
-                        >
-                    </InputContainer>
-                    <InputContainer>
-                        <LabelXS>Received Date:</LabelXS>
-                        <SpanBold>{{
-                            dayjs(selectedItem?.received_date)
-                                .tz("Asia/Manila")
-                                .format("MMMM D, YYYY h:mm A")
-                        }}</SpanBold>
-                    </InputContainer>
-                    <InputContainer>
-                        <LabelXS>Expiry Date:</LabelXS>
-                        <SpanBold>{{ selectedItem?.expiry_date }}</SpanBold>
-                    </InputContainer>
-                    <InputContainer>
-                        <LabelXS>Remarks:</LabelXS>
-                        <SpanBold>{{ selectedItem?.remarks }}</SpanBold>
-                    </InputContainer>
-                    <InputContainer>
-                        <LabelXS>Status:</LabelXS>
-                        <SpanBold>{{ selectedItem?.status }}</SpanBold>
-                    </InputContainer>
-                    <InputContainer>
-                        <LabelXS>Approval Action By:</LabelXS>
-                        <SpanBold
-                            >{{
-                                selectedItem?.approval_action_by_user
-                                    ?.first_name
-                            }}
-                            {{
-                                selectedItem?.approval_action_by_user
-                                    ?.last_name
-                            }}</SpanBold
-                        >
-                    </InputContainer>
+                <div class="space-y-4">
+                     <div class="p-4 bg-gray-50 rounded-lg border border-gray-100">
+                        <div class="grid grid-cols-2 gap-4">
+                             <div>
+                                <span class="text-xs text-gray-500 uppercase tracking-wide">Item Name</span>
+                                <p class="font-medium text-gray-900 mt-0.5">{{ selectedItem?.store_order_item.supplier_item.item_name }}</p>
+                            </div>
+                            <div>
+                                <span class="text-xs text-gray-500 uppercase tracking-wide">Item Code</span>
+                                <p class="font-mono text-gray-700 mt-0.5">{{ selectedItem?.store_order_item.supplier_item.ItemCode }}</p>
+                            </div>
+                        </div>
+                     </div>
+
+                    <div class="grid grid-cols-2 gap-y-4 gap-x-6 text-sm">
+                        <div>
+                            <span class="text-xs text-gray-500 block">Quantity Received</span>
+                            <span class="font-bold text-lg text-gray-900">{{ selectedItem?.quantity_received }}</span>
+                        </div>
+                        <div>
+                            <span class="text-xs text-gray-500 block">Status</span>
+                             <span :class="['inline-block px-2 py-0.5 rounded text-xs font-bold border mt-1', getStatusClass(selectedItem?.status)]">
+                                {{ selectedItem?.status.toUpperCase() }}
+                            </span>
+                        </div>
+                        <div>
+                            <span class="text-xs text-gray-500 block">Received Date</span>
+                            <span class="font-medium text-gray-900">{{ dayjs(selectedItem?.received_date).tz("Asia/Manila").format("MMM D, YYYY h:mm A") }}</span>
+                        </div>
+                        <div>
+                            <span class="text-xs text-gray-500 block">Received By</span>
+                            <span class="font-medium text-gray-900">{{ selectedItem?.received_by_user?.first_name }} {{ selectedItem?.received_by_user?.last_name }}</span>
+                        </div>
+                        <div class="col-span-2">
+                             <span class="text-xs text-gray-500 block">Remarks</span>
+                            <p class="text-gray-700 italic mt-0.5 bg-gray-50 p-2 rounded border border-gray-100">{{ selectedItem?.remarks || 'No remarks provided.' }}</p>
+                        </div>
+                    </div>
                 </div>
 
-                <!-- Footer -->
-                <div class="flex justify-end items-center gap-3 mt-6">
-                    <Button
-                        variant="ghost"
-                        @click="isViewModalVisible = false"
-                        >Close</Button
-                    >
+                <div class="flex justify-end items-center mt-8">
+                    <Button variant="outline" @click="isViewModalVisible = false">Close</Button>
                 </div>
             </div>
         </div>
 
+        <!-- Image Upload Modal -->
         <div
             v-if="isImageUploadModalVisible"
             class="fixed inset-0 z-50 flex items-center justify-center"
             @click="handleBackdropClick"
         >
-            <!-- Backdrop -->
-            <div
-                class="absolute inset-0 bg-black/50 backdrop-blur-sm"
-            ></div>
-
-            <!-- Modal Content -->
-            <div
-                class="relative z-10 w-full sm:max-w-[600px] mx-4 bg-white rounded-lg shadow-xl border border-gray-200 p-6 transform transition-all"
-            >
-                <!-- Header -->
-                <div class="flex items-center justify-between mb-4">
+            <div class="absolute inset-0 bg-black/50 backdrop-blur-sm"></div>
+            <div class="relative z-10 w-full sm:max-w-[500px] mx-4 bg-white rounded-xl shadow-2xl border border-gray-200 p-6 transform transition-all">
+                <div class="flex items-center justify-between mb-6">
                     <div>
-                        <h2 class="text-lg font-semibold text-gray-900">
-                            Attach Image
-                        </h2>
-                        <p class="text-sm text-gray-600 mt-1">
-                            Select an image file to upload for this order.
-                        </p>
+                        <h2 class="text-xl font-bold text-gray-900">Upload Attachment</h2>
+                        <p class="text-sm text-gray-500">Supported formats: PNG, JPG, JPEG</p>
                     </div>
-                    <Button
-                        variant="ghost"
-                        size="sm"
-                        @click="isImageUploadModalVisible = false"
-                        class="h-8 w-8 p-0 hover:bg-gray-100"
-                    >
-                        <svg
-                            class="h-4 w-4"
-                            fill="none"
-                            stroke="currentColor"
-                            viewBox="0 0 24 24"
-                        >
-                            <path
-                                stroke-linecap="round"
-                                stroke-linejoin="round"
-                                stroke-width="2"
-                                d="M6 18L18 6M6 6l12 12"
-                            ></path>
-                        </svg>
-                    </Button>
+                    <button @click="isImageUploadModalVisible = false" class="text-gray-400 hover:text-gray-600 transition-colors">
+                        <X class="size-6" />
+                    </button>
                 </div>
 
-                <!-- Form Content -->
                 <div class="space-y-4">
-                    <InputContainer>
-                        <Label class="text-xs">Image File</Label>
-                        <Input
+                     <div 
+                        class="border-2 border-dashed border-gray-300 rounded-lg p-6 flex flex-col items-center justify-center text-center cursor-pointer hover:bg-gray-50 hover:border-blue-400 transition-colors"
+                        @click="$refs.fileInput.click()"
+                    >
+                        <input
                             type="file"
+                            ref="fileInput"
                             @change="onFileChange"
                             accept="image/png, image/jpeg, image/jpg"
-                            class="file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
+                            class="hidden"
                         />
-                        <FormError>{{ imageUploadForm.errors.image }}</FormError>
-                    </InputContainer>
-                    <!-- Apply max-height and overflow to the preview container -->
-                    <div v-if="imagePreviewUrl" class="mt-4 max-h-64 overflow-y-auto">
-                        <Label class="text-xs">Preview</Label>
-                        <img :src="imagePreviewUrl" class="mt-2 max-w-full h-auto rounded-md border object-contain" />
+                        <div v-if="!imagePreviewUrl" class="flex flex-col items-center">
+                            <svg class="size-10 text-gray-400 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path></svg>
+                            <span class="text-sm font-medium text-gray-600">Click to select image</span>
+                            <span class="text-xs text-gray-400 mt-1">or drag and drop here</span>
+                        </div>
+                        <div v-else class="relative w-full max-h-64 overflow-hidden rounded">
+                             <img :src="imagePreviewUrl" class="w-full h-auto object-contain" />
+                             <button @click.stop="imagePreviewUrl = null; imageUploadForm.image = null;" class="absolute top-2 right-2 bg-black/50 text-white rounded-full p-1 hover:bg-black/70">
+                                 <X class="size-4" />
+                             </button>
+                        </div>
                     </div>
+                    <FormError>{{ imageUploadForm.errors.image }}</FormError>
                 </div>
-                <div class="flex justify-end items-center gap-3 mt-6">
+                <div class="flex justify-end items-center gap-3 mt-8">
                     <Button variant="ghost" @click="isImageUploadModalVisible = false">Cancel</Button>
-                    <Button @click="submitImageUpload" :disabled="imageUploadForm.processing">
+                    <Button @click="submitImageUpload" :disabled="!imageUploadForm.image || imageUploadForm.processing">
                         <span v-if="imageUploadForm.processing">Uploading...</span>
-                        <span v-else>Upload</span>
+                        <span v-else>Upload Image</span>
                     </Button>
                 </div>
             </div>

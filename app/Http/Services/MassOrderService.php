@@ -136,9 +136,9 @@ class MassOrderService
                         $storeOrderItem->ordered_item_receive_dates()->create([
                             'received_by_user_id' => Auth::id(),
                             'quantity_received' => $itemData['quantity'],
-                            'received_date' => now(),
+                            'received_date' => null,
                             'status' => 'pending',
-                            'remarks' => 'Auto-generated from Mass Order Upload',
+                            'remarks' => null,
                         ]);
                     }
                 }
