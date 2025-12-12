@@ -52,6 +52,7 @@ class OrderReceivingController extends Controller
 
     public function show($id)
     {
+        set_time_limit(0);
         $order = $this->orderReceivingService->getOrderDetails($id);
         
         // Fetch images directly from the relationship to ensure the accessor is called
@@ -59,13 +60,14 @@ class OrderReceivingController extends Controller
 
         $orderedItems = $this->orderReceivingService->getOrderItems($order);
 
+        $orderedItemIds = $orderedItems->pluck('id');
+
         $receiveDatesHistory = OrderedItemReceiveDate::with([
             'store_order_item.supplierItem',
             'received_by_user',
             'approval_action_by_user'
-        ])->whereHas('store_order_item.store_order', function ($query) use ($id) {
-            $query->where('order_number', $id);
-        })->get();
+        ])->whereIn('store_order_item_id', $orderedItemIds)
+        ->get()->values();
 
         return Inertia::render('OrderReceiving/Show', [
             'order' => $order,

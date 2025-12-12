@@ -118,7 +118,7 @@ class MassOrderService
                 ]);
 
                 foreach ($items as $itemData) {
-                    $order->store_order_items()->create([
+                    $storeOrderItem = $order->store_order_items()->create([
                         'item_code' => $itemData['item_code'],
                         'quantity_ordered' => $itemData['quantity'],
                         'quantity_approved' => $itemData['quantity'],
@@ -129,6 +129,18 @@ class MassOrderService
                         'committed_by' => Auth::id(),
                         'committed_date' => now(),
                     ]);
+
+                    // Automatically create a pending receive record for DROPS (FRUITS AND VEGETABLES) orders
+                    // This ensures they appear in the receiving list as awaiting inbound receiving
+                    if ($supplierCode === 'DROPS') {
+                        $storeOrderItem->ordered_item_receive_dates()->create([
+                            'received_by_user_id' => Auth::id(),
+                            'quantity_received' => $itemData['quantity'],
+                            'received_date' => now(),
+                            'status' => 'pending',
+                            'remarks' => 'Auto-generated from Mass Order Upload',
+                        ]);
+                    }
                 }
                 $createdCount++;
             }
