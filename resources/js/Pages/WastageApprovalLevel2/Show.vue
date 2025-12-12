@@ -23,6 +23,14 @@ const props = defineProps({
         type: Object,
         required: true,
     },
+    approval_error: {
+        type: String,
+        default: '',
+    },
+    approval_stock_errors: {
+        type: Array,
+        default: () => [],
+    },
 });
 
 
@@ -60,6 +68,12 @@ const statusBadgeColor = (status) => {
 };
 
 const isLoading = ref(false);
+const errorMessage = computed(() => {
+    return props.approval_error || '';
+});
+const stockErrors = computed(() => {
+    return props.approval_stock_errors || [];
+});
 
 // Edit state variables for quantity editing
 const editingItem = ref(null); // { id: number, originalValue: number }
@@ -100,17 +114,22 @@ const approveWastage = (id) => {
             isLoading.value = true;
             remarksForm.order_id = id;
             remarksForm.post(route("wastage-approval-lvl2.approve"), {
-                onSuccess: () => {
-                    toast.add({
-                        severity: "success",
-                        summary: "Success",
-                        detail: "Wastage record approved successfully.",
-                        life: 3000,
-                    });
-                    router.get(route("wastage-approval-lvl2.index"), {}, { replace: true });
+                onSuccess: (page) => {
+                    // Only proceed with success actions if a success flash message exists.
+                    // This handles the case where the server returns an Inertia::render with errors (200 OK) instead of a redirect.
+                    if (page.props.flash?.success) {
+                        toast.add({
+                            severity: "success",
+                            summary: "Success",
+                            detail: page.props.flash.success,
+                            life: 3000,
+                        });
+                        router.get(route("wastage-approval-lvl2.index"), {}, { replace: true });
+                    }
                 },
-                onError: () => {
+                onError: (errors) => {
                     isLoading.value = false;
+                    // Flash errors will be handled by computed properties
                 },
             });
         },
@@ -144,8 +163,15 @@ const cancelWastage = (id) => {
                     });
                     router.get(route("wastage-approval-lvl2.index"), {}, { replace: true });
                 },
-                onError: () => {
+                onError: (errors) => {
                     isLoading.value = false;
+                    const errorMessage = errors.message || Object.values(errors).join(' ') || 'Failed to cancel wastage record.';
+                    toast.add({
+                        severity: "error",
+                        summary: "Error",
+                        detail: errorMessage,
+                        life: 5000,
+                    });
                 },
             });
         },
@@ -456,6 +482,25 @@ const handleImageClick = (image, index) => {
 
 <template>
     <Layout heading="Wastage Record Details">
+        <!-- Error Message Display -->
+        <div v-if="errorMessage" class="mb-4 p-4 bg-red-50 border border-red-200 rounded-md">
+            <div class="flex">
+                <AlertCircle class="h-5 w-5 text-red-400 mr-3 mt-0.5" />
+                <div class="flex-1">
+                    <h3 class="text-sm font-medium text-red-800">{{ errorMessage }}</h3>
+                    <div v-if="stockErrors.length > 0" class="mt-2">
+                        <p class="text-sm text-red-700 mb-2">Items with insufficient stock:</p>
+                        <ul class="list-disc list-inside text-sm text-red-700 space-y-1">
+                            <li v-for="error in stockErrors" :key="error.item_code">
+                                <strong>{{ error.item_description }} ({{ error.item_code }})</strong>: 
+                                Available {{ error.available }}, Required {{ error.required }}
+                            </li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
         <TableContainer>
             <section class="flex flex-col gap-5">
                 <section class="sm:flex-row flex flex-col gap-5">

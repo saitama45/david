@@ -215,13 +215,15 @@ class WastageApprovalLevel2Controller extends Controller
                 'can_edit' => $user->hasPermissionTo('edit wastage approval level 2'),
                 'can_delete' => $user->hasPermissionTo('delete wastage approval level 2'),
             ],
+            'approval_error' => session('approval_error'),
+            'approval_stock_errors' => session('approval_stock_errors', []),
         ]);
     }
 
     /**
      * Approve wastage record at level 2
      */
-    public function approve(Request $request): RedirectResponse
+    public function approve(Request $request)
     {
         $user = Auth::user();
         $validated = $request->validate([
@@ -256,6 +258,8 @@ class WastageApprovalLevel2Controller extends Controller
             // Group items by their base ItemCode
             $groupedItems = $relatedWastages->filter(fn($item) => $item->sapMasterfile !== null)
                                             ->groupBy('sapMasterfile.ItemCode');
+
+            $stockErrors = [];
 
             foreach ($groupedItems as $itemCode => $items) {
                 $totalQtyToDeductInBaseUom = 0;
@@ -298,7 +302,14 @@ class WastageApprovalLevel2Controller extends Controller
                     ->first();
 
                 if (!$productStock || $productStock->quantity < $totalQtyToDeductInBaseUom) {
-                     throw new \Exception("Insufficient stock for item {$targetSapMasterfile->ItemDescription}. Available: " . ($productStock->quantity ?? 0) . ", Required: {$totalQtyToDeductInBaseUom}");
+                    $stockErrors[] = [
+                        'item_code' => $itemCode,
+                        'item_description' => $targetSapMasterfile->ItemDescription,
+                        'available' => $productStock->quantity ?? 0,
+                        'required' => $totalQtyToDeductInBaseUom,
+                        'message' => "Insufficient stock for item {$targetSapMasterfile->ItemDescription}. Available: " . ($productStock->quantity ?? 0) . ", Required: {$totalQtyToDeductInBaseUom}"
+                    ];
+                    continue;
                 }
 
                 // Decrement stock and update 'used'
@@ -316,6 +327,73 @@ class WastageApprovalLevel2Controller extends Controller
                     'total_cost' => $totalCostOfWastage,
                     'transaction_date' => now(),
                     'remarks' => 'Wastage Approval Level 2: ' . $wastage->wastage_no,
+                ]);
+            }
+            
+            // Check if there were any stock errors
+            if (!empty($stockErrors)) {
+                \DB::rollBack();
+                
+                // Re-load the wastage data for display
+                $wastage->load([
+                    'storeBranch',
+                    'encoder',
+                    'approver1',
+                    'approver2',
+                    'canceller'
+                ]);
+                
+                $relatedWastageRecords = Wastage::where('wastage_no', $wastage->wastage_no)
+                    ->with(['sapMasterfile'])
+                    ->get();
+                
+                $wastageData = [
+                    'id' => $wastage->id,
+                    'wastage_no' => $wastage->wastage_no,
+                    'store_branch_id' => $wastage->store_branch_id,
+                    'wastage_reason' => $wastage->reason,
+                    'wastage_status' => $wastage->wastage_status,
+                    'created_by' => $wastage->created_by,
+                    'created_at' => $wastage->created_at,
+                    'updated_at' => $wastage->updated_at,
+                    'storeBranch' => $wastage->storeBranch,
+                    'encoder' => $wastage->encoder,
+                    'approver1' => $wastage->approver1,
+                    'approver2' => $wastage->approver2,
+                    'canceller' => $wastage->canceller,
+                    'approved_level1_date' => $wastage->approved_level1_date,
+                    'approved_level2_date' => $wastage->approved_level2_date,
+                    'cancelled_date' => $wastage->cancelled_date,
+                    'image_urls' => json_decode($wastage->image_url, true) ?? [],
+                    'items' => $relatedWastageRecords->map(function ($record) {
+                        return [
+                            'id' => $record->id,
+                            'sap_masterfile_id' => $record->sap_masterfile_id,
+                            'wastage_qty' => $record->wastage_qty,
+                            'approverlvl1_qty' => $record->approverlvl1_qty,
+                            'approverlvl2_qty' => $record->approverlvl2_qty,
+                            'cost' => $record->cost,
+                            'reason' => $record->reason,
+                            'sap_masterfile' => $record->sapMasterfile ? [
+                                'id' => $record->sapMasterfile->id,
+                                'ItemCode' => $record->sapMasterfile->ItemCode,
+                                'ItemDescription' => $record->sapMasterfile->ItemDescription,
+                                'BaseUOM' => $record->sapMasterfile->BaseUOM,
+                                'AltUOM' => $record->sapMasterfile->AltUOM,
+                            ] : null,
+                        ];
+                    })->toArray(),
+                ];
+                
+                return \Inertia\Inertia::render('WastageApprovalLevel2/Show', [
+                    'wastage' => $wastageData,
+                    'permissions' => [
+                        'can_approve' => $user->hasPermissionTo('approve wastage level 2'),
+                        'can_edit' => $user->hasPermissionTo('edit wastage approval level 2'),
+                        'can_delete' => $user->hasPermissionTo('delete wastage approval level 2'),
+                    ],
+                    'approval_error' => 'Cannot approve wastage due to insufficient stock for some items.',
+                    'approval_stock_errors' => $stockErrors,
                 ]);
             }
             
@@ -342,6 +420,9 @@ class WastageApprovalLevel2Controller extends Controller
                 ->route('wastage-approval-lvl2.show', $wastage->id)
                 ->with('success', 'Wastage record approved at level 2 successfully. Inventory stock updated.');
 
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            // Re-throw validation exceptions (like stock errors) as-is
+            throw $e;
         } catch (\Exception $e) {
             \DB::rollBack();
 
@@ -352,9 +433,9 @@ class WastageApprovalLevel2Controller extends Controller
                 'trace' => $e->getTraceAsString()
             ]);
 
-            return back()
-                ->with('error', 'Failed to approve wastage record: ' . $e->getMessage())
-                ->withInput();
+            throw \Illuminate\Validation\ValidationException::withMessages([
+                'message' => 'Failed to approve wastage record: ' . $e->getMessage()
+            ]);
         }
     }
 
@@ -400,9 +481,9 @@ class WastageApprovalLevel2Controller extends Controller
                 'error' => $e->getMessage()
             ]);
 
-            return back()
-                ->with('error', 'Failed to cancel wastage record: ' . $e->getMessage())
-                ->withInput();
+            throw \Illuminate\Validation\ValidationException::withMessages([
+                'message' => 'Failed to cancel wastage record: ' . $e->getMessage()
+            ]);
         }
     }
 
