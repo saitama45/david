@@ -71,6 +71,11 @@ const exportRoute = computed(() => {
     });
 });
 
+const getSupplierDisplayName = (supplier, variant) => {
+    if (!supplier?.name) return 'N/A';
+    return supplier.name === 'DROPSHIPPING' && variant === 'mass regular' ? 'FRUITS AND VEGETABLES' : supplier.name;
+};
+
 // Debug logging to check orders data
 watch(() => props.orders, (newOrders) => {
     console.log('OrderReceiving Index - Orders data updated:', newOrders);
@@ -172,7 +177,7 @@ watch(() => props.orders, (newOrders) => {
                 <TableBody>
                     <tr v-for="order in orders.data" :key="order.id">
                         <TD>{{ order.id }}</TD>
-                        <TD>{{ order.supplier?.name ?? "N/A" }}</TD>
+                        <TD>{{ getSupplierDisplayName(order.supplier, order.variant) }}</TD>
                         <TD>{{ order.store_branch?.name ?? "N/A" }}</TD>
                         <TD>{{ order.delivery_receipts && order.delivery_receipts.length > 0 ? order.delivery_receipts[0].sap_so_number : "N/A" }}</TD>
                         <TD>{{ order.order_number }}</TD>

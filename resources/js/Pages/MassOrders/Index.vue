@@ -45,13 +45,17 @@ const { options: branchesOptions } = useSelectOptions(props.branches);
 
 const canEditOrder = (order) => {
     // 1. Initial checks for status and permissions
-    const initialCheck = (order.order_status === 'pending' || order.order_status === 'approved') && hasAccess('edit mass orders');
+    const supplierCode = order.supplier?.supplier_code;
+    const allowedStatuses = supplierCode === 'DROPS' 
+        ? ['pending', 'approved', 'committed'] 
+        : ['pending', 'approved'];
+    
+    const initialCheck = allowedStatuses.includes(order.order_status) && hasAccess('edit mass orders');
     if (!initialCheck) {
         return false;
     }
 
-    // 2. Get supplier code and find its cutoff rules
-    const supplierCode = order.supplier?.supplier_code;
+    // 2. Find cutoff rules for the supplier
     if (!supplierCode) {
         return true; // Failsafe
     }
@@ -372,8 +376,21 @@ const formatDisplayDateTime = (dateString) => {
 const showOrderDetails = (id) => router.get(route('mass-orders.show', id));
 const editOrderDetails = (id) => router.get(route('mass-orders.edit', id));
 
+const getSupplierDisplayName = (supplier, variant) => {
+    if (!supplier?.name) return 'N/A';
+    return supplier.name === 'DROPSHIPPING' && variant === 'mass regular' ? 'FRUITS AND VEGETABLES' : supplier.name;
+};
+
 const filteredSuppliers = computed(() => {
-    return props.suppliers;
+    return props.suppliers.map(supplier => {
+        if (supplier.value === 'DROPS') {
+            return {
+                ...supplier,
+                label: 'FRUITS AND VEGETABLES'
+            };
+        }
+        return supplier;
+    });
 });
 
 const downloadFileName = computed(() => {
@@ -383,7 +400,8 @@ const downloadFileName = computed(() => {
     const date = new Date(form.order_date + 'T00:00:00');
     const month = String(date.getMonth() + 1).padStart(2, '0');
     const day = String(date.getDate()).padStart(2, '0');
-    return `${form.supplier_code}_${month}-${day}`;
+    const supplierName = form.supplier_code === 'DROPS' ? 'FRUITS AND VEGETABLES' : form.supplier_code;
+    return `${supplierName}_${month}-${day}`;
 });
 
 </script>
@@ -565,7 +583,7 @@ const downloadFileName = computed(() => {
                         </tr>
                         <tr v-for="order in massOrders.data" :key="order.id">
                             <TD>{{ order.id }}</TD>
-                            <TD>{{ order.supplier?.name ?? "N/A" }}</TD>
+                            <TD>{{ getSupplierDisplayName(order.supplier, order.variant) }}</TD>
                             <TD>{{ order.store_branch?.name ?? "N/A" }}</TD>
                             <TD>{{ order.order_number }}</TD>
                             <TD>{{ order.delivery_receipts && order.delivery_receipts.length > 0 ? order.delivery_receipts[0].sap_so_number : "N/A" }}</TD>
@@ -602,7 +620,7 @@ const downloadFileName = computed(() => {
                     <LabelXS>SO Number: {{ order.delivery_receipts && order.delivery_receipts.length > 0 ? order.delivery_receipts[0].sap_so_number : "N/A" }}</LabelXS>
                     <LabelXS>Status: <span :class="statusBadgeColor(order.order_status)" class="font-semibold p-1 rounded text-white">{{ order.order_status ? order.order_status.toUpperCase() : 'N/A' }}</span></LabelXS>
                     <LabelXS>Store: {{ order.store_branch?.name ?? "N/A" }}</LabelXS>
-                    <LabelXS>Supplier: {{ order.supplier?.name ?? "N/A" }}</LabelXS>
+                    <LabelXS>Supplier: {{ getSupplierDisplayName(order.supplier, order.variant) }}</LabelXS>
                     <LabelXS>Delivery Date: {{ formatDisplayDate(order.order_date) }}</LabelXS>
                 </MobileTableRow>
             </MobileTableContainer>

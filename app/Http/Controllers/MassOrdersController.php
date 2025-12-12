@@ -110,8 +110,16 @@ class MassOrdersController extends Controller
             // Validate that the ordering_template in each row matches the selected supplier
             foreach ($rows as $index => $row) {
                 if (isset($row['ordering_template']) && $row['ordering_template']) {
-                    if (strcasecmp(trim($row['ordering_template']), $supplierCodeFromDropdown) !== 0) {
-                        throw new \Exception("Upload failed. It seems you are using an incorrect template. The supplier code '{$row['ordering_template']}' in the file does not match the selected Ordering Template '{$supplierCodeFromDropdown}'.");
+                    $fileTemplate = trim($row['ordering_template']);
+                    $isValid = strcasecmp($fileTemplate, $supplierCodeFromDropdown) === 0;
+                    
+                    // Special case for DROPS: allow both 'DROPS' and 'FRUITS AND VEGETABLES'
+                    if ($supplierCodeFromDropdown === 'DROPS') {
+                        $isValid = $isValid || strcasecmp($fileTemplate, 'FRUITS AND VEGETABLES') === 0;
+                    }
+                    
+                    if (!$isValid) {
+                        throw new \Exception("Upload failed. It seems you are using an incorrect template. The supplier code '{$fileTemplate}' in the file does not match the selected Ordering Template '{$supplierCodeFromDropdown}'.");
                     }
                 }
             }
@@ -275,7 +283,8 @@ class MassOrdersController extends Controller
 
     public function getAvailableDates($supplier_code)
     {
-        $cutoff = \App\Models\OrdersCutoff::where('ordering_template', $supplier_code)->first();
+        $orderingTemplate = $supplier_code === 'DROPS' ? 'FRUITS AND VEGETABLES' : $supplier_code;
+        $cutoff = \App\Models\OrdersCutoff::where('ordering_template', $orderingTemplate)->first();
         if (!$cutoff) {
             return response()->json([]);
         }

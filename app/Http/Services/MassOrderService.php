@@ -91,10 +91,11 @@ class MassOrderService
 
                 $supplier = Supplier::where('supplier_code', $supplierCode)->firstOrFail();
 
-                // Validation: Check for existing order for the same store, date, AND supplier
+                // Validation: Check for existing order for the same store, date, supplier, AND variant
                 $existingOrder = StoreOrder::where('store_branch_id', $storeBranch->id)
                     ->whereDate('order_date', Carbon::parse($orderDate)->toDateString())
                     ->where('supplier_id', $supplier->id)
+                    ->where('variant', 'mass regular')
                     ->exists();
 
                 if ($existingOrder) {
@@ -102,15 +103,18 @@ class MassOrderService
                     continue;
                 }
 
+                // Set order_status to 'committed' for FRUITS AND VEGETABLES (DROPS)
+                $finalOrderStatus = $supplierCode === 'DROPS' ? 'committed' : $initialOrderStatus;
+                
                 $order = StoreOrder::create([
                     'encoder_id' => Auth::id(),
                     'supplier_id' => $supplier->id,
                     'store_branch_id' => $storeBranch->id,
                     'order_number' => $this->storeOrderService->getOrderNumber($storeBranch->id),
                     'order_date' => Carbon::parse($orderDate)->toDateString(),
-                    'order_status' => $initialOrderStatus, // Use the provided status
+                    'order_status' => $finalOrderStatus,
                     'order_request_status' => OrderRequestStatus::PENDING->value,
-                    'variant' => 'mass regular', // Or another identifier
+                    'variant' => 'mass regular',
                 ]);
 
                 foreach ($items as $itemData) {

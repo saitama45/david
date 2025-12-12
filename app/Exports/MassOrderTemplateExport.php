@@ -33,7 +33,7 @@ class MassOrderTemplateExport implements FromCollection, WithHeadings, ShouldAut
 
         return $sortedItems->map(function ($item) {
             $row = [];
-            $row['Ordering Template'] = $this->supplierCode;
+            $row['Ordering Template'] = $this->supplierCode === 'DROPS' ? 'FRUITS AND VEGETABLES' : $this->supplierCode;
             $row['Category'] = $item->category;
             $row['Classification'] = $item->classification;
             $row['Item Code'] = $item->ItemCode;
