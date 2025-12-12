@@ -499,6 +499,7 @@ Route::middleware('auth')
             Route::middleware('permission:export cs mass commits')->get('/export', 'export')->name('export');
             Route::middleware('permission:edit cs mass commits')->post('/confirm-all', 'confirmAll')->name('confirm-all');
             Route::middleware('permission:edit cs mass commits')->post('/update-commit', 'updateCommit')->name('update-commit');
+            Route::middleware('permission:edit cs mass commits')->post('/bulk-update-commit', 'bulkUpdateCommit')->name('bulk-update-commit');
         });
 
         // DTS Mass Orders

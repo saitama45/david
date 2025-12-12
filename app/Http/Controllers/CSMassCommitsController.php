@@ -177,36 +177,52 @@ class CSMassCommitsController extends Controller
         $totalBranches = count($brandCodes);
 
         // 2. Build the query to mirror the provided SQL structure
-        // Select necessary columns
+        // Select necessary columns with Aggregation
+        $selects = [
+            'store_order_items.item_code',
+            'store_order_items.uom as unit',
+            \Illuminate\Support\Facades\DB::raw('MAX(supplier_items.category) as category'),
+            \Illuminate\Support\Facades\DB::raw('MAX(supplier_items.classification) as classification'),
+            \Illuminate\Support\Facades\DB::raw('MAX(supplier_items.item_name) as supplier_item_name'),
+            \Illuminate\Support\Facades\DB::raw('MAX(sap_masterfiles.ItemDescription) as sap_item_description'),
+            \Illuminate\Support\Facades\DB::raw('MAX(supplier_items.sort_order) as sort_order'),
+            \Illuminate\Support\Facades\DB::raw('MAX(suppliers.supplier_code) as supplier_code'),
+            \Illuminate\Support\Facades\DB::raw('SUM(store_order_items.quantity_commited) as total_quantity'),
+        ];
+
+        // Dynamic Pivot Columns
+        $bindings = [];
+        foreach ($brandCodes as $code) {
+            $selects[] = \Illuminate\Support\Facades\DB::raw("SUM(CASE WHEN store_branches.brand_code = ? THEN store_order_items.quantity_commited ELSE 0 END) as [{$code}]");
+            $bindings[] = $code;
+            $selects[] = \Illuminate\Support\Facades\DB::raw("SUM(CASE WHEN store_branches.brand_code = ? THEN store_order_items.quantity_approved ELSE 0 END) as [approved_{$code}]");
+            $bindings[] = $code;
+        }
+
         $query = \App\Models\StoreOrderItem::query()
-            ->select(
-                'store_order_items.*',
-                'supplier_items.sort_order as supplier_sort_order',
-                'supplier_items.category as supplier_category',
-                'supplier_items.classification as supplier_classification',
-                'supplier_items.item_name as supplier_item_name',
-                'sap_masterfiles.ItemDescription as sap_item_description'
-            )
-            // Left Join store_orders
-            ->leftJoin('store_orders', 'store_orders.id', '=', 'store_order_items.store_order_id')
-            // Left Join suppliers (needed for linking supplier_items via SupplierCode)
+            ->select($selects)
+            ->addBinding($bindings, 'select')
+            // Join store_orders
+            ->join('store_orders', 'store_orders.id', '=', 'store_order_items.store_order_id')
+            // Join store_branches to get brand_code for pivoting
+            ->join('store_branches', 'store_branches.id', '=', 'store_orders.store_branch_id')
+            // Left Join suppliers
             ->leftJoin('suppliers', 'suppliers.id', '=', 'store_orders.supplier_id')
-            // Left Join sap_masterfiles (Key bridge: ItemCode AND AltUOM matches store_order_items)
+            // Left Join sap_masterfiles
             ->leftJoin('sap_masterfiles', function($join) {
                 $join->on('sap_masterfiles.ItemCode', '=', 'store_order_items.item_code')
                      ->on('sap_masterfiles.AltUOM', '=', 'store_order_items.uom');
             })
-            // Left Join supplier_items (Linked via SAP ItemCode/UOM and SupplierCode from suppliers table)
+            // Left Join supplier_items
             ->leftJoin('supplier_items', function($join) {
                 $join->on('supplier_items.ItemCode', '=', 'sap_masterfiles.ItemCode')
                      ->on('supplier_items.uom', '=', 'sap_masterfiles.AltUOM')
                      ->on('supplier_items.SupplierCode', '=', 'suppliers.supplier_code');
             })
-            // Eager load for PHP side access (branches/suppliers/etc)
-            ->with(['store_order.store_branch', 'store_order.supplier'])
             // Filters
             ->whereDate('store_orders.order_date', $orderDate)
-            ->where('store_order_items.quantity_commited', '>=', 0);
+            ->where('store_order_items.quantity_commited', '>=', 0)
+            ->where('store_orders.order_status', '!=', 'pending');
 
         if ($supplierId !== 'all') {
              $query->where('store_orders.supplier_id', $supplierId);
@@ -220,123 +236,63 @@ class CSMassCommitsController extends Controller
             $query->where('supplier_items.category', $categoryFilter);
         }
 
-        // Apply Sorting: items with sort_order = 0 or NULL go to the end
-        $query->orderByRaw('CASE WHEN ISNULL(supplier_items.sort_order, 0) = 0 THEN 1 ELSE 0 END, supplier_items.sort_order ASC');
+        // Group By Item Key
+        $query->groupBy('store_order_items.item_code', 'store_order_items.uom');
 
+        // Apply Sorting
+        // Logic: Items with null or 0 sort order go to the end.
+        $query->orderByRaw('CASE WHEN ISNULL(MAX(supplier_items.sort_order), 0) = 0 THEN 1 ELSE 0 END, MAX(supplier_items.sort_order) ASC');
+
+        // Execute Query
         $storeOrderItems = $query->get();
 
-        // 3. Aggregate and pivot in PHP
-        $reportItems = $storeOrderItems->groupBy(function ($item) {
-            return strtoupper(trim($item->item_code)) . '|' . strtoupper(trim($item->uom));
-        })->map(function ($group) use ($brandCodes) {
-            $first = $group->first();
+        // 3. Map Results (Calculate Remarks and Format)
+        $reportItems = $storeOrderItems->map(function ($item) use ($brandCodes) {
+            // Convert to array
+            $row = $item->toArray();
 
-            $category = $first->supplier_category ?? 'N/A';
-            $classification = $first->supplier_classification;
+            // Resolve Item Name
+            $itemName = $item->sap_item_description ?: ($item->supplier_item_name ?? 'N/A');
+            $row['item_name'] = $itemName;
 
-            // CRITICAL FIX: Iterate through group to find the definitive sort order.
-            // If ANY item in this group has sort_order 0 (or null), the whole row is treated as sort_order 0.
-            // This ensures it gets pushed to the end, overriding any non-zero sort_orders that might have been picked up by first().
-            $sortOrder = null;
-            foreach ($group as $item) {
-                $s = $item->supplier_sort_order;
-                if ($s === 0 || $s === '0' || $s === null) {
-                    $sortOrder = 0;
-                    break;
-                }
-                 // Keep the first non-zero sort order encountered as a fallback
-                if ($sortOrder === null) {
-                    $sortOrder = $s;
-                }
-            }
-            // If loop finishes and sortOrder is still null (e.g. empty group), default to 0
-            if ($sortOrder === null) {
-                 $sortOrder = 0;
+            // Resolve Category
+            if (empty($row['category'])) {
+                $row['category'] = 'N/A';
             }
 
-            // Item Name Priority: SAP Description > SAP Name > Supplier Item Name > N/A
-            $itemName = $first->sap_item_description ?: ($first->sap_item_name_alt ?: ($first->supplier_item_name ?? 'N/A'));
+            // Resolve Sort Order
+            if (is_null($row['sort_order'])) {
+                $row['sort_order'] = 0;
+            }
 
-            $row = [
-                'category' => $category,
-                'classification' => $classification,
-                'item_code' => $first->item_code,
-                'item_name' => $itemName,
-                'unit' => $first->uom,
-                'sort_order' => $sortOrder,
-                'whse' => $this->getWhseCode($first->store_order->supplier->supplier_code ?? null),
-            ];
+            // Resolve WHSE
+            $row['whse'] = $this->getWhseCode($item->supplier_code ?? null);
 
-            // Initialize branches
+            // Calculate Remarks
+            $allBranchesMetApproved = true;
             foreach ($brandCodes as $code) {
-                $row[$code] = 0.0;
-                $row['approved_' . $code] = 0.0;
-            }
-
-            // Sum quantities
-            foreach ($group as $item) {
-                if ($item->store_order && $item->store_order->store_branch) {
-                    $brand = $item->store_order->store_branch->brand_code;
-                    if (isset($row[$brand])) {
-                        $row[$brand] += $item->quantity_commited;
-                        $row['approved_' . $brand] += $item->quantity_approved;
-                    }
+                $committed = (float) ($row[$code] ?? 0);
+                $approved = (float) ($row['approved_' . $code] ?? 0);
+                
+                // If any branch has committed less than approved, condition is false
+                if ($committed < $approved) {
+                    $allBranchesMetApproved = false;
                 }
             }
 
-            $row['total_quantity'] = array_sum(array_intersect_key($row, array_flip($brandCodes)));
+            $totalQty = (float) ($row['total_quantity'] ?? 0);
 
-            // Calculate remarks based on conditions
-            $remarks = '';
-
-            // Condition a: All stores have 0 committed quantity
-            $allZero = true;
-            foreach ($brandCodes as $code) {
-                if (isset($row[$code]) && $row[$code] > 0) {
-                    $allZero = false;
-                    break;
-                }
-            }
-
-            if ($allZero) {
-                $remarks = '86';
+            if ($totalQty == 0) {
+                $row['remarks'] = '86';
+            } elseif ($allBranchesMetApproved) {
+                $row['remarks'] = 'Stock Supported';
             } else {
-                // Condition b: Check if committed >= approved for all branches
-                $isStockSupported = true;
-                $hasAllocation = false;
-
-                // Get approved quantities for comparison
-                foreach ($brandCodes as $code) {
-                    if (isset($row[$code])) {
-                        // Find the approved quantity for this branch
-                        $approvedQty = 0;
-                        foreach ($group as $item) {
-                            if ($item->store_order && $item->store_order->store_branch &&
-                                $item->store_order->store_branch->brand_code === $code) {
-                                $approvedQty = $item->quantity_approved;
-                                break;
-                            }
-                        }
-
-                        if ($row[$code] < $approvedQty) {
-                            $isStockSupported = false;
-                            $hasAllocation = true;
-                        }
-                    }
-                }
-
-                if ($isStockSupported) {
-                    $remarks = 'Stock Supported';
-                } elseif ($hasAllocation) {
-                    $remarks = 'Allocation';
-                }
+                $row['remarks'] = 'Allocation';
             }
-
-            $row['remarks'] = $remarks;
 
             return $row;
-        })
-        ->values();
+        });
+
         // 4. Build headers
         $staticHeaders = [
             ['label' => 'CATEGORY', 'field' => 'category'],
@@ -388,8 +344,40 @@ class CSMassCommitsController extends Controller
             'new_quantity' => 'required|numeric|min:0',
         ]);
 
+        return $this->performUpdate($validated);
+    }
+
+    public function bulkUpdateCommit(Request $request)
+    {
+        $validated = $request->validate([
+            'updates' => 'required|array',
+            'updates.*.order_date' => 'required|date',
+            'updates.*.item_code' => 'required|string|exists:supplier_items,ItemCode',
+            'updates.*.brand_code' => 'required|string|exists:store_branches,brand_code',
+            'updates.*.new_quantity' => 'required|numeric|min:0',
+        ]);
+
+        $results = [];
+        $errors = [];
+
+        foreach ($validated['updates'] as $index => $data) {
+            $response = $this->performUpdate($data);
+            if ($response->getStatusCode() !== 200 && $response->getStatusCode() !== 302) { // Redirect is success in performUpdate
+                $errors[] = "Row $index: " . json_encode($response->getData());
+            }
+        }
+
+        if (count($errors) > 0) {
+             return response()->json(['message' => 'Some updates failed', 'errors' => $errors], 422);
+        }
+
+        return response()->json(['message' => 'Bulk update successful']);
+    }
+
+    private function performUpdate(array $data)
+    {
         // Find the item's category for permission checking
-        $supplierItem = \App\Models\SupplierItems::where('ItemCode', $validated['item_code'])->firstOrFail();
+        $supplierItem = \App\Models\SupplierItems::where('ItemCode', $data['item_code'])->firstOrFail();
         $category = $supplierItem->category;
 
         // Perform permission check
@@ -404,11 +392,11 @@ class CSMassCommitsController extends Controller
             return response()->json(['message' => 'You do not have permission to edit items in this category.'], 403);
         }
 
-        $orderItem = \App\Models\StoreOrderItem::where('item_code', $validated['item_code'])
-            ->whereHas('store_order', function ($query) use ($validated) {
-                $query->whereDate('order_date', $validated['order_date'])
-                      ->whereHas('store_branch', function ($subQuery) use ($validated) {
-                          $subQuery->where('brand_code', $validated['brand_code']);
+        $orderItem = \App\Models\StoreOrderItem::where('item_code', $data['item_code'])
+            ->whereHas('store_order', function ($query) use ($data) {
+                $query->whereDate('order_date', $data['order_date'])
+                      ->whereHas('store_branch', function ($subQuery) use ($data) {
+                          $subQuery->where('brand_code', $data['brand_code']);
                       });
             })
             ->first();
@@ -423,7 +411,7 @@ class CSMassCommitsController extends Controller
             return response()->json(['message' => 'Cannot edit. Order is already ' . $orderStatus . '.'], 422);
         }
 
-        $orderItem->update(['quantity_commited' => $validated['new_quantity']]);
+        $orderItem->update(['quantity_commited' => $data['new_quantity']]);
 
         return redirect()->back()->with('success', 'Commit quantity updated successfully.');
     }

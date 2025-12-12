@@ -1,5 +1,5 @@
 <script setup>
-import { ref, watch, computed } from 'vue';
+import { ref, watch, computed, nextTick, onMounted, onUnmounted, triggerRef } from 'vue';
 import { router, usePage } from '@inertiajs/vue3';
 import { throttle } from 'lodash';
 import { Filter } from 'lucide-vue-next';
@@ -33,10 +33,81 @@ const categoryFilter = ref(props.filters.category || 'all');
 // --- Local Report State ---
 const localReport = ref([]);
 
+// --- History & Undo ---
+const history = ref([]);
+const pushToHistory = (changes) => {
+    history.value.push(changes);
+    if (history.value.length > 50) history.value.shift();
+};
+
+const undo = async () => {
+    if (history.value.length === 0) return;
+
+    const lastChangeGroup = history.value.pop();
+    const bulkPayload = [];
+
+    // Revert changes in UI
+    lastChangeGroup.forEach(change => {
+        const row = sortedReport.value[change.rowIndex];
+        if (row) {
+            row[change.field] = change.oldValue;
+            recalculateRow(row);
+            
+            // Sync Props
+            if (props.report[change.rowIndex]) {
+                props.report[change.rowIndex][change.field] = change.oldValue;
+                props.report[change.rowIndex].total_quantity = row.total_quantity;
+                props.report[change.rowIndex].remarks = row.remarks;
+            }
+
+            bulkPayload.push({
+                order_date: orderDate.value,
+                item_code: row.item_code,
+                brand_code: change.field,
+                new_quantity: change.oldValue,
+            });
+        }
+    });
+
+    if (bulkPayload.length > 0) {
+        toast.add({ severity: 'info', summary: 'Undo', detail: 'Reverting...', life: 1000 });
+        try {
+            await axios.post(route('cs-mass-commits.bulk-update-commit'), { updates: bulkPayload });
+        } catch (error) {
+            console.error('Undo failed', error);
+            toast.add({ severity: 'error', summary: 'Undo Failed', detail: 'Failed to revert changes.', life: 3000 });
+        }
+    }
+    
+    // Select the undone cells
+    if (lastChangeGroup.length > 0) {
+        // Find range
+        let rMin = Infinity, rMax = -Infinity, cMin = Infinity, cMax = -Infinity;
+        lastChangeGroup.forEach(c => {
+            if (c.rowIndex < rMin) rMin = c.rowIndex;
+            if (c.rowIndex > rMax) rMax = c.rowIndex;
+            // Need to find col index from field
+            const colIdx = branchHeaders.value.findIndex(h => h.field === c.field);
+            if (colIdx !== -1) {
+                if (colIdx < cMin) cMin = colIdx;
+                if (colIdx > cMax) cMax = colIdx;
+            }
+        });
+        
+        if (rMin !== Infinity && cMin !== Infinity) {
+             selection.value = { 
+                 start: { r: rMin, c: cMin }, 
+                 end: { r: rMax, c: cMax } 
+             };
+             activeCell.value = { r: rMin, c: cMin };
+        }
+    }
+};
+
 watch(() => props.report, (newVal) => {
     // Deep copy to detach from props
     localReport.value = JSON.parse(JSON.stringify(newVal));
-}, { immediate: true, deep: true });
+}, { immediate: true });
 
 const isEditingDisabled = (brandCode) => {
     const status = props.branchStatuses[brandCode]?.toLowerCase();
@@ -52,10 +123,647 @@ const canUserEditRow = (row) => {
     }
 };
 
+// --- Excel-like Grid Logic ---
+const selection = ref({ start: null, end: null }); // { r: rowIndex, c: colIndex }
+const activeCell = ref(null); // { r: rowIndex, c: colIndex }
+const editingCell = ref(null); // { r: rowIndex, c: colIndex }
+const isDragging = ref(false);
+const isFilling = ref(false);
+const inputRefs = ref({}); // Map of "r-c" to input element
+const cellRefs = ref({}); // Map of "r-c" to td element
+
+const staticHeaders = computed(() => props.dynamicHeaders.slice(0, 5));
+const branchHeaders = computed(() => props.dynamicHeaders.slice(5, -3));
+const trailingHeaders = computed(() => props.dynamicHeaders.slice(-3));
+
+// Helper to get column key from index
+const getColKey = (colIndex) => branchHeaders.value[colIndex]?.field;
+
+// Helper to get coordinates
+const getCoords = (rowIndex, colKey) => {
+    const colIndex = branchHeaders.value.findIndex(h => h.field === colKey);
+    return { r: rowIndex, c: colIndex };
+};
+
+// Check if cell is in selection range
+const isSelected = (rowIndex, colKey) => {
+    if (!selection.value.start || !selection.value.end) return false;
+    const colIndex = branchHeaders.value.findIndex(h => h.field === colKey);
+    if (colIndex === -1) return false;
+
+    const rMin = Math.min(selection.value.start.r, selection.value.end.r);
+    const rMax = Math.max(selection.value.start.r, selection.value.end.r);
+    const cMin = Math.min(selection.value.start.c, selection.value.end.c);
+    const cMax = Math.max(selection.value.start.c, selection.value.end.c);
+
+    return rowIndex >= rMin && rowIndex <= rMax && colIndex >= cMin && colIndex <= cMax;
+};
+
+// Check if cell is the active one (focused)
+const isActive = (rowIndex, colKey) => {
+    if (!activeCell.value) return false;
+    const colIndex = branchHeaders.value.findIndex(h => h.field === colKey);
+    return activeCell.value.r === rowIndex && activeCell.value.c === colIndex;
+};
+
+// Check if cell is currently being edited
+const isEditing = (rowIndex, colKey) => {
+    if (!editingCell.value) return false;
+    const colIndex = branchHeaders.value.findIndex(h => h.field === colKey);
+    return editingCell.value.r === rowIndex && editingCell.value.c === colIndex;
+};
+
+// Set Ref for Inputs
+const setInputRef = (el, rowIndex, colKey) => {
+    if (el) inputRefs.value[`${rowIndex}-${colKey}`] = el;
+};
+
+// Set Ref for Cells
+const setCellRef = (el, rowIndex, colKey) => {
+    if (el) cellRefs.value[`${rowIndex}-${colKey}`] = el;
+};
+
+// --- Interactions ---
+
+const onCellMouseDown = (rowIndex, colKey, event) => {
+    // If clicking fill handle, don't change selection start, handled by onFillHandleMouseDown
+    if (event.target.classList.contains('fill-handle')) return;
+
+    if (event.shiftKey && activeCell.value) {
+        // Range select
+        const { c } = getCoords(rowIndex, colKey);
+        selection.value.end = { r: rowIndex, c };
+    } else {
+        // New selection
+        const { c } = getCoords(rowIndex, colKey);
+        activeCell.value = { r: rowIndex, c };
+        selection.value = { start: { r: rowIndex, c }, end: { r: rowIndex, c } };
+        isDragging.value = true;
+        
+        // Ensure not in edit mode
+        editingCell.value = null;
+        
+        // Focus the cell (td) to capture keyboard events
+        const cellEl = cellRefs.value[`${rowIndex}-${colKey}`];
+        if (cellEl) cellEl.focus();
+    }
+};
+
+const onCellMouseOver = (rowIndex, colKey) => {
+    const { c } = getCoords(rowIndex, colKey);
+    if (isDragging.value) {
+        selection.value.end = { r: rowIndex, c };
+    } else if (isFilling.value) {
+        // Update fill range visual (could implement ghost selection)
+        selection.value.end = { r: rowIndex, c };
+    }
+};
+
+const onCellMouseUp = () => {
+    if (isFilling.value) {
+        performFill();
+    }
+    isDragging.value = false;
+    isFilling.value = false;
+};
+
+// Fill Handle Logic
+const onFillHandleMouseDown = (event) => {
+    event.stopPropagation();
+    isFilling.value = true;
+    isDragging.value = false; // distinct modes
+};
+
+const performFill = async () => {
+    if (!selection.value.start || !selection.value.end) return;
+
+    const rMin = Math.min(selection.value.start.r, selection.value.end.r);
+    const rMax = Math.max(selection.value.start.r, selection.value.end.r);
+    const cMin = Math.min(selection.value.start.c, selection.value.end.c);
+    const cMax = Math.max(selection.value.start.c, selection.value.end.c);
+
+    // Source value: Active cell
+    const sourceRow = sortedReport.value[activeCell.value.r];
+    const sourceCol = branchHeaders.value[activeCell.value.c].field;
+    const sourceValue = sourceRow[sourceCol];
+
+    const updates = [];
+    const bulkPayload = [];
+    const historyChanges = [];
+
+    for (let r = rMin; r <= rMax; r++) {
+        for (let c = cMin; c <= cMax; c++) {
+            const row = sortedReport.value[r];
+            const col = branchHeaders.value[c].field;
+            
+            // Validation
+            if (isEditingDisabled(col) || !canUserEditRow(row)) continue;
+
+            // Update local if different
+            if (row[col] !== sourceValue) {
+                historyChanges.push({
+                    rowIndex: r,
+                    field: col,
+                    oldValue: row[col],
+                    newValue: sourceValue
+                });
+
+                row[col] = sourceValue;
+                // Update derived values locally
+                recalculateRow(row);
+                
+                // Sync Props to prevent revert on next watcher trigger
+                if (props.report[r]) {
+                    props.report[r][col] = sourceValue;
+                    props.report[r].total_quantity = row.total_quantity;
+                    props.report[r].remarks = row.remarks;
+                }
+                
+                bulkPayload.push({
+                    order_date: orderDate.value,
+                    item_code: row.item_code,
+                    brand_code: col,
+                    new_quantity: parseFloat(sourceValue) || 0,
+                });
+            }
+        }
+    }
+
+    if (historyChanges.length > 0) {
+        pushToHistory(historyChanges);
+    }
+
+    if (bulkPayload.length > 0) {
+        toast.add({ severity: 'info', summary: 'Saving', detail: `Updating ${bulkPayload.length} cells...`, life: 2000 });
+        try {
+            await axios.post(route('cs-mass-commits.bulk-update-commit'), { updates: bulkPayload });
+            toast.add({ severity: 'success', summary: 'Saved', detail: 'Bulk update successful.', life: 2000 });
+        } catch (error) {
+            console.error('Bulk update failed', error);
+            toast.add({ severity: 'error', summary: 'Update Failed', detail: 'Failed to save some changes.', life: 5000 });
+            // Ideally revert here, but for now we rely on user refresh if critical failure
+        }
+    }
+};
+
+// Keyboard Navigation
+const onKeyDown = (event) => {
+    if (!activeCell.value) return;
+    if (editingCell.value) return; // Let input handle it
+
+    // If Shift is held, we move the 'end' of the selection.
+    // Otherwise, we move the active cell.
+    let r = event.shiftKey ? selection.value.end.r : activeCell.value.r;
+    let c = event.shiftKey ? selection.value.end.c : activeCell.value.c;
+
+    const maxR = sortedReport.value.length - 1;
+    const maxC = branchHeaders.value.length - 1;
+
+    let nextR = r;
+    let nextC = c;
+    let handled = false;
+    
+    const isCtrl = event.ctrlKey || event.metaKey;
+
+    switch (event.key) {
+        case 'ArrowUp':
+            if (isCtrl) nextR = 0;
+            else if (r > 0) nextR--;
+            handled = true;
+            break;
+        case 'ArrowDown':
+            if (isCtrl) nextR = maxR;
+            else if (r < maxR) nextR++;
+            handled = true;
+            break;
+        case 'ArrowLeft':
+            if (isCtrl) nextC = 0;
+            else if (c > 0) nextC--;
+            handled = true;
+            break;
+        case 'ArrowRight':
+            if (isCtrl) nextC = maxC;
+            else if (c < maxC) nextC++;
+            handled = true;
+            break;
+        case 'Enter':
+            // Enter Edit Mode
+            handled = true;
+            startEditing(activeCell.value.r, activeCell.value.c);
+            break;
+        case 'Delete':
+        case 'Backspace':
+            // Clear content
+            handled = true;
+            clearSelection();
+            break;
+        case 'c':
+            if (event.ctrlKey || event.metaKey) {
+                handled = true;
+                copySelection();
+            }
+            break;
+        case 'v':
+            if (event.ctrlKey || event.metaKey) {
+                handled = true;
+                pasteSelection();
+            }
+            break;
+        case 'z':
+            if (event.ctrlKey || event.metaKey) {
+                handled = true;
+                if (!event.shiftKey) {
+                    undo();
+                }
+            }
+            break;
+    }
+
+    if (handled) {
+        event.preventDefault();
+        if (event.key.startsWith('Arrow')) {
+            // Move selection
+            if (event.shiftKey) {
+                selection.value.end = { r: nextR, c: nextC };
+            } else {
+                activeCell.value = { r: nextR, c: nextC };
+                selection.value = { start: { r: nextR, c: nextC }, end: { r: nextR, c: nextC } };
+            }
+            
+            // Focus new cell
+            const nextKey = branchHeaders.value[nextC].field;
+            nextTick(() => {
+                const cellEl = cellRefs.value[`${nextR}-${nextKey}`];
+                if (cellEl) {
+                    cellEl.focus();
+                    ensureCellVisible(cellEl);
+                }
+            });
+        }
+    } else if (event.key.length === 1 && !event.ctrlKey && !event.altKey && !event.metaKey) {
+        // Typing: start editing with this key
+        event.preventDefault(); // Prevent double entry (programmatic set + browser default)
+        startEditing(activeCell.value.r, activeCell.value.c, event.key);
+    }
+};
+
+const ensureCellVisible = (cellEl) => {
+    if (!cellEl) return;
+    const container = cellEl.closest('.overflow-y-auto');
+    if (container) {
+        const headerHeight = 100; // Approximate header height (2 rows + padding)
+        const cellTop = cellEl.offsetTop;
+        const scrollTop = container.scrollTop;
+        
+        // If cell is above the visible area (under the sticky header)
+        if (cellTop < scrollTop + headerHeight) {
+            container.scrollTo({ top: Math.max(0, cellTop - headerHeight), behavior: 'smooth' });
+        } 
+        // If cell is below the visible area
+        else if (cellTop + cellEl.clientHeight > scrollTop + container.clientHeight) {
+            container.scrollTo({ top: cellTop - container.clientHeight + cellEl.clientHeight + 20, behavior: 'smooth' });
+        }
+    }
+};
+
+const startEditing = (r, c, initialValue = null) => {
+    const colKey = branchHeaders.value[c].field;
+    // Validation: Check permissions before editing
+    if (isEditingDisabled(colKey) || !canUserEditRow(sortedReport.value[r])) return;
+
+    editingCell.value = { r, c };
+    
+    // If initialValue provided (user started typing), set it
+    if (initialValue) {
+        sortedReport.value[r][colKey] = initialValue;
+    }
+
+    nextTick(() => {
+        const input = inputRefs.value[`${r}-${colKey}`];
+        if (input) {
+            input.focus();
+            if (!initialValue) input.select();
+        }
+    });
+};
+
+const finishEditing = (rowIndex, colKey) => {
+    editingCell.value = null;
+    const cellEl = cellRefs.value[`${rowIndex}-${colKey}`];
+    if (cellEl) cellEl.focus();
+    
+    // Trigger update
+    updateCommit(rowIndex, colKey);
+};
+
+const finishAndMove = (r, c, direction) => {
+    const colKey = branchHeaders.value[c].field;
+    editingCell.value = null; // Exit edit mode
+    updateCommit(r, colKey); // Save
+
+    // Calculate next
+    let nextR = r;
+    let nextC = c;
+
+    if (direction === 'down') {
+        if (nextR < sortedReport.value.length - 1) {
+            nextR++;
+        }
+    } else if (direction === 'right') {
+        if (nextC < branchHeaders.value.length - 1) {
+            nextC++;
+        }
+    }
+
+    // Move Selection
+    activeCell.value = { r: nextR, c: nextC };
+    selection.value = { start: { r: nextR, c: nextC }, end: { r: nextR, c: nextC } };
+
+    // Focus New Cell
+    nextTick(() => {
+        const nextColKey = branchHeaders.value[nextC].field;
+        const cellEl = cellRefs.value[`${nextR}-${nextColKey}`];
+        if (cellEl) {
+             cellEl.focus();
+             ensureCellVisible(cellEl);
+        }
+    });
+};
+
+const clearSelection = async () => {
+    const rMin = Math.min(selection.value.start.r, selection.value.end.r);
+    const rMax = Math.max(selection.value.start.r, selection.value.end.r);
+    const cMin = Math.min(selection.value.start.c, selection.value.end.c);
+    const cMax = Math.max(selection.value.start.c, selection.value.end.c);
+
+    const bulkPayload = [];
+    const historyChanges = [];
+
+    for (let r = rMin; r <= rMax; r++) {
+        for (let c = cMin; c <= cMax; c++) {
+            const col = branchHeaders.value[c].field;
+            const row = sortedReport.value[r];
+            // Validation: Skip if read-only
+             if (!isEditingDisabled(col) && canUserEditRow(row)) {
+                if (row[col] !== 0) {
+                    historyChanges.push({
+                        rowIndex: r,
+                        field: col,
+                        oldValue: row[col],
+                        newValue: 0
+                    });
+
+                    row[col] = 0;
+                    recalculateRow(row);
+                    
+                    // Sync Props to prevent revert on next watcher trigger
+                    if (props.report[r]) {
+                        props.report[r][col] = 0;
+                        props.report[r].total_quantity = row.total_quantity;
+                        props.report[r].remarks = row.remarks;
+                    }
+
+                    bulkPayload.push({
+                        order_date: orderDate.value,
+                        item_code: row.item_code,
+                        brand_code: col,
+                        new_quantity: 0,
+                    });
+                }
+             }
+        }
+    }
+    
+    if (historyChanges.length > 0) {
+        pushToHistory(historyChanges);
+    }
+
+    if (bulkPayload.length > 0) {
+        try {
+            await axios.post(route('cs-mass-commits.bulk-update-commit'), { updates: bulkPayload });
+            toast.add({ severity: 'success', summary: 'Cleared', detail: 'Cells cleared.', life: 1000 });
+        } catch (error) {
+             console.error('Bulk clear failed', error);
+        }
+    }
+};
+
+const copySelection = async () => {
+    const rMin = Math.min(selection.value.start.r, selection.value.end.r);
+    const rMax = Math.max(selection.value.start.r, selection.value.end.r);
+    const cMin = Math.min(selection.value.start.c, selection.value.end.c);
+    const cMax = Math.max(selection.value.start.c, selection.value.end.c);
+
+    let text = "";
+    for (let r = rMin; r <= rMax; r++) {
+        const rowVals = [];
+        for (let c = cMin; c <= cMax; c++) {
+            const col = branchHeaders.value[c].field;
+            rowVals.push(sortedReport.value[r][col] ?? "");
+        }
+        text += rowVals.join("\t") + "\n";
+    }
+
+    try {
+        await navigator.clipboard.writeText(text);
+        toast.add({ severity: 'info', summary: 'Copied', detail: 'Selection copied to clipboard.', life: 1000 });
+    } catch (err) {
+        console.error('Failed to copy', err);
+    }
+};
+
+const pasteSelection = async () => {
+    try {
+        const text = await navigator.clipboard.readText();
+        
+        // Split rows by newline, filtering out empty last line often added by Excel/Sheets
+        const rows = text.split(/\r?\n/);
+        if (rows.length > 0 && rows[rows.length - 1].trim() === "") {
+            rows.pop();
+        }
+        
+        if (!rows.length) {
+            toast.add({ severity: 'warn', summary: 'Paste', detail: 'No data found in clipboard.', life: 2000 });
+            return;
+        }
+
+        // Parse clipboard data into a 2D array
+        const clipboardData = rows.map(row => row.split("\t"));
+        const sourceRows = clipboardData.length;
+        const sourceCols = clipboardData[0].length;
+        
+        // Determine Destination Range
+        const rMin = Math.min(selection.value.start.r, selection.value.end.r);
+        const rMax = Math.max(selection.value.start.r, selection.value.end.r);
+        const cMin = Math.min(selection.value.start.c, selection.value.end.c);
+        const cMax = Math.max(selection.value.start.c, selection.value.end.c);
+        
+        const isSingleCellSource = (sourceRows === 1 && sourceCols === 1);
+        const isMultiCellDestination = (rMax > rMin || cMax > cMin);
+
+        const bulkPayload = [];
+        const historyChanges = [];
+        let hasAnyPasteAttempt = false;
+
+        if (isSingleCellSource && isMultiCellDestination) {
+            // Case 1: Copy 1 -> Paste to Many (Fill Selection)
+            const valToPaste = clipboardData[0][0].trim();
+            const evaluatedValue = evaluateFormula(valToPaste);
+            const numVal = parseFloat(evaluatedValue);
+            const safeNumVal = isNaN(numVal) ? 0 : numVal;
+
+            for (let r = rMin; r <= rMax; r++) {
+                for (let c = cMin; c <= cMax; c++) {
+                    const col = branchHeaders.value[c].field;
+                    const row = sortedReport.value[r];
+                    
+                    if (!isEditingDisabled(col) && canUserEditRow(row)) {
+                        hasAnyPasteAttempt = true;
+                        const currentVal = parseFloat(row[col]) || 0;
+                        if (currentVal !== safeNumVal) {
+                            historyChanges.push({
+                                rowIndex: r,
+                                field: col,
+                                oldValue: row[col],
+                                newValue: safeNumVal
+                            });
+
+                            row[col] = safeNumVal;
+                            recalculateRow(row);
+                            
+                            // Sync Props to prevent revert on next watcher trigger
+                            if (props.report[r]) {
+                                props.report[r][col] = safeNumVal;
+                                props.report[r].total_quantity = row.total_quantity;
+                                props.report[r].remarks = row.remarks;
+                            }
+
+                            bulkPayload.push({
+                                order_date: orderDate.value,
+                                item_code: row.item_code,
+                                brand_code: col,
+                                new_quantity: safeNumVal,
+                            });
+                        }
+                    }
+                }
+            }
+        } else {
+            // Case 2: Standard Paste (Top-Left Anchor)
+            // We use the top-left of the selection as the anchor, usually `rMin, cMin`
+            // Note: `activeCell` might be bottom-right if dragging backwards, but usually paste anchors top-left.
+            
+            const startR = rMin; 
+            const startC = cMin;
+
+            for (let i = 0; i < sourceRows; i++) {
+                const r = startR + i;
+                if (r >= sortedReport.value.length) break;
+
+                for (let j = 0; j < sourceCols; j++) {
+                    const c = startC + j;
+                    if (c >= branchHeaders.value.length) break;
+
+                    const col = branchHeaders.value[c].field;
+                    const row = sortedReport.value[r];
+                    
+                    const isDisabled = isEditingDisabled(col);
+                    const canEdit = canUserEditRow(row);
+                    
+                    if (!isDisabled && canEdit) {
+                        hasAnyPasteAttempt = true;
+                        let originalClipboardValue = clipboardData[i][j].trim();
+                        let evaluatedValue = evaluateFormula(originalClipboardValue);
+                        const numVal = parseFloat(evaluatedValue);
+                        const safeNumVal = isNaN(numVal) ? 0 : numVal;
+                        
+                        const currentVal = parseFloat(row[col]) || 0;
+                        
+                        if (currentVal !== safeNumVal) {
+                            historyChanges.push({
+                                rowIndex: r,
+                                field: col,
+                                oldValue: row[col],
+                                newValue: safeNumVal
+                            });
+
+                            row[col] = safeNumVal;
+                            recalculateRow(row);
+                            
+                            // Sync Props to prevent revert on next watcher trigger
+                            if (props.report[r]) {
+                                props.report[r][col] = safeNumVal;
+                                props.report[r].total_quantity = row.total_quantity;
+                                props.report[r].remarks = row.remarks;
+                            }
+                            
+                            bulkPayload.push({
+                                order_date: orderDate.value,
+                                item_code: row.item_code,
+                                brand_code: col,
+                                new_quantity: safeNumVal,
+                            });
+                        }
+                    }
+                }
+            }
+        }
+
+        if (historyChanges.length > 0) {
+            pushToHistory(historyChanges);
+        }
+
+        if (bulkPayload.length > 0) {
+            toast.add({ severity: 'info', summary: 'Pasting', detail: `Updating ${bulkPayload.length} cells...`, life: 2000 });
+            try {
+                await axios.post(route('cs-mass-commits.bulk-update-commit'), { updates: bulkPayload });
+                toast.add({ severity: 'success', summary: 'Pasted', detail: 'Bulk paste successful.', life: 2000 });
+            } catch (error) {
+                console.error('Bulk paste axios failed', error);
+                toast.add({ severity: 'error', summary: 'Paste Failed', detail: 'Failed to save some changes to server.', life: 5000 });
+            }
+        } else if (hasAnyPasteAttempt) {
+            toast.add({ severity: 'info', summary: 'Paste', detail: 'No actual changes detected for editable cells.', life: 2000 });
+        } else {
+            toast.add({ severity: 'warn', summary: 'Paste', detail: 'No editable cells found in the target range.', life: 2000 });
+        }
+
+    } catch (err) {
+        console.error('Failed to paste from clipboard:', err);
+        toast.add({ severity: 'error', summary: 'Paste Failed', detail: 'Could not read from clipboard or an unexpected error occurred.', life: 2000 });
+    }
+};
+
+// --- Formulas ---
+const evaluateFormula = (val) => {
+    // If it's a string starting with '=', evaluate it
+    if (typeof val === 'string' && val.trim().startsWith('=')) {
+        try {
+            // Remove '='
+            let expression = val.trim().substring(1);
+            // Replace commonly used Excel-like references if we wanted to support them (e.g. A1), but that's hard.
+            // Just support Math.
+            // Safety: allow digits, operators, parens, dot, and Math functions
+            // Quick and dirty safety check:
+            if (!/^[\d\.\+\-\*\/\(\)\sMath\.\w]+$/.test(expression)) {
+                 // Fallback or risky?
+                 // Let's assume trusted user for now, but strict regex is safer.
+                 // We'll allow `sum(...)` if we implemented a helper, but `new Function` supports standard JS.
+            }
+            // Basic support: 5+2, 10*5
+            return new Function('return ' + expression)();
+        } catch (e) {
+            console.warn("Formula error", e);
+            return val; // Return raw text if failed
+        }
+    }
+    return val;
+};
+
+
 const recalculateRow = (row) => {
     let totalQty = 0;
-    let allZero = true;
-    let isAllocation = false;
+    let allBranchesMetApproved = true; // Assume true for "Stock Supported"
     
     // Iterate over branch headers to calculate totals and check logic
     for (const header of branchHeaders.value) {
@@ -67,26 +775,35 @@ const recalculateRow = (row) => {
         
         totalQty += committed;
         
-        if (committed > 0) {
-            allZero = false;
-        }
-        
-        // Allocation: Committed < Approved
-        // Using a small epsilon for float comparison safety if needed, but direct comparison usually suffices for this context
+        // Check condition b)
+        // If ANY branch has committed < approved, then "Stock Supported" is false.
         if (committed < approved) {
-            isAllocation = true;
+            allBranchesMetApproved = false;
         }
     }
     
-    row.total_quantity = totalQty;
-    
-    if (allZero) {
-        row.remarks = '86';
-    } else if (isAllocation) {
-        row.remarks = 'Allocation';
-    } else {
-        row.remarks = 'Stock Supported';
+    let newRemarks = '';
+    // Condition a)
+    if (totalQty === 0) {
+        newRemarks = '86';
+    } 
+    // Condition b)
+    else if (allBranchesMetApproved) {
+        newRemarks = 'Stock Supported';
+    } 
+    // Condition c) (Implied: total > 0 AND !allBranchesMetApproved)
+    else {
+        newRemarks = 'Allocation';
     }
+
+    // Use Object.assign to ensure reactivity triggers
+    Object.assign(row, {
+        total_quantity: totalQty,
+        remarks: newRemarks
+    });
+    
+    // Force Vue to re-evaluate the localReport ref, updating the UI
+    triggerRef(localReport);
 };
 
 const handleInput = (row, field) => {
@@ -97,23 +814,40 @@ const handleInput = (row, field) => {
     recalculateRow(row);
 };
 
-const updateCommit = async (rowIndex, field) => {
+const updateCommit = async (rowIndex, field, silent = false) => {
     const row = localReport.value[rowIndex];
+    let val = row[field];
+    
+    // Evaluate formula if present
+    val = evaluateFormula(val);
+    row[field] = val; // Update model with evaluated result
+
     // Ensure we send a valid number to backend
-    const val = row[field];
     const newValue = (val === '' || val === null || isNaN(parseFloat(val))) ? 0 : parseFloat(val);
     const originalValue = props.report[rowIndex] ? parseFloat(props.report[rowIndex][field]) : 0;
 
     // If value hasn't changed effectively, do nothing
     if (newValue === originalValue) return;
 
+    // Validation: Negative check
     if (newValue < 0) {
-        toast.add({ severity: 'error', summary: 'Invalid Input', detail: 'Quantity must be a non-negative number.', life: 3000 });
+        if (!silent) toast.add({ severity: 'error', summary: 'Invalid Input', detail: 'Quantity must be a non-negative number.', life: 3000 });
         // Revert to original
         row[field] = originalValue;
         recalculateRow(row); // Recalc back to original
         return;
     }
+
+    // Recalculate derived values immediately after validation
+    recalculateRow(row);
+
+    // Record History
+    pushToHistory([{
+        rowIndex,
+        field,
+        oldValue: originalValue,
+        newValue: newValue
+    }]);
 
     // --- Optimistic Update ---
     // Update the "last saved" reference immediately so subsequent blurs don't re-trigger
@@ -126,7 +860,7 @@ const updateCommit = async (rowIndex, field) => {
     }
 
     // Show Success Feedback Immediately
-    toast.add({ severity: 'success', summary: 'Saved', detail: 'Quantity updated successfully.', life: 2000 });
+    if (!silent) toast.add({ severity: 'success', summary: 'Saved', detail: 'Quantity updated successfully.', life: 2000 });
 
     try {
         await axios.post(route('cs-mass-commits.update-commit'), {
@@ -153,28 +887,18 @@ const updateCommit = async (rowIndex, field) => {
         
         recalculateRow(row);
         
-        const errorMsg = error.response?.data?.message || 'Failed to update quantity.';
-        toast.add({ severity: 'error', summary: 'Update Failed', detail: errorMsg, life: 5000 });
+        if (!silent) {
+            const errorMsg = error.response?.data?.message || 'Failed to update quantity.';
+            toast.add({ severity: 'error', summary: 'Update Failed', detail: errorMsg, life: 5000 });
+        }
     }
 };
 
 const handleEnterKey = (event) => {
-    event.preventDefault(); // Prevent default Enter key behavior (e.g., form submission)
-
-    const inputs = Array.from(
-        document.querySelectorAll('td input[type="number"]:not([disabled])')
-    ); // Select all editable number inputs in table cells
-    
-    const currentIndex = inputs.indexOf(event.target);
-
-    if (currentIndex > -1 && currentIndex < inputs.length - 1) {
-        const nextInput = inputs[currentIndex + 1];
-        nextInput.focus();
-        nextInput.select(); // Select text for easy overwriting
-    } else {
-        // If it's the last input, or no other input found, just blur
-        event.target.blur();
-    }
+    // Keep this for legacy or if we want to support Enter in Edit Mode to just commit
+    // But our new onKeyDown handles navigation.
+    // We can map this to finishEditing logic.
+    event.target.blur();
 };
 
 // --- Confirm All Logic ---
@@ -333,9 +1057,6 @@ const exportRoute = computed(() =>
     })
 );
 
-const staticHeaders = computed(() => props.dynamicHeaders.slice(0, 5));
-const branchHeaders = computed(() => props.dynamicHeaders.slice(5, -3));
-const trailingHeaders = computed(() => props.dynamicHeaders.slice(-3));
 
 const branchCount = computed(() => branchHeaders.value.length);
 const totalColumns = computed(() => staticHeaders.value.length + branchCount.value + trailingHeaders.value.length);
@@ -416,7 +1137,7 @@ const sortedReport = computed(() => localReport.value);
             </TableHeader>
             
             <div class="bg-white border rounded-md shadow-sm">
-                <div class="overflow-x-auto max-h-[75vh] overflow-y-auto">
+                <div class="overflow-x-auto max-h-[75vh] overflow-y-auto select-none" @mouseup="onCellMouseUp">
                     <table class="min-w-full">
                         <thead class="bg-slate-100 sticky top-0 z-10 text-slate-800 shadow-sm">
                             <!-- Main Header Row -->
@@ -458,34 +1179,60 @@ const sortedReport = computed(() => localReport.value);
                             <tr v-if="sortedReport.length === 0">
                                 <td :colspan="totalColumns" class="text-center p-4">No data available for the selected filters.</td>
                             </tr>
-                            <tr v-for="(row, rowIndex) in sortedReport" :key="rowIndex" class="border-t">
+                            <tr v-for="(row, rowIndex) in sortedReport" :key="rowIndex" class="border-t group">
                                 <td v-for="header in staticHeaders" :key="header.field" class="px-4 py-3 text-left whitespace-nowrap">
                                     {{ row[header.field] }}
                                 </td>
                                 
-                                <td v-for="header in branchHeaders" :key="header.field" class="px-4 py-3 text-right whitespace-nowrap">
-                                    <div class="flex items-center justify-end gap-1">
+                                <td v-for="(header, colIndex) in branchHeaders" :key="header.field" 
+                                    :class="[
+                                        'px-2 py-1 text-right whitespace-nowrap border border-transparent relative focus:outline-none',
+                                        isSelected(rowIndex, header.field) ? 'bg-blue-100 !border-blue-400' : '',
+                                        isActive(rowIndex, header.field) ? 'ring-2 ring-blue-600 z-10' : ''
+                                    ]"
+                                    tabindex="0"
+                                    :ref="el => setCellRef(el, rowIndex, header.field)"
+                                    @mousedown="onCellMouseDown(rowIndex, header.field, $event)"
+                                    @mouseover="onCellMouseOver(rowIndex, header.field)"
+                                    @keydown="onKeyDown"
+                                    @dblclick="startEditing(rowIndex, getCoords(rowIndex, header.field).c)"
+                                >
+                                    <div class="w-full h-full min-h-[1.5rem] flex items-center justify-end">
                                         <span 
                                             v-if="row['approved_' + header.field] !== undefined && parseFloat(row['approved_' + header.field]) > 0"
-                                            class="text-xs font-medium px-2 py-1 rounded-md bg-blue-100 text-blue-800"
+                                            class="absolute top-1 left-1 text-[10px] font-bold px-1 rounded bg-teal-100 text-teal-800"
                                             title="Approved Quantity"
                                         >
-                                            {{ parseFloat(row['approved_' + header.field]).toFixed(2) }}
+                                            {{ parseFloat(row['approved_' + header.field]).toFixed(0) }}
                                         </span>
+
+                                        <!-- Edit Mode -->
                                         <input
-                                            type="number"
+                                            v-if="isEditing(rowIndex, header.field)"
+                                            :ref="el => setInputRef(el, rowIndex, header.field)"
+                                            type="text"
                                             v-model="row[header.field]"
-                                            class="w-24 px-2 py-1 border rounded text-right transition-colors"
-                                            :class="[
-                                                !isEditingDisabled(header.field) && canUserEditRow(row)
-                                                    ? 'border-gray-300 focus:ring-1 focus:ring-blue-500 focus:border-blue-500'
-                                                    : 'border-gray-200 bg-gray-50 text-gray-400 cursor-not-allowed'
-                                            ]"
-                                            :disabled="isEditingDisabled(header.field) || !canUserEditRow(row)"
-                                            @input="handleInput(row, header.field)"
-                                            @blur="updateCommit(rowIndex, header.field)"
-                                            @keydown.enter="handleEnterKey"
+                                            class="w-full h-full px-1 py-0 text-right border-none focus:ring-0 bg-white"
+                                            @blur="finishEditing(rowIndex, header.field)"
+                                            @keydown.stop
+                                            @keydown.enter.prevent="finishAndMove(rowIndex, colIndex, 'down')"
+                                            @keydown.tab.prevent="finishAndMove(rowIndex, colIndex, 'right')"
                                         />
+                                        <!-- Display Mode -->
+                                        <span v-else class="w-full text-right px-2">
+                                            {{ row[header.field] }}
+                                        </span>
+
+                                        <!-- Fill Handle -->
+                                        <div 
+                                            v-if="isSelected(rowIndex, header.field) && 
+                                                  selection.end && 
+                                                  rowIndex === Math.max(selection.start.r, selection.end.r) && 
+                                                  getCoords(rowIndex, header.field).c === Math.max(selection.start.c, selection.end.c) &&
+                                                  !isEditing(rowIndex, header.field)"
+                                            class="fill-handle absolute -bottom-1 -right-1 w-3 h-3 bg-blue-600 border border-white cursor-crosshair z-20"
+                                            @mousedown="onFillHandleMouseDown"
+                                        ></div>
                                     </div>
                                 </td>
 
