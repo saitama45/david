@@ -220,7 +220,7 @@ const toggleSection = (section) => {
 // Search and Pagination for Items
 const searchTerm = ref('');
 const currentPage = ref(1);
-const itemsPerPage = ref(10);
+const itemsPerPage = ref(200);
 
 const filteredItems = computed(() => {
     if (!searchTerm.value) {
@@ -1663,6 +1663,12 @@ onUnmounted(() => {
                                 :class="['px-2 py-1 rounded text-xs font-medium transition-colors', itemsPerPage === 50 ? 'bg-blue-100 text-blue-700' : 'text-gray-500 hover:text-gray-700']"
                             >
                                 50
+                            </button>
+                            <button
+                                @click="itemsPerPage = 200"
+                                :class="['px-2 py-1 rounded text-xs font-medium transition-colors', itemsPerPage === 200 ? 'bg-blue-100 text-blue-700' : 'text-gray-500 hover:text-gray-700']"
+                            >
+                                200
                             </button>
                         </div>
                     </div>
