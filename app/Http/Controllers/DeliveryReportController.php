@@ -106,6 +106,15 @@ class DeliveryReportController extends Controller
             });
         }
 
+        // Calculate totals based on the filtered query
+        $totalsQuery = clone $query;
+        // Clear the existing select columns and only fetch the sums
+        $totals = $totalsQuery->reorder()->select([])->selectRaw('
+            SUM(soi.quantity_ordered) as total_ordered,
+            SUM(soi.quantity_commited) as total_committed,
+            SUM(orv.quantity_received) as total_received
+        ')->first();
+
         // Sort by received_date DESC
         $query->orderBy('orv.received_date', 'desc');
 
@@ -136,7 +145,12 @@ class DeliveryReportController extends Controller
             'paginatedData' => $items, // Pass the paginator instance for links and totals
             'filters' => $filters,
             'stores' => $stores,
-            'assignedStoreIds' => $assignedStoreIds
+            'assignedStoreIds' => $assignedStoreIds,
+            'totals' => [
+                'quantity_ordered' => $totals->total_ordered ?? 0,
+                'quantity_committed' => $totals->total_committed ?? 0,
+                'quantity_received' => $totals->total_received ?? 0,
+            ]
         ]);
     }
 

@@ -28,6 +28,15 @@ const props = defineProps({
     assignedStoreIds: {
         type: Array,
         required: true,
+    },
+    totals: {
+        type: Object,
+        required: true,
+        default: () => ({
+            quantity_ordered: 0,
+            quantity_committed: 0,
+            quantity_received: 0
+        })
     }
 });
 
@@ -157,23 +166,6 @@ const formatDate = (dateString) => {
         return 'Invalid Date';
     }
 };
-
-// Calculate totals for report
-const reportTotals = computed(() => {
-    const totals = {
-        quantity_ordered: 0,
-        quantity_committed: 0,
-        quantity_received: 0
-    };
-
-    props.deliveryData.forEach(item => {
-        totals.quantity_ordered += Number(item.quantity_ordered) || 0;
-        totals.quantity_committed += Number(item.quantity_committed) || 0;
-        totals.quantity_received += Number(item.quantity_received) || 0;
-    });
-
-    return totals;
-});
 </script>
 
 <template>
@@ -325,7 +317,7 @@ const reportTotals = computed(() => {
                 <div class="flex items-center justify-between">
                     <div>
                         <p class="text-sm text-gray-600">Total Ordered</p>
-                        <p class="text-2xl font-bold text-gray-900">{{ formatNumber(reportTotals.quantity_ordered) }}</p>
+                        <p class="text-2xl font-bold text-gray-900">{{ formatNumber(totals.quantity_ordered) }}</p>
                     </div>
                     <Package class="w-8 h-8 text-green-500" />
                 </div>
@@ -334,7 +326,7 @@ const reportTotals = computed(() => {
                 <div class="flex items-center justify-between">
                     <div>
                         <p class="text-sm text-gray-600">Total Committed</p>
-                        <p class="text-2xl font-bold text-gray-900">{{ formatNumber(reportTotals.quantity_committed) }}</p>
+                        <p class="text-2xl font-bold text-gray-900">{{ formatNumber(totals.quantity_committed) }}</p>
                     </div>
                     <BadgeIcon class="w-8 h-8 text-amber-500" />
                 </div>
@@ -343,7 +335,7 @@ const reportTotals = computed(() => {
                 <div class="flex items-center justify-between">
                     <div>
                         <p class="text-sm text-gray-600">Total Received</p>
-                        <p class="text-2xl font-bold text-gray-900">{{ formatNumber(reportTotals.quantity_received) }}</p>
+                        <p class="text-2xl font-bold text-gray-900">{{ formatNumber(totals.quantity_received) }}</p>
                     </div>
                     <Truck class="w-8 h-8 text-purple-500" />
                 </div>
