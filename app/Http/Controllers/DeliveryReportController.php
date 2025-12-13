@@ -110,7 +110,7 @@ class DeliveryReportController extends Controller
         $query->orderBy('orv.received_date', 'desc');
 
         // Get paginated results
-        $items = $query->paginate($filters['per_page']);
+        $items = $query->paginate($filters['per_page'])->withQueryString();
 
         // Build the final flat delivery data from the filtered & paginated items
         $deliveryData = [];
