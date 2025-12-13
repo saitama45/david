@@ -747,139 +747,43 @@ const promptConfirmReceive = () => {
                     </MobileTableContainer>
                 </TableContainer>
 
-                <!-- Remarks Table -->
-                <TableContainer>
-                     <TableHeader>
-                        <CardTitle class="text-lg font-semibold text-gray-800">History & Remarks</CardTitle>
-                    </TableHeader>
-                    <Table>
-                        <TableHead>
-                            <TH>User</TH>
-                            <TH>Action</TH>
-                            <TH>Remarks</TH>
-                            <TH>Date</TH>
-                        </TableHead>
-                        <TableBody>
-                             <tr v-if="order.store_order_remarks.length === 0">
-                                <td colspan="4" class="text-center py-6 text-gray-500 italic text-sm">No remarks found.</td>
-                            </tr>
-                            <tr v-for="remarks in order.store_order_remarks" :key="remarks.id" class="hover:bg-gray-50 transition-colors">
-                                <TD class="font-medium text-xs">{{ remarks.user.first_name }} {{ remarks.user.last_name }}</TD>
-                                <TD>
-                                    <span class="px-2 py-0.5 rounded text-[10px] font-bold bg-gray-100 text-gray-600 border border-gray-200 uppercase tracking-wide">
-                                        {{ remarks.action }}
-                                    </span>
-                                </TD>
-                                <TD class="text-gray-600 italic text-sm">{{ remarks.remarks }}</TD>
-                                <TD class="text-xs text-gray-500">
-                                    {{ dayjs(remarks.created_at).tz("Asia/Manila").format("MMM D, h:mm A") }}
-                                </TD>
-                            </tr>
-                        </TableBody>
-                    </Table>
-
-                     <MobileTableContainer>
-                        <MobileTableRow v-for="remarks in order.store_order_remarks" :key="remarks.id">
-                            <MobileTableHeading :title="remarks.action.toUpperCase()">
-                                <span class="text-xs text-gray-500">{{ dayjs(remarks.created_at).tz("Asia/Manila").format("MMM D, h:mm A") }}</span>
-                            </MobileTableHeading>
-                            <div class="mt-2 text-sm">
-                                <p class="text-gray-900 font-medium">{{ remarks.user.first_name }} {{ remarks.user.last_name }}</p>
-                                <p class="text-gray-600 italic mt-1">"{{ remarks.remarks }}"</p>
+                <!-- Image Attachments -->
+                <Card class="bg-white shadow-sm border border-gray-200 rounded-xl overflow-hidden">
+                    <div class="p-4 border-b border-gray-100 flex justify-between items-center bg-gray-50/50">
+                        <CardTitle class="text-lg font-semibold text-gray-800 flex items-center gap-2">
+                            Image Attachments <span class="text-red-500 text-sm">*</span>
+                            <span class="px-2 py-0.5 rounded-full bg-gray-200 text-gray-600 text-xs">{{ images.length }}</span>
+                        </CardTitle>
+                        <Button v-if="images.length === 0" size="sm" variant="outline" @click="openImageUploadModal">
+                             Upload Image
+                        </Button>
+                    </div>
+                    <div class="p-6">
+                        <div v-if="images.length > 0" class="grid grid-cols-2 sm:grid-cols-3 gap-4">
+                            <div v-for="image in images" :key="image.id" class="group relative aspect-square bg-gray-100 rounded-lg border border-gray-200 overflow-hidden">
+                                 <a :href="image.image_url" target="_blank" rel="noopener noreferrer" class="block w-full h-full">
+                                    <img :src="image.image_url" class="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105" />
+                                </a>
+                                <button
+                                    @click="deleteImageForm.id = image.id; deleteImage();"
+                                    class="absolute top-2 right-2 p-1.5 bg-red-500/90 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-600 shadow-sm"
+                                    title="Delete Image"
+                                >
+                                    <X class="size-3" />
+                                </button>
                             </div>
-                        </MobileTableRow>
-                        <div v-if="order.store_order_remarks.length === 0" class="p-4 text-center text-gray-500 italic">None</div>
-                    </MobileTableContainer>
-                </TableContainer>
+                        </div>
+                        <div v-else class="text-center py-8 bg-gray-50 rounded-lg border border-dashed border-gray-300">
+                            <div class="flex flex-col items-center justify-center text-gray-400">
+                                 <svg class="size-10 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
+                                <span class="text-sm">No images attached</span>
+                            </div>
+                        </div>
+                    </div>
+                </Card>
             </div>
 
-            <!-- Image Attachments -->
-             <Card class="bg-white shadow-sm border border-gray-200 rounded-xl overflow-hidden">
-                <div class="p-4 border-b border-gray-100 flex justify-between items-center bg-gray-50/50">
-                    <CardTitle class="text-lg font-semibold text-gray-800 flex items-center gap-2">
-                        Image Attachments <span class="text-red-500 text-sm">*</span>
-                        <span class="px-2 py-0.5 rounded-full bg-gray-200 text-gray-600 text-xs">{{ images.length }}</span>
-                    </CardTitle>
-                    <Button size="sm" variant="outline" @click="openImageUploadModal">
-                         Upload Image
-                    </Button>
-                </div>
-                <div class="p-6">
-                    <div v-if="images.length > 0" class="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 gap-4">
-                        <div v-for="image in images" :key="image.id" class="group relative aspect-square bg-gray-100 rounded-lg border border-gray-200 overflow-hidden">
-                             <a :href="image.image_url" target="_blank" rel="noopener noreferrer" class="block w-full h-full">
-                                <img :src="image.image_url" class="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105" />
-                            </a>
-                            <button
-                                @click="deleteImageForm.id = image.id; deleteImage();"
-                                class="absolute top-2 right-2 p-1.5 bg-red-500/90 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-600 shadow-sm"
-                                title="Delete Image"
-                            >
-                                <X class="size-3" />
-                            </button>
-                        </div>
-                    </div>
-                    <div v-else class="text-center py-8 bg-gray-50 rounded-lg border border-dashed border-gray-300">
-                        <div class="flex flex-col items-center justify-center text-gray-400">
-                             <svg class="size-10 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
-                            <span class="text-sm">No images attached</span>
-                        </div>
-                    </div>
-                </div>
-            </Card>
 
-            <!-- Ordered Items Table -->
-            <TableContainer>
-                <TableHeader>
-                    <CardTitle class="text-lg font-semibold text-gray-800">Ordered Items</CardTitle>
-                    <span class="text-sm text-gray-500 font-normal">Total Items: {{ orderedItems.length }}</span>
-                </TableHeader>
-                <Table>
-                    <TableHead>
-                        <TH>Item Code</TH>
-                        <TH>Name</TH>
-                        <TH>UOM Details</TH>
-                        <TH class="text-center">Ordered</TH>
-                        <TH class="text-center">Approved</TH>
-                        <TH class="text-center">Committed</TH>
-                        <TH class="text-center">Received</TH>
-                    </TableHead>
-                    <TableBody>
-                        <tr v-for="orderItem in orderedItems" :key="orderItem.id" class="hover:bg-gray-50 transition-colors">
-                            <TD class="font-mono text-gray-600">{{ orderItem.supplier_item.ItemCode }}</TD>
-                            <TD class="font-medium text-gray-900">{{ orderItem.supplier_item.item_name }}</TD>
-                            <TD>
-                                <div class="flex flex-col text-xs">
-                                    <span class="text-gray-500">Base: <span class="text-gray-900 font-medium">{{ orderItem.supplier_item.sap_master_file?.BaseUOM || '-' }}</span></span>
-                                    <span class="text-gray-500">Order: <span class="text-gray-900 font-medium">{{ orderItem.uom }}</span></span>
-                                </div>
-                            </TD>
-                            <TD class="text-center font-mono">{{ orderItem.quantity_ordered }}</TD>
-                            <TD class="text-center font-mono">{{ orderItem.quantity_approved }}</TD>
-                            <TD class="text-center font-mono">{{ orderItem.quantity_commited }}</TD>
-                            <TD class="text-center font-mono font-bold text-blue-600">{{ orderItem.quantity_received }}</TD>
-                        </tr>
-                    </TableBody>
-                </Table>
-
-                 <MobileTableContainer>
-                    <MobileTableRow v-for="orderItem in orderedItems" :key="orderItem.id">
-                        <MobileTableHeading :title="`${orderItem.supplier_item.item_name}`">
-                             <span class="text-xs font-mono bg-gray-100 px-1 py-0.5 rounded">{{ orderItem.supplier_item.ItemCode }}</span>
-                        </MobileTableHeading>
-                        <div class="grid grid-cols-2 gap-2 mt-2 text-sm">
-                            <div class="flex flex-col">
-                                <span class="text-xs text-gray-500">UOM</span>
-                                <span>{{ orderItem.uom }}</span>
-                            </div>
-                             <div class="flex flex-col text-right">
-                                <span class="text-xs text-gray-500">Received</span>
-                                <span class="font-bold text-blue-600">{{ orderItem.quantity_received }}</span>
-                            </div>
-                        </div>
-                    </MobileTableRow>
-                </MobileTableContainer>
-            </TableContainer>
 
             <!-- Receiving History Table -->
             <TableContainer>
@@ -897,9 +801,14 @@ const promptConfirmReceive = () => {
                 </TableHeader>
                 <Table>
                     <TableHead>
-                        <TH>Item</TH>
-                        <TH>Code</TH>
-                        <TH class="text-center">Qty Received</TH>
+                        <TH>#</TH>
+                        <TH>Item Code</TH>
+                        <TH>Name</TH>
+                        <TH>UOM Details</TH>
+                        <TH class="text-center">Ordered</TH>
+                        <TH class="text-center">Approved</TH>
+                        <TH class="text-center">Committed</TH>
+                        <TH class="text-center">Received</TH>
                         <TH>Received At</TH>
                         <TH class="text-center">Status</TH>
                         <TH>Remarks</TH>
@@ -907,35 +816,43 @@ const promptConfirmReceive = () => {
                     </TableHead>
                     <TableBody>
                          <tr v-if="receiveDatesHistory.length === 0">
-                            <td colspan="7" class="text-center py-8 text-gray-500 italic bg-gray-50/50">
+                            <td colspan="12" class="text-center py-8 text-gray-500 italic bg-gray-50/50">
                                 No receiving history available.
                             </td>
                         </tr>
                         <tr
-                            v-for="history in receiveDatesHistory"
+                            v-for="(history, index) in receiveDatesHistory"
                             :key="history.id"
                             class="hover:bg-gray-50 transition-colors duration-150"
                         >
-                            <TD class="font-medium text-gray-800">{{
-                                history.store_order_item.supplier_item
-                                    .item_name
-                            }}</TD>
+                            <TD class="text-center font-mono text-gray-500">{{ index + 1 }}</TD>
                             <TD class="font-mono text-xs text-gray-600">{{
                                 history.store_order_item.supplier_item
                                     .ItemCode
                             }}</TD>
-                            <TD class="text-center font-mono font-bold pr-6">{{ history.quantity_received }}</TD>
-                            <TD class="text-sm text-gray-600">{{
-                                dayjs(history.received_date)
-                                    .tz("Asia/Manila")
-                                    .format("MMM D, YYYY h:mm A")
+                            <TD class="font-medium text-gray-800">{{
+                                history.store_order_item.supplier_item
+                                    .item_name
                             }}</TD>
+                            <TD>
+                                <div class="flex flex-col text-xs">
+                                    <span class="text-gray-500">Base: <span class="text-gray-900 font-medium">{{ history.store_order_item.supplier_item.sap_master_file?.BaseUOM || '-' }}</span></span>
+                                    <span class="text-gray-500">Order: <span class="text-gray-900 font-medium">{{ history.store_order_item.uom }}</span></span>
+                                </div>
+                            </TD>
+                            <TD class="text-center font-mono">{{ history.store_order_item.quantity_ordered }}</TD>
+                            <TD class="text-center font-mono">{{ history.store_order_item.quantity_approved }}</TD>
+                            <TD class="text-center font-mono">{{ history.store_order_item.quantity_commited }}</TD>
+                            <TD class="text-center font-mono font-bold text-blue-600">{{ history.quantity_received }}</TD>
+                            <TD class="text-sm text-gray-600">
+                                {{ dayjs(history.received_date).isValid() ? dayjs(history.received_date).tz("Asia/Manila").format("MMM D, YYYY h:mm A") : '' }}
+                            </TD>
                             <TD class="text-center">
                                 <span :class="[
                                     'px-2.5 py-0.5 text-xs font-semibold rounded-full border',
                                     getStatusClass(history.status)
                                 ]">
-                                    {{ history.status.toUpperCase() }}
+                                    {{ history.status.toLowerCase() === 'approved' ? 'RECEIVED' : history.status.toUpperCase() }}
                                 </span>
                             </TD>
                             <TD class="max-w-[200px] truncate text-sm text-gray-600" :title="history.remarks">{{ history.remarks || '-' }}</TD>
