@@ -470,7 +470,7 @@ const updateDeliveryReceiptNumber = () => {
                     detail: "Delivery Receipt Updated Successfully.",
                     life: 5000,
                 });
-                showDeliveryReceiptForm.value = false;
+                isDeliveryReceiptModalVisible.value = false;
                 isLoading.value = false;
                 deliveryReceiptForm.reset();
             },
@@ -754,7 +754,7 @@ const promptConfirmReceive = () => {
                             Image Attachments <span class="text-red-500 text-sm">*</span>
                             <span class="px-2 py-0.5 rounded-full bg-gray-200 text-gray-600 text-xs">{{ images.length }}</span>
                         </CardTitle>
-                        <Button v-if="images.length === 0" size="sm" variant="outline" @click="openImageUploadModal">
+                        <Button size="sm" variant="outline" @click="openImageUploadModal">
                              Upload Image
                         </Button>
                     </div>
