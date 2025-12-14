@@ -363,12 +363,6 @@ const onKeyDown = (event) => {
                 copySelection();
             }
             break;
-        case 'v':
-            if (event.ctrlKey || event.metaKey) {
-                handled = true;
-                pasteSelection();
-            }
-            break;
         case 'z':
             if (event.ctrlKey || event.metaKey) {
                 handled = true;
@@ -572,10 +566,17 @@ const copySelection = async () => {
     }
 };
 
-const pasteSelection = async () => {
+const onCellPaste = (event) => {
+    if (editingCell.value) return; // Allow native paste in input
+    event.preventDefault();
+    const text = (event.clipboardData || window.clipboardData).getData('text');
+    if (text) {
+        processPasteText(text);
+    }
+};
+
+const processPasteText = async (text) => {
     try {
-        const text = await navigator.clipboard.readText();
-        
         // Split rows by newline, filtering out empty last line often added by Excel/Sheets
         const rows = text.split(/\r?\n/);
         if (rows.length > 0 && rows[rows.length - 1].trim() === "") {
@@ -729,8 +730,8 @@ const pasteSelection = async () => {
         }
 
     } catch (err) {
-        console.error('Failed to paste from clipboard:', err);
-        toast.add({ severity: 'error', summary: 'Paste Failed', detail: 'Could not read from clipboard or an unexpected error occurred.', life: 2000 });
+        console.error('Failed to process paste:', err);
+        toast.add({ severity: 'error', summary: 'Paste Failed', detail: 'An unexpected error occurred during paste processing.', life: 2000 });
     }
 };
 
@@ -1196,6 +1197,7 @@ const sortedReport = computed(() => localReport.value);
                                     @mouseover="onCellMouseOver(rowIndex, header.field)"
                                     @keydown="onKeyDown"
                                     @dblclick="startEditing(rowIndex, getCoords(rowIndex, header.field).c)"
+                                    @paste="onCellPaste"
                                 >
                                     <div class="w-full h-full min-h-[1.5rem] flex items-center justify-end">
                                         <span 
