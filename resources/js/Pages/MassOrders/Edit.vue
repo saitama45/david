@@ -1737,6 +1737,7 @@ onUnmounted(() => {
                                 <!-- Table Header -->
                                 <thead class="bg-gray-50 border-b border-gray-200">
                                     <tr>
+                                        <th class="px-4 py-3 text-left font-medium text-gray-900">#</th>
                                         <th class="px-4 py-3 text-left font-medium text-gray-900">Item Code</th>
                                         <th class="px-4 py-3 text-left font-medium text-gray-900">Item Name</th>
                                         <th class="px-4 py-3 text-left font-medium text-gray-900">UOM</th>
@@ -1750,7 +1751,8 @@ onUnmounted(() => {
 
                                 <!-- Table Body -->
                                 <tbody class="divide-y divide-gray-200">
-                                    <tr v-for="order in paginatedItems" :key="order.id" class="hover:bg-gray-50">
+                                    <tr v-for="(order, index) in paginatedItems" :key="order.id" class="hover:bg-gray-50">
+                                        <td class="px-4 py-3 text-gray-900">{{ (currentPage - 1) * itemsPerPage + index + 1 }}</td>
                                         <td class="px-4 py-3 text-gray-900 font-medium">{{ order.inventory_code }}</td>
                                         <td class="px-4 py-3 text-gray-900">{{ order.name }}</td>
                                         <td class="px-4 py-3 text-gray-900">{{ order.unit_of_measurement }}</td>
