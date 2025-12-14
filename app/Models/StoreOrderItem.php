@@ -14,8 +14,7 @@ class StoreOrderItem extends Model implements Auditable
 
     protected $touches = ['store_order'];
 
-    // Ensure relationships are always loaded for JSON serialization and permission checking
-    protected $with = ['sapMasterfile', 'supplierItem'];
+    // Removed automatic eager loading to prevent N+1 queries when explicitly eager loading
 
     // Append computed attributes to JSON
     protected $appends = [

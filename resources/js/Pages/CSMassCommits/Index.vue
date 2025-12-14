@@ -1137,7 +1137,7 @@ const sortedReport = computed(() => localReport.value);
             </TableHeader>
             
             <div class="bg-white border rounded-md shadow-sm">
-                <div class="overflow-x-auto max-h-[75vh] overflow-y-auto select-none" @mouseup="onCellMouseUp">
+                <div class="overflow-x-auto max-h-[75vh] overflow-y-auto" style="user-select: text;" @mouseup="onCellMouseUp">
                     <table class="min-w-full">
                         <thead class="bg-slate-100 sticky top-0 z-10 text-slate-800 shadow-sm">
                             <!-- Main Header Row -->

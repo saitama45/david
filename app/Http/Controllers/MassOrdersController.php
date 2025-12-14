@@ -341,28 +341,89 @@ class MassOrdersController extends Controller
 
     public function show($id)
     {
-        $order = $this->storeOrderService->getOrderDetails($id);
-        $orderedItems = $this->storeOrderService->getOrderItems($order);
-        $orderedItems->load('supplierItem.sapMasterfiles');
+        // Increase execution time and memory limits for large datasets
+        set_time_limit(120); // 2 minutes
+        ini_set('memory_limit', '512M');
+        
+        // Set database timeout for SQL Server
+        try {
+            DB::statement('SET LOCK_TIMEOUT 120000'); // 2 minutes in milliseconds
+        } catch (\Exception $e) {
+            // Ignore if command fails
+        }
+        
+        // Single optimized query with all necessary relationships
+        $order = \App\Models\StoreOrder::select([
+            'id', 'order_number', 'order_date', 'order_status', 'variant',
+            'supplier_id', 'store_branch_id', 'encoder_id', 'approver_id', 'approval_action_date'
+        ])->with([
+            'supplier:id,name,supplier_code',
+            'store_branch:id,name,brand_code', 
+            'encoder:id,first_name,last_name',
+            'approver:id,first_name,last_name',
+            'delivery_receipts:id,store_order_id,delivery_receipt_number,remarks,created_at',
+            'image_attachments:id,store_order_id,file_path',
+            'store_order_items' => function($query) {
+                $query->select([
+                    'id', 'store_order_id', 'item_code', 'quantity_ordered', 
+                    'quantity_approved', 'quantity_commited', 'quantity_received',
+                    'uom', 'committed_by'
+                ])->with([
+                    'supplierItem:ItemCode,item_name,category',
+                    'supplierItem.sapMasterfiles:id,ItemCode,AltUOM,BaseUOM,BaseQty',
+                    'committedBy:id,first_name,last_name'
+                ]);
+            }
+        ])->where('order_number', $id)->firstOrFail();
 
-        // Fetch images directly from the relationship to ensure the accessor is called
-        $images = $order->image_attachments()->get();
-
-        // Explicitly load receive dates history with necessary relationships
-        $receiveDatesHistory = \App\Models\OrderedItemReceiveDate::with([
-            'store_order_item.supplierItem',
-            'received_by_user',
-            'approval_action_by_user'
+        // Optimized receiving history query with column selection
+        $receiveDatesHistory = \App\Models\OrderedItemReceiveDate::select([
+            'id', 'store_order_item_id', 'quantity_received', 'received_date',
+            'expiry_date', 'remarks', 'status', 'received_by_user_id', 'created_at'
+        ])->with([
+            'store_order_item' => function($query) {
+                $query->select([
+                    'id', 'item_code', 'quantity_ordered', 'quantity_approved', 
+                    'quantity_commited', 'uom'
+                ])->with([
+                    'supplierItem:ItemCode,item_name',
+                    'supplierItem.sapMasterfiles:id,ItemCode,AltUOM,BaseUOM'
+                ]);
+            },
+            'received_by_user:id,first_name,last_name'
         ])
-        ->whereHas('store_order_item', function ($query) use ($order) {
-            $query->where('store_order_id', $order->id);
-        })->get();
-
-        return \Inertia\Inertia::render('MassOrders/Show', [
+                ->whereHas('store_order_item', function ($query) use ($order) {
+                    $query->where('store_order_id', $order->id);
+                })
+                ->orderBy('created_at', 'desc')
+                ->get();
+        
+                // Add pending items (items without receiving history)
+                $itemsWithHistory = $receiveDatesHistory->pluck('store_order_item_id')->unique()->toArray();
+                $pendingItems = $order->store_order_items->whereNotIn('id', $itemsWithHistory);
+        
+                foreach ($pendingItems as $item) {
+                    $placeholder = new \App\Models\OrderedItemReceiveDate([
+                        'quantity_received' => 0,
+                        'received_date' => null,
+                        'status' => 'PENDING',
+                        'remarks' => null,
+                    ]);
+                    // Use a negative ID to avoid conflicts with real DB IDs
+                    $placeholder->id = $item->id * -1; 
+                    $placeholder->store_order_item_id = $item->id;
+                    
+                    // Set the relation manually
+                    $placeholder->setRelation('store_order_item', $item);
+                    
+                    $receiveDatesHistory->push($placeholder);
+                }
+        
+                return \Inertia\Inertia::render('MassOrders/Show', [
             'order' => $order,
-            'orderedItems' => $orderedItems,
+            'orderedItems' => $order->store_order_items,
             'receiveDatesHistory' => $receiveDatesHistory,
-            'images' => $images,
+            'images' => $order->image_attachments,
             'canViewCost' => Auth::user()->hasPermissionTo('view cost mass orders'),
         ]);
     }

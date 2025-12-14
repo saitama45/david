@@ -77,60 +77,28 @@ class SupplierItems extends Model implements Auditable
 
     /**
      * Custom accessor to get the specific SAPMasterfile entry that matches
-     * both the ItemCode (via the sapMasterfiles relationship) and the SupplierItem's 'uom'
-     * (which corresponds to SAPMasterfile's AltUOM).
-     *
-     * This accessor will first check if the 'sapMasterfiles' relationship has already been loaded
-     * (e.g., by using `->with('sapMasterfiles')` in the controller).
-     * If loaded, it filters the collection in memory to avoid N+1 queries.
-     * If not loaded, it performs a new query, which can lead to N+1.
+     * both the ItemCode and the SupplierItem's 'uom' (AltUOM).
+     * Optimized to prevent N+1 queries by preferring loaded relationships.
      */
     public function getSapMasterfileAttribute()
     {
-        // Log the SupplierItem's details when the accessor is called
-        // Log::debug("Accessing sap_master_file for SupplierItem ID: " . ($this->id ? $this->id : 'N/A') . ", ItemCode: " . ($this->ItemCode ? $this->ItemCode : 'N/A') . ", SupplierItem UOM: '" . ($this->uom ? $this->uom : 'N/A') . "'");
+        if (!$this->uom) {
+            return null;
+        }
 
-        // Convert the SupplierItem's UOM to uppercase for case-insensitive comparison
         $supplierItemUomUpper = strtoupper($this->uom);
 
         // Check if the 'sapMasterfiles' relationship has already been loaded
         if ($this->relationLoaded('sapMasterfiles')) {
-            // Filter the loaded collection in memory to find the matching AltUOM (converted to uppercase)
-            $matchingSapMasterfile = $this->sapMasterfiles->first(function ($sapMasterfile) use ($supplierItemUomUpper) {
+            return $this->sapMasterfiles->first(function ($sapMasterfile) use ($supplierItemUomUpper) {
                 return strtoupper($sapMasterfile->AltUOM) === $supplierItemUomUpper;
             });
-            
-            // Log whether a match was found from the loaded relationship, and the BaseQty
-            // CRITICAL FIX: Use getRawOriginal() for robust string conversion for logging
-            // Log::debug("sapMasterfiles relationship loaded. Matching AltUOM '{$this->uom}' found: " . ($matchingSapMasterfile ? 'Yes' : 'No') . " BaseQty: " . ($matchingSapMasterfile ? $matchingSapMasterfile->getRawOriginal('BaseQTY') : 'N/A'));
-            
-            // NEW: Log the full matching SAPMasterfile object for detailed debugging
-            if ($matchingSapMasterfile) {
-                // Log::debug("Full matching SAPMasterfile object (loaded relation): " . json_encode($matchingSapMasterfile->toArray(), JSON_PRETTY_PRINT));
-            }
-
-            // If no direct match is found, log the available AltUOMs for debugging
-            if (!$matchingSapMasterfile) {
-                Log::debug("No direct match found for AltUOM '{$this->uom}'. Available AltUOMs for ItemCode '{$this->ItemCode}': " . $this->sapMasterfiles->pluck('AltUOM')->implode(', '));
-            }
-            return $matchingSapMasterfile;
         }
 
-        // Fallback: If the relationship is not loaded, perform a direct query.
-        // This will cause an N+1 query if called for multiple SupplierItems in a loop without eager loading.
-        // Use DB::raw to convert AltUOM to uppercase in the query for case-insensitive matching
-        $matchingSapMasterfile = $this->sapMasterfiles()->where(DB::raw('UPPER(AltUOM)'), $supplierItemUomUpper)->first();
-        
-        // Log whether a match was found from the direct query, and the BaseQty
-        // CRITICAL FIX: Use getRawOriginal() for robust string conversion for logging
-        Log::debug("sapMasterfiles relationship NOT loaded. Direct query for AltUOM '{$this->uom}' found: " . ($matchingSapMasterfile ? 'Yes' : 'No') . " BaseQty: " . ($matchingSapMasterfile ? $matchingSapMasterfile->getRawOriginal('BaseQTY') : 'N/A'));
-        
-        // NEW: Log the full matching SAPMasterfile object for detailed debugging
-        if ($matchingSapMasterfile) {
-            Log::debug("Full matching SAPMasterfile object (direct query): " . json_encode($matchingSapMasterfile->toArray(), JSON_PRETTY_PRINT));
-        }
-
-        return $matchingSapMasterfile;
+        // Fallback: perform a single optimized query
+        return SAPMasterfile::where('ItemCode', $this->ItemCode)
+            ->where(DB::raw('UPPER(AltUOM)'), $supplierItemUomUpper)
+            ->first();
     }
 }
 
