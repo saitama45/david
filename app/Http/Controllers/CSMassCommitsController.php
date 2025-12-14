@@ -49,9 +49,7 @@ class CSMassCommitsController extends Controller
                 $q->where('supplier_id', $supplierId);
             })
             ->whereIn('order_status', $allowedStatuses)
-            ->whereHas('storeOrderItems', function ($q) {
-                $q->where('quantity_commited', '>', 0);
-            })
+            ->has('storeOrderItems')
             ->get();
 
         // Extract unique branches directly from the orders
@@ -118,9 +116,7 @@ class CSMassCommitsController extends Controller
                 $q->where('supplier_id', $supplierId);
             })
             ->whereIn('order_status', $allowedStatuses)
-            ->whereHas('storeOrderItems', function ($q) {
-                $q->where('quantity_commited', '>', 0);
-            })
+            ->has('storeOrderItems')
             ->get();
 
         // Extract unique branches directly from the orders

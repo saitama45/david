@@ -357,12 +357,6 @@ const onKeyDown = (event) => {
             handled = true;
             clearSelection();
             break;
-        case 'c':
-            if (event.ctrlKey || event.metaKey) {
-                handled = true;
-                copySelection();
-            }
-            break;
         case 'z':
             if (event.ctrlKey || event.metaKey) {
                 handled = true;
@@ -542,7 +536,9 @@ const clearSelection = async () => {
     }
 };
 
-const copySelection = async () => {
+const onCellCopy = (event) => {
+    if (editingCell.value) return; // Allow native copy in input
+
     const rMin = Math.min(selection.value.start.r, selection.value.end.r);
     const rMax = Math.max(selection.value.start.r, selection.value.end.r);
     const cMin = Math.min(selection.value.start.c, selection.value.end.c);
@@ -558,11 +554,10 @@ const copySelection = async () => {
         text += rowVals.join("\t") + "\n";
     }
 
-    try {
-        await navigator.clipboard.writeText(text);
-        toast.add({ severity: 'info', summary: 'Copied', detail: 'Selection copied to clipboard.', life: 1000 });
-    } catch (err) {
-        console.error('Failed to copy', err);
+    if (text) {
+        event.clipboardData.setData('text/plain', text);
+        event.preventDefault();
+        toast.add({ severity: 'info', summary: 'Copied', detail: 'Selection copied.', life: 1000 });
     }
 };
 
@@ -1197,6 +1192,7 @@ const sortedReport = computed(() => localReport.value);
                                     @mouseover="onCellMouseOver(rowIndex, header.field)"
                                     @keydown="onKeyDown"
                                     @dblclick="startEditing(rowIndex, getCoords(rowIndex, header.field).c)"
+                                    @copy="onCellCopy"
                                     @paste="onCellPaste"
                                 >
                                     <div class="w-full h-full min-h-[1.5rem] flex items-center justify-end">
