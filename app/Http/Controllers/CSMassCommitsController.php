@@ -338,6 +338,7 @@ class CSMassCommitsController extends Controller
             'item_code' => 'required|string|exists:supplier_items,ItemCode',
             'brand_code' => 'required|string|exists:store_branches,brand_code',
             'new_quantity' => 'required|numeric|min:0',
+            'supplier_id' => 'required|string|exists:suppliers,supplier_code',
         ]);
 
         return $this->performUpdate($validated);
@@ -351,6 +352,7 @@ class CSMassCommitsController extends Controller
             'updates.*.item_code' => 'required|string|exists:supplier_items,ItemCode',
             'updates.*.brand_code' => 'required|string|exists:store_branches,brand_code',
             'updates.*.new_quantity' => 'required|numeric|min:0',
+            'updates.*.supplier_id' => 'required|string|exists:suppliers,supplier_code',
         ]);
 
         $results = [];
@@ -393,6 +395,9 @@ class CSMassCommitsController extends Controller
                 $query->whereDate('order_date', $data['order_date'])
                       ->whereHas('store_branch', function ($subQuery) use ($data) {
                           $subQuery->where('brand_code', $data['brand_code']);
+                      })
+                      ->whereHas('supplier', function ($subQuery) use ($data) {
+                          $subQuery->where('supplier_code', $data['supplier_id']);
                       });
             })
             ->first();

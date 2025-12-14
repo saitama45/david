@@ -284,6 +284,7 @@ const performFill = async () => {
                     item_code: row.item_code,
                     brand_code: col,
                     new_quantity: parseFloat(sourceValue) || 0,
+                    supplier_id: supplierId.value,
                 });
             }
         }
@@ -639,6 +640,7 @@ const processPasteText = async (text) => {
                                 item_code: row.item_code,
                                 brand_code: col,
                                 new_quantity: safeNumVal,
+                                supplier_id: supplierId.value,
                             });
                         }
                     }
@@ -698,6 +700,7 @@ const processPasteText = async (text) => {
                                 item_code: row.item_code,
                                 brand_code: col,
                                 new_quantity: safeNumVal,
+                                supplier_id: supplierId.value,
                             });
                         }
                     }
@@ -859,13 +862,13 @@ const updateCommit = async (rowIndex, field, silent = false) => {
     if (!silent) toast.add({ severity: 'success', summary: 'Saved', detail: 'Quantity updated successfully.', life: 2000 });
 
     try {
-        await axios.post(route('cs-mass-commits.update-commit'), {
-            order_date: orderDate.value,
-            item_code: row.item_code,
-            brand_code: field,
-            new_quantity: newValue,
-        });
-
+                    await axios.post(route('cs-mass-commits.update-commit'), {
+                        order_date: orderDate.value,
+                        item_code: row.item_code,
+                        brand_code: field,
+                        new_quantity: newValue,
+                        supplier_id: supplierId.value,
+                    });
         // Ensure calculations are consistent
         recalculateRow(row);
 
