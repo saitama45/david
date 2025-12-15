@@ -396,19 +396,19 @@ const openViewModalForm = (id) => {
                             </TD>
                             <TD class="text-center font-mono">{{ history.store_order_item?.quantity_ordered || 0 }}</TD>
                             <TD v-if="false" class="text-center font-mono">{{ history.store_order_item?.quantity_approved || 0 }}</TD>
-                            <TD class="text-center font-mono">{{ shouldDisplayCommittedQuantity(history.status) ? history.store_order_item?.quantity_commited || 0 : 0 }}</TD>
-                            <TD class="text-center font-mono font-bold text-blue-600">{{ isReceived(history.status) ? history.quantity_received : 0 }}</TD>
-                            <TD class="text-center font-mono">{{ Math.abs((history.store_order_item?.quantity_ordered || 0) - (shouldDisplayCommittedQuantity(history.status) ? history.store_order_item?.quantity_commited || 0 : 0)) }}</TD>
-                            <TD class="text-center font-mono">{{ Math.abs((shouldDisplayCommittedQuantity(history.status) ? history.store_order_item?.quantity_commited || 0 : 0) - (isReceived(history.status) ? history.quantity_received : 0)) }}</TD>
+                            <TD class="text-center font-mono">{{ history.store_order_item?.quantity_commited || 0 }}</TD>
+                            <TD class="text-center font-mono font-bold text-blue-600">{{ history.quantity_received }}</TD>
+                            <TD class="text-center font-mono">{{ Math.abs((history.store_order_item?.quantity_ordered || 0) - (history.store_order_item?.quantity_commited || 0)) }}</TD>
+                            <TD class="text-center font-mono">{{ Math.abs((history.store_order_item?.quantity_commited || 0) - (history.quantity_received)) }}</TD>
                             <TD class="text-sm text-gray-600">
-                                {{ isReceived(history.status) && dayjs(history.received_date).isValid() ? dayjs(history.received_date).tz("Asia/Manila").format("MMM D, YYYY h:mm A") : '' }}
+                                {{ dayjs(history.received_date).isValid() ? dayjs(history.received_date).tz("Asia/Manila").format("MMM D, YYYY h:mm A") : '' }}
                             </TD>
                             <TD class="text-center">
                                 <span :class="[
                                     'px-2.5 py-0.5 text-xs font-semibold rounded-full border',
                                     getStatusClass(history.status)
                                 ]">
-                                    {{ history.status?.toLowerCase() === 'approved' ? 'RECEIVED' : history.status?.toUpperCase() }}
+                                    {{ history.status?.toUpperCase() }}
                                 </span>
                             </TD>
                             <TD class="max-w-[200px] truncate text-sm text-gray-600" :title="history.remarks">{{ history.remarks || '-' }}</TD>
@@ -446,7 +446,7 @@ const openViewModalForm = (id) => {
                             </div>
                             <div class="flex flex-col">
                                 <span class="text-xs text-gray-500">Received</span>
-                                <span class="font-bold">{{ isReceived(history.status) ? history.quantity_received : 0 }}</span>
+                                <span class="font-bold">{{ history.quantity_received }}</span>
                             </div>
                             <div class="flex flex-col items-end">
                                 <span class="text-xs text-gray-500 mb-1">Status</span>
