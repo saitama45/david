@@ -392,7 +392,7 @@ class MassOrdersController extends Controller
             ->leftJoin('ordered_item_receive_dates as receive', 'receive.store_order_item_id', '=', 'soi.id')
             ->leftJoin('users as u', 'u.id', '=', 'receive.received_by_user_id')
             ->where('so.id', $order->id)
-            ->orderByRaw("CASE WHEN ISNULL(si.sort_order, 0) = 0 THEN 1 ELSE 0 END, si.sort_order")
+            ->orderByRaw("CASE WHEN ISNULL([si].[sort_order], 0) = 0 THEN 1 ELSE 0 END, [si].[sort_order]")
             ->select([
                 'receive.id as id',
                 'soi.id as store_order_item_id',
@@ -411,16 +411,16 @@ class MassOrdersController extends Controller
                 'u.first_name as received_by_first_name',
                 'u.last_name as received_by_last_name',
                 DB::raw("CASE
-                    WHEN receive.status IS NULL THEN 'TO COMMIT'
-                    WHEN receive.status = 'approved' THEN 'RECEIVED'
-                    ELSE receive.status
+                    WHEN [receive].[status] IS NULL THEN 'TO COMMIT'
+                    WHEN [receive].[status] = 'approved' THEN 'RECEIVED'
+                    ELSE [receive].[status]
                 END as display_status"),
                 DB::raw("CASE
-                    WHEN receive.status IS NULL THEN 0
-                    ELSE soi.quantity_commited
+                    WHEN [receive].[status] IS NULL THEN 0
+                    ELSE [soi].[quantity_commited]
                 END as committed_display"),
                 DB::raw("CASE
-                    WHEN receive.status = 'approved' THEN receive.quantity_received
+                    WHEN [receive].[status] = 'approved' THEN [receive].[quantity_received]
                     ELSE 0
                 END as received_display"),
             ])
