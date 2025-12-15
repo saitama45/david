@@ -376,50 +376,71 @@ class MassOrdersController extends Controller
             }
         ])->where('order_number', $id)->firstOrFail();
 
-        // Optimized receiving history query with column selection
-        $receiveDatesHistory = \App\Models\OrderedItemReceiveDate::select([
-            'id', 'store_order_item_id', 'quantity_received', 'received_date',
-            'expiry_date', 'remarks', 'status', 'received_by_user_id', 'created_at'
-        ])->with([
-            'store_order_item' => function($query) {
-                $query->select([
-                    'id', 'item_code', 'quantity_ordered', 'quantity_approved', 
-                    'quantity_commited', 'uom'
-                ])->with([
-                    'supplierItem:ItemCode,item_name',
-                    'supplierItem.sapMasterfiles:id,ItemCode,AltUOM,BaseUOM'
-                ]);
-            },
-            'received_by_user:id,first_name,last_name'
-        ])
-                ->whereHas('store_order_item', function ($query) use ($order) {
-                    $query->where('store_order_id', $order->id);
-                })
-                ->orderBy('created_at', 'desc')
-                ->get();
+        // Optimized receiving history query mimicking the provided SQL logic
+        $receiveDatesHistory = DB::table('store_order_items as soi')
+            ->join('store_orders as so', 'so.id', '=', 'soi.store_order_id')
+            ->leftJoin('suppliers as s', 's.id', '=', 'so.supplier_id')
+            ->leftJoin('sap_masterfiles as sm', function($join) {
+                $join->on('sm.ItemCode', '=', 'soi.item_code')
+                     ->on('sm.AltUOM', '=', 'soi.uom');
+            })
+            ->leftJoin('supplier_items as si', function($join) {
+                $join->on('si.ItemCode', '=', 'sm.ItemCode')
+                     ->on('si.uom', '=', 'sm.AltUOM')
+                     ->on('si.SupplierCode', '=', 's.supplier_code');
+            })
+            ->leftJoin('ordered_item_receive_dates as receive', 'receive.store_order_item_id', '=', 'soi.id')
+            ->leftJoin('users as u', 'u.id', '=', 'receive.received_by_user_id')
+            ->where('so.id', $order->id)
+            ->orderByRaw("CASE WHEN ISNULL(si.sort_order, 0) = 0 THEN 1 ELSE 0 END, si.sort_order")
+            ->select([
+                'receive.id as id',
+                'soi.id as store_order_item_id',
+                'si.category',
+                'soi.item_code',
+                'sm.ItemDescription as item_name',
+                'sm.BaseUOM',
+                'soi.uom',
+                'soi.quantity_ordered',
+                'soi.quantity_approved',
+                'soi.quantity_commited',
+                'receive.quantity_received',
+                'receive.received_date',
+                'receive.status',
+                'receive.remarks',
+                'receive.expiry_date',
+                'u.first_name as received_by_first_name',
+                'u.last_name as received_by_last_name',
+            ])
+            ->get();
+
+        // Post-processing to ensure unique IDs for pending items and handle defaults
+        $receiveDatesHistory->transform(function($item) {
+             if (is_null($item->id)) {
+                 $item->id = 'pending_' . $item->store_order_item_id;
+                 $item->quantity_received = 0;
+                 $item->status = 'PENDING';
+                 $item->received_by_first_name = null;
+                 $item->received_by_last_name = null;
+                 $item->received_date = null;
+                 $item->remarks = null;
+                 $item->expiry_date = null;
+             }
+             
+             // Variances calculation based on SQL logic
+             $item->variance_ordered_committed = $item->quantity_commited - $item->quantity_ordered;
+             
+             // Variance (Committed vs Received): isnull(receive.quantity_received - soi.quantity_commited, 0)
+             if ($item->status === 'PENDING' || is_null($item->received_date)) {
+                 $item->variance_committed_received = 0;
+             } else {
+                 $item->variance_committed_received = $item->quantity_received - $item->quantity_commited;
+             }
+
+             return $item;
+        });
         
-                // Add pending items (items without receiving history)
-                $itemsWithHistory = $receiveDatesHistory->pluck('store_order_item_id')->unique()->toArray();
-                $pendingItems = $order->store_order_items->whereNotIn('id', $itemsWithHistory);
-        
-                foreach ($pendingItems as $item) {
-                    $placeholder = new \App\Models\OrderedItemReceiveDate([
-                        'quantity_received' => 0,
-                        'received_date' => null,
-                        'status' => 'PENDING',
-                        'remarks' => null,
-                    ]);
-                    // Use a negative ID to avoid conflicts with real DB IDs
-                    $placeholder->id = $item->id * -1; 
-                    $placeholder->store_order_item_id = $item->id;
-                    
-                    // Set the relation manually
-                    $placeholder->setRelation('store_order_item', $item);
-                    
-                    $receiveDatesHistory->push($placeholder);
-                }
-        
-                return \Inertia\Inertia::render('MassOrders/Show', [
+        return \Inertia\Inertia::render('MassOrders/Show', [
             'order' => $order,
             'orderedItems' => $order->store_order_items,
             'receiveDatesHistory' => $receiveDatesHistory,

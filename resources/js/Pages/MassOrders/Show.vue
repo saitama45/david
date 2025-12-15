@@ -386,20 +386,20 @@ const openViewModalForm = (id) => {
                             class="hover:bg-gray-50 transition-colors duration-150"
                         >
                             <TD class="text-center font-mono text-gray-500">{{ index + 1 }}</TD>
-                            <TD class="font-mono text-xs text-gray-600">{{ history.store_order_item?.supplier_item?.ItemCode ?? 'N/a' }}</TD>
-                            <TD class="font-medium text-gray-800">{{ history.store_order_item?.supplier_item?.item_name ?? 'N/a' }}</TD>
+                            <TD class="font-mono text-xs text-gray-600">{{ history.item_code ?? 'N/a' }}</TD>
+                            <TD class="font-medium text-gray-800">{{ history.item_name ?? 'N/a' }}</TD>
                             <TD>
                                 <div class="flex flex-col text-xs">
-                                    <span class="text-gray-500">Base: <span class="text-gray-900 font-medium">{{ history.store_order_item?.supplier_item?.sap_master_file?.BaseUOM || '-' }}</span></span>
-                                    <span class="text-gray-500">Order: <span class="text-gray-900 font-medium">{{ history.store_order_item?.uom || '-' }}</span></span>
+                                    <span class="text-gray-500">Base: <span class="text-gray-900 font-medium">{{ history.BaseUOM || '-' }}</span></span>
+                                    <span class="text-gray-500">Order: <span class="text-gray-900 font-medium">{{ history.uom || '-' }}</span></span>
                                 </div>
                             </TD>
-                            <TD class="text-center font-mono">{{ history.store_order_item?.quantity_ordered || 0 }}</TD>
-                            <TD v-if="false" class="text-center font-mono">{{ history.store_order_item?.quantity_approved || 0 }}</TD>
-                            <TD class="text-center font-mono">{{ history.store_order_item?.quantity_commited || 0 }}</TD>
+                            <TD class="text-center font-mono">{{ history.quantity_ordered || 0 }}</TD>
+                            <TD v-if="false" class="text-center font-mono">{{ history.quantity_approved || 0 }}</TD>
+                            <TD class="text-center font-mono">{{ history.quantity_commited || 0 }}</TD>
                             <TD class="text-center font-mono font-bold text-blue-600">{{ history.quantity_received }}</TD>
-                            <TD class="text-center font-mono">{{ Math.abs((history.store_order_item?.quantity_ordered || 0) - (history.store_order_item?.quantity_commited || 0)) }}</TD>
-                            <TD class="text-center font-mono">{{ Math.abs((history.store_order_item?.quantity_commited || 0) - (history.quantity_received)) }}</TD>
+                            <TD class="text-center font-mono">{{ Math.abs(history.variance_ordered_committed || 0) }}</TD>
+                            <TD class="text-center font-mono">{{ Math.abs(history.variance_committed_received || 0) }}</TD>
                             <TD class="text-sm text-gray-600">
                                 {{ dayjs(history.received_date).isValid() ? dayjs(history.received_date).tz("Asia/Manila").format("MMM D, YYYY h:mm A") : '' }}
                             </TD>
@@ -408,7 +408,7 @@ const openViewModalForm = (id) => {
                                     'px-2.5 py-0.5 text-xs font-semibold rounded-full border',
                                     getStatusClass(history.status)
                                 ]">
-                                    {{ history.status?.toUpperCase() }}
+                                    {{ history.status?.toLowerCase() === 'approved' ? 'RECEIVED' : history.status?.toUpperCase() }}
                                 </span>
                             </TD>
                             <TD class="max-w-[200px] truncate text-sm text-gray-600" :title="history.remarks">{{ history.remarks || '-' }}</TD>
@@ -430,7 +430,7 @@ const openViewModalForm = (id) => {
                         :key="history.id"
                     >
                         <MobileTableHeading
-                            :title="`${history.store_order_item?.supplier_item?.item_name ?? 'N/a'}`"
+                            :title="`${history.item_name ?? 'N/a'}`"
                         >
                             <div class="flex gap-1">
                                 <ShowButton
@@ -442,7 +442,7 @@ const openViewModalForm = (id) => {
                         <div class="grid grid-cols-2 gap-2 mt-2 text-sm">
                             <div class="flex flex-col">
                                 <span class="text-xs text-gray-500">Item Code</span>
-                                <span class="font-mono text-xs">{{ history.store_order_item?.supplier_item?.ItemCode ?? 'N/a' }}</span>
+                                <span class="font-mono text-xs">{{ history.item_code ?? 'N/a' }}</span>
                             </div>
                             <div class="flex flex-col">
                                 <span class="text-xs text-gray-500">Received</span>
@@ -451,7 +451,7 @@ const openViewModalForm = (id) => {
                             <div class="flex flex-col items-end">
                                 <span class="text-xs text-gray-500 mb-1">Status</span>
                                 <span :class="['px-2 py-0.5 rounded text-xs font-bold border', getStatusClass(history.status)]">
-                                    {{ history.status?.toUpperCase() }}
+                                    {{ history.status?.toLowerCase() === 'approved' ? 'RECEIVED' : history.status?.toUpperCase() }}
                                 </span>
                             </div>
                             <div class="col-span-2 flex flex-col" v-if="history.remarks">
@@ -484,19 +484,19 @@ const openViewModalForm = (id) => {
                         <div class="grid grid-cols-2 gap-4">
                             <div>
                                 <span class="text-xs text-gray-500 block">Item Code</span>
-                                <span class="font-medium text-gray-900">{{ selectedItem.store_order_item?.supplier_item?.ItemCode ?? 'N/a' }}</span>
+                                <span class="font-medium text-gray-900">{{ selectedItem.item_code ?? 'N/a' }}</span>
                             </div>
                             <div>
                                 <span class="text-xs text-gray-500 block">Item Name</span>
-                                <span class="font-medium text-gray-900">{{ selectedItem.store_order_item?.supplier_item?.item_name ?? 'N/a' }}</span>
+                                <span class="font-medium text-gray-900">{{ selectedItem.item_name ?? 'N/a' }}</span>
                             </div>
                             <div>
                                 <span class="text-xs text-gray-500 block">Base UOM</span>
-                                <span class="font-medium text-gray-900">{{ selectedItem.store_order_item?.supplier_item?.sap_master_file?.BaseUOM ?? 'N/a' }}</span>
+                                <span class="font-medium text-gray-900">{{ selectedItem.BaseUOM ?? 'N/a' }}</span>
                             </div>
                             <div>
                                 <span class="text-xs text-gray-500 block">Order UOM</span>
-                                <span class="font-medium text-gray-900">{{ selectedItem.store_order_item?.uom ?? 'N/a' }}</span>
+                                <span class="font-medium text-gray-900">{{ selectedItem.uom ?? 'N/a' }}</span>
                             </div>
                         </div>
                     </div>
@@ -507,15 +507,15 @@ const openViewModalForm = (id) => {
                         <div class="grid grid-cols-4 gap-4">
                             <div class="text-center">
                                 <span class="text-xs text-gray-500 block">Ordered</span>
-                                <span class="font-bold text-lg text-gray-900">{{ selectedItem.store_order_item?.quantity_ordered || 0 }}</span>
+                                <span class="font-bold text-lg text-gray-900">{{ selectedItem.quantity_ordered || 0 }}</span>
                             </div>
                             <div class="text-center">
                                 <span class="text-xs text-gray-500 block">Approved</span>
-                                <span class="font-bold text-lg text-gray-900">{{ selectedItem.store_order_item?.quantity_approved || 0 }}</span>
+                                <span class="font-bold text-lg text-gray-900">{{ selectedItem.quantity_approved || 0 }}</span>
                             </div>
                             <div class="text-center">
                                 <span class="text-xs text-gray-500 block">Committed</span>
-                                <span class="font-bold text-lg text-gray-900">{{ selectedItem.store_order_item?.quantity_commited || 0 }}</span>
+                                <span class="font-bold text-lg text-gray-900">{{ selectedItem.quantity_commited || 0 }}</span>
                             </div>
                             <div class="text-center">
                                 <span class="text-xs text-gray-500 block">Received</span>
@@ -530,10 +530,10 @@ const openViewModalForm = (id) => {
                             <span class="text-xs text-gray-500 block">Received By</span>
                             <div class="flex items-center gap-2 mt-1">
                                 <div class="size-6 rounded-full bg-green-100 flex items-center justify-center text-green-600 text-xs font-bold">
-                                    {{ selectedItem.received_by_user?.first_name?.[0] }}
+                                    {{ selectedItem.received_by_first_name?.[0] }}
                                 </div>
                                 <span class="font-medium text-gray-900">
-                                    {{ selectedItem.received_by_user?.first_name }} {{ selectedItem.received_by_user?.last_name }}
+                                    {{ selectedItem.received_by_first_name }} {{ selectedItem.received_by_last_name }}
                                 </span>
                             </div>
                         </div>
@@ -545,13 +545,12 @@ const openViewModalForm = (id) => {
                             <span class="text-xs text-gray-500 block">Expiry Date</span>
                             <span class="font-medium text-gray-900">{{ selectedItem.expiry_date || 'N/a' }}</span>
                         </div>
-                        <div>
-                            <span class="text-xs text-gray-500 block">Status</span>
-                            <span :class="['px-2.5 py-0.5 rounded-full text-xs font-medium border inline-block mt-1', getStatusClass(selectedItem.status)]">
-                                {{ selectedItem.status?.toUpperCase() || 'N/a' }}
-                            </span>
-                        </div>
-                        <div class="col-span-2" v-if="selectedItem.remarks">
+                                                    <div>
+                                                        <span class="text-xs text-gray-500 block">Status</span>
+                                                        <span :class="['px-2.5 py-0.5 rounded-full text-xs font-medium border inline-block mt-1', getStatusClass(selectedItem.status)]">
+                                                            {{ selectedItem.status?.toLowerCase() === 'approved' ? 'RECEIVED' : selectedItem.status?.toUpperCase() || 'N/a' }}
+                                                        </span>
+                                                    </div>                        <div class="col-span-2" v-if="selectedItem.remarks">
                             <span class="text-xs text-gray-500 block">Remarks</span>
                             <span class="font-medium text-gray-900">{{ selectedItem.remarks }}</span>
                         </div>
