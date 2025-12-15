@@ -109,9 +109,18 @@ watch(() => props.report, (newVal) => {
     localReport.value = JSON.parse(JSON.stringify(newVal));
 }, { immediate: true });
 
-const isEditingDisabled = (brandCode) => {
+const isBranchLocked = (brandCode) => {
     const status = props.branchStatuses[brandCode]?.toLowerCase();
     return status === 'received' || status === 'incomplete';
+};
+
+const isCellDisabled = (row, brandCode) => {
+    // If the record doesn't exist for this branch, it's disabled.
+    // The backend sends 'exists_BRANDCODE' as 1 or 0 (or "1"/"0").
+    // We check if it is loosely equal to 1.
+    if (row['exists_' + brandCode] != 1) return true;
+    
+    return isBranchLocked(brandCode);
 };
 
 const canUserEditRow = (row) => {
@@ -257,7 +266,7 @@ const performFill = async () => {
             const col = branchHeaders.value[c].field;
             
             // Validation
-            if (isEditingDisabled(col) || !canUserEditRow(row)) continue;
+            if (isCellDisabled(row, col) || !canUserEditRow(row)) continue;
 
             // Update local if different
             if (row[col] !== sourceValue) {
@@ -418,7 +427,7 @@ const ensureCellVisible = (cellEl) => {
 const startEditing = (r, c, initialValue = null) => {
     const colKey = branchHeaders.value[c].field;
     // Validation: Check permissions before editing
-    if (isEditingDisabled(colKey) || !canUserEditRow(sortedReport.value[r])) return;
+    if (isCellDisabled(sortedReport.value[r], colKey) || !canUserEditRow(sortedReport.value[r])) return;
 
     editingCell.value = { r, c };
     
@@ -493,7 +502,7 @@ const clearSelection = async () => {
             const col = branchHeaders.value[c].field;
             const row = sortedReport.value[r];
             // Validation: Skip if read-only
-             if (!isEditingDisabled(col) && canUserEditRow(row)) {
+             if (!isCellDisabled(row, col) && canUserEditRow(row)) {
                 if (row[col] !== 0) {
                     historyChanges.push({
                         rowIndex: r,
@@ -614,7 +623,7 @@ const processPasteText = async (text) => {
                     const col = branchHeaders.value[c].field;
                     const row = sortedReport.value[r];
                     
-                    if (!isEditingDisabled(col) && canUserEditRow(row)) {
+                    if (!isCellDisabled(row, col) && canUserEditRow(row)) {
                         hasAnyPasteAttempt = true;
                         const currentVal = parseFloat(row[col]) || 0;
                         if (currentVal !== safeNumVal) {
@@ -665,7 +674,7 @@ const processPasteText = async (text) => {
                     const col = branchHeaders.value[c].field;
                     const row = sortedReport.value[r];
                     
-                    const isDisabled = isEditingDisabled(col);
+                    const isDisabled = isCellDisabled(row, col);
                     const canEdit = canUserEditRow(row);
                     
                     if (!isDisabled && canEdit) {
@@ -1187,8 +1196,10 @@ const sortedReport = computed(() => localReport.value);
                                     :class="[
                                         'px-2 py-1 text-right whitespace-nowrap border border-transparent relative focus:outline-none',
                                         isSelected(rowIndex, header.field) ? 'bg-blue-100 !border-blue-400' : '',
-                                        isActive(rowIndex, header.field) ? 'ring-2 ring-blue-600 z-10' : ''
+                                        isActive(rowIndex, header.field) ? 'ring-2 ring-blue-600 z-10' : '',
+                                        row['exists_' + header.field] != 1 ? 'bg-gray-100 cursor-not-allowed opacity-75' : ''
                                     ]"
+                                    :title="row['exists_' + header.field] != 1 ? 'This item does not exist for this store' : ''"
                                     tabindex="0"
                                     :ref="el => setCellRef(el, rowIndex, header.field)"
                                     @mousedown="onCellMouseDown(rowIndex, header.field, $event)"

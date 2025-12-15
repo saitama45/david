@@ -193,6 +193,9 @@ class CSMassCommitsController extends Controller
             $bindings[] = $code;
             $selects[] = \Illuminate\Support\Facades\DB::raw("SUM(CASE WHEN store_branches.brand_code = ? THEN store_order_items.quantity_approved ELSE 0 END) as [approved_{$code}]");
             $bindings[] = $code;
+            // Check if record exists for this branch
+            $selects[] = \Illuminate\Support\Facades\DB::raw("MAX(CASE WHEN store_branches.brand_code = ? THEN 1 ELSE 0 END) as [exists_{$code}]");
+            $bindings[] = $code;
         }
 
         $query = \App\Models\StoreOrderItem::query()
