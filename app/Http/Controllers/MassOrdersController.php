@@ -403,39 +403,46 @@ class MassOrdersController extends Controller
                 'soi.uom',
                 'soi.quantity_ordered',
                 'soi.quantity_approved',
-                'soi.quantity_commited',
-                'receive.quantity_received',
+                'soi.quantity_commited', // Retain original for variance calculation
+                'receive.quantity_received', // Retain original for variance calculation
                 'receive.received_date',
-                'receive.status',
                 'receive.remarks',
                 'receive.expiry_date',
                 'u.first_name as received_by_first_name',
                 'u.last_name as received_by_last_name',
+                DB::raw("CASE
+                    WHEN receive.status IS NULL THEN 'TO COMMIT'
+                    WHEN receive.status = 'approved' THEN 'RECEIVED'
+                    ELSE receive.status
+                END as display_status"),
+                DB::raw("CASE
+                    WHEN receive.status IS NULL THEN 0
+                    ELSE soi.quantity_commited
+                END as committed_display"),
+                DB::raw("CASE
+                    WHEN receive.status = 'approved' THEN receive.quantity_received
+                    ELSE 0
+                END as received_display"),
             ])
             ->get();
 
-        // Post-processing to ensure unique IDs for pending items and handle defaults
+        // Post-processing to ensure unique IDs for null records and calculate variances
         $receiveDatesHistory->transform(function($item) {
              if (is_null($item->id)) {
                  $item->id = 'pending_' . $item->store_order_item_id;
-                 $item->quantity_received = 0;
-                 $item->status = null;
-                 $item->received_by_first_name = null;
-                 $item->received_by_last_name = null;
                  $item->received_date = null;
                  $item->remarks = null;
                  $item->expiry_date = null;
+                 $item->received_by_first_name = null;
+                 $item->received_by_last_name = null;
              }
              
-             // Variances calculation based on SQL logic
-             $item->variance_ordered_committed = $item->quantity_commited - $item->quantity_ordered;
+             // Variances calculation based on SQL logic, using the original quantities
+             $item->variance_ordered_committed = $item->committed_display - $item->quantity_ordered;
              
              // Variance (Committed vs Received): isnull(receive.quantity_received - soi.quantity_commited, 0)
-             if ($item->status === 'PENDING' || is_null($item->received_date)) {
-                 $item->variance_committed_received = 0;
-             } else {
-                 $item->variance_committed_received = $item->quantity_received - $item->quantity_commited;
-             }
+             // Using the displayed quantities for variance calculation in the frontend, for consistency.
+             $item->variance_committed_received = $item->received_display - $item->committed_display;
 
              return $item;
         });

@@ -29,10 +29,8 @@ const getStatusClass = (status) => {
         case "pending":
             return "bg-yellow-100 text-yellow-800 border-yellow-200";
         case "committed":
+        case "to commit":
             return "bg-blue-100 text-blue-800 border-blue-200";
-        case "to commit": // For items with null status from backend
-        case "not yet committed":
-            return "bg-gray-100 text-gray-800 border-gray-200";
         case "rejected":
         case "cancelled":
             return "bg-red-100 text-red-800 border-red-200";
@@ -41,21 +39,6 @@ const getStatusClass = (status) => {
     }
 };
 
-const getDisplayStatus = (status) => {
-    if (status === null) {
-        return "TO COMMIT";
-    }
-    return status.toLowerCase() === 'approved' ? 'RECEIVED' : status.toUpperCase();
-};
-
-const isReceived = (status) => {
-    return ['approved', 'received'].includes(status?.toLowerCase());
-};
-
-const shouldDisplayCommittedQuantity = (status) => {
-    const lowerStatus = status?.toLowerCase();
-    return lowerStatus === 'committed' || lowerStatus === 'approved' || lowerStatus === 'received';
-};
 
 const props = defineProps({
     order: {
@@ -408,8 +391,8 @@ const openViewModalForm = (id) => {
                             </TD>
                             <TD class="text-center font-mono">{{ history.quantity_ordered || 0 }}</TD>
                             <TD v-if="false" class="text-center font-mono">{{ history.quantity_approved || 0 }}</TD>
-                            <TD class="text-center font-mono">{{ history.quantity_commited || 0 }}</TD>
-                            <TD class="text-center font-mono font-bold text-blue-600">{{ history.quantity_received }}</TD>
+                            <TD class="text-center font-mono">{{ history.committed_display }}</TD>
+                            <TD class="text-center font-mono font-bold text-blue-600">{{ history.received_display }}</TD>
                             <TD class="text-center font-mono">{{ Math.abs(history.variance_ordered_committed || 0) }}</TD>
                             <TD class="text-center font-mono">{{ Math.abs(history.variance_committed_received || 0) }}</TD>
                             <TD class="text-sm text-gray-600">
@@ -418,9 +401,9 @@ const openViewModalForm = (id) => {
                             <TD class="text-center">
                                 <span :class="[
                                     'px-2.5 py-0.5 text-xs font-semibold rounded-full border',
-                                    getStatusClass(history.status)
+                                    getStatusClass(history.display_status)
                                 ]">
-                                    {{ getDisplayStatus(history.status) }}
+                                    {{ history.display_status }}
                                 </span>
                             </TD>
                             <TD class="max-w-[200px] truncate text-sm text-gray-600" :title="history.remarks">{{ history.remarks || '-' }}</TD>
@@ -462,12 +445,12 @@ const openViewModalForm = (id) => {
                             </div>
                             <div class="flex flex-col">
                                 <span class="text-xs text-gray-500">Received</span>
-                                <span class="font-bold">{{ history.quantity_received }}</span>
+                                <span class="font-bold">{{ history.received_display }}</span>
                             </div>
                             <div class="flex flex-col items-end">
                                 <span class="text-xs text-gray-500 mb-1">Status</span>
-                                <span :class="['px-2 py-0.5 rounded text-xs font-bold border', getStatusClass(history.status)]">
-                                    {{ getDisplayStatus(history.status) }}
+                                <span :class="['px-2 py-0.5 rounded text-xs font-bold border', getStatusClass(history.display_status)]">
+                                    {{ history.display_status }}
                                 </span>
                             </div>
                             <div class="col-span-2 flex flex-col" v-if="history.remarks">
@@ -535,11 +518,11 @@ const openViewModalForm = (id) => {
                             </div>
                             <div class="text-center">
                                 <span class="text-xs text-gray-500 block">Committed</span>
-                                <span class="font-bold text-lg text-gray-900">{{ selectedItem.quantity_commited || 0 }}</span>
+                                <span class="font-bold text-lg text-gray-900">{{ selectedItem.committed_display }}</span>
                             </div>
                             <div class="text-center">
                                 <span class="text-xs text-gray-500 block">Received</span>
-                                <span class="font-bold text-lg text-blue-600">{{ selectedItem.quantity_received }}</span>
+                                <span class="font-bold text-lg text-blue-600">{{ selectedItem.received_display }}</span>
                             </div>
                         </div>
                     </div>
@@ -559,7 +542,7 @@ const openViewModalForm = (id) => {
                         </div>
                         <div>
                             <span class="text-xs text-gray-500 block">Received At</span>
-                            <span class="font-medium text-gray-900">{{ dayjs(selectedItem.received_date).format('MMM D, YYYY h:mm A') }}</span>
+                            <span class="font-medium text-gray-900">{{ dayjs(selectedItem.received_date).isValid() ? dayjs(selectedItem.received_date).format('MMM D, YYYY h:mm A') : 'N/a' }}</span>
                         </div>
                         <div>
                             <span class="text-xs text-gray-500 block">Expiry Date</span>
@@ -567,8 +550,8 @@ const openViewModalForm = (id) => {
                         </div>
                                                     <div>
                                                         <span class="text-xs text-gray-500 block">Status</span>
-                                                        <span :class="['px-2.5 py-0.5 rounded-full text-xs font-medium border inline-block mt-1', getStatusClass(selectedItem.status)]">
-                                                            {{ getDisplayStatus(selectedItem.status) || 'N/a' }}
+                                                        <span :class="['px-2.5 py-0.5 rounded-full text-xs font-medium border inline-block mt-1', getStatusClass(selectedItem.display_status)]">
+                                                            {{ selectedItem.display_status || 'N/a' }}
                                                         </span>
                                                     </div>                        <div class="col-span-2" v-if="selectedItem.remarks">
                             <span class="text-xs text-gray-500 block">Remarks</span>
