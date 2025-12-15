@@ -30,12 +30,22 @@ const getStatusClass = (status) => {
             return "bg-yellow-100 text-yellow-800 border-yellow-200";
         case "committed":
             return "bg-blue-100 text-blue-800 border-blue-200";
+        case "to commit": // For items with null status from backend
+        case "not yet committed":
+            return "bg-gray-100 text-gray-800 border-gray-200";
         case "rejected":
         case "cancelled":
             return "bg-red-100 text-red-800 border-red-200";
         default:
             return "bg-gray-100 text-gray-800 border-gray-200";
     }
+};
+
+const getDisplayStatus = (status) => {
+    if (status === null) {
+        return "TO COMMIT";
+    }
+    return status.toLowerCase() === 'approved' ? 'RECEIVED' : status.toUpperCase();
 };
 
 const isReceived = (status) => {
@@ -410,7 +420,7 @@ const openViewModalForm = (id) => {
                                     'px-2.5 py-0.5 text-xs font-semibold rounded-full border',
                                     getStatusClass(history.status)
                                 ]">
-                                    {{ history.status?.toLowerCase() === 'approved' ? 'RECEIVED' : history.status?.toUpperCase() }}
+                                    {{ getDisplayStatus(history.status) }}
                                 </span>
                             </TD>
                             <TD class="max-w-[200px] truncate text-sm text-gray-600" :title="history.remarks">{{ history.remarks || '-' }}</TD>
@@ -457,7 +467,7 @@ const openViewModalForm = (id) => {
                             <div class="flex flex-col items-end">
                                 <span class="text-xs text-gray-500 mb-1">Status</span>
                                 <span :class="['px-2 py-0.5 rounded text-xs font-bold border', getStatusClass(history.status)]">
-                                    {{ history.status?.toLowerCase() === 'approved' ? 'RECEIVED' : history.status?.toUpperCase() }}
+                                    {{ getDisplayStatus(history.status) }}
                                 </span>
                             </div>
                             <div class="col-span-2 flex flex-col" v-if="history.remarks">
@@ -558,7 +568,7 @@ const openViewModalForm = (id) => {
                                                     <div>
                                                         <span class="text-xs text-gray-500 block">Status</span>
                                                         <span :class="['px-2.5 py-0.5 rounded-full text-xs font-medium border inline-block mt-1', getStatusClass(selectedItem.status)]">
-                                                            {{ selectedItem.status?.toLowerCase() === 'approved' ? 'RECEIVED' : selectedItem.status?.toUpperCase() || 'N/a' }}
+                                                            {{ getDisplayStatus(selectedItem.status) || 'N/a' }}
                                                         </span>
                                                     </div>                        <div class="col-span-2" v-if="selectedItem.remarks">
                             <span class="text-xs text-gray-500 block">Remarks</span>

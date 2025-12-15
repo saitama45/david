@@ -419,7 +419,7 @@ class MassOrdersController extends Controller
              if (is_null($item->id)) {
                  $item->id = 'pending_' . $item->store_order_item_id;
                  $item->quantity_received = 0;
-                 $item->status = 'PENDING';
+                 $item->status = null;
                  $item->received_by_first_name = null;
                  $item->received_by_last_name = null;
                  $item->received_date = null;
