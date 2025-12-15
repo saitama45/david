@@ -13,7 +13,7 @@ const props = defineProps({
 });
 
 const { toast } = useToast();
-const days = ['MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY', 'SATURDAY'];
+const days = ['MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY', 'SATURDAY', 'SUNDAY'];
 
 // Initialize with an empty structure
 const form = useForm({
@@ -226,6 +226,7 @@ const submit = () => {
                             <button @click="moveAllTo('THURSDAY')" title="Move all to Thursday" class="px-2 py-1 text-xs bg-gray-200 hover:bg-gray-300 rounded">Thu</button>
                             <button @click="moveAllTo('FRIDAY')" title="Move all to Friday" class="px-2 py-1 text-xs bg-gray-200 hover:bg-gray-300 rounded">Fri</button>
                             <button @click="moveAllTo('SATURDAY')" title="Move all to Saturday" class="px-2 py-1 text-xs bg-gray-200 hover:bg-gray-300 rounded">Sat</button>
+                            <button @click="moveAllTo('SUNDAY')" title="Move all to Sunday" class="px-2 py-1 text-xs bg-gray-200 hover:bg-gray-300 rounded">Sun</button>
                         </div>
                         <div class="border-l border-gray-300 pl-2 ml-2">
                             <button @click="clearStagedBranches" title="Clear all unscheduled branches" class="px-2 py-1 text-xs bg-red-500 text-white hover:bg-red-600 rounded">Clear All</button>
@@ -248,7 +249,7 @@ const submit = () => {
             </div>
 
             <!-- Day Columns -->
-            <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+            <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-7 gap-4">
                 <div v-for="day in days" :key="day" class="border p-2 rounded-lg">
                     <div class="flex justify-center items-center mb-2 relative">
                         <h3 class="font-bold text-center">{{ day }}</h3>
