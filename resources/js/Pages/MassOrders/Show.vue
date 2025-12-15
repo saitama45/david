@@ -360,6 +360,7 @@ const openViewModalForm = (id) => {
                 <Table>
                     <TableHead>
                         <TH>#</TH>
+                        <TH>Category</TH>
                         <TH>Item Code</TH>
                         <TH>Name</TH>
                         <TH>UOM Details</TH>
@@ -386,6 +387,7 @@ const openViewModalForm = (id) => {
                             class="hover:bg-gray-50 transition-colors duration-150"
                         >
                             <TD class="text-center font-mono text-gray-500">{{ index + 1 }}</TD>
+                            <TD class="font-medium text-gray-800">{{ history.category ?? 'N/a' }}</TD>
                             <TD class="font-mono text-xs text-gray-600">{{ history.item_code ?? 'N/a' }}</TD>
                             <TD class="font-medium text-gray-800">{{ history.item_name ?? 'N/a' }}</TD>
                             <TD>
@@ -445,6 +447,10 @@ const openViewModalForm = (id) => {
                                 <span class="font-mono text-xs">{{ history.item_code ?? 'N/a' }}</span>
                             </div>
                             <div class="flex flex-col">
+                                <span class="text-xs text-gray-500">Category</span>
+                                <span class="font-medium">{{ history.category ?? 'N/a' }}</span>
+                            </div>
+                            <div class="flex flex-col">
                                 <span class="text-xs text-gray-500">Received</span>
                                 <span class="font-bold">{{ history.quantity_received }}</span>
                             </div>
@@ -489,6 +495,10 @@ const openViewModalForm = (id) => {
                             <div>
                                 <span class="text-xs text-gray-500 block">Item Name</span>
                                 <span class="font-medium text-gray-900">{{ selectedItem.item_name ?? 'N/a' }}</span>
+                            </div>
+                            <div>
+                                <span class="text-xs text-gray-500 block">Category</span>
+                                <span class="font-medium text-gray-900">{{ selectedItem.category ?? 'N/a' }}</span>
                             </div>
                             <div>
                                 <span class="text-xs text-gray-500 block">Base UOM</span>
