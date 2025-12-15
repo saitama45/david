@@ -413,7 +413,7 @@ class MassOrdersController extends Controller
                 DB::raw("CASE
                     WHEN [receive].[status] IS NULL THEN 'TO COMMIT'
                     WHEN [receive].[status] = 'approved' THEN 'RECEIVED'
-                    ELSE [receive].[status]
+                    ELSE 'TO RECEIVE'
                 END as display_status"),
                 DB::raw("CASE
                     WHEN [receive].[status] IS NULL THEN 0
