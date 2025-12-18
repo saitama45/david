@@ -111,6 +111,24 @@ class DTSMassOrdersController extends Controller
                             ->from('store_orders as so')
                             ->whereRaw('so.batch_reference = store_orders.batch_reference')
                             ->where('so.order_status', 'incomplete');
+                    })->whereNotExists(function ($subquery) {
+                        $subquery->select(\DB::raw(1))
+                            ->from('store_orders as so')
+                            ->whereRaw('so.batch_reference = store_orders.batch_reference')
+                            ->where('so.order_status', 'received');
+                    });
+                    break;
+                case 'partial_received':
+                    $query->whereExists(function ($subquery) {
+                        $subquery->select(\DB::raw(1))
+                            ->from('store_orders as so')
+                            ->whereRaw('so.batch_reference = store_orders.batch_reference')
+                            ->where('so.order_status', 'received');
+                    })->whereExists(function ($subquery) {
+                        $subquery->select(\DB::raw(1))
+                            ->from('store_orders as so')
+                            ->whereRaw('so.batch_reference = store_orders.batch_reference')
+                            ->where('so.order_status', '!=', 'received');
                     });
                     break;
                 case 'received':
@@ -148,6 +166,22 @@ class DTSMassOrdersController extends Controller
                     ->from('store_orders as so')
                     ->whereRaw('so.batch_reference = store_orders.batch_reference')
                     ->where('so.order_status', 'incomplete');
+            })->whereNotExists(function ($subquery) {
+                $subquery->select(\DB::raw(1))
+                    ->from('store_orders as so')
+                    ->whereRaw('so.batch_reference = store_orders.batch_reference')
+                    ->where('so.order_status', 'received');
+            })->count('batch_reference'),
+            'partial_received' => (clone $baseBatchQuery)->whereExists(function ($subquery) {
+                $subquery->select(\DB::raw(1))
+                    ->from('store_orders as so')
+                    ->whereRaw('so.batch_reference = store_orders.batch_reference')
+                    ->where('so.order_status', 'received');
+            })->whereExists(function ($subquery) {
+                $subquery->select(\DB::raw(1))
+                    ->from('store_orders as so')
+                    ->whereRaw('so.batch_reference = store_orders.batch_reference')
+                    ->where('so.order_status', '!=', 'received');
             })->count('batch_reference'),
             'received' => (clone $baseBatchQuery)->whereNotExists(function ($subquery) {
                 $subquery->select(\DB::raw(1))

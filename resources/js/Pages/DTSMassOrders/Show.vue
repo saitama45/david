@@ -226,6 +226,16 @@ const getGrandTotalPrice = computed(() => {
     return total;
 });
 
+// Helper to format quantities for display
+const formatQuantity = (value) => {
+    const num = parseFloat(value);
+    if (isNaN(num)) return value;
+    // Fix floating point artifacts (e.g. 2.546 becoming 2.5459999999999998)
+    // toFixed(10) is sufficient precision for this context to round off the artifact,
+    // and parseFloat strips the trailing zeros to show the value "as is".
+    return parseFloat(num.toFixed(10));
+};
+
 </script>
 
 <template>
@@ -352,31 +362,31 @@ const getGrandTotalPrice = computed(() => {
                                         <template v-for="dateObj in getDatesForStore(store)" :key="`${item.id}-${store.id}-${dateObj.date}`">
                                             <td class="border border-gray-300 px-3 py-2 text-center">
                                                 <span class="font-semibold text-blue-700">
-                                                    {{ orders[item.id]?.[dateObj.date]?.[store.id]?.approved || 0 }}
+                                                    {{ formatQuantity(orders[item.id]?.[dateObj.date]?.[store.id]?.approved || 0) }}
                                                 </span>
                                             </td>
                                             <td class="border border-gray-300 px-3 py-2 text-center">
                                                 <span class="font-semibold text-green-700">
-                                                    {{ props.status === 'approved' ? 0 : (orders[item.id]?.[dateObj.date]?.[store.id]?.committed || 0) }}
+                                                    {{ formatQuantity(props.status === 'approved' ? 0 : (orders[item.id]?.[dateObj.date]?.[store.id]?.committed || 0)) }}
                                                 </span>
                                             </td>
                                         </template>
                                     </template>
 
                                     <td class="border border-gray-300 px-3 py-2 text-center font-semibold bg-yellow-50">
-                                        {{ getItemTotalApproved(item.id).toFixed(2) }}
+                                        {{ formatQuantity(getItemTotalApproved(item.id)) }}
                                     </td>
                                     <td class="border border-gray-300 px-3 py-2 text-center font-semibold bg-yellow-50">
                                         {{ getItemBuffer() }}%
                                     </td>
                                     <td class="border border-gray-300 px-3 py-2 text-center font-semibold bg-yellow-50">
-                                        {{ getItemTotalPO(item.id).toFixed(2) }}
+                                        {{ formatQuantity(getItemTotalPO(item.id)) }}
                                     </td>
                                     <td class="border border-gray-300 px-3 py-2 text-right font-semibold bg-green-50">
                                         {{ getItemTotalPrice(item.id, item.price).toFixed(2) }}
                                     </td>
                                     <td class="border border-gray-300 px-3 py-2 text-right font-semibold bg-red-50">
-                                        {{ getItemVariance(item.id).toFixed(2) }}
+                                        {{ formatQuantity(getItemVariance(item.id)) }}
                                     </td>
                                 </tr>
 
@@ -385,7 +395,7 @@ const getGrandTotalPrice = computed(() => {
                                     <td colspan="4" class="border border-gray-300 px-3 py-2 text-right">TOTAL PRICE & VARIANCE</td>
                                     <td :colspan="getTotalDateColumns * 2 + 3" class="border border-gray-300 px-3 py-2"></td>
                                     <td class="border border-gray-300 px-3 py-2 text-right">{{ getGrandTotalPrice.toFixed(2) }}</td>
-                                    <td class="border border-gray-300 px-3 py-2 text-right">{{ grandTotalVariance.toFixed(2) }}</td>
+                                    <td class="border border-gray-300 px-3 py-2 text-right">{{ formatQuantity(grandTotalVariance) }}</td>
                                 </tr>
                             </tbody>
                         </table>
@@ -460,17 +470,17 @@ const getGrandTotalPrice = computed(() => {
                                         </td>
                                         <td class="border border-gray-300 px-3 py-2 text-center">
                                             <span class="font-semibold text-blue-700">
-                                                {{ orders[dateObj.date]?.[store.id]?.approved || 0 }}
+                                                {{ formatQuantity(orders[dateObj.date]?.[store.id]?.approved || 0) }}
                                             </span>
                                         </td>
                                         <td class="border border-gray-300 px-3 py-2 text-center">
                                             <span class="font-semibold text-green-700">
-                                                {{ props.status === 'approved' ? 0 : (orders[dateObj.date]?.[store.id]?.committed || 0) }}
+                                                {{ formatQuantity(props.status === 'approved' ? 0 : (orders[dateObj.date]?.[store.id]?.committed || 0)) }}
                                             </span>
                                         </td>
                                         <td class="border border-gray-300 px-3 py-2 text-center">
                                             <span class="font-semibold text-red-700">
-                                                {{ (props.status === 'approved' ? 0 : (orders[dateObj.date]?.[store.id]?.committed || 0)) - (orders[dateObj.date]?.[store.id]?.approved || 0) }}
+                                                {{ formatQuantity((props.status === 'approved' ? 0 : (orders[dateObj.date]?.[store.id]?.committed || 0)) - (orders[dateObj.date]?.[store.id]?.approved || 0)) }}
                                             </span>
                                         </td>
                                     </tr>
@@ -481,13 +491,13 @@ const getGrandTotalPrice = computed(() => {
                                             TOTAL
                                         </td>
                                         <td class="border border-gray-300 px-3 py-2 text-center">
-                                            {{ getRowTotal(dateObj.date) }}
+                                            {{ formatQuantity(getRowTotal(dateObj.date)) }}
                                         </td>
                                         <td class="border border-gray-300 px-3 py-2 text-center">
-                                            {{ getRowTotalCommitted(dateObj.date) }}
+                                            {{ formatQuantity(getRowTotalCommitted(dateObj.date)) }}
                                         </td>
                                         <td class="border border-gray-300 px-3 py-2 text-center">
-                                            {{ getRowTotalVariance(dateObj.date) }}
+                                            {{ formatQuantity(getRowTotalVariance(dateObj.date)) }}
                                         </td>
                                     </tr>
                                 </template>
@@ -498,13 +508,13 @@ const getGrandTotalPrice = computed(() => {
                                         GRAND TOTAL
                                     </td>
                                     <td class="border border-gray-300 px-3 py-2 text-center">
-                                        {{ grandTotalApproved }}
+                                        {{ formatQuantity(grandTotalApproved) }}
                                     </td>
                                     <td class="border border-gray-300 px-3 py-2 text-center">
-                                        {{ grandTotalCommitted }}
+                                        {{ formatQuantity(grandTotalCommitted) }}
                                     </td>
                                     <td class="border border-gray-300 px-3 py-2 text-center">
-                                        {{ grandTotalVariance }}
+                                        {{ formatQuantity(grandTotalVariance) }}
                                     </td>
                                 </tr>
                             </tbody>

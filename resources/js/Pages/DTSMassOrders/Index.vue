@@ -269,6 +269,16 @@ const selectDate = (day, isFrom) => {
     }
 };
 
+// Helper to format quantities for display
+const formatQuantity = (value) => {
+    const num = parseFloat(value);
+    if (isNaN(num)) return value;
+    // Fix floating point artifacts (e.g. 2.546 becoming 2.5459999999999998)
+    // toFixed(10) is sufficient precision for this context to round off the artifact,
+    // and parseFloat strips the trailing zeros to show the value "as is".
+    return parseFloat(num.toFixed(10));
+};
+
 </script>
 
 <template>
@@ -332,6 +342,18 @@ const selectDate = (day, isFrom) => {
 
             <Button
                 class="sm:px-10 px-3 bg-white/10 text-gray-800 hover:text-white gap-5 sm:text-sm text-xs"
+                :class="isFilterActive('partial_received')"
+                @click="changeFilter('partial_received')"
+            >
+                PARTIAL RECEIVED
+                <Badge
+                    class="sm:flex hidden border border-gray bg-transparent text-gray-900 px-2"
+                    :class="isFilterActive('partial_received')"
+                >{{ counts.partial_received || 0 }}</Badge>
+            </Button>
+
+            <Button
+                class="sm:px-10 px-3 bg-white/10 text-gray-800 hover:text-white gap-5 sm:text-sm text-xs"
                 :class="isFilterActive('received')"
                 @click="changeFilter('received')"
             >
@@ -371,7 +393,7 @@ const selectDate = (day, isFrom) => {
                             <TD><span class="font-semibold text-blue-600">{{ batch.variant }}</span></TD>
                             <TD>{{ formatDisplayDate(batch.date_from) }} - {{ formatDisplayDate(batch.date_to) }}</TD>
                             <TD>{{ batch.total_orders }}</TD>
-                            <TD>{{ batch.total_quantity }}</TD>
+                            <TD>{{ formatQuantity(batch.total_quantity) }}</TD>
                             <TD>
                                 <Badge :class="statusBadgeColor(batch.status)" class="font-bold">{{ batch.status ? batch.status.toUpperCase() : 'N/A' }}</Badge>
                             </TD>
@@ -404,7 +426,7 @@ const selectDate = (day, isFrom) => {
                     <LabelXS>Variant: <span class="font-semibold text-blue-600">{{ batch.variant }}</span></LabelXS>
                     <LabelXS>Delivery Dates: {{ formatDisplayDate(batch.date_from) }} - {{ formatDisplayDate(batch.date_to) }}</LabelXS>
                     <LabelXS>Total Orders: {{ batch.total_orders }}</LabelXS>
-                    <LabelXS>Total Quantity: {{ batch.total_quantity }}</LabelXS>
+                    <LabelXS>Total Quantity: {{ formatQuantity(batch.total_quantity) }}</LabelXS>
                     <LabelXS>Status: <span :class="statusBadgeColor(batch.status)" class="font-semibold p-1 rounded text-white">{{ batch.status ? batch.status.toUpperCase() : 'N/A' }}</span></LabelXS>
                 </MobileTableRow>
             </MobileTableContainer>
