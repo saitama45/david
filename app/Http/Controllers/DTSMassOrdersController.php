@@ -53,7 +53,15 @@ class DTSMassOrdersController extends Controller
                 \DB::raw('MIN(order_date) as date_from'),
                 \DB::raw('MAX(order_date) as date_to'),
                 \DB::raw('COUNT(DISTINCT store_orders.id) as total_orders'),
-                \DB::raw('MIN(store_orders.order_status) as status'),
+                \DB::raw("CASE 
+                    WHEN COUNT(DISTINCT store_orders.order_status) = 1 THEN MIN(store_orders.order_status)
+                    WHEN SUM(CASE WHEN store_orders.order_status = 'received' THEN 1 ELSE 0 END) > 0 
+                         AND SUM(CASE WHEN store_orders.order_status != 'received' THEN 1 ELSE 0 END) > 0 
+                         THEN 'partial_received'
+                    WHEN SUM(CASE WHEN store_orders.order_status = 'incomplete' THEN 1 ELSE 0 END) > 0 
+                         THEN 'incomplete'
+                    ELSE MIN(store_orders.order_status)
+                END as status"),
                 \DB::raw('MIN(store_orders.remarks) as remarks'),
                 \DB::raw('MIN(store_orders.created_at) as created_at'),
                 \DB::raw('MAX(store_orders.updated_at) as updated_at'),
@@ -97,17 +105,12 @@ class DTSMassOrdersController extends Controller
                             ->where('so.order_status', '!=', 'committed');
                     });
                     break;
-                case 'partial_received':
+                case 'incomplete':
                     $query->whereExists(function ($subquery) {
                         $subquery->select(\DB::raw(1))
                             ->from('store_orders as so')
                             ->whereRaw('so.batch_reference = store_orders.batch_reference')
-                            ->where('so.order_status', 'received');
-                    })->whereExists(function ($subquery) {
-                        $subquery->select(\DB::raw(1))
-                            ->from('store_orders as so')
-                            ->whereRaw('so.batch_reference = store_orders.batch_reference')
-                            ->where('so.order_status', '!=', 'received');
+                            ->where('so.order_status', 'incomplete');
                     });
                     break;
                 case 'received':
@@ -140,16 +143,11 @@ class DTSMassOrdersController extends Controller
                     ->whereRaw('so.batch_reference = store_orders.batch_reference')
                     ->where('so.order_status', '!=', 'committed');
             })->count('batch_reference'),
-            'partial_received' => (clone $baseBatchQuery)->whereExists(function ($subquery) {
+            'incomplete' => (clone $baseBatchQuery)->whereExists(function ($subquery) {
                 $subquery->select(\DB::raw(1))
                     ->from('store_orders as so')
                     ->whereRaw('so.batch_reference = store_orders.batch_reference')
-                    ->where('so.order_status', 'received');
-            })->whereExists(function ($subquery) {
-                $subquery->select(\DB::raw(1))
-                    ->from('store_orders as so')
-                    ->whereRaw('so.batch_reference = store_orders.batch_reference')
-                    ->where('so.order_status', '!=', 'received');
+                    ->where('so.order_status', 'incomplete');
             })->count('batch_reference'),
             'received' => (clone $baseBatchQuery)->whereNotExists(function ($subquery) {
                 $subquery->select(\DB::raw(1))
@@ -159,7 +157,7 @@ class DTSMassOrdersController extends Controller
             })->count('batch_reference'),
         ];
 
-        // Calculate total quantity for each batch and extract variant
+        // Calculate total quantity for each batch, extract variant, and fix status display
         $batches->getCollection()->transform(function ($batch) {
             // Get total quantity
             $totalQuantity = \DB::table('store_order_items')
@@ -177,6 +175,9 @@ class DTSMassOrdersController extends Controller
 
             // Check if batch can be edited based on cutoff
             $batch->can_edit = $this->canEditBatch($batch);
+            
+            // Ensure status is properly formatted for display
+            $batch->status = strtoupper($batch->status);
 
             return $batch;
         });
@@ -812,6 +813,7 @@ class DTSMassOrdersController extends Controller
 
         // Build existing orders array
         $existingOrders = [];
+        $receivedStatus = [];
         $supplierItems = [];
 
         if ($variant === 'FRUITS AND VEGETABLES') {
@@ -848,6 +850,8 @@ class DTSMassOrdersController extends Controller
                         $supplierItem = collect($supplierItems)->firstWhere('item_code', $orderItem->item_code);
                         if ($supplierItem) {
                             $existingOrders[$supplierItem['id']][$order->order_date][$order->store_branch_id] = $orderItem->quantity_ordered;
+                            // Check if item is received (quantity_received > 0)
+                             $receivedStatus[$supplierItem['id']][$order->order_date][$order->store_branch_id] = ($orderItem->quantity_received > 0);
                         }
                     }
                 }
@@ -858,6 +862,8 @@ class DTSMassOrdersController extends Controller
                 $orderItem = $order->store_order_items->first();
                 if ($orderItem) {
                     $existingOrders[$order->order_date][$order->store_branch_id] = $orderItem->quantity_ordered;
+                    // Check if item is received (quantity_received > 0)
+                    $receivedStatus[$order->order_date][$order->store_branch_id] = ($orderItem->quantity_received > 0);
                 }
             }
         }
@@ -876,6 +882,7 @@ class DTSMassOrdersController extends Controller
                 'cost_per_quantity' => $sapItem->CostPerQuantity ?? 0
             ] : null,
             'existing_orders' => $existingOrders,
+            'received_status' => $receivedStatus,
             'status' => $firstOrder->order_status,
             'supplier_items' => $supplierItems
         ]);

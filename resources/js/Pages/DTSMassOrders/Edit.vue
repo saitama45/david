@@ -37,6 +37,10 @@ const props = defineProps({
         type: Object,
         default: () => ({})
     },
+    received_status: {
+        type: Object,
+        default: () => ({})
+    },
     status: {
         type: String,
         default: null
@@ -49,6 +53,15 @@ const props = defineProps({
 
 const { toast } = useToast();
 const confirm = useConfirm();
+
+const isReceived = (itemId, storeId, date) => {
+    if (props.variant === 'FRUITS AND VEGETABLES') {
+        return props.received_status[itemId]?.[date]?.[storeId] === true;
+    } else {
+        // For ICE CREAM / SALMON, itemId is null
+        return props.received_status[date]?.[storeId] === true;
+    }
+};
 
 const goBack = () => {
     router.get(route('dts-mass-orders.index'));
@@ -601,11 +614,11 @@ const validateQuantity = (dateKey, storeId, value) => {
                                                     type="text"
                                                     :data-r="rIndex"
                                                     :data-c="flatColumns.findIndex(c => c.store.id === store.id && c.dateObj.date === dateObj.date)"
-                                                    :readonly="!isEditableCell(item.id, store.id, dateObj.date)"
+                                                    :readonly="!isEditableCell(item.id, store.id, dateObj.date) || isReceived(item.id, store.id, dateObj.date)"
                                                     :class="[
                                                         'w-full px-2 py-1 border text-center outline-none',
                                                         isEditableCell(item.id, store.id, dateObj.date)
-                                                            ? (isSelected(rIndex, flatColumns.findIndex(c => c.store.id === store.id && c.dateObj.date === dateObj.date)) ? 'bg-blue-50 border-blue-500 z-10' : 'border-gray-300')
+                                                            ? (isReceived(item.id, store.id, dateObj.date) ? 'bg-green-100 text-gray-500 cursor-not-allowed border-green-200' : (isSelected(rIndex, flatColumns.findIndex(c => c.store.id === store.id && c.dateObj.date === dateObj.date)) ? 'bg-blue-50 border-blue-500 z-10' : 'border-gray-300'))
                                                             : 'border-gray-200 bg-gray-100 cursor-not-allowed text-gray-400'
                                                     ]"
                                                     @keydown.enter="handleEnterKey"
@@ -685,9 +698,12 @@ const validateQuantity = (dateKey, storeId, value) => {
                                                 type="number"
                                                 step="0.01"
                                                 :min="variant === 'ICE CREAM' ? '5' : '0'"
-                                                :disabled="isEditableCell && !isEditableCell(null, store.id, dateObj.date)"
+                                                :disabled="(isEditableCell && !isEditableCell(null, store.id, dateObj.date)) || isReceived(null, store.id, dateObj.date)"
                                                 class="w-full px-2 py-1 border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 text-center"
-                                                :class="{ 'bg-gray-100 cursor-not-allowed opacity-60': isEditableCell && !isEditableCell(null, store.id, dateObj.date) }"
+                                                :class="{ 
+                                                    'bg-gray-100 cursor-not-allowed opacity-60': (isEditableCell && !isEditableCell(null, store.id, dateObj.date)),
+                                                    'bg-green-100 border-green-200 text-gray-500 cursor-not-allowed': isReceived(null, store.id, dateObj.date)
+                                                }"
                                                 :placeholder="variant === 'ICE CREAM' ? 'Min: 5' : '0'"
                                                 @blur="validateQuantity(dateObj.date, store.id, orders[dateObj.date][store.id])"
                                                 @keydown.enter="handleEnterKey"

@@ -320,14 +320,14 @@ const selectDate = (day, isFrom) => {
 
             <Button
                 class="sm:px-10 px-3 bg-white/10 text-gray-800 hover:text-white gap-5 sm:text-sm text-xs"
-                :class="isFilterActive('partial_received')"
-                @click="changeFilter('partial_received')"
+                :class="isFilterActive('incomplete')"
+                @click="changeFilter('incomplete')"
             >
-                PARTIAL RECEIVED
+                INCOMPLETE
                 <Badge
                     class="sm:flex hidden border border-gray bg-transparent text-gray-900 px-2"
-                    :class="isFilterActive('partial_received')"
-                >{{ counts.partial_received || 0 }}</Badge>
+                    :class="isFilterActive('incomplete')"
+                >{{ counts.incomplete || 0 }}</Badge>
             </Button>
 
             <Button

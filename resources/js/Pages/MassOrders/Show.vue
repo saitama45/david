@@ -173,6 +173,16 @@ const openViewModalForm = (id) => {
     selectedItem.value = history;
     isViewModalVisible.value = true;
 };
+
+// Helper to format quantities for display
+const formatQuantity = (value) => {
+    const num = parseFloat(value);
+    if (isNaN(num)) return value;
+    // Fix floating point artifacts (e.g. 2.546 becoming 2.5459999999999998)
+    // toFixed(10) is sufficient precision for this context to round off the artifact,
+    // and parseFloat strips the trailing zeros to show the value "as is".
+    return parseFloat(num.toFixed(10));
+};
 </script>
 
 <template>
@@ -389,12 +399,12 @@ const openViewModalForm = (id) => {
                                     <span class="text-gray-500">Order: <span class="text-gray-900 font-medium">{{ history.uom || '-' }}</span></span>
                                 </div>
                             </TD>
-                            <TD class="text-center font-mono">{{ history.quantity_ordered || 0 }}</TD>
-                            <TD v-if="false" class="text-center font-mono">{{ history.quantity_approved || 0 }}</TD>
-                            <TD class="text-center font-mono">{{ history.committed_display }}</TD>
-                            <TD class="text-center font-mono font-bold text-blue-600">{{ history.received_display }}</TD>
-                            <TD class="text-center font-mono">{{ Math.abs(history.variance_ordered_committed || 0) }}</TD>
-                            <TD class="text-center font-mono">{{ Math.abs(history.variance_committed_received || 0) }}</TD>
+                            <TD class="text-center font-mono">{{ formatQuantity(history.quantity_ordered) || 0 }}</TD>
+                            <TD v-if="false" class="text-center font-mono">{{ formatQuantity(history.quantity_approved) || 0 }}</TD>
+                            <TD class="text-center font-mono">{{ formatQuantity(history.committed_display) }}</TD>
+                            <TD class="text-center font-mono font-bold text-blue-600">{{ formatQuantity(history.received_display) }}</TD>
+                            <TD class="text-center font-mono">{{ Math.abs(formatQuantity(history.variance_ordered_committed) || 0) }}</TD>
+                            <TD class="text-center font-mono">{{ Math.abs(formatQuantity(history.variance_committed_received) || 0) }}</TD>
                             <TD class="text-sm text-gray-600">
                                 {{ dayjs(history.received_date).isValid() ? dayjs(history.received_date).tz("Asia/Manila").format("MMM D, YYYY h:mm A") : '' }}
                             </TD>
@@ -445,7 +455,7 @@ const openViewModalForm = (id) => {
                             </div>
                             <div class="flex flex-col">
                                 <span class="text-xs text-gray-500">Received</span>
-                                <span class="font-bold">{{ history.received_display }}</span>
+                                <span class="font-bold">{{ formatQuantity(history.received_display) }}</span>
                             </div>
                             <div class="flex flex-col items-end">
                                 <span class="text-xs text-gray-500 mb-1">Status</span>
@@ -510,19 +520,19 @@ const openViewModalForm = (id) => {
                         <div class="grid grid-cols-4 gap-4">
                             <div class="text-center">
                                 <span class="text-xs text-gray-500 block">Ordered</span>
-                                <span class="font-bold text-lg text-gray-900">{{ selectedItem.quantity_ordered || 0 }}</span>
+                                <span class="font-bold text-lg text-gray-900">{{ formatQuantity(selectedItem.quantity_ordered) || 0 }}</span>
                             </div>
                             <div class="text-center">
                                 <span class="text-xs text-gray-500 block">Approved</span>
-                                <span class="font-bold text-lg text-gray-900">{{ selectedItem.quantity_approved || 0 }}</span>
+                                <span class="font-bold text-lg text-gray-900">{{ formatQuantity(selectedItem.quantity_approved) || 0 }}</span>
                             </div>
                             <div class="text-center">
                                 <span class="text-xs text-gray-500 block">Committed</span>
-                                <span class="font-bold text-lg text-gray-900">{{ selectedItem.committed_display }}</span>
+                                <span class="font-bold text-lg text-gray-900">{{ formatQuantity(selectedItem.committed_display) }}</span>
                             </div>
                             <div class="text-center">
                                 <span class="text-xs text-gray-500 block">Received</span>
-                                <span class="font-bold text-lg text-blue-600">{{ selectedItem.received_display }}</span>
+                                <span class="font-bold text-lg text-blue-600">{{ formatQuantity(selectedItem.received_display) }}</span>
                             </div>
                         </div>
                     </div>

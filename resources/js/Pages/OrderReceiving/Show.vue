@@ -30,6 +30,16 @@ const confirm = useConfirm();
 
 const { backButton } = useBackButton(route("orders-receiving.index"));
 
+// Helper to format quantities for display
+const formatQuantity = (value) => {
+    const num = parseFloat(value);
+    if (isNaN(num)) return value;
+    // Fix floating point artifacts (e.g. 2.546 becoming 2.5459999999999998)
+    // toFixed(10) is sufficient precision for this context to round off the artifact,
+    // and parseFloat strips the trailing zeros to show the value "as is".
+    return parseFloat(num.toFixed(10));
+};
+
 const getStatusClass = (status) => {
     switch (status?.toLowerCase()) {
         case "approved":
@@ -660,14 +670,42 @@ const promptConfirmReceive = () => {
                         <!-- Actions/Summary -->
                         <div class="space-y-4 flex flex-col justify-between">
                             <h3 class="text-sm font-semibold text-gray-500 uppercase tracking-wider">Summary</h3>
-                             <div class="p-3 bg-gray-50 rounded-lg border border-gray-100">
-                                <div class="flex justify-between items-center mb-1">
-                                    <span class="text-xs text-gray-500">Items Ordered</span>
-                                    <span class="font-bold text-gray-900">{{ orderedItems.length }}</span>
+                             <div class="space-y-3">
+                                <!-- Items Status Overview -->
+                                <div class="p-3 bg-blue-50 rounded-lg border border-blue-200">
+                                    <div class="flex justify-between items-center mb-2">
+                                        <span class="text-xs font-medium text-blue-700">ITEMS OVERVIEW</span>
+                                        <span class="text-xs text-blue-600">{{ orderedItems.length }} total</span>
+                                    </div>
+                                    <div class="space-y-1">
+                                        <div class="flex justify-between items-center">
+                                            <span class="text-xs text-blue-600">✓ Received</span>
+                                            <span class="font-bold text-green-700">{{ receiveDatesHistory.filter(h => h.status.toLowerCase() === 'approved').length }}</span>
+                                        </div>
+                                        <div class="flex justify-between items-center">
+                                            <span class="text-xs text-orange-600">⏳ To Receive</span>
+                                            <span class="font-bold text-orange-700">{{ orderedItems.length - receiveDatesHistory.filter(h => h.status.toLowerCase() === 'approved').length }}</span>
+                                        </div>
+                                    </div>
                                 </div>
-                                <div class="flex justify-between items-center">
-                                    <span class="text-xs text-gray-500">Delivery Receipts</span>
-                                    <span class="font-bold text-gray-900">{{ order.delivery_receipts.length }}</span>
+                                
+                                <!-- Progress Bar -->
+                                <div class="space-y-2">
+                                    <div class="flex justify-between text-xs">
+                                        <span class="text-gray-500">Receiving Progress</span>
+                                        <span class="font-medium text-gray-700">{{ Math.round((receiveDatesHistory.filter(h => h.status.toLowerCase() === 'approved').length / orderedItems.length) * 100) }}%</span>
+                                    </div>
+                                    <div class="w-full bg-gray-200 rounded-full h-2">
+                                        <div class="bg-green-500 h-2 rounded-full transition-all duration-300" :style="{ width: (receiveDatesHistory.filter(h => h.status.toLowerCase() === 'approved').length / orderedItems.length) * 100 + '%' }"></div>
+                                    </div>
+                                </div>
+                                
+                                <!-- Delivery Receipts -->
+                                <div class="p-2 bg-gray-50 rounded border">
+                                    <div class="flex justify-between items-center">
+                                        <span class="text-xs text-gray-500">Delivery Receipts</span>
+                                        <span class="font-bold text-gray-900">{{ order.delivery_receipts.length }}</span>
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -788,7 +826,19 @@ const promptConfirmReceive = () => {
             <!-- Receiving History Table -->
             <TableContainer>
                 <TableHeader>
-                    <CardTitle class="text-lg font-semibold text-gray-800">Receiving History <span class="text-sm font-normal text-gray-500">({{ receiveDatesHistory.length }} records)</span> <span class="text-red-500 text-sm">*</span></CardTitle>
+                    <div class="flex flex-col gap-1">
+                        <CardTitle class="text-lg font-semibold text-gray-800">
+                            Receiving History 
+                            <span class="text-sm font-normal text-gray-500">({{ receiveDatesHistory.filter(h => h.status.toLowerCase() === 'approved').length }} received of {{ orderedItems.length }} items)</span> 
+                            <span class="text-red-500 text-sm">*</span>
+                        </CardTitle>
+                        <p v-if="orderedItems.length - receiveDatesHistory.filter(h => h.status.toLowerCase() === 'approved').length > 0" class="text-xs text-orange-600 font-medium">
+                            ⚠️ {{ orderedItems.length - receiveDatesHistory.filter(h => h.status.toLowerCase() === 'approved').length }} item(s) still to receive
+                        </p>
+                        <p v-else class="text-xs text-green-600 font-medium">
+                            ✓ All items have been received
+                        </p>
+                    </div>
                     <Button
                         v-if="order.order_status != 'received'"
                         @click="promptConfirmReceive"
@@ -840,10 +890,10 @@ const promptConfirmReceive = () => {
                                     <span class="text-gray-500">Order: <span class="text-gray-900 font-medium">{{ history.store_order_item.uom }}</span></span>
                                 </div>
                             </TD>
-                            <TD class="text-center font-mono">{{ history.store_order_item.quantity_ordered }}</TD>
-                            <TD class="text-center font-mono">{{ history.store_order_item.quantity_approved }}</TD>
-                            <TD class="text-center font-mono">{{ history.store_order_item.quantity_commited }}</TD>
-                            <TD class="text-center font-mono font-bold text-blue-600">{{ history.quantity_received }}</TD>
+                            <TD class="text-center font-mono">{{ formatQuantity(history.store_order_item.quantity_ordered) }}</TD>
+                            <TD class="text-center font-mono">{{ formatQuantity(history.store_order_item.quantity_approved) }}</TD>
+                            <TD class="text-center font-mono">{{ formatQuantity(history.store_order_item.quantity_commited) }}</TD>
+                            <TD :class="['text-center font-mono font-bold', Number(history.quantity_received) !== Number(history.store_order_item.quantity_commited) ? 'text-red-600' : 'text-blue-600']">{{ formatQuantity(history.quantity_received) }}</TD>
                             <TD class="text-sm text-gray-600">
                                 {{ dayjs(history.received_date).isValid() ? dayjs(history.received_date).tz("Asia/Manila").format("MMM D, YYYY h:mm A") : '' }}
                             </TD>
@@ -896,7 +946,7 @@ const promptConfirmReceive = () => {
                          <div class="grid grid-cols-2 gap-2 mt-2 text-sm">
                             <div class="flex flex-col">
                                  <span class="text-xs text-gray-500">Received</span>
-                                 <span class="font-bold">{{ history.quantity_received }}</span>
+                                 <span class="font-bold">{{ formatQuantity(history.quantity_received) }}</span>
                             </div>
                             <div class="flex flex-col items-end">
                                 <span class="text-xs text-gray-500 mb-1">Status</span>
@@ -1021,9 +1071,9 @@ const promptConfirmReceive = () => {
                         <div v-if="currentEditingItem && editReceiveDetailsForm.quantity_received" class="mt-2 text-sm flex items-center gap-2 p-2 bg-gray-50 rounded border border-gray-100">
                             <span class="text-gray-500">Variance:</span>
                             <span :class="variance >= 0 ? 'text-green-600 font-bold' : 'text-red-600 font-bold'">
-                                {{ variance >= 0 ? "+" : "" }}{{ variance }}
+                                {{ variance >= 0 ? "+" : "" }}{{ formatQuantity(variance) }}
                             </span>
-                            <span class="text-gray-400 text-xs ml-auto">(Committed: {{ currentEditingItem.store_order_item.quantity_commited }})</span>
+                            <span class="text-gray-400 text-xs ml-auto">(Committed: {{ formatQuantity(currentEditingItem.store_order_item.quantity_commited) }})</span>
                         </div>
                     </InputContainer>
 
@@ -1093,7 +1143,7 @@ const promptConfirmReceive = () => {
                     <div class="grid grid-cols-2 gap-y-4 gap-x-6 text-sm">
                         <div>
                             <span class="text-xs text-gray-500 block">Quantity Received</span>
-                            <span class="font-bold text-lg text-gray-900">{{ selectedItem?.quantity_received }}</span>
+                            <span class="font-bold text-lg text-gray-900">{{ formatQuantity(selectedItem?.quantity_received) }}</span>
                         </div>
                         <div>
                             <span class="text-xs text-gray-500 block">Status</span>

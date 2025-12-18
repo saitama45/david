@@ -292,7 +292,8 @@ class OrderReceivingController extends Controller
                 $history->store_order_item->save();
             }
 
-            $this->getOrderStatus($id);
+            // 4. Recalculate and update order status
+            $this->orderReceivingService->getOrderStatus($id);
             DB::commit();
 
         } catch (\Exception $e) {
@@ -304,87 +305,5 @@ class OrderReceivingController extends Controller
         }
 
         return back();
-    }
-
-    public function getOrderStatus($id)
-    {
-        $storeOrder = StoreOrder::with('store_order_items')->find($id);
-        $orderedItems = $storeOrder->store_order_items;
-        $storeOrder->order_status = OrderStatus::RECEIVED->value;
-        foreach ($orderedItems as $itemOrdered) {
-            if ($itemOrdered->quantity_commited > $itemOrdered->quantity_received) {
-                $storeOrder->order_status = OrderStatus::INCOMPLETE->value;
-            }
-        }
-        $storeOrder->save();
-    }
-
-    /**
-     * Process inventory OUT for interco transfers from sending store
-     */
-    private function processInventoryOutForInterco($storeOrder, $quantityToDeduct, $targetSapMasterfile): void
-    {
-        try {
-            Log::info("OrderReceivingController: Processing inventory OUT for interco order {$storeOrder->interco_number}, item {$targetSapMasterfile->ItemCode}, quantity {$quantityToDeduct}");
-
-            // Get sending store stock using the target masterfile ID
-            $sendingStock = ProductInventoryStock::where('product_inventory_id', $targetSapMasterfile->id)
-                ->where('store_branch_id', $storeOrder->sending_store_branch_id)
-                ->first();
-
-            if (!$sendingStock) {
-                Log::error("OrderReceivingController: No stock record found in sending store for item {$targetSapMasterfile->ItemCode}");
-                throw new \Exception("No stock record found in sending store for item: {$targetSapMasterfile->ItemCode}");
-            }
-
-            if ($sendingStock->quantity < $quantityToDeduct) {
-                $available = $sendingStock->quantity;
-                Log::error("OrderReceivingController: Insufficient stock in sending store. Available: {$available}, Requested: {$quantityToDeduct}");
-                throw new \Exception("Insufficient stock in sending store for item {$targetSapMasterfile->ItemCode}. Available: {$available}, Requested: {$quantityToDeduct}");
-            }
-
-            // Create inventory OUT record for sending store
-            ProductInventoryStockManager::create([
-                'product_inventory_id' => $targetSapMasterfile->id,
-                'store_branch_id' => $storeOrder->sending_store_branch_id,
-                'quantity' => $quantityToDeduct,
-                'action' => 'out',
-                'transaction_date' => Carbon::today()->format('Y-m-d'),
-                'remarks' => "Interco transfer to {$storeOrder->store_branch->name} (Interco: {$storeOrder->interco_number})"
-            ]);
-
-            // Update sending store stock (subtract)
-            $sendingStock->quantity -= $quantityToDeduct;
-            $sendingStock->used += $quantityToDeduct;
-            $sendingStock->save();
-
-            // Update PurchaseItemBatch for sending store
-            $deductedFromBatches = $quantityToDeduct;
-            $sendingBatches = PurchaseItemBatch::where('product_inventory_id', $targetSapMasterfile->id)
-                ->where('store_branch_id', $storeOrder->sending_store_branch_id)
-                ->where('remaining_quantity', '>', 0)
-                ->orderBy('purchase_date', 'asc')
-                ->get();
-
-            foreach ($sendingBatches as $batch) {
-                if ($deductedFromBatches <= 0) {
-                    break;
-                }
-                $deductAmount = min($deductedFromBatches, $batch->remaining_quantity);
-                $batch->remaining_quantity -= $deductAmount;
-                $batch->save();
-                $deductedFromBatches -= $deductAmount;
-            }
-
-            if ($deductedFromBatches > 0) {
-                 Log::warning("OrderReceivingController: Could not deduct full quantity from purchase batches for sending store.");
-            }
-
-            Log::info("OrderReceivingController: Successfully processed inventory OUT for interco transfer");
-
-        } catch (\Exception $e) {
-            Log::error("OrderReceivingController: Error processing inventory OUT for interco: " . $e->getMessage());
-            throw $e;
-        }
     }
 }

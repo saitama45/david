@@ -1071,6 +1071,16 @@ const totalColumns = computed(() => staticHeaders.value.length + branchCount.val
 
 const sortedReport = computed(() => localReport.value);
 
+// Helper to format quantities for display
+const formatQuantity = (value) => {
+    const num = parseFloat(value);
+    if (isNaN(num)) return value;
+    // Fix floating point artifacts (e.g. 2.546 becoming 2.5459999999999998)
+    // toFixed(10) is sufficient precision for this context to round off the artifact,
+    // and parseFloat strips the trailing zeros to show the value "as is".
+    return parseFloat(num.toFixed(10));
+};
+
 // Set default supplier on mount if none selected and user has suppliers
 onMounted(() => {
     if (supplierId.value === 'all' && suppliersOptions.value.length > 0) {
@@ -1259,7 +1269,7 @@ onMounted(() => {
                                         />
                                         <!-- Display Mode -->
                                         <span v-else class="w-full text-right px-2">
-                                            {{ row[header.field] }}
+                                            {{ formatQuantity(row[header.field]) }}
                                         </span>
 
                                         <!-- Fill Handle -->
@@ -1277,7 +1287,7 @@ onMounted(() => {
 
                                 <td v-for="header in trailingHeaders" :key="header.field"
                                     class="px-4 py-3 text-right whitespace-nowrap">
-                                    {{ row[header.field] }}
+                                    {{ formatQuantity(row[header.field]) }}
                                 </td>
                             </tr>
                         </tbody>
