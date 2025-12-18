@@ -1071,6 +1071,19 @@ const totalColumns = computed(() => staticHeaders.value.length + branchCount.val
 
 const sortedReport = computed(() => localReport.value);
 
+// Set default supplier on mount if none selected and user has suppliers
+onMounted(() => {
+    if (supplierId.value === 'all' && suppliersOptions.value.length > 0) {
+        // Find supplier with lowest ID
+        const sortedSuppliers = [...suppliersOptions.value].sort((a, b) => {
+            const aVal = String(a.value);
+            const bVal = String(b.value);
+            return aVal.localeCompare(bVal);
+        });
+        supplierId.value = sortedSuppliers[0].value;
+    }
+});
+
 </script>
 
 <template>
@@ -1144,12 +1157,21 @@ const sortedReport = computed(() => localReport.value);
                 </div>
             </TableHeader>
             
+            <div class="mb-2 text-sm text-gray-600">
+                Total Records: {{ sortedReport.length }}
+            </div>
+            
             <div class="bg-white border rounded-md shadow-sm">
                 <div class="overflow-x-auto max-h-[75vh] overflow-y-auto" style="user-select: text;" @mouseup="onCellMouseUp">
                     <table class="min-w-full">
                         <thead class="bg-slate-100 sticky top-0 z-10 text-slate-800 shadow-sm">
                             <!-- Main Header Row -->
                             <tr class="text-sm">
+                                <!-- Row Number Header -->
+                                <th rowspan="2" class="px-4 py-3 text-center whitespace-nowrap font-bold border-b-2 border-slate-200 bg-slate-200">
+                                    #
+                                </th>
+                                
                                 <!-- Static Headers -->
                                 <th v-for="header in staticHeaders" :key="header.field" rowspan="2" 
                                     class="px-4 py-3 text-left whitespace-nowrap font-bold border-b-2 border-slate-200 bg-slate-200">
@@ -1185,9 +1207,14 @@ const sortedReport = computed(() => localReport.value);
                         </thead>
                         <tbody>
                             <tr v-if="sortedReport.length === 0">
-                                <td :colspan="totalColumns" class="text-center p-4">No data available for the selected filters.</td>
+                                <td :colspan="totalColumns + 1" class="text-center p-4">No data available for the selected filters.</td>
                             </tr>
                             <tr v-for="(row, rowIndex) in sortedReport" :key="rowIndex" class="border-t group">
+                                <!-- Row Number -->
+                                <td class="px-4 py-3 text-center whitespace-nowrap text-gray-500 font-medium">
+                                    {{ rowIndex + 1 }}
+                                </td>
+                                
                                 <td v-for="header in staticHeaders" :key="header.field" class="px-4 py-3 text-left whitespace-nowrap">
                                     {{ row[header.field] }}
                                 </td>
