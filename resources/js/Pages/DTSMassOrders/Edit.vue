@@ -54,6 +54,17 @@ const props = defineProps({
 const { toast } = useToast();
 const confirm = useConfirm();
 
+// Helper to format quantities for display
+const formatQuantity = (value) => {
+    if (value === '' || value === null || value === undefined) return value;
+    const num = parseFloat(value);
+    if (isNaN(num)) return value;
+    // Fix floating point artifacts (e.g. 2.546 becoming 2.5459999999999998)
+    // toFixed(10) is sufficient precision for this context to round off the artifact,
+    // and parseFloat strips the trailing zeros to show the value "as is".
+    return parseFloat(num.toFixed(10));
+};
+
 const isReceived = (itemId, storeId, date) => {
     if (props.variant === 'FRUITS AND VEGETABLES') {
         return props.received_status[itemId]?.[date]?.[storeId] === true;
@@ -193,8 +204,8 @@ if (props.variant === 'FRUITS AND VEGETABLES') {
         props.dates.forEach(dateObj => {
             orders.value[item.id][dateObj.date] = {};
             props.stores.forEach(store => {
-                const existingQty = props.existing_orders[item.id]?.[dateObj.date]?.[store.id] || '';
-                orders.value[item.id][dateObj.date][store.id] = existingQty;
+                const existingQty = props.existing_orders[item.id]?.[dateObj.date]?.[store.id];
+                orders.value[item.id][dateObj.date][store.id] = existingQty !== undefined ? formatQuantity(existingQty) : '';
             });
         });
     });
@@ -202,8 +213,8 @@ if (props.variant === 'FRUITS AND VEGETABLES') {
     props.dates.forEach(dateObj => {
         orders.value[dateObj.date] = {};
         props.stores.forEach(store => {
-            const existingQty = props.existing_orders[dateObj.date]?.[store.id] || '';
-            orders.value[dateObj.date][store.id] = existingQty;
+            const existingQty = props.existing_orders[dateObj.date]?.[store.id];
+            orders.value[dateObj.date][store.id] = existingQty !== undefined ? formatQuantity(existingQty) : '';
         });
     });
 }
@@ -637,13 +648,13 @@ const validateQuantity = (dateKey, storeId, value) => {
                                         </td>
                                     </template>
                                     <td class="border border-gray-300 px-3 py-2 text-center font-semibold bg-yellow-50">
-                                        {{ getItemTotalOrder(item.id).toFixed(2) }}
+                                        {{ formatQuantity(getItemTotalOrder(item.id)) }}
                                     </td>
                                     <td class="border border-gray-300 px-3 py-2 text-center font-semibold bg-yellow-50">
                                         {{ getItemBuffer() }}%
                                     </td>
                                     <td class="border border-gray-300 px-3 py-2 text-center font-semibold bg-yellow-50">
-                                        {{ getItemTotalPO(item.id).toFixed(2) }}
+                                        {{ formatQuantity(getItemTotalPO(item.id)) }}
                                     </td>
                                     <td class="border border-gray-300 px-3 py-2 text-right font-semibold bg-green-50">
                                         {{ getItemTotalPrice(item.id, item.price).toFixed(2) }}
@@ -712,12 +723,12 @@ const validateQuantity = (dateKey, storeId, value) => {
                                     </tr>
                                     <tr class="bg-blue-50 font-semibold">
                                         <td class="border border-gray-300 px-3 py-2" colspan="2">TOTAL</td>
-                                        <td class="border border-gray-300 px-3 py-2 text-center">{{ getRowTotal(dateObj.date) }}</td>
+                                        <td class="border border-gray-300 px-3 py-2 text-center">{{ formatQuantity(getRowTotal(dateObj.date)) }}</td>
                                     </tr>
                                 </template>
                                 <tr class="bg-gray-700 text-white font-bold">
                                     <td class="border border-gray-300 px-3 py-2" colspan="2">GRAND TOTAL</td>
-                                    <td class="border border-gray-300 px-3 py-2 text-center">{{ grandTotal }}</td>
+                                    <td class="border border-gray-300 px-3 py-2 text-center">{{ formatQuantity(grandTotal) }}</td>
                                 </tr>
                             </tbody>
                         </table>
