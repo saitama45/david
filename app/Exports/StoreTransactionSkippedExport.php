@@ -54,7 +54,7 @@ class StoreTransactionSkippedExport implements FromArray, WithHeadings, WithStyl
     public function headings(): array
     {
         return [
-            'Item Code',
+            'Ref No.',
             'Item Description',
             'UoM',
             'Store Code',

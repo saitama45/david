@@ -147,14 +147,45 @@ class StoreTransactionImport implements ToCollection, WithHeadingRow, WithStartR
             $totalIngredientsNeeded = []; // ItemCode -> ['needed' => qty, 'bom_entry' => model, 'sap_product' => model]
             $posMasterfiles = []; // Cache POSMasterfile models
 
+            // Check each POS item individually for missing masterfiles
+            $missingPosMasterfiles = [];
             foreach ($aggregatedItems as $productId => $itemData) {
                 $posMasterfile = POSMasterfile::whereRaw('UPPER(POSCode) = ?', [$productId])->first();
 
                 if (!$posMasterfile) {
-                    $this->addSkippedGroup($receiptRows, "POS Masterfile not found for Product ID: $productId");
-                    return;
+                    $missingPosMasterfiles[] = $productId;
+                } else {
+                    $posMasterfiles[$productId] = $posMasterfile;
                 }
-                $posMasterfiles[$productId] = $posMasterfile;
+            }
+            
+            // If any POS masterfiles are missing, skip each item with its specific error
+            if (!empty($missingPosMasterfiles)) {
+                foreach ($aggregatedItems as $productId => $itemData) {
+                    if (in_array($productId, $missingPosMasterfiles)) {
+                        // Create individual skipped row for this specific item
+                        $this->skippedRows[] = [
+                            'row_number' => $itemData['__row_number'],
+                            'reason' => "POS Masterfile not found for Product ID: {$productId}",
+                            'item_code' => $productId,
+                            'item_description' => $itemData['product_name'],
+                            'uom' => $itemData['uom'],
+                            'store_code' => $itemData['branch'],
+                            'receipt_number' => $receiptNumber,
+                            'qty' => $itemData['qty'],
+                            'bom_qty_deduction' => 'N/A',
+                            'total_deduction' => 'N/A',
+                            'variance' => 'N/A',
+                            'current_soh' => 'N/A',
+                            'date_of_sales' => $itemData['date'],
+                        ];
+                    }
+                }
+                return;
+            }
+            
+            foreach ($aggregatedItems as $productId => $itemData) {
+                $posMasterfile = $posMasterfiles[$productId];
 
                 $bomIngredients = POSMasterfileBOM::where('POSCode', $posMasterfile->POSCode)->get();
 
@@ -206,18 +237,36 @@ class StoreTransactionImport implements ToCollection, WithHeadingRow, WithStartR
                 // MODIFIED: Only validate sufficiency if SOH is positive
                 if ($currentSOH > 0 && $requiredQty > $currentSOH) {
                     $variance = $requiredQty - $currentSOH;
-                    // Fail the ENTIRE receipt
-                    $this->addSkippedGroup($receiptRows, 
-                        "Insufficient balance for ingredient '{$sapProduct->ItemDescription}' ($itemCode). Receipt Needs: $requiredQty, SOH: $currentSOH.", 
-                        [
-                            'failed_ingredient_code' => $itemCode, // Pass the code of the failing ingredient
-                            'failed_ingredient_desc' => $sapProduct->ItemDescription,
-                            'uom' => $requirement['uom'],
-                            'variance' => $variance,
-                            'current_soh' => $currentSOH,
-                            'total_deduction' => $requiredQty
-                        ]
-                    );
+                    // Add each POS item that uses this ingredient with correct description
+                    foreach ($aggregatedItems as $productId => $itemData) {
+                        $bomEntry = POSMasterfileBOM::where('POSCode', $productId)
+                            ->where('ItemCode', $itemCode)
+                            ->first();
+                            
+                        if ($bomEntry) {
+                            $bomQtyDeduction = POSMasterfileBOM::where('POSCode', $productId)
+                                ->where('ItemCode', $itemCode)
+                                ->sum('BOMQty');
+                                
+                            $reason = "Insufficient balance for ingredient '{$bomEntry->ItemDescription}' ({$itemCode}). Receipt Needs: {$requiredQty}, SOH: {$currentSOH}.";
+                            
+                            $this->skippedRows[] = [
+                                'row_number' => $itemData['__row_number'],
+                                'reason' => $reason,
+                                'item_code' => $productId,
+                                'item_description' => $itemData['product_name'],
+                                'uom' => $itemData['uom'],
+                                'store_code' => $itemData['branch'],
+                                'receipt_number' => $receiptNumber,
+                                'qty' => $itemData['qty'],
+                                'bom_qty_deduction' => $bomQtyDeduction,
+                                'total_deduction' => $requiredQty,
+                                'variance' => $variance,
+                                'current_soh' => $currentSOH,
+                                'date_of_sales' => $itemData['date'],
+                            ];
+                        }
+                    }
                     return;
                 }
             }
@@ -355,54 +404,56 @@ class StoreTransactionImport implements ToCollection, WithHeadingRow, WithStartR
     
             foreach ($aggregatedItems as $item) {
                 $bomQtyDeduction = 'N/A';
+                $shouldSkipThisItem = true;
                 
-                // Default values (POS Item details)
+                // Always use POS Item details for display
                 $displayItemCode = $item['product_id'];
                 $displayItemDesc = $item['product_name'] ?? null;
                 $displayUom = $item['uom'] ?? null;
 
-                // If we have a specific failing ingredient, check if THIS item uses it
+                // If we have a specific failing ingredient, only skip items that actually use it
                 if (isset($extraData['failed_ingredient_code'])) {
-                    $posCode = strtoupper(trim($item['product_id']));
+                    $posCode = $item['product_id'];
                     $failedIngredientCode = $extraData['failed_ingredient_code'];
                     
-                    // Lookup BOM Qty (Sum all entries for this ingredient in this POS item)
-                    $bomEntries = POSMasterfileBOM::where('POSCode', $posCode)
+                    // Check if this POS item uses the failing ingredient
+                    $bomEntry = POSMasterfileBOM::where('POSCode', $posCode)
                         ->where('ItemCode', $failedIngredientCode)
-                        ->get();
+                        ->first();
                         
-                    if ($bomEntries->isNotEmpty()) {
-                        $bomQtyDeduction = $bomEntries->sum('BOMQty');
-                        
-                        // OVERRIDE with BOM details from the first match
-                        $firstEntry = $bomEntries->first();
-                        $displayItemCode = $firstEntry->ItemCode;
-                        $displayItemDesc = $firstEntry->ItemDescription;
-                        $displayUom = $firstEntry->BOMUOM;
+                    if ($bomEntry) {
+                        $bomQtyDeduction = POSMasterfileBOM::where('POSCode', $posCode)
+                            ->where('ItemCode', $failedIngredientCode)
+                            ->sum('BOMQty');
+                        $shouldSkipThisItem = true;
+                    } else {
+                        $shouldSkipThisItem = false; // This POS item doesn't use the failing ingredient
                     }
                 }
     
-                // Construct the skipped row manually to prevent overwriting POS details with Ingredient details
-                $this->skippedRows[] = [
-                    'row_number' => $item['__row_number'],
-                    'reason' => $reason,
-                    // CORRECTED: Use BOM details if available/relevant, otherwise POS details
-                    'item_code' => $displayItemCode,
-                    'item_description' => $displayItemDesc,
-                    'uom' => $displayUom,
-                    'store_code' => $item['branch'],
-                    'receipt_number' => $item['receipt_no'],
-                    'qty' => $item['qty'], // Total Qty
-                    
-                    // Dynamic BOM Qty
-                    'bom_qty_deduction' => $bomQtyDeduction,
-                    
-                    // Global Receipt Failure Details (Ingredient context)
-                    'total_deduction' => $extraData['total_deduction'] ?? 'N/A',
-                    'variance' => $extraData['variance'] ?? 'N/A',
-                    'current_soh' => $extraData['current_soh'] ?? 'N/A',
-                    'date_of_sales' => $item['date'],
-                ];
+                // Only add to skipped rows if this item should be skipped
+                if ($shouldSkipThisItem) {
+                    $this->skippedRows[] = [
+                        'row_number' => $item['__row_number'],
+                        'reason' => $reason,
+                        // Always show POS item details, not ingredient details
+                        'item_code' => $displayItemCode,
+                        'item_description' => $displayItemDesc,
+                        'uom' => $displayUom,
+                        'store_code' => $item['branch'],
+                        'receipt_number' => $item['receipt_no'],
+                        'qty' => $item['qty'], // Total Qty
+                        
+                        // Dynamic BOM Qty
+                        'bom_qty_deduction' => $bomQtyDeduction,
+                        
+                        // Global Receipt Failure Details (Ingredient context)
+                        'total_deduction' => $extraData['total_deduction'] ?? 'N/A',
+                        'variance' => $extraData['variance'] ?? 'N/A',
+                        'current_soh' => $extraData['current_soh'] ?? 'N/A',
+                        'date_of_sales' => $item['date'],
+                    ];
+                }
             }
         }
     private function transformDate($value)
