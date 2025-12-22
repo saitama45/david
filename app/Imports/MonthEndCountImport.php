@@ -78,15 +78,16 @@ class MonthEndCountImport implements ToCollection, WithHeadingRow
             // Find SAP Masterfile by ItemCode and UOM (Bulk UOM)
             $sapMasterfile = SAPMasterfile::where('ItemCode', $itemCode)
                 ->where('AltUOM', $bulkUom)
+                ->where('is_active', true)
                 ->first();
 
             if (!$sapMasterfile) {
-                Log::error("MonthEndCountImport: SAP Masterfile not found", [
+                Log::warning("MonthEndCountImport: SAP Masterfile not found, skipping item", [
                     'row_index' => $rowIndex,
                     'itemcode' => $itemCode,
                     'uom' => $bulkUom
                 ]);
-                $this->errors[] = "SAP Masterfile not found for ItemCode {$itemCode} with UOM {$bulkUom} (Row " . ($rowIndex + 2) . ")";
+                $this->errors[] = "Item {$itemCode} with UOM {$bulkUom} not found in SAP Masterfile, skipping (Row " . ($rowIndex + 2) . ")";
                 continue;
             }
 
