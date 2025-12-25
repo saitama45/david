@@ -301,7 +301,7 @@ class MassOrdersController extends Controller
         $cutoff2Date = $getCutoffDate($cutoff->cutoff_2_day, $cutoff->cutoff_2_time);
 
         $daysToCoverStr = '';
-        $isSpecialLogic = str_starts_with($supplier_code, 'GSI') || $supplier_code === 'PUL-O'; // Define special logic once
+        $isSpecialLogic = str_starts_with($supplier_code, 'GSI') || $supplier_code === 'PUL-O' || $orderingTemplate === 'FRUITS AND VEGETABLES'; // Define special logic once
 
         // Determine which set of days and which week to use
         if ($cutoff1Date && $now->lt($cutoff1Date)) {
