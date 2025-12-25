@@ -39,8 +39,9 @@ class MonthEndCountController extends Controller
         $branchesAwaitingUpload = collect();
         $uploadedCountsAwaitingSubmission = collect();
 
-        // Download schedule: any schedule for today, regardless of status.
-        $downloadSchedule = MonthEndSchedule::whereDate('calculated_date', $today)->first();
+        // Download schedule: any schedule within the next 3 days, including today.
+        $threeDaysFromNow = $today->copy()->addDays(3);
+        $downloadSchedule = MonthEndSchedule::whereBetween('calculated_date', [$today, $threeDaysFromNow])->first();
 
         // Upload schedule: the schedule whose calculated_date was yesterday.
         $globalUploadSchedule = MonthEndSchedule::whereDate('calculated_date', $yesterday)
@@ -85,7 +86,7 @@ class MonthEndCountController extends Controller
             });
 
         if ($downloadSchedule) {
-            $message = 'A month end count is scheduled for today. Please download the template for your branch.';
+            $message = 'A month end count is scheduled. Please download the template for your branch.';
         } elseif ($uploadSchedule) {
             $message = 'A month end count was scheduled for yesterday. Please upload the completed file for your remaining branches.';
         } elseif ($uploadedCountsAwaitingSubmission->isNotEmpty()) {
