@@ -324,6 +324,17 @@ class StoreOrder extends Model implements Auditable
      */
     public function updateOrderStatusBasedOnCommits()
     {
+        $totalItems = $this->getTotalItemsCount();
+        $committedItems = $this->getCommittedItemsCount();
+
+        \Illuminate\Support\Facades\Log::info('StoreOrder - updateOrderStatusBasedOnCommits', [
+            'order_id' => $this->id,
+            'totalItems' => $totalItems,
+            'committedItems' => $committedItems,
+            'isFullyCommitted' => $totalItems > 0 && $totalItems === $committedItems,
+            'isPartiallyCommitted' => $totalItems > 0 && $committedItems > 0 && $committedItems < $totalItems
+        ]);
+
         if ($this->isFullyCommitted()) {
             $this->order_status = \App\Enum\OrderStatus::COMMITTED->value;
         } elseif ($this->isPartiallyCommitted()) {

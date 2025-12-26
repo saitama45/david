@@ -1,0 +1,7 @@
+$order = App\Models\StoreOrder::with('store_order_items')->find(706);
+foreach($order->store_order_items as $item) {
+    if ($item->item_code == '112D9A') {
+        echo "Item: 112D9A | CommittedBy: " . ($item->committed_by ?? 'NULL') . "\n";
+    }
+}
+exit;

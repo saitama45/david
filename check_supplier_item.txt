@@ -1,0 +1,5 @@
+$items = App\Models\SupplierItems::where('ItemCode', '112D9A')->get();
+foreach($items as $item) {
+    echo "ItemCode: {$item->ItemCode} | UOM: {$item->uom} | Category: {$item->category}\n";
+}
+exit;

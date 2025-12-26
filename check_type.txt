@@ -1,0 +1,3 @@
+$item = App\Models\StoreOrderItem::where('item_code', '112D9A')->first();
+var_dump($item->committed_by);
+exit;

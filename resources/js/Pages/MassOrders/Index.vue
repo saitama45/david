@@ -337,6 +337,7 @@ const statusBadgeColor = (status) => {
         case "INCOMPLETE": return "bg-orange-500 text-white";
         case "PENDING": return "bg-yellow-500 text-white";
         case "COMMITTED": return "bg-blue-500 text-white";
+        case "PARTIAL_COMMITTED": return "bg-indigo-500 text-white";
         case "REJECTED": return "bg-red-500 text-white";
         default: return "bg-gray-500 text-white";
     }
@@ -523,6 +524,7 @@ const downloadFileName = computed(() => {
             <FilterTabButton label="Pending" filter="pending" :currentFilter="filterQuery" @click="changeFilter('pending')" />
             <FilterTabButton label="Approved" filter="approved" :currentFilter="filterQuery" @click="changeFilter('approved')" />
             <FilterTabButton label="Commited" filter="committed" :currentFilter="filterQuery" @click="changeFilter('committed')" />
+            <FilterTabButton label="Partial Committed" filter="partial_committed" :currentFilter="filterQuery" @click="changeFilter('partial_committed')" />
             <FilterTabButton label="Received" filter="received" :currentFilter="filterQuery" @click="changeFilter('received')" />
             <FilterTabButton label="Rejected" filter="rejected" :currentFilter="filterQuery" @click="changeFilter('rejected')" />
         </FilterTab>

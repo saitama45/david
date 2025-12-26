@@ -32,6 +32,11 @@ const categoryFilter = ref(props.filters.category || 'all');
 
 // --- Local Report State ---
 const localReport = ref([]);
+const localBranchStatuses = ref({ ...props.branchStatuses });
+
+watch(() => props.branchStatuses, (newVal) => {
+    localBranchStatuses.value = { ...newVal };
+}, { deep: true, immediate: true });
 
 // --- History & Undo ---
 const history = ref([]);
@@ -110,7 +115,7 @@ watch(() => props.report, (newVal) => {
 }, { immediate: true });
 
 const isBranchLocked = (brandCode) => {
-    const status = props.branchStatuses[brandCode]?.toLowerCase();
+    const status = localBranchStatuses.value[brandCode]?.toLowerCase();
     return status === 'received' || status === 'incomplete';
 };
 
@@ -966,6 +971,30 @@ const confirmAllCommits = () => {
                     const messageText = flashMessage || 'Orders have been processed.';
                     const messageType = page.props.flash?.success ? 'success' : (page.props.flash?.info ? 'info' : 'success');
 
+                    // Optimistically update statuses
+                    branchHeaders.value.forEach(header => {
+                        const brand = header.field;
+                        let totalItems = 0;
+                        let committableItems = 0;
+
+                        sortedReport.value.forEach(row => {
+                            if (row['exists_' + brand] == 1) {
+                                totalItems++;
+                                if (canUserEditRow(row)) {
+                                    committableItems++;
+                                }
+                            }
+                        });
+
+                        if (totalItems > 0) {
+                            if (committableItems === totalItems) {
+                                localBranchStatuses.value[brand] = 'COMMITTED';
+                            } else if (committableItems > 0) {
+                                localBranchStatuses.value[brand] = 'PARTIAL_COMMITTED';
+                            }
+                        }
+                    });
+
                     toast.add({
                         severity: messageType,
                         summary: 'Success',
@@ -1048,7 +1077,7 @@ const resetFilters = () => {
 };
 
 const canConfirmAny = computed(() => {
-    const statuses = Object.values(props.branchStatuses);
+    const statuses = Object.values(localBranchStatuses.value);
     if (statuses.length === 0) {
         return false;
     }
@@ -1207,9 +1236,9 @@ onMounted(() => {
                                 <th v-for="header in branchHeaders" :key="header.field" 
                                     class="px-4 py-2 text-center whitespace-nowrap font-semibold border-b-2 border-slate-200 bg-blue-50">
                                     <div>{{ header.label.replace(' Qty', '') }}</div>
-                                    <div v-if="props.branchStatuses[header.field]" class="text-xs font-normal mt-1">
-                                        <span :class="statusBadgeColor(props.branchStatuses[header.field])" class="px-2 py-1 rounded-full shadow-sm">
-                                            {{ props.branchStatuses[header.field].toUpperCase() }}
+                                    <div v-if="localBranchStatuses[header.field]" class="text-xs font-normal mt-1">
+                                        <span :class="statusBadgeColor(localBranchStatuses[header.field])" class="px-2 py-1 rounded-full shadow-sm">
+                                            {{ localBranchStatuses[header.field].toUpperCase() }}
                                         </span>
                                     </div>
                                 </th>

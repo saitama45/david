@@ -220,7 +220,7 @@ class StoreOrderItem extends Model implements Auditable
      */
     public function isCommittedBy($userId)
     {
-        return $this->committed_by === $userId;
+        return $this->committed_by == $userId;
     }
 
     /**
@@ -246,28 +246,26 @@ class StoreOrderItem extends Model implements Auditable
     /**
      * Check if this item can be committed by the current user based on permissions
      */
-    public function canBeCommittedBy($user)
+    public function canBeCommittedBy($user, $category = null)
     {
         if (!$user) {
             return false;
         }
 
-        // If item is already committed by this user, they can modify it
-        if ($this->isCommittedBy($user->id)) {
-            return true;
-        }
+        $itemCategory = $category;
 
-        // Check supplierItem relationship first (primary source for category)
-        $itemCategory = null;
-        if ($this->supplierItem) {
-            $itemCategory = $this->supplierItem->category;
-        } elseif ($this->sapMasterfile) {
-            // Fallback to SAP masterfile if supplierItem not available
-            $itemCategory = $this->sapMasterfile->Category;
+        if (!$itemCategory) {
+            // Check supplierItem relationship first (primary source for category)
+            if ($this->supplierItem) {
+                $itemCategory = $this->supplierItem->category;
+            } elseif ($this->sapMasterfile) {
+                // Fallback to SAP masterfile if supplierItem not available
+                $itemCategory = $this->sapMasterfile->Category;
+            }
         }
 
         if ($itemCategory) {
-            $isFinishedGood = in_array($itemCategory, ['FINISHED GOODS', 'FG', 'FINISHED GOOD']);
+            $isFinishedGood = in_array(strtoupper($itemCategory), ['FINISHED GOODS', 'FG', 'FINISHED GOOD']);
 
             // User can commit if they have the appropriate permission for the item category
             if ($isFinishedGood) {
@@ -277,7 +275,7 @@ class StoreOrderItem extends Model implements Auditable
             }
         }
 
-        // If no category found, require at least one permission
-        return $user->can('edit finished good commits') || $user->can('edit other commits');
+        // If no category found, default to false (deny) to prevent unauthorized access
+        return false;
     }
 }

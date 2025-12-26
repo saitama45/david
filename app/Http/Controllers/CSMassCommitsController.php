@@ -378,12 +378,21 @@ class CSMassCommitsController extends Controller
     private function performUpdate(array $data)
     {
         // Find the item's category for permission checking
-        $supplierItem = \App\Models\SupplierItems::where('ItemCode', $data['item_code'])->firstOrFail();
+        // Use both ItemCode and SupplierCode (supplier_id passed from frontend is actually supplier_code)
+        $supplierItem = \App\Models\SupplierItems::where('ItemCode', $data['item_code'])
+            ->where('SupplierCode', $data['supplier_id'])
+            ->first();
+
+        // Fallback if not found by exact match (though it should be)
+        if (!$supplierItem) {
+             $supplierItem = \App\Models\SupplierItems::where('ItemCode', $data['item_code'])->firstOrFail();
+        }
+
         $category = $supplierItem->category;
 
         // Perform permission check
         $user = Auth::user();
-        $isFinishedGood = in_array($category, ['FINISHED GOODS', 'FG', 'FINISHED GOOD']);
+        $isFinishedGood = in_array(strtoupper($category), ['FINISHED GOODS', 'FG', 'FINISHED GOOD']);
 
         if ($isFinishedGood && !$user->can('edit finished good commits')) {
             return response()->json(['message' => 'You do not have permission to edit items in the FINISHED GOOD category.'], 403);
@@ -477,6 +486,7 @@ class CSMassCommitsController extends Controller
         $updatedOrdersCount = 0;
         $updatedItemsCount = 0;
         $skippedItemsCount = 0;
+        $revokedItemsCount = 0;
 
         if ($ordersToCommit->count() > 0) {
             // Process each order and its items based on user permissions
@@ -490,38 +500,82 @@ class CSMassCommitsController extends Controller
                     'items_count' => $order->store_order_items->count()
                 ]);
 
+                // Optimize: Get categories map for this order's supplier to ensure accurate permission checks
+                $supplierCode = $order->supplier->supplier_code ?? null;
+                $supplierCategories = [];
+                $fallbackCategories = []; // Fallback map: ItemCode -> Category
+
+                if ($supplierCode) {
+                    $supplierItems = \App\Models\SupplierItems::where('SupplierCode', $supplierCode)
+                        ->whereIn('ItemCode', $order->store_order_items->pluck('item_code'))
+                        ->select('ItemCode', 'uom', 'category')
+                        ->get();
+
+                    foreach ($supplierItems as $si) {
+                        $code = strtoupper(trim($si->ItemCode));
+                        $uom = strtoupper(trim($si->uom));
+                        
+                        $key = $code . '_' . $uom;
+                        $supplierCategories[$key] = $si->category;
+                        
+                        // Populate fallback: if multiple UOMs exist, this takes the last one, 
+                        // but usually category is consistent across UOMs for the same item.
+                        $fallbackCategories[$code] = $si->category;
+                    }
+                }
+
                 foreach ($order->store_order_items as $item) {
                     $itemCount++;
-                    $itemCategory = $item->sapMasterfile->Category ?? 'Unknown';
-                    $canCommit = $item->canBeCommittedBy($user);
+                    
+                    $cleanCode = strtoupper(trim($item->item_code));
+                    $cleanUom = strtoupper(trim($item->uom));
 
-                    \Log::debug('CS Mass Commits - Checking item permissions', [
-                        'item_code' => $item->item_code,
-                        'item_category' => $itemCategory,
-                        'can_commit' => $canCommit,
-                        'item_id' => $item->id
-                    ]);
+                    // Resolve Category: 
+                    // 1. Strict Supplier Match (Item + UOM)
+                    $lookupKey = $cleanCode . '_' . $cleanUom;
+                    $itemCategory = $supplierCategories[$lookupKey] ?? null;
+                    
+                    // 2. Fallback Supplier Match (Item only) - handles UOM mismatches
+                    if (!$itemCategory) {
+                        $itemCategory = $fallbackCategories[$cleanCode] ?? null;
+                    }
+
+                    // 3. SAP Fallback
+                    if (!$itemCategory) {
+                        $itemCategory = $item->sapMasterfile->Category ?? 'Unknown';
+                    }
+                    
+                    // Ensure category is clean for comparison
+                    $itemCategory = trim($itemCategory);
+
+                    $canCommit = $item->canBeCommittedBy($user, $itemCategory);
 
                     // Check if user can commit this specific item based on permissions
                     if (!$canCommit) {
+                        // If the user previously committed this item but shouldn't have (permission changed or bug fixed),
+                        // we must revoke their commit signature to ensure data integrity.
+                        // Use loose comparison or cast because committed_by might be a string from DB.
+                        if ($item->committed_by == $user->id) {
+                            $item->removeCommitStatus();
+                            $revokedItemsCount++;
+                            $orderHasUpdates = true;
+                            \Log::info('CS Mass Commits - Item commit revoked', [
+                                'item_code' => $item->item_code,
+                                'reason' => 'User no longer has permission'
+                            ]);
+                        }
+                        
                         $skippedItemsCount++;
-                        \Log::debug('CS Mass Commits - Item skipped due to permissions', [
-                            'item_code' => $item->item_code,
-                            'item_category' => $itemCategory,
-                            'reason' => 'User lacks required permission'
-                        ]);
                         continue;
                     }
 
                     // Mark item as committed by this user (audit tracking)
-                    $item->markAsCommittedBy($user->id);
-
-                    \Log::debug('CS Mass Commits - Item committed successfully', [
-                        'item_code' => $item->item_code,
-                        'item_category' => $itemCategory,
-                        'committed_by' => $user->id,
-                        'quantity_commited' => $item->quantity_commited
-                    ]);
+                    // Check if already committed by this user to avoid unnecessary writes
+                    if ($item->committed_by !== $user->id) {
+                         $item->markAsCommittedBy($user->id);
+                         $updatedItemsCount++;
+                         $orderHasUpdates = true;
+                    }
 
                     // Create placeholder receive date record if it doesn't exist
                     if ($item->quantity_commited > 0 && $item->ordered_item_receive_dates()->doesntExist()) {
@@ -530,15 +584,7 @@ class CSMassCommitsController extends Controller
                             'status' => 'pending',
                             'received_by_user_id' => $user->id,
                         ]);
-
-                        \Log::debug('CS Mass Commits - Receive date record created', [
-                            'item_code' => $item->item_code,
-                            'quantity' => $item->quantity_commited
-                        ]);
                     }
-
-                    $updatedItemsCount++;
-                    $orderHasUpdates = true;
                 }
 
                 \Log::info('CS Mass Commits - Order processing complete', [
@@ -546,11 +592,13 @@ class CSMassCommitsController extends Controller
                     'order_number' => $order->order_number,
                     'total_items' => $itemCount,
                     'updated_items' => $updatedItemsCount,
+                    'revoked_items' => $revokedItemsCount,
                     'has_updates' => $orderHasUpdates
                 ]);
 
                 // Update order status based on commit status of its items
-                if ($orderHasUpdates) {
+                // Always run this if we iterated, just to be safe, but definitely if updates occurred.
+                if ($orderHasUpdates || $itemCount > 0) {
                     $oldStatus = $order->order_status;
                     $order->updateOrderStatusBasedOnCommits();
 
@@ -562,19 +610,20 @@ class CSMassCommitsController extends Controller
 
                     // Set order-level commit info if this is the first time items are being committed
                     if ($order->order_status === \App\Enum\OrderStatus::COMMITTED->value) {
-                        $order->update([
-                            'commiter_id' => $user->id,
-                            'commited_action_date' => Carbon::now(),
-                        ]);
-
-                        \Log::info('CS Mass Commits - Order fully committed', [
-                            'order_id' => $order->id,
-                            'order_number' => $order->order_number,
-                            'commiter_id' => $user->id
-                        ]);
+                         if (!$order->commiter_id) {
+                             $order->update([
+                                 'commiter_id' => $user->id,
+                                 'commited_action_date' => Carbon::now(),
+                             ]);
+                         }
+                    } elseif ($order->order_status === \App\Enum\OrderStatus::PARTIAL_COMMITTED->value) {
+                        // If it degraded to partial, we might want to ensure commiter_id is set (first committer) or keep it.
+                        // Usually we just leave it.
                     }
 
-                    $updatedOrdersCount++;
+                    if ($orderHasUpdates) {
+                        $updatedOrdersCount++;
+                    }
                 }
             }
         } else {
@@ -593,6 +642,9 @@ class CSMassCommitsController extends Controller
         }
         if ($updatedItemsCount > 0) {
             $message[] = $updatedItemsCount . ' item(s) committed';
+        }
+        if ($revokedItemsCount > 0) {
+             $message[] = $revokedItemsCount . ' item(s) corrected (uncommitted)';
         }
         if ($skippedItemsCount > 0) {
             $message[] = $skippedItemsCount . ' item(s) skipped due to permissions';
