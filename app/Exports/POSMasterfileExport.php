@@ -49,17 +49,14 @@ class POSMasterfileExport implements FromQuery, WithHeadings, WithMapping
     public function headings(): array
     {
         // Define your exact column headers for the Excel file
-        // CRITICAL FIX: Changed Item Code to POS Code and Item Description to POS Description, added POS Name
+        // CRITICAL FIX: Changed Item Code to POS Code and Item Description to POS Description
         return [
             'ID',
             'POS Code',
             'POS Description',
-            'POS Name',
             'Category',
             'SubCategory',
             'SRP',
-            'Delivery Price',
-            'Table Vibe Price',
             'Active',
             'Created At',
             'Updated At',
@@ -73,17 +70,14 @@ class POSMasterfileExport implements FromQuery, WithHeadings, WithMapping
     public function map($item): array
     {
         // Map the model attributes to the array that will be a row in Excel
-        // CRITICAL FIX: Changed ItemCode to POSCode and ItemDescription to POSDescription, added POSName
+        // CRITICAL FIX: Changed ItemCode to POSCode and ItemDescription to POSDescription
         return [
             $item->id,
             $item->POSCode,
             $item->POSDescription,
-            $item->POSName,
             $item->Category,
             $item->SubCategory,
             $item->SRP,
-            $item->DeliveryPrice,
-            $item->TableVibePrice,
             $item->is_active ? 'Yes' : 'No', // Convert boolean to readable string
             $item->created_at,
             $item->updated_at,

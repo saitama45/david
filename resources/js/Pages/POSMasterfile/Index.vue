@@ -284,12 +284,9 @@ onUnmounted(() => {
                    <TH>Id</TH>
                     <TH>POS Code</TH>
                     <TH>POS Desc</TH>
-                    <TH>POS Name</TH>
                     <TH>Category</TH>
                     <TH>SubCategory</TH>
                     <TH>SRP</TH>
-                    <TH>Delivery Price</TH>
-                    <TH>Table Vibe Price</TH>
                     <TH>Active</TH>
                     <TH>Action</TH>
                 </TableHead>
@@ -299,12 +296,9 @@ onUnmounted(() => {
                         <TD>{{ item.id }}</TD>
                         <TD>{{ item.POSCode }}</TD>
                         <TD>{{ item.POSDescription }}</TD>
-                        <TD>{{ item.POSName }}</TD>
                         <TD>{{ item.Category }}</TD>
                         <TD>{{ item.SubCategory }}</TD>
                         <TD>{{ item.SRP }}</TD>
-                        <TD>{{ item.DeliveryPrice }}</TD>
-                        <TD>{{ item.TableVibePrice }}</TD>
                         <TD>{{ Number(item.is_active) ? 'Yes' : 'No' }}</TD>
                         <TD class="flex items-center gap-2">
                             <ShowButton
@@ -354,12 +348,9 @@ onUnmounted(() => {
                     </MobileTableHeading>
                     <LabelXS>POS Code: {{ item.POSCode }}</LabelXS>
                     <LabelXS>POS Desc: {{ item.POSDescription }}</LabelXS>
-                    <LabelXS>POS Name: {{ item.POSName }}</LabelXS>
                     <LabelXS>Category: {{ item.Category }}</LabelXS>
                     <LabelXS>SubCategory: {{ item.SubCategory }}</LabelXS>
                     <LabelXS>SRP: {{ item.SRP }}</LabelXS>
-                    <LabelXS>Delivery Price: {{ item.DeliveryPrice }}</LabelXS>
-                    <LabelXS>Table Vibe Price: {{ item.TableVibePrice }}</LabelXS>
                     <LabelXS>Active: {{ Number(item.is_active) ? 'Yes' : 'No' }}</LabelXS>
                 </MobileTableRow>
             </MobileTableContainer>

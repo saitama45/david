@@ -71,12 +71,9 @@ class POSMasterfileController extends Controller
         $validated = $request->validate([
             'POSCode' => ['nullable'],
             'POSDescription' => ['nullable'], // Corrected: Validating POSDescription
-            'POSName' => ['nullable'],
             'Category' => ['nullable'],
             'SubCategory' => ['nullable'],
             'SRP' => ['nullable'],
-            'DeliveryPrice' => ['nullable'],
-            'TableVibePrice' => ['nullable'],
             'is_active' => ['nullable'],
         ]);
 
@@ -180,12 +177,9 @@ class POSMasterfileController extends Controller
         $validated = $request->validate([
             'POSCode' => ['nullable'],
             'POSDescription' => ['nullable'], // Corrected: Validating POSDescription
-            'POSName' => ['nullable'],
             'Category' => ['nullable'],
             'SubCategory' => ['nullable'],
             'SRP' => ['nullable'],
-            'DeliveryPrice' => ['nullable'],
-            'TableVibePrice' => ['nullable'],
             'is_active' => ['nullable'],
             // Removed 'ingredients' validation as it's no longer updated here.
         ]);

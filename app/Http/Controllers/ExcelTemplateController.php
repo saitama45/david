@@ -54,20 +54,7 @@ class ExcelTemplateController extends Controller
 
     public function POSMasterfileTemplate()
     {
-        // Define the path to your new template file
-        // Use `storage_path('app/public/excel-templates/POSMasterfile_template.xlsx')`
-        // for a more robust path that works across different OS.
-        $path = 'storage\excel-templates\POSMasterfile_template.xlsx';
-
-        // Check if the file exists before attempting to download
-        if (!file_exists($path)) {
-            // Log an error or return a 404 response if the file is not found
-            // For production, you might want a more user-friendly error page.
-            abort(404, 'POS Masterfile template file not found.');
-        }
-
-        // Return the download response
-        return response()->download($path);
+        return \Maatwebsite\Excel\Facades\Excel::download(new \App\Exports\POSMasterfileTemplateExport(), 'POSMasterfile_template_v3_FIXED.xlsx');
     }
 
     public function posBomTemplate()

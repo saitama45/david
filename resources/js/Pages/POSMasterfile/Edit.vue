@@ -23,12 +23,9 @@ const item = props.item;
 const form = useForm({
     POSCode: item.POSCode ?? null, // Changed from ItemCode
     POSDescription: item.POSDescription ?? null, // Changed from ItemDescription
-    POSName: item.POSName ?? null, // New POSName field
     Category: item.Category ?? null,
     SubCategory: item.SubCategory ?? null,
     SRP: item.SRP ?? 0,
-    DeliveryPrice: item.DeliveryPrice ?? 0,
-    TableVibePrice: item.TableVibePrice ?? 0,
     is_active: item.is_active !== null ? Number(item.is_active) : null,
 });
 
@@ -168,12 +165,6 @@ const handleUpdate = () => {
                     </InputContainer>
 
                     <InputContainer>
-                        <Label>POS Name</Label> <!-- New POS Name field -->
-                        <Input v-model="form.POSName" />
-                        <FormError v-if="form.errors.POSName">{{ form.errors.POSName }}</FormError>
-                    </InputContainer>
-
-                    <InputContainer>
                         <Label>Category</Label>
                         <Select
                             v-model="form.Category"
@@ -195,18 +186,6 @@ const handleUpdate = () => {
                         <Label>SRP</Label>
                         <Input v-model="form.SRP" type="number" />
                         <FormError v-if="form.errors.SRP">{{ form.errors.SRP }}</FormError>
-                    </InputContainer>
-
-                    <InputContainer>
-                        <Label>Delivery Price</Label>
-                        <Input v-model="form.DeliveryPrice" type="number" />
-                        <FormError v-if="form.errors.DeliveryPrice">{{ form.errors.DeliveryPrice }}</FormError>
-                    </InputContainer>
-
-                    <InputContainer>
-                        <Label>Table Vibe Price</Label>
-                        <Input v-model="form.TableVibePrice" type="number" />
-                        <FormError v-if="form.errors.TableVibePrice">{{ form.errors.TableVibePrice }}</FormError>
                     </InputContainer>
 
                     <InputContainer>

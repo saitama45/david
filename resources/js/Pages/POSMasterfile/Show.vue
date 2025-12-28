@@ -93,10 +93,6 @@ const sortIngredients = (column) => {
                     <span class="text-gray-900">{{ item.POSDescription }}</span>
                 </div>
                 <div class="detail-item">
-                    <span class="font-semibold text-gray-600">POS Name:</span>
-                    <span class="text-gray-900">{{ item.POSName || 'N/A' }}</span>
-                </div>
-                <div class="detail-item">
                     <span class="font-semibold text-gray-600">Category:</span>
                     <span class="text-gray-900">{{ item.Category || 'N/A' }}</span>
                 </div>
@@ -107,14 +103,6 @@ const sortIngredients = (column) => {
                 <div class="detail-item">
                     <span class="font-semibold text-gray-600">SRP:</span>
                     <span class="text-gray-900">{{ formatCurrency(item.SRP) }}</span>
-                </div>
-                <div class="detail-item">
-                    <span class="font-semibold text-gray-600">Delivery Price:</span>
-                    <span class="text-gray-900">{{ formatCurrency(item.DeliveryPrice) }}</span>
-                </div>
-                <div class="detail-item">
-                    <span class="font-semibold text-gray-600">Table Vibe Price:</span>
-                    <span class="text-gray-900">{{ formatCurrency(item.TableVibePrice) }}</span>
                 </div>
                 <div class="detail-item">
                     <span class="font-semibold text-gray-600">Active:</span>

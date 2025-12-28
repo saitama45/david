@@ -32,8 +32,8 @@ class POSMasterfileImport implements ToCollection, WithHeadingRow, WithChunkRead
                 }
 
                 // Robustly get the POS code and description, trying multiple possible header formats.
-                $posCode = (string) Str::of($row['item_code'] ?? $row['Item Code'] ?? $row['pos_code'] ?? null)->trim();
-                $posDescription = (string) Str::of($row['item_description'] ?? $row['Item Description'] ?? $row['pos_description'] ?? null)->trim();
+                $posCode = (string) Str::of($row['product_id'] ?? $row['Product ID'] ?? $row['item_code'] ?? $row['Item Code'] ?? $row['pos_code'] ?? null)->trim();
+                $posDescription = (string) Str::of($row['pos_desc'] ?? $row['POS Desc'] ?? $row['pos_name'] ?? $row['POS Name'] ?? $row['item_description'] ?? $row['Item Description'] ?? $row['pos_description'] ?? null)->trim();
 
                 // If even after checking multiple keys, the code is empty, we log it as a skipped item.
                 if (empty($posCode)) {
@@ -41,7 +41,7 @@ class POSMasterfileImport implements ToCollection, WithHeadingRow, WithChunkRead
                     if ($row instanceof Collection && $row->filter(fn($val) => !is_null($val) && trim((string) $val) !== '')->isEmpty()) {
                         continue;
                     }
-                    $this->addSkippedItem(null, null, 'Item Code is missing or empty in a non-empty row.');
+                    $this->addSkippedItem(null, null, 'Product ID / Item Code is missing or empty in a non-empty row.');
                     $this->skippedCount++;
                     continue;
                 }
@@ -55,14 +55,11 @@ class POSMasterfileImport implements ToCollection, WithHeadingRow, WithChunkRead
                 self::$seenCombinations[] = $posCode;
 
                 // Robustly get other fields
-                $posName = (string) Str::of($row['pos_name'] ?? $row['POS Name'] ?? null)->trim();
                 $category = (string) Str::of($row['category'] ?? $row['Category'] ?? null)->trim();
                 $subCategory = (string) Str::of($row['subcategory'] ?? $row['SubCategory'] ?? $row['sub_category'] ?? null)->trim();
                 
                 // For prices, check multiple header variations and handle surrounding whitespace in headers like ' SRP '
                 $srp = $row['srp'] ?? $row[' SRP '] ?? 0;
-                $deliveryPrice = $row['deliveryprice'] ?? $row['DeliveryPrice'] ?? $row['delivery_price'] ?? 0;
-                $tableVibePrice = $row['tablevibeprice'] ?? $row['TableVibePrice'] ?? $row['table_vibe_price'] ?? 0;
                 
                 $toFloat = fn($value) => is_numeric($value) ? (float)$value : (float)str_replace(',', '', (string)$value);
 
@@ -70,12 +67,9 @@ class POSMasterfileImport implements ToCollection, WithHeadingRow, WithChunkRead
                     ['POSCode' => $posCode],
                     [
                         'POSDescription' => $posDescription,
-                        'POSName' => empty($posName) ? $posDescription : $posName,
                         'Category' => $category,
                         'SubCategory' => $subCategory,
                         'SRP' => $toFloat($srp),
-                        'DeliveryPrice' => $toFloat($deliveryPrice),
-                        'TableVibePrice' => $toFloat($tableVibePrice),
                         'is_active' => filter_var($row['active'] ?? $row['Active'] ?? 1, FILTER_VALIDATE_BOOLEAN),
                     ]
                 );
