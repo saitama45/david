@@ -630,7 +630,7 @@ const promptConfirmReceive = () => {
                                 <div>
                                     <span class="text-xs text-gray-400 block mb-1">Current Status</span>
                                     <span :class="['px-2.5 py-0.5 rounded-full text-xs font-medium border', getStatusClass(order.order_status)]">
-                                        {{ order.order_status.toUpperCase() }}
+                                        {{ order.order_status.toUpperCase() === 'RECEIVED' ? 'COMPLETE' : order.order_status.toUpperCase() }}
                                     </span>
                                 </div>
                                 <div>

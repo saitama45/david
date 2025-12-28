@@ -357,7 +357,7 @@ const formatQuantity = (value) => {
                 :class="isFilterActive('received')"
                 @click="changeFilter('received')"
             >
-                RECEIVED
+                COMPLETE
                 <Badge
                     class="sm:flex hidden border border-gray bg-transparent text-gray-900 px-2"
                     :class="isFilterActive('received')"
@@ -395,7 +395,7 @@ const formatQuantity = (value) => {
                             <TD>{{ batch.total_orders }}</TD>
                             <TD>{{ formatQuantity(batch.total_quantity) }}</TD>
                             <TD>
-                                <Badge :class="statusBadgeColor(batch.status)" class="font-bold">{{ batch.status ? batch.status.toUpperCase() : 'N/A' }}</Badge>
+                                <Badge :class="statusBadgeColor(batch.status)" class="font-bold">{{ batch.status ? (batch.status.toUpperCase() === 'RECEIVED' ? 'COMPLETE' : batch.status.toUpperCase()) : 'N/A' }}</Badge>
                             </TD>
                             <TD>
                                 <DivFlexCenter class="gap-3">
@@ -427,7 +427,7 @@ const formatQuantity = (value) => {
                     <LabelXS>Delivery Dates: {{ formatDisplayDate(batch.date_from) }} - {{ formatDisplayDate(batch.date_to) }}</LabelXS>
                     <LabelXS>Total Orders: {{ batch.total_orders }}</LabelXS>
                     <LabelXS>Total Quantity: {{ formatQuantity(batch.total_quantity) }}</LabelXS>
-                    <LabelXS>Status: <span :class="statusBadgeColor(batch.status)" class="font-semibold p-1 rounded text-white">{{ batch.status ? batch.status.toUpperCase() : 'N/A' }}</span></LabelXS>
+                    <LabelXS>Status: <span :class="statusBadgeColor(batch.status)" class="font-semibold p-1 rounded text-white">{{ batch.status ? (batch.status.toUpperCase() === 'RECEIVED' ? 'COMPLETE' : batch.status.toUpperCase()) : 'N/A' }}</span></LabelXS>
                 </MobileTableRow>
             </MobileTableContainer>
 

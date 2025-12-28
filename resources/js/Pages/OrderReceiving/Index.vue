@@ -118,7 +118,7 @@ watch(() => props.orders, (newOrders) => {
                 class="sm:px-10 px-3 bg-white/10 text-gray-800 hover:text-white gap-5 sm:text-sm text-xs"
                 :class="isFilterActive('received')"
                 @click="changeFilter('received')"
-            >RECEIVED
+            >COMPLETE
                 <Badge
                     class="sm:flex hidden border border-gray bg-transparent text-gray-900 px-2"
                     :class="isFilterActive('received')"
@@ -193,9 +193,7 @@ watch(() => props.orders, (newOrders) => {
                                 :class="statusBadgeColor(order.order_status)"
                                 class="font-bold"
                             >{{
-                                order.order_status
-                                    .toUpperCase()
-                                    .replace("_", " ")
+                                order.order_status.toUpperCase() === 'RECEIVED' ? 'COMPLETE' : order.order_status.toUpperCase().replace("_", " ")
                             }}</Badge>
                         </TD>
                         <TD>
@@ -223,7 +221,7 @@ watch(() => props.orders, (newOrders) => {
                     <LabelXS>SO/PO Number: {{ order.delivery_receipts && order.delivery_receipts.length > 0 ? order.delivery_receipts[0].sap_so_number : "N/A" }}</LabelXS>
                     <LabelXS
                         >Receiving Status:
-                        {{ order.order_status.toUpperCase() }}</LabelXS
+                        {{ order.order_status.toUpperCase() === 'RECEIVED' ? 'COMPLETE' : order.order_status.toUpperCase() }}</LabelXS
                     >
                     <LabelXS>Order Date: {{ order.order_date }}</LabelXS>
                     <LabelXS v-if="String(order.supplier_id) === '5' && order.variant && order.variant !== 'N/A' && order.variant !== 'mass dts'">

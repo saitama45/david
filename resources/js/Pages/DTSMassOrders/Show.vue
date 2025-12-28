@@ -270,7 +270,7 @@ const formatQuantity = (value) => {
                             <div>
                                 <label class="text-xs font-semibold text-gray-600 uppercase block mb-2">Status</label>
                                 <Badge :class="statusBadgeColor(status)" class="font-bold text-sm">
-                                    {{ status ? status.toUpperCase() : 'N/A' }}
+                                    {{ status ? (status.toUpperCase() === 'RECEIVED' ? 'COMPLETE' : status.toUpperCase()) : 'N/A' }}
                                 </Badge>
                             </div>
                         </div>
