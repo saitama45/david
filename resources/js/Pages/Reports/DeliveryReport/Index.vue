@@ -166,6 +166,21 @@ const formatDate = (dateString) => {
         return 'Invalid Date';
     }
 };
+
+// Format date only
+const formatDateOnly = (dateString) => {
+    if (!dateString) return 'N/A';
+    try {
+        const date = new Date(dateString);
+        return date.toLocaleDateString('en-US', {
+            year: 'numeric',
+            month: 'short',
+            day: 'numeric'
+        });
+    } catch (e) {
+        return 'Invalid Date';
+    }
+};
 </script>
 
 <template>
@@ -349,10 +364,14 @@ const formatDate = (dateString) => {
                 <table class="min-w-full">
                     <thead class="bg-gray-50 border-b border-gray-200">
                         <tr class="text-xs text-gray-500 uppercase tracking-wider">
-                            <th class="px-6 py-4 text-left font-medium">Date Received</th>
+                            <th class="px-6 py-4 text-left font-medium">Expected Delivery Date</th>
+                            <th class="px-6 py-4 text-left font-medium">Received Logged</th>
                             <th class="px-6 py-4 text-left font-medium">Store</th>
+                            <th class="px-6 py-4 text-left font-medium">Supplier Code</th>
+                            <th class="px-6 py-4 text-center font-medium">Status</th>
                             <th class="px-6 py-4 text-left font-medium">Item Code</th>
                             <th class="px-6 py-4 text-left font-medium">Item Name</th>
+                            <th class="px-6 py-4 text-center font-medium">UOM</th>
                             <th class="px-6 py-4 text-center font-medium">Order Qty</th>
                             <th class="px-6 py-4 text-center font-medium">Committed Qty</th>
                             <th class="px-6 py-4 text-center font-medium">Received Qty</th>
@@ -362,7 +381,7 @@ const formatDate = (dateString) => {
                     </thead>
                     <tbody class="bg-white divide-y divide-gray-100">
                         <tr v-if="!deliveryData || deliveryData.length === 0" class="hover:bg-gray-50">
-                            <td colspan="9" class="text-center py-12 text-gray-500">
+                            <td colspan="13" class="text-center py-12 text-gray-500">
                                 <div class="flex flex-col items-center">
                                     <Truck class="w-12 h-12 text-gray-300 mb-3" />
                                     <span class="text-lg font-medium">No delivery data available</span>
@@ -371,10 +390,18 @@ const formatDate = (dateString) => {
                             </td>
                         </tr>
                         <tr v-for="(item, index) in deliveryData" :key="item.id" class="hover:bg-gray-50 transition-colors">
+                            <td class="px-6 py-4 text-sm text-gray-900">{{ formatDateOnly(item.expected_delivery_date) }}</td>
                             <td class="px-6 py-4 text-sm text-gray-900">{{ formatDate(item.date_received) }}</td>
                             <td class="px-6 py-4 text-sm text-gray-900">{{ item.store_name }} ({{ item.store_code }})</td>
+                            <td class="px-6 py-4 text-sm text-gray-900 font-medium">{{ item.supplier_code || 'N/A' }}</td>
+                            <td class="px-6 py-4 text-sm text-center">
+                                <span class="px-2 py-1 text-xs font-semibold rounded-full bg-gray-100 text-gray-800">
+                                    {{ item.status ? item.status.toUpperCase() : 'N/A' }}
+                                </span>
+                            </td>
                             <td class="px-6 py-4 text-sm font-mono text-gray-900">{{ item.item_code }}</td>
                             <td class="px-6 py-4 text-sm text-gray-900 max-w-xs truncate" :title="item.item_description">{{ item.item_description }}</td>
+                            <td class="px-6 py-4 text-sm text-center text-gray-900">{{ item.uom || '-' }}</td>
                             <td class="px-6 py-4 text-sm text-center font-medium text-gray-900">{{ formatNumber(item.quantity_ordered) }}</td>
                             <td class="px-6 py-4 text-sm text-center font-medium text-gray-900">{{ formatNumber(item.quantity_committed) }}</td>
                             <td class="px-6 py-4 text-sm text-center font-medium text-gray-900">{{ formatNumber(item.quantity_received) }}</td>
@@ -397,9 +424,16 @@ const formatDate = (dateString) => {
                     <div v-for="(item, index) in deliveryData" :key="item.id" class="p-4 hover:bg-gray-50 transition-colors">
                         <!-- Header Row -->
                         <div class="flex items-center justify-between mb-3">
-                            <div class="flex flex-col">
-                                <span class="text-sm font-mono text-gray-900">{{ formatDate(item.date_received) }}</span>
-                                <span class="text-xs text-gray-500">{{ item.store_name }} ({{ item.store_code }})</span>
+                            <div class="flex flex-col gap-1">
+                                <div class="flex items-center gap-2">
+                                    <span class="px-2 py-0.5 text-xs font-semibold rounded-full bg-gray-100 text-gray-800">
+                                        {{ item.status ? item.status.toUpperCase() : 'N/A' }}
+                                    </span>
+                                    <span class="text-xs text-gray-500 font-medium">{{ item.supplier_code }}</span>
+                                </div>
+                                <span class="text-sm font-mono text-gray-900">Rx: {{ formatDate(item.date_received) }}</span>
+                                <span class="text-xs text-gray-500">Exp: {{ formatDateOnly(item.expected_delivery_date) }}</span>
+                                <span class="text-xs text-gray-500 mt-1">{{ item.store_name }} ({{ item.store_code }})</span>
                             </div>
                             <div class="text-right">
                                 <div class="text-sm font-semibold text-gray-900">{{ formatNumber(item.quantity_received) }}</div>
@@ -410,7 +444,10 @@ const formatDate = (dateString) => {
                         <!-- Description -->
                         <div class="mb-3">
                             <p class="text-sm text-gray-900 line-clamp-2">{{ item.item_description }}</p>
-                            <p class="text-xs text-gray-600">{{ item.item_code }}</p>
+                            <div class="flex justify-between items-center mt-1">
+                                <p class="text-xs text-gray-600">{{ item.item_code }}</p>
+                                <p class="text-xs text-gray-600">UOM: {{ item.uom }}</p>
+                            </div>
                         </div>
 
                         <!-- Quantity Breakdown -->

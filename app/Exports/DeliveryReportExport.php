@@ -55,58 +55,62 @@ class DeliveryReportExport implements FromCollection, WithHeadings, WithMapping,
             AfterSheet::class => function(AfterSheet $event) {
                 $sheet = $event->sheet->getDelegate();
 
-                // Row 1: Report Title (merged across all columns)
-                $sheet->mergeCells('A1:I1');
+                // Row 1: Report Title (merged across all columns A-M)
+                $sheet->mergeCells('A1:M1');
                 $sheet->setCellValue('A1', 'Delivery Report');
 
                 // Row 2: Date Range and Generated info
                 $dateRange = 'Date Range: ' . ($this->filters['date_from'] ?? 'N/A') . ' to ' . ($this->filters['date_to'] ?? 'N/A');
                 $generatedInfo = 'Generated on: ' . now()->format('Y-m-d H:i:s');
 
-                // Merge cells for date range (columns A to D)
-                $sheet->mergeCells('A2:D2');
+                // Merge cells for date range (columns A to F)
+                $sheet->mergeCells('A2:F2');
                 $sheet->setCellValue('A2', $dateRange);
 
-                // Merge cells for generated info (columns E to I)
-                $sheet->mergeCells('E2:I2');
-                $sheet->setCellValue('E2', $generatedInfo);
+                // Merge cells for generated info (columns G to M)
+                $sheet->mergeCells('G2:M2');
+                $sheet->setCellValue('G2', $generatedInfo);
 
                 // Row 3: Column Headers
-                $sheet->setCellValue('A3', 'Date Received');
-                $sheet->setCellValue('B3', 'Store');
-                $sheet->setCellValue('C3', 'Item Code');
-                $sheet->setCellValue('D3', 'Item Name');
-                $sheet->setCellValue('E3', 'Order Qty');
-                $sheet->setCellValue('F3', 'Committed Qty');
-                $sheet->setCellValue('G3', 'Received Qty');
-                $sheet->setCellValue('H3', 'SO Number');
-                $sheet->setCellValue('I3', 'DR Number');
+                $sheet->setCellValue('A3', 'Expected Delivery Date');
+                $sheet->setCellValue('B3', 'Received Logged'); // Renamed from Date Received
+                $sheet->setCellValue('C3', 'Store');
+                $sheet->setCellValue('D3', 'Supplier Code'); // New
+                $sheet->setCellValue('E3', 'Status'); // New
+                $sheet->setCellValue('F3', 'Item Code');
+                $sheet->setCellValue('G3', 'Item Name');
+                $sheet->setCellValue('H3', 'UOM'); // New
+                $sheet->setCellValue('I3', 'Order Qty');
+                $sheet->setCellValue('J3', 'Committed Qty');
+                $sheet->setCellValue('K3', 'Received Qty');
+                $sheet->setCellValue('L3', 'SO Number');
+                $sheet->setCellValue('M3', 'DR Number');
 
                 // Apply styles to headers and title
-                $sheet->getStyle('A1:I1')->applyFromArray([
+                $sheet->getStyle('A1:M1')->applyFromArray([
                     'font' => ['bold' => true, 'size' => 16],
                     'alignment' => ['horizontal' => Alignment::HORIZONTAL_CENTER],
                     'fill' => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['rgb' => 'D4E6F1']]
                 ]);
 
-                $sheet->getStyle('A2:D2')->applyFromArray([
+                $sheet->getStyle('A2:F2')->applyFromArray([
                     'font' => ['bold' => true, 'size' => 11],
                     'fill' => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['rgb' => 'F0F8FF']]
                 ]);
 
-                $sheet->getStyle('E2:I2')->applyFromArray([
+                $sheet->getStyle('G2:M2')->applyFromArray([
                     'font' => ['bold' => true, 'size' => 11],
                     'fill' => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['rgb' => 'F0F8FF']]
                 ]);
 
-                $sheet->getStyle('A3:I3')->applyFromArray([
+                $sheet->getStyle('A3:M3')->applyFromArray([
                     'font' => ['bold' => true],
                     'fill' => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['rgb' => 'D3D3D3']],
                     'alignment' => ['horizontal' => Alignment::HORIZONTAL_CENTER]
                 ]);
 
                 // Apply borders to header area
-                $sheet->getStyle('A1:I3')->applyFromArray([
+                $sheet->getStyle('A1:M3')->applyFromArray([
                     'borders' => [
                         'allBorders' => [
                             'borderStyle' => \PhpOffice\PhpSpreadsheet\Style\Border::BORDER_THIN,
@@ -121,10 +125,14 @@ class DeliveryReportExport implements FromCollection, WithHeadings, WithMapping,
     public function map($item): array
     {
         return [
+            $item['expected_delivery_date'] ? date('Y-m-d', strtotime($item['expected_delivery_date'])) : '',
             $item['date_received'] ? date('Y-m-d', strtotime($item['date_received'])) : '',
             ($item['store_name'] ?? '') . ' (' . ($item['store_code'] ?? '') . ')',
+            $item['supplier_code'] ?? '',
+            strtoupper($item['status'] ?? ''),
             $item['item_code'] ?? '',
             $item['item_description'] ?? '',
+            $item['uom'] ?? '',
             $item['quantity_ordered'] ?? 0,
             $item['quantity_committed'] ?? 0,
             $item['quantity_received'] ?? 0,
@@ -142,19 +150,19 @@ class DeliveryReportExport implements FromCollection, WithHeadings, WithMapping,
         for ($row = 5; $row <= $lastRow; $row++) {
             if ($row % 2 == 0) {
                 // Even rows - light blue
-                $sheet->getStyle('A' . $row . ':I' . $row)->applyFromArray([
+                $sheet->getStyle('A' . $row . ':M' . $row)->applyFromArray([
                     'fill' => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['rgb' => 'F8F9FA']]
                 ]);
             } else {
                 // Odd rows - white
-                $sheet->getStyle('A' . $row . ':I' . $row)->applyFromArray([
+                $sheet->getStyle('A' . $row . ':M' . $row)->applyFromArray([
                     'fill' => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['rgb' => 'FFFFFF']]
                 ]);
             }
         }
 
         // Apply borders to all data
-        $sheet->getStyle('A5:I' . $lastRow)->applyFromArray([
+        $sheet->getStyle('A5:M' . $lastRow)->applyFromArray([
             'borders' => [
                 'allBorders' => [
                     'borderStyle' => \PhpOffice\PhpSpreadsheet\Style\Border::BORDER_THIN,
@@ -163,27 +171,28 @@ class DeliveryReportExport implements FromCollection, WithHeadings, WithMapping,
             ]
         ]);
 
-        // Apply number formatting to quantity columns (E, F, G)
-        $sheet->getStyle('E5:G' . $lastRow)->applyFromArray([
+        // Apply number formatting to quantity columns (I, J, K)
+        $sheet->getStyle('I5:K' . $lastRow)->applyFromArray([
             'numberFormat' => [
                 'formatCode' => NumberFormat::FORMAT_NUMBER,
             ],
         ]);
 
         // Apply alignment
-        $sheet->getStyle('A5:A' . $lastRow)->applyFromArray([
+        // Center align date columns (A, B) and quantity columns (I, J, K) and Status (E) and UOM (H)
+        $sheet->getStyle('A5:B' . $lastRow)->applyFromArray([
             'alignment' => ['horizontal' => Alignment::HORIZONTAL_CENTER]
         ]);
 
-        $sheet->getStyle('E5:E' . $lastRow)->applyFromArray([
+        $sheet->getStyle('E5:E' . $lastRow)->applyFromArray([ // Status
             'alignment' => ['horizontal' => Alignment::HORIZONTAL_CENTER]
         ]);
 
-        $sheet->getStyle('F5:F' . $lastRow)->applyFromArray([
+        $sheet->getStyle('H5:H' . $lastRow)->applyFromArray([ // UOM
             'alignment' => ['horizontal' => Alignment::HORIZONTAL_CENTER]
         ]);
 
-        $sheet->getStyle('G5:G' . $lastRow)->applyFromArray([
+        $sheet->getStyle('I5:K' . $lastRow)->applyFromArray([ // Quantities
             'alignment' => ['horizontal' => Alignment::HORIZONTAL_CENTER]
         ]);
     }

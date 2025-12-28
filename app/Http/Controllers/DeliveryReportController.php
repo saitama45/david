@@ -50,14 +50,18 @@ class DeliveryReportController extends Controller
 
 
         // --- REFACTORED QUERY ---
-        // Start query from ordered_item_receive_dates for precise filtering
-        $query = DB::table('ordered_item_receive_dates as orv')
+        // Start query from store_order_items to include committed items
+        $query = DB::table('store_order_items as soi')
             ->select([
                 'orv.received_date AS date_received',
+                'so.order_date AS expected_delivery_date',
                 'sb.name AS store_name',
                 'sb.brand_code AS store_code',
+                'sup.supplier_code',
+                'so.order_status as status',
                 'soi.item_code',
                 'sm.ItemDescription AS item_description',
+                'soi.uom',
                 'soi.quantity_ordered',
                 'soi.quantity_commited',
                 'orv.quantity_received',
@@ -65,26 +69,38 @@ class DeliveryReportController extends Controller
                 'dr.delivery_receipt_number AS dr_number',
                 'so.store_branch_id'
             ])
-            ->leftJoin('store_order_items as soi', 'soi.id', '=', 'orv.store_order_item_id')
-            ->leftJoin('store_orders as so', 'so.id', '=', 'soi.store_order_id')
+            ->join('store_orders as so', 'so.id', '=', 'soi.store_order_id')
+            ->join('store_branches as sb', 'sb.id', '=', 'so.store_branch_id')
+            ->leftJoin('suppliers as sup', 'sup.id', '=', 'so.supplier_id')
             ->leftJoin('delivery_receipts as dr', 'dr.store_order_id', '=', 'so.id')
-            ->leftJoin('store_branches as sb', 'sb.id', '=', 'so.store_branch_id')
             ->leftJoin('sap_masterfiles as sm', function($join) {
                 $join->on('sm.ItemCode', '=', 'soi.item_code')
                      ->on('sm.AltUOM', '=', 'soi.uom');
+            })
+            ->leftJoin('ordered_item_receive_dates as orv', function($join) {
+                $join->on('orv.store_order_item_id', '=', 'soi.id')
+                     ->where('orv.status', 'approved');
             });
 
-        // Filter by status = 'approved'
-        $query->where('orv.status', 'approved');
+        // Filter by order status: committed, partial_committed, or received
+        $query->whereIn('so.order_status', ['committed', 'partial_committed', 'received']);
 
         // Apply Date Filter
         if (!empty($filters['date_from']) || !empty($filters['date_to'])) {
-            if (!empty($filters['date_from'])) {
-                $query->where('orv.received_date', '>=', $filters['date_from']);
-            }
-            if (!empty($filters['date_to'])) {
-                $query->where('orv.received_date', '<', DB::raw("DATEADD(day, 1, '{$filters['date_to']}')"));
-            }
+            $query->where(function($q) use ($filters) {
+                // Check received_date if it exists
+                $q->where(function($sub) use ($filters) {
+                    $sub->whereNotNull('orv.received_date');
+                    if (!empty($filters['date_from'])) $sub->where('orv.received_date', '>=', $filters['date_from']);
+                    if (!empty($filters['date_to'])) $sub->where('orv.received_date', '<', DB::raw("DATEADD(day, 1, '{$filters['date_to']}')"));
+                })
+                // Or check expected_delivery_date (order_date) if not received yet
+                ->orWhere(function($sub) use ($filters) {
+                    $sub->whereNull('orv.received_date');
+                    if (!empty($filters['date_from'])) $sub->where('so.order_date', '>=', $filters['date_from']);
+                    if (!empty($filters['date_to'])) $sub->where('so.order_date', '<', DB::raw("DATEADD(day, 1, '{$filters['date_to']}')"));
+                });
+            });
         }
 
         // Apply Store Filter from user selection
@@ -102,7 +118,8 @@ class DeliveryReportController extends Controller
                 $q->where('soi.item_code', 'like', "%{$search}%")
                   ->orWhere('sm.ItemDescription', 'like', "%{$search}%")
                   ->orWhere('dr.sap_so_number', 'like', "%{$search}%")
-                  ->orWhere('dr.delivery_receipt_number', 'like', "%{$search}%");
+                  ->orWhere('dr.delivery_receipt_number', 'like', "%{$search}%")
+                  ->orWhere('sup.supplier_code', 'like', "%{$search}%");
             });
         }
 
@@ -115,8 +132,8 @@ class DeliveryReportController extends Controller
             SUM(orv.quantity_received) as total_received
         ')->first();
 
-        // Sort by received_date DESC
-        $query->orderBy('orv.received_date', 'desc');
+        // Sort by received_date DESC, then expected date
+        $query->orderBy(DB::raw('COALESCE(orv.received_date, so.order_date)'), 'desc');
 
         // Get paginated results
         $items = $query->paginate($filters['per_page'])->withQueryString();
@@ -125,12 +142,16 @@ class DeliveryReportController extends Controller
         $deliveryData = [];
         foreach ($items as $item) {
             $deliveryData[] = [
-                'id' => $item->id ?? $item->date_received, // Use date_received as unique key if id is not available
+                'id' => $item->id ?? uniqid(), // Ensure unique key
                 'date_received' => $item->date_received,
+                'expected_delivery_date' => $item->expected_delivery_date,
                 'store_name' => $item->store_name,
                 'store_code' => $item->store_code,
+                'supplier_code' => $item->supplier_code,
+                'status' => $item->status,
                 'item_code' => $item->item_code,
                 'item_description' => $item->item_description,
+                'uom' => $item->uom,
                 'quantity_ordered' => $item->quantity_ordered,
                 'quantity_committed' => $item->quantity_commited,
                 'quantity_received' => $item->quantity_received,
@@ -185,14 +206,18 @@ class DeliveryReportController extends Controller
 
 
         // --- REFACTORED QUERY (Same as index method) ---
-        // Start query from ordered_item_receive_dates for precise filtering
-        $query = DB::table('ordered_item_receive_dates as orv')
+        // Start query from store_order_items to include committed items
+        $query = DB::table('store_order_items as soi')
             ->select([
                 'orv.received_date AS date_received',
+                'so.order_date AS expected_delivery_date',
                 'sb.name AS store_name',
                 'sb.brand_code AS store_code',
+                'sup.supplier_code',
+                'so.order_status as status',
                 'soi.item_code',
                 'sm.ItemDescription AS item_description',
+                'soi.uom',
                 'soi.quantity_ordered',
                 'soi.quantity_commited',
                 'orv.quantity_received',
@@ -200,26 +225,38 @@ class DeliveryReportController extends Controller
                 'dr.delivery_receipt_number AS dr_number',
                 'so.store_branch_id'
             ])
-            ->leftJoin('store_order_items as soi', 'soi.id', '=', 'orv.store_order_item_id')
-            ->leftJoin('store_orders as so', 'so.id', '=', 'soi.store_order_id')
+            ->join('store_orders as so', 'so.id', '=', 'soi.store_order_id')
+            ->join('store_branches as sb', 'sb.id', '=', 'so.store_branch_id')
+            ->leftJoin('suppliers as sup', 'sup.id', '=', 'so.supplier_id')
             ->leftJoin('delivery_receipts as dr', 'dr.store_order_id', '=', 'so.id')
-            ->leftJoin('store_branches as sb', 'sb.id', '=', 'so.store_branch_id')
             ->leftJoin('sap_masterfiles as sm', function($join) {
                 $join->on('sm.ItemCode', '=', 'soi.item_code')
                      ->on('sm.AltUOM', '=', 'soi.uom');
+            })
+            ->leftJoin('ordered_item_receive_dates as orv', function($join) {
+                $join->on('orv.store_order_item_id', '=', 'soi.id')
+                     ->where('orv.status', 'approved');
             });
 
-        // Filter by status = 'approved'
-        $query->where('orv.status', 'approved');
+        // Filter by order status: committed, partial_committed, or received
+        $query->whereIn('so.order_status', ['committed', 'partial_committed', 'received']);
 
         // Apply Date Filter
         if (!empty($filters['date_from']) || !empty($filters['date_to'])) {
-            if (!empty($filters['date_from'])) {
-                $query->where('orv.received_date', '>=', $filters['date_from']);
-            }
-            if (!empty($filters['date_to'])) {
-                $query->where('orv.received_date', '<', DB::raw("DATEADD(day, 1, '{$filters['date_to']}')"));
-            }
+            $query->where(function($q) use ($filters) {
+                // Check received_date if it exists
+                $q->where(function($sub) use ($filters) {
+                    $sub->whereNotNull('orv.received_date');
+                    if (!empty($filters['date_from'])) $sub->where('orv.received_date', '>=', $filters['date_from']);
+                    if (!empty($filters['date_to'])) $sub->where('orv.received_date', '<', DB::raw("DATEADD(day, 1, '{$filters['date_to']}')"));
+                })
+                // Or check expected_delivery_date (order_date) if not received yet
+                ->orWhere(function($sub) use ($filters) {
+                    $sub->whereNull('orv.received_date');
+                    if (!empty($filters['date_from'])) $sub->where('so.order_date', '>=', $filters['date_from']);
+                    if (!empty($filters['date_to'])) $sub->where('so.order_date', '<', DB::raw("DATEADD(day, 1, '{$filters['date_to']}')"));
+                });
+            });
         }
 
         // Apply Store Filter from user selection
@@ -237,12 +274,13 @@ class DeliveryReportController extends Controller
                 $q->where('soi.item_code', 'like', "%{$search}%")
                   ->orWhere('sm.ItemDescription', 'like', "%{$search}%")
                   ->orWhere('dr.sap_so_number', 'like', "%{$search}%")
-                  ->orWhere('dr.delivery_receipt_number', 'like', "%{$search}%");
+                  ->orWhere('dr.delivery_receipt_number', 'like', "%{$search}%")
+                  ->orWhere('sup.supplier_code', 'like', "%{$search}%");
             });
         }
 
-        // Sort by received_date DESC
-        $query->orderBy('orv.received_date', 'desc');
+        // Sort by received_date DESC, then expected date
+        $query->orderBy(DB::raw('COALESCE(orv.received_date, so.order_date)'), 'desc');
 
         // Get all results for export (no pagination)
         $items = $query->get(); // Order for consistent export
@@ -251,12 +289,16 @@ class DeliveryReportController extends Controller
         $deliveryData = [];
         foreach ($items as $item) {
             $deliveryData[] = [
-                'id' => $item->id ?? $item->date_received, // Use date_received as unique key if id is not available
+                'id' => $item->id ?? uniqid(), // Ensure unique key
                 'date_received' => $item->date_received,
+                'expected_delivery_date' => $item->expected_delivery_date,
                 'store_name' => $item->store_name,
                 'store_code' => $item->store_code,
+                'supplier_code' => $item->supplier_code,
+                'status' => $item->status,
                 'item_code' => $item->item_code,
                 'item_description' => $item->item_description,
+                'uom' => $item->uom,
                 'quantity_ordered' => $item->quantity_ordered,
                 'quantity_committed' => $item->quantity_commited,
                 'quantity_received' => $item->quantity_received,
