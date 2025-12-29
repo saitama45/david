@@ -100,8 +100,10 @@ const committedUsersInfo = computed(() => {
     }
 
     const uniqueCommitters = committedItems.reduce((acc, item) => {
-        const committer = item.committed_by || item.committedBy;
-        if (committer && !acc.find(user => user.id === committer.id)) {
+        // Prioritize the relationship object (committedBy) or ensure committed_by is an object
+        const committer = item.committedBy || (typeof item.committed_by === 'object' ? item.committed_by : null);
+
+        if (committer && committer.id && !acc.find(user => user.id === committer.id)) {
             acc.push({
                 id: committer.id,
                 name: `${committer.first_name} ${committer.last_name}`.trim()
@@ -145,21 +147,7 @@ const committedUsersInfo = computed(() => {
     
 
     const shouldShowCommitterInfo = computed(() => {
-
-    
-
-        const lowerStatus = props.order.order_status?.toLowerCase();
-
-    
-
-        const isRelevantStatus = lowerStatus === 'committed' || lowerStatus === 'received';
-
-    
-
-        return committedUsersInfo.value.hasCommittedItems && isRelevantStatus;
-
-    
-
+        return committedUsersInfo.value.hasCommittedItems;
     });
 
     
