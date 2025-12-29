@@ -126,8 +126,8 @@ class MassOrderService
                         'cost_per_quantity' => $itemData['cost'],
                         'total_cost' => $itemData['quantity'] * $itemData['cost'],
                         'uom' => $itemData['uom'],
-                        'committed_by' => Auth::id(),
-                        'committed_date' => now(),
+                        'committed_by' => $finalOrderStatus === 'committed' ? Auth::id() : null,
+                        'committed_date' => $finalOrderStatus === 'committed' ? now() : null,
                     ]);
 
                     // Automatically create a pending receive record for DROPS (FRUITS AND VEGETABLES) orders
