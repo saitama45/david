@@ -29,6 +29,8 @@ const getStatusClass = (status) => {
         case "pending":
             return "bg-yellow-100 text-yellow-800 border-yellow-200";
         case "committed":
+        case "to receive":
+            return "bg-purple-100 text-purple-800 border-purple-200";
         case "to commit":
             return "bg-blue-100 text-blue-800 border-blue-200";
         case "rejected":

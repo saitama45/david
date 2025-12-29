@@ -411,14 +411,11 @@ class MassOrdersController extends Controller
                 'u.first_name as received_by_first_name',
                 'u.last_name as received_by_last_name',
                 DB::raw("CASE
-                    WHEN [receive].[status] IS NULL THEN 'TO COMMIT'
                     WHEN [receive].[status] = 'approved' THEN 'RECEIVED'
-                    ELSE 'TO RECEIVE'
+                    WHEN [soi].[committed_by] IS NOT NULL THEN 'TO RECEIVE'
+                    ELSE 'TO COMMIT'
                 END as display_status"),
-                DB::raw("CASE
-                    WHEN [receive].[status] IS NULL THEN 0
-                    ELSE [soi].[quantity_commited]
-                END as committed_display"),
+                DB::raw("[soi].[quantity_commited] as committed_display"),
                 DB::raw("CASE
                     WHEN [receive].[status] = 'approved' THEN [receive].[quantity_received]
                     ELSE 0
