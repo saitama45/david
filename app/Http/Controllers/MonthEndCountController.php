@@ -39,9 +39,35 @@ class MonthEndCountController extends Controller
         $branchesAwaitingUpload = collect();
         $uploadedCountsAwaitingSubmission = collect();
 
-        // Download schedule: any schedule within the next 3 days, including today.
-        $threeDaysFromNow = $today->copy()->addDays(3);
-        $downloadSchedule = MonthEndSchedule::whereBetween('calculated_date', [$today, $threeDaysFromNow])->first();
+        // Download schedule logic: 3 business days before calculated_date
+        // Fetch candidate schedules that are today or in the future
+        $candidateSchedules = MonthEndSchedule::where('calculated_date', '>=', $today)
+            ->orderBy('calculated_date', 'asc')
+            ->take(5)
+            ->get();
+
+        foreach ($candidateSchedules as $schedule) {
+            // Determine the valid download start date (3 business days before calculated_date)
+            $validStartDate = Carbon::parse($schedule->calculated_date);
+            $businessDaysToSubtract = 3;
+            while ($businessDaysToSubtract > 0) {
+                $validStartDate->subDay();
+                if (!$validStartDate->isWeekend()) {
+                    $businessDaysToSubtract--;
+                }
+            }
+
+            // If today is a weekend, download is not available
+            if ($today->isWeekend()) {
+                continue;
+            }
+
+            // Check if today is within the valid window
+            if ($today->greaterThanOrEqualTo($validStartDate) && $today->lessThanOrEqualTo($schedule->calculated_date)) {
+                $downloadSchedule = $schedule;
+                break;
+            }
+        }
 
         // Upload schedule: the schedule whose calculated_date was yesterday.
         $globalUploadSchedule = MonthEndSchedule::whereDate('calculated_date', $yesterday)
