@@ -824,113 +824,116 @@ const promptConfirmReceive = () => {
 
 
             <!-- Receiving History Table -->
-            <TableContainer>
-                <TableHeader>
-                    <div class="flex flex-col gap-1">
-                        <CardTitle class="text-lg font-semibold text-gray-800">
-                            Receiving History 
-                            <span class="text-sm font-normal text-gray-500">({{ receiveDatesHistory.filter(h => h.status.toLowerCase() === 'approved').length }} received of {{ orderedItems.length }} items)</span> 
-                            <span class="text-red-500 text-sm">*</span>
-                        </CardTitle>
-                        <p v-if="orderedItems.length - receiveDatesHistory.filter(h => h.status.toLowerCase() === 'approved').length > 0" class="text-xs text-orange-600 font-medium">
-                            ⚠️ {{ orderedItems.length - receiveDatesHistory.filter(h => h.status.toLowerCase() === 'approved').length }} item(s) still to receive
-                        </p>
-                        <p v-else class="text-xs text-green-600 font-medium">
-                            ✓ All items have been received
-                        </p>
+            <div class="bg-white shadow-sm border border-gray-200 rounded-xl overflow-hidden">
+                <div class="p-4 border-b border-gray-200 bg-gray-50">
+                    <div class="flex justify-between items-start">
+                        <div class="flex flex-col gap-1">
+                            <h3 class="text-lg font-semibold text-gray-800">
+                                Receiving History 
+                                <span class="text-sm font-normal text-gray-500">({{ receiveDatesHistory.filter(h => h.status.toLowerCase() === 'approved').length }} received of {{ orderedItems.length }} items)</span> 
+                                <span class="text-red-500 text-sm">*</span>
+                            </h3>
+                            <p v-if="orderedItems.length - receiveDatesHistory.filter(h => h.status.toLowerCase() === 'approved').length > 0" class="text-xs text-orange-600 font-medium">
+                                ⚠️ {{ orderedItems.length - receiveDatesHistory.filter(h => h.status.toLowerCase() === 'approved').length }} item(s) still to receive
+                            </p>
+                            <p v-else class="text-xs text-green-600 font-medium">
+                                ✓ All items have been received
+                            </p>
+                        </div>
+                        <Button
+                            v-if="order.order_status != 'received'"
+                            @click="promptConfirmReceive"
+                            :disabled="!canConfirmReceive"
+                            :variant="!canConfirmReceive ? 'secondary' : 'default'"
+                            :title="!canConfirmReceive ? 'A delivery receipt and image are required before confirming.' : 'Confirm all pending received items'"
+                        >
+                            Confirm Receive
+                        </Button>
                     </div>
-                    <Button
-                        v-if="order.order_status != 'received'"
-                        @click="promptConfirmReceive"
-                        :disabled="!canConfirmReceive"
-                        :variant="!canConfirmReceive ? 'secondary' : 'default'"
-                        :title="!canConfirmReceive ? 'A delivery receipt and image are required before confirming.' : 'Confirm all pending received items'"
-                    >
-                        Confirm Receive
-                    </Button>
-                </TableHeader>
-                <Table>
-                    <TableHead>
-                        <TH>#</TH>
-                        <TH>Item Code</TH>
-                        <TH>Name</TH>
-                        <TH>UOM Details</TH>
-                        <TH class="text-center">Ordered</TH>
-                        <TH class="text-center">Approved</TH>
-                        <TH class="text-center">Committed</TH>
-                        <TH class="text-center">Received</TH>
-                        <TH>Received At</TH>
-                        <TH class="text-center">Status</TH>
-                        <TH>Remarks</TH>
-                        <TH class="text-right">Actions</TH>
-                    </TableHead>
-                    <TableBody>
-                         <tr v-if="receiveDatesHistory.length === 0">
-                            <td colspan="12" class="text-center py-8 text-gray-500 italic bg-gray-50/50">
-                                No receiving history available.
-                            </td>
-                        </tr>
-                        <tr
-                            v-for="(history, index) in receiveDatesHistory"
-                            :key="history.id"
-                            class="hover:bg-gray-50 transition-colors duration-150"
-                        >
-                            <TD class="text-center font-mono text-gray-500">{{ index + 1 }}</TD>
-                            <TD class="font-mono text-xs text-gray-600">{{
-                                history.store_order_item.supplier_item
-                                    .ItemCode
-                            }}</TD>
-                            <TD class="font-medium text-gray-800">{{
-                                history.store_order_item.supplier_item
-                                    .item_name
-                            }}</TD>
-                            <TD>
-                                <div class="flex flex-col text-xs">
-                                    <span class="text-gray-500">Base: <span class="text-gray-900 font-medium">{{ history.store_order_item.supplier_item.sap_master_file?.BaseUOM || '-' }}</span></span>
-                                    <span class="text-gray-500">Order: <span class="text-gray-900 font-medium">{{ history.store_order_item.uom }}</span></span>
-                                </div>
-                            </TD>
-                            <TD class="text-center font-mono">{{ formatQuantity(history.store_order_item.quantity_ordered) }}</TD>
-                            <TD class="text-center font-mono">{{ formatQuantity(history.store_order_item.quantity_approved) }}</TD>
-                            <TD class="text-center font-mono">{{ formatQuantity(history.store_order_item.quantity_commited) }}</TD>
-                            <TD :class="['text-center font-mono font-bold', Number(history.quantity_received) !== Number(history.store_order_item.quantity_commited) ? 'text-red-600' : 'text-blue-600']">{{ formatQuantity(history.quantity_received) }}</TD>
-                            <TD class="text-sm text-gray-600">
-                                {{ dayjs(history.received_date).isValid() ? dayjs(history.received_date).tz("Asia/Manila").format("MMM D, YYYY h:mm A") : '' }}
-                            </TD>
-                            <TD class="text-center">
-                                <span :class="[
-                                    'px-2.5 py-0.5 text-xs font-semibold rounded-full border',
-                                    getStatusClass(history.status)
-                                ]">
-                                    {{ history.status.toLowerCase() === 'approved' ? 'RECEIVED' : history.status.toUpperCase() }}
-                                </span>
-                            </TD>
-                            <TD class="max-w-[200px] truncate text-sm text-gray-600" :title="history.remarks">{{ history.remarks || '-' }}</TD>
-                            <TD>
-                                <div class="flex justify-end gap-2">
-                                    <ShowButton
-                                        @click="openViewModalForm(history.id)"
-                                        title="View Details"
-                                    />
-                                    <EditButton
-                                        v-if="history.status === 'pending'"
-                                        @click="openEditModalForm(history.id)"
-                                        title="Edit Item"
-                                    />
-                                </div>
-                            </TD>
-                        </tr>
-                    </TableBody>
-                </Table>
+                </div>
+                <div class="overflow-auto max-h-[600px]">
+                    <table class="w-full">
+                        <thead class="sticky top-0 bg-white border-b border-gray-200 z-10">
+                            <tr>
+                                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider bg-white">#</th>
+                                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider bg-white">Item Code</th>
+                                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider bg-white">Name</th>
+                                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider bg-white">UOM Details</th>
+                                <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider bg-white">Ordered</th>
+                                <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider bg-white">Approved</th>
+                                <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider bg-white">Committed</th>
+                                <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider bg-white">Received</th>
+                                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider bg-white">Received At</th>
+                                <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider bg-white">Status</th>
+                                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider bg-white">Remarks</th>
+                                <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider bg-white">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody class="bg-white divide-y divide-gray-200">
+                            <tr v-if="receiveDatesHistory.length === 0">
+                                <td colspan="12" class="px-4 py-8 text-center text-gray-500 italic bg-gray-50/50">
+                                    No receiving history available.
+                                </td>
+                            </tr>
+                            <tr
+                                v-for="(history, index) in receiveDatesHistory"
+                                :key="history.id"
+                                class="hover:bg-gray-50 transition-colors duration-150"
+                            >
+                                <td class="px-4 py-4 text-center font-mono text-gray-500">{{ index + 1 }}</td>
+                                <td class="px-4 py-4 font-mono text-xs text-gray-600">{{
+                                    history.store_order_item.supplier_item
+                                        .ItemCode
+                                }}</td>
+                                <td class="px-4 py-4 font-medium text-gray-800">{{
+                                    history.store_order_item.supplier_item
+                                        .item_name
+                                }}</td>
+                                <td class="px-4 py-4">
+                                    <div class="flex flex-col text-xs">
+                                        <span class="text-gray-500">Base: <span class="text-gray-900 font-medium">{{ history.store_order_item.supplier_item.sap_master_file?.BaseUOM || '-' }}</span></span>
+                                        <span class="text-gray-500">Order: <span class="text-gray-900 font-medium">{{ history.store_order_item.uom }}</span></span>
+                                    </div>
+                                </td>
+                                <td class="px-4 py-4 text-center font-mono">{{ formatQuantity(history.store_order_item.quantity_ordered) }}</td>
+                                <td class="px-4 py-4 text-center font-mono">{{ formatQuantity(history.store_order_item.quantity_approved) }}</td>
+                                <td class="px-4 py-4 text-center font-mono">{{ formatQuantity(history.store_order_item.quantity_commited) }}</td>
+                                <td :class="['px-4 py-4 text-center font-mono font-bold', Number(history.quantity_received) !== Number(history.store_order_item.quantity_commited) ? 'text-red-600' : 'text-blue-600']">{{ formatQuantity(history.quantity_received) }}</td>
+                                <td class="px-4 py-4 text-sm text-gray-600">
+                                    {{ dayjs(history.received_date).isValid() ? dayjs(history.received_date).tz("Asia/Manila").format("MMM D, YYYY h:mm A") : '' }}
+                                </td>
+                                <td class="px-4 py-4 text-center">
+                                    <span :class="[
+                                        'px-2.5 py-0.5 text-xs font-semibold rounded-full border',
+                                        getStatusClass(history.status)
+                                    ]">
+                                        {{ history.status.toLowerCase() === 'approved' ? 'RECEIVED' : history.status.toUpperCase() }}
+                                    </span>
+                                </td>
+                                <td class="px-4 py-4 max-w-[200px] truncate text-sm text-gray-600" :title="history.remarks">{{ history.remarks || '-' }}</td>
+                                <td class="px-4 py-4">
+                                    <div class="flex justify-end gap-2">
+                                        <ShowButton
+                                            @click="openViewModalForm(history.id)"
+                                            title="View Details"
+                                        />
+                                        <EditButton
+                                            v-if="history.status === 'pending'"
+                                            @click="openEditModalForm(history.id)"
+                                            title="Edit Item"
+                                        />
+                                    </div>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
 
-                <MobileTableContainer>
-                    <MobileTableRow
-                        v-for="history in receiveDatesHistory"
-                        :key="history.id"
-                    >
-                        <MobileTableHeading
-                            :title="`${history.store_order_item.supplier_item.item_name}`"
-                        >
+                <!-- Mobile View -->
+                <div class="block md:hidden p-4 space-y-4">
+                    <div v-for="history in receiveDatesHistory" :key="history.id" class="bg-white border border-gray-200 rounded-lg p-4">
+                        <div class="flex justify-between items-start mb-3">
+                            <h4 class="font-medium text-gray-900 text-sm">{{ history.store_order_item.supplier_item.item_name }}</h4>
                             <div class="flex gap-1">
                                 <ShowButton
                                     class="size-8"
@@ -942,25 +945,25 @@ const promptConfirmReceive = () => {
                                     @click="openEditModalForm(history.id)"
                                 />
                             </div>
-                        </MobileTableHeading>
-                         <div class="grid grid-cols-2 gap-2 mt-2 text-sm">
+                        </div>
+                        <div class="grid grid-cols-2 gap-2 text-sm">
                             <div class="flex flex-col">
-                                 <span class="text-xs text-gray-500">Received</span>
-                                 <span class="font-bold">{{ formatQuantity(history.quantity_received) }}</span>
+                                <span class="text-xs text-gray-500">Received</span>
+                                <span class="font-bold">{{ formatQuantity(history.quantity_received) }}</span>
                             </div>
                             <div class="flex flex-col items-end">
                                 <span class="text-xs text-gray-500 mb-1">Status</span>
                                 <span :class="['px-2 py-0.5 rounded text-xs font-bold border', getStatusClass(history.status)]">{{ history.status.toUpperCase() }}</span>
                             </div>
-                             <div class="col-span-2 flex flex-col" v-if="history.remarks">
+                            <div class="col-span-2 flex flex-col" v-if="history.remarks">
                                 <span class="text-xs text-gray-500">Remarks</span>
                                 <span class="italic text-gray-600">{{ history.remarks }}</span>
                             </div>
                         </div>
-                    </MobileTableRow>
+                    </div>
                     <div v-if="receiveDatesHistory.length < 1" class="p-4 text-center text-gray-500 italic">None</div>
-                </MobileTableContainer>
-            </TableContainer>
+                </div>
+            </div>
         </div>
 
         <!-- Modals -->
