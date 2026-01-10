@@ -296,6 +296,7 @@ watch(() => usePage().props.flash, (flash) => {
 
 onMounted(() => {
     console.log('StoreTransaction/Index.vue onMounted:');
+    console.log('Transactions data:', props.transactions.data);
     // ... existing logs ...
 
     const flash = usePage().props.flash;
@@ -503,6 +504,7 @@ onMounted(() => {
                     <TH>Item Count</TH>
                     <TH>Overall Net Total</TH>
                     <TH>POS Sales Date</TH>
+                    <TH>Uploaded Date</TH>
                     <TH>Actions</TH>
                 </TableHead>
                 <TableBody>
@@ -514,6 +516,7 @@ onMounted(() => {
                         <TD>{{ transaction.item_count }}</TD>
                         <TD>{{ transaction.net_total }}</TD>
                         <TD>{{ formatDisplayDate(transaction.order_date) }}</TD>
+                        <TD>{{ formatDisplayDate(transaction.created_at) }}</TD>
                         <TD class="flex items-center">
                             <ShowButton
                                 :isLink="true"

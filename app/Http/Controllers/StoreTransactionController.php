@@ -50,7 +50,8 @@ class StoreTransactionController extends Controller
                 DB::raw('SUM(store_transaction_items.net_total) as net_total'),
                 'store_branches.branch_code',
                 'store_branches.name as branch_name',
-                'store_transactions.store_branch_id'
+                'store_transactions.store_branch_id',
+                DB::raw('MAX(store_transactions.created_at) as created_at')
             )
             ->when($branchId !== 'all', function ($query) use ($branchId) {
                 $query->where('store_transactions.store_branch_id', $branchId);
@@ -72,6 +73,7 @@ class StoreTransactionController extends Controller
                 'branch_code' => $transaction->branch_code,
                 'branch_name' => $transaction->branch_name,
                 'store_branch_id' => $transaction->store_branch_id,
+                'created_at' => $transaction->created_at,
             ];
         })->withQueryString();
 

@@ -255,6 +255,27 @@ const formatDisplayDate = (dateString) => {
     }
 };
 
+const formatDisplayDateTime = (dateString) => {
+    if (!dateString) {
+        return 'N/a';
+    }
+    try {
+        const date = new Date(dateString);
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const day = String(date.getDate()).padStart(2, '0');
+        const year = date.getFullYear();
+        let hours = date.getHours();
+        const minutes = String(date.getMinutes()).padStart(2, '0');
+        const ampm = hours >= 12 ? 'PM' : 'AM';
+        hours = hours % 12;
+        hours = hours ? hours : 12;
+        return `${month}/${day}/${year} ${hours}:${minutes}${ampm}`;
+    } catch (e) {
+        console.error("Error formatting date:", dateString, e);
+        return dateString;
+    }
+};
+
 
 onMounted(() => {
     const flash = usePage().props.flash;
@@ -396,6 +417,7 @@ const closeSkippedRowsCard = () => {
                     <TH>Branch Code</TH>
                     <TH>Branch Name</TH>
                     <TH>POS Sales Date</TH>
+                    <TH>Uploaded Date</TH>
                     <TH>Transactions Count</TH>
                     <TH>Overall Net Total</TH>
                     <TH>Actions</TH>
@@ -405,6 +427,7 @@ const closeSkippedRowsCard = () => {
                         <TD>{{ transaction.branch_code }}</TD>
                         <TD>{{ transaction.branch_name }}</TD>
                         <TD>{{ formatDisplayDate(transaction.order_date) }}</TD>
+                        <TD>{{ formatDisplayDateTime(transaction.created_at) }}</TD>
                         <TD>{{ transaction.transaction_count }}</TD>
                         <TD>{{ transaction.net_total }}</TD>
                         <TD class="flex items-center">

@@ -123,6 +123,7 @@ class StoreTransactionService
                 'item_count' => $item->store_transaction_items->count(),
                 'net_total' => number_format($item->store_transaction_items->sum('net_total'), 2),
                 'order_date' => $item->order_date,
+                'created_at' => $item->created_at,
             ];
         });
 
