@@ -150,6 +150,21 @@ const staticHeaders = computed(() => props.dynamicHeaders.slice(0, 5));
 const branchHeaders = computed(() => props.dynamicHeaders.slice(5, -3));
 const trailingHeaders = computed(() => props.dynamicHeaders.slice(-3));
 
+// Format updated_at timestamp
+const formatUpdatedAt = (timestamp) => {
+    if (!timestamp) return '';
+    const date = new Date(timestamp);
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    const year = date.getFullYear();
+    let hours = date.getHours();
+    const minutes = String(date.getMinutes()).padStart(2, '0');
+    const ampm = hours >= 12 ? 'PM' : 'AM';
+    hours = hours % 12;
+    hours = hours ? hours : 12;
+    return `${month}/${day}/${year} ${hours}:${minutes}${ampm}`;
+};
+
 // Helper to get column key from index
 const getColKey = (colIndex) => branchHeaders.value[colIndex]?.field;
 
@@ -283,12 +298,15 @@ const performFill = async () => {
                 });
 
                 row[col] = sourceValue;
+                // Update timestamp immediately
+                row.updated_at = new Date().toISOString();
                 // Update derived values locally
                 recalculateRow(row);
                 
                 // Sync Props to prevent revert on next watcher trigger
                 if (props.report[r]) {
                     props.report[r][col] = sourceValue;
+                    props.report[r].updated_at = row.updated_at;
                     props.report[r].total_quantity = row.total_quantity;
                     props.report[r].remarks = row.remarks;
                 }
@@ -640,11 +658,14 @@ const processPasteText = async (text) => {
                             });
 
                             row[col] = safeNumVal;
+                            // Update timestamp immediately
+                            row.updated_at = new Date().toISOString();
                             recalculateRow(row);
                             
                             // Sync Props to prevent revert on next watcher trigger
                             if (props.report[r]) {
                                 props.report[r][col] = safeNumVal;
+                                props.report[r].updated_at = row.updated_at;
                                 props.report[r].total_quantity = row.total_quantity;
                                 props.report[r].remarks = row.remarks;
                             }
@@ -700,11 +721,14 @@ const processPasteText = async (text) => {
                             });
 
                             row[col] = safeNumVal;
+                            // Update timestamp immediately
+                            row.updated_at = new Date().toISOString();
                             recalculateRow(row);
                             
                             // Sync Props to prevent revert on next watcher trigger
                             if (props.report[r]) {
                                 props.report[r][col] = safeNumVal;
+                                props.report[r].updated_at = row.updated_at;
                                 props.report[r].total_quantity = row.total_quantity;
                                 props.report[r].remarks = row.remarks;
                             }
@@ -851,6 +875,9 @@ const updateCommit = async (rowIndex, field, silent = false) => {
         return;
     }
 
+    // Update timestamp immediately for reactive display
+    row.updated_at = new Date().toISOString();
+
     // Recalculate derived values immediately after validation
     recalculateRow(row);
 
@@ -866,6 +893,7 @@ const updateCommit = async (rowIndex, field, silent = false) => {
     // Update the "last saved" reference immediately so subsequent blurs don't re-trigger
     if (props.report[rowIndex]) {
         props.report[rowIndex][field] = newValue;
+        props.report[rowIndex].updated_at = row.updated_at;
         // CRITICAL FIX: Also update the derived fields in props so the watcher (which fires on prop change)
         // doesn't revert localReport's derived values to the old state.
         props.report[rowIndex].total_quantity = row.total_quantity;
@@ -1230,6 +1258,11 @@ onMounted(() => {
                                     class="px-4 py-3 text-right whitespace-nowrap font-bold border-b-2 border-slate-200 bg-slate-200">
                                     {{ header.label }}
                                 </th>
+                                
+                                <!-- Updated At Header -->
+                                <th rowspan="2" class="px-4 py-3 text-center whitespace-nowrap font-bold border-b-2 border-slate-200 bg-slate-200">
+                                    Updated At
+                                </th>
                             </tr>
                             <!-- Sub-Header Row for Branches -->
                             <tr>
@@ -1317,6 +1350,11 @@ onMounted(() => {
                                 <td v-for="header in trailingHeaders" :key="header.field"
                                     class="px-4 py-3 text-right whitespace-nowrap">
                                     {{ formatQuantity(row[header.field]) }}
+                                </td>
+                                
+                                <!-- Updated At Column -->
+                                <td class="px-4 py-3 text-center whitespace-nowrap text-sm text-gray-600">
+                                    {{ formatUpdatedAt(row.updated_at) }}
                                 </td>
                             </tr>
                         </tbody>

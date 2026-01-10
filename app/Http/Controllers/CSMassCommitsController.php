@@ -184,6 +184,7 @@ class CSMassCommitsController extends Controller
             \Illuminate\Support\Facades\DB::raw('MAX(supplier_items.sort_order) as sort_order'),
             \Illuminate\Support\Facades\DB::raw('MAX(suppliers.supplier_code) as supplier_code'),
             \Illuminate\Support\Facades\DB::raw('SUM(store_order_items.quantity_commited) as total_quantity'),
+            \Illuminate\Support\Facades\DB::raw('MAX(store_order_items.updated_at) as updated_at'),
         ];
 
         // Dynamic Pivot Columns
