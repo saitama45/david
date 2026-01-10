@@ -10,6 +10,7 @@ use PhpOffice\PhpSpreadsheet\Worksheet\Worksheet;
 use PhpOffice\PhpSpreadsheet\Style\Fill;
 use PhpOffice\PhpSpreadsheet\Style\Color;
 use PhpOffice\PhpSpreadsheet\Style\NumberFormat;
+use App\Models\POSMasterfileBOM;
 
 class StoreTransactionSkippedExport implements FromArray, WithHeadings, WithStyles, ShouldAutoSize
 {
@@ -34,10 +35,29 @@ class StoreTransactionSkippedExport implements FromArray, WithHeadings, WithStyl
                 }
             }
             
+            // Extract SAP Code from reason if it mentions insufficient balance
+            $sapCode = '';
+            $reason = $item['reason'] ?? '';
+            if (preg_match('/\(([A-Z0-9\-]+)\)/', $reason, $matches)) {
+                $sapCode = $matches[1];
+            }
+            
+            // Get UOM from pos_masterfiles_bom table
+            $uom = $item['uom'] ?? '';
+            if (empty($uom) && !empty($item['item_code']) && !empty($sapCode)) {
+                $bomEntry = POSMasterfileBOM::where('POSCode', $item['item_code'])
+                    ->where('ItemCode', $sapCode)
+                    ->first();
+                if ($bomEntry) {
+                    $uom = $bomEntry->BOMUOM;
+                }
+            }
+            
             return [
                 $item['item_code'] ?? '',
                 $item['item_description'] ?? '',
-                $item['uom'] ?? '',
+                $sapCode,
+                $uom,
                 $item['store_code'] ?? '',
                 $item['receipt_number'] ?? '', // Added Receipt No.
                 $item['qty'] ?? '', // This represents Total Qty
@@ -56,6 +76,7 @@ class StoreTransactionSkippedExport implements FromArray, WithHeadings, WithStyl
         return [
             'Ref No.',
             'Item Description',
+            'SAP Code',
             'UoM',
             'Store Code',
             'Receipt No.',
@@ -80,8 +101,8 @@ class StoreTransactionSkippedExport implements FromArray, WithHeadings, WithStyl
                     'startColor' => ['argb' => 'E0F2FE'], // Light blue (Tailwind blue-100 equivalent approx)
                 ],
             ],
-            // Format Date of Sales column (K) as short date
-            'K' => [
+            // Format Date of Sales column (L) as short date
+            'L' => [
                 'numberFormat' => [
                     'formatCode' => NumberFormat::FORMAT_DATE_XLSX14,
                 ],
