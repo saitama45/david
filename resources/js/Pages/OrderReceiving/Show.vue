@@ -58,7 +58,7 @@ const getStatusClass = (status) => {
 // Define remarks options for the dropdown
 const remarksOptions = [
     { label: 'Damaged goods', value: 'Damaged goods' },
-    { label: 'Under Issuance', value: 'Under Issuance' },
+    { label: 'Over Issuance', value: 'Over Issuance' },
     { label: 'Expired goods', value: 'Expired goods' },
     { label: 'Others', value: 'Others' }
 ];
@@ -898,7 +898,7 @@ const promptConfirmReceive = () => {
                                 <td class="px-4 py-4 text-center font-mono">{{ formatQuantity(history.store_order_item.quantity_ordered) }}</td>
                                 <td class="px-4 py-4 text-center font-mono">{{ formatQuantity(history.store_order_item.quantity_approved) }}</td>
                                 <td class="px-4 py-4 text-center font-mono">{{ formatQuantity(history.store_order_item.quantity_commited) }}</td>
-                                <td :class="['px-4 py-4 text-center font-mono font-bold', Number(history.quantity_received) !== Number(history.store_order_item.quantity_commited) ? 'text-red-600' : 'text-blue-600']">{{ formatQuantity(history.quantity_received) }}</td>
+                                <td :class="['px-4 py-4 text-center font-mono font-bold', Number(history.quantity_received) !== Number(history.store_order_item.quantity_commited) ? 'text-red-600' : 'text-blue-600']">{{ history.received_date ? formatQuantity(history.quantity_received) : 0 }}</td>
                                 <td class="px-4 py-4 text-sm text-gray-600">
                                     {{ dayjs(history.received_date).isValid() ? dayjs(history.received_date).tz("Asia/Manila").format("MMM D, YYYY h:mm A") : '' }}
                                 </td>
@@ -907,7 +907,7 @@ const promptConfirmReceive = () => {
                                         'px-2.5 py-0.5 text-xs font-semibold rounded-full border',
                                         getStatusClass(history.status)
                                     ]">
-                                        {{ history.status.toLowerCase() === 'approved' ? 'RECEIVED' : history.status.toUpperCase() }}
+                                        {{ history.status.toLowerCase() === 'approved' ? 'RECEIVED' : history.status.toLowerCase() === 'received' ? 'RECEIVED' : history.status.toLowerCase() === 'pending' ? 'UNSERVED' : history.status.toUpperCase() }}
                                     </span>
                                 </td>
                                 <td class="px-4 py-4 max-w-[200px] truncate text-sm text-gray-600" :title="history.remarks">{{ history.remarks || '-' }}</td>
@@ -918,7 +918,7 @@ const promptConfirmReceive = () => {
                                             title="View Details"
                                         />
                                         <EditButton
-                                            v-if="history.status === 'pending'"
+                                            v-if="history.status === 'pending' || history.status === 'received'"
                                             @click="openEditModalForm(history.id)"
                                             title="Edit Item"
                                         />

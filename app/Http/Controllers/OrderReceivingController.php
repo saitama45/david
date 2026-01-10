@@ -141,7 +141,12 @@ class OrderReceivingController extends Controller
         ]);
 
         $history = OrderedItemReceiveDate::findOrFail($validated['id']);
-        $history->update($validated);
+        $history->update([
+            'quantity_received' => $validated['quantity_received'],
+            'remarks' => $validated['remarks'],
+            'received_date' => now('Asia/Manila'),
+            'status' => 'received',
+        ]);
 
         return redirect()->back();
     }
