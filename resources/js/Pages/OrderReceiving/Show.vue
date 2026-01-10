@@ -59,9 +59,53 @@ const getStatusClass = (status) => {
 const remarksOptions = [
     { label: 'Damaged goods', value: 'Damaged goods' },
     { label: 'Over Issuance', value: 'Over Issuance' },
+    { label: 'Under Issuance', value: 'Under Issuance' },
     { label: 'Expired goods', value: 'Expired goods' },
     { label: 'Others', value: 'Others' }
 ];
+
+const remarksSummary = computed(() => {
+    const summary = {
+        received: 0,
+        under_issuance: 0,
+        over_issuance: 0,
+        unserved: 0,
+        damaged_goods: 0,
+        expired_goods: 0,
+        others: 0,
+        total: 0,
+    };
+
+    props.receiveDatesHistory.forEach((history) => {
+        const remark = (history.remarks || '').toLowerCase().trim();
+
+        if (!remark) return;
+        
+        summary.total++;
+        
+        if (remark === 'received') {
+            summary.received++;
+        } else if (remark === 'under issuance') {
+            summary.under_issuance++;
+        } else if (remark === 'over issuance') {
+            summary.over_issuance++;
+        } else if (remark === 'unserved') {
+            summary.unserved++;
+        } else if (remark === 'damaged goods') {
+            summary.damaged_goods++;
+        } else if (remark === 'expired goods') {
+            summary.expired_goods++;
+        } else {
+            summary.others++;
+        }
+    });
+
+    return summary;
+});
+
+const receivedCount = computed(() => {
+    return props.receiveDatesHistory.filter(h => h.received_date).length;
+});
 
 const props = defineProps({
     order: {
@@ -338,6 +382,14 @@ const editReceiveDetailsForm = useForm({
     remarks: null,
 });
 
+watch(() => editReceiveDetailsForm.quantity_received, (newVal) => {
+    const qty = parseFloat(newVal);
+    if (!isNaN(qty) && qty === 0) {
+        editReceiveDetailsForm.remarks = "Unserved";
+        isTypingCustomRemark.value = true;
+    }
+});
+
 // Computed property for variance calculation
 const variance = computed(() => {
     if (!currentEditingItem.value || !editReceiveDetailsForm.quantity_received) {
@@ -377,6 +429,9 @@ const openEditModalForm = (id) => {
 
 const updateReceiveDetails = () => {
     isLoading.value = true;
+    if (!editReceiveDetailsForm.remarks) {
+        editReceiveDetailsForm.remarks = 'Received';
+    }
     editReceiveDetailsForm.post(
         route("orders-receiving.update-receiving-history"),
         {
@@ -630,7 +685,7 @@ const promptConfirmReceive = () => {
                                 <div>
                                     <span class="text-xs text-gray-400 block mb-1">Current Status</span>
                                     <span :class="['px-2.5 py-0.5 rounded-full text-xs font-medium border', getStatusClass(order.order_status)]">
-                                        {{ order.order_status.toUpperCase() === 'RECEIVED' ? 'COMPLETE' : order.order_status.toUpperCase() }}
+                                        {{ (order.order_status.toUpperCase() === 'RECEIVED' || order.order_status.toUpperCase() === 'INCOMPLETE') ? 'RECEIVED' : order.order_status.toUpperCase() }}
                                     </span>
                                 </div>
                                 <div>
@@ -668,7 +723,7 @@ const promptConfirmReceive = () => {
                         </div>
 
                         <!-- Actions/Summary -->
-                        <div class="space-y-4 flex flex-col justify-between">
+                        <div class="space-y-4">
                             <h3 class="text-sm font-semibold text-gray-500 uppercase tracking-wider">Summary</h3>
                              <div class="space-y-3">
                                 <!-- Items Status Overview -->
@@ -680,11 +735,49 @@ const promptConfirmReceive = () => {
                                     <div class="space-y-1">
                                         <div class="flex justify-between items-center">
                                             <span class="text-xs text-blue-600">✓ Received</span>
-                                            <span class="font-bold text-green-700">{{ receiveDatesHistory.filter(h => h.status.toLowerCase() === 'approved').length }}</span>
+                                            <span class="font-bold text-green-700">{{ receivedCount }}</span>
                                         </div>
                                         <div class="flex justify-between items-center">
                                             <span class="text-xs text-orange-600">⏳ To Receive</span>
-                                            <span class="font-bold text-orange-700">{{ orderedItems.length - receiveDatesHistory.filter(h => h.status.toLowerCase() === 'approved').length }}</span>
+                                            <span class="font-bold text-orange-700">{{ orderedItems.length - receivedCount }}</span>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Remarks Overview -->
+                                <div class="p-3 bg-purple-50 rounded-lg border border-purple-200">
+                                    <div class="flex justify-between items-center mb-2">
+                                        <span class="text-xs font-medium text-purple-700">REMARKS OVERVIEW</span>
+                                        <span class="text-xs text-purple-600">{{ remarksSummary.total }} / {{ orderedItems.length }} updated</span>
+                                    </div>
+                                    <div class="grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
+                                        <div class="flex justify-between">
+                                            <span class="text-purple-600">Received:</span>
+                                            <span class="font-bold text-purple-800">{{ remarksSummary.received }}</span>
+                                        </div>
+                                        <div class="flex justify-between">
+                                            <span class="text-purple-600">Unserved:</span>
+                                            <span class="font-bold text-purple-800">{{ remarksSummary.unserved }}</span>
+                                        </div>
+                                        <div class="flex justify-between">
+                                            <span class="text-purple-600">Under Issuance:</span>
+                                            <span class="font-bold text-purple-800">{{ remarksSummary.under_issuance }}</span>
+                                        </div>
+                                        <div class="flex justify-between">
+                                            <span class="text-purple-600">Over Issuance:</span>
+                                            <span class="font-bold text-purple-800">{{ remarksSummary.over_issuance }}</span>
+                                        </div>
+                                        <div class="flex justify-between">
+                                            <span class="text-purple-600">Damaged Goods:</span>
+                                            <span class="font-bold text-purple-800">{{ remarksSummary.damaged_goods }}</span>
+                                        </div>
+                                        <div class="flex justify-between">
+                                            <span class="text-purple-600">Expired Goods:</span>
+                                            <span class="font-bold text-purple-800">{{ remarksSummary.expired_goods }}</span>
+                                        </div>
+                                        <div class="flex justify-between">
+                                            <span class="text-purple-600">Others:</span>
+                                            <span class="font-bold text-purple-800">{{ remarksSummary.others }}</span>
                                         </div>
                                     </div>
                                 </div>
@@ -693,10 +786,10 @@ const promptConfirmReceive = () => {
                                 <div class="space-y-2">
                                     <div class="flex justify-between text-xs">
                                         <span class="text-gray-500">Receiving Progress</span>
-                                        <span class="font-medium text-gray-700">{{ Math.round((receiveDatesHistory.filter(h => h.status.toLowerCase() === 'approved').length / orderedItems.length) * 100) }}%</span>
+                                        <span class="font-medium text-gray-700">{{ Math.round((receivedCount / orderedItems.length) * 100) }}%</span>
                                     </div>
                                     <div class="w-full bg-gray-200 rounded-full h-2">
-                                        <div class="bg-green-500 h-2 rounded-full transition-all duration-300" :style="{ width: (receiveDatesHistory.filter(h => h.status.toLowerCase() === 'approved').length / orderedItems.length) * 100 + '%' }"></div>
+                                        <div class="bg-green-500 h-2 rounded-full transition-all duration-300" :style="{ width: (receivedCount / orderedItems.length) * 100 + '%' }"></div>
                                     </div>
                                 </div>
                                 
@@ -830,11 +923,11 @@ const promptConfirmReceive = () => {
                         <div class="flex flex-col gap-1">
                             <h3 class="text-lg font-semibold text-gray-800">
                                 Receiving History 
-                                <span class="text-sm font-normal text-gray-500">({{ receiveDatesHistory.filter(h => h.status.toLowerCase() === 'approved').length }} received of {{ orderedItems.length }} items)</span> 
+                                <span class="text-sm font-normal text-gray-500">({{ receivedCount }} received of {{ orderedItems.length }} items)</span> 
                                 <span class="text-red-500 text-sm">*</span>
                             </h3>
-                            <p v-if="orderedItems.length - receiveDatesHistory.filter(h => h.status.toLowerCase() === 'approved').length > 0" class="text-xs text-orange-600 font-medium">
-                                ⚠️ {{ orderedItems.length - receiveDatesHistory.filter(h => h.status.toLowerCase() === 'approved').length }} item(s) still to receive
+                            <p v-if="orderedItems.length - receivedCount > 0" class="text-xs text-orange-600 font-medium">
+                                ⚠️ {{ orderedItems.length - receivedCount }} item(s) still to receive
                             </p>
                             <p v-else class="text-xs text-green-600 font-medium">
                                 ✓ All items have been received
@@ -907,7 +1000,7 @@ const promptConfirmReceive = () => {
                                         'px-2.5 py-0.5 text-xs font-semibold rounded-full border',
                                         getStatusClass(history.status)
                                     ]">
-                                        {{ history.status.toLowerCase() === 'approved' ? 'RECEIVED' : history.status.toLowerCase() === 'received' ? 'RECEIVED' : history.status.toLowerCase() === 'pending' ? 'UNSERVED' : history.status.toUpperCase() }}
+                                        {{ history.status.toLowerCase() === 'approved' ? 'RECEIVED' : history.status.toLowerCase() === 'received' ? 'RECEIVED' : history.status.toLowerCase() === 'pending' ? 'PENDING' : history.status.toUpperCase() }}
                                     </span>
                                 </td>
                                 <td class="px-4 py-4 max-w-[200px] truncate text-sm text-gray-600" :title="history.remarks">{{ history.remarks || '-' }}</td>
@@ -970,9 +1063,8 @@ const promptConfirmReceive = () => {
         <div
             v-if="isDeliveryReceiptModalVisible"
             class="fixed inset-0 z-50 flex items-center justify-center"
-            @click="handleBackdropClick"
         >
-            <div class="absolute inset-0 bg-black/50 backdrop-blur-sm"></div>
+            <div class="absolute inset-0 bg-black/50 backdrop-blur-sm" @click="isDeliveryReceiptModalVisible = false"></div>
             <div class="relative z-10 w-full sm:max-w-[500px] mx-4 bg-white rounded-xl shadow-2xl border border-gray-200 p-6 transform transition-all">
                 <div class="flex items-center justify-between mb-6">
                     <div>
@@ -1051,9 +1143,8 @@ const promptConfirmReceive = () => {
         <div
             v-if="isEditModalVisible"
             class="fixed inset-0 z-50 flex items-center justify-center"
-            @click="handleBackdropClick"
         >
-            <div class="absolute inset-0 bg-black/50 backdrop-blur-sm"></div>
+            <div class="absolute inset-0 bg-black/50 backdrop-blur-sm" @click="closeEditModal"></div>
             <div class="relative z-10 w-full sm:max-w-[500px] mx-4 bg-white rounded-xl shadow-2xl border border-gray-200 p-6 transform transition-all">
                 <div class="flex items-center justify-between mb-6">
                     <div>
@@ -1086,7 +1177,8 @@ const promptConfirmReceive = () => {
                             <select
                                 v-model="editReceiveDetailsForm.remarks"
                                 @change="onRemarksSelectChange"
-                                class="flex h-10 w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm shadow-sm transition-colors focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
+                                :disabled="parseFloat(editReceiveDetailsForm.quantity_received) === 0"
+                                class="flex h-10 w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm shadow-sm transition-colors focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none disabled:bg-gray-100 disabled:cursor-not-allowed"
                             >
                                 <option value="" disabled>Select a remark</option>
                                 <option v-for="option in remarksOptions" :key="option.value" :value="option.value">{{ option.label }}</option>
@@ -1096,9 +1188,17 @@ const promptConfirmReceive = () => {
                             <textarea
                                 v-model="editReceiveDetailsForm.remarks"
                                 placeholder="Enter specific remarks..."
-                                class="flex min-h-[80px] w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm shadow-sm transition-colors focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none resize-none"
+                                :disabled="parseFloat(editReceiveDetailsForm.quantity_received) === 0"
+                                class="flex min-h-[80px] w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm shadow-sm transition-colors focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none resize-none disabled:bg-gray-100 disabled:cursor-not-allowed"
                             ></textarea>
-                            <button type="button" class="mt-2 text-xs text-blue-600 hover:text-blue-800 hover:underline" @click="goBackToPresetRemarks">Back to Presets</button>
+                            <button 
+                                v-if="parseFloat(editReceiveDetailsForm.quantity_received) !== 0"
+                                type="button" 
+                                class="mt-2 text-xs text-blue-600 hover:text-blue-800 hover:underline" 
+                                @click="goBackToPresetRemarks"
+                            >
+                                Back to Presets
+                            </button>
                         </div>
                         <FormError>{{ editReceiveDetailsForm.errors.remarks }}</FormError>
                     </InputContainer>
@@ -1115,9 +1215,8 @@ const promptConfirmReceive = () => {
          <div
             v-if="isViewModalVisible"
             class="fixed inset-0 z-50 flex items-center justify-center"
-            @click="handleBackdropClick"
         >
-            <div class="absolute inset-0 bg-black/50 backdrop-blur-sm"></div>
+            <div class="absolute inset-0 bg-black/50 backdrop-blur-sm" @click="isViewModalVisible = false"></div>
             <div class="relative z-10 w-full sm:max-w-[500px] mx-4 bg-white rounded-xl shadow-2xl border border-gray-200 p-6 transform transition-all">
                 <div class="flex items-center justify-between mb-6">
                     <div>
@@ -1179,9 +1278,8 @@ const promptConfirmReceive = () => {
         <div
             v-if="isImageUploadModalVisible"
             class="fixed inset-0 z-50 flex items-center justify-center"
-            @click="handleBackdropClick"
         >
-            <div class="absolute inset-0 bg-black/50 backdrop-blur-sm"></div>
+            <div class="absolute inset-0 bg-black/50 backdrop-blur-sm" @click="isImageUploadModalVisible = false"></div>
             <div class="relative z-10 w-full sm:max-w-[500px] mx-4 bg-white rounded-xl shadow-2xl border border-gray-200 p-6 transform transition-all">
                 <div class="flex items-center justify-between mb-6">
                     <div>

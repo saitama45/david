@@ -208,7 +208,7 @@ const formatQuantity = (value) => {
                                 <div>
                                     <span class="text-xs text-gray-400 block mb-1">Current Status</span>
                                     <span :class="['px-2.5 py-0.5 rounded-full text-xs font-medium border', getStatusClass(order.order_status)]">
-                                        {{ order.order_status?.toUpperCase() === 'RECEIVED' ? 'COMPLETE' : order.order_status?.toUpperCase().replace("_", " ") }}
+                                        {{ (order.order_status?.toUpperCase() === 'RECEIVED' || order.order_status?.toUpperCase() === 'INCOMPLETE') ? 'RECEIVED' : order.order_status?.toUpperCase().replace("_", " ") }}
                                     </span>
                                 </div>
                                 <div>

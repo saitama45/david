@@ -145,7 +145,7 @@ class OrderReceivingController extends Controller
             'quantity_received' => $validated['quantity_received'],
             'remarks' => $validated['remarks'],
             'received_date' => now('Asia/Manila'),
-            'status' => 'received',
+            'status' => 'approved',
         ]);
 
         return redirect()->back();
@@ -180,6 +180,14 @@ class OrderReceivingController extends Controller
     {
         DB::beginTransaction();
         try {
+            // 1. Update remarks for any ALREADY APPROVED items that have no remarks (Fix for data consistency)
+            OrderedItemReceiveDate::whereHas('store_order_item.store_order', fn ($q) => $q->where('id', $id))
+                ->where('status', 'approved')
+                ->where(function ($q) {
+                    $q->whereNull('remarks')->orWhere('remarks', '');
+                })
+                ->update(['remarks' => 'Received']);
+
             $historyItems = OrderedItemReceiveDate::with([
                 'store_order_item.store_order',
                 'store_order_item.supplierItem'
@@ -189,7 +197,10 @@ class OrderReceivingController extends Controller
             ->get();
 
             if ($historyItems->isEmpty()) {
-                DB::commit(); // Nothing to do
+                // Even if there are no pending items, re-evaluate the order status to ensure it's correct
+                // (e.g., if previous attempts left it as 'incomplete')
+                $this->orderReceivingService->getOrderStatus($id);
+                DB::commit(); // Commit the remarks fix if any
                 return back()->with('info', 'No pending items to confirm.');
             }
 
@@ -288,11 +299,17 @@ class OrderReceivingController extends Controller
 
             // 3. Update individual history and order item records
             foreach ($historyItems as $history) {
-                $history->update([
+                $updateData = [
                     'status' => 'approved',
                     'approval_action_by' => Auth::id(),
                     'received_date' => $history->received_date ?? Carbon::now('Asia/Manila'),
-                ]);
+                ];
+
+                if (is_null($history->remarks) || trim($history->remarks) === '') {
+                    $updateData['remarks'] = 'Received';
+                }
+
+                $history->update($updateData);
                 $history->store_order_item->quantity_received += $history->quantity_received;
                 $history->store_order_item->save();
             }

@@ -370,11 +370,14 @@ class OrderReceivingService extends StoreOrderService
 
     public function getOrderStatus($id)
     {
-        $storeOrder = StoreOrder::with(['store_order_items.ordered_item_receive_dates'])->find($id);
+        $storeOrder = StoreOrder::find($id);
 
         if (!$storeOrder) {
             return;
         }
+
+        // Reload relationships to ensure fresh data within transaction
+        $storeOrder->load(['store_order_items.ordered_item_receive_dates']);
 
         $orderedItems = $storeOrder->store_order_items;
         $totalItems = $orderedItems->count();
@@ -383,7 +386,7 @@ class OrderReceivingService extends StoreOrderService
         foreach ($orderedItems as $itemOrdered) {
             // Check if the item has any approved receive records
             $hasReceived = $itemOrdered->ordered_item_receive_dates
-                ->where('status', 'approved')
+                ->whereIn('status', ['approved', 'received'])
                 ->count() > 0;
             
             if ($hasReceived) {
@@ -393,7 +396,7 @@ class OrderReceivingService extends StoreOrderService
 
         // If all items have at least one approved receive record, the order is RECEIVED.
         // Otherwise, it is INCOMPLETE.
-        if ($totalItems > 0 && $receivedItemsCount === $totalItems) {
+        if ($totalItems > 0 && $receivedItemsCount >= $totalItems) {
             $storeOrder->order_status = OrderStatus::RECEIVED->value;
         } else {
             $storeOrder->order_status = OrderStatus::INCOMPLETE->value;

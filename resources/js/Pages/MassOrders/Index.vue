@@ -525,7 +525,7 @@ const downloadFileName = computed(() => {
             <FilterTabButton label="Approved" filter="approved" :currentFilter="filterQuery" @click="changeFilter('approved')" />
             <FilterTabButton label="Commited" filter="committed" :currentFilter="filterQuery" @click="changeFilter('committed')" />
             <FilterTabButton label="Partial Committed" filter="partial_committed" :currentFilter="filterQuery" @click="changeFilter('partial_committed')" />
-            <FilterTabButton label="Complete" filter="received" :currentFilter="filterQuery" @click="changeFilter('received')" />
+            <FilterTabButton label="Received" filter="received" :currentFilter="filterQuery" @click="changeFilter('received')" />
             <FilterTabButton label="Rejected" filter="rejected" :currentFilter="filterQuery" @click="changeFilter('rejected')" />
         </FilterTab>
 
@@ -592,7 +592,7 @@ const downloadFileName = computed(() => {
                             <TD>{{ formatDisplayDate(order.order_date) }}</TD>
                             <TD>{{ formatDisplayDateTime(order.created_at) }}</TD>
                             <TD>
-                                <Badge :class="statusBadgeColor(order.order_status)" class="font-bold">{{ order.order_status ? (order.order_status.toUpperCase() === 'RECEIVED' ? 'COMPLETE' : order.order_status.toUpperCase()) : 'N/A' }}</Badge>
+                                <Badge :class="statusBadgeColor(order.order_status)" class="font-bold">{{ order.order_status ? ((order.order_status.toUpperCase() === 'RECEIVED' || order.order_status.toUpperCase() === 'INCOMPLETE') ? 'RECEIVED' : order.order_status.toUpperCase()) : 'N/A' }}</Badge>
                             </TD>
                             <TD>
                                 <DivFlexCenter class="gap-3">
@@ -620,7 +620,7 @@ const downloadFileName = computed(() => {
                         </button>
                     </MobileTableHeading>
                     <LabelXS>SO Number: {{ order.delivery_receipts && order.delivery_receipts.length > 0 ? order.delivery_receipts[0].sap_so_number : "N/A" }}</LabelXS>
-                    <LabelXS>Status: <span :class="statusBadgeColor(order.order_status)" class="font-semibold p-1 rounded text-white">{{ order.order_status ? (order.order_status.toUpperCase() === 'RECEIVED' ? 'COMPLETE' : order.order_status.toUpperCase()) : 'N/A' }}</span></LabelXS>
+                    <LabelXS>Status: <span :class="statusBadgeColor(order.order_status)" class="font-semibold p-1 rounded text-white">{{ order.order_status ? ((order.order_status.toUpperCase() === 'RECEIVED' || order.order_status.toUpperCase() === 'INCOMPLETE') ? 'RECEIVED' : order.order_status.toUpperCase()) : 'N/A' }}</span></LabelXS>
                     <LabelXS>Store: {{ order.store_branch?.name ?? "N/A" }}</LabelXS>
                     <LabelXS>Supplier: {{ getSupplierDisplayName(order.supplier, order.variant) }}</LabelXS>
                     <LabelXS>Delivery Date: {{ formatDisplayDate(order.order_date) }}</LabelXS>
