@@ -579,7 +579,7 @@ class CSMassCommitsController extends Controller
                     }
 
                     // Create placeholder receive date record if it doesn't exist
-                    if ($item->quantity_commited > 0 && $item->ordered_item_receive_dates()->doesntExist()) {
+                    if ($item->quantity_commited >= 0 && $item->ordered_item_receive_dates()->doesntExist()) {
                         $item->ordered_item_receive_dates()->create([
                             'quantity_received' => $item->quantity_commited,
                             'status' => 'pending',
