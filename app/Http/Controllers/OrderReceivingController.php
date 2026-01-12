@@ -146,6 +146,7 @@ class OrderReceivingController extends Controller
             'remarks' => $validated['remarks'],
             'received_date' => now('Asia/Manila'),
             'status' => 'approved',
+            'received_by_user_id' => Auth::id(),
         ]);
 
         return redirect()->back();
@@ -303,6 +304,7 @@ class OrderReceivingController extends Controller
                     'status' => 'approved',
                     'approval_action_by' => Auth::id(),
                     'received_date' => $history->received_date ?? Carbon::now('Asia/Manila'),
+                    'received_by_user_id' => Auth::id(),
                 ];
 
                 if (is_null($history->remarks) || trim($history->remarks) === '') {

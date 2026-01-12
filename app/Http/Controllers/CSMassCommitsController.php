@@ -583,7 +583,7 @@ class CSMassCommitsController extends Controller
                         $item->ordered_item_receive_dates()->create([
                             'quantity_received' => $item->quantity_commited,
                             'status' => 'pending',
-                            'received_by_user_id' => $user->id,
+                            'received_by_user_id' => null,
                         ]);
                     }
                 }
