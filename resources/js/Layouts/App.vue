@@ -48,7 +48,8 @@ import {
 import Toast from "primevue/toast";
 import { router, usePage } from "@inertiajs/vue3";
 import ConfirmDialog from "primevue/confirmdialog";
-import { ref, onMounted, onUnmounted, computed } from 'vue';
+import PrimeDialog from "primevue/dialog";
+import { ref, reactive, onMounted, onUnmounted, computed, watch } from 'vue';
 
 const page = usePage();
 const user = computed(() => page.props.auth.user);
@@ -134,11 +135,92 @@ onUnmounted(() => {
     // Restore body scroll in case component is unmounted while sidebar is open
     document.body.style.overflow = '';
 });
+
+const isSalesReminderModalOpen = ref(false);
+
+const openSalesReminderModal = () => {
+    isSalesReminderModalOpen.value = true;
+};
+
+const groupedMissingSales = computed(() => {
+    const details = page.props.notifications?.salesUploadMissingDetails || [];
+    const groups = {};
+    
+    details.forEach(item => {
+        if (!groups[item.branch]) {
+            groups[item.branch] = [];
+        }
+        groups[item.branch].push(item);
+    });
+    
+    // Sort keys (branches) alphabetically if needed, usually iteration order follows insertion for string keys mostly
+    return groups;
+});
+
+const openBranches = reactive({});
+
+const toggleBranch = (branch) => {
+    openBranches[branch] = !openBranches[branch];
+};
+
+watch(() => groupedMissingSales.value, (newVal) => {
+    const keys = Object.keys(newVal);
+    // If only one branch, open it by default. Otherwise, keep collapsed or could open first.
+    if (keys.length === 1) {
+        openBranches[keys[0]] = true;
+    }
+}, { immediate: true });
 </script>
 
 <template>
     <Toast />
     <ConfirmDialog></ConfirmDialog>
+    <PrimeDialog v-model:visible="isSalesReminderModalOpen" modal header="Sales Upload Reminder" :style="{ width: '50rem' }" :breakpoints="{ '960px': '75vw', '641px': '90vw' }">
+        <div class="py-2">
+            <p class="mb-4 text-sm text-gray-600">
+                The following branches have missing sales transactions for the indicated dates **within the last 30 days**. Please upload them promptly to ensure accurate inventory tracking.
+            </p>
+            
+            <div class="border rounded-lg overflow-hidden max-h-[60vh] overflow-y-auto bg-white">
+                <div v-for="(items, branch) in groupedMissingSales" :key="branch" class="border-b last:border-b-0">
+                    <div 
+                        class="bg-gray-50 px-4 py-3 flex justify-between items-center cursor-pointer hover:bg-gray-100 transition-colors select-none"
+                        @click="toggleBranch(branch)"
+                    >
+                        <div class="flex items-center gap-2">
+                            <ChevronDown v-if="openBranches[branch]" class="h-4 w-4 text-gray-500" />
+                            <ChevronRight v-else class="h-4 w-4 text-gray-500" />
+                            <span class="font-semibold text-gray-800">{{ branch }}</span>
+                        </div>
+                        <span class="bg-red-100 text-red-700 text-xs font-bold px-2 py-0.5 rounded-full">{{ items.length }} missing</span>
+                    </div>
+                    <div v-if="openBranches[branch]" class="divide-y border-t">
+                        <div v-for="(item, index) in items" :key="index" class="px-4 py-2 flex justify-between items-center hover:bg-gray-50 transition-colors pl-10">
+                            <span class="text-sm text-gray-600 flex items-center gap-2">
+                                📅 {{ item.date }}
+                            </span>
+                            <Button 
+                                size="sm" 
+                                variant="outline" 
+                                class="h-7 text-xs px-3 gap-2" 
+                                @click="router.visit(route('store-transactions.index', { order_date: item.raw_date }))"
+                            >
+                                Upload
+                                <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-arrow-right"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
+                            </Button>
+                        </div>
+                    </div>
+                </div>
+                
+                <div v-if="Object.keys(groupedMissingSales).length === 0" class="p-8 text-center text-gray-500">
+                    No missing sales found.
+                </div>
+            </div>
+        </div>
+        <template #footer>
+            <Button variant="secondary" @click="isSalesReminderModalOpen = false">Close</Button>
+        </template>
+    </PrimeDialog>
     <div
         class="grid min-h-screen max-h-screen w-full md:grid-cols-[220px_1fr] lg:grid-cols-[280px_1fr] overflow-hidden"
     >
@@ -234,9 +316,9 @@ onUnmounted(() => {
                     <DropdownMenuTrigger as-child>
                         <Button variant="ghost" size="icon" class="relative rounded-full">
                             <Bell class="h-7 w-7" />
-                            <span v-if="(page.props.notifications?.massOrdersApprovalCount + page.props.notifications?.csMassCommitsCount + page.props.notifications?.csDtsMassCommitsCount + page.props.notifications?.intercoApprovalCount + page.props.notifications?.storeCommitsCount + page.props.notifications?.wastageLvl1Count + page.props.notifications?.wastageLvl2Count + page.props.notifications?.monthEndLvl1Count + page.props.notifications?.monthEndLvl2Count) > 0" 
+                            <span v-if="(page.props.notifications?.massOrdersApprovalCount + page.props.notifications?.csMassCommitsCount + page.props.notifications?.csDtsMassCommitsCount + page.props.notifications?.intercoApprovalCount + page.props.notifications?.storeCommitsCount + page.props.notifications?.wastageLvl1Count + page.props.notifications?.wastageLvl2Count + page.props.notifications?.monthEndLvl1Count + page.props.notifications?.monthEndLvl2Count + (page.props.notifications?.orderReceivingCount || 0) + (page.props.notifications?.salesUploadReminderCount || 0)) > 0" 
                                   class="absolute -top-2 -right-2 flex h-6 w-6 items-center justify-center rounded-full bg-red-600 p-1 text-sm font-bold text-white">
-                                {{ (page.props.notifications?.massOrdersApprovalCount || 0) + (page.props.notifications?.csMassCommitsCount || 0) + (page.props.notifications?.csDtsMassCommitsCount || 0) + (page.props.notifications?.intercoApprovalCount || 0) + (page.props.notifications?.storeCommitsCount || 0) + (page.props.notifications?.wastageLvl1Count || 0) + (page.props.notifications?.wastageLvl2Count || 0) + (page.props.notifications?.monthEndLvl1Count || 0) + (page.props.notifications?.monthEndLvl2Count || 0) }}
+                                {{ (page.props.notifications?.massOrdersApprovalCount || 0) + (page.props.notifications?.csMassCommitsCount || 0) + (page.props.notifications?.csDtsMassCommitsCount || 0) + (page.props.notifications?.intercoApprovalCount || 0) + (page.props.notifications?.storeCommitsCount || 0) + (page.props.notifications?.wastageLvl1Count || 0) + (page.props.notifications?.wastageLvl2Count || 0) + (page.props.notifications?.monthEndLvl1Count || 0) + (page.props.notifications?.monthEndLvl2Count || 0) + (page.props.notifications?.orderReceivingCount || 0) + (page.props.notifications?.salesUploadReminderCount || 0) }}
                             </span>
                             <span class="sr-only">Notifications</span>
                         </Button>
@@ -244,9 +326,28 @@ onUnmounted(() => {
                     <DropdownMenuContent align="end" class="w-80 max-h-96 overflow-y-auto">
                         <div class="sticky top-0 bg-white border-b px-4 py-3 z-10">
                             <h2 class="font-semibold text-sm text-gray-900">Notifications</h2>
-                            <p class="text-xs text-gray-500 mt-1">{{ (page.props.notifications?.massOrdersApprovalCount || 0) + (page.props.notifications?.csMassCommitsCount || 0) + (page.props.notifications?.csDtsMassCommitsCount || 0) + (page.props.notifications?.intercoApprovalCount || 0) + (page.props.notifications?.storeCommitsCount || 0) + (page.props.notifications?.wastageLvl1Count || 0) + (page.props.notifications?.wastageLvl2Count || 0) + (page.props.notifications?.monthEndLvl1Count || 0) + (page.props.notifications?.monthEndLvl2Count || 0) }} pending item(s)</p>
+                            <p class="text-xs text-gray-500 mt-1">{{ (page.props.notifications?.massOrdersApprovalCount || 0) + (page.props.notifications?.csMassCommitsCount || 0) + (page.props.notifications?.csDtsMassCommitsCount || 0) + (page.props.notifications?.intercoApprovalCount || 0) + (page.props.notifications?.storeCommitsCount || 0) + (page.props.notifications?.wastageLvl1Count || 0) + (page.props.notifications?.wastageLvl2Count || 0) + (page.props.notifications?.monthEndLvl1Count || 0) + (page.props.notifications?.monthEndLvl2Count || 0) + (page.props.notifications?.orderReceivingCount || 0) + (page.props.notifications?.salesUploadReminderCount || 0) }} pending item(s)</p>
                         </div>
-                        <div v-if="(page.props.notifications?.massOrdersApprovalCount + page.props.notifications?.csMassCommitsCount + page.props.notifications?.csDtsMassCommitsCount + page.props.notifications?.intercoApprovalCount + page.props.notifications?.storeCommitsCount + page.props.notifications?.wastageLvl1Count + page.props.notifications?.wastageLvl2Count + page.props.notifications?.monthEndLvl1Count + page.props.notifications?.monthEndLvl2Count) > 0" class="divide-y pr-2">
+                        <div v-if="(page.props.notifications?.massOrdersApprovalCount + page.props.notifications?.csMassCommitsCount + page.props.notifications?.csDtsMassCommitsCount + page.props.notifications?.intercoApprovalCount + page.props.notifications?.storeCommitsCount + page.props.notifications?.wastageLvl1Count + page.props.notifications?.wastageLvl2Count + page.props.notifications?.monthEndLvl1Count + page.props.notifications?.monthEndLvl2Count + (page.props.notifications?.orderReceivingCount || 0) + (page.props.notifications?.salesUploadReminderCount || 0)) > 0" class="divide-y pr-2">
+                            <DropdownMenuItem v-if="page.props.notifications?.orderReceivingCount > 0" class="cursor-pointer px-4 py-3 hover:bg-gray-50 flex items-start gap-3" @click="router.visit(route('orders-receiving.index', { currentFilter: 'commited' }))">
+                                <div class="flex-shrink-0 w-2 h-2 rounded-full bg-blue-400 mt-1.5"></div>
+                                <div class="flex-1 min-w-0">
+                                    <p class="text-sm font-medium text-gray-900">Order Receiving</p>
+                                    <p class="text-xs text-gray-600 mt-0.5"><span class="font-bold text-blue-600">{{ page.props.notifications.orderReceivingCount }}</span> orders to receive</p>
+                                    <div v-if="page.props.notifications?.orderReceivingDates?.length" class="mt-1 space-y-0.5">
+                                        <span v-for="date in page.props.notifications.orderReceivingDates.slice(0, 2)" :key="date" class="text-xs text-gray-500 block">📅 {{ date }}</span>
+                                        <span v-if="page.props.notifications.orderReceivingDates.length > 2" class="text-xs text-gray-400">+{{ page.props.notifications.orderReceivingDates.length - 2 }} more</span>
+                                    </div>
+                                </div>
+                            </DropdownMenuItem>
+                            <DropdownMenuItem v-if="page.props.notifications?.salesUploadReminderCount > 0" class="cursor-pointer px-4 py-3 hover:bg-gray-50 flex items-start gap-3" @click="openSalesReminderModal">
+                                <div class="flex-shrink-0 w-2 h-2 rounded-full bg-pink-500 mt-1.5"></div>
+                                <div class="flex-1 min-w-0">
+                                    <p class="text-sm font-medium text-gray-900">Sales Upload Reminder</p>
+                                    <p class="text-xs text-gray-600 mt-0.5"><span class="font-bold text-pink-600">{{ page.props.notifications.salesUploadReminderCount }}</span> branch(es) missing sales for yesterday</p>
+                                    <p class="text-xs text-blue-500 mt-1">Click to view details</p>
+                                </div>
+                            </DropdownMenuItem>
                             <DropdownMenuItem v-if="page.props.notifications?.massOrdersApprovalCount > 0" class="cursor-pointer px-4 py-3 hover:bg-gray-50 flex items-start gap-3" @click="router.visit(route('mass-orders-approval.index'))">
                                 <div class="flex-shrink-0 w-2 h-2 rounded-full bg-red-500 mt-1.5"></div>
                                 <div class="flex-1 min-w-0">

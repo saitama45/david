@@ -48,8 +48,82 @@ class HandleInertiaRequests extends Middleware
         $monthEndLvl1Dates = [];
         $monthEndLvl2Count = 0;
         $monthEndLvl2Dates = [];
+        $orderReceivingCount = 0;
+        $orderReceivingDates = [];
+        $salesUploadReminderCount = 0;
+        $salesUploadMissingDetails = [];
 
         if ($user) {
+            if ($user->can('view store transactions')) {
+                $user->load('store_branches');
+                $assignedStoreIds = $user->store_branches->pluck('id');
+                
+                if ($assignedStoreIds->isEmpty()) {
+                    $salesUploadReminderCount = 0;
+                } else {
+                    $startDate = \Carbon\Carbon::today()->subDays(30);
+                    $endDate = \Carbon\Carbon::yesterday();
+                    $datesToCheck = [];
+                    
+                    for ($date = $endDate->copy(); $date->gte($startDate); $date->subDay()) {
+                        $datesToCheck[] = $date->format('Y-m-d');
+                    }
+
+                    $existingTransactions = \App\Models\StoreTransaction::whereIn('store_branch_id', $assignedStoreIds)
+                        ->whereBetween('order_date', [$startDate->format('Y-m-d'), $endDate->format('Y-m-d')])
+                        ->get(['store_branch_id', 'order_date'])
+                        ->groupBy('store_branch_id')
+                        ->map(function ($transactions) {
+                            return $transactions->pluck('order_date')->map(function($date) {
+                                return \Carbon\Carbon::parse($date)->format('Y-m-d');
+                            })->toArray();
+                        });
+
+                    $branches = \App\Models\StoreBranch::whereIn('id', $assignedStoreIds)
+                        ->where('is_active', true)
+                        ->pluck('name', 'id');
+
+                    foreach ($branches as $branchId => $branchName) {
+                        $branchTransactions = $existingTransactions->get($branchId, []);
+                        
+                        foreach ($datesToCheck as $checkDate) {
+                            if (!in_array($checkDate, $branchTransactions)) {
+                                $salesUploadMissingDetails[] = [
+                                    'branch' => $branchName,
+                                    'date' => \Carbon\Carbon::parse($checkDate)->format('M d, Y'),
+                                    'raw_date' => $checkDate
+                                ];
+                            }
+                        }
+                    }
+                    
+                    $salesUploadReminderCount = count($salesUploadMissingDetails);
+                }
+            }
+
+            if ($user->can('view approved orders')) {
+                $user->load('store_branches');
+                $assignedStoreIds = $user->store_branches->pluck('id');
+
+                $orderReceivingQuery = \App\Models\StoreOrder::where('order_status', \App\Enum\OrderStatus::COMMITTED->value);
+
+                if (!$user->hasRole('admin') && $assignedStoreIds->isNotEmpty()) {
+                    $orderReceivingQuery->whereIn('store_branch_id', $assignedStoreIds);
+                } elseif (!$user->hasRole('admin') && $assignedStoreIds->isEmpty()) {
+                     $orderReceivingQuery->whereRaw('1 = 0');
+                }
+
+                $orderReceivingCount = $orderReceivingQuery->count();
+                if ($orderReceivingCount > 0) {
+                    $orderReceivingDates = $orderReceivingQuery->pluck('order_date')
+                        ->unique()
+                        ->sort()
+                        ->map(fn($date) => \Carbon\Carbon::parse($date)->format('M d, Y'))
+                        ->values()
+                        ->toArray();
+                }
+            }
+
             if ($user->can('view mass order approval')) {
                 $suppliersForApproval = \App\Models\Supplier::where('is_forapproval_massorders', true)->pluck('id');
                 $massOrdersApprovalCount = \App\Models\StoreOrder::where('variant', 'mass regular')
@@ -270,6 +344,10 @@ class HandleInertiaRequests extends Middleware
                 'monthEndLvl1Dates' => $monthEndLvl1Dates,
                 'monthEndLvl2Count' => $monthEndLvl2Count,
                 'monthEndLvl2Dates' => $monthEndLvl2Dates,
+                'orderReceivingCount' => $orderReceivingCount,
+                'orderReceivingDates' => $orderReceivingDates,
+                'salesUploadReminderCount' => $salesUploadReminderCount,
+                'salesUploadMissingDetails' => $salesUploadMissingDetails,
             ],
             'flash' => [
                 'message' => fn() => $request->session()->get('message'),
