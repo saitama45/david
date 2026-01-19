@@ -253,7 +253,7 @@ class OrderReceivingService extends StoreOrderService
         ->whereHas('store_order_item.store_order', function ($query) use ($id) {
             $query->where('id', $id);
         })
-        ->where('status', 'pending')
+        ->whereIn('status', ['pending', 'received'])
         ->get();
 
         foreach ($historyItems as $data) {

@@ -145,7 +145,7 @@ class OrderReceivingController extends Controller
             'quantity_received' => $validated['quantity_received'],
             'remarks' => $validated['remarks'],
             'received_date' => now('Asia/Manila'),
-            'status' => 'approved',
+            'status' => 'received',
             'received_by_user_id' => Auth::id(),
         ]);
 
@@ -194,7 +194,7 @@ class OrderReceivingController extends Controller
                 'store_order_item.supplierItem'
             ])
             ->whereHas('store_order_item.store_order', fn ($q) => $q->where('id', $id))
-            ->where('status', 'pending')
+            ->whereIn('status', ['pending', 'received'])
             ->get();
 
             if ($historyItems->isEmpty()) {
