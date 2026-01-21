@@ -148,19 +148,11 @@ class QtyVarianceCostVarianceReportController extends Controller
 
         $varianceData = $varianceDataRaw->map(function ($item) {
 
-            if ($item->cost === null) {
-
-                return null;
-
-            }
-
-
+            $cost = (float) ($item->cost ?? 0);
 
             $actualInventory = (float) $item->actual_inventory;
 
             $theoreticalInventory = (float) $item->theoretical_inventory;
-
-            $cost = (float) $item->cost;
 
 
 
@@ -202,7 +194,7 @@ class QtyVarianceCostVarianceReportController extends Controller
 
             ];
 
-        })->filter(); // ->filter() will remove null values
+        });
 
 
 
@@ -356,19 +348,11 @@ class QtyVarianceCostVarianceReportController extends Controller
 
         $varianceData = $varianceDataRaw->map(function ($item) {
 
-            if ($item->cost === null) {
-
-                return null;
-
-            }
-
-
+            $cost = (float) ($item->cost ?? 0);
 
             $actualInventory = (float) $item->actual_inventory;
 
             $theoreticalInventory = (float) $item->theoretical_inventory;
-
-            $cost = (float) $item->cost;
 
 
 
@@ -410,7 +394,7 @@ class QtyVarianceCostVarianceReportController extends Controller
 
             ];
 
-        })->filter(); // ->filter() will remove null values
+        });
 
 
 
