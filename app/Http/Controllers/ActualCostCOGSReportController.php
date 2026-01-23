@@ -63,26 +63,29 @@ class ActualCostCOGSReportController extends Controller
             ->where('ci_sched.month', $previousMonth->month)
             ->whereNotNull('ci_total.level2_approved_at');
 
-        $deliveriesSubquery = StoreOrderItem::from('store_order_items as soi')
-            ->select('soi.sap_masterfile_id', 'so.store_branch_id', DB::raw('SUM(soi.quantity_received) as total_qty'))
+        $deliveriesSubquery = DB::table('ordered_item_receive_dates as oird')
+            ->select('sm.id as sap_masterfile_id', 'so.store_branch_id', DB::raw('SUM(oird.quantity_received) as total_qty'))
+            ->join('store_order_items as soi', 'oird.store_order_item_id', '=', 'soi.id')
             ->join('store_orders as so', 'soi.store_order_id', '=', 'so.id')
-            ->where('so.order_status', 'received')
+            ->join('sap_masterfiles as sm', 'soi.item_code', '=', 'sm.ItemCode')
+            ->where('oird.status', 'approved')
             ->where(function ($q) {
                 $q->whereNull('so.variant')->orWhere('so.variant', '!=', 'INTERCO');
             })
-            ->whereYear('so.order_date', $filters['year'])
-            ->whereMonth('so.order_date', $filters['month'])
-            ->groupBy('soi.sap_masterfile_id', 'so.store_branch_id');
+            ->whereYear('oird.received_date', $filters['year'])
+            ->whereMonth('oird.received_date', $filters['month'])
+            ->groupBy('sm.id', 'so.store_branch_id');
 
-        $intercoSubquery = StoreOrderItem::from('store_order_items as soi')
-            ->select('soi.sap_masterfile_id', 'so.store_branch_id', DB::raw('SUM(soi.quantity_received) as total_qty'))
+        $intercoSubquery = DB::table('ordered_item_receive_dates as oird')
+            ->select('sm.id as sap_masterfile_id', 'so.store_branch_id', DB::raw('SUM(oird.quantity_received) as total_qty'))
+            ->join('store_order_items as soi', 'oird.store_order_item_id', '=', 'soi.id')
             ->join('store_orders as so', 'soi.store_order_id', '=', 'so.id')
-            ->where('so.order_status', 'received')
+            ->join('sap_masterfiles as sm', 'soi.item_code', '=', 'sm.ItemCode')
+            ->where('oird.status', 'approved')
             ->where('so.variant', 'INTERCO')
-            ->where('so.interco_status', 'received')
-            ->whereYear('so.order_date', $filters['year'])
-            ->whereMonth('so.order_date', $filters['month'])
-            ->groupBy('soi.sap_masterfile_id', 'so.store_branch_id');
+            ->whereYear('oird.received_date', $filters['year'])
+            ->whereMonth('oird.received_date', $filters['month'])
+            ->groupBy('sm.id', 'so.store_branch_id');
 
         $baseQuery = DB::table('month_end_count_items as meci')
             ->select([
@@ -145,7 +148,9 @@ class ActualCostCOGSReportController extends Controller
                   ->orWhere('base.ending_inventory', '>', 0);
             });
 
-        $paginatedData = $fullQuery->orderBy('store_branch')->orderBy('item_code')->paginate($filters['per_page']);
+        $paginatedData = $fullQuery->orderBy('store_branch')->orderBy('item_code')
+            ->paginate($filters['per_page'])
+            ->withQueryString();
 
         return Inertia::render('Reports/ActualCostCOGSReport/Index', [
             'reportData' => $paginatedData->items(),
@@ -199,26 +204,29 @@ class ActualCostCOGSReportController extends Controller
             ->where('ci_sched.month', $previousMonth->month)
             ->whereNotNull('ci_total.level2_approved_at');
 
-        $deliveriesSubquery = StoreOrderItem::from('store_order_items as soi')
-            ->select('soi.sap_masterfile_id', 'so.store_branch_id', DB::raw('SUM(soi.quantity_received) as total_qty'))
+        $deliveriesSubquery = DB::table('ordered_item_receive_dates as oird')
+            ->select('sm.id as sap_masterfile_id', 'so.store_branch_id', DB::raw('SUM(oird.quantity_received) as total_qty'))
+            ->join('store_order_items as soi', 'oird.store_order_item_id', '=', 'soi.id')
             ->join('store_orders as so', 'soi.store_order_id', '=', 'so.id')
-            ->where('so.order_status', 'received')
+            ->join('sap_masterfiles as sm', 'soi.item_code', '=', 'sm.ItemCode')
+            ->where('oird.status', 'approved')
             ->where(function ($q) {
                 $q->whereNull('so.variant')->orWhere('so.variant', '!=', 'INTERCO');
             })
-            ->whereYear('so.order_date', $filters['year'])
-            ->whereMonth('so.order_date', $filters['month'])
-            ->groupBy('soi.sap_masterfile_id', 'so.store_branch_id');
+            ->whereYear('oird.received_date', $filters['year'])
+            ->whereMonth('oird.received_date', $filters['month'])
+            ->groupBy('sm.id', 'so.store_branch_id');
 
-        $intercoSubquery = StoreOrderItem::from('store_order_items as soi')
-            ->select('soi.sap_masterfile_id', 'so.store_branch_id', DB::raw('SUM(soi.quantity_received) as total_qty'))
+        $intercoSubquery = DB::table('ordered_item_receive_dates as oird')
+            ->select('sm.id as sap_masterfile_id', 'so.store_branch_id', DB::raw('SUM(oird.quantity_received) as total_qty'))
+            ->join('store_order_items as soi', 'oird.store_order_item_id', '=', 'soi.id')
             ->join('store_orders as so', 'soi.store_order_id', '=', 'so.id')
-            ->where('so.order_status', 'received')
+            ->join('sap_masterfiles as sm', 'soi.item_code', '=', 'sm.ItemCode')
+            ->where('oird.status', 'approved')
             ->where('so.variant', 'INTERCO')
-            ->where('so.interco_status', 'received')
-            ->whereYear('so.order_date', $filters['year'])
-            ->whereMonth('so.order_date', $filters['month'])
-            ->groupBy('soi.sap_masterfile_id', 'so.store_branch_id');
+            ->whereYear('oird.received_date', $filters['year'])
+            ->whereMonth('oird.received_date', $filters['month'])
+            ->groupBy('sm.id', 'so.store_branch_id');
 
         $baseQuery = DB::table('month_end_count_items as meci')
             ->select([
