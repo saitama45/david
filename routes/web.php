@@ -800,6 +800,7 @@ Route::middleware('auth')
         Route::controller(StockManagementController::class)->prefix('stock-management')->name('stock-management.')->group(function () {
             Route::middleware('permission:view stock management')->get('/', 'index')->name('index');
             Route::middleware('permission:view stock management history')->get('/show/{id}', 'show')->name('show');
+            Route::middleware('permission:export stock management history')->get('/show/{id}/export', 'exportHistory')->name('export-history');
             Route::middleware('permission:log stock usage')->post('/log-usage', 'logUsage')->name('log-usage');
             Route::middleware('permission:add stock quantity')->post('/add-quantity', 'addQuantity')->name('add-quantity');
             Route::middleware('permission:export stock management')->get('export', 'export')->name('export');

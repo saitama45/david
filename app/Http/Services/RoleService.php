@@ -195,7 +195,7 @@ class RoleService
                     'view bom list', 'view bom', 'create bom', 'edit bom', 'delete bom', 'export bom list'
                 ],
                 'Stock Management' => [
-                    'view stock management', 'log stock usage', 'add stock quantity', 'view stock management history', 'export stock management'
+                    'view stock management', 'log stock usage', 'add stock quantity', 'view stock management history', 'export stock management', 'export stock management history'
                 ],
                 'SOH Adjustment' => [
                     'view soh adjustment', 'create soh adjustment', 'edit soh adjustment', 'delete soh adjustment', 'export soh adjustment'

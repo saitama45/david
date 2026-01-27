@@ -219,6 +219,7 @@ class RolesAndPermissionSeeder extends Seeder
         Permission::firstOrCreate(['name' => 'add stock quantity']);
         Permission::firstOrCreate(['name' => 'view stock management history']);
         Permission::firstOrCreate(['name' => 'export stock management']); // Added export
+        Permission::firstOrCreate(['name' => 'export stock management history']); // Added export history
 
         // SOH Adjustment (Added for consistency)
         Permission::firstOrCreate(['name' => 'view soh adjustment']);
@@ -459,6 +460,7 @@ class RolesAndPermissionSeeder extends Seeder
             'view dts orders', 'edit dts orders', 'view dts order', 'create dts orders',
             'view approved orders', 'view approved order', 'receive orders',
             'view stock management', 'log stock usage', 'add stock quantity', 'view stock management history',
+            'export stock management history',
             'view items order summary', 'view templates', 'view low on stocks',
             // Added for consistency
             'view emergency orders', 'create emergency orders', 'edit emergency orders',

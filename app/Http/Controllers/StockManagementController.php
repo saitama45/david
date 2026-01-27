@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Exports\StockManagementHistoryExport;
 use App\Exports\StockManagementListExport;
 use App\Exports\StockManagementLogUsageExport;
 use App\Exports\StockManagementUpdateExport;
@@ -331,6 +332,82 @@ class StockManagementController extends Controller
             'branches' => $branches,
             'history' => $historyPaginated
         ]);
+    }
+
+    public function exportHistory(Request $request, $id)
+    {
+        $branches = StoreBranch::options();
+
+        // --- Start More Robust Fix for branchId in show/export method ---
+        $requestedBranchId = $request->query('branchId');
+        $branchId = null; // Default to null
+
+        if ($requestedBranchId === 'all' || empty($requestedBranchId)) {
+            // If 'all' or empty, try to find the first *actual numeric* branch ID
+            $firstActualBranch = $branches->filter(function($option) {
+                return is_numeric($option['value']);
+            })->first();
+
+            $branchId = optional($firstActualBranch)['value'] ?? null;
+        } elseif (is_numeric($requestedBranchId)) {
+            $branchId = (int) $requestedBranchId;
+        }
+
+        if ($branchId === null) {
+            return back()->withErrors(['branch' => 'No store branch selected or available for export.']);
+        }
+        // --- End More Robust Fix for branchId ---
+
+        // Fetch all history records, ordered chronologically (ASC)
+        $rawHistory = ProductInventoryStockManager::with(['cost_center', 'sapMasterfile', 'purchaseItemBatch.storeOrderItem.store_order'])
+            ->where('product_inventory_id', $id)
+            ->where('store_branch_id', $branchId)
+            ->orderBy('transaction_date', 'asc')
+            ->orderBy('id', 'asc')
+            ->get();
+
+        $chronologicalTransactions = collect();
+
+        $runningSOH = 0;
+        // Process all transactions chronologically to calculate running SOH correctly
+        foreach ($rawHistory as $item) {
+            $quantityChange = in_array($item->action, ['add', 'add_quantity']) ? $item->quantity : -$item->quantity;
+            $runningSOH += $quantityChange;
+            $item->running_soh = $runningSOH;
+
+            // --- Start Ref No Parsing Logic ---
+            $item->display_ref_no = 'N/a';
+            $remarkText = $item->remarks;
+
+            if (str_contains((string)$item->remarks, '||MEC_REF::')) {
+                $parts = explode('||', $item->remarks);
+                $remarkText = $parts[0];
+                $refPart = $parts[1] ?? '';
+                if (preg_match('/MEC_REF::(\d+),(\d+)/', $refPart, $matches)) {
+                    $item->display_ref_no = "MEC-{$matches[1]}-{$matches[2]}";
+                }
+            } elseif ($item->purchaseItemBatch?->storeOrderItem?->store_order?->order_number) {
+                $item->display_ref_no = $item->purchaseItemBatch->storeOrderItem->store_order->order_number;
+            } elseif (preg_match('/Interco transfer to .* \(Interco: (.*?)\)/', $item->remarks, $matches)) {
+                $item->display_ref_no = $matches[1];
+            } elseif (preg_match('/Wastage Approval Level 2: (WASTE-[^-\s]+-\d+)/', $item->remarks, $matches)) {
+                $item->display_ref_no = $matches[1];
+            } elseif (preg_match('/Receipt No\. (\d+)/', $item->remarks, $matches)) {
+                $item->display_ref_no = $matches[1];
+            }
+            // --- End Ref No Parsing Logic ---
+
+            $item->remarks = $remarkText;
+            $chronologicalTransactions->push($item);
+        }
+
+        // Prepare final display order: newest transactions first
+        $processedHistory = $chronologicalTransactions->reverse()->values();
+
+        return Excel::download(
+            new StockManagementHistoryExport($processedHistory),
+            'stock-management-history-' . now()->format('Y-m-d') . '.xlsx'
+        );
     }
 
     public function logUsage(Request $request)
