@@ -273,16 +273,16 @@ class ActualCostCOGSReportExport implements FromCollection, WithHeadings, WithMa
             $item['item_code'],
             $item['item_description'],
             $item['uom'],
-            number_format($item['unit_cost'], 2),
-            number_format($item['beginning_inventory'], 2),
-            number_format($item['beginning_value'], 2),
-            number_format($item['deliveries'], 2),
-            number_format($item['deliveries_value'], 2),
-            number_format($item['interco'], 2),
-            number_format($item['interco_value'], 2),
-            number_format($item['ending_inventory'], 2),
-            number_format($item['ending_value'], 2),
-            number_format($item['actual_cost'], 2),
+            $item['unit_cost'],
+            $item['beginning_inventory'],
+            $item['beginning_value'],
+            $item['deliveries'],
+            $item['deliveries_value'],
+            $item['interco'],
+            $item['interco_value'],
+            $item['ending_inventory'],
+            $item['ending_value'],
+            $item['actual_cost'],
         ];
     }
 
@@ -327,7 +327,7 @@ class ActualCostCOGSReportExport implements FromCollection, WithHeadings, WithMa
             // Value columns - right align, currency format
             $sheet->getStyle($valueCol . $dataStartRow . ':' . $valueCol . $highestRow)->applyFromArray([
                 'alignment' => ['horizontal' => Alignment::HORIZONTAL_RIGHT],
-                'numberFormat' => ['formatCode' => NumberFormat::FORMAT_CURRENCY_USD_SIMPLE], // Assuming currency
+                'numberFormat' => ['formatCode' => NumberFormat::FORMAT_NUMBER_COMMA_SEPARATED1], 
             ]);
             $currentColIndex += 2;
         }
@@ -336,7 +336,7 @@ class ActualCostCOGSReportExport implements FromCollection, WithHeadings, WithMa
         $actualCostCol = Coordinate::stringFromColumnIndex($currentColIndex);
         $sheet->getStyle($actualCostCol . $dataStartRow . ':' . $actualCostCol . $highestRow)->applyFromArray([
             'alignment' => ['horizontal' => Alignment::HORIZONTAL_RIGHT],
-            'numberFormat' => ['formatCode' => NumberFormat::FORMAT_CURRENCY_USD_SIMPLE], // Assuming currency
+            'numberFormat' => ['formatCode' => NumberFormat::FORMAT_NUMBER_COMMA_SEPARATED1], 
             'font' => ['bold' => true], // Make actual cost bold
         ]);
 
