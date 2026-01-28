@@ -560,7 +560,12 @@ watchEffect(() => {
                 <ChevronRight v-else class="h-4 w-4" />
             </CollapsibleTrigger>
             <CollapsibleContent class="pl-2">
-                <NavLink href="/direct-receiving" :icon="ShoppingBasket" :is-active="isPathActive('/direct-receiving')">
+                <NavLink
+                    v-if="hasAccess('view direct receiving')"
+                    href="/direct-receiving"
+                    :icon="ShoppingBasket"
+                    :is-active="isPathActive('/direct-receiving')"
+                >
                     Direct Receiving
                 </NavLink>
                 <NavLink
