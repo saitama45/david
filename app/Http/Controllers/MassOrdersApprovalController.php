@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\StoreOrder;
 use App\Models\Supplier;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 use Inertia\Inertia;
 use App\Enum\OrderStatus;
 
@@ -12,11 +13,16 @@ class MassOrdersApprovalController extends Controller
 {
     public function index(Request $request)
     {
+        $user = Auth::user();
+        $user->load('store_branches');
+        $branchIds = $user->store_branches->pluck('id');
+
         $suppliersForApproval = Supplier::where('is_forapproval_massorders', true)->pluck('id');
 
         $query = StoreOrder::with(['supplier', 'store_branch'])
             ->where('variant', 'mass regular')
-            ->whereIn('supplier_id', $suppliersForApproval);
+            ->whereIn('supplier_id', $suppliersForApproval)
+            ->whereIn('store_branch_id', $branchIds);
 
         $filter = $request->input('filter', 'pending');
 
@@ -27,9 +33,9 @@ class MassOrdersApprovalController extends Controller
         $orders = $query->latest()->paginate(15)->withQueryString();
 
         $counts = [
-            'all' => StoreOrder::where('variant', 'mass regular')->whereIn('supplier_id', $suppliersForApproval)->count(),
-            'pending' => StoreOrder::where('variant', 'mass regular')->whereIn('supplier_id', $suppliersForApproval)->where('order_status', 'pending')->count(),
-            'approved' => StoreOrder::where('variant', 'mass regular')->whereIn('supplier_id', $suppliersForApproval)->where('order_status', 'approved')->count(),
+            'all' => StoreOrder::where('variant', 'mass regular')->whereIn('supplier_id', $suppliersForApproval)->whereIn('store_branch_id', $branchIds)->count(),
+            'pending' => StoreOrder::where('variant', 'mass regular')->whereIn('supplier_id', $suppliersForApproval)->where('order_status', 'pending')->whereIn('store_branch_id', $branchIds)->count(),
+            'approved' => StoreOrder::where('variant', 'mass regular')->whereIn('supplier_id', $suppliersForApproval)->where('order_status', 'approved')->whereIn('store_branch_id', $branchIds)->count(),
         ];
 
         return Inertia::render('MassOrdersApproval/Index', [
