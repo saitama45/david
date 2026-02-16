@@ -327,6 +327,7 @@ class StockManagementController extends Controller
             $currentPage,
             ['path' => $request->url()]
         );
+        $historyPaginated->withQueryString();
 
         return Inertia::render('StockManagement/Show', [
             'branches' => $branches,
