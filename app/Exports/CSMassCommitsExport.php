@@ -26,7 +26,7 @@ class CSMassCommitsExport implements FromCollection, WithHeadings, WithStyles, W
     public function collection()
     {
         // Define fields that are text-based and should not default to 0
-        $textFields = ['category', 'classification', 'item_code', 'item_name', 'unit', 'whse', 'remarks'];
+        $textFields = ['category', 'classification', 'item_code', 'item_name', 'unit', 'whse', 'remarks', 'committed_date'];
 
         // Map each report item to an ordered array based on the header fields
         return collect($this->reportData)->map(function ($row) use ($textFields) {

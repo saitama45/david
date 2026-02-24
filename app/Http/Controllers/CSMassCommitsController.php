@@ -184,6 +184,7 @@ class CSMassCommitsController extends Controller
             \Illuminate\Support\Facades\DB::raw('MAX(supplier_items.sort_order) as sort_order'),
             \Illuminate\Support\Facades\DB::raw('MAX(suppliers.supplier_code) as supplier_code'),
             \Illuminate\Support\Facades\DB::raw('SUM(store_order_items.quantity_commited) as total_quantity'),
+            \Illuminate\Support\Facades\DB::raw('MAX(store_order_items.committed_date) as committed_date'),
             \Illuminate\Support\Facades\DB::raw('MAX(store_order_items.updated_at) as updated_at'),
         ];
 
@@ -310,6 +311,7 @@ class CSMassCommitsController extends Controller
             ['label' => 'TOTAL', 'field' => 'total_quantity'],
             ['label' => 'WHSE', 'field' => 'whse'],
             ['label' => 'Remarks', 'field' => 'remarks'],
+            ['label' => 'Committed Date', 'field' => 'committed_date'],
         ];
 
         $allHeaders = array_merge($staticHeaders, $dynamicBranchHeaders, $trailingHeaders);

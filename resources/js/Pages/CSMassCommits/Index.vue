@@ -1349,7 +1349,12 @@ onMounted(() => {
 
                                 <td v-for="header in trailingHeaders" :key="header.field"
                                     class="px-4 py-3 text-right whitespace-nowrap">
-                                    {{ formatQuantity(row[header.field]) }}
+                                    <template v-if="header.field === 'committed_date'">
+                                        {{ formatUpdatedAt(row[header.field]) }}
+                                    </template>
+                                    <template v-else>
+                                        {{ formatQuantity(row[header.field]) }}
+                                    </template>
                                 </td>
                                 
                                 <!-- Updated At Column -->
