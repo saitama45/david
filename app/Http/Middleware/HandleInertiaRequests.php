@@ -31,47 +31,72 @@ class HandleInertiaRequests extends Middleware
     public function share(Request $request): array
     {
         $user = $request->user();
-        $massOrdersApprovalCount = 0;
-        $csMassCommitsCount = 0;
-        $csMassCommitsDates = [];
-        $csDtsMassCommitsCount = 0;
-        $csDtsMassCommitsBatches = [];
-        $intercoApprovalCount = 0;
-        $intercoApprovalDates = [];
-        $storeCommitsCount = 0;
-        $storeCommitsDates = [];
-        $wastageLvl1Count = 0;
-        $wastageLvl1Dates = [];
-        $wastageLvl2Count = 0;
-        $wastageLvl2Dates = [];
-        $monthEndLvl1Count = 0;
-        $monthEndLvl1Dates = [];
-        $monthEndLvl2Count = 0;
-        $monthEndLvl2Dates = [];
-        $orderReceivingCount = 0;
-        $orderReceivingDates = [];
-        $salesUploadReminderCount = 0;
-        $salesUploadMissingDetails = [];
+
+        $notifications = [
+            'massOrdersApprovalCount' => 0,
+            'csMassCommitsCount' => 0,
+            'csMassCommitsDates' => [],
+            'csDtsMassCommitsCount' => 0,
+            'csDtsMassCommitsBatches' => [],
+            'intercoApprovalCount' => 0,
+            'intercoApprovalDates' => [],
+            'storeCommitsCount' => 0,
+            'storeCommitsDates' => [],
+            'wastageLvl1Count' => 0,
+            'wastageLvl1Dates' => [],
+            'wastageLvl2Count' => 0,
+            'wastageLvl2Dates' => [],
+            'monthEndLvl1Count' => 0,
+            'monthEndLvl1Dates' => [],
+            'monthEndLvl2Count' => 0,
+            'monthEndLvl2Dates' => [],
+            'orderReceivingCount' => 0,
+            'orderReceivingDates' => [],
+            'salesUploadReminderCount' => 0,
+            'salesUploadMissingDetails' => [],
+        ];
 
         if ($user) {
-            if ($user->can('view store transactions')) {
-                $user->load('store_branches');
-                $assignedStoreIds = $user->store_branches->pluck('id');
-                
-                if ($assignedStoreIds->isEmpty()) {
-                    $salesUploadReminderCount = 0;
-                } else {
+            $cacheKey = 'user_notifications_v3_' . $user->id;
+            
+            $notifications = \Illuminate\Support\Facades\Cache::remember($cacheKey, now()->addMinutes(15), function () use ($user) {
+                $data = [
+                    'massOrdersApprovalCount' => 0,
+                    'csMassCommitsCount' => 0,
+                    'csMassCommitsDates' => [],
+                    'csDtsMassCommitsCount' => 0,
+                    'csDtsMassCommitsBatches' => [],
+                    'intercoApprovalCount' => 0,
+                    'intercoApprovalDates' => [],
+                    'storeCommitsCount' => 0,
+                    'storeCommitsDates' => [],
+                    'wastageLvl1Count' => 0,
+                    'wastageLvl1Dates' => [],
+                    'wastageLvl2Count' => 0,
+                    'wastageLvl2Dates' => [],
+                    'monthEndLvl1Count' => 0,
+                    'monthEndLvl1Dates' => [],
+                    'monthEndLvl2Count' => 0,
+                    'monthEndLvl2Dates' => [],
+                    'orderReceivingCount' => 0,
+                    'orderReceivingDates' => [],
+                    'salesUploadReminderCount' => 0,
+                    'salesUploadMissingDetails' => [],
+                ];
+
+                $assignedStoreIds = \App\Models\UserAssignedStoreBranch::where('user_id', $user->id)
+                    ->pluck('store_branch_id');
+
+                if ($user->can('view store transactions') && $assignedStoreIds->isNotEmpty()) {
                     $startDate = \Carbon\Carbon::today()->subDays(30);
                     $endDate = \Carbon\Carbon::yesterday();
-                    $datesToCheck = [];
                     
-                    for ($date = $endDate->copy(); $date->gte($startDate); $date->subDay()) {
-                        $datesToCheck[] = $date->format('Y-m-d');
-                    }
-
+                    // CRITICAL FIX: Use distinct and select only needed columns to avoid pulling millions of rows
                     $existingTransactions = \App\Models\StoreTransaction::whereIn('store_branch_id', $assignedStoreIds)
                         ->whereBetween('order_date', [$startDate->format('Y-m-d'), $endDate->format('Y-m-d')])
-                        ->get(['store_branch_id', 'order_date'])
+                        ->select('store_branch_id', 'order_date')
+                        ->distinct()
+                        ->get()
                         ->groupBy('store_branch_id')
                         ->map(function ($transactions) {
                             return $transactions->pluck('order_date')->map(function($date) {
@@ -83,239 +108,194 @@ class HandleInertiaRequests extends Middleware
                         ->where('is_active', true)
                         ->pluck('name', 'id');
 
+                    $datesToCheck = [];
+                    for ($date = $endDate->copy(); $date->gte($startDate); $date->subDay()) {
+                        $datesToCheck[] = $date->format('Y-m-d');
+                    }
+
                     foreach ($branches as $branchId => $branchName) {
                         $branchTransactions = $existingTransactions->get($branchId, []);
-                        
                         foreach ($datesToCheck as $checkDate) {
                             if (!in_array($checkDate, $branchTransactions)) {
-                                $salesUploadMissingDetails[] = [
+                                $data['salesUploadMissingDetails'][] = [
                                     'branch' => $branchName,
                                     'date' => \Carbon\Carbon::parse($checkDate)->format('M d, Y'),
-                                    'raw_date' => $checkDate
                                 ];
+                                if (count($data['salesUploadMissingDetails']) >= 50) break 2; // Hard limit for memory safety
                             }
                         }
                     }
-                    
-                    $salesUploadReminderCount = count($salesUploadMissingDetails);
-                }
-            }
-
-            if ($user->can('view approved orders')) {
-                $user->load('store_branches');
-                $assignedStoreIds = $user->store_branches->pluck('id');
-
-                $orderReceivingQuery = \App\Models\StoreOrder::where('order_status', \App\Enum\OrderStatus::COMMITTED->value);
-
-                if (!$user->hasRole('admin') && $assignedStoreIds->isNotEmpty()) {
-                    $orderReceivingQuery->whereIn('store_branch_id', $assignedStoreIds);
-                } elseif (!$user->hasRole('admin') && $assignedStoreIds->isEmpty()) {
-                     $orderReceivingQuery->whereRaw('1 = 0');
+                    $data['salesUploadReminderCount'] = count($data['salesUploadMissingDetails']);
                 }
 
-                $orderReceivingCount = $orderReceivingQuery->count();
-                if ($orderReceivingCount > 0) {
-                    $orderReceivingDates = $orderReceivingQuery->pluck('order_date')
-                        ->unique()
-                        ->sort()
-                        ->map(fn($date) => \Carbon\Carbon::parse($date)->format('M d, Y'))
-                        ->values()
-                        ->toArray();
+                if ($user->can('view approved orders')) {
+                    $orderReceivingQuery = \App\Models\StoreOrder::where('order_status', \App\Enum\OrderStatus::COMMITTED->value);
+                    if (!$user->hasRole('admin')) {
+                        $orderReceivingQuery->whereIn('store_branch_id', $assignedStoreIds);
+                    }
+                    $data['orderReceivingCount'] = $orderReceivingQuery->count();
+                    if ($data['orderReceivingCount'] > 0) {
+                        $data['orderReceivingDates'] = $orderReceivingQuery->select('order_date')
+                            ->distinct()
+                            ->orderBy('order_date')
+                            ->limit(10)
+                            ->pluck('order_date')
+                            ->map(fn($date) => \Carbon\Carbon::parse($date)->format('M d, Y'))
+                            ->values()
+                            ->toArray();
+                    }
                 }
-            }
 
-            if ($user->can('view mass order approval')) {
-                $suppliersForApproval = \App\Models\Supplier::where('is_forapproval_massorders', true)->pluck('id');
-                $massOrdersApprovalCount = \App\Models\StoreOrder::where('variant', 'mass regular')
-                    ->whereIn('supplier_id', $suppliersForApproval)
-                    ->where('order_status', 'pending')
-                    ->count();
-            }
-
-            if ($user->can('edit finished good commits') || $user->can('edit other commits')) {
-                $csMassCommitsQuery = \App\Models\StoreOrder::where('variant', 'mass regular')
-                    ->where('order_status', 'approved')
-                    ->whereHas('storeOrderItems', function ($q) {
-                        $q->where('quantity_commited', '>', 0);
-                    });
-
-                $csMassCommitsCount = $csMassCommitsQuery->count();
-                
-                if ($csMassCommitsCount > 0) {
-                     $csMassCommitsDates = $csMassCommitsQuery->pluck('order_date')
-                        ->unique()
-                        ->sort()
-                        ->map(fn($date) => \Carbon\Carbon::parse($date)->format('M d, Y'))
-                        ->values()
-                        ->toArray();
+                if ($user->can('view mass order approval')) {
+                    $suppliersForApproval = \App\Models\Supplier::where('is_forapproval_massorders', true)->pluck('id');
+                    $data['massOrdersApprovalCount'] = \App\Models\StoreOrder::where('variant', 'mass regular')
+                        ->whereIn('supplier_id', $suppliersForApproval)
+                        ->where('order_status', 'pending')
+                        ->count();
                 }
-            }
 
-            if ($user->can('edit cs dts mass commit')) {
-                $csDtsQuery = \App\Models\StoreOrder::where('variant', 'mass dts')
-                    ->where('order_status', 'approved')
-                    ->whereNotNull('batch_reference');
-
-                $csDtsMassCommitsCount = $csDtsQuery->distinct('batch_reference')->count('batch_reference');
-
-                if ($csDtsMassCommitsCount > 0) {
-                    $csDtsMassCommitsBatches = $csDtsQuery->distinct('batch_reference')
-                        ->pluck('batch_reference')
-                        ->sort()
-                        ->values()
-                        ->toArray();
+                if ($user->can('edit finished good commits') || $user->can('edit other commits')) {
+                    $csMassCommitsQuery = \App\Models\StoreOrder::where('variant', 'mass regular')
+                        ->where('order_status', 'approved')
+                        ->whereHas('storeOrderItems', function ($q) {
+                            $q->where('quantity_commited', '>', 0);
+                        });
+                    $data['csMassCommitsCount'] = $csMassCommitsQuery->count();
+                    if ($data['csMassCommitsCount'] > 0) {
+                         $data['csMassCommitsDates'] = $csMassCommitsQuery->select('order_date')->distinct()->limit(10)->pluck('order_date')
+                            ->map(fn($date) => \Carbon\Carbon::parse($date)->format('M d, Y'))
+                            ->values()
+                            ->toArray();
+                    }
                 }
-            }
 
-            if ($user->can('view interco approvals')) {
-                $user->load('store_branches');
-                $assignedStoreIds = $user->store_branches->pluck('id');
+                if ($user->can('edit cs dts mass commit')) {
+                    $csDtsQuery = \App\Models\StoreOrder::where('variant', 'mass dts')
+                        ->where('order_status', 'approved')
+                        ->whereNotNull('batch_reference');
+                    $data['csDtsMassCommitsCount'] = $csDtsQuery->distinct('batch_reference')->count('batch_reference');
+                    if ($data['csDtsMassCommitsCount'] > 0) {
+                        $data['csDtsMassCommitsBatches'] = $csDtsQuery->distinct('batch_reference')->limit(10)->pluck('batch_reference')->toArray();
+                    }
+                }
 
-                if ($assignedStoreIds->isNotEmpty()) {
+                if ($user->can('view interco approvals') && $assignedStoreIds->isNotEmpty()) {
                     $intercoApprovalQuery = \App\Models\StoreOrder::whereNotNull('interco_number')
-                        ->whereNotNull('sending_store_branch_id')
                         ->where('variant', 'INTERCO')
                         ->whereIn('store_branch_id', $assignedStoreIds)
                         ->where('interco_status', 'open');
-
-                    $intercoApprovalCount = $intercoApprovalQuery->count();
-                    if ($intercoApprovalCount > 0) {
-                        $intercoApprovalDates = $intercoApprovalQuery->pluck('order_date')
-                            ->unique()
-                            ->sort()
+                    $data['intercoApprovalCount'] = $intercoApprovalQuery->count();
+                    if ($data['intercoApprovalCount'] > 0) {
+                        $data['intercoApprovalDates'] = $intercoApprovalQuery->select('order_date')->distinct()->limit(10)->pluck('order_date')
                             ->map(fn($date) => \Carbon\Carbon::parse($date)->format('M d, Y'))
                             ->values()
                             ->toArray();
                     }
                 }
-            }
 
-            if ($user->can('view store commits')) {
-                $user->load('store_branches');
-                $assignedSendingStoreIds = $user->store_branches->pluck('id');
-
-                $storeCommitsQuery = \App\Models\StoreOrder::whereNotNull('interco_number')
-                    ->whereNotNull('store_branch_id')
-                    ->whereNotNull('interco_status')
-                    ->where('interco_status', 'approved');
-
-                if (!$user->is_admin && $assignedSendingStoreIds->isNotEmpty()) {
-                    $storeCommitsQuery->whereIn('sending_store_branch_id', $assignedSendingStoreIds);
-                } elseif (!$user->is_admin && $assignedSendingStoreIds->isEmpty()) {
-                     $storeCommitsQuery->whereRaw('1 = 0');
+                if ($user->can('view store commits')) {
+                    $storeCommitsQuery = \App\Models\StoreOrder::whereNotNull('interco_number')
+                        ->where('interco_status', 'approved');
+                    if (!$user->hasRole('admin')) {
+                        $storeCommitsQuery->whereIn('sending_store_branch_id', $assignedStoreIds);
+                    }
+                    $data['storeCommitsCount'] = $storeCommitsQuery->count();
+                    if ($data['storeCommitsCount'] > 0) {
+                        $data['storeCommitsDates'] = $storeCommitsQuery->select('order_date')->distinct()->limit(10)->pluck('order_date')
+                            ->map(fn($date) => \Carbon\Carbon::parse($date)->format('M d, Y'))
+                            ->values()
+                            ->toArray();
+                    }
                 }
-
-                $storeCommitsCount = $storeCommitsQuery->count();
-                if ($storeCommitsCount > 0) {
-                    $storeCommitsDates = $storeCommitsQuery->pluck('order_date')
-                        ->unique()
-                        ->sort()
-                        ->map(fn($date) => \Carbon\Carbon::parse($date)->format('M d, Y'))
-                        ->values()
-                        ->toArray();
-                }
-            }
-            
-            if ($user->can('view wastage approval level 1')) {
-                \Illuminate\Support\Facades\Log::info('Wastage L1: Permission check passed.');
-                $assignedStoreIds = \App\Models\UserAssignedStoreBranch::where('user_id', $user->id)
-                    ->pluck('store_branch_id');
-                \Illuminate\Support\Facades\Log::info('Wastage L1: Assigned store IDs count: ' . $assignedStoreIds->count());
-                \Illuminate\Support\Facades\Log::info('Wastage L1: Assigned store IDs: ' . $assignedStoreIds->implode(', '));
-
-                if ($assignedStoreIds->isNotEmpty()) {
+                
+                if ($user->can('view wastage approval level 1') && $assignedStoreIds->isNotEmpty()) {
                     $baseWastageLvl1Query = \App\Models\Wastage::whereIn('store_branch_id', $assignedStoreIds)
                         ->where('wastage_status', 'pending');
                     
-                    $wastageLvl1CountSubQuery = (clone $baseWastageLvl1Query)->select('wastage_no', 'store_branch_id')->distinct();
-                    $wastageLvl1Count = \Illuminate\Support\Facades\DB::table($wastageLvl1CountSubQuery, 'sub')->count();
-
-                    \Illuminate\Support\Facades\Log::info('Wastage L1: Calculated count is: ' . $wastageLvl1Count);
-
-                    if ($wastageLvl1Count > 0) {
-                        $wastageLvl1DatesQuery = (clone $baseWastageLvl1Query)
+                    $data['wastageLvl1Count'] = \Illuminate\Support\Facades\DB::table(
+                        (clone $baseWastageLvl1Query)->select('wastage_no', 'store_branch_id')->distinct(), 
+                        'sub'
+                    )->count();
+                    
+                    if ($data['wastageLvl1Count'] > 0) {
+                        $data['wastageLvl1Dates'] = (clone $baseWastageLvl1Query)
                             ->selectRaw('CONVERT(date, created_at) as date')
                             ->distinct()
-                            ->orderBy('date');
-                        
-                        $wastageLvl1Dates = $wastageLvl1DatesQuery->pluck('date')
+                            ->orderBy('date')
+                            ->limit(10)
+                            ->pluck('date')
                             ->map(fn($date) => \Carbon\Carbon::parse($date)->format('M d, Y'))
-                            ->values()
                             ->toArray();
                     }
                 }
-            } else {
-                \Illuminate\Support\Facades\Log::info('Wastage L1: Permission check FAILED.');
-            }
 
-            if ($user->can('view wastage approval level 2')) {
-                $assignedStoreIds = \App\Models\UserAssignedStoreBranch::where('user_id', $user->id)
-                    ->pluck('store_branch_id');
-
-                if ($assignedStoreIds->isNotEmpty()) {
+                if ($user->can('view wastage approval level 2') && $assignedStoreIds->isNotEmpty()) {
                     $baseWastageLvl2Query = \App\Models\Wastage::whereIn('store_branch_id', $assignedStoreIds)
                         ->where('wastage_status', 'approved_lvl1');
                     
-                    $wastageLvl2CountSubQuery = (clone $baseWastageLvl2Query)->select('wastage_no', 'store_branch_id')->distinct();
-                    $wastageLvl2Count = \Illuminate\Support\Facades\DB::table($wastageLvl2CountSubQuery, 'sub')->count();
-
-                    if ($wastageLvl2Count > 0) {
-                        $wastageLvl2DatesQuery = (clone $baseWastageLvl2Query)
+                    $data['wastageLvl2Count'] = \Illuminate\Support\Facades\DB::table(
+                        (clone $baseWastageLvl2Query)->select('wastage_no', 'store_branch_id')->distinct(),
+                        'sub'
+                    )->count();
+                    
+                    if ($data['wastageLvl2Count'] > 0) {
+                        $data['wastageLvl2Dates'] = (clone $baseWastageLvl2Query)
                             ->selectRaw('CONVERT(date, created_at) as date')
                             ->distinct()
-                            ->orderBy('date');
-                        
-                        $wastageLvl2Dates = $wastageLvl2DatesQuery->pluck('date')
+                            ->orderBy('date')
+                            ->limit(10)
+                            ->pluck('date')
                             ->map(fn($date) => \Carbon\Carbon::parse($date)->format('M d, Y'))
-                            ->values()
                             ->toArray();
                     }
                 }
-            }
-            
-            if ($user->can('approve month end count level 1')) {
-                $assignedStoreIds = $user->store_branches->pluck('id');
-                if ($assignedStoreIds->isNotEmpty()) {
+                
+                if ($user->can('approve month end count level 1') && $assignedStoreIds->isNotEmpty()) {
                     $monthEndLvl1Query = \App\Models\MonthEndCountItem::whereIn('branch_id', $assignedStoreIds)
-                        ->where('month_end_count_items.status', 'pending_level1_approval');
+                        ->where('status', 'pending_level1_approval');
                     
-                    $monthEndLvl1SubQuery = (clone $monthEndLvl1Query)->select('month_end_schedule_id', 'branch_id')->distinct();
-                    $monthEndLvl1Count = \Illuminate\Support\Facades\DB::table($monthEndLvl1SubQuery, 'sub')->count();
-
-                    if ($monthEndLvl1Count > 0) {
-                         $monthEndLvl1Dates = $monthEndLvl1Query->join('month_end_schedules as mes', 'month_end_count_items.month_end_schedule_id', '=', 'mes.id')
+                    $data['monthEndLvl1Count'] = \Illuminate\Support\Facades\DB::table(
+                        (clone $monthEndLvl1Query)->select('month_end_schedule_id', 'branch_id')->distinct(),
+                        'sub'
+                    )->count();
+                    
+                    if ($data['monthEndLvl1Count'] > 0) {
+                         $data['monthEndLvl1Dates'] = (clone $monthEndLvl1Query)
+                            ->join('month_end_schedules as mes', 'month_end_count_items.month_end_schedule_id', '=', 'mes.id')
                             ->selectRaw('CONVERT(date, mes.calculated_date) as date')
                             ->distinct()
                             ->orderBy('date')
+                            ->limit(10)
                             ->pluck('date')
                             ->map(fn($date) => \Carbon\Carbon::parse($date)->format('M d, Y'))
-                            ->values()
                             ->toArray();
                     }
                 }
-            }
 
-            if ($user->can('approve month end count level 2')) {
-                $assignedStoreIds = $user->store_branches->pluck('id');
-                if ($assignedStoreIds->isNotEmpty()) {
+                if ($user->can('approve month end count level 2') && $assignedStoreIds->isNotEmpty()) {
                     $monthEndLvl2Query = \App\Models\MonthEndCountItem::whereIn('branch_id', $assignedStoreIds)
-                        ->where('month_end_count_items.status', 'level1_approved');
-
-                    $monthEndLvl2SubQuery = (clone $monthEndLvl2Query)->select('month_end_schedule_id', 'branch_id')->distinct();
-                    $monthEndLvl2Count = \Illuminate\Support\Facades\DB::table($monthEndLvl2SubQuery, 'sub')->count();
+                        ->where('status', 'level1_approved');
                     
-                    if ($monthEndLvl2Count > 0) {
-                         $monthEndLvl2Dates = $monthEndLvl2Query->join('month_end_schedules as mes', 'month_end_count_items.month_end_schedule_id', '=', 'mes.id')
+                    $data['monthEndLvl2Count'] = \Illuminate\Support\Facades\DB::table(
+                        (clone $monthEndLvl2Query)->select('month_end_schedule_id', 'branch_id')->distinct(),
+                        'sub'
+                    )->count();
+                    
+                    if ($data['monthEndLvl2Count'] > 0) {
+                         $data['monthEndLvl2Dates'] = (clone $monthEndLvl2Query)
+                            ->join('month_end_schedules as mes', 'month_end_count_items.month_end_schedule_id', '=', 'mes.id')
                             ->selectRaw('CONVERT(date, mes.calculated_date) as date')
                             ->distinct()
                             ->orderBy('date')
+                            ->limit(10)
                             ->pluck('date')
                             ->map(fn($date) => \Carbon\Carbon::parse($date)->format('M d, Y'))
-                            ->values()
                             ->toArray();
                     }
                 }
-            }
+
+                return $data;
+            });
         }
 
         return [
@@ -326,29 +306,7 @@ class HandleInertiaRequests extends Middleware
                 'permissions' => $request->user() ? $request->user()->getAllPermissions()->pluck('name') : [],
                 'is_admin' => $request->user() ? $request->user()->hasRole('admin') : false,
             ],
-            'notifications' => [
-                'massOrdersApprovalCount' => $massOrdersApprovalCount,
-                'csMassCommitsCount' => $csMassCommitsCount,
-                'csMassCommitsDates' => $csMassCommitsDates,
-                'csDtsMassCommitsCount' => $csDtsMassCommitsCount,
-                'csDtsMassCommitsBatches' => $csDtsMassCommitsBatches,
-                'intercoApprovalCount' => $intercoApprovalCount,
-                'intercoApprovalDates' => $intercoApprovalDates,
-                'storeCommitsCount' => $storeCommitsCount,
-                'storeCommitsDates' => $storeCommitsDates,
-                'wastageLvl1Count' => $wastageLvl1Count,
-                'wastageLvl1Dates' => $wastageLvl1Dates,
-                'wastageLvl2Count' => $wastageLvl2Count,
-                'wastageLvl2Dates' => $wastageLvl2Dates,
-                'monthEndLvl1Count' => $monthEndLvl1Count,
-                'monthEndLvl1Dates' => $monthEndLvl1Dates,
-                'monthEndLvl2Count' => $monthEndLvl2Count,
-                'monthEndLvl2Dates' => $monthEndLvl2Dates,
-                'orderReceivingCount' => $orderReceivingCount,
-                'orderReceivingDates' => $orderReceivingDates,
-                'salesUploadReminderCount' => $salesUploadReminderCount,
-                'salesUploadMissingDetails' => $salesUploadMissingDetails,
-            ],
+            'notifications' => $notifications,
             'flash' => [
                 'message' => fn() => $request->session()->get('message'),
                 'import_summary' => fn() => $request->session()->get('import_summary'),

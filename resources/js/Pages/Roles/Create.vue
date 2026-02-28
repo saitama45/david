@@ -230,10 +230,10 @@ const isPermissionGuideModalVisible = ref(false);
                         <div
                             v-for="(permissionList, subCategoryLabel) in subCategories"
                             :key="subCategoryLabel"
-                            class="flex flex-col gap-2 pl-2 border-l border-gray-200"
+                            class="flex flex-col gap-2 pl-4 border-l-2 border-gray-100 my-2 py-1"
                         >
                             <!-- Display the sub-category name and its "Check All" ToggleSwitch -->
-                            <div class="flex items-center justify-between mt-2">
+                            <div class="flex items-center justify-between mb-1">
                                 <SpanBold class="text-xs text-gray-800">{{
                                     subCategoryLabel
                                 }}</SpanBold>

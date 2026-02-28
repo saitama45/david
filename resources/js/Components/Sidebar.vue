@@ -191,6 +191,7 @@ const canViewInventoryGroup = computed(() =>
 const canViewReportsGroup = computed(() =>
     hasAccess("view consolidated so report") || // CRITICAL FIX: Added new permission for Consolidated SO Report
     hasAccess("view interco report") || // Added Interco Report permission
+    hasAccess("view inventory movement report") ||
     hasAccess("view pmix report") || // Added PMIX Report permission
     hasAccess("view wastage report") || // Added Wastage Report permission
     hasAccess("view qty variance cost variance report") || // Added Qty Variance / Cost Variance Report permission
@@ -251,7 +252,7 @@ watchEffect(() => {
         { ref: receivingOpen, paths: ["/direct-receiving", "/orders-receiving", "/approved-orders", "/receiving-approvals", "/interco-receiving"] },
         { ref: salesOpen, paths: ["/sales-orders", "/store-transactions", "/store-transactions-approval"] },
         { ref: inventoryOpen, paths: ["/items-list", "/sapitems-list", "/SupplierItems-list", "/POSMasterfile-list", "/pos-bom-list", "/stock-management", "/soh-adjustment", "/wastage", "/wastage-approval-level1", "/wastage-approval-level2", "/low-on-stocks", "/month-end-count", "/month-end-count-approvals", "/month-end-count-approvals-level2"] },
-        { ref: reportsOpen, paths: ["/reports/consolidated-so", "/reports/pmix-report", "/reports/interco-report", "/reports/wastage-report", "/reports/qty-variance-cost-variance-report", "/reports/actual-cost-cogs-report", "/reports/delivery-report", "/top-10-inventories", "/days-inventory-outstanding", "/days-payable-outstanding", "/sales-report", "/inventories-report", "/upcoming-inventories", "/account-payable", "/cost-of-goods", "/product-orders-summary", "/ice-cream-orders", "/salmon-orders", "/fruits-and-vegetables"] }, // Added Interco Report, PMIX Report, Wastage Report, Qty Variance Report, and Actual Cost COGS Report paths
+        { ref: reportsOpen, paths: ["/reports/consolidated-so", "/reports/pmix-report", "/reports/interco-report", "/reports/inventory-movement", "/reports/wastage-report", "/reports/qty-variance-cost-variance-report", "/reports/actual-cost-cogs-report", "/reports/delivery-report", "/top-10-inventories", "/days-inventory-outstanding", "/days-payable-outstanding", "/sales-report", "/inventories-report", "/upcoming-inventories", "/account-payable", "/cost-of-goods", "/product-orders-summary", "/ice-cream-orders", "/salmon-orders", "/fruits-and-vegetables"] }, // Added Interco Report, PMIX Report, Wastage Report, Qty Variance Report, and Actual Cost COGS Report paths
         { ref: referencesOpen, paths: ["/category-list", "/wip-list", "/menu-categories", "/uom-conversions", "/inventory-categories", "/unit-of-measurements", "/branches", "/suppliers", "/cost-centers"] },
         // Nested ordering sections
         { ref: regularOpen, paths: ["/store-orders", "/orders-approval", "/cs-approvals"] },
@@ -855,6 +856,15 @@ watchEffect(() => {
                     :is-active="isPathActive('/reports/interco-report')"
                 >
                     Interco Report
+                </NavLink>
+                <!-- Inventory Movement Report -->
+                <NavLink
+                    v-if="hasAccess('view inventory movement report')"
+                    href="/reports/inventory-movement"
+                    :icon="ArrowLeftRight"
+                    :is-active="isPathActive('/reports/inventory-movement')"
+                >
+                    Inventory Movement Report
                 </NavLink>
                 <NavLink v-if="hasAccess('view top 10 inventories')" href="/top-10-inventories" :icon="List" :is-active="isPathActive('/top-10-inventories')">
                     Top 10 Inventories

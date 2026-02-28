@@ -94,6 +94,10 @@ class RolesAndPermissionSeeder extends Seeder
         Permission::firstOrCreate(['name' => 'view interco report']);
         Permission::firstOrCreate(['name' => 'export interco report']);
 
+        // Inventory Movement Report (New Module)
+        Permission::firstOrCreate(['name' => 'view inventory movement report']);
+        Permission::firstOrCreate(['name' => 'export inventory movement report']);
+
         // Store Commits
         Permission::firstOrCreate(['name' => 'view store commits']);
         Permission::firstOrCreate(['name' => 'commit store orders']);

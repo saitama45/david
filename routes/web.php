@@ -63,6 +63,7 @@ use App\Http\Controllers\StoreCommitsController;
 use App\Http\Controllers\StockManagementController;
 use App\Http\Controllers\StoreBranchController;
 use App\Http\Controllers\StoreOrderController;
+use App\Http\Controllers\InventoryMovementReportController;
 use App\Http\Controllers\IntercoController;
 use App\Http\Controllers\IntercoApprovalController;
 use App\Http\Controllers\IntercoReceivingController;
@@ -178,8 +179,11 @@ Route::middleware('auth')
             Route::middleware('permission:view qty variance cost variance report')->get('/qty-variance-cost-variance-report', [QtyVarianceCostVarianceReportController::class, 'index'])->name('reports.qty-variance-cost-variance-report.index');
             Route::middleware('permission:export qty variance cost variance report')->get('/qty-variance-cost-variance-report/export', [QtyVarianceCostVarianceReportController::class, 'export'])->name('reports.qty-variance-cost-variance-report.export');
             Route::middleware('permission:view actual cost cogs report')->get('/actual-cost-cogs-report', [ActualCostCOGSReportController::class, 'index'])->name('reports.actual-cost-cogs-report.index');
-            Route::middleware('permission:export actual cost cogs report')->get('/actual-cost-cogs-report/export', [ActualCostCOGSReportController::class, 'export'])->name('reports.actual-cost-cogs-report.export');
-        });
+            Route::middleware('permission:view actual cost cogs report')->get('/actual-cost-cogs-report/export', [ActualCostCOGSReportController::class, 'export'])->name('reports.actual-cost-cogs-report.export');
+            Route::middleware('permission:view inventory movement report')->get('/inventory-movement', [InventoryMovementReportController::class, 'index'])->name('reports.inventory-movement.index');
+            Route::middleware('permission:view inventory movement report')->get('/inventory-movement/export-pdf', [InventoryMovementReportController::class, 'exportPdf'])->name('reports.inventory-movement.export-pdf');
+            });
+
 
         Route::controller(DaysPayableOutStanding::class)
             ->name('days-payable-outstanding.')
