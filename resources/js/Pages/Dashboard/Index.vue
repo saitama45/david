@@ -562,46 +562,22 @@ const time_period = ref(
 );
 
 const inventory_type = ref(filters.inventory_type ?? "quantity");
-watch(branch, (value) => {
-    router.get(route("dashboard"), {
-        branch: value,
-        time_period: time_period.value,
-        chart_time_period: chart_time_period.value,
-        inventory_type: inventory_type.value,
-    });
-});
-watch(time_period, (value) => {
-    router.get(route("dashboard"), {
-        branch: branch.value,
-        time_period: value,
-        chart_time_period: chart_time_period.value,
-        inventory_type: inventory_type.value,
-    });
-});
 
-watch(chart_time_period, (value) => {
-    router.get(route("dashboard"), {
-        branch: branch.value,
-        time_period: time_period.value,
-        chart_time_period: value,
-        inventory_type: inventory_type.value,
-    });
-});
-
-watch(inventory_type, (value) => {
+const handleSearch = () => {
     router.get(
         route("dashboard"),
         {
             branch: branch.value,
             time_period: time_period.value,
             chart_time_period: chart_time_period.value,
-            inventory_type: value,
+            inventory_type: inventory_type.value,
         },
         {
             preserveScroll: true,
         }
     );
-});
+};
+
 const goToDPO = () => {
     router.get(route("days-payable-outstanding.index"));
 };
@@ -687,6 +663,7 @@ const registerDoughnutLabelPlugin = () => {
                     optionValue="value"
                 ></Select>
             </InputContainer>
+            <Button @click="handleSearch">Search</Button>
             <!-- <DatePicker showIcon /> -->
         </DivFlexCenter>
         <section class="flex flex-col gap-5">
@@ -764,6 +741,7 @@ const registerDoughnutLabelPlugin = () => {
                         optionValue="value"
                     ></Select>
                 </InputContainer>
+                <Button @click="handleSearch">Search</Button>
                 <!-- <DatePicker showIcon /> -->
             </DivFlexCenter>
 

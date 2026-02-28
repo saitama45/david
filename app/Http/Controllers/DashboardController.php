@@ -38,25 +38,31 @@ class DashboardController extends Controller
 
 
         $branches = StoreBranch::options();
-        $branch = request('branch') ?? $branches->keys()->first();
+        // Default to 'all' instead of relying on keys() which might be numeric
+        $branch = request('branch') ?? 'all';
+
+        // Resolve the actual branch IDs to filter by
+        $branchIds = $branch === 'all'
+            ? $branches->pluck('value')->filter(fn($v) => $v !== 'all')->toArray()
+            : [$branch];
 
         $chart_time_period = request('chart_time_period') ?? 0;
 
 
-        $inventories = $this->getInventories($branch, $time_period);
+        $inventories = $this->getInventories($branchIds, $time_period);
 
-        $upcomingInventories = $this->getUpcomingInventories($branch, $time_period);
-        $accountPayable = $this->getAccountPayable($branch, $time_period);
-        $sales = $this->getSales($branch, $time_period);
-        $cogs = $this->getCogs($branch, $time_period);
-        $begginingInventory = $this->getBeginningInventory($branch);
-        $endingInventory = $this->getEndingInventory($branch);
-        $cogsAll = ProductInventoryStockManager::where('store_branch_id', $branch)
+        $upcomingInventories = $this->getUpcomingInventories($branchIds, $time_period);
+        $accountPayable = $this->getAccountPayable($branchIds, $time_period);
+        $sales = $this->getSales($branchIds, $time_period);
+        $cogs = $this->getCogs($branchIds, $time_period);
+        $begginingInventory = $this->getBeginningInventory($branchIds);
+        $endingInventory = $this->getEndingInventory($branchIds);
+        $cogsAll = ProductInventoryStockManager::whereIn('store_branch_id', $branchIds)
             ->where('total_cost', '<', 0)->sum(DB::raw('ABS(total_cost)'));
         $averageInventory = ($begginingInventory + $endingInventory) / 2;
         $dio = $this->getDaysInventoryOutstanding($cogsAll, $averageInventory, $chart_time_period);
-        $productInventoryStock = $this->getTop10Products($branch, $inventory_type);
-        $dpo = $this->getDaysPayableOutstanding($branch, $cogsAll, $chart_time_period);
+        $productInventoryStock = $this->getTop10Products($branchIds, $inventory_type);
+        $dpo = $this->getDaysPayableOutstanding($branchIds, $cogsAll, $chart_time_period);
 
         return Inertia::render('Dashboard/Index', [
             'timePeriods' => $timePeriods,
@@ -73,23 +79,23 @@ class DashboardController extends Controller
         ]);
     }
 
-    public function getDaysPayableOutstanding($branch, $cogsAll, $chart_time_period)
+    public function getDaysPayableOutstanding($branchIds, $cogsAll, $chart_time_period)
     {
         $accountPayableAll = StoreOrderItem::query()
             ->join('store_orders', 'store_order_items.store_order_id', '=', 'store_orders.id')
             ->join('supplier_items', 'store_order_items.item_code', '=', 'supplier_items.ItemCode')
-            ->where('store_orders.store_branch_id', $branch)
+            ->whereIn('store_orders.store_branch_id', $branchIds)
             ->where('store_order_items.quantity_received', '>', 0)
             ->sum(DB::raw('store_order_items.quantity_received * supplier_items.cost'));
 
         return $cogsAll > 0 && $accountPayableAll > 0 ? ($accountPayableAll / $cogsAll) * ($chart_time_period == 0 ? 365 : 30) : 0;
     }
 
-    public function getTop10Products($branch, $inventory_type)
+    public function getTop10Products($branchIds, $inventory_type)
     {
         // Now using sapMasterfile relationship and SAPMasterfile properties
         $query = ProductInventoryStock::with('sapMasterfile')
-            ->where('store_branch_id', $branch)
+            ->whereIn('store_branch_id', $branchIds)
             ->whereHas('sapMasterfile') // Ensure there's a linked SAPMasterfile entry
             ->select('*', DB::raw('(quantity - used) as stock_on_hand'));
 
@@ -118,21 +124,18 @@ class DashboardController extends Controller
         return $cogsAll > 0 ? ($averageInventory / $cogsAll) * ($chart_time_period == 0 ? 365 : 30) : 0;
     }
 
-    public function getEndingInventory($branch)
+    public function getEndingInventory($branchIds)
     {
         return ProductInventoryStockManager::query()
-            ->where('store_branch_id', $branch)
+            ->whereIn('store_branch_id', $branchIds)
             ->sum('total_cost');
     }
 
-    public function getBeginningInventory($branch)
+    public function getBeginningInventory($branchIds)
     {
         // This method still references 'product_inventory_id' from ProductInventoryStockManager.
-        // It needs to be updated to reflect the new relationship to SAPMasterfile.
-        // The current logic fetches the first transaction by ID, which is fine,
-        // but the 'product_id' in the map will now be the SAPMasterfile ID.
         return ProductInventoryStockManager::select('product_inventory_id')
-            ->where('store_branch_id', $branch)
+            ->whereIn('store_branch_id', $branchIds)
             ->selectRaw('MIN(id) as first_transaction_id')
             ->where('quantity', '>', 0)
             ->groupBy('product_inventory_id')
@@ -150,9 +153,9 @@ class DashboardController extends Controller
             ->sum('total_cost');
     }
 
-    public function getCogs($branch, $time_period)
+    public function getCogs($branchIds, $time_period)
     {
-        $cogsQuery = ProductInventoryStockManager::where('store_branch_id', $branch)
+        $cogsQuery = ProductInventoryStockManager::whereIn('store_branch_id', $branchIds)
             ->where('total_cost', '<', 0);
 
         if ($time_period != 0) {
@@ -169,12 +172,12 @@ class DashboardController extends Controller
         );
     }
 
-    public function getSales($branch, $time_period)
+    public function getSales($branchIds, $time_period)
     {
         return number_format(
-            StoreTransactionItem::whereHas('store_transaction', function ($query) use ($branch, $time_period) {
+            StoreTransactionItem::whereHas('store_transaction', function ($query) use ($branchIds, $time_period) {
                 $time_period != 0 ? $query->whereMonth('order_date', $time_period) : $query->whereYear('order_date', Carbon::today()->year);
-                $query->where('store_branch_id', $branch);
+                $query->whereIn('store_branch_id', $branchIds);
             })->sum('net_total'),
             2,
             '.',
@@ -182,12 +185,12 @@ class DashboardController extends Controller
         );
     }
 
-    public function getAccountPayable($branch, $time_period)
+    public function getAccountPayable($branchIds, $time_period)
     {
         $accountPayable = StoreOrderItem::query()
             ->join('store_orders', 'store_order_items.store_order_id', '=', 'store_orders.id')
             ->join('supplier_items', 'store_order_items.item_code', '=', 'supplier_items.ItemCode')
-            ->where('store_orders.store_branch_id', $branch)
+            ->whereIn('store_orders.store_branch_id', $branchIds)
             ->where('store_order_items.quantity_received', '>', 0);
 
         if ($time_period != 0) {
@@ -204,12 +207,12 @@ class DashboardController extends Controller
         );
     }
 
-    public function getUpcomingInventories($branch, $time_period)
+    public function getUpcomingInventories($branchIds, $time_period)
     {
         $upcomingInventories = StoreOrderItem::query()
             ->join('supplier_items', 'store_order_items.item_code', '=', 'supplier_items.ItemCode')
             ->join('store_orders', 'store_order_items.store_order_id', '=', 'store_orders.id')
-            ->where('store_orders.store_branch_id', $branch)
+            ->whereIn('store_orders.store_branch_id', $branchIds)
             ->where('store_orders.order_status', 'committed');
 
         if ($time_period != 0) {
@@ -226,10 +229,10 @@ class DashboardController extends Controller
         );
     }
 
-    public function getInventories($branch, $time_period)
+    public function getInventories($branchIds, $time_period)
     {
         $inventoriesQuery = ProductInventoryStockManager::query()
-            ->where('store_branch_id', $branch);
+            ->whereIn('store_branch_id', $branchIds);
 
 
         if ($time_period != 0) {
@@ -247,11 +250,11 @@ class DashboardController extends Controller
         );
     }
 
-    public function getHighStockProducts($branchId)
+    public function getHighStockProducts($branchIds)
     {
         // Now using sapMasterfile relationship and SAPMasterfile properties
         $query = ProductInventoryStock::with('sapMasterfile')
-            ->where('store_branch_id', $branchId)
+            ->whereIn('store_branch_id', $branchIds)
             ->whereHas('sapMasterfile') // Ensure there's a linked SAPMasterfile entry
             ->select('product_inventory_stocks.*') // Select all columns from product_inventory_stocks
             ->selectRaw('(quantity - used) as stock_on_hand') // Calculate stock on hand
@@ -268,11 +271,11 @@ class DashboardController extends Controller
         return $query;
     }
 
-    public function getMostUsedProducts($branchId)
+    public function getMostUsedProducts($branchIds)
     {
         // Now using sapMasterfile relationship and SAPMasterfile properties
         return ProductInventoryStock::with('sapMasterfile')
-            ->where('store_branch_id', $branchId)
+            ->whereIn('store_branch_id', $branchIds)
             ->whereHas('sapMasterfile') // Ensure there's a linked SAPMasterfile entry
             ->select('product_inventory_stocks.*') // Select all columns from product_inventory_stocks
             ->selectRaw('used as total_used') // Directly use the 'used' column
@@ -288,19 +291,14 @@ class DashboardController extends Controller
             });
     }
 
-    public function getLowOnStockItems($branchId)
+    public function getLowOnStockItems($branchIds)
     {
-        // This method still has potential issues if 'usage_records' and 'menu_ingredients'
-        // are still linked to the old 'product_inventories' table.
-        // The immediate error for 'product' relationship on ProductInventoryStock is fixed.
-        // Further refactoring might be needed depending on the actual schema of usage_records/menu_ingredients.
-
         $usageRecords = DB::table('usage_records as ur')
             ->join('usage_record_items as uri', 'ur.id', '=', 'uri.usage_record_id')
             ->join('menus as m', 'uri.menu_id', '=', 'm.id')
             ->join('menu_ingredients as mi', 'm.id', '=', 'mi.menu_id')
             // Assuming mi.product_inventory_id now stores SAPMasterfile ID
-            ->where('ur.store_branch_id', $branchId)
+            ->whereIn('ur.store_branch_id', $branchIds)
             ->select(
                 'mi.product_inventory_id',
                 DB::raw(
@@ -327,7 +325,7 @@ class DashboardController extends Controller
         // Now, the query for low stock items should use ProductInventoryStock and SAPMasterfile
         $query = ProductInventoryStock::query()
             ->with(['sapMasterfile']) // Load the SAPMasterfile relationship
-            ->where('store_branch_id', $branchId)
+            ->whereIn('store_branch_id', $branchIds)
             ->whereHas('sapMasterfile') // Ensure there's a linked SAPMasterfile entry
             ->get() // Get all relevant stock items first
             ->filter(function ($stockItem) {
