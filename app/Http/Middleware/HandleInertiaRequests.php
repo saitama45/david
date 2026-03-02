@@ -251,8 +251,8 @@ class HandleInertiaRequests extends Middleware
                 }
                 
                 if ($user->can('approve month end count level 1') && $assignedStoreIds->isNotEmpty()) {
-                    $monthEndLvl1Query = \App\Models\MonthEndCountItem::whereIn('branch_id', $assignedStoreIds)
-                        ->where('status', 'pending_level1_approval');
+                    $monthEndLvl1Query = \App\Models\MonthEndCountItem::whereIn('month_end_count_items.branch_id', $assignedStoreIds)
+                        ->where('month_end_count_items.status', 'pending_level1_approval');
                     
                     $data['monthEndLvl1Count'] = \Illuminate\Support\Facades\DB::table(
                         (clone $monthEndLvl1Query)->select('month_end_schedule_id', 'branch_id')->distinct(),
@@ -273,8 +273,8 @@ class HandleInertiaRequests extends Middleware
                 }
 
                 if ($user->can('approve month end count level 2') && $assignedStoreIds->isNotEmpty()) {
-                    $monthEndLvl2Query = \App\Models\MonthEndCountItem::whereIn('branch_id', $assignedStoreIds)
-                        ->where('status', 'level1_approved');
+                    $monthEndLvl2Query = \App\Models\MonthEndCountItem::whereIn('month_end_count_items.branch_id', $assignedStoreIds)
+                        ->where('month_end_count_items.status', 'level1_approved');
                     
                     $data['monthEndLvl2Count'] = \Illuminate\Support\Facades\DB::table(
                         (clone $monthEndLvl2Query)->select('month_end_schedule_id', 'branch_id')->distinct(),
