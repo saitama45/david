@@ -133,6 +133,7 @@ class MECApproval2Controller extends Controller
             abort(403, 'You do not have permission to approve at Level 2.');
         }
 
+        /*
         // Time-sensitive approval condition
         $deadline = Carbon::parse($schedule->calculated_date)->addDays(2)->endOfDay();
         if (Carbon::now('Asia/Manila')->greaterThan($deadline)) {
@@ -142,6 +143,7 @@ class MECApproval2Controller extends Controller
                 ->update(['status' => 'expired']);
             return back()->withErrors(['error' => 'Approval deadline has passed. Items marked as expired.']);
         }
+        */
 
         DB::beginTransaction();
         try {

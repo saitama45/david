@@ -242,6 +242,7 @@ class MonthEndCountApprovalController extends Controller
             return back()->withErrors(['error' => 'Schedule is not in Level 1 approved status.']);
         }
 
+        /*
         // Time-sensitive approval condition
         $deadline = Carbon::parse($schedule->calculated_date)->addDays(2)->endOfDay();
         if (Carbon::now('Asia/Manila')->greaterThan($deadline)) {
@@ -252,6 +253,7 @@ class MonthEndCountApprovalController extends Controller
                 ->update(['status' => 'expired']);
             return back()->withErrors(['error' => 'Approval deadline has passed. Items marked as expired.']);
         }
+        */
 
         DB::beginTransaction();
         try {
