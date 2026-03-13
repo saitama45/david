@@ -88,10 +88,11 @@ class OrderingCalendarController extends Controller
     {
         $itemCode = $request->query('item_code');
         $storeId = $request->query('store_id');
+        $supplierCode = $request->query('supplier_code');
         $month = $request->query('month', now()->month);
         $year = $request->query('year', now()->year);
 
-        $data = $this->fetchCalendarData($itemCode, $storeId, $month, $year);
+        $data = $this->fetchCalendarData($itemCode, $storeId, $supplierCode, $month, $year);
         
         return response()->json([
             'data' => $data
@@ -105,6 +106,7 @@ class OrderingCalendarController extends Controller
     {
         $itemCode = $request->query('item_code');
         $storeId = $request->query('store_id');
+        $supplierCode = $request->query('supplier_code');
         $month = $request->query('month', now()->month);
         $year = $request->query('year', now()->year);
 
@@ -112,7 +114,7 @@ class OrderingCalendarController extends Controller
         // Find item details
         $item = \App\Models\SupplierItems::where('ItemCode', $itemCode)->first();
         
-        $calendarData = $this->fetchCalendarData($itemCode, $storeId, $month, $year);
+        $calendarData = $this->fetchCalendarData($itemCode, $storeId, $supplierCode, $month, $year);
         
         $monthName = date('F', mktime(0, 0, 0, $month, 10));
         
@@ -134,10 +136,17 @@ class OrderingCalendarController extends Controller
     /**
      * Internal helper to fetch calendar data
      */
-    private function fetchCalendarData($itemCode, $storeId, $month, $year)
+    private function fetchCalendarData($itemCode, $storeId, $supplierCode, $month, $year)
     {
         $startDate = Carbon::createFromDate($year, $month, 1)->startOfMonth();
         $endDate = Carbon::createFromDate($year, $month, 1)->endOfMonth();
+
+        // Get delivery schedules for this store and supplier
+        // delivery_schedule_id: 1=Mon, 2=Tue, ..., 7=Sun
+        $schedules = \App\Models\DTSDeliverySchedule::where('store_branch_id', $storeId)
+            ->where('variant', $supplierCode)
+            ->pluck('delivery_schedule_id')
+            ->toArray();
 
         // Fetch orders for this store and item within the date range
         $orderItems = \App\Models\StoreOrderItem::where('item_code', $itemCode)
@@ -148,12 +157,10 @@ class OrderingCalendarController extends Controller
             ->with('store_order')
             ->get();
 
-        $data = [];
+        $orderMap = [];
         foreach ($orderItems as $orderItem) {
-            $date = Carbon::parse($orderItem->store_order->order_date);
-            $day = $date->day;
+            $date = Carbon::parse($orderItem->store_order->order_date)->toDateString();
             
-            // Logic to determine status based on quantities
             $status = 'order';
             $qty = $orderItem->quantity_ordered;
 
@@ -165,11 +172,38 @@ class OrderingCalendarController extends Controller
                 $qty = $orderItem->quantity_commited;
             }
 
-            $data[] = [
-                'day' => $day,
-                'date' => $orderItem->store_order->order_date,
+            $orderMap[$date] = [
                 'status' => $status,
                 'qty' => $qty
+            ];
+        }
+
+        $data = [];
+        $daysInMonth = $startDate->daysInMonth;
+        for ($day = 1; $day <= $daysInMonth; $day++) {
+            $currentDate = Carbon::createFromDate($year, $month, $day);
+            $dateStr = $currentDate->toDateString();
+            $dayOfWeek = $currentDate->dayOfWeekIso; // 1 (Mon) to 7 (Sun)
+
+            $hasSchedule = in_array($dayOfWeek, $schedules);
+            $orderData = $orderMap[$dateStr] ?? null;
+
+            $status = null;
+            $qty = null;
+
+            if ($orderData) {
+                $status = $orderData['status'];
+                $qty = $orderData['qty'];
+            } elseif (!$hasSchedule) {
+                $status = 'no-delivery';
+            }
+
+            $data[] = [
+                'day' => $day,
+                'date' => $dateStr,
+                'status' => $status,
+                'qty' => $qty,
+                'has_schedule' => $hasSchedule
             ];
         }
 

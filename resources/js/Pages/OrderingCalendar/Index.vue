@@ -75,7 +75,7 @@ watch([selectedStore, selectedItem, currentMonth, currentYear], () => {
 })
 
 const fetchCalendarData = async () => {
-  if (!selectedStore.value || !selectedItem.value) return
+  if (!selectedStore.value || !selectedItem.value || !selectedTemplate.value) return
 
   isLoadingCalendar.value = true
   try {
@@ -83,6 +83,7 @@ const fetchCalendarData = async () => {
       params: {
         store_id: selectedStore.value,
         item_code: selectedItem.value,
+        supplier_code: selectedTemplate.value,
         month: currentMonth.value + 1,
         year: currentYear.value
       }
@@ -100,11 +101,12 @@ const fetchCalendarData = async () => {
 }
 
 const exportToPdf = () => {
-    if (!selectedStore.value || !selectedItem.value) return
+    if (!selectedStore.value || !selectedItem.value || !selectedTemplate.value) return
     
     const url = route('ordering-calendar.export', {
         store_id: selectedStore.value,
         item_code: selectedItem.value,
+        supplier_code: selectedTemplate.value,
         month: currentMonth.value + 1,
         year: currentYear.value
     })
@@ -125,7 +127,8 @@ const generateDummyCalendarData = () => {
             day: i,
             date: date,
             status: null,
-            qty: null
+            qty: null,
+            has_schedule: false
         })
     }
     calendarData.value = data
@@ -160,7 +163,7 @@ const calendarWeeks = computed(() => {
     currentWeek.push({
       day: day,
       month: monthNames[currentMonth.value].substring(0, 3),
-      data: dataMap[day] || { status: null, qty: null }
+      data: dataMap[day] || { status: null, qty: null, has_schedule: false }
     })
     
     if (currentWeek.length === 6) {
@@ -202,7 +205,7 @@ const getStatusClass = (status) => {
     case 'order': return 'bg-[#e2f3e2] text-green-800 border-green-200' 
     case 'commit': return 'bg-[#fce4ec] text-pink-800 border-pink-200' 
     case 'delivered': return 'bg-[#fff9c4] text-yellow-800 border-yellow-200' 
-    case 'no-delivery': return 'bg-gray-200 text-gray-600 border-gray-300' 
+    case 'no-delivery': return 'bg-gray-600 text-white border-gray-700' 
     default: return 'bg-white text-gray-400 border-gray-100'
   }
 }
