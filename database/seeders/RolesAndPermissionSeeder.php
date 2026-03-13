@@ -59,6 +59,10 @@ class RolesAndPermissionSeeder extends Seeder
         Permission::firstOrCreate(['name' => 'view store order']);
         Permission::firstOrCreate(['name' => 'export store orders']); // Added export
 
+        // Ordering Calendar
+        Permission::firstOrCreate(['name' => 'view ordering calendar']);
+        Permission::firstOrCreate(['name' => 'export ordering calendar']);
+
         // Emergency Orders (Added for consistency with desired grouping)
         Permission::firstOrCreate(['name' => 'view emergency orders']);
         Permission::firstOrCreate(['name' => 'create emergency orders']);
@@ -507,6 +511,7 @@ class RolesAndPermissionSeeder extends Seeder
             'upload month end count transaction',
             // NEW: Knowledge Base permissions for store representative
             'view knowledge base articles',
+            'view ordering calendar',
         ]);
 
         // Assign specific permissions to 'request approver'
@@ -543,6 +548,7 @@ class RolesAndPermissionSeeder extends Seeder
             'view actual cost cogs report', 'export actual cost cogs report',
             // NEW: Delivery Report permission for request approver
             'view delivery report', 'export delivery report',
+            'view ordering calendar',
         ]);
     }
 }

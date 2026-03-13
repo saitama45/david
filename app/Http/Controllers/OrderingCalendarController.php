@@ -10,6 +10,11 @@ use Illuminate\Support\Facades\Auth;
 
 class OrderingCalendarController extends Controller
 {
+    public function __construct()
+    {
+        $this->middleware('permission:view ordering calendar')->only('index');
+    }
+
     public function index()
     {
         $user = Auth::user();

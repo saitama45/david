@@ -152,6 +152,9 @@ class RoleService
                 'CS DTS Mass Commit' => [
                     'view cs dts mass commit', 'edit cs dts mass commit'
                 ],
+                'Ordering Calendar' => [
+                    'view ordering calendar', 'export ordering calendar'
+                ],
             ],
             'Receiving' => [
                 'Direct Receiving' => [

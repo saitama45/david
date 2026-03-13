@@ -152,7 +152,7 @@ const canViewStockTransferSubcategory = computed(() =>
 );
 
 const canViewMonitoringSubcategory = computed(() =>
-    hasAccess("view store orders")
+    hasAccess("view ordering calendar")
 );
 
 const canViewOthersSubcategory = computed(() =>
