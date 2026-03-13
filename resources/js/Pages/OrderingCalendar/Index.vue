@@ -1,10 +1,7 @@
 <script setup>
 import { ref, computed, watch, onMounted } from 'vue'
 import { Head, router } from '@inertiajs/vue3'
-import Layout from '@/Layouts/Layout.vue'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Label } from '@/components/ui/label'
-import { Button } from '@/components/ui/button'
+// Layout, Card, Label, Button, Badge are globally registered in app.js
 import Select from 'primevue/select'
 import { 
   Calendar as CalendarIcon, 
@@ -12,7 +9,8 @@ import {
   ChevronRight, 
   Info,
   Download,
-  Filter
+  Filter,
+  Store
 } from 'lucide-vue-next'
 import axios from 'axios'
 import { useToast } from "@/composables/useToast"
@@ -50,28 +48,18 @@ watch(selectedTemplate, async (newVal) => {
     isLoadingItems.value = true
     selectedItem.value = null
     try {
-      // In a real implementation, you'd call an API to get items for this template
-      // For now, let's simulate or use a general items fetch if available
-      const response = await axios.get(route('items.index'), { params: { search: '', limit: 100 } })
-      // Adjust based on your actual API response structure
+      const response = await axios.get(route('store-orders.get-supplier-items', { supplierCode: newVal }))
+      
       if (response.data && response.data.items) {
-          items.value = response.data.items.data.map(item => ({
-            label: `${item.item_code} - ${item.item_description || item.item_name}`,
-            value: item.id,
-            item_code: item.item_code,
-            description: item.item_description || item.item_name,
-            uom: item.uom
+          items.value = response.data.items.map(item => ({
+            label: item.label,
+            value: item.value,
+            item_code: item.value,
+            description: item.label
           }))
-      } else {
-          // Fallback dummy data for demonstration
-          items.value = [
-            { label: 'ITEM-001 - Sample Product A', value: 1, item_code: 'ITEM-001', description: 'Sample Product A', uom: 'PCS' },
-            { label: 'ITEM-002 - Sample Product B', value: 2, item_code: 'ITEM-002', description: 'Sample Product B', uom: 'CASE' },
-          ]
       }
     } catch (error) {
       console.error('Error fetching items:', error)
-      toast.add({ severity: 'error', summary: 'Error', detail: 'Failed to load items for this template.', life: 3000 })
     } finally {
       isLoadingItems.value = false
     }
@@ -91,18 +79,18 @@ const fetchCalendarData = async () => {
 
   isLoadingCalendar.value = true
   try {
-    // Simulate API call
-    // const response = await axios.get(route('ordering-calendar.data'), {
-    //   params: {
-    //     store_id: selectedStore.value,
-    //     item_id: selectedItem.value,
-    //     month: currentMonth.value + 1,
-    //     year: currentYear.value
-    //   }
-    // })
+    const response = await axios.get(route('ordering-calendar.data'), {
+      params: {
+        store_id: selectedStore.value,
+        item_code: selectedItem.value,
+        month: currentMonth.value + 1,
+        year: currentYear.value
+      }
+    })
     
-    // Generating dummy data for visual representation based on user prompt
-    generateDummyCalendarData()
+    if (response.data && response.data.data) {
+        calendarData.value = response.data.data
+    }
     
   } catch (error) {
     console.error('Error fetching calendar data:', error)
@@ -111,8 +99,21 @@ const fetchCalendarData = async () => {
   }
 }
 
+const exportToPdf = () => {
+    if (!selectedStore.value || !selectedItem.value) return
+    
+    const url = route('ordering-calendar.export', {
+        store_id: selectedStore.value,
+        item_code: selectedItem.value,
+        month: currentMonth.value + 1,
+        year: currentYear.value
+    })
+    
+    window.open(url, '_blank')
+}
+
 const generateDummyCalendarData = () => {
-    // This would be replaced by actual data from the backend
+    // Keep this as fallback or initial state
     const data = []
     const daysInMonth = new Date(currentYear.value, currentMonth.value + 1, 0).getDate()
     
@@ -120,29 +121,11 @@ const generateDummyCalendarData = () => {
         const date = new Date(currentYear.value, currentMonth.value, i)
         if (date.getDay() === 0) continue // Skip Sundays
         
-        // Randomly assign some statuses for demo
-        const rand = Math.random()
-        let status = null
-        let qty = null
-        
-        if (rand > 0.8) {
-            status = 'delivered'
-            qty = Math.floor(Math.random() * 20) + 1
-        } else if (rand > 0.6) {
-            status = 'commit'
-            qty = Math.floor(Math.random() * 20) + 1
-        } else if (rand > 0.4) {
-            status = 'order'
-            qty = Math.floor(Math.random() * 20) + 1
-        } else if (rand < 0.1) {
-            status = 'no-delivery'
-        }
-        
         data.push({
             day: i,
             date: date,
-            status: status,
-            qty: qty
+            status: null,
+            qty: null
         })
     }
     calendarData.value = data
@@ -155,23 +138,14 @@ const calendarWeeks = computed(() => {
   const lastDayOfMonth = new Date(currentYear.value, currentMonth.value + 1, 0)
   
   let currentWeek = []
-  
-  // Create a map for quick lookup
   const dataMap = {}
   calendarData.value.forEach(d => {
       dataMap[d.day] = d
   })
 
-  // We need to handle the offset for the first week
-  // dayNames = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]
-  // getDay() returns 0 for Sunday, 1 for Monday... 6 for Saturday
-  // Our dayNames index: 0=Mon(1), 1=Tue(2), 2=Wed(3), 3=Thu(4), 4=Fri(5), 5=Sat(6)
-  
   const startOffset = firstDayOfMonth.getDay() === 0 ? 0 : firstDayOfMonth.getDay() - 1
-  if (firstDayOfMonth.getDay() === 0) {
-      // If month starts on Sunday, it's irrelevant to our Mon-Sat calendar, 
-      // but we start the next day (Monday) as the first cell
-  } else {
+  
+  if (firstDayOfMonth.getDay() !== 0) {
       for (let i = 0; i < startOffset; i++) {
           currentWeek.push({ day: null, empty: true })
       }
@@ -181,7 +155,7 @@ const calendarWeeks = computed(() => {
     const date = new Date(currentYear.value, currentMonth.value, day)
     const dayOfWeek = date.getDay()
     
-    if (dayOfWeek === 0) continue // Skip Sundays entirely from the grid
+    if (dayOfWeek === 0) continue // Skip Sundays
     
     currentWeek.push({
       day: day,
@@ -225,10 +199,10 @@ const prevMonth = () => {
 
 const getStatusClass = (status) => {
   switch (status) {
-    case 'order': return 'bg-[#e2f3e2] text-green-800 border-green-200' // light green
-    case 'commit': return 'bg-[#fce4ec] text-pink-800 border-pink-200' // light pink
-    case 'delivered': return 'bg-[#fff9c4] text-yellow-800 border-yellow-200' // light yellow
-    case 'no-delivery': return 'bg-gray-200 text-gray-600 border-gray-300' // gray
+    case 'order': return 'bg-[#e2f3e2] text-green-800 border-green-200' 
+    case 'commit': return 'bg-[#fce4ec] text-pink-800 border-pink-200' 
+    case 'delivered': return 'bg-[#fff9c4] text-yellow-800 border-yellow-200' 
+    case 'no-delivery': return 'bg-gray-200 text-gray-600 border-gray-300' 
     default: return 'bg-white text-gray-400 border-gray-100'
   }
 }
@@ -262,7 +236,6 @@ onMounted(() => {
 
   <Layout heading="Ordering Calendar">
     <div class="space-y-6">
-      <!-- User Inputs Section -->
       <Card>
         <CardHeader class="pb-3 bg-muted/20">
             <div class="flex items-center gap-2">
@@ -272,7 +245,6 @@ onMounted(() => {
         </CardHeader>
         <CardContent class="pt-6">
           <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <!-- Select Ordering Template -->
             <div class="space-y-2">
               <Label for="template" class="text-sm font-semibold">Select Ordering Template</Label>
               <Select
@@ -287,7 +259,6 @@ onMounted(() => {
               />
             </div>
 
-            <!-- Stores -->
             <div class="space-y-2">
               <Label for="store" class="text-sm font-semibold">Store</Label>
               <Select
@@ -303,7 +274,6 @@ onMounted(() => {
               />
             </div>
 
-            <!-- Select Item -->
             <div class="space-y-2">
               <Label for="item" class="text-sm font-semibold">Select Item</Label>
               <Select
@@ -323,7 +293,6 @@ onMounted(() => {
         </CardContent>
       </Card>
 
-      <!-- Calendar Display Section -->
       <Card v-if="selectedItem && selectedStore">
         <CardHeader class="border-b bg-muted/5">
           <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -346,7 +315,7 @@ onMounted(() => {
                 <Button variant="outline" size="sm" @click="nextMonth">
                     <ChevronRight class="w-4 h-4" />
                 </Button>
-                <Button variant="secondary" size="sm" class="ml-2">
+                <Button variant="secondary" size="sm" class="ml-2" @click="exportToPdf">
                     <Download class="w-4 h-4 mr-2" /> Export
                 </Button>
             </div>
@@ -354,7 +323,6 @@ onMounted(() => {
         </CardHeader>
         
         <CardContent class="p-0 sm:p-6 overflow-x-auto">
-          <!-- Legend -->
           <div class="flex flex-wrap gap-4 mb-6 px-4 pt-4 sm:p-0">
               <div class="flex items-center gap-2">
                   <div class="w-4 h-4 rounded border bg-[#e2f3e2] border-green-200"></div>
@@ -374,7 +342,6 @@ onMounted(() => {
               </div>
           </div>
 
-          <!-- Calendar Table -->
           <div class="min-w-[800px] border rounded-lg overflow-hidden shadow-sm m-4 sm:m-0">
             <table class="w-full border-collapse">
               <thead>
@@ -436,7 +403,6 @@ onMounted(() => {
         </CardContent>
       </Card>
 
-      <!-- Empty State -->
       <div v-else class="flex flex-col items-center justify-center py-20 bg-white rounded-lg border-2 border-dashed border-muted shadow-sm">
           <CalendarIcon class="w-16 h-16 text-muted mb-4 opacity-20" />
           <h3 class="text-lg font-medium text-muted-foreground">Please select a Template, Store, and Item to view the calendar</h3>

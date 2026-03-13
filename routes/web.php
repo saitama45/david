@@ -116,7 +116,11 @@ Route::get('jobs', function () {
 Route::middleware('auth')
     ->group(function () {
 
-        Route::resource('ordering-calendar', OrderingCalendarController::class)->only(['index'])->middleware('permission:view ordering calendar');
+        Route::controller(OrderingCalendarController::class)->name('ordering-calendar.')->prefix('ordering-calendar')->group(function () {
+            Route::middleware('permission:view ordering calendar')->get('/', 'index')->name('index');
+            Route::get('/data', 'getCalendarData')->name('data');
+            Route::get('/export-pdf', 'exportPdf')->name('export');
+        });
         
         Route::resource('additional-orders-approval', AdditionalOrderApprovalController::class)->middleware('permission:view additional order approval'); // Added middleware
 

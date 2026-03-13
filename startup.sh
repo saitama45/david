@@ -5,6 +5,9 @@ cp /home/site/wwwroot/default.conf /etc/nginx/sites-available/default
 service nginx reload
 
 # 2. Fix permissions (Fast)
+mkdir -p /home/site/wwwroot/storage/framework/cache
+mkdir -p /home/site/wwwroot/storage/framework/sessions
+mkdir -p /home/site/wwwroot/storage/framework/views
 chmod -R 775 /home/site/wwwroot/storage /home/site/wwwroot/bootstrap/cache
 
 # 3. Increase PHP-FPM worker limits correctly (Fixes the 502 error)
