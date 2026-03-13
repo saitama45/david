@@ -1,42 +1,49 @@
-name: Deploy to SmarterASP.NET
+name: Deploy Laravel to Azure App Service
 
-on: [push]
+on:
+  push:
+    branches:
+      - master # Matches your "ghelpdesk" branch
+
+permissions:
+  contents: read
 
 jobs:
   build_and_deploy:
-    name: Build package and deploy to SmarterASP.NET
-    runs-on: windows-latest
+    name: Build package and deploy to Azure
+    runs-on: ubuntu-latest # Switched to Linux for better compatibility with Azure Linux plans
+
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout Code
+        uses: actions/checkout@v4
 
       - name: Setup PHP
         uses: shivammathur/setup-php@v2
         with:
           php-version: "8.3"
-          extensions: fileinfo, mbstring, xml, gd, zip
+          extensions: fileinfo, mbstring, xml, gd, zip, pdo_sqlsrv, sqlsrv # Added SQL Server drivers
           ini-values: post_max_size=256M, max_execution_time=180
 
-      - name: Install Dependencies
-        shell: powershell
-        run: |
-          if (Test-Path "package.json") { npm install }
-          if (Test-Path "composer.json") { composer install }
+      - name: Install Composer Dependencies
+        run: composer install --no-dev --optimize-autoloader
 
-      - name: Build Project
-        shell: powershell
+      - name: Install NPM Dependencies & Build
         run: |
-          if (Test-Path "package.json") { npm run build }
+          if [ -f "package.json" ]; then
+            npm install
+            npm run build
+          fi
 
-      # New step to create the storage symbolic link
       - name: Create Storage Link
         run: php artisan storage:link
 
-      - name: Clear Laravel Cache
-        run: |
-          php artisan route:clear
-          php artisan config:clear
-          php artisan cache:clear
-          php artisan view:clear
+      # This replaces "Deploy to FTP" steps with the high-speed Azure Deploy
+      - name: 'Deploy to Azure Web App'
+        uses: azure/webapps-deploy@v3
+        with:
+          app-name: 'David' # Make sure this matches Azure App Name exactly
+          publish-profile: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE }}
+          package: .
 
       - name: Deploy to FTP
         uses: SamKirkland/FTP-Deploy-Action@v4.3.4
