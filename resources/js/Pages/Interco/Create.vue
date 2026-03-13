@@ -32,8 +32,8 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { ArrowLeft, Plus, X, Edit, Trash2, Package, AlertTriangle, ChevronDown, ChevronLeft, ChevronRight, Download } from 'lucide-vue-next'
-import StockIndicator from './components/StockIndicator.vue'
-import ItemQuantityModal from './components/ItemQuantityModal.vue'
+import StockIndicator from './Components/StockIndicator.vue'
+import ItemQuantityModal from './Components/ItemQuantityModal.vue'
 
 const props = defineProps({
   myStoreOptions: Array,
@@ -365,7 +365,6 @@ const addToOrdersButton = () => {
       stock: productDetails.stock || 0, // Preserve SOH stock data
       total_cost: parseFloat((Number(productDetails.quantity) * Number(productDetails.cost)).toFixed(2)),
       sap_masterfile_id: productDetails.id || null,
-      sap_masterfile_id: productDetails.id || null,
     }
 
     
@@ -613,7 +612,6 @@ const executeFormSubmission = () => {
         cost_per_quantity: Number(item.cost_per_quantity || 1.0),
         uom: String(item.unit_of_measurement || item.uom || 'PCS'),
         remarks: item.remarks || '',
-        sap_masterfile_id: item.sap_masterfile_id || null,
         sap_masterfile_id: item.sap_masterfile_id || null,
       }
 
