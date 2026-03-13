@@ -61,7 +61,6 @@ const hasAccess = (access) => {
 const isAdmin = is_admin;
 
 // Function to check if a given URL (or any of a list of URLs) is the current active page.
-// This uses usePage().url which gives the full current URL path (e.g., /users/1/edit).
 const isPathActive = (pathOrPaths) => {
     const currentUrl = usePage().url.split('?')[0]; // Ignore query strings
 
@@ -81,8 +80,7 @@ const isPathActive = (pathOrPaths) => {
         return false;
     }
 
-    // Prefix match for nested routes, but not for partial matches like
-    // '/users' matching '/users-roles'. It must be followed by a '/'.
+    // Prefix match for nested routes
     if (currentUrl.startsWith(path) && currentUrl[path.length] === '/') {
         return true;
     }
@@ -91,20 +89,46 @@ const isPathActive = (pathOrPaths) => {
 };
 
 // Grouping permissions for collapsible sections
-// These computed properties determine if a main collapsible section should be visible.
-// A section is visible if the user has access to ANY of the items within that section.
 
-const canViewSettingsGroup = computed(() =>
+const canViewAdministrationGroup = computed(() =>
     hasAccess("view users") ||
     hasAccess("view roles") ||
+    hasAccess("view items list") ||
+    hasAccess("view sapitems list") ||
+    hasAccess("view SupplierItems list") ||
+    hasAccess("view POSMasterfile list") ||
+    hasAccess("view branches") ||
+    hasAccess("view suppliers") ||
     hasAccess("view templates") ||
+    hasAccess("view ordering template approval") ||
+    hasAccess("view month end count templates") ||
     hasAccess("view dts delivery schedules") ||
     hasAccess("view dsp delivery schedules") ||
-    hasAccess("view orders cutoff") ||
     hasAccess("view month end schedules") ||
-    hasAccess("view month end count templates") ||
-    hasAccess("view ordering template approval") ||
+    hasAccess("view orders cutoff") ||
     hasAccess("view knowledge base articles")
+);
+
+const canViewMasterfileSubgroup = computed(() =>
+    hasAccess("view items list") ||
+    hasAccess("view sapitems list") ||
+    hasAccess("view SupplierItems list") ||
+    hasAccess("view POSMasterfile list") ||
+    hasAccess("view branches") ||
+    hasAccess("view suppliers")
+);
+
+const canViewTemplatesSubgroup = computed(() =>
+    hasAccess("view templates") ||
+    hasAccess("view ordering template approval") ||
+    hasAccess("view month end count templates")
+);
+
+const canViewSchedulesSubgroup = computed(() =>
+    hasAccess("view dts delivery schedules") ||
+    hasAccess("view dsp delivery schedules") ||
+    hasAccess("view month end schedules") ||
+    hasAccess("view orders cutoff")
 );
 
 const canViewOrderingGroup = computed(() =>
@@ -114,13 +138,14 @@ const canViewOrderingGroup = computed(() =>
     hasAccess("view interco requests") ||
     hasAccess("view dts orders") ||
     hasAccess("view orders for approval list") ||
-    hasAccess("view orders for cs approval list") || // CS Review List
+    hasAccess("view orders for cs approval list") ||
     hasAccess("view additional order approval") ||
     hasAccess("view emergency order approval") ||
     hasAccess("view mass orders") ||
     hasAccess("view cs mass commits") ||
     hasAccess("view dts mass orders") ||
-    hasAccess("view cs dts mass commit")
+    hasAccess("view cs dts mass commit") ||
+    hasAccess("view ordering calendar")
 );
 
 // Nested ordering subcategory permissions
@@ -138,11 +163,6 @@ const canViewRegularMassSubcategory = computed(() =>
     hasAccess("view mass orders") ||
     hasAccess("view mass order approval") ||
     hasAccess("view cs mass commits")
-);
-
-const canViewDTSMassSubcategory = computed(() =>
-    hasAccess("view dts mass orders") ||
-    hasAccess("view cs dts mass commit")
 );
 
 const canViewStockTransferSubcategory = computed(() =>
@@ -176,31 +196,42 @@ const canViewSalesGroup = computed(() =>
 );
 
 const canViewInventoryGroup = computed(() =>
-    hasAccess("view items list") ||
-    hasAccess("view sapitems list") ||
-    hasAccess("view SupplierItems list") ||
-    hasAccess("view POSMasterfile list") ||
-    hasAccess("view bom list") || // Corrected from 'view menu list'
     hasAccess("view stock management") ||
     hasAccess("view soh adjustment") ||
     hasAccess("view wastage record") ||
     hasAccess("view wastage approval level 1") ||
     hasAccess("view wastage approval level 2") ||
-    hasAccess("view low on stocks") || // NEW
-    hasAccess("perform month end count") || // NEW
-    hasAccess("view month end count approvals") || // NEW
+    hasAccess("perform month end count") ||
+    hasAccess("view month end count approvals") ||
+    hasAccess("view month end count approvals level 2") ||
+    hasAccess("view low on stocks")
+);
+
+const canViewWastageSubgroup = computed(() =>
+    hasAccess("view wastage record") ||
+    hasAccess("view wastage approval level 1") ||
+    hasAccess("view wastage approval level 2")
+);
+
+const canViewMECSubgroup = computed(() =>
+    hasAccess("perform month end count") ||
+    hasAccess("view month end count approvals") ||
     hasAccess("view month end count approvals level 2")
 );
 
+const canViewBOMGroup = computed(() =>
+    hasAccess("view bom list")
+);
+
 const canViewReportsGroup = computed(() =>
-    hasAccess("view consolidated so report") || // CRITICAL FIX: Added new permission for Consolidated SO Report
-    hasAccess("view interco report") || // Added Interco Report permission
+    hasAccess("view consolidated so report") ||
+    hasAccess("view interco report") ||
     hasAccess("view inventory movement report") ||
-    hasAccess("view pmix report") || // Added PMIX Report permission
-    hasAccess("view wastage report") || // Added Wastage Report permission
-    hasAccess("view qty variance cost variance report") || // Added Qty Variance / Cost Variance Report permission
-    hasAccess("view actual cost cogs report") || // Added Actual Cost / COGS Report permission
-    hasAccess("view delivery report") || // Added Delivery Report permission
+    hasAccess("view pmix report") ||
+    hasAccess("view wastage report") ||
+    hasAccess("view qty variance cost variance report") ||
+    hasAccess("view actual cost cogs report") ||
+    hasAccess("view delivery report") ||
     hasAccess("view top 10 inventories") ||
     hasAccess("view days inventory outstanding") ||
     hasAccess("view days payable outstanding") ||
@@ -222,18 +253,21 @@ const canViewReferencesGroup = computed(() =>
     hasAccess("view uom conversions") ||
     hasAccess("view inventory categories") ||
     hasAccess("view unit of measurements") ||
-    hasAccess("view branches") ||
-    hasAccess("view suppliers") ||
     hasAccess("view cost centers")
 );
 
-// Internal refs to store the open/closed state for each section.
-// These are directly controlled by v-model:open on Collapsible.
-const settingsOpen = ref(false);
+// Internal refs for open states
+const adminOpen = ref(false);
+const masterfileOpen = ref(false);
+const templatesOpen = ref(false);
+const schedulesOpen = ref(false);
 const orderingOpen = ref(false);
 const receivingOpen = ref(false);
 const salesOpen = ref(false);
 const inventoryOpen = ref(false);
+const wastageOpen = ref(false);
+const mecOpen = ref(false);
+const bomOpen = ref(false);
 const reportsOpen = ref(false);
 const referencesOpen = ref(false);
 
@@ -241,7 +275,6 @@ const referencesOpen = ref(false);
 const regularOpen = ref(false);
 const regularDTSOpen = ref(false);
 const regularMassOpen = ref(false);
-const dtsMassOpen = ref(false);
 const stockTransferOpen = ref(false);
 const monitoringOpen = ref(false);
 const othersOpen = ref(false);
@@ -250,20 +283,24 @@ const othersOpen = ref(false);
 watchEffect(() => {
     const currentUrl = usePage().url;
 
-    // Define all collapsible sections and their associated paths
     const sections = [
-        { ref: settingsOpen, paths: ["/users", "/roles", "/templates", "/dts-delivery-schedules", "/dsp-delivery-schedules", "/orders-cutoff", "/month-end-schedules", "/month-end-count-templates", "/ordering-template-approval", "/manage-knowledge-base"] },
+        { ref: adminOpen, paths: ["/users", "/roles", "/items-list", "/sapitems-list", "/SupplierItems-list", "/POSMasterfile-list", "/branches", "/suppliers", "/templates", "/ordering-template-approval", "/month-end-count-templates", "/dts-delivery-schedules", "/dsp-delivery-schedules", "/month-end-schedules", "/orders-cutoff", "/manage-knowledge-base"] },
+        { ref: masterfileOpen, paths: ["/items-list", "/sapitems-list", "/SupplierItems-list", "/POSMasterfile-list", "/branches", "/suppliers"] },
+        { ref: templatesOpen, paths: ["/templates", "/ordering-template-approval", "/month-end-count-templates"] },
+        { ref: schedulesOpen, paths: ["/dts-delivery-schedules", "/dsp-delivery-schedules", "/month-end-schedules", "/orders-cutoff"] },
         { ref: orderingOpen, paths: ["/store-orders", "/emergency-orders", "/additional-orders", "/dts-orders", "/orders-approval", "/cs-approvals", "/additional-orders-approval", "/emergency-orders-approval", "/mass-orders", "/mass-orders-approval", "/cs-mass-commits", "/dts-mass-orders", "/cs-dts-mass-commits", "/interco", "/interco-approval", "/store-commits", "/ordering-calendar"] },
         { ref: receivingOpen, paths: ["/direct-receiving", "/orders-receiving", "/approved-orders", "/receiving-approvals", "/interco-receiving"] },
         { ref: salesOpen, paths: ["/sales-orders", "/store-transactions", "/store-transactions-approval"] },
-        { ref: inventoryOpen, paths: ["/items-list", "/sapitems-list", "/SupplierItems-list", "/POSMasterfile-list", "/pos-bom-list", "/stock-management", "/soh-adjustment", "/wastage", "/wastage-approval-level1", "/wastage-approval-level2", "/low-on-stocks", "/month-end-count", "/month-end-count-approvals", "/month-end-count-approvals-level2"] },
-        { ref: reportsOpen, paths: ["/reports/consolidated-so", "/reports/pmix-report", "/reports/interco-report", "/reports/inventory-movement", "/reports/wastage-report", "/reports/qty-variance-cost-variance-report", "/reports/actual-cost-cogs-report", "/reports/delivery-report", "/top-10-inventories", "/days-inventory-outstanding", "/days-payable-outstanding", "/sales-report", "/inventories-report", "/upcoming-inventories", "/account-payable", "/cost-of-goods", "/product-orders-summary", "/ice-cream-orders", "/salmon-orders", "/fruits-and-vegetables"] }, // Added Interco Report, PMIX Report, Wastage Report, Qty Variance Report, and Actual Cost COGS Report paths
-        { ref: referencesOpen, paths: ["/category-list", "/wip-list", "/menu-categories", "/uom-conversions", "/inventory-categories", "/unit-of-measurements", "/branches", "/suppliers", "/cost-centers"] },
+        { ref: inventoryOpen, paths: ["/stock-management", "/soh-adjustment", "/wastage", "/wastage-approval-level1", "/wastage-approval-level2", "/month-end-count", "/month-end-count-approvals", "/month-end-count-approvals-level2", "/low-on-stocks"] },
+        { ref: wastageOpen, paths: ["/wastage", "/wastage-approval-level1", "/wastage-approval-level2"] },
+        { ref: mecOpen, paths: ["/month-end-count", "/month-end-count-approvals", "/month-end-count-approvals-level2"] },
+        { ref: bomOpen, paths: ["/pos-bom-list"] },
+        { ref: reportsOpen, paths: ["/reports/consolidated-so", "/reports/pmix-report", "/reports/interco-report", "/reports/inventory-movement", "/reports/wastage-report", "/reports/qty-variance-cost-variance-report", "/reports/actual-cost-cogs-report", "/reports/delivery-report", "/top-10-inventories", "/days-inventory-outstanding", "/days-payable-outstanding", "/sales-report", "/inventories-report", "/upcoming-inventories", "/account-payable", "/cost-of-goods", "/product-orders-summary", "/ice-cream-orders", "/salmon-orders", "/fruits-and-vegetables"] },
+        { ref: referencesOpen, paths: ["/category-list", "/wip-list", "/menu-categories", "/uom-conversions", "/inventory-categories", "/unit-of-measurements", "/cost-centers"] },
         // Nested ordering sections
         { ref: regularOpen, paths: ["/store-orders", "/orders-approval", "/cs-approvals"] },
         { ref: regularDTSOpen, paths: ["/dts-orders"] },
         { ref: regularMassOpen, paths: ["/mass-orders", "/mass-orders-approval", "/cs-mass-commits"] },
-        { ref: dtsMassOpen, paths: ["/dts-mass-orders", "/cs-dts-mass-commits"] },
         { ref: stockTransferOpen, paths: ["/interco", "/interco-approval", "/store-commits"] },
         { ref: monitoringOpen, paths: ["/ordering-calendar"] },
         { ref: othersOpen, paths: ["/emergency-orders", "/emergency-orders-approval", "/additional-orders", "/additional-orders-approval"] },
@@ -271,7 +308,7 @@ watchEffect(() => {
 
     sections.forEach(section => {
         const isActive = isPathActive(section.paths);
-        section.ref.value = isActive; // Set the section's open state based on active path
+        section.ref.value = isActive;
     });
 });
 </script>
@@ -280,15 +317,9 @@ watchEffect(() => {
     <nav
         class="grid items-start pl-4 text-sm font-medium transition-all duration-300 overflow-hidden w-64"
     >
-        <!-- Removed Sidebar Toggle Button -->
-
         <!-- Dashboard Link -->
         <NavLink href="/dashboard" :icon="Home" :is-active="isPathActive('/dashboard')">
             Dashboard
-        </NavLink>
-        <!-- Audits Link (currently hidden) -->
-        <NavLink href="/audits" :icon="MonitorCog" v-if="false" :is-active="isPathActive('/audits')">
-            Audits
         </NavLink>
 
         <!-- Ordering Section -->
@@ -377,7 +408,7 @@ watchEffect(() => {
                     </CollapsibleContent>
                 </Collapsible>
 
-                <!-- Regular Mass Subcategory -->
+                <!-- Regular Mass Orders Subcategory -->
                 <Collapsible
                     v-if="canViewRegularMassSubcategory"
                     v-model:open="regularMassOpen"
@@ -387,7 +418,7 @@ watchEffect(() => {
                         class="flex items-center justify-between w-full py-1 text-xs hover:bg-muted/30 rounded-md px-2"
                     >
                         <div class="flex items-center">
-                            <span class="text-muted-foreground">Regular Mass</span>
+                            <span class="text-muted-foreground">Regular Mass Orders</span>
                         </div>
                         <ChevronDown v-if="regularMassOpen" class="h-3 w-3" />
                         <ChevronRight v-else class="h-3 w-3" />
@@ -420,40 +451,15 @@ watchEffect(() => {
                     </CollapsibleContent>
                 </Collapsible>
 
-                <!-- DTS Mass Subcategory -->
-                <Collapsible
-                    v-if="canViewDTSMassSubcategory"
-                    v-model:open="dtsMassOpen"
-                    class="w-full"
+                <!-- DTS Mass Orders Link -->
+                <NavLink
+                    v-if="hasAccess('view dts mass orders') || hasAccess('view cs dts mass commit')"
+                    href="/dts-mass-orders"
+                    :icon="SquareChartGantt"
+                    :is-active="isPathActive(['/dts-mass-orders', '/cs-dts-mass-commits'])"
                 >
-                    <CollapsibleTrigger
-                        class="flex items-center justify-between w-full py-1 text-xs hover:bg-muted/30 rounded-md px-2"
-                    >
-                        <div class="flex items-center">
-                            <span class="text-muted-foreground">DTS Mass</span>
-                        </div>
-                        <ChevronDown v-if="dtsMassOpen" class="h-3 w-3" />
-                        <ChevronRight v-else class="h-3 w-3" />
-                    </CollapsibleTrigger>
-                    <CollapsibleContent class="pl-2">
-                        <NavLink
-                            v-if="hasAccess('view dts mass orders')"
-                            href="/dts-mass-orders"
-                            :icon="SquareChartGantt"
-                            :is-active="isPathActive('/dts-mass-orders')"
-                        >
-                            DTS Mass Orders
-                        </NavLink>
-                        <NavLink
-                            v-if="hasAccess('view cs dts mass commit')"
-                            href="/cs-dts-mass-commits"
-                            :icon="SquareChartGantt"
-                            :is-active="isPathActive('/cs-dts-mass-commits')"
-                        >
-                            CS DTS Mass Commits
-                        </NavLink>
-                    </CollapsibleContent>
-                </Collapsible>
+                    DTS Mass Orders
+                </NavLink>
 
                 <!-- Stock Transfer Subcategory -->
                 <Collapsible
@@ -498,7 +504,7 @@ watchEffect(() => {
                     </CollapsibleContent>
                 </Collapsible>
 
-                <!-- Monitoring Subcategory -->
+                <!-- Ordering Tools Subcategory -->
                 <Collapsible
                     v-if="canViewMonitoringSubcategory"
                     v-model:open="monitoringOpen"
@@ -508,7 +514,7 @@ watchEffect(() => {
                         class="flex items-center justify-between w-full py-1 text-xs hover:bg-muted/30 rounded-md px-2"
                     >
                         <div class="flex items-center">
-                            <span class="text-muted-foreground">Monitoring</span>
+                            <span class="text-muted-foreground">Ordering Tools</span>
                         </div>
                         <ChevronDown v-if="monitoringOpen" class="h-3 w-3" />
                         <ChevronRight v-else class="h-3 w-3" />
@@ -653,14 +659,6 @@ watchEffect(() => {
             </CollapsibleTrigger>
             <CollapsibleContent class="pl-2">
                 <NavLink
-                    v-if="false"
-                    href="/sales-orders"
-                    :icon="ChartColumnBig"
-                    :is-active="isPathActive('/sales-orders')"
-                >
-                    Sales Orders
-                </NavLink>
-                <NavLink
                     v-if="hasAccess('view store transactions')"
                     href="/store-transactions/summary"
                     :icon="ArrowLeftRight"
@@ -696,46 +694,6 @@ watchEffect(() => {
             </CollapsibleTrigger>
             <CollapsibleContent class="pl-2">
                 <NavLink
-                    v-if="hasAccess('view items list')"
-                    href="/items-list"
-                    :icon="PackageSearch"
-                    :is-active="isPathActive('/items-list')"
-                >
-                    NN Inventory Items
-                </NavLink>
-                <NavLink
-                    v-if="hasAccess('view sapitems list')"
-                    href="/sapitems-list"
-                    :icon="TextSelect"
-                    :is-active="isPathActive('/sapitems-list')"
-                >
-                    SAP Mastlist Items
-                </NavLink>
-                <NavLink
-                    v-if="hasAccess('view SupplierItems list')"
-                    href="/SupplierItems-list"
-                    :icon="Warehouse"
-                    :is-active="isPathActive('/SupplierItems-list')"
-                >
-                    Supplier Items
-                </NavLink>
-                <NavLink
-                    v-if="hasAccess('view POSMasterfile list')"
-                    href="/POSMasterfile-list"
-                    :icon="TextSelect"
-                    :is-active="isPathActive('/POSMasterfile-list')"
-                >
-                    POS Masterlist
-                </NavLink>
-                <NavLink
-                    v-if="hasAccess('view POSMasterfile BOM list')"
-                    href="/pos-bom-list"
-                    :icon="Scroll"
-                    :is-active="isPathActive('/pos-bom-list')"
-                >
-                    BOM
-                </NavLink>
-                <NavLink
                     v-if="hasAccess('view stock management')"
                     href="/stock-management"
                     :icon="FolderKanban"
@@ -751,61 +709,123 @@ watchEffect(() => {
                 >
                     SOH Adjustment
                 </NavLink>
-                <NavLink
-                    v-if="hasAccess('view wastage record')"
-                    href="/wastage"
-                    :icon="Trash2"
-                    :is-active="isPathActive('/wastage')"
+
+                <!-- Wastage Subgroup -->
+                <Collapsible
+                    v-if="canViewWastageSubgroup"
+                    v-model:open="wastageOpen"
+                    class="w-full"
                 >
-                    Wastage Record
-                </NavLink>
-                <NavLink
-                    v-if="hasAccess('view wastage approval level 1')"
-                    href="/wastage-approval-level1"
-                    :icon="ClipboardCheck"
-                    :is-active="isPathActive('/wastage-approval-level1')"
+                    <CollapsibleTrigger
+                        class="flex items-center justify-between w-full py-1 text-xs hover:bg-muted/30 rounded-md px-2"
+                    >
+                        <div class="flex items-center">
+                            <span class="text-muted-foreground">Wastage</span>
+                        </div>
+                        <ChevronDown v-if="wastageOpen" class="h-3 w-3" />
+                        <ChevronRight v-else class="h-3 w-3" />
+                    </CollapsibleTrigger>
+                    <CollapsibleContent class="pl-2">
+                        <NavLink
+                            v-if="hasAccess('view wastage record')"
+                            href="/wastage"
+                            :icon="Trash2"
+                            :is-active="isPathActive('/wastage')"
+                        >
+                            Wastage Record
+                        </NavLink>
+                        <NavLink
+                            v-if="hasAccess('view wastage approval level 1')"
+                            href="/wastage-approval-level1"
+                            :icon="ClipboardCheck"
+                            :is-active="isPathActive('/wastage-approval-level1')"
+                        >
+                            Wastage Approval 1st Level
+                        </NavLink>
+                        <NavLink
+                            v-if="hasAccess('view wastage approval level 2')"
+                            href="/wastage-approval-level2"
+                            :icon="ClipboardCheck"
+                            :is-active="isPathActive('/wastage-approval-level2')"
+                        >
+                            Wastage Approval 2nd Level
+                        </NavLink>
+                    </CollapsibleContent>
+                </Collapsible>
+
+                <!-- MEC Subgroup -->
+                <Collapsible
+                    v-if="canViewMECSubgroup"
+                    v-model:open="mecOpen"
+                    class="w-full"
                 >
-                    Wastage Approval 1st Level
-                </NavLink>
-                <NavLink
-                    v-if="hasAccess('view wastage approval level 2')"
-                    href="/wastage-approval-level2"
-                    :icon="ClipboardCheck"
-                    :is-active="isPathActive('/wastage-approval-level2')"
-                >
-                    Wastage Approval 2nd Level
-                </NavLink>
-                <!-- Moved Low on Stocks here -->
+                    <CollapsibleTrigger
+                        class="flex items-center justify-between w-full py-1 text-xs hover:bg-muted/30 rounded-md px-2"
+                    >
+                        <div class="flex items-center">
+                            <span class="text-muted-foreground">MEC</span>
+                        </div>
+                        <ChevronDown v-if="mecOpen" class="h-3 w-3" />
+                        <ChevronRight v-else class="h-3 w-3" />
+                    </CollapsibleTrigger>
+                    <CollapsibleContent class="pl-2">
+                        <NavLink
+                            v-if="hasAccess('perform month end count')"
+                            href="/month-end-count"
+                            :icon="ScanBarcode"
+                            :is-active="usePage().url.split('?')[0] === '/month-end-count' || usePage().url.split('?')[0].startsWith('/month-end-count/')"
+                        >
+                            Month End Count
+                        </NavLink>
+                        <NavLink
+                            v-if="hasAccess('view month end count approvals')"
+                            href="/month-end-count-approvals"
+                            :icon="ClipboardCheck"
+                            :is-active="isPathActive('/month-end-count-approvals')"
+                        >
+                            MEC Approval 1st Level
+                        </NavLink>
+                        <NavLink
+                            v-if="hasAccess('view month end count approvals level 2')"
+                            href="/month-end-count-approvals-level2"
+                            :icon="ClipboardCheck"
+                            :is-active="isPathActive('/month-end-count-approvals-level2')"
+                        >
+                            MEC Approval 2nd Level
+                        </NavLink>
+                    </CollapsibleContent>
+                </Collapsible>
+
                 <NavLink href="/low-on-stocks" :icon="FileCog" v-if="hasAccess('view low on stocks')"
                     :is-active="isPathActive('/low-on-stocks')">
                     Low on Stocks
                 </NavLink>
-                <!-- NEW: Month End Count -->
+            </CollapsibleContent>
+        </Collapsible>
+
+        <!-- Bill of Materials Section -->
+        <Collapsible
+            v-if="canViewBOMGroup"
+            v-model:open="bomOpen"
+            class="w-full"
+        >
+            <CollapsibleTrigger
+                class="flex items-center justify-between w-full py-2 hover:bg-muted/50 rounded-md px-2"
+            >
+                <div class="flex items-center">
+                    <span >Bill of Materials</span>
+                </div>
+                <ChevronDown v-if="bomOpen" class="h-4 w-4" />
+                <ChevronRight v-else class="h-4 w-4" />
+            </CollapsibleTrigger>
+            <CollapsibleContent class="pl-2">
                 <NavLink
-                    v-if="hasAccess('perform month end count')"
-                    href="/month-end-count"
-                    :icon="ScanBarcode"
-                    :is-active="usePage().url.split('?')[0] === '/month-end-count' || usePage().url.split('?')[0].startsWith('/month-end-count/')"
+                    v-if="hasAccess('view bom list')"
+                    href="/pos-bom-list"
+                    :icon="Scroll"
+                    :is-active="isPathActive('/pos-bom-list')"
                 >
-                    Month End Count
-                </NavLink>
-                <!-- NEW: Month End Count Approvals -->
-                <NavLink
-                    v-if="hasAccess('view month end count approvals')"
-                    href="/month-end-count-approvals"
-                    :icon="ClipboardCheck"
-                    :is-active="isPathActive('/month-end-count-approvals')"
-                >
-                    MEC Approval 1st Level
-                </NavLink>
-                <!-- NEW: MEC Approval 2nd Level -->
-                <NavLink
-                    v-if="hasAccess('view month end count approvals level 2')"
-                    href="/month-end-count-approvals-level2"
-                    :icon="ClipboardCheck"
-                    :is-active="isPathActive('/month-end-count-approvals-level2')"
-                >
-                    MEC Approval 2nd Level
+                    BOM List
                 </NavLink>
             </CollapsibleContent>
         </Collapsible>
@@ -826,7 +846,6 @@ watchEffect(() => {
                 <ChevronRight v-else class="h-4 w-4" />
             </CollapsibleTrigger>
             <CollapsibleContent class="pl-2">
-                <!-- CRITICAL FIX: Added new NavLink for Consolidated SO Report -->
                 <NavLink
                     v-if="hasAccess('view consolidated so report')"
                     href="/reports/consolidated-so"
@@ -835,7 +854,6 @@ watchEffect(() => {
                 >
                     Consolidated SO Report
                 </NavLink>
-                <!-- PMIX Report -->
                 <NavLink
                     v-if="hasAccess('view pmix report')"
                     href="/reports/pmix-report"
@@ -844,7 +862,6 @@ watchEffect(() => {
                 >
                     PMIX Report
                 </NavLink>
-                <!-- Wastage Report -->
                 <NavLink
                     v-if="hasAccess('view wastage report')"
                     href="/reports/wastage-report"
@@ -853,7 +870,6 @@ watchEffect(() => {
                 >
                     Wastage Report
                 </NavLink>
-                <!-- Delivery Report -->
                 <NavLink
                     v-if="hasAccess('view delivery report')"
                     href="/reports/delivery-report"
@@ -862,7 +878,6 @@ watchEffect(() => {
                 >
                     Delivery Report
                 </NavLink>
-                <!-- Qty Variance / Cost Variance Report -->
                 <NavLink
                     v-if="hasAccess('view qty variance cost variance report')"
                     href="/reports/qty-variance-cost-variance-report"
@@ -871,7 +886,6 @@ watchEffect(() => {
                 >
                     Qty Variance / Cost Variance Report
                 </NavLink>
-                <!-- Actual Cost / COGS Report -->
                 <NavLink
                     v-if="hasAccess('view actual cost cogs report')"
                     href="/reports/actual-cost-cogs-report"
@@ -880,7 +894,6 @@ watchEffect(() => {
                 >
                     Actual Cost / COGS Report
                 </NavLink>
-                <!-- Interco Report -->
                 <NavLink
                     v-if="hasAccess('view interco report')"
                     href="/reports/interco-report"
@@ -889,7 +902,6 @@ watchEffect(() => {
                 >
                     Interco Report
                 </NavLink>
-                <!-- Inventory Movement Report -->
                 <NavLink
                     v-if="hasAccess('view inventory movement report')"
                     href="/reports/inventory-movement"
@@ -1010,22 +1022,6 @@ watchEffect(() => {
                     Unit of Measurements
                 </NavLink>
                 <NavLink
-                    v-if="hasAccess('view branches')"
-                    href="/branches"
-                    :icon="AppWindowMac"
-                    :is-active="isPathActive('/branches')"
-                >
-                    Store Branches
-                </NavLink>
-                <NavLink
-                    v-if="hasAccess('view suppliers')"
-                    href="/suppliers"
-                    :icon="Warehouse"
-                    :is-active="isPathActive('/suppliers')"
-                >
-                    Suppliers
-                </NavLink>
-                <NavLink
                     v-if="hasAccess('view cost centers')"
                     href="/cost-centers"
                     :icon="TextSelect"
@@ -1036,15 +1032,15 @@ watchEffect(() => {
             </CollapsibleContent>
         </Collapsible>
 
-        <!-- Settings Section -->
-        <Collapsible v-if="canViewSettingsGroup" v-model:open="settingsOpen" class="w-full">
+        <!-- Administration Section -->
+        <Collapsible v-if="canViewAdministrationGroup" v-model:open="adminOpen" class="w-full">
             <CollapsibleTrigger
                 class="flex items-center justify-between w-full py-2 hover:bg-muted/50 rounded-md px-2"
             >
                 <div class="flex items-center">
-                    <span >Settings</span>
+                    <span >Administration</span>
                 </div>
-                <ChevronDown v-if="settingsOpen" class="h-4 w-4" />
+                <ChevronDown v-if="adminOpen" class="h-4 w-4" />
                 <ChevronRight v-else class="h-4 w-4" />
             </CollapsibleTrigger>
             <CollapsibleContent class="pl-2">
@@ -1059,62 +1055,168 @@ watchEffect(() => {
                 <NavLink href="/roles" :icon="FileCog" v-if="hasAccess('view roles')" :is-active="isPathActive('/roles')">
                     Roles
                 </NavLink>
-                <NavLink
-                    v-if="hasAccess('view templates')"
-                    href="/templates"
-                    :icon="FileCog"
-                    :is-active="isPathActive('/templates')"
+
+                <!-- Masterfile Subgroup -->
+                <Collapsible
+                    v-if="canViewMasterfileSubgroup"
+                    v-model:open="masterfileOpen"
+                    class="w-full"
                 >
-                    Templates
-                </NavLink>
-                <NavLink
-                    v-if="hasAccess('view dts delivery schedules')"
-                    href="/dts-delivery-schedules"
-                    :icon="CalendarCheck2"
-                    :is-active="isPathActive('/dts-delivery-schedules')"
+                    <CollapsibleTrigger
+                        class="flex items-center justify-between w-full py-1 text-xs hover:bg-muted/30 rounded-md px-2"
+                    >
+                        <div class="flex items-center">
+                            <span class="text-muted-foreground">Masterfile</span>
+                        </div>
+                        <ChevronDown v-if="masterfileOpen" class="h-3 w-3" />
+                        <ChevronRight v-else class="h-3 w-3" />
+                    </CollapsibleTrigger>
+                    <CollapsibleContent class="pl-2">
+                        <NavLink
+                            v-if="hasAccess('view items list')"
+                            href="/items-list"
+                            :icon="PackageSearch"
+                            :is-active="isPathActive('/items-list')"
+                        >
+                            NN Inventory Items
+                        </NavLink>
+                        <NavLink
+                            v-if="hasAccess('view sapitems list')"
+                            href="/sapitems-list"
+                            :icon="TextSelect"
+                            :is-active="isPathActive('/sapitems-list')"
+                        >
+                            SAP Masterlist
+                        </NavLink>
+                        <NavLink
+                            v-if="hasAccess('view SupplierItems list')"
+                            href="/SupplierItems-list"
+                            :icon="Warehouse"
+                            :is-active="isPathActive('/SupplierItems-list')"
+                        >
+                            Supplier Items
+                        </NavLink>
+                        <NavLink
+                            v-if="hasAccess('view POSMasterfile list')"
+                            href="/POSMasterfile-list"
+                            :icon="TextSelect"
+                            :is-active="isPathActive('/POSMasterfile-list')"
+                        >
+                            POS Masterlist
+                        </NavLink>
+                        <NavLink
+                            v-if="hasAccess('view branches')"
+                            href="/branches"
+                            :icon="AppWindowMac"
+                            :is-active="isPathActive('/branches')"
+                        >
+                            Store Branches
+                        </NavLink>
+                        <NavLink
+                            v-if="hasAccess('view suppliers')"
+                            href="/suppliers"
+                            :icon="Warehouse"
+                            :is-active="isPathActive('/suppliers')"
+                        >
+                            Suppliers
+                        </NavLink>
+                    </CollapsibleContent>
+                </Collapsible>
+
+                <!-- Templates Subgroup -->
+                <Collapsible
+                    v-if="canViewTemplatesSubgroup"
+                    v-model:open="templatesOpen"
+                    class="w-full"
                 >
-                    DTS Delivery Schedules
-                </NavLink>
-                <NavLink
-                    v-if="hasAccess('view dsp delivery schedules')"
-                    href="/dsp-delivery-schedules"
-                    :icon="CalendarCheck2"
-                    :is-active="isPathActive('/dsp-delivery-schedules')"
+                    <CollapsibleTrigger
+                        class="flex items-center justify-between w-full py-1 text-xs hover:bg-muted/30 rounded-md px-2"
+                    >
+                        <div class="flex items-center">
+                            <span class="text-muted-foreground">Templates</span>
+                        </div>
+                        <ChevronDown v-if="templatesOpen" class="h-3 w-3" />
+                        <ChevronRight v-else class="h-3 w-3" />
+                    </CollapsibleTrigger>
+                    <CollapsibleContent class="pl-2">
+                        <NavLink
+                            v-if="hasAccess('view templates')"
+                            href="/templates"
+                            :icon="FileCog"
+                            :is-active="isPathActive('/templates')"
+                        >
+                            Ordering Templates
+                        </NavLink>
+                        <NavLink
+                            v-if="hasAccess('view ordering template approval')"
+                            href="/ordering-template-approval"
+                            :icon="FileCheck"
+                            :is-active="isPathActive('/ordering-template-approval')"
+                        >
+                            Ordering Template Approval
+                        </NavLink>
+                        <NavLink
+                            v-if="hasAccess('view month end count templates')"
+                            href="/month-end-count-templates"
+                            :icon="Scroll"
+                            :is-active="isPathActive('/month-end-count-templates')"
+                        >
+                            Month End Count Templates
+                        </NavLink>
+                    </CollapsibleContent>
+                </Collapsible>
+
+                <!-- Schedules Subgroup -->
+                <Collapsible
+                    v-if="canViewSchedulesSubgroup"
+                    v-model:open="schedulesOpen"
+                    class="w-full"
                 >
-                    Delivery Schedules
-                </NavLink>
-                <NavLink
-                    v-if="hasAccess('view orders cutoff')"
-                    href="/orders-cutoff"
-                    :icon="CalendarCheck2"
-                    :is-active="isPathActive('/orders-cutoff')"
-                >
-                    Ordering Cut Off
-                </NavLink>
-                <NavLink
-                    v-if="hasAccess('view month end schedules')"
-                    href="/month-end-schedules"
-                    :icon="CalendarCheck2"
-                    :is-active="isPathActive('/month-end-schedules')"
-                >
-                    Month End Schedules
-                </NavLink>
-                <NavLink
-                    v-if="hasAccess('view month end count templates')"
-                    href="/month-end-count-templates"
-                    :icon="Scroll"
-                    :is-active="isPathActive('/month-end-count-templates')"
-                >
-                    Month End Count Templates
-                </NavLink>
-                <NavLink
-                    v-if="hasAccess('view ordering template approval')"
-                    href="/ordering-template-approval"
-                    :icon="FileCheck"
-                    :is-active="isPathActive('/ordering-template-approval')"
-                >
-                    Ordering Template Approval
-                </NavLink>
+                    <CollapsibleTrigger
+                        class="flex items-center justify-between w-full py-1 text-xs hover:bg-muted/30 rounded-md px-2"
+                    >
+                        <div class="flex items-center">
+                            <span class="text-muted-foreground">Schedules</span>
+                        </div>
+                        <ChevronDown v-if="schedulesOpen" class="h-3 w-3" />
+                        <ChevronRight v-else class="h-3 w-3" />
+                    </CollapsibleTrigger>
+                    <CollapsibleContent class="pl-2">
+                        <NavLink
+                            v-if="hasAccess('view dts delivery schedules')"
+                            href="/dts-delivery-schedules"
+                            :icon="CalendarCheck2"
+                            :is-active="isPathActive('/dts-delivery-schedules')"
+                        >
+                            DTS Delivery Schedules
+                        </NavLink>
+                        <NavLink
+                            v-if="hasAccess('view dsp delivery schedules')"
+                            href="/dsp-delivery-schedules"
+                            :icon="CalendarCheck2"
+                            :is-active="isPathActive('/dsp-delivery-schedules')"
+                        >
+                            Delivery Schedules
+                        </NavLink>
+                        <NavLink
+                            v-if="hasAccess('view month end schedules')"
+                            href="/month-end-schedules"
+                            :icon="CalendarCheck2"
+                            :is-active="isPathActive('/month-end-schedules')"
+                        >
+                            Month End Count Schedules
+                        </NavLink>
+                        <NavLink
+                            v-if="hasAccess('view orders cutoff')"
+                            href="/orders-cutoff"
+                            :icon="CalendarCheck2"
+                            :is-active="isPathActive('/orders-cutoff')"
+                        >
+                            Ordering Cut off
+                        </NavLink>
+                    </CollapsibleContent>
+                </Collapsible>
+
                 <NavLink
                     v-if="hasAccess('view knowledge base articles')"
                     href="/manage-knowledge-base"

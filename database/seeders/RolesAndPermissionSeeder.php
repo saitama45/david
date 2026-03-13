@@ -39,7 +39,7 @@ class RolesAndPermissionSeeder extends Seeder
         // DTS Delivery Schedules
         Permission::firstOrCreate(['name' => 'view dts delivery schedules']);
         Permission::firstOrCreate(['name' => 'edit dts delivery schedules']);
-        Permission::firstOrCreate(['name' => 'export dts delivery schedules']); // Added export
+        Permission::firstOrCreate(['name' => 'export dts delivery schedules']);
 
         // DSP Delivery Schedules
         Permission::firstOrCreate(['name' => 'view dsp delivery schedules']);
@@ -57,27 +57,27 @@ class RolesAndPermissionSeeder extends Seeder
         Permission::firstOrCreate(['name' => 'edit store orders']);
         Permission::firstOrCreate(['name' => 'create store orders']);
         Permission::firstOrCreate(['name' => 'view store order']);
-        Permission::firstOrCreate(['name' => 'export store orders']); // Added export
+        Permission::firstOrCreate(['name' => 'export store orders']);
 
         // Ordering Calendar
         Permission::firstOrCreate(['name' => 'view ordering calendar']);
         Permission::firstOrCreate(['name' => 'export ordering calendar']);
 
-        // Emergency Orders (Added for consistency with desired grouping)
+        // Emergency Orders
         Permission::firstOrCreate(['name' => 'view emergency orders']);
         Permission::firstOrCreate(['name' => 'create emergency orders']);
         Permission::firstOrCreate(['name' => 'edit emergency orders']);
         Permission::firstOrCreate(['name' => 'delete emergency orders']);
         Permission::firstOrCreate(['name' => 'export emergency orders']);
 
-        // Additional Orders (Added for consistency with desired grouping)
+        // Additional Orders
         Permission::firstOrCreate(['name' => 'view additional orders']);
         Permission::firstOrCreate(['name' => 'create additional orders']);
         Permission::firstOrCreate(['name' => 'edit additional orders']);
         Permission::firstOrCreate(['name' => 'delete additional orders']);
         Permission::firstOrCreate(['name' => 'export additional orders']);
 
-        // Interco Transfers (Store-to-Store)
+        // Interco Transfers
         Permission::firstOrCreate(['name' => 'view interco requests']);
         Permission::firstOrCreate(['name' => 'create interco requests']);
         Permission::firstOrCreate(['name' => 'edit interco requests']);
@@ -88,17 +88,17 @@ class RolesAndPermissionSeeder extends Seeder
         // Interco Approvals
         Permission::firstOrCreate(['name' => 'view interco approvals']);
 
-        // Interco Receiving (New Module)
+        // Interco Receiving
         Permission::firstOrCreate(['name' => 'view interco receiving']);
         Permission::firstOrCreate(['name' => 'receive interco requests']);
         Permission::firstOrCreate(['name' => 'view interco receiving approvals']);
         Permission::firstOrCreate(['name' => 'export interco receiving']);
 
-        // Interco Report (New Module)
+        // Interco Report
         Permission::firstOrCreate(['name' => 'view interco report']);
         Permission::firstOrCreate(['name' => 'export interco report']);
 
-        // Inventory Movement Report (New Module)
+        // Inventory Movement Report
         Permission::firstOrCreate(['name' => 'view inventory movement report']);
         Permission::firstOrCreate(['name' => 'export inventory movement report']);
 
@@ -112,9 +112,9 @@ class RolesAndPermissionSeeder extends Seeder
         Permission::firstOrCreate(['name' => 'edit dts orders']);
         Permission::firstOrCreate(['name' => 'create dts orders']);
         Permission::firstOrCreate(['name' => 'view dts order']);
-        Permission::firstOrCreate(['name' => 'export dts orders']); // Added export
+        Permission::firstOrCreate(['name' => 'export dts orders']);
 
-        // Direct Receiving (Added for consistency with desired grouping)
+        // Direct Receiving
         Permission::firstOrCreate(['name' => 'view direct receiving']);
         Permission::firstOrCreate(['name' => 'create direct receiving']);
         Permission::firstOrCreate(['name' => 'edit direct receiving']);
@@ -131,15 +131,14 @@ class RolesAndPermissionSeeder extends Seeder
         Permission::firstOrCreate(['name' => 'view orders for cs approval list']);
         Permission::firstOrCreate(['name' => 'view order for cs approval']);
         Permission::firstOrCreate(['name' => 'cs approve/decline order request']);
-        // NEW: Export permission for CS Approval List
         Permission::firstOrCreate(['name' => 'export orders for cs approval list']);
 
-        // Emergency Order Approval (Added for consistency)
+        // Emergency Order Approval
         Permission::firstOrCreate(['name' => 'view emergency order approval']);
         Permission::firstOrCreate(['name' => 'approve emergency order']);
         Permission::firstOrCreate(['name' => 'decline emergency order']);
 
-        // Additional Order Approval (Added for consistency)
+        // Additional Order Approval
         Permission::firstOrCreate(['name' => 'view additional order approval']);
         Permission::firstOrCreate(['name' => 'approve additional order']);
         Permission::firstOrCreate(['name' => 'decline additional order']);
@@ -149,29 +148,29 @@ class RolesAndPermissionSeeder extends Seeder
         Permission::firstOrCreate(['name' => 'view approved orders']);
         Permission::firstOrCreate(['name' => 'view approved order']);
         Permission::firstOrCreate(['name' => 'receive orders']);
-        Permission::firstOrCreate(['name' => 'export approved orders']); // Added export
+        Permission::firstOrCreate(['name' => 'export approved orders']);
 
         // Receiving Approvals
         Permission::firstOrCreate(['name' => 'view received orders for approval list']);
         Permission::firstOrCreate(['name' => 'view approved order for approval']);
         Permission::firstOrCreate(['name' => 'approve received orders']);
         Permission::firstOrCreate(['name' => 'approve image attachments']);
-        Permission::firstOrCreate(['name' => 'export received orders for approval list']); // Added export
+        Permission::firstOrCreate(['name' => 'export received orders for approval list']);
 
         // Approved Received Items
         Permission::firstOrCreate(['name' => 'view approved received items']);
         Permission::firstOrCreate(['name' => 'view approved received item']);
         Permission::firstOrCreate(['name' => 'cancel approved received item']);
-        Permission::firstOrCreate(['name' => 'export approved received items']); // Added export
+        Permission::firstOrCreate(['name' => 'export approved received items']);
 
         // Store Transactions
         Permission::firstOrCreate(['name' => 'view store transactions']);
         Permission::firstOrCreate(['name' => 'create store transactions']);
         Permission::firstOrCreate(['name' => 'view store transaction']);
         Permission::firstOrCreate(['name' => 'edit store transactions']);
-        Permission::firstOrCreate(['name' => 'export store transactions']); // Added export
+        Permission::firstOrCreate(['name' => 'export store transactions']);
 
-        // Store Transactions Approval (Added for consistency)
+        // Store Transactions Approval
         Permission::firstOrCreate(['name' => 'view store transactions approval']);
         Permission::firstOrCreate(['name' => 'approve store transactions']);
         Permission::firstOrCreate(['name' => 'decline store transactions']);
@@ -182,9 +181,9 @@ class RolesAndPermissionSeeder extends Seeder
         Permission::firstOrCreate(['name' => 'edit items']);
         Permission::firstOrCreate(['name' => 'view item']);
         Permission::firstOrCreate(['name' => 'delete items']);
-        Permission::firstOrCreate(['name' => 'export items list']); // Added export
+        Permission::firstOrCreate(['name' => 'export items list']);
 
-        // SAP, Supplier, POS Masterfile Items (Added for consistency with sidebar)
+        // SAP, Supplier, POS Masterfile Items
         Permission::firstOrCreate(['name' => 'view sapitems list']);
         Permission::firstOrCreate(['name' => 'create sapitems']);
         Permission::firstOrCreate(['name' => 'edit sapitems']);
@@ -203,7 +202,7 @@ class RolesAndPermissionSeeder extends Seeder
         Permission::firstOrCreate(['name' => 'delete POSMasterfile']);
         Permission::firstOrCreate(['name' => 'export POSMasterfile list']);
 
-        // NEW: POSMasterfileBOM Permissions
+        // POSMasterfileBOM Permissions
         Permission::firstOrCreate(['name' => 'view POSMasterfile BOM list']);
         Permission::firstOrCreate(['name' => 'view POSMasterfile BOM']);
         Permission::firstOrCreate(['name' => 'create POSMasterfile BOM']);
@@ -213,23 +212,23 @@ class RolesAndPermissionSeeder extends Seeder
         Permission::firstOrCreate(['name' => 'export POSMasterfile BOM']);
 
 
-        // BOM (Existing, keeping for context if it refers to something else)
+        // BOM
         Permission::firstOrCreate(['name' => 'view bom list']);
         Permission::firstOrCreate(['name' => 'view bom']);
         Permission::firstOrCreate(['name' => 'create bom']);
         Permission::firstOrCreate(['name' => 'edit bom']);
         Permission::firstOrCreate(['name' => 'delete bom']);
-        Permission::firstOrCreate(['name' => 'export bom list']); // Added export
+        Permission::firstOrCreate(['name' => 'export bom list']);
 
         // Stock Management
         Permission::firstOrCreate(['name' => 'view stock management']);
         Permission::firstOrCreate(['name' => 'log stock usage']);
         Permission::firstOrCreate(['name' => 'add stock quantity']);
         Permission::firstOrCreate(['name' => 'view stock management history']);
-        Permission::firstOrCreate(['name' => 'export stock management']); // Added export
-        Permission::firstOrCreate(['name' => 'export stock management history']); // Added export history
+        Permission::firstOrCreate(['name' => 'export stock management']);
+        Permission::firstOrCreate(['name' => 'export stock management history']);
 
-        // SOH Adjustment (Added for consistency)
+        // SOH Adjustment
         Permission::firstOrCreate(['name' => 'view soh adjustment']);
         Permission::firstOrCreate(['name' => 'create soh adjustment']);
         Permission::firstOrCreate(['name' => 'edit soh adjustment']);
@@ -262,14 +261,14 @@ class RolesAndPermissionSeeder extends Seeder
 
         // Low on Stocks
         Permission::firstOrCreate(['name' => 'view low on stocks']);
-        Permission::firstOrCreate(['name' => 'export low on stocks']); // Added export
+        Permission::firstOrCreate(['name' => 'export low on stocks']);
 
         // Items Order Summary
         Permission::firstOrCreate(['name' => 'view items order summary']);
         Permission::firstOrCreate(['name' => 'view ice cream orders']);
         Permission::firstOrCreate(['name' => 'view salmon orders']);
         Permission::firstOrCreate(['name' => 'view fruits and vegetables orders']);
-        Permission::firstOrCreate(['name' => 'export items order summary']); // Added export
+        Permission::firstOrCreate(['name' => 'export items order summary']);
         Permission::firstOrCreate(['name' => 'export ice cream orders']);
         Permission::firstOrCreate(['name' => 'export salmon orders']);
         Permission::firstOrCreate(['name' => 'export fruits and vegetables orders']);
@@ -279,12 +278,12 @@ class RolesAndPermissionSeeder extends Seeder
         Permission::firstOrCreate(['name' => 'create templates']);
         Permission::firstOrCreate(['name' => 'edit templates']);
         Permission::firstOrCreate(['name' => 'delete templates']);
-        Permission::firstOrCreate(['name' => 'export templates']); // Added export
+        Permission::firstOrCreate(['name' => 'export templates']);
 
-        // Manage References (General permission, specific ones below)
+        // Manage References
         Permission::firstOrCreate(['name' => 'manage references']);
 
-        // Reference Sub-categories (Added for consistency with sidebar)
+        // Reference Sub-categories
         Permission::firstOrCreate(['name' => 'view category list']);
         Permission::firstOrCreate(['name' => 'create category']);
         Permission::firstOrCreate(['name' => 'edit category']);
@@ -339,7 +338,7 @@ class RolesAndPermissionSeeder extends Seeder
         Permission::firstOrCreate(['name' => 'delete cost center']);
         Permission::firstOrCreate(['name' => 'export cost centers']);
 
-        // NEW: Ordering Template Approval
+        // Ordering Template Approval
         Permission::firstOrCreate(['name' => 'view ordering template approval']);
         Permission::firstOrCreate(['name' => 'edit ordering template approval']);
 
@@ -371,24 +370,24 @@ class RolesAndPermissionSeeder extends Seeder
         Permission::firstOrCreate(['name' => 'view cs dts mass commit']);
         Permission::firstOrCreate(['name' => 'edit cs dts mass commit']);
 
-        // NEW: Permissions for category-specific editing in CS Mass Commits
+        // Permissions for category-specific editing in CS Mass Commits
         $editFinishedGood = Permission::firstOrCreate(['name' => 'edit finished good commits']);
         $editOther = Permission::firstOrCreate(['name' => 'edit other commits']);
 
-        // NEW: Roles for category-specific editing
+        // Roles for category-specific editing
         $finishedGoodEditorRole = Role::firstOrCreate(['name' => 'Finished Goods CS']);
-        $finishedGoodEditorRole->syncPermissions([$editFinishedGood]); // Only this permission
+        $finishedGoodEditorRole->syncPermissions([$editFinishedGood]);
 
         $generalEditorRole = Role::firstOrCreate(['name' => 'General CS']);
-        $generalEditorRole->syncPermissions([$editOther]); // Only this permission
+        $generalEditorRole->syncPermissions([$editOther]);
 
-        // NEW: Month End Schedules
+        // Month End Schedules
         Permission::firstOrCreate(['name' => 'view month end schedules']);
         Permission::firstOrCreate(['name' => 'create month end schedules']);
         Permission::firstOrCreate(['name' => 'edit month end schedules']);
         Permission::firstOrCreate(['name' => 'delete month end schedules']);
 
-        // NEW: Month End Count Templates
+        // Month End Count Templates
         Permission::firstOrCreate(['name' => 'view month end count templates']);
         Permission::firstOrCreate(['name' => 'create month end count templates']);
         Permission::firstOrCreate(['name' => 'edit month end count templates']);
@@ -396,21 +395,21 @@ class RolesAndPermissionSeeder extends Seeder
         Permission::firstOrCreate(['name' => 'export month end count templates']);
         Permission::firstOrCreate(['name' => 'import month end count templates']);
 
-        // NEW: Month End Count
+        // Month End Count
         Permission::firstOrCreate(['name' => 'perform month end count']);
         Permission::firstOrCreate(['name' => 'download month end count template']);
         Permission::firstOrCreate(['name' => 'upload month end count transaction']);
         Permission::firstOrCreate(['name' => 'edit month end count items']);
         Permission::firstOrCreate(['name' => 'view month end count transaction']);
 
-        // NEW: Month End Count Approvals
+        // Month End Count Approvals
         Permission::firstOrCreate(['name' => 'view month end count approvals']);
         Permission::firstOrCreate(['name' => 'edit month end count approval items']);
         Permission::firstOrCreate(['name' => 'approve month end count level 1']);
         Permission::firstOrCreate(['name' => 'approve month end count level 2']);
         Permission::firstOrCreate(['name' => 'view month end count approvals level 2']);
 
-        // Reports from DashboardController (Added for consistency)
+        // Reports from DashboardController
         Permission::firstOrCreate(['name' => 'view top 10 inventories']);
         Permission::firstOrCreate(['name' => 'export top 10 inventories']);
         Permission::firstOrCreate(['name' => 'view days inventory outstanding']);
@@ -428,32 +427,32 @@ class RolesAndPermissionSeeder extends Seeder
         Permission::firstOrCreate(['name' => 'view cost of goods']);
         Permission::firstOrCreate(['name' => 'export cost of goods']);
 
-        // NEW: Consolidated SO Report permissions
+        // Consolidated SO Report permissions
         Permission::firstOrCreate(['name' => 'view consolidated so report']);
         Permission::firstOrCreate(['name' => 'export consolidated so report']);
 
-        // NEW: PMIX Report permissions
+        // PMIX Report permissions
         Permission::firstOrCreate(['name' => 'view pmix report']);
         Permission::firstOrCreate(['name' => 'export pmix report']);
 
-        // NEW: Wastage Report permissions
+        // Wastage Report permissions
         Permission::firstOrCreate(['name' => 'view wastage report']);
         Permission::firstOrCreate(['name' => 'export wastage report']);
 
-        // NEW: Qty Variance / Cost Variance Report permissions
+        // Qty Variance / Cost Variance Report permissions
         Permission::firstOrCreate(['name' => 'view qty variance cost variance report']);
         Permission::firstOrCreate(['name' => 'export qty variance cost variance report']);
 
-        // NEW: Actual Cost / Cost of Goods Sold Report permissions
+        // Actual Cost / Cost of Goods Sold Report permissions
         Permission::firstOrCreate(['name' => 'view actual cost cogs report']);
         Permission::firstOrCreate(['name' => 'export actual cost cogs report']);
 
-        // NEW: Delivery Report permissions
+        // Delivery Report permissions
         Permission::firstOrCreate(['name' => 'view delivery report']);
         Permission::firstOrCreate(['name' => 'export delivery report']);
 
 
-        // NEW: Knowledge Base Articles
+        // Knowledge Base Articles
         Permission::firstOrCreate(['name' => 'view knowledge base articles']);
         Permission::firstOrCreate(['name' => 'create knowledge base articles']);
         Permission::firstOrCreate(['name' => 'edit knowledge base articles']);
@@ -470,19 +469,14 @@ class RolesAndPermissionSeeder extends Seeder
             'view stock management', 'log stock usage', 'add stock quantity', 'view stock management history',
             'export stock management history',
             'view items order summary', 'view templates', 'view low on stocks',
-            // Added for consistency
             'view emergency orders', 'create emergency orders', 'edit emergency orders',
             'view additional orders', 'create additional orders', 'edit additional orders',
             'view direct receiving', 'create direct receiving', 'edit direct receiving',
-            // Interco permissions for store representative
             'view interco requests', 'create interco requests', 'edit interco requests',
-            // Interco Receiving permissions for store representative
             'view interco receiving', 'receive interco requests',
-            // Interco Report permissions for store representative
             'view interco report',
-            // Store Commits permissions for store representative
             'view store commits',
-            'view sapitems list', 'view SupplierItems list', 'view POSMasterfile list',
+            'view items list', 'view sapitems list', 'view SupplierItems list', 'view POSMasterfile list',
             'view bom list', 'view bom', 'create bom', 'edit bom',
             'view soh adjustment', 'create soh adjustment', 'edit soh adjustment',
             'view wastage record', 'create wastage record', 'edit wastage record',
@@ -493,23 +487,15 @@ class RolesAndPermissionSeeder extends Seeder
             'view sales report', 'view inventories report', 'view upcoming inventories',
             'view account payable', 'view cost of goods',
             'view store transactions', 'create store transactions', 'view store transaction', 'edit store transactions',
-            // NEW: POSMasterfileBOM permissions for store representative
             'view POSMasterfile BOM list', 'view POSMasterfile BOM', 'create POSMasterfile BOM', 'edit POSMasterfile BOM', 'import POSMasterfile BOM', 'export POSMasterfile BOM',
-            // NEW: Consolidated SO Report permission for store representative
             'view consolidated so report',
-            // NEW: PMIX Report permission for store representative
             'view pmix report',
-            // NEW: Wastage Report permission for store representative
             'view wastage report',
-            // NEW: Qty Variance / Cost Variance Report permission for store representative
             'view qty variance cost variance report',
-            // NEW: Actual Cost / Cost of Goods Sold Report permission for store representative
             'view actual cost cogs report',
-            // NEW: Delivery Report permission for store representative
             'view delivery report',
             'download month end count template',
             'upload month end count transaction',
-            // NEW: Knowledge Base permissions for store representative
             'view knowledge base articles',
             'view ordering calendar',
         ]);
@@ -519,34 +505,21 @@ class RolesAndPermissionSeeder extends Seeder
             'view orders for approval list', 'view order for approval', 'approve/decline order request',
             'view approved received items', 'view approved received item', 'view received orders for approval list',
             'view approved order for approval', 'approve image attachments',
-            // Added for consistency
             'view emergency order approval', 'approve emergency order', 'decline emergency order',
             'view additional order approval', 'approve additional order', 'decline additional order',
             'view store transactions approval', 'approve store transactions', 'decline store transactions',
-            // Interco permissions for request approver
             'view interco requests', 'approve interco requests', 'commit interco requests',
             'view interco approvals',
-            // Interco Receiving permissions for request approver
             'view interco receiving', 'view interco receiving approvals', 'export interco receiving',
-            // Interco Report permissions for request approver
             'view interco report', 'export interco report',
-            // Store Commits permissions for request approver
             'view store commits', 'commit store orders', 'export store commits',
-            // Wastage Record permissions for request approver
             'view wastage record',
-            // NEW: Export permission for CS Approval List for 'request approver'
             'export orders for cs approval list',
-            // NEW: Consolidated SO Report permission for request approver
             'view consolidated so report',
-            // NEW: PMIX Report permission for request approver
             'view pmix report', 'export pmix report',
-            // NEW: Wastage Report permission for request approver
             'view wastage report', 'export wastage report',
-            // NEW: Qty Variance / Cost Variance Report permission for request approver
             'view qty variance cost variance report', 'export qty variance cost variance report',
-            // NEW: Actual Cost / Cost of Goods Sold Report permission for request approver
             'view actual cost cogs report', 'export actual cost cogs report',
-            // NEW: Delivery Report permission for request approver
             'view delivery report', 'export delivery report',
             'view ordering calendar',
         ]);
