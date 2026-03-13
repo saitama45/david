@@ -4,7 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Exports\MenuCategoriesExport;
 use App\Models\MenuCategory;
-use App\Traits\Traits\HasReferenceStoreAction;
+use App\Traits\traits\HasReferenceStoreAction;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Maatwebsite\Excel\Facades\Excel;

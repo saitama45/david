@@ -3,7 +3,7 @@ import { ref, watch, computed } from "vue"; // Ensure ref, watch, computed are i
 import { useSearch } from "@/composables/useSearch";
 import { router, usePage } from "@inertiajs/vue3";
 import { Eye, ArrowLeftRight } from "lucide-vue-next";
-import TransferStatusBadge from '../Interco/Components/TransferStatusBadge.vue';
+import TransferStatusBadge from '../Interco/components/TransferStatusBadge.vue';
 
 const props = defineProps({
     orders: {

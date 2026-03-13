@@ -17,7 +17,7 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { Search, Filter, RotateCcw, Download, Plus, Eye, Edit, Trash2 } from 'lucide-vue-next'
-import WastageStatusBadge from './Components/WastageStatusBadge.vue'
+import WastageStatusBadge from './components/WastageStatusBadge.vue'
 import MobileTableContainer from '@/components/table/MobileTableContainer.vue'
 import MobileTableRow from '@/components/table/MobileTableRow.vue'
 

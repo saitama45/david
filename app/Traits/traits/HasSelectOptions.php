@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Traits\Traits;
+namespace App\Traits\traits;
 
 trait HasSelectOptions
 {

@@ -31,8 +31,8 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { ArrowLeft, Plus, X, Edit, Trash2, Package, AlertTriangle, ChevronDown, ChevronLeft, ChevronRight, Download } from 'lucide-vue-next'
-import StockIndicator from './Components/StockIndicator.vue'
-import ItemQuantityModal from './Components/ItemQuantityModal.vue'
+import StockIndicator from './components/StockIndicator.vue'
+import ItemQuantityModal from './components/ItemQuantityModal.vue'
 
 const props = defineProps({
   myStoreOptions: Array,
