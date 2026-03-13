@@ -4,7 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Exports\UnitOfMeasurementsExport;
 use App\Models\UnitOfMeasurement;
-use App\Traits\traits\HasReferenceStoreAction;
+use App\Traits\Traits\HasReferenceStoreAction;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Maatwebsite\Excel\Facades\Excel;

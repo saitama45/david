@@ -6,7 +6,7 @@ use App\Exports\ProductCategoriesExport;
 use App\Models\Classification;
 use App\Models\Product;
 use App\Models\ProductCategory;
-use App\Traits\traits\HasReferenceStoreAction;
+use App\Traits\Traits\HasReferenceStoreAction;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
