@@ -151,6 +151,10 @@ const canViewStockTransferSubcategory = computed(() =>
     hasAccess("view store commits")
 );
 
+const canViewMonitoringSubcategory = computed(() =>
+    hasAccess("view store orders")
+);
+
 const canViewOthersSubcategory = computed(() =>
     hasAccess("view emergency orders") ||
     hasAccess("view emergency order approval") ||
@@ -239,6 +243,7 @@ const regularDTSOpen = ref(false);
 const regularMassOpen = ref(false);
 const dtsMassOpen = ref(false);
 const stockTransferOpen = ref(false);
+const monitoringOpen = ref(false);
 const othersOpen = ref(false);
 
 // Watch for route changes to automatically open the relevant collapsible section
@@ -248,7 +253,7 @@ watchEffect(() => {
     // Define all collapsible sections and their associated paths
     const sections = [
         { ref: settingsOpen, paths: ["/users", "/roles", "/templates", "/dts-delivery-schedules", "/dsp-delivery-schedules", "/orders-cutoff", "/month-end-schedules", "/month-end-count-templates", "/ordering-template-approval", "/manage-knowledge-base"] },
-        { ref: orderingOpen, paths: ["/store-orders", "/emergency-orders", "/additional-orders", "/dts-orders", "/orders-approval", "/cs-approvals", "/additional-orders-approval", "/emergency-orders-approval", "/mass-orders", "/mass-orders-approval", "/cs-mass-commits", "/dts-mass-orders", "/cs-dts-mass-commits", "/interco", "/interco-approval", "/store-commits"] },
+        { ref: orderingOpen, paths: ["/store-orders", "/emergency-orders", "/additional-orders", "/dts-orders", "/orders-approval", "/cs-approvals", "/additional-orders-approval", "/emergency-orders-approval", "/mass-orders", "/mass-orders-approval", "/cs-mass-commits", "/dts-mass-orders", "/cs-dts-mass-commits", "/interco", "/interco-approval", "/store-commits", "/ordering-calendar"] },
         { ref: receivingOpen, paths: ["/direct-receiving", "/orders-receiving", "/approved-orders", "/receiving-approvals", "/interco-receiving"] },
         { ref: salesOpen, paths: ["/sales-orders", "/store-transactions", "/store-transactions-approval"] },
         { ref: inventoryOpen, paths: ["/items-list", "/sapitems-list", "/SupplierItems-list", "/POSMasterfile-list", "/pos-bom-list", "/stock-management", "/soh-adjustment", "/wastage", "/wastage-approval-level1", "/wastage-approval-level2", "/low-on-stocks", "/month-end-count", "/month-end-count-approvals", "/month-end-count-approvals-level2"] },
@@ -260,6 +265,7 @@ watchEffect(() => {
         { ref: regularMassOpen, paths: ["/mass-orders", "/mass-orders-approval", "/cs-mass-commits"] },
         { ref: dtsMassOpen, paths: ["/dts-mass-orders", "/cs-dts-mass-commits"] },
         { ref: stockTransferOpen, paths: ["/interco", "/interco-approval", "/store-commits"] },
+        { ref: monitoringOpen, paths: ["/ordering-calendar"] },
         { ref: othersOpen, paths: ["/emergency-orders", "/emergency-orders-approval", "/additional-orders", "/additional-orders-approval"] },
     ];
 
@@ -488,6 +494,32 @@ watchEffect(() => {
                             :is-active="isPathActive('/store-commits')"
                         >
                             Store Commits
+                        </NavLink>
+                    </CollapsibleContent>
+                </Collapsible>
+
+                <!-- Monitoring Subcategory -->
+                <Collapsible
+                    v-if="canViewMonitoringSubcategory"
+                    v-model:open="monitoringOpen"
+                    class="w-full"
+                >
+                    <CollapsibleTrigger
+                        class="flex items-center justify-between w-full py-1 text-xs hover:bg-muted/30 rounded-md px-2"
+                    >
+                        <div class="flex items-center">
+                            <span class="text-muted-foreground">Monitoring</span>
+                        </div>
+                        <ChevronDown v-if="monitoringOpen" class="h-3 w-3" />
+                        <ChevronRight v-else class="h-3 w-3" />
+                    </CollapsibleTrigger>
+                    <CollapsibleContent class="pl-2">
+                        <NavLink
+                            href="/ordering-calendar"
+                            :icon="CalendarCheck2"
+                            :is-active="isPathActive('/ordering-calendar')"
+                        >
+                            Ordering Calendar
                         </NavLink>
                     </CollapsibleContent>
                 </Collapsible>
