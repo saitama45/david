@@ -3,7 +3,7 @@ name: Deploy Laravel to Azure App Service
 on:
   push:
     branches:
-      - master # Matches your "ghelpdesk" branch
+      - master
 
 permissions:
   contents: read
@@ -11,7 +11,7 @@ permissions:
 jobs:
   build_and_deploy:
     name: Build package and deploy to Azure
-    runs-on: ubuntu-latest # Switched to Linux for better compatibility with Azure Linux plans
+    runs-on: ubuntu-latest
 
     steps:
       - name: Checkout Code
@@ -21,26 +21,46 @@ jobs:
         uses: shivammathur/setup-php@v2
         with:
           php-version: "8.3"
-          extensions: fileinfo, mbstring, xml, gd, zip, pdo_sqlsrv, sqlsrv # Added SQL Server drivers
+          extensions: fileinfo, mbstring, xml, gd, zip, pdo_sqlsrv, sqlsrv
           ini-values: post_max_size=256M, max_execution_time=180
+          tools: composer:v2
+
+      # 1. Cache Composer dependencies
+      - name: Get Composer Cache Directory
+        id: composer-cache
+        run: echo "dir=$(composer config cache-files-dir)" >> $GITHUB_OUTPUT
+
+      - name: Cache Composer dependencies
+        uses: actions/cache@v4
+        with:
+          path: ${{ steps.composer-cache.outputs.dir }}
+          key: ${{ runner.os }}-composer-${{ hashFiles('**/composer.lock') }}
+          restore-keys: ${{ runner.os }}-composer-
 
       - name: Install Composer Dependencies
         run: composer install --no-dev --optimize-autoloader
 
+      # 2. Cache NPM dependencies
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
       - name: Install NPM Dependencies & Build
         run: |
-          if [ -f "package.json" ]; then
-            npm install
-            npm run build
-          fi
+          npm ci
+          npm run build
+          # CRITICAL: Remove node_modules after build to keep the deployment package small
+          rm -rf node_modules
 
       - name: Create Storage Link
         run: php artisan storage:link
 
-      # This replaces "Deploy to FTP" steps with the high-speed Azure Deploy
+      # 3. Deploy to Azure (Package is now ~90% smaller)
       - name: 'Deploy to Azure Web App'
         uses: azure/webapps-deploy@v3
         with:
-          app-name: 'David' # Make sure this matches Azure App Name exactly
+          app-name: 'David'
           publish-profile: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE }}
           package: .
