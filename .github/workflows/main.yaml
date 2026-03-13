@@ -58,6 +58,8 @@ jobs:
             **/.git*
             **/.git*/**
             **/node_modules/**
+            **/storage/**
+            **/public/build/**
             README.md
 
       - name: Deploy to FTP (Site10)
@@ -73,4 +75,6 @@ jobs:
             **/.git*
             **/.git*/**
             **/node_modules/**
+            **/storage/**
+            **/public/build/**
             README.md
