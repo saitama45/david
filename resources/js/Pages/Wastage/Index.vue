@@ -20,6 +20,12 @@ import { Search, Filter, RotateCcw, Download, Plus, Eye, Edit, Trash2 } from 'lu
 import WastageStatusBadge from './components/WastageStatusBadge.vue'
 import MobileTableContainer from '@/components/table/MobileTableContainer.vue'
 import MobileTableRow from '@/components/table/MobileTableRow.vue'
+import dayjs from 'dayjs'
+import utc from 'dayjs/plugin/utc'
+import timezone from 'dayjs/plugin/timezone'
+
+dayjs.extend(utc)
+dayjs.extend(timezone)
 
 const props = defineProps({
   wastages: Object,
@@ -98,21 +104,10 @@ const exportData = () => {
 
 const formatDate = (dateString) => {
   if (!dateString) return 'N/A'
-  const date = new Date(dateString)
-
-  // Format date: MM/DD/YYYY
-  const month = String(date.getMonth() + 1).padStart(2, '0')
-  const day = String(date.getDate()).padStart(2, '0')
-  const year = date.getFullYear()
-
-  // Format time: HH:MM A.M./P.M.
-  let hours = date.getHours()
-  const minutes = String(date.getMinutes()).padStart(2, '0')
-  const ampm = hours >= 12 ? 'P.M.' : 'A.M.'
-  hours = hours % 12
-  hours = hours ? hours : 12 // 0 should be 12
-
-  return `${month}/${day}/${year} ${String(hours).padStart(2, '0')}:${minutes} ${ampm}`
+  
+  // Use dayjs with Manila timezone to ensure consistency across environments
+  // This prevents the "added 1 day" issue by explicitly treating the date in Manila time
+  return dayjs.tz(dateString, "Asia/Manila").format('MM/DD/YYYY hh:mm A')
 }
 
 const formatCurrency = (amount) => {
