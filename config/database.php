@@ -118,9 +118,14 @@ return [
             'charset' => env('DB_CHARSET', 'utf8'),
             'prefix' => '',
             'prefix_indexes' => true,
-
-            // 'encrypt' => env('DB_ENCRYPT', 'yes'),
-            // 'trust_server_certificate' => env('DB_TRUST_SERVER_CERTIFICATE', 'false'),
+            'encrypt' => 'yes',
+            'trust_server_certificate' => 'yes',
+            'options' => [
+                PDO::ATTR_STRINGIFY_FETCHES => false,
+                PDO::ATTR_CASE => PDO::CASE_NATURAL,
+                PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
+                PDO::ATTR_ORACLE_NULLS => PDO::NULL_NATURAL,
+            ],
         ],
 
     ],
