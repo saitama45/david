@@ -3,8 +3,8 @@ import { ref, nextTick, onMounted } from 'vue';
 import { Head, useForm, Link } from '@inertiajs/vue3';
 import draggable from 'vuedraggable';
 import Multiselect from 'vue-multiselect';
-import { useToast } from '@/Components/ui/toast/use-toast';
-import { Toaster } from '@/Components/ui/toast';
+import { useToast } from '@/components/ui/toast/use-toast';
+import { Toaster } from '@/components/ui/toast';
 
 const props = defineProps({
     supplier: Object,

@@ -1,8 +1,8 @@
 <script setup>
 import { useForm } from "@inertiajs/vue3";
 import { useToast } from "primevue/usetoast";
-import { useSearch } from "@/Composables/useSearch";
-import { useReferenceDelete } from "@/Composables/useReferenceDelete";
+import { useSearch } from "@/composables/useSearch";
+import { useReferenceDelete } from "@/composables/useReferenceDelete";
 
 const isEditModalVisible = ref(false);
 
@@ -49,7 +49,7 @@ const editCategoryDetails = (id) => {
     form.remarks = data.remarks;
 };
 
-import { useReferenceStore } from "@/Composables/useReferenceStore";
+import { useReferenceStore } from "@/composables/useReferenceStore";
 const { isCreateModalVisible, openCreateModal, store } = useReferenceStore();
 
 watch(isEditModalVisible, (value) => {

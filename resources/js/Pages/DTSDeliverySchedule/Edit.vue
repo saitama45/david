@@ -1,6 +1,6 @@
 <script setup>
-import CardDescription from "@/Components/ui/card/CardDescription.vue";
-import { useSelectOptions } from "@/Composables/useSelectOptions";
+import CardDescription from "@/components/ui/card/CardDescription.vue";
+import { useSelectOptions } from "@/composables/useSelectOptions";
 import { useForm } from "@inertiajs/vue3";
 import { computed } from "vue";
 import { useConfirm } from "primevue/useconfirm";

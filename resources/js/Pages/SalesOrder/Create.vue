@@ -1,5 +1,5 @@
 <script setup>
-import InputContainer from "@/Components/form/InputContainer.vue";
+import InputContainer from "@/components/form/InputContainer.vue";
 
 const isAddItemModalVisible = ref(false);
 const showAddItemModal = () => {

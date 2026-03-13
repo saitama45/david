@@ -1,9 +1,9 @@
 <script setup>
 import { useForm } from "@inertiajs/vue3";
 import { useToast } from "primevue/usetoast";
-import { useSearch } from "@/Composables/useSearch";
+import { useSearch } from "@/composables/useSearch";
 import { router } from "@inertiajs/vue3";
-import { useReferenceDelete } from "@/Composables/useReferenceDelete";
+import { useReferenceDelete } from "@/composables/useReferenceDelete";
 import { ref, computed } from 'vue'; // Explicitly import ref and computed
 
 const isEditModalVisible = ref(false);

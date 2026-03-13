@@ -4,11 +4,11 @@ import Select from "primevue/select";
 import axios from 'axios';
 import { Calendar as CalendarIcon } from 'lucide-vue-next';
 
-import { useSelectOptions } from "@/Composables/useSelectOptions";
+import { useSelectOptions } from "@/composables/useSelectOptions";
 import { useForm, router } from "@inertiajs/vue3";
 import { useConfirm } from "primevue/useconfirm";
-import { useToast } from "@/Composables/useToast";
-import { useBackButton } from "@/Composables/useBackButton";
+import { useToast } from "@/composables/useToast";
+import { useBackButton } from "@/composables/useBackButton";
 
 // Lucide icons for table actions
 import { Trash2 } from "lucide-vue-next";

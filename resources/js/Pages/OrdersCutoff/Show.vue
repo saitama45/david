@@ -1,6 +1,6 @@
 <script setup>
 import { Head, Link } from '@inertiajs/vue3';
-import { useAuth } from "@/Composables/useAuth";
+import { useAuth } from "@/composables/useAuth";
 
 const props = defineProps({
     ordersCutoff: Object,

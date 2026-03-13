@@ -1,14 +1,14 @@
 <script setup>
 import { ref, computed, watch } from 'vue';
 import { Head, Link, usePage } from '@inertiajs/vue3';
-import { useSearch } from "@/Composables/useSearch";
+import { useSearch } from "@/composables/useSearch";
 import { useForm } from "@inertiajs/vue3";
 import { useConfirm } from "primevue/useconfirm";
 import { useToast } from "primevue/usetoast";
 import Toast from 'primevue/toast';
 import { router } from "@inertiajs/vue3";
-import { useAuth } from "@/Composables/useAuth";
-import { useReferenceDelete } from "@/Composables/useReferenceDelete";
+import { useAuth } from "@/composables/useAuth";
+import { useReferenceDelete } from "@/composables/useReferenceDelete";
 
 const toast = useToast();
 const confirm = useConfirm();

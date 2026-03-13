@@ -1,15 +1,15 @@
 <script setup>
-import CardContent from "@/Components/ui/card/CardContent.vue";
+import CardContent from "@/components/ui/card/CardContent.vue";
 // Ensure other UI components are imported if they are not globally registered
 // For example, if Label, Card, CardHeader, CardTitle, Button are custom components:
-// import Label from "@/Components/ui/label/Label.vue";
-// import Card from "@/Components/ui/card/Card.vue";
-// import CardHeader from "@/Components/ui/card/CardHeader.vue";
-// import CardTitle from "@/Components/ui/card/CardTitle.vue";
-// import Button from "@/Components/ui/button/Button.vue";
-// import CardDescription from "@/Components/ui/card/CardDescription.vue"; // If used
+// import Label from "@/components/ui/label/Label.vue";
+// import Card from "@/components/ui/card/Card.vue";
+// import CardHeader from "@/components/ui/card/CardHeader.vue";
+// import CardTitle from "@/components/ui/card/CardTitle.vue";
+// import Button from "@/components/ui/button/Button.vue";
+// import CardDescription from "@/components/ui/card/CardDescription.vue"; // If used
 
-import { useBackButton } from "@/Composables/useBackButton";
+import { useBackButton } from "@/composables/useBackButton";
 
 // Initialize back button functionality
 const { backButton } = useBackButton(route("SupplierItems.index"));

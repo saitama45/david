@@ -1,5 +1,5 @@
 <script setup>
-import { useSelectOptions } from "@/Composables/useSelectOptions";
+import { useSelectOptions } from "@/composables/useSelectOptions";
 import { usePage } from "@inertiajs/vue3";
 import { throttle } from "lodash";
 import { router } from "@inertiajs/vue3";

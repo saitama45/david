@@ -1,5 +1,5 @@
 <script setup>
-import { useSearch } from "@/Composables/useSearch";
+import { useSearch } from "@/composables/useSearch";
 import { router, useForm } from "@inertiajs/vue3";
 const isImportBomModalOpen = ref(false);
 const isImportBomIngredientsModalOpen = ref(false);
@@ -30,12 +30,12 @@ const createNewMenu = () => {
     router.get(route("menu-list.create"));
 };
 
-import { useAuth } from "@/Composables/useAuth";
+import { useAuth } from "@/composables/useAuth";
 
 const { hasAccess } = useAuth();
 
-import { useReferenceDelete } from "@/Composables/useReferenceDelete";
-import { Button } from "@/Components/ui/button/index";
+import { useReferenceDelete } from "@/composables/useReferenceDelete";
+import { Button } from "@/components/ui/button/index";
 const { deleteModel } = useReferenceDelete();
 
 const exportRoute = route("menu-list.export", {

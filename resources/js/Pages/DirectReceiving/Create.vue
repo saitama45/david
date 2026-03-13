@@ -1,11 +1,11 @@
 <script setup>
 import Select from "primevue/select";
-import { useBackButton } from "@/Composables/useBackButton";
+import { useBackButton } from "@/composables/useBackButton";
 const { backButton } = useBackButton(route("direct-receiving.index"));
-import { useSelectOptions } from "@/Composables/useSelectOptions";
+import { useSelectOptions } from "@/composables/useSelectOptions";
 
 import { useConfirm } from "primevue/useconfirm";
-import { useToast } from "@/Composables/useToast";
+import { useToast } from "@/composables/useToast";
 
 const confirm = useConfirm();
 const { toast } = useToast();
@@ -276,7 +276,7 @@ const removeItem = (id) => {
     });
 };
 
-import { useEditQuantity } from "@/Composables/useEditQuantity";
+import { useEditQuantity } from "@/composables/useEditQuantity";
 const {
     isEditQuantityModalOpen,
     formQuantity,

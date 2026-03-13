@@ -1,5 +1,5 @@
 import { useConfirm } from "primevue/useconfirm";
-import { useToast } from "@/Composables/useToast";
+import { useToast } from "@/composables/useToast";
 import { useForm } from "@inertiajs/vue3";
 
 export function useEditQuantity(orderForm, itemsDetail = null, order = null) {

@@ -3,8 +3,8 @@ import { ref, watch, computed, nextTick, onMounted, onUnmounted, triggerRef } fr
 import { router, usePage } from '@inertiajs/vue3';
 import { throttle } from 'lodash';
 import { Filter } from 'lucide-vue-next';
-import { useSelectOptions } from "@/Composables/useSelectOptions";
-import { useToast } from "@/Composables/useToast";
+import { useSelectOptions } from "@/composables/useSelectOptions";
+import { useToast } from "@/composables/useToast";
 import { useConfirm } from "primevue/useconfirm";
 import axios from 'axios';
 

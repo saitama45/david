@@ -1,6 +1,6 @@
 <script setup>
 import { ref, watch, computed } from "vue"; // Ensure ref, watch, computed are imported from vue
-import { useSearch } from "@/Composables/useSearch";
+import { useSearch } from "@/composables/useSearch";
 import { router, usePage } from "@inertiajs/vue3";
 import { Eye, ArrowLeftRight } from "lucide-vue-next";
 import TransferStatusBadge from '../Interco/Components/TransferStatusBadge.vue';
@@ -62,7 +62,7 @@ const viewDetails = (id) => {
     router.get(`/interco-receiving/show/${id}`);
 };
 
-import { useAuth } from "@/Composables/useAuth";
+import { useAuth } from "@/composables/useAuth";
 
 const { hasAccess } = useAuth();
 

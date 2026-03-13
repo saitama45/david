@@ -3,7 +3,7 @@ import ProgressBar from "primevue/progressbar";
 import { router } from "@inertiajs/vue3";
 import { usePage } from "@inertiajs/vue3";
 import { throttle } from "lodash";
-import { useSelectOptions } from "@/Composables/useSelectOptions";
+import { useSelectOptions } from "@/composables/useSelectOptions";
 import {
     Select,
     SelectContent,
@@ -13,7 +13,7 @@ import {
     SelectTrigger,
     SelectValue,
 } from "@/components/ui/select";
-import { useToast } from "@/Composables/useToast";
+import { useToast } from "@/composables/useToast";
 const { toast } = useToast();
 import { useConfirm } from "primevue/useconfirm";
 const confirm = useConfirm();

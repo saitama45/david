@@ -1,12 +1,12 @@
 <script setup>
-import { useBackButton } from "@/Composables/useBackButton";
+import { useBackButton } from "@/composables/useBackButton";
 import { router } from "@inertiajs/vue3";
 import { useConfirm } from "primevue/useconfirm";
-import { useToast } from "@/Composables/useToast";
+import { useToast } from "@/composables/useToast";
 import { useForm } from "@inertiajs/vue3";
 import { ref, watch, computed } from 'vue';
 import { Edit, Save, X } from "lucide-vue-next";
-import { useAuth } from "@/Composables/useAuth";
+import { useAuth } from "@/composables/useAuth";
 
 const confirm = useConfirm();
 const { toast } = useToast();

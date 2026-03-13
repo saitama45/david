@@ -1,7 +1,7 @@
 <script setup>
 import { router, useForm, usePage } from "@inertiajs/vue3";
 import { throttle } from "lodash";
-import { useAuth } from "@/Composables/useAuth";
+import { useAuth } from "@/composables/useAuth";
 import { useToast } from "primevue/usetoast";
 import { ref, computed, watch, onMounted, onUnmounted } from "vue";
 import Dialog from "primevue/dialog";
@@ -183,7 +183,7 @@ onMounted(() => {
 
 
 // Delete functionality using composable
-import { useReferenceDelete } from "@/Composables/useReferenceDelete";
+import { useReferenceDelete } from "@/composables/useReferenceDelete";
 const { deleteModel } = useReferenceDelete();
 
 const handleClick = () => {

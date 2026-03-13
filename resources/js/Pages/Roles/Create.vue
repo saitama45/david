@@ -9,7 +9,7 @@ import { CircleHelp } from "lucide-vue-next";
 import ToggleSwitch from 'primevue/toggleswitch'; // Import ToggleSwitch
 
 import { useForm } from "@inertiajs/vue3";
-import BackButton from "@/Components/BackButton.vue"; // Re-added import for BackButton
+import BackButton from "@/components/BackButton.vue"; // Re-added import for BackButton
 
 const form = useForm({
     name: "",

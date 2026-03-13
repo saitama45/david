@@ -9,8 +9,8 @@ import {
     DialogTitle,
 } from "@/components/ui/dialog";
 import DatePicker from "primevue/calendar";
-import { useSelectOptions } from "@/Composables/useSelectOptions";
-import { useToast } from "@/Composables/useToast";
+import { useSelectOptions } from "@/composables/useSelectOptions";
+import { useToast } from "@/composables/useToast";
 const { toast } = useToast();
 import { useConfirm } from "primevue/useconfirm";
 const confirm = useConfirm();

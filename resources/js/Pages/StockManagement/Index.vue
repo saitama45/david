@@ -1,12 +1,12 @@
 <script setup>
-import { useSelectOptions } from "@/Composables/useSelectOptions";
+import { useSelectOptions } from "@/composables/useSelectOptions";
 import { usePage, router, useForm, Link } from "@inertiajs/vue3";
 import { Eye } from "lucide-vue-next";
 
 import { throttle, update } from "lodash";
 import { ref, watch, computed, onBeforeUnmount } from "vue"; // Added 'onBeforeUnmount' to imports
 import { useConfirm } from "primevue/useconfirm";
-import { useToast } from "@/Composables/useToast";
+import { useToast } from "@/composables/useToast";
 import Dialog from "primevue/dialog";
 const confirm = useConfirm();
 const { toast } = useToast();
@@ -94,7 +94,7 @@ const form = useForm({
 
 
 
-import { useAuth } from "@/Composables/useAuth";
+import { useAuth } from "@/composables/useAuth";
 
 const { hasAccess } = useAuth();
 

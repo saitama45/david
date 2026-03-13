@@ -1,9 +1,9 @@
 <script setup>
-import { useSearch } from "@/Composables/useSearch";
+import { useSearch } from "@/composables/useSearch";
 const { search } = useSearch("fruits-and-vegetables.index");
 import { router } from "@inertiajs/vue3";
 
-import { useSelectOptions } from "@/Composables/useSelectOptions";
+import { useSelectOptions } from "@/composables/useSelectOptions";
 import { filter } from "lodash";
 
 const { items, datesOption, filters, branches } = defineProps({

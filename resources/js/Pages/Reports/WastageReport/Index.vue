@@ -3,10 +3,10 @@ import { ref, watch, computed } from "vue";
 import { throttle } from "lodash";
 import { router } from "@inertiajs/vue3";
 import { usePage } from "@inertiajs/vue3";
-import { useSelectOptions } from "@/Composables/useSelectOptions";
+import { useSelectOptions } from "@/composables/useSelectOptions";
 import { Calendar, Search, RotateCcw, Download, Filter, ChevronDown, ChevronUp, Package, CalendarDays, Building2, Badge as BadgeIcon, Trash2 } from "lucide-vue-next";
-import { useAuth } from "@/Composables/useAuth";
-import SearchableSelect from "@/Components/ui/select/SearchableSelect.vue";
+import { useAuth } from "@/composables/useAuth";
+import SearchableSelect from "@/components/ui/select/SearchableSelect.vue";
 
 const props = defineProps({
     wastages: {

@@ -1,6 +1,6 @@
 <script setup>
 import { useForm } from "@inertiajs/vue3";
-import { useToast } from "@/Composables/useToast";
+import { useToast } from "@/composables/useToast";
 import { ref } from 'vue'; // Explicitly import ref
 import { router } from "@inertiajs/vue3"; // Import router for client-side navigation
 

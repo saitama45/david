@@ -6,11 +6,11 @@ const props = defineProps({
     },
 });
 
-import { useSearch } from "@/Composables/useSearch";
+import { useSearch } from "@/composables/useSearch";
 
 const { search } = useSearch("receiving-approvals.index");
 
-import { useAuth } from "@/Composables/useAuth";
+import { useAuth } from "@/composables/useAuth";
 
 const { hasAccess } = useAuth();
 </script>

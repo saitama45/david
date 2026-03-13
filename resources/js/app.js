@@ -8,26 +8,26 @@ import { resolvePageComponent } from "laravel-vite-plugin/inertia-helpers";
 import { createApp, h } from "vue";
 import { ZiggyVue } from "../../vendor/tightenco/ziggy";
 import PrimeVue from "primevue/config";
-import Layout from "./Layouts/App.vue";
+import Layout from "./layouts/App.vue";
 import ToastService from "primevue/toastservice";
 import Aura from "@primevue/themes/aura";
 import { Button } from "@/components/ui/button";
-import Loading from "./Components/Loading.vue";
-import DivFlexCenter from "./Components/div/DivFlexCenter.vue";
-import DivFlexCol from "./Components/div/DivFlexCol.vue";
+import Loading from "./components/Loading.vue";
+import DivFlexCenter from "./components/div/DivFlexCenter.vue";
+import DivFlexCol from "./components/div/DivFlexCol.vue";
 import { Input } from "@/components/ui/input";
-import Table from "./Components/table/Table.vue";
-import TH from "./Components/table/TH.vue";
-import TD from "./Components/table/TD.vue";
+import Table from "./components/table/Table.vue";
+import TH from "./components/table/TH.vue";
+import TD from "./components/table/TD.vue";
 import { Link } from "@inertiajs/vue3";
-import TableContainer from "./Components/table/TableContainer.vue";
+import TableContainer from "./components/table/TableContainer.vue";
 import { MagnifyingGlassIcon } from "@radix-icons/vue";
-import SearchBar from "./Components/table/SearchBar.vue";
-import TableHeader from "./Components/table/TableHeader.vue";
-import TableHead from "./Components/table/TableHead.vue";
-import TableBody from "./Components/table/TableBody.vue";
+import SearchBar from "./components/table/SearchBar.vue";
+import TableHeader from "./components/table/TableHeader.vue";
+import TableHead from "./components/table/TableHead.vue";
+import TableBody from "./components/table/TableBody.vue";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import CreateReferenceModal from "./Components/CreateReferenceModal.vue";
+import CreateReferenceModal from "./components/CreateReferenceModal.vue";
 import {
     Filter,
     Eye,
@@ -40,15 +40,15 @@ import {
     Download,
     TriangleAlert,
 } from "lucide-vue-next";
-import QuantityEditorDialog from "../js/Components/QuantityEditorDialog.vue";
+import QuantityEditorDialog from "../js/components/QuantityEditorDialog.vue";
 import ConfirmationService from "primevue/confirmationservice";
 import { Label } from "@/components/ui/label";
-import FormError from "@/Components/FormError.vue";
-import Pagination from "./Components/table/Pagination.vue";
+import FormError from "@/components/FormError.vue";
+import Pagination from "./components/table/Pagination.vue";
 import { Presence } from "@/components/ui/presence";
 import { Badge } from "@/components/ui/badge";
-import Textarea from "./Components/ui/textarea/Textarea.vue";
-import InputContainer from "./Components/form/InputContainer.vue";
+import Textarea from "./components/ui/textarea/Textarea.vue";
+import InputContainer from "./components/form/InputContainer.vue";
 import {
     Card,
     CardContent,
@@ -57,26 +57,26 @@ import {
     CardFooter,
     CardTitle,
 } from "@/components/ui/card";
-import FilterTab from "./Components/FilterTab.vue";
-import FilterTabButton from "./Components/FilterTabButton.vue";
+import FilterTab from "./components/FilterTab.vue";
+import FilterTabButton from "./components/FilterTabButton.vue";
 import {
     Popover,
     PopoverContent,
     PopoverTrigger,
 } from "@/components/ui/popover";
 import DatePicker from "primevue/datepicker";
-import InputLabel from "@/Components/form/InputLabel.vue";
-import ShowButton from "./Components/button/ShowButton.vue";
+import InputLabel from "@/components/form/InputLabel.vue";
+import ShowButton from "./components/button/ShowButton.vue";
 import Camera from "simple-vue-camera";
 import MultiSelect from "primevue/multiselect";
 import Checkbox from "primevue/checkbox";
-import LinkButton from "./Components/button/LinkButton.vue";
-import LabelXS from "./Components/LabelXS.vue";
-import SpanBold from "./Components/SpanBold.vue";
-import EditButton from "./Components/button/EditButton.vue";
-import InfolistLabel from "./Components/InfolistLabel.vue";
-import BackButton from "./Components/button/BackButton.vue";
-import DeleteButton from "./Components/button/DeleteButton.vue";
+import LinkButton from "./components/button/LinkButton.vue";
+import LabelXS from "./components/LabelXS.vue";
+import SpanBold from "./components/SpanBold.vue";
+import EditButton from "./components/button/EditButton.vue";
+import InfolistLabel from "./components/InfolistLabel.vue";
+import BackButton from "./components/button/BackButton.vue";
+import DeleteButton from "./components/button/DeleteButton.vue";
 import Select from "primevue/select";
 import PrimeDialog from "primevue/dialog";
 import {
@@ -88,9 +88,9 @@ import {
     SelectTrigger,
     SelectValue,
 } from "@/components/ui/select";
-import MobileTableContainer from "./Components/table/MobileTableContainer.vue";
-import MobileTableRow from "./Components/table/MobileTableRow.vue";
-import MobileTableHeading from "./Components/table/MobileTableHeading.vue";
+import MobileTableContainer from "./components/table/MobileTableContainer.vue";
+import MobileTableRow from "./components/table/MobileTableRow.vue";
+import MobileTableHeading from "./components/table/MobileTableHeading.vue";
 
 const appName = import.meta.env.VITE_APP_NAME || "Laravel";
 import axios from "axios";
@@ -197,3 +197,4 @@ createInertiaApp({
         color: "#4B5563",
     },
 });
+

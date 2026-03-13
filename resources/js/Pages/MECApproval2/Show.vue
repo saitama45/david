@@ -3,7 +3,7 @@ import { Head, router } from '@inertiajs/vue3';
 import { computed } from 'vue';
 import { Check, ArrowLeft } from 'lucide-vue-next';
 import { useConfirm } from "primevue/useconfirm";
-import { useToast } from "@/Composables/useToast";
+import { useToast } from "@/composables/useToast";
 
 const props = defineProps({
     schedule: { type: Object, required: true },

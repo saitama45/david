@@ -1,6 +1,6 @@
 <script setup>
 import { defineProps, computed } from 'vue';
-import BackButton from '@/Components/BackButton.vue';
+import BackButton from '@/components/BackButton.vue';
 
 const props = defineProps({
     supplier: {

@@ -2,7 +2,7 @@
 import { router, usePage } from "@inertiajs/vue3";
 import { ref, watch, computed } from "vue";
 import { Eye } from "lucide-vue-next";
-import { useAuth } from "@/Composables/useAuth";
+import { useAuth } from "@/composables/useAuth";
 
 const { hasAccess } = useAuth();
 

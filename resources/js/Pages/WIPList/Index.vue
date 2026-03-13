@@ -1,6 +1,6 @@
 <script setup>
 import { router, useForm } from "@inertiajs/vue3";
-import { useSearch } from "@/Composables/useSearch";
+import { useSearch } from "@/composables/useSearch";
 import { useToast } from "primevue/usetoast";
 const toast = useToast();
 const { search } = useSearch("wip-list.index");

@@ -1,5 +1,5 @@
 <script setup>
-import { useBackButton } from "@/Composables/useBackButton";
+import { useBackButton } from "@/composables/useBackButton";
 const { backButton } = useBackButton(route("approved-orders.index"));
 import { useForm } from "@inertiajs/vue3";
 const props = defineProps({
@@ -24,7 +24,7 @@ const openCancelModal = (id) => {
 };
 
 import { useConfirm } from "primevue/useconfirm";
-import { useToast } from "@/Composables/useToast";
+import { useToast } from "@/composables/useToast";
 const confirm = useConfirm();
 const { toast } = useToast();
 

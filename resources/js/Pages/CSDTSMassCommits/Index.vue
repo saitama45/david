@@ -3,7 +3,7 @@ import { router, Head, usePage } from "@inertiajs/vue3";
 import { ref, watch } from 'vue';
 import { Pencil } from 'lucide-vue-next';
 import { throttle } from "lodash";
-import { useAuth } from "@/Composables/useAuth";
+import { useAuth } from "@/composables/useAuth";
 
 const props = defineProps({
     batches: {

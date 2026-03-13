@@ -14,7 +14,7 @@ import {
 } from '@/components/ui/table'
 import { Separator } from '@/components/ui/separator'
 import { ArrowLeft, Package, Calendar, User, CheckCircle, AlertTriangle, Paperclip, Loader2, AlertCircle } from 'lucide-vue-next' // Added Loader2, AlertCircle
-import WastageStatusBadge from './Components/WastageStatusBadge.vue'
+import WastageStatusBadge from './components/WastageStatusBadge.vue'
 
 const props = defineProps({
   wastage: Object,

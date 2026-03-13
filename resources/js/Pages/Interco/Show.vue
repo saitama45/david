@@ -14,10 +14,10 @@ import {
 } from '@/components/ui/table'
 import { Separator } from '@/components/ui/separator'
 import { ArrowLeft, Edit, Package, CheckCircle, Clock, Calendar, User, AlertCircle, Truck } from 'lucide-vue-next'
-import TransferStatusBadge from './Components/TransferStatusBadge.vue'
-import TransferSummary from './Components/TransferSummary.vue'
-import TransferTimeline from './Components/TransferTimeline.vue'
-import StockIndicator from './Components/StockIndicator.vue'
+import TransferStatusBadge from './components/TransferStatusBadge.vue'
+import TransferSummary from './components/TransferSummary.vue'
+import TransferTimeline from './components/TransferTimeline.vue'
+import StockIndicator from './components/StockIndicator.vue'
 
 const props = defineProps({
   order: Object,

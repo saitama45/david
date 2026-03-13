@@ -3,7 +3,7 @@ import { useForm, router } from "@inertiajs/vue3";
 import { useConfirm } from "primevue/useconfirm";
 const confirm = useConfirm();
 
-import { useSearch } from "@/Composables/useSearch";
+import { useSearch } from "@/composables/useSearch";
 
 import { useToast } from "primevue/usetoast";
 
@@ -91,7 +91,7 @@ const deleteModel = (id) => {
     });
 };
 
-import { useReferenceStore } from "@/Composables/useReferenceStore";
+import { useReferenceStore } from "@/composables/useReferenceStore";
 const { isCreateModalVisible, openCreateModal, store } = useReferenceStore();
 
 const exportRoute = computed(() => 

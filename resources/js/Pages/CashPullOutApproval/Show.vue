@@ -1,6 +1,6 @@
 <script setup>
 import { useConfirm } from "primevue/useconfirm";
-import { useToast } from "@/Composables/useToast";
+import { useToast } from "@/composables/useToast";
 
 const confirm = useConfirm();
 const { toast } = useToast();

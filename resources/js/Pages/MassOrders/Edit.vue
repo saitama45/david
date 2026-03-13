@@ -15,11 +15,11 @@ import Select from "primevue/select";
 import axios from 'axios';
 import { Calendar as CalendarIcon } from 'lucide-vue-next';
 
-import { useSelectOptions } from "@/Composables/useSelectOptions";
+import { useSelectOptions } from "@/composables/useSelectOptions";
 import { useForm, router } from "@inertiajs/vue3";
 import { useConfirm } from "primevue/useconfirm";
-import { useToast } from "@/Composables/useToast";
-import { useBackButton } from "@/Composables/useBackButton";
+import { useToast } from "@/composables/useToast";
+import { useBackButton } from "@/composables/useBackButton";
 const { backButton } = useBackButton(route("mass-orders.index"));
 
 // Custom styles for dropdown positioning and z-index
@@ -1069,7 +1069,7 @@ const showImportOrdersButton = computed(() => {
 });
 
 
-import { useEditQuantity } from "@/Composables/useEditQuantity";
+import { useEditQuantity } from "@/composables/useEditQuantity";
 const {
     isEditQuantityModalOpen,
     formQuantity,

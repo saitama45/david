@@ -1,11 +1,11 @@
 <script setup>
 import { useForm, router } from "@inertiajs/vue3";
-import { useSelectOptions } from "@/Composables/useSelectOptions";
+import { useSelectOptions } from "@/composables/useSelectOptions";
 import MultiSelect from "primevue/multiselect"; // Keep if MultiSelect is used elsewhere, otherwise remove
 import { useConfirm } from "primevue/useconfirm";
 import { useToast } from "primevue/usetoast";
 import { ref, watch } from 'vue'; // Ensure ref and watch are imported
-import { useBackButton } from "@/Composables/useBackButton"; // Import useBackButton
+import { useBackButton } from "@/composables/useBackButton"; // Import useBackButton
 
 const { backButton } = useBackButton(route("pos-bom.index")); // Set back button route
 

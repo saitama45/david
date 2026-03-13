@@ -1,6 +1,6 @@
 <script setup>
 import { useForm, router } from "@inertiajs/vue3";
-import { useSelectOptions } from "@/Composables/useSelectOptions";
+import { useSelectOptions } from "@/composables/useSelectOptions";
 import MultiSelect from "primevue/multiselect";
 import { useConfirm } from "primevue/useconfirm";
 import { useToast } from "primevue/usetoast";

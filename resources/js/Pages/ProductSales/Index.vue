@@ -1,5 +1,5 @@
 <script setup>
-import { useSearch } from "@/Composables/useSearch";
+import { useSearch } from "@/composables/useSearch";
 
 defineProps({
     items: {

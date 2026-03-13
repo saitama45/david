@@ -11,16 +11,16 @@ const createNewRole = () => {
     router.get(route("roles.create"));
 };
 
-import { useSearch } from "@/Composables/useSearch";
-import TD from "@/Components/table/TD.vue";
+import { useSearch } from "@/composables/useSearch";
+import TD from "@/components/table/TD.vue";
 
 const { search } = useSearch("roles.index");
 
-import { useAuth } from "@/Composables/useAuth";
+import { useAuth } from "@/composables/useAuth";
 
 const { hasAccess } = useAuth();
 
-import { useReferenceDelete } from "@/Composables/useReferenceDelete";
+import { useReferenceDelete } from "@/composables/useReferenceDelete";
 const { deleteModel } = useReferenceDelete();
 
 const exportRoute = computed(() => 

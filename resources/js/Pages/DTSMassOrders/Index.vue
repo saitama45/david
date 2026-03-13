@@ -3,7 +3,7 @@ import { router, Head, usePage } from "@inertiajs/vue3";
 import { ref, watch, nextTick } from 'vue';
 import { Eye, Pencil, Filter, Calendar as CalendarIcon } from 'lucide-vue-next';
 import { throttle } from "lodash";
-import { useAuth } from "@/Composables/useAuth";
+import { useAuth } from "@/composables/useAuth";
 import { useToast } from 'primevue/usetoast';
 import Dialog from 'primevue/dialog';
 import Select from 'primevue/select';

@@ -84,7 +84,7 @@ const props = defineProps({
     },
 });
 
-import Sidebar from "@/Components/Sidebar.vue";
+import Sidebar from "@/components/Sidebar.vue";
 
 const logout = () => {
     router.post("/logout");

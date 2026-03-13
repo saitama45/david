@@ -3,8 +3,8 @@ import { ref, watch, computed } from "vue";
 import { throttle } from "lodash";
 import { router } from "@inertiajs/vue3";
 import { Calendar, Search, RotateCcw, Filter, ChevronDown, Package, CalendarDays, Building2, TrendingUp, TrendingDown, ClipboardCheck, Info, FileText } from "lucide-vue-next";
-import SearchableSelect from "@/Components/ui/select/SearchableSelect.vue";
-import Pagination from "@/Components/table/Pagination.vue";
+import SearchableSelect from "@/components/ui/select/SearchableSelect.vue";
+import Pagination from "@/components/table/Pagination.vue";
 
 const props = defineProps({
     movementData: {

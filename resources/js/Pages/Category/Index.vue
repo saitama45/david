@@ -1,7 +1,7 @@
 <script setup>
 import { useForm, router } from "@inertiajs/vue3";
 
-import { useSearch } from "@/Composables/useSearch";
+import { useSearch } from "@/composables/useSearch";
 
 const isEditModalVisible = ref(false);
 
@@ -48,10 +48,10 @@ const editCategoryDetails = (id) => {
     form.remarks = data.remarks;
 };
 
-import { useReferenceStore } from "@/Composables/useReferenceStore";
+import { useReferenceStore } from "@/composables/useReferenceStore";
 const { isCreateModalVisible, openCreateModal, store } = useReferenceStore();
 
-import { useToast } from "@/Composables/useToast";
+import { useToast } from "@/composables/useToast";
 
 const { toast } = useToast();
 import { useConfirm } from "primevue/useconfirm";

@@ -8,7 +8,7 @@ import { useConfirm } from "primevue/useconfirm";
 import dayjs from "dayjs";
 import utc from "dayjs/plugin/utc"; // Import UTC plugin
 import timezone from "dayjs/plugin/timezone"; // Import Timezone plugin
-import { useBackButton } from "@/Composables/useBackButton";
+import { useBackButton } from "@/composables/useBackButton";
 import {
     Dialog,
     DialogContent,
@@ -16,7 +16,7 @@ import {
     DialogFooter,
     DialogHeader,
     DialogTitle,
-} from "@/Components/ui/dialog";
+} from "@/components/ui/dialog";
 
 // Extend dayjs with the plugins
 dayjs.extend(utc);

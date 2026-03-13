@@ -3,7 +3,7 @@ import { useForm, Head, router } from '@inertiajs/vue3';
 import { useConfirm } from "primevue/useconfirm";
 import { useToast } from "primevue/usetoast";
 import { CalendarCheck2, Trash2, Pencil, Save, X, Plus, Loader2, Search } from 'lucide-vue-next';
-import InputError from '@/Components/InputError.vue';
+import InputError from '@/components/InputError.vue';
 import { ref, reactive, watch, computed } from 'vue';
 import { throttle } from 'lodash';
 import axios from 'axios';

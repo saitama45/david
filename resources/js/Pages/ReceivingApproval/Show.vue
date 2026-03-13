@@ -1,5 +1,5 @@
 <script setup>
-import { useBackButton } from "@/Composables/useBackButton";
+import { useBackButton } from "@/composables/useBackButton";
 
 import { useForm } from "@inertiajs/vue3";
 const { backButton } = useBackButton(route("receiving-approvals.index"));

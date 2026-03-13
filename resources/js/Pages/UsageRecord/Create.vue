@@ -1,9 +1,9 @@
 <script setup>
 import { useForm, router } from "@inertiajs/vue3";
-import { useSelectOptions } from "@/Composables/useSelectOptions";
+import { useSelectOptions } from "@/composables/useSelectOptions";
 import { useConfirm } from "primevue/useconfirm";
-import { useToast } from "@/Composables/useToast";
-import FormError from "@/Components/FormError.vue";
+import { useToast } from "@/composables/useToast";
+import FormError from "@/components/FormError.vue";
 const confirm = useConfirm();
 const { toast } = useToast();
 const { menus, branches } = defineProps({

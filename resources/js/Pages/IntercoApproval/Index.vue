@@ -2,10 +2,10 @@
 import { router, usePage } from "@inertiajs/vue3";
 import { ref, watch, computed } from "vue";
 import { useConfirm } from "primevue/useconfirm";
-import { useToast } from "@/Composables/useToast";
+import { useToast } from "@/composables/useToast";
 import { throttle } from "lodash";
 import { Eye } from "lucide-vue-next";
-import { useAuth } from "@/Composables/useAuth";
+import { useAuth } from "@/composables/useAuth";
 
 const confirm = useConfirm();
 const { toast } = useToast();

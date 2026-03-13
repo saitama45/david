@@ -10,7 +10,7 @@ const createNewPermission = () => {
     router.get(route("permissions.create"));
 };
 
-import { useSearch } from "@/Composables/useSearch";
+import { useSearch } from "@/composables/useSearch";
 
 const { search } = useSearch("permissions.index");
 </script>

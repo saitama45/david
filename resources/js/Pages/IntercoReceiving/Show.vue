@@ -30,7 +30,7 @@ dayjs.tz.setDefault("Asia/Manila");
 const toast = useToast();
 const confirm = useConfirm();
 
-import { useBackButton } from "@/Composables/useBackButton";
+import { useBackButton } from "@/composables/useBackButton";
 
 const { backButton } = useBackButton(route("interco-receiving.index"));
 

@@ -7,8 +7,8 @@ import { ref, watch, computed } from 'vue';
 import axios from 'axios';
 import { Calendar as CalendarIcon, Download, Upload, Eye, Pencil } from 'lucide-vue-next';
 import { throttle } from "lodash";
-import { useAuth } from "@/Composables/useAuth";
-import { useSelectOptions } from "@/Composables/useSelectOptions";
+import { useAuth } from "@/composables/useAuth";
+import { useSelectOptions } from "@/composables/useSelectOptions";
 
 
 const props = defineProps({

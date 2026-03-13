@@ -1,12 +1,12 @@
 <script setup>
-import { useSearch } from "@/Composables/useSearch";
+import { useSearch } from "@/composables/useSearch";
 import { useForm } from "@inertiajs/vue3";
 import { useConfirm } from "primevue/useconfirm";
 import { useToast } from "primevue/usetoast";
 import { router } from "@inertiajs/vue3";
 import { usePage } from "@inertiajs/vue3";
-import { useAuth } from "@/Composables/useAuth";
-import { useReferenceDelete } from "@/Composables/useReferenceDelete";
+import { useAuth } from "@/composables/useAuth";
+import { useReferenceDelete } from "@/composables/useReferenceDelete";
 import { ref, watch, computed, onMounted, onUnmounted } from 'vue';
 
 const toast = useToast();

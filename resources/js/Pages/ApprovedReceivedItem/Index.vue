@@ -1,5 +1,5 @@
 <script setup>
-import { useSearch } from "@/Composables/useSearch";
+import { useSearch } from "@/composables/useSearch";
 import { router } from "@inertiajs/vue3";
 
 const props = defineProps({
@@ -27,7 +27,7 @@ const showOrderDetails = (id) => {
     router.get(`/approved-orders/show/${id}`);
 };
 
-import { useAuth } from "@/Composables/useAuth";
+import { useAuth } from "@/composables/useAuth";
 
 const { hasAccess } = useAuth();
 

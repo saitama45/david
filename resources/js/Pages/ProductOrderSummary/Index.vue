@@ -2,7 +2,7 @@
 import { router, usePage } from "@inertiajs/vue3";
 import { throttle } from "lodash";
 import dayjs from "dayjs";
-import { useSelectOptions } from "@/Composables/useSelectOptions";
+import { useSelectOptions } from "@/composables/useSelectOptions";
 import Dialog from "primevue/dialog";
 
 let dateRange = ref(usePage().props.filters.dateRange);

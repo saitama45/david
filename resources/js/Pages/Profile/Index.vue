@@ -2,7 +2,7 @@
 import Logo from "../../../images/logo.png";
 import { useForm, router } from "@inertiajs/vue3";
 import { useConfirm } from "primevue/useconfirm";
-import { useToast } from "@/Composables/useToast";
+import { useToast } from "@/composables/useToast";
 const confirm = useConfirm();
 const { toast } = useToast();
 const { user } = defineProps({

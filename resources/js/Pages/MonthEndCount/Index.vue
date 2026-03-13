@@ -3,8 +3,8 @@ import { useForm, Head, router } from '@inertiajs/vue3';
 import { Download, Upload, Eye, ArrowUp, ArrowDown } from 'lucide-vue-next';
 import { ref, computed, watch } from 'vue';
 import { throttle } from 'lodash';
-import InputError from '@/Components/InputError.vue';
-import { useToast } from '@/Composables/useToast';
+import InputError from '@/components/InputError.vue';
+import { useToast } from '@/composables/useToast';
 
 const props = defineProps({
     downloadSchedule: { type: Object, default: null },

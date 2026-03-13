@@ -1,5 +1,5 @@
 <script setup>
-import StatisticOverview from "../../Components/dashboard/StatisticOverview.vue";
+import StatisticOverview from "../../components/dashboard/StatisticOverview.vue";
 import { router } from "@inertiajs/vue3";
 import Chart from "primevue/chart";
 
@@ -36,7 +36,7 @@ const props = defineProps({
 
 console.log(props.mostUsedProducts);
 
-import { useSelectOptions } from "@/Composables/useSelectOptions";
+import { useSelectOptions } from "@/composables/useSelectOptions";
 
 const { options: branchesOption } = useSelectOptions(props.branches);
 

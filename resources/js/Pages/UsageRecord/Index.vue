@@ -11,11 +11,11 @@ const handleClick = () => {
     router.get(route("usage-records.create"));
 };
 
-import { useAuth } from "@/Composables/useAuth";
+import { useAuth } from "@/composables/useAuth";
 
 const { hasAccess } = useAuth();
 
-import { useReferenceDelete } from "@/Composables/useReferenceDelete";
+import { useReferenceDelete } from "@/composables/useReferenceDelete";
 
 const { deleteModel } = useReferenceDelete();
 </script>

@@ -1,5 +1,5 @@
 <script setup>
-import { useSearch } from "@/Composables/useSearch";
+import { useSearch } from "@/composables/useSearch";
 import { useForm } from "@inertiajs/vue3";
 import { useConfirm } from "primevue/useconfirm";
 import { useToast } from "primevue/usetoast";
@@ -41,10 +41,10 @@ watch(filter, function (value) {
     );
 });
 
-import { useAuth } from "@/Composables/useAuth";
+import { useAuth } from "@/composables/useAuth";
 
 const { hasAccess } = useAuth();
-import { useReferenceDelete } from "@/Composables/useReferenceDelete";
+import { useReferenceDelete } from "@/composables/useReferenceDelete";
 const { deleteModel } = useReferenceDelete();
 
 const exportRoute = computed(() =>

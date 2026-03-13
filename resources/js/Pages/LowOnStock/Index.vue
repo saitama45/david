@@ -1,5 +1,5 @@
 <script setup>
-import { useSelectOptions } from "@/Composables/useSelectOptions";
+import { useSelectOptions } from "@/composables/useSelectOptions";
 import { usePage, router, useForm } from "@inertiajs/vue3";
 import { throttle } from "lodash";
 const { items, filters, branches } = defineProps({

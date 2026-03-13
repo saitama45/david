@@ -3,7 +3,7 @@ import { router } from "@inertiajs/vue3";
 import { usePage } from "@inertiajs/vue3";
 import { useForm } from "@inertiajs/vue3";
 import Dialog from "primevue/dialog";
-import { useSelectOptions } from "@/Composables/useSelectOptions";
+import { useSelectOptions } from "@/composables/useSelectOptions";
 
 import { throttle } from "lodash";
 
@@ -173,7 +173,7 @@ const changeFilter = (currentFilter) => {
     filterQuery.value = currentFilter;
 };
 
-import { useAuth } from "@/Composables/useAuth";
+import { useAuth } from "@/composables/useAuth";
 
 const { hasAccess } = useAuth();
 

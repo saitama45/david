@@ -3,7 +3,7 @@ import { ref, watch, computed } from 'vue';
 import { router } from '@inertiajs/vue3';
 import { throttle } from 'lodash';
 import { Filter } from 'lucide-vue-next';
-import { useSelectOptions } from "@/Composables/useSelectOptions";
+import { useSelectOptions } from "@/composables/useSelectOptions";
 
 const props = defineProps({
     report: {

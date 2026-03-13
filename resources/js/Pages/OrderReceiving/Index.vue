@@ -1,6 +1,6 @@
 <script setup>
 import { ref, watch, computed } from "vue"; // Ensure ref, watch, computed are imported from vue
-import { useSearch } from "@/Composables/useSearch";
+import { useSearch } from "@/composables/useSearch";
 import { router, usePage } from "@inertiajs/vue3";
 
 const props = defineProps({
@@ -60,7 +60,7 @@ const viewDetails = (id) => {
     router.get(`/orders-receiving/show/${id}`);
 };
 
-import { useAuth } from "@/Composables/useAuth";
+import { useAuth } from "@/composables/useAuth";
 
 const { hasAccess } = useAuth();
 

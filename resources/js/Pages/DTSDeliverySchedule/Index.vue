@@ -5,10 +5,10 @@ const { branches } = defineProps({
         required: true,
     },
 });
-import { useSearch } from "@/Composables/useSearch";
+import { useSearch } from "@/composables/useSearch";
 
 const { search } = useSearch("dts-delivery-schedules.index");
-import { useAuth } from "@/Composables/useAuth";
+import { useAuth } from "@/composables/useAuth";
 
 const { hasAccess } = useAuth();
 </script>

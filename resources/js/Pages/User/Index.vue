@@ -1,9 +1,9 @@
 <script setup>
 import { router } from "@inertiajs/vue3";
 import { throttle } from "lodash";
-import { useAuth } from "@/Composables/useAuth";
+import { useAuth } from "@/composables/useAuth";
 import Dialog from "primevue/dialog";
-import { useSelectOptions } from "@/Composables/useSelectOptions";
+import { useSelectOptions } from "@/composables/useSelectOptions";
 
 const { hasAccess } = useAuth();
 const props = defineProps({
@@ -50,7 +50,7 @@ watch(
     }, 500)
 );
 
-import { useReferenceDelete } from "@/Composables/useReferenceDelete";
+import { useReferenceDelete } from "@/composables/useReferenceDelete";
 const { deleteModel } = useReferenceDelete();
 const templateId = ref(null);
 const exportRoute = computed(() =>

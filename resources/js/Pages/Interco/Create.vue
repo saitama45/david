@@ -1,13 +1,13 @@
 <script setup>
 import { ref, reactive, computed, watch, nextTick } from 'vue'
 import Select from "primevue/select";
-import ItemAutoComplete from '@/Components/ItemAutoComplete.vue';
+import ItemAutoComplete from '@/components/ItemAutoComplete.vue';
 import axios from 'axios';
 import { useForm, Link, router } from '@inertiajs/vue3'
 import { useConfirm } from "primevue/useconfirm";
-import { useToast } from "@/Composables/useToast";
-import { useSelectOptions } from "@/Composables/useSelectOptions";
-import { useEditQuantity } from "@/Composables/useEditQuantity";
+import { useToast } from "@/composables/useToast";
+import { useSelectOptions } from "@/composables/useSelectOptions";
+import { useEditQuantity } from "@/composables/useEditQuantity";
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
@@ -32,8 +32,8 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { ArrowLeft, Plus, X, Edit, Trash2, Package, AlertTriangle, ChevronDown, ChevronLeft, ChevronRight, Download } from 'lucide-vue-next'
-import StockIndicator from './Components/StockIndicator.vue'
-import ItemQuantityModal from './Components/ItemQuantityModal.vue'
+import StockIndicator from './components/StockIndicator.vue'
+import ItemQuantityModal from './components/ItemQuantityModal.vue'
 
 const props = defineProps({
   myStoreOptions: Array,

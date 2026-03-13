@@ -3,7 +3,7 @@ import { ref, watch, computed } from "vue";
 import { router, usePage } from "@inertiajs/vue3";
 
 import { useConfirm } from "primevue/useconfirm";
-import { useToast } from "@/Composables/useToast";
+import { useToast } from "@/composables/useToast";
 import { throttle } from "lodash";
 
 // Lucide icons
@@ -174,7 +174,7 @@ const showOrderDetails = (id) => {
     router.get(`/cs-approvals/show/${id}`);
 };
 
-import { useAuth } from "@/Composables/useAuth";
+import { useAuth } from "@/composables/useAuth";
 
 const { hasAccess } = useAuth();
 </script>

@@ -11,9 +11,9 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { ArrowLeft, Package, AlertTriangle, Calculator, ChevronDown, Plus, Trash2 } from 'lucide-vue-next'
 import Select from 'primevue/select'
-import ItemAutoComplete from '@/Components/ItemAutoComplete.vue'
-import ImageUpload from '@/Components/ImageUpload.vue'
-import { useSelectOptions } from '@/Composables/useSelectOptions'
+import ItemAutoComplete from '@/components/ItemAutoComplete.vue'
+import ImageUpload from '@/components/ImageUpload.vue'
+import { useSelectOptions } from '@/composables/useSelectOptions'
 
 const props = defineProps({
   branches: Array,

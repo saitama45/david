@@ -1,9 +1,9 @@
 <script setup>
 import { Head, Link, usePage, router } from '@inertiajs/vue3';
 import { ref, watch, onUnmounted } from 'vue';
-import { useAuth } from "@/Composables/useAuth";
-import { useToast } from '@/Components/ui/toast/use-toast';
-import { Toaster } from '@/Components/ui/toast';
+import { useAuth } from "@/composables/useAuth";
+import { useToast } from '@/components/ui/toast/use-toast';
+import { Toaster } from '@/components/ui/toast';
 
 const props = defineProps({
     ordersCutoffs: Object,

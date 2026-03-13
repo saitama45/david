@@ -1,8 +1,8 @@
 <script setup>
-import { useBackButton } from "@/Composables/useBackButton";
+import { useBackButton } from "@/composables/useBackButton";
 import { router } from "@inertiajs/vue3";
 import { useConfirm } from "primevue/useconfirm";
-import { useToast } from "@/Composables/useToast";
+import { useToast } from "@/composables/useToast";
 import { useForm } from "@inertiajs/vue3";
 import { ref, watch, computed } from 'vue'; // Explicitly import Vue reactivity APIs
 import { Minus, Plus } from "lucide-vue-next"; // Import icons
@@ -159,7 +159,7 @@ const addQuantityApproved = (id) => {
     }
 };
 
-import { useEditQuantity } from "@/Composables/useEditQuantity";
+import { useEditQuantity } from "@/composables/useEditQuantity";
 const { isEditQuantityModalOpen, formQuantity, editOrderQuantity } =
     useEditQuantity(null, itemsDetail, props.order);
 

@@ -3,11 +3,11 @@ import { ref, watch, computed } from "vue";
 import { throttle } from "lodash";
 import { router } from "@inertiajs/vue3";
 import { usePage } from "@inertiajs/vue3";
-import { useSelectOptions } from "@/Composables/useSelectOptions";
+import { useSelectOptions } from "@/composables/useSelectOptions";
 import { Calendar, Search, RotateCcw, Download, Filter, ChevronDown, ChevronUp, Package, CalendarDays, Building2, Badge as BadgeIcon, Calculator, ArrowLeftRight } from "lucide-vue-next";
-import { useAuth } from "@/Composables/useAuth";
+import { useAuth } from "@/composables/useAuth";
 import MultiSelect from "primevue/multiselect";
-import Select from "@/Components/ui/select/Select.vue";
+import Select from "@/components/ui/select/Select.vue";
 
 const props = defineProps({
     reportData: {

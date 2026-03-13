@@ -2,7 +2,7 @@
 import { router, usePage } from "@inertiajs/vue3";
 
 import { useConfirm } from "primevue/useconfirm";
-import { useToast } from "@/Composables/useToast";
+import { useToast } from "@/composables/useToast";
 import { throttle } from "lodash";
 
 const confirm = useConfirm();
@@ -138,7 +138,7 @@ const showOrderDetails = (id) => {
     router.get(route("emergency-orders-approval.show", id));
 };
 
-import { useAuth } from "@/Composables/useAuth";
+import { useAuth } from "@/composables/useAuth";
 
 const { hasAccess } = useAuth();
 

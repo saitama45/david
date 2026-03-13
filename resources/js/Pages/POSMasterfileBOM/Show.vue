@@ -1,6 +1,6 @@
 <script setup>
-import CardContent from "@/Components/ui/card/CardContent.vue";
-import { useBackButton } from "@/Composables/useBackButton";
+import CardContent from "@/components/ui/card/CardContent.vue";
+import { useBackButton } from "@/composables/useBackButton";
 
 // Initialize back button functionality
 const { backButton } = useBackButton(route("pos-bom.index")); // Changed route to pos-bom.index

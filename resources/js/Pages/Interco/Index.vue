@@ -17,10 +17,10 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { Search, Filter, RotateCcw, Download, Plus, Eye, Edit, ArrowLeftRight } from 'lucide-vue-next'
-import TransferStatusBadge from './Components/TransferStatusBadge.vue'
-import TransferSummary from './Components/TransferSummary.vue'
-import MobileTableContainer from '@/Components/table/MobileTableContainer.vue'
-import MobileTableRow from '@/Components/table/MobileTableRow.vue'
+import TransferStatusBadge from './components/TransferStatusBadge.vue'
+import TransferSummary from './components/TransferSummary.vue'
+import MobileTableContainer from '@/components/table/MobileTableContainer.vue'
+import MobileTableRow from '@/components/table/MobileTableRow.vue'
 
 const props = defineProps({
   orders: Object,

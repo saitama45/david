@@ -1,5 +1,5 @@
 <script setup>
-import StatisticOverview from "../../Components/dashboard/StatisticOverview.vue";
+import StatisticOverview from "../../components/dashboard/StatisticOverview.vue";
 import Chart from "primevue/chart";
 import { router } from "@inertiajs/vue3";
 

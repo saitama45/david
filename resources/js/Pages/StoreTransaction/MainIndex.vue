@@ -14,7 +14,7 @@ import { router } from "@inertiajs/vue3";
 import { usePage } from "@inertiajs/vue3";
 import { throttle } from "lodash";
 import { ref, watch, computed, onMounted } from 'vue';
-import { useToast } from "@/Composables/useToast";
+import { useToast } from "@/composables/useToast";
 const { toast } = useToast();
 import { useConfirm } from "primevue/useconfirm";
 const confirm = useConfirm();
@@ -28,7 +28,7 @@ const { transactions, branches } = defineProps({
         required: true,
     },
 });
-import { useSelectOptions } from "@/Composables/useSelectOptions";
+import { useSelectOptions } from "@/composables/useSelectOptions";
 const { options: branchesOptions } = useSelectOptions(branches);
 
 const createNewTransaction = () => {

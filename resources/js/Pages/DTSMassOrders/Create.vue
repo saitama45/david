@@ -1,7 +1,7 @@
 <script setup>
 import { Head, router, useForm } from "@inertiajs/vue3";
 import { ref, computed, watch } from "vue";
-import { useToast } from "@/Composables/useToast";
+import { useToast } from "@/composables/useToast";
 import { useConfirm } from "primevue/useconfirm";
 
 const props = defineProps({

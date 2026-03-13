@@ -1,8 +1,8 @@
 <script setup>
-import StatisticOverview from "../../Components/dashboard/StatisticOverview.vue";
+import StatisticOverview from "../../components/dashboard/StatisticOverview.vue";
 import Chart from "primevue/chart";
 import { router } from "@inertiajs/vue3";
-import { useSelectOptions } from "@/Composables/useSelectOptions";
+import { useSelectOptions } from "@/composables/useSelectOptions";
 import Knob from "primevue/knob";
 import { Chart as ChartJS } from "chart.js";
 const { branches, timePeriods, filters, sales, cogs, dio, top_10, dpo } =

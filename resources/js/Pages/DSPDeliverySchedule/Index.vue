@@ -1,7 +1,7 @@
 <script setup>
 import { defineProps } from 'vue';
-import { useSearch } from "@/Composables/useSearch";
-import { useAuth } from "@/Composables/useAuth";
+import { useSearch } from "@/composables/useSearch";
+import { useAuth } from "@/composables/useAuth";
 
 const props = defineProps({
     suppliers: Object,

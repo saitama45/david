@@ -14,7 +14,7 @@ import {
 import { cn } from '@/lib/utils';
 import { CaretSortIcon } from '@radix-icons/vue';
 import { Search, X } from 'lucide-vue-next';
-import { Input } from '@/Components/ui/input';
+import { Input } from '@/components/ui/input';
 
 const props = defineProps({
   modelValue: { type: [String, Number], required: false },

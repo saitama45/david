@@ -1,7 +1,7 @@
 <script setup>
-import Checkbox from "@/Components/Checkbox.vue";
-import InputError from "@/Components/InputError.vue";
-import InputLabel from "@/Components/InputLabel.vue";
+import Checkbox from "@/components/Checkbox.vue";
+import InputError from "@/components/InputError.vue";
+import InputLabel from "@/components/InputLabel.vue";
 import { Link, useForm } from "@inertiajs/vue3";
 import { Input } from "@/components/ui/input";
 import ImageBanner from "../../../images/temporaryLoginImage.png";

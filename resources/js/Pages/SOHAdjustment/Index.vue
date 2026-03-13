@@ -1,11 +1,11 @@
 <script setup>
-import { useSelectOptions } from "@/Composables/useSelectOptions";
+import { useSelectOptions } from "@/composables/useSelectOptions";
 import { usePage, router, useForm } from "@inertiajs/vue3";
 
 import { throttle, update } from "lodash";
 import { ref, computed } from "vue";
 import { useConfirm } from "primevue/useconfirm";
-import { useToast } from "@/Composables/useToast";
+import { useToast } from "@/composables/useToast";
 
 const confirm = useConfirm();
 const { toast } = useToast();
