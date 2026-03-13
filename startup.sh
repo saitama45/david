@@ -33,10 +33,4 @@ php /home/site/wwwroot/artisan cache:clear
   echo "✅ Background tasks finished!"
 ) &
 
-# 6. Start the Laravel Scheduler loop
-(while true; do
-  php /home/site/wwwroot/artisan schedule:run >> /home/site/wwwroot/storage/logs/scheduler.log 2>&1
-  sleep 60
-done) &
-
 echo "🚀 Startup script finished! Handing over to php-fpm."

@@ -44,37 +44,3 @@ jobs:
           app-name: 'David' # Make sure this matches Azure App Name exactly
           publish-profile: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE }}
           package: .
-
-      - name: Deploy to FTP
-        uses: SamKirkland/FTP-Deploy-Action@v4.3.4
-        with:
-          server: ${{ secrets.FTP_SERVER_SITE11 }}
-          username: ${{ secrets.FTP_USERNAME_SITE11 }}
-          password: ${{ secrets.FTP_PASSWORD_SITE11 }}
-          protocol: ftp
-          port: 21
-          timeout: 120000
-          exclude: |
-            **/.git*
-            **/.git*/**
-            **/node_modules/**
-            **/storage/**
-            **/public/build/**
-            README.md
-
-      - name: Deploy to FTP (Site10)
-        uses: SamKirkland/FTP-Deploy-Action@v4.3.4
-        with:
-          server: ${{ secrets.FTP_SERVER_SITE10 }}
-          username: ${{ secrets.FTP_USERNAME_SITE10 }}
-          password: ${{ secrets.FTP_PASSWORD_SITE10 }}
-          protocol: ftp
-          port: 21
-          timeout: 120000
-          exclude: |
-            **/.git*
-            **/.git*/**
-            **/node_modules/**
-            **/storage/**
-            **/public/build/**
-            README.md

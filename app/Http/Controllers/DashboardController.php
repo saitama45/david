@@ -133,23 +133,14 @@ class DashboardController extends Controller
 
     public function getBeginningInventory($branchIds)
     {
-        // This method still references 'product_inventory_id' from ProductInventoryStockManager.
-        return ProductInventoryStockManager::select('product_inventory_id')
-            ->whereIn('store_branch_id', $branchIds)
-            ->selectRaw('MIN(id) as first_transaction_id')
+        // Optimized: Get the first transaction IDs in one query to avoid N+1 problem
+        $firstTransactionIds = ProductInventoryStockManager::whereIn('store_branch_id', $branchIds)
             ->where('quantity', '>', 0)
+            ->selectRaw('MIN(id) as id')
             ->groupBy('product_inventory_id')
-            ->get()
-            ->map(function ($item) {
-                $transaction = ProductInventoryStockManager::find($item->first_transaction_id);
-                return [
-                    'product_id' => $item->product_inventory_id, // This will be the SAPMasterfile ID
-                    'first_quantity' => $transaction->quantity,
-                    'transaction_date' => $transaction->transaction_date,
-                    'unit_cost' => $transaction->unit_cost,
-                    'total_cost' => $transaction->total_cost
-                ];
-            })
+            ->pluck('id');
+
+        return ProductInventoryStockManager::whereIn('id', $firstTransactionIds)
             ->sum('total_cost');
     }
 
@@ -174,11 +165,18 @@ class DashboardController extends Controller
 
     public function getSales($branchIds, $time_period)
     {
+        // Optimized: Use join instead of whereHas for better performance
+        $query = StoreTransactionItem::join('store_transactions', 'store_transaction_items.store_transaction_id', '=', 'store_transactions.id')
+            ->whereIn('store_transactions.store_branch_id', $branchIds);
+
+        if ($time_period != 0) {
+            $query->whereMonth('store_transactions.order_date', $time_period);
+        } else {
+            $query->whereYear('store_transactions.order_date', Carbon::today()->year);
+        }
+
         return number_format(
-            StoreTransactionItem::whereHas('store_transaction', function ($query) use ($branchIds, $time_period) {
-                $time_period != 0 ? $query->whereMonth('order_date', $time_period) : $query->whereYear('order_date', Carbon::today()->year);
-                $query->whereIn('store_branch_id', $branchIds);
-            })->sum('net_total'),
+            $query->sum('store_transaction_items.net_total'),
             2,
             '.',
             ','
