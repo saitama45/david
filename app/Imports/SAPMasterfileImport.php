@@ -100,31 +100,36 @@ class SAPMasterfileImport implements ToCollection, WithHeadingRow, WithChunkRead
         }
 
         // 3. Bulk Upsert (Batch processing)
-        try {
-            // Attempt to upsert the entire chunk
-            // This turns up to 1000 queries into a single MERGE query on SQL Server
-            SAPMasterfile::upsert(
-                $upsertData,
-                ['ItemCode', 'AltUOM'], // Unique columns for match
-                ['ItemDescription', 'AltQty', 'BaseQty', 'BaseUOM', 'is_active', 'updated_at'] // Columns to update
-            );
-            $this->processedCount += count($upsertData);
-        } catch (\Exception $e) {
-            Log::warning("SAPMasterfile Import Bulk Upsert failed, falling back to row-by-row. Error: " . $e->getMessage());
-            
-            // 4. Fallback to row-by-row for accurate error reporting
-            foreach ($upsertData as $data) {
-                try {
-                    SAPMasterfile::upsert(
-                        [$data],
-                        ['ItemCode', 'AltUOM'],
-                        ['ItemDescription', 'AltQty', 'BaseQty', 'BaseUOM', 'is_active', 'updated_at']
-                    );
-                    $this->processedCount++;
-                } catch (\Exception $innerE) {
-                    $this->addSkippedItem($data['ItemCode'], $data['AltUOM'], $data['ItemDescription'] ?? '', 'Error processing row: ' . $innerE->getMessage());
-                    $this->skippedCount++;
-                    Log::error("Error processing SAPMasterfile row: " . $innerE->getMessage());
+        // Batch size set to 100 to prevent exceeding SQL Server's 2100 parameter limit
+        $upsertBatchSize = 100;
+        $chunks = array_chunk($upsertData, $upsertBatchSize);
+
+        foreach ($chunks as $chunk) {
+            try {
+                // Attempt to upsert the chunk
+                SAPMasterfile::upsert(
+                    $chunk,
+                    ['ItemCode', 'AltUOM'], // Unique columns for match
+                    ['ItemDescription', 'AltQty', 'BaseQty', 'BaseUOM', 'is_active', 'updated_at'] // Columns to update
+                );
+                $this->processedCount += count($chunk);
+            } catch (\Exception $e) {
+                Log::warning("SAPMasterfile Import Bulk Upsert failed for a chunk, falling back to row-by-row. Error: " . $e->getMessage());
+                
+                // 4. Fallback to row-by-row for accurate error reporting
+                foreach ($chunk as $data) {
+                    try {
+                        SAPMasterfile::upsert(
+                            [$data],
+                            ['ItemCode', 'AltUOM'],
+                            ['ItemDescription', 'AltQty', 'BaseQty', 'BaseUOM', 'is_active', 'updated_at']
+                        );
+                        $this->processedCount++;
+                    } catch (\Exception $innerE) {
+                        $this->addSkippedItem($data['ItemCode'], $data['AltUOM'], $data['ItemDescription'] ?? '', 'Error processing row: ' . $innerE->getMessage());
+                        $this->skippedCount++;
+                        Log::error("Error processing SAPMasterfile row: " . $innerE->getMessage());
+                    }
                 }
             }
         }
