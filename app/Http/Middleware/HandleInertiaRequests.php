@@ -312,6 +312,7 @@ class HandleInertiaRequests extends Middleware
                 'import_summary' => fn() => $request->session()->get('import_summary'),
                 'success' => fn() => $request->session()->get('success'),
                 'error' => fn() => $request->session()->get('error'),
+                'info' => fn() => $request->session()->get('info'),
                 'skippedItems' => fn () => $request->session()->get('skippedItems'),
                 'warning' => fn () => $request->session()->get('warning'),
                 'skipped_import_rows' => fn () => $request->session()->get('skipped_import_rows'),

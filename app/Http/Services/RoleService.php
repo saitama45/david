@@ -71,7 +71,8 @@ class RoleService
                     'view SupplierItems list', 'create SupplierItems', 'edit SupplierItems', 'delete SupplierItems', 'export SupplierItems list',
                     'view POSMasterfile list', 'create POSMasterfile', 'edit POSMasterfile', 'delete POSMasterfile', 'export POSMasterfile list',
                     'view branches', 'create branch', 'edit branch', 'delete branch', 'export branches',
-                    'view suppliers', 'create supplier', 'edit supplier', 'delete supplier', 'export suppliers'
+                    'view suppliers', 'create supplier', 'edit supplier', 'delete supplier', 'export suppliers',
+                    'view import logs'
                 ],
                 'Templates' => [
                     'view templates', 'create templates', 'edit templates', 'delete templates', 'export templates',

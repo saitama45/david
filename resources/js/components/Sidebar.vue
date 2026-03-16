@@ -93,6 +93,7 @@ const isPathActive = (pathOrPaths) => {
 const canViewAdministrationGroup = computed(() =>
     hasAccess("view users") ||
     hasAccess("view roles") ||
+    hasAccess("view import logs") ||
     hasAccess("view items list") ||
     hasAccess("view sapitems list") ||
     hasAccess("view SupplierItems list") ||
@@ -284,7 +285,7 @@ watchEffect(() => {
     const currentUrl = usePage().url;
 
     const sections = [
-        { ref: adminOpen, paths: ["/users", "/roles", "/items-list", "/sapitems-list", "/SupplierItems-list", "/POSMasterfile-list", "/branches", "/suppliers", "/templates", "/ordering-template-approval", "/month-end-count-templates", "/dts-delivery-schedules", "/dsp-delivery-schedules", "/month-end-schedules", "/orders-cutoff", "/manage-knowledge-base"] },
+        { ref: adminOpen, paths: ["/users", "/roles", "/work-queue", "/items-list", "/sapitems-list", "/SupplierItems-list", "/POSMasterfile-list", "/branches", "/suppliers", "/templates", "/ordering-template-approval", "/month-end-count-templates", "/dts-delivery-schedules", "/dsp-delivery-schedules", "/month-end-schedules", "/orders-cutoff", "/manage-knowledge-base"] },
         { ref: masterfileOpen, paths: ["/items-list", "/sapitems-list", "/SupplierItems-list", "/POSMasterfile-list", "/branches", "/suppliers"] },
         { ref: templatesOpen, paths: ["/templates", "/ordering-template-approval", "/month-end-count-templates"] },
         { ref: schedulesOpen, paths: ["/dts-delivery-schedules", "/dsp-delivery-schedules", "/month-end-schedules", "/orders-cutoff"] },
@@ -1054,6 +1055,14 @@ watchEffect(() => {
                 </NavLink>
                 <NavLink href="/roles" :icon="FileCog" v-if="hasAccess('view roles')" :is-active="isPathActive('/roles')">
                     Roles
+                </NavLink>
+                <NavLink
+                    v-if="hasAccess('view import logs')"
+                    href="/work-queue"
+                    :icon="ClipboardList"
+                    :is-active="isPathActive('/work-queue')"
+                >
+                    Work Queue
                 </NavLink>
 
                 <!-- Masterfile Subgroup -->

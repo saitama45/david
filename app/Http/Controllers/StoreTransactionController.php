@@ -8,7 +8,8 @@ use App\Http\Requests\StoreTransaction\StoreStoreTransactionRequest;
 use App\Http\Requests\StoreTransaction\UpdateStoreTransactionRequest;
 use App\Http\Services\StoreTransactionService;
 use App\Imports\StoreTransactionImport;
-use App\Jobs\StartImportJob;
+use App\Jobs\StoreTransactionImportJob;
+use App\Models\ImportLog;
 use App\Models\POSMasterfile;
 use App\Models\StoreBranch;
 use App\Models\StoreTransaction;
@@ -154,83 +155,24 @@ class StoreTransactionController extends Controller
 
     public function import(Request $request)
     {
-        ini_set('memory_limit', '512M');
-        set_time_limit(1000900000000000000);
-
         $request->validate([
-            'store_transactions_file' => [
-                'required',
-                'file',
-                'mimes:xlsx,xls,csv',
-            ]
+            'store_transactions_file' => ['required', 'file', 'mimes:xlsx,xls,csv'],
         ]);
 
-        DB::beginTransaction();
-        try {
-            $import = new StoreTransactionImport;
-            Excel::import($import, $request->file('store_transactions_file'));
-            DB::commit();
+        $originalName = $request->file('store_transactions_file')->getClientOriginalName();
+        $path = $request->file('store_transactions_file')->store('imports/store-transactions', 'local');
 
-            $skippedRows = $import->getSkippedRows();
-            $createdCount = $import->getCreatedCount();
+        $log = ImportLog::create([
+            'user_id'           => auth()->id(),
+            'type'              => 'store_transaction',
+            'original_filename' => $originalName,
+            'status'            => 'pending',
+        ]);
 
-            if (!empty($skippedRows)) {
-                // Store skipped items in cache for export, valid for 30 minutes
-                \Illuminate\Support\Facades\Cache::put('skipped_transactions_' . auth()->id(), $skippedRows, now()->addMinutes(30));
-                
-                session()->flash('skippedItems', $skippedRows);
-                session()->flash('created_count', $createdCount);
-                // Redirect explicitly to the index with existing filters and flash data
-                return redirect()->route('store-transactions.index', $request->query());
-            }
+        StoreTransactionImportJob::dispatch($path, $log->id);
 
-            session()->flash('success', "Store transactions imported successfully. Total records inserted: {$createdCount}.");
-            Log::debug('Flash message set for success:', [
-                'success' => session('success')
-            ]);
-            return redirect()->route('store-transactions.index', $request->query());
-
-        } catch (\Maatwebsite\Excel\Validators\ValidationException $e) {
-            DB::rollBack();
-            $failures = $e->failures();
-            $skippedItems = [];
-            foreach ($failures as $failure) {
-                $rowNumber = $failure->row();
-                $errors = implode(', ', $failure->errors());
-                $values = $failure->values(); // Array of values in the row
-
-                $skippedItems[] = [
-                    'row_number' => $rowNumber,
-                    'reason' => "Validation failed: " . $errors,
-                    'item_code' => Arr::get($values, 'product_id', 'N/A'),
-                    'item_description' => Arr::get($values, 'product_name', 'N/A'),
-                    'uom' => Arr::get($values, 'uom', 'N/A'),
-                    'store_code' => Arr::get($values, 'branch', 'N/A'),
-                    'qty' => Arr::get($values, 'qty', 'N/A'),
-                    'bom_qty_deduction' => 'N/A',
-                    'total_deduction' => 'N/A',
-                    'variance' => 'N/A', // N/A for validation errors
-                    'current_soh' => 'N/A', // N/A for validation errors
-                    'date_of_sales' => Arr::get($values, 'date', 'N/A'),
-                ];
-            }
-            Log::error("StoreTransaction Import Validation Exception:", ['failures' => $failures]);
-            
-            // Store in cache for export
-            \Illuminate\Support\Facades\Cache::put('skipped_transactions_' . auth()->id(), $skippedItems, now()->addMinutes(30));
-            
-            session()->flash('skippedItems', $skippedItems);
-            session()->flash('error', 'Import failed due to data validation errors.');
-            return redirect()->route('store-transactions.index', $request->query())->withInput();
-        } catch (Exception $e) {
-            DB::rollBack();
-            \Log::error("StoreTransaction Import Error: " . $e->getMessage(), ['trace' => $e->getTraceAsString()]);
-            session()->flash('error', 'Import failed: ' . $e->getMessage());
-            Log::debug('Flash message set for error:', [
-                'error' => session('error')
-            ]);
-            return redirect()->route('store-transactions.index', $request->query())->withInput();
-        }
+        return redirect()->route('store-transactions.index', $request->query())
+            ->with('info', 'Import queued successfully. Visit the Work Queue page to monitor progress and download the skipped items log when complete.');
     }
 
     public function downloadSkippedReport()

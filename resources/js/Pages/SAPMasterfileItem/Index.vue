@@ -95,16 +95,24 @@ const importFile = () => {
             isLoading.value = false;
             isImportModalVisible.value = false;
 
-            if (page.props.flash && page.props.flash.skippedItems && page.props.flash.skippedItems.length > 0) {
+            if (page.props.flash && page.props.flash.info) {
+                importQueuedMessage.value = page.props.flash.info;
+                toast.add({
+                    severity: "info",
+                    summary: "Import Queued",
+                    detail: "Your import is being processed in the background.",
+                    life: 5000,
+                });
+            } else if (page.props.flash && page.props.flash.skippedItems && page.props.flash.skippedItems.length > 0) {
                 skippedItems.value = page.props.flash.skippedItems;
-                
+
                 // Only show message if 15 or fewer items
                 if (skippedItems.value.length <= 15) {
                     persistentSkippedItemsMessage.value = formatSkippedItemsMessage(skippedItems.value);
                 } else {
                     persistentSkippedItemsMessage.value = '';
                 }
-                
+
                 toast.add({
                     severity: "warn",
                     summary: "Import Completed with Warnings",
@@ -157,18 +165,27 @@ const handleBackdropClick = (event) => {
 };
 
 const isLoading = ref(false);
+const importQueuedMessage = ref('');
 
 onMounted(() => {
-    if (page.props.flash && page.props.flash.skippedItems && page.props.flash.skippedItems.length > 0) {
+    if (page.props.flash && page.props.flash.info) {
+        importQueuedMessage.value = page.props.flash.info;
+        toast.add({
+            severity: "info",
+            summary: "Import Queued",
+            detail: "Your import is being processed in the background.",
+            life: 5000,
+        });
+    } else if (page.props.flash && page.props.flash.skippedItems && page.props.flash.skippedItems.length > 0) {
         skippedItems.value = page.props.flash.skippedItems;
-        
+
         // Only show message if 15 or fewer items
         if (skippedItems.value.length <= 15) {
             persistentSkippedItemsMessage.value = formatSkippedItemsMessage(skippedItems.value);
         } else {
             persistentSkippedItemsMessage.value = '';
         }
-        
+
         toast.add({
             severity: "warn",
             summary: "Import Completed with Warnings",
@@ -207,6 +224,22 @@ onUnmounted(() => {
         :hasExcelDownload="true"
         :exportRoute="exportRoute"
     >
+        <!-- Import Queued Banner -->
+        <div v-if="importQueuedMessage" class="bg-blue-50 border border-blue-300 text-blue-800 px-4 py-3 rounded relative mb-4 flex items-start justify-between gap-4" role="alert">
+            <div>
+                <strong class="font-bold">Import Queued.</strong>
+                <span class="block sm:inline ml-1">Your file is being processed in the background.</span>
+                <span class="block mt-1 text-sm">
+                    Visit the
+                    <a :href="route('import-logs.index')" class="underline font-semibold hover:text-blue-600">Work Queue</a>
+                    page to monitor progress and download the skipped items log when complete.
+                </span>
+            </div>
+            <button @click="importQueuedMessage = ''" class="flex-shrink-0 text-blue-500 hover:text-blue-700">
+                <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+            </button>
+        </div>
+
         <!-- Persistent Skipped Items Message (only shown for 15 or fewer items) -->
         <div v-if="persistentSkippedItemsMessage && skippedItems.length <= 15" class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative mb-4" role="alert">
             <strong class="font-bold">Import Warnings:</strong>

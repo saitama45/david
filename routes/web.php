@@ -19,6 +19,7 @@ use App\Http\Controllers\CostCenterController;
 use App\Http\Controllers\CostOfGoodController;
 use App\Http\Controllers\CSApprovalController;
 use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\ImportLogController;
 use App\Http\Controllers\MonthEndCountApprovalController;
 use App\Http\Controllers\MonthEndCountTemplateController;
 use App\Http\Controllers\MECApproval2Controller;
@@ -705,6 +706,12 @@ Route::middleware('auth')
             });
             Route::middleware('permission:delete items')->delete('/items-list/destroy/{id}', 'destroy')->name('destroy');
             Route::middleware('permission:export items list')->get('/items-list/export', 'export')->name('export');
+        });
+
+        // Work Queue (Import Logs)
+        Route::controller(ImportLogController::class)->prefix('work-queue')->name('import-logs.')->group(function () {
+            Route::middleware('permission:view import logs')->get('/', 'index')->name('index');
+            Route::middleware('permission:view import logs')->get('/{id}/download', 'download')->name('download');
         });
 
         // SAP Masterlist

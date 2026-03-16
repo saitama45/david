@@ -4,6 +4,8 @@ namespace App\Http\Controllers;
 
 use App\Exports\SAPMasterfileExport;
 use App\Imports\SAPMasterfileImport;
+use App\Jobs\SAPMasterfileImportJob;
+use App\Models\ImportLog;
 use App\Models\SAPMasterfile;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -115,49 +117,23 @@ class SAPMasterfileController extends Controller
 
     public function import(Request $request)
     {
-        set_time_limit(0);
-        Log::debug('SAPMasterfile Import: Import method started.');
-
         $request->validate([
             'products_file' => 'required|mimes:xlsx,xls,csv'
         ]);
 
-        SAPMasterfileImport::resetSeenCombinations();
+        $originalName = $request->file('products_file')->getClientOriginalName();
+        $path = $request->file('products_file')->store('imports/sap', 'local');
 
-        try {
-            $import = new SAPMasterfileImport();
-            Excel::import($import, $request->file('products_file'));
-            $skippedItems = $import->getSkippedItems();
-            $processedCount = $import->getProcessedCount();
-            $skippedCount = $import->getSkippedCount();
+        $log = ImportLog::create([
+            'user_id'           => auth()->id(),
+            'type'              => 'sap_masterfile',
+            'original_filename' => $originalName,
+            'status'            => 'pending',
+        ]);
 
-            if ($processedCount > 0) {
-                $message = 'Import successful. Processed ' . $processedCount . ' items.';
-                
-                if ($skippedCount > 0) {
-                    $message .= ' ' . $skippedCount . ' rows were skipped due to validation errors or duplicates.';
-                    session()->flash('skippedItems', $skippedItems);
-                    session()->flash('warning', $message);
-                } else {
-                    session()->flash('success', $message);
-                }
-            } else if ($skippedCount > 0) {
-                $message = 'No items were imported. ' . $skippedCount . ' rows were skipped due to validation errors or duplicates.';
-                session()->flash('skippedItems', $skippedItems);
-                session()->flash('warning', $message);
-            } else {
-                session()->flash('warning', 'No valid items found in the import file.');
-            }
+        SAPMasterfileImportJob::dispatch($path, $log->id);
 
-            return redirect()->route('sapitems.index');
-
-        } catch (\Exception $e) {
-            Log::error('SAPMasterfile Import Error: ' . $e->getMessage(), [
-                'file_name' => $request->file('products_file')->getClientOriginalName(),
-                'trace' => $e->getTraceAsString(),
-            ]);
-
-            return back()->with('error', 'Import failed: ' . $e->getMessage() . '. Please check logs for details.');
-        }
+        return redirect()->route('sapitems.index')
+            ->with('info', 'Import queued successfully. Visit the Work Queue page to monitor progress and download the skipped items log when complete.');
     }
 }

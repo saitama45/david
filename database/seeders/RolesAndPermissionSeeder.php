@@ -183,6 +183,9 @@ class RolesAndPermissionSeeder extends Seeder
         Permission::firstOrCreate(['name' => 'delete items']);
         Permission::firstOrCreate(['name' => 'export items list']);
 
+        // Work Queue
+        Permission::firstOrCreate(['name' => 'view import logs']);
+
         // SAP, Supplier, POS Masterfile Items
         Permission::firstOrCreate(['name' => 'view sapitems list']);
         Permission::firstOrCreate(['name' => 'create sapitems']);

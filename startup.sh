@@ -34,4 +34,19 @@ php /home/site/wwwroot/artisan cache:clear
   echo "✅ Background tasks finished!"
 ) &
 
+# 6. Start queue worker for the 'imports' queue (auto-restarts if it dies)
+(
+  while true; do
+    echo "[$(date)] Starting queue worker..."
+    php /home/site/wwwroot/artisan queue:work \
+      --queue=imports \
+      --sleep=5 \
+      --tries=1 \
+      --timeout=3600 \
+      --max-time=3500
+    echo "[$(date)] Queue worker exited, restarting in 10 seconds..."
+    sleep 10
+  done
+) >> /home/site/wwwroot/storage/logs/queue-worker.log 2>&1 &
+
 echo "🚀 Startup script finished! Handing over to php-fpm."
