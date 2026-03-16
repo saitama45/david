@@ -77,67 +77,55 @@ class SAPMasterfileImport implements ToCollection, WithHeadingRow, WithChunkRead
             return; // Nothing to process in this chunk
         }
 
-        // 2. Preload existing records to avoid N+1 queries
-        $existingRecords = SAPMasterfile::whereIn('ItemCode', array_unique($itemCodesInChunk))
-            ->get()
-            ->keyBy(function ($item) {
-                return $item->ItemCode . '_' . $item->AltUOM;
-            });
-
-        $inserts = [];
         $now = Carbon::now();
+        $upsertData = [];
 
-        // 3. Process valid rows: Update existing or prepare for bulk insert
+        // 2. Prepare data for bulk upsert
         foreach ($validRows as $validRow) {
-            try {
-                $itemCode = $validRow['itemCode'];
-                $altUOM = $validRow['altUOM'];
-                $row = $validRow['row'];
-                $combination = $validRow['combination'];
+            $itemCode = $validRow['itemCode'];
+            $altUOM = $validRow['altUOM'];
+            $row = $validRow['row'];
 
-                $data = [
-                    'ItemDescription' => (string) ($row['item_description'] ?? $row['Item Description'] ?? $row['ItemDescription'] ?? null),
-                    'AltQty' => (float) ($row['altqty'] ?? 1),
-                    'BaseQty' => (float) ($row['baseqty'] ?? 0),
-                    'BaseUOM' => (string) ($row['baseuom'] ?? $row['BaseUOM'] ?? null),
-                    'is_active' => (int) ($row['active'] ?? $row['Active'] ?? 1),
-                ];
-
-                if ($existingRecords->has($combination)) {
-                    // Update existing record
-                    // This still fires 1 update query per existing row, but saves 1 SELECT query per row
-                    $record = $existingRecords->get($combination);
-                    $record->update($data);
-                } else {
-                    // Prepare for bulk insert
-                    $data['ItemCode'] = $itemCode;
-                    $data['AltUOM'] = $altUOM;
-                    $data['created_at'] = $now;
-                    $data['updated_at'] = $now;
-                    $inserts[] = $data;
-                }
-
-                $this->processedCount++;
-                
-            } catch (\Exception $e) {
-                $this->addSkippedItem($validRow['itemCode'], $validRow['altUOM'], $validRow['row']['item_description'] ?? '', 'Error processing row: ' . $e->getMessage());
-                $this->skippedCount++;
-                // If it fails, rollback the processed count for this item
-                $this->processedCount--;
-                Log::error("Error processing SAPMasterfile row: " . $e->getMessage());
-            }
+            $upsertData[] = [
+                'ItemCode' => $itemCode,
+                'AltUOM' => $altUOM,
+                'ItemDescription' => (string) ($row['item_description'] ?? $row['Item Description'] ?? $row['ItemDescription'] ?? null),
+                'AltQty' => (float) ($row['altqty'] ?? 1),
+                'BaseQty' => (float) ($row['baseqty'] ?? 0),
+                'BaseUOM' => (string) ($row['baseuom'] ?? $row['BaseUOM'] ?? null),
+                'is_active' => (int) ($row['active'] ?? $row['Active'] ?? 1),
+                'created_at' => $now,
+                'updated_at' => $now,
+            ];
         }
 
-        // 4. Bulk insert new records
-        if (!empty($inserts)) {
-            try {
-                // Insert in smaller chunks to avoid parameter limits on DB
-                foreach (array_chunk($inserts, 500) as $chunk) {
-                    SAPMasterfile::insert($chunk);
+        // 3. Bulk Upsert (Batch processing)
+        try {
+            // Attempt to upsert the entire chunk
+            // This turns up to 1000 queries into a single MERGE query on SQL Server
+            SAPMasterfile::upsert(
+                $upsertData,
+                ['ItemCode', 'AltUOM'], // Unique columns for match
+                ['ItemDescription', 'AltQty', 'BaseQty', 'BaseUOM', 'is_active', 'updated_at'] // Columns to update
+            );
+            $this->processedCount += count($upsertData);
+        } catch (\Exception $e) {
+            Log::warning("SAPMasterfile Import Bulk Upsert failed, falling back to row-by-row. Error: " . $e->getMessage());
+            
+            // 4. Fallback to row-by-row for accurate error reporting
+            foreach ($upsertData as $data) {
+                try {
+                    SAPMasterfile::upsert(
+                        [$data],
+                        ['ItemCode', 'AltUOM'],
+                        ['ItemDescription', 'AltQty', 'BaseQty', 'BaseUOM', 'is_active', 'updated_at']
+                    );
+                    $this->processedCount++;
+                } catch (\Exception $innerE) {
+                    $this->addSkippedItem($data['ItemCode'], $data['AltUOM'], $data['ItemDescription'] ?? '', 'Error processing row: ' . $innerE->getMessage());
+                    $this->skippedCount++;
+                    Log::error("Error processing SAPMasterfile row: " . $innerE->getMessage());
                 }
-            } catch (\Exception $e) {
-                Log::error("SAPMasterfile Import Bulk Insert Error: " . $e->getMessage());
-                // Handle bulk insert failure (could add all to skipped items, but this is a critical error)
             }
         }
     }
@@ -170,7 +158,7 @@ class SAPMasterfileImport implements ToCollection, WithHeadingRow, WithChunkRead
 
     public function chunkSize(): int
     {
-        // Increased chunk size to 1000 for better batch processing performance
-        return 1000;
+        // Reduced chunk size to 500 to keep parameter counts safely under SQL Server limits for batch upsert
+        return 500;
     }
 }
