@@ -12,34 +12,32 @@ class ExcelTemplateController extends Controller
 {
     public function gsiBakeryTemplate()
     {
-        $path = 'storage\excel-templates\gsi_order_template.xlsx';
+        $path = storage_path('app/public/excel-templates/gsi_order_template.xlsx');
         return response()->download($path);
     }
 
     public function gsiPrTemplate()
     {
-        $path = 'storage\excel-templates\gsi_ot_order_template.xlsx';
+        $path = storage_path('app/public/excel-templates/gsi_ot_order_template.xlsx');
         return response()->download($path);
     }
 
     public function pulTemplate()
     {
-        $path = 'storage\excel-templates\pul_order_template.xlsx';
+        $path = storage_path('app/public/excel-templates/pul_order_template.xlsx');
         return response()->download($path);
     }
 
     public function productsTemplate()
     {
-        $path = 'storage\excel-templates\product_template.xlsx';
+        $path = storage_path('app/public/excel-templates/product_template.xlsx');
         return response()->download($path);
     }
 
     public function sapMasterfileTemplate()
     {
         // Define the path to your new template file
-        // Use `storage_path('app/public/excel-templates/sapmasterfile_template.xlsx')`
-        // for a more robust path that works across different OS.
-        $path = 'storage\excel-templates\sapmasterfile_template.xlsx';
+        $path = storage_path('app/public/excel-templates/sapmasterfile_template.xlsx');
 
         // Check if the file exists before attempting to download
         if (!file_exists($path)) {
@@ -60,9 +58,7 @@ class ExcelTemplateController extends Controller
     public function posBomTemplate()
     {
         // Define the path to your new template file
-        // Use `storage_path('app/public/excel-templates/sapmasterfile_template.xlsx')`
-        // for a more robust path that works across different OS.
-        $path = 'storage\excel-templates\BOM_template.xlsx';
+        $path = storage_path('app/public/excel-templates/BOM_template.xlsx');
 
         // Check if the file exists before attempting to download
         if (!file_exists($path)) {
@@ -89,68 +85,68 @@ class ExcelTemplateController extends Controller
 
     public function storeTransactionsTemplate()
     {
-        $path = 'storage\excel-templates\store_transactions_template.xlsx';
+        $path = storage_path('app/public/excel-templates/store_transactions_template.xlsx');
         return response()->download($path);
     }
 
     public function menuTemplate()
     {
-        $path = 'storage\excel-templates\menu_template.xlsx';
+        $path = storage_path('app/public/excel-templates/menu_template.xlsx');
         return response()->download($path);
     }
 
     public function fruitsAndVegetablesTemplate()
     {
-        $path = 'storage\excel-templates\fruits-and-vegetables-south-template.xlsx';
+        $path = storage_path('app/public/excel-templates/fruits-and-vegetables-south-template.xlsx');
         return response()->download($path);
     }
 
     public function fruitsAndVegetablesMMTemplate()
     {
-        $path = 'storage\excel-templates\fruits-and-vegetables-mm-template.xlsx';
+        $path = storage_path('app/public/excel-templates/fruits-and-vegetables-mm-template.xlsx');
         return response()->download($path);
     }
 
     public function iceCreamTemplate()
     {
-        $path = 'storage\excel-templates\ice-cream-template.xlsx';
+        $path = storage_path('app/public/excel-templates/ice-cream-template.xlsx');
         return response()->download($path);
     }
 
     public function salmonTemplate()
     {
-        $path = 'storage\excel-templates\salmon-template.xlsx';
+        $path = storage_path('app/public/excel-templates/salmon-template.xlsx');
         return response()->download($path);
     }
 
     public function wipListTemplate()
     {
-        $path = 'storage\excel-templates\wip_list_template.xlsx';
+        $path = storage_path('app/public/excel-templates/wip_list_template.xlsx');
         return response()->download($path);
     }
 
     public function wipIngredientsTemplate()
     {
-        $path = 'storage\excel-templates\wip_ingredients_template.xlsx';
+        $path = storage_path('app/public/excel-templates/wip_ingredients_template.xlsx');
         return response()->download($path);
     }
 
     public function bomListTemplate()
     {
-        $path = 'storage\excel-templates\bom_list_template.xlsx';
+        $path = storage_path('app/public/excel-templates/bom_list_template.xlsx');
         return response()->download($path);
     }
 
     public function bomIngredientsTemplate()
     {
-        $path = 'storage\excel-templates\bom_ingredients_template.xlsx';
+        $path = storage_path('app/public/excel-templates/bom_ingredients_template.xlsx');
         return response()->download($path);
     }
 
     // NEW: Method to serve the Store Order template
     public function storeOrderTemplate()
     {
-        $path = 'storage\excel-templates\store_order_template.xlsx'; // Assuming this file exists
+        $path = storage_path('app/public/excel-templates/store_order_template.xlsx'); // Assuming this file exists
         if (!file_exists($path)) {
             abort(404, 'Store Order template file not found.');
         }
