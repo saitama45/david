@@ -68,3 +68,25 @@ jobs:
           app-name: 'David'
           publish-profile: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE }}
           package: release.zip
+
+      # 4. Deploy to FTP hosting
+      - name: Deploy to FTP
+        uses: SamKirkland/FTP-Deploy-Action@v4.3.4
+        with:
+          server: ${{ secrets.FTP_SERVER_SITE10 }}
+          username: ${{ secrets.FTP_USERNAME_SITE10 }}
+          password: ${{ secrets.FTP_PASSWORD_SITE10 }}
+          protocol: ftp
+          port: 21
+          timeout: 120000
+          exclude: |
+            **/.git*
+            **/.git*/**
+            **/node_modules/**
+            **/tests/**
+            **/resources/js/**
+            **/resources/css/**
+            **/storage/logs/**
+            **/storage/framework/cache/data/**
+            README.md
+            release.zip
