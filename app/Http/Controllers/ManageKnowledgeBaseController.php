@@ -12,7 +12,8 @@ class ManageKnowledgeBaseController extends Controller
 {
     public function index(Request $request)
     {
-        $query = KnowledgeBase::with('author');
+        $query = KnowledgeBase::select('id', 'title', 'category', 'is_published', 'author_id', 'created_at')
+            ->with('author:id,first_name,last_name');
 
         if ($request->search) {
             $query->where(function($q) use ($request) {
