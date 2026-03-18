@@ -202,15 +202,7 @@ const selectedStoreName = computed(() => {
                             />
                         </div>
 
-                        <div class="space-y-2 flex items-end">
-                            <Button @click="fetchData" :disabled="loading || !form.ordering_template || !form.store_branch_id" class="w-full">
-                                <Calculator v-if="!loading" class="w-4 h-4 mr-2" />
-                                <span v-if="loading">Calculating...</span>
-                                <span v-else>Generate Computation</span>
-                            </Button>
-                        </div>
-
-                        <div class="md:col-span-3 grid grid-cols-1 md:grid-cols-2 gap-6 pt-4 border-t mt-2">
+                        <div class="md:col-span-3 grid grid-cols-1 md:grid-cols-3 gap-6 pt-4 border-t mt-2">
                             <div class="space-y-2">
                                 <Label for="adu_month" class="text-sm font-semibold">ADU Basis Month</Label>
                                 <input
@@ -228,6 +220,13 @@ const selectedStoreName = computed(() => {
                                     v-model="form.pmix_month"
                                     class="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
                                 />
+                            </div>
+                            <div class="space-y-2 flex items-end">
+                                <Button @click="fetchData" :disabled="loading || !form.ordering_template || !form.store_branch_id" class="w-full">
+                                    <Calculator v-if="!loading" class="w-4 h-4 mr-2" />
+                                    <span v-if="loading">Calculating...</span>
+                                    <span v-else>Generate Computation</span>
+                                </Button>
                             </div>
                         </div>
                     </div>
