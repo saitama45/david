@@ -303,7 +303,7 @@ watchEffect(() => {
         { ref: regularDTSOpen, paths: ["/dts-orders"] },
         { ref: regularMassOpen, paths: ["/mass-orders", "/mass-orders-approval", "/cs-mass-commits"] },
         { ref: stockTransferOpen, paths: ["/interco", "/interco-approval", "/store-commits"] },
-        { ref: monitoringOpen, paths: ["/ordering-calendar"] },
+        { ref: monitoringOpen, paths: ["/ordering-calendar", "/ordering-tools/order-calculator"] },
         { ref: othersOpen, paths: ["/emergency-orders", "/emergency-orders-approval", "/additional-orders", "/additional-orders-approval"] },
     ];
 
@@ -522,11 +522,20 @@ watchEffect(() => {
                     </CollapsibleTrigger>
                     <CollapsibleContent class="pl-2">
                         <NavLink
+                            v-if="hasAccess('view ordering calendar')"
                             href="/ordering-calendar"
                             :icon="CalendarCheck2"
                             :is-active="isPathActive('/ordering-calendar')"
                         >
                             Ordering Calendar
+                        </NavLink>
+                        <NavLink
+                            v-if="hasAccess('view order calculator')"
+                            href="/ordering-tools/order-calculator"
+                            :icon="Calculator"
+                            :is-active="isPathActive('/ordering-tools/order-calculator')"
+                        >
+                            Order Calculator
                         </NavLink>
                     </CollapsibleContent>
                 </Collapsible>

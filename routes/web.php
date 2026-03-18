@@ -90,6 +90,7 @@ use App\Http\Controllers\WastageApprovalController;
 use App\Http\Controllers\WastageApprovalLevel2Controller;
 use App\Http\Controllers\WastageReportController;
 use App\Http\Controllers\QtyVarianceCostVarianceReportController;
+use App\Http\Controllers\OrderCalculatorController;
 use App\Http\Controllers\OrderingCalendarController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\RolesController;
@@ -121,6 +122,11 @@ Route::middleware('auth')
             Route::middleware('permission:view ordering calendar')->get('/', 'index')->name('index');
             Route::get('/data', 'getCalendarData')->name('data');
             Route::get('/export-pdf', 'exportPdf')->name('export');
+        });
+
+        Route::controller(OrderCalculatorController::class)->name('order-calculator.')->prefix('ordering-tools/order-calculator')->group(function () {
+            Route::middleware('permission:view order calculator')->get('/', 'index')->name('index');
+            Route::middleware('permission:view order calculator')->post('/calculate', 'calculate')->name('calculate');
         });
         
         Route::resource('additional-orders-approval', AdditionalOrderApprovalController::class)->middleware('permission:view additional order approval'); // Added middleware

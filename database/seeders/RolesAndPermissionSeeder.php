@@ -59,9 +59,10 @@ class RolesAndPermissionSeeder extends Seeder
         Permission::firstOrCreate(['name' => 'view store order']);
         Permission::firstOrCreate(['name' => 'export store orders']);
 
-        // Ordering Calendar
+        // Ordering Calendar & Calculator
         Permission::firstOrCreate(['name' => 'view ordering calendar']);
         Permission::firstOrCreate(['name' => 'export ordering calendar']);
+        Permission::firstOrCreate(['name' => 'view order calculator']);
 
         // Emergency Orders
         Permission::firstOrCreate(['name' => 'view emergency orders']);

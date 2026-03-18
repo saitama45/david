@@ -112,7 +112,7 @@ class RoleService
                     'view interco approvals', 'view store commits', 'commit store orders', 'export store commits'
                 ],
                 'Ordering Tools' => [
-                    'view ordering calendar', 'export ordering calendar'
+                    'view ordering calendar', 'export ordering calendar', 'view order calculator'
                 ],
                 'Others' => [
                     'view emergency orders', 'create emergency orders', 'edit emergency orders', 'delete emergency orders', 'export emergency orders',
