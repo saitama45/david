@@ -72,7 +72,8 @@ class OrderCalculatorController extends Controller
             'target_dtl' => 'required|date',
             'sunday_date' => 'required|date',
             'adu_month' => 'required|string', // e.g., '2026-02'
-            'pmix_month' => 'required|string', // e.g., '2026-02'
+            'pmix_months' => 'required|array|min:1', // Allow multiple months
+            'pmix_months.*' => 'required|string'
         ]);
 
         $data = $this->orderCalculatorService->getCalculatorData(
@@ -81,7 +82,7 @@ class OrderCalculatorController extends Controller
             $validated['target_dtl'],
             $validated['sunday_date'],
             $validated['adu_month'],
-            $validated['pmix_month']
+            $validated['pmix_months']
         );
 
         return response()->json($data);

@@ -161,14 +161,14 @@ class OrderingCalendarController extends Controller
         foreach ($orderItems as $orderItem) {
             $date = Carbon::parse($orderItem->store_order->order_date)->toDateString();
             
-            $status = 'order';
+            $status = 'ordered';
             $qty = $orderItem->quantity_ordered;
 
             if ($orderItem->quantity_received > 0) {
                 $status = 'delivered';
                 $qty = $orderItem->quantity_received;
-            } elseif ($orderItem->quantity_commited > 0) {
-                $status = 'commit';
+            } elseif ($orderItem->committed_by !== null) {
+                $status = 'committed';
                 $qty = $orderItem->quantity_commited;
             }
 

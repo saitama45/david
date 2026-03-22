@@ -3,6 +3,7 @@ import { ref, computed, onMounted, watch } from 'vue';
 import axios from 'axios';
 import { format, addDays, parseISO } from 'date-fns';
 import Select from 'primevue/select';
+import MultiSelect from 'primevue/multiselect';
 import { 
   Filter, 
   Store, 
@@ -34,11 +35,27 @@ const form = ref({
     target_dtl: format(addDays(parseISO(props.startOfForecastingWeek), 9), 'yyyy-MM-dd'), // Default to 7 days + 2 buffer
     sunday_date: format(addDays(parseISO(props.startOfForecastingWeek), -1), 'yyyy-MM-dd'),
     adu_month: format(new Date(), 'yyyy-MM'),
-    pmix_month: format(new Date(), 'yyyy-MM'),
+    pmix_months: [format(new Date(), 'yyyy-MM')], // Changed to array for multiselect
 });
 
 const items = ref([]);
 const loading = ref(false);
+
+const monthOptions = computed(() => {
+    const options = [];
+    const currentDate = new Date();
+    // Generate options for the last 12 months, for example
+    for (let i = 0; i < 12; i++) {
+        const date = addDays(currentDate, -i * 30); // Approximate month
+        date.setDate(1); // Set to start of month to be safe
+        const d = new Date(currentDate.getFullYear(), currentDate.getMonth() - i, 1);
+        options.push({
+            label: format(d, 'MMMM yyyy'),
+            value: format(d, 'yyyy-MM')
+        });
+    }
+    return options;
+});
 
 const fetchData = async () => {
     if (!form.value.store_branch_id || !form.value.ordering_template) return;
@@ -214,11 +231,15 @@ const selectedStoreName = computed(() => {
                             </div>
                             <div class="space-y-2">
                                 <Label for="pmix_month" class="text-sm font-semibold">PMIX Basis Month</Label>
-                                <input
+                                <MultiSelect
                                     id="pmix_month"
-                                    type="month"
-                                    v-model="form.pmix_month"
-                                    class="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                                    v-model="form.pmix_months"
+                                    :options="monthOptions"
+                                    optionLabel="label"
+                                    optionValue="value"
+                                    placeholder="Select PMIX Months"
+                                    class="w-full h-10"
+                                    display="chip"
                                 />
                             </div>
                             <div class="space-y-2 flex items-end">

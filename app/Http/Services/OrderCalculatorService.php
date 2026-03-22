@@ -20,7 +20,7 @@ class OrderCalculatorService
         $targetDtl,
         $sundayDate,
         $aduMonth,
-        $pmixMonth
+        $pmixMonths
     ) {
         $items = SupplierItems::with(['sapMasterfiles'])
             ->where('SupplierCode', $orderingTemplate)
@@ -73,23 +73,39 @@ class OrderCalculatorService
             ->groupBy('store_order_items.item_code')
             ->pluck('total_orders', 'item_code');
 
-        // 4. PMIX
-        $pmixStart = Carbon::parse($pmixMonth)->startOfMonth();
-        $pmixEnd = Carbon::parse($pmixMonth)->endOfMonth();
-        $pmixDays = $pmixStart->diffInDays($pmixEnd) + 1;
+        // 4. PMIX (Multiple Months)
+        $pmixTotalDays = 0;
+        $pmixConsumptionsArray = [];
 
-        // PMIX needs joining StoreTransactionItem -> POSMasterfile -> POSMasterfileBOM
-        // We want the total consumption of the ingredient (ItemCode)
-        $pmixConsumption = DB::table('store_transaction_items')
-            ->join('store_transactions', 'store_transaction_items.store_transaction_id', '=', 'store_transactions.id')
-            ->join('pos_masterfiles', 'store_transaction_items.product_id', '=', 'pos_masterfiles.id')
-            ->join('pos_masterfiles_bom', 'pos_masterfiles.POSCode', '=', 'pos_masterfiles_bom.POSCode')
-            ->where('store_transactions.store_branch_id', $storeBranchId)
-            ->whereBetween('store_transactions.order_date', [$pmixStart->format('Y-m-d'), $pmixEnd->format('Y-m-d')])
-            ->whereIn('pos_masterfiles_bom.ItemCode', $itemCodes)
-            ->select('pos_masterfiles_bom.ItemCode as item_code', DB::raw('SUM(store_transaction_items.quantity * pos_masterfiles_bom.BOMQty) as total_consumption'))
-            ->groupBy('pos_masterfiles_bom.ItemCode')
-            ->pluck('total_consumption', 'item_code');
+        foreach ($pmixMonths as $month) {
+            $pmixStart = Carbon::parse($month)->startOfMonth();
+            $pmixEnd = Carbon::parse($month)->endOfMonth();
+            $pmixTotalDays += ($pmixStart->diffInDays($pmixEnd) + 1);
+
+            $consumption = DB::table('store_transaction_items')
+                ->join('store_transactions', 'store_transaction_items.store_transaction_id', '=', 'store_transactions.id')
+                ->join('pos_masterfiles', 'store_transaction_items.product_id', '=', 'pos_masterfiles.id')
+                ->join('pos_masterfiles_bom', 'pos_masterfiles.POSCode', '=', 'pos_masterfiles_bom.POSCode')
+                ->where('store_transactions.store_branch_id', $storeBranchId)
+                ->whereBetween('store_transactions.order_date', [$pmixStart->format('Y-m-d'), $pmixEnd->format('Y-m-d')])
+                ->whereIn('pos_masterfiles_bom.ItemCode', $itemCodes)
+                ->select('pos_masterfiles_bom.ItemCode as item_code', DB::raw('SUM(store_transaction_items.quantity * pos_masterfiles_bom.BOMQty) as total_consumption'))
+                ->groupBy('pos_masterfiles_bom.ItemCode')
+                ->pluck('total_consumption', 'item_code');
+
+            $pmixConsumptionsArray[] = $consumption;
+        }
+
+        // Aggregate PMIX Consumption across all selected months
+        $aggregatedPmixConsumption = [];
+        foreach ($pmixConsumptionsArray as $monthConsumption) {
+            foreach ($monthConsumption as $itemCode => $qty) {
+                if (!isset($aggregatedPmixConsumption[$itemCode])) {
+                    $aggregatedPmixConsumption[$itemCode] = 0;
+                }
+                $aggregatedPmixConsumption[$itemCode] += $qty;
+            }
+        }
 
         $result = [];
 
@@ -108,8 +124,8 @@ class OrderCalculatorService
             $adu = $aduDays > 0 ? ($totalOrders / $aduDays) : 0;
 
             // PMIX
-            $totalConsumption = $pmixConsumption[$code] ?? 0;
-            $pmix = $pmixDays > 0 ? ($totalConsumption / $pmixDays) : 0;
+            $totalConsumption = $aggregatedPmixConsumption[$code] ?? 0;
+            $pmix = $pmixTotalDays > 0 ? ($totalConsumption / $pmixTotalDays) : 0;
 
             $result[] = [
                 'category' => $item->category,

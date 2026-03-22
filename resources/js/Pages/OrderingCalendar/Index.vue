@@ -202,10 +202,10 @@ const prevMonth = () => {
 
 const getStatusClass = (status) => {
   switch (status) {
-    case 'order': return 'bg-[#e2f3e2] text-green-800 border-green-200' 
-    case 'commit': return 'bg-[#fce4ec] text-pink-800 border-pink-200' 
-    case 'delivered': return 'bg-[#fff9c4] text-yellow-800 border-yellow-200' 
-    case 'no-delivery': return 'bg-gray-600 text-white border-gray-700' 
+    case 'ordered': return 'bg-[#fff2cc] text-amber-900 border-amber-200' 
+    case 'committed': return 'bg-[#00ffff] text-cyan-900 border-cyan-300' 
+    case 'delivered': return 'bg-[#d9ead3] text-green-900 border-green-200' 
+    case 'no-delivery': return 'bg-[#ffffff] text-gray-400 border-gray-200' 
     default: return 'bg-white text-gray-400 border-gray-100'
   }
 }
@@ -328,19 +328,19 @@ onMounted(() => {
         <CardContent class="p-0 sm:p-6 overflow-x-auto">
           <div class="flex flex-wrap gap-4 mb-6 px-4 pt-4 sm:p-0">
               <div class="flex items-center gap-2">
-                  <div class="w-4 h-4 rounded border bg-[#e2f3e2] border-green-200"></div>
-                  <span class="text-xs font-medium">Order</span>
+                  <div class="w-4 h-4 rounded border bg-[#fff2cc] border-amber-200"></div>
+                  <span class="text-xs font-medium">Ordered</span>
               </div>
               <div class="flex items-center gap-2">
-                  <div class="w-4 h-4 rounded border bg-[#fce4ec] border-pink-200"></div>
-                  <span class="text-xs font-medium">Commit</span>
+                  <div class="w-4 h-4 rounded border bg-[#00ffff] border-cyan-300"></div>
+                  <span class="text-xs font-medium">Committed</span>
               </div>
               <div class="flex items-center gap-2">
-                  <div class="w-4 h-4 rounded border bg-[#fff9c4] border-yellow-200"></div>
+                  <div class="w-4 h-4 rounded border bg-[#d9ead3] border-green-200"></div>
                   <span class="text-xs font-medium">Delivered</span>
               </div>
               <div class="flex items-center gap-2">
-                  <div class="w-4 h-4 rounded border bg-gray-200 border-gray-300"></div>
+                  <div class="w-4 h-4 rounded border bg-[#ffffff] border-gray-200"></div>
                   <span class="text-xs font-medium">No Delivery</span>
               </div>
           </div>
