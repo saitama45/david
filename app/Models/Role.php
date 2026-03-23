@@ -12,10 +12,9 @@ class Role extends SpatieRole
 {
     public function scopeRolesOption(Builder $query)
     {
-        $roles = $query->select(['id', 'name'])->pluck('name', 'id');
-        foreach ($roles as &$role) {
-            $role = Str::headline($role);
-        }
-        return $roles;
+        $roles = $query->select(['id', 'name'])->get()->pluck('name', 'id');
+        return $roles->map(function ($role) {
+            return Str::headline($role);
+        });
     }
 }

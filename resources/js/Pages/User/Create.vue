@@ -134,12 +134,12 @@ const form = useForm({
     phone_number: null,
     email: null,
     password: null,
-    roles: props.user?.roles.map((item) => item.id.toString()) ?? [],
+    roles: props.user?.roles.map((item) => item.id) ?? [],
     remarks: null,
     assignedBranches:
-        props.user?.store_branches.map((item) => item.id.toString()) ?? [],
+        props.user?.store_branches.map((item) => item.id) ?? [],
     assignedSuppliers:
-        props.user?.suppliers.map((item) => item.id.toString()) ?? [], // Assuming suppliersOptions values are IDs
+        props.user?.suppliers.map((item) => item.id) ?? [], // Assuming suppliersOptions values are IDs
 });
 
 // Computed property for "Check All Branches" state (getter/setter for ToggleSwitch)

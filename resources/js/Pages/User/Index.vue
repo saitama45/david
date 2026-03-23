@@ -4,6 +4,7 @@ import { throttle } from "lodash";
 import { useAuth } from "@/composables/useAuth";
 import Dialog from "primevue/dialog";
 import { useSelectOptions } from "@/composables/useSelectOptions";
+import { ref, watch, computed } from "vue"; // Ensure ref, watch, computed are imported
 
 const { hasAccess } = useAuth();
 const props = defineProps({
@@ -12,6 +13,10 @@ const props = defineProps({
         required: true,
     },
     usersList: {
+        type: Object,
+        required: true,
+    },
+    rolesList: {
         type: Object,
         required: true,
     },
@@ -25,10 +30,16 @@ let filter = ref(props.filters.search);
 const search = ref(filter.value);
 const handleClick = () => {
     isLoading.value = true;
-    router.get("/users/create", { templateId: templateId.value });
+    router.get("/users/create", { roleId: roleId.value });
 };
 
-const { options: usersOption } = useSelectOptions(props.usersList);
+const rolesOption = computed(() => {
+    if (!props.rolesList) return [];
+    return Object.entries(props.rolesList).map(([value, label]) => ({
+        value: isNaN(Number(value)) ? value : Number(value),
+        label: label,
+    }));
+});
 
 const isTemplateModalVisible = ref(false);
 
@@ -52,7 +63,7 @@ watch(
 
 import { useReferenceDelete } from "@/composables/useReferenceDelete";
 const { deleteModel } = useReferenceDelete();
-const templateId = ref(null);
+const roleId = ref(null);
 const exportRoute = computed(() =>
     route("users.export", { search: search.value })
 );
@@ -167,22 +178,21 @@ const isLoading = ref(false);
                 <DivFlexCol>
                     <SpanBold>Create New User</SpanBold>
                     <LabelXS
-                        >Copy the roles and assigned branches from existing
-                        users</LabelXS
+                        >Select a role for the new user</LabelXS
                     >
                 </DivFlexCol>
             </template>
 
             <DivFlexCol>
                 <InputContainer>
-                    <LabelXS>Users</LabelXS>
+                    <LabelXS>Roles</LabelXS>
                     <Select
                         filter
                         placeholder="No Template"
-                        v-model="templateId"
+                        v-model="roleId"
                         optionLabel="label"
                         optionValue="value"
-                        :options="usersOption"
+                        :options="rolesOption"
                     />
                 </InputContainer>
 

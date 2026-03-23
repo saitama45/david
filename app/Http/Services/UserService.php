@@ -172,7 +172,27 @@ class UserService
 
     public function getUserFromTemplate()
     {
+        // Support legacy templateId if still passed
         $templateId = request('templateId');
-        return $templateId ? User::with(['roles', 'store_branches', 'suppliers'])->findOrFail($templateId) : null;
+        if ($templateId) {
+            return User::with(['roles', 'store_branches', 'suppliers'])->findOrFail($templateId);
+        }
+
+        // Handle roleId for the new role-based template
+        $roleId = request('roleId');
+        if ($roleId) {
+            $user = new User();
+            $role = Role::find($roleId);
+            if ($role) {
+                // Pre-fill the relation so the form gets the role pre-selected
+                $user->setRelation('roles', collect([$role]));
+                // Initialize empty relations for branches and suppliers
+                $user->setRelation('store_branches', collect([]));
+                $user->setRelation('suppliers', collect([]));
+                return $user;
+            }
+        }
+
+        return null;
     }
 }

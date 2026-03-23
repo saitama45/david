@@ -31,12 +31,14 @@ class UserController extends Controller
     public function index()
     {
         $usersList = User::usersOption();
+        $rolesList = ExtendedRole::rolesOption();
         $users = $this->userService->getUsersList();
 
         return Inertia::render('User/Index', [
             'users' => $users,
             'filters' => request()->only(['search']),
-            'usersList' => $usersList
+            'usersList' => $usersList,
+            'rolesList' => $rolesList
         ]);
     }
 
