@@ -44,18 +44,6 @@ class WastageRequest extends FormRequest
                 'string',
                 'max:1000',
             ],
-            'image' => [
-                'nullable',
-                'file',
-                'image',
-                'mimes:jpeg,jpg,png',
-                'max:5120', // 5MB max
-            ],
-            'image_url' => [
-                'nullable',
-                'string',
-                'url',
-            ],
         ];
 
         // Distinguish between create and update based on route parameter, not HTTP method
@@ -87,6 +75,26 @@ class WastageRequest extends FormRequest
                     'required',
                     'string',
                     'max:255',
+                ];
+                
+                // Allow optional images on update
+                $rules['items.*.images'] = [
+                    'nullable',
+                    'array',
+                ];
+                $rules['items.*.images.*'] = [
+                    'file',
+                    'image',
+                    'mimes:jpeg,jpg,png',
+                    'max:5120', // 5MB max
+                ];
+                $rules['items.*.existing_image_urls'] = [
+                    'nullable',
+                    'array',
+                ];
+                $rules['items.*.existing_image_urls.*'] = [
+                    'string',
+                    'url',
                 ];
 
                 // Handle mixed scenarios: existing items (with DB IDs) and new items (without DB IDs)
@@ -140,12 +148,12 @@ class WastageRequest extends FormRequest
                 'array',
                 'min:1',
             ];
-            $rules['images'] = [
+            $rules['cartItems.*.images'] = [
                 'required',
                 'array',
                 'min:1',
             ];
-            $rules['images.*'] = [
+            $rules['cartItems.*.images.*'] = [
                 'file',
                 'image',
                 'mimes:jpeg,jpg,png',

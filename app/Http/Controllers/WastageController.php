@@ -122,28 +122,26 @@ class WastageController extends Controller
         $data = $request->validated();
 
         try {
-            // Handle multiple image uploads
-            $imageUrls = [];
-            if ($request->hasFile('images')) {
-                foreach ($request->file('images') as $file) {
-                    $imageUrls[] = $this->googleDriveService->uploadImage($file);
-                }
-            }
-            // Store as JSON array, even if empty
-            $data['image_url'] = json_encode($imageUrls);
-
-            // Check if this is multi-item submission (cart) or single item
             if (isset($data['cartItems'])) {
-                // The service will now receive a JSON string in 'image_url'
-                // and should apply it to all created records.
+                // Process per-item images
+                foreach ($data['cartItems'] as $index => &$item) {
+                    $itemImageUrls = [];
+                    $images = $request->file("cartItems.{$index}.images");
+                    if ($images) {
+                        foreach ($images as $file) {
+                            $itemImageUrls[] = $this->googleDriveService->uploadImage($file);
+                        }
+                    }
+                    $item['image_url'] = !empty($itemImageUrls) ? json_encode($itemImageUrls) : null;
+                }
+                
                 $wastageRecords = $this->wastageService->createMultipleWastageRecords($data, $user->id);
-
-                return redirect()->route('wastage.index')
-                    ->with('success', count($wastageRecords) . ' wastage records created successfully.');
+                $firstRecord = $wastageRecords->first();
+                return redirect()->route('wastage.show', $firstRecord->id)
+                    ->with('success', 'Wastage records created successfully.');
             } else {
-                // Single item submission (for backward compatibility)
+                // Single item approach (fallback)
                 $wastage = $this->wastageService->createWastage($data, $user->id);
-
                 return redirect()->route('wastage.show', $wastage->id)
                     ->with('success', 'Wastage record created successfully.');
             }
@@ -219,6 +217,7 @@ class WastageController extends Controller
                     'approverlvl2_qty' => $record->approverlvl2_qty,
                     'cost' => $record->cost,
                     'reason' => $record->reason,
+                    'image_url' => $record->image_url, // Added this line to pass per-item images
                     'sap_masterfile' => $record->sapMasterfile ? [
                         'id' => $record->sapMasterfile->id,
                         'ItemCode' => $record->sapMasterfile->ItemCode,
@@ -335,6 +334,7 @@ class WastageController extends Controller
                     'wastage_qty' => $record->wastage_qty,
                     'cost' => $record->cost,
                     'reason' => $record->reason,
+                    'image_url' => $record->image_url, // Added this line
                     'sap_masterfile' => $record->sapMasterfile ? [
                         'id' => $record->sapMasterfile->id,
                         'ItemCode' => $record->sapMasterfile->ItemCode,
@@ -377,37 +377,44 @@ class WastageController extends Controller
         }
 
         try {
-            // Handle multiple image uploads
-            $newlyUploadedUrls = [];
-            if ($request->hasFile('images')) {
-                foreach ($request->file('images') as $file) {
-                    $newlyUploadedUrls[] = $this->googleDriveService->uploadImage($file);
-                }
-            }
-
-            // Handle existing and deleted images
-            $originalUrls = json_decode($wastage->image_url, true) ?? [];
-            $remainingUrls = [];
-
-            if ($request->has('existing_image_urls')) {
-                $clientUrls = $request->input('existing_image_urls', []);
-                // Strip the "/storage/" prefix from the URLs sent by the client
-                $remainingUrls = array_map(fn($url) => preg_replace('/^\/storage\//', '', $url), $clientUrls);
-            }
-
-            $deletedUrls = array_diff($originalUrls, $remainingUrls);
-            foreach ($deletedUrls as $urlToDelete) {
-                $this->googleDriveService->deleteImage($urlToDelete);
-            }
-
-            // Combine remaining existing URLs with newly uploaded ones
-            $finalUrls = array_merge($remainingUrls, $newlyUploadedUrls);
-            $data['image_url'] = json_encode($finalUrls);
-
             // Check if this is a multi-item update or single item update
             if (isset($data['items']) && is_array($data['items'])) {
                 // Multi-item update with deletion support
-                $result = $this->wastageService->updateMultipleWastageRecords($wastage, $data, $user->id, $data['image_url']);
+                
+                // Process images per item
+                foreach ($data['items'] as $index => &$item) {
+                    $itemImageUrls = [];
+                    
+                    // 1. Check for existing image URLs sent for this item
+                    $existingUrls = $request->input("items.{$index}.existing_image_urls");
+                    if (!empty($existingUrls)) {
+                        if (is_string($existingUrls)) {
+                            $parsed = json_decode($existingUrls, true);
+                            if (json_last_error() === JSON_ERROR_NONE && is_array($parsed)) {
+                                $itemImageUrls = array_merge($itemImageUrls, $parsed);
+                            } else {
+                                $itemImageUrls[] = $existingUrls;
+                            }
+                        } elseif (is_array($existingUrls)) {
+                            // Strip /storage/ prefix if present
+                            $strippedUrls = array_map(fn($url) => preg_replace('/^\/storage\//', '', $url), $existingUrls);
+                            $itemImageUrls = array_merge($itemImageUrls, $strippedUrls);
+                        }
+                    }
+
+                    // 2. Check for new files uploaded for this item
+                    $newFiles = $request->file("items.{$index}.images");
+                    if ($newFiles) {
+                        foreach ($newFiles as $file) {
+                            $itemImageUrls[] = $this->googleDriveService->uploadImage($file);
+                        }
+                    }
+
+                    // Assign the JSON array string to the item, or null if empty
+                    $item['image_url'] = !empty($itemImageUrls) ? json_encode($itemImageUrls) : null;
+                }
+
+                $result = $this->wastageService->updateMultipleWastageRecords($wastage, $data, $user->id);
 
                 // Build detailed success message
                 $existingUpdatedCount = $result['summary']['existing_updated_count'] ?? 0;
@@ -468,9 +475,9 @@ class WastageController extends Controller
                 }
             } else {
                 // Single item update (fallback for backward compatibility)
-                $wastage = $this->wastageService->updateWastage($wastage, $data, $user->id);
+                $updatedWastage = $this->wastageService->updateWastage($wastage, $data, $user->id);
 
-                return redirect()->route('wastage.show', $wastage->id)
+                return redirect()->route('wastage.show', $updatedWastage->id)
                     ->with('success', 'Wastage record updated successfully.');
             }
 

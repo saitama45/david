@@ -189,9 +189,10 @@ class WastageApprovalLevel1Controller extends Controller
                     'id' => $record->id,
                     'sap_masterfile_id' => $record->sap_masterfile_id,
                     'wastage_qty' => $record->wastage_qty,
-                    'approverlvl1_qty' => $record->approverlvl1_qty,
+                    'approverlvl2_qty' => $record->approverlvl2_qty,
                     'cost' => $record->cost,
                     'reason' => $record->reason,
+                    'image_url' => $record->image_url,
                     'sap_masterfile' => $record->sapMasterfile ? [
                         'id' => $record->sapMasterfile->id,
                         'ItemCode' => $record->sapMasterfile->ItemCode,
@@ -210,13 +211,15 @@ class WastageApprovalLevel1Controller extends Controller
                 'can_edit' => $user->hasPermissionTo('edit wastage approval level 1'),
                 'can_delete' => $user->hasPermissionTo('delete wastage approval level 1'),
             ],
+            'approval_error' => session('approval_error'),
+            'approval_stock_errors' => session('approval_stock_errors', []),
         ]);
     }
 
     /**
      * Approve wastage record at level 1
      */
-    public function approve(Request $request): RedirectResponse
+    public function approve(Request $request)
     {
         $user = Auth::user();
         $validated = $request->validate([
@@ -226,18 +229,132 @@ class WastageApprovalLevel1Controller extends Controller
 
         try {
             $wastage = Wastage::findOrFail($validated['order_id']);
+            $storeBranchId = $wastage->store_branch_id;
 
             // Check if user can approve this wastage record
             $assignedStoreIds = UserAssignedStoreBranch::where('user_id', $user->id)
                 ->pluck('store_branch_id')
                 ->toArray();
 
-            if (!in_array($wastage->store_branch_id, $assignedStoreIds)) {
+            if (!in_array($storeBranchId, $assignedStoreIds)) {
                 abort(403, 'You do not have permission to approve this wastage record');
             }
 
             // Update all records with the same wastage_no
-            $relatedWastages = Wastage::where('wastage_no', $wastage->wastage_no)->get();
+            $relatedWastages = Wastage::where('wastage_no', $wastage->wastage_no)
+                ->with('sapMasterfile')
+                ->get();
+
+            // Stock Validation Logic
+            $groupedItems = $relatedWastages->filter(fn($item) => $item->sapMasterfile !== null)
+                                            ->groupBy('sapMasterfile.ItemCode');
+
+            $stockErrors = [];
+
+            foreach ($groupedItems as $itemCode => $items) {
+                $totalQtyToDeductInBaseUom = 0;
+
+                foreach ($items as $item) {
+                    if ($item->reason === 'Scrap') {
+                        continue;
+                    }
+
+                    $originalSapMasterfile = $item->sapMasterfile;
+                    $conversionFactor = $originalSapMasterfile->BaseQty > 0 ? $originalSapMasterfile->BaseQty : 1;
+                    $approvedQty = $item->approverlvl1_qty ?? $item->wastage_qty;
+
+                    $totalQtyToDeductInBaseUom += $approvedQty * $conversionFactor;
+                }
+                
+                if ($totalQtyToDeductInBaseUom <= 0) {
+                    continue;
+                }
+
+                $targetSapMasterfile = \App\Models\SAPMasterfile::where('ItemCode', $itemCode)
+                    ->whereColumn('BaseUOM', 'AltUOM')
+                    ->first();
+
+                if (!$targetSapMasterfile) {
+                    \Log::warning('SOH Update validation Skipped: No target SAP Masterfile (BaseUOM=AltUOM) found for ItemCode.', ['item_code' => $itemCode]);
+                    continue;
+                }
+                
+                $productStock = \App\Models\ProductInventoryStock::where('product_inventory_id', $targetSapMasterfile->id)
+                    ->where('store_branch_id', $storeBranchId)
+                    ->first();
+
+                if (!$productStock || $productStock->quantity < $totalQtyToDeductInBaseUom) {
+                    $stockErrors[] = [
+                        'item_code' => $itemCode,
+                        'item_description' => $targetSapMasterfile->ItemDescription,
+                        'available' => $productStock->quantity ?? 0,
+                        'required' => $totalQtyToDeductInBaseUom,
+                        'message' => "Insufficient stock for item {$targetSapMasterfile->ItemDescription}. Available: " . ($productStock->quantity ?? 0) . ", Required: {$totalQtyToDeductInBaseUom}"
+                    ];
+                }
+            }
+
+            if (!empty($stockErrors)) {
+                // Re-load the wastage data for display
+                $wastage->load([
+                    'storeBranch',
+                    'encoder',
+                    'approver1',
+                    'approver2',
+                    'canceller'
+                ]);
+                
+                $wastageData = [
+                    'id' => $wastage->id,
+                    'wastage_no' => $wastage->wastage_no,
+                    'store_branch_id' => $wastage->store_branch_id,
+                    'wastage_reason' => $wastage->reason,
+                    'wastage_status' => $wastage->wastage_status,
+                    'created_by' => $wastage->created_by,
+                    'created_at' => $wastage->created_at,
+                    'updated_at' => $wastage->updated_at,
+                    'storeBranch' => $wastage->storeBranch,
+                    'encoder' => $wastage->encoder,
+                    'approver1' => $wastage->approver1,
+                    'approver2' => $wastage->approver2,
+                    'canceller' => $wastage->canceller,
+                    'approved_level1_date' => $wastage->approved_level1_date,
+                    'approved_level2_date' => $wastage->approved_level2_date,
+                    'cancelled_date' => $wastage->cancelled_date,
+                    'image_urls' => json_decode($wastage->image_url, true) ?? [],
+                    'items' => $relatedWastages->map(function ($record) {
+                        return [
+                            'id' => $record->id,
+                            'sap_masterfile_id' => $record->sap_masterfile_id,
+                            'wastage_qty' => $record->wastage_qty,
+                            'approverlvl2_qty' => $record->approverlvl2_qty,
+                            'cost' => $record->cost,
+                            'reason' => $record->reason,
+                            'image_url' => $record->image_url,
+                            'sap_masterfile' => $record->sapMasterfile ? [
+                                'id' => $record->sapMasterfile->id,
+                                'ItemCode' => $record->sapMasterfile->ItemCode,
+                                'ItemDescription' => $record->sapMasterfile->ItemDescription,
+                                'BaseUOM' => $record->sapMasterfile->BaseUOM,
+                                'AltUOM' => $record->sapMasterfile->AltUOM,
+                            ] : null,
+                        ];
+                    })->toArray(),
+                ];
+                
+                return \Inertia\Inertia::render('WastageApprovalLevel1/Show', [
+                    'wastage' => $wastageData,
+                    'permissions' => [
+                        'can_approve' => $user->hasPermissionTo('approve wastage level 1'),
+                        'can_edit' => $user->hasPermissionTo('edit wastage approval level 1'),
+                        'can_delete' => $user->hasPermissionTo('delete wastage approval level 1'),
+                    ],
+                    'approval_error' => 'Cannot approve wastage due to insufficient stock for some items.',
+                    'approval_stock_errors' => $stockErrors,
+                ]);
+            }
+
+            \DB::beginTransaction();
 
             foreach ($relatedWastages as $relatedWastage) {
                 if (is_null($relatedWastage->approverlvl1_qty)) {
@@ -253,20 +370,25 @@ class WastageApprovalLevel1Controller extends Controller
                     'approved_level1_date' => now(),
                 ]);
 
+            \DB::commit();
+
             return redirect()
                 ->route('wastage-approval-lvl1.show', $wastage->id)
                 ->with('success', 'Wastage record approved at level 1 successfully.');
 
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            throw $e;
         } catch (\Exception $e) {
+            \DB::rollBack();
             \Log::error('Failed to approve wastage record at level 1: ' . $e->getMessage(), [
                 'wastage_id' => $validated['order_id'] ?? null,
                 'user_id' => $user->id,
                 'error' => $e->getMessage()
             ]);
 
-            return back()
-                ->with('error', 'Failed to approve wastage record: ' . $e->getMessage())
-                ->withInput();
+            throw \Illuminate\Validation\ValidationException::withMessages([
+                'message' => 'Failed to approve wastage record: ' . $e->getMessage()
+            ]);
         }
     }
 

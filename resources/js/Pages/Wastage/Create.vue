@@ -9,7 +9,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Alert, AlertDescription } from '@/components/ui/alert'
-import { ArrowLeft, Package, AlertTriangle, Calculator, ChevronDown, Plus, Trash2 } from 'lucide-vue-next'
+import { ArrowLeft, Package, AlertTriangle, Calculator, ChevronDown, Plus, Trash2, Image as ImageIcon } from 'lucide-vue-next'
 import Select from 'primevue/select'
 import ItemAutoComplete from '@/components/ItemAutoComplete.vue'
 import ImageUpload from '@/components/ImageUpload.vue'
@@ -35,14 +35,12 @@ const form = useForm({
   store_branch_id: '',
   remarks: '',
   cartItems: [],
-  images: []
 })
 
 // Local state
 const selectedAutoCompleteItem = ref(null)
 const isLoading = ref(false)
 const cartItems = ref([])
-const selectedImages = ref([])
 
 // Product details reactive object for item search
 const productDetails = reactive({
@@ -92,13 +90,13 @@ const formattedCartTotal = computed(() => {
 const isFormValid = computed(() => {
   return form.store_branch_id &&
          form.remarks && form.remarks.trim() !== '' &&  // Required remarks
-         selectedImages.value.length > 0 &&              // Required images
          cartItems.value.length > 0 &&
          cartItems.value.every(item =>
            item.sap_masterfile_id &&
            parseFloat(item.quantity) > 0 &&
            parseFloat(item.cost) >= 0 &&
-           item.reason
+           item.reason &&
+           item.images && item.images.length > 0 // Required per-item image
          )
 })
 
@@ -156,6 +154,7 @@ const addToCart = () => {
     uom: productDetails.unit_of_measurement,
     total_cost: productDetails.cost || 0,
     reason: 'Spoilage',
+    images: [], // Per-item images
   }
 
   cartItems.value.push(cartItem)
@@ -194,13 +193,11 @@ const performSubmit = () => {
     quantity: parseFloat(item.quantity),
     cost: parseFloat(item.cost),
     reason: item.reason,
+    images: item.images, // Include per-item images
   }))
 
   // Assign the mapped cart items to the form object
   form.cartItems = cartItemsData;
-
-  // Assign the selected image to the form object
-  form.images = selectedImages.value;
 
   // Submit with Inertia's form object directly
   form.post(route('wastage.store'), {
@@ -264,7 +261,6 @@ const resetForm = () => {
   form.reset()
   clearCart()
   selectedAutoCompleteItem.value = null
-  selectedImages.value = []
   Object.keys(productDetails).forEach((key) => {
     productDetails[key] = null
   })
@@ -367,21 +363,6 @@ const handleReasonBlur = (item) => {
               />
               <p v-if="form.errors.remarks" class="text-sm text-red-600">
                 {{ form.errors.remarks }}
-              </p>
-            </div>
-
-            <!-- Image Upload -->
-            <div class="space-y-2 md:col-span-2">
-              <ImageUpload
-                v-model="selectedImages"
-                label="Wastage Images *"
-                helper-text="Upload one or more JPG or PNG images as evidence (max 5MB each)"
-                :disabled="form.processing"
-                multiple
-                required
-              />
-              <p v-if="form.errors.images" class="text-sm text-red-600">
-                {{ form.errors.images }}
               </p>
             </div>
 
@@ -488,60 +469,80 @@ const handleReasonBlur = (item) => {
                   </tr>
                 </thead>
                 <tbody class="divide-y divide-gray-200">
-                  <tr v-for="item in cartItems" :key="item.id" class="hover:bg-gray-50">
-                    <td class="px-4 py-4">
-                      <div>
-                        <div class="font-medium text-gray-900">{{ item.item_code }}</div>
-                        <div class="text-sm text-gray-500">{{ item.description }}</div>
-                      </div>
-                    </td>
-                    <td class="px-4 py-4" style="min-width: 170px;">
-                      <Select
-                        v-model="item.reason"
-                        :options="reasonOptions"
-                        class="w-full"
-                        @blur="handleReasonBlur(item)"
-                      />
-                    </td>
-                    <td class="px-4 py-4">
-                      <div class="text-sm text-gray-900">{{ item.uom }}</div>
-                    </td>
-                    <td class="px-4 py-4">
-                      <Input
-                        type="number"
-                        v-model="item.quantity"
-                        @input="updateCartItemQuantity(item.id, $event.target.value)"
-                        step="0.001"
-                        min="0.001"
-                        class="w-24 h-8 text-sm"
-                      />
-                    </td>
-                    <td v-if="canViewCost" class="px-4 py-4">
-                      <Input
-                        type="number"
-                        v-model="item.cost"
-                        step="0.01"
-                        min="0"
-                        class="w-24 h-8 text-sm bg-gray-100"
-                        readonly
-                      />
-                    </td>
-                    <td v-if="canViewCost" class="px-4 py-4">
-                      <div class="text-sm font-medium text-gray-900">
-                        {{ formatCurrency(item.total_cost) }}
-                      </div>
-                    </td>
-                    <td class="px-4 py-4 text-center">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        @click="removeFromCart(item.id)"
-                        class="text-red-600 hover:text-red-700 hover:bg-red-50"
-                      >
-                        <Trash2 class="w-4 h-4" />
-                      </Button>
-                    </td>
-                  </tr>
+                  <template v-for="(item, index) in cartItems" :key="item.id">
+                    <tr class="hover:bg-gray-50 bg-white">
+                      <td class="px-4 py-4">
+                        <div>
+                          <div class="font-medium text-gray-900">{{ item.item_code }}</div>
+                          <div class="text-sm text-gray-500">{{ item.description }}</div>
+                        </div>
+                      </td>
+                      <td class="px-4 py-4" style="min-width: 170px;">
+                        <Select
+                          v-model="item.reason"
+                          :options="reasonOptions"
+                          class="w-full"
+                          @blur="handleReasonBlur(item)"
+                        />
+                      </td>
+                      <td class="px-4 py-4">
+                        <div class="text-sm text-gray-900">{{ item.uom }}</div>
+                      </td>
+                      <td class="px-4 py-4">
+                        <Input
+                          type="number"
+                          v-model="item.quantity"
+                          @input="updateCartItemQuantity(item.id, $event.target.value)"
+                          step="0.001"
+                          min="0.001"
+                          class="w-24 h-8 text-sm"
+                        />
+                      </td>
+                      <td v-if="canViewCost" class="px-4 py-4">
+                        <Input
+                          type="number"
+                          v-model="item.cost"
+                          step="0.01"
+                          min="0"
+                          class="w-24 h-8 text-sm bg-gray-100"
+                          readonly
+                        />
+                      </td>
+                      <td v-if="canViewCost" class="px-4 py-4">
+                        <div class="text-sm font-medium text-gray-900">
+                          {{ formatCurrency(item.total_cost) }}
+                        </div>
+                      </td>
+                      <td class="px-4 py-4 text-center">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          @click="removeFromCart(item.id)"
+                          class="text-red-600 hover:text-red-700 hover:bg-red-50"
+                        >
+                          <Trash2 class="w-4 h-4" />
+                        </Button>
+                      </td>
+                    </tr>
+                    <!-- Image Upload Row -->
+                    <tr class="bg-gray-50/50 border-b border-gray-200">
+                      <td :colspan="canViewCost ? 7 : 5" class="px-4 py-3">
+                        <div class="pl-4 border-l-2 border-blue-200 py-2">
+                          <ImageUpload
+                            v-model="item.images"
+                            :label="`Images for ${item.item_code} *`"
+                            helper-text="Upload one or more JPG or PNG images as evidence for this item (max 5MB each)"
+                            :disabled="form.processing"
+                            multiple
+                            required
+                          />
+                          <p v-if="form.errors[`cartItems.${index}.images`]" class="text-sm text-red-600 mt-1">
+                            {{ form.errors[`cartItems.${index}.images`] }}
+                          </p>
+                        </div>
+                      </td>
+                    </tr>
+                  </template>
                 </tbody>
                 <tfoot class="bg-gray-50" v-if="canViewCost">
                   <tr>
@@ -621,7 +622,7 @@ const handleReasonBlur = (item) => {
           <Alert v-else-if="!isFormValid" class="mb-4">
             <AlertTriangle class="h-4 w-4 text-yellow-600" />
             <AlertDescription class="text-yellow-800">
-              Please fill in all required fields and ensure all items have valid quantities and costs.
+              Please fill in all required fields and ensure all items have valid quantities, costs, and at least one image attached per item.
             </AlertDescription>
           </Alert>
 

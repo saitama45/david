@@ -71,7 +71,7 @@ class WastageService
                     'cost' => $item['cost'],
                     'reason' => $item['reason'],
                     'remarks' => $data['remarks'] ?? null,
-                    'image_url' => $data['image_url'] ?? null,
+                    'image_url' => $item['image_url'] ?? null,
                     'wastage_status' => WastageStatus::PENDING->value,
                     'created_by' => $encoderId,
                 ]);
@@ -106,6 +106,7 @@ class WastageService
                 'cost' => $data['cost'],
                 'reason' => $data['reason'],
                 'remarks' => $data['remarks'] ?? null,
+                'image_url' => $data['image_url'] ?? null,
             ];
 
             // Add updated_by if user ID is provided
@@ -140,10 +141,9 @@ class WastageService
     /**
      * Update multiple wastage records for the same wastage_no
      */
-    public function updateMultipleWastageRecords(Wastage $wastage, array $data, ?int $userId = null, ?string $imageUrl = null): array
+    public function updateMultipleWastageRecords(Wastage $wastage, array $data, ?int $userId = null): array
     {
         \Illuminate\Support\Facades\Log::info('--- Service: updateMultipleWastageRecords ---');
-        \Illuminate\Support\Facades\Log::info('Explicit imageUrl received: ' . ($imageUrl ?? 'NULL'));
 
         DB::beginTransaction();
         try {
@@ -183,9 +183,8 @@ class WastageService
                 ];
 
                 // Use the explicitly passed imageUrl for all items in the transaction
-                \Illuminate\Support\Facades\Log::info('Checking for imageUrl before adding to updateData. URL: ' . ($imageUrl ?? 'NULL'));
-                if ($imageUrl !== null) {
-                    $updateData['image_url'] = $imageUrl;
+                if (isset($itemData['image_url'])) {
+                    $updateData['image_url'] = $itemData['image_url'];
                     \Illuminate\Support\Facades\Log::info('image_url has been added to updateData.');
                 }
 

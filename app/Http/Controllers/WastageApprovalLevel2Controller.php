@@ -197,6 +197,7 @@ class WastageApprovalLevel2Controller extends Controller
                     'approverlvl2_qty' => $record->approverlvl2_qty,
                     'cost' => $record->cost,
                     'reason' => $record->reason,
+                    'image_url' => $record->image_url,
                     'sap_masterfile' => $record->sapMasterfile ? [
                         'id' => $record->sapMasterfile->id,
                         'ItemCode' => $record->sapMasterfile->ItemCode,
@@ -374,6 +375,7 @@ class WastageApprovalLevel2Controller extends Controller
                             'approverlvl2_qty' => $record->approverlvl2_qty,
                             'cost' => $record->cost,
                             'reason' => $record->reason,
+                            'image_url' => $record->image_url,
                             'sap_masterfile' => $record->sapMasterfile ? [
                                 'id' => $record->sapMasterfile->id,
                                 'ItemCode' => $record->sapMasterfile->ItemCode,

@@ -1,19 +1,11 @@
 <script setup>
-import { ref, computed } from 'vue' // Added ref
+import { ref, computed } from 'vue'
 import { Link, router } from '@inertiajs/vue3'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table'
 import { Separator } from '@/components/ui/separator'
-import { ArrowLeft, Package, Calendar, User, CheckCircle, AlertTriangle, Paperclip, Loader2, AlertCircle } from 'lucide-vue-next' // Added Loader2, AlertCircle
+import { ArrowLeft, Package, Calendar, User, CheckCircle, AlertTriangle, Paperclip, Loader2, AlertCircle, ImageIcon } from 'lucide-vue-next'
 import WastageStatusBadge from './components/WastageStatusBadge.vue'
 
 const props = defineProps({
@@ -96,7 +88,7 @@ const totalCost = computed(() => {
   return Number(total) || 0
 })
 
-// --- Start of ImageUpload.vue extracted logic ---
+// --- Start of Image logic ---
 
 const imageLoadingStates = ref({});
 const imageErrors = ref({});
@@ -155,15 +147,21 @@ const transformGoogleDriveUrl = (url, attemptIndex = 0) => {
   return { url, isGoogleDrive: false, hasMoreFallbacks: false };
 };
 
-const allImages = computed(() => {
+const getItemImages = (item) => {
   let rawUrls = [];
-  if (props.wastage?.image_urls && Array.isArray(props.wastage.image_urls) && props.wastage.image_urls.length > 0) {
-    rawUrls = props.wastage.image_urls;
-  } else if (props.wastage?.image_url) {
-    rawUrls = [props.wastage.image_url];
+  try {
+    if (item.image_url) {
+      rawUrls = typeof item.image_url === 'string' ? JSON.parse(item.image_url) : item.image_url;
+    }
+  } catch (e) {
+    console.error('Error parsing item images:', e);
   }
 
-  const images = rawUrls.map(originalUrl => {
+  if (!Array.isArray(rawUrls)) {
+    rawUrls = rawUrls ? [rawUrls] : [];
+  }
+
+  return rawUrls.map(originalUrl => {
     if (urlAttempts.value[originalUrl] === undefined) {
       urlAttempts.value[originalUrl] = 0;
     }
@@ -174,31 +172,18 @@ const allImages = computed(() => {
     return {
       type: 'existing',
       url: urlInfo.url,
-      id: originalUrl, // Use originalUrl as ID for existing images
+      id: originalUrl,
       originalUrl,
       urlInfo,
       attemptIndex: currentAttempt
     };
   });
-
-  return images;
-});
-
-const hasImages = computed(() => allImages.value.length > 0);
-
-const isDevelopment = computed(() => {
-  try {
-    return import.meta.env?.DEV || false
-  } catch (error) {
-    console.warn('Could not determine development mode:', error)
-    return false
-  }
-});
+};
 
 const handleImageLoad = (imageId) => {
   imageLoadingStates.value[imageId] = false;
   imageErrors.value[imageId] = null;
-  urlAttempts.value[imageId] = 0; // Reset attempts on successful load
+  urlAttempts.value[imageId] = 0;
 };
 
 const handleImageError = (imageId, image) => {
@@ -211,11 +196,7 @@ const handleImageError = (imageId, image) => {
   }
 
   imageLoadingStates.value[imageId] = false;
-  if (image.urlInfo && image.urlInfo.isGoogleDrive) {
-    imageErrors.value[imageId] = `Failed to load image after trying ${image.urlInfo.totalFormats} different URL formats. The Google Drive file may not be publicly accessible or may have been deleted.`;
-  } else {
-    imageErrors.value[imageId] = 'Failed to load image. The URL may be invalid or the image may not be accessible.';
-  }
+  imageErrors.value[imageId] = 'Error';
 };
 
 const initializeImageLoading = (image) => {
@@ -224,26 +205,14 @@ const initializeImageLoading = (image) => {
   imageErrors.value[imageId] = null;
 };
 
-const retryWithNextUrl = (image) => {
-  if (image.urlInfo && image.urlInfo.isGoogleDrive && image.urlInfo.hasMoreFallbacks) {
-    urlAttempts.value[image.id] = (urlAttempts.value[image.id] || 0) + 1;
-    imageErrors.value[image.id] = null;
-    imageLoadingStates.value[image.id] = true;
-  } else {
-    urlAttempts.value[image.id] = 0; // Reset to first attempt
-    imageErrors.value[image.id] = null;
-    imageLoadingStates.value[image.id] = true;
-  }
-};
-
-const handleImageClick = (image, index) => {
+const handleImageClick = (image) => {
   if (imageLoadingStates.value[image.id] || imageErrors.value[image.id]) {
     return;
   }
   window.open(image.url, '_blank');
 };
 
-// --- End of ImageUpload.vue extracted logic ---
+// --- End of Image logic ---
 
 // Format currency
 const formatCurrency = (amount) => {
@@ -339,133 +308,78 @@ const formatQty = (qty) => {
         </Card>
       </div>
 
-      <!-- Attached Images -->
-      <Card v-if="hasImages">
-        <CardHeader>
-          <CardTitle class="flex items-center gap-2">
-            <Paperclip class="w-5 h-5" />
-            Attached Images
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
-            <div
-              v-for="(image, index) in allImages"
-              :key="image.id"
-              class="relative group cursor-pointer"
-              @click="handleImageClick(image, index)"
-              @keydown.enter="handleImageClick(image, index)"
-              @keydown.space.prevent="handleImageClick(image, index)"
-              tabindex="0"
-              role="button"
-              :aria-label="`View image ${index + 1} in new tab`"
-              :class="{'cursor-zoom-in': !imageLoadingStates[image.id] && !imageErrors[image.id]}"
-            >
-              <div class="aspect-w-1 aspect-h-1">
-                <!-- Loading State -->
-                <div v-if="imageLoadingStates[image.id]" class="absolute inset-0 bg-gray-100 rounded-lg flex items-center justify-center">
-                  <Loader2 class="w-8 h-8 text-blue-600 animate-spin" />
-                </div>
-
-                <!-- Error State -->
-                <div v-else-if="imageErrors[image.id]" class="absolute inset-0 bg-red-50 rounded-lg flex flex-col items-center justify-center p-4">
-                  <AlertCircle class="w-8 h-8 text-red-500 mb-2" />
-                  <p class="text-xs text-red-700 text-center mb-2">{{ imageErrors[image.id] }}</p>
-
-                  <!-- Show attempt info for Google Drive images -->
-                  <p v-if="image.urlInfo && image.urlInfo.isGoogleDrive" class="text-xs text-gray-600 mb-2">
-                    Tried {{ image.urlInfo.totalFormats }} URL formats
-                  </p>
-
-                  <div class="flex gap-2">
-                    <button
-                      @click.stop="retryWithNextUrl(image)"
-                      class="text-xs text-blue-600 hover:text-blue-800 underline"
-                    >
-                      {{ image.urlInfo && image.urlInfo.isGoogleDrive && image.urlInfo.hasMoreFallbacks ? 'Try Next URL' : 'Retry' }}
-                    </button>
-                    <span v-if="image.urlInfo && image.urlInfo.isGoogleDrive && image.urlInfo.hasMoreFallbacks" class="text-xs text-gray-500">
-                      ({{ image.urlInfo.totalFormats - (image.attemptIndex + 1) }} left)
-                    </span>
-                  </div>
-                </div>
-
-                <!-- Image -->
-                <img
-                  v-else
-                  :src="image.url"
-                  :alt="`Wastage Image ${index + 1}`"
-                  class="object-cover shadow-lg rounded-lg w-full h-full hover:opacity-90 transition-opacity"
-                  @load="() => handleImageLoad(image.id)"
-                  @error="() => handleImageError(image.id, image)"
-                  @loadstart="() => initializeImageLoading(image)"
-                />
-              </div>
-
-              <!-- Debug Info (only in development) -->
-              <div v-if="isDevelopment" class="absolute bottom-1 left-1 bg-black bg-opacity-75 text-white text-xs p-1 rounded max-w-full truncate pointer-events-none">
-                {{ image.type === 'existing' ? 'Existing' : 'New' }}
-                <span v-if="image.type === 'existing'" class="block text-yellow-300">ID: {{ image.id.substring(0, 10) }}...</span>
-              </div>
-
-              <!-- Click to zoom indicator (only shown when image is not loading or in error state) -->
-              <div
-                v-if="!imageLoadingStates[image.id] && !imageErrors[image.id]"
-                class="absolute top-1 left-1 bg-black bg-opacity-50 text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none"
-              >
-                Click to view
-              </div>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-
       <!-- Items Table -->
       <Card>
         <CardHeader>
           <CardTitle>Wastage Items</CardTitle>
         </CardHeader>
-        <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Item</TableHead>
-                <TableHead>Reason</TableHead>
-                <TableHead class="text-center">Quantity</TableHead>
-                <TableHead class="text-center">Approved Lvl1 Qty</TableHead>
-                <TableHead class="text-center">Approved Lvl2 Qty</TableHead>
-                <TableHead v-if="canViewCost" class="text-right">Cost</TableHead>
-                <TableHead v-if="canViewCost" class="text-right">Total</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              <TableRow v-if="wastage.items && wastage.items.length > 0" v-for="item in wastage.items" :key="item.id">
-                <TableCell>
-                  <div>
-                    <div class="font-medium">{{ item.sap_masterfile?.ItemCode || 'N/A' }}</div>
-                    <div class="text-sm text-gray-500">{{ item.sap_masterfile?.ItemDescription || 'No description' }}</div>
-                  </div>
-                </TableCell>
-                <TableCell class="text-sm">{{ item.reason || 'No reason specified' }}</TableCell>
-                <TableCell class="text-center">{{ formatQty(item.wastage_qty) }} {{ (item.sap_masterfile?.AltUOM || item.sap_masterfile?.BaseUOM) ?? 'PCS' }}</TableCell>
-                <TableCell class="text-center">{{ formatQty(item.approverlvl1_qty) }} {{ (item.sap_masterfile?.AltUOM || item.sap_masterfile?.BaseUOM) ?? 'PCS' }}</TableCell>
-                <TableCell class="text-center">{{ formatQty(item.approverlvl2_qty) }} {{ (item.sap_masterfile?.AltUOM || item.sap_masterfile?.BaseUOM) ?? 'PCS' }}</TableCell>
-                <TableCell v-if="canViewCost" class="text-right">{{ formatCurrency(item.cost) }}</TableCell>
-                <TableCell v-if="canViewCost" class="text-right font-semibold">{{ formatCurrency(item.wastage_qty * item.cost) }}</TableCell>
-              </TableRow>
-              <TableRow v-else>
-                <TableCell colspan="7" class="text-center py-8 text-gray-500">
-                  No items found
-                </TableCell>
-              </TableRow>
-            </TableBody>
-            <tfoot v-if="wastage.items && wastage.items.length > 0 && canViewCost">
-              <TableRow>
-                <TableCell colspan="6" class="text-right font-bold">Total:</TableCell>
-                <TableCell class="text-right font-bold text-green-600">{{ formatCurrency(totalCost) }}</TableCell>
-              </TableRow>
-            </tfoot>
-          </Table>
+        <CardContent class="p-0 sm:p-6">
+          <div class="overflow-x-auto">
+            <table class="w-full text-sm text-left">
+              <thead class="text-xs text-gray-700 uppercase bg-gray-50 border-b border-gray-200">
+                <tr>
+                  <th scope="col" class="px-4 py-3 font-semibold">Item</th>
+                  <th scope="col" class="px-4 py-3 font-semibold">Reason</th>
+                  <th scope="col" class="px-4 py-3 font-semibold">Evidence</th>
+                  <th scope="col" class="px-4 py-3 font-semibold text-center">UOM</th>
+                  <th scope="col" class="px-4 py-3 font-semibold text-center">Wastage Qty</th>
+                  <th scope="col" class="px-4 py-3 font-semibold text-center">Lvl1 Appr</th>
+                  <th scope="col" class="px-4 py-3 font-semibold text-center">Lvl2 Appr</th>
+                  <th v-if="canViewCost" scope="col" class="px-4 py-3 font-semibold text-right">Cost</th>
+                  <th v-if="canViewCost" scope="col" class="px-4 py-3 font-semibold text-right">Total</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-gray-200">
+                <tr v-if="wastage.items && wastage.items.length > 0" v-for="item in wastage.items" :key="item.id" class="bg-white hover:bg-gray-50">
+                  <td class="px-4 py-4">
+                    <div class="font-medium text-gray-900">{{ item.sap_masterfile?.ItemCode || 'N/A' }}</div>
+                    <div class="text-xs text-gray-500 line-clamp-1 max-w-[200px]">{{ item.sap_masterfile?.ItemDescription || 'No description' }}</div>
+                  </td>
+                  <td class="px-4 py-4 text-gray-600">{{ item.reason || 'N/A' }}</td>
+                  <td class="px-4 py-4">
+                    <div class="flex flex-wrap gap-2">
+                      <template v-if="getItemImages(item).length > 0" v-for="image in getItemImages(item)" :key="image.id">
+                        <div 
+                          class="inline-block h-8 w-8 rounded cursor-pointer relative flex-shrink-0"
+                          @click="handleImageClick(image)"
+                        >
+                          <div v-if="imageLoadingStates[image.id]" class="absolute inset-0 bg-gray-100 rounded-full flex items-center justify-center">
+                            <Loader2 class="w-3 h-3 text-blue-600 animate-spin" />
+                          </div>
+                          <img
+                            v-else
+                            :src="image.url"
+                            class="h-8 w-8 rounded-full object-cover border border-gray-100"
+                            @load="() => handleImageLoad(image.id)"
+                            @error="() => handleImageError(image.id, image)"
+                            @loadstart="() => initializeImageLoading(image)"
+                          />
+                        </div>
+                      </template>
+                      <span v-else class="text-[10px] text-gray-400 italic">None</span>
+                    </div>
+                  </td>
+                  <td class="px-4 py-4 text-center">{{ (item.sap_masterfile?.AltUOM || item.sap_masterfile?.BaseUOM) ?? "N/A" }}</td>
+                  <td class="px-4 py-4 text-center font-semibold">{{ formatQty(item.wastage_qty) }}</td>
+                  <td class="px-4 py-4 text-center text-gray-600">{{ formatQty(item.approverlvl1_qty) }}</td>
+                  <td class="px-4 py-4 text-center text-gray-600">{{ formatQty(item.approverlvl2_qty) }}</td>
+                  <td v-if="canViewCost" class="px-4 py-4 text-right text-xs text-gray-500">{{ formatCurrency(item.cost) }}</td>
+                  <td v-if="canViewCost" class="px-4 py-4 text-right font-bold text-gray-900">{{ formatCurrency(item.wastage_qty * item.cost) }}</td>
+                </tr>
+                <tr v-else>
+                  <td :colspan="canViewCost ? 9 : 7" class="px-4 py-8 text-center text-gray-500">
+                    No items found
+                  </td>
+                </tr>
+              </tbody>
+              <tfoot v-if="wastage.items && wastage.items.length > 0 && canViewCost" class="bg-gray-50 font-bold border-t border-gray-200">
+                <tr>
+                  <td colspan="8" class="px-4 py-3 text-right">Total Cost:</td>
+                  <td class="px-4 py-3 text-right text-green-600 text-base">{{ formatCurrency(totalCost) }}</td>
+                </tr>
+              </tfoot>
+            </table>
+          </div>
         </CardContent>
       </Card>
 
@@ -530,66 +444,23 @@ const formatQty = (qty) => {
 </template>
 
 <style scoped>
-.aspect-w-1 {
-  position: relative;
-  width: 100%;
-  padding-bottom: 100%;
-}
-.aspect-h-1 > * {
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-}
 .object-cover {
   object-fit: cover;
 }
 
-/* Enhanced cursor and hover effects for clickable images */
 .cursor-pointer {
-  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  transition: transform 0.2s ease;
 }
 
 .cursor-pointer:hover {
-  transform: scale(1.02);
-  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15);
+  transform: scale(1.1);
+  z-index: 10;
 }
 
-.cursor-zoom-in {
-  cursor: zoom-in;
-}
-
-/* Loading state overlay with click prevention */
-.pointer-events-none {
-  pointer-events: none;
-}
-
-.pointer-events-auto {
-  pointer-events: auto;
-}
-
-/* Image hover effect */
-.transition-opacity {
-  transition: opacity 0.2s ease;
-}
-
-/* Accessibility: focus styles for keyboard navigation */
-.cursor-pointer:focus {
-  outline: 2px solid #3B82F6;
-  outline-offset: 2px;
-  border-radius: 0.375rem;
-}
-
-/* Ensure the zoom indicator doesn't interfere with interactions */
-.group:hover .group-hover\:opacity-100 {
-  opacity: 1;
-}
-
-/* Smooth color transitions */
-.transition-colors {
-  transition-property: color, background-color, border-color;
-  transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
-  transition-duration: 150ms;
+.line-clamp-1 {
+  display: -webkit-box;
+  -webkit-line-clamp: 1;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
 }
 </style>

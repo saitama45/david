@@ -5,7 +5,7 @@ import { useConfirm } from "primevue/useconfirm";
 import { useToast } from "@/composables/useToast";
 import { useForm } from "@inertiajs/vue3";
 import { ref, watch, computed } from 'vue';
-import { Edit, Save, X, Trash2, Paperclip, Loader2, AlertCircle } from "lucide-vue-next";
+import { Edit, Save, X, Trash2, Paperclip, Loader2, AlertCircle, ImageIcon } from "lucide-vue-next";
 import { useAuth } from "@/composables/useAuth";
 
 const confirm = useConfirm();
@@ -391,15 +391,21 @@ const transformGoogleDriveUrl = (url, attemptIndex = 0) => {
   return { url, isGoogleDrive: false, hasMoreFallbacks: false };
 };
 
-const allImages = computed(() => {
+const getItemImages = (item) => {
   let rawUrls = [];
-  if (props.wastage?.image_urls && Array.isArray(props.wastage.image_urls) && props.wastage.image_urls.length > 0) {
-    rawUrls = props.wastage.image_urls;
-  } else if (props.wastage?.image_url) {
-    rawUrls = [props.wastage.image_url];
+  try {
+    if (item.image_url) {
+      rawUrls = typeof item.image_url === 'string' ? JSON.parse(item.image_url) : item.image_url;
+    }
+  } catch (e) {
+    console.error('Error parsing item images:', e);
   }
 
-  const images = rawUrls.map(originalUrl => {
+  if (!Array.isArray(rawUrls)) {
+    rawUrls = rawUrls ? [rawUrls] : [];
+  }
+
+  return rawUrls.map(originalUrl => {
     if (urlAttempts.value[originalUrl] === undefined) {
       urlAttempts.value[originalUrl] = 0;
     }
@@ -410,31 +416,18 @@ const allImages = computed(() => {
     return {
       type: 'existing',
       url: urlInfo.url,
-      id: originalUrl, // Use originalUrl as ID for existing images
+      id: originalUrl,
       originalUrl,
       urlInfo,
       attemptIndex: currentAttempt
     };
   });
-
-  return images;
-});
-
-const hasImages = computed(() => allImages.value.length > 0);
-
-const isDevelopment = computed(() => {
-  try {
-    return import.meta.env?.DEV || false
-  } catch (error) {
-    console.warn('Could not determine development mode:', error)
-    return false
-  }
-});
+};
 
 const handleImageLoad = (imageId) => {
   imageLoadingStates.value[imageId] = false;
   imageErrors.value[imageId] = null;
-  urlAttempts.value[imageId] = 0; // Reset attempts on successful load
+  urlAttempts.value[imageId] = 0;
 };
 
 const handleImageError = (imageId, image) => {
@@ -447,11 +440,7 @@ const handleImageError = (imageId, image) => {
   }
 
   imageLoadingStates.value[imageId] = false;
-  if (image.urlInfo && image.urlInfo.isGoogleDrive) {
-    imageErrors.value[imageId] = `Failed to load image after trying ${image.urlInfo.totalFormats} different URL formats. The Google Drive file may not be publicly accessible or may have been deleted.`;
-  } else {
-    imageErrors.value[imageId] = 'Failed to load image. The URL may be invalid or the image may not be accessible.';
-  }
+  imageErrors.value[imageId] = 'Error';
 };
 
 const initializeImageLoading = (image) => {
@@ -460,19 +449,7 @@ const initializeImageLoading = (image) => {
   imageErrors.value[imageId] = null;
 };
 
-const retryWithNextUrl = (image) => {
-  if (image.urlInfo && image.urlInfo.isGoogleDrive && image.urlInfo.hasMoreFallbacks) {
-    urlAttempts.value[image.id] = (urlAttempts.value[image.id] || 0) + 1;
-    imageErrors.value[image.id] = null;
-    imageLoadingStates.value[image.id] = true;
-  } else {
-    urlAttempts.value[image.id] = 0; // Reset to first attempt
-    imageErrors.value[image.id] = null;
-    imageLoadingStates.value[image.id] = true;
-  }
-};
-
-const handleImageClick = (image, index) => {
+const handleImageClick = (image) => {
   if (imageLoadingStates.value[image.id] || imageErrors.value[image.id]) {
     return;
   }
@@ -560,63 +537,90 @@ const handleImageClick = (image, index) => {
             <TableHeader>
             </TableHeader>
 
-            <Table>
-                <TableHead>
-                    <TH> Item Code </TH>
-                    <TH> Description </TH>
-                    <TH> Reason </TH>
-                    <TH> UOM </TH>
-                    <TH> Wastage Qty </TH>
-                    <TH> Approved Lvl1 Qty </TH>
-                    <TH v-if="wastage.wastage_status === 'approved_lvl1'">Approved Lvl2 Qty</TH>
-                    <TH v-else>Approved Lvl2 Qty</TH>
-                </TableHead>
-                <TableBody>
-                    <tr v-for="item in wastage.items" :key="item.id">
-                        <TD>{{ item.sap_masterfile?.ItemCode || 'N/A' }}</TD>
-                        <TD>{{ item.sap_masterfile?.ItemDescription || 'N/A' }}</TD>
-                        <TD class="text-sm">{{ item.reason || 'No reason specified' }}</TD>
-                        <TD>{{ (item.sap_masterfile?.AltUOM || item.sap_masterfile?.BaseUOM) ?? "N/A" }}</TD>
-                        <TD>{{ item.wastage_qty }}</TD>
-                        <TD>{{ item.approverlvl1_qty }}</TD>
-                        <TD class="flex items-center gap-3" v-if="wastage.wastage_status === 'approved_lvl1'">
-                        <div v-if="editingItem && editingItem.id === item.id">
-                            <Input
-                                v-focus-select
-                                type="number"
-                                v-model="editValue"
-                                class="w-20 text-right"
-                                @keyup.enter="saveEdit"
-                                @keyup.esc="cancelEdit"
-                            />
-                            <DivFlexCenter class="gap-1 ml-2">
-                                <Save class="size-4 text-green-500 cursor-pointer hover:text-green-600" @click="saveEdit" />
-                                <X class="size-4 text-red-500 cursor-pointer hover:text-red-600" @click="cancelEdit" />
-                            </DivFlexCenter>
-                        </div>
-                        <div v-else class="flex items-center gap-4">
-                            {{
-                                itemsDetail.find((data) => data.id === item.id)
-                                    ?.approverlvl2_qty ?? 0
-                            }}
-                            <Edit
-                                v-if="hasAccess('edit wastage approval level 2')"
-                                class="size-4 text-blue-500 cursor-pointer hover:text-blue-600"
-                                @click="startEdit(item.id)"
-                            />
-                            <Trash2
-                                v-if="hasAccess('delete wastage approval level 2')"
-                                class="size-4 text-red-500 cursor-pointer hover:text-red-600"
-                                @click="deleteItem(item.id)"
-                            />
-                        </div>
-                    </TD>
-                        <TD v-else>
-                            {{ item.approverlvl2_qty }}
-                        </TD>
-                    </tr>
-                </TableBody>
-            </Table>
+            <div class="border rounded-lg overflow-hidden">
+                <table class="w-full text-sm text-left">
+                    <thead class="text-xs text-gray-700 uppercase bg-gray-50 border-b border-gray-200">
+                        <tr>
+                            <th scope="col" class="px-4 py-3 font-semibold"> Item </th>
+                            <th scope="col" class="px-4 py-3 font-semibold"> Reason </th>
+                            <th scope="col" class="px-4 py-3 font-semibold"> Evidence </th>
+                            <th scope="col" class="px-4 py-3 font-semibold text-center"> UOM </th>
+                            <th scope="col" class="px-4 py-3 font-semibold text-center"> Wastage Qty </th>
+                            <th scope="col" class="px-4 py-3 font-semibold text-center"> Lvl1 Appr </th>
+                            <th scope="col" class="px-4 py-3 font-semibold text-center"> Lvl2 Appr </th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-gray-200">
+                        <tr v-for="item in wastage.items" :key="item.id" class="bg-white hover:bg-gray-50">
+                            <td class="px-4 py-4">
+                                <div class="font-medium text-gray-900">{{ item.sap_masterfile?.ItemCode || 'N/A' }}</div>
+                                <div class="text-xs text-gray-500 line-clamp-1 max-w-[200px]">{{ item.sap_masterfile?.ItemDescription || 'N/A' }}</div>
+                            </td>
+                            <td class="px-4 py-4 text-gray-600">{{ item.reason || 'N/A' }}</td>
+                            <td class="px-4 py-4">
+                                <div class="flex -space-x-2 overflow-hidden">
+                                    <template v-if="getItemImages(item).length > 0" v-for="image in getItemImages(item)" :key="image.id">
+                                        <div 
+                                            class="inline-block h-8 w-8 rounded-full ring-2 ring-white cursor-pointer relative"
+                                            @click="handleImageClick(image)"
+                                        >
+                                            <div v-if="imageLoadingStates[image.id]" class="absolute inset-0 bg-gray-100 rounded-full flex items-center justify-center">
+                                                <Loader2 class="w-3 h-3 text-blue-600 animate-spin" />
+                                            </div>
+                                            <img
+                                                v-else
+                                                :src="image.url"
+                                                class="h-8 w-8 rounded-full object-cover border border-gray-100"
+                                                @load="() => handleImageLoad(image.id)"
+                                                @error="() => handleImageError(image.id, image)"
+                                                @loadstart="() => initializeImageLoading(image)"
+                                            />
+                                        </div>
+                                    </template>
+                                    <span v-else class="text-[10px] text-gray-400 italic">None</span>
+                                </div>
+                            </td>
+                            <td class="px-4 py-4 text-center">{{ (item.sap_masterfile?.AltUOM || item.sap_masterfile?.BaseUOM) ?? "N/A" }}</td>
+                            <td class="px-4 py-4 text-center font-semibold">{{ item.wastage_qty }}</td>
+                            <td class="px-4 py-4 text-center text-gray-600">{{ item.approverlvl1_qty }}</td>
+                            <td class="px-4 py-4">
+                                <div v-if="wastage.wastage_status === 'approved_lvl1'" class="flex items-center justify-center gap-2">
+                                    <div v-if="editingItem && editingItem.id === item.id" class="flex items-center gap-2">
+                                        <Input
+                                            v-focus-select
+                                            type="number"
+                                            v-model="editValue"
+                                            class="w-20 text-right h-8 text-xs"
+                                            @keyup.enter="saveEdit"
+                                            @keyup.esc="cancelEdit"
+                                        />
+                                        <div class="flex gap-1">
+                                            <Save class="size-4 text-green-500 cursor-pointer" @click="saveEdit" />
+                                            <X class="size-4 text-red-500 cursor-pointer" @click="cancelEdit" />
+                                        </div>
+                                    </div>
+                                    <div v-else class="flex items-center justify-center gap-3">
+                                        <span class="font-bold">
+                                            {{ itemsDetail.find((data) => data.id === item.id)?.approverlvl2_qty ?? 0 }}
+                                        </span>
+                                        <Edit
+                                            v-if="hasAccess('edit wastage approval level 2')"
+                                            class="size-3.5 text-blue-500 cursor-pointer"
+                                            @click="startEdit(item.id)"
+                                        />
+                                        <Trash2
+                                            v-if="hasAccess('delete wastage approval level 2')"
+                                            class="size-3.5 text-red-500 cursor-pointer"
+                                            @click="deleteItem(item.id)"
+                                        />
+                                    </div>
+                                </div>
+                                <div v-else class="text-center font-bold">{{ item.approverlvl2_qty }}</div>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
 
             <MobileTableContainer>
                 <MobileTableRow v-for="item in wastage.items" :key="item.id">
@@ -624,129 +628,39 @@ const handleImageClick = (image, index) => {
                         :title="`${item.sap_masterfile?.ItemDescription || 'N/A'} (${item.sap_masterfile?.ItemCode || 'N/A'})`"
                     >
                         <div v-if="wastage.wastage_status === 'approved_lvl1' && hasAccess('edit wastage approval level 2')">
-                            <div v-if="editingItem && editingItem.id === item.id">
+                            <div v-if="editingItem && editingItem.id === item.id" class="flex items-center gap-2">
                                 <Input
                                     v-focus-select
                                     type="number"
                                     v-model="editValue"
-                                    class="w-20 text-right"
+                                    class="w-20 text-right h-8"
                                     @keyup.enter="saveEdit"
                                     @keyup.esc="cancelEdit"
                                 />
-                                <DivFlexCenter class="gap-1 ml-2">
-                                    <Save class="size-4 text-green-500 cursor-pointer hover:text-green-600" @click="saveEdit" />
-                                    <X class="size-4 text-red-500 cursor-pointer hover:text-red-600" @click="cancelEdit" />
-                                </DivFlexCenter>
+                                <Save class="size-4 text-green-500" @click="saveEdit" />
+                                <X class="size-4 text-red-500" @click="cancelEdit" />
                             </div>
-                            <div v-else class="flex items-center gap-2">
-                                <Edit
-                                    class="size-4 text-blue-500 cursor-pointer hover:text-blue-600"
-                                    @click="startEdit(item.id)"
-                                />
-                            </div>
+                            <Edit v-else class="size-4 text-blue-500" @click="startEdit(item.id)" />
                         </div>
                     </MobileTableHeading>
-                    <LabelXS>Reason: {{ item.reason || 'No reason specified' }}</LabelXS>
+                    <LabelXS>Reason: {{ item.reason || 'N/A' }}</LabelXS>
                     <LabelXS>UOM: {{ (item.sap_masterfile?.AltUOM || item.sap_masterfile?.BaseUOM) ?? "N/A" }}</LabelXS>
                     <LabelXS>Wastage: {{ item.wastage_qty }}</LabelXS>
                     <LabelXS>Lvl1 Approved: {{ item.approverlvl1_qty }}</LabelXS>
-                    <LabelXS>
-                        Lvl2 Approved: {{
-                            itemsDetail.find((data) => data.id === item.id)
-                                ?.approverlvl2_qty ?? 0
-                        }}
-                    </LabelXS>
-                    <div v-if="wastage.wastage_status === 'approved_lvl1'" class="flex justify-end mt-2">
-                        <Trash2
-                            v-if="hasAccess('delete wastage approval level 2')"
-                            class="size-4 text-red-500 cursor-pointer hover:text-red-600"
-                            @click="deleteItem(item.id)"
-                        />
+                    <LabelXS>Lvl2 Approved: {{ itemsDetail.find((data) => data.id === item.id)?.approverlvl2_qty ?? 0 }}</LabelXS>
+
+                    <div class="mt-3 flex flex-wrap gap-2">
+                        <template v-if="getItemImages(item).length > 0" v-for="image in getItemImages(item)" :key="image.id">
+                            <img :src="image.url" class="w-12 h-12 object-cover rounded border" @click="handleImageClick(image)" />
+                        </template>
+                    </div>
+
+                    <div v-if="wastage.wastage_status === 'approved_lvl1' && hasAccess('delete wastage approval level 2')" class="flex justify-end mt-2">
+                        <Trash2 class="size-4 text-red-500" @click="deleteItem(item.id)" />
                     </div>
                 </MobileTableRow>
             </MobileTableContainer>
         </TableContainer>
-
-        <!-- Attached Images -->
-        <div v-if="hasImages" class="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
-            <div class="px-4 sm:px-6 py-4 bg-gradient-to-r from-blue-50 to-blue-100 border-b border-blue-200">
-                <div class="flex items-center gap-3">
-                    <Paperclip class="w-5 h-5 text-blue-600" />
-                    <h3 class="text-lg font-semibold text-gray-900">Attached Images</h3>
-                </div>
-            </div>
-            <div class="p-4 sm:p-6">
-                <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
-                    <div
-                      v-for="(image, index) in allImages"
-                      :key="image.id"
-                      class="relative group cursor-pointer"
-                      @click="handleImageClick(image, index)"
-                      @keydown.enter="handleImageClick(image, index)"
-                      @keydown.space.prevent="handleImageClick(image, index)"
-                      tabindex="0"
-                      role="button"
-                      :aria-label="`View image ${index + 1} in new tab`"
-                      :class="{'cursor-zoom-in': !imageLoadingStates[image.id] && !imageErrors[image.id]}"
-                    >
-                      <div class="aspect-w-1 aspect-h-1">
-                        <!-- Loading State -->
-                        <div v-if="imageLoadingStates[image.id]" class="absolute inset-0 bg-gray-100 rounded-lg flex items-center justify-center">
-                          <Loader2 class="w-8 h-8 text-blue-600 animate-spin" />
-                        </div>
-
-                        <!-- Error State -->
-                        <div v-else-if="imageErrors[image.id]" class="absolute inset-0 bg-red-50 rounded-lg flex flex-col items-center justify-center p-4">
-                          <AlertCircle class="w-8 h-8 text-red-500 mb-2" />
-                          <p class="text-xs text-red-700 text-center mb-2">{{ imageErrors[image.id] }}</p>
-
-                          <!-- Show attempt info for Google Drive images -->
-                          <p v-if="image.urlInfo && image.urlInfo.isGoogleDrive" class="text-xs text-gray-600 mb-2">
-                            Tried {{ image.urlInfo.totalFormats }} URL formats
-                          </p>
-
-                          <div class="flex gap-2">
-                            <button
-                              @click.stop="retryWithNextUrl(image)"
-                              class="text-xs text-blue-600 hover:text-blue-800 underline"
-                            >
-                              {{ image.urlInfo && image.urlInfo.isGoogleDrive && image.urlInfo.hasMoreFallbacks ? 'Try Next URL' : 'Retry' }}
-                            </button>
-                            <span v-if="image.urlInfo && image.urlInfo.isGoogleDrive && image.urlInfo.hasMoreFallbacks" class="text-xs text-gray-500">
-                              ({{ image.urlInfo.totalFormats - (image.attemptIndex + 1) }} left)
-                            </span>
-                          </div>
-                        </div>
-
-                        <!-- Image -->
-                        <img
-                          v-else
-                          :src="image.url"
-                          :alt="`Wastage Image ${index + 1}`"
-                          class="object-cover shadow-lg rounded-lg w-full h-full hover:opacity-90 transition-opacity"
-                          @load="() => handleImageLoad(image.id)"
-                          @error="() => handleImageError(image.id, image)"
-                          @loadstart="() => initializeImageLoading(image)"
-                        />
-                      </div>
-
-                      <!-- Debug Info (only in development) -->
-                      <div v-if="isDevelopment" class="absolute bottom-1 left-1 bg-black bg-opacity-75 text-white text-xs p-1 rounded max-w-full truncate pointer-events-none">
-                        {{ image.type === 'existing' ? 'Existing' : 'New' }}
-                        <span v-if="image.type === 'existing'" class="block text-yellow-300">ID: {{ image.id.substring(0, 10) }}...</span>
-                      </div>
-
-                      <!-- Click to zoom indicator (only shown when image is not loading or in error state) -->
-                      <div
-                        v-if="!imageLoadingStates[image.id] && !imageErrors[image.id]"
-                        class="absolute top-1 left-1 bg-black bg-opacity-50 text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none"
-                      >
-                        Click to view
-                      </div>
-                    </div>
-                </div>
-            </div>
-        </div>
 
         <Button variant="outline" class="text-lg px-7" @click="backButton">
             Back
@@ -755,66 +669,28 @@ const handleImageClick = (image, index) => {
 </template>
 
 <style scoped>
-.aspect-w-1 {
-  position: relative;
-  width: 100%;
-  padding-bottom: 100%;
-}
-.aspect-h-1 > * {
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-}
 .object-cover {
   object-fit: cover;
 }
 
-/* Enhanced cursor and hover effects for clickable images */
 .cursor-pointer {
-  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  transition: transform 0.2s ease;
 }
 
 .cursor-pointer:hover {
-  transform: scale(1.02);
-  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15);
+  transform: scale(1.05);
 }
 
-.cursor-zoom-in {
-  cursor: zoom-in;
-}
-
-/* Loading state overlay with click prevention */
-.pointer-events-none {
-  pointer-events: none;
-}
-
-.pointer-events-auto {
-  pointer-events: auto;
-}
-
-/* Image hover effect */
-.transition-opacity {
-  transition: opacity 0.2s ease;
-}
-
-/* Accessibility: focus styles for keyboard navigation */
-.cursor-pointer:focus {
-  outline: 2px solid #3B82F6;
-  outline-offset: 2px;
-  border-radius: 0.375rem;
-}
-
-/* Ensure the zoom indicator doesn't interfere with interactions */
-.group:hover .group-hover\:opacity-100 {
-  opacity: 1;
-}
-
-/* Smooth color transitions */
 .transition-colors {
   transition-property: color, background-color, border-color;
   transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
   transition-duration: 150ms;
+}
+
+.line-clamp-1 {
+  display: -webkit-box;
+  -webkit-line-clamp: 1;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
 }
 </style>
