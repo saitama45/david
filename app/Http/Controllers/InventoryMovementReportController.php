@@ -208,6 +208,7 @@ class InventoryMovementReportController extends Controller
         $chunks = array_chunk($sapIds, 1000);
 
         $ordersData = collect();
+        $receivedData = collect();
         $salesData = collect();
         $wastageData = collect();
         $intercoInData = collect();
@@ -235,12 +236,26 @@ class InventoryMovementReportController extends Controller
                 ->whereBetween('so.created_at', [$dateFrom . ' 00:00:00', $dateTo . ' 23:59:59'])
                 ->whereIn('sap.id', $chunk)
                 ->select('sap.id as sap_id',
-                    DB::raw('SUM(COALESCE(soi.quantity_ordered, 0)) as ordered'),
-                    DB::raw('SUM(COALESCE(soi.quantity_commited, 0)) as committed'),
-                    DB::raw('SUM(COALESCE(soi.quantity_received, 0)) as received'))
+                    DB::raw('SUM(COALESCE(soi.quantity_approved, 0)) as ordered'),
+                    DB::raw('SUM(CASE WHEN soi.committed_by IS NOT NULL THEN COALESCE(soi.quantity_commited, 0) ELSE 0 END) as committed'))
                 ->groupBy('sap.id')
                 ->get();
             $ordersData = $ordersData->merge($ordersChunk);
+
+            // 1.5 Received
+            $receivedChunk = DB::table('ordered_item_receive_dates as oird')
+                ->join('store_order_items as soi', 'oird.store_order_item_id', '=', 'soi.id')
+                ->join('store_orders as so', 'soi.store_order_id', '=', 'so.id')
+                ->join('sap_masterfiles as sap', 'soi.item_code', '=', 'sap.ItemCode')
+                ->where('so.store_branch_id', $branchId)
+                ->where('so.order_status', \App\Enum\OrderStatus::RECEIVED->value)
+                ->whereBetween('so.created_at', [$dateFrom . ' 00:00:00', $dateTo . ' 23:59:59'])
+                ->where('oird.status', 'approved')
+                ->whereIn('sap.id', $chunk)
+                ->select('sap.id as sap_id', DB::raw('SUM(COALESCE(oird.quantity_received, 0)) as received'))
+                ->groupBy('sap.id')
+                ->get();
+            $receivedData = $receivedData->merge($receivedChunk);
 
             // 2. Sales
             $salesChunk = DB::table('store_transaction_items as sti')
@@ -317,6 +332,7 @@ class InventoryMovementReportController extends Controller
         }
 
         $ordersData = $ordersData->keyBy('sap_id');
+        $receivedData = $receivedData->keyBy('sap_id');
         $salesData = $salesData->keyBy('sap_id');
         $wastageData = $wastageData->keyBy('sap_masterfile_id');
         $intercoInData = $intercoInData->keyBy('sap_id');
@@ -328,6 +344,7 @@ class InventoryMovementReportController extends Controller
             $sapId = $sapItem->id;
             
             $orders = $ordersData->get($sapId);
+            $receivedItem = $receivedData->get($sapId);
             $sales = $salesData->get($sapId);
             $wastage = $wastageData->get($sapId);
             $intercoIn = $intercoInData->get($sapId);
@@ -337,7 +354,7 @@ class InventoryMovementReportController extends Controller
 
             $ordered = $orders ? (float)$orders->ordered : 0;
             $committed = $orders ? (float)$orders->committed : 0;
-            $received = $orders ? (float)$orders->received : 0;
+            $received = $receivedItem ? (float)$receivedItem->received : 0;
             $salesQty = $sales ? (float)$sales->total_sales : 0;
             $wastageQty = $wastage ? (float)$wastage->total_wastage : 0;
             $intercoInQty = $intercoIn ? (float)$intercoIn->total_received : 0;
