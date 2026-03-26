@@ -14,15 +14,26 @@ class SalesReportController extends Controller
     public function index()
     {
         $branches = StoreBranch::options();
-        $branchId = request('branchId') ?? $branches->keys()->first();
+        $branchId = request('branchId');
+        
+        $branchOptions = $branches->toArray();
+        
+        if (is_null($branchId) || $branchId === 'all' || (is_array($branchId) && in_array('all', $branchId))) {
+            $branchIds = collect($branchOptions)->pluck('value')->filter(fn($v) => $v !== 'all')->toArray();
+        } else {
+            $branchIds = is_array($branchId) ? $branchId : [$branchId];
+        }
+        
+        $branchIds = array_map('intval', array_filter($branchIds, fn($v) => is_numeric($v)));
+
         $search = request('search');
         $timePeriods = TimePeriod::values();
-        $time_period = request('time_period') ?? $timePeriods[1];
+        $time_period = request('time_period') ?? 0;
 
         $query = StoreTransaction::query()->with(['store_transaction_items', 'store_branch'])
-            ->where('store_branch_id', $branchId);
+            ->whereIn('store_branch_id', $branchIds);
 
-        if ($time_period) {
+        if ($time_period !== null) {
             if ($time_period != 0) {
                 $query->whereMonth('order_date', $time_period);
             } else {
@@ -39,15 +50,15 @@ class SalesReportController extends Controller
                 'store_branch' => $item->store_branch->name,
                 'receipt_number' => $item->receipt_number,
                 'item_count' => $item->store_transaction_items->count(),
-                'net_total' => str_pad($item->store_transaction_items->sum('net_total'), 2),
+                'net_total' => number_format($item->store_transaction_items->sum('net_total'), 2),
                 'order_date' => $item->order_date
             ];
         });
 
         return Inertia::render('SalesReport/Index', [
             'transactions' => $transactions,
-            'branches' => $branches,
-            'filters' => request()->only(['from', 'to', 'branchId', 'search']),
+            'branches' => $branchOptions,
+            'filters' => request()->only(['time_period', 'branchId', 'search']),
             'timePeriods' => $timePeriods
         ]);
     }

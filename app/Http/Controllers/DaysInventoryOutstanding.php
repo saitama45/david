@@ -13,20 +13,31 @@ class DaysInventoryOutstanding extends Controller
     public function index()
     {
         $branches = StoreBranch::options();
-        $branchId = request('branchId') ?? $branches->keys()->first();
+        $branchId = request('branchId');
+        
+        $branchOptions = $branches->toArray();
+        
+        if (is_null($branchId) || $branchId === 'all' || (is_array($branchId) && in_array('all', $branchId))) {
+            $branchIds = collect($branchOptions)->pluck('value')->filter(fn($v) => $v !== 'all')->toArray();
+        } else {
+            $branchIds = is_array($branchId) ? $branchId : [$branchId];
+        }
+        
+        $branchIds = array_map('intval', array_filter($branchIds, fn($v) => is_numeric($v)));
+
         $chart_time_period = request('chart_time_period') ?? 0;
 
-        $begginingInventory = $this->getBeginningInventory($branchId);
-        $endingInventory = $this->getEndingInventory($branchId);
+        $begginingInventory = $this->getBeginningInventory($branchIds);
+        $endingInventory = $this->getEndingInventory($branchIds);
 
-        $cogsAll = ProductInventoryStockManager::where('store_branch_id', $branchId)
+        $cogsAll = ProductInventoryStockManager::whereIn('store_branch_id', $branchIds)
             ->where('total_cost', '<', 0)->sum(DB::raw('ABS(total_cost)'));
 
         $averageInventory = ($begginingInventory + $endingInventory) / 2;
 
         return Inertia::render('DaysInventoryOutstanding/Index', [
             'filters' => request()->only(['branchId', 'search', 'chart_time_period']),
-            'branches' => $branches,
+            'branches' => $branchOptions,
             'begginingInventory' => number_format($begginingInventory, 2, '.', ','),
             'endingInventory' => number_format($endingInventory, 2, '.', ','),
             'costOfGoods' => number_format($cogsAll, 2, '.', ','),
@@ -40,31 +51,24 @@ class DaysInventoryOutstanding extends Controller
         return $cogsAll > 0 ? ($averageInventory / $cogsAll) * ($chart_time_period == 0 ? 365 : 30) : 0;
     }
 
-    public function getEndingInventory($branch)
+    public function getEndingInventory($branchIds)
     {
         return ProductInventoryStockManager::query()
-            ->where('store_branch_id', $branch)
+            ->whereIn('store_branch_id', (array)$branchIds)
             ->sum('total_cost');
     }
 
-    public function getBeginningInventory($branch)
+    public function getBeginningInventory($branchIds)
     {
-        return ProductInventoryStockManager::select('product_inventory_id')
-            ->where('store_branch_id', $branch)
-            ->selectRaw('MIN(id) as first_transaction_id')
+        $branchIds = (array)$branchIds;
+        
+        $firstTransactionIds = ProductInventoryStockManager::whereIn('store_branch_id', $branchIds)
             ->where('quantity', '>', 0)
+            ->selectRaw('MIN(id) as id')
             ->groupBy('product_inventory_id')
-            ->get()
-            ->map(function ($item) {
-                $transaction = ProductInventoryStockManager::find($item->first_transaction_id);
-                return [
-                    'product_id' => $item->product_inventory_id,
-                    'first_quantity' => $transaction->quantity,
-                    'transaction_date' => $transaction->transaction_date,
-                    'unit_cost' => $transaction->unit_cost,
-                    'total_cost' => $transaction->total_cost
-                ];
-            })
+            ->pluck('id');
+
+        return ProductInventoryStockManager::whereIn('id', $firstTransactionIds)
             ->sum('total_cost');
     }
 

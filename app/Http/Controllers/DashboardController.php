@@ -17,14 +17,15 @@ use App\Models\StoreTransactionItem;
 use App\Models\SupplierItems; // Import SupplierItems model
 use App\Models\User;
 use App\Models\SAPMasterfile; // Ensure SAPMasterfile is imported
+use App\Models\SalesBudget;
 use Carbon\Carbon;
 use Exception;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Mail;
 use Inertia\Inertia;
-use PhpOffice\PhpSpreadsheet\Calculation\Database\DStDevP;
 use Illuminate\Support\Facades\Log; // Import Log facade for error logging
 
 class DashboardController extends Controller
@@ -32,51 +33,265 @@ class DashboardController extends Controller
     public function index()
     {
         $timePeriods = TimePeriod::values();
-        $time_period = request('time_period') ?? 0;
+        $time_period = (int)(request('time_period') ?? 0);
 
         $inventory_type = request('inventory_type') ?? 'quantity';
 
+        // Get branches as a clean array for the frontend MultiSelect
+        $branchesOptions = StoreBranch::options()->toArray();
 
-        $branches = StoreBranch::options();
-        // Default to 'all' instead of relying on keys() which might be numeric
-        $branch = request('branch') ?? 'all';
+        $branch = request('branch');
 
-        // Resolve the actual branch IDs to filter by
-        $branchIds = $branch === 'all'
-            ? $branches->pluck('value')->filter(fn($v) => $v !== 'all')->toArray()
-            : [$branch];
+        // Resolve the actual branch IDs to filter by. Handle array from MultiSelect.
+        if (is_null($branch) || (is_string($branch) && $branch === 'all') || (is_array($branch) && (empty($branch) || in_array('all', $branch)))) {
+            $branchIds = collect($branchesOptions)->pluck('value')->filter(fn($v) => $v !== 'all')->toArray();
+        } else {
+            $branchIds = is_array($branch) ? (array)$branch : [$branch];
+            $branchIds = array_map('intval', array_filter($branchIds, fn($v) => is_numeric($v)));
+        }
 
         $chart_time_period = request('chart_time_period') ?? 0;
 
+        // Cache dashboard data per user + filter combination (10 minutes TTL)
+        $cacheKey = 'dashboard_v3_' . auth()->id() . '_' . md5(json_encode([
+            $branchIds, $time_period, $chart_time_period, $inventory_type
+        ]));
 
-        $inventories = $this->getInventories($branchIds, $time_period);
+        $data = Cache::remember($cacheKey, now()->addMinutes(10), function () use ($branchIds, $time_period, $chart_time_period, $inventory_type) {
+            $inventories = $this->getInventories($branchIds, $time_period);
+            $upcomingInventories = $this->getUpcomingInventories($branchIds, $time_period);
+            $accountPayable = $this->getAccountPayable($branchIds, $time_period);
 
-        $upcomingInventories = $this->getUpcomingInventories($branchIds, $time_period);
-        $accountPayable = $this->getAccountPayable($branchIds, $time_period);
-        $sales = $this->getSales($branchIds, $time_period);
-        $cogs = $this->getCogs($branchIds, $time_period);
-        $begginingInventory = $this->getBeginningInventory($branchIds);
-        $endingInventory = $this->getEndingInventory($branchIds);
-        $cogsAll = ProductInventoryStockManager::whereIn('store_branch_id', $branchIds)
-            ->where('total_cost', '<', 0)->sum(DB::raw('ABS(total_cost)'));
-        $averageInventory = ($begginingInventory + $endingInventory) / 2;
-        $dio = $this->getDaysInventoryOutstanding($cogsAll, $averageInventory, $chart_time_period);
-        $productInventoryStock = $this->getTop10Products($branchIds, $inventory_type);
-        $dpo = $this->getDaysPayableOutstanding($branchIds, $cogsAll, $chart_time_period);
+            $salesValue = $this->calculateTotalSalesForBranches($branchIds, $time_period, Carbon::today()->year);
+            $sales = number_format($salesValue, 2, '.', ',');
+
+            $cogs = $this->getCogs($branchIds, $time_period);
+            $begginingInventory = $this->getBeginningInventory($branchIds);
+            $endingInventory = $this->getEndingInventory($branchIds);
+            $cogsAll = ProductInventoryStockManager::whereIn('store_branch_id', $branchIds)
+                ->where('total_cost', '<', 0)->sum(DB::raw('ABS(total_cost)'));
+            $averageInventory = ($begginingInventory + $endingInventory) / 2;
+            $dio = $this->getDaysInventoryOutstanding($cogsAll, $averageInventory, $chart_time_period);
+            $productInventoryStock = $this->getTop10Products($branchIds, $inventory_type);
+            $dpo = $this->getDaysPayableOutstanding($branchIds, $cogsAll, $chart_time_period);
+            $salesChartData = $this->getSalesBudgetChartData($branchIds, $time_period);
+
+            // Calculate KPI metrics
+            $currentYear = Carbon::today()->year;
+            $previousYear = $currentYear - 1;
+            $actualSales = $salesValue;
+            $budgetSales = $this->calculateTotalSalesForBranches($branchIds, $time_period, $currentYear, true);
+            $lastYearSales = $this->calculateTotalSalesForBranches($branchIds, $time_period, $previousYear);
+
+            $achievement = $budgetSales > 0 ? ($actualSales / $budgetSales) * 100 : 0;
+            $growth = $lastYearSales > 0 ? (($actualSales - $lastYearSales) / $lastYearSales) * 100 : 0;
+
+            // Transaction Volume & ATV
+            $transactionQuery = StoreTransaction::whereIn('store_branch_id', $branchIds)
+                ->whereYear('order_date', $currentYear);
+            
+            $currentMonth = Carbon::today()->month;
+            if ($time_period == 0) {
+                $transactionQuery->whereMonth('order_date', '<=', $currentMonth);
+            } else {
+                $transactionQuery->whereMonth('order_date', $time_period);
+            }
+            
+            $transactionCount = $transactionQuery->count();
+            $atv = $transactionCount > 0 ? $actualSales / $transactionCount : 0;
+
+            return [
+                'inventories'        => $inventories,
+                'upcomingInventories' => $upcomingInventories,
+                'accountPayable'     => $accountPayable,
+                'sales'              => $sales,
+                'achievement'        => number_format($achievement, 1) . '%',
+                'growth'             => number_format($growth, 1) . '%',
+                'transactionCount'   => number_format($transactionCount, 0),
+                'atv'                => number_format($atv, 2, '.', ','),
+                'cogs'               => $cogs,
+                'dio'                => $dio,
+                'dpo'                => $dpo,
+                'top_10'             => $productInventoryStock,
+                'salesChartData'     => $salesChartData,
+            ];
+        });
 
         return Inertia::render('Dashboard/Index', [
             'timePeriods' => $timePeriods,
-            'branches' => $branches,
-            'sales' => $sales,
-            'inventories' => $inventories,
-            'upcomingInventories' => $upcomingInventories,
-            'accountPayable' => $accountPayable,
-            'filters' => request()->only(['branch', 'time_period', 'chart_time_period', 'inventory_type']),
-            'cogs' => $cogs,
-            'dio' => $dio,
-            'dpo' => $dpo,
-            'top_10' => $productInventoryStock
+            'branches'    => $branchesOptions,
+            'filters'     => request()->only(['branch', 'time_period', 'chart_time_period', 'inventory_type']),
+            ...$data,
         ]);
+    }
+
+    /**
+     * Helper to calculate total sales for a set of branches with fallback to Data Uploader.
+     * Returns absolute Php value as a float.
+     */
+    private function calculateTotalSalesForBranches($branchIds, $time_period, $year, $isBudget = false)
+    {
+        $currentMonth = Carbon::today()->month;
+        $monthsToSum = $time_period == 0 ? range(1, $currentMonth) : [$time_period];
+
+        $branchIds = array_map('intval', (array)$branchIds);
+        $storeBranches = StoreBranch::whereIn('id', $branchIds)->get()->keyBy('id');
+
+        $monthColumns = [
+            1 => 'jan', 2 => 'feb', 3 => 'mar', 4 => 'apr',
+            5 => 'may', 6 => 'jun', 7 => 'jul', 8 => 'aug',
+            9 => 'sep', 10 => 'oct', 11 => 'nov', 12 => 'dec'
+        ];
+
+        $total = 0;
+
+        foreach ($branchIds as $branchId) {
+            $branch = $storeBranches->get($branchId);
+            if (!$branch) continue;
+
+            $branchSales = 0;
+
+            if (!$isBudget) {
+                $query = StoreTransactionItem::join('store_transactions', 'store_transaction_items.store_transaction_id', '=', 'store_transactions.id')
+                    ->where('store_transactions.store_branch_id', $branchId)
+                    ->whereYear('store_transactions.order_date', $year);
+
+                if ($time_period == 0) {
+                    $query->whereMonth('store_transactions.order_date', '<=', $currentMonth);
+                } else {
+                    $query->whereMonth('store_transactions.order_date', $time_period);
+                }
+
+                $branchSales = (double)$query->sum('store_transaction_items.net_total');
+            }
+
+            if ($branchSales <= 0 || $isBudget) {
+                $type = $isBudget ? 'Budget' : 'Sales';
+                $record = SalesBudget::where('type', $type)
+                    ->where('year', $year)
+                    ->where('store_code', $branch->branch_code)
+                    ->first();
+
+                if ($record) {
+                    $fallbackSum = 0;
+                    foreach ($monthsToSum as $m) {
+                        $fallbackSum += (double)($record->{$monthColumns[$m]} ?? 0);
+                    }
+                    $branchSales = $fallbackSum;
+                }
+            }
+
+            $total += (double)$branchSales;
+        }
+
+        return (double)$total;
+    }
+
+    /**
+     * Batched version: runs 3 grouped queries total instead of 3×N queries.
+     */
+    public function getSalesBudgetChartData($branchIds, $time_period)
+    {
+        $currentYear  = Carbon::today()->year;
+        $previousYear = $currentYear - 1;
+        $currentMonth = Carbon::today()->month;
+
+        $monthColumns = [
+            1 => 'jan', 2 => 'feb', 3 => 'mar', 4 => 'apr',
+            5 => 'may', 6 => 'jun', 7 => 'jul', 8 => 'aug',
+            9 => 'sep', 10 => 'oct', 11 => 'nov', 12 => 'dec'
+        ];
+        $monthsToSum = $time_period == 0 ? range(1, $currentMonth) : [$time_period];
+
+        // Load all branches once
+        $storeBranches = StoreBranch::whereIn('id', $branchIds)->get()->keyBy('id');
+        $branchCodes   = $storeBranches->pluck('branch_code')->toArray();
+
+        // 1 query: actual sales grouped by branch for current year
+        $actualQuery = StoreTransactionItem::join('store_transactions', 'store_transaction_items.store_transaction_id', '=', 'store_transactions.id')
+            ->whereIn('store_transactions.store_branch_id', $branchIds)
+            ->whereYear('store_transactions.order_date', $currentYear);
+        if ($time_period == 0) {
+            $actualQuery->whereMonth('store_transactions.order_date', '<=', $currentMonth);
+        } else {
+            $actualQuery->whereMonth('store_transactions.order_date', $time_period);
+        }
+        $actualSalesByBranch = $actualQuery
+            ->groupBy('store_transactions.store_branch_id')
+            ->selectRaw('store_transactions.store_branch_id, SUM(store_transaction_items.net_total) as total')
+            ->pluck('total', 'store_branch_id');
+
+        // 1 query: last-year actual grouped by branch
+        $lastYearQuery = StoreTransactionItem::join('store_transactions', 'store_transaction_items.store_transaction_id', '=', 'store_transactions.id')
+            ->whereIn('store_transactions.store_branch_id', $branchIds)
+            ->whereYear('store_transactions.order_date', $previousYear);
+        if ($time_period == 0) {
+            $lastYearQuery->whereMonth('store_transactions.order_date', '<=', $currentMonth);
+        } else {
+            $lastYearQuery->whereMonth('store_transactions.order_date', $time_period);
+        }
+        $lastYearSalesByBranch = $lastYearQuery
+            ->groupBy('store_transactions.store_branch_id')
+            ->selectRaw('store_transactions.store_branch_id, SUM(store_transaction_items.net_total) as total')
+            ->pluck('total', 'store_branch_id');
+
+        // 1 query: all SalesBudget records for budget + sales fallback
+        $salesBudgetRecords = SalesBudget::whereIn('store_code', $branchCodes)
+            ->whereIn('type', ['Budget', 'Sales'])
+            ->whereIn('year', [$currentYear, $previousYear])
+            ->get()
+            ->groupBy(fn($r) => $r->store_code . '|' . $r->type . '|' . $r->year);
+
+        $labels      = [];
+        $actualData  = [];
+        $budgetData  = [];
+        $lastYearData = [];
+
+        foreach ($branchIds as $branchId) {
+            $branch = $storeBranches->get($branchId);
+            if (!$branch) continue;
+
+            $labels[] = $branch->location_code;
+            $code = $branch->branch_code;
+
+            // Actual sales (with fallback to SalesBudget type=Sales)
+            $actual = (double)($actualSalesByBranch->get($branchId) ?? 0);
+            if ($actual <= 0) {
+                $record = $salesBudgetRecords->get($code . '|Sales|' . $currentYear)?->first();
+                if ($record) {
+                    $actual = array_sum(array_map(fn($m) => (double)($record->{$monthColumns[$m]} ?? 0), $monthsToSum));
+                }
+            }
+
+            // Budget
+            $budget = 0;
+            $budgetRecord = $salesBudgetRecords->get($code . '|Budget|' . $currentYear)?->first();
+            if ($budgetRecord) {
+                $budget = array_sum(array_map(fn($m) => (double)($budgetRecord->{$monthColumns[$m]} ?? 0), $monthsToSum));
+            }
+
+            // Last year actual (with fallback)
+            $lastYear = (double)($lastYearSalesByBranch->get($branchId) ?? 0);
+            if ($lastYear <= 0) {
+                $record = $salesBudgetRecords->get($code . '|Sales|' . $previousYear)?->first();
+                if ($record) {
+                    $lastYear = array_sum(array_map(fn($m) => (double)($record->{$monthColumns[$m]} ?? 0), $monthsToSum));
+                }
+            }
+
+            $actualData[]   = round($actual / 1000000, 2);
+            $budgetData[]   = round($budget / 1000000, 2);
+            $lastYearData[] = round($lastYear / 1000000, 2);
+        }
+
+        return [
+            'labels'   => $labels,
+            'datasets' => [
+                ['label' => 'Actual',    'data' => $actualData,   'backgroundColor' => '#4bc0c0'],
+                ['label' => 'Budget',    'data' => $budgetData,   'backgroundColor' => '#9ca3af'],
+                ['label' => 'Last Year', 'data' => $lastYearData, 'backgroundColor' => '#f97316'],
+            ]
+        ];
     }
 
     public function getDaysPayableOutstanding($branchIds, $cogsAll, $chart_time_period)
@@ -93,30 +308,23 @@ class DashboardController extends Controller
 
     public function getTop10Products($branchIds, $inventory_type)
     {
-        // Now using sapMasterfile relationship and SAPMasterfile properties
-        $query = ProductInventoryStock::with('sapMasterfile')
-            ->whereIn('store_branch_id', $branchIds)
-            ->whereHas('sapMasterfile') // Ensure there's a linked SAPMasterfile entry
-            ->select('*', DB::raw('(quantity - used) as stock_on_hand'));
+        // Use inner join instead of whereHas() to avoid a correlated subquery
+        // Note: sap_masterfiles has no cost column, so always order by quantity
+        $query = ProductInventoryStock::join(
+                'sap_masterfiles',
+                'product_inventory_stocks.product_inventory_id',
+                '=',
+                'sap_masterfiles.id'
+            )
+            ->whereIn('product_inventory_stocks.store_branch_id', $branchIds)
+            ->selectRaw('product_inventory_stocks.*, (quantity - used) as stock_on_hand, sap_masterfiles.ItemDescription')
+            ->orderBy('stock_on_hand', 'desc');
 
-        if ($inventory_type === 'cost') {
-            // Join with sap_masterfiles to order by calculated cost
-            $query->join('sap_masterfiles', 'product_inventory_stocks.product_inventory_id', '=', 'sap_masterfiles.id')
-                ->orderByRaw("(quantity - used) * sap_masterfiles.cost DESC"); // Assuming SAPMasterfile has a 'cost' column
-        } else {
-            $query->orderBy('stock_on_hand', 'desc');
-        }
-
-        return $query->take(10)
-            ->get()
-            ->map(function ($item) {
-                // Accessing sapMasterfile properties
-                return [
-                    'name' => $item->sapMasterfile->ItemDescription, // Use ItemDescription for the name
-                    'total_cost' => $item->stock_on_hand * $item->sapMasterfile->cost, // Use cost from SAPMasterfile
-                    'quantity' => $item->stock_on_hand
-                ];
-            });
+        return $query->take(10)->get()->map(fn($item) => [
+            'name'       => $item->ItemDescription,
+            'total_cost' => 0,
+            'quantity'   => $item->stock_on_hand,
+        ]);
     }
 
     public function getDaysInventoryOutstanding($cogsAll, $averageInventory, $chart_time_period)
@@ -133,15 +341,18 @@ class DashboardController extends Controller
 
     public function getBeginningInventory($branchIds)
     {
-        // Optimized: Get the first transaction IDs in one query to avoid N+1 problem
-        $firstTransactionIds = ProductInventoryStockManager::whereIn('store_branch_id', $branchIds)
+        // Use a subquery join instead of two sequential queries with a large whereIn
+        $subquery = ProductInventoryStockManager::whereIn('store_branch_id', $branchIds)
             ->where('quantity', '>', 0)
             ->selectRaw('MIN(id) as id')
-            ->groupBy('product_inventory_id')
-            ->pluck('id');
+            ->groupBy('product_inventory_id');
 
-        return ProductInventoryStockManager::whereIn('id', $firstTransactionIds)
-            ->sum('total_cost');
+        return ProductInventoryStockManager::joinSub(
+                $subquery,
+                'first_ids',
+                fn($join) => $join->on('product_inventory_stock_managers.id', '=', 'first_ids.id')
+            )
+            ->sum('product_inventory_stock_managers.total_cost');
     }
 
     public function getCogs($branchIds, $time_period)
@@ -157,26 +368,6 @@ class DashboardController extends Controller
 
         return number_format(
             $cogsQuery->sum(DB::raw('ABS(total_cost)')),
-            2,
-            '.',
-            ','
-        );
-    }
-
-    public function getSales($branchIds, $time_period)
-    {
-        // Optimized: Use join instead of whereHas for better performance
-        $query = StoreTransactionItem::join('store_transactions', 'store_transaction_items.store_transaction_id', '=', 'store_transactions.id')
-            ->whereIn('store_transactions.store_branch_id', $branchIds);
-
-        if ($time_period != 0) {
-            $query->whereMonth('store_transactions.order_date', $time_period);
-        } else {
-            $query->whereYear('store_transactions.order_date', Carbon::today()->year);
-        }
-
-        return number_format(
-            $query->sum('store_transaction_items.net_total'),
             2,
             '.',
             ','
@@ -232,13 +423,11 @@ class DashboardController extends Controller
         $inventoriesQuery = ProductInventoryStockManager::query()
             ->whereIn('store_branch_id', $branchIds);
 
-
         if ($time_period != 0) {
             $inventoriesQuery->whereMonth('transaction_date', '<=', $time_period);
         } else {
             $inventoriesQuery->whereYear('transaction_date', Carbon::today()->year);
         }
-
 
         return number_format(
             $inventoriesQuery->sum('total_cost'),
@@ -250,19 +439,17 @@ class DashboardController extends Controller
 
     public function getHighStockProducts($branchIds)
     {
-        // Now using sapMasterfile relationship and SAPMasterfile properties
         $query = ProductInventoryStock::with('sapMasterfile')
             ->whereIn('store_branch_id', $branchIds)
-            ->whereHas('sapMasterfile') // Ensure there's a linked SAPMasterfile entry
-            ->select('product_inventory_stocks.*') // Select all columns from product_inventory_stocks
-            ->selectRaw('(quantity - used) as stock_on_hand') // Calculate stock on hand
+            ->whereHas('sapMasterfile')
+            ->select('product_inventory_stocks.*')
+            ->selectRaw('(quantity - used) as stock_on_hand')
             ->orderByDesc('stock_on_hand')
             ->take(4)
             ->get()
             ->map(function ($stock) {
-                // Accessing properties via the sapMasterfile relationship
                 return [
-                    'name' => $stock->sapMasterfile->ItemDescription, // Use ItemDescription from SAPMasterfile
+                    'name'  => $stock->sapMasterfile->ItemDescription,
                     'stock' => $stock->quantity - $stock->used,
                 ];
             });
@@ -271,20 +458,18 @@ class DashboardController extends Controller
 
     public function getMostUsedProducts($branchIds)
     {
-        // Now using sapMasterfile relationship and SAPMasterfile properties
         return ProductInventoryStock::with('sapMasterfile')
             ->whereIn('store_branch_id', $branchIds)
-            ->whereHas('sapMasterfile') // Ensure there's a linked SAPMasterfile entry
-            ->select('product_inventory_stocks.*') // Select all columns from product_inventory_stocks
-            ->selectRaw('used as total_used') // Directly use the 'used' column
+            ->whereHas('sapMasterfile')
+            ->select('product_inventory_stocks.*')
+            ->selectRaw('used as total_used')
             ->orderBy('total_used', 'desc')
             ->take(4)
             ->get()
             ->map(function ($stock) {
-                // Accessing properties via the sapMasterfile relationship
                 return [
-                    'name' => $stock->sapMasterfile->ItemDescription, // Use ItemDescription from SAPMasterfile
-                    'used' => $stock->used ?? 0 // Use the 'used' quantity from ProductInventoryStock
+                    'name' => $stock->sapMasterfile->ItemDescription,
+                    'used' => $stock->used ?? 0
                 ];
             });
     }
@@ -295,7 +480,6 @@ class DashboardController extends Controller
             ->join('usage_record_items as uri', 'ur.id', '=', 'uri.usage_record_id')
             ->join('menus as m', 'uri.menu_id', '=', 'm.id')
             ->join('menu_ingredients as mi', 'm.id', '=', 'mi.menu_id')
-            // Assuming mi.product_inventory_id now stores SAPMasterfile ID
             ->whereIn('ur.store_branch_id', $branchIds)
             ->select(
                 'mi.product_inventory_id',
@@ -320,14 +504,12 @@ class DashboardController extends Controller
             })
             ->toArray();
 
-        // Now, the query for low stock items should use ProductInventoryStock and SAPMasterfile
         $query = ProductInventoryStock::query()
-            ->with(['sapMasterfile']) // Load the SAPMasterfile relationship
+            ->with(['sapMasterfile'])
             ->whereIn('store_branch_id', $branchIds)
-            ->whereHas('sapMasterfile') // Ensure there's a linked SAPMasterfile entry
-            ->get() // Get all relevant stock items first
+            ->whereHas('sapMasterfile')
+            ->get()
             ->filter(function ($stockItem) {
-                // Filter based on stock_on_hand being <= 10
                 return ($stockItem->quantity - $stockItem->used) <= 10;
             })
             ->map(function ($stockItem) use ($usageRecords) {
@@ -336,18 +518,18 @@ class DashboardController extends Controller
                     : '';
 
                 return [
-                    'id' => $stockItem->sapMasterfile->id, // Use SAPMasterfile ID
-                    'name' => $stockItem->sapMasterfile->ItemDescription, // Use ItemDescription
-                    'inventory_code' => $stockItem->sapMasterfile->ItemCode, // Use ItemCode
-                    'stock_on_hand' => $stockItem->quantity - $stockItem->used,
-                    'recorded_used' => $stockItem->used, // This is from ProductInventoryStock
+                    'id'             => $stockItem->sapMasterfile->id,
+                    'name'           => $stockItem->sapMasterfile->ItemDescription,
+                    'inventory_code' => $stockItem->sapMasterfile->ItemCode,
+                    'stock_on_hand'  => $stockItem->quantity - $stockItem->used,
+                    'recorded_used'  => $stockItem->used,
                     'estimated_used' => $usageRecords[$stockItem->product_inventory_id] ?? 0,
                     'ingredient_units' => $units,
-                    'uom' => $stockItem->sapMasterfile->BaseUOM, // Assuming BaseUOM is the primary UOM for display
+                    'uom'            => $stockItem->sapMasterfile->BaseUOM,
                 ];
             });
 
-        return $query->take(10); // Limiting to 10 for consistency with other "top" methods
+        return $query->take(10);
     }
 
     public function test()

@@ -1,12 +1,15 @@
 <script setup>
+import { ref, onMounted, computed, watch } from 'vue';
 import StatisticOverview from "../../components/dashboard/StatisticOverview.vue";
 import Chart from "primevue/chart";
+import MultiSelect from "primevue/multiselect";
 import { router } from "@inertiajs/vue3";
 import { useSelectOptions } from "@/composables/useSelectOptions";
 import Knob from "primevue/knob";
 import { Chart as ChartJS } from "chart.js";
-const { branches, timePeriods, filters, sales, cogs, dio, top_10, dpo } =
-    defineProps({
+import { Check, ClockArrowUp, BookX, Target, TrendingUp, Users, Receipt } from "lucide-vue-next";
+
+const props = defineProps({
         branches: {
             type: Object,
             required: true,
@@ -22,6 +25,26 @@ const { branches, timePeriods, filters, sales, cogs, dio, top_10, dpo } =
         sales: {
             type: String,
             required: true,
+        },
+        achievement: {
+            type: String,
+            required: false,
+            default: '0%'
+        },
+        growth: {
+            type: String,
+            required: false,
+            default: '0%'
+        },
+        transactionCount: {
+            type: String,
+            required: false,
+            default: '0'
+        },
+        atv: {
+            type: String,
+            required: false,
+            default: '0.00'
         },
         inventories: {
             type: String,
@@ -51,13 +74,17 @@ const { branches, timePeriods, filters, sales, cogs, dio, top_10, dpo } =
             type: Object,
             required: true,
         },
+        salesChartData: {
+            type: Object,
+            required: false,
+            default: () => ({ labels: [], datasets: [] })
+        },
     });
-console.log(top_10);
 
-const { options: branchesOptions } = useSelectOptions(branches);
-const { options: timePeriodOptions } = useSelectOptions(timePeriods);
+const { options: branchesOptions } = useSelectOptions(props.branches);
+const { options: timePeriodOptions } = useSelectOptions(props.timePeriods);
 
-const chart_time_period = ref(parseInt(filters.chart_time_period ?? 0));
+const chart_time_period = ref(parseInt(props.filters.chart_time_period ?? 0));
 console.log(chart_time_period);
 const chartsOption = [
     {
@@ -83,6 +110,7 @@ const inventoryOptions = [
 
 onMounted(() => {
     registerDoughnutLabelPlugin();
+    registerTopLabelsPlugin();
 
     chartData.value = setChartData();
     chartOptions.value = setChartOptions();
@@ -105,55 +133,46 @@ onMounted(() => {
     chartOptionsStacked.value = setChartOptionsStacked();
 });
 
-const chartData = ref();
-const chartOptions = ref();
+const salesCharts = computed(() => {
+    if (!props.salesChartData?.labels || props.salesChartData.labels.length === 0) return [];
+    
+    const labels = props.salesChartData.labels;
+    const datasets = props.salesChartData.datasets;
+    const chunkSize = 20; // Increased to 20 stores per row for large screens
+    const charts = [];
+    
+    // Find global max for Y-axis consistency across all rows
+    let maxVal = 6;
+    datasets.forEach(ds => {
+        if (ds.data && Array.isArray(ds.data)) {
+            ds.data.forEach(v => { 
+                const num = parseFloat(v);
+                if (!isNaN(num) && num > maxVal) maxVal = num; 
+            });
+        }
+    });
+    const maxY = Math.ceil(maxVal / 0.5) * 0.5;
 
-const setChartData = () => {
-    const documentStyle = getComputedStyle(document.documentElement);
+    for (let i = 0; i < labels.length; i += chunkSize) {
+        const chunkLabels = labels.slice(i, i + chunkSize);
+        const chunkData = {
+            labels: chunkLabels,
+            datasets: datasets.map(ds => ({
+                ...ds,
+                data: ds.data.slice(i, i + chunkSize),
+                type: "bar",
+                borderWidth: 0
+            }))
+        };
+        charts.push({
+            data: chunkData,
+            options: setChartOptionsWithMax(maxY)
+        });
+    }
+    return charts;
+});
 
-    return {
-        labels: [
-            "January",
-            "February",
-            "March",
-            "April",
-            "May",
-            "June",
-            "July",
-            "August",
-            "September",
-            "October",
-            "November",
-            "December",
-        ],
-        datasets: [
-            {
-                type: "line",
-                label: "Dataset 1",
-                borderColor: documentStyle.getPropertyValue("--p-orange-500"),
-                borderWidth: 2,
-                fill: false,
-                tension: 0.4,
-                data: [50, 25, 12, 48, 56, 76, 42, 42, 42, 42, 42, 42],
-            },
-            {
-                type: "bar",
-                label: "Dataset 2",
-                backgroundColor: documentStyle.getPropertyValue("--p-gray-500"),
-                data: [21, 84, 24, 75, 37, 65, 34, 42, 42, 42, 42, 42],
-                borderColor: "white",
-                borderWidth: 2,
-            },
-            {
-                type: "bar",
-                label: "Dataset 3",
-                backgroundColor: documentStyle.getPropertyValue("--p-cyan-500"),
-                data: [41, 52, 24, 74, 23, 21, 32, 42, 42, 42, 42, 42],
-            },
-        ],
-    };
-};
-const setChartOptions = () => {
+const setChartOptionsWithMax = (maxY) => {
     const documentStyle = getComputedStyle(document.documentElement);
     const textColor = documentStyle.getPropertyValue("--p-text-color");
     const textColorSecondary = documentStyle.getPropertyValue(
@@ -166,32 +185,82 @@ const setChartOptions = () => {
     return {
         maintainAspectRatio: false,
         aspectRatio: 0.6,
+        layout: {
+            padding: {
+                bottom: 20 // Add padding to prevent label clipping
+            }
+        },
         plugins: {
             legend: {
                 labels: {
                     color: textColor,
                 },
             },
+            topLabels: {
+                enabled: true,
+                isSales: true
+            }
         },
         scales: {
             x: {
                 ticks: {
+                    autoSkip: false,
+                    maxRotation: 45,
+                    minRotation: 45, // Enforce rotation to fit more labels
                     color: textColorSecondary,
+                    font: {
+                        size: 11 // Slightly smaller font to fit more stores
+                    }
                 },
                 grid: {
-                    color: surfaceBorder,
+                    display: false, // Cleaner look for many bars
                 },
             },
             y: {
+                min: 0,
+                max: maxY,
                 ticks: {
+                    stepSize: 0.5,
                     color: textColorSecondary,
                 },
                 grid: {
                     color: surfaceBorder,
                 },
+                title: {
+                    display: true,
+                    text: 'Php Sales (in M)',
+                    color: textColorSecondary,
+                }
             },
         },
     };
+};
+
+const chartData = ref();
+const chartOptions = ref();
+
+const setChartData = () => {
+    const documentStyle = getComputedStyle(document.documentElement);
+
+    if (props.salesChartData && props.salesChartData.labels) {
+        return {
+            labels: props.salesChartData.labels,
+            datasets: props.salesChartData.datasets.map(dataset => ({
+                ...dataset,
+                type: "bar",
+                borderWidth: 0,
+            }))
+        };
+    }
+
+    return {
+        labels: [],
+        datasets: []
+    };
+};
+const setChartOptions = () => {
+    // This method is now secondary to setChartOptionsWithMax but kept for backward compatibility if needed
+    return setChartOptionsWithMax(6);
 };
 
 // Doughnut
@@ -202,10 +271,10 @@ const setChartDataDoughnut = () => {
     const documentStyle = getComputedStyle(document.body);
 
     return {
-        labels: [`Days Inventory Outstanding (${dio.toFixed(0)})`],
+        labels: [`Days Inventory Outstanding (${props.dio.toFixed(0)})`],
         datasets: [
             {
-                data: [dio?.toFixed(0)],
+                data: [props.dio?.toFixed(0)],
                 backgroundColor: [
                     documentStyle.getPropertyValue("--p-cyan-500"),
                     documentStyle.getPropertyValue("--p-orange-500"),
@@ -243,7 +312,7 @@ const setChartOptionsDoughnut = () => {
             doughnutlabel: {
                 labels: [
                     {
-                        text: dio.toFixed(0),
+                        text: props.dio.toFixed(0),
                         font: {
                             size: "30px",
                             weight: "bold",
@@ -263,10 +332,10 @@ const setChartDataDoughnutAccountPayable = () => {
     const documentStyle = getComputedStyle(document.body);
 
     return {
-        labels: [`Days Payable Outstanding (${dpo.toFixed(0)})`],
+        labels: [`Days Payable Outstanding (${props.dpo.toFixed(0)})`],
         datasets: [
             {
-                data: [dpo.toFixed(0)],
+                data: [props.dpo.toFixed(0)],
                 backgroundColor: [
                     documentStyle.getPropertyValue("--p-cyan-500"),
                     documentStyle.getPropertyValue("--p-orange-500"),
@@ -305,7 +374,7 @@ const setChartOptionsDoughnutAccountPayable = () => {
             doughnutlabel: {
                 labels: [
                     {
-                        text: dpo.toFixed(0),
+                        text: props.dpo.toFixed(0),
                         font: {
                             size: "30px",
                             weight: "bold",
@@ -326,13 +395,13 @@ const setChartDataHorizontal = () => {
     const documentStyle = getComputedStyle(document.documentElement);
 
     return {
-        labels: top_10.map((item) => item.name),
+        labels: props.top_10.map((item) => item.name),
         datasets: [
             {
                 label: "Top 10 Inventory Value by Item",
                 backgroundColor: documentStyle.getPropertyValue("--p-cyan-500"),
                 borderColor: documentStyle.getPropertyValue("--p-cyan-500"),
-                data: top_10.map((item) =>
+                data: props.top_10.map((item) =>
                     inventory_type.value == "quantity"
                         ? item.quantity
                         : item.total_cost
@@ -341,8 +410,6 @@ const setChartDataHorizontal = () => {
         ],
     };
 };
-
-console.log(top_10);
 
 const setChartOptionsHorizontal = () => {
     const documentStyle = getComputedStyle(document.documentElement);
@@ -554,14 +621,30 @@ const setChartOptionsStacked = () => {
     };
 };
 
-import { Check, ClockArrowUp, BookX } from "lucide-vue-next";
+// Add a watch to update chart data when salesChartData prop changes
+watch(() => props.salesChartData, (newData) => {
+    chartData.value = setChartData();
+    chartOptions.value = setChartOptions();
+}, { deep: true });
 
-const branch = ref(filters.branch || branchesOptions.value[0].value);
+// Initialize branch as an array for MultiSelect. Support string or array from filters.
+const initializeBranch = () => {
+    const filterBranch = props.filters.branch;
+    if (!filterBranch) {
+        return [branchesOptions.value[0].value]; // Default to ['all']
+    }
+    if (Array.isArray(filterBranch)) {
+        return filterBranch.map(v => isNaN(Number(v)) ? v : Number(v));
+    }
+    return [isNaN(Number(filterBranch)) ? filterBranch : Number(filterBranch)];
+};
+
+const branch = ref(initializeBranch());
 const time_period = ref(
-    filters.time_period || timePeriodOptions.value[0].value
+    props.filters.time_period ? parseInt(props.filters.time_period) : timePeriodOptions.value[0].value
 );
 
-const inventory_type = ref(filters.inventory_type ?? "quantity");
+const inventory_type = ref(props.filters.inventory_type ?? "quantity");
 
 const handleSearch = () => {
     router.get(
@@ -569,7 +652,7 @@ const handleSearch = () => {
         {
             branch: branch.value,
             time_period: time_period.value,
-            chart_time_period: chart_time_period.value,
+            chart_time_period: time_period.value == 0 ? 0 : 1,
             inventory_type: inventory_type.value,
         },
         {
@@ -579,27 +662,58 @@ const handleSearch = () => {
 };
 
 const goToDPO = () => {
-    router.get(route("days-payable-outstanding.index"));
+    router.get(route("days-payable-outstanding.index"), {
+        branchId: branch.value,
+        chart_time_period: chart_time_period.value,
+    });
 };
 
 const goToTop10 = () => {
-    router.get(
-        computed(() =>
-            route("top-10-inventories.index", {
-                branchId: branch.value,
-            })
-        ).value
-    );
+    router.get(route("top-10-inventories.index"), {
+        branchId: branch.value,
+        inventory_type: inventory_type.value,
+    });
 };
 
 const goToDIO = () => {
-    router.get(
-        computed(() =>
-            route("days-inventory-outstanding.index", {
-                branchId: branch.value,
-            })
-        ).value
-    );
+    router.get(route("days-inventory-outstanding.index"), {
+        branchId: branch.value,
+        chart_time_period: chart_time_period.value,
+    });
+};
+
+const registerTopLabelsPlugin = () => {
+    ChartJS.register({
+        id: "topLabels",
+        afterDatasetsDraw: function (chart) {
+            const pluginOptions = chart.config.options.plugins?.topLabels;
+            if (!pluginOptions?.enabled) return;
+            
+            const ctx = chart.ctx;
+            chart.data.datasets.forEach((dataset, i) => {
+                const meta = chart.getDatasetMeta(i);
+                if (meta.hidden) return;
+
+                meta.data.forEach((bar, index) => {
+                    const data = dataset.data[index];
+                    if (data === null || data === undefined) return;
+                    
+                    ctx.fillStyle = "#444";
+                    ctx.textAlign = "center";
+                    ctx.textBaseline = "bottom";
+                    ctx.font = "bold 10px Arial";
+                    
+                    const padding = 5;
+                    const position = bar.tooltipPosition();
+                    
+                    // Format the display value (add M for millions if it's a sales chart)
+                    const displayValue = pluginOptions.isSales ? data.toString() : data.toString();
+                    
+                    ctx.fillText(displayValue, position.x, position.y - padding);
+                });
+            });
+        },
+    });
 };
 
 const registerDoughnutLabelPlugin = () => {
@@ -644,14 +758,14 @@ const registerDoughnutLabelPlugin = () => {
     <Layout heading="Dashboard">
         <DivFlexCenter class="gap-3">
             <InputContainer>
-                <Select
+                <MultiSelect
                     v-model="branch"
                     filter
-                    placeholder="Select a branch"
+                    placeholder="Select branch(es)"
                     :options="branchesOptions"
                     optionLabel="label"
                     optionValue="value"
-                ></Select>
+                ></MultiSelect>
             </InputContainer>
             <InputContainer>
                 <Select
@@ -677,9 +791,33 @@ const registerDoughnutLabelPlugin = () => {
                         })
                     "
                     heading="SALES"
-                    :value="sales"
+                    :value="props.sales"
                     :icon="Check"
                 />
+
+                <!-- New KPI Boxes -->
+                <StatisticOverview
+                    heading="ACHIEVEMENT"
+                    :value="props.achievement"
+                    :icon="Target"
+                />
+                <StatisticOverview
+                    heading="GROWTH (YoY)"
+                    :value="props.growth"
+                    :icon="TrendingUp"
+                />
+                <StatisticOverview
+                    heading="TRANSACTIONS"
+                    :value="props.transactionCount"
+                    :icon="Users"
+                />
+                <StatisticOverview
+                    heading="AVG TICKET"
+                    :value="props.atv"
+                    :icon="Receipt"
+                />
+
+                <!-- Hiding Inventories per request
                 <StatisticOverview
                     :isLink="true"
                     :href="
@@ -689,9 +827,12 @@ const registerDoughnutLabelPlugin = () => {
                         })
                     "
                     heading="INVENTORIES"
-                    :value="inventories"
+                    :value="props.inventories"
                     :icon="ClockArrowUp"
                 />
+                -->
+
+                <!-- Hiding Upcoming Inventories per request
                 <StatisticOverview
                     :isLink="true"
                     :href="
@@ -701,10 +842,12 @@ const registerDoughnutLabelPlugin = () => {
                         })
                     "
                     heading="UPCOMING INVENTORIES"
-                    :value="upcomingInventories"
+                    :value="props.upcomingInventories"
                     :icon="BookX"
                 />
+                -->
 
+                <!-- Hiding Account Payable per request
                 <StatisticOverview
                     :isLink="true"
                     :href="
@@ -714,12 +857,15 @@ const registerDoughnutLabelPlugin = () => {
                         })
                     "
                     heading="ACCOUNT PAYABLE"
-                    :value="accountPayable"
+                    :value="props.accountPayable"
                     :icon="BookX"
                 />
+                -->
+
+                <!-- Hiding COGS per request
                 <StatisticOverview
                     heading="COGS"
-                    :value="cogs"
+                    :value="props.cogs"
                     :icon="BookX"
                     :isLink="true"
                     :href="
@@ -729,30 +875,19 @@ const registerDoughnutLabelPlugin = () => {
                         })
                     "
                 />
+                -->
             </div>
 
-            <DivFlexCenter class="gap-3">
-                <InputContainer>
-                    <Select
-                        v-model="chart_time_period"
-                        placeholder="Time Periods"
-                        :options="chartsOption"
-                        optionLabel="label"
-                        optionValue="value"
-                    ></Select>
-                </InputContainer>
-                <Button @click="handleSearch">Search</Button>
-                <!-- <DatePicker showIcon /> -->
-            </DivFlexCenter>
-
             <div class="sm:grid sm:grid-cols-3 sm:grid-rows-3 gap-4">
-                <!-- Full width chart -->
-                <Chart
-                    type="bar"
-                    :data="chartData"
-                    :options="chartOptions"
-                    class="h-[30rem] col-span-3"
-                />
+                <!-- Full width charts (Multi-line support for stores) -->
+                <template v-for="(chart, index) in salesCharts" :key="'sales-chart-' + index">
+                    <Chart
+                        type="bar"
+                        :data="chart.data"
+                        :options="chart.options"
+                        class="h-[30rem] col-span-3 mb-4"
+                    />
+                </template>
 
                 <!-- First row after full width -->
                 <!-- For DIO -->
@@ -767,7 +902,7 @@ const registerDoughnutLabelPlugin = () => {
                 <div class="flex flex-col row-span-2">
                     <Select
                         v-model="inventory_type"
-                        placeholder="Time Periods"
+                        placeholder="Inventory Type"
                         :options="inventoryOptions"
                         optionLabel="label"
                         optionValue="value"

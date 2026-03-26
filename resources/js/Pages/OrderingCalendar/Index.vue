@@ -204,7 +204,7 @@ const getStatusClass = (status) => {
   switch (status) {
     case 'ordered': return 'bg-[#fff2cc] text-amber-900 border-amber-200' 
     case 'committed': return 'bg-[#00ffff] text-cyan-900 border-cyan-300' 
-    case 'delivered': return 'bg-[#d9ead3] text-green-900 border-green-200' 
+    case 'received': return 'bg-[#d9ead3] text-green-900 border-green-200' 
     case 'no-delivery': return 'bg-[#ffffff] text-gray-400 border-gray-200' 
     default: return 'bg-white text-gray-400 border-gray-100'
   }
@@ -337,7 +337,7 @@ onMounted(() => {
               </div>
               <div class="flex items-center gap-2">
                   <div class="w-4 h-4 rounded border bg-[#d9ead3] border-green-200"></div>
-                  <span class="text-xs font-medium">Delivered</span>
+                  <span class="text-xs font-medium">Received</span>
               </div>
               <div class="flex items-center gap-2">
                   <div class="w-4 h-4 rounded border bg-[#ffffff] border-gray-200"></div>
@@ -376,7 +376,13 @@ onMounted(() => {
                       </div>
                       
                       <div class="flex-grow flex items-center justify-center">
-                        <span v-if="dayObj.data?.qty" class="text-3xl font-black tracking-tighter">
+                        <span 
+                          v-if="dayObj.data?.qty !== null" 
+                          :class="[
+                            'text-3xl font-black tracking-tighter',
+                            (dayObj.data?.status === 'received' && parseFloat(dayObj.data?.qty) === 0) ? 'text-red-600' : ''
+                          ]"
+                        >
                           {{ dayObj.data.qty }}
                         </span>
                         <span v-else-if="dayObj.data?.status === 'no-delivery'" class="text-[10px] font-bold uppercase text-gray-400 text-center leading-tight">

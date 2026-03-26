@@ -14,13 +14,24 @@ class CostOfGoodController extends Controller
     public function index()
     {
         $branches = StoreBranch::options();
-        $branchId = request('branchId') ?? $branches->keys()->first();
+        $branchId = request('branchId');
+        
+        $branchOptions = $branches->toArray();
+        
+        if (is_null($branchId) || $branchId === 'all' || (is_array($branchId) && in_array('all', $branchId))) {
+            $branchIds = collect($branchOptions)->pluck('value')->filter(fn($v) => $v !== 'all')->toArray();
+        } else {
+            $branchIds = is_array($branchId) ? $branchId : [$branchId];
+        }
+        
+        $branchIds = array_map('intval', array_filter($branchIds, fn($v) => is_numeric($v)));
+
         $search = request('search');
         $timePeriods = TimePeriod::values();
-        $time_period = request('time_period') ?? $timePeriods[1];
+        $time_period = request('time_period') ?? 0;
 
         $query = ProductInventoryStockManager::with(['cost_center', 'product'])
-            ->where('store_branch_id', $branchId)
+            ->whereIn('store_branch_id', $branchIds)
             ->where('total_cost', '<', 0);
 
         if ($time_period != 0) {
@@ -33,9 +44,9 @@ class CostOfGoodController extends Controller
             ->paginate(10);
         return Inertia::render('CostOfGood/Index', [
             'costOfGoods' => $costOfGoods,
-            'filters' => request()->only(['from', 'to', 'branchId', 'search', 'time_period']),
+            'filters' => request()->only(['time_period', 'branchId', 'search']),
             'timePeriods' => $timePeriods,
-            'branches' => $branches
+            'branches' => $branchOptions
         ]);
     }
 }

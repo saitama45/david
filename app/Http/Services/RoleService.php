@@ -145,6 +145,9 @@ class RoleService
                 'Store Transactions Approval' => [
                     'view store transactions approval', 'approve store transactions', 'decline store transactions'
                 ],
+                'Sales/Budget Uploader' => [
+                    'view sales budget uploader'
+                ],
             ],
             'Inventory' => [
                 'Stock Management' => [

@@ -68,10 +68,10 @@
             text-align: center;
             margin-top: 10px;
         }
-        .status-order { background-color: #e2f3e2; }
-        .status-commit { background-color: #fce4ec; }
-        .status-delivered { background-color: #fff9c4; }
-        .status-no-delivery { background-color: #f3f4f6; }
+        .status-order { background-color: #fff2cc; }
+        .status-commit { background-color: #00ffff; }
+        .status-received { background-color: #d9ead3; }
+        .status-no-delivery { background-color: #ffffff; }
         
         .empty-cell {
             background-color: #f9fafb;
@@ -202,7 +202,9 @@
                             <td class="{{ $statusClass }}">
                                 <div class="day-number">{{ $cell['day'] }}</div>
                                 @if(isset($cell['data']['qty']))
-                                    <div class="qty-display">{{ $cell['data']['qty'] }}</div>
+                                    <div class="qty-display" style="{{ ($cell['data']['status'] === 'received' && (float)$cell['data']['qty'] == 0) ? 'color: #dc2626;' : '' }}">
+                                        {{ $cell['data']['qty'] }}
+                                    </div>
                                 @elseif(isset($cell['data']['status']) && $cell['data']['status'] === 'no-delivery')
                                     <div class="no-delivery-text">NO DELIVERY</div>
                                 @endif
@@ -218,7 +220,7 @@
         <strong>Legend:</strong>
         <div class="legend-item"><span class="legend-box status-order"></span> Order</div>
         <div class="legend-item"><span class="legend-box status-commit"></span> Commit</div>
-        <div class="legend-item"><span class="legend-box status-delivered"></span> Delivered</div>
+        <div class="legend-item"><span class="legend-box status-received"></span> Received</div>
         <div class="legend-item"><span class="legend-box status-no-delivery"></span> No Delivery</div>
     </div>
 

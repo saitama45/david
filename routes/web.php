@@ -101,6 +101,7 @@ use App\Http\Controllers\OrdersCutoffController;
 use App\Http\Controllers\OrderingTemplateApprovalController;
 use App\Http\Controllers\KnowledgeBaseController;
 use App\Http\Controllers\ManageKnowledgeBaseController;
+use App\Http\Controllers\SalesBudgetController;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 use Illuminate\Foundation\Application;
@@ -295,6 +296,13 @@ Route::middleware('auth')
                 Route::delete('/destroy/{id}', 'destroy')->name('destroy'); // Added destroy
                 Route::get('/export', 'export')->name('export'); // Added export
             });
+
+        // Sales/Budget Uploader
+        Route::controller(SalesBudgetController::class)->prefix('sales-budget-uploader')->name('sales-budget-uploader.')->group(function () {
+            Route::get('/', 'index')->name('index');
+            Route::get('/download-template', 'downloadTemplate')->name('download-template');
+            Route::post('/upload', 'upload')->name('upload');
+        });
 
         // Dashboard
         Route::get('/dashboard', [DashboardController::class, 'index'])

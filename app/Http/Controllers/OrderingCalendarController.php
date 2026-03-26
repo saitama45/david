@@ -154,20 +154,29 @@ class OrderingCalendarController extends Controller
                 $query->where('store_branch_id', $storeId)
                       ->whereBetween('order_date', [$startDate->toDateString(), $endDate->toDateString()]);
             })
-            ->with('store_order')
+            ->with(['store_order', 'ordered_item_receive_dates'])
             ->get();
 
         $orderMap = [];
         foreach ($orderItems as $orderItem) {
             $date = Carbon::parse($orderItem->store_order->order_date)->toDateString();
+            $orderStatus = $orderItem->store_order->order_status;
             
+            // Default values
             $status = 'ordered';
             $qty = $orderItem->quantity_ordered;
 
-            if ($orderItem->quantity_received > 0) {
-                $status = 'delivered';
-                $qty = $orderItem->quantity_received;
-            } elseif ($orderItem->committed_by !== null) {
+            // Check for receiving history first
+            $receiveHistory = $orderItem->ordered_item_receive_dates;
+            $hasReceivedHistory = $receiveHistory->contains(function($h) {
+                return in_array(strtolower($h->status), ['received', 'approved']);
+            });
+
+            if ($hasReceivedHistory || in_array($orderStatus, ['received', 'incomplete'])) {
+                $status = 'received';
+                // Sum quantity from history if it exists, otherwise use quantity_received from item
+                $qty = $hasReceivedHistory ? $receiveHistory->whereIn('status', ['received', 'approved'])->sum('quantity_received') : $orderItem->quantity_received;
+            } elseif ($orderItem->committed_by !== null || in_array($orderStatus, ['committed', 'partial_committed'])) {
                 $status = 'committed';
                 $qty = $orderItem->quantity_commited;
             }
