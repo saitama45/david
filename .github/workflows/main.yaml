@@ -9,8 +9,8 @@ permissions:
   contents: read
 
 jobs:
-  build_and_deploy:
-    name: Build package and deploy to Azure
+  build:
+    name: Build package
     runs-on: ubuntu-latest
 
     steps:
@@ -51,23 +51,58 @@ jobs:
         run: |
           npm ci
           npm run build
-          # CRITICAL: Remove node_modules after build to keep the deployment package small
-          rm -rf node_modules
 
       - name: Create Storage Link
         run: php artisan storage:link
 
-      - name: Create deployment zip
+      - name: Prepare Deployment Artifact
         run: |
-          zip -r release.zip . -x "*.git*" -x "node_modules/*" -x "tests/*" -x "resources/js/*" -x "resources/css/*" -x "storage/framework/cache/data/*" -x "storage/logs/*"
+          mkdir -p build_output
+          rsync -ar . build_output/ \
+            --exclude build_output \
+            --exclude node_modules \
+            --exclude .git \
+            --exclude tests \
+            --exclude resources/js \
+            --exclude resources/css \
+            --exclude storage/logs \
+            --exclude "storage/framework/cache/data"
 
-      # 3. Deploy to Azure (Package is now ~90% smaller)
+          # Ensure storage framework directories exist with a placeholder so FTP uploads them
+          mkdir -p build_output/storage/framework/cache/data
+          mkdir -p build_output/storage/framework/sessions
+          mkdir -p build_output/storage/framework/views
+          mkdir -p build_output/storage/logs
+          touch build_output/storage/framework/cache/data/index.html
+          touch build_output/storage/framework/sessions/index.html
+          touch build_output/storage/framework/views/index.html
+          touch build_output/storage/logs/index.html
+
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: laravel-app
+          path: build_output/
+
+  deploy:
+    name: Deploy
+    needs: build
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Download Artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: laravel-app
+          path: .
+
+      # 3. Deploy to Azure
       - name: 'Deploy to Azure Web App'
         uses: azure/webapps-deploy@v3
         with:
           app-name: 'David'
           publish-profile: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE }}
-          package: release.zip
+          package: .
 
       # 4. Deploy to FTP hosting
       - name: Deploy to FTP
@@ -83,10 +118,4 @@ jobs:
             **/.git*
             **/.git*/**
             **/node_modules/**
-            **/tests/**
-            **/resources/js/**
-            **/resources/css/**
-            **/storage/logs/**
-            **/storage/framework/cache/data/**
             README.md
-            release.zip
