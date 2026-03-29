@@ -287,17 +287,17 @@ const selectedStoreName = computed(() => {
                                 
                                 <th class="px-3 py-2 text-right border-r">Sunday E.I.</th>
                                 <th class="px-3 py-2 text-right border-r">Incoming</th>
-                                <th class="px-3 py-2 text-right border-r">Inc %</th>
+                                <th class="px-3 py-2 text-right border-r min-w-[80px]">Inc %</th>
 
                                 <th class="px-3 py-2 text-right border-r bg-indigo-50/30 text-indigo-600">ADU</th>
-                                <th class="px-3 py-2 text-right border-r bg-indigo-50/30 text-indigo-600">DTL1</th>
-                                <th class="px-3 py-2 text-right border-r bg-indigo-50/30 text-indigo-600">DTL2</th>
+                                <th class="px-3 py-2 text-right border-r bg-indigo-50/30 text-indigo-600 min-w-[100px]">DTL1</th>
+                                <th class="px-3 py-2 text-right border-r bg-indigo-50/30 text-indigo-600 min-w-[100px]">DTL2</th>
                                 <th class="px-3 py-2 text-right border-r bg-indigo-50/30 text-indigo-600">Rev. ADU</th>
                                 <th class="px-3 py-2 text-right border-r bg-indigo-50/30 text-indigo-700 font-bold underline">SUGG</th>
 
                                 <th class="px-3 py-2 text-right border-r bg-green-50/30 text-green-600">Daily PMIX</th>
-                                <th class="px-3 py-2 text-right border-r bg-green-50/30 text-green-600">DTL1</th>
-                                <th class="px-3 py-2 text-right border-r bg-green-50/30 text-green-600">DTL2</th>
+                                <th class="px-3 py-2 text-right border-r bg-green-50/30 text-green-600 min-w-[100px]">DTL1</th>
+                                <th class="px-3 py-2 text-right border-r bg-green-50/30 text-green-600 min-w-[100px]">DTL2</th>
                                 <th class="px-3 py-2 text-right border-r bg-green-50/30 text-green-600">Rev. PMIX</th>
                                 <th class="px-3 py-2 text-right bg-green-50/30 text-green-700 font-bold underline">SUGG</th>
                             </tr>
@@ -305,7 +305,9 @@ const selectedStoreName = computed(() => {
                         <tbody>
                             <tr v-for="item in computedItems" :key="item.item_code" class="border-b hover:bg-muted/5">
                                 <td class="px-3 py-2 border-r">{{ item.item_code }}</td>
-                                <td class="px-3 py-2 border-r truncate max-w-[150px] font-medium">{{ item.item_name }}</td>
+                                <td class="px-3 py-2 border-r font-medium">
+                                    <div class="truncate max-w-[150px]" :title="item.item_name">{{ item.item_name }}</div>
+                                </td>
                                 <td class="px-3 py-2 border-r text-muted-foreground">{{ item.category }}</td>
                                 <td class="px-3 py-2 border-r text-muted-foreground">{{ item.brand }}</td>
                                 <td class="px-3 py-2 border-r text-muted-foreground">{{ item.classification }}</td>
@@ -318,7 +320,7 @@ const selectedStoreName = computed(() => {
                                     <input 
                                         type="number" 
                                         v-model.number="items[item.originalIndex].incremental" 
-                                        class="w-16 text-right text-xs bg-transparent border rounded px-1 focus:ring-1 focus:ring-primary outline-none" 
+                                        class="w-full text-right text-xs bg-transparent border rounded px-1 focus:ring-1 focus:ring-primary outline-none" 
                                         placeholder="0"
                                     />
                                 </td>
@@ -373,7 +375,5 @@ const selectedStoreName = computed(() => {
 </template>
 
 <style scoped>
-table {
-  table-layout: fixed;
-}
+/* Removed table-layout: fixed to prevent overlapping columns on large screens */
 </style>
