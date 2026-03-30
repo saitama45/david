@@ -84,20 +84,23 @@ class OrderListImport implements ToCollection, WithHeadingRow
                     return null; // Skip this row
                 }
 
-                // Allow 0 here for Qty and Cost, frontend will filter based on > 0.1 and > 0 respectively.
-                if ($qtyFromExcel === null || $qtyFromExcel < 0) { 
+                // Allow 0 here for Qty and Cost.
+                if ($qtyFromExcel === null || $qtyFromExcel < 0) {
                     $reason = 'Quantity is missing or invalid (negative).';
                     Log::warning("OrderListImport: Skipping row {$key} for item '{$itemCodeFromExcel}': {$reason}");
                     $this->addSkippedItem($itemCodeFromExcel, $itemNameFromExcel, $reason);
                     return null;
                 }
-                if ($costFromExcel === null || $costFromExcel < 0) { 
-                    $reason = 'Cost is missing or invalid (negative).';
+
+                // Allow cost to be 0 or missing, default to 0.0 if not provided or non-numeric
+                if ($costFromExcel === null) {
+                    $costFromExcel = 0.0;
+                } elseif ($costFromExcel < 0) {
+                    $reason = 'Cost is invalid (negative).';
                     Log::warning("OrderListImport: Skipping row {$key} for item '{$itemCodeFromExcel}': {$reason}");
                     $this->addSkippedItem($itemCodeFromExcel, $itemNameFromExcel, $reason);
                     return null;
-                }
-                // --- End Backend-side Validation ---
+                }                // --- End Backend-side Validation ---
 
                 // Fetch SupplierItem without eager loading sapMasterfiles, as we'll query it directly
                 $supplierItem = SupplierItems::where('ItemCode', $itemCodeFromExcel)
