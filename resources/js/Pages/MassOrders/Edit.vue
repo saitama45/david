@@ -1234,19 +1234,9 @@ const addImportedItemsToOrderList = () => {
                 const rawQuantityValue = importedOrder.qty || importedOrder.Qty || importedOrder.quantity;
                 const quantity = Number(rawQuantityValue);
 
-                const cost = Number(importedOrder.cost || importedOrder.Cost);
+                const cost = Number(importedOrder.cost || importedOrder.Cost || 0) || 0;
                 const unit = importedOrder.unit || importedOrder.UOM || importedOrder.unit_of_measurement;
                 const baseQty = Number(importedOrder.base_qty || importedOrder.BaseQTY);
-
-                if (isNaN(cost) || cost === 0) {
-                    toast.add({
-                        severity: "error",
-                        summary: "Validation Error",
-                        detail: `Imported item '${itemName || itemCodeString || 'Unknown Item'}' has a cost of zero or is invalid and will be skipped.`,
-                        life: 7000,
-                    });
-                    return;
-                }
 
                 if (isNaN(quantity) || quantity < 0.1) {
                     return;
