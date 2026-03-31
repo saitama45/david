@@ -22,7 +22,7 @@ watch(search, (value) => {
             { search: value, category: props.filters.category },
             { preserveState: true, replace: true, preserveScroll: true }
         );
-    }, 300);
+    }, 600);
 });
 
 const filterByCategory = (category) => {

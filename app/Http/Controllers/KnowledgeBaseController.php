@@ -6,6 +6,7 @@ use App\Models\KnowledgeBase;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Cache;
 
 class KnowledgeBaseController extends Controller
 {
@@ -18,9 +19,8 @@ class KnowledgeBaseController extends Controller
             ->where('is_published', true);
 
         if ($request->search) {
-            $query->where(function($q) use ($request) {
+            $query->where(function ($q) use ($request) {
                 $q->where('title', 'like', "%{$request->search}%")
-                  ->orWhere('content', 'like', "%{$request->search}%")
                   ->orWhere('category', 'like', "%{$request->search}%");
             });
         }
@@ -30,15 +30,17 @@ class KnowledgeBaseController extends Controller
         }
 
         $articles = $query->orderBy('created_at', 'desc')
-            ->paginate(12) // Using grid, so maybe 12 is better
+            ->paginate(12)
             ->withQueryString();
 
-        // Get distinct categories that have published articles
-        $categories = KnowledgeBase::where('is_published', true)
-            ->select('category')
-            ->distinct()
-            ->whereNotNull('category')
-            ->pluck('category');
+        $categories = Cache::remember('kb_categories', now()->addMinutes(10), function () {
+            return KnowledgeBase::where('is_published', true)
+                ->whereNotNull('category')
+                ->distinct()
+                ->orderBy('category')
+                ->pluck('category')
+                ->values();
+        });
 
         return Inertia::render('KnowledgeBase/Index', [
             'articles' => $articles,
@@ -70,6 +72,7 @@ class KnowledgeBaseController extends Controller
         $validated['author_id'] = Auth::id();
 
         KnowledgeBase::create($validated);
+        Cache::forget('kb_categories');
 
         return redirect()->route('knowledge-base.index')
             ->with('success', 'Article created successfully.');
@@ -108,6 +111,7 @@ class KnowledgeBaseController extends Controller
         ]);
 
         $knowledgeBase->update($validated);
+        Cache::forget('kb_categories');
 
         return redirect()->route('knowledge-base.index')
             ->with('success', 'Article updated successfully.');
@@ -119,6 +123,7 @@ class KnowledgeBaseController extends Controller
     public function destroy(KnowledgeBase $knowledgeBase)
     {
         $knowledgeBase->delete();
+        Cache::forget('kb_categories');
 
         return redirect()->route('knowledge-base.index')
             ->with('success', 'Article deleted successfully.');
