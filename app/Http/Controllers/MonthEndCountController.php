@@ -250,18 +250,16 @@ class MonthEndCountController extends Controller
         Log::info('MonthEndCountController@upload: Schedule and Branch found.', ['schedule_id' => $schedule->id, 'branch_id' => $branch->id]);
 
         // Ensure the upload is happening on or after the calculated date (using Asia/Manila timezone)
-        $todayManila = Carbon::today('Asia/Manila');
-        $allowedUploadDate = Carbon::parse($schedule->calculated_date, 'Asia/Manila')->addDay()->startOfDay();
+        $todayManila = Carbon::today('Asia/Manila')->toDateString();
+        $allowedUploadDate = Carbon::parse($schedule->calculated_date, 'Asia/Manila')->addDay()->toDateString();
 
-        if ($todayManila->lt($allowedUploadDate)) {
+        if ($todayManila < $allowedUploadDate) {
             Log::warning('MonthEndCountController@upload: Upload date is before allowed date.', [
                 'calculated_date' => $schedule->calculated_date instanceof \Carbon\Carbon ? $schedule->calculated_date->toDateString() : $schedule->calculated_date,
-                'allowed_upload_date' => $allowedUploadDate->toDateString(),
-                'today_manila' => $todayManila->toDateString(),
-                'today_timezone' => $todayManila->timezoneName,
-                'allowed_timezone' => $allowedUploadDate->timezoneName
+                'allowed_upload_date' => $allowedUploadDate,
+                'today_manila' => $todayManila
             ]);
-            return back()->withErrors(['error' => 'File can only be uploaded the day after the scheduled count (' . $allowedUploadDate->toDateString() . ').']);
+            return back()->withErrors(['error' => 'File can only be uploaded the day after the scheduled count (' . $allowedUploadDate . ').']);
         }
         Log::info('MonthEndCountController@upload: Date validation passed.');
 
