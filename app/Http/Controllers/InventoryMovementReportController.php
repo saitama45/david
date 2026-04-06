@@ -40,7 +40,8 @@ class InventoryMovementReportController extends Controller
         }
 
         $query = SAPMasterfile::query()
-            ->where('is_active', true);
+            ->where('is_active', true)
+            ->whereColumn('AltUOM', 'BaseUOM');
 
         if (!empty($filters['branch_id'])) {
             $this->applyMovementFilter($query, $filters);
@@ -76,7 +77,9 @@ class InventoryMovementReportController extends Controller
         $filters['date_from'] = $filters['date_from'] ?? Carbon::today()->startOfMonth()->format('Y-m-d');
         $filters['date_to'] = $filters['date_to'] ?? Carbon::today()->format('Y-m-d');
 
-        $query = SAPMasterfile::query()->where('is_active', true);
+        $query = SAPMasterfile::query()
+            ->where('is_active', true)
+            ->whereColumn('AltUOM', 'BaseUOM');
 
         if (!empty($filters['branch_id'])) {
             $this->applyMovementFilter($query, $filters);
@@ -140,10 +143,11 @@ class InventoryMovementReportController extends Controller
             ->orWhereExists(function($sub) use ($branchId, $dateFrom, $dateTo) {
                 $sub->select(DB::raw(1))
                     ->from('wastages')
-                    ->whereColumn('sap_masterfile_id', 'sap_masterfiles.id')
+                    ->join('sap_masterfiles as sap2', 'wastages.sap_masterfile_id', '=', 'sap2.id')
+                    ->whereColumn('sap2.ItemCode', 'sap_masterfiles.ItemCode')
                     ->where('store_branch_id', $branchId)
                     ->where('wastage_status', \App\Enums\WastageStatus::APPROVED_LVL2->value)
-                    ->whereBetween('created_at', [$dateFrom . ' 00:00:00', $dateTo . ' 23:59:59']);
+                    ->whereBetween('wastages.created_at', [$dateFrom . ' 00:00:00', $dateTo . ' 23:59:59']);
             })
             // Check for Interco Outbound (as sending store)
             ->orWhereExists(function($sub) use ($branchId, $dateFrom, $dateTo) {
@@ -163,7 +167,8 @@ class InventoryMovementReportController extends Controller
                 $sub->select(DB::raw(1))
                     ->from('month_end_count_items as meci')
                     ->join('month_end_schedules as mes', 'meci.month_end_schedule_id', '=', 'mes.id')
-                    ->whereColumn('meci.sap_masterfile_id', 'sap_masterfiles.id')
+                    ->join('sap_masterfiles as sap2', 'meci.sap_masterfile_id', '=', 'sap2.id')
+                    ->whereColumn('sap2.ItemCode', 'sap_masterfiles.ItemCode')
                     ->where('meci.branch_id', $branchId)
                     ->where(function($inner) use ($prevMonth, $currMonth) {
                         $inner->where(function($p) use ($prevMonth) {
@@ -215,6 +220,8 @@ class InventoryMovementReportController extends Controller
             ->first();
 
         foreach ($chunks as $chunk) {
+            $chunkItemCodes = SAPMasterfile::whereIn('id', $chunk)->pluck('ItemCode')->toArray();
+
             // 1. Ordered (Regular Procurement)
             $orderedChunk = DB::table('store_order_items as soi')
                 ->join('store_orders as so', 'soi.store_order_id', '=', 'so.id')
@@ -223,8 +230,8 @@ class InventoryMovementReportController extends Controller
                 ->whereNull('so.interco_number')
                 ->whereBetween('so.order_date', [$dateFrom, $dateTo])
                 ->whereIn('sap.id', $chunk)
-                ->select('sap.id as sap_id', DB::raw('SUM(COALESCE(soi.quantity_approved, 0)) as total_ordered'))
-                ->groupBy('sap.id')
+                ->select('sap.ItemCode', DB::raw('SUM(COALESCE(soi.quantity_approved, 0)) as total_ordered'))
+                ->groupBy('sap.ItemCode')
                 ->get();
             $orderedData = $orderedData->merge($orderedChunk);
 
@@ -237,8 +244,8 @@ class InventoryMovementReportController extends Controller
                 ->whereBetween('so.order_date', [$dateFrom, $dateTo])
                 ->whereNotNull('soi.committed_by')
                 ->whereIn('sap.id', $chunk)
-                ->select('sap.id as sap_id', DB::raw('SUM(COALESCE(soi.quantity_commited, 0)) as total_committed'))
-                ->groupBy('sap.id')
+                ->select('sap.ItemCode', DB::raw('SUM(COALESCE(soi.quantity_commited, 0)) as total_committed'))
+                ->groupBy('sap.ItemCode')
                 ->get();
             $committedData = $committedData->merge($committedChunk);
 
@@ -252,8 +259,8 @@ class InventoryMovementReportController extends Controller
                 ->whereBetween('so.order_date', [$dateFrom, $dateTo])
                 ->where('oird.status', 'approved')
                 ->whereIn('sap.id', $chunk)
-                ->select('sap.id as sap_id', DB::raw('SUM(COALESCE(oird.quantity_received, 0)) as total_received'))
-                ->groupBy('sap.id')
+                ->select('sap.ItemCode', DB::raw('SUM(COALESCE(oird.quantity_received, 0)) as total_received'))
+                ->groupBy('sap.ItemCode')
                 ->get();
             $receivedData = $receivedData->merge($receivedChunk);
 
@@ -266,19 +273,20 @@ class InventoryMovementReportController extends Controller
                 ->where('st.store_branch_id', $branchId)
                 ->whereBetween('st.created_at', [$dateFrom . ' 00:00:00', $dateTo . ' 23:59:59'])
                 ->whereIn('sap.id', $chunk)
-                ->select('sap.id as sap_id',
+                ->select('sap.ItemCode',
                     DB::raw('SUM(COALESCE(sti.quantity, 0) * COALESCE(bom.BOMQty, 0)) as total_sales'))
-                ->groupBy('sap.id')
+                ->groupBy('sap.ItemCode')
                 ->get();
             $salesData = $salesData->merge($salesChunk);
 
             // 3. Wastage
-            $wastageChunk = Wastage::where('store_branch_id', $branchId)
+            $wastageChunk = Wastage::join('sap_masterfiles as sap', 'wastages.sap_masterfile_id', '=', 'sap.id')
+                ->where('wastages.store_branch_id', $branchId)
                 ->where('wastage_status', \App\Enums\WastageStatus::APPROVED_LVL2->value)
-                ->whereIn('sap_masterfile_id', $chunk)
-                ->whereBetween('created_at', [$dateFrom . ' 00:00:00', $dateTo . ' 23:59:59'])
-                ->select('sap_masterfile_id', DB::raw('SUM(COALESCE(approverlvl2_qty, 0)) as total_wastage'))
-                ->groupBy('sap_masterfile_id')
+                ->whereIn('sap.ItemCode', $chunkItemCodes)
+                ->whereBetween('wastages.created_at', [$dateFrom . ' 00:00:00', $dateTo . ' 23:59:59'])
+                ->select('sap.ItemCode', DB::raw('SUM(COALESCE(approverlvl2_qty, 0)) as total_wastage'))
+                ->groupBy('sap.ItemCode')
                 ->get();
             $wastageData = $wastageData->merge($wastageChunk);
 
@@ -292,8 +300,8 @@ class InventoryMovementReportController extends Controller
                 ->whereBetween('so.order_date', [$dateFrom, $dateTo])
                 ->where('oird.status', 'approved')
                 ->whereIn('sap.id', $chunk)
-                ->select('sap.id as sap_id', DB::raw('SUM(COALESCE(oird.quantity_received, 0)) as total_received'))
-                ->groupBy('sap.id')
+                ->select('sap.ItemCode', DB::raw('SUM(COALESCE(oird.quantity_received, 0)) as total_received'))
+                ->groupBy('sap.ItemCode')
                 ->get();
             $intercoInData = $intercoInData->merge($intercoInChunk);
 
@@ -305,54 +313,58 @@ class InventoryMovementReportController extends Controller
                 ->whereNotNull('so.interco_number')
                 ->whereBetween('so.order_date', [$dateFrom, $dateTo])
                 ->whereIn('sap.id', $chunk)
-                ->select('sap.id as sap_id', DB::raw('SUM(COALESCE(soi.quantity_commited, 0)) as total_committed'))
-                ->groupBy('sap.id')
+                ->select('sap.ItemCode', DB::raw('SUM(COALESCE(soi.quantity_commited, 0)) as total_committed'))
+                ->groupBy('sap.ItemCode')
                 ->get();
             $intercoOutData = $intercoOutData->merge($intercoOutChunk);
 
             // 6. MEC Beginning Balance
             if ($begMecSchedule) {
-                $begBalChunk = MonthEndCountItem::where('month_end_schedule_id', $begMecSchedule->id)
+                $begBalChunk = MonthEndCountItem::join('sap_masterfiles as sap', 'month_end_count_items.sap_masterfile_id', '=', 'sap.id')
+                    ->where('month_end_schedule_id', $begMecSchedule->id)
                     ->where('branch_id', $branchId)
-                    ->whereIn('sap_masterfile_id', $chunk)
-                    ->select('sap_masterfile_id', 'total_qty')
+                    ->whereIn('sap.ItemCode', $chunkItemCodes)
+                    ->select('sap.ItemCode', DB::raw('SUM(total_qty) as total_qty'))
+                    ->groupBy('sap.ItemCode')
                     ->get();
                 $begBalData = $begBalData->merge($begBalChunk);
             }
 
             // 7. Actual MEC
             if ($currMecSchedule) {
-                $actualMecChunk = MonthEndCountItem::where('month_end_schedule_id', $currMecSchedule->id)
+                $actualMecChunk = MonthEndCountItem::join('sap_masterfiles as sap', 'month_end_count_items.sap_masterfile_id', '=', 'sap.id')
+                    ->where('month_end_schedule_id', $currMecSchedule->id)
                     ->where('branch_id', $branchId)
-                    ->whereIn('sap_masterfile_id', $chunk)
-                    ->select('sap_masterfile_id', 'total_qty')
+                    ->whereIn('sap.ItemCode', $chunkItemCodes)
+                    ->select('sap.ItemCode', DB::raw('SUM(total_qty) as total_qty'))
+                    ->groupBy('sap.ItemCode')
                     ->get();
                 $actualMecData = $actualMecData->merge($actualMecChunk);
             }
         }
 
-        $orderedData = $orderedData->keyBy('sap_id');
-        $committedData = $committedData->keyBy('sap_id');
-        $receivedData = $receivedData->keyBy('sap_id');
-        $salesData = $salesData->keyBy('sap_id');
-        $wastageData = $wastageData->keyBy('sap_masterfile_id');
-        $intercoInData = $intercoInData->keyBy('sap_id');
-        $intercoOutData = $intercoOutData->keyBy('sap_id');
-        $begBalData = $begBalData->keyBy('sap_masterfile_id');
-        $actualMecData = $actualMecData->keyBy('sap_masterfile_id');
+        $orderedData = $orderedData->keyBy('ItemCode');
+        $committedData = $committedData->keyBy('ItemCode');
+        $receivedData = $receivedData->keyBy('ItemCode');
+        $salesData = $salesData->keyBy('ItemCode');
+        $wastageData = $wastageData->keyBy('ItemCode');
+        $intercoInData = $intercoInData->keyBy('ItemCode');
+        $intercoOutData = $intercoOutData->keyBy('ItemCode');
+        $begBalData = $begBalData->keyBy('ItemCode');
+        $actualMecData = $actualMecData->keyBy('ItemCode');
 
         foreach ($sapItems as $sapItem) {
-            $sapId = $sapItem->id;
+            $itemCode = $sapItem->ItemCode;
             
-            $orderedRow = $orderedData->get($sapId);
-            $committedRow = $committedData->get($sapId);
-            $receivedRow = $receivedData->get($sapId);
-            $sales = $salesData->get($sapId);
-            $wastage = $wastageData->get($sapId);
-            $intercoIn = $intercoInData->get($sapId);
-            $intercoOut = $intercoOutData->get($sapId);
-            $begBal = $begBalData->get($sapId);
-            $actualMec = $actualMecData->get($sapId);
+            $orderedRow = $orderedData->get($itemCode);
+            $committedRow = $committedData->get($itemCode);
+            $receivedRow = $receivedData->get($itemCode);
+            $sales = $salesData->get($itemCode);
+            $wastage = $wastageData->get($itemCode);
+            $intercoIn = $intercoInData->get($itemCode);
+            $intercoOut = $intercoOutData->get($itemCode);
+            $begBal = $begBalData->get($itemCode);
+            $actualMec = $actualMecData->get($itemCode);
 
             $ordered = $orderedRow ? (float)$orderedRow->total_ordered : 0;
             $committed = $committedRow ? (float)$committedRow->total_committed : 0;
@@ -362,7 +374,7 @@ class InventoryMovementReportController extends Controller
             $intercoInQty = $intercoIn ? (float)$intercoIn->total_received : 0;
             $intercoOutQty = $intercoOut ? (float)$intercoOut->total_committed : 0;
             $begBalQty = $begBal ? (float)$begBal->total_qty : 0;
-            $actualMecQty = $actualMec ? (float)$actualMec->total_qty : null;
+            $actualMecQty = $actualMec ? (float)$actualMec->total_qty : 0;
 
             $theoretical = $begBalQty + $received + $intercoInQty - $salesQty - $wastageQty - $intercoOutQty;
 

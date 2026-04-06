@@ -38,23 +38,28 @@ class InventoryReportController extends Controller
             $query->whereYear('transaction_date', Carbon::today()->year);
         }
 
-        $query->select(
-            'product_inventory_id',
-            DB::raw('SUM(quantity) as total_quantity'),
-            DB::raw('SUM(total_cost) as total_cost')
-        )
-            ->with('product')
+        $query->join('sap_masterfiles as sap', 'product_inventory_stock_managers.product_inventory_id', '=', 'sap.id')
+            ->select(
+                'sap.ItemCode',
+                DB::raw('SUM(quantity) as total_quantity'),
+                DB::raw('SUM(total_cost) as total_cost')
+            )
             ->whereIn('store_branch_id', $branchIds)
-            ->groupBy('product_inventory_id');
+            ->groupBy('sap.ItemCode');
 
         $inventories = $query->paginate(10);
 
         $summarizedInventories = $inventories->through(function ($item) {
+            // Pick the SAP record where AltUOM == BaseUOM for display
+            $sapRecord = \App\Models\SAPMasterfile::where('ItemCode', $item->ItemCode)
+                ->whereColumn('AltUOM', 'BaseUOM')
+                ->first();
+
             return [
                 'quantity' => $item->total_quantity,
                 'total_cost' => number_format($item->total_cost, 2, '.', ','),
-                'item' => $item->product->name,
-                'inventory_code' => $item->product->inventory_code
+                'item' => $sapRecord ? $sapRecord->ItemDescription : 'Unknown',
+                'inventory_code' => $item->ItemCode
             ];
         });
 
