@@ -391,7 +391,7 @@ const formatQuantity = (value) => {
                             </TD>
                             <TD class="text-center font-mono">{{ formatQuantity(history.quantity_ordered) || 0 }}</TD>
                             <TD v-if="false" class="text-center font-mono">{{ formatQuantity(history.quantity_approved) || 0 }}</TD>
-                            <TD class="text-center font-mono">{{ formatQuantity(history.committed_display) }}</TD>
+                            <TD class="text-center font-mono">{{ (String(order.order_status || '').toUpperCase().trim() === 'APPROVED' || String(history.display_status || '').toUpperCase().trim() === 'TO COMMIT') ? 0 : formatQuantity(history.committed_display) }}</TD>
                             <TD class="text-center font-mono font-bold text-blue-600">{{ formatQuantity(history.received_display) }}</TD>
                             <TD class="text-center font-mono">{{ Math.abs(formatQuantity(history.variance_ordered_committed) || 0) }}</TD>
                             <TD class="text-center font-mono">{{ Math.abs(formatQuantity(history.variance_committed_received) || 0) }}</TD>
@@ -518,7 +518,7 @@ const formatQuantity = (value) => {
                             </div>
                             <div class="text-center">
                                 <span class="text-xs text-gray-500 block">Committed</span>
-                                <span class="font-bold text-lg text-gray-900">{{ formatQuantity(selectedItem.committed_display) }}</span>
+                                <span class="font-bold text-lg text-gray-900">{{ (String(order.order_status || '').toUpperCase().trim() === 'APPROVED' || String(selectedItem.display_status || '').toUpperCase().trim() === 'TO COMMIT') ? 0 : formatQuantity(selectedItem.committed_display) }}</span>
                             </div>
                             <div class="text-center">
                                 <span class="text-xs text-gray-500 block">Received</span>
