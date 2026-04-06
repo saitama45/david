@@ -49,7 +49,7 @@ class StoreTransactionExport implements FromQuery, WithHeadings, WithMapping, Wi
             $query->whereBetween('order_date', [$this->from, $this->to]);
         }
 
-        if ($this->branchId)
+        if ($this->branchId && $this->branchId !== 'all')
             $query->where('store_branch_id', $this->branchId);
 
         if ($this->search)
