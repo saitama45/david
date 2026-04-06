@@ -52,14 +52,14 @@ import {
     Calculator,
 } from "lucide-vue-next";
 
-const { is_admin } = usePage().props.auth;
-const permissions = usePage().props.auth.permissions;
+const auth = computed(() => usePage().props.auth);
+const permissions = computed(() => auth.value.permissions || []);
+const isAdmin = computed(() => auth.value.is_admin);
 
 // Helper function to check if the current user has a specific permission.
 const hasAccess = (access) => {
-    return permissions.includes(access);
+    return isAdmin.value || permissions.value.includes(access);
 };
-const isAdmin = is_admin;
 
 // Function to check if a given URL (or any of a list of URLs) is the current active page.
 const isPathActive = (pathOrPaths) => {
@@ -1031,7 +1031,7 @@ watchEffect(() => {
                     :icon="LayoutList"
                     :is-active="isPathActive('/inventory-categories')"
                 >
-                    Invetory Categories
+                    Inventory Categories
                 </NavLink>
                 <NavLink
                     v-if="hasAccess('view unit of measurements')"

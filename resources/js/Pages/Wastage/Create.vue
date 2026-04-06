@@ -1,5 +1,5 @@
 <script setup>
-import { ref, reactive, computed, watch } from 'vue'
+import { ref, reactive, computed, watch, nextTick } from 'vue'
 import { useForm, Link, router } from '@inertiajs/vue3'
 import { useConfirm } from 'primevue/useconfirm'
 import { useToast } from 'primevue/usetoast'
@@ -41,6 +41,7 @@ const form = useForm({
 const selectedAutoCompleteItem = ref(null)
 const isLoading = ref(false)
 const cartItems = ref([])
+const showErrors = ref(false)
 
 // Product details reactive object for item search
 const productDetails = reactive({
@@ -99,6 +100,64 @@ const isFormValid = computed(() => {
            item.images && item.images.length > 0 // Required per-item image
          )
 })
+
+const validateAndScroll = () => {
+  showErrors.value = true
+  
+  if (!form.store_branch_id) {
+    openSections.value.wastageDetails = true
+    nextTick(() => {
+      const el = document.querySelector('.p-select')
+      el?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    })
+    return false
+  }
+
+  if (!form.remarks || form.remarks.trim() === '') {
+    openSections.value.wastageDetails = true
+    nextTick(() => {
+      const el = document.getElementById('remarks')
+      el?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+      el?.focus()
+    })
+    return false
+  }
+
+  if (cartItems.value.length === 0) {
+    openSections.value.itemSelection = true
+    nextTick(() => {
+      const el = document.querySelector('.item-search-container')
+      el?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    })
+    return false
+  }
+
+  // Check each item
+  for (let i = 0; i < cartItems.value.length; i++) {
+    const item = cartItems.value[i]
+    
+    if (!(parseFloat(item.quantity) > 0)) {
+      openSections.value.itemSelection = true
+      nextTick(() => {
+        const el = document.getElementById(`item-qty-${item.id}`)
+        el?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+        el?.focus()
+      })
+      return false
+    }
+    
+    if (!(item.images && item.images.length > 0)) {
+      openSections.value.itemSelection = true
+      nextTick(() => {
+        const el = document.getElementById(`item-images-${item.id}`)
+        el?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+      })
+      return false
+    }
+  }
+
+  return true
+}
 
 // Computed for summary section
 const hasSelectedStore = computed(() => form.store_branch_id)
@@ -187,20 +246,18 @@ const clearCart = () => {
 
 // Methods
 const performSubmit = () => {
-  // Map cart items to the format expected by the backend
-  const cartItemsData = cartItems.value.map(item => ({
+  // Submit with Inertia's form object directly
+  // Inertia handles nested files automatically when using useForm
+  form.cartItems = cartItems.value.map(item => ({
     sap_masterfile_id: item.sap_masterfile_id,
     quantity: parseFloat(item.quantity),
     cost: parseFloat(item.cost),
     reason: item.reason,
-    images: item.images, // Include per-item images
+    images: item.images, // File objects
   }))
 
-  // Assign the mapped cart items to the form object
-  form.cartItems = cartItemsData;
-
-  // Submit with Inertia's form object directly
   form.post(route('wastage.store'), {
+    forceFormData: true, // Ensure multipart/form-data is used for files
     onSuccess: () => {
       // Clear cart and reset form
       clearCart()
@@ -215,19 +272,29 @@ const performSubmit = () => {
     },
     onError: (errors) => {
       console.error('Form validation errors:', errors)
+      
+      // Extract error messages for better visibility
+      const errorMsg = Object.values(errors).flat().join(' ')
+      
       // Show error toast
       toast.add({
         severity: "error",
         summary: "Error",
-        detail: "Failed to save wastage record. Please check the form.",
-        life: 3000,
+        detail: errorMsg || "Failed to save wastage record. Please check the form.",
+        life: 5000,
       })
     }
   })
 }
 
 const submit = () => {
-  if (!isFormValid.value) {
+  if (!validateAndScroll()) {
+    toast.add({
+      severity: "error",
+      summary: "Validation Error",
+      detail: "Please check the form for missing required fields.",
+      life: 3000,
+    })
     return
   }
 
@@ -344,6 +411,7 @@ const handleReasonBlur = (item) => {
                 optionLabel="label"
                 optionValue="value"
                 class="w-full"
+                :class="{ 'border-red-500': showErrors && !form.store_branch_id }"
               />
               <p v-if="form.errors.store_branch_id" class="text-sm text-red-600">
                 {{ form.errors.store_branch_id }}
@@ -358,7 +426,7 @@ const handleReasonBlur = (item) => {
                 v-model="form.remarks"
                 rows="3"
                 placeholder="Enter remarks"
-                :class="{ 'border-red-500': form.errors.remarks }"
+                :class="{ 'border-red-500': form.errors.remarks || (showErrors && !form.remarks) }"
                 required
               />
               <p v-if="form.errors.remarks" class="text-sm text-red-600">
@@ -403,7 +471,7 @@ const handleReasonBlur = (item) => {
           </div>
 
           <!-- Item Search and Add -->
-          <div class="grid grid-cols-1 md:grid-cols-12 gap-4 mb-6">
+          <div class="grid grid-cols-1 md:grid-cols-12 gap-4 mb-6 item-search-container">
             <!-- Item Search -->
             <div class="space-y-2 md:col-span-8">
               <Label class="text-sm font-medium text-gray-700">Search Items *</Label>
@@ -490,12 +558,14 @@ const handleReasonBlur = (item) => {
                       </td>
                       <td class="px-4 py-4">
                         <Input
+                          :id="`item-qty-${item.id}`"
                           type="number"
                           v-model="item.quantity"
                           @input="updateCartItemQuantity(item.id, $event.target.value)"
                           step="0.001"
                           min="0.001"
                           class="w-24 h-8 text-sm"
+                          :class="{ 'border-red-500': showErrors && !(parseFloat(item.quantity) > 0) }"
                         />
                       </td>
                       <td v-if="canViewCost" class="px-4 py-4">
@@ -527,7 +597,7 @@ const handleReasonBlur = (item) => {
                     <!-- Image Upload Row -->
                     <tr class="bg-gray-50/50 border-b border-gray-200">
                       <td :colspan="canViewCost ? 7 : 5" class="px-4 py-3">
-                        <div class="pl-4 border-l-2 border-blue-200 py-2">
+                        <div :id="`item-images-${item.id}`" class="pl-4 border-l-2 border-blue-200 py-2" :class="{ 'border-red-500': showErrors && !(item.images && item.images.length > 0) }">
                           <ImageUpload
                             v-model="item.images"
                             :label="`Images for ${item.item_code} *`"
@@ -630,7 +700,7 @@ const handleReasonBlur = (item) => {
           <div class="flex flex-col sm:flex-row gap-3">
             <Button
               @click="submit"
-              :disabled="!isFormValid || form.processing || isCartEmpty"
+              :disabled="form.processing"
               class="flex-1"
               size="lg"
             >

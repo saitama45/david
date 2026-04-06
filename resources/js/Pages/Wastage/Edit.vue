@@ -41,6 +41,65 @@ const form = useForm({
 const selectedAutoCompleteItem = ref(null)
 const isLoading = ref(false)
 const cartItems = ref([])
+const showErrors = ref(false)
+
+const validateAndScroll = () => {
+  showErrors.value = true
+  
+  if (!form.store_branch_id) {
+    openSections.value.wastageDetails = true
+    nextTick(() => {
+      const el = document.querySelector('.p-select')
+      el?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    })
+    return false
+  }
+
+  if (!form.remarks || form.remarks.trim() === '') {
+    openSections.value.wastageDetails = true
+    nextTick(() => {
+      const el = document.getElementById('remarks')
+      el?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+      el?.focus()
+    })
+    return false
+  }
+
+  if (cartItems.value.length === 0) {
+    openSections.value.itemSelection = true
+    nextTick(() => {
+      const el = document.querySelector('.item-search-container')
+      el?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    })
+    return false
+  }
+
+  // Check each item
+  for (let i = 0; i < cartItems.value.length; i++) {
+    const item = cartItems.value[i]
+    
+    if (!(parseFloat(item.quantity) > 0)) {
+      openSections.value.itemSelection = true
+      nextTick(() => {
+        const el = document.getElementById(`item-qty-${item.id}`)
+        el?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+        el?.focus()
+      })
+      return false
+    }
+    
+    if (!(item.images?.length > 0 || item.existing_image_urls?.length > 0)) {
+      openSections.value.itemSelection = true
+      nextTick(() => {
+        const el = document.getElementById(`item-images-${item.id}`)
+        el?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+      })
+      return false
+    }
+  }
+
+  return true
+}
 
 // Product details reactive object for item search
 const productDetails = reactive({
@@ -271,11 +330,11 @@ const clearCart = () => {
 
 // Methods
 const submit = () => {
-  if (!isFormValid.value) {
+  if (!validateAndScroll()) {
     toast.add({
-      severity: 'warn',
-      summary: 'Invalid Form',
-      detail: 'Please fill in all required fields.',
+      severity: 'error',
+      summary: 'Validation Error',
+      detail: 'Please check the form for missing required fields.',
       life: 5000
     })
     return
@@ -448,6 +507,7 @@ const handleReasonBlur = (item) => {
                 optionLabel="label"
                 optionValue="value"
                 class="w-full"
+                :class="{ 'border-red-500': showErrors && !form.store_branch_id }"
               />
               <p v-if="form.errors.store_branch_id" class="text-sm text-red-600">
                 {{ form.errors.store_branch_id }}
@@ -462,7 +522,7 @@ const handleReasonBlur = (item) => {
                 v-model="form.remarks"
                 rows="3"
                 placeholder="Enter remarks"
-                :class="{ 'border-red-500': form.errors.remarks }"
+                :class="{ 'border-red-500': form.errors.remarks || (showErrors && !form.remarks) }"
                 required
               />
               <p v-if="form.errors.remarks" class="text-sm text-red-600">
@@ -507,7 +567,7 @@ const handleReasonBlur = (item) => {
           </div>
 
           <!-- Item Search and Add -->
-          <div class="grid grid-cols-1 md:grid-cols-12 gap-4 mb-6">
+          <div class="grid grid-cols-1 md:grid-cols-12 gap-4 mb-6 item-search-container">
             <!-- Item Search -->
             <div class="space-y-2 md:col-span-8">
               <Label class="text-sm font-medium text-gray-700">Search Items *</Label>
@@ -594,12 +654,14 @@ const handleReasonBlur = (item) => {
                       </td>
                       <td class="px-4 py-4">
                         <Input
+                          :id="`item-qty-${item.id}`"
                           type="number"
                           v-model="item.quantity"
                           @input="updateCartItemQuantity(item.id, $event.target.value)"
                           step="0.001"
                           min="0.001"
                           class="w-24 h-8 text-sm"
+                          :class="{ 'border-red-500': showErrors && !(parseFloat(item.quantity) > 0) }"
                         />
                       </td>
                       <td v-if="canViewCost" class="px-4 py-4">
@@ -735,7 +797,7 @@ const handleReasonBlur = (item) => {
           <div class="flex flex-col sm:flex-row gap-3">
             <Button
               @click="submit"
-              :disabled="!isFormValid || form.processing || isCartEmpty"
+              :disabled="form.processing"
               class="flex-1"
               size="lg"
             >
