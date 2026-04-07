@@ -21,461 +21,225 @@ class RolesAndPermissionSeeder extends Seeder
         $role2 = Role::firstOrCreate(['name' => 'store representative']);
         $role3 = Role::firstOrCreate(['name' => 'request approver']);
 
+        $permissions = [
+            "add stock quantity",
+            "approve interco requests",
+            "approve mass order",
+            "approve month end count level 1",
+            "approve month end count level 2",
+            "approve wastage level 1",
+            "approve wastage level 2",
+            "cancel wastage approval level 1",
+            "cancel wastage approval level 2",
+            "commit interco requests",
+            "commit store orders",
+            "create bom",
+            "create branch",
+            "create cs mass commits",
+            "create dts mass orders",
+            "create interco requests",
+            "create knowledge base articles",
+            "create mass orders",
+            "create month end count templates",
+            "create month end schedules",
+            "create new items",
+            "create orders cutoff",
+            "create POSMasterfile",
+            "create POSMasterfile BOM",
+            "create roles",
+            "create sapitems",
+            "create soh adjustment",
+            "create store transactions",
+            "create supplier",
+            "create SupplierItems",
+            "create templates",
+            "create users",
+            "create wastage record",
+            "delete bom",
+            "delete branch",
+            "delete items",
+            "delete knowledge base articles",
+            "delete month end count templates",
+            "delete month end schedules",
+            "delete POSMasterfile",
+            "delete POSMasterfile BOM",
+            "delete roles",
+            "delete sapitems",
+            "delete soh adjustment",
+            "delete supplier",
+            "delete SupplierItems",
+            "delete templates",
+            "delete users",
+            "delete wastage approval level 1",
+            "delete wastage approval level 2",
+            "delete wastage record",
+            "download month end count template",
+            "edit bom",
+            "edit branch",
+            "edit cs dts mass commit",
+            "edit cs mass commits",
+            "edit dsp delivery schedules",
+            "edit dts delivery schedules",
+            "edit dts mass orders",
+            "edit finished good commits",
+            "edit interco requests",
+            "edit items",
+            "edit knowledge base articles",
+            "edit mass orders",
+            "edit month end count approval items",
+            "edit month end count items",
+            "edit month end count templates",
+            "edit month end schedules",
+            "edit ordering template approval",
+            "edit orders cutoff",
+            "edit other commits",
+            "edit POSMasterfile",
+            "edit POSMasterfile BOM",
+            "edit roles",
+            "edit sapitems",
+            "edit soh adjustment",
+            "edit store transactions",
+            "edit supplier",
+            "edit SupplierItems",
+            "edit templates",
+            "edit users",
+            "edit wastage approval level 1",
+            "edit wastage approval level 2",
+            "edit wastage record",
+            "export actual cost cogs report",
+            "export approved orders",
+            "export bom list",
+            "export branches",
+            "export consolidated so report",
+            "export cs mass commits",
+            "export delivery report",
+            "export dts delivery schedules",
+            "export dts mass orders",
+            "export interco receiving",
+            "export interco report",
+            "export interco requests",
+            "export inventory movement report",
+            "export items list",
+            "export month end count templates",
+            "export ordering calendar",
+            "export pmix report",
+            "export POSMasterfile BOM",
+            "export POSMasterfile list",
+            "export qty variance cost variance report",
+            "export sapitems list",
+            "export soh adjustment",
+            "export stock management",
+            "export stock management history",
+            "export store commits",
+            "export store transactions",
+            "export SupplierItems list",
+            "export suppliers",
+            "export templates",
+            "export wastage record",
+            "export wastage report",
+            "import month end count templates",
+            "import POSMasterfile BOM",
+            "log stock usage",
+            "manage references",
+            "perform month end count",
+            "receive interco requests",
+            "receive orders",
+            "reject mass order",
+            "show mass orders",
+            "show orders cutoff",
+            "show roles",
+            "upload month end count transaction",
+            "view actual cost cogs report",
+            "view approved order",
+            "view approved orders",
+            "view bom",
+            "view bom list",
+            "view branches",
+            "view consolidated so report",
+            "view cost mass orders",
+            "view cost wastage record",
+            "view cs dts mass commit",
+            "view cs mass commits",
+            "view delivery report",
+            "view dsp delivery schedule",
+            "view dsp delivery schedules",
+            "view dts delivery schedules",
+            "view dts mass orders",
+            "view import logs",
+            "view interco approvals",
+            "view interco receiving",
+            "view interco receiving approvals",
+            "view interco report",
+            "view interco requests",
+            "view inventory movement report",
+            "view item",
+            "view knowledge base articles",
+            "view mass order approval",
+            "view mass orders",
+            "view month end count approvals",
+            "view month end count approvals level 2",
+            "view month end count templates",
+            "view month end count transaction",
+            "view month end schedules",
+            "view order calculator",
+            "view ordering calendar",
+            "view ordering template approval",
+            "view orders cutoff",
+            "view pmix report",
+            "view POSMasterfile BOM",
+            "view POSMasterfile BOM list",
+            "view POSMasterfile list",
+            "view qty variance cost variance report",
+            "view roles",
+            "view sales budget uploader",
+            "view sapitems list",
+            "view soh adjustment",
+            "view stock management",
+            "view stock management history",
+            "view store commits",
+            "view store transaction",
+            "view store transactions",
+            "view SupplierItems list",
+            "view suppliers",
+            "view templates",
+            "view total cost in wastage approval level 1",
+            "view total cost in wastage approval level 2",
+            "view user",
+            "view users",
+            "view wastage approval level 1",
+            "view wastage approval level 2",
+            "view wastage record",
+            "view wastage report",
+        ];
 
-        // User
-        Permission::firstOrCreate(['name' => 'create users']);
-        Permission::firstOrCreate(['name' => 'view users']);
-        Permission::firstOrCreate(['name' => 'edit users']);
-        Permission::firstOrCreate(['name' => 'view user']);
-        Permission::firstOrCreate(['name' => 'delete users']);
+        foreach ($permissions as $permission) {
+            Permission::firstOrCreate(['name' => $permission]);
+        }
 
-        // Roles
-        Permission::firstOrCreate(['name' => 'view roles']);
-        Permission::firstOrCreate(['name' => 'create roles']);
-        Permission::firstOrCreate(['name' => 'edit roles']);
-        Permission::firstOrCreate(['name' => 'delete roles']);
-        Permission::firstOrCreate(['name' => 'show roles']);
+        // Roles for category-specific editing in CS Mass Commits
+        $editFinishedGood = Permission::where('name', 'edit finished good commits')->first();
+        $editOther = Permission::where('name', 'edit other commits')->first();
 
-        // DTS Delivery Schedules
-        Permission::firstOrCreate(['name' => 'view dts delivery schedules']);
-        Permission::firstOrCreate(['name' => 'edit dts delivery schedules']);
-        Permission::firstOrCreate(['name' => 'export dts delivery schedules']);
-
-        // DSP Delivery Schedules
-        Permission::firstOrCreate(['name' => 'view dsp delivery schedules']);
-        Permission::firstOrCreate(['name' => 'view dsp delivery schedule']);
-        Permission::firstOrCreate(['name' => 'edit dsp delivery schedules']);
-
-        // Ordering Cut Off
-        Permission::firstOrCreate(['name' => 'view orders cutoff']);
-        Permission::firstOrCreate(['name' => 'edit orders cutoff']);
-        Permission::firstOrCreate(['name' => 'create orders cutoff']);
-        Permission::firstOrCreate(['name' => 'show orders cutoff']);
-
-        // Store Orders
-        Permission::firstOrCreate(['name' => 'view store orders']);
-        Permission::firstOrCreate(['name' => 'edit store orders']);
-        Permission::firstOrCreate(['name' => 'create store orders']);
-        Permission::firstOrCreate(['name' => 'view store order']);
-        Permission::firstOrCreate(['name' => 'export store orders']);
-
-        // Ordering Calendar & Calculator
-        Permission::firstOrCreate(['name' => 'view ordering calendar']);
-        Permission::firstOrCreate(['name' => 'export ordering calendar']);
-        Permission::firstOrCreate(['name' => 'view order calculator']);
-
-        // Emergency Orders
-        Permission::firstOrCreate(['name' => 'view emergency orders']);
-        Permission::firstOrCreate(['name' => 'create emergency orders']);
-        Permission::firstOrCreate(['name' => 'edit emergency orders']);
-        Permission::firstOrCreate(['name' => 'delete emergency orders']);
-        Permission::firstOrCreate(['name' => 'export emergency orders']);
-
-        // Additional Orders
-        Permission::firstOrCreate(['name' => 'view additional orders']);
-        Permission::firstOrCreate(['name' => 'create additional orders']);
-        Permission::firstOrCreate(['name' => 'edit additional orders']);
-        Permission::firstOrCreate(['name' => 'delete additional orders']);
-        Permission::firstOrCreate(['name' => 'export additional orders']);
-
-        // Interco Transfers
-        Permission::firstOrCreate(['name' => 'view interco requests']);
-        Permission::firstOrCreate(['name' => 'create interco requests']);
-        Permission::firstOrCreate(['name' => 'edit interco requests']);
-        Permission::firstOrCreate(['name' => 'approve interco requests']);
-        Permission::firstOrCreate(['name' => 'commit interco requests']);
-        Permission::firstOrCreate(['name' => 'export interco requests']);
-
-        // Interco Approvals
-        Permission::firstOrCreate(['name' => 'view interco approvals']);
-
-        // Interco Receiving
-        Permission::firstOrCreate(['name' => 'view interco receiving']);
-        Permission::firstOrCreate(['name' => 'receive interco requests']);
-        Permission::firstOrCreate(['name' => 'view interco receiving approvals']);
-        Permission::firstOrCreate(['name' => 'export interco receiving']);
-
-        // Interco Report
-        Permission::firstOrCreate(['name' => 'view interco report']);
-        Permission::firstOrCreate(['name' => 'export interco report']);
-
-        // Inventory Movement Report
-        Permission::firstOrCreate(['name' => 'view inventory movement report']);
-        Permission::firstOrCreate(['name' => 'export inventory movement report']);
-
-        // Store Commits
-        Permission::firstOrCreate(['name' => 'view store commits']);
-        Permission::firstOrCreate(['name' => 'commit store orders']);
-        Permission::firstOrCreate(['name' => 'export store commits']);
-
-        // DTS Orders
-        Permission::firstOrCreate(['name' => 'view dts orders']);
-        Permission::firstOrCreate(['name' => 'edit dts orders']);
-        Permission::firstOrCreate(['name' => 'create dts orders']);
-        Permission::firstOrCreate(['name' => 'view dts order']);
-        Permission::firstOrCreate(['name' => 'export dts orders']);
-
-        // Direct Receiving
-        Permission::firstOrCreate(['name' => 'view direct receiving']);
-        Permission::firstOrCreate(['name' => 'create direct receiving']);
-        Permission::firstOrCreate(['name' => 'edit direct receiving']);
-        Permission::firstOrCreate(['name' => 'delete direct receiving']);
-        Permission::firstOrCreate(['name' => 'export direct receiving']);
-
-
-        // Orders Approval (SM)
-        Permission::firstOrCreate(['name' => 'view orders for approval list']);
-        Permission::firstOrCreate(['name' => 'view order for approval']);
-        Permission::firstOrCreate(['name' => 'approve/decline order request']);
-
-        // CS Review List
-        Permission::firstOrCreate(['name' => 'view orders for cs approval list']);
-        Permission::firstOrCreate(['name' => 'view order for cs approval']);
-        Permission::firstOrCreate(['name' => 'cs approve/decline order request']);
-        Permission::firstOrCreate(['name' => 'export orders for cs approval list']);
-
-        // Emergency Order Approval
-        Permission::firstOrCreate(['name' => 'view emergency order approval']);
-        Permission::firstOrCreate(['name' => 'approve emergency order']);
-        Permission::firstOrCreate(['name' => 'decline emergency order']);
-
-        // Additional Order Approval
-        Permission::firstOrCreate(['name' => 'view additional order approval']);
-        Permission::firstOrCreate(['name' => 'approve additional order']);
-        Permission::firstOrCreate(['name' => 'decline additional order']);
-
-
-        // Approved Orders
-        Permission::firstOrCreate(['name' => 'view approved orders']);
-        Permission::firstOrCreate(['name' => 'view approved order']);
-        Permission::firstOrCreate(['name' => 'receive orders']);
-        Permission::firstOrCreate(['name' => 'export approved orders']);
-
-        // Receiving Approvals
-        Permission::firstOrCreate(['name' => 'view received orders for approval list']);
-        Permission::firstOrCreate(['name' => 'view approved order for approval']);
-        Permission::firstOrCreate(['name' => 'approve received orders']);
-        Permission::firstOrCreate(['name' => 'approve image attachments']);
-        Permission::firstOrCreate(['name' => 'export received orders for approval list']);
-
-        // Approved Received Items
-        Permission::firstOrCreate(['name' => 'view approved received items']);
-        Permission::firstOrCreate(['name' => 'view approved received item']);
-        Permission::firstOrCreate(['name' => 'cancel approved received item']);
-        Permission::firstOrCreate(['name' => 'export approved received items']);
-
-        // Store Transactions
-        Permission::firstOrCreate(['name' => 'view store transactions']);
-        Permission::firstOrCreate(['name' => 'create store transactions']);
-        Permission::firstOrCreate(['name' => 'view store transaction']);
-        Permission::firstOrCreate(['name' => 'edit store transactions']);
-        Permission::firstOrCreate(['name' => 'export store transactions']);
-
-        // Store Transactions Approval
-        Permission::firstOrCreate(['name' => 'view store transactions approval']);
-        Permission::firstOrCreate(['name' => 'approve store transactions']);
-        Permission::firstOrCreate(['name' => 'decline store transactions']);
-
-        // Items
-        Permission::firstOrCreate(['name' => 'view items list']);
-        Permission::firstOrCreate(['name' => 'create new items']);
-        Permission::firstOrCreate(['name' => 'edit items']);
-        Permission::firstOrCreate(['name' => 'view item']);
-        Permission::firstOrCreate(['name' => 'delete items']);
-        Permission::firstOrCreate(['name' => 'export items list']);
-
-        // Work Queue
-        Permission::firstOrCreate(['name' => 'view import logs']);
-
-        // SAP, Supplier, POS Masterfile Items
-        Permission::firstOrCreate(['name' => 'view sapitems list']);
-        Permission::firstOrCreate(['name' => 'create sapitems']);
-        Permission::firstOrCreate(['name' => 'edit sapitems']);
-        Permission::firstOrCreate(['name' => 'delete sapitems']);
-        Permission::firstOrCreate(['name' => 'export sapitems list']);
-
-        Permission::firstOrCreate(['name' => 'view SupplierItems list']);
-        Permission::firstOrCreate(['name' => 'create SupplierItems']);
-        Permission::firstOrCreate(['name' => 'edit SupplierItems']);
-        Permission::firstOrCreate(['name' => 'delete SupplierItems']);
-        Permission::firstOrCreate(['name' => 'export SupplierItems list']);
-
-        Permission::firstOrCreate(['name' => 'view POSMasterfile list']);
-        Permission::firstOrCreate(['name' => 'create POSMasterfile']);
-        Permission::firstOrCreate(['name' => 'edit POSMasterfile']);
-        Permission::firstOrCreate(['name' => 'delete POSMasterfile']);
-        Permission::firstOrCreate(['name' => 'export POSMasterfile list']);
-
-        // POSMasterfileBOM Permissions
-        Permission::firstOrCreate(['name' => 'view POSMasterfile BOM list']);
-        Permission::firstOrCreate(['name' => 'view POSMasterfile BOM']);
-        Permission::firstOrCreate(['name' => 'create POSMasterfile BOM']);
-        Permission::firstOrCreate(['name' => 'edit POSMasterfile BOM']);
-        Permission::firstOrCreate(['name' => 'delete POSMasterfile BOM']);
-        Permission::firstOrCreate(['name' => 'import POSMasterfile BOM']);
-        Permission::firstOrCreate(['name' => 'export POSMasterfile BOM']);
-
-
-        // BOM
-        Permission::firstOrCreate(['name' => 'view bom list']);
-        Permission::firstOrCreate(['name' => 'view bom']);
-        Permission::firstOrCreate(['name' => 'create bom']);
-        Permission::firstOrCreate(['name' => 'edit bom']);
-        Permission::firstOrCreate(['name' => 'delete bom']);
-        Permission::firstOrCreate(['name' => 'export bom list']);
-
-        // Stock Management
-        Permission::firstOrCreate(['name' => 'view stock management']);
-        Permission::firstOrCreate(['name' => 'log stock usage']);
-        Permission::firstOrCreate(['name' => 'add stock quantity']);
-        Permission::firstOrCreate(['name' => 'view stock management history']);
-        Permission::firstOrCreate(['name' => 'export stock management']);
-        Permission::firstOrCreate(['name' => 'export stock management history']);
-
-        // SOH Adjustment
-        Permission::firstOrCreate(['name' => 'view soh adjustment']);
-        Permission::firstOrCreate(['name' => 'create soh adjustment']);
-        Permission::firstOrCreate(['name' => 'edit soh adjustment']);
-        Permission::firstOrCreate(['name' => 'delete soh adjustment']);
-        Permission::firstOrCreate(['name' => 'export soh adjustment']);
-
-        // Wastage Record
-        Permission::firstOrCreate(['name' => 'view wastage record']);
-        Permission::firstOrCreate(['name' => 'create wastage record']);
-        Permission::firstOrCreate(['name' => 'edit wastage record']);
-        Permission::firstOrCreate(['name' => 'delete wastage record']);
-        Permission::firstOrCreate(['name' => 'export wastage record']);
-        Permission::firstOrCreate(['name' => 'view cost wastage record']);
-
-        // Wastage Approval 1st Level
-        Permission::firstOrCreate(['name' => 'view wastage approval level 1']);
-        Permission::firstOrCreate(['name' => 'approve wastage level 1']);
-        Permission::firstOrCreate(['name' => 'cancel wastage approval level 1']);
-        Permission::firstOrCreate(['name' => 'edit wastage approval level 1']);
-        Permission::firstOrCreate(['name' => 'delete wastage approval level 1']);
-        Permission::firstOrCreate(['name' => 'view total cost in wastage approval level 1']);
-
-        // Wastage Approval 2nd Level
-        Permission::firstOrCreate(['name' => 'view wastage approval level 2']);
-        Permission::firstOrCreate(['name' => 'approve wastage level 2']);
-        Permission::firstOrCreate(['name' => 'cancel wastage approval level 2']);
-        Permission::firstOrCreate(['name' => 'edit wastage approval level 2']);
-        Permission::firstOrCreate(['name' => 'delete wastage approval level 2']);
-        Permission::firstOrCreate(['name' => 'view total cost in wastage approval level 2']);
-
-        // Low on Stocks
-        Permission::firstOrCreate(['name' => 'view low on stocks']);
-        Permission::firstOrCreate(['name' => 'export low on stocks']);
-
-        // Items Order Summary
-        Permission::firstOrCreate(['name' => 'view items order summary']);
-        Permission::firstOrCreate(['name' => 'view ice cream orders']);
-        Permission::firstOrCreate(['name' => 'view salmon orders']);
-        Permission::firstOrCreate(['name' => 'view fruits and vegetables orders']);
-        Permission::firstOrCreate(['name' => 'export items order summary']);
-        Permission::firstOrCreate(['name' => 'export ice cream orders']);
-        Permission::firstOrCreate(['name' => 'export salmon orders']);
-        Permission::firstOrCreate(['name' => 'export fruits and vegetables orders']);
-
-        // Templates
-        Permission::firstOrCreate(['name' => 'view templates']);
-        Permission::firstOrCreate(['name' => 'create templates']);
-        Permission::firstOrCreate(['name' => 'edit templates']);
-        Permission::firstOrCreate(['name' => 'delete templates']);
-        Permission::firstOrCreate(['name' => 'export templates']);
-
-        // Manage References
-        Permission::firstOrCreate(['name' => 'manage references']);
-
-        // Reference Sub-categories
-        Permission::firstOrCreate(['name' => 'view category list']);
-        Permission::firstOrCreate(['name' => 'create category']);
-        Permission::firstOrCreate(['name' => 'edit category']);
-        Permission::firstOrCreate(['name' => 'delete category']);
-        Permission::firstOrCreate(['name' => 'export category list']);
-
-        Permission::firstOrCreate(['name' => 'view wip list']);
-        Permission::firstOrCreate(['name' => 'create wip']);
-        Permission::firstOrCreate(['name' => 'edit wip']);
-        Permission::firstOrCreate(['name' => 'delete wip']);
-        Permission::firstOrCreate(['name' => 'export wip list']);
-
-        Permission::firstOrCreate(['name' => 'view menu categories']);
-        Permission::firstOrCreate(['name' => 'create menu category']);
-        Permission::firstOrCreate(['name' => 'edit menu category']);
-        Permission::firstOrCreate(['name' => 'delete menu category']);
-        Permission::firstOrCreate(['name' => 'export menu categories']);
-
-        Permission::firstOrCreate(['name' => 'view uom conversions']);
-        Permission::firstOrCreate(['name' => 'create uom conversion']);
-        Permission::firstOrCreate(['name' => 'edit uom conversion']);
-        Permission::firstOrCreate(['name' => 'delete uom conversion']);
-        Permission::firstOrCreate(['name' => 'export uom conversions']);
-
-        Permission::firstOrCreate(['name' => 'view inventory categories']);
-        Permission::firstOrCreate(['name' => 'create inventory category']);
-        Permission::firstOrCreate(['name' => 'edit inventory category']);
-        Permission::firstOrCreate(['name' => 'delete inventory category']);
-        Permission::firstOrCreate(['name' => 'export inventory categories']);
-
-        Permission::firstOrCreate(['name' => 'view unit of measurements']);
-        Permission::firstOrCreate(['name' => 'create unit of measurement']);
-        Permission::firstOrCreate(['name' => 'edit unit of measurement']);
-        Permission::firstOrCreate(['name' => 'delete unit of measurement']);
-        Permission::firstOrCreate(['name' => 'export unit of measurements']);
-
-        Permission::firstOrCreate(['name' => 'view branches']);
-        Permission::firstOrCreate(['name' => 'create branch']);
-        Permission::firstOrCreate(['name' => 'edit branch']);
-        Permission::firstOrCreate(['name' => 'delete branch']);
-        Permission::firstOrCreate(['name' => 'export branches']);
-
-        Permission::firstOrCreate(['name' => 'view suppliers']);
-        Permission::firstOrCreate(['name' => 'create supplier']);
-        Permission::firstOrCreate(['name' => 'edit supplier']);
-        Permission::firstOrCreate(['name' => 'delete supplier']);
-        Permission::firstOrCreate(['name' => 'export suppliers']);
-
-        Permission::firstOrCreate(['name' => 'view cost centers']);
-        Permission::firstOrCreate(['name' => 'create cost center']);
-        Permission::firstOrCreate(['name' => 'edit cost center']);
-        Permission::firstOrCreate(['name' => 'delete cost center']);
-        Permission::firstOrCreate(['name' => 'export cost centers']);
-
-        // Ordering Template Approval
-        Permission::firstOrCreate(['name' => 'view ordering template approval']);
-        Permission::firstOrCreate(['name' => 'edit ordering template approval']);
-
-        // Mass Orders
-        Permission::firstOrCreate(['name' => 'view mass orders']);
-        Permission::firstOrCreate(['name' => 'create mass orders']);
-        Permission::firstOrCreate(['name' => 'edit mass orders']);
-        Permission::firstOrCreate(['name' => 'show mass orders']);
-        Permission::firstOrCreate(['name' => 'view cost mass orders']);
-
-        // Mass Orders Approval
-        Permission::firstOrCreate(['name' => 'view mass order approval']);
-        Permission::firstOrCreate(['name' => 'approve mass order']);
-        Permission::firstOrCreate(['name' => 'reject mass order']);
-
-        // DTS Mass Orders
-        Permission::firstOrCreate(['name' => 'view dts mass orders']);
-        Permission::firstOrCreate(['name' => 'create dts mass orders']);
-        Permission::firstOrCreate(['name' => 'edit dts mass orders']);
-        Permission::firstOrCreate(['name' => 'export dts mass orders']);
-
-        // CS Mass Commit
-        Permission::firstOrCreate(['name' => 'view cs mass commits']);
-        Permission::firstOrCreate(['name' => 'create cs mass commits']);
-        Permission::firstOrCreate(['name' => 'edit cs mass commits']);
-        Permission::firstOrCreate(['name' => 'export cs mass commits']);
-
-        // CS DTS Mass Commit
-        Permission::firstOrCreate(['name' => 'view cs dts mass commit']);
-        Permission::firstOrCreate(['name' => 'edit cs dts mass commit']);
-
-        // Permissions for category-specific editing in CS Mass Commits
-        $editFinishedGood = Permission::firstOrCreate(['name' => 'edit finished good commits']);
-        $editOther = Permission::firstOrCreate(['name' => 'edit other commits']);
-
-        // Roles for category-specific editing
         $finishedGoodEditorRole = Role::firstOrCreate(['name' => 'Finished Goods CS']);
-        $finishedGoodEditorRole->syncPermissions([$editFinishedGood]);
+        if ($editFinishedGood) {
+            $finishedGoodEditorRole->syncPermissions([$editFinishedGood]);
+        }
 
         $generalEditorRole = Role::firstOrCreate(['name' => 'General CS']);
-        $generalEditorRole->syncPermissions([$editOther]);
-
-        // Month End Schedules
-        Permission::firstOrCreate(['name' => 'view month end schedules']);
-        Permission::firstOrCreate(['name' => 'create month end schedules']);
-        Permission::firstOrCreate(['name' => 'edit month end schedules']);
-        Permission::firstOrCreate(['name' => 'delete month end schedules']);
-
-        // Month End Count Templates
-        Permission::firstOrCreate(['name' => 'view month end count templates']);
-        Permission::firstOrCreate(['name' => 'create month end count templates']);
-        Permission::firstOrCreate(['name' => 'edit month end count templates']);
-        Permission::firstOrCreate(['name' => 'delete month end count templates']);
-        Permission::firstOrCreate(['name' => 'export month end count templates']);
-        Permission::firstOrCreate(['name' => 'import month end count templates']);
-
-        // Month End Count
-        Permission::firstOrCreate(['name' => 'perform month end count']);
-        Permission::firstOrCreate(['name' => 'download month end count template']);
-        Permission::firstOrCreate(['name' => 'upload month end count transaction']);
-        Permission::firstOrCreate(['name' => 'edit month end count items']);
-        Permission::firstOrCreate(['name' => 'view month end count transaction']);
-
-        // Month End Count Approvals
-        Permission::firstOrCreate(['name' => 'view month end count approvals']);
-        Permission::firstOrCreate(['name' => 'edit month end count approval items']);
-        Permission::firstOrCreate(['name' => 'approve month end count level 1']);
-        Permission::firstOrCreate(['name' => 'approve month end count level 2']);
-        Permission::firstOrCreate(['name' => 'view month end count approvals level 2']);
-
-        // Reports from DashboardController
-        Permission::firstOrCreate(['name' => 'view top 10 inventories']);
-        Permission::firstOrCreate(['name' => 'export top 10 inventories']);
-        Permission::firstOrCreate(['name' => 'view days inventory outstanding']);
-        Permission::firstOrCreate(['name' => 'export days inventory outstanding']);
-        Permission::firstOrCreate(['name' => 'view days payable outstanding']);
-        Permission::firstOrCreate(['name' => 'export days payable outstanding']);
-        Permission::firstOrCreate(['name' => 'view sales report']);
-        Permission::firstOrCreate(['name' => 'export sales report']);
-        Permission::firstOrCreate(['name' => 'view inventories report']);
-        Permission::firstOrCreate(['name' => 'export inventories report']);
-        Permission::firstOrCreate(['name' => 'view upcoming inventories']);
-        Permission::firstOrCreate(['name' => 'export upcoming inventories']);
-        Permission::firstOrCreate(['name' => 'view account payable']);
-        Permission::firstOrCreate(['name' => 'export account payable']);
-        Permission::firstOrCreate(['name' => 'view cost of goods']);
-        Permission::firstOrCreate(['name' => 'export cost of goods']);
-
-        // Consolidated SO Report permissions
-        Permission::firstOrCreate(['name' => 'view consolidated so report']);
-        Permission::firstOrCreate(['name' => 'export consolidated so report']);
-
-        // PMIX Report permissions
-        Permission::firstOrCreate(['name' => 'view pmix report']);
-        Permission::firstOrCreate(['name' => 'export pmix report']);
-
-        // Wastage Report permissions
-        Permission::firstOrCreate(['name' => 'view wastage report']);
-        Permission::firstOrCreate(['name' => 'export wastage report']);
-
-        // Qty Variance / Cost Variance Report permissions
-        Permission::firstOrCreate(['name' => 'view qty variance cost variance report']);
-        Permission::firstOrCreate(['name' => 'export qty variance cost variance report']);
-
-        // Actual Cost / Cost of Goods Sold Report permissions
-        Permission::firstOrCreate(['name' => 'view actual cost cogs report']);
-        Permission::firstOrCreate(['name' => 'export actual cost cogs report']);
-
-        // Delivery Report permissions
-        Permission::firstOrCreate(['name' => 'view delivery report']);
-        Permission::firstOrCreate(['name' => 'export delivery report']);
-
-
-        // Knowledge Base Articles
-        Permission::firstOrCreate(['name' => 'view knowledge base articles']);
-        Permission::firstOrCreate(['name' => 'create knowledge base articles']);
-        Permission::firstOrCreate(['name' => 'edit knowledge base articles']);
-        Permission::firstOrCreate(['name' => 'delete knowledge base articles']);
+        if ($editOther) {
+            $generalEditorRole->syncPermissions([$editOther]);
+        }
 
         // Assign all permissions to the 'admin' role
         $role->syncPermissions(Permission::all());
 
         // Assign specific permissions to 'store representative'
         $role2->syncPermissions([
-            'view store orders', 'create store orders', 'edit store orders', 'view store order',
-            'view dts orders', 'edit dts orders', 'view dts order', 'create dts orders',
+            'view dts mass orders', 'create dts mass orders', 'edit dts mass orders',
             'view approved orders', 'view approved order', 'receive orders',
             'view stock management', 'log stock usage', 'add stock quantity', 'view stock management history',
             'export stock management history',
-            'view items order summary', 'view templates', 'view low on stocks',
-            'view emergency orders', 'create emergency orders', 'edit emergency orders',
-            'view additional orders', 'create additional orders', 'edit additional orders',
-            'view direct receiving', 'create direct receiving', 'edit direct receiving',
+            'view templates', 'view low on stocks',
             'view interco requests', 'create interco requests', 'edit interco requests',
             'view interco receiving', 'receive interco requests',
             'view interco report',
@@ -486,7 +250,7 @@ class RolesAndPermissionSeeder extends Seeder
             'view wastage record', 'create wastage record', 'edit wastage record',
             'view ice cream orders', 'view salmon orders', 'view fruits and vegetables orders',
             'view category list', 'view wip list', 'view menu categories', 'view uom conversions',
-            'view inventory categories', 'view unit of measurements', 'view branches', 'view suppliers', 'view cost centers',
+            'view inventory categories', 'view unit of measurements', 'view branches', 'view suppliers',
             'view top 10 inventories', 'view days inventory outstanding', 'view days payable outstanding',
             'view sales report', 'view inventories report', 'view upcoming inventories',
             'view account payable', 'view cost of goods',
@@ -506,19 +270,15 @@ class RolesAndPermissionSeeder extends Seeder
 
         // Assign specific permissions to 'request approver'
         $role3->syncPermissions([
-            'view orders for approval list', 'view order for approval', 'approve/decline order request',
-            'view approved received items', 'view approved received item', 'view received orders for approval list',
-            'view approved order for approval', 'approve image attachments',
-            'view emergency order approval', 'approve emergency order', 'decline emergency order',
-            'view additional order approval', 'approve additional order', 'decline additional order',
-            'view store transactions approval', 'approve store transactions', 'decline store transactions',
+            'view approved received items', 'view received orders for approval list',
+            'view approved order for approval',
+            'view store transactions approval',
             'view interco requests', 'approve interco requests', 'commit interco requests',
             'view interco approvals',
             'view interco receiving', 'view interco receiving approvals', 'export interco receiving',
             'view interco report', 'export interco report',
             'view store commits', 'commit store orders', 'export store commits',
             'view wastage record',
-            'export orders for cs approval list',
             'view consolidated so report',
             'view pmix report', 'export pmix report',
             'view wastage report', 'export wastage report',
