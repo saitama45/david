@@ -106,7 +106,19 @@ const approveWastage = (id) => {
             isLoading.value = true;
             remarksForm.order_id = id;
             remarksForm.post(route("wastage-approval-lvl1.approve"), {
-                onSuccess: () => {
+                onSuccess: (page) => {
+                    // Check if the backend returned validation errors for the approval
+                    if (page.props.approval_error || (page.props.approval_stock_errors && page.props.approval_stock_errors.length > 0)) {
+                        isLoading.value = false;
+                        toast.add({
+                            severity: "error",
+                            summary: "Approval Failed",
+                            detail: page.props.approval_error || "Please check the errors below.",
+                            life: 5000,
+                        });
+                        return;
+                    }
+
                     toast.add({
                         severity: "success",
                         summary: "Success",
