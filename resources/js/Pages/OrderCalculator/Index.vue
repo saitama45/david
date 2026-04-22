@@ -11,7 +11,8 @@ import {
   Info, 
   Calculator,
   ChevronDown,
-  ChevronRight
+  ChevronRight,
+  Download
 } from 'lucide-vue-next';
 
 const props = defineProps({
@@ -40,6 +41,37 @@ const form = ref({
 
 const items = ref([]);
 const loading = ref(false);
+
+const exporting = ref(false);
+const exportExcel = async () => {
+    if (computedItems.value.length === 0) return;
+    
+    exporting.value = true;
+    try {
+        const response = await axios.post('/ordering-tools/order-calculator/export', {
+            items: computedItems.value,
+            headers: {
+                store_name: selectedStoreName.value,
+                template_name: selectedTemplateName.value,
+                start_week: format(parseISO(props.startOfForecastingWeek), 'MM/dd/yyyy'),
+                target_dtl: format(parseISO(form.value.target_dtl), 'MM/dd/yyyy'),
+            },
+            filename: `Order_Calculator_${selectedStoreName.value.replace(/[^a-z0-9]/gi, '_')}_${format(new Date(), 'yyyyMMdd_HHmmss')}`
+        }, { responseType: 'blob' });
+
+        const url = window.URL.createObjectURL(new Blob([response.data]));
+        const link = document.createElement('a');
+        link.href = url;
+        link.setAttribute('download', `Order_Calculator_${selectedStoreName.value.replace(/[^a-z0-9]/gi, '_')}.xlsx`);
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+    } catch (error) {
+        console.error("Failed to export Excel:", error);
+    } finally {
+        exporting.value = false;
+    }
+};
 
 const monthOptions = computed(() => {
     const options = [];
@@ -265,6 +297,11 @@ const selectedStoreName = computed(() => {
                                 <Store class="w-3 h-3" /> {{ selectedStoreName }} | <CalendarIcon class="w-3 h-3" /> Start of Forecasting: {{ format(parseISO(startOfForecastingWeek), 'MM/dd/yyyy') }}
                             </p>
                         </div>
+                        <Button @click="exportExcel" :disabled="exporting" variant="outline" size="sm" class="flex items-center gap-2 border-green-600 text-green-700 hover:bg-green-50">
+                            <Download class="w-4 h-4" />
+                            <span v-if="exporting">Exporting...</span>
+                            <span v-else>Export Excel</span>
+                        </Button>
                     </div>
                 </CardHeader>
                 <CardContent class="p-0 overflow-x-auto">

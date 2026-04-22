@@ -128,6 +128,7 @@ Route::middleware('auth')
         Route::controller(OrderCalculatorController::class)->name('order-calculator.')->prefix('ordering-tools/order-calculator')->group(function () {
             Route::middleware('permission:view order calculator')->get('/', 'index')->name('index');
             Route::middleware('permission:view order calculator')->post('/calculate', 'calculate')->name('calculate');
+            Route::middleware('permission:view order calculator')->post('/export', 'export')->name('export');
         });
         
         Route::resource('additional-orders-approval', AdditionalOrderApprovalController::class)->middleware('permission:view additional order approval'); // Added middleware

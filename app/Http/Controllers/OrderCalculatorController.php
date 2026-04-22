@@ -8,6 +8,8 @@ use App\Models\Supplier;
 use App\Models\StoreBranch;
 use App\Http\Services\OrderCalculatorService;
 use Carbon\Carbon;
+use Maatwebsite\Excel\Facades\Excel;
+use App\Exports\OrderCalculatorExport;
 
 class OrderCalculatorController extends Controller
 {
@@ -86,5 +88,44 @@ class OrderCalculatorController extends Controller
         );
 
         return response()->json($data);
+    }
+
+    public function export(Request $request)
+    {
+        $validated = $request->validate([
+            'items' => 'required|array',
+            'headers' => 'required|array',
+            'filename' => 'required|string'
+        ]);
+
+        $items = collect($validated['items'])->map(function($item) {
+            return [
+                $item['item_code'],
+                $item['item_name'],
+                $item['category'],
+                $item['brand'],
+                $item['classification'],
+                $item['packaging_config'],
+                $item['uom'],
+                $item['sunday_ending_inventory'],
+                $item['incoming_deliveries'],
+                $item['incremental'],
+                $item['calculated_adu']['rate'],
+                $item['calculated_adu']['dtl1'],
+                $item['calculated_adu']['dtl2'],
+                $item['calculated_adu']['revisedRate'],
+                $item['calculated_adu']['suggestedOrder'],
+                $item['calculated_pmix']['rate'],
+                $item['calculated_pmix']['dtl1'],
+                $item['calculated_pmix']['dtl2'],
+                $item['calculated_pmix']['revisedRate'],
+                $item['calculated_pmix']['suggestedOrder'],
+            ];
+        });
+
+        return Excel::download(
+            new OrderCalculatorExport($items, $validated['headers']), 
+            $validated['filename'] . '.xlsx'
+        );
     }
 }
