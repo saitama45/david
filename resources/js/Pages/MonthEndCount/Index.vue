@@ -148,12 +148,16 @@ const viewReviewPage = (scheduleId, branchId) => {
             <h2 class="text-xl font-semibold text-gray-800 mb-4">Month End Count Process</h2>
 
             <!-- Download Section -->
-            <div v-if="downloadSchedule" class="mb-6 p-4 border border-blue-300 bg-blue-50 rounded-md text-blue-800">
-                <p v-if="can.download_month_end_count_template" class="font-medium">{{ message }}</p>
+            <!-- <div v-if="downloadSchedule" class="mb-6 p-4 border border-blue-300 bg-blue-50 rounded-md text-blue-800"> -->
+            <div class="mb-6 p-4 border border-blue-300 bg-blue-50 rounded-md text-blue-800">
+                <p class="font-medium">Month End Count Template Download</p>
+                <!-- <p v-if="can.download_month_end_count_template" class="font-medium">{{ message }}</p>
                 <p v-else class="font-medium">A month end count is scheduled. Please contact your administrator to get the required permissions to download the template.</p>
-                <p class="text-sm mt-1">Scheduled for: {{ getMonthName(downloadSchedule.month) }} {{ downloadSchedule.year }} (MEC Schedule Date: {{ downloadSchedule.calculated_date }})</p>
+                <p class="font-medium">{{ message }}</p> -->
+                <p v-if="downloadSchedule" class="text-sm mt-1">Scheduled for: {{ getMonthName(downloadSchedule.month) }} {{ downloadSchedule.year }} (MEC Schedule Date: {{ downloadSchedule.calculated_date }})</p>
 
-                <div v-if="can.download_month_end_count_template">
+                <!-- <div v-if="can.download_month_end_count_template"> -->
+                <div>
                     <div class="mt-4">
                         <Label for="download_branch">Select Branch for Download</Label>
                         <Select
@@ -178,7 +182,7 @@ const viewReviewPage = (scheduleId, branchId) => {
             </div>
 
             <!-- Upload Section -->
-            <div v-else-if="hasBranchesToUpload" class="mb-6 p-4 border border-green-300 bg-green-50 rounded-md text-green-800">
+            <div v-if="hasBranchesToUpload" class="mb-6 p-4 border border-green-300 bg-green-50 rounded-md text-green-800">
                 <p v-if="can.upload_month_end_count_transaction" class="font-medium">{{ message }}</p>
                 <p v-else class="font-medium">A month end count is pending upload. Please contact your administrator to get the required permissions to upload the count sheet.</p>
                 <p v-if="uploadSchedule" class="text-sm mt-1">Scheduled for: {{ getMonthName(uploadSchedule.month) }} {{ uploadSchedule.year }} (MEC Schedule Date: {{ uploadSchedule.calculated_date }})</p>
