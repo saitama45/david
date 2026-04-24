@@ -189,7 +189,7 @@ const formatNumber = (num) => {
             </div>
         </div>
 
-        <div class="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+        <div class="bg-white rounded-xl border border-gray-200 shadow-sm overflow-visible">
             <div v-if="isLoading" class="absolute inset-0 bg-white/80 flex items-center justify-center z-10">
                 <div class="flex items-center gap-3 text-gray-600">
                     <div class="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600"></div>
@@ -197,9 +197,9 @@ const formatNumber = (num) => {
                 </div>
             </div>
 
-            <div class="overflow-x-auto">
-                <table class="min-w-full divide-y divide-gray-200">
-                    <thead class="bg-gray-50">
+            <div class="overflow-visible">
+                <table class="min-w-full border-separate border-spacing-0">
+                    <thead class="sticky top-0 z-20 bg-gray-50 shadow-sm">
                         <tr>
                             <th colspan="3" class="px-3 py-3 text-center text-xs font-bold text-gray-500 uppercase tracking-wider border-r border-gray-200 bg-gray-100">Item Info</th>
                             <th colspan="3" class="px-3 py-3 text-center text-xs font-bold text-gray-500 uppercase tracking-wider border-r border-gray-200 bg-blue-50">Procurement (Date Range)</th>

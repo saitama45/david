@@ -878,7 +878,7 @@ const registerDoughnutLabelPlugin = () => {
                 -->
             </div>
 
-            <div class="sm:grid sm:grid-cols-3 sm:grid-rows-3 gap-4">
+            <div class="sm:grid sm:grid-cols-3 gap-4">
                 <!-- Full width charts (Multi-line support for stores) -->
                 <template v-for="(chart, index) in salesCharts" :key="'sales-chart-' + index">
                     <Chart
@@ -889,55 +889,58 @@ const registerDoughnutLabelPlugin = () => {
                     />
                 </template>
 
-                <!-- First row after full width -->
-                <!-- For DIO -->
-                <Chart
-                    type="doughnut"
-                    :data="chartDataDoughnut"
-                    :options="chartOptionsDoughnut"
-                    class="h-[30rem]"
-                    @click="goToDIO"
-                />
-
-                <div class="flex flex-col row-span-2">
-                    <Select
-                        v-model="inventory_type"
-                        placeholder="Inventory Type"
-                        :options="inventoryOptions"
-                        optionLabel="label"
-                        optionValue="value"
-                    ></Select>
+                <!-- Temporarily hidden: lower dashboard details below the sales bar chart. -->
+                <template v-if="false">
+                    <!-- First row after full width -->
+                    <!-- For DIO -->
                     <Chart
-                        class="w-full h-full"
-                        type="bar"
-                        :data="chartDataHorizontal"
-                        :options="chartOptionsHorizontal"
-                        @click="goToTop10"
+                        type="doughnut"
+                        :data="chartDataDoughnut"
+                        :options="chartOptionsDoughnut"
+                        class="h-[30rem]"
+                        @click="goToDIO"
                     />
-                </div>
-                <!-- For DPO -->
-                <Chart
-                    type="doughnut"
-                    :data="chartDataDoughnutAccountPayable"
-                    :options="chartOptionsDoughnutAccountPayable"
-                    class="h-[30rem]"
-                    @click="goToDPO"
-                />
 
-                <!-- Last row -->
-                <Chart
-                    type="line"
-                    :data="chartDataLine"
-                    :options="chartOptionsLine"
-                    class="h-[30rem]"
-                />
+                    <div class="flex flex-col row-span-2">
+                        <Select
+                            v-model="inventory_type"
+                            placeholder="Inventory Type"
+                            :options="inventoryOptions"
+                            optionLabel="label"
+                            optionValue="value"
+                        ></Select>
+                        <Chart
+                            class="w-full h-full"
+                            type="bar"
+                            :data="chartDataHorizontal"
+                            :options="chartOptionsHorizontal"
+                            @click="goToTop10"
+                        />
+                    </div>
+                    <!-- For DPO -->
+                    <Chart
+                        type="doughnut"
+                        :data="chartDataDoughnutAccountPayable"
+                        :options="chartOptionsDoughnutAccountPayable"
+                        class="h-[30rem]"
+                        @click="goToDPO"
+                    />
 
-                <Chart
-                    type="bar"
-                    :data="chartDataStacked"
-                    :options="chartOptionsStacked"
-                    class="h-[30rem]"
-                />
+                    <!-- Last row -->
+                    <Chart
+                        type="line"
+                        :data="chartDataLine"
+                        :options="chartOptionsLine"
+                        class="h-[30rem]"
+                    />
+
+                    <Chart
+                        type="bar"
+                        :data="chartDataStacked"
+                        :options="chartOptionsStacked"
+                        class="h-[30rem]"
+                    />
+                </template>
             </div>
         </section>
     </Layout>

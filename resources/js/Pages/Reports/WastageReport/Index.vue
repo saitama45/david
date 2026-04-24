@@ -410,7 +410,7 @@ const getStatusClass = (status) => {
         </div>
 
         <!-- Enhanced Data Table -->
-        <div class="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+        <div class="bg-white rounded-xl border border-gray-200 shadow-sm overflow-visible">
             <!-- Loading Overlay -->
             <div v-if="isLoading" class="absolute inset-0 bg-white/80 flex items-center justify-center z-10">
                 <div class="flex items-center gap-3 text-gray-600">
@@ -420,9 +420,9 @@ const getStatusClass = (status) => {
             </div>
 
             <!-- Desktop Table -->
-            <div class="hidden lg:block overflow-x-auto">
-                <table class="min-w-full">
-                    <thead class="bg-gray-50 border-b border-gray-200">
+            <div class="hidden lg:block overflow-visible">
+                <table class="min-w-full border-separate border-spacing-0">
+                    <thead class="sticky top-0 z-20 bg-gray-50 shadow-sm">
                         <tr class="text-xs text-gray-500 uppercase tracking-wider">
                             <th class="px-6 py-4 text-left font-medium">Wastage #</th>
                             <th class="px-6 py-4 text-left font-medium">Store</th>
