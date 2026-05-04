@@ -7,6 +7,7 @@ use App\Models\MonthEndCountItem;
 use App\Models\StoreBranch;
 use App\Models\ProductInventoryStock;
 use App\Models\ProductInventoryStockManager;
+use App\Support\StockQuantity;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Carbon;
@@ -265,25 +266,26 @@ class MonthEndCountApprovalController extends Controller
             foreach ($countItems as $item) {
                 // Update ProductInventoryStock
                 $productStock = ProductInventoryStock::firstOrNew([
-                    'product_inventory_id' => $item->sap_masterfile_id,
-                    'store_branch_id' => $item->branch_id,
+                    'product_inventory_id' => (int) $item->sap_masterfile_id,
+                    'store_branch_id' => (int) $item->branch_id,
                 ]);
 
-                $oldQuantity = $productStock->exists ? $productStock->quantity : 0;
-                $adjustmentQuantity = $item->total_qty - $oldQuantity;
+                $finalQuantity = StockQuantity::normalize($item->total_qty);
+                $oldQuantity = $productStock->exists ? StockQuantity::normalize($productStock->quantity) : StockQuantity::normalize(0);
+                $adjustmentQuantity = StockQuantity::adjustment($finalQuantity, $oldQuantity);
 
-                $productStock->quantity = $item->total_qty;
+                $productStock->quantity = $finalQuantity;
                 $productStock->recently_added = 0;
                 $productStock->used = 0;
                 $productStock->save();
 
                 // Log adjustment in ProductInventoryStockManager
-                if ($adjustmentQuantity != 0) {
+                if (!StockQuantity::isZero($adjustmentQuantity)) {
                     ProductInventoryStockManager::create([
-                        'product_inventory_id' => $item->sap_masterfile_id,
-                        'store_branch_id' => $item->branch_id,
-                        'quantity' => abs($adjustmentQuantity),
-                        'action' => $adjustmentQuantity > 0 ? 'add' : 'out',
+                        'product_inventory_id' => (int) $item->sap_masterfile_id,
+                        'store_branch_id' => (int) $item->branch_id,
+                        'quantity' => StockQuantity::absolute($adjustmentQuantity),
+                        'action' => StockQuantity::isPositive($adjustmentQuantity) ? 'add' : 'out',
                         'transaction_date' => Carbon::now(),
                         'is_stock_adjustment' => true,
                         'is_stock_adjustment_approved' => true, // Auto-approved for month end count

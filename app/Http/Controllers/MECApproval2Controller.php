@@ -7,6 +7,7 @@ use App\Models\MonthEndCountItem;
 use App\Models\StoreBranch;
 use App\Models\ProductInventoryStock;
 use App\Models\ProductInventoryStockManager;
+use App\Support\StockQuantity;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Carbon;
@@ -160,7 +161,7 @@ class MECApproval2Controller extends Controller
 
             foreach ($groupedItems as $itemCode => $items) {
                 // 1. Calculate the total aggregated quantity for this group (same ItemCode).
-                $totalAggregatedQty = $items->sum('total_qty');
+                $totalAggregatedQty = StockQuantity::normalize($items->sum('total_qty'));
 
                 // 2. Find the single target masterfile for this group.
                 // The target has the same ItemCode, but its BaseUOM = AltUOM.
@@ -172,12 +173,12 @@ class MECApproval2Controller extends Controller
                 if ($targetSapMasterfile) {
                     // 3. Update ProductInventoryStock with the final aggregated quantity.
                     $productStock = ProductInventoryStock::firstOrNew([
-                        'product_inventory_id' => $targetSapMasterfile->id,
-                        'store_branch_id' => $branch->id,
+                        'product_inventory_id' => (int) $targetSapMasterfile->id,
+                        'store_branch_id' => (int) $branch->id,
                     ]);
 
-                    $currentSOH = $productStock->exists ? $productStock->quantity : 0;
-                    $adjustmentQuantity = $totalAggregatedQty - $currentSOH;
+                    $currentSOH = $productStock->exists ? StockQuantity::normalize($productStock->quantity) : StockQuantity::normalize(0);
+                    $adjustmentQuantity = StockQuantity::adjustment($totalAggregatedQty, $currentSOH);
 
                     $productStock->quantity = $totalAggregatedQty; // Set to the final aggregated count
                     $productStock->recently_added = 0;
@@ -185,15 +186,15 @@ class MECApproval2Controller extends Controller
                     $productStock->save();
 
                     // 4. Create ONE stock manager entry for the total adjustment for this product.
-                    if ($adjustmentQuantity != 0) {
+                    if (!StockQuantity::isZero($adjustmentQuantity)) {
                         $remarkText = "Month End Count Approved for the month of " . Carbon::createFromDate(null, $schedule->month)->format('F') . " {$schedule->year}";
                         $remarkData = "MEC_REF::{$schedule->id},{$branch->id}";
 
                         ProductInventoryStockManager::create([
-                            'product_inventory_id' => $targetSapMasterfile->id,
-                            'store_branch_id' => $branch->id,
-                            'quantity' => abs($adjustmentQuantity),
-                            'action' => $adjustmentQuantity > 0 ? 'add' : 'out',
+                            'product_inventory_id' => (int) $targetSapMasterfile->id,
+                            'store_branch_id' => (int) $branch->id,
+                            'quantity' => StockQuantity::absolute($adjustmentQuantity),
+                            'action' => StockQuantity::isPositive($adjustmentQuantity) ? 'add' : 'out',
                             'transaction_date' => Carbon::now(),
                             'unit_cost' => 0,
                             'total_cost' => 0,
