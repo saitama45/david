@@ -287,7 +287,6 @@ class MonthEndCountController extends Controller
         }
         Log::info('MonthEndCountController@upload: Branch-specific validation passed.');
 
-        DB::beginTransaction();
         try {
             Log::info('MonthEndCountController@upload: Starting Excel import.', ['branch_id' => $branch->id, 'schedule_id' => $schedule->id]);
             Excel::import(new MonthEndCountImport($branch->id, $schedule->id), $request->file('file'));
@@ -296,11 +295,9 @@ class MonthEndCountController extends Controller
             // REMOVED: $schedule->status = 'uploaded'; $schedule->save();
             // Schedule status is now managed by the approval process, not individual uploads.
 
-            DB::commit();
-            Log::info('MonthEndCountController@upload: DB transaction committed. Redirecting to review page.');
+            Log::info('MonthEndCountController@upload: Import transaction completed. Redirecting to review page.');
             return redirect()->route('month-end-count.review', ['schedule' => $schedule->id, 'branch' => $branch->id])->with('success', 'Month end count uploaded successfully. Please review and submit for approval.');
         } catch (Exception $e) {
-            DB::rollBack();
             Log::error('MonthEndCountController@upload: Error during upload process.', ['error' => $e->getMessage(), 'trace' => $e->getTraceAsString()]);
             return back()->withErrors(['error' => 'Error processing file: ' . $e->getMessage()]);
         }
