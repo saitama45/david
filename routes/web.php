@@ -495,15 +495,12 @@ Route::middleware('auth')
             Route::middleware('permission:view mass orders')->get('/', 'index')->name('index');
             Route::middleware('permission:show mass orders')->get('/show/{id}', 'show')->name('show');
             Route::get('/get-branches', 'getBranchesForDateAndSupplier')->name('get-branches');
-            Route::get('/available-dates/{supplier_code}', 'getAvailableDates')->name('mass-orders.available-dates');
-            Route::get('/items/{supplier_code}', 'getItems')->name('mass-orders.items');
-            Route::get('/available-dates/{supplier_code}', 'getAvailableDates')->name('mass-orders.available-dates');
-            Route::get('/items/{supplier_code}', 'getItems')->name('mass-orders.items');
+            Route::get('/available-dates/{supplier_code}', 'getAvailableDates')->name('available-dates');
+            Route::get('/items/{supplier_code}', 'getItems')->name('items');
             Route::middleware('permission:create mass orders')->group(function () {
                 Route::get('/create', 'create')->name('create');
                 Route::post('/store', 'store')->name('store');
             });
-            Route::get('/available-dates/{supplier_code}', 'getAvailableDates')->name('available-dates');
             Route::get('/download-template', 'downloadTemplate')->name('download-template');
             Route::post('/upload', 'uploadMassOrder')->name('upload');
 

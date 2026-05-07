@@ -20,6 +20,8 @@ use Illuminate\Support\Facades\DB;
 
 class MassOrdersController extends Controller
 {
+    private const CPO_CONSOLIDATED_SUPPLIER_CODES = ['GSI-B', 'GSI-P', 'PUL-O', 'DROPS', 'CPO'];
+
     protected $massOrderService;
     protected $storeOrderService;
 
@@ -133,10 +135,14 @@ class MassOrdersController extends Controller
             $user->load('store_branches');
 
             $finalBranches = $user->store_branches->filter(function ($branch) use ($supplierCodeFromDropdown, $dayName) {
-                return $branch->delivery_schedules()
-                    ->where('delivery_schedules.day', $dayName)
-                    ->wherePivot('variant', $supplierCodeFromDropdown)
-                    ->exists();
+                $query = $branch->delivery_schedules()
+                    ->wherePivot('variant', $supplierCodeFromDropdown);
+                
+                if ($supplierCodeFromDropdown !== 'CPO') {
+                    $query->where('delivery_schedules.day', $dayName);
+                }
+
+                return $query->exists();
             });
             $validStoresForThisOrder = $finalBranches->where('is_active', true)->pluck('brand_code')->all();
 
@@ -235,21 +241,19 @@ class MassOrdersController extends Controller
         $user->load('store_branches');
 
         $finalBranches = $user->store_branches->filter(function ($branch) use ($supplierCode, $dayName) {
-            return $branch->delivery_schedules()
-                ->where('delivery_schedules.day', $dayName)
-                ->wherePivot('variant', $supplierCode)
-                ->exists();
+            $query = $branch->delivery_schedules()
+                ->wherePivot('variant', $supplierCode);
+            
+            if ($supplierCode !== 'CPO') {
+                $query->where('delivery_schedules.day', $dayName);
+            }
+
+            return $query->exists();
         });
 
         $dynamicHeaders = $finalBranches->where('is_active', true)->pluck('brand_code')->unique()->sort()->values()->all();
 
-        $items = SupplierItems::where('SupplierCode', $supplierCode)
-            ->where('is_active', true)
-            ->get()
-            ->sortBy(function ($item) {
-                return $item->sort_order ?? 0;
-            })
-            ->values();
+        $items = $this->getMassOrderSupplierItems($supplierCode);
 
         $staticHeaders = ['Category', 'Classification', 'Item Code', 'Item Name', 'Packaging Config', 'Unit'];
 
@@ -301,7 +305,7 @@ class MassOrdersController extends Controller
         $cutoff2Date = $getCutoffDate($cutoff->cutoff_2_day, $cutoff->cutoff_2_time);
 
         $daysToCoverStr = '';
-        $isSpecialLogic = str_starts_with($supplier_code, 'GSI') || $supplier_code === 'PUL-O' || $orderingTemplate === 'FRUITS AND VEGETABLES'; // Define special logic once
+        $isSpecialLogic = str_starts_with($supplier_code, 'GSI') || $supplier_code === 'PUL-O' || $supplier_code === 'CPO' || $orderingTemplate === 'FRUITS AND VEGETABLES'; // Define special logic once
 
         // Determine which set of days and which week to use
         if ($cutoff1Date && $now->lt($cutoff1Date)) {
@@ -335,8 +339,43 @@ class MassOrdersController extends Controller
 
     public function getItems($supplier_code)
     {
-        $items = \App\Models\SupplierItems::where('supplier_code', $supplier_code)->get();
-        return response()->json($items);
+        $items = $this->getMassOrderSupplierItems($supplier_code)
+            ->sortBy(function ($item) {
+                $sortOrder = $item->sort_order ?? 0;
+                return $sortOrder == 0 ? PHP_INT_MAX : $sortOrder;
+            })
+            ->values()
+            ->map(function ($item) {
+                return [
+                    'value' => (string) $item->ItemCode,
+                    'label' => "{$item->item_name} ({$item->ItemCode}) {$item->uom}",
+                    'supplierCode' => $item->SupplierCode,
+                ];
+            })
+            ->values();
+
+        return response()->json([
+            'items' => $items,
+        ]);
+    }
+
+    private function getMassOrderSupplierItems(string $supplierCode)
+    {
+        if ($supplierCode === 'CPO') {
+            return SupplierItems::whereIn('SupplierCode', self::CPO_CONSOLIDATED_SUPPLIER_CODES)
+                ->where('is_active', true)
+                ->get()
+                ->unique('ItemCode')
+                ->values();
+        }
+
+        return SupplierItems::where('SupplierCode', $supplierCode)
+            ->where('is_active', true)
+            ->get()
+            ->sortBy(function ($item) {
+                return $item->sort_order ?? 0;
+            })
+            ->values();
     }
 
     public function show($id)
@@ -499,19 +538,17 @@ class MassOrdersController extends Controller
             $daysToCoverStr = '';
             $weekOffset = 0;
 
+            $isSpecialLogic = str_starts_with($initialSupplierCode, 'GSI') || $initialSupplierCode === 'PUL-O' || $initialSupplierCode === 'CPO' || $initialSupplierCode === 'DROPS';
+
             if ($cutoff1Date && $now->lt($cutoff1Date)) {
                 $daysToCoverStr = $cutoff->days_covered_1;
-                $weekOffset = str_starts_with($initialSupplierCode, 'GSI') ? 1 : 0;
+                $weekOffset = $isSpecialLogic ? 1 : 0;
             } elseif ($cutoff2Date && $now->lt($cutoff2Date)) {
                 $daysToCoverStr = $cutoff->days_covered_2;
-                $weekOffset = str_starts_with($initialSupplierCode, 'GSI') ? 1 : 0;
+                $weekOffset = $isSpecialLogic ? 1 : 0;
             } else {
                 $daysToCoverStr = $cutoff->days_covered_1;
-                if (str_starts_with($initialSupplierCode, 'GSI')) {
-                    $weekOffset = 2;
-                } else {
-                    $weekOffset = 1;
-                }
+                $weekOffset = $isSpecialLogic ? 2 : 1;
             }
 
             $startOfTargetWeek = $now->copy()->startOfWeek(Carbon::SUNDAY)->addWeeks($weekOffset);
@@ -584,10 +621,14 @@ class MassOrdersController extends Controller
         $user->load('store_branches');
 
         $finalBranches = $user->store_branches->filter(function ($branch) use ($supplierCode, $dayName) {
-            return $branch->delivery_schedules()
-                ->where('delivery_schedules.day', $dayName)
-                ->wherePivot('variant', $supplierCode)
-                ->exists();
+            $query = $branch->delivery_schedules()
+                ->wherePivot('variant', $supplierCode);
+            
+            if ($supplierCode !== 'CPO') {
+                $query->where('delivery_schedules.day', $dayName);
+            }
+
+            return $query->exists();
         });
 
         $activeBranches = $finalBranches->where('is_active', true);

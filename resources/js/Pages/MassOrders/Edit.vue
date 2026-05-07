@@ -371,7 +371,7 @@ const fetchSupplierItems = async (supplierCode) => {
     }
     isLoading.value = true;
     try {
-        const response = await axios.get(route('store-orders.get-supplier-items', supplierCode));
+        const response = await axios.get(route('mass-orders.items', { supplier_code: supplierCode }));
         availableProductsOptions.value = response.data.items;
     } catch (err) {
         toast.add({
@@ -909,7 +909,10 @@ watch(productId, async (itemCode) => {
         itemForm.item = itemCode;
 
         try {
-            const supplierCode = orderForm.supplier_id;
+            const selectedProduct = availableProductsOptions.value.find((option) =>
+                String(option.value) === String(itemCode)
+            );
+            const supplierCode = selectedProduct?.supplierCode || selectedProduct?.supplier_code || orderForm.supplier_id;
 
             if (!supplierCode) {
                 toast.add({
@@ -1051,6 +1054,10 @@ watch(() => orderForm.order_date, async (newDate) => {
 
 const isSupplierSelected = computed(() => {
     return orderForm.supplier_id !== null && orderForm.supplier_id !== '';
+});
+
+const isCpoSupplier = computed(() => {
+    return orderForm.supplier_id === 'CPO';
 });
 
 const shouldLockDropdowns = computed(() => {
@@ -1524,10 +1531,15 @@ onUnmounted(() => {
                         <div class="space-y-2" v-if="canViewCost">
                             <label class="text-sm font-medium text-gray-700">Cost</label>
                             <input
-                                type="text"
-                                disabled
+                                type="number"
+                                step="0.01"
+                                min="0"
+                                :disabled="!isCpoSupplier"
                                 v-model="productDetails.cost"
-                                class="flex h-10 w-full rounded-md border border-gray-300 bg-gray-50 px-3 py-2 text-sm"
+                                :class="[
+                                    'flex h-10 w-full rounded-md border border-gray-300 px-3 py-2 text-sm',
+                                    isCpoSupplier ? 'bg-white' : 'bg-gray-50'
+                                ]"
                             />
                         </div>
 

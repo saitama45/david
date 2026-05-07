@@ -258,8 +258,12 @@ const getCalendarDays = () => {
     for (let i = 1; i <= daysInMonth; i++) {
         const date = new Date(year, month, i);
         const dateString = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
-        const isDisabled = !enabledDatesSet.has(dateString);
-        days.push({ day: i, date, isDisabled });
+        
+        // CPO has no restrictions. Others must be in enabledDates.
+        const isDisabled = form.supplier_code !== 'CPO' && !enabledDatesSet.has(dateString);
+        const isSuggested = enabledDatesSet.has(dateString);
+        
+        days.push({ day: i, date, isDisabled, isSuggested });
     }
     return days;
 };
@@ -280,14 +284,21 @@ watch(() => form.supplier_code, async (newSupplierCode) => {
     form.order_date = null;
     enabledDates.value = [];
     if (newSupplierCode) {
-        isDatepickerDisabled.value = true;
+        if (newSupplierCode === 'CPO') {
+            isDatepickerDisabled.value = false;
+        } else {
+            isDatepickerDisabled.value = true;
+        }
+        
         try {
             const response = await axios.get(route('mass-orders.available-dates', { supplier_code: newSupplierCode }));
             enabledDates.value = response.data;
-            isDatepickerDisabled.value = false;
+            isDatepickerDisabled.value = false; // Enable once we have the dates (or immediately for CPO)
         } catch (error) {
             console.error('Error fetching available dates:', error);
-            isDatepickerDisabled.value = true;
+            if (newSupplierCode !== 'CPO') {
+                isDatepickerDisabled.value = true;
+            }
         }
     } else {
         isDatepickerDisabled.value = true;
@@ -379,19 +390,34 @@ const editOrderDetails = (id) => router.get(route('mass-orders.edit', id));
 
 const getSupplierDisplayName = (supplier, variant) => {
     if (!supplier?.name) return 'N/A';
-    return supplier.name === 'DROPSHIPPING' && variant === 'mass regular' ? 'FRUITS AND VEGETABLES' : supplier.name;
+    if (supplier.name === 'DROPSHIPPING' && variant === 'mass regular') return 'FRUITS AND VEGETABLES';
+    if (supplier.supplier_code === 'CPO' && variant === 'mass regular') return 'CPO';
+    return supplier.name;
 };
 
 const filteredSuppliers = computed(() => {
-    return props.suppliers.map(supplier => {
+    let list = props.suppliers.map(supplier => {
         if (supplier.value === 'DROPS') {
             return {
                 ...supplier,
                 label: 'FRUITS AND VEGETABLES'
             };
         }
+        if (supplier.value === 'CPO') {
+            return {
+                ...supplier,
+                label: 'CPO'
+            };
+        }
         return supplier;
     });
+
+    // Explicitly add CPO if it's not in the list (as requested)
+    if (!list.find(s => s.value === 'CPO')) {
+        list.push({ label: 'CPO', value: 'CPO' });
+    }
+
+    return list;
 });
 
 const downloadFileName = computed(() => {
@@ -401,7 +427,8 @@ const downloadFileName = computed(() => {
     const date = new Date(form.order_date + 'T00:00:00');
     const month = String(date.getMonth() + 1).padStart(2, '0');
     const day = String(date.getDate()).padStart(2, '0');
-    const supplierName = form.supplier_code === 'DROPS' ? 'FRUITS AND VEGETABLES' : form.supplier_code;
+    const supplierName = form.supplier_code === 'DROPS' ? 'FRUITS AND VEGETABLES' : 
+                         (form.supplier_code === 'CPO' ? 'CPO' : form.supplier_code);
     return `${supplierName}_${month}-${day}`;
 });
 

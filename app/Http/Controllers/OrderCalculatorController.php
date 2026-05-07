@@ -29,6 +29,12 @@ class OrderCalculatorController extends Controller
             ->where('is_active', true)
             ->get()
             ->map(function ($supplier) {
+                if ($supplier->supplier_code === 'CPO') {
+                    return [
+                        'label' => 'CPO',
+                        'value' => 'CPO',
+                    ];
+                }
                 return [
                     'label' => $supplier->name === 'DROPSHIPPING' ? 'FRUITS AND VEGETABLES' : $supplier->name . ' (' . $supplier->supplier_code . ')',
                     'value' => $supplier->supplier_code,

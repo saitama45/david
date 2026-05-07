@@ -57,6 +57,7 @@ class DSPDeliveryScheduleController extends Controller
             });
         })
             ->select('id', 'supplier_code', 'name')
+            ->latest()
             ->paginate(15)
             ->withQueryString();
 
@@ -79,7 +80,7 @@ class DSPDeliveryScheduleController extends Controller
         // Get existing schedules for this supplier
         $existingSchedules = DTSDeliverySchedule::where('variant', $supplier->supplier_code)
             ->get()
-            ->groupBy('delivery_schedule_id'); // Group by day (1-6)
+            ->groupBy('delivery_schedule_id'); // Group by day (1-7)
 
         // Prepare schedules data for the view
         $days = [
