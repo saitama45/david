@@ -102,6 +102,15 @@ class MassOrdersController extends Controller
 
         try {
             $supplierCodeFromDropdown = $request->input('supplier_code');
+
+            if (! $this->hasSupplierAccess($supplierCodeFromDropdown)) {
+                return redirect()->back()->with([
+                    'success' => false,
+                    'message' => 'You do not have access to use the selected ordering template.',
+                    'created_count' => 0,
+                ]);
+            }
+
             // Fetch the supplier to check the approval flag
             $supplier = Supplier::where('supplier_code', $supplierCodeFromDropdown)->firstOrFail();
             $determinedOrderStatus = $supplier->is_forapproval_massorders ? 'pending' : 'approved';
@@ -234,6 +243,11 @@ class MassOrdersController extends Controller
         ]);
 
         $supplierCode = $request->input('supplier_code');
+
+        if (! $this->hasSupplierAccess($supplierCode)) {
+            abort(403, 'You do not have access to use the selected ordering template.');
+        }
+
         $orderDate = Carbon::parse($request->input('order_date'));
         $dayName = strtoupper($orderDate->format('l')); // "MONDAY", "TUESDAY", etc.
 
@@ -287,6 +301,10 @@ class MassOrdersController extends Controller
 
     public function getAvailableDates($supplier_code)
     {
+        if (! $this->hasSupplierAccess($supplier_code)) {
+            abort(403, 'You do not have access to use the selected ordering template.');
+        }
+
         $orderingTemplate = $supplier_code === 'DROPS' ? 'FRUITS AND VEGETABLES' : $supplier_code;
         $cutoff = \App\Models\OrdersCutoff::where('ordering_template', $orderingTemplate)->first();
         if (!$cutoff) {
@@ -339,6 +357,10 @@ class MassOrdersController extends Controller
 
     public function getItems($supplier_code)
     {
+        if (! $this->hasSupplierAccess($supplier_code)) {
+            abort(403, 'You do not have access to use the selected ordering template.');
+        }
+
         $items = $this->getMassOrderSupplierItems($supplier_code)
             ->sortBy(function ($item) {
                 $sortOrder = $item->sort_order ?? 0;
@@ -357,6 +379,16 @@ class MassOrdersController extends Controller
         return response()->json([
             'items' => $items,
         ]);
+    }
+
+    private function hasSupplierAccess(string $supplierCode): bool
+    {
+        return Auth::user()->suppliers()->where('suppliers.supplier_code', $supplierCode)->exists();
+    }
+
+    private function isCpoSupplierCode(?string $supplierCode): bool
+    {
+        return strtoupper(trim((string) $supplierCode)) === 'CPO';
     }
 
     private function getMassOrderSupplierItems(string $supplierCode)

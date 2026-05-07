@@ -1,5 +1,5 @@
 <script setup>
-import { ref } from 'vue';
+import { computed } from 'vue';
 import { Head, useForm } from '@inertiajs/vue3';
 import { useToast } from 'primevue/usetoast';
 import { useConfirm } from 'primevue/useconfirm'; // Import useConfirm
@@ -16,6 +16,10 @@ const form = useForm({
         id: item.id,
         quantity_approved: item.quantity_approved || item.quantity_ordered,
     })),
+});
+
+const isCpoOrder = computed(() => {
+    return String(props.order.supplier?.supplier_code || '').trim().toUpperCase() === 'CPO';
 });
 
 const approveOrder = () => {
@@ -35,7 +39,12 @@ const approveOrder = () => {
         accept: () => {
             form.post(route('mass-orders-approval.approve', props.order.id), {
                 onSuccess: () => {
-                    toast.add({ severity: 'success', summary: 'Success', detail: 'Order approved successfully.', life: 3000 });
+                    toast.add({
+                        severity: 'success',
+                        summary: 'Success',
+                        detail: isCpoOrder.value ? 'Order approved and committed successfully.' : 'Order approved successfully.',
+                        life: 3000
+                    });
                 },
                 onError: (errors) => {
                     toast.add({ severity: 'error', summary: 'Error', detail: 'Failed to approve order.', life: 3000 });

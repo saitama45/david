@@ -4,8 +4,10 @@ namespace App\Http\Controllers;
 
 use App\Models\StoreOrder;
 use App\Models\Supplier;
+use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
 use App\Enum\OrderStatus;
 
@@ -56,19 +58,67 @@ class MassOrdersApprovalController extends Controller
 
     public function approve(Request $request, $id)
     {
-        $order = StoreOrder::findOrFail($id);
-        $order->order_status = OrderStatus::APPROVED->value;
-        $order->save();
+        $validated = $request->validate([
+            'items' => ['required', 'array'],
+            'items.*.id' => ['required', 'integer'],
+            'items.*.quantity_approved' => ['required', 'numeric', 'min:0'],
+        ]);
 
-        foreach ($request->items as $item) {
-            $orderItem = $order->storeOrderItems()->find($item['id']);
-            if ($orderItem) {
-                $orderItem->quantity_approved = $item['quantity_approved'];
-                $orderItem->save();
+        $message = DB::transaction(function () use ($id, $validated) {
+            $order = StoreOrder::with('supplier')->lockForUpdate()->findOrFail($id);
+            $isCpoOrder = strtoupper(trim((string) $order->supplier?->supplier_code)) === 'CPO';
+            $now = Carbon::now();
+
+            $order->order_status = $isCpoOrder
+                ? OrderStatus::COMMITTED->value
+                : OrderStatus::APPROVED->value;
+            $order->approver_id = Auth::id();
+            $order->approval_action_date = $now;
+
+            if ($isCpoOrder) {
+                $order->commiter_id = Auth::id();
+                $order->commited_action_date = $now;
             }
-        }
 
-        return redirect()->route('mass-orders-approval.index')->with('success', 'Order approved successfully.');
+            $order->save();
+
+            foreach ($validated['items'] as $item) {
+                $orderItem = $order->storeOrderItems()->find($item['id']);
+
+                if (!$orderItem) {
+                    continue;
+                }
+
+                $approvedQuantity = $item['quantity_approved'];
+                $orderItem->quantity_approved = $approvedQuantity;
+
+                if ($isCpoOrder) {
+                    $orderItem->quantity_commited = $approvedQuantity;
+                    $orderItem->committed_by = Auth::id();
+                    $orderItem->committed_date = $now;
+                }
+
+                $orderItem->save();
+
+                if ($isCpoOrder) {
+                    $orderItem->ordered_item_receive_dates()->updateOrCreate(
+                        ['status' => 'pending'],
+                        [
+                            'received_by_user_id' => Auth::id(),
+                            'quantity_received' => $approvedQuantity,
+                            'received_date' => null,
+                            'remarks' => null,
+                        ]
+                    );
+                }
+            }
+
+            return $isCpoOrder
+                ? 'Order approved and committed successfully.'
+                : 'Order approved successfully.';
+        });
+
+        return redirect()->route('mass-orders-approval.index')->with('success', $message);
     }
 
     public function reject(Request $request, $id)

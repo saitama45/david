@@ -37,7 +37,7 @@ const props = defineProps({
     canViewCost: {
         type: Boolean,
         default: false,
-    }
+    },
 });
 
 const { hasAccess } = useAuth();
@@ -396,28 +396,15 @@ const getSupplierDisplayName = (supplier, variant) => {
 };
 
 const filteredSuppliers = computed(() => {
-    let list = props.suppliers.map(supplier => {
+    return props.suppliers.map(supplier => {
         if (supplier.value === 'DROPS') {
             return {
                 ...supplier,
                 label: 'FRUITS AND VEGETABLES'
             };
         }
-        if (supplier.value === 'CPO') {
-            return {
-                ...supplier,
-                label: 'CPO'
-            };
-        }
         return supplier;
     });
-
-    // Explicitly add CPO if it's not in the list (as requested)
-    if (!list.find(s => s.value === 'CPO')) {
-        list.push({ label: 'CPO', value: 'CPO' });
-    }
-
-    return list;
 });
 
 const downloadFileName = computed(() => {
