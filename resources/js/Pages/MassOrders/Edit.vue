@@ -780,23 +780,16 @@ const addToOrdersButton = () => {
         const newTotalCost = parseFloat((newBaseUomQty * currentCost).toFixed(2));
 
         existingItem.quantity = newTotalQuantity;
+        existingItem.cost = currentCost;
         existingItem.base_uom_qty = newBaseUomQty;
         existingItem.total_cost = newTotalCost;
-
-        // Also update the same item in editableOrderItems to keep them synchronized
-        const editableItemIndex = editableOrderItems.value.findIndex(item =>
-            item.inventory_code === existingItem.inventory_code
-        );
-        if (editableItemIndex !== -1) {
-            editableOrderItems.value[editableItemIndex] = { ...existingItem };
-        }
 
     } else {
         productDetails.base_uom_qty = parseFloat((currentQuantity * effectiveBaseQtyForNewItem).toFixed(2));
         productDetails.total_cost = parseFloat((productDetails.base_uom_qty * currentCost).toFixed(2));
 
         const newItem = {
-            id: null, // Explicitly set 'id' to null for imported items
+            id: `new-${Date.now()}-${productDetails.inventory_code}`,
             inventory_code: String(productDetails.inventory_code),
             name: productDetails.name,
             unit_of_measurement: productDetails.unit_of_measurement,
@@ -810,10 +803,11 @@ const addToOrdersButton = () => {
         };
 
         orderForm.orders.push(newItem);
-
-        // Also add the item to editableOrderItems to keep them synchronized
-        // editableOrderItems.value.push({ ...newItem });
     }
+
+    // Trigger reactivity for computed properties
+    orderForm.orders = [...orderForm.orders];
+    editableOrderItems.value = orderForm.orders;
 
     Object.keys(productDetails).forEach((key) => {
         productDetails[key] = null;
@@ -1105,7 +1099,18 @@ const editQuantity = () => {
             return;
         }
 
-        const itemCost = Number(currentItem.cost);
+        let itemCost = Number(currentItem.cost);
+        if (isCpoSupplier.value) {
+            const newCost = Number(formQuantity.cost);
+            if (isNaN(newCost) || newCost < 0) {
+                formQuantity.errors.cost = "Cost must be a non-negative number.";
+                toast.add({ severity: "error", summary: "Validation Error", detail: "Cost must be a non-negative number.", life: 3000 });
+                return;
+            }
+            itemCost = newCost;
+            currentItem.cost = itemCost;
+        }
+
         if (isNaN(itemCost)) {
             toast.add({ severity: "error", summary: "Calculation Error", detail: "Item cost is invalid. Cannot update total cost.", life: 3000 });
             return;
@@ -1117,7 +1122,7 @@ const editQuantity = () => {
         currentItem.quantity = parseFloat(newQuantity.toFixed(2));
         currentItem.base_uom_qty = parseFloat((newQuantity * effectiveBaseQty).toFixed(2));
         currentItem.total_cost = parseFloat(
-            Number(currentItem.base_uom_qty) * Number(currentItem.cost)
+            Number(currentItem.base_uom_qty) * itemCost
         ).toFixed(2);
 
         // Create a new array to trigger reactivity
@@ -1272,6 +1277,7 @@ const addImportedItemsToOrderList = () => {
                     const updatedBaseUomQty = parseFloat((updatedQuantity * baseQty).toFixed(2));
 
                     orderForm.orders[existingItemIndex].quantity = updatedQuantity;
+                    orderForm.orders[existingItemIndex].cost = cost;
                     orderForm.orders[existingItemIndex].base_uom_qty = updatedBaseUomQty;
                     orderForm.orders[existingItemIndex].total_cost = parseFloat(
                         updatedBaseUomQty * cost
@@ -1715,7 +1721,7 @@ onUnmounted(() => {
                             </div>
                             <div class="mt-2 pt-2 border-t border-gray-100">
                                 <button
-                                    @click="openEditQuantityModal(order.id, order.quantity)"
+                                    @click="openEditQuantityModal(order.id, order.quantity, order.cost)"
                                     class="w-full text-sm text-blue-600 hover:text-blue-800 font-medium"
                                 >
                                     Edit Quantity
@@ -1765,7 +1771,7 @@ onUnmounted(() => {
                                         <td class="px-4 py-3 text-center">
                                             <div class="flex justify-center gap-1">
                                                 <button
-                                                    @click="openEditQuantityModal(order.id, order.quantity)"
+                                                    @click="openEditQuantityModal(order.id, order.quantity, order.cost)"
                                                     class="text-blue-600 hover:text-blue-800 text-sm font-medium"
                                                 >
                                                     Edit
@@ -1910,9 +1916,9 @@ onUnmounted(() => {
         <Dialog v-model:open="isEditQuantityModalOpen">
             <DialogContent class="sm:max-w-[425px]">
                 <DialogHeader>
-                    <DialogTitle>Edit Quantity</DialogTitle>
+                    <DialogTitle>Edit Order Item</DialogTitle>
                     <DialogDescription
-                        >Make changes to the quantity here. Click save when
+                        >Make changes to the item details here. Click save when
                         you're done.</DialogDescription
                     >
                 </DialogHeader>
@@ -1924,6 +1930,16 @@ onUnmounted(() => {
                             type="number"
                             class="col-span-3"
                             v-model="formQuantity.quantity"
+                        />
+                    </div>
+                    <div class="grid grid-cols-4 items-center gap-4" v-if="isCpoSupplier">
+                        <Label for="cost" class="text-right"> Cost </Label>
+                        <Input
+                            id="cost"
+                            type="number"
+                            step="0.01"
+                            class="col-span-3"
+                            v-model="formQuantity.cost"
                         />
                     </div>
                 </div>

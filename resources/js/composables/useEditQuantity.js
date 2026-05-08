@@ -9,11 +9,13 @@ export function useEditQuantity(orderForm, itemsDetail = null, order = null) {
     const formQuantity = useForm({
         id: null,
         quantity: 0,
+        cost: 0,
     });
 
-    const openEditQuantityModal = (id, quantity) => {
+    const openEditQuantityModal = (id, quantity, cost = 0) => {
         formQuantity.id = id;
         formQuantity.quantity = quantity;
+        formQuantity.cost = cost;
         isEditQuantityModalOpen.value = true;
     };
     const editQuantity = () => {
