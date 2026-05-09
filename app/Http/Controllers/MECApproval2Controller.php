@@ -14,6 +14,7 @@ use Illuminate\Support\Carbon;
 use Inertia\Inertia;
 use Exception;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Cache;
 
 class MECApproval2Controller extends Controller
 {
@@ -125,6 +126,30 @@ class MECApproval2Controller extends Controller
         ]);
     }
 
+    private function clearMonthEndNotificationCaches(int $branchId, array $permissions): void
+    {
+        $userIds = \App\Models\UserAssignedStoreBranch::where('store_branch_id', $branchId)
+            ->pluck('user_id');
+
+        if ($userIds->isEmpty()) {
+            return;
+        }
+
+        $affectedUserIds = \App\Models\User::whereIn('id', $userIds)
+            ->get()
+            ->filter(function ($user) use ($permissions) {
+                foreach ($permissions as $permission) {
+                    if ($user->can($permission)) return true;
+                }
+                return false;
+            })
+            ->pluck('id');
+
+        foreach ($affectedUserIds as $userId) {
+            Cache::forget('user_notifications_v5_' . $userId);
+        }
+    }
+
     public function approveLevel2($scheduleId, $branchId)
     {
         $schedule = MonthEndSchedule::findOrFail($scheduleId);
@@ -225,6 +250,8 @@ class MECApproval2Controller extends Controller
             }
 
             DB::commit();
+            Cache::forget('user_notifications_v5_' . Auth::id());
+            $this->clearMonthEndNotificationCaches($branch->id, ['approve month end count level 2', 'view month end count approvals level 2']);
             return redirect()->route('month-end-count-approvals-level2.index')->with('success', 'Level 2 approval completed and inventory updated.');
         } catch (Exception $e) {
             DB::rollBack();

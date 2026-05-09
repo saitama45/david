@@ -128,14 +128,22 @@ const handleBackdropClick = (event) => {
 };
 
 // Add and remove event listeners
+let notificationPollInterval = null;
+
 onMounted(() => {
     document.addEventListener('keydown', handleEscapeKey);
+    // Poll for notification updates every 30 seconds
+    notificationPollInterval = setInterval(() => {
+        router.reload({ only: ['notifications'] });
+    }, 30000);
 });
 
 onUnmounted(() => {
     document.removeEventListener('keydown', handleEscapeKey);
-    // Restore body scroll in case component is unmounted while sidebar is open
     document.body.style.overflow = '';
+    if (notificationPollInterval) {
+        clearInterval(notificationPollInterval);
+    }
 });
 
 const isSalesReminderModalOpen = ref(false);

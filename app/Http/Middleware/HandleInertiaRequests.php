@@ -57,9 +57,9 @@ class HandleInertiaRequests extends Middleware
         ];
 
         if ($user) {
-            $cacheKey = 'user_notifications_v3_' . $user->id;
+            $cacheKey = 'user_notifications_v5_' . $user->id;
             
-            $notifications = \Illuminate\Support\Facades\Cache::remember($cacheKey, now()->addMinutes(15), function () use ($user) {
+            $notifications = \Illuminate\Support\Facades\Cache::remember($cacheKey, now()->addMinutes(1), function () use ($user) {
                 $data = [
                     'massOrdersApprovalCount' => 0,
                     'csMassCommitsCount' => 0,
@@ -250,7 +250,7 @@ class HandleInertiaRequests extends Middleware
                     }
                 }
                 
-                if ($user->can('approve month end count level 1') && $assignedStoreIds->isNotEmpty()) {
+                if (($user->can('view month end count approvals') || $user->can('approve month end count level 1')) && $assignedStoreIds->isNotEmpty()) {
                     $monthEndLvl1Query = \App\Models\MonthEndCountItem::whereIn('month_end_count_items.branch_id', $assignedStoreIds)
                         ->where('month_end_count_items.status', 'pending_level1_approval');
                     
@@ -272,7 +272,7 @@ class HandleInertiaRequests extends Middleware
                     }
                 }
 
-                if ($user->can('approve month end count level 2') && $assignedStoreIds->isNotEmpty()) {
+                if (($user->can('view month end count approvals level 2') || $user->can('approve month end count level 2')) && $assignedStoreIds->isNotEmpty()) {
                     $monthEndLvl2Query = \App\Models\MonthEndCountItem::whereIn('month_end_count_items.branch_id', $assignedStoreIds)
                         ->where('month_end_count_items.status', 'level1_approved');
                     

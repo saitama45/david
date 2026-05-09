@@ -20,6 +20,7 @@ use App\Imports\MonthEndCountImport;
 use Exception;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Cache;
 
 class MonthEndCountController extends Controller
 {
@@ -379,11 +380,35 @@ class MonthEndCountController extends Controller
                 $item->save();
             }
             DB::commit();
+            Cache::forget('user_notifications_v5_' . Auth::id());
+            $this->clearMonthEndNotificationCachesForBranch($branch->id);
             return redirect()->route('month-end-count.index')->with('success', 'Count submitted for Level 1 approval.');
         } catch (Exception $e) {
             DB::rollBack();
             Log::error('MonthEndCountController@submitForApproval: Error submitting items for approval.', ['error' => $e->getMessage(), 'trace' => $e->getTraceAsString()]);
             return back()->withErrors(['error' => 'Error submitting items for approval: ' . $e->getMessage()]);
+        }
+    }
+
+    private function clearMonthEndNotificationCachesForBranch(int $branchId): void
+    {
+        $userIds = \App\Models\UserAssignedStoreBranch::where('store_branch_id', $branchId)
+            ->pluck('user_id');
+
+        if ($userIds->isEmpty()) {
+            return;
+        }
+
+        $affectedUserIds = \App\Models\User::whereIn('id', $userIds)
+            ->get()
+            ->filter(function ($user) {
+                return $user->can('approve month end count level 1')
+                    || $user->can('view month end count approvals');
+            })
+            ->pluck('id');
+
+        foreach ($affectedUserIds as $userId) {
+            Cache::forget('user_notifications_v5_' . $userId);
         }
     }
 
