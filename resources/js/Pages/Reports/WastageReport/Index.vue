@@ -4,9 +4,10 @@ import { throttle } from "lodash";
 import { router } from "@inertiajs/vue3";
 import { usePage } from "@inertiajs/vue3";
 import { useSelectOptions } from "@/composables/useSelectOptions";
-import { Calendar, Search, RotateCcw, Download, Filter, ChevronDown, ChevronUp, Package, CalendarDays, Building2, Badge as BadgeIcon, Trash2 } from "lucide-vue-next";
+import { Calendar, Search, RotateCcw, Download, Filter, ChevronDown, ChevronUp, Package, CalendarDays, Building2, Badge as BadgeIcon, Trash2, Image as ImageIcon, Loader2 } from "lucide-vue-next";
 import { useAuth } from "@/composables/useAuth";
 import SearchableSelect from "@/components/ui/select/SearchableSelect.vue";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 
 const props = defineProps({
     wastages: {
@@ -43,6 +44,137 @@ const props = defineProps({
 const isFiltersCollapsed = ref(false);
 const isLoading = ref(false);
 const searchFocus = ref(false);
+
+// Image attachment states
+const showImageModal = ref(false);
+const selectedItemImages = ref([]);
+const imageLoadingStates = ref({});
+const imageErrors = ref({});
+const urlAttempts = ref({});
+
+// Image processing logic
+const transformGoogleDriveUrl = (url, attemptIndex = 0) => {
+    if (!url) {
+        return { url: '', isGoogleDrive: false, hasMoreFallbacks: false };
+    }
+
+    if (url.includes('drive.google.com')) {
+        try {
+            let fileId = null;
+
+            if (url.includes('/file/d/')) {
+                const match = url.match(/\/file\/d\/([a-zA-Z0-9_-]+)/);
+                if (match) {
+                    fileId = match[1];
+                }
+            } else if (url.includes('open?id=')) {
+                const match = url.match(/[?&]id=([a-zA-Z0-9_-]+)/);
+                if (match) {
+                    fileId = match[1];
+                }
+            }
+
+            if (fileId) {
+                const urlFormats = [
+                    `/proxy/google-drive/${fileId}`,
+                    `https://drive.google.com/thumbnail?id=${fileId}&sz=s400`,
+                    `https://drive.google.com/uc?export=view&id=${fileId}`,
+                    `https://drive.google.com/uc?export=download&id=${fileId}`,
+                    `https://docs.google.com/uc?export=view&id=${fileId}`,
+                    `https://lh3.googleusercontent.com/d/${fileId}=s400`
+                ];
+
+                if (attemptIndex < urlFormats.length) {
+                    const transformedUrl = urlFormats[attemptIndex];
+                    return {
+                        url: transformedUrl,
+                        isGoogleDrive: true,
+                        hasMoreFallbacks: attemptIndex < urlFormats.length - 1,
+                        fileId,
+                        attemptIndex,
+                        totalFormats: urlFormats.length,
+                        allFormats: urlFormats
+                    };
+                } else {
+                    return { url: '', isGoogleDrive: true, hasMoreFallbacks: false, fileId };
+                }
+            }
+        } catch (error) {
+            console.error('Error transforming Google Drive URL:', error, 'URL:', url);
+        }
+    }
+    return { url, isGoogleDrive: false, hasMoreFallbacks: false };
+};
+
+const getItemImages = (item) => {
+    let rawUrls = [];
+    try {
+        if (item.image_url) {
+            rawUrls = typeof item.image_url === 'string' ? JSON.parse(item.image_url) : item.image_url;
+        }
+    } catch (e) {
+        console.error('Error parsing item images:', e);
+    }
+
+    if (!Array.isArray(rawUrls)) {
+        rawUrls = rawUrls ? [rawUrls] : [];
+    }
+
+    return rawUrls.map(originalUrl => {
+        if (urlAttempts.value[originalUrl] === undefined) {
+            urlAttempts.value[originalUrl] = 0;
+        }
+
+        const currentAttempt = urlAttempts.value[originalUrl];
+        const urlInfo = transformGoogleDriveUrl(originalUrl, currentAttempt);
+
+        return {
+            type: 'existing',
+            url: urlInfo.url,
+            id: originalUrl,
+            originalUrl,
+            urlInfo,
+            attemptIndex: currentAttempt
+        };
+    });
+};
+
+const handleImageLoad = (imageId) => {
+    imageLoadingStates.value[imageId] = false;
+    imageErrors.value[imageId] = null;
+    urlAttempts.value[imageId] = 0;
+};
+
+const handleImageError = (imageId, image) => {
+    if (image.urlInfo && image.urlInfo.isGoogleDrive && image.urlInfo.hasMoreFallbacks) {
+        const nextAttempt = (urlAttempts.value[imageId] || 0) + 1;
+        const newAttempts = { ...urlAttempts.value };
+        newAttempts[imageId] = nextAttempt;
+        urlAttempts.value = newAttempts;
+        return;
+    }
+
+    imageLoadingStates.value[imageId] = false;
+    imageErrors.value[imageId] = 'Error';
+};
+
+const initializeImageLoading = (image) => {
+    const imageId = image.id;
+    imageLoadingStates.value[imageId] = true;
+    imageErrors.value[imageId] = null;
+};
+
+const handleImageClick = (image) => {
+    if (imageLoadingStates.value[image.id] || imageErrors.value[image.id]) {
+        return;
+    }
+    window.open(image.url, '_blank');
+};
+
+const openImageModal = (item) => {
+    selectedItemImages.value = getItemImages(item);
+    showImageModal.value = true;
+};
 
 // Per page options with proper labels
 const perPageOptions = [
@@ -432,6 +564,7 @@ const getStatusClass = (status) => {
                             <th class="px-6 py-4 text-right font-medium">Total Cost</th>
                             <th class="px-6 py-4 text-center font-medium">Status</th>
                             <th class="px-6 py-4 text-left font-medium">Reason</th>
+                            <th class="px-6 py-4 text-center font-medium">Attachments</th>
                             <th class="px-6 py-4 text-left font-medium">Date</th>
                         </tr>
                     </thead>
@@ -465,6 +598,19 @@ const getStatusClass = (status) => {
                                 </div>
                             </td>
                             <td class="px-6 py-4 text-sm text-gray-600 max-w-xs truncate" :title="item.reason">{{ item.reason || 'No reason specified' }}</td>
+                            <td class="px-6 py-4 text-center">
+                                <Button
+                                    v-if="getItemImages(item).length > 0"
+                                    variant="outline"
+                                    size="sm"
+                                    class="h-8 px-2 text-xs flex items-center gap-1"
+                                    @click="openImageModal(item)"
+                                >
+                                    <ImageIcon class="w-3 h-3" />
+                                    <span>{{ getItemImages(item).length }}</span>
+                                </Button>
+                                <span v-else class="text-xs text-gray-400">None</span>
+                            </td>
                             <td class="px-6 py-4 text-sm text-gray-600">{{ formatDate(item.created_at) }}</td>
                         </tr>
                     </tbody>
@@ -512,8 +658,22 @@ const getStatusClass = (status) => {
                         </div>
 
                         <!-- Reason -->
-                        <div v-if="item.reason" class="text-xs text-gray-600">
+                        <div v-if="item.reason" class="text-xs text-gray-600 mb-2">
                             <span class="font-medium">Reason:</span> {{ item.reason }}
+                        </div>
+
+                        <!-- Attachments (Mobile) -->
+                        <div v-if="getItemImages(item).length > 0" class="mt-2 pt-2 border-t border-gray-50 flex items-center justify-between">
+                            <span class="text-xs text-gray-500">Attachments:</span>
+                            <Button
+                                variant="ghost"
+                                size="sm"
+                                class="h-7 px-2 text-xs flex items-center gap-1 text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+                                @click="openImageModal(item)"
+                            >
+                                <ImageIcon class="w-3 h-3" />
+                                <span>View {{ getItemImages(item).length }} images</span>
+                            </Button>
                         </div>
                     </div>
                 </div>
@@ -524,5 +684,55 @@ const getStatusClass = (status) => {
         <div class="bg-white px-6 py-4 border-t border-gray-200 mt-6 rounded-b-xl">
             <Pagination :data="paginatedData" />
         </div>
+
+        <!-- Image Attachment Dialog -->
+        <Dialog v-model:open="showImageModal">
+            <DialogContent class="sm:max-w-md md:max-w-lg">
+                <DialogHeader>
+                    <DialogTitle>Image Attachments</DialogTitle>
+                </DialogHeader>
+                <div class="p-2">
+                    <div v-if="selectedItemImages.length > 0" class="flex flex-wrap gap-4 justify-center">
+                        <div
+                            v-for="image in selectedItemImages"
+                            :key="image.id"
+                            class="relative group cursor-pointer"
+                            @click="handleImageClick(image)"
+                        >
+                            <div
+                                v-if="imageLoadingStates[image.id]"
+                                class="w-24 h-24 md:w-32 md:h-32 bg-gray-100 rounded-lg flex items-center justify-center border border-gray-200"
+                            >
+                                <Loader2 class="w-6 h-6 text-blue-600 animate-spin" />
+                            </div>
+                            <div
+                                v-else-if="imageErrors[image.id]"
+                                class="w-24 h-24 md:w-32 md:h-32 bg-red-50 rounded-lg flex flex-col items-center justify-center border border-red-100 text-red-500 p-2 text-center"
+                            >
+                                <ImageIcon class="w-6 h-6 mb-1 opacity-50" />
+                                <span class="text-[10px]">Error loading image</span>
+                            </div>
+                            <div v-else class="relative overflow-hidden rounded-lg border border-gray-200 shadow-sm transition-all group-hover:shadow-md">
+                                <img
+                                    :src="image.url"
+                                    class="w-24 h-24 md:w-32 md:h-32 object-cover transition-transform duration-300 group-hover:scale-110"
+                                    @load="() => handleImageLoad(image.id)"
+                                    @error="() => handleImageError(image.id, image)"
+                                    @loadstart="() => initializeImageLoading(image)"
+                                />
+                                <div class="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors flex items-center justify-center">
+                                    <div class="opacity-0 group-hover:opacity-100 bg-white/90 p-1.5 rounded-full shadow-sm transition-opacity">
+                                        <Search class="w-4 h-4 text-gray-700" />
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div v-else class="text-center py-8 text-gray-500 italic">
+                        No images found for this item.
+                    </div>
+                </div>
+            </DialogContent>
+        </Dialog>
     </Layout>
 </template>
