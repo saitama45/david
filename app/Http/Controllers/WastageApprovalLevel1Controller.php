@@ -295,60 +295,7 @@ class WastageApprovalLevel1Controller extends Controller
             }
 
             if (!empty($stockErrors)) {
-                // Re-load the wastage data for display
-                $wastage->load([
-                    'storeBranch',
-                    'encoder',
-                    'approver1',
-                    'approver2',
-                    'canceller'
-                ]);
-                
-                $wastageData = [
-                    'id' => $wastage->id,
-                    'wastage_no' => $wastage->wastage_no,
-                    'store_branch_id' => $wastage->store_branch_id,
-                    'wastage_reason' => $wastage->reason,
-                    'wastage_status' => $wastage->wastage_status,
-                    'created_by' => $wastage->created_by,
-                    'created_at' => $wastage->created_at,
-                    'updated_at' => $wastage->updated_at,
-                    'storeBranch' => $wastage->storeBranch,
-                    'encoder' => $wastage->encoder,
-                    'approver1' => $wastage->approver1,
-                    'approver2' => $wastage->approver2,
-                    'canceller' => $wastage->canceller,
-                    'approved_level1_date' => $wastage->approved_level1_date,
-                    'approved_level2_date' => $wastage->approved_level2_date,
-                    'cancelled_date' => $wastage->cancelled_date,
-                    'image_urls' => json_decode($wastage->image_url, true) ?? [],
-                    'items' => $relatedWastages->map(function ($record) {
-                        return [
-                            'id' => $record->id,
-                            'sap_masterfile_id' => $record->sap_masterfile_id,
-                            'wastage_qty' => $record->wastage_qty,
-                            'approverlvl2_qty' => $record->approverlvl2_qty,
-                            'cost' => $record->cost,
-                            'reason' => $record->reason,
-                            'image_url' => $record->image_url,
-                            'sap_masterfile' => $record->sapMasterfile ? [
-                                'id' => $record->sapMasterfile->id,
-                                'ItemCode' => $record->sapMasterfile->ItemCode,
-                                'ItemDescription' => $record->sapMasterfile->ItemDescription,
-                                'BaseUOM' => $record->sapMasterfile->BaseUOM,
-                                'AltUOM' => $record->sapMasterfile->AltUOM,
-                            ] : null,
-                        ];
-                    })->toArray(),
-                ];
-                
-                return \Inertia\Inertia::render('WastageApprovalLevel1/Show', [
-                    'wastage' => $wastageData,
-                    'permissions' => [
-                        'can_approve' => $user->hasPermissionTo('approve wastage level 1'),
-                        'can_edit' => $user->hasPermissionTo('edit wastage approval level 1'),
-                        'can_delete' => $user->hasPermissionTo('delete wastage approval level 1'),
-                    ],
+                return redirect()->back()->with([
                     'approval_error' => 'Cannot approve wastage due to insufficient stock for some items.',
                     'approval_stock_errors' => $stockErrors,
                 ]);

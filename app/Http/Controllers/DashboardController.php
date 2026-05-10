@@ -18,6 +18,8 @@ use App\Models\SupplierItems; // Import SupplierItems model
 use App\Models\User;
 use App\Models\SAPMasterfile; // Ensure SAPMasterfile is imported
 use App\Models\SalesBudget;
+use App\Models\Wastage;
+use App\Enums\WastageStatus;
 use Carbon\Carbon;
 use Exception;
 use Illuminate\Http\Request;
@@ -53,7 +55,7 @@ class DashboardController extends Controller
         $chart_time_period = request('chart_time_period') ?? 0;
 
         // Cache dashboard data per user + filter combination (10 minutes TTL)
-        $cacheKey = 'dashboard_v3_' . auth()->id() . '_' . md5(json_encode([
+        $cacheKey = 'dashboard_v8_' . auth()->id() . '_' . md5(json_encode([
             $branchIds, $time_period, $chart_time_period, $inventory_type
         ]));
 
@@ -75,6 +77,7 @@ class DashboardController extends Controller
             $productInventoryStock = $this->getTop10Products($branchIds, $inventory_type);
             $dpo = $this->getDaysPayableOutstanding($branchIds, $cogsAll, $chart_time_period);
             $salesChartData = $this->getSalesBudgetChartData($branchIds, $time_period);
+            $wastageChartData = $this->getWastageChartData($branchIds, $time_period);
 
             // Calculate KPI metrics
             $currentYear = Carbon::today()->year;
@@ -114,6 +117,7 @@ class DashboardController extends Controller
                 'dpo'                => $dpo,
                 'top_10'             => $productInventoryStock,
                 'salesChartData'     => $salesChartData,
+                'wastageChartData'   => $wastageChartData,
             ];
         });
 
@@ -251,7 +255,6 @@ class DashboardController extends Controller
             $branch = $storeBranches->get($branchId);
             if (!$branch) continue;
 
-            $labels[] = $branch->location_code;
             $code = $branch->branch_code;
 
             // Actual sales (with fallback to SalesBudget type=Sales)
@@ -279,6 +282,10 @@ class DashboardController extends Controller
                 }
             }
 
+            // Skip stores with no data across all three datasets
+            if ($actual <= 0 && $budget <= 0 && $lastYear <= 0) continue;
+
+            $labels[]       = $code;
             $actualData[]   = round($actual / 1000000, 2);
             $budgetData[]   = round($budget / 1000000, 2);
             $lastYearData[] = round($lastYear / 1000000, 2);
@@ -290,6 +297,71 @@ class DashboardController extends Controller
                 ['label' => 'Actual',    'data' => $actualData,   'backgroundColor' => '#4bc0c0'],
                 ['label' => 'Budget',    'data' => $budgetData,   'backgroundColor' => '#9ca3af'],
                 ['label' => 'Last Year', 'data' => $lastYearData, 'backgroundColor' => '#f97316'],
+            ]
+        ];
+    }
+
+    /**
+     * Get Wastage Chart Data (Quantity as line, Amount as bar)
+     */
+    public function getWastageChartData($branchIds, $time_period)
+    {
+        $currentYear = Carbon::today()->year;
+        $currentMonth = Carbon::today()->month;
+
+        $storeBranches = StoreBranch::whereIn('id', $branchIds)->get()->keyBy('id');
+
+        $query = Wastage::whereIn('store_branch_id', $branchIds)
+            ->whereIn('wastage_status', [WastageStatus::APPROVED_LVL2])
+            ->whereYear('created_at', $currentYear);
+
+        if ($time_period == 0) {
+            $query->whereMonth('created_at', '<=', $currentMonth);
+        } else {
+            $query->whereMonth('created_at', $time_period);
+        }
+
+        $wastageDataByBranch = $query
+            ->groupBy('store_branch_id')
+            ->select('store_branch_id')
+            ->selectRaw('SUM(COALESCE(approverlvl2_qty, approverlvl1_qty, wastage_qty)) as total_qty')
+            ->selectRaw('SUM(COALESCE(approverlvl2_qty, approverlvl1_qty, wastage_qty) * cost) as total_amount')
+            ->get()
+            ->keyBy('store_branch_id');
+
+        $labels = [];
+        $qtyData = [];
+        $amountData = [];
+
+        foreach ($wastageDataByBranch as $branchId => $data) {
+            $branch = $storeBranches->get($branchId);
+            if (!$branch) continue;
+
+            $labels[] = $branch->branch_code;
+            $qtyData[] = round((float)$data->total_qty, 2);
+            $amountData[] = round((float)$data->total_amount, 2);
+        }
+
+        return [
+            'labels' => $labels,
+            'datasets' => [
+                [
+                    'label' => 'Wastage Amount',
+                    'type' => 'bar',
+                    'data' => $amountData,
+                    'backgroundColor' => '#f87171',
+                    'yAxisID' => 'y1',
+                    'order' => 2
+                ],
+                [
+                    'label' => 'Wastage Quantity',
+                    'type' => 'line',
+                    'data' => $qtyData,
+                    'borderColor' => '#3b82f6',
+                    'tension' => 0.4,
+                    'yAxisID' => 'y',
+                    'order' => 1
+                ],
             ]
         ];
     }

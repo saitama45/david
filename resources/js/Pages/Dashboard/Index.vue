@@ -79,6 +79,11 @@ const props = defineProps({
             required: false,
             default: () => ({ labels: [], datasets: [] })
         },
+        wastageChartData: {
+            type: Object,
+            required: false,
+            default: () => ({ labels: [], datasets: [] })
+        },
     });
 
 const { options: branchesOptions } = useSelectOptions(props.branches);
@@ -171,6 +176,129 @@ const salesCharts = computed(() => {
     }
     return charts;
 });
+
+const wastageCharts = computed(() => {
+    if (!props.wastageChartData?.labels || props.wastageChartData.labels.length === 0) return [];
+    
+    const labels = props.wastageChartData.labels;
+    const datasets = props.wastageChartData.datasets;
+    const chunkSize = 20; 
+    const charts = [];
+    
+    // Find global max for consistency across all rows
+    let maxAmount = 1000;
+    let maxQty = 100;
+    
+    datasets.forEach(ds => {
+        if (ds.data && Array.isArray(ds.data)) {
+            ds.data.forEach(v => { 
+                const num = parseFloat(v);
+                if (!isNaN(num)) {
+                    if (ds.label === 'Wastage Amount' && num > maxAmount) maxAmount = num;
+                    if (ds.label === 'Wastage Quantity' && num > maxQty) maxQty = num;
+                }
+            });
+        }
+    });
+
+    const maxAmountY = Math.ceil(maxAmount / 100) * 100 + 100;
+    const maxQtyY = Math.ceil(maxQty / 10) * 10 + 10;
+
+    for (let i = 0; i < labels.length; i += chunkSize) {
+        const chunkLabels = labels.slice(i, i + chunkSize);
+        const chunkData = {
+            labels: chunkLabels,
+            datasets: datasets.map(ds => ({
+                ...ds,
+                data: ds.data.slice(i, i + chunkSize),
+            }))
+        };
+        charts.push({
+            data: chunkData,
+            options: setWastageChartOptions(maxAmountY, maxQtyY)
+        });
+    }
+    return charts;
+});
+
+const setWastageChartOptions = (maxAmountY, maxQtyY) => {
+    const documentStyle = getComputedStyle(document.documentElement);
+    const textColor = documentStyle.getPropertyValue("--p-text-color");
+    const textColorSecondary = documentStyle.getPropertyValue(
+        "--p-text-muted-color"
+    );
+    const surfaceBorder = documentStyle.getPropertyValue(
+        "--p-content-border-color"
+    );
+
+    return {
+        maintainAspectRatio: false,
+        aspectRatio: 0.6,
+        plugins: {
+            legend: {
+                labels: {
+                    color: textColor,
+                },
+            },
+            tooltip: {
+                mode: 'index',
+                intersect: false
+            }
+        },
+        scales: {
+            x: {
+                ticks: {
+                    autoSkip: false,
+                    maxRotation: 45,
+                    minRotation: 45,
+                    color: textColorSecondary,
+                    font: {
+                        size: 11
+                    }
+                },
+                grid: {
+                    display: false,
+                },
+            },
+            y: { // Quantity
+                type: 'linear',
+                display: true,
+                position: 'left',
+                min: 0,
+                max: maxQtyY,
+                ticks: {
+                    color: textColorSecondary,
+                },
+                grid: {
+                    color: surfaceBorder,
+                },
+                title: {
+                    display: true,
+                    text: 'Quantity',
+                    color: textColorSecondary,
+                }
+            },
+            y1: { // Amount
+                type: 'linear',
+                display: true,
+                position: 'right',
+                min: 0,
+                max: maxAmountY,
+                ticks: {
+                    color: textColorSecondary,
+                },
+                grid: {
+                    drawOnChartArea: false, // only want the grid lines for one axis
+                },
+                title: {
+                    display: true,
+                    text: 'Amount (Php)',
+                    color: textColorSecondary,
+                }
+            },
+        },
+    };
+};
 
 const setChartOptionsWithMax = (maxY) => {
     const documentStyle = getComputedStyle(document.documentElement);
@@ -880,6 +1008,15 @@ const registerDoughnutLabelPlugin = () => {
 
             <div class="sm:grid sm:grid-cols-3 gap-4">
                 <!-- Full width charts (Multi-line support for stores) -->
+                <template v-for="(chart, index) in wastageCharts" :key="'wastage-chart-' + index">
+                    <Chart
+                        type="bar"
+                        :data="chart.data"
+                        :options="chart.options"
+                        class="h-[30rem] col-span-3 mb-4"
+                    />
+                </template>
+
                 <template v-for="(chart, index) in salesCharts" :key="'sales-chart-' + index">
                     <Chart
                         type="bar"
