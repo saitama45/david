@@ -88,6 +88,9 @@ class RoleService
                 'Knowledge Base Articles' => [
                     'view knowledge base articles', 'create knowledge base articles', 'edit knowledge base articles', 'delete knowledge base articles'
                 ],
+                'Sidebar Management' => [
+                    'manage sidebar'
+                ],
             ],
             'Ordering' => [
                 'Regular' => [

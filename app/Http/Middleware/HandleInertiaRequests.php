@@ -2,6 +2,7 @@
 
 namespace App\Http\Middleware;
 
+use App\Models\SidebarMenuSetting;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\URL;
 use Inertia\Middleware;
@@ -322,6 +323,7 @@ class HandleInertiaRequests extends Middleware
                 'summary_counts' => $request->session()->get('summary_counts'),
             ],
             'previous' => fn() => URL::previous(),
+            'sidebarSettings' => fn() => $request->user() ? SidebarMenuSetting::getSettingsMap() : [],
         ];
     }
 }

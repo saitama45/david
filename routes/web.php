@@ -102,6 +102,7 @@ use App\Http\Controllers\OrderingTemplateApprovalController;
 use App\Http\Controllers\KnowledgeBaseController;
 use App\Http\Controllers\ManageKnowledgeBaseController;
 use App\Http\Controllers\SalesBudgetController;
+use App\Http\Controllers\SidebarManagementController;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 use Illuminate\Foundation\Application;
@@ -1215,6 +1216,16 @@ Route::middleware('auth')
         Route::get('/{knowledgeBase}/edit', 'edit')->name('edit');
         Route::put('/{knowledgeBase}', 'update')->name('update');
         Route::delete('/{knowledgeBase}', 'destroy')->name('destroy');
+    });
+
+// Sidebar Management Routes
+Route::controller(SidebarManagementController::class)
+    ->prefix('sidebar-management')
+    ->name('sidebar-management.')
+    ->middleware('permission:manage sidebar')
+    ->group(function () {
+        Route::get('/', 'index')->name('index');
+        Route::post('/bulk-update', 'bulkUpdate')->name('bulk-update');
     });
 
 // MonsterASP.net Queue Scheduler Route

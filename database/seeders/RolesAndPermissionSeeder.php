@@ -141,6 +141,7 @@ class RolesAndPermissionSeeder extends Seeder
             "import POSMasterfile BOM",
             "log stock usage",
             "manage references",
+            "manage sidebar",
             "perform month end count",
             "receive interco requests",
             "receive orders",

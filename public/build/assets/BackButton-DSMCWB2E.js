@@ -1,1 +1,0 @@
-import{r as s,o as n,c as a,w as r,b as p,N as c,Q as u}from"./app-Ftr6k0Dp.js";const m={__name:"BackButton",props:{routeName:{type:String,default:""}},setup(_){const o=()=>{c.get(u().props.previous)};return(l,t)=>{const e=s("Button");return n(),a(e,{variant:"outline",class:"sm:text-lg px-7 text-xs",onClick:o},{default:r(()=>t[0]||(t[0]=[p(" Back ")])),_:1})}}};export{m as _};

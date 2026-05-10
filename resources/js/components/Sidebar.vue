@@ -61,6 +61,24 @@ const hasAccess = (access) => {
     return isAdmin.value || permissions.value.includes(access);
 };
 
+// Sidebar Management overrides
+const sidebarSettings = computed(() => usePage().props.sidebarSettings || {});
+
+const isMenuActive = (key) => {
+    const setting = sidebarSettings.value[key];
+    return setting === undefined ? true : setting.is_active;
+};
+
+const menuLabel = (key, defaultLabel) => {
+    const setting = sidebarSettings.value[key];
+    return (setting && setting.custom_label) ? setting.custom_label : defaultLabel;
+};
+
+const getMenuOrder = (key) => {
+    const setting = sidebarSettings.value[key];
+    return setting?.sort_order ?? 999;
+};
+
 // Function to check if a given URL (or any of a list of URLs) is the current active page.
 const isPathActive = (pathOrPaths) => {
     const currentUrl = usePage().url.split('?')[0]; // Ignore query strings
@@ -94,6 +112,7 @@ const isPathActive = (pathOrPaths) => {
 const canViewAdministrationGroup = computed(() =>
     hasAccess("view users") ||
     hasAccess("view roles") ||
+    hasAccess("manage sidebar") ||
     hasAccess("view import logs") ||
     hasAccess("view items list") ||
     hasAccess("view sapitems list") ||
@@ -318,16 +337,19 @@ watchEffect(() => {
 
 <template>
     <nav
-        class="grid items-start pl-4 text-sm font-medium transition-all duration-300 overflow-hidden w-64"
+        class="flex flex-col items-start pl-4 text-sm font-medium transition-all duration-300 overflow-hidden w-64"
     >
         <!-- Dashboard Link -->
-        <NavLink href="/dashboard" :icon="Home" :is-active="isPathActive('/dashboard')">
-            Dashboard
-        </NavLink>
+        <div :style="{ order: getMenuOrder('dashboard') }" class="w-full">
+            <NavLink v-if="isMenuActive('dashboard')" href="/dashboard" :icon="Home" :is-active="isPathActive('/dashboard')">
+                {{ menuLabel('dashboard', 'Dashboard') }}
+            </NavLink>
+        </div>
 
         <!-- Ordering Section -->
+        <div :style="{ order: getMenuOrder('ordering') }" class="w-full">
         <Collapsible
-            v-if="canViewOrderingGroup"
+            v-if="canViewOrderingGroup && isMenuActive('ordering')"
             v-model:open="orderingOpen"
             class="w-full"
         >
@@ -335,15 +357,17 @@ watchEffect(() => {
                 class="flex items-center justify-between w-full py-2 hover:bg-muted/50 rounded-md px-2"
             >
                 <div class="flex items-center">
-                    <span >Ordering</span>
+                    <span >{{ menuLabel('ordering', 'Ordering') }}</span>
                 </div>
                 <ChevronDown v-if="orderingOpen" class="h-4 w-4" />
                 <ChevronRight v-else class="h-4 w-4" />
             </CollapsibleTrigger>
             <CollapsibleContent class="pl-2">
+                <div class="flex flex-col">
+                <div :style="{ order: getMenuOrder('ordering.regular') }" class="w-full">
                 <!-- Regular Subcategory -->
                 <Collapsible
-                    v-if="canViewRegularSubcategory"
+                    v-if="canViewRegularSubcategory && isMenuActive('ordering.regular')"
                     v-model:open="regularOpen"
                     class="w-full"
                 >
@@ -351,42 +375,51 @@ watchEffect(() => {
                         class="flex items-center justify-between w-full py-1 text-xs hover:bg-muted/30 rounded-md px-2"
                     >
                         <div class="flex items-center">
-                            <span class="text-muted-foreground">Regular</span>
+                            <span class="text-muted-foreground">{{ menuLabel('ordering.regular', 'Regular') }}</span>
                         </div>
                         <ChevronDown v-if="regularOpen" class="h-3 w-3" />
                         <ChevronRight v-else class="h-3 w-3" />
                     </CollapsibleTrigger>
                     <CollapsibleContent class="pl-2">
+                        <div class="flex flex-col">
+                        <div :style="{ order: getMenuOrder('ordering.regular.store-orders') }" class="w-full">
                         <NavLink
-                            v-if="hasAccess('view store orders')"
+                            v-if="hasAccess('view store orders') && isMenuActive('ordering.regular.store-orders')"
                             href="/store-orders"
                             :icon="ShoppingCart"
                             :is-active="isPathActive('/store-orders')"
                         >
-                            Store Orders
+                            {{ menuLabel('ordering.regular.store-orders', 'Store Orders') }}
                         </NavLink>
+                        </div>
+                        <div :style="{ order: getMenuOrder('ordering.regular.orders-approval') }" class="w-full">
                         <NavLink
-                            v-if="hasAccess('view orders for approval list')"
+                            v-if="hasAccess('view orders for approval list') && isMenuActive('ordering.regular.orders-approval')"
                             href="/orders-approval"
                             :icon="SquareChartGantt"
                             :is-active="isPathActive('/orders-approval')"
                         >
-                            Orders Approval
+                            {{ menuLabel('ordering.regular.orders-approval', 'Orders Approval') }}
                         </NavLink>
+                        </div>
+                        <div :style="{ order: getMenuOrder('ordering.regular.cs-approvals') }" class="w-full">
                         <NavLink
-                            v-if="hasAccess('view orders for cs approval list')"
+                            v-if="hasAccess('view orders for cs approval list') && isMenuActive('ordering.regular.cs-approvals')"
                             href="/cs-approvals"
                             :icon="SquareChartGantt"
                             :is-active="isPathActive('/cs-approvals')"
                         >
-                            CS Review List
+                            {{ menuLabel('ordering.regular.cs-approvals', 'CS Review List') }}
                         </NavLink>
+                        </div>
+                        </div>
                     </CollapsibleContent>
                 </Collapsible>
-
+                </div>
+                <div :style="{ order: getMenuOrder('ordering.regular-dts') }" class="w-full">
                 <!-- Regular DTS Subcategory -->
                 <Collapsible
-                    v-if="canViewRegularDTSSubcategory"
+                    v-if="canViewRegularDTSSubcategory && isMenuActive('ordering.regular-dts')"
                     v-model:open="regularDTSOpen"
                     class="w-full"
                 >
@@ -394,26 +427,31 @@ watchEffect(() => {
                         class="flex items-center justify-between w-full py-1 text-xs hover:bg-muted/30 rounded-md px-2"
                     >
                         <div class="flex items-center">
-                            <span class="text-muted-foreground">Regular DTS</span>
+                            <span class="text-muted-foreground">{{ menuLabel('ordering.regular-dts', 'Regular DTS') }}</span>
                         </div>
                         <ChevronDown v-if="regularDTSOpen" class="h-3 w-3" />
                         <ChevronRight v-else class="h-3 w-3" />
                     </CollapsibleTrigger>
                     <CollapsibleContent class="pl-2">
+                        <div class="flex flex-col">
+                        <div :style="{ order: getMenuOrder('ordering.regular-dts.dts-orders') }" class="w-full">
                         <NavLink
-                            v-if="hasAccess('view dts orders')"
+                            v-if="hasAccess('view dts orders') && isMenuActive('ordering.regular-dts.dts-orders')"
                             href="/dts-orders"
                             :icon="ShoppingBasket"
                             :is-active="isPathActive('/dts-orders')"
                         >
-                            DTS Orders
+                            {{ menuLabel('ordering.regular-dts.dts-orders', 'DTS Orders') }}
                         </NavLink>
+                        </div>
+                        </div>
                     </CollapsibleContent>
                 </Collapsible>
-
+                </div>
+                <div :style="{ order: getMenuOrder('ordering.mass') }" class="w-full">
                 <!-- Regular Mass Orders Subcategory -->
                 <Collapsible
-                    v-if="canViewRegularMassSubcategory"
+                    v-if="canViewRegularMassSubcategory && isMenuActive('ordering.mass')"
                     v-model:open="regularMassOpen"
                     class="w-full"
                 >
@@ -421,52 +459,62 @@ watchEffect(() => {
                         class="flex items-center justify-between w-full py-1 text-xs hover:bg-muted/30 rounded-md px-2"
                     >
                         <div class="flex items-center">
-                            <span class="text-muted-foreground">Regular Mass Orders</span>
+                            <span class="text-muted-foreground">{{ menuLabel('ordering.mass', 'Regular Mass Orders') }}</span>
                         </div>
                         <ChevronDown v-if="regularMassOpen" class="h-3 w-3" />
                         <ChevronRight v-else class="h-3 w-3" />
                     </CollapsibleTrigger>
                     <CollapsibleContent class="pl-2">
+                        <div class="flex flex-col">
+                        <div :style="{ order: getMenuOrder('ordering.mass.mass-orders') }" class="w-full">
                         <NavLink
-                            v-if="hasAccess('view mass orders')"
+                            v-if="hasAccess('view mass orders') && isMenuActive('ordering.mass.mass-orders')"
                             href="/mass-orders"
                             :icon="SquareChartGantt"
                             :is-active="isPathActive('/mass-orders')"
                         >
-                            Mass Orders
+                            {{ menuLabel('ordering.mass.mass-orders', 'Mass Orders') }}
                         </NavLink>
+                        </div>
+                        <div :style="{ order: getMenuOrder('ordering.mass.mass-orders-approval') }" class="w-full">
                         <NavLink
-                            v-if="hasAccess('view mass order approval')"
+                            v-if="hasAccess('view mass order approval') && isMenuActive('ordering.mass.mass-orders-approval')"
                             href="/mass-orders-approval"
                             :icon="SquareChartGantt"
                             :is-active="isPathActive('/mass-orders-approval')"
                         >
-                            Mass Orders Approval
+                            {{ menuLabel('ordering.mass.mass-orders-approval', 'Mass Orders Approval') }}
                         </NavLink>
+                        </div>
+                        <div :style="{ order: getMenuOrder('ordering.mass.cs-mass-commits') }" class="w-full">
                         <NavLink
-                            v-if="hasAccess('view cs mass commits')"
+                            v-if="hasAccess('view cs mass commits') && isMenuActive('ordering.mass.cs-mass-commits')"
                             href="/cs-mass-commits"
                             :icon="SquareChartGantt"
                             :is-active="isPathActive('/cs-mass-commits')"
                         >
-                            CS Mass Commits
+                            {{ menuLabel('ordering.mass.cs-mass-commits', 'CS Mass Commits') }}
                         </NavLink>
+                        </div>
+                        </div>
                     </CollapsibleContent>
                 </Collapsible>
-
+                </div>
+                <div :style="{ order: getMenuOrder('ordering.dts-mass') }" class="w-full">
                 <!-- DTS Mass Orders Link -->
                 <NavLink
-                    v-if="hasAccess('view dts mass orders') || hasAccess('view cs dts mass commit')"
+                    v-if="(hasAccess('view dts mass orders') || hasAccess('view cs dts mass commit')) && isMenuActive('ordering.dts-mass')"
                     href="/dts-mass-orders"
                     :icon="SquareChartGantt"
                     :is-active="isPathActive(['/dts-mass-orders', '/cs-dts-mass-commits'])"
                 >
-                    DTS Mass Orders
+                    {{ menuLabel('ordering.dts-mass', 'DTS Mass Orders') }}
                 </NavLink>
-
+                </div>
+                <div :style="{ order: getMenuOrder('ordering.stock-transfer') }" class="w-full">
                 <!-- Stock Transfer Subcategory -->
                 <Collapsible
-                    v-if="canViewStockTransferSubcategory"
+                    v-if="canViewStockTransferSubcategory && isMenuActive('ordering.stock-transfer')"
                     v-model:open="stockTransferOpen"
                     class="w-full"
                 >
@@ -474,42 +522,51 @@ watchEffect(() => {
                         class="flex items-center justify-between w-full py-1 text-xs hover:bg-muted/30 rounded-md px-2"
                     >
                         <div class="flex items-center">
-                            <span class="text-muted-foreground">Stock Transfer</span>
+                            <span class="text-muted-foreground">{{ menuLabel('ordering.stock-transfer', 'Stock Transfer') }}</span>
                         </div>
                         <ChevronDown v-if="stockTransferOpen" class="h-3 w-3" />
                         <ChevronRight v-else class="h-3 w-3" />
                     </CollapsibleTrigger>
                     <CollapsibleContent class="pl-2">
+                        <div class="flex flex-col">
+                        <div :style="{ order: getMenuOrder('ordering.stock-transfer.interco') }" class="w-full">
                         <NavLink
-                            v-if="hasAccess('view interco requests')"
+                            v-if="hasAccess('view interco requests') && isMenuActive('ordering.stock-transfer.interco')"
                             href="/interco"
                             :icon="Truck"
                             :is-active="isPathActive('/interco')"
                         >
-                            Interco Transfer
+                            {{ menuLabel('ordering.stock-transfer.interco', 'Interco Transfer') }}
                         </NavLink>
+                        </div>
+                        <div :style="{ order: getMenuOrder('ordering.stock-transfer.interco-approval') }" class="w-full">
                         <NavLink
-                            v-if="hasAccess('view interco approvals')"
+                            v-if="hasAccess('view interco approvals') && isMenuActive('ordering.stock-transfer.interco-approval')"
                             href="/interco-approval"
                             :icon="ClipboardCheck"
                             :is-active="isPathActive('/interco-approval')"
                         >
-                            Interco Approval
+                            {{ menuLabel('ordering.stock-transfer.interco-approval', 'Interco Approval') }}
                         </NavLink>
+                        </div>
+                        <div :style="{ order: getMenuOrder('ordering.stock-transfer.store-commits') }" class="w-full">
                         <NavLink
-                            v-if="hasAccess('view store commits')"
+                            v-if="hasAccess('view store commits') && isMenuActive('ordering.stock-transfer.store-commits')"
                             href="/store-commits"
                             :icon="ClipboardCheck"
                             :is-active="isPathActive('/store-commits')"
                         >
-                            Store Commits
+                            {{ menuLabel('ordering.stock-transfer.store-commits', 'Store Commits') }}
                         </NavLink>
+                        </div>
+                        </div>
                     </CollapsibleContent>
                 </Collapsible>
-
+                </div>
+                <div :style="{ order: getMenuOrder('ordering.tools') }" class="w-full">
                 <!-- Ordering Tools Subcategory -->
                 <Collapsible
-                    v-if="canViewMonitoringSubcategory"
+                    v-if="canViewMonitoringSubcategory && isMenuActive('ordering.tools')"
                     v-model:open="monitoringOpen"
                     class="w-full"
                 >
@@ -517,34 +574,41 @@ watchEffect(() => {
                         class="flex items-center justify-between w-full py-1 text-xs hover:bg-muted/30 rounded-md px-2"
                     >
                         <div class="flex items-center">
-                            <span class="text-muted-foreground">Ordering Tools</span>
+                            <span class="text-muted-foreground">{{ menuLabel('ordering.tools', 'Ordering Tools') }}</span>
                         </div>
                         <ChevronDown v-if="monitoringOpen" class="h-3 w-3" />
                         <ChevronRight v-else class="h-3 w-3" />
                     </CollapsibleTrigger>
                     <CollapsibleContent class="pl-2">
+                        <div class="flex flex-col">
+                        <div :style="{ order: getMenuOrder('ordering.tools.ordering-calendar') }" class="w-full">
                         <NavLink
-                            v-if="hasAccess('view ordering calendar')"
+                            v-if="hasAccess('view ordering calendar') && isMenuActive('ordering.tools.ordering-calendar')"
                             href="/ordering-calendar"
                             :icon="CalendarCheck2"
                             :is-active="isPathActive('/ordering-calendar')"
                         >
-                            Ordering Calendar
+                            {{ menuLabel('ordering.tools.ordering-calendar', 'Ordering Calendar') }}
                         </NavLink>
+                        </div>
+                        <div :style="{ order: getMenuOrder('ordering.tools.order-calculator') }" class="w-full">
                         <NavLink
-                            v-if="hasAccess('view order calculator')"
+                            v-if="hasAccess('view order calculator') && isMenuActive('ordering.tools.order-calculator')"
                             href="/ordering-tools/order-calculator"
                             :icon="Calculator"
                             :is-active="isPathActive('/ordering-tools/order-calculator')"
                         >
-                            Order Calculator
+                            {{ menuLabel('ordering.tools.order-calculator', 'Order Calculator') }}
                         </NavLink>
+                        </div>
+                        </div>
                     </CollapsibleContent>
                 </Collapsible>
-
+                </div>
+                <div :style="{ order: getMenuOrder('ordering.others') }" class="w-full">
                 <!-- Others Subcategory -->
                 <Collapsible
-                    v-if="canViewOthersSubcategory"
+                    v-if="canViewOthersSubcategory && isMenuActive('ordering.others')"
                     v-model:open="othersOpen"
                     class="w-full"
                 >
@@ -552,52 +616,66 @@ watchEffect(() => {
                         class="flex items-center justify-between w-full py-1 text-xs hover:bg-muted/30 rounded-md px-2"
                     >
                         <div class="flex items-center">
-                            <span class="text-muted-foreground">Others</span>
+                            <span class="text-muted-foreground">{{ menuLabel('ordering.others', 'Others') }}</span>
                         </div>
                         <ChevronDown v-if="othersOpen" class="h-3 w-3" />
                         <ChevronRight v-else class="h-3 w-3" />
                     </CollapsibleTrigger>
                     <CollapsibleContent class="pl-2">
+                        <div class="flex flex-col">
+                        <div :style="{ order: getMenuOrder('ordering.others.emergency-orders') }" class="w-full">
                         <NavLink
-                            v-if="hasAccess('view emergency orders')"
+                            v-if="hasAccess('view emergency orders') && isMenuActive('ordering.others.emergency-orders')"
                             href="/emergency-orders"
                             :icon="ShoppingCart"
                             :is-active="isPathActive('/emergency-orders')"
                         >
-                            Emergency Orders
+                            {{ menuLabel('ordering.others.emergency-orders', 'Emergency Orders') }}
                         </NavLink>
+                        </div>
+                        <div :style="{ order: getMenuOrder('ordering.others.emergency-orders-approval') }" class="w-full">
                         <NavLink
-                            v-if="hasAccess('view emergency order approval')"
+                            v-if="hasAccess('view emergency order approval') && isMenuActive('ordering.others.emergency-orders-approval')"
                             href="/emergency-orders-approval"
                             :icon="SquareChartGantt"
                             :is-active="isPathActive('/emergency-orders-approval')"
                         >
-                            Emergency Order Approval
+                            {{ menuLabel('ordering.others.emergency-orders-approval', 'Emergency Order Approval') }}
                         </NavLink>
+                        </div>
+                        <div :style="{ order: getMenuOrder('ordering.others.additional-orders') }" class="w-full">
                         <NavLink
-                            v-if="hasAccess('view additional orders')"
+                            v-if="hasAccess('view additional orders') && isMenuActive('ordering.others.additional-orders')"
                             href="/additional-orders"
                             :icon="ShoppingCart"
                             :is-active="isPathActive('/additional-orders')"
                         >
-                            Additional Orders
+                            {{ menuLabel('ordering.others.additional-orders', 'Additional Orders') }}
                         </NavLink>
+                        </div>
+                        <div :style="{ order: getMenuOrder('ordering.others.additional-orders-approval') }" class="w-full">
                         <NavLink
-                            v-if="hasAccess('view additional order approval')"
+                            v-if="hasAccess('view additional order approval') && isMenuActive('ordering.others.additional-orders-approval')"
                             href="/additional-orders-approval"
                             :icon="SquareChartGantt"
                             :is-active="isPathActive('/additional-orders-approval')"
                         >
-                            Additional Order Approval
+                            {{ menuLabel('ordering.others.additional-orders-approval', 'Additional Order Approval') }}
                         </NavLink>
+                        </div>
+                        </div>
                     </CollapsibleContent>
                 </Collapsible>
+                </div>
+                </div>
             </CollapsibleContent>
         </Collapsible>
+        </div>
 
         <!-- Receiving Section -->
+        <div :style="{ order: getMenuOrder('receiving') }" class="w-full">
         <Collapsible
-            v-if="canViewReceivingGroup"
+            v-if="canViewReceivingGroup && isMenuActive('receiving')"
             v-model:open="receivingOpen"
             class="w-full"
         >
@@ -605,58 +683,72 @@ watchEffect(() => {
                 class="flex items-center justify-between w-full py-2 hover:bg-muted/50 rounded-md px-2"
             >
                 <div class="flex items-center">
-                    <span >Receiving</span>
+                    <span >{{ menuLabel('receiving', 'Receiving') }}</span>
                 </div>
                 <ChevronDown v-if="receivingOpen" class="h-4 w-4" />
                 <ChevronRight v-else class="h-4 w-4" />
             </CollapsibleTrigger>
             <CollapsibleContent class="pl-2">
+                <div class="flex flex-col">
+                <div :style="{ order: getMenuOrder('receiving.direct-receiving') }" class="w-full">
                 <NavLink
-                    v-if="hasAccess('view direct receiving')"
+                    v-if="hasAccess('view direct receiving') && isMenuActive('receiving.direct-receiving')"
                     href="/direct-receiving"
                     :icon="ShoppingBasket"
                     :is-active="isPathActive('/direct-receiving')"
                 >
-                    Direct Receiving
+                    {{ menuLabel('receiving.direct-receiving', 'Direct Receiving') }}
                 </NavLink>
+                </div>
+                <div :style="{ order: getMenuOrder('receiving.inbound-orders') }" class="w-full">
                 <NavLink
-                    v-if="hasAccess('view approved orders')"
+                    v-if="hasAccess('view approved orders') && isMenuActive('receiving.inbound-orders')"
                     href="/orders-receiving"
                     :icon="ClipboardList"
                     :is-active="isPathActive('/orders-receiving')"
                 >
-                    Inbound Orders
+                    {{ menuLabel('receiving.inbound-orders', 'Inbound Orders') }}
                 </NavLink>
+                </div>
+                <div :style="{ order: getMenuOrder('receiving.approvals') }" class="w-full">
                 <NavLink
-                    v-if="hasAccess('view received orders for approval list')"
+                    v-if="hasAccess('view received orders for approval list') && isMenuActive('receiving.approvals')"
                     href="/receiving-approvals"
                     :icon="ClipboardCheck"
                     :is-active="isPathActive('/receiving-approvals')"
                 >
-                    Receiving Approvals
+                    {{ menuLabel('receiving.approvals', 'Receiving Approvals') }}
                 </NavLink>
+                </div>
+                <div :style="{ order: getMenuOrder('receiving.confirmed-approved') }" class="w-full">
                 <NavLink
-                    v-if="hasAccess('view approved received items')"
+                    v-if="hasAccess('view approved received items') && isMenuActive('receiving.confirmed-approved')"
                     href="/approved-orders"
                     :icon="FileCheck"
                     :is-active="isPathActive('/approved-orders')"
                 >
-                    Confirmed/Approved Received SO
+                    {{ menuLabel('receiving.confirmed-approved', 'Confirmed/Approved Received SO') }}
                 </NavLink>
+                </div>
+                <div :style="{ order: getMenuOrder('receiving.interco-receiving') }" class="w-full">
                 <NavLink
-                    v-if="hasAccess('view interco receiving')"
+                    v-if="hasAccess('view interco receiving') && isMenuActive('receiving.interco-receiving')"
                     href="/interco-receiving"
                     :icon="Truck"
                     :is-active="isPathActive('/interco-receiving')"
                 >
-                    Interco Receiving
+                    {{ menuLabel('receiving.interco-receiving', 'Interco Receiving') }}
                 </NavLink>
+                </div>
+                </div>
             </CollapsibleContent>
         </Collapsible>
+        </div>
 
         <!-- Sales Section -->
+        <div :style="{ order: getMenuOrder('sales') }" class="w-full">
         <Collapsible
-            v-if="canViewSalesGroup"
+            v-if="canViewSalesGroup && isMenuActive('sales')"
             v-model:open="salesOpen"
             class="w-full"
         >
@@ -664,42 +756,52 @@ watchEffect(() => {
                 class="flex items-center justify-between w-full py-2 hover:bg-muted/50 rounded-md px-2"
             >
                 <div class="flex items-center">
-                    <span >Sales</span>
+                    <span >{{ menuLabel('sales', 'Sales') }}</span>
                 </div>
                 <ChevronDown v-if="salesOpen" class="h-4 w-4" />
                 <ChevronRight v-else class="h-4 w-4" />
             </CollapsibleTrigger>
             <CollapsibleContent class="pl-2">
+                <div class="flex flex-col">
+                <div :style="{ order: getMenuOrder('sales.store-transactions') }" class="w-full">
                 <NavLink
-                    v-if="hasAccess('view store transactions')"
+                    v-if="hasAccess('view store transactions') && isMenuActive('sales.store-transactions')"
                     href="/store-transactions/summary"
                     :icon="ArrowLeftRight"
                     :is-active="isPathActive('/store-transactions')"
                 >
-                    Store Transactions
+                    {{ menuLabel('sales.store-transactions', 'Store Transactions') }}
                 </NavLink>
+                </div>
+                <div :style="{ order: getMenuOrder('sales.store-transactions-approval') }" class="w-full">
                 <NavLink
-                    v-if="hasAccess('view store transactions approval')"
+                    v-if="hasAccess('view store transactions approval') && isMenuActive('sales.store-transactions-approval')"
                     href="/store-transactions-approval"
                     :icon="ArrowLeftRight"
                     :is-active="isPathActive('/store-transactions-approval')"
                 >
-                    Store Transactions Approval
+                    {{ menuLabel('sales.store-transactions-approval', 'Store Transactions Approval') }}
                 </NavLink>
+                </div>
+                <div :style="{ order: getMenuOrder('sales.budget-uploader') }" class="w-full">
                 <NavLink
-                    v-if="hasAccess('view sales budget uploader')"
+                    v-if="hasAccess('view sales budget uploader') && isMenuActive('sales.budget-uploader')"
                     href="/sales-budget-uploader"
                     :icon="FileUp"
                     :is-active="isPathActive('/sales-budget-uploader')"
                 >
-                    Sales/Budget Uploader
+                    {{ menuLabel('sales.budget-uploader', 'Sales/Budget Uploader') }}
                 </NavLink>
+                </div>
+                </div>
             </CollapsibleContent>
         </Collapsible>
+        </div>
 
         <!-- Inventory Section -->
+        <div :style="{ order: getMenuOrder('inventory') }" class="w-full">
         <Collapsible
-            v-if="canViewInventoryGroup"
+            v-if="canViewInventoryGroup && isMenuActive('inventory')"
             v-model:open="inventoryOpen"
             class="w-full"
         >
@@ -707,32 +809,38 @@ watchEffect(() => {
                 class="flex items-center justify-between w-full py-2 hover:bg-muted/50 rounded-md px-2"
             >
                 <div class="flex items-center">
-                    <span >Inventory</span>
+                    <span >{{ menuLabel('inventory', 'Inventory') }}</span>
                 </div>
                 <ChevronDown v-if="inventoryOpen" class="h-4 w-4" />
                 <ChevronRight v-else class="h-4 w-4" />
             </CollapsibleTrigger>
             <CollapsibleContent class="pl-2">
+                <div class="flex flex-col">
+                <div :style="{ order: getMenuOrder('inventory.stock-management') }" class="w-full">
                 <NavLink
-                    v-if="hasAccess('view stock management')"
+                    v-if="hasAccess('view stock management') && isMenuActive('inventory.stock-management')"
                     href="/stock-management"
                     :icon="FolderKanban"
                     :is-active="isPathActive('/stock-management')"
                 >
-                    Stock Management
+                    {{ menuLabel('inventory.stock-management', 'Stock Management') }}
                 </NavLink>
+                </div>
+                <div :style="{ order: getMenuOrder('inventory.soh-adjustment') }" class="w-full">
                 <NavLink
-                    v-if="hasAccess('view soh adjustment')"
+                    v-if="hasAccess('view soh adjustment') && isMenuActive('inventory.soh-adjustment')"
                     href="/soh-adjustment"
                     :icon="FolderKanban"
                     :is-active="isPathActive('/soh-adjustment')"
                 >
-                    SOH Adjustment
+                    {{ menuLabel('inventory.soh-adjustment', 'SOH Adjustment') }}
                 </NavLink>
+                </div>
 
+                <div :style="{ order: getMenuOrder('inventory.wastage') }" class="w-full">
                 <!-- Wastage Subgroup -->
                 <Collapsible
-                    v-if="canViewWastageSubgroup"
+                    v-if="canViewWastageSubgroup && isMenuActive('inventory.wastage')"
                     v-model:open="wastageOpen"
                     class="w-full"
                 >
@@ -740,42 +848,51 @@ watchEffect(() => {
                         class="flex items-center justify-between w-full py-1 text-xs hover:bg-muted/30 rounded-md px-2"
                     >
                         <div class="flex items-center">
-                            <span class="text-muted-foreground">Wastage</span>
+                            <span class="text-muted-foreground">{{ menuLabel('inventory.wastage', 'Wastage') }}</span>
                         </div>
                         <ChevronDown v-if="wastageOpen" class="h-3 w-3" />
                         <ChevronRight v-else class="h-3 w-3" />
                     </CollapsibleTrigger>
                     <CollapsibleContent class="pl-2">
+                        <div class="flex flex-col">
+                        <div :style="{ order: getMenuOrder('inventory.wastage.wastage-record') }" class="w-full">
                         <NavLink
-                            v-if="hasAccess('view wastage record')"
+                            v-if="hasAccess('view wastage record') && isMenuActive('inventory.wastage.wastage-record')"
                             href="/wastage"
                             :icon="Trash2"
                             :is-active="isPathActive('/wastage')"
                         >
-                            Wastage Record
+                            {{ menuLabel('inventory.wastage.wastage-record', 'Wastage Record') }}
                         </NavLink>
+                        </div>
+                        <div :style="{ order: getMenuOrder('inventory.wastage.approval-level1') }" class="w-full">
                         <NavLink
-                            v-if="hasAccess('view wastage approval level 1')"
+                            v-if="hasAccess('view wastage approval level 1') && isMenuActive('inventory.wastage.approval-level1')"
                             href="/wastage-approval-level1"
                             :icon="ClipboardCheck"
                             :is-active="isPathActive('/wastage-approval-level1')"
                         >
-                            Wastage Approval 1st Level
+                            {{ menuLabel('inventory.wastage.approval-level1', 'Wastage Approval 1st Level') }}
                         </NavLink>
+                        </div>
+                        <div :style="{ order: getMenuOrder('inventory.wastage.approval-level2') }" class="w-full">
                         <NavLink
-                            v-if="hasAccess('view wastage approval level 2')"
+                            v-if="hasAccess('view wastage approval level 2') && isMenuActive('inventory.wastage.approval-level2')"
                             href="/wastage-approval-level2"
                             :icon="ClipboardCheck"
                             :is-active="isPathActive('/wastage-approval-level2')"
                         >
-                            Wastage Approval 2nd Level
+                            {{ menuLabel('inventory.wastage.approval-level2', 'Wastage Approval 2nd Level') }}
                         </NavLink>
+                        </div>
+                        </div>
                     </CollapsibleContent>
                 </Collapsible>
-
+                </div>
+                <div :style="{ order: getMenuOrder('inventory.mec') }" class="w-full">
                 <!-- MEC Subgroup -->
                 <Collapsible
-                    v-if="canViewMECSubgroup"
+                    v-if="canViewMECSubgroup && isMenuActive('inventory.mec')"
                     v-model:open="mecOpen"
                     class="w-full"
                 >
@@ -783,49 +900,62 @@ watchEffect(() => {
                         class="flex items-center justify-between w-full py-1 text-xs hover:bg-muted/30 rounded-md px-2"
                     >
                         <div class="flex items-center">
-                            <span class="text-muted-foreground">MEC</span>
+                            <span class="text-muted-foreground">{{ menuLabel('inventory.mec', 'MEC') }}</span>
                         </div>
                         <ChevronDown v-if="mecOpen" class="h-3 w-3" />
                         <ChevronRight v-else class="h-3 w-3" />
                     </CollapsibleTrigger>
                     <CollapsibleContent class="pl-2">
+                        <div class="flex flex-col">
+                        <div :style="{ order: getMenuOrder('inventory.mec.month-end-count') }" class="w-full">
                         <NavLink
-                            v-if="hasAccess('perform month end count')"
+                            v-if="hasAccess('perform month end count') && isMenuActive('inventory.mec.month-end-count')"
                             href="/month-end-count"
                             :icon="ScanBarcode"
                             :is-active="usePage().url.split('?')[0] === '/month-end-count' || usePage().url.split('?')[0].startsWith('/month-end-count/')"
                         >
-                            Month End Count
+                            {{ menuLabel('inventory.mec.month-end-count', 'Month End Count') }}
                         </NavLink>
+                        </div>
+                        <div :style="{ order: getMenuOrder('inventory.mec.approval-level1') }" class="w-full">
                         <NavLink
-                            v-if="hasAccess('view month end count approvals')"
+                            v-if="hasAccess('view month end count approvals') && isMenuActive('inventory.mec.approval-level1')"
                             href="/month-end-count-approvals"
                             :icon="ClipboardCheck"
                             :is-active="isPathActive('/month-end-count-approvals')"
                         >
-                            MEC Approval 1st Level
+                            {{ menuLabel('inventory.mec.approval-level1', 'MEC Approval 1st Level') }}
                         </NavLink>
+                        </div>
+                        <div :style="{ order: getMenuOrder('inventory.mec.approval-level2') }" class="w-full">
                         <NavLink
-                            v-if="hasAccess('view month end count approvals level 2')"
+                            v-if="hasAccess('view month end count approvals level 2') && isMenuActive('inventory.mec.approval-level2')"
                             href="/month-end-count-approvals-level2"
                             :icon="ClipboardCheck"
                             :is-active="isPathActive('/month-end-count-approvals-level2')"
                         >
-                            MEC Approval 2nd Level
+                            {{ menuLabel('inventory.mec.approval-level2', 'MEC Approval 2nd Level') }}
                         </NavLink>
+                        </div>
+                        </div>
                     </CollapsibleContent>
                 </Collapsible>
-
-                <NavLink href="/low-on-stocks" :icon="FileCog" v-if="hasAccess('view low on stocks')"
+                </div>
+                <div :style="{ order: getMenuOrder('inventory.low-on-stocks') }" class="w-full">
+                <NavLink href="/low-on-stocks" :icon="FileCog" v-if="hasAccess('view low on stocks') && isMenuActive('inventory.low-on-stocks')"
                     :is-active="isPathActive('/low-on-stocks')">
-                    Low on Stocks
+                    {{ menuLabel('inventory.low-on-stocks', 'Low on Stocks') }}
                 </NavLink>
+                </div>
+                </div>
             </CollapsibleContent>
         </Collapsible>
+        </div>
 
         <!-- Bill of Materials Section -->
+        <div :style="{ order: getMenuOrder('bom') }" class="w-full">
         <Collapsible
-            v-if="canViewBOMGroup"
+            v-if="canViewBOMGroup && isMenuActive('bom')"
             v-model:open="bomOpen"
             class="w-full"
         >
@@ -833,26 +963,28 @@ watchEffect(() => {
                 class="flex items-center justify-between w-full py-2 hover:bg-muted/50 rounded-md px-2"
             >
                 <div class="flex items-center">
-                    <span >Bill of Materials</span>
+                    <span >{{ menuLabel('bom', 'Bill of Materials') }}</span>
                 </div>
                 <ChevronDown v-if="bomOpen" class="h-4 w-4" />
                 <ChevronRight v-else class="h-4 w-4" />
             </CollapsibleTrigger>
             <CollapsibleContent class="pl-2">
                 <NavLink
-                    v-if="hasAccess('view bom list')"
+                    v-if="hasAccess('view bom list') && isMenuActive('bom.bom-list')"
                     href="/pos-bom-list"
                     :icon="Scroll"
                     :is-active="isPathActive('/pos-bom-list')"
                 >
-                    BOM List
+                    {{ menuLabel('bom.bom-list', 'BOM List') }}
                 </NavLink>
             </CollapsibleContent>
         </Collapsible>
+        </div>
 
         <!-- Reports Section -->
+        <div :style="{ order: getMenuOrder('reports') }" class="w-full">
         <Collapsible
-            v-if="canViewReportsGroup"
+            v-if="canViewReportsGroup && isMenuActive('reports')"
             v-model:open="reportsOpen"
             class="w-full"
         >
@@ -860,138 +992,42 @@ watchEffect(() => {
                 class="flex items-center justify-between w-full py-2 hover:bg-muted/50 rounded-md px-2"
             >
                 <div class="flex items-center">
-                    <span >Reports</span>
+                    <span >{{ menuLabel('reports', 'Reports') }}</span>
                 </div>
                 <ChevronDown v-if="reportsOpen" class="h-4 w-4" />
                 <ChevronRight v-else class="h-4 w-4" />
             </CollapsibleTrigger>
             <CollapsibleContent class="pl-2">
-                <NavLink
-                    v-if="hasAccess('view consolidated so report')"
-                    href="/reports/consolidated-so"
-                    :icon="List"
-                    :is-active="isPathActive('/reports/consolidated-so')"
-                >
-                    Consolidated SO Report
-                </NavLink>
-                <NavLink
-                    v-if="hasAccess('view pmix report')"
-                    href="/reports/pmix-report"
-                    :icon="ChartColumnBig"
-                    :is-active="isPathActive('/reports/pmix-report')"
-                >
-                    PMIX Report
-                </NavLink>
-                <NavLink
-                    v-if="hasAccess('view wastage report')"
-                    href="/reports/wastage-report"
-                    :icon="Trash2"
-                    :is-active="isPathActive('/reports/wastage-report')"
-                >
-                    Wastage Report
-                </NavLink>
-                <NavLink
-                    v-if="hasAccess('view delivery report')"
-                    href="/reports/delivery-report"
-                    :icon="Truck"
-                    :is-active="isPathActive('/reports/delivery-report')"
-                >
-                    Delivery Report
-                </NavLink>
-                <NavLink
-                    v-if="hasAccess('view qty variance cost variance report')"
-                    href="/reports/qty-variance-cost-variance-report"
-                    :icon="ChartColumnBig"
-                    :is-active="isPathActive('/reports/qty-variance-cost-variance-report')"
-                >
-                    Qty Variance / Cost Variance Report
-                </NavLink>
-                <NavLink
-                    v-if="hasAccess('view actual cost cogs report')"
-                    href="/reports/actual-cost-cogs-report"
-                    :icon="Calculator"
-                    :is-active="isPathActive('/reports/actual-cost-cogs-report')"
-                >
-                    Actual Cost / COGS Report
-                </NavLink>
-                <NavLink
-                    v-if="hasAccess('view interco report')"
-                    href="/reports/interco-report"
-                    :icon="Truck"
-                    :is-active="isPathActive('/reports/interco-report')"
-                >
-                    Interco Report
-                </NavLink>
-                <NavLink
-                    v-if="hasAccess('view inventory movement report')"
-                    href="/reports/inventory-movement"
-                    :icon="ArrowLeftRight"
-                    :is-active="isPathActive('/reports/inventory-movement')"
-                >
-                    Inventory Movement Report
-                </NavLink>
-                <NavLink v-if="hasAccess('view top 10 inventories')" href="/top-10-inventories" :icon="List" :is-active="isPathActive('/top-10-inventories')">
-                    Top 10 Inventories
-                </NavLink>
-                <NavLink v-if="hasAccess('view days inventory outstanding')" href="/days-inventory-outstanding" :icon="List" :is-active="isPathActive('/days-inventory-outstanding')">
-                    Days Inventory Outstanding
-                </NavLink>
-                <NavLink v-if="hasAccess('view days payable outstanding')" href="/days-payable-outstanding" :icon="List" :is-active="isPathActive('/days-payable-outstanding')">
-                    Days Payable Outstanding
-                </NavLink>
-                <NavLink v-if="hasAccess('view sales report')" href="/sales-report" :icon="List" :is-active="isPathActive('/sales-report')">
-                    Sales Report
-                </NavLink>
-                <NavLink v-if="hasAccess('view inventories report')" href="/inventories-report" :icon="List" :is-active="isPathActive('/inventories-report')">
-                    Inventories Report
-                </NavLink>
-                <NavLink v-if="hasAccess('view upcoming inventories')" href="/upcoming-inventories" :icon="List" :is-active="isPathActive('/upcoming-inventories')">
-                    Upcoming Inventories
-                </NavLink>
-                <NavLink v-if="hasAccess('view account payable')" href="/account-payable" :icon="List" :is-active="isPathActive('/account-payable')">
-                    Account Payable
-                </NavLink>
-                <NavLink v-if="hasAccess('view cost of goods')" href="/cost-of-goods" :icon="List" :is-active="isPathActive('/cost-of-goods')">
-                    Cost Of Goods
-                </NavLink>
-                <NavLink
-                    v-if="hasAccess('view items order summary')"
-                    href="/product-orders-summary"
-                    :icon="List"
-                    :is-active="isPathActive('/product-orders-summary')"
-                >
-                    Item Orders Summary
-                </NavLink>
-                <NavLink
-                    v-if="hasAccess('view ice cream orders')"
-                    href="/ice-cream-orders"
-                    :icon="IceCreamCone"
-                    :is-active="isPathActive('/ice-cream-orders')"
-                >
-                    Ice Cream Orders
-                </NavLink>
-                <NavLink
-                    v-if="hasAccess('view salmon orders')"
-                    href="/salmon-orders"
-                    :icon="FishSymbol"
-                    :is-active="isPathActive('/salmon-orders')"
-                >
-                    Salmon Orders
-                </NavLink>
-                <NavLink
-                    v-if="hasAccess('view fruits and vegetables orders')"
-                    href="/fruits-and-vegetables"
-                    :icon="Vegan"
-                    :is-active="isPathActive('/fruits-and-vegetables')"
-                >
-                    Fruits And Vegetables Orders
-                </NavLink>
+                <div class="flex flex-col">
+                <div :style="{ order: getMenuOrder('reports.consolidated-so') }" class="w-full"><NavLink v-if="hasAccess('view consolidated so report') && isMenuActive('reports.consolidated-so')" href="/reports/consolidated-so" :icon="List" :is-active="isPathActive('/reports/consolidated-so')">{{ menuLabel('reports.consolidated-so', 'Consolidated SO Report') }}</NavLink></div>
+                <div :style="{ order: getMenuOrder('reports.pmix') }" class="w-full"><NavLink v-if="hasAccess('view pmix report') && isMenuActive('reports.pmix')" href="/reports/pmix-report" :icon="ChartColumnBig" :is-active="isPathActive('/reports/pmix-report')">{{ menuLabel('reports.pmix', 'PMIX Report') }}</NavLink></div>
+                <div :style="{ order: getMenuOrder('reports.wastage') }" class="w-full"><NavLink v-if="hasAccess('view wastage report') && isMenuActive('reports.wastage')" href="/reports/wastage-report" :icon="Trash2" :is-active="isPathActive('/reports/wastage-report')">{{ menuLabel('reports.wastage', 'Wastage Report') }}</NavLink></div>
+                <div :style="{ order: getMenuOrder('reports.delivery') }" class="w-full"><NavLink v-if="hasAccess('view delivery report') && isMenuActive('reports.delivery')" href="/reports/delivery-report" :icon="Truck" :is-active="isPathActive('/reports/delivery-report')">{{ menuLabel('reports.delivery', 'Delivery Report') }}</NavLink></div>
+                <div :style="{ order: getMenuOrder('reports.qty-variance') }" class="w-full"><NavLink v-if="hasAccess('view qty variance cost variance report') && isMenuActive('reports.qty-variance')" href="/reports/qty-variance-cost-variance-report" :icon="ChartColumnBig" :is-active="isPathActive('/reports/qty-variance-cost-variance-report')">{{ menuLabel('reports.qty-variance', 'Qty Variance / Cost Variance Report') }}</NavLink></div>
+                <div :style="{ order: getMenuOrder('reports.actual-cost-cogs') }" class="w-full"><NavLink v-if="hasAccess('view actual cost cogs report') && isMenuActive('reports.actual-cost-cogs')" href="/reports/actual-cost-cogs-report" :icon="Calculator" :is-active="isPathActive('/reports/actual-cost-cogs-report')">{{ menuLabel('reports.actual-cost-cogs', 'Actual Cost / COGS Report') }}</NavLink></div>
+                <div :style="{ order: getMenuOrder('reports.interco') }" class="w-full"><NavLink v-if="hasAccess('view interco report') && isMenuActive('reports.interco')" href="/reports/interco-report" :icon="Truck" :is-active="isPathActive('/reports/interco-report')">{{ menuLabel('reports.interco', 'Interco Report') }}</NavLink></div>
+                <div :style="{ order: getMenuOrder('reports.inventory-movement') }" class="w-full"><NavLink v-if="hasAccess('view inventory movement report') && isMenuActive('reports.inventory-movement')" href="/reports/inventory-movement" :icon="ArrowLeftRight" :is-active="isPathActive('/reports/inventory-movement')">{{ menuLabel('reports.inventory-movement', 'Inventory Movement Report') }}</NavLink></div>
+                <div :style="{ order: getMenuOrder('reports.top-10-inventories') }" class="w-full"><NavLink v-if="hasAccess('view top 10 inventories') && isMenuActive('reports.top-10-inventories')" href="/top-10-inventories" :icon="List" :is-active="isPathActive('/top-10-inventories')">{{ menuLabel('reports.top-10-inventories', 'Top 10 Inventories') }}</NavLink></div>
+                <div :style="{ order: getMenuOrder('reports.days-inventory-outstanding') }" class="w-full"><NavLink v-if="hasAccess('view days inventory outstanding') && isMenuActive('reports.days-inventory-outstanding')" href="/days-inventory-outstanding" :icon="List" :is-active="isPathActive('/days-inventory-outstanding')">{{ menuLabel('reports.days-inventory-outstanding', 'Days Inventory Outstanding') }}</NavLink></div>
+                <div :style="{ order: getMenuOrder('reports.days-payable-outstanding') }" class="w-full"><NavLink v-if="hasAccess('view days payable outstanding') && isMenuActive('reports.days-payable-outstanding')" href="/days-payable-outstanding" :icon="List" :is-active="isPathActive('/days-payable-outstanding')">{{ menuLabel('reports.days-payable-outstanding', 'Days Payable Outstanding') }}</NavLink></div>
+                <div :style="{ order: getMenuOrder('reports.sales') }" class="w-full"><NavLink v-if="hasAccess('view sales report') && isMenuActive('reports.sales')" href="/sales-report" :icon="List" :is-active="isPathActive('/sales-report')">{{ menuLabel('reports.sales', 'Sales Report') }}</NavLink></div>
+                <div :style="{ order: getMenuOrder('reports.inventories') }" class="w-full"><NavLink v-if="hasAccess('view inventories report') && isMenuActive('reports.inventories')" href="/inventories-report" :icon="List" :is-active="isPathActive('/inventories-report')">{{ menuLabel('reports.inventories', 'Inventories Report') }}</NavLink></div>
+                <div :style="{ order: getMenuOrder('reports.upcoming-inventories') }" class="w-full"><NavLink v-if="hasAccess('view upcoming inventories') && isMenuActive('reports.upcoming-inventories')" href="/upcoming-inventories" :icon="List" :is-active="isPathActive('/upcoming-inventories')">{{ menuLabel('reports.upcoming-inventories', 'Upcoming Inventories') }}</NavLink></div>
+                <div :style="{ order: getMenuOrder('reports.account-payable') }" class="w-full"><NavLink v-if="hasAccess('view account payable') && isMenuActive('reports.account-payable')" href="/account-payable" :icon="List" :is-active="isPathActive('/account-payable')">{{ menuLabel('reports.account-payable', 'Account Payable') }}</NavLink></div>
+                <div :style="{ order: getMenuOrder('reports.cost-of-goods') }" class="w-full"><NavLink v-if="hasAccess('view cost of goods') && isMenuActive('reports.cost-of-goods')" href="/cost-of-goods" :icon="List" :is-active="isPathActive('/cost-of-goods')">{{ menuLabel('reports.cost-of-goods', 'Cost Of Goods') }}</NavLink></div>
+                <div :style="{ order: getMenuOrder('reports.item-orders-summary') }" class="w-full"><NavLink v-if="hasAccess('view items order summary') && isMenuActive('reports.item-orders-summary')" href="/product-orders-summary" :icon="List" :is-active="isPathActive('/product-orders-summary')">{{ menuLabel('reports.item-orders-summary', 'Item Orders Summary') }}</NavLink></div>
+                <div :style="{ order: getMenuOrder('reports.ice-cream-orders') }" class="w-full"><NavLink v-if="hasAccess('view ice cream orders') && isMenuActive('reports.ice-cream-orders')" href="/ice-cream-orders" :icon="IceCreamCone" :is-active="isPathActive('/ice-cream-orders')">{{ menuLabel('reports.ice-cream-orders', 'Ice Cream Orders') }}</NavLink></div>
+                <div :style="{ order: getMenuOrder('reports.salmon-orders') }" class="w-full"><NavLink v-if="hasAccess('view salmon orders') && isMenuActive('reports.salmon-orders')" href="/salmon-orders" :icon="FishSymbol" :is-active="isPathActive('/salmon-orders')">{{ menuLabel('reports.salmon-orders', 'Salmon Orders') }}</NavLink></div>
+                <div :style="{ order: getMenuOrder('reports.fruits-and-vegetables') }" class="w-full"><NavLink v-if="hasAccess('view fruits and vegetables orders') && isMenuActive('reports.fruits-and-vegetables')" href="/fruits-and-vegetables" :icon="Vegan" :is-active="isPathActive('/fruits-and-vegetables')">{{ menuLabel('reports.fruits-and-vegetables', 'Fruits And Vegetables Orders') }}</NavLink></div>
+                </div>
             </CollapsibleContent>
         </Collapsible>
+        </div>
 
         <!-- References Section -->
+        <div :style="{ order: getMenuOrder('references') }" class="w-full">
         <Collapsible
-            v-if="canViewReferencesGroup"
+            v-if="canViewReferencesGroup && isMenuActive('references')"
             v-model:open="referencesOpen"
             class="w-full"
         >
@@ -999,94 +1035,47 @@ watchEffect(() => {
                 class="flex items-center justify-between w-full py-2 hover:bg-muted/50 rounded-md px-2"
             >
                 <div class="flex items-center">
-                    <span >References</span>
+                    <span >{{ menuLabel('references', 'References') }}</span>
                 </div>
                 <ChevronDown v-if="referencesOpen" class="h-4 w-4" />
                 <ChevronRight v-else class="h-4 w-4" />
             </CollapsibleTrigger>
             <CollapsibleContent class="pl-2">
-                <NavLink
-                    v-if="hasAccess('view category list')"
-                    href="/category-list"
-                    :icon="FolderDot"
-                    :is-active="isPathActive('/category-list')"
-                >
-                    Categories
-                </NavLink>
-                <NavLink v-if="hasAccess('view wip list')" href="/wip-list" :icon="FolderDot" :is-active="isPathActive('/wip-list')"> WIP List </NavLink>
-                <NavLink
-                    v-if="hasAccess('view menu categories')"
-                    href="/menu-categories"
-                    :icon="FileSliders"
-                    :is-active="isPathActive('/menu-categories')"
-                >
-                    Menu Categories
-                </NavLink>
-                <NavLink v-if="hasAccess('view uom conversions')" href="/uom-conversions" :icon="FileSliders" :is-active="isPathActive('/uom-conversions')">
-                    UOM Conversions
-                </NavLink>
-                <NavLink
-                    v-if="hasAccess('view inventory categories')"
-                    href="/inventory-categories"
-                    :icon="LayoutList"
-                    :is-active="isPathActive('/inventory-categories')"
-                >
-                    Inventory Categories
-                </NavLink>
-                <NavLink
-                    v-if="hasAccess('view unit of measurements')"
-                    href="/unit-of-measurements"
-                    :icon="LayoutList"
-                    :is-active="isPathActive('/unit-of-measurements')"
-                >
-                    Unit of Measurements
-                </NavLink>
-                <NavLink
-                    v-if="hasAccess('view cost centers')"
-                    href="/cost-centers"
-                    :icon="TextSelect"
-                    :is-active="isPathActive('/cost-centers')"
-                >
-                    Cost Centers
-                </NavLink>
+                <div class="flex flex-col">
+                <div :style="{ order: getMenuOrder('references.categories') }" class="w-full"><NavLink v-if="hasAccess('view category list') && isMenuActive('references.categories')" href="/category-list" :icon="FolderDot" :is-active="isPathActive('/category-list')">{{ menuLabel('references.categories', 'Categories') }}</NavLink></div>
+                <div :style="{ order: getMenuOrder('references.wip-list') }" class="w-full"><NavLink v-if="hasAccess('view wip list') && isMenuActive('references.wip-list')" href="/wip-list" :icon="FolderDot" :is-active="isPathActive('/wip-list')">{{ menuLabel('references.wip-list', 'WIP List') }}</NavLink></div>
+                <div :style="{ order: getMenuOrder('references.menu-categories') }" class="w-full"><NavLink v-if="hasAccess('view menu categories') && isMenuActive('references.menu-categories')" href="/menu-categories" :icon="FileSliders" :is-active="isPathActive('/menu-categories')">{{ menuLabel('references.menu-categories', 'Menu Categories') }}</NavLink></div>
+                <div :style="{ order: getMenuOrder('references.uom-conversions') }" class="w-full"><NavLink v-if="hasAccess('view uom conversions') && isMenuActive('references.uom-conversions')" href="/uom-conversions" :icon="FileSliders" :is-active="isPathActive('/uom-conversions')">{{ menuLabel('references.uom-conversions', 'UOM Conversions') }}</NavLink></div>
+                <div :style="{ order: getMenuOrder('references.inventory-categories') }" class="w-full"><NavLink v-if="hasAccess('view inventory categories') && isMenuActive('references.inventory-categories')" href="/inventory-categories" :icon="LayoutList" :is-active="isPathActive('/inventory-categories')">{{ menuLabel('references.inventory-categories', 'Inventory Categories') }}</NavLink></div>
+                <div :style="{ order: getMenuOrder('references.unit-of-measurements') }" class="w-full"><NavLink v-if="hasAccess('view unit of measurements') && isMenuActive('references.unit-of-measurements')" href="/unit-of-measurements" :icon="LayoutList" :is-active="isPathActive('/unit-of-measurements')">{{ menuLabel('references.unit-of-measurements', 'Unit of Measurements') }}</NavLink></div>
+                <div :style="{ order: getMenuOrder('references.cost-centers') }" class="w-full"><NavLink v-if="hasAccess('view cost centers') && isMenuActive('references.cost-centers')" href="/cost-centers" :icon="TextSelect" :is-active="isPathActive('/cost-centers')">{{ menuLabel('references.cost-centers', 'Cost Centers') }}</NavLink></div>
+                </div>
             </CollapsibleContent>
         </Collapsible>
+        </div>
 
         <!-- Administration Section -->
-        <Collapsible v-if="canViewAdministrationGroup" v-model:open="adminOpen" class="w-full">
+        <div :style="{ order: getMenuOrder('administration') }" class="w-full">
+        <Collapsible v-if="canViewAdministrationGroup && isMenuActive('administration')" v-model:open="adminOpen" class="w-full">
             <CollapsibleTrigger
                 class="flex items-center justify-between w-full py-2 hover:bg-muted/50 rounded-md px-2"
             >
                 <div class="flex items-center">
-                    <span >Administration</span>
+                    <span >{{ menuLabel('administration', 'Administration') }}</span>
                 </div>
                 <ChevronDown v-if="adminOpen" class="h-4 w-4" />
                 <ChevronRight v-else class="h-4 w-4" />
             </CollapsibleTrigger>
             <CollapsibleContent class="pl-2">
-                <NavLink
-                    v-if="hasAccess('view users')"
-                    href="/users"
-                    :icon="UsersRound"
-                    :is-active="isPathActive('/users')"
-                >
-                    Users
-                </NavLink>
-                <NavLink href="/roles" :icon="FileCog" v-if="hasAccess('view roles')" :is-active="isPathActive('/roles')">
-                    Roles
-                </NavLink>
-                <NavLink
-                    v-if="hasAccess('view import logs')"
-                    href="/work-queue"
-                    :icon="ClipboardList"
-                    :is-active="isPathActive('/work-queue')"
-                >
-                    Work Queue
-                </NavLink>
+                <div class="flex flex-col">
+                <div :style="{ order: getMenuOrder('administration.users') }" class="w-full"><NavLink v-if="hasAccess('view users') && isMenuActive('administration.users')" href="/users" :icon="UsersRound" :is-active="isPathActive('/users')">{{ menuLabel('administration.users', 'Users') }}</NavLink></div>
+                <div :style="{ order: getMenuOrder('administration.roles') }" class="w-full"><NavLink v-if="hasAccess('view roles') && isMenuActive('administration.roles')" href="/roles" :icon="FileCog" :is-active="isPathActive('/roles')">{{ menuLabel('administration.roles', 'Roles') }}</NavLink></div>
+                <div :style="{ order: getMenuOrder('administration.work-queue') }" class="w-full"><NavLink v-if="hasAccess('view import logs') && isMenuActive('administration.work-queue')" href="/work-queue" :icon="ClipboardList" :is-active="isPathActive('/work-queue')">{{ menuLabel('administration.work-queue', 'Work Queue') }}</NavLink></div>
 
+                <div :style="{ order: getMenuOrder('administration.masterfile') }" class="w-full">
                 <!-- Masterfile Subgroup -->
                 <Collapsible
-                    v-if="canViewMasterfileSubgroup"
+                    v-if="canViewMasterfileSubgroup && isMenuActive('administration.masterfile')"
                     v-model:open="masterfileOpen"
                     class="w-full"
                 >
@@ -1094,66 +1083,27 @@ watchEffect(() => {
                         class="flex items-center justify-between w-full py-1 text-xs hover:bg-muted/30 rounded-md px-2"
                     >
                         <div class="flex items-center">
-                            <span class="text-muted-foreground">Masterfile</span>
+                            <span class="text-muted-foreground">{{ menuLabel('administration.masterfile', 'Masterfile') }}</span>
                         </div>
                         <ChevronDown v-if="masterfileOpen" class="h-3 w-3" />
                         <ChevronRight v-else class="h-3 w-3" />
                     </CollapsibleTrigger>
                     <CollapsibleContent class="pl-2">
-                        <NavLink
-                            v-if="hasAccess('view items list')"
-                            href="/items-list"
-                            :icon="PackageSearch"
-                            :is-active="isPathActive('/items-list')"
-                        >
-                            NN Inventory Items
-                        </NavLink>
-                        <NavLink
-                            v-if="hasAccess('view sapitems list')"
-                            href="/sapitems-list"
-                            :icon="TextSelect"
-                            :is-active="isPathActive('/sapitems-list')"
-                        >
-                            SAP Masterlist
-                        </NavLink>
-                        <NavLink
-                            v-if="hasAccess('view SupplierItems list')"
-                            href="/SupplierItems-list"
-                            :icon="Warehouse"
-                            :is-active="isPathActive('/SupplierItems-list')"
-                        >
-                            Supplier Items
-                        </NavLink>
-                        <NavLink
-                            v-if="hasAccess('view POSMasterfile list')"
-                            href="/POSMasterfile-list"
-                            :icon="TextSelect"
-                            :is-active="isPathActive('/POSMasterfile-list')"
-                        >
-                            POS Masterlist
-                        </NavLink>
-                        <NavLink
-                            v-if="hasAccess('view branches')"
-                            href="/branches"
-                            :icon="AppWindowMac"
-                            :is-active="isPathActive('/branches')"
-                        >
-                            Store Branches
-                        </NavLink>
-                        <NavLink
-                            v-if="hasAccess('view suppliers')"
-                            href="/suppliers"
-                            :icon="Warehouse"
-                            :is-active="isPathActive('/suppliers')"
-                        >
-                            Suppliers
-                        </NavLink>
+                        <div class="flex flex-col">
+                        <div :style="{ order: getMenuOrder('administration.masterfile.nn-items') }" class="w-full"><NavLink v-if="hasAccess('view items list') && isMenuActive('administration.masterfile.nn-items')" href="/items-list" :icon="PackageSearch" :is-active="isPathActive('/items-list')">{{ menuLabel('administration.masterfile.nn-items', 'NN Inventory Items') }}</NavLink></div>
+                        <div :style="{ order: getMenuOrder('administration.masterfile.sap') }" class="w-full"><NavLink v-if="hasAccess('view sapitems list') && isMenuActive('administration.masterfile.sap')" href="/sapitems-list" :icon="TextSelect" :is-active="isPathActive('/sapitems-list')">{{ menuLabel('administration.masterfile.sap', 'SAP Masterlist') }}</NavLink></div>
+                        <div :style="{ order: getMenuOrder('administration.masterfile.supplier-items') }" class="w-full"><NavLink v-if="hasAccess('view SupplierItems list') && isMenuActive('administration.masterfile.supplier-items')" href="/SupplierItems-list" :icon="Warehouse" :is-active="isPathActive('/SupplierItems-list')">{{ menuLabel('administration.masterfile.supplier-items', 'Supplier Items') }}</NavLink></div>
+                        <div :style="{ order: getMenuOrder('administration.masterfile.pos') }" class="w-full"><NavLink v-if="hasAccess('view POSMasterfile list') && isMenuActive('administration.masterfile.pos')" href="/POSMasterfile-list" :icon="TextSelect" :is-active="isPathActive('/POSMasterfile-list')">{{ menuLabel('administration.masterfile.pos', 'POS Masterlist') }}</NavLink></div>
+                        <div :style="{ order: getMenuOrder('administration.masterfile.branches') }" class="w-full"><NavLink v-if="hasAccess('view branches') && isMenuActive('administration.masterfile.branches')" href="/branches" :icon="AppWindowMac" :is-active="isPathActive('/branches')">{{ menuLabel('administration.masterfile.branches', 'Store Branches') }}</NavLink></div>
+                        <div :style="{ order: getMenuOrder('administration.masterfile.suppliers') }" class="w-full"><NavLink v-if="hasAccess('view suppliers') && isMenuActive('administration.masterfile.suppliers')" href="/suppliers" :icon="Warehouse" :is-active="isPathActive('/suppliers')">{{ menuLabel('administration.masterfile.suppliers', 'Suppliers') }}</NavLink></div>
+                        </div>
                     </CollapsibleContent>
                 </Collapsible>
-
+                </div>
+                <div :style="{ order: getMenuOrder('administration.templates') }" class="w-full">
                 <!-- Templates Subgroup -->
                 <Collapsible
-                    v-if="canViewTemplatesSubgroup"
+                    v-if="canViewTemplatesSubgroup && isMenuActive('administration.templates')"
                     v-model:open="templatesOpen"
                     class="w-full"
                 >
@@ -1161,42 +1111,24 @@ watchEffect(() => {
                         class="flex items-center justify-between w-full py-1 text-xs hover:bg-muted/30 rounded-md px-2"
                     >
                         <div class="flex items-center">
-                            <span class="text-muted-foreground">Templates</span>
+                            <span class="text-muted-foreground">{{ menuLabel('administration.templates', 'Templates') }}</span>
                         </div>
                         <ChevronDown v-if="templatesOpen" class="h-3 w-3" />
                         <ChevronRight v-else class="h-3 w-3" />
                     </CollapsibleTrigger>
                     <CollapsibleContent class="pl-2">
-                        <NavLink
-                            v-if="hasAccess('view templates')"
-                            href="/templates"
-                            :icon="FileCog"
-                            :is-active="isPathActive('/templates')"
-                        >
-                            Ordering Templates
-                        </NavLink>
-                        <NavLink
-                            v-if="hasAccess('view ordering template approval')"
-                            href="/ordering-template-approval"
-                            :icon="FileCheck"
-                            :is-active="isPathActive('/ordering-template-approval')"
-                        >
-                            Ordering Template Approval
-                        </NavLink>
-                        <NavLink
-                            v-if="hasAccess('view month end count templates')"
-                            href="/month-end-count-templates"
-                            :icon="Scroll"
-                            :is-active="isPathActive('/month-end-count-templates')"
-                        >
-                            Month End Count Templates
-                        </NavLink>
+                        <div class="flex flex-col">
+                        <div :style="{ order: getMenuOrder('administration.templates.ordering') }" class="w-full"><NavLink v-if="hasAccess('view templates') && isMenuActive('administration.templates.ordering')" href="/templates" :icon="FileCog" :is-active="isPathActive('/templates')">{{ menuLabel('administration.templates.ordering', 'Ordering Templates') }}</NavLink></div>
+                        <div :style="{ order: getMenuOrder('administration.templates.ordering-approval') }" class="w-full"><NavLink v-if="hasAccess('view ordering template approval') && isMenuActive('administration.templates.ordering-approval')" href="/ordering-template-approval" :icon="FileCheck" :is-active="isPathActive('/ordering-template-approval')">{{ menuLabel('administration.templates.ordering-approval', 'Ordering Template Approval') }}</NavLink></div>
+                        <div :style="{ order: getMenuOrder('administration.templates.mec') }" class="w-full"><NavLink v-if="hasAccess('view month end count templates') && isMenuActive('administration.templates.mec')" href="/month-end-count-templates" :icon="Scroll" :is-active="isPathActive('/month-end-count-templates')">{{ menuLabel('administration.templates.mec', 'Month End Count Templates') }}</NavLink></div>
+                        </div>
                     </CollapsibleContent>
                 </Collapsible>
-
+                </div>
+                <div :style="{ order: getMenuOrder('administration.schedules') }" class="w-full">
                 <!-- Schedules Subgroup -->
                 <Collapsible
-                    v-if="canViewSchedulesSubgroup"
+                    v-if="canViewSchedulesSubgroup && isMenuActive('administration.schedules')"
                     v-model:open="schedulesOpen"
                     class="w-full"
                 >
@@ -1204,56 +1136,27 @@ watchEffect(() => {
                         class="flex items-center justify-between w-full py-1 text-xs hover:bg-muted/30 rounded-md px-2"
                     >
                         <div class="flex items-center">
-                            <span class="text-muted-foreground">Schedules</span>
+                            <span class="text-muted-foreground">{{ menuLabel('administration.schedules', 'Schedules') }}</span>
                         </div>
                         <ChevronDown v-if="schedulesOpen" class="h-3 w-3" />
                         <ChevronRight v-else class="h-3 w-3" />
                     </CollapsibleTrigger>
                     <CollapsibleContent class="pl-2">
-                        <NavLink
-                            v-if="hasAccess('view dts delivery schedules')"
-                            href="/dts-delivery-schedules"
-                            :icon="CalendarCheck2"
-                            :is-active="isPathActive('/dts-delivery-schedules')"
-                        >
-                            DTS Delivery Schedules
-                        </NavLink>
-                        <NavLink
-                            v-if="hasAccess('view dsp delivery schedules')"
-                            href="/dsp-delivery-schedules"
-                            :icon="CalendarCheck2"
-                            :is-active="isPathActive('/dsp-delivery-schedules')"
-                        >
-                            Delivery Schedules
-                        </NavLink>
-                        <NavLink
-                            v-if="hasAccess('view month end schedules')"
-                            href="/month-end-schedules"
-                            :icon="CalendarCheck2"
-                            :is-active="isPathActive('/month-end-schedules')"
-                        >
-                            Month End Count Schedules
-                        </NavLink>
-                        <NavLink
-                            v-if="hasAccess('view orders cutoff')"
-                            href="/orders-cutoff"
-                            :icon="CalendarCheck2"
-                            :is-active="isPathActive('/orders-cutoff')"
-                        >
-                            Ordering Cut off
-                        </NavLink>
+                        <div class="flex flex-col">
+                        <div :style="{ order: getMenuOrder('administration.schedules.dts-delivery') }" class="w-full"><NavLink v-if="hasAccess('view dts delivery schedules') && isMenuActive('administration.schedules.dts-delivery')" href="/dts-delivery-schedules" :icon="CalendarCheck2" :is-active="isPathActive('/dts-delivery-schedules')">{{ menuLabel('administration.schedules.dts-delivery', 'DTS Delivery Schedules') }}</NavLink></div>
+                        <div :style="{ order: getMenuOrder('administration.schedules.dsp-delivery') }" class="w-full"><NavLink v-if="hasAccess('view dsp delivery schedules') && isMenuActive('administration.schedules.dsp-delivery')" href="/dsp-delivery-schedules" :icon="CalendarCheck2" :is-active="isPathActive('/dsp-delivery-schedules')">{{ menuLabel('administration.schedules.dsp-delivery', 'Delivery Schedules') }}</NavLink></div>
+                        <div :style="{ order: getMenuOrder('administration.schedules.month-end') }" class="w-full"><NavLink v-if="hasAccess('view month end schedules') && isMenuActive('administration.schedules.month-end')" href="/month-end-schedules" :icon="CalendarCheck2" :is-active="isPathActive('/month-end-schedules')">{{ menuLabel('administration.schedules.month-end', 'Month End Count Schedules') }}</NavLink></div>
+                        <div :style="{ order: getMenuOrder('administration.schedules.orders-cutoff') }" class="w-full"><NavLink v-if="hasAccess('view orders cutoff') && isMenuActive('administration.schedules.orders-cutoff')" href="/orders-cutoff" :icon="CalendarCheck2" :is-active="isPathActive('/orders-cutoff')">{{ menuLabel('administration.schedules.orders-cutoff', 'Ordering Cut off') }}</NavLink></div>
+                        </div>
                     </CollapsibleContent>
                 </Collapsible>
 
-                <NavLink
-                    v-if="hasAccess('view knowledge base articles')"
-                    href="/manage-knowledge-base"
-                    :icon="FileCheck"
-                    :is-active="isPathActive('/manage-knowledge-base')"
-                >
-                    Knowledge Base Articles
-                </NavLink>
+                </div>
+                <div :style="{ order: getMenuOrder('administration.knowledge-base') }" class="w-full"><NavLink v-if="hasAccess('view knowledge base articles') && isMenuActive('administration.knowledge-base')" href="/manage-knowledge-base" :icon="FileCheck" :is-active="isPathActive('/manage-knowledge-base')">{{ menuLabel('administration.knowledge-base', 'Knowledge Base Articles') }}</NavLink></div>
+                <div :style="{ order: getMenuOrder('administration.sidebar-management') }" class="w-full"><NavLink v-if="hasAccess('manage sidebar') && isMenuActive('administration.sidebar-management')" href="/sidebar-management" :icon="MonitorCog" :is-active="isPathActive('/sidebar-management')">{{ menuLabel('administration.sidebar-management', 'Sidebar Management') }}</NavLink></div>
+                </div>
             </CollapsibleContent>
         </Collapsible>
+        </div>
     </nav>
 </template>
