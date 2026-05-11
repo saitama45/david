@@ -4,7 +4,7 @@ import { throttle } from "lodash";
 import { router } from "@inertiajs/vue3";
 import { usePage } from "@inertiajs/vue3";
 import { useSelectOptions } from "@/composables/useSelectOptions";
-import { Calendar, Search, RotateCcw, Download, Filter, ChevronDown, ChevronUp, Package, CalendarDays, Building2, Badge as BadgeIcon, ChartColumnBig, Truck } from "lucide-vue-next";
+import { Calendar, Search, RotateCcw, Download, Filter, ChevronDown, ChevronUp, Package, CalendarDays, Building2, Badge as BadgeIcon, ChartColumnBig, Truck, ArrowUpDown, ArrowUp, ArrowDown } from "lucide-vue-next";
 import { useAuth } from "@/composables/useAuth";
 import MultiSelect from "primevue/multiselect";
 
@@ -43,6 +43,7 @@ const props = defineProps({
 // Reactive states
 const isFiltersCollapsed = ref(false);
 const searchFocus = ref(false);
+const isLoading = ref(false);
 
 // Per page options with proper labels
 const perPageOptions = [
@@ -68,10 +69,27 @@ const storeIds = ref(props.filters.store_ids || []);
 const search = ref(props.filters.search || '');
 const perPage = ref(props.filters.per_page || 50);
 
+// Column filters
+const filterExpectedDate = ref(props.filters.filter_expected_date || '');
+const filterReceivedDate = ref(props.filters.filter_received_date || '');
+const filterStore = ref(props.filters.filter_store || '');
+const filterSupplier = ref(props.filters.filter_supplier || '');
+const filterStatus = ref(props.filters.filter_status || '');
+const filterItemCode = ref(props.filters.filter_item_code || '');
+const filterItemDescription = ref(props.filters.filter_item_description || '');
+const filterUom = ref(props.filters.filter_uom || '');
+const filterSo = ref(props.filters.filter_so || '');
+const filterDr = ref(props.filters.filter_dr || '');
+
+// Sorting
+const sortField = ref(props.filters.sort_field || '');
+const sortDirection = ref(props.filters.sort_direction || 'asc');
+
 const { hasAccess } = useAuth();
 
 // Enhanced filter management with loading states
 const updateFilters = () => {
+    isLoading.value = true;
     router.get(
         route('reports.delivery-report.index'),
         {
@@ -80,17 +98,42 @@ const updateFilters = () => {
             store_ids: storeIds.value,
             search: search.value,
             per_page: perPage.value,
+            sort_field: sortField.value,
+            sort_direction: sortDirection.value,
+            filter_expected_date: filterExpectedDate.value,
+            filter_received_date: filterReceivedDate.value,
+            filter_store: filterStore.value,
+            filter_supplier: filterSupplier.value,
+            filter_status: filterStatus.value,
+            filter_item_code: filterItemCode.value,
+            filter_item_description: filterItemDescription.value,
+            filter_uom: filterUom.value,
+            filter_so: filterSo.value,
+            filter_dr: filterDr.value,
         },
         {
             preserveState: true,
             preserveScroll: true,
             replace: true,
+            onStart: () => isLoading.value = true,
+            onFinish: () => isLoading.value = false,
         }
     );
 };
 
+const handleSort = (field) => {
+    if (sortField.value === field) {
+        sortDirection.value = sortDirection.value === 'asc' ? 'desc' : 'asc';
+    } else {
+        sortField.value = field;
+        sortDirection.value = 'asc';
+    }
+    updateFilters();
+};
+
 // Watch for filter changes and update URL
-watch([dateFrom, dateTo, storeIds, search, perPage], updateFilters);
+watch([dateFrom, dateTo, storeIds, perPage], throttle(updateFilters, 300));
+watch([search, filterExpectedDate, filterReceivedDate, filterStore, filterSupplier, filterStatus, filterItemCode, filterItemDescription, filterUom, filterSo, filterDr], throttle(updateFilters, 500));
 
 // Toggle filters for mobile
 const toggleFilters = () => {
@@ -104,6 +147,16 @@ const activeFiltersCount = computed(() => {
     if (dateTo.value) count++;
     if (storeIds.value && storeIds.value.length > 0) count++;
     if (search.value) count++;
+    if (filterExpectedDate.value) count++;
+    if (filterReceivedDate.value) count++;
+    if (filterStore.value) count++;
+    if (filterSupplier.value) count++;
+    if (filterStatus.value) count++;
+    if (filterItemCode.value) count++;
+    if (filterItemDescription.value) count++;
+    if (filterUom.value) count++;
+    if (filterSo.value) count++;
+    if (filterDr.value) count++;
     return count;
 });
 
@@ -122,6 +175,18 @@ const resetFilters = () => {
     storeIds.value = props.assignedStoreIds;
     search.value = '';
     perPage.value = 50;
+    filterExpectedDate.value = '';
+    filterReceivedDate.value = '';
+    filterStore.value = '';
+    filterSupplier.value = '';
+    filterStatus.value = '';
+    filterItemCode.value = '';
+    filterItemDescription.value = '';
+    filterUom.value = '';
+    filterSo.value = '';
+    filterDr.value = '';
+    sortField.value = '';
+    sortDirection.value = 'asc';
 };
 
 // Export route
@@ -362,21 +427,142 @@ const formatDateOnly = (dateString) => {
             <!-- Desktop Table -->
             <div class="hidden lg:block overflow-visible">
                 <table class="min-w-full border-separate border-spacing-0">
-                    <thead class="sticky -top-4 lg:-top-6 z-20 bg-gray-50 shadow-sm">
+                    <thead class="sticky -top-4 lg:-top-6 z-20 bg-gray-50 shadow-sm border-b border-gray-200">
                         <tr class="text-xs text-gray-500 uppercase tracking-wider">
-                            <th class="px-6 py-4 text-left font-medium">Expected Delivery Date</th>
-                            <th class="px-6 py-4 text-left font-medium">Received Logged</th>
-                            <th class="px-6 py-4 text-left font-medium">Store</th>
-                            <th class="px-6 py-4 text-left font-medium">Supplier Code</th>
-                            <th class="px-6 py-4 text-center font-medium">Status</th>
-                            <th class="px-6 py-4 text-left font-medium">Item Code</th>
-                            <th class="px-6 py-4 text-left font-medium">Item Name</th>
-                            <th class="px-6 py-4 text-center font-medium">UOM</th>
-                            <th class="px-6 py-4 text-center font-medium">Order Qty</th>
-                            <th class="px-6 py-4 text-center font-medium">Committed Qty</th>
-                            <th class="px-6 py-4 text-center font-medium">Received Qty</th>
-                            <th class="px-6 py-4 text-left font-medium">SO Number</th>
-                            <th class="px-6 py-4 text-left font-medium">DR Number</th>
+                            <th @click="handleSort('expected_delivery_date')" class="px-6 py-4 text-left font-medium border-r border-gray-100 cursor-pointer hover:bg-gray-100 group transition-colors">
+                                <div class="flex flex-col gap-2">
+                                    <div class="flex items-center justify-between gap-1">
+                                        <span>Expected Delivery Date</span>
+                                        <ArrowUp v-if="sortField === 'expected_delivery_date' && sortDirection === 'asc'" class="w-3 h-3 text-blue-600" />
+                                        <ArrowDown v-else-if="sortField === 'expected_delivery_date' && sortDirection === 'desc'" class="w-3 h-3 text-blue-600" />
+                                        <ArrowUpDown v-else class="w-3 h-3 text-gray-300 group-hover:text-blue-400" />
+                                    </div>
+                                    <Input v-model="filterExpectedDate" @click.stop placeholder="Filter..." class="h-7 text-[10px] font-normal normal-case border-gray-200 focus:ring-1 focus:ring-blue-100" />
+                                </div>
+                            </th>
+                            <th @click="handleSort('date_received')" class="px-6 py-4 text-left font-medium border-r border-gray-100 cursor-pointer hover:bg-gray-100 group transition-colors">
+                                <div class="flex flex-col gap-2">
+                                    <div class="flex items-center justify-between gap-1">
+                                        <span>Received Logged</span>
+                                        <ArrowUp v-if="sortField === 'date_received' && sortDirection === 'asc'" class="w-3 h-3 text-blue-600" />
+                                        <ArrowDown v-else-if="sortField === 'date_received' && sortDirection === 'desc'" class="w-3 h-3 text-blue-600" />
+                                        <ArrowUpDown v-else class="w-3 h-3 text-gray-300 group-hover:text-blue-400" />
+                                    </div>
+                                    <Input v-model="filterReceivedDate" @click.stop placeholder="Filter..." class="h-7 text-[10px] font-normal normal-case border-gray-200 focus:ring-1 focus:ring-blue-100" />
+                                </div>
+                            </th>
+                            <th @click="handleSort('store_name')" class="px-6 py-4 text-left font-medium border-r border-gray-100 cursor-pointer hover:bg-gray-100 group transition-colors">
+                                <div class="flex flex-col gap-2">
+                                    <div class="flex items-center justify-between gap-1">
+                                        <span>Store</span>
+                                        <ArrowUp v-if="sortField === 'store_name' && sortDirection === 'asc'" class="w-3 h-3 text-blue-600" />
+                                        <ArrowDown v-else-if="sortField === 'store_name' && sortDirection === 'desc'" class="w-3 h-3 text-blue-600" />
+                                        <ArrowUpDown v-else class="w-3 h-3 text-gray-300 group-hover:text-blue-400" />
+                                    </div>
+                                    <Input v-model="filterStore" @click.stop placeholder="Filter..." class="h-7 text-[10px] font-normal normal-case border-gray-200 focus:ring-1 focus:ring-blue-100" />
+                                </div>
+                            </th>
+                            <th @click="handleSort('supplier_code')" class="px-6 py-4 text-left font-medium border-r border-gray-100 cursor-pointer hover:bg-gray-100 group transition-colors">
+                                <div class="flex flex-col gap-2">
+                                    <div class="flex items-center justify-between gap-1">
+                                        <span>Supplier Code</span>
+                                        <ArrowUp v-if="sortField === 'supplier_code' && sortDirection === 'asc'" class="w-3 h-3 text-blue-600" />
+                                        <ArrowDown v-else-if="sortField === 'supplier_code' && sortDirection === 'desc'" class="w-3 h-3 text-blue-600" />
+                                        <ArrowUpDown v-else class="w-3 h-3 text-gray-300 group-hover:text-blue-400" />
+                                    </div>
+                                    <Input v-model="filterSupplier" @click.stop placeholder="Filter..." class="h-7 text-[10px] font-normal normal-case border-gray-200 focus:ring-1 focus:ring-blue-100" />
+                                </div>
+                            </th>
+                            <th @click="handleSort('status')" class="px-6 py-4 text-center font-medium border-r border-gray-100 cursor-pointer hover:bg-gray-100 group transition-colors">
+                                <div class="flex flex-col gap-2">
+                                    <div class="flex items-center justify-center gap-1">
+                                        <span>Status</span>
+                                        <ArrowUp v-if="sortField === 'status' && sortDirection === 'asc'" class="w-3 h-3 text-blue-600" />
+                                        <ArrowDown v-else-if="sortField === 'status' && sortDirection === 'desc'" class="w-3 h-3 text-blue-600" />
+                                        <ArrowUpDown v-else class="w-3 h-3 text-gray-300 group-hover:text-blue-400" />
+                                    </div>
+                                    <Input v-model="filterStatus" @click.stop placeholder="Filter..." class="h-7 text-[10px] font-normal normal-case border-gray-200 focus:ring-1 focus:ring-blue-100" />
+                                </div>
+                            </th>
+                            <th @click="handleSort('item_code')" class="px-6 py-4 text-left font-medium border-r border-gray-100 cursor-pointer hover:bg-gray-100 group transition-colors">
+                                <div class="flex flex-col gap-2">
+                                    <div class="flex items-center justify-between gap-1">
+                                        <span>Item Code</span>
+                                        <ArrowUp v-if="sortField === 'item_code' && sortDirection === 'asc'" class="w-3 h-3 text-blue-600" />
+                                        <ArrowDown v-else-if="sortField === 'item_code' && sortDirection === 'desc'" class="w-3 h-3 text-blue-600" />
+                                        <ArrowUpDown v-else class="w-3 h-3 text-gray-300 group-hover:text-blue-400" />
+                                    </div>
+                                    <Input v-model="filterItemCode" @click.stop placeholder="Filter..." class="h-7 text-[10px] font-normal normal-case border-gray-200 focus:ring-1 focus:ring-blue-100" />
+                                </div>
+                            </th>
+                            <th @click="handleSort('item_description')" class="px-6 py-4 text-left font-medium border-r border-gray-100 cursor-pointer hover:bg-gray-100 group transition-colors min-w-[200px]">
+                                <div class="flex flex-col gap-2">
+                                    <div class="flex items-center justify-between gap-1">
+                                        <span>Item Name</span>
+                                        <ArrowUp v-if="sortField === 'item_description' && sortDirection === 'asc'" class="w-3 h-3 text-blue-600" />
+                                        <ArrowDown v-else-if="sortField === 'item_description' && sortDirection === 'desc'" class="w-3 h-3 text-blue-600" />
+                                        <ArrowUpDown v-else class="w-3 h-3 text-gray-300 group-hover:text-blue-400" />
+                                    </div>
+                                    <Input v-model="filterItemDescription" @click.stop placeholder="Filter..." class="h-7 text-[10px] font-normal normal-case border-gray-200 focus:ring-1 focus:ring-blue-100" />
+                                </div>
+                            </th>
+                            <th @click="handleSort('uom')" class="px-6 py-4 text-center font-medium border-r border-gray-100 cursor-pointer hover:bg-gray-100 group transition-colors">
+                                <div class="flex flex-col gap-2">
+                                    <div class="flex items-center justify-center gap-1">
+                                        <span>UOM</span>
+                                        <ArrowUp v-if="sortField === 'uom' && sortDirection === 'asc'" class="w-3 h-3 text-blue-600" />
+                                        <ArrowDown v-else-if="sortField === 'uom' && sortDirection === 'desc'" class="w-3 h-3 text-blue-600" />
+                                        <ArrowUpDown v-else class="w-3 h-3 text-gray-300 group-hover:text-blue-400" />
+                                    </div>
+                                    <Input v-model="filterUom" @click.stop placeholder="Filter..." class="h-7 text-[10px] font-normal normal-case border-gray-200 focus:ring-1 focus:ring-blue-100" />
+                                </div>
+                            </th>
+                            <th rowspan="2" @click="handleSort('quantity_ordered')" class="px-6 py-4 text-center font-medium border-r border-gray-100 cursor-pointer hover:bg-gray-100 group transition-colors">
+                                <div class="flex items-center justify-center gap-1">
+                                    <span>Order Qty</span>
+                                    <ArrowUp v-if="sortField === 'quantity_ordered' && sortDirection === 'asc'" class="w-3 h-3 text-blue-600" />
+                                    <ArrowDown v-else-if="sortField === 'quantity_ordered' && sortDirection === 'desc'" class="w-3 h-3 text-blue-600" />
+                                    <ArrowUpDown v-else class="w-3 h-3 text-gray-300 group-hover:text-blue-400" />
+                                </div>
+                            </th>
+                            <th rowspan="2" @click="handleSort('quantity_committed')" class="px-6 py-4 text-center font-medium border-r border-gray-100 cursor-pointer hover:bg-gray-100 group transition-colors">
+                                <div class="flex items-center justify-center gap-1">
+                                    <span>Committed Qty</span>
+                                    <ArrowUp v-if="sortField === 'quantity_committed' && sortDirection === 'asc'" class="w-3 h-3 text-blue-600" />
+                                    <ArrowDown v-else-if="sortField === 'quantity_committed' && sortDirection === 'desc'" class="w-3 h-3 text-blue-600" />
+                                    <ArrowUpDown v-else class="w-3 h-3 text-gray-300 group-hover:text-blue-400" />
+                                </div>
+                            </th>
+                            <th rowspan="2" @click="handleSort('quantity_received')" class="px-6 py-4 text-center font-medium border-r border-gray-100 cursor-pointer hover:bg-gray-100 group transition-colors">
+                                <div class="flex items-center justify-center gap-1">
+                                    <span>Received Qty</span>
+                                    <ArrowUp v-if="sortField === 'quantity_received' && sortDirection === 'asc'" class="w-3 h-3 text-blue-600" />
+                                    <ArrowDown v-else-if="sortField === 'quantity_received' && sortDirection === 'desc'" class="w-3 h-3 text-blue-600" />
+                                    <ArrowUpDown v-else class="w-3 h-3 text-gray-300 group-hover:text-blue-400" />
+                                </div>
+                            </th>
+                            <th @click="handleSort('so_number')" class="px-6 py-4 text-left font-medium border-r border-gray-100 cursor-pointer hover:bg-gray-100 group transition-colors">
+                                <div class="flex flex-col gap-2">
+                                    <div class="flex items-center justify-between gap-1">
+                                        <span>SO Number</span>
+                                        <ArrowUp v-if="sortField === 'so_number' && sortDirection === 'asc'" class="w-3 h-3 text-blue-600" />
+                                        <ArrowDown v-else-if="sortField === 'so_number' && sortDirection === 'desc'" class="w-3 h-3 text-blue-600" />
+                                        <ArrowUpDown v-else class="w-3 h-3 text-gray-300 group-hover:text-blue-400" />
+                                    </div>
+                                    <Input v-model="filterSo" @click.stop placeholder="Filter..." class="h-7 text-[10px] font-normal normal-case border-gray-200 focus:ring-1 focus:ring-blue-100" />
+                                </div>
+                            </th>
+                            <th @click="handleSort('dr_number')" class="px-6 py-4 text-left font-medium cursor-pointer hover:bg-gray-100 group transition-colors">
+                                <div class="flex flex-col gap-2">
+                                    <div class="flex items-center justify-between gap-1">
+                                        <span>DR Number</span>
+                                        <ArrowUp v-if="sortField === 'dr_number' && sortDirection === 'asc'" class="w-3 h-3 text-blue-600" />
+                                        <ArrowDown v-else-if="sortField === 'dr_number' && sortDirection === 'desc'" class="w-3 h-3 text-blue-600" />
+                                        <ArrowUpDown v-else class="w-3 h-3 text-gray-300 group-hover:text-blue-400" />
+                                    </div>
+                                    <Input v-model="filterDr" @click.stop placeholder="Filter..." class="h-7 text-[10px] font-normal normal-case border-gray-200 focus:ring-1 focus:ring-blue-100" />
+                                </div>
+                            </th>
                         </tr>
                     </thead>
                     <tbody class="bg-white divide-y divide-gray-100">

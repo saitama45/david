@@ -2,9 +2,7 @@
 import { ref, watch, computed } from "vue";
 import { throttle } from "lodash";
 import { router } from "@inertiajs/vue3";
-import { usePage } from "@inertiajs/vue3";
-import { useSelectOptions } from "@/composables/useSelectOptions";
-import { Calendar, Search, RotateCcw, Download, Filter, ChevronDown, ChevronUp, Package, CalendarDays, Building2, Badge as BadgeIcon, Trash2, Image as ImageIcon, Loader2 } from "lucide-vue-next";
+import { Calendar, Search, RotateCcw, Download, Filter, ChevronDown, ChevronUp, Package, CalendarDays, Building2, Badge as BadgeIcon, Trash2, Image as ImageIcon, Loader2, ArrowUpDown, ArrowUp, ArrowDown } from "lucide-vue-next";
 import { useAuth } from "@/composables/useAuth";
 import SearchableSelect from "@/components/ui/select/SearchableSelect.vue";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -44,6 +42,17 @@ const props = defineProps({
 const isFiltersCollapsed = ref(false);
 const isLoading = ref(false);
 const searchFocus = ref(false);
+
+// Column filters
+const filterWastageNo = ref(props.filters.filter_wastage_no || '');
+const filterStore = ref(props.filters.filter_store || '');
+const filterItem = ref(props.filters.filter_item || '');
+const filterStatus = ref(props.filters.filter_status || '');
+const filterReason = ref(props.filters.filter_reason || '');
+
+// Sorting
+const sortField = ref(props.filters.sort_field || '');
+const sortDirection = ref(props.filters.sort_direction || 'asc');
 
 // Image attachment states
 const showImageModal = ref(false);
@@ -223,6 +232,13 @@ const updateFilters = () => {
             status: status.value,
             search: search.value,
             per_page: perPage.value,
+            sort_field: sortField.value,
+            sort_direction: sortDirection.value,
+            filter_wastage_no: filterWastageNo.value,
+            filter_store: filterStore.value,
+            filter_item: filterItem.value,
+            filter_status: filterStatus.value,
+            filter_reason: filterReason.value,
         },
         {
             preserveState: true,
@@ -234,13 +250,23 @@ const updateFilters = () => {
     );
 };
 
+const handleSort = (field) => {
+    if (sortField.value === field) {
+        sortDirection.value = sortDirection.value === 'asc' ? 'desc' : 'asc';
+    } else {
+        sortField.value = field;
+        sortDirection.value = 'asc';
+    }
+    updateFilters();
+};
+
 // Watch for filter changes and update URL
 watch([dateFrom, dateTo, storeBranchId, status, perPage],
     throttle(updateFilters, 300)
 );
 
-// Watch for search changes with longer throttling
-watch(search,
+// Watch for search and column filters with longer throttling
+watch([search, filterWastageNo, filterStore, filterItem, filterStatus, filterReason],
     throttle(updateFilters, 500)
 );
 
@@ -257,6 +283,11 @@ const activeFiltersCount = computed(() => {
     if (storeBranchId.value) count++;
     if (status.value) count++;
     if (search.value) count++;
+    if (filterWastageNo.value) count++;
+    if (filterStore.value) count++;
+    if (filterItem.value) count++;
+    if (filterStatus.value) count++;
+    if (filterReason.value) count++;
     return count;
 });
 
@@ -280,6 +311,13 @@ const resetFilters = () => {
     status.value = 'approved_lvl2';
     search.value = '';
     perPage.value = 50;
+    filterWastageNo.value = '';
+    filterStore.value = '';
+    filterItem.value = '';
+    filterStatus.value = '';
+    filterReason.value = '';
+    sortField.value = '';
+    sortDirection.value = 'asc';
 };
 
 // Export route
@@ -554,18 +592,96 @@ const getStatusClass = (status) => {
             <!-- Desktop Table -->
             <div class="hidden lg:block overflow-visible">
                 <table class="min-w-full border-separate border-spacing-0">
-                    <thead class="sticky -top-4 lg:-top-6 z-20 bg-gray-50 shadow-sm">
+                    <thead class="sticky -top-4 lg:-top-6 z-20 bg-gray-50 shadow-sm border-b border-gray-200">
                         <tr class="text-xs text-gray-500 uppercase tracking-wider">
-                            <th class="px-6 py-4 text-left font-medium">Wastage #</th>
-                            <th class="px-6 py-4 text-left font-medium">Store</th>
-                            <th class="px-6 py-4 text-left font-medium">Item Description</th>
-                            <th class="px-6 py-4 text-center font-medium">Qty</th>
-                            <th class="px-6 py-4 text-right font-medium">Unit Cost</th>
-                            <th class="px-6 py-4 text-right font-medium">Total Cost</th>
-                            <th class="px-6 py-4 text-center font-medium">Status</th>
-                            <th class="px-6 py-4 text-left font-medium">Reason</th>
-                            <th class="px-6 py-4 text-center font-medium">Attachments</th>
-                            <th class="px-6 py-4 text-left font-medium">Date</th>
+                            <th @click="handleSort('wastage_no')" class="px-6 py-4 text-left font-medium border-r border-gray-100 cursor-pointer hover:bg-gray-100 group transition-colors">
+                                <div class="flex flex-col gap-2">
+                                    <div class="flex items-center justify-between gap-1">
+                                        <span>Wastage #</span>
+                                        <ArrowUp v-if="sortField === 'wastage_no' && sortDirection === 'asc'" class="w-3 h-3 text-blue-600" />
+                                        <ArrowDown v-else-if="sortField === 'wastage_no' && sortDirection === 'desc'" class="w-3 h-3 text-blue-600" />
+                                        <ArrowUpDown v-else class="w-3 h-3 text-gray-300 group-hover:text-blue-400" />
+                                    </div>
+                                    <Input v-model="filterWastageNo" @click.stop placeholder="Filter..." class="h-7 text-[10px] font-normal normal-case border-gray-200 focus:ring-1 focus:ring-blue-100" />
+                                </div>
+                            </th>
+                            <th @click="handleSort('store_name')" class="px-6 py-4 text-left font-medium border-r border-gray-100 cursor-pointer hover:bg-gray-100 group transition-colors">
+                                <div class="flex flex-col gap-2">
+                                    <div class="flex items-center justify-between gap-1">
+                                        <span>Store</span>
+                                        <ArrowUp v-if="sortField === 'store_name' && sortDirection === 'asc'" class="w-3 h-3 text-blue-600" />
+                                        <ArrowDown v-else-if="sortField === 'store_name' && sortDirection === 'desc'" class="w-3 h-3 text-blue-600" />
+                                        <ArrowUpDown v-else class="w-3 h-3 text-gray-300 group-hover:text-blue-400" />
+                                    </div>
+                                    <Input v-model="filterStore" @click.stop placeholder="Filter..." class="h-7 text-[10px] font-normal normal-case border-gray-200 focus:ring-1 focus:ring-blue-100" />
+                                </div>
+                            </th>
+                            <th @click="handleSort('item_description')" class="px-6 py-4 text-left font-medium border-r border-gray-100 cursor-pointer hover:bg-gray-100 group transition-colors">
+                                <div class="flex flex-col gap-2">
+                                    <div class="flex items-center justify-between gap-1">
+                                        <span>Item Description</span>
+                                        <ArrowUp v-if="sortField === 'item_description' && sortDirection === 'asc'" class="w-3 h-3 text-blue-600" />
+                                        <ArrowDown v-else-if="sortField === 'item_description' && sortDirection === 'desc'" class="w-3 h-3 text-blue-600" />
+                                        <ArrowUpDown v-else class="w-3 h-3 text-gray-300 group-hover:text-blue-400" />
+                                    </div>
+                                    <Input v-model="filterItem" @click.stop placeholder="Filter Item..." class="h-7 text-[10px] font-normal normal-case border-gray-200 focus:ring-1 focus:ring-blue-100" />
+                                </div>
+                            </th>
+                            <th rowspan="2" @click="handleSort('wastage_qty')" class="px-6 py-4 text-center font-medium border-r border-gray-100 cursor-pointer hover:bg-gray-100 group transition-colors">
+                                <div class="flex items-center justify-center gap-1">
+                                    <span>Qty</span>
+                                    <ArrowUp v-if="sortField === 'wastage_qty' && sortDirection === 'asc'" class="w-3 h-3 text-blue-600" />
+                                    <ArrowDown v-else-if="sortField === 'wastage_qty' && sortDirection === 'desc'" class="w-3 h-3 text-blue-600" />
+                                    <ArrowUpDown v-else class="w-3 h-3 text-gray-300 group-hover:text-blue-400" />
+                                </div>
+                            </th>
+                            <th rowspan="2" @click="handleSort('cost')" class="px-6 py-4 text-right font-medium border-r border-gray-100 cursor-pointer hover:bg-gray-100 group transition-colors">
+                                <div class="flex items-center justify-end gap-1">
+                                    <span>Unit Cost</span>
+                                    <ArrowUp v-if="sortField === 'cost' && sortDirection === 'asc'" class="w-3 h-3 text-blue-600" />
+                                    <ArrowDown v-else-if="sortField === 'cost' && sortDirection === 'desc'" class="w-3 h-3 text-blue-600" />
+                                    <ArrowUpDown v-else class="w-3 h-3 text-gray-300 group-hover:text-blue-400" />
+                                </div>
+                            </th>
+                            <th rowspan="2" @click="handleSort('total_cost')" class="px-6 py-4 text-right font-medium border-r border-gray-100 cursor-pointer hover:bg-gray-100 group transition-colors">
+                                <div class="flex items-center justify-end gap-1">
+                                    <span>Total Cost</span>
+                                    <ArrowUp v-if="sortField === 'total_cost' && sortDirection === 'asc'" class="w-3 h-3 text-blue-600" />
+                                    <ArrowDown v-else-if="sortField === 'total_cost' && sortDirection === 'desc'" class="w-3 h-3 text-blue-600" />
+                                    <ArrowUpDown v-else class="w-3 h-3 text-gray-300 group-hover:text-blue-400" />
+                                </div>
+                            </th>
+                            <th @click="handleSort('wastage_status')" class="px-6 py-4 text-center font-medium border-r border-gray-100 cursor-pointer hover:bg-gray-100 group transition-colors">
+                                <div class="flex flex-col gap-2">
+                                    <div class="flex items-center justify-center gap-1">
+                                        <span>Status</span>
+                                        <ArrowUp v-if="sortField === 'wastage_status' && sortDirection === 'asc'" class="w-3 h-3 text-blue-600" />
+                                        <ArrowDown v-else-if="sortField === 'wastage_status' && sortDirection === 'desc'" class="w-3 h-3 text-blue-600" />
+                                        <ArrowUpDown v-else class="w-3 h-3 text-gray-300 group-hover:text-blue-400" />
+                                    </div>
+                                    <Input v-model="filterStatus" @click.stop placeholder="Filter..." class="h-7 text-[10px] font-normal normal-case border-gray-200 focus:ring-1 focus:ring-blue-100" />
+                                </div>
+                            </th>
+                            <th @click="handleSort('reason')" class="px-6 py-4 text-left font-medium border-r border-gray-100 cursor-pointer hover:bg-gray-100 group transition-colors">
+                                <div class="flex flex-col gap-2">
+                                    <div class="flex items-center justify-between gap-1">
+                                        <span>Reason</span>
+                                        <ArrowUp v-if="sortField === 'reason' && sortDirection === 'asc'" class="w-3 h-3 text-blue-600" />
+                                        <ArrowDown v-else-if="sortField === 'reason' && sortDirection === 'desc'" class="w-3 h-3 text-blue-600" />
+                                        <ArrowUpDown v-else class="w-3 h-3 text-gray-300 group-hover:text-blue-400" />
+                                    </div>
+                                    <Input v-model="filterReason" @click.stop placeholder="Filter..." class="h-7 text-[10px] font-normal normal-case border-gray-200 focus:ring-1 focus:ring-blue-100" />
+                                </div>
+                            </th>
+                            <th rowspan="2" class="px-6 py-4 text-center font-medium border-r border-gray-100">Attachments</th>
+                            <th rowspan="2" @click="handleSort('created_at')" class="px-6 py-4 text-left font-medium cursor-pointer hover:bg-gray-100 group transition-colors">
+                                <div class="flex items-center justify-between gap-1">
+                                    <span>Date</span>
+                                    <ArrowUp v-if="sortField === 'created_at' && sortDirection === 'asc'" class="w-3 h-3 text-blue-600" />
+                                    <ArrowDown v-else-if="sortField === 'created_at' && sortDirection === 'desc'" class="w-3 h-3 text-blue-600" />
+                                    <ArrowUpDown v-else class="w-3 h-3 text-gray-300 group-hover:text-blue-400" />
+                                </div>
+                            </th>
                         </tr>
                     </thead>
                     <tbody class="bg-white divide-y divide-gray-100">

@@ -29,7 +29,13 @@ class PMIXReportController extends Controller
             'date_to',
             'store_ids',
             'search',
-            'per_page'
+            'per_page',
+            'pos_code',
+            'description',
+            'category',
+            'sub_category',
+            'sort_field',
+            'sort_direction'
         ]);
 
         // Set default values
@@ -122,11 +128,58 @@ class PMIXReportController extends Controller
             }
         }
 
-        // Sort the PMIX data by POS Code
-        ksort($pmixData);
-
-        // Convert to array for Vue component
+        // Convert to array for filtering and sorting
         $pmixDataArray = array_values($pmixData);
+
+        // Apply column-specific filters
+        if (!empty($filters['pos_code'])) {
+            $pmixDataArray = array_filter($pmixDataArray, fn($item) => stripos($item['POSCode'], $filters['pos_code']) !== false);
+        }
+        if (!empty($filters['description'])) {
+            $pmixDataArray = array_filter($pmixDataArray, fn($item) => stripos($item['POSDescription'], $filters['description']) !== false);
+        }
+        if (!empty($filters['category'])) {
+            $pmixDataArray = array_filter($pmixDataArray, fn($item) => stripos($item['Category'], $filters['category']) !== false);
+        }
+        if (!empty($filters['sub_category'])) {
+            $pmixDataArray = array_filter($pmixDataArray, fn($item) => stripos($item['SubCategory'], $filters['sub_category']) !== false);
+        }
+
+        // Apply sorting
+        if (!empty($filters['sort_field'])) {
+            $field = $filters['sort_field'];
+            $dir = ($filters['sort_direction'] ?? 'asc') === 'desc' ? -1 : 1;
+
+            usort($pmixDataArray, function($a, $b) use ($field, $dir) {
+                $valA = 0;
+                $valB = 0;
+
+                if (in_array($field, ['POSCode', 'POSDescription', 'Category', 'SubCategory'])) {
+                    $valA = strtolower($a[$field]);
+                    $valB = strtolower($b[$field]);
+                } elseif ($field === 'total_qty') {
+                    $valA = array_sum(array_column($a['stores'], 'quantity'));
+                    $valB = array_sum(array_column($b['stores'], 'quantity'));
+                } elseif ($field === 'total_sales') {
+                    $valA = array_sum(array_column($a['stores'], 'sales'));
+                    $valB = array_sum(array_column($b['stores'], 'sales'));
+                } elseif (str_starts_with($field, 'store_')) {
+                    $parts = explode('_', $field);
+                    $storeId = $parts[1];
+                    $type = $parts[2]; // 'qty' or 'sales'
+                    $key = $type === 'qty' ? 'quantity' : 'sales';
+                    
+                    $valA = $a['stores'][$storeId][$key] ?? 0;
+                    $valB = $b['stores'][$storeId][$key] ?? 0;
+                }
+
+                if ($valA == $valB) return 0;
+                return ($valA < $valB ? -1 : 1) * $dir;
+            });
+        } else {
+            // Default sort by POS Code if no sort field provided
+            usort($pmixDataArray, fn($a, $b) => strcmp($a['POSCode'], $b['POSCode']));
+        }
 
         // Create pagination-like structure
         $currentPage = request()->get('page', 1);
@@ -144,9 +197,10 @@ class PMIXReportController extends Controller
                 'pageName' => 'page',
             ]
         );
+        $paginatedData->appends($request->all());
 
         return Inertia::render('Reports/PMIXReport/Index', [
-            'pmixData' => $pmixDataArray,
+            'pmixData' => array_values($itemsForPage),
             'paginatedData' => $paginatedData,
             'filters' => $filters,
             'stores' => $stores,

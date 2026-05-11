@@ -2,11 +2,11 @@
 import { ref, watch, computed } from "vue";
 import { throttle } from "lodash";
 import { router } from "@inertiajs/vue3";
-import { usePage } from "@inertiajs/vue3";
-import { useSelectOptions } from "@/composables/useSelectOptions";
-import { Calendar, Search, RotateCcw, Download, Filter, ChevronDown, ChevronUp, Package, CalendarDays, Building2, Badge as BadgeIcon, ChartColumnBig, TrendingUp, TrendingDown } from "lucide-vue-next";
+import axios from "axios";
+import { Calendar, Search, RotateCcw, Download, Filter, ChevronDown, ChevronUp, Package, CalendarDays, Building2, Badge as BadgeIcon, ChartColumnBig, TrendingUp, TrendingDown, ArrowUpDown, ArrowUp, ArrowDown, Info, Loader2 } from "lucide-vue-next";
 import { useAuth } from "@/composables/useAuth";
 import MultiSelect from "primevue/multiselect";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 const props = defineProps({
     varianceData: {
@@ -33,7 +33,7 @@ const props = defineProps({
 
 // Reactive states
 const isFiltersCollapsed = ref(false);
-
+const isLoading = ref(false);
 const searchFocus = ref(false);
 
 // Per page options with proper labels
@@ -47,9 +47,9 @@ const perPageOptions = [
 // Store options with proper formatting
 const storeOptions = computed(() => {
     return props.stores.map(store => ({
-        label: `${store.name} (${store.branch_code})`,
+        label: `${store.name} (${store.brand_code})`,
         value: store.id,
-        searchTerms: [store.name, store.branch_code].join(' ').toLowerCase()
+        searchTerms: [store.name, store.brand_code].join(' ').toLowerCase()
     }));
 });
 
@@ -77,11 +77,52 @@ const storeIds = ref(props.filters.store_ids || []);
 const search = ref(props.filters.search || '');
 const perPage = ref(props.filters.per_page || 50);
 
+// Column filters
+const filterStore = ref(props.filters.filter_store || '');
+const filterItemCode = ref(props.filters.filter_item_code || '');
+const filterItemDescription = ref(props.filters.filter_item_description || '');
+const filterUom = ref(props.filters.filter_uom || '');
+
+// Sorting
+const sortField = ref(props.filters.sort_field || '');
+const sortDirection = ref(props.filters.sort_direction || 'asc');
+
+// Breakdown state
+const breakdowns = ref({});
+const breakdownLoading = ref({});
+const breakdownErrors = ref({});
+const expandedRows = ref({});
+
+const fetchBreakdown = async (itemId) => {
+    if (breakdowns.value[itemId]) return; // Already fetched
+    
+    breakdownLoading.value[itemId] = true;
+    breakdownErrors.value[itemId] = '';
+    try {
+        const response = await axios.get(route('reports.qty-variance-cost-variance-report.breakdown', itemId));
+        breakdowns.value[itemId] = response.data;
+    } catch (error) {
+        console.error("Failed to fetch breakdown:", error);
+        breakdownErrors.value[itemId] = 'Unable to load source details.';
+    } finally {
+        breakdownLoading.value[itemId] = false;
+    }
+};
+
+const toggleBreakdown = (itemId) => {
+    expandedRows.value[itemId] = !expandedRows.value[itemId];
+    if (expandedRows.value[itemId]) {
+        fetchBreakdown(itemId);
+    }
+};
+
+const isBreakdownExpanded = (itemId) => !!expandedRows.value[itemId];
+
 const { hasAccess } = useAuth();
 
 // Enhanced filter management with loading states
 const updateFilters = () => {
-
+    isLoading.value = true;
     router.get(
         route('reports.qty-variance-cost-variance-report.index'),
         {
@@ -90,13 +131,31 @@ const updateFilters = () => {
             store_ids: storeIds.value,
             search: search.value,
             per_page: perPage.value,
+            sort_field: sortField.value,
+            sort_direction: sortDirection.value,
+            filter_store: filterStore.value,
+            filter_item_code: filterItemCode.value,
+            filter_item_description: filterItemDescription.value,
+            filter_uom: filterUom.value,
         },
         {
             preserveState: true,
             preserveScroll: true,
             replace: true,
+            onStart: () => isLoading.value = true,
+            onFinish: () => isLoading.value = false,
         }
     );
+};
+
+const handleSort = (field) => {
+    if (sortField.value === field) {
+        sortDirection.value = sortDirection.value === 'asc' ? 'desc' : 'asc';
+    } else {
+        sortField.value = field;
+        sortDirection.value = 'asc';
+    }
+    updateFilters();
 };
 
 // Watch for filter changes and update URL
@@ -104,8 +163,8 @@ watch([dateFrom, dateTo, storeIds, perPage],
     throttle(updateFilters, 300)
 );
 
-// Watch for search changes with longer throttling
-watch(search,
+// Watch for search and column filters with longer throttling
+watch([search, filterStore, filterItemCode, filterItemDescription, filterUom],
     throttle(updateFilters, 500)
 );
 
@@ -121,6 +180,10 @@ const activeFiltersCount = computed(() => {
     if (dateTo.value) count++;
     if (storeIds.value && storeIds.value.length > 0) count++;
     if (search.value) count++;
+    if (filterStore.value) count++;
+    if (filterItemCode.value) count++;
+    if (filterItemDescription.value) count++;
+    if (filterUom.value) count++;
     return count;
 });
 
@@ -139,6 +202,12 @@ const resetFilters = () => {
     storeIds.value = props.assignedStoreIds;
     search.value = '';
     perPage.value = 50;
+    filterStore.value = '';
+    filterItemCode.value = '';
+    filterItemDescription.value = '';
+    filterUom.value = '';
+    sortField.value = '';
+    sortDirection.value = 'asc';
 };
 
 // Export route
@@ -372,30 +441,195 @@ const getVarianceIcon = (variance) => {
         </div>
 
         <!-- Enhanced Data Table -->
-        <div class="bg-white rounded-xl border border-gray-200 shadow-sm overflow-visible">
-
+        <div class="bg-white rounded-xl border border-gray-200 shadow-sm overflow-visible relative">
+            <!-- Loading Overlay -->
+            <div v-if="isLoading" class="absolute inset-0 bg-white/80 flex items-center justify-center z-30 rounded-xl">
+                <div class="flex items-center gap-3 text-gray-600">
+                    <div class="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600"></div>
+                    <span>Loading Data...</span>
+                </div>
+            </div>
 
             <!-- Desktop Table -->
             <div class="hidden lg:block overflow-visible">
                 <table class="min-w-full border-separate border-spacing-0">
-                    <thead class="sticky -top-4 lg:-top-6 z-20 bg-gray-50 shadow-sm">
+                    <thead class="sticky -top-4 lg:-top-6 z-20 bg-gray-50 shadow-sm border-b border-gray-200">
                         <tr class="text-xs text-gray-500 uppercase tracking-wider">
-                            <th class="px-4 py-4 text-left font-medium">Store Branch</th>
-                            <th class="px-4 py-4 text-left font-medium">Item Code</th>
-                            <th class="px-4 py-4 text-left font-medium">Item Description</th>
-                            <th class="px-4 py-4 text-left font-medium">UoM</th>
-                            <th class="px-4 py-4 text-right font-medium">Cost</th>
-                            <th class="px-4 py-4 text-center font-medium bg-blue-50">Actual Inventory</th>
-                            <th class="px-4 py-4 text-center font-medium bg-blue-50">Theoretical Inventory</th>
-                            <th class="px-4 py-4 text-center font-medium bg-blue-50">Qty Variance</th>
-                            <th class="px-4 py-4 text-right font-medium bg-amber-50">Actual Cost</th>
-                            <th class="px-4 py-4 text-right font-medium bg-amber-50">Theoretical Cost</th>
-                            <th class="px-4 py-4 text-right font-medium bg-amber-50">Cost Variance</th>
+                            <th rowspan="2" class="w-12 px-3 py-4 text-center font-medium border-r border-gray-100">
+                                Details
+                            </th>
+                            <th @click="handleSort('store_name')" class="px-4 py-3 text-left font-medium border-r border-gray-100 cursor-pointer hover:bg-gray-100 group transition-colors">
+                                <div class="flex flex-col gap-2">
+                                    <div class="flex items-center justify-between gap-1">
+                                        <span>Store Branch</span>
+                                        <ArrowUp v-if="sortField === 'store_name' && sortDirection === 'asc'" class="w-3 h-3 text-blue-600" />
+                                        <ArrowDown v-else-if="sortField === 'store_name' && sortDirection === 'desc'" class="w-3 h-3 text-blue-600" />
+                                        <ArrowUpDown v-else class="w-3 h-3 text-gray-300 group-hover:text-blue-400" />
+                                    </div>
+                                    <Input v-model="filterStore" @click.stop placeholder="Filter Store..." class="h-7 text-[10px] font-normal normal-case border-gray-200 focus:ring-1 focus:ring-blue-100" />
+                                </div>
+                            </th>
+                            <th @click="handleSort('item_code')" class="px-4 py-3 text-left font-medium border-r border-gray-100 cursor-pointer hover:bg-gray-100 group transition-colors">
+                                <div class="flex flex-col gap-2">
+                                    <div class="flex items-center justify-between gap-1">
+                                        <span>Item Code</span>
+                                        <ArrowUp v-if="sortField === 'item_code' && sortDirection === 'asc'" class="w-3 h-3 text-blue-600" />
+                                        <ArrowDown v-else-if="sortField === 'item_code' && sortDirection === 'desc'" class="w-3 h-3 text-blue-600" />
+                                        <ArrowUpDown v-else class="w-3 h-3 text-gray-300 group-hover:text-blue-400" />
+                                    </div>
+                                    <Input v-model="filterItemCode" @click.stop placeholder="Filter Code..." class="h-7 text-[10px] font-normal normal-case border-gray-200 focus:ring-1 focus:ring-blue-100" />
+                                </div>
+                            </th>
+                            <th @click="handleSort('item_description')" class="px-4 py-3 text-left font-medium border-r border-gray-100 cursor-pointer hover:bg-gray-100 group transition-colors min-w-[200px]">
+                                <div class="flex flex-col gap-2">
+                                    <div class="flex items-center justify-between gap-1">
+                                        <span>Item Description</span>
+                                        <ArrowUp v-if="sortField === 'item_description' && sortDirection === 'asc'" class="w-3 h-3 text-blue-600" />
+                                        <ArrowDown v-else-if="sortField === 'item_description' && sortDirection === 'desc'" class="w-3 h-3 text-blue-600" />
+                                        <ArrowUpDown v-else class="w-3 h-3 text-gray-300 group-hover:text-blue-400" />
+                                    </div>
+                                    <Input v-model="filterItemDescription" @click.stop placeholder="Filter Description..." class="h-7 text-[10px] font-normal normal-case border-gray-200 focus:ring-1 focus:ring-blue-100" />
+                                </div>
+                            </th>
+                            <th @click="handleSort('uom')" class="px-4 py-3 text-left font-medium border-r border-gray-100 cursor-pointer hover:bg-gray-100 group transition-colors">
+                                <div class="flex flex-col gap-2">
+                                    <div class="flex items-center justify-between gap-1">
+                                        <span>UoM</span>
+                                        <ArrowUp v-if="sortField === 'uom' && sortDirection === 'asc'" class="w-3 h-3 text-blue-600" />
+                                        <ArrowDown v-else-if="sortField === 'uom' && sortDirection === 'desc'" class="w-3 h-3 text-blue-600" />
+                                        <ArrowUpDown v-else class="w-3 h-3 text-gray-300 group-hover:text-blue-400" />
+                                    </div>
+                                    <Input v-model="filterUom" @click.stop placeholder="Filter..." class="h-7 text-[10px] font-normal normal-case border-gray-200 focus:ring-1 focus:ring-blue-100" />
+                                </div>
+                            </th>
+                            <th rowspan="2" @click="handleSort('cost')" class="px-4 py-4 text-right font-medium border-r border-gray-100 cursor-pointer hover:bg-gray-100 group transition-colors">
+                                <div class="flex items-center justify-end gap-1">
+                                    <span>Cost</span>
+                                    <ArrowUp v-if="sortField === 'cost' && sortDirection === 'asc'" class="w-3 h-3 text-blue-600" />
+                                    <ArrowDown v-else-if="sortField === 'cost' && sortDirection === 'desc'" class="w-3 h-3 text-blue-600" />
+                                    <ArrowUpDown v-else class="w-3 h-3 text-gray-300 group-hover:text-blue-400" />
+                                </div>
+                            </th>
+                            <th rowspan="2" @click="handleSort('actual_inventory')" class="px-4 py-4 text-center font-medium border-r border-gray-100 cursor-pointer hover:bg-gray-100 group transition-colors bg-blue-50">
+                                <div class="flex items-center justify-center gap-1">
+                                    <TooltipProvider>
+                                        <Tooltip>
+                                            <TooltipTrigger as-child>
+                                                <div class="flex items-center gap-1">
+                                                    <span>Actual Inventory</span>
+                                                    <Info class="w-3.5 h-3.5 text-gray-400 group-hover:text-blue-500 transition-colors" />
+                                                </div>
+                                            </TooltipTrigger>
+                                            <TooltipContent side="top" align="center" class="max-w-xs p-3">
+                                                <div class="space-y-1">
+                                                    <p class="font-bold text-blue-600 border-b border-blue-100 pb-1 text-xs">Actual Inventory</p>
+                                                    <div class="bg-slate-50 p-1.5 rounded border border-slate-100">
+                                                        <p class="text-[10px] text-slate-900 leading-relaxed">
+                                                            The physical count of items recorded and approved during the Month-End Count (MEC).
+                                                        </p>
+                                                    </div>
+                                                </div>
+                                            </TooltipContent>
+                                        </Tooltip>
+                                    </TooltipProvider>
+                                    <ArrowUp v-if="sortField === 'actual_inventory' && sortDirection === 'asc'" class="w-3 h-3 text-blue-600" />
+                                    <ArrowDown v-else-if="sortField === 'actual_inventory' && sortDirection === 'desc'" class="w-3 h-3 text-blue-600" />
+                                    <ArrowUpDown v-else class="w-3 h-3 text-gray-300 group-hover:text-blue-400" />
+                                </div>
+                            </th>
+                            <th rowspan="2" @click="handleSort('theoretical_inventory')" class="px-4 py-3 text-center font-medium border-r border-gray-100 cursor-pointer hover:bg-gray-100 group transition-colors bg-blue-50">
+                                <div class="flex items-center justify-center gap-1">
+                                    <TooltipProvider>
+                                        <Tooltip>
+                                            <TooltipTrigger as-child>
+                                                <div class="flex items-center gap-1">
+                                                    <span>Theoretical Inventory</span>
+                                                    <Info class="w-3.5 h-3.5 text-gray-400 group-hover:text-blue-500 transition-colors" />
+                                                </div>
+                                            </TooltipTrigger>
+                                            <TooltipContent side="top" align="center" class="max-w-xs p-3">
+                                                <div class="space-y-1">
+                                                    <p class="font-bold text-blue-600 border-b border-blue-100 pb-1 text-xs">Theoretical Inventory</p>
+                                                    <div class="bg-slate-50 p-1.5 rounded border border-slate-100">
+                                                        <p class="text-[10px] text-slate-900 leading-relaxed mb-2">
+                                                            Expected system-calculated inventory based on movements.
+                                                        </p>
+                                                        
+                                                        <div class="text-[10px] space-y-1">
+                                                            <p class="font-semibold text-slate-700 border-b border-slate-200 pb-0.5">Formula:</p>
+                                                            <p class="font-mono text-slate-900 leading-tight">
+                                                                Beg Bal + Received + CPO - Sales - Wastage
+                                                            </p>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </TooltipContent>
+                                        </Tooltip>
+                                    </TooltipProvider>
+                                    <ArrowUp v-if="sortField === 'theoretical_inventory' && sortDirection === 'asc'" class="w-3 h-3 text-blue-600" />
+                                    <ArrowDown v-else-if="sortField === 'theoretical_inventory' && sortDirection === 'desc'" class="w-3 h-3 text-blue-600" />
+                                    <ArrowUpDown v-else class="w-3 h-3 text-gray-300 group-hover:text-blue-400" />
+                                </div>
+                            </th>
+                            <th rowspan="2" @click="handleSort('qty_variance')" class="px-4 py-4 text-center font-medium border-r border-gray-100 cursor-pointer hover:bg-gray-100 group transition-colors bg-blue-50">
+                                <div class="flex items-center justify-center gap-1">
+                                    <TooltipProvider>
+                                        <Tooltip>
+                                            <TooltipTrigger as-child>
+                                                <div class="flex items-center gap-1">
+                                                    <span>Qty Variance</span>
+                                                    <Info class="w-3.5 h-3.5 text-gray-400 group-hover:text-blue-500 transition-colors" />
+                                                </div>
+                                            </TooltipTrigger>
+                                            <TooltipContent side="top" align="center" class="max-w-xs p-3">
+                                                <div class="space-y-1">
+                                                    <p class="font-bold text-blue-600 border-b border-blue-100 pb-1 text-xs">Qty Variance</p>
+                                                    <div class="bg-slate-50 p-1.5 rounded border border-slate-100">
+                                                        <p class="text-[10px] text-slate-900 leading-relaxed">
+                                                            The difference between physical count and system records.
+                                                        </p>
+                                                        <p class="text-[10px] font-mono mt-1 pt-1 border-t border-slate-200 text-slate-900">
+                                                            Actual Inventory - Theoretical Inventory
+                                                        </p>
+                                                    </div>
+                                                </div>
+                                            </TooltipContent>
+                                        </Tooltip>
+                                    </TooltipProvider>
+                                    <ArrowUp v-if="sortField === 'qty_variance' && sortDirection === 'asc'" class="w-3 h-3 text-blue-600" />
+                                    <ArrowDown v-else-if="sortField === 'qty_variance' && sortDirection === 'desc'" class="w-3 h-3 text-blue-600" />
+                                    <ArrowUpDown v-else class="w-3 h-3 text-gray-300 group-hover:text-blue-400" />
+                                </div>
+                            </th>
+                            <th rowspan="2" @click="handleSort('actual_cost')" class="px-4 py-4 text-right font-medium border-r border-gray-100 cursor-pointer hover:bg-gray-100 group transition-colors bg-amber-50">
+                                <div class="flex items-center justify-end gap-1">
+                                    <span>Actual Cost</span>
+                                    <ArrowUp v-if="sortField === 'actual_cost' && sortDirection === 'asc'" class="w-3 h-3 text-blue-600" />
+                                    <ArrowDown v-else-if="sortField === 'actual_cost' && sortDirection === 'desc'" class="w-3 h-3 text-blue-600" />
+                                    <ArrowUpDown v-else class="w-3 h-3 text-gray-300 group-hover:text-blue-400" />
+                                </div>
+                            </th>
+                            <th rowspan="2" @click="handleSort('theoretical_cost')" class="px-4 py-4 text-right font-medium border-r border-gray-100 cursor-pointer hover:bg-gray-100 group transition-colors bg-amber-50">
+                                <div class="flex items-center justify-end gap-1">
+                                    <span>Theoretical Cost</span>
+                                    <ArrowUp v-if="sortField === 'theoretical_cost' && sortDirection === 'asc'" class="w-3 h-3 text-blue-600" />
+                                    <ArrowDown v-else-if="sortField === 'theoretical_cost' && sortDirection === 'desc'" class="w-3 h-3 text-blue-600" />
+                                    <ArrowUpDown v-else class="w-3 h-3 text-gray-300 group-hover:text-blue-400" />
+                                </div>
+                            </th>
+                            <th rowspan="2" @click="handleSort('cost_variance')" class="px-4 py-4 text-right font-medium cursor-pointer hover:bg-gray-100 group transition-colors bg-amber-50">
+                                <div class="flex items-center justify-end gap-1">
+                                    <span>Cost Variance</span>
+                                    <ArrowUp v-if="sortField === 'cost_variance' && sortDirection === 'asc'" class="w-3 h-3 text-blue-600" />
+                                    <ArrowDown v-else-if="sortField === 'cost_variance' && sortDirection === 'desc'" class="w-3 h-3 text-blue-600" />
+                                    <ArrowUpDown v-else class="w-3 h-3 text-gray-300 group-hover:text-blue-400" />
+                                </div>
+                            </th>
                         </tr>
                     </thead>
                     <tbody class="bg-white divide-y divide-gray-100">
                         <tr v-if="!paginatedData.data || paginatedData.data.length === 0" class="hover:bg-gray-50">
-                            <td colspan="11" class="text-center py-12 text-gray-500">
+                            <td colspan="12" class="text-center py-12 text-gray-500">
                                 <div class="flex flex-col items-center">
                                     <ChartColumnBig class="w-12 h-12 text-gray-300 mb-3" />
                                     <span class="text-lg font-medium">No data available</span>
@@ -403,29 +637,87 @@ const getVarianceIcon = (variance) => {
                                 </div>
                             </td>
                         </tr>
-                        <tr v-for="(item, index) in (paginatedData.data || [])" :key="item.id || index" class="hover:bg-gray-50 transition-colors">
-                            <td class="px-4 py-4 text-sm text-gray-900 max-w-xs truncate" :title="item.store_name">{{ item.store_name || 'N/A' }}</td>
-                            <td class="px-4 py-4 text-sm font-mono text-gray-900">{{ item.item_code || 'N/A' }}</td>
-                            <td class="px-4 py-4 text-sm text-gray-900 max-w-xs truncate" :title="item.item_description">{{ item.item_description || 'N/A' }}</td>
-                            <td class="px-4 py-4 text-sm text-gray-600">{{ item.uom || 'N/A' }}</td>
-                            <td class="px-4 py-4 text-sm text-right font-medium text-gray-900">{{ formatCurrency(item.cost) }}</td>
-                            <td class="px-4 py-4 text-sm text-center font-medium text-gray-900 bg-blue-50">{{ formatNumber(item.actual_inventory) }}</td>
-                            <td class="px-4 py-4 text-sm text-center font-medium text-gray-900 bg-blue-50">{{ formatNumber(item.theoretical_inventory) }}</td>
-                            <td class="px-4 py-4 text-center font-medium bg-blue-50">
-                                <div class="inline-flex items-center gap-1 px-2 py-1 rounded text-xs" :class="getVarianceClass(item.qty_variance)">
-                                    <component :is="getVarianceIcon(item.qty_variance)" class="w-3 h-3" />
-                                    {{ formatNumber(item.qty_variance) }}
-                                </div>
-                            </td>
-                            <td class="px-4 py-4 text-sm text-right font-medium text-gray-900 bg-amber-50">{{ formatCurrency(item.actual_cost) }}</td>
-                            <td class="px-4 py-4 text-sm text-right font-medium text-gray-900 bg-amber-50">{{ formatCurrency(item.theoretical_cost) }}</td>
-                            <td class="px-4 py-4 text-right font-medium bg-amber-50">
-                                <div class="inline-flex items-center gap-1 px-2 py-1 rounded text-xs" :class="getVarianceClass(item.cost_variance)">
-                                    <component :is="getVarianceIcon(item.cost_variance)" class="w-3 h-3" />
-                                    {{ formatCurrency(item.cost_variance) }}
-                                </div>
-                            </td>
-                        </tr>
+                        <template v-for="(item, index) in (paginatedData.data || [])" :key="item.id || index">
+                            <tr class="hover:bg-gray-50 transition-colors">
+                                <td class="px-3 py-4 text-center">
+                                    <button
+                                        type="button"
+                                        @click="toggleBreakdown(item.id)"
+                                        class="inline-flex h-8 w-8 items-center justify-center rounded border border-gray-200 bg-white text-gray-500 hover:border-blue-300 hover:text-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-200"
+                                        :aria-expanded="isBreakdownExpanded(item.id)"
+                                        :aria-label="`${isBreakdownExpanded(item.id) ? 'Hide' : 'Show'} inventory source details`"
+                                    >
+                                        <ChevronDown :class="['h-4 w-4 transition-transform', isBreakdownExpanded(item.id) ? 'rotate-180' : '']" />
+                                    </button>
+                                </td>
+                                <td class="px-4 py-4 text-sm text-gray-900 max-w-xs truncate" :title="item.store_name">{{ item.store_name || 'N/A' }}</td>
+                                <td class="px-4 py-4 text-sm font-mono text-gray-900">{{ item.item_code || 'N/A' }}</td>
+                                <td class="px-4 py-4 text-sm text-gray-900 max-w-xs truncate" :title="item.item_description">{{ item.item_description || 'N/A' }}</td>
+                                <td class="px-4 py-4 text-sm text-gray-600">{{ item.uom || 'N/A' }}</td>
+                                <td class="px-4 py-4 text-sm text-right font-medium text-gray-900">{{ formatCurrency(item.cost) }}</td>
+                                <td class="px-4 py-4 text-sm text-center font-medium text-gray-900 bg-blue-50">{{ formatNumber(item.actual_inventory) }}</td>
+                                <td class="px-4 py-4 text-sm text-center font-medium text-gray-900 bg-blue-50">{{ formatNumber(item.theoretical_inventory) }}</td>
+                                <td class="px-4 py-4 text-center font-medium bg-blue-50">
+                                    <div class="inline-flex items-center gap-1 px-2 py-1 rounded text-xs" :class="getVarianceClass(item.qty_variance)">
+                                        <component :is="getVarianceIcon(item.qty_variance)" class="w-3 h-3" />
+                                        {{ formatNumber(item.qty_variance) }}
+                                    </div>
+                                </td>
+                                <td class="px-4 py-4 text-sm text-right font-medium text-gray-900 bg-amber-50">{{ formatCurrency(item.actual_cost) }}</td>
+                                <td class="px-4 py-4 text-sm text-right font-medium text-gray-900 bg-amber-50">{{ formatCurrency(item.theoretical_cost) }}</td>
+                                <td class="px-4 py-4 text-right font-medium bg-amber-50">
+                                    <div class="inline-flex items-center gap-1 px-2 py-1 rounded text-xs" :class="getVarianceClass(item.cost_variance)">
+                                        <component :is="getVarianceIcon(item.cost_variance)" class="w-3 h-3" />
+                                        {{ formatCurrency(item.cost_variance) }}
+                                    </div>
+                                </td>
+                            </tr>
+                            <tr v-if="isBreakdownExpanded(item.id)" class="bg-slate-50">
+                                <td colspan="12" class="px-6 py-4">
+                                    <div v-if="breakdownLoading[item.id]" class="flex items-center gap-2 text-sm text-gray-600">
+                                        <Loader2 class="h-4 w-4 animate-spin text-blue-500" />
+                                        Loading source details...
+                                    </div>
+                                    <div v-else-if="breakdownErrors[item.id]" class="text-sm text-red-600">
+                                        {{ breakdownErrors[item.id] }}
+                                    </div>
+                                    <div v-else-if="breakdowns[item.id]" class="grid grid-cols-1 gap-4 md:grid-cols-2">
+                                        <div class="rounded border border-blue-100 bg-white p-4">
+                                            <p class="mb-3 text-sm font-semibold text-gray-900">Actual Inventory</p>
+                                            <div class="flex items-center justify-between text-sm">
+                                                <span class="text-gray-600">MEC</span>
+                                                <span class="font-mono font-medium text-gray-900">{{ formatNumber(breakdowns[item.id].actual_mec) }}</span>
+                                            </div>
+                                        </div>
+                                        <div class="rounded border border-blue-100 bg-white p-4">
+                                            <p class="mb-3 text-sm font-semibold text-gray-900">Theoretical Inventory</p>
+                                            <div class="space-y-2 text-sm">
+                                                <div class="flex items-center justify-between">
+                                                    <span class="text-gray-600">Beg Bal</span>
+                                                    <span class="font-mono font-medium text-gray-900">{{ formatNumber(breakdowns[item.id].beg_bal) }}</span>
+                                                </div>
+                                                <div class="flex items-center justify-between">
+                                                    <span class="text-gray-600">Regular Received</span>
+                                                    <span class="font-mono font-medium text-gray-900">+{{ formatNumber(breakdowns[item.id].regular_received) }}</span>
+                                                </div>
+                                                <div class="flex items-center justify-between">
+                                                    <span class="text-gray-600">CPO Received</span>
+                                                    <span class="font-mono font-medium text-gray-900">+{{ formatNumber(breakdowns[item.id].cpo_received) }}</span>
+                                                </div>
+                                                <div class="flex items-center justify-between">
+                                                    <span class="text-gray-600">Sales</span>
+                                                    <span class="font-mono font-medium text-red-600">-{{ formatNumber(breakdowns[item.id].sales) }}</span>
+                                                </div>
+                                                <div class="flex items-center justify-between">
+                                                    <span class="text-gray-600">Wastage</span>
+                                                    <span class="font-mono font-medium text-red-600">-{{ formatNumber(breakdowns[item.id].wastage) }}</span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </td>
+                            </tr>
+                        </template>
                     </tbody>
                 </table>
             </div>
@@ -464,20 +756,82 @@ const getVarianceIcon = (variance) => {
                         <!-- Variance Breakdown -->
                         <div class="grid grid-cols-2 gap-3 text-sm">
                             <div class="bg-blue-50 p-2 rounded">
-                                <div class="text-xs text-blue-600">Actual Inv</div>
-                                <div class="font-medium">{{ formatNumber(item.actual_inventory) }}</div>
+                                <div class="text-xs text-blue-600 flex items-center gap-1">
+                                    Actual Inv
+                                </div>
+                                <div class="font-medium text-slate-900">{{ formatNumber(item.actual_inventory) }}</div>
                             </div>
                             <div class="bg-blue-50 p-2 rounded">
-                                <div class="text-xs text-blue-600">Theoretical Inv</div>
-                                <div class="font-medium">{{ formatNumber(item.theoretical_inventory) }}</div>
+                                <div class="text-xs text-blue-600 flex items-center gap-1">
+                                    Theoretical Inv
+                                </div>
+                                <div class="font-medium text-slate-900">{{ formatNumber(item.theoretical_inventory) }}</div>
                             </div>
                             <div class="bg-amber-50 p-2 rounded">
-                                <div class="text-xs text-amber-600">Actual Cost</div>
-                                <div class="font-medium">{{ formatCurrency(item.actual_cost) }}</div>
+                                <div class="text-xs text-amber-600 flex items-center gap-1">
+                                    Actual Cost
+                                </div>
+                                <div class="font-medium text-slate-900">{{ formatCurrency(item.actual_cost) }}</div>
                             </div>
                             <div class="bg-amber-50 p-2 rounded">
-                                <div class="text-xs text-amber-600">Theoretical Cost</div>
-                                <div class="font-medium">{{ formatCurrency(item.theoretical_cost) }}</div>
+                                <div class="text-xs text-amber-600 flex items-center gap-1">
+                                    Theoretical Cost
+                                </div>
+                                <div class="font-medium text-slate-900">{{ formatCurrency(item.theoretical_cost) }}</div>
+                            </div>
+                        </div>
+
+                        <button
+                            type="button"
+                            @click="toggleBreakdown(item.id)"
+                            class="mt-3 flex w-full items-center justify-between rounded border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-gray-700 hover:border-blue-300 hover:text-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-200"
+                            :aria-expanded="isBreakdownExpanded(item.id)"
+                        >
+                            <span>Inventory source details</span>
+                            <ChevronDown :class="['h-4 w-4 transition-transform', isBreakdownExpanded(item.id) ? 'rotate-180' : '']" />
+                        </button>
+
+                        <div v-if="isBreakdownExpanded(item.id)" class="mt-3 rounded border border-slate-200 bg-slate-50 p-3">
+                            <div v-if="breakdownLoading[item.id]" class="flex items-center gap-2 text-sm text-gray-600">
+                                <Loader2 class="h-4 w-4 animate-spin text-blue-500" />
+                                Loading source details...
+                            </div>
+                            <div v-else-if="breakdownErrors[item.id]" class="text-sm text-red-600">
+                                {{ breakdownErrors[item.id] }}
+                            </div>
+                            <div v-else-if="breakdowns[item.id]" class="space-y-4">
+                                <div>
+                                    <p class="mb-2 text-sm font-semibold text-gray-900">Actual Inventory</p>
+                                    <div class="flex items-center justify-between text-sm">
+                                        <span class="text-gray-600">MEC</span>
+                                        <span class="font-mono font-medium text-gray-900">{{ formatNumber(breakdowns[item.id].actual_mec) }}</span>
+                                    </div>
+                                </div>
+                                <div>
+                                    <p class="mb-2 text-sm font-semibold text-gray-900">Theoretical Inventory</p>
+                                    <div class="space-y-2 text-sm">
+                                        <div class="flex items-center justify-between">
+                                            <span class="text-gray-600">Beg Bal</span>
+                                            <span class="font-mono font-medium text-gray-900">{{ formatNumber(breakdowns[item.id].beg_bal) }}</span>
+                                        </div>
+                                        <div class="flex items-center justify-between">
+                                            <span class="text-gray-600">Regular Received</span>
+                                            <span class="font-mono font-medium text-gray-900">+{{ formatNumber(breakdowns[item.id].regular_received) }}</span>
+                                        </div>
+                                        <div class="flex items-center justify-between">
+                                            <span class="text-gray-600">CPO Received</span>
+                                            <span class="font-mono font-medium text-gray-900">+{{ formatNumber(breakdowns[item.id].cpo_received) }}</span>
+                                        </div>
+                                        <div class="flex items-center justify-between">
+                                            <span class="text-gray-600">Sales</span>
+                                            <span class="font-mono font-medium text-red-600">-{{ formatNumber(breakdowns[item.id].sales) }}</span>
+                                        </div>
+                                        <div class="flex items-center justify-between">
+                                            <span class="text-gray-600">Wastage</span>
+                                            <span class="font-mono font-medium text-red-600">-{{ formatNumber(breakdowns[item.id].wastage) }}</span>
+                                        </div>
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     </div>

@@ -27,7 +27,19 @@ class DeliveryReportController extends Controller
             'date_to',
             'store_ids',
             'search',
-            'per_page'
+            'per_page',
+            'sort_field',
+            'sort_direction',
+            'filter_expected_date',
+            'filter_received_date',
+            'filter_store',
+            'filter_supplier',
+            'filter_status',
+            'filter_item_code',
+            'filter_item_description',
+            'filter_uom',
+            'filter_so',
+            'filter_dr'
         ]);
 
         // Set default values
@@ -46,7 +58,7 @@ class DeliveryReportController extends Controller
         if (!$request->has('store_ids')) {
             $filters['store_ids'] = $assignedStoreIds->toArray();
         }
-        $filters['store_ids'] = array_intersect($filters['store_ids'] ?? [], $assignedStoreIds->toArray());
+        $filters['store_ids'] = array_intersect((array) ($filters['store_ids'] ?? []), $assignedStoreIds->toArray());
 
 
         // --- REFACTORED QUERY ---
@@ -67,7 +79,8 @@ class DeliveryReportController extends Controller
                 'orv.quantity_received',
                 'dr.sap_so_number AS so_number',
                 'dr.delivery_receipt_number AS dr_number',
-                'so.store_branch_id'
+                'so.store_branch_id',
+                'soi.id'
             ])
             ->join('store_orders as so', 'so.id', '=', 'soi.store_order_id')
             ->join('store_branches as sb', 'sb.id', '=', 'so.store_branch_id')
@@ -111,7 +124,7 @@ class DeliveryReportController extends Controller
             $query->whereRaw('1 = 0');
         }
 
-        // Apply Search Filter
+        // Apply Global Search Filter
         if (!empty($filters['search'])) {
             $search = $filters['search'];
             $query->where(function($q) use ($search) {
@@ -123,6 +136,41 @@ class DeliveryReportController extends Controller
             });
         }
 
+        // Apply Column Filters
+        if (!empty($filters['filter_expected_date'])) {
+            $query->where('so.order_date', 'like', "%{$filters['filter_expected_date']}%");
+        }
+        if (!empty($filters['filter_received_date'])) {
+            $query->where('orv.received_date', 'like', "%{$filters['filter_received_date']}%");
+        }
+        if (!empty($filters['filter_store'])) {
+            $query->where(function($q) use ($filters) {
+                $q->where('sb.name', 'like', "%{$filters['filter_store']}%")
+                  ->orWhere('sb.brand_code', 'like', "%{$filters['filter_store']}%");
+            });
+        }
+        if (!empty($filters['filter_supplier'])) {
+            $query->where('sup.supplier_code', 'like', "%{$filters['filter_supplier']}%");
+        }
+        if (!empty($filters['filter_status'])) {
+            $query->where('so.order_status', 'like', "%{$filters['filter_status']}%");
+        }
+        if (!empty($filters['filter_item_code'])) {
+            $query->where('soi.item_code', 'like', "%{$filters['filter_item_code']}%");
+        }
+        if (!empty($filters['filter_item_description'])) {
+            $query->where('sm.ItemDescription', 'like', "%{$filters['filter_item_description']}%");
+        }
+        if (!empty($filters['filter_uom'])) {
+            $query->where('soi.uom', 'like', "%{$filters['filter_uom']}%");
+        }
+        if (!empty($filters['filter_so'])) {
+            $query->where('dr.sap_so_number', 'like', "%{$filters['filter_so']}%");
+        }
+        if (!empty($filters['filter_dr'])) {
+            $query->where('dr.delivery_receipt_number', 'like', "%{$filters['filter_dr']}%");
+        }
+
         // Calculate totals based on the filtered query
         $totalsQuery = clone $query;
         // Clear the existing select columns and only fetch the sums
@@ -132,8 +180,35 @@ class DeliveryReportController extends Controller
             SUM(orv.quantity_received) as total_received
         ')->first();
 
-        // Sort by received_date DESC, then expected date
-        $query->orderBy(DB::raw('COALESCE(orv.received_date, so.order_date)'), 'desc');
+        // Apply Sorting
+        if (!empty($filters['sort_field'])) {
+            $sortField = $filters['sort_field'];
+            $sortDir = $filters['sort_direction'] ?? 'asc';
+            
+            // Map frontend field names to SQL columns
+            $sortMap = [
+                'expected_delivery_date' => 'so.order_date',
+                'date_received' => 'orv.received_date',
+                'store_name' => 'sb.name',
+                'supplier_code' => 'sup.supplier_code',
+                'status' => 'so.order_status',
+                'item_code' => 'soi.item_code',
+                'item_description' => 'sm.ItemDescription',
+                'uom' => 'soi.uom',
+                'so_number' => 'dr.sap_so_number',
+                'dr_number' => 'dr.delivery_receipt_number',
+                'quantity_ordered' => 'soi.quantity_ordered',
+                'quantity_committed' => 'soi.quantity_commited',
+                'quantity_received' => 'orv.quantity_received',
+            ];
+
+            if (isset($sortMap[$sortField])) {
+                $query->orderBy($sortMap[$sortField], $sortDir);
+            }
+        } else {
+            // Default sort by received_date DESC, then expected date
+            $query->orderBy(DB::raw('COALESCE(orv.received_date, so.order_date)'), 'desc');
+        }
 
         // Get paginated results
         $items = $query->paginate($filters['per_page'])->withQueryString();

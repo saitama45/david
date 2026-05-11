@@ -64,6 +64,16 @@ const remarksOptions = [
     { label: 'Others', value: 'Others' }
 ];
 
+const remarksLegendItems = [
+    { label: 'Received', definition: 'Item was received with no exception recorded.' },
+    { label: 'Under Issuance', definition: 'Received quantity is less than the committed quantity.' },
+    { label: 'Over Issuance', definition: 'Received quantity is greater than the committed quantity.' },
+    { label: 'Unserved', definition: 'No quantity was received for the item.' },
+    { label: 'Damaged goods', definition: 'Item was received damaged.' },
+    { label: 'Expired goods', definition: 'Item was received but is expired or not acceptable due to expiry.' },
+    { label: 'Others / custom remarks', definition: 'Manual note entered when the preset remarks do not apply.' },
+];
+
 const remarksSummary = computed(() => {
     const summary = {
         received: 0,
@@ -1264,6 +1274,19 @@ const promptConfirmReceive = () => {
                         <div class="col-span-2">
                              <span class="text-xs text-gray-500 block">Remarks</span>
                             <p class="text-gray-700 italic mt-0.5 bg-gray-50 p-2 rounded border border-gray-100">{{ selectedItem?.remarks || 'No remarks provided.' }}</p>
+                            <div class="mt-3 rounded border border-blue-100 bg-blue-50 p-3">
+                                <span class="text-xs font-semibold uppercase text-blue-700">Remarks Legend</span>
+                                <div class="mt-2 space-y-1.5">
+                                    <div
+                                        v-for="item in remarksLegendItems"
+                                        :key="item.label"
+                                        class="text-xs text-blue-900"
+                                    >
+                                        <span class="font-semibold">{{ item.label }}:</span>
+                                        <span class="text-blue-800">{{ item.definition }}</span>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>

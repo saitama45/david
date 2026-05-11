@@ -194,6 +194,7 @@ Route::middleware('auth')
             Route::middleware('permission:view wastage report')->get('/wastage-report', [WastageReportController::class, 'index'])->name('reports.wastage-report.index');
             Route::middleware('permission:export wastage report')->get('/wastage-report/export', [WastageReportController::class, 'export'])->name('reports.wastage-report.export');
             Route::middleware('permission:view qty variance cost variance report')->get('/qty-variance-cost-variance-report', [QtyVarianceCostVarianceReportController::class, 'index'])->name('reports.qty-variance-cost-variance-report.index');
+            Route::middleware('permission:view qty variance cost variance report')->get('/qty-variance-cost-variance-report/breakdown/{id}', [QtyVarianceCostVarianceReportController::class, 'getBreakdown'])->name('reports.qty-variance-cost-variance-report.breakdown');
             Route::middleware('permission:export qty variance cost variance report')->get('/qty-variance-cost-variance-report/export', [QtyVarianceCostVarianceReportController::class, 'export'])->name('reports.qty-variance-cost-variance-report.export');
             Route::middleware('permission:view actual cost cogs report')->get('/actual-cost-cogs-report', [ActualCostCOGSReportController::class, 'index'])->name('reports.actual-cost-cogs-report.index');
             Route::middleware('permission:view actual cost cogs report')->get('/actual-cost-cogs-report/export', [ActualCostCOGSReportController::class, 'export'])->name('reports.actual-cost-cogs-report.export');

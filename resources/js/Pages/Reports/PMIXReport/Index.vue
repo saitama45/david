@@ -4,7 +4,7 @@ import { throttle } from "lodash";
 import { router } from "@inertiajs/vue3";
 import { usePage } from "@inertiajs/vue3";
 import { useSelectOptions } from "@/composables/useSelectOptions";
-import { Calendar, Search, RotateCcw, Download, Filter, ChevronDown, ChevronUp, Package, CalendarDays, Building2, Badge as BadgeIcon, ChartColumnBig } from "lucide-vue-next";
+import { Calendar, Search, RotateCcw, Download, Filter, ChevronDown, ChevronUp, Package, CalendarDays, Building2, Badge as BadgeIcon, ChartColumnBig, ArrowUpDown, ArrowUp, ArrowDown } from "lucide-vue-next";
 import { useAuth } from "@/composables/useAuth";
 import MultiSelect from "primevue/multiselect";
 
@@ -64,6 +64,16 @@ const storeIds = ref(props.filters.store_ids || []);
 const search = ref(props.filters.search || '');
 const perPage = ref(props.filters.per_page || 50);
 
+// Column filters
+const posCode = ref(props.filters.pos_code || '');
+const description = ref(props.filters.description || '');
+const category = ref(props.filters.category || '');
+const subCategory = ref(props.filters.sub_category || '');
+
+// Sorting
+const sortField = ref(props.filters.sort_field || '');
+const sortDirection = ref(props.filters.sort_direction || 'asc');
+
 const { hasAccess } = useAuth();
 
 // Enhanced filter management with loading states
@@ -77,6 +87,12 @@ const updateFilters = () => {
             store_ids: storeIds.value,
             search: search.value,
             per_page: perPage.value,
+            pos_code: posCode.value,
+            description: description.value,
+            category: category.value,
+            sub_category: subCategory.value,
+            sort_field: sortField.value,
+            sort_direction: sortDirection.value,
         },
         {
             preserveState: true,
@@ -88,13 +104,23 @@ const updateFilters = () => {
     );
 };
 
+const handleSort = (field) => {
+    if (sortField.value === field) {
+        sortDirection.value = sortDirection.value === 'asc' ? 'desc' : 'asc';
+    } else {
+        sortField.value = field;
+        sortDirection.value = 'asc';
+    }
+    updateFilters();
+};
+
 // Watch for filter changes and update URL
 watch([dateFrom, dateTo, storeIds, perPage],
     throttle(updateFilters, 300)
 );
 
-// Watch for search changes with longer throttling
-watch(search,
+// Watch for search and column filters with longer throttling
+watch([search, posCode, description, category, subCategory],
     throttle(updateFilters, 500)
 );
 
@@ -110,6 +136,10 @@ const activeFiltersCount = computed(() => {
     if (dateTo.value) count++;
     if (storeIds.value && storeIds.value.length > 0) count++;
     if (search.value) count++;
+    if (posCode.value) count++;
+    if (description.value) count++;
+    if (category.value) count++;
+    if (subCategory.value) count++;
     return count;
 });
 
@@ -128,6 +158,12 @@ const resetFilters = () => {
     storeIds.value = props.assignedStoreIds;
     search.value = '';
     perPage.value = 50;
+    posCode.value = '';
+    description.value = '';
+    category.value = '';
+    subCategory.value = '';
+    sortField.value = '';
+    sortDirection.value = 'asc';
 };
 
 // Export route
@@ -359,32 +395,96 @@ const dynamicStoreColumns = computed(() => {
             <!-- Desktop Table -->
             <div class="hidden lg:block overflow-visible">
                 <table class="min-w-full border-separate border-spacing-0">
-                    <thead class="sticky -top-4 lg:-top-6 z-20 bg-gray-50 shadow-sm">
+                    <thead class="sticky -top-4 lg:-top-6 z-20 bg-gray-50 shadow-sm border-b border-gray-200">
                         <tr class="text-xs text-gray-500 uppercase tracking-wider">
-                            <th class="px-6 py-4 text-left font-medium">POS Code</th>
-                            <th class="px-6 py-4 text-left font-medium">Item Description</th>
-                            <th class="px-6 py-4 text-left font-medium">Category</th>
-                            <th class="px-6 py-4 text-left font-medium">Sub Category</th>
+                            <th rowspan="2" @click="handleSort('POSCode')" class="px-4 py-3 text-left font-medium border-r border-gray-100 cursor-pointer hover:bg-gray-100 group transition-colors">
+                                <div class="flex flex-col gap-2">
+                                    <div class="flex items-center justify-between gap-1">
+                                        <span>POS Code</span>
+                                        <ArrowUp v-if="sortField === 'POSCode' && sortDirection === 'asc'" class="w-3 h-3 text-blue-600" />
+                                        <ArrowDown v-else-if="sortField === 'POSCode' && sortDirection === 'desc'" class="w-3 h-3 text-blue-600" />
+                                        <ArrowUpDown v-else class="w-3 h-3 text-gray-300 group-hover:text-blue-400" />
+                                    </div>
+                                    <Input v-model="posCode" @click.stop placeholder="Filter..." class="h-7 text-[10px] font-normal normal-case border-gray-200 focus:ring-1 focus:ring-blue-100" />
+                                </div>
+                            </th>
+                            <th rowspan="2" @click="handleSort('POSDescription')" class="px-4 py-3 text-left font-medium border-r border-gray-100 cursor-pointer hover:bg-gray-100 group transition-colors min-w-[200px]">
+                                <div class="flex flex-col gap-2">
+                                    <div class="flex items-center justify-between gap-1">
+                                        <span>Item Description</span>
+                                        <ArrowUp v-if="sortField === 'POSDescription' && sortDirection === 'asc'" class="w-3 h-3 text-blue-600" />
+                                        <ArrowDown v-else-if="sortField === 'POSDescription' && sortDirection === 'desc'" class="w-3 h-3 text-blue-600" />
+                                        <ArrowUpDown v-else class="w-3 h-3 text-gray-300 group-hover:text-blue-400" />
+                                    </div>
+                                    <Input v-model="description" @click.stop placeholder="Filter Description..." class="h-7 text-[10px] font-normal normal-case border-gray-200 focus:ring-1 focus:ring-blue-100" />
+                                </div>
+                            </th>
+                            <th rowspan="2" @click="handleSort('Category')" class="px-4 py-3 text-left font-medium border-r border-gray-100 cursor-pointer hover:bg-gray-100 group transition-colors">
+                                <div class="flex flex-col gap-2">
+                                    <div class="flex items-center justify-between gap-1">
+                                        <span>Category</span>
+                                        <ArrowUp v-if="sortField === 'Category' && sortDirection === 'asc'" class="w-3 h-3 text-blue-600" />
+                                        <ArrowDown v-else-if="sortField === 'Category' && sortDirection === 'desc'" class="w-3 h-3 text-blue-600" />
+                                        <ArrowUpDown v-else class="w-3 h-3 text-gray-300 group-hover:text-blue-400" />
+                                    </div>
+                                    <Input v-model="category" @click.stop placeholder="Filter..." class="h-7 text-[10px] font-normal normal-case border-gray-200 focus:ring-1 focus:ring-blue-100" />
+                                </div>
+                            </th>
+                            <th rowspan="2" @click="handleSort('SubCategory')" class="px-4 py-3 text-left font-medium border-r border-gray-100 cursor-pointer hover:bg-gray-100 group transition-colors">
+                                <div class="flex flex-col gap-2">
+                                    <div class="flex items-center justify-between gap-1">
+                                        <span>Sub Category</span>
+                                        <ArrowUp v-if="sortField === 'SubCategory' && sortDirection === 'asc'" class="w-3 h-3 text-blue-600" />
+                                        <ArrowDown v-else-if="sortField === 'SubCategory' && sortDirection === 'desc'" class="w-3 h-3 text-blue-600" />
+                                        <ArrowUpDown v-else class="w-3 h-3 text-gray-300 group-hover:text-blue-400" />
+                                    </div>
+                                    <Input v-model="subCategory" @click.stop placeholder="Filter..." class="h-7 text-[10px] font-normal normal-case border-gray-200 focus:ring-1 focus:ring-blue-100" />
+                                </div>
+                            </th>
                             <!-- Dynamic Store Columns -->
-                            <th v-for="store in dynamicStoreColumns" :key="store.id" class="px-6 py-4 text-center font-medium" colspan="2">
+                            <th v-for="store in dynamicStoreColumns" :key="store.id" class="px-4 py-3 text-center font-bold border-r border-gray-200 bg-gray-100/50" colspan="2">
                                 {{ store.name }}
                             </th>
                             <!-- Total Columns -->
-                            <th class="px-6 py-4 text-center font-medium bg-amber-50" colspan="2">Total</th>
+                            <th class="px-4 py-3 text-center font-bold bg-amber-100/50 border-l border-amber-200" colspan="2">Total Matrix</th>
                         </tr>
-                        <tr class="text-xs text-gray-500 uppercase tracking-wider">
-                            <th class="px-6 py-2"></th>
-                            <th class="px-6 py-2"></th>
-                            <th class="px-6 py-2"></th>
-                            <th class="px-6 py-2"></th>
+                        <tr class="text-[10px] text-gray-500 uppercase tracking-wider font-semibold">
                             <!-- Store Sub-headers -->
                             <template v-for="store in dynamicStoreColumns" :key="'sub-' + store.id">
-                                <th class="px-3 py-2 text-center font-medium text-gray-600">Qty</th>
-                                <th class="px-3 py-2 text-right font-medium text-gray-600">Sales</th>
+                                <th @click="handleSort(`store_${store.id}_qty`)" class="px-3 py-2 text-center border-r border-gray-100 cursor-pointer hover:bg-gray-100 group transition-colors">
+                                    <div class="flex items-center justify-center gap-1">
+                                        Qty
+                                        <ArrowUp v-if="sortField === `store_${store.id}_qty` && sortDirection === 'asc'" class="w-2.5 h-2.5 text-blue-600" />
+                                        <ArrowDown v-else-if="sortField === `store_${store.id}_qty` && sortDirection === 'desc'" class="w-2.5 h-2.5 text-blue-600" />
+                                        <ArrowUpDown v-else class="w-2.5 h-2.5 text-gray-300 group-hover:text-blue-400" />
+                                    </div>
+                                </th>
+                                <th @click="handleSort(`store_${store.id}_sales`)" class="px-3 py-2 text-right border-r border-gray-100 cursor-pointer hover:bg-gray-100 group transition-colors">
+                                    <div class="flex items-center justify-end gap-1">
+                                        Sales
+                                        <ArrowUp v-if="sortField === `store_${store.id}_sales` && sortDirection === 'asc'" class="w-2.5 h-2.5 text-blue-600" />
+                                        <ArrowDown v-else-if="sortField === `store_${store.id}_sales` && sortDirection === 'desc'" class="w-2.5 h-2.5 text-blue-600" />
+                                        <ArrowUpDown v-else class="w-2.5 h-2.5 text-gray-300 group-hover:text-blue-400" />
+                                    </div>
+                                </th>
                             </template>
                             <!-- Total Sub-headers -->
-                            <th class="px-3 py-2 text-center font-medium text-gray-700 bg-amber-50">Qty</th>
-                            <th class="px-3 py-2 text-right font-medium text-gray-700 bg-amber-50">Sales</th>
+                            <th @click="handleSort('total_qty')" class="px-3 py-2 text-center bg-amber-50 border-r border-gray-200 cursor-pointer hover:bg-amber-100 group transition-colors">
+                                <div class="flex items-center justify-center gap-1 text-amber-900">
+                                    Qty
+                                    <ArrowUp v-if="sortField === 'total_qty' && sortDirection === 'asc'" class="w-2.5 h-2.5 text-amber-600" />
+                                    <ArrowDown v-else-if="sortField === 'total_qty' && sortDirection === 'desc'" class="w-2.5 h-2.5 text-amber-600" />
+                                    <ArrowUpDown v-else class="w-2.5 h-2.5 text-amber-300 group-hover:text-amber-500" />
+                                </div>
+                            </th>
+                            <th @click="handleSort('total_sales')" class="px-3 py-2 text-right bg-amber-50 cursor-pointer hover:bg-amber-100 group transition-colors">
+                                <div class="flex items-center justify-end gap-1 text-amber-900">
+                                    Sales
+                                    <ArrowUp v-if="sortField === 'total_sales' && sortDirection === 'asc'" class="w-2.5 h-2.5 text-amber-600" />
+                                    <ArrowDown v-else-if="sortField === 'total_sales' && sortDirection === 'desc'" class="w-2.5 h-2.5 text-amber-600" />
+                                    <ArrowUpDown v-else class="w-2.5 h-2.5 text-amber-300 group-hover:text-amber-500" />
+                                </div>
+                            </th>
                         </tr>
                     </thead>
                     <tbody class="bg-white divide-y divide-gray-100">
