@@ -1,1 +1,0 @@
-import{o as r,d as l,q as o,n,u as t,a4 as c}from"./app-BadfWlx7.js";const m={__name:"DialogFooter",props:{class:{type:null,required:!1}},setup(s){const e=s;return(a,p)=>(r(),l("div",{class:n(t(c)("flex flex-col-reverse sm:flex-row sm:justify-end sm:gap-x-2",e.class))},[o(a.$slots,"default")],2))}};export{m as _};
