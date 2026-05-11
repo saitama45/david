@@ -2,7 +2,7 @@
 import { ref, watch, computed } from "vue";
 import { throttle } from "lodash";
 import { router } from "@inertiajs/vue3";
-import { Calendar, Search, RotateCcw, Filter, ChevronDown, Package, CalendarDays, Building2, TrendingUp, TrendingDown, ClipboardCheck, Info, FileText, Truck } from "lucide-vue-next";
+import { Calendar, Search, RotateCcw, Filter, ChevronDown, Package, CalendarDays, Building2, TrendingUp, TrendingDown, ClipboardCheck, Info, FileText, Truck, ArrowUpDown, ArrowUp, ArrowDown } from "lucide-vue-next";
 import SearchableSelect from "@/components/ui/select/SearchableSelect.vue";
 import Pagination from "@/components/table/Pagination.vue";
 
@@ -62,6 +62,18 @@ const branchId = ref(props.filters.branch_id || '');
 const supplierCode = ref(props.filters.supplier_code || '');
 const search = ref(props.filters.search || '');
 const perPage = ref(props.filters.per_page || 50);
+const sortField = ref(props.filters.sort_field || '');
+const sortDirection = ref(props.filters.sort_direction || 'asc');
+
+const handleSort = (field) => {
+    if (sortField.value === field) {
+        sortDirection.value = sortDirection.value === 'asc' ? 'desc' : 'asc';
+    } else {
+        sortField.value = field;
+        sortDirection.value = 'asc';
+    }
+    updateFilters();
+};
 
 const updateFilters = () => {
     isLoading.value = true;
@@ -74,6 +86,8 @@ const updateFilters = () => {
             supplier_code: supplierCode.value || null,
             search: search.value,
             per_page: perPage.value,
+            sort_field: sortField.value,
+            sort_direction: sortDirection.value,
         },
         {
             preserveState: true,
@@ -96,6 +110,8 @@ const resetFilters = () => {
     supplierCode.value = '';
     search.value = '';
     perPage.value = 50;
+    sortField.value = '';
+    sortDirection.value = 'asc';
     updateFilters();
 };
 
@@ -240,20 +256,118 @@ const formatNumber = (num) => {
                             <th colspan="2" class="px-3 py-3 text-center text-xs font-bold text-gray-500 uppercase tracking-wider bg-purple-50">Final Balance</th>
                         </tr>
                         <tr class="text-[10px] text-gray-500 uppercase tracking-wider font-semibold">
-                            <th class="px-3 py-3 text-left border-r border-gray-200 min-w-[160px]">Supplier</th>
-                            <th class="px-3 py-3 text-left border-r border-gray-200">SAP Code</th>
-                            <th class="px-3 py-3 text-left border-r border-gray-200 min-w-[200px]">Item Description</th>
-                            <th class="px-3 py-3 text-center border-r border-gray-200">UOM</th>
-                            <th class="px-3 py-3 text-center border-r border-gray-200">Ordered</th>
-                            <th class="px-3 py-3 text-center border-r border-gray-200">Committed</th>
-                            <th class="px-3 py-3 text-center border-r border-gray-200">Received</th>
-                            <th class="px-3 py-3 text-center border-r border-gray-200">Beg Bal Qty</th>
-                            <th class="px-3 py-3 text-center border-r border-gray-200">Sales Qty</th>
-                            <th class="px-3 py-3 text-center border-r border-gray-200">Wastage Qty</th>
-                            <th class="px-3 py-3 text-center border-r border-gray-200">Inbound Interco</th>
-                            <th class="px-3 py-3 text-center border-r border-gray-200">Outbound Interco</th>
-                            <th class="px-3 py-3 text-center border-r border-gray-200">Theoretical SOH</th>
-                            <th class="px-3 py-3 text-center">Actual MEC</th>
+                            <th @click="handleSort('supplier')" class="px-3 py-3 text-left border-r border-gray-200 min-w-[160px] cursor-pointer hover:bg-gray-100 group transition-colors">
+                                <div class="flex items-center justify-between gap-2">
+                                    Supplier
+                                    <ArrowUp v-if="sortField === 'supplier' && sortDirection === 'asc'" class="w-3 h-3 text-blue-600" />
+                                    <ArrowDown v-else-if="sortField === 'supplier' && sortDirection === 'desc'" class="w-3 h-3 text-blue-600" />
+                                    <ArrowUpDown v-else class="w-3 h-3 text-gray-400 group-hover:text-blue-400" />
+                                </div>
+                            </th>
+                            <th @click="handleSort('sap_code')" class="px-3 py-3 text-left border-r border-gray-200 cursor-pointer hover:bg-gray-100 group transition-colors">
+                                <div class="flex items-center justify-between gap-2">
+                                    SAP Code
+                                    <ArrowUp v-if="sortField === 'sap_code' && sortDirection === 'asc'" class="w-3 h-3 text-blue-600" />
+                                    <ArrowDown v-else-if="sortField === 'sap_code' && sortDirection === 'desc'" class="w-3 h-3 text-blue-600" />
+                                    <ArrowUpDown v-else class="w-3 h-3 text-gray-400 group-hover:text-blue-400" />
+                                </div>
+                            </th>
+                            <th @click="handleSort('item_description')" class="px-3 py-3 text-left border-r border-gray-200 min-w-[200px] cursor-pointer hover:bg-gray-100 group transition-colors">
+                                <div class="flex items-center justify-between gap-2">
+                                    Item Description
+                                    <ArrowUp v-if="sortField === 'item_description' && sortDirection === 'asc'" class="w-3 h-3 text-blue-600" />
+                                    <ArrowDown v-else-if="sortField === 'item_description' && sortDirection === 'desc'" class="w-3 h-3 text-blue-600" />
+                                    <ArrowUpDown v-else class="w-3 h-3 text-gray-400 group-hover:text-blue-400" />
+                                </div>
+                            </th>
+                            <th @click="handleSort('uom')" class="px-3 py-3 text-center border-r border-gray-200 cursor-pointer hover:bg-gray-100 group transition-colors">
+                                <div class="flex items-center justify-center gap-2">
+                                    UOM
+                                    <ArrowUp v-if="sortField === 'uom' && sortDirection === 'asc'" class="w-3 h-3 text-blue-600" />
+                                    <ArrowDown v-else-if="sortField === 'uom' && sortDirection === 'desc'" class="w-3 h-3 text-blue-600" />
+                                    <ArrowUpDown v-else class="w-3 h-3 text-gray-400 group-hover:text-blue-400" />
+                                </div>
+                            </th>
+                            <th @click="handleSort('ordered_qty')" class="px-3 py-3 text-center border-r border-gray-200 cursor-pointer hover:bg-gray-100 group transition-colors">
+                                <div class="flex items-center justify-center gap-2">
+                                    Ordered
+                                    <ArrowUp v-if="sortField === 'ordered_qty' && sortDirection === 'asc'" class="w-3 h-3 text-blue-600" />
+                                    <ArrowDown v-else-if="sortField === 'ordered_qty' && sortDirection === 'desc'" class="w-3 h-3 text-blue-600" />
+                                    <ArrowUpDown v-else class="w-3 h-3 text-gray-400 group-hover:text-blue-400" />
+                                </div>
+                            </th>
+                            <th @click="handleSort('committed_qty')" class="px-3 py-3 text-center border-r border-gray-200 cursor-pointer hover:bg-gray-100 group transition-colors">
+                                <div class="flex items-center justify-center gap-2">
+                                    Committed
+                                    <ArrowUp v-if="sortField === 'committed_qty' && sortDirection === 'asc'" class="w-3 h-3 text-blue-600" />
+                                    <ArrowDown v-else-if="sortField === 'committed_qty' && sortDirection === 'desc'" class="w-3 h-3 text-blue-600" />
+                                    <ArrowUpDown v-else class="w-3 h-3 text-gray-400 group-hover:text-blue-400" />
+                                </div>
+                            </th>
+                            <th @click="handleSort('received_qty')" class="px-3 py-3 text-center border-r border-gray-200 cursor-pointer hover:bg-gray-100 group transition-colors">
+                                <div class="flex items-center justify-center gap-2">
+                                    Received
+                                    <ArrowUp v-if="sortField === 'received_qty' && sortDirection === 'asc'" class="w-3 h-3 text-blue-600" />
+                                    <ArrowDown v-else-if="sortField === 'received_qty' && sortDirection === 'desc'" class="w-3 h-3 text-blue-600" />
+                                    <ArrowUpDown v-else class="w-3 h-3 text-gray-400 group-hover:text-blue-400" />
+                                </div>
+                            </th>
+                            <th @click="handleSort('beg_bal_qty')" class="px-3 py-3 text-center border-r border-gray-200 cursor-pointer hover:bg-gray-100 group transition-colors">
+                                <div class="flex items-center justify-center gap-2">
+                                    Beg Bal Qty
+                                    <ArrowUp v-if="sortField === 'beg_bal_qty' && sortDirection === 'asc'" class="w-3 h-3 text-blue-600" />
+                                    <ArrowDown v-else-if="sortField === 'beg_bal_qty' && sortDirection === 'desc'" class="w-3 h-3 text-blue-600" />
+                                    <ArrowUpDown v-else class="w-3 h-3 text-gray-400 group-hover:text-blue-400" />
+                                </div>
+                            </th>
+                            <th @click="handleSort('sales_qty')" class="px-3 py-3 text-center border-r border-gray-200 cursor-pointer hover:bg-gray-100 group transition-colors">
+                                <div class="flex items-center justify-center gap-2">
+                                    Sales Qty
+                                    <ArrowUp v-if="sortField === 'sales_qty' && sortDirection === 'asc'" class="w-3 h-3 text-blue-600" />
+                                    <ArrowDown v-else-if="sortField === 'sales_qty' && sortDirection === 'desc'" class="w-3 h-3 text-blue-600" />
+                                    <ArrowUpDown v-else class="w-3 h-3 text-gray-400 group-hover:text-blue-400" />
+                                </div>
+                            </th>
+                            <th @click="handleSort('wastage_qty')" class="px-3 py-3 text-center border-r border-gray-200 cursor-pointer hover:bg-gray-100 group transition-colors">
+                                <div class="flex items-center justify-center gap-2">
+                                    Wastage Qty
+                                    <ArrowUp v-if="sortField === 'wastage_qty' && sortDirection === 'asc'" class="w-3 h-3 text-blue-600" />
+                                    <ArrowDown v-else-if="sortField === 'wastage_qty' && sortDirection === 'desc'" class="w-3 h-3 text-blue-600" />
+                                    <ArrowUpDown v-else class="w-3 h-3 text-gray-400 group-hover:text-blue-400" />
+                                </div>
+                            </th>
+                            <th @click="handleSort('interco_in_qty')" class="px-3 py-3 text-center border-r border-gray-200 cursor-pointer hover:bg-gray-100 group transition-colors">
+                                <div class="flex items-center justify-center gap-2">
+                                    Inbound Interco
+                                    <ArrowUp v-if="sortField === 'interco_in_qty' && sortDirection === 'asc'" class="w-3 h-3 text-blue-600" />
+                                    <ArrowDown v-else-if="sortField === 'interco_in_qty' && sortDirection === 'desc'" class="w-3 h-3 text-blue-600" />
+                                    <ArrowUpDown v-else class="w-3 h-3 text-gray-400 group-hover:text-blue-400" />
+                                </div>
+                            </th>
+                            <th @click="handleSort('interco_out_qty')" class="px-3 py-3 text-center border-r border-gray-200 cursor-pointer hover:bg-gray-100 group transition-colors">
+                                <div class="flex items-center justify-center gap-2">
+                                    Outbound Interco
+                                    <ArrowUp v-if="sortField === 'interco_out_qty' && sortDirection === 'asc'" class="w-3 h-3 text-blue-600" />
+                                    <ArrowDown v-else-if="sortField === 'interco_out_qty' && sortDirection === 'desc'" class="w-3 h-3 text-blue-600" />
+                                    <ArrowUpDown v-else class="w-3 h-3 text-gray-400 group-hover:text-blue-400" />
+                                </div>
+                            </th>
+                            <th @click="handleSort('theoretical_qty')" class="px-3 py-3 text-center border-r border-gray-200 cursor-pointer hover:bg-gray-100 group transition-colors">
+                                <div class="flex items-center justify-center gap-2">
+                                    Theoretical SOH
+                                    <ArrowUp v-if="sortField === 'theoretical_qty' && sortDirection === 'asc'" class="w-3 h-3 text-blue-600" />
+                                    <ArrowDown v-else-if="sortField === 'theoretical_qty' && sortDirection === 'desc'" class="w-3 h-3 text-blue-600" />
+                                    <ArrowUpDown v-else class="w-3 h-3 text-gray-400 group-hover:text-blue-400" />
+                                </div>
+                            </th>
+                            <th @click="handleSort('actual_mec')" class="px-3 py-3 text-center cursor-pointer hover:bg-gray-100 group transition-colors">
+                                <div class="flex items-center justify-center gap-2">
+                                    Actual MEC
+                                    <ArrowUp v-if="sortField === 'actual_mec' && sortDirection === 'asc'" class="w-3 h-3 text-blue-600" />
+                                    <ArrowDown v-else-if="sortField === 'actual_mec' && sortDirection === 'desc'" class="w-3 h-3 text-blue-600" />
+                                    <ArrowUpDown v-else class="w-3 h-3 text-gray-400 group-hover:text-blue-400" />
+                                </div>
+                            </th>
                         </tr>
                     </thead>
                     <tbody class="bg-white divide-y divide-gray-100">

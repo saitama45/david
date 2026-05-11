@@ -22,8 +22,11 @@ class InventoryMovementReportController extends Controller
 {
     public function index(Request $request)
     {
+        ini_set('max_execution_time', 600); // 10 minutes
+        ini_set('memory_limit', '1024M');
+
         $user = Auth::user();
-        $filters = $request->only(['date_from', 'date_to', 'branch_id', 'supplier_code', 'search', 'per_page']);
+        $filters = $request->only(['date_from', 'date_to', 'branch_id', 'supplier_code', 'search', 'per_page', 'sort_field', 'sort_direction']);
         
         // Defaults
         $filters['date_from'] = $filters['date_from'] ?? Carbon::today()->startOfMonth()->format('Y-m-d');
@@ -66,13 +69,35 @@ class InventoryMovementReportController extends Controller
 
         $this->applySupplierFilter($query, $filters);
 
-        $sapItems = $query->paginate($filters['per_page'])->withQueryString();
+        $allSapItems = $query->get();
+        $allMovementData = collect($this->getMovementData($allSapItems, $filters));
+
+        if (!empty($filters['sort_field'])) {
+            $sortField = $filters['sort_field'];
+            $sortDirection = $filters['sort_direction'] ?? 'asc';
+            
+            if ($sortDirection === 'desc') {
+                $allMovementData = $allMovementData->sortByDesc($sortField, SORT_REGULAR);
+            } else {
+                $allMovementData = $allMovementData->sortBy($sortField, SORT_REGULAR);
+            }
+        }
+
+        $currentPage = \Illuminate\Pagination\Paginator::resolveCurrentPage() ?: 1;
+        $perPage = (int) $filters['per_page'];
         
-        $movementData = $this->getMovementData($sapItems->items(), $filters);
+        $paginatedData = new \Illuminate\Pagination\LengthAwarePaginator(
+            $allMovementData->forPage($currentPage, $perPage)->values(),
+            $allMovementData->count(),
+            $perPage,
+            $currentPage,
+            ['path' => \Illuminate\Pagination\Paginator::resolveCurrentPath()]
+        );
+        $paginatedData->appends($request->all());
 
         return Inertia::render('Reports/InventoryMovementReport/Index', [
-            'movementData' => $movementData,
-            'sapItems' => $sapItems,
+            'movementData' => $paginatedData->items(),
+            'sapItems' => $paginatedData,
             'filters' => $filters,
             'branches' => $branches,
             'suppliers' => $suppliers,
