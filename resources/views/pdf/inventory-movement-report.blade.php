@@ -24,6 +24,7 @@
 
     <div class="info">
         <strong>Branch:</strong> {{ $branch ? $branch->name : 'N/A' }} | 
+        <strong>Supplier:</strong> {{ $supplier ? $supplier->name . ' (' . $supplier->supplier_code . ')' : 'All Suppliers' }} |
         <strong>Generated:</strong> {{ $date_generated }} | 
         <strong>By:</strong> {{ $generated_by }}
     </div>
@@ -31,15 +32,16 @@
     <table>
         <thead>
             <tr style="background-color: #f3f4f6; font-size: 8px;">
-                <th colspan="3">ITEM INFO</th>
+                <th colspan="4">ITEM INFO</th>
                 <th colspan="3">PROCUREMENT (DATE RANGE)</th>
                 <th>BEGINNING</th>
                 <th colspan="4">DEDUCTIONS / TRANSFERS</th>
                 <th colspan="2">FINAL BALANCE</th>
             </tr>
             <tr style="background-color: #eee;">
+                <th class="text-left" width="12%">Supplier</th>
                 <th class="text-left">SAP Code</th>
-                <th class="text-left" width="20%">Item Description</th>
+                <th class="text-left" width="18%">Item Description</th>
                 <th>UOM</th>
                 <th>Ordered</th>
                 <th>Committed</th>
@@ -56,6 +58,7 @@
         <tbody>
             @foreach($movementData as $item)
                 <tr>
+                    <td class="text-left">{{ $item['supplier'] ?: '-' }}</td>
                     <td class="text-left">{{ $item['sap_code'] }}</td>
                     <td class="text-left">{{ $item['item_description'] }}</td>
                     <td>{{ $item['uom'] }}</td>

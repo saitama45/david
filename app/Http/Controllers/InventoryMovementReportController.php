@@ -4,8 +4,10 @@ namespace App\Http\Controllers;
 
 use App\Models\SAPMasterfile;
 use App\Models\StoreBranch;
+use App\Models\Supplier;
 use App\Models\StoreOrderItem;
 use App\Models\StoreTransactionItem;
+use App\Models\SupplierItems;
 use App\Models\Wastage;
 use App\Models\MonthEndCountItem;
 use App\Models\MonthEndSchedule;
@@ -21,7 +23,7 @@ class InventoryMovementReportController extends Controller
     public function index(Request $request)
     {
         $user = Auth::user();
-        $filters = $request->only(['date_from', 'date_to', 'branch_id', 'search', 'per_page']);
+        $filters = $request->only(['date_from', 'date_to', 'branch_id', 'supplier_code', 'search', 'per_page']);
         
         // Defaults
         $filters['date_from'] = $filters['date_from'] ?? Carbon::today()->startOfMonth()->format('Y-m-d');
@@ -34,6 +36,13 @@ class InventoryMovementReportController extends Controller
         $branches = StoreBranch::whereIn('id', $assignedStoreIds)
             ->orderBy('name')
             ->get(['id', 'name', 'branch_code']);
+
+        $suppliers = $this->getSupplierOptions($user);
+        $assignedSupplierCodes = $suppliers->pluck('value')->toArray();
+
+        if (!empty($filters['supplier_code']) && !in_array($filters['supplier_code'], $assignedSupplierCodes, true)) {
+            unset($filters['supplier_code']);
+        }
 
         if (!$request->has('branch_id') && $branches->isNotEmpty()) {
             $filters['branch_id'] = $branches->first()->id;
@@ -55,6 +64,8 @@ class InventoryMovementReportController extends Controller
             });
         }
 
+        $this->applySupplierFilter($query, $filters);
+
         $sapItems = $query->paginate($filters['per_page'])->withQueryString();
         
         $movementData = $this->getMovementData($sapItems->items(), $filters);
@@ -64,6 +75,7 @@ class InventoryMovementReportController extends Controller
             'sapItems' => $sapItems,
             'filters' => $filters,
             'branches' => $branches,
+            'suppliers' => $suppliers,
         ]);
     }
 
@@ -72,10 +84,17 @@ class InventoryMovementReportController extends Controller
         ini_set('max_execution_time', 600); // 10 minutes
         ini_set('memory_limit', '1024M');
 
-        $filters = $request->only(['date_from', 'date_to', 'branch_id', 'search']);
+        $user = Auth::user();
+        $filters = $request->only(['date_from', 'date_to', 'branch_id', 'supplier_code', 'search']);
         
         $filters['date_from'] = $filters['date_from'] ?? Carbon::today()->startOfMonth()->format('Y-m-d');
         $filters['date_to'] = $filters['date_to'] ?? Carbon::today()->format('Y-m-d');
+
+        $assignedSupplierCodes = $this->getSupplierOptions($user)->pluck('value')->toArray();
+
+        if (!empty($filters['supplier_code']) && !in_array($filters['supplier_code'], $assignedSupplierCodes, true)) {
+            unset($filters['supplier_code']);
+        }
 
         $query = SAPMasterfile::query()
             ->where('is_active', true)
@@ -93,19 +112,88 @@ class InventoryMovementReportController extends Controller
             });
         }
 
+        $this->applySupplierFilter($query, $filters);
+
         $sapItems = $query->get();
         $movementData = $this->getMovementData($sapItems, $filters);
         $branch = StoreBranch::find($filters['branch_id']);
+        $supplier = !empty($filters['supplier_code'])
+            ? Supplier::where('supplier_code', $filters['supplier_code'])->first()
+            : null;
 
         $pdf = Pdf::loadView('pdf.inventory-movement-report', [
             'movementData' => $movementData,
             'filters' => $filters,
             'branch' => $branch,
+            'supplier' => $supplier,
             'date_generated' => Carbon::now()->format('Y-m-d H:i:s'),
             'generated_by' => Auth::user()->full_name,
         ]);
 
         return $pdf->setPaper('legal', 'landscape')->stream('inventory-movement-report.pdf');
+    }
+
+    private function applySupplierFilter($query, $filters)
+    {
+        if (empty($filters['supplier_code']) || $filters['supplier_code'] === 'all') {
+            return;
+        }
+
+        $supplierCode = $filters['supplier_code'];
+
+        if ($supplierCode === 'CPO') {
+            $branchId = $filters['branch_id'] ?? null;
+            $dateFrom = $filters['date_from'] ?? null;
+            $dateTo = $filters['date_to'] ?? null;
+
+            $query->whereExists(function($sub) use ($supplierCode, $branchId, $dateFrom, $dateTo) {
+                $sub->select(DB::raw(1))
+                    ->from('store_order_items as soi')
+                    ->join('store_orders as so', 'soi.store_order_id', '=', 'so.id')
+                    ->join('suppliers as s', 'so.supplier_id', '=', 's.id')
+                    ->whereColumn('soi.item_code', 'sap_masterfiles.ItemCode')
+                    ->where('s.supplier_code', $supplierCode)
+                    ->whereNull('so.interco_number');
+
+                if (!empty($branchId)) {
+                    $sub->where('so.store_branch_id', $branchId);
+                }
+
+                if (!empty($dateFrom) && !empty($dateTo)) {
+                    $sub->whereBetween('so.order_date', [$dateFrom, $dateTo]);
+                }
+            });
+
+            return;
+        }
+
+        $query->whereExists(function($sub) use ($supplierCode) {
+            $sub->select(DB::raw(1))
+                ->from('supplier_items')
+                ->whereColumn('supplier_items.ItemCode', 'sap_masterfiles.ItemCode')
+                ->whereColumn('supplier_items.uom', 'sap_masterfiles.AltUOM')
+                ->where('supplier_items.SupplierCode', $supplierCode)
+                ->where('supplier_items.is_active', true);
+        });
+    }
+
+    private function getSupplierOptions($user)
+    {
+        $suppliers = $user->suppliers()
+            ->where('suppliers.is_active', true)
+            ->orderBy('name')
+            ->get(['suppliers.supplier_code', 'suppliers.name']);
+
+        if ($suppliers->isEmpty()) {
+            $suppliers = Supplier::where('is_active', true)
+                ->orderBy('name')
+                ->get(['supplier_code', 'name']);
+        }
+
+        return $suppliers->map(fn ($supplier) => [
+            'label' => $supplier->name . ' (' . $supplier->supplier_code . ')',
+            'value' => $supplier->supplier_code,
+        ])->values();
     }
 
     private function applyMovementFilter($query, $filters)
@@ -195,6 +283,35 @@ class InventoryMovementReportController extends Controller
         $dateFrom = $filters['date_from'];
         $dateTo = $filters['date_to'];
         $sapIds = collect($sapItems)->pluck('id')->toArray();
+        $sapItemCodes = collect($sapItems)->pluck('ItemCode')->filter()->unique()->values()->toArray();
+        $selectedSupplier = !empty($filters['supplier_code']) && $filters['supplier_code'] !== 'all'
+            ? Supplier::where('supplier_code', $filters['supplier_code'])->first()
+            : null;
+
+        $supplierItems = collect();
+        foreach (array_chunk($sapItemCodes, 1000) as $itemCodeChunk) {
+            $supplierItemQuery = SupplierItems::with('supplier')
+                ->where('is_active', true)
+                ->whereIn('ItemCode', $itemCodeChunk);
+
+            if (!empty($filters['supplier_code']) && $filters['supplier_code'] !== 'all') {
+                $supplierItemQuery->where('SupplierCode', $filters['supplier_code']);
+            }
+
+            $supplierItems = $supplierItems->merge(
+                $supplierItemQuery->get(['ItemCode', 'uom', 'SupplierCode'])
+            );
+        }
+
+        $supplierLookup = $supplierItems
+            ->groupBy(fn ($supplierItem) => $supplierItem->ItemCode . '|' . strtoupper((string) $supplierItem->uom))
+            ->map(fn ($items) => $items
+                ->map(fn ($supplierItem) => $supplierItem->supplier?->name ?? $supplierItem->SupplierCode)
+                ->filter()
+                ->unique()
+                ->sort()
+                ->implode(', ')
+            );
 
         // SQL Server limitation: max 2100 parameters. Chunking into 1000 to be safe.
         $chunks = array_chunk($sapIds, 1000);
@@ -379,6 +496,9 @@ class InventoryMovementReportController extends Controller
             $theoretical = $begBalQty + $received + $intercoInQty - $salesQty - $wastageQty - $intercoOutQty;
 
             $movementData[] = [
+                'supplier' => ($filters['supplier_code'] ?? null) === 'CPO'
+                    ? ($selectedSupplier?->name ?? 'CPO')
+                    : $supplierLookup->get($itemCode . '|' . strtoupper((string) $sapItem->AltUOM), ''),
                 'sap_code' => $sapItem->ItemCode,
                 'item_description' => $sapItem->ItemDescription,
                 'uom' => $sapItem->AltUOM,

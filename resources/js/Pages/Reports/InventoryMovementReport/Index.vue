@@ -2,7 +2,7 @@
 import { ref, watch, computed } from "vue";
 import { throttle } from "lodash";
 import { router } from "@inertiajs/vue3";
-import { Calendar, Search, RotateCcw, Filter, ChevronDown, Package, CalendarDays, Building2, TrendingUp, TrendingDown, ClipboardCheck, Info, FileText } from "lucide-vue-next";
+import { Calendar, Search, RotateCcw, Filter, ChevronDown, Package, CalendarDays, Building2, TrendingUp, TrendingDown, ClipboardCheck, Info, FileText, Truck } from "lucide-vue-next";
 import SearchableSelect from "@/components/ui/select/SearchableSelect.vue";
 import Pagination from "@/components/table/Pagination.vue";
 
@@ -20,6 +20,10 @@ const props = defineProps({
         required: true,
     },
     branches: {
+        type: Array,
+        required: true,
+    },
+    suppliers: {
         type: Array,
         required: true,
     }
@@ -44,9 +48,18 @@ const branchOptions = computed(() => {
     }));
 });
 
+const supplierOptions = computed(() => {
+    return props.suppliers.map(supplier => ({
+        label: supplier.label,
+        value: supplier.value,
+        searchTerms: supplier.label.toLowerCase(),
+    }));
+});
+
 const dateFrom = ref(props.filters.date_from || '');
 const dateTo = ref(props.filters.date_to || '');
 const branchId = ref(props.filters.branch_id || '');
+const supplierCode = ref(props.filters.supplier_code || '');
 const search = ref(props.filters.search || '');
 const perPage = ref(props.filters.per_page || 50);
 
@@ -58,6 +71,7 @@ const updateFilters = () => {
             date_from: dateFrom.value,
             date_to: dateTo.value,
             branch_id: branchId.value || null,
+            supplier_code: supplierCode.value || null,
             search: search.value,
             per_page: perPage.value,
         },
@@ -79,6 +93,7 @@ const resetFilters = () => {
     dateFrom.value = '';
     dateTo.value = '';
     branchId.value = props.branches[0]?.id || '';
+    supplierCode.value = '';
     search.value = '';
     perPage.value = 50;
     updateFilters();
@@ -89,6 +104,7 @@ const exportPdf = () => {
         date_from: dateFrom.value,
         date_to: dateTo.value,
         branch_id: branchId.value,
+        supplier_code: supplierCode.value,
         search: search.value,
     });
     
@@ -123,7 +139,7 @@ const formatNumber = (num) => {
         </template>
         <div class="bg-white rounded-xl border border-gray-200 shadow-sm mb-6">
             <div class="p-6">
-                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 items-end">
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-4 items-end">
                     <div class="space-y-2">
                         <label class="flex items-center gap-2 text-sm font-medium text-gray-700">
                             <Building2 class="w-4 h-4" />
@@ -135,6 +151,22 @@ const formatNumber = (num) => {
                             :options="branchOptions"
                             optionLabel="label"
                             optionValue="value"
+                            class="w-full"
+                        />
+                    </div>
+
+                    <div class="space-y-2">
+                        <label class="flex items-center gap-2 text-sm font-medium text-gray-700">
+                            <Truck class="w-4 h-4" />
+                            Supplier
+                        </label>
+                        <SearchableSelect
+                            v-model="supplierCode"
+                            placeholder="All Suppliers"
+                            :options="supplierOptions"
+                            optionLabel="label"
+                            optionValue="value"
+                            clearable
                             class="w-full"
                         />
                     </div>
@@ -201,13 +233,14 @@ const formatNumber = (num) => {
                 <table class="min-w-full border-separate border-spacing-0">
                     <thead class="sticky top-0 z-20 bg-gray-50 shadow-sm">
                         <tr>
-                            <th colspan="3" class="px-3 py-3 text-center text-xs font-bold text-gray-500 uppercase tracking-wider border-r border-gray-200 bg-gray-100">Item Info</th>
+                            <th colspan="4" class="px-3 py-3 text-center text-xs font-bold text-gray-500 uppercase tracking-wider border-r border-gray-200 bg-gray-100">Item Info</th>
                             <th colspan="3" class="px-3 py-3 text-center text-xs font-bold text-gray-500 uppercase tracking-wider border-r border-gray-200 bg-blue-50">Procurement (Date Range)</th>
                             <th class="px-3 py-3 text-center text-xs font-bold text-gray-500 uppercase tracking-wider border-r border-gray-200 bg-emerald-50">Beginning</th>
                             <th colspan="4" class="px-3 py-3 text-center text-xs font-bold text-gray-500 uppercase tracking-wider border-r border-gray-200 bg-orange-50">Deductions / Transfers</th>
                             <th colspan="2" class="px-3 py-3 text-center text-xs font-bold text-gray-500 uppercase tracking-wider bg-purple-50">Final Balance</th>
                         </tr>
                         <tr class="text-[10px] text-gray-500 uppercase tracking-wider font-semibold">
+                            <th class="px-3 py-3 text-left border-r border-gray-200 min-w-[160px]">Supplier</th>
                             <th class="px-3 py-3 text-left border-r border-gray-200">SAP Code</th>
                             <th class="px-3 py-3 text-left border-r border-gray-200 min-w-[200px]">Item Description</th>
                             <th class="px-3 py-3 text-center border-r border-gray-200">UOM</th>
@@ -225,7 +258,7 @@ const formatNumber = (num) => {
                     </thead>
                     <tbody class="bg-white divide-y divide-gray-100">
                         <tr v-if="movementData.length === 0" class="hover:bg-gray-50">
-                            <td colspan="13" class="text-center py-12 text-gray-500">
+                            <td colspan="14" class="text-center py-12 text-gray-500">
                                 <div class="flex flex-col items-center">
                                     <Package class="w-12 h-12 text-gray-300 mb-3" />
                                     <span class="text-lg font-medium">No movement data found</span>
@@ -234,6 +267,7 @@ const formatNumber = (num) => {
                             </td>
                         </tr>
                         <tr v-for="item in movementData" :key="item.sap_code + item.uom" class="hover:bg-gray-50 transition-colors text-xs">
+                            <td class="px-3 py-4 text-gray-900 border-r border-gray-100">{{ item.supplier || '-' }}</td>
                             <td class="px-3 py-4 font-mono text-gray-900 border-r border-gray-100">{{ item.sap_code }}</td>
                             <td class="px-3 py-4 text-gray-900 border-r border-gray-100">{{ item.item_description }}</td>
                             <td class="px-3 py-4 text-center text-gray-500 border-r border-gray-100 italic">{{ item.uom }}</td>
