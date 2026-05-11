@@ -247,7 +247,7 @@ const formatNumber = (num) => {
 
             <div class="overflow-visible">
                 <table class="min-w-full border-separate border-spacing-0">
-                    <thead class="sticky top-0 z-20 bg-gray-50 shadow-sm">
+                    <thead class="sticky -top-4 lg:-top-6 z-20 bg-gray-50 shadow-sm">
                         <tr>
                             <th colspan="4" class="px-3 py-3 text-center text-xs font-bold text-gray-500 uppercase tracking-wider border-r border-gray-200 bg-gray-100">Item Info</th>
                             <th colspan="3" class="px-3 py-3 text-center text-xs font-bold text-gray-500 uppercase tracking-wider border-r border-gray-200 bg-blue-50">Procurement (Date Range)</th>

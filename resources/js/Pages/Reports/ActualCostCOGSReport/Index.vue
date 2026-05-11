@@ -4,10 +4,11 @@ import { throttle } from "lodash";
 import { router } from "@inertiajs/vue3";
 import { usePage } from "@inertiajs/vue3";
 import { useSelectOptions } from "@/composables/useSelectOptions";
-import { Calendar, Search, RotateCcw, Download, Filter, ChevronDown, ChevronUp, Package, CalendarDays, Building2, Badge as BadgeIcon, Calculator, ArrowLeftRight } from "lucide-vue-next";
+import { Calendar, Search, RotateCcw, Download, Filter, ChevronDown, ChevronUp, Package, CalendarDays, Building2, Badge as BadgeIcon, Calculator, ArrowLeftRight, Info } from "lucide-vue-next";
 import { useAuth } from "@/composables/useAuth";
 import MultiSelect from "primevue/multiselect";
 import Select from "@/components/ui/select/Select.vue";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 const props = defineProps({
     reportData: {
@@ -390,7 +391,7 @@ const getMonthName = (monthNumber) => {
             <!-- Desktop Table -->
             <div class="hidden lg:block overflow-visible">
                 <table class="min-w-full border-separate border-spacing-0">
-                    <thead class="sticky top-0 z-20 bg-gray-50 shadow-sm">
+                    <thead class="sticky -top-4 lg:-top-6 z-20 bg-gray-50 shadow-sm">
                         <tr class="text-xs text-gray-500 uppercase tracking-wider">
                             <th class="px-4 py-3 text-left font-medium">Store Branch</th>
                             <th class="px-4 py-3 text-left font-medium">Item Code</th>
@@ -401,7 +402,29 @@ const getMonthName = (monthNumber) => {
                             <th class="px-4 py-3 text-center font-medium bg-green-50" colspan="2">Deliveries</th>
                             <th class="px-4 py-3 text-center font-medium bg-purple-50" colspan="2">Interco</th>
                             <th class="px-4 py-3 text-center font-medium bg-amber-50" colspan="2">Ending Inventory</th>
-                            <th class="px-4 py-3 text-right font-medium">Actual Cost</th>
+                            <th class="px-4 py-3 text-right font-medium">
+                                <TooltipProvider>
+                                    <Tooltip>
+                                        <TooltipTrigger as-child>
+                                            <div class="flex items-center justify-end gap-1 cursor-help group">
+                                                Actual Cost
+                                                <Info class="w-3.5 h-3.5 text-gray-400 group-hover:text-blue-500 transition-colors" />
+                                            </div>
+                                        </TooltipTrigger>
+                                        <TooltipContent side="top" align="end" class="max-w-xs p-3">
+                                            <div class="space-y-2">
+                                                <p class="font-bold text-blue-600 border-b border-blue-100 pb-1">Calculation Formula</p>
+                                                <p class="text-xs font-mono bg-slate-50 p-2 rounded border border-slate-100 text-slate-900">
+                                                    (Beg Value + Deliveries Value + Interco Value) - Ending Value
+                                                </p>
+                                                <p class="text-[10px] text-gray-500 italic">
+                                                    * This represents the total value of items consumed or sold during the period.
+                                                </p>
+                                            </div>
+                                        </TooltipContent>
+                                    </Tooltip>
+                                </TooltipProvider>
+                            </th>
                         </tr>
                         <tr class="text-xs text-gray-500 uppercase tracking-wider">
                             <th class="px-3 py-2"></th>
@@ -537,7 +560,19 @@ const getMonthName = (monthNumber) => {
                                 <span class="font-medium">{{ formatNumber(item.interco) }} ({{ formatCurrency(item.interco_value) }})</span>
                             </div>
                             <div class="flex items-center justify-between text-sm">
-                                <span class="text-gray-600 bg-gray-100 px-2 py-1 rounded">Actual Cost:</span>
+                                <span class="text-gray-600 bg-gray-100 px-2 py-1 rounded flex items-center gap-1">
+                                    Actual Cost:
+                                    <TooltipProvider>
+                                        <Tooltip>
+                                            <TooltipTrigger as-child>
+                                                <Info class="w-3 h-3 text-gray-400" />
+                                            </TooltipTrigger>
+                                            <TooltipContent side="top" align="center" class="max-w-[200px] p-2 text-[10px]">
+                                                (Beg + Deliveries + Interco) - Ending Value
+                                            </TooltipContent>
+                                        </Tooltip>
+                                    </TooltipProvider>
+                                </span>
                                 <span class="font-medium">{{ formatCurrency(item.actual_cost) }}</span>
                             </div>
                         </div>

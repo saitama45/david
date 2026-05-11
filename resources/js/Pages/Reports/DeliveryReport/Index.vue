@@ -362,7 +362,7 @@ const formatDateOnly = (dateString) => {
             <!-- Desktop Table -->
             <div class="hidden lg:block overflow-visible">
                 <table class="min-w-full border-separate border-spacing-0">
-                    <thead class="sticky top-0 z-20 bg-gray-50 shadow-sm">
+                    <thead class="sticky -top-4 lg:-top-6 z-20 bg-gray-50 shadow-sm">
                         <tr class="text-xs text-gray-500 uppercase tracking-wider">
                             <th class="px-6 py-4 text-left font-medium">Expected Delivery Date</th>
                             <th class="px-6 py-4 text-left font-medium">Received Logged</th>
