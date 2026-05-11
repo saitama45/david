@@ -67,6 +67,68 @@ class QtyVarianceCostVarianceReportController extends Controller
         $filterYear = $filterDate->year;
         $filterMonth = $filterDate->month;
 
+        $prevMonthDate = $filterDate->copy()->subMonth();
+        $dateFrom = $filterDate->copy()->startOfMonth()->format('Y-m-d');
+        $dateTo = $filterDate->copy()->endOfMonth()->format('Y-m-d');
+        $wastageStatus = \App\Enums\WastageStatus::APPROVED_LVL2->value;
+
+        $theoreticalInventorySubquery = DB::raw("(
+            COALESCE((
+                SELECT meci_prev.total_qty
+                FROM month_end_count_items meci_prev
+                JOIN month_end_schedules mes_prev ON meci_prev.month_end_schedule_id = mes_prev.id
+                WHERE meci_prev.branch_id = meci.branch_id
+                  AND meci_prev.item_code = meci.item_code
+                  AND mes_prev.year = {$prevMonthDate->year}
+                  AND mes_prev.month = {$prevMonthDate->month}
+            ), 0)
+            +
+            COALESCE((
+                SELECT SUM(oird.quantity_received)
+                FROM ordered_item_receive_dates oird
+                JOIN store_order_items soi ON oird.store_order_item_id = soi.id
+                JOIN store_orders so ON soi.store_order_id = so.id
+                WHERE so.store_branch_id = meci.branch_id
+                  AND soi.item_code = meci.item_code
+                  AND so.interco_number IS NULL
+                  AND oird.status = 'approved'
+                  AND oird.received_date BETWEEN '{$dateFrom}' AND '{$dateTo}'
+            ), 0)
+            +
+            COALESCE((
+                SELECT SUM(oird.quantity_received)
+                FROM ordered_item_receive_dates oird
+                JOIN store_order_items soi ON oird.store_order_item_id = soi.id
+                JOIN store_orders so ON soi.store_order_id = so.id
+                WHERE so.store_branch_id = meci.branch_id
+                  AND soi.item_code = meci.item_code
+                  AND so.interco_number IS NOT NULL
+                  AND oird.status = 'approved'
+                  AND oird.received_date BETWEEN '{$dateFrom}' AND '{$dateTo}'
+            ), 0)
+            -
+            COALESCE((
+                SELECT SUM(COALESCE(sti.quantity, 0) * COALESCE(bom.BOMQty, 0))
+                FROM store_transaction_items sti
+                JOIN store_transactions st ON sti.store_transaction_id = st.id
+                JOIN pos_masterfiles pm ON sti.product_id = pm.id
+                JOIN pos_masterfiles_bom bom ON pm.POSCode = bom.POSCode
+                WHERE st.store_branch_id = meci.branch_id
+                  AND bom.ItemCode = meci.item_code
+                  AND st.order_date BETWEEN '{$dateFrom}' AND '{$dateTo}'
+            ), 0)
+            -
+            COALESCE((
+                SELECT SUM(w.wastage_qty)
+                FROM wastages w
+                JOIN sap_masterfiles sap ON w.sap_masterfile_id = sap.id
+                WHERE w.store_branch_id = meci.branch_id
+                  AND sap.ItemCode = meci.item_code
+                  AND w.wastage_status = '{$wastageStatus}'
+                  AND w.created_at BETWEEN '{$dateFrom} 00:00:00' AND '{$dateTo} 23:59:59'
+            ), 0)
+        ) as theoretical_inventory");
+
         $query = MonthEndCountItem::query()
             ->from('month_end_count_items as meci')
             ->select(
@@ -76,7 +138,7 @@ class QtyVarianceCostVarianceReportController extends Controller
                 'sm.ItemDescription as item_description',
                 'sm.BaseUOM as uom',
                 'meci.total_qty as actual_inventory',
-                'meci.current_soh as theoretical_inventory',
+                $theoreticalInventorySubquery,
                 // Subquery to get the cost from the latest active supplier item
                 DB::raw('(SELECT TOP 1 cost FROM supplier_items si WHERE si.ItemCode = sm.ItemCode AND si.is_active = 1 ORDER BY si.id DESC) as cost')
             )
@@ -214,6 +276,68 @@ class QtyVarianceCostVarianceReportController extends Controller
         $filterYear = $filterDate->year;
         $filterMonth = $filterDate->month;
 
+        $prevMonthDate = $filterDate->copy()->subMonth();
+        $dateFrom = $filterDate->copy()->startOfMonth()->format('Y-m-d');
+        $dateTo = $filterDate->copy()->endOfMonth()->format('Y-m-d');
+        $wastageStatus = \App\Enums\WastageStatus::APPROVED_LVL2->value;
+
+        $theoreticalInventorySubquery = DB::raw("(
+            COALESCE((
+                SELECT meci_prev.total_qty
+                FROM month_end_count_items meci_prev
+                JOIN month_end_schedules mes_prev ON meci_prev.month_end_schedule_id = mes_prev.id
+                WHERE meci_prev.branch_id = meci.branch_id
+                  AND meci_prev.item_code = meci.item_code
+                  AND mes_prev.year = {$prevMonthDate->year}
+                  AND mes_prev.month = {$prevMonthDate->month}
+            ), 0)
+            +
+            COALESCE((
+                SELECT SUM(oird.quantity_received)
+                FROM ordered_item_receive_dates oird
+                JOIN store_order_items soi ON oird.store_order_item_id = soi.id
+                JOIN store_orders so ON soi.store_order_id = so.id
+                WHERE so.store_branch_id = meci.branch_id
+                  AND soi.item_code = meci.item_code
+                  AND so.interco_number IS NULL
+                  AND oird.status = 'approved'
+                  AND oird.received_date BETWEEN '{$dateFrom}' AND '{$dateTo}'
+            ), 0)
+            +
+            COALESCE((
+                SELECT SUM(oird.quantity_received)
+                FROM ordered_item_receive_dates oird
+                JOIN store_order_items soi ON oird.store_order_item_id = soi.id
+                JOIN store_orders so ON soi.store_order_id = so.id
+                WHERE so.store_branch_id = meci.branch_id
+                  AND soi.item_code = meci.item_code
+                  AND so.interco_number IS NOT NULL
+                  AND oird.status = 'approved'
+                  AND oird.received_date BETWEEN '{$dateFrom}' AND '{$dateTo}'
+            ), 0)
+            -
+            COALESCE((
+                SELECT SUM(COALESCE(sti.quantity, 0) * COALESCE(bom.BOMQty, 0))
+                FROM store_transaction_items sti
+                JOIN store_transactions st ON sti.store_transaction_id = st.id
+                JOIN pos_masterfiles pm ON sti.product_id = pm.id
+                JOIN pos_masterfiles_bom bom ON pm.POSCode = bom.POSCode
+                WHERE st.store_branch_id = meci.branch_id
+                  AND bom.ItemCode = meci.item_code
+                  AND st.order_date BETWEEN '{$dateFrom}' AND '{$dateTo}'
+            ), 0)
+            -
+            COALESCE((
+                SELECT SUM(w.wastage_qty)
+                FROM wastages w
+                JOIN sap_masterfiles sap ON w.sap_masterfile_id = sap.id
+                WHERE w.store_branch_id = meci.branch_id
+                  AND sap.ItemCode = meci.item_code
+                  AND w.wastage_status = '{$wastageStatus}'
+                  AND w.created_at BETWEEN '{$dateFrom} 00:00:00' AND '{$dateTo} 23:59:59'
+            ), 0)
+        ) as theoretical_inventory");
+
         $query = MonthEndCountItem::query()
             ->from('month_end_count_items as meci')
             ->select(
@@ -223,7 +347,7 @@ class QtyVarianceCostVarianceReportController extends Controller
                 'sm.ItemDescription as item_description',
                 'sm.BaseUOM as uom',
                 'meci.total_qty as actual_inventory',
-                'meci.current_soh as theoretical_inventory',
+                $theoreticalInventorySubquery,
                 DB::raw('(SELECT TOP 1 cost FROM supplier_items si WHERE si.ItemCode = sm.ItemCode AND si.is_active = 1 ORDER BY si.id DESC) as cost')
             )
             ->join('store_branches as sb', 'meci.branch_id', '=', 'sb.id')
