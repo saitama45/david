@@ -46,7 +46,12 @@ class UserController extends Controller
     {
         $user = $this->userService->getUserFromTemplate();
         $roles = ExtendedRole::rolesOption();
-        $branches = StoreBranch::options();
+        $branches = StoreBranch::where('is_active', true)->get()->map(function ($item) {
+            return [
+                'label' => $item->name . ' (' . $item->branch_code . ')',
+                'value' => $item->id,
+            ];
+        });
         $suppliers = Supplier::reportOptions()->toArray();
 
         return Inertia::render('User/Create', [
@@ -61,7 +66,12 @@ class UserController extends Controller
     {
         $user->load(['roles', 'store_branches', 'suppliers']);
         $roles = Role::select(['id', 'name'])->pluck('name', 'id');
-        $branches = StoreBranch::options();
+        $branches = StoreBranch::where('is_active', true)->get()->map(function ($item) {
+            return [
+                'label' => $item->name . ' (' . $item->branch_code . ')',
+                'value' => $item->id,
+            ];
+        });
         $suppliers = Supplier::reportOptions()->toArray();
 
         Log::debug('UserController@edit: User object being passed to Inertia:', ['user' => $user]);
