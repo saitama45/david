@@ -1,18 +1,23 @@
 <?php
 
+use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\DTSOrderScheduleController;
 use App\Http\Controllers\Api\MenuController;
 use App\Http\Controllers\Api\ProductController;
 use App\Http\Controllers\Api\StoreOrderController;
+use App\Http\Controllers\Api\SyncController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
-
+Route::post('/login', [AuthController::class, 'login']);
 
 Route::middleware('auth:sanctum')->group(function () {
     Route::get('/user', function (Request $request) {
         return $request->user();
     });
+
+    Route::get('/sync/pull', [SyncController::class, 'pull']);
+    Route::post('/sync/push', [SyncController::class, 'push']);
 
     // Route::post('/store-order/header-upload', [StoreOrderController::class, 'validateHeaderUpload']);
 
