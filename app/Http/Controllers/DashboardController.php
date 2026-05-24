@@ -14,6 +14,7 @@ use App\Models\StoreOrder;
 use App\Models\StoreOrderItem;
 use App\Models\StoreTransaction;
 use App\Models\StoreTransactionItem;
+use App\Models\POSMasterfile;
 use App\Models\SupplierItems; // Import SupplierItems model
 use App\Models\User;
 use App\Models\SAPMasterfile; // Ensure SAPMasterfile is imported
@@ -44,13 +45,7 @@ class DashboardController extends Controller
 
         $branch = request('branch');
 
-        // Resolve the actual branch IDs to filter by. Handle array from MultiSelect.
-        if (is_null($branch) || (is_string($branch) && $branch === 'all') || (is_array($branch) && (empty($branch) || in_array('all', $branch)))) {
-            $branchIds = collect($branchesOptions)->pluck('value')->filter(fn($v) => $v !== 'all')->toArray();
-        } else {
-            $branchIds = is_array($branch) ? (array)$branch : [$branch];
-            $branchIds = array_map('intval', array_filter($branchIds, fn($v) => is_numeric($v)));
-        }
+        $branchIds = $this->resolveDashboardBranchIds($branch, $branchesOptions);
 
         $chart_time_period = request('chart_time_period') ?? 0;
 
@@ -127,6 +122,267 @@ class DashboardController extends Controller
             'filters'     => request()->only(['branch', 'time_period', 'chart_time_period', 'inventory_type']),
             ...$data,
         ]);
+    }
+
+    public function salesMixSubcategories(Request $request)
+    {
+        $validated = $request->validate([
+            'branch' => ['nullable'],
+            'branch.*' => ['nullable'],
+            'date_from' => ['nullable', 'date'],
+            'date_to' => ['nullable', 'date', 'after_or_equal:date_from'],
+        ]);
+
+        $branchesOptions = StoreBranch::options()->toArray();
+        $branchIds = $this->resolveDashboardBranchIds($request->input('branch'), $branchesOptions);
+        $dateFrom = Carbon::parse($validated['date_from'] ?? Carbon::today()->startOfMonth())->format('Y-m-d');
+        $dateTo = Carbon::parse($validated['date_to'] ?? Carbon::today())->format('Y-m-d');
+        $subcategoryExpression = "COALESCE(NULLIF(TRIM(pos_masterfiles.SubCategory), ''), 'Uncategorized')";
+
+        $subcategories = POSMasterfile::query()
+            ->selectRaw("{$subcategoryExpression} as sub_category")
+            ->groupBy(DB::raw($subcategoryExpression))
+            ->pluck('sub_category')
+            ->map(fn($subcategory) => $subcategory ?: 'Uncategorized');
+
+        $revenueBySubcategory = StoreTransactionItem::query()
+            ->join('store_transactions', 'store_transaction_items.store_transaction_id', '=', 'store_transactions.id')
+            ->join('pos_masterfiles', 'store_transaction_items.product_id', '=', 'pos_masterfiles.id')
+            ->whereIn('store_transactions.store_branch_id', $branchIds)
+            ->whereBetween('store_transactions.order_date', [$dateFrom, $dateTo])
+            ->selectRaw("{$subcategoryExpression} as sub_category")
+            ->selectRaw('SUM(store_transaction_items.net_total) as revenue')
+            ->groupBy(DB::raw($subcategoryExpression))
+            ->pluck('revenue', 'sub_category')
+            ->mapWithKeys(fn($revenue, $subcategory) => [$subcategory ?: 'Uncategorized' => (float)$revenue]);
+
+        $totalRevenue = (float)$revenueBySubcategory->sum();
+
+        $rows = $subcategories
+            ->unique()
+            ->map(function ($subcategory) use ($revenueBySubcategory, $totalRevenue) {
+                $revenue = (float)($revenueBySubcategory->get($subcategory, 0));
+
+                return [
+                    'sub_category' => $subcategory,
+                    'revenue' => round($revenue, 2),
+                    'revenue_percent' => $totalRevenue > 0 ? round(($revenue / $totalRevenue) * 100, 2) : 0,
+                ];
+            })
+            ->sort(function ($a, $b) {
+                if ($a['revenue'] === $b['revenue']) {
+                    return strcasecmp($a['sub_category'], $b['sub_category']);
+                }
+
+                return $a['revenue'] < $b['revenue'] ? 1 : -1;
+            })
+            ->values()
+            ->map(function ($row, $index) {
+                $row['rank'] = $index + 1;
+
+                return $row;
+            });
+
+        return response()->json([
+            'data' => $rows,
+            'meta' => [
+                'total_revenue' => round($totalRevenue, 2),
+                'date_from' => $dateFrom,
+                'date_to' => $dateTo,
+                'store_count' => count($branchIds),
+            ],
+        ]);
+    }
+
+    public function salesMixProductsByRevenue(Request $request)
+    {
+        $validated = $request->validate([
+            'branch' => ['nullable'],
+            'branch.*' => ['nullable'],
+            'date_from' => ['nullable', 'date'],
+            'date_to' => ['nullable', 'date', 'after_or_equal:date_from'],
+        ]);
+
+        $branchesOptions = StoreBranch::options()->toArray();
+        $branchIds = $this->resolveDashboardBranchIds($request->input('branch'), $branchesOptions);
+        $dateFrom = Carbon::parse($validated['date_from'] ?? Carbon::today()->startOfMonth())->format('Y-m-d');
+        $dateTo = Carbon::parse($validated['date_to'] ?? Carbon::today())->format('Y-m-d');
+
+        $products = POSMasterfile::query()
+            ->select(['id', 'POSCode', 'POSDescription', 'SubCategory'])
+            ->get();
+
+        $revenueByProduct = StoreTransactionItem::query()
+            ->join('store_transactions', 'store_transaction_items.store_transaction_id', '=', 'store_transactions.id')
+            ->whereIn('store_transactions.store_branch_id', $branchIds)
+            ->whereBetween('store_transactions.order_date', [$dateFrom, $dateTo])
+            ->groupBy('store_transaction_items.product_id')
+            ->selectRaw('store_transaction_items.product_id, SUM(store_transaction_items.net_total) as revenue')
+            ->pluck('revenue', 'product_id')
+            ->map(fn($revenue) => (float)$revenue);
+
+        $rows = $products
+            ->map(function ($product) use ($revenueByProduct) {
+                $posCode = (string)$product->POSCode;
+                $subCategory = trim((string)$product->SubCategory);
+
+                return [
+                    'pos_code' => $posCode,
+                    'item_name' => $product->POSDescription ?: $posCode,
+                    'revenue' => round((float)$revenueByProduct->get($product->id, 0), 2),
+                    'category' => $this->deriveSalesMixCategory($posCode),
+                    'sub_category' => $subCategory !== '' ? $subCategory : 'Uncategorized',
+                ];
+            });
+
+        $overall = $this->rankSalesMixMetricRows($this->sortSalesMixMetricRows($rows, 'revenue'), 'revenue');
+        $categoryNames = ['Kitchen', 'Beverages & Others', 'Bakery'];
+        $byCategory = collect($categoryNames)
+            ->mapWithKeys(function ($category) use ($rows) {
+                $categoryRows = $rows->where('category', $category)->values();
+
+                return [
+                    $category => $this->rankSalesMixMetricRows(
+                        $this->sortSalesMixMetricRows($categoryRows, 'revenue'),
+                        'revenue'
+                    )->values(),
+                ];
+            });
+
+        return response()->json([
+            'overall' => $overall,
+            'by_category' => $byCategory,
+            'meta' => [
+                'total_revenue' => round((float)$revenueByProduct->sum(), 2),
+                'date_from' => $dateFrom,
+                'date_to' => $dateTo,
+                'store_count' => count($branchIds),
+            ],
+        ]);
+    }
+
+    public function salesMixProductsByQuantity(Request $request)
+    {
+        $validated = $request->validate([
+            'branch' => ['nullable'],
+            'branch.*' => ['nullable'],
+            'date_from' => ['nullable', 'date'],
+            'date_to' => ['nullable', 'date', 'after_or_equal:date_from'],
+        ]);
+
+        $branchesOptions = StoreBranch::options()->toArray();
+        $branchIds = $this->resolveDashboardBranchIds($request->input('branch'), $branchesOptions);
+        $dateFrom = Carbon::parse($validated['date_from'] ?? Carbon::today()->startOfMonth())->format('Y-m-d');
+        $dateTo = Carbon::parse($validated['date_to'] ?? Carbon::today())->format('Y-m-d');
+
+        $products = POSMasterfile::query()
+            ->select(['id', 'POSCode', 'POSDescription', 'SubCategory'])
+            ->get();
+
+        $quantityByProduct = StoreTransactionItem::query()
+            ->join('store_transactions', 'store_transaction_items.store_transaction_id', '=', 'store_transactions.id')
+            ->whereIn('store_transactions.store_branch_id', $branchIds)
+            ->whereBetween('store_transactions.order_date', [$dateFrom, $dateTo])
+            ->groupBy('store_transaction_items.product_id')
+            ->selectRaw('store_transaction_items.product_id, SUM(store_transaction_items.quantity) as quantity')
+            ->pluck('quantity', 'product_id')
+            ->map(fn($quantity) => (float)$quantity);
+
+        $rows = $products
+            ->map(function ($product) use ($quantityByProduct) {
+                $posCode = (string)$product->POSCode;
+                $subCategory = trim((string)$product->SubCategory);
+
+                return [
+                    'pos_code' => $posCode,
+                    'item_name' => $product->POSDescription ?: $posCode,
+                    'quantity' => round((float)$quantityByProduct->get($product->id, 0), 2),
+                    'category' => $this->deriveSalesMixCategory($posCode),
+                    'sub_category' => $subCategory !== '' ? $subCategory : 'Uncategorized',
+                ];
+            });
+
+        $overall = $this->rankSalesMixMetricRows($this->sortSalesMixMetricRows($rows, 'quantity'), 'quantity');
+        $categoryNames = ['Kitchen', 'Beverages & Others', 'Bakery'];
+        $byCategory = collect($categoryNames)
+            ->mapWithKeys(function ($category) use ($rows) {
+                $categoryRows = $rows->where('category', $category)->values();
+
+                return [
+                    $category => $this->rankSalesMixMetricRows(
+                        $this->sortSalesMixMetricRows($categoryRows, 'quantity'),
+                        'quantity'
+                    )->values(),
+                ];
+            });
+
+        return response()->json([
+            'overall' => $overall,
+            'by_category' => $byCategory,
+            'meta' => [
+                'total_quantity' => round((float)$quantityByProduct->sum(), 2),
+                'date_from' => $dateFrom,
+                'date_to' => $dateTo,
+                'store_count' => count($branchIds),
+            ],
+        ]);
+    }
+
+    private function resolveDashboardBranchIds($branch, array $branchesOptions): array
+    {
+        if (is_null($branch) || (is_string($branch) && $branch === 'all') || (is_array($branch) && (empty($branch) || in_array('all', $branch)))) {
+            return collect($branchesOptions)->pluck('value')->filter(fn($v) => $v !== 'all')->values()->toArray();
+        }
+
+        $branchIds = is_array($branch) ? (array)$branch : [$branch];
+
+        return array_values(array_map('intval', array_filter($branchIds, fn($v) => is_numeric($v))));
+    }
+
+    private function deriveSalesMixCategory(string $posCode): string
+    {
+        $posCode = strtoupper($posCode);
+
+        return match (true) {
+            str_starts_with($posCode, 'NON01') => 'Kitchen',
+            str_starts_with($posCode, 'NON02') => 'Bakery',
+            str_starts_with($posCode, 'NON03') => 'Beverages & Others',
+            default => 'Uncategorized',
+        };
+    }
+
+    private function sortSalesMixMetricRows($rows, string $metric)
+    {
+        return $rows
+            ->sort(function ($a, $b) use ($metric) {
+                if ($a[$metric] === $b[$metric]) {
+                    return strcasecmp($a['pos_code'], $b['pos_code']);
+                }
+
+                return $a[$metric] < $b[$metric] ? 1 : -1;
+            })
+            ->values();
+    }
+
+    private function rankSalesMixMetricRows($rows, string $metric)
+    {
+        $previousValue = null;
+        $previousRank = 0;
+
+        return $rows
+            ->values()
+            ->map(function ($row, $index) use ($metric, &$previousValue, &$previousRank) {
+                $value = round((float)$row[$metric], 2);
+
+                if ($previousValue === null || $value !== $previousValue) {
+                    $previousRank = $index + 1;
+                }
+
+                $previousValue = $value;
+                $row['rank'] = $previousRank;
+
+                return $row;
+            });
     }
 
     /**

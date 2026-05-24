@@ -310,6 +310,12 @@ Route::middleware('auth')
         // Dashboard
         Route::get('/dashboard', [DashboardController::class, 'index'])
             ->name('dashboard');
+        Route::get('/dashboard/sales-mix/subcategories', [DashboardController::class, 'salesMixSubcategories'])
+            ->name('dashboard.sales-mix.subcategories');
+        Route::get('/dashboard/sales-mix/products/revenue', [DashboardController::class, 'salesMixProductsByRevenue'])
+            ->name('dashboard.sales-mix.products.revenue');
+        Route::get('/dashboard/sales-mix/products/quantity', [DashboardController::class, 'salesMixProductsByQuantity'])
+            ->name('dashboard.sales-mix.products.quantity');
 
         // User Management Routes
         Route::controller(UserController::class)->prefix('users')->name('users.')->group(function () {
