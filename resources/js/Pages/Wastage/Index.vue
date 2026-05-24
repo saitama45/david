@@ -33,7 +33,8 @@ const props = defineProps({
   filters: Object,
   statusOptions: Array,
   storeOptions: Array,
-  permissions: Object
+  permissions: Object,
+  approvalConfig: Object
 })
 
 // Local state
@@ -55,13 +56,17 @@ const hasActiveFilters = computed(() => {
 
 const filteredStats = computed(() => {
   const stats = props.statistics ? props.statistics : {}
-  return [
+  const rows = [
     { label: 'Total Records', value: stats.total ? stats.total : 0, color: 'text-blue-600' },
     { label: 'Pending', value: stats.pending ? stats.pending : 0, color: 'text-yellow-600' },
     { label: 'Approved L1', value: stats.approved_lvl1 ? stats.approved_lvl1 : 0, color: 'text-blue-600' },
-    { label: 'Approved L2', value: stats.approved_lvl2 ? stats.approved_lvl2 : 0, color: 'text-green-600' },
+    { label: props.approvalConfig?.is_one_level_mode ? 'Approved' : 'Approved L2', value: stats.approved_lvl2 ? stats.approved_lvl2 : 0, color: 'text-green-600' },
     { label: 'Cancelled', value: stats.cancelled ? stats.cancelled : 0, color: 'text-red-600' }
   ]
+
+  return props.approvalConfig?.show_level2 === false
+    ? rows.filter((row) => row.label !== 'Approved L1')
+    : rows
 })
 
 // Methods

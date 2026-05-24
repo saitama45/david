@@ -26,6 +26,7 @@ class DatabaseSeeder extends Seeder
         $admin->assignRole(['admin']);
 
         $this->call([
+            SettingSeeder::class,
             UnitOfMeasurementSeeder::class,
             ProductCategorySeeder::class,
             InventoryCategorySeeder::class,

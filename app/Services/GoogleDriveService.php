@@ -5,11 +5,36 @@ namespace App\Services;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 use Google\Service\Drive\Permission;
 
 class GoogleDriveService
 {
     public function uploadImage(UploadedFile $file): ?string
+    {
+        if (filter_var(env('WASTAGE_USE_GOOGLE_DRIVE_IMAGES', false), FILTER_VALIDATE_BOOLEAN)) {
+            return $this->uploadImageToGoogleDrive($file);
+        }
+
+        return $this->uploadImageToPublicDisk($file);
+    }
+
+    private function uploadImageToPublicDisk(UploadedFile $file): ?string
+    {
+        $extension = $file->getClientOriginalExtension() ?: $file->extension() ?: 'jpg';
+        $baseName = pathinfo($file->getClientOriginalName(), PATHINFO_FILENAME);
+        $fileName = now()->format('YmdHis') . '_' . Str::random(8) . '_' . Str::slug($baseName) . '.' . $extension;
+        $path = $file->storeAs('wastage', $fileName, 'public');
+
+        if (!$path) {
+            Log::error('Failed to store Wastage image on public disk.');
+            return null;
+        }
+
+        return '/uploads/' . str_replace('\\', '/', $path);
+    }
+
+    private function uploadImageToGoogleDrive(UploadedFile $file): ?string
     {
         $fileName = time() . '_' . $file->getClientOriginalName();
         $fileContent = file_get_contents($file->getRealPath());

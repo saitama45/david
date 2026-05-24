@@ -18,7 +18,6 @@ import { useSelectOptions } from '@/composables/useSelectOptions'
 const props = defineProps({
   wastage: Object,
   branches: Array,
-  items: Array,
   canViewCost: Boolean
 })
 
@@ -166,7 +165,7 @@ const isCartEmpty = computed(() => cartItems.value.length === 0)
 
 const populateFormFromProps = () => {
   // The main prop `wastage` is an object containing common data and a nested array of items.
-  if (props.wastage && Array.isArray(props.wastage.items) && props.wastage.items.length > 0 && props.items?.length > 0) {
+  if (props.wastage && Array.isArray(props.wastage.items) && props.wastage.items.length > 0) {
     nextTick(() => {
       // 1. Populate common form fields from the parent `wastage` object
       form.store_branch_id = Number(props.wastage.store_branch_id)
@@ -174,9 +173,7 @@ const populateFormFromProps = () => {
 
       // 2. Map over the nested `items` array to build the cart
       cartItems.value = props.wastage.items.map(wastageItem => {
-        // 3. For each item, find its full details in the master `props.items` list
-        const masterfileId = Number(wastageItem.sap_masterfile_id)
-        const itemDetails = props.items.find(i => Number(i.id) === masterfileId)
+        const itemDetails = wastageItem.sap_masterfile
 
         if (itemDetails) {
           // Parse item-specific images
@@ -194,11 +191,11 @@ const populateFormFromProps = () => {
           return {
             id: wastageItem.id,
             sap_masterfile_id: itemDetails.id,
-            item_code: itemDetails.item_code,
-            description: itemDetails.description || 'No description',
+            item_code: itemDetails.ItemCode,
+            description: itemDetails.ItemDescription || 'No description',
             quantity: wastageItem.wastage_qty,
             cost: wastageItem.cost,
-            uom: itemDetails.alt_uom || itemDetails.uom,
+            uom: itemDetails.AltUOM || itemDetails.BaseUOM,
             total_cost: wastageItem.wastage_qty * wastageItem.cost,
             reason: wastageItem.reason || 'Spoilage',
             existing_image_urls: itemImages,
@@ -210,23 +207,22 @@ const populateFormFromProps = () => {
     })
   } else {
     // Fallback for single-item structure or if data is incomplete
-    if (props.wastage && props.items?.length > 0) {
+    if (props.wastage && props.wastage.sap_masterfile) {
       nextTick(() => {
         form.store_branch_id = Number(props.wastage.store_branch_id)
         form.remarks = props.wastage.remarks || ''
 
-        const masterfileId = Number(props.wastage.sap_masterfile_id)
-        const item = props.items.find(i => Number(i.id) === masterfileId)
+        const item = props.wastage.sap_masterfile
 
         if (item) {
           const cartItem = {
             id: props.wastage.id,
             sap_masterfile_id: item.id,
-            item_code: item.item_code,
-            description: item.description || 'No description',
+            item_code: item.ItemCode,
+            description: item.ItemDescription || 'No description',
             quantity: props.wastage.wastage_qty,
             cost: props.wastage.cost,
-            uom: item.alt_uom || item.uom,
+            uom: item.AltUOM || item.BaseUOM,
             total_cost: props.wastage.wastage_qty * props.wastage.cost,
             reason: props.wastage.reason || 'Spoilage',
             existing_image_urls: props.wastage?.image_urls && Array.isArray(props.wastage.image_urls) ? props.wastage.image_urls : (props.wastage?.image_url ? [props.wastage.image_url] : []),

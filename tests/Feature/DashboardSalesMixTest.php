@@ -5,6 +5,19 @@ use App\Models\StoreBranch;
 use App\Models\StoreTransaction;
 use App\Models\User;
 use Carbon\Carbon;
+use Spatie\Permission\Models\Permission;
+
+function createSalesMixUser(bool $withSalesMixPermission = true): User
+{
+    $user = User::factory()->create();
+    $permission = Permission::firstOrCreate(['name' => 'view sales mix']);
+
+    if ($withSalesMixPermission) {
+        $user->givePermissionTo($permission);
+    }
+
+    return $user;
+}
 
 function createSalesMixBranch(string $code): StoreBranch
 {
@@ -54,7 +67,7 @@ function createSalesMixTransaction(StoreBranch $branch, string $date, POSMasterf
 test('dashboard sales mix ranks subcategories by revenue and includes zero revenue masterlist rows', function () {
     Carbon::setTestNow('2026-05-24');
 
-    $user = User::factory()->create();
+    $user = createSalesMixUser();
     $branch = createSalesMixBranch('S001');
     $user->store_branches()->attach($branch->id);
 
@@ -90,7 +103,7 @@ test('dashboard sales mix ranks subcategories by revenue and includes zero reven
 });
 
 test('dashboard sales mix filters by assigned stores and date range', function () {
-    $user = User::factory()->create();
+    $user = createSalesMixUser();
     $assignedBranch = createSalesMixBranch('S001');
     $unassignedBranch = createSalesMixBranch('S002');
     $user->store_branches()->attach($assignedBranch->id);
@@ -115,7 +128,7 @@ test('dashboard sales mix filters by assigned stores and date range', function (
 });
 
 test('dashboard sales mix validates date range', function () {
-    $user = User::factory()->create();
+    $user = createSalesMixUser();
 
     $response = $this->actingAs($user)->getJson(route('dashboard.sales-mix.subcategories', [
         'date_from' => '2026-05-24',
@@ -127,7 +140,7 @@ test('dashboard sales mix validates date range', function () {
 });
 
 test('dashboard sales mix ranks products by revenue and derives main categories', function () {
-    $user = User::factory()->create();
+    $user = createSalesMixUser();
     $branch = createSalesMixBranch('S001');
     $user->store_branches()->attach($branch->id);
 
@@ -170,7 +183,7 @@ test('dashboard sales mix ranks products by revenue and derives main categories'
 });
 
 test('dashboard sales mix product revenue uses shared ranks with gaps for ties', function () {
-    $user = User::factory()->create();
+    $user = createSalesMixUser();
     $branch = createSalesMixBranch('S001');
     $user->store_branches()->attach($branch->id);
 
@@ -195,7 +208,7 @@ test('dashboard sales mix product revenue uses shared ranks with gaps for ties',
 });
 
 test('dashboard sales mix ranks products by quantity and derives main categories', function () {
-    $user = User::factory()->create();
+    $user = createSalesMixUser();
     $branch = createSalesMixBranch('S001');
     $user->store_branches()->attach($branch->id);
 
@@ -238,7 +251,7 @@ test('dashboard sales mix ranks products by quantity and derives main categories
 });
 
 test('dashboard sales mix product quantity uses shared ranks with gaps for ties', function () {
-    $user = User::factory()->create();
+    $user = createSalesMixUser();
     $branch = createSalesMixBranch('S001');
     $user->store_branches()->attach($branch->id);
 
@@ -260,4 +273,20 @@ test('dashboard sales mix product quantity uses shared ranks with gaps for ties'
 
     expect(collect($response->json('overall'))->take(3)->pluck('rank')->all())
         ->toBe([1, 1, 3]);
+});
+
+test('dashboard sales mix endpoints require view sales mix permission', function () {
+    $user = createSalesMixUser(false);
+
+    $this->actingAs($user)
+        ->getJson(route('dashboard.sales-mix.subcategories'))
+        ->assertForbidden();
+
+    $this->actingAs($user)
+        ->getJson(route('dashboard.sales-mix.products.revenue'))
+        ->assertForbidden();
+
+    $this->actingAs($user)
+        ->getJson(route('dashboard.sales-mix.products.quantity'))
+        ->assertForbidden();
 });

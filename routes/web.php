@@ -88,6 +88,7 @@ use App\Http\Controllers\WastageController;
 use App\Http\Controllers\WastageApprovalLevel1Controller;
 use App\Http\Controllers\WastageApprovalController;
 use App\Http\Controllers\WastageApprovalLevel2Controller;
+use App\Http\Controllers\WastageSettingsController;
 use App\Http\Controllers\WastageReportController;
 use App\Http\Controllers\QtyVarianceCostVarianceReportController;
 use App\Http\Controllers\OrderCalculatorController;
@@ -310,11 +311,11 @@ Route::middleware('auth')
         // Dashboard
         Route::get('/dashboard', [DashboardController::class, 'index'])
             ->name('dashboard');
-        Route::get('/dashboard/sales-mix/subcategories', [DashboardController::class, 'salesMixSubcategories'])
+        Route::middleware('permission:view sales mix')->get('/dashboard/sales-mix/subcategories', [DashboardController::class, 'salesMixSubcategories'])
             ->name('dashboard.sales-mix.subcategories');
-        Route::get('/dashboard/sales-mix/products/revenue', [DashboardController::class, 'salesMixProductsByRevenue'])
+        Route::middleware('permission:view sales mix')->get('/dashboard/sales-mix/products/revenue', [DashboardController::class, 'salesMixProductsByRevenue'])
             ->name('dashboard.sales-mix.products.revenue');
-        Route::get('/dashboard/sales-mix/products/quantity', [DashboardController::class, 'salesMixProductsByQuantity'])
+        Route::middleware('permission:view sales mix')->get('/dashboard/sales-mix/products/quantity', [DashboardController::class, 'salesMixProductsByQuantity'])
             ->name('dashboard.sales-mix.products.quantity');
 
         // User Management Routes
@@ -1233,6 +1234,15 @@ Route::controller(SidebarManagementController::class)
     ->group(function () {
         Route::get('/', 'index')->name('index');
         Route::post('/bulk-update', 'bulkUpdate')->name('bulk-update');
+    });
+
+Route::controller(WastageSettingsController::class)
+    ->prefix('wastage-settings')
+    ->name('wastage-settings.')
+    ->middleware('permission:manage wastage settings')
+    ->group(function () {
+        Route::get('/', 'index')->name('index');
+        Route::post('/', 'update')->name('update');
     });
 
 // MonsterASP.net Queue Scheduler Route

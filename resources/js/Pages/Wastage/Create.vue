@@ -17,7 +17,6 @@ import { useSelectOptions } from '@/composables/useSelectOptions'
 
 const props = defineProps({
   branches: Array,
-  items: Array,
   canViewCost: Boolean
 })
 

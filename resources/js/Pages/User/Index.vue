@@ -1,5 +1,5 @@
 <script setup>
-import { router } from "@inertiajs/vue3";
+import { Link, router } from "@inertiajs/vue3";
 import { throttle } from "lodash";
 import { useAuth } from "@/composables/useAuth";
 import Dialog from "primevue/dialog";
@@ -105,9 +105,23 @@ const isLoading = ref(false);
                         <TD>{{ user.id }}</TD>
                         <TD>{{ user.first_name + " " + user.last_name }}</TD>
                         <TD>{{ user.email }}</TD>
-                        <TD>{{
-                            user.roles.map((role) => role.name).join(",")
-                        }}</TD>
+                        <TD>
+                            <div v-if="user.roles.length" class="flex flex-wrap gap-2">
+                                <template v-for="role in user.roles" :key="role.id">
+                                    <Link
+                                        v-if="hasAccess('edit roles')"
+                                        :href="route('roles.edit', role.id)"
+                                        class="rounded-md bg-blue-50 px-2 py-1 text-xs font-medium text-blue-700 transition-colors hover:bg-blue-100 hover:text-blue-900"
+                                    >
+                                        {{ role.name }}
+                                    </Link>
+                                    <Badge v-else class="w-fit">
+                                        {{ role.name }}
+                                    </Badge>
+                                </template>
+                            </div>
+                            <span v-else class="text-sm text-gray-400">No roles</span>
+                        </TD>
                         <TD>{{ user.is_active == 1 ? "Yes" : "No" }}</TD>
                         <TD>
                             <DivFlexCenter class="sm:gap-3">

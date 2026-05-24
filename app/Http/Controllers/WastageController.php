@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Http\Services\WastageService;
+use App\Http\Services\WastageApprovalSettingsService;
 use App\Models\Wastage;
 use App\Models\StoreBranch;
 use App\Models\SAPMasterfile;
@@ -55,15 +56,20 @@ class WastageController extends Controller
         $statistics = $this->wastageService->getWastageStatistics(
             !empty($assignedStoreIds) ? $assignedStoreIds : null
         );
+        $approvalConfig = app(WastageApprovalSettingsService::class)->sharedConfig();
 
         return Inertia::render('Wastage/Index', [
             'wastages' => $wastages,
             'statistics' => $statistics,
             'filters' => $filters,
             'statusOptions' => collect([['value' => 'all', 'label' => 'All Statuses', 'color' => 'text-gray-600', 'bg_color' => 'bg-gray-100']])
-                ->concat(collect(WastageStatus::cases())->map(fn($status) => [
+                ->concat(collect(WastageStatus::cases())->filter(
+                    fn($status) => $approvalConfig['show_level2'] || $status !== WastageStatus::APPROVED_LVL1
+                )->map(fn($status) => [
                     'value' => $status->value,
-                    'label' => $status->getLabel(),
+                    'label' => $approvalConfig['is_one_level_mode'] && $status === WastageStatus::APPROVED_LVL2
+                        ? 'Approved'
+                        : $status->getLabel(),
                     'color' => $status->getColor(),
                     'bg_color' => $status->getBackgroundColor(),
                 ])),
@@ -78,7 +84,8 @@ class WastageController extends Controller
                 'can_delete' => $user->hasPermissionTo('delete wastage record'),
                 'can_export' => $user->hasPermissionTo('export wastage record'),
                 'can_view_cost' => $user->hasPermissionTo('view cost wastage record'),
-            ]
+            ],
+            'approvalConfig' => $approvalConfig,
         ]);
     }
 
@@ -95,19 +102,10 @@ class WastageController extends Controller
             ->toArray();
 
         $branches = StoreBranch::whereIn('id', $assignedStoreIds)->get();
-        $items = SAPMasterfile::where('is_active', true)->orderBy('ItemDescription')->get();
-
         return Inertia::render('Wastage/Create', [
             'branches' => $branches->map(fn($branch) => [
                 'value' => $branch->id,
                 'label' => $branch->name . ' (' . $branch->branch_code . ')',
-            ]),
-            'items' => $items->map(fn($item) => [
-                'id' => $item->id,
-                'item_code' => $item->ItemCode,
-                'description' => $item->ItemDescription,
-                'uom' => $item->BaseUOM,
-                'alt_uom' => $item->AltUOM,
             ]),
             'canViewCost' => $user->hasPermissionTo('view cost wastage record'),
         ]);
@@ -129,7 +127,11 @@ class WastageController extends Controller
                     $images = $request->file("cartItems.{$index}.images");
                     if ($images) {
                         foreach ($images as $file) {
-                            $itemImageUrls[] = $this->googleDriveService->uploadImage($file);
+                            $imageUrl = $this->googleDriveService->uploadImage($file);
+                            if (!$imageUrl) {
+                                throw new \RuntimeException('Failed to save one of the wastage images. Please try again.');
+                            }
+                            $itemImageUrls[] = $imageUrl;
                         }
                     }
                     $item['image_url'] = !empty($itemImageUrls) ? json_encode($itemImageUrls) : null;
@@ -268,20 +270,6 @@ class WastageController extends Controller
     {
         $user = auth()->user();
 
-        // Debug logging to identify the failing condition
-        \Log::info('Wastage edit permission check:', [
-            'wastage_id' => $wastage->id,
-            'wastage_no' => $wastage->wastage_no,
-            'wastage_status' => $wastage->wastage_status->value,
-            'created_by' => $wastage->created_by,
-            'current_user_id' => $user->id,
-            'current_user_email' => $user->email,
-            'user_owns_record' => $wastage->created_by == $user->id,
-            'status_allows_edit' => $wastage->wastage_status->canBeEdited(),
-            'user_has_edit_permission' => $user->hasPermissionTo('edit wastage record'),
-            'service_result' => $this->wastageService->canUserPerformAction($wastage, 'edit', $user)
-        ]);
-
         // Check if user can edit this wastage record
         if (!$this->wastageService->canUserPerformAction($wastage, 'edit', $user)) {
             // Provide more specific error messages based on why the edit failed
@@ -302,8 +290,6 @@ class WastageController extends Controller
             ->toArray();
 
         $branches = StoreBranch::whereIn('id', $assignedStoreIds)->get();
-        $items = SAPMasterfile::where('is_active', true)->orderBy('ItemDescription')->get();
-
         // Fetch all wastage records with the same wastage_no
         $relatedWastageRecords = Wastage::where('wastage_no', $wastage->wastage_no)
             ->with([
@@ -352,13 +338,6 @@ class WastageController extends Controller
                 'value' => $branch->id,
                 'label' => $branch->name . ' (' . $branch->branch_code . ')',
             ]),
-            'items' => $items->map(fn($item) => [
-                'id' => $item->id,
-                'item_code' => $item->ItemCode,
-                'description' => $item->ItemDescription,
-                'uom' => $item->BaseUOM,
-                'alt_uom' => $item->AltUOM,
-            ]),
             'canViewCost' => $user->hasPermissionTo('view cost wastage record'),
         ]);
     }
@@ -406,7 +385,11 @@ class WastageController extends Controller
                     $newFiles = $request->file("items.{$index}.images");
                     if ($newFiles) {
                         foreach ($newFiles as $file) {
-                            $itemImageUrls[] = $this->googleDriveService->uploadImage($file);
+                            $imageUrl = $this->googleDriveService->uploadImage($file);
+                            if (!$imageUrl) {
+                                throw new \RuntimeException('Failed to save one of the wastage images. Please try again.');
+                            }
+                            $itemImageUrls[] = $imageUrl;
                         }
                     }
 
@@ -717,13 +700,25 @@ class WastageController extends Controller
             }
 
             $items = $query->get();
+            $itemIds = $items->pluck('id')->all();
 
-            $processedItems = $items->map(function ($item) use ($storeId) {
-                // Get SOH from product_inventory_stock_managers table
-                $soh = DB::table('product_inventory_stock_managers')
-                    ->where('product_inventory_id', $item->id)
-                    ->where('store_branch_id', $storeId)
-                    ->sum('quantity');
+            $stockByProductId = DB::table('product_inventory_stock_managers')
+                ->select(
+                    'product_inventory_id',
+                    DB::raw('SUM(CASE
+                        WHEN action IN (\'add\', \'add_quantity\') THEN quantity
+                        WHEN action = \'out\' THEN -quantity
+                        ELSE 0
+                    END) as stock_on_hand')
+                )
+                ->where('store_branch_id', $storeId)
+                ->whereIn('product_inventory_id', $itemIds)
+                ->groupBy('product_inventory_id')
+                ->get()
+                ->keyBy('product_inventory_id');
+
+            $processedItems = $items->map(function ($item) use ($stockByProductId) {
+                $soh = $stockByProductId->get($item->id)->stock_on_hand ?? 0;
 
                 return [
                     'id' => $item->id,

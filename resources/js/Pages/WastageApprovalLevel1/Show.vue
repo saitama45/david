@@ -33,6 +33,14 @@ const props = defineProps({
     },
 });
 
+const wastageApprovalConfig = computed(() => usePage().props.wastageApprovalConfig || {});
+const statusText = computed(() => {
+    if (props.wastage.wastage_status === 'approved_lvl2' && wastageApprovalConfig.value.is_one_level_mode) {
+        return 'APPROVED';
+    }
+
+    return props.wastage.wastage_status?.toUpperCase().replace('_', ' ') ?? 'N/A';
+});
 
 // Helper functions for consistent data display
 const formatDate = (dateString) => {
@@ -54,6 +62,8 @@ const storeName = (wastage) => {
 
 const statusBadgeColor = (status) => {
     switch (status.toUpperCase()) {
+        case "APPROVED_LVL2":
+            return "bg-green-500 text-white";
         case "APPROVED_LVL1":
             return "bg-blue-500 text-white";
         case "PENDING":
@@ -485,7 +495,7 @@ const handleImageClick = (image) => {
                             :class="statusBadgeColor(wastage.wastage_status)"
                             class="font-bold"
                         >
-                            {{ wastage.wastage_status?.toUpperCase().replace('_', ' ') ?? "N/A" }}
+                            {{ statusText }}
                         </Badge>
                     </span>
                     <span class="text-gray-700 text-sm">

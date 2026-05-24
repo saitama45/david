@@ -58,6 +58,11 @@ class RoleService
 
         // Define the desired hierarchical structure and map permission names to it.
         $permissionStructure = [
+            'Dashboard' => [
+                'Sales Mix' => [
+                    'view sales mix'
+                ],
+            ],
             'Administration' => [
                 'Users' => [
                     'view users', 'create users', 'edit users', 'view user', 'delete users'
@@ -87,6 +92,9 @@ class RoleService
                 ],
                 'Knowledge Base Articles' => [
                     'view knowledge base articles', 'create knowledge base articles', 'edit knowledge base articles', 'delete knowledge base articles'
+                ],
+                'Wastage Settings' => [
+                    'manage wastage settings'
                 ],
                 'Sidebar Management' => [
                     'manage sidebar'

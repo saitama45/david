@@ -7,8 +7,7 @@ use App\Models\Wastage;
 use App\Models\StoreBranch;
 use App\Models\UserAssignedStoreBranch;
 use App\Http\Services\WastageService;
-use App\Models\ProductInventoryStockManager;
-use App\Models\SupplierItems;
+use App\Http\Services\WastageApprovalSettingsService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
@@ -19,8 +18,10 @@ class WastageApprovalLevel2Controller extends Controller
 {
     protected $wastageService;
 
-    public function __construct(WastageService $wastageService)
-    {
+    public function __construct(
+        WastageService $wastageService,
+        private WastageApprovalSettingsService $approvalSettings
+    ) {
         $this->wastageService = $wastageService;
     }
 
@@ -29,6 +30,10 @@ class WastageApprovalLevel2Controller extends Controller
      */
     public function index(Request $request)
     {
+        if (!$this->approvalSettings->shouldShowLevel2()) {
+            abort(403, 'Wastage approval level 2 is not required.');
+        }
+
         $user = Auth::user();
         $currentFilter = $request->get('currentFilter', 'approved_lvl1');
         $search = $request->get('search');
@@ -86,6 +91,10 @@ class WastageApprovalLevel2Controller extends Controller
      */
     public function show(Wastage $wastage)
     {
+        if (!$this->approvalSettings->shouldShowLevel2()) {
+            abort(403, 'Wastage approval level 2 is not required.');
+        }
+
         $user = Auth::user();
 
         // Debug logging
@@ -226,6 +235,10 @@ class WastageApprovalLevel2Controller extends Controller
      */
     public function approve(Request $request)
     {
+        if (!$this->approvalSettings->shouldShowLevel2()) {
+            abort(403, 'Wastage approval level 2 is not required.');
+        }
+
         $user = Auth::user();
         $validated = $request->validate([
             'order_id' => 'required|integer',
@@ -256,82 +269,8 @@ class WastageApprovalLevel2Controller extends Controller
 
             \DB::beginTransaction();
 
-            // Group items by their base ItemCode
-            $groupedItems = $relatedWastages->filter(fn($item) => $item->sapMasterfile !== null)
-                                            ->groupBy('sapMasterfile.ItemCode');
+            $stockErrors = $this->wastageService->getFinalApprovalStockErrors($relatedWastages, $storeBranchId, 'level2');
 
-            $stockErrors = [];
-
-            foreach ($groupedItems as $itemCode => $items) {
-                $totalQtyToDeductInBaseUom = 0;
-                $totalCostOfWastage = 0;
-                $targetSapMasterfile = null;
-
-                // 1. Aggregate quantities for this group into BaseUOM
-                foreach ($items as $item) {
-                    // Skip 'Scrap' items from SOH deduction
-                    if ($item->reason === 'Scrap') {
-                        continue;
-                    }
-
-                    $originalSapMasterfile = $item->sapMasterfile;
-                    $conversionFactor = $originalSapMasterfile->BaseQty > 0 ? $originalSapMasterfile->BaseQty : 1;
-                    $approvedQty = $item->approverlvl2_qty ?? $item->approverlvl1_qty ?? $item->wastage_qty;
-
-                    $totalQtyToDeductInBaseUom += $approvedQty * $conversionFactor;
-                    $totalCostOfWastage += $approvedQty * $item->cost;
-                }
-                
-                // If all items in group were 'Scrap', skip to next group
-                if ($totalQtyToDeductInBaseUom <= 0) {
-                    continue;
-                }
-
-                // 2. Find the single target masterfile for SOH update (where BaseUOM = AltUOM)
-                $targetSapMasterfile = \App\Models\SAPMasterfile::where('ItemCode', $itemCode)
-                    ->whereColumn('BaseUOM', 'AltUOM')
-                    ->first();
-
-                if (!$targetSapMasterfile) {
-                    \Log::warning('SOH Update Skipped: No target SAP Masterfile (BaseUOM=AltUOM) found for ItemCode.', ['item_code' => $itemCode]);
-                    continue;
-                }
-                
-                // 3. Find and update the ProductInventoryStock record
-                $productStock = \App\Models\ProductInventoryStock::where('product_inventory_id', $targetSapMasterfile->id)
-                    ->where('store_branch_id', $storeBranchId)
-                    ->first();
-
-                if (!$productStock || $productStock->quantity < $totalQtyToDeductInBaseUom) {
-                    $stockErrors[] = [
-                        'item_code' => $itemCode,
-                        'item_description' => $targetSapMasterfile->ItemDescription,
-                        'available' => $productStock->quantity ?? 0,
-                        'required' => $totalQtyToDeductInBaseUom,
-                        'message' => "Insufficient stock for item {$targetSapMasterfile->ItemDescription}. Available: " . ($productStock->quantity ?? 0) . ", Required: {$totalQtyToDeductInBaseUom}"
-                    ];
-                    continue;
-                }
-
-                // Decrement stock and update 'used'
-                $productStock->quantity -= $totalQtyToDeductInBaseUom;
-                $productStock->used += $totalQtyToDeductInBaseUom;
-                $productStock->save();
-                
-                // 4. Create a single stock manager entry for the aggregated deduction
-                ProductInventoryStockManager::create([
-                    'product_inventory_id' => $targetSapMasterfile->id,
-                    'store_branch_id' => $storeBranchId,
-                    'quantity' => $totalQtyToDeductInBaseUom,
-                    'action' => 'out',
-                    'unit_cost' => $totalCostOfWastage / ($totalQtyToDeductInBaseUom ?: 1), // Avoid division by zero
-                    'total_cost' => $totalCostOfWastage,
-                    'transaction_date' => now(),
-                    'remarks' => 'Wastage Approval Level 2: ' . $wastage->wastage_no,
-                ]);
-            }
-            
-            // Check if there were any stock errors
             if (!empty($stockErrors)) {
                 \DB::rollBack();
                 return redirect()->back()->with([
@@ -339,23 +278,15 @@ class WastageApprovalLevel2Controller extends Controller
                     'approval_stock_errors' => $stockErrors,
                 ]);
             }
-            
-            // 5. Update status for all processed items
-            Wastage::where('wastage_no', $wastage->wastage_no)
-                ->where('wastage_status', WastageStatus::APPROVED_LVL1)
-                ->update([
-                    'wastage_status' => WastageStatus::APPROVED_LVL2->value,
-                    'approved_level2_by' => $user->id,
-                    'approved_level2_date' => now(),
-                ]);
-                
-            // Set approverlvl2_qty for items that didn't have it set
-            foreach ($relatedWastages as $item) {
-                 if (is_null($item->approverlvl2_qty)) {
-                    $item->approverlvl2_qty = $item->approverlvl1_qty ?? $item->wastage_qty;
-                    $item->save();
-                }
-            }
+
+            $this->wastageService->finalizeWastageApproval(
+                $relatedWastages,
+                $storeBranchId,
+                $user->id,
+                'level2',
+                false,
+                'Wastage Approval Level 2'
+            );
 
             \DB::commit();
 
@@ -387,6 +318,10 @@ class WastageApprovalLevel2Controller extends Controller
      */
     public function cancel(Request $request): RedirectResponse
     {
+        if (!$this->approvalSettings->shouldShowLevel2()) {
+            abort(403, 'Wastage approval level 2 is not required.');
+        }
+
         $user = Auth::user();
         $validated = $request->validate([
             'order_id' => 'required|integer',
@@ -435,6 +370,10 @@ class WastageApprovalLevel2Controller extends Controller
      */
     public function updateQuantity(Request $request, $itemId): RedirectResponse
     {
+        if (!$this->approvalSettings->shouldShowLevel2()) {
+            abort(403, 'Wastage approval level 2 is not required.');
+        }
+
         $user = Auth::user();
         $validated = $request->validate([
             'approverlvl2_qty' => 'required|numeric|min:0',
@@ -477,6 +416,10 @@ class WastageApprovalLevel2Controller extends Controller
      */
     public function destroyItem($itemId): RedirectResponse
     {
+        if (!$this->approvalSettings->shouldShowLevel2()) {
+            abort(403, 'Wastage approval level 2 is not required.');
+        }
+
         $user = Auth::user();
 
         try {

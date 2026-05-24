@@ -63,6 +63,8 @@ const hasAccess = (access) => {
 
 // Sidebar Management overrides
 const sidebarSettings = computed(() => usePage().props.sidebarSettings || {});
+const wastageApprovalConfig = computed(() => usePage().props.wastageApprovalConfig || {});
+const canShowWastageLevel2 = computed(() => wastageApprovalConfig.value.show_level2 !== false);
 
 const isMenuActive = (key) => {
     const setting = sidebarSettings.value[key];
@@ -112,6 +114,7 @@ const isPathActive = (pathOrPaths) => {
 const canViewAdministrationGroup = computed(() =>
     hasAccess("view users") ||
     hasAccess("view roles") ||
+    hasAccess("manage wastage settings") ||
     hasAccess("manage sidebar") ||
     hasAccess("view import logs") ||
     hasAccess("view items list") ||
@@ -222,7 +225,7 @@ const canViewInventoryGroup = computed(() =>
     hasAccess("view soh adjustment") ||
     hasAccess("view wastage record") ||
     hasAccess("view wastage approval level 1") ||
-    hasAccess("view wastage approval level 2") ||
+    (canShowWastageLevel2.value && hasAccess("view wastage approval level 2")) ||
     hasAccess("perform month end count") ||
     hasAccess("view month end count approvals") ||
     hasAccess("view month end count approvals level 2") ||
@@ -232,7 +235,7 @@ const canViewInventoryGroup = computed(() =>
 const canViewWastageSubgroup = computed(() =>
     hasAccess("view wastage record") ||
     hasAccess("view wastage approval level 1") ||
-    hasAccess("view wastage approval level 2")
+    (canShowWastageLevel2.value && hasAccess("view wastage approval level 2"))
 );
 
 const canViewMECSubgroup = computed(() =>
@@ -306,7 +309,7 @@ watchEffect(() => {
     const currentUrl = usePage().url;
 
     const sections = [
-        { ref: adminOpen, paths: ["/users", "/roles", "/work-queue", "/items-list", "/sapitems-list", "/SupplierItems-list", "/POSMasterfile-list", "/branches", "/suppliers", "/templates", "/ordering-template-approval", "/month-end-count-templates", "/dts-delivery-schedules", "/dsp-delivery-schedules", "/month-end-schedules", "/orders-cutoff", "/manage-knowledge-base"] },
+        { ref: adminOpen, paths: ["/users", "/roles", "/work-queue", "/items-list", "/sapitems-list", "/SupplierItems-list", "/POSMasterfile-list", "/branches", "/suppliers", "/templates", "/ordering-template-approval", "/month-end-count-templates", "/dts-delivery-schedules", "/dsp-delivery-schedules", "/month-end-schedules", "/orders-cutoff", "/manage-knowledge-base", "/wastage-settings"] },
         { ref: masterfileOpen, paths: ["/items-list", "/sapitems-list", "/SupplierItems-list", "/POSMasterfile-list", "/branches", "/suppliers"] },
         { ref: templatesOpen, paths: ["/templates", "/ordering-template-approval", "/month-end-count-templates"] },
         { ref: schedulesOpen, paths: ["/dts-delivery-schedules", "/dsp-delivery-schedules", "/month-end-schedules", "/orders-cutoff"] },
@@ -877,7 +880,7 @@ watchEffect(() => {
                         </div>
                         <div :style="{ order: getMenuOrder('inventory.wastage.approval-level2') }" class="w-full">
                         <NavLink
-                            v-if="hasAccess('view wastage approval level 2') && isMenuActive('inventory.wastage.approval-level2')"
+                            v-if="canShowWastageLevel2 && hasAccess('view wastage approval level 2') && isMenuActive('inventory.wastage.approval-level2')"
                             href="/wastage-approval-level2"
                             :icon="ClipboardCheck"
                             :is-active="isPathActive('/wastage-approval-level2')"
@@ -1153,6 +1156,7 @@ watchEffect(() => {
 
                 </div>
                 <div :style="{ order: getMenuOrder('administration.knowledge-base') }" class="w-full"><NavLink v-if="hasAccess('view knowledge base articles') && isMenuActive('administration.knowledge-base')" href="/manage-knowledge-base" :icon="FileCheck" :is-active="isPathActive('/manage-knowledge-base')">{{ menuLabel('administration.knowledge-base', 'Knowledge Base Articles') }}</NavLink></div>
+                <div :style="{ order: getMenuOrder('administration.wastage-settings') }" class="w-full"><NavLink v-if="hasAccess('manage wastage settings') && isMenuActive('administration.wastage-settings')" href="/wastage-settings" :icon="MonitorCog" :is-active="isPathActive('/wastage-settings')">{{ menuLabel('administration.wastage-settings', 'Wastage Settings') }}</NavLink></div>
                 <div :style="{ order: getMenuOrder('administration.sidebar-management') }" class="w-full"><NavLink v-if="hasAccess('manage sidebar') && isMenuActive('administration.sidebar-management')" href="/sidebar-management" :icon="MonitorCog" :is-active="isPathActive('/sidebar-management')">{{ menuLabel('administration.sidebar-management', 'Sidebar Management') }}</NavLink></div>
                 </div>
             </CollapsibleContent>

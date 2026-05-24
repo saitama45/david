@@ -5,10 +5,13 @@ import Chart from "primevue/chart";
 import MultiSelect from "primevue/multiselect";
 import { router } from "@inertiajs/vue3";
 import { useSelectOptions } from "@/composables/useSelectOptions";
+import { useAuth } from "@/composables/useAuth";
 import Knob from "primevue/knob";
 import { Chart as ChartJS } from "chart.js";
 import axios from "axios";
 import { Check, ClockArrowUp, BookX, Target, TrendingUp, Users, Receipt, BarChart3, RotateCcw, Search } from "lucide-vue-next";
+
+const { hasAccess } = useAuth();
 
 const props = defineProps({
         branches: {
@@ -777,6 +780,7 @@ const time_period = ref(
 const inventory_type = ref(props.filters.inventory_type ?? "quantity");
 const activeDashboardTab = ref("overview");
 const activeSalesMixTab = ref("subcategories");
+const canViewSalesMix = computed(() => hasAccess("view sales mix"));
 
 const formatDate = (date) => {
     const year = date.getFullYear();
@@ -1006,6 +1010,8 @@ const handleSearch = () => {
 };
 
 const loadSalesMixSubcategories = async () => {
+    if (!canViewSalesMix.value) return;
+
     salesMixLoading.value = true;
     salesMixError.value = "";
 
@@ -1029,6 +1035,8 @@ const loadSalesMixSubcategories = async () => {
 };
 
 const loadSalesMixProductsRevenue = async () => {
+    if (!canViewSalesMix.value) return;
+
     productRevenueLoading.value = true;
     productRevenueError.value = "";
 
@@ -1057,6 +1065,8 @@ const loadSalesMixProductsRevenue = async () => {
 };
 
 const loadSalesMixProductsQuantity = async () => {
+    if (!canViewSalesMix.value) return;
+
     productQuantityLoading.value = true;
     productQuantityError.value = "";
 
@@ -1085,6 +1095,8 @@ const loadSalesMixProductsQuantity = async () => {
 };
 
 const loadActiveSalesMixTab = () => {
+    if (!canViewSalesMix.value) return;
+
     if (activeSalesMixTab.value === "subcategories") {
         loadSalesMixSubcategories();
     }
@@ -1099,6 +1111,8 @@ const loadActiveSalesMixTab = () => {
 };
 
 const selectDashboardTab = (tab) => {
+    if (tab === "sales-mix" && !canViewSalesMix.value) return;
+
     activeDashboardTab.value = tab;
 
     if (tab === "sales-mix" && activeSalesMixTab.value === "subcategories" && !salesMixLoaded.value) {
@@ -1115,6 +1129,8 @@ const selectDashboardTab = (tab) => {
 };
 
 const selectSalesMixTab = (tab) => {
+    if (!canViewSalesMix.value) return;
+
     activeSalesMixTab.value = tab;
 
     if (tab === "subcategories" && !salesMixLoaded.value) {
@@ -1293,6 +1309,7 @@ const registerDoughnutLabelPlugin = () => {
                 Overview
             </button>
             <button
+                v-if="canViewSalesMix"
                 type="button"
                 :class="[
                     'px-4 py-2 text-sm font-semibold transition-colors border-b-2',

@@ -63,8 +63,8 @@ class CheckSidebarMenuActive
         'stock-management.index'             => 'inventory.stock-management',
         'soh-adjustment.index'               => 'inventory.soh-adjustment',
         'wastage.index'                      => 'inventory.wastage.wastage-record',
-        'wastage-approval-level1.index'      => 'inventory.wastage.approval-level1',
-        'wastage-approval-level2.index'      => 'inventory.wastage.approval-level2',
+        'wastage-approval-lvl1.index'        => 'inventory.wastage.approval-level1',
+        'wastage-approval-lvl2.index'        => 'inventory.wastage.approval-level2',
         'month-end-count.index'              => 'inventory.mec.month-end-count',
         'month-end-count-approvals.index'    => 'inventory.mec.approval-level1',
         'month-end-count-approvals-level2.index' => 'inventory.mec.approval-level2',
@@ -122,6 +122,7 @@ class CheckSidebarMenuActive
         'month-end-schedules.index'          => 'administration.schedules.month-end',
         'orders-cutoff.index'                => 'administration.schedules.orders-cutoff',
         'manage-knowledge-base.index'        => 'administration.knowledge-base',
+        'wastage-settings.index'             => 'administration.wastage-settings',
     ];
 
     public function handle(Request $request, Closure $next): Response

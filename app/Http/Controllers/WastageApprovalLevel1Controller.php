@@ -7,6 +7,7 @@ use App\Models\Wastage;
 use App\Models\StoreBranch;
 use App\Models\UserAssignedStoreBranch;
 use App\Http\Services\WastageService;
+use App\Http\Services\WastageApprovalSettingsService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Inertia\Inertia;
@@ -16,8 +17,10 @@ class WastageApprovalLevel1Controller extends Controller
 {
     protected $wastageService;
 
-    public function __construct(WastageService $wastageService)
-    {
+    public function __construct(
+        WastageService $wastageService,
+        private WastageApprovalSettingsService $approvalSettings
+    ) {
         $this->wastageService = $wastageService;
     }
 
@@ -189,6 +192,7 @@ class WastageApprovalLevel1Controller extends Controller
                     'id' => $record->id,
                     'sap_masterfile_id' => $record->sap_masterfile_id,
                     'wastage_qty' => $record->wastage_qty,
+                    'approverlvl1_qty' => $record->approverlvl1_qty,
                     'approverlvl2_qty' => $record->approverlvl2_qty,
                     'cost' => $record->cost,
                     'reason' => $record->reason,
@@ -240,10 +244,54 @@ class WastageApprovalLevel1Controller extends Controller
                 abort(403, 'You do not have permission to approve this wastage record');
             }
 
+            if ($wastage->wastage_status !== WastageStatus::PENDING) {
+                return back()->with('info', 'Only pending wastage records can be approved at Level 1.');
+            }
+
             // Update all records with the same wastage_no
             $relatedWastages = Wastage::where('wastage_no', $wastage->wastage_no)
+                ->where('wastage_status', WastageStatus::PENDING)
                 ->with('sapMasterfile')
                 ->get();
+
+            if ($relatedWastages->isEmpty()) {
+                return back()->with('info', 'No items are awaiting Level 1 approval.');
+            }
+
+            if ($this->approvalSettings->isOneLevelMode()) {
+                $stockErrors = $this->wastageService->getFinalApprovalStockErrors($relatedWastages, $storeBranchId, 'level1');
+
+                if (!empty($stockErrors)) {
+                    return redirect()->back()->with([
+                        'approval_error' => 'Cannot approve wastage due to insufficient stock for some items.',
+                        'approval_stock_errors' => $stockErrors,
+                    ]);
+                }
+
+                \DB::beginTransaction();
+
+                foreach ($relatedWastages as $relatedWastage) {
+                    if (is_null($relatedWastage->approverlvl1_qty)) {
+                        $relatedWastage->approverlvl1_qty = $relatedWastage->wastage_qty;
+                        $relatedWastage->save();
+                    }
+                }
+
+                $this->wastageService->finalizeWastageApproval(
+                    $relatedWastages,
+                    $storeBranchId,
+                    $user->id,
+                    'level1',
+                    true,
+                    'Wastage Approval Level 1 Final'
+                );
+
+                \DB::commit();
+
+                return redirect()
+                    ->route('wastage-approval-lvl1.show', $wastage->id)
+                    ->with('success', 'Wastage record approved successfully. Inventory stock updated.');
+            }
 
             // Stock Validation Logic
             $groupedItems = $relatedWastages->filter(fn($item) => $item->sapMasterfile !== null)
@@ -311,6 +359,7 @@ class WastageApprovalLevel1Controller extends Controller
             }
 
             Wastage::where('wastage_no', $wastage->wastage_no)
+                ->where('wastage_status', WastageStatus::PENDING)
                 ->update([
                     'wastage_status' => WastageStatus::APPROVED_LVL1->value,
                     'approved_level1_by' => $user->id,

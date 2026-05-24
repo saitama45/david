@@ -157,7 +157,7 @@ class UserService
         $search = request('search');
         $query = User::query()
             ->select(['id', 'first_name', 'last_name', 'email', 'is_active'])
-            ->withOnly(['roles:name', 'suppliers:supplier_code,name']);
+            ->withOnly(['roles:id,name', 'suppliers:supplier_code,name']);
 
         if ($search) {
             $query->where(function ($q) use ($search) {

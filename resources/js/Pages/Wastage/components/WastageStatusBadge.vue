@@ -1,5 +1,6 @@
 <script setup>
 import { computed } from 'vue'
+import { usePage } from '@inertiajs/vue3'
 import { Badge } from '@/components/ui/badge'
 import { Info, Clock, CheckCircle, XCircle, AlertCircle } from 'lucide-vue-next'
 import {
@@ -19,6 +20,8 @@ const props = defineProps({
     default: true
   }
 })
+
+const wastageApprovalConfig = computed(() => usePage().props.wastageApprovalConfig || {})
 
 const statusConfig = {
   'pending': {
@@ -85,8 +88,20 @@ const statusIcon = computed(() => {
   return icons[currentConfig.value.icon]
 })
 
-const statusLabel = computed(() => currentConfig.value.label)
-const statusDescription = computed(() => currentConfig.value.description)
+const statusLabel = computed(() => {
+  if (props.status === 'approved_lvl2' && wastageApprovalConfig.value.is_one_level_mode) {
+    return 'Approved'
+  }
+
+  return currentConfig.value.label
+})
+const statusDescription = computed(() => {
+  if (props.status === 'approved_lvl2' && wastageApprovalConfig.value.is_one_level_mode) {
+    return 'Fully approved and processed'
+  }
+
+  return currentConfig.value.description
+})
 </script>
 
 <template>

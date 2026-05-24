@@ -5,6 +5,7 @@ namespace App\Http\Services;
 use App\Models\Wastage;
 use App\Models\StoreBranch;
 use App\Models\ProductInventoryStock;
+use App\Models\ProductInventoryStockManager;
 use App\Models\SAPMasterfile;
 use App\Enums\WastageStatus;
 use Illuminate\Support\Facades\DB;
@@ -16,6 +17,145 @@ use Illuminate\Pagination\LengthAwarePaginator;
 
 class WastageService
 {
+    public function getFinalApprovalStockErrors(Collection $relatedWastages, int $storeBranchId, string $quantityLevel = 'level2'): array
+    {
+        return $this->buildFinalApprovalDeductions($relatedWastages, $storeBranchId, $quantityLevel)['errors'];
+    }
+
+    public function finalizeWastageApproval(
+        Collection $relatedWastages,
+        int $storeBranchId,
+        int $userId,
+        string $quantityLevel = 'level2',
+        bool $markLevel1Approval = false,
+        string $remarksPrefix = 'Wastage Approval'
+    ): void {
+        if ($relatedWastages->isEmpty()) {
+            throw new Exception('No wastage items found for final approval.');
+        }
+
+        $deductionData = $this->buildFinalApprovalDeductions($relatedWastages, $storeBranchId, $quantityLevel);
+
+        if (!empty($deductionData['errors'])) {
+            throw new Exception('Cannot finalize wastage due to insufficient stock.');
+        }
+
+        $now = now();
+
+        foreach ($relatedWastages as $item) {
+            if (is_null($item->approverlvl1_qty)) {
+                $item->approverlvl1_qty = $item->wastage_qty;
+            }
+
+            if (is_null($item->approverlvl2_qty)) {
+                $item->approverlvl2_qty = $quantityLevel === 'level1'
+                    ? ($item->approverlvl1_qty ?? $item->wastage_qty)
+                    : ($item->approverlvl2_qty ?? $item->approverlvl1_qty ?? $item->wastage_qty);
+            }
+
+            if ($markLevel1Approval) {
+                $item->approved_level1_by = $userId;
+                $item->approved_level1_date = $now;
+            }
+
+            $item->save();
+        }
+
+        foreach ($deductionData['deductions'] as $deduction) {
+            $productStock = $deduction['product_stock'];
+            $productStock->quantity -= $deduction['quantity'];
+            $productStock->used += $deduction['quantity'];
+            $productStock->save();
+
+            ProductInventoryStockManager::create([
+                'product_inventory_id' => $deduction['product_inventory_id'],
+                'store_branch_id' => $storeBranchId,
+                'quantity' => $deduction['quantity'],
+                'action' => 'out',
+                'unit_cost' => $deduction['total_cost'] / ($deduction['quantity'] ?: 1),
+                'total_cost' => $deduction['total_cost'],
+                'transaction_date' => $now,
+                'remarks' => $remarksPrefix . ': ' . $relatedWastages->first()->wastage_no,
+            ]);
+        }
+
+        Wastage::whereIn('id', $relatedWastages->pluck('id'))
+            ->update([
+                'wastage_status' => WastageStatus::APPROVED_LVL2->value,
+                'approved_level2_by' => $userId,
+                'approved_level2_date' => $now,
+            ]);
+    }
+
+    private function buildFinalApprovalDeductions(Collection $relatedWastages, int $storeBranchId, string $quantityLevel): array
+    {
+        $groupedItems = $relatedWastages->filter(fn($item) => $item->sapMasterfile !== null)
+            ->groupBy('sapMasterfile.ItemCode');
+
+        $stockErrors = [];
+        $deductions = [];
+
+        foreach ($groupedItems as $itemCode => $items) {
+            $totalQtyToDeductInBaseUom = 0;
+            $totalCostOfWastage = 0;
+
+            foreach ($items as $item) {
+                if ($item->reason === 'Scrap') {
+                    continue;
+                }
+
+                $originalSapMasterfile = $item->sapMasterfile;
+                $conversionFactor = $originalSapMasterfile->BaseQty > 0 ? $originalSapMasterfile->BaseQty : 1;
+                $approvedQty = $quantityLevel === 'level1'
+                    ? ($item->approverlvl1_qty ?? $item->wastage_qty)
+                    : ($item->approverlvl2_qty ?? $item->approverlvl1_qty ?? $item->wastage_qty);
+
+                $totalQtyToDeductInBaseUom += $approvedQty * $conversionFactor;
+                $totalCostOfWastage += $approvedQty * $item->cost;
+            }
+
+            if ($totalQtyToDeductInBaseUom <= 0) {
+                continue;
+            }
+
+            $targetSapMasterfile = SAPMasterfile::where('ItemCode', $itemCode)
+                ->whereColumn('BaseUOM', 'AltUOM')
+                ->first();
+
+            if (!$targetSapMasterfile) {
+                \Log::warning('SOH Update skipped: no target SAP Masterfile (BaseUOM=AltUOM) found for ItemCode.', ['item_code' => $itemCode]);
+                continue;
+            }
+
+            $productStock = ProductInventoryStock::where('product_inventory_id', $targetSapMasterfile->id)
+                ->where('store_branch_id', $storeBranchId)
+                ->first();
+
+            if (!$productStock || $productStock->quantity < $totalQtyToDeductInBaseUom) {
+                $stockErrors[] = [
+                    'item_code' => $itemCode,
+                    'item_description' => $targetSapMasterfile->ItemDescription,
+                    'available' => $productStock->quantity ?? 0,
+                    'required' => $totalQtyToDeductInBaseUom,
+                    'message' => "Insufficient stock for item {$targetSapMasterfile->ItemDescription}. Available: " . ($productStock->quantity ?? 0) . ", Required: {$totalQtyToDeductInBaseUom}",
+                ];
+                continue;
+            }
+
+            $deductions[] = [
+                'product_stock' => $productStock,
+                'product_inventory_id' => $targetSapMasterfile->id,
+                'quantity' => $totalQtyToDeductInBaseUom,
+                'total_cost' => $totalCostOfWastage,
+            ];
+        }
+
+        return [
+            'errors' => $stockErrors,
+            'deductions' => $deductions,
+        ];
+    }
+
     public function createWastage(array $data, int $encoderId): Wastage
     {
         DB::beginTransaction();
@@ -143,8 +283,6 @@ class WastageService
      */
     public function updateMultipleWastageRecords(Wastage $wastage, array $data, ?int $userId = null): array
     {
-        \Illuminate\Support\Facades\Log::info('--- Service: updateMultipleWastageRecords ---');
-
         DB::beginTransaction();
         try {
             // Check if wastage can be edited
@@ -185,16 +323,13 @@ class WastageService
                 // Use the explicitly passed imageUrl for all items in the transaction
                 if (isset($itemData['image_url'])) {
                     $updateData['image_url'] = $itemData['image_url'];
-                    \Illuminate\Support\Facades\Log::info('image_url has been added to updateData.');
                 }
 
                 if (isset($itemData['id']) && is_numeric($itemData['id']) && $itemData['id'] > 0) {
                     // Update existing record
                     $recordToUpdate = $allWastageRecords->find($itemData['id']);
                     if ($recordToUpdate) {
-                        \Illuminate\Support\Facades\Log::info('Preparing to update record ID: ' . $recordToUpdate->id . ' with data: ' . json_encode($updateData));
                         $recordToUpdate->update($updateData);
-                        \Illuminate\Support\Facades\Log::info('Eloquent update call finished for record ID: ' . $recordToUpdate->id);
                         $summary['existing_updated_count']++;
                     }
                 } else {
@@ -205,9 +340,7 @@ class WastageService
                         'created_by' => $userId,
                         'wastage_status' => $wastage->wastage_status,
                     ]);
-                    \Illuminate\Support\Facades\Log::info('Preparing to create new record with data: ' . json_encode($newWastageData));
                     Wastage::create($newWastageData);
-                    \Illuminate\Support\Facades\Log::info('Eloquent create call finished.');
                     $summary['new_created_count']++;
                 }
             }

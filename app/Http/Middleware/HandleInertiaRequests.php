@@ -3,6 +3,7 @@
 namespace App\Http\Middleware;
 
 use App\Models\SidebarMenuSetting;
+use App\Http\Services\WastageApprovalSettingsService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\URL;
 use Inertia\Middleware;
@@ -230,7 +231,7 @@ class HandleInertiaRequests extends Middleware
                     }
                 }
 
-                if ($user->can('view wastage approval level 2') && $assignedStoreIds->isNotEmpty()) {
+                if (app(WastageApprovalSettingsService::class)->shouldShowLevel2() && $user->can('view wastage approval level 2') && $assignedStoreIds->isNotEmpty()) {
                     $baseWastageLvl2Query = \App\Models\Wastage::whereIn('store_branch_id', $assignedStoreIds)
                         ->where('wastage_status', 'approved_lvl1');
                     
@@ -324,6 +325,7 @@ class HandleInertiaRequests extends Middleware
             ],
             'previous' => fn() => URL::previous(),
             'sidebarSettings' => fn() => $request->user() ? SidebarMenuSetting::getSettingsMap() : [],
+            'wastageApprovalConfig' => fn() => $request->user() ? app(WastageApprovalSettingsService::class)->sharedConfig() : null,
         ];
     }
 }
