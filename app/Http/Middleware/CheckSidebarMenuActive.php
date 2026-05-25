@@ -82,6 +82,7 @@ class CheckSidebarMenuActive
         'reports.actual-cost-cogs'           => 'reports.actual-cost-cogs',
         'reports.interco-report'             => 'reports.interco',
         'reports.inventory-movement'         => 'reports.inventory-movement',
+        'reports.adoption-rate-tracking.index' => 'reports.adoption-rate-tracking',
         'top-10-inventories.index'           => 'reports.top-10-inventories',
         'days-inventory-outstanding.index'   => 'reports.days-inventory-outstanding',
         'days-payable-outstanding.index'     => 'reports.days-payable-outstanding',

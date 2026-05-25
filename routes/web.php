@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\AccountPayableController;
 use App\Http\Controllers\ActualCostCOGSReportController;
+use App\Http\Controllers\AdoptionRateTrackingController;
 use App\Http\Controllers\AdditionalOrderApprovalController;
 use App\Http\Controllers\AdditionalOrderController;
 use App\Http\Controllers\ApprovedReceivedItem;
@@ -201,6 +202,9 @@ Route::middleware('auth')
             Route::middleware('permission:view actual cost cogs report')->get('/actual-cost-cogs-report/export', [ActualCostCOGSReportController::class, 'export'])->name('reports.actual-cost-cogs-report.export');
             Route::middleware('permission:view inventory movement report')->get('/inventory-movement', [InventoryMovementReportController::class, 'index'])->name('reports.inventory-movement.index');
             Route::middleware('permission:view inventory movement report')->get('/inventory-movement/export-pdf', [InventoryMovementReportController::class, 'exportPdf'])->name('reports.inventory-movement.export-pdf');
+            Route::middleware('permission:view adoption rate tracking report')->get('/adoption-rate-tracking', [AdoptionRateTrackingController::class, 'index'])->name('reports.adoption-rate-tracking.index');
+            Route::middleware('permission:export adoption rate tracking report')->get('/adoption-rate-tracking/export', [AdoptionRateTrackingController::class, 'export'])->name('reports.adoption-rate-tracking.export');
+            Route::middleware('permission:edit adoption rate tracking remarks')->patch('/adoption-rate-tracking/remarks', [AdoptionRateTrackingController::class, 'updateRemark'])->name('reports.adoption-rate-tracking.remarks');
             });
 
 

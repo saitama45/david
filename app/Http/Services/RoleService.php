@@ -212,6 +212,9 @@ class RoleService
                 'Delivery Report' => [
                     'view delivery report', 'export delivery report'
                 ],
+                'Adoption Rate Tracking' => [
+                    'view adoption rate tracking report', 'export adoption rate tracking report', 'edit adoption rate tracking remarks'
+                ],
                 'Top 10 Inventories' => [
                     'view top 10 inventories', 'export top 10 inventories'
                 ],

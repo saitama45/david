@@ -106,6 +106,8 @@ class RolesAndPermissionSeeder extends Seeder
             "edit wastage approval level 1",
             "edit wastage approval level 2",
             "edit wastage record",
+            "edit adoption rate tracking remarks",
+            "export adoption rate tracking report",
             "export actual cost cogs report",
             "export approved orders",
             "export bom list",
@@ -152,6 +154,7 @@ class RolesAndPermissionSeeder extends Seeder
             "show roles",
             "upload month end count transaction",
             "view actual cost cogs report",
+            "view adoption rate tracking report",
             "view account payable",
             "view approved order",
             "view approved order for approval",
@@ -288,6 +291,7 @@ class RolesAndPermissionSeeder extends Seeder
             'view qty variance cost variance report',
             'view actual cost cogs report',
             'view delivery report',
+            'view adoption rate tracking report',
             'download month end count template',
             'upload month end count transaction',
             'view knowledge base articles',
@@ -311,6 +315,7 @@ class RolesAndPermissionSeeder extends Seeder
             'view qty variance cost variance report', 'export qty variance cost variance report',
             'view actual cost cogs report', 'export actual cost cogs report',
             'view delivery report', 'export delivery report',
+            'view adoption rate tracking report', 'export adoption rate tracking report',
             'view ordering calendar',
         ]);
     }

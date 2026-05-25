@@ -77,6 +77,7 @@ class SidebarManagementController extends Controller
         ['menu_key' => 'reports.actual-cost-cogs',            'parent_key' => 'reports', 'default_label' => 'Actual Cost / COGS Report',           'level' => 1],
         ['menu_key' => 'reports.interco',                     'parent_key' => 'reports', 'default_label' => 'Interco Report',                      'level' => 1],
         ['menu_key' => 'reports.inventory-movement',          'parent_key' => 'reports', 'default_label' => 'Inventory Movement Report',           'level' => 1],
+        ['menu_key' => 'reports.adoption-rate-tracking',      'parent_key' => 'reports', 'default_label' => 'Adoption Rate Tracking',               'level' => 1],
         ['menu_key' => 'reports.top-10-inventories',          'parent_key' => 'reports', 'default_label' => 'Top 10 Inventories',                  'level' => 1],
         ['menu_key' => 'reports.days-inventory-outstanding',  'parent_key' => 'reports', 'default_label' => 'Days Inventory Outstanding',          'level' => 1],
         ['menu_key' => 'reports.days-payable-outstanding',    'parent_key' => 'reports', 'default_label' => 'Days Payable Outstanding',            'level' => 1],
