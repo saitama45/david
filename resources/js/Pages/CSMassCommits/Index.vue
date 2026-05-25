@@ -147,8 +147,8 @@ const inputRefs = ref({}); // Map of "r-c" to input element
 const cellRefs = ref({}); // Map of "r-c" to td element
 
 const staticHeaders = computed(() => props.dynamicHeaders.slice(0, 5));
-const branchHeaders = computed(() => props.dynamicHeaders.slice(5, -3));
-const trailingHeaders = computed(() => props.dynamicHeaders.slice(-3));
+const branchHeaders = computed(() => props.dynamicHeaders.slice(5, -4));
+const trailingHeaders = computed(() => props.dynamicHeaders.slice(-4));
 
 // Format updated_at timestamp
 const formatUpdatedAt = (timestamp) => {
