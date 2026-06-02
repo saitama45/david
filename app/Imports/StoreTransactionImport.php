@@ -27,6 +27,7 @@ class StoreTransactionImport implements ToCollection, WithHeadingRow, WithStartR
     protected $skippedRows = [];
     protected $createdCount = 0;
     protected $processedReceipts = [];
+    protected $storeBranchIds = [];
 
     public function startRow(): int
     {
@@ -101,6 +102,7 @@ class StoreTransactionImport implements ToCollection, WithHeadingRow, WithStartR
                 $this->addSkippedGroup($receiptRows, "Branch not found: $branchCode");
                 return;
             }
+            $this->storeBranchIds[$branch->id] = $branch->id;
 
             // 2. Check if Transaction Already Exists
             $existingTransaction = StoreTransaction::where('store_branch_id', $branch->id)
@@ -585,5 +587,10 @@ class StoreTransactionImport implements ToCollection, WithHeadingRow, WithStartR
     public function getCreatedCount(): int
     {
         return $this->createdCount;
+    }
+
+    public function getStoreBranchIds(): array
+    {
+        return array_values($this->storeBranchIds);
     }
 }

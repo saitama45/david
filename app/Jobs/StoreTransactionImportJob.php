@@ -49,6 +49,7 @@ class StoreTransactionImportJob implements ShouldQueue
             $skippedRows    = $import->getSkippedRows();
             $skippedCount   = count($skippedRows);
             $processedCount = $import->getCreatedCount();
+            $storeBranchIds = $import->getStoreBranchIds();
 
             $skippedFilePath = null;
             if ($skippedCount > 0) {
@@ -83,6 +84,7 @@ class StoreTransactionImportJob implements ShouldQueue
                 'skipped_file_path' => $skippedFilePath,
                 'completed_at'      => now(),
             ]);
+            $log->storeBranches()->sync($storeBranchIds);
 
             Storage::delete($this->filePath);
 

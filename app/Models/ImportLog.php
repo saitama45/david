@@ -26,4 +26,14 @@ class ImportLog extends Model
     {
         return $this->belongsTo(User::class);
     }
+
+    public function storeBranches()
+    {
+        return $this->belongsToMany(
+            StoreBranch::class,
+            'import_log_store_branches',
+            'import_log_id',
+            'store_branch_id'
+        )->withTimestamps();
+    }
 }
