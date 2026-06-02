@@ -13,6 +13,7 @@ use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use Maatwebsite\Excel\Facades\Excel;
+use Throwable;
 
 class SAPMasterfileImportJob implements ShouldQueue
 {
@@ -34,15 +35,17 @@ class SAPMasterfileImportJob implements ShouldQueue
         $log->update(['status' => 'processing']);
 
         try {
-            Log::info('SAPMasterfile Import: Job started.', ['file' => $this->filePath]);
+            $filePath = $this->filePath ?: $log->source_file_path;
 
-            if (!Storage::exists($this->filePath)) {
-                throw new Exception("Import file not found: {$this->filePath}");
+            Log::info('SAPMasterfile Import: Job started.', ['file' => $filePath]);
+
+            if (!$filePath || !Storage::exists($filePath)) {
+                throw new Exception("Import file not found: {$filePath}");
             }
 
             SAPMasterfileImport::resetSeenCombinations();
             $import = new SAPMasterfileImport();
-            Excel::import($import, Storage::path($this->filePath));
+            Excel::import($import, Storage::path($filePath));
 
             $skippedItems = $import->getSkippedItems();
             $skippedCount = $import->getSkippedCount();
@@ -69,23 +72,40 @@ class SAPMasterfileImportJob implements ShouldQueue
                 'completed_at'      => now(),
             ]);
 
-            Storage::delete($this->filePath);
+            Storage::delete($filePath);
 
             Log::info('SAPMasterfile Import: Job completed.', [
                 'processed' => $processedCount,
                 'skipped'   => $skippedCount,
             ]);
-        } catch (Exception $e) {
+        } catch (Throwable $e) {
             $log->update([
                 'status'        => 'failed',
                 'error_message' => $e->getMessage(),
                 'completed_at'  => now(),
             ]);
 
-            Storage::delete($this->filePath);
+            if (!empty($filePath ?? null)) {
+                Storage::delete($filePath);
+            }
 
             Log::error('SAPMasterfile Import: Job failed.', ['error' => $e->getMessage()]);
             throw $e;
         }
+    }
+
+    public function failed(Throwable $e): void
+    {
+        $log = ImportLog::find($this->importLogId);
+
+        if (!$log || !in_array($log->status, ['pending', 'processing'], true)) {
+            return;
+        }
+
+        $log->update([
+            'status' => 'failed',
+            'error_message' => $e->getMessage(),
+            'completed_at' => now(),
+        ]);
     }
 }

@@ -128,6 +128,7 @@ class SAPMasterfileController extends Controller
             'user_id'           => auth()->id(),
             'type'              => 'sap_masterfile',
             'original_filename' => $originalName,
+            'source_file_path'  => $path,
             'status'            => 'pending',
         ]);
 

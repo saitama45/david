@@ -14,6 +14,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use Maatwebsite\Excel\Facades\Excel;
+use Throwable;
 
 class StoreTransactionImportJob implements ShouldQueue
 {
@@ -35,15 +36,17 @@ class StoreTransactionImportJob implements ShouldQueue
         $log->update(['status' => 'processing']);
 
         try {
-            Log::info('StoreTransaction Import: Job started.', ['file' => $this->filePath]);
+            $filePath = $this->filePath ?: $log->source_file_path;
 
-            if (!Storage::exists($this->filePath)) {
-                throw new Exception("Import file not found: {$this->filePath}");
+            Log::info('StoreTransaction Import: Job started.', ['file' => $filePath]);
+
+            if (!$filePath || !Storage::exists($filePath)) {
+                throw new Exception("Import file not found: {$filePath}");
             }
 
             $import = new StoreTransactionImport();
             DB::beginTransaction();
-            Excel::import($import, Storage::path($this->filePath));
+            Excel::import($import, Storage::path($filePath));
             DB::commit();
 
             $skippedRows    = $import->getSkippedRows();
@@ -86,15 +89,17 @@ class StoreTransactionImportJob implements ShouldQueue
             ]);
             $log->storeBranches()->sync($storeBranchIds);
 
-            Storage::delete($this->filePath);
+            Storage::delete($filePath);
 
             Log::info('StoreTransaction Import: Job completed.', [
                 'processed' => $processedCount,
                 'skipped'   => $skippedCount,
             ]);
 
-        } catch (Exception $e) {
-            DB::rollBack();
+        } catch (Throwable $e) {
+            if (DB::transactionLevel() > 0) {
+                DB::rollBack();
+            }
 
             $log->update([
                 'status'        => 'failed',
@@ -102,10 +107,27 @@ class StoreTransactionImportJob implements ShouldQueue
                 'completed_at'  => now(),
             ]);
 
-            Storage::delete($this->filePath);
+            if (!empty($filePath ?? null)) {
+                Storage::delete($filePath);
+            }
 
             Log::error('StoreTransaction Import: Job failed.', ['error' => $e->getMessage()]);
             throw $e;
         }
+    }
+
+    public function failed(Throwable $e): void
+    {
+        $log = ImportLog::find($this->importLogId);
+
+        if (!$log || !in_array($log->status, ['pending', 'processing'], true)) {
+            return;
+        }
+
+        $log->update([
+            'status' => 'failed',
+            'error_message' => $e->getMessage(),
+            'completed_at' => now(),
+        ]);
     }
 }

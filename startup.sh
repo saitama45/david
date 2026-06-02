@@ -19,6 +19,8 @@ sed -i 's/^;pm.max_requests = .*/pm.max_requests = 500/g' /usr/local/etc/php-fpm
 
 # 4. Clear the cache IMMEDIATELY (Fixes the 500 error)
 # We do this before the background tasks to ensure the very first request is clean.
+composer dump-autoload -o
+php /home/site/wwwroot/artisan optimize:clear
 php /home/site/wwwroot/artisan config:clear
 php /home/site/wwwroot/artisan cache:clear
 

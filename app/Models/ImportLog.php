@@ -10,6 +10,7 @@ class ImportLog extends Model
         'user_id',
         'type',
         'original_filename',
+        'source_file_path',
         'status',
         'processed_count',
         'skipped_count',

@@ -12,6 +12,10 @@ return Application::configure(basePath: dirname(__DIR__))
         commands: __DIR__ . '/../routes/console.php',
         health: '/up',
     )
+    ->withCommands([
+        \App\Console\Commands\ImportsDoctor::class,
+        \App\Console\Commands\RepairFailedImportLogs::class,
+    ])
     ->withMiddleware(function (Middleware $middleware) {
         $middleware->trustProxies(at: '*');
         $middleware->web(append: [

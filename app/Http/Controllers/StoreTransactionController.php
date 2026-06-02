@@ -166,6 +166,7 @@ class StoreTransactionController extends Controller
             'user_id'           => auth()->id(),
             'type'              => 'store_transaction',
             'original_filename' => $originalName,
+            'source_file_path'  => $path,
             'status'            => 'pending',
         ]);
 
