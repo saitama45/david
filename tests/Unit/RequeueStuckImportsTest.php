@@ -3,13 +3,14 @@
 use App\Console\Commands\RequeueStuckImports;
 use App\Jobs\SAPMasterfileImportJob;
 use App\Jobs\StoreTransactionImportJob;
+use App\Services\ImportQueueService;
 
-function invokeRequeueCommandMethod(string $method, mixed ...$arguments): mixed
+function invokeImportQueueServiceMethod(string $method, mixed ...$arguments): mixed
 {
-    $reflection = new ReflectionMethod(RequeueStuckImports::class, $method);
+    $reflection = new ReflectionMethod(ImportQueueService::class, $method);
     $reflection->setAccessible(true);
 
-    return $reflection->invoke(new RequeueStuckImports(), ...$arguments);
+    return $reflection->invoke(new ImportQueueService(), ...$arguments);
 }
 
 it('extracts import log ids from queued job payloads', function () {
@@ -20,15 +21,15 @@ it('extracts import log ids from queued job payloads', function () {
         ],
     ]);
 
-    expect(invokeRequeueCommandMethod('extractImportLogId', $payload))->toBe(456);
+    expect(invokeImportQueueServiceMethod('extractImportLogId', $payload))->toBe(456);
 });
 
 it('maps supported import types to their queue jobs', function () {
-    expect(invokeRequeueCommandMethod('jobClassForType', 'store_transaction'))
+    expect(invokeImportQueueServiceMethod('jobClassForType', 'store_transaction'))
         ->toBe(StoreTransactionImportJob::class)
-        ->and(invokeRequeueCommandMethod('jobClassForType', 'sap_masterfile'))
+        ->and(invokeImportQueueServiceMethod('jobClassForType', 'sap_masterfile'))
         ->toBe(SAPMasterfileImportJob::class)
-        ->and(invokeRequeueCommandMethod('jobClassForType', 'unknown'))
+        ->and(invokeImportQueueServiceMethod('jobClassForType', 'unknown'))
         ->toBeNull();
 });
 

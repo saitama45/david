@@ -4,6 +4,7 @@ namespace App\Jobs;
 
 use App\Imports\SAPMasterfileImport;
 use App\Models\ImportLog;
+use App\Services\ImportQueueService;
 use Exception;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -26,6 +27,7 @@ class SAPMasterfileImportJob implements ShouldQueue
         protected string $filePath,
         protected int $importLogId
     ) {
+        $this->onConnection('database');
         $this->onQueue('imports');
     }
 
@@ -78,6 +80,8 @@ class SAPMasterfileImportJob implements ShouldQueue
                 'processed' => $processedCount,
                 'skipped'   => $skippedCount,
             ]);
+
+            app(ImportQueueService::class)->dispatchNextPending();
         } catch (Throwable $e) {
             $log->update([
                 'status'        => 'failed',
@@ -90,6 +94,7 @@ class SAPMasterfileImportJob implements ShouldQueue
             }
 
             Log::error('SAPMasterfile Import: Job failed.', ['error' => $e->getMessage()]);
+            app(ImportQueueService::class)->dispatchNextPending();
             throw $e;
         }
     }
@@ -107,5 +112,7 @@ class SAPMasterfileImportJob implements ShouldQueue
             'error_message' => $e->getMessage(),
             'completed_at' => now(),
         ]);
+
+        app(ImportQueueService::class)->dispatchNextPending();
     }
 }

@@ -4,6 +4,7 @@ namespace App\Jobs;
 
 use App\Imports\StoreTransactionImport;
 use App\Models\ImportLog;
+use App\Services\ImportQueueService;
 use Exception;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -27,6 +28,7 @@ class StoreTransactionImportJob implements ShouldQueue
         protected string $filePath,
         protected int $importLogId
     ) {
+        $this->onConnection('database');
         $this->onQueue('imports');
     }
 
@@ -96,6 +98,8 @@ class StoreTransactionImportJob implements ShouldQueue
                 'skipped'   => $skippedCount,
             ]);
 
+            app(ImportQueueService::class)->dispatchNextPending();
+
         } catch (Throwable $e) {
             if (DB::transactionLevel() > 0) {
                 DB::rollBack();
@@ -112,6 +116,7 @@ class StoreTransactionImportJob implements ShouldQueue
             }
 
             Log::error('StoreTransaction Import: Job failed.', ['error' => $e->getMessage()]);
+            app(ImportQueueService::class)->dispatchNextPending();
             throw $e;
         }
     }
@@ -129,5 +134,7 @@ class StoreTransactionImportJob implements ShouldQueue
             'error_message' => $e->getMessage(),
             'completed_at' => now(),
         ]);
+
+        app(ImportQueueService::class)->dispatchNextPending();
     }
 }

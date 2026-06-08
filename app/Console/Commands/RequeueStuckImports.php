@@ -2,14 +2,11 @@
 
 namespace App\Console\Commands;
 
-use App\Jobs\SAPMasterfileImportJob;
-use App\Jobs\StoreTransactionImportJob;
 use App\Models\ImportLog;
+use App\Services\ImportQueueService;
 use Illuminate\Console\Command;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
-use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 
@@ -26,7 +23,8 @@ class RequeueStuckImports extends Command
     {
         $apply = (bool) $this->option('apply');
         $staleMinutes = max(1, (int) $this->option('stale-minutes'));
-        $queuedImportLogIds = $this->queuedImportLogIds();
+        $importQueue = app(ImportQueueService::class);
+        $queuedImportLogIds = $importQueue->queuedImportLogIds();
         $logs = $this->stuckImportLogs($staleMinutes, (bool) $this->option('include-failed'));
 
         if ($logs->isEmpty()) {
@@ -37,7 +35,7 @@ class RequeueStuckImports extends Command
         $rows = [];
 
         foreach ($logs as $log) {
-            $plan = $this->planForLog($log, $queuedImportLogIds);
+            $plan = $this->planForLog($log, $queuedImportLogIds, $importQueue);
             $rows[] = [
                 'id' => $log->id,
                 'type' => $log->type,
@@ -50,6 +48,10 @@ class RequeueStuckImports extends Command
             if ($apply) {
                 $this->applyPlan($log, $plan);
             }
+        }
+
+        if ($apply) {
+            $importQueue->dispatchNextPending();
         }
 
         $this->table(['id', 'type', 'status', 'filename', 'action', 'detail'], $rows);
@@ -83,7 +85,7 @@ class RequeueStuckImports extends Command
             ->get();
     }
 
-    private function planForLog(ImportLog $log, Collection $queuedImportLogIds): array
+    private function planForLog(ImportLog $log, Collection $queuedImportLogIds, ImportQueueService $importQueue): array
     {
         if ($queuedImportLogIds->contains($log->id)) {
             return [
@@ -106,7 +108,7 @@ class RequeueStuckImports extends Command
             ];
         }
 
-        $jobClass = $this->jobClassForType($log->type);
+        $jobClass = $importQueue->jobClassForType($log->type);
 
         if (!$jobClass) {
             return [
@@ -118,7 +120,6 @@ class RequeueStuckImports extends Command
         return [
             'action' => 'requeue',
             'detail' => $log->source_file_path,
-            'job_class' => $jobClass,
         ];
     }
 
@@ -133,8 +134,6 @@ class RequeueStuckImports extends Command
                 'skipped_count' => null,
                 'skipped_file_path' => null,
             ])->save();
-
-            $plan['job_class']::dispatch($log->source_file_path, $log->id);
             return;
         }
 
@@ -147,39 +146,13 @@ class RequeueStuckImports extends Command
         }
     }
 
-    private function jobClassForType(string $type): ?string
-    {
-        return match ($type) {
-            'sap_masterfile' => SAPMasterfileImportJob::class,
-            'store_transaction' => StoreTransactionImportJob::class,
-            default => null,
-        };
-    }
-
     private function queuedImportLogIds(): Collection
     {
-        if (!Schema::hasTable('jobs')) {
-            return collect();
-        }
-
-        return DB::table('jobs')
-            ->where('queue', 'imports')
-            ->pluck('payload')
-            ->map(fn ($payload) => $this->extractImportLogId((string) $payload))
-            ->filter()
-            ->unique()
-            ->values();
+        return app(ImportQueueService::class)->queuedImportLogIds();
     }
 
     private function extractImportLogId(string $payload): ?int
     {
-        $decoded = json_decode($payload, true);
-        $command = $decoded['data']['command'] ?? $payload;
-
-        if (preg_match('/importLogId.*?i:(\d+)/s', $command, $match)) {
-            return (int) $match[1];
-        }
-
-        return null;
+        return app(ImportQueueService::class)->extractImportLogId($payload);
     }
 }

@@ -8,7 +8,6 @@ use App\Http\Requests\StoreTransaction\StoreStoreTransactionRequest;
 use App\Http\Requests\StoreTransaction\UpdateStoreTransactionRequest;
 use App\Http\Services\StoreTransactionService;
 use App\Imports\StoreTransactionImport;
-use App\Jobs\StoreTransactionImportJob;
 use App\Models\ImportLog;
 use App\Models\POSMasterfile;
 use App\Models\StoreBranch;
@@ -23,6 +22,7 @@ use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
 use Maatwebsite\Excel\Facades\Excel;
 use Illuminate\Support\Facades\Log;
+use App\Services\ImportQueueService;
 
 class StoreTransactionController extends Controller
 {
@@ -170,7 +170,7 @@ class StoreTransactionController extends Controller
             'status'            => 'pending',
         ]);
 
-        StoreTransactionImportJob::dispatch($path, $log->id);
+        app(ImportQueueService::class)->dispatchNextPending();
 
         return redirect()->route('store-transactions.index', $request->query())
             ->with('info', 'Import queued successfully. Visit the Work Queue page to monitor progress and download the skipped items log when complete.');

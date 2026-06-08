@@ -4,9 +4,9 @@ namespace App\Http\Controllers;
 
 use App\Exports\SAPMasterfileExport;
 use App\Imports\SAPMasterfileImport;
-use App\Jobs\SAPMasterfileImportJob;
 use App\Models\ImportLog;
 use App\Models\SAPMasterfile;
+use App\Services\ImportQueueService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
@@ -132,7 +132,7 @@ class SAPMasterfileController extends Controller
             'status'            => 'pending',
         ]);
 
-        SAPMasterfileImportJob::dispatch($path, $log->id);
+        app(ImportQueueService::class)->dispatchNextPending();
 
         return redirect()->route('sapitems.index')
             ->with('info', 'Import queued successfully. Visit the Work Queue page to monitor progress and download the skipped items log when complete.');
