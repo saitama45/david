@@ -17,6 +17,7 @@ class RequeueStuckImports extends Command
 {
     protected $signature = 'imports:requeue-stuck
         {--apply : Dispatch jobs and update failed logs instead of dry-running}
+        {--include-failed : Also inspect failed logs and requeue them when their source file exists}
         {--stale-minutes=60 : Requeue processing logs only after this many minutes without an update}';
 
     protected $description = 'Requeue pending or stale processing import logs when their queue job is missing.';
@@ -26,7 +27,7 @@ class RequeueStuckImports extends Command
         $apply = (bool) $this->option('apply');
         $staleMinutes = max(1, (int) $this->option('stale-minutes'));
         $queuedImportLogIds = $this->queuedImportLogIds();
-        $logs = $this->stuckImportLogs($staleMinutes);
+        $logs = $this->stuckImportLogs($staleMinutes, (bool) $this->option('include-failed'));
 
         if ($logs->isEmpty()) {
             $this->info('No pending or stale processing import logs found.');
@@ -62,17 +63,21 @@ class RequeueStuckImports extends Command
         return self::SUCCESS;
     }
 
-    private function stuckImportLogs(int $staleMinutes): Collection
+    private function stuckImportLogs(int $staleMinutes, bool $includeFailed): Collection
     {
         $staleBefore = Carbon::now()->subMinutes($staleMinutes);
 
         return ImportLog::query()
-            ->where(function ($query) use ($staleBefore) {
+            ->where(function ($query) use ($staleBefore, $includeFailed) {
                 $query->where('status', 'pending')
                     ->orWhere(function ($query) use ($staleBefore) {
                         $query->where('status', 'processing')
                             ->where('updated_at', '<=', $staleBefore);
                     });
+
+                if ($includeFailed) {
+                    $query->orWhere('status', 'failed');
+                }
             })
             ->orderBy('created_at')
             ->get();
@@ -124,6 +129,9 @@ class RequeueStuckImports extends Command
                 'status' => 'pending',
                 'error_message' => null,
                 'completed_at' => null,
+                'processed_count' => null,
+                'skipped_count' => null,
+                'skipped_file_path' => null,
             ])->save();
 
             $plan['job_class']::dispatch($log->source_file_path, $log->id);

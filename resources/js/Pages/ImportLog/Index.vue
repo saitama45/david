@@ -110,6 +110,12 @@ const storeNames = (log) => {
         .map((branch) => `${branch.name} (${branch.branch_code})`)
         .join(", ");
 };
+
+const shortError = (message) => {
+    if (!message) return "Failed";
+
+    return message.length > 90 ? `${message.slice(0, 90)}...` : message;
+};
 </script>
 
 <template>
@@ -195,7 +201,7 @@ const storeNames = (log) => {
                                 Download Skipped
                             </a>
                             <span v-else-if="log.status === 'failed'" class="text-xs text-red-500" :title="log.error_message">
-                                Failed
+                                {{ shortError(log.error_message) }}
                             </span>
                             <span v-else class="text-xs text-muted-foreground">-</span>
                         </TD>
@@ -219,6 +225,9 @@ const storeNames = (log) => {
                     <LabelXS>Processed: {{ log.processed_count ?? "-" }} | Skipped: {{ log.skipped_count ?? "-" }}</LabelXS>
                     <LabelXS>Queued: {{ formatDate(log.created_at) }}</LabelXS>
                     <LabelXS>Completed: {{ formatDate(log.completed_at) }}</LabelXS>
+                    <LabelXS v-if="log.status === 'failed'" class="text-red-600">
+                        Error: {{ shortError(log.error_message) }}
+                    </LabelXS>
                     <div v-if="log.skipped_count > 0 && log.skipped_file_path" class="mt-1">
                         <a
                             :href="route('import-logs.download', log.id)"

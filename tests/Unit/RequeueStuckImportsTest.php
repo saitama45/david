@@ -31,3 +31,9 @@ it('maps supported import types to their queue jobs', function () {
         ->and(invokeRequeueCommandMethod('jobClassForType', 'unknown'))
         ->toBeNull();
 });
+
+it('documents the include failed option on the recovery command', function () {
+    $definition = (new RequeueStuckImports())->getDefinition();
+
+    expect($definition->hasOption('include-failed'))->toBeTrue();
+});
