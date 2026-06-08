@@ -1,6 +1,7 @@
 <?php
 
 use App\Console\Commands\RequeueStuckImports;
+use App\Console\Commands\RecoverIncompleteImportJobs;
 use App\Jobs\SAPMasterfileImportJob;
 use App\Jobs\StoreTransactionImportJob;
 use App\Services\ImportQueueService;
@@ -37,4 +38,17 @@ it('documents the include failed option on the recovery command', function () {
     $definition = (new RequeueStuckImports())->getDefinition();
 
     expect($definition->hasOption('include-failed'))->toBeTrue();
+});
+
+it('detects incomplete queue job failures as recoverable infrastructure failures', function () {
+    $message = 'Exception: Job is incomplete class: {"__PHP_Incomplete_Class_Name":"App\\Jobs\\StoreTransactionImportJob"}';
+
+    expect(invokeImportQueueServiceMethod('isIncompleteClassFailure', $message))->toBeTrue()
+        ->and(invokeImportQueueServiceMethod('isIncompleteClassFailure', 'Import file not found'))->toBeFalse();
+});
+
+it('documents the apply option on the incomplete job recovery command', function () {
+    $definition = (new RecoverIncompleteImportJobs())->getDefinition();
+
+    expect($definition->hasOption('apply'))->toBeTrue();
 });

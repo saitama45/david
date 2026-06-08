@@ -3,6 +3,7 @@
 namespace App\Console\Commands;
 
 use App\Models\ImportLog;
+use App\Services\ImportQueueService;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -61,6 +62,8 @@ class RepairFailedImportLogs extends Command
 
     private function collectRepairs()
     {
+        $importQueue = app(ImportQueueService::class);
+
         return DB::table('failed_jobs')
             ->select('id', 'payload', 'exception')
             ->where('queue', 'imports')
@@ -72,6 +75,10 @@ class RepairFailedImportLogs extends Command
                 $importLogId = $this->extractImportLogId($command);
 
                 if (!$importLogId) {
+                    return null;
+                }
+
+                if ($importQueue->isIncompleteClassFailure($job->exception)) {
                     return null;
                 }
 

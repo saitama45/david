@@ -23,14 +23,15 @@ composer dump-autoload -o
 php /home/site/wwwroot/artisan optimize:clear
 php /home/site/wwwroot/artisan config:clear
 php /home/site/wwwroot/artisan cache:clear
+php /home/site/wwwroot/artisan queue:restart
 
 # 5. Run remaining tasks in background
 (
   echo "⏳ Running migrations..."
   php /home/site/wwwroot/artisan migrate --force
 
-  echo "Repairing import log statuses..."
-  php /home/site/wwwroot/artisan imports:repair-failed-logs --apply
+  echo "Recovering incomplete import jobs..."
+  php /home/site/wwwroot/artisan imports:recover-incomplete-jobs --apply
 
   echo "Requeueing stuck imports..."
   php /home/site/wwwroot/artisan imports:requeue-stuck --apply
@@ -57,6 +58,7 @@ php /home/site/wwwroot/artisan cache:clear
       --sleep=5 \
       --tries=1 \
       --timeout=3600 \
+      --max-jobs=1 \
       --max-time=3500
     echo "[$(date)] Queue worker exited, restarting in 10 seconds..."
     sleep 10

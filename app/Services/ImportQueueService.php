@@ -13,6 +13,47 @@ use Illuminate\Support\Facades\Storage;
 
 class ImportQueueService
 {
+    public function isIncompleteClassFailure(?string $message): bool
+    {
+        if (!$message) {
+            return false;
+        }
+
+        return str_contains($message, '__PHP_Incomplete_Class_Name')
+            || str_contains($message, 'Job is incomplete class');
+    }
+
+    public function deleteQueueArtifactsForImportLog(int $importLogId): int
+    {
+        $deleted = 0;
+
+        if (Schema::hasTable('jobs')) {
+            DB::table('jobs')
+                ->where('queue', 'imports')
+                ->orderBy('id')
+                ->get(['id', 'payload'])
+                ->each(function ($job) use ($importLogId, &$deleted) {
+                    if ($this->extractImportLogId((string) $job->payload) === $importLogId) {
+                        $deleted += DB::table('jobs')->where('id', $job->id)->delete();
+                    }
+                });
+        }
+
+        if (Schema::hasTable('failed_jobs')) {
+            DB::table('failed_jobs')
+                ->where('queue', 'imports')
+                ->orderBy('id')
+                ->get(['id', 'payload'])
+                ->each(function ($job) use ($importLogId, &$deleted) {
+                    if ($this->extractImportLogId((string) $job->payload) === $importLogId) {
+                        $deleted += DB::table('failed_jobs')->where('id', $job->id)->delete();
+                    }
+                });
+        }
+
+        return $deleted;
+    }
+
     public function dispatchNextPending(): ?ImportLog
     {
         return Cache::lock('imports:dispatch-next', 30)->block(5, function () {
