@@ -229,13 +229,7 @@ class ImportQueueService
         $failedJob = $this->failedJobForImportLogId($log->id);
 
         if ($failedJob) {
-            if ($this->isIncompleteClassFailure($failedJob->exception)) {
-                $this->deleteQueueArtifactsForImportLog($log->id);
-
-                return null;
-            }
-
-            return $this->summarizeException($failedJob->exception);
+            $this->deleteQueueArtifactsForImportLog($log->id);
         }
 
         return null;

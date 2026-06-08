@@ -27,7 +27,7 @@ const { options: branchOptions } = useSelectOptions(props.branches);
 const search = ref(props.filters.search ?? "");
 const branchId = ref(props.filters.branchId ?? "all");
 
-const tableColspan = computed(() => (props.isAdmin ? 13 : 12));
+const tableColspan = computed(() => (props.isAdmin ? 12 : 11));
 let refreshTimer = null;
 
 const getLogs = (replace = false) => {
@@ -87,19 +87,6 @@ const statusClass = (status) => {
         failed: "bg-red-100 text-red-700",
     };
     return map[status] ?? "bg-gray-100 text-gray-700";
-};
-
-const queueStateClass = (state) => {
-    const map = {
-        completed: "bg-green-100 text-green-700",
-        failed: "bg-red-100 text-red-700",
-        failed_job: "bg-red-100 text-red-700",
-        orphaned: "bg-red-100 text-red-700",
-        running: "bg-yellow-100 text-yellow-700",
-        queued: "bg-blue-100 text-blue-700",
-        waiting: "bg-gray-100 text-gray-700",
-    };
-    return map[state] ?? "bg-gray-100 text-gray-700";
 };
 
 const typeLabel = (type) => {
@@ -206,7 +193,6 @@ onUnmounted(() => {
                     <TH>Queued At</TH>
                     <TH>Started At</TH>
                     <TH>Runtime</TH>
-                    <TH>Queue State</TH>
                     <TH>Completed At</TH>
                     <TH>Actions</TH>
                 </TableHead>
@@ -241,14 +227,6 @@ onUnmounted(() => {
                         <TD>{{ formatDate(log.created_at) }}</TD>
                         <TD>{{ formatDate(log.processing_started_at) }}</TD>
                         <TD>{{ formatDuration(log.runtime_seconds) }}</TD>
-                        <TD>
-                            <span
-                                class="px-2 py-1 rounded text-xs font-medium"
-                                :class="queueStateClass(log.queue_state)"
-                            >
-                                {{ log.queue_state_label ?? "-" }}
-                            </span>
-                        </TD>
                         <TD>{{ formatDate(log.completed_at) }}</TD>
                         <TD>
                             <a
@@ -284,7 +262,6 @@ onUnmounted(() => {
                     <LabelXS>Queued: {{ formatDate(log.created_at) }}</LabelXS>
                     <LabelXS>Started: {{ formatDate(log.processing_started_at) }}</LabelXS>
                     <LabelXS>Runtime: {{ formatDuration(log.runtime_seconds) }}</LabelXS>
-                    <LabelXS>Queue: {{ log.queue_state_label ?? "-" }}</LabelXS>
                     <LabelXS>Completed: {{ formatDate(log.completed_at) }}</LabelXS>
                     <LabelXS v-if="log.status === 'failed'" class="text-red-600">
                         Error: {{ shortError(log.error_message) }}

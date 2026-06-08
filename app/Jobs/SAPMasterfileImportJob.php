@@ -119,7 +119,7 @@ class SAPMasterfileImportJob implements ShouldQueue
 
         $log->update([
             'status' => 'failed',
-            'error_message' => $e->getMessage(),
+            'error_message' => $log->error_message ?: $e->getMessage(),
             'last_heartbeat_at' => now(),
             'failed_at' => now(),
             'completed_at' => now(),

@@ -27,6 +27,7 @@ class ReconcileImports extends Command
         $rows = [];
 
         $this->recoverIncompleteFailures($importQueue, $apply, $rows);
+        $this->reconcilePendingFailedJobs($importQueue, $apply, $rows);
         $this->reconcileProcessingLogs($importQueue, $apply, $staleCutoff, $rows);
 
         $dispatched = null;
@@ -102,6 +103,50 @@ class ReconcileImports extends Command
                     'id' => $log->id,
                     'status' => $log->status,
                     'action' => 'recover_incomplete_class',
+                    'detail' => Str::limit($log->original_filename, 90),
+                ];
+            });
+    }
+
+    private function reconcilePendingFailedJobs(ImportQueueService $importQueue, bool $apply, array &$rows): void
+    {
+        ImportLog::query()
+            ->where('status', 'pending')
+            ->orderBy('created_at')
+            ->get()
+            ->each(function (ImportLog $log) use ($importQueue, $apply, &$rows) {
+                $failedJob = $importQueue->failedJobForImportLogId($log->id);
+
+                if (!$failedJob || $importQueue->queueJobForImportLogId($log->id)) {
+                    return;
+                }
+
+                if (!$log->source_file_path || !Storage::exists($log->source_file_path)) {
+                    $message = $this->missingSourceMessage($log);
+
+                    if ($apply) {
+                        $this->markFailed($log, $message);
+                    }
+
+                    $rows[] = [
+                        'id' => $log->id,
+                        'status' => $log->status,
+                        'action' => 'failed_missing_source',
+                        'detail' => Str::limit($message, 90),
+                    ];
+
+                    return;
+                }
+
+                if ($apply) {
+                    $importQueue->deleteQueueArtifactsForImportLog($log->id);
+                    $this->resetForRetry($log);
+                }
+
+                $rows[] = [
+                    'id' => $log->id,
+                    'status' => $log->status,
+                    'action' => 'cleared_stale_failed_job',
                     'detail' => Str::limit($log->original_filename, 90),
                 ];
             });
@@ -195,6 +240,15 @@ class ReconcileImports extends Command
             'failed_at' => now(),
             'completed_at' => now(),
         ]);
+    }
+
+    private function missingSourceMessage(ImportLog $log): string
+    {
+        if (!$log->source_file_path) {
+            return 'Import source file path is missing.';
+        }
+
+        return "Import source file does not exist: {$log->source_file_path}";
     }
 
     private function isStaleWithoutQueueJob(ImportLog $log, Carbon $staleCutoff): bool
