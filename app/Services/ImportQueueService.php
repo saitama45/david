@@ -54,10 +54,10 @@ class ImportQueueService
         return $deleted;
     }
 
-    public function dispatchNextPending(): ?ImportLog
+    public function dispatchNextPending(?int $ignoreActiveImportLogId = null): ?ImportLog
     {
-        return Cache::lock('imports:dispatch-next', 30)->block(5, function () {
-            if ($this->hasActiveImport()) {
+        return Cache::lock('imports:dispatch-next', 30)->block(5, function () use ($ignoreActiveImportLogId) {
+            if ($this->hasActiveImport($ignoreActiveImportLogId)) {
                 return null;
             }
 
@@ -83,10 +83,12 @@ class ImportQueueService
         });
     }
 
-    public function hasActiveImport(): bool
+    public function hasActiveImport(?int $ignoreImportLogId = null): bool
     {
         return ImportLog::where('status', 'processing')->exists()
-            || $this->queuedImportLogIds()->isNotEmpty();
+            || $this->queuedImportLogIds()
+                ->when($ignoreImportLogId, fn (Collection $ids) => $ids->reject(fn (int $id) => $id === $ignoreImportLogId))
+                ->isNotEmpty();
     }
 
     public function queuedImportLogIds(): Collection

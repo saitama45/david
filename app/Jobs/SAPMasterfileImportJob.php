@@ -81,7 +81,7 @@ class SAPMasterfileImportJob implements ShouldQueue
                 'skipped'   => $skippedCount,
             ]);
 
-            app(ImportQueueService::class)->dispatchNextPending();
+            app(ImportQueueService::class)->dispatchNextPending($this->importLogId);
         } catch (Throwable $e) {
             $log->update([
                 'status'        => 'failed',
@@ -94,7 +94,7 @@ class SAPMasterfileImportJob implements ShouldQueue
             }
 
             Log::error('SAPMasterfile Import: Job failed.', ['error' => $e->getMessage()]);
-            app(ImportQueueService::class)->dispatchNextPending();
+            app(ImportQueueService::class)->dispatchNextPending($this->importLogId);
             throw $e;
         }
     }
@@ -113,6 +113,6 @@ class SAPMasterfileImportJob implements ShouldQueue
             'completed_at' => now(),
         ]);
 
-        app(ImportQueueService::class)->dispatchNextPending();
+        app(ImportQueueService::class)->dispatchNextPending($this->importLogId);
     }
 }

@@ -98,7 +98,7 @@ class StoreTransactionImportJob implements ShouldQueue
                 'skipped'   => $skippedCount,
             ]);
 
-            app(ImportQueueService::class)->dispatchNextPending();
+            app(ImportQueueService::class)->dispatchNextPending($this->importLogId);
 
         } catch (Throwable $e) {
             if (DB::transactionLevel() > 0) {
@@ -116,7 +116,7 @@ class StoreTransactionImportJob implements ShouldQueue
             }
 
             Log::error('StoreTransaction Import: Job failed.', ['error' => $e->getMessage()]);
-            app(ImportQueueService::class)->dispatchNextPending();
+            app(ImportQueueService::class)->dispatchNextPending($this->importLogId);
             throw $e;
         }
     }
@@ -135,6 +135,6 @@ class StoreTransactionImportJob implements ShouldQueue
             'completed_at' => now(),
         ]);
 
-        app(ImportQueueService::class)->dispatchNextPending();
+        app(ImportQueueService::class)->dispatchNextPending($this->importLogId);
     }
 }
