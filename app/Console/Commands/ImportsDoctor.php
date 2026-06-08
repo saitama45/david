@@ -2,6 +2,8 @@
 
 namespace App\Console\Commands;
 
+use App\Models\ImportLog;
+use App\Services\ImportQueueService;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
@@ -12,7 +14,7 @@ class ImportsDoctor extends Command
 
     protected $description = 'Report import log, queue, and failed job health.';
 
-    public function handle(): int
+    public function handle(ImportQueueService $importQueue): int
     {
         $this->info('Import log status counts');
         $this->table(
@@ -59,6 +61,38 @@ class ImportsDoctor extends Command
                     ->all()
             );
         }
+
+        $this->info('Detailed pending/processing import health');
+        $this->table(
+            ['id', 'status', 'queue_state', 'job_id', 'failed_job_id', 'heartbeat', 'runtime', 'filename'],
+            ImportLog::query()
+                ->whereIn('status', ['pending', 'processing'])
+                ->orderBy('created_at')
+                ->limit(20)
+                ->get()
+                ->map(function (ImportLog $log) use ($importQueue) {
+                    $job = $importQueue->queueJobForImportLogId($log->id);
+                    $failedJob = $importQueue->failedJobForImportLogId($log->id);
+                    $queueState = $importQueue->queueStateForLog($log);
+                    $startedAt = $log->processing_started_at
+                        ?: ($log->status === 'processing' ? $log->updated_at : null);
+                    $runtime = $startedAt
+                        ? $startedAt->diffForHumans(now(), true)
+                        : '-';
+
+                    return [
+                        'id' => $log->id,
+                        'status' => $log->status,
+                        'queue_state' => $queueState['label'],
+                        'job_id' => $job->id ?? '-',
+                        'failed_job_id' => $failedJob->id ?? '-',
+                        'heartbeat' => $log->last_heartbeat_at ?: '-',
+                        'runtime' => $runtime,
+                        'filename' => $log->original_filename,
+                    ];
+                })
+                ->all()
+        );
 
         if (Schema::hasTable('failed_jobs')) {
             $this->info('Failed jobs');

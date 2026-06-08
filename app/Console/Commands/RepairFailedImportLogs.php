@@ -45,6 +45,7 @@ class RepairFailedImportLogs extends Command
             $updates = [
                 'status' => 'failed',
                 'error_message' => $repair['error_message'],
+                'failed_at' => now(),
                 'completed_at' => now(),
             ];
 
@@ -69,7 +70,7 @@ class RepairFailedImportLogs extends Command
             ->where('queue', 'imports')
             ->orderBy('id')
             ->get()
-            ->map(function ($job) {
+            ->map(function ($job) use ($importQueue) {
                 $payload = json_decode($job->payload, true);
                 $command = $payload['data']['command'] ?? '';
                 $importLogId = $this->extractImportLogId($command);

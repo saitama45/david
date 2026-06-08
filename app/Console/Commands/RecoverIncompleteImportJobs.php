@@ -45,6 +45,9 @@ class RecoverIncompleteImportJobs extends Command
                     $log->forceFill([
                         'status' => 'pending',
                         'error_message' => null,
+                        'processing_started_at' => null,
+                        'last_heartbeat_at' => null,
+                        'failed_at' => null,
                         'completed_at' => null,
                         'processed_count' => null,
                         'skipped_count' => null,
@@ -53,6 +56,7 @@ class RecoverIncompleteImportJobs extends Command
                 } else {
                     $log->update([
                         'error_message' => $this->missingFileReason($log),
+                        'failed_at' => $log->failed_at ?: now(),
                         'completed_at' => now(),
                     ]);
                 }

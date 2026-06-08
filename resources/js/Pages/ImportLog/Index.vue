@@ -2,7 +2,7 @@
 import { useSelectOptions } from "@/composables/useSelectOptions";
 import { router } from "@inertiajs/vue3";
 import { throttle } from "lodash";
-import { computed, ref, watch } from "vue";
+import { computed, onMounted, onUnmounted, ref, watch } from "vue";
 
 const props = defineProps({
     logs: {
@@ -27,7 +27,8 @@ const { options: branchOptions } = useSelectOptions(props.branches);
 const search = ref(props.filters.search ?? "");
 const branchId = ref(props.filters.branchId ?? "all");
 
-const tableColspan = computed(() => (props.isAdmin ? 10 : 9));
+const tableColspan = computed(() => (props.isAdmin ? 13 : 12));
+let refreshTimer = null;
 
 const getLogs = (replace = false) => {
     router.get(
@@ -88,6 +89,19 @@ const statusClass = (status) => {
     return map[status] ?? "bg-gray-100 text-gray-700";
 };
 
+const queueStateClass = (state) => {
+    const map = {
+        completed: "bg-green-100 text-green-700",
+        failed: "bg-red-100 text-red-700",
+        failed_job: "bg-red-100 text-red-700",
+        orphaned: "bg-red-100 text-red-700",
+        running: "bg-yellow-100 text-yellow-700",
+        queued: "bg-blue-100 text-blue-700",
+        waiting: "bg-gray-100 text-gray-700",
+    };
+    return map[state] ?? "bg-gray-100 text-gray-700";
+};
+
 const typeLabel = (type) => {
     const map = {
         sap_masterfile: "SAP Masterfile",
@@ -99,6 +113,19 @@ const typeLabel = (type) => {
 const formatDate = (dateStr) => {
     if (!dateStr) return "-";
     return new Date(dateStr).toLocaleString();
+};
+
+const formatDuration = (seconds) => {
+    if (seconds === null || seconds === undefined) return "-";
+
+    const total = Math.max(0, Math.floor(seconds));
+    const hours = Math.floor(total / 3600);
+    const minutes = Math.floor((total % 3600) / 60);
+    const remainingSeconds = total % 60;
+
+    if (hours > 0) return `${hours}h ${minutes}m`;
+    if (minutes > 0) return `${minutes}m ${remainingSeconds}s`;
+    return `${remainingSeconds}s`;
 };
 
 const storeNames = (log) => {
@@ -116,6 +143,24 @@ const shortError = (message) => {
 
     return message.length > 90 ? `${message.slice(0, 90)}...` : message;
 };
+
+onMounted(() => {
+    refreshTimer = setInterval(() => {
+        const hasActiveLogs = props.logs.data.some((log) =>
+            ["pending", "processing"].includes(log.status)
+        );
+
+        if (hasActiveLogs) {
+            refreshPage();
+        }
+    }, 15000);
+});
+
+onUnmounted(() => {
+    if (refreshTimer) {
+        clearInterval(refreshTimer);
+    }
+});
 </script>
 
 <template>
@@ -159,6 +204,9 @@ const shortError = (message) => {
                     <TH>Processed</TH>
                     <TH>Skipped</TH>
                     <TH>Queued At</TH>
+                    <TH>Started At</TH>
+                    <TH>Runtime</TH>
+                    <TH>Queue State</TH>
                     <TH>Completed At</TH>
                     <TH>Actions</TH>
                 </TableHead>
@@ -191,6 +239,16 @@ const shortError = (message) => {
                         <TD>{{ log.processed_count ?? "-" }}</TD>
                         <TD>{{ log.skipped_count ?? "-" }}</TD>
                         <TD>{{ formatDate(log.created_at) }}</TD>
+                        <TD>{{ formatDate(log.processing_started_at) }}</TD>
+                        <TD>{{ formatDuration(log.runtime_seconds) }}</TD>
+                        <TD>
+                            <span
+                                class="px-2 py-1 rounded text-xs font-medium"
+                                :class="queueStateClass(log.queue_state)"
+                            >
+                                {{ log.queue_state_label ?? "-" }}
+                            </span>
+                        </TD>
                         <TD>{{ formatDate(log.completed_at) }}</TD>
                         <TD>
                             <a
@@ -224,6 +282,9 @@ const shortError = (message) => {
                     <LabelXS>Stores: {{ storeNames(log) }}</LabelXS>
                     <LabelXS>Processed: {{ log.processed_count ?? "-" }} | Skipped: {{ log.skipped_count ?? "-" }}</LabelXS>
                     <LabelXS>Queued: {{ formatDate(log.created_at) }}</LabelXS>
+                    <LabelXS>Started: {{ formatDate(log.processing_started_at) }}</LabelXS>
+                    <LabelXS>Runtime: {{ formatDuration(log.runtime_seconds) }}</LabelXS>
+                    <LabelXS>Queue: {{ log.queue_state_label ?? "-" }}</LabelXS>
                     <LabelXS>Completed: {{ formatDate(log.completed_at) }}</LabelXS>
                     <LabelXS v-if="log.status === 'failed'" class="text-red-600">
                         Error: {{ shortError(log.error_message) }}

@@ -129,6 +129,9 @@ class RequeueStuckImports extends Command
             $log->forceFill([
                 'status' => 'pending',
                 'error_message' => null,
+                'processing_started_at' => null,
+                'last_heartbeat_at' => null,
+                'failed_at' => null,
                 'completed_at' => null,
                 'processed_count' => null,
                 'skipped_count' => null,
@@ -141,6 +144,7 @@ class RequeueStuckImports extends Command
             $log->update([
                 'status' => 'failed',
                 'error_message' => $plan['detail'],
+                'failed_at' => now(),
                 'completed_at' => now(),
             ]);
         }

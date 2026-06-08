@@ -19,7 +19,11 @@ sed -i 's/^;pm.max_requests = .*/pm.max_requests = 500/g' /usr/local/etc/php-fpm
 
 # 4. Clear the cache IMMEDIATELY (Fixes the 500 error)
 # We do this before the background tasks to ensure the very first request is clean.
-composer dump-autoload -o
+if command -v composer >/dev/null 2>&1; then
+  composer dump-autoload -o
+else
+  echo "Composer not found at runtime; using deployed vendor/autoload.php."
+fi
 php /home/site/wwwroot/artisan optimize:clear
 php /home/site/wwwroot/artisan config:clear
 php /home/site/wwwroot/artisan cache:clear
@@ -30,11 +34,8 @@ php /home/site/wwwroot/artisan queue:restart
   echo "⏳ Running migrations..."
   php /home/site/wwwroot/artisan migrate --force
 
-  echo "Recovering incomplete import jobs..."
-  php /home/site/wwwroot/artisan imports:recover-incomplete-jobs --apply
-
-  echo "Requeueing stuck imports..."
-  php /home/site/wwwroot/artisan imports:requeue-stuck --apply
+  echo "Reconciling import queue..."
+  php /home/site/wwwroot/artisan imports:reconcile --apply
   
   echo "⏳ Rebuilding optimization cache..."
   php /home/site/wwwroot/artisan config:cache
@@ -43,13 +44,37 @@ php /home/site/wwwroot/artisan queue:restart
   echo "✅ Background tasks finished!"
 ) &
 
-# 6. Start queue worker for the 'imports' queue (auto-restarts if it dies)
+# 6. Reconcile import state periodically so orphaned processing rows cannot block the queue
+(
+  exec 8>/home/site/wwwroot/storage/framework/imports-reconciler.lock
+  if ! flock -n 8; then
+    echo "[$(date)] Imports reconciler is already running for this instance."
+    exit 0
+  fi
+
+  until php /home/site/wwwroot/artisan migrate:status | grep "2026_06_08_000003_add_runtime_columns_to_import_logs_table" | grep -q "Ran"; do
+    echo "[$(date)] Waiting for import runtime migration before starting reconciler..."
+    sleep 5
+  done
+
+  while true; do
+    php /home/site/wwwroot/artisan imports:reconcile --apply
+    sleep 60
+  done
+) >> /home/site/wwwroot/storage/logs/import-reconciler.log 2>&1 &
+
+# 7. Start queue worker for the 'imports' queue (auto-restarts if it dies)
 (
   exec 9>/home/site/wwwroot/storage/framework/imports-worker.lock
   if ! flock -n 9; then
     echo "[$(date)] Imports queue worker is already running for this instance."
     exit 0
   fi
+
+  until php /home/site/wwwroot/artisan migrate:status | grep "2026_06_08_000003_add_runtime_columns_to_import_logs_table" | grep -q "Ran"; do
+    echo "[$(date)] Waiting for import runtime migration before starting queue worker..."
+    sleep 5
+  done
 
   while true; do
     echo "[$(date)] Starting queue worker..."

@@ -16,6 +16,7 @@ return Application::configure(basePath: dirname(__DIR__))
         \App\Console\Commands\ImportsDoctor::class,
         \App\Console\Commands\RepairFailedImportLogs::class,
         \App\Console\Commands\RecoverIncompleteImportJobs::class,
+        \App\Console\Commands\ReconcileImports::class,
         \App\Console\Commands\RequeueStuckImports::class,
     ])
     ->withMiddleware(function (Middleware $middleware) {

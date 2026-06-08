@@ -16,10 +16,16 @@ class ImportLog extends Model
         'skipped_count',
         'skipped_file_path',
         'error_message',
+        'processing_started_at',
+        'last_heartbeat_at',
+        'failed_at',
         'completed_at',
     ];
 
     protected $casts = [
+        'processing_started_at' => 'datetime',
+        'last_heartbeat_at' => 'datetime',
+        'failed_at' => 'datetime',
         'completed_at' => 'datetime',
     ];
 

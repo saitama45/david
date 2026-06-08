@@ -35,7 +35,13 @@ class StoreTransactionImportJob implements ShouldQueue
     public function handle(): void
     {
         $log = ImportLog::findOrFail($this->importLogId);
-        $log->update(['status' => 'processing']);
+        $log->update([
+            'status' => 'processing',
+            'processing_started_at' => $log->processing_started_at ?? now(),
+            'last_heartbeat_at' => now(),
+            'error_message' => null,
+            'failed_at' => null,
+        ]);
 
         try {
             $filePath = $this->filePath ?: $log->source_file_path;
@@ -50,6 +56,7 @@ class StoreTransactionImportJob implements ShouldQueue
             DB::beginTransaction();
             Excel::import($import, Storage::path($filePath));
             DB::commit();
+            $log->update(['last_heartbeat_at' => now()]);
 
             $skippedRows    = $import->getSkippedRows();
             $skippedCount   = count($skippedRows);
@@ -87,6 +94,7 @@ class StoreTransactionImportJob implements ShouldQueue
                 'processed_count'   => $processedCount,
                 'skipped_count'     => $skippedCount,
                 'skipped_file_path' => $skippedFilePath,
+                'last_heartbeat_at' => now(),
                 'completed_at'      => now(),
             ]);
             $log->storeBranches()->sync($storeBranchIds);
@@ -108,6 +116,8 @@ class StoreTransactionImportJob implements ShouldQueue
             $log->update([
                 'status'        => 'failed',
                 'error_message' => $e->getMessage(),
+                'last_heartbeat_at' => now(),
+                'failed_at'     => now(),
                 'completed_at'  => now(),
             ]);
 
@@ -132,6 +142,8 @@ class StoreTransactionImportJob implements ShouldQueue
         $log->update([
             'status' => 'failed',
             'error_message' => $e->getMessage(),
+            'last_heartbeat_at' => now(),
+            'failed_at' => now(),
             'completed_at' => now(),
         ]);
 

@@ -2,6 +2,7 @@
 
 use App\Console\Commands\RequeueStuckImports;
 use App\Console\Commands\RecoverIncompleteImportJobs;
+use App\Console\Commands\ReconcileImports;
 use App\Jobs\SAPMasterfileImportJob;
 use App\Jobs\StoreTransactionImportJob;
 use App\Services\ImportQueueService;
@@ -51,4 +52,11 @@ it('documents the apply option on the incomplete job recovery command', function
     $definition = (new RecoverIncompleteImportJobs())->getDefinition();
 
     expect($definition->hasOption('apply'))->toBeTrue();
+});
+
+it('documents the reconciler command options', function () {
+    $definition = (new ReconcileImports())->getDefinition();
+
+    expect($definition->hasOption('apply'))->toBeTrue()
+        ->and($definition->hasOption('stale-minutes'))->toBeTrue();
 });

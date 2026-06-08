@@ -34,7 +34,13 @@ class SAPMasterfileImportJob implements ShouldQueue
     public function handle(): void
     {
         $log = ImportLog::findOrFail($this->importLogId);
-        $log->update(['status' => 'processing']);
+        $log->update([
+            'status' => 'processing',
+            'processing_started_at' => $log->processing_started_at ?? now(),
+            'last_heartbeat_at' => now(),
+            'error_message' => null,
+            'failed_at' => null,
+        ]);
 
         try {
             $filePath = $this->filePath ?: $log->source_file_path;
@@ -48,6 +54,7 @@ class SAPMasterfileImportJob implements ShouldQueue
             SAPMasterfileImport::resetSeenCombinations();
             $import = new SAPMasterfileImport();
             Excel::import($import, Storage::path($filePath));
+            $log->update(['last_heartbeat_at' => now()]);
 
             $skippedItems = $import->getSkippedItems();
             $skippedCount = $import->getSkippedCount();
@@ -71,6 +78,7 @@ class SAPMasterfileImportJob implements ShouldQueue
                 'processed_count'   => $processedCount,
                 'skipped_count'     => $skippedCount,
                 'skipped_file_path' => $skippedFilePath,
+                'last_heartbeat_at' => now(),
                 'completed_at'      => now(),
             ]);
 
@@ -86,6 +94,8 @@ class SAPMasterfileImportJob implements ShouldQueue
             $log->update([
                 'status'        => 'failed',
                 'error_message' => $e->getMessage(),
+                'last_heartbeat_at' => now(),
+                'failed_at'     => now(),
                 'completed_at'  => now(),
             ]);
 
@@ -110,6 +120,8 @@ class SAPMasterfileImportJob implements ShouldQueue
         $log->update([
             'status' => 'failed',
             'error_message' => $e->getMessage(),
+            'last_heartbeat_at' => now(),
+            'failed_at' => now(),
             'completed_at' => now(),
         ]);
 
