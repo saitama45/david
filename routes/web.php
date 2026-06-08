@@ -1249,19 +1249,4 @@ Route::controller(WastageSettingsController::class)
         Route::post('/', 'update')->name('update');
     });
 
-// MonsterASP.net Queue Scheduler Route
-Route::get('/run-queue-imports', function (\Illuminate\Http\Request $request) {
-    if ($request->query('token') !== env('QUEUE_WORKER_TOKEN', 'monster-queue-secret')) {
-        abort(403, 'Unauthorized');
-    }
-
-    \Illuminate\Support\Facades\Artisan::call('queue:work', [
-        '--queue' => 'imports',
-        '--stop-when-empty' => true,
-        '--max-time' => 280,
-    ]);
-
-    return response()->json(['status' => 'Queue processed successfully']);
-});
-
 require __DIR__ . '/auth.php';

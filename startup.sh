@@ -28,6 +28,12 @@ php /home/site/wwwroot/artisan cache:clear
 (
   echo "⏳ Running migrations..."
   php /home/site/wwwroot/artisan migrate --force
+
+  echo "Repairing import log statuses..."
+  php /home/site/wwwroot/artisan imports:repair-failed-logs --apply
+
+  echo "Requeueing stuck imports..."
+  php /home/site/wwwroot/artisan imports:requeue-stuck --apply
   
   echo "⏳ Rebuilding optimization cache..."
   php /home/site/wwwroot/artisan config:cache
@@ -38,9 +44,15 @@ php /home/site/wwwroot/artisan cache:clear
 
 # 6. Start queue worker for the 'imports' queue (auto-restarts if it dies)
 (
+  exec 9>/home/site/wwwroot/storage/framework/imports-worker.lock
+  if ! flock -n 9; then
+    echo "[$(date)] Imports queue worker is already running for this instance."
+    exit 0
+  fi
+
   while true; do
     echo "[$(date)] Starting queue worker..."
-    php /home/site/wwwroot/artisan queue:work \
+    php /home/site/wwwroot/artisan queue:work database \
       --queue=imports \
       --sleep=5 \
       --tries=1 \

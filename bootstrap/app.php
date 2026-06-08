@@ -15,6 +15,7 @@ return Application::configure(basePath: dirname(__DIR__))
     ->withCommands([
         \App\Console\Commands\ImportsDoctor::class,
         \App\Console\Commands\RepairFailedImportLogs::class,
+        \App\Console\Commands\RequeueStuckImports::class,
     ])
     ->withMiddleware(function (Middleware $middleware) {
         $middleware->trustProxies(at: '*');
