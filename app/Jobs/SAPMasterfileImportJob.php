@@ -20,7 +20,7 @@ class SAPMasterfileImportJob implements ShouldQueue
 {
     use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
 
-    public $tries = 1;
+    public $tries = 3;
     public $timeout = 3600;
 
     public function __construct(

@@ -8,6 +8,10 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   build:
     name: Build package
@@ -38,7 +42,7 @@ jobs:
           restore-keys: ${{ runner.os }}-composer-
 
       - name: Install Composer Dependencies
-        run: composer install --no-dev --optimize-autoloader
+        run: composer install --no-dev --optimize-autoloader --no-interaction --no-progress --prefer-dist
 
       # 2. Cache NPM dependencies
       - name: Setup Node.js
@@ -49,7 +53,7 @@ jobs:
 
       - name: Install NPM Dependencies & Build
         run: |
-          npm ci
+          npm ci --prefer-offline --no-audit
           npm run build
 
       - name: Create Storage Link
@@ -78,33 +82,57 @@ jobs:
           touch build_output/storage/framework/views/index.html
           touch build_output/storage/logs/index.html
 
-      - name: Upload Artifact
+      - name: Create Azure Zip Package
+        run: |
+          cd build_output
+          zip -qr ../app.zip .
+
+      - name: Upload Azure Package
         uses: actions/upload-artifact@v4
         with:
-          name: laravel-app
-          path: build_output/
+          name: azure-package
+          path: app.zip
+          compression-level: 0
+          retention-days: 1
 
-  deploy:
-    name: Deploy
+      - name: Upload FTP Package
+        uses: actions/upload-artifact@v4
+        with:
+          name: ftp-package
+          path: build_output/
+          retention-days: 1
+
+  deploy_azure:
+    name: Deploy to Azure App
     needs: build
     runs-on: ubuntu-latest
 
     steps:
-      - name: Download Artifact
+      - name: Download Azure Package
         uses: actions/download-artifact@v4
         with:
-          name: laravel-app
+          name: azure-package
           path: .
 
-      # 3. Deploy to Azure
       - name: 'Deploy to Azure Web App'
         uses: azure/webapps-deploy@v3
         with:
           app-name: 'David'
           publish-profile: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE }}
-          package: .
+          package: app.zip
 
-      # 4. Deploy to FTP hosting
+  deploy_ftp:
+    name: Deploy to FTP
+    needs: build
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Download FTP Package
+        uses: actions/download-artifact@v4
+        with:
+          name: ftp-package
+          path: .
+
       - name: Deploy to FTP
         uses: SamKirkland/FTP-Deploy-Action@v4.3.4
         with:
