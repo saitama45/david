@@ -2,6 +2,8 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\BelongsToEntity;
+
 use App\Traits\HasSelections;
 use App\Traits\traits\ProductInventoryReference;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -11,7 +13,7 @@ use OwenIt\Auditing\Contracts\Auditable;
 class UnitOfMeasurement extends Model implements Auditable
 {
     /** @use HasFactory<\Database\Factories\UnitOfMeasurementFactory> */
-    use HasFactory, ProductInventoryReference, HasSelections, \OwenIt\Auditing\Auditable;
+    use HasFactory, ProductInventoryReference, HasSelections, \OwenIt\Auditing\Auditable, BelongsToEntity;
 
     protected $fillable = [
         'name',

@@ -2,13 +2,15 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\BelongsToEntity;
+
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
 class PurchaseItemBatch extends Model
 {
     /** @use HasFactory<\Database\Factories\PurchaseItemBatchFactory> */
-    use HasFactory;
+    use HasFactory, BelongsToEntity;
 
     protected $fillable = [
         'cash_pull_out_item_id',

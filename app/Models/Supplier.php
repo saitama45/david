@@ -2,6 +2,8 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\BelongsToEntity;
+
 use App\Traits\HasSelections;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -12,7 +14,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 class Supplier extends Model implements Auditable
 {
     /** @use HasFactory<\Database\Factories\SupplierFactory> */
-    use HasFactory, HasSelections, \OwenIt\Auditing\Auditable;
+    use HasFactory, HasSelections, \OwenIt\Auditing\Auditable, BelongsToEntity;
 
     protected $fillable = [
         'supplier_code',

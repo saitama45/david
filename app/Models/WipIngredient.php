@@ -2,13 +2,15 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\BelongsToEntity;
+
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
 class WipIngredient extends Model
 {
     /** @use HasFactory<\Database\Factories\WipIngredientFactory> */
-    use HasFactory;
+    use HasFactory, BelongsToEntity;
 
     protected $fillable = [
         'wip_id',

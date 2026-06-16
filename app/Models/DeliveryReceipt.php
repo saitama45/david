@@ -4,12 +4,13 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use App\Models\Concerns\BelongsToEntity;
 use OwenIt\Auditing\Contracts\Auditable;
 
 class DeliveryReceipt extends Model implements Auditable
 {
     /** @use HasFactory<\Database\Factories\DeliveryReceiptFactory> */
-    use HasFactory, \OwenIt\Auditing\Auditable;
+    use HasFactory, \OwenIt\Auditing\Auditable, BelongsToEntity;
 
     protected $fillable = [
         'store_order_id',

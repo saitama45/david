@@ -2,13 +2,15 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\BelongsToEntity;
+
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
 class UsageRecord extends Model
 {
     /** @use HasFactory<\Database\Factories\UsageRecordFactory> */
-    use HasFactory;
+    use HasFactory, BelongsToEntity;
 
     protected $fillable = [
         'store_branch_id',

@@ -3,6 +3,7 @@
 namespace App\Jobs;
 
 use App\Imports\StoreTransactionImport;
+use App\Jobs\Concerns\UsesEntityContext;
 use App\Models\ImportLog;
 use App\Services\ImportQueueService;
 use Exception;
@@ -19,7 +20,7 @@ use Throwable;
 
 class StoreTransactionImportJob implements ShouldQueue
 {
-    use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
+    use Dispatchable, InteractsWithQueue, Queueable, SerializesModels, UsesEntityContext;
 
     public $tries = 3;
     public $timeout = 3600;
@@ -30,11 +31,18 @@ class StoreTransactionImportJob implements ShouldQueue
     ) {
         $this->onConnection('database');
         $this->onQueue('imports');
+        $this->captureEntityContext();
     }
 
     public function handle(): void
     {
-        $log = ImportLog::findOrFail($this->importLogId);
+        $log = ImportLog::withoutEntityScope()->findOrFail($this->importLogId);
+
+        $this->runWithEntityContext(fn () => $this->process($log), $log->entity_id);
+    }
+
+    protected function process(ImportLog $log): void
+    {
         $log->update([
             'status' => 'processing',
             'processing_started_at' => $log->processing_started_at ?? now(),

@@ -2,12 +2,14 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\BelongsToEntity;
+
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
 class SalesBudget extends Model
 {
-    use HasFactory;
+    use HasFactory, BelongsToEntity;
 
     protected $guarded = ['id'];
 

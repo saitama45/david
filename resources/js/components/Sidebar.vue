@@ -112,6 +112,7 @@ const isPathActive = (pathOrPaths) => {
 // Grouping permissions for collapsible sections
 
 const canViewAdministrationGroup = computed(() =>
+    hasAccess("view entities") ||
     hasAccess("view users") ||
     hasAccess("view roles") ||
     hasAccess("manage wastage settings") ||
@@ -310,7 +311,7 @@ watchEffect(() => {
     const currentUrl = usePage().url;
 
     const sections = [
-        { ref: adminOpen, paths: ["/users", "/roles", "/work-queue", "/items-list", "/sapitems-list", "/SupplierItems-list", "/POSMasterfile-list", "/branches", "/suppliers", "/templates", "/ordering-template-approval", "/month-end-count-templates", "/dts-delivery-schedules", "/dsp-delivery-schedules", "/month-end-schedules", "/orders-cutoff", "/manage-knowledge-base", "/wastage-settings"] },
+        { ref: adminOpen, paths: ["/entities", "/users", "/roles", "/work-queue", "/items-list", "/sapitems-list", "/SupplierItems-list", "/POSMasterfile-list", "/branches", "/suppliers", "/templates", "/ordering-template-approval", "/month-end-count-templates", "/dts-delivery-schedules", "/dsp-delivery-schedules", "/month-end-schedules", "/orders-cutoff", "/manage-knowledge-base", "/wastage-settings"] },
         { ref: masterfileOpen, paths: ["/items-list", "/sapitems-list", "/SupplierItems-list", "/POSMasterfile-list", "/branches", "/suppliers"] },
         { ref: templatesOpen, paths: ["/templates", "/ordering-template-approval", "/month-end-count-templates"] },
         { ref: schedulesOpen, paths: ["/dts-delivery-schedules", "/dsp-delivery-schedules", "/month-end-schedules", "/orders-cutoff"] },
@@ -1073,6 +1074,7 @@ watchEffect(() => {
             </CollapsibleTrigger>
             <CollapsibleContent class="pl-2">
                 <div class="flex flex-col">
+                <div :style="{ order: getMenuOrder('administration.entities') }" class="w-full"><NavLink v-if="hasAccess('view entities') && isMenuActive('administration.entities')" href="/entities" :icon="Store" :is-active="isPathActive('/entities')">{{ menuLabel('administration.entities', 'Entities') }}</NavLink></div>
                 <div :style="{ order: getMenuOrder('administration.users') }" class="w-full"><NavLink v-if="hasAccess('view users') && isMenuActive('administration.users')" href="/users" :icon="UsersRound" :is-active="isPathActive('/users')">{{ menuLabel('administration.users', 'Users') }}</NavLink></div>
                 <div :style="{ order: getMenuOrder('administration.roles') }" class="w-full"><NavLink v-if="hasAccess('view roles') && isMenuActive('administration.roles')" href="/roles" :icon="FileCog" :is-active="isPathActive('/roles')">{{ menuLabel('administration.roles', 'Roles') }}</NavLink></div>
                 <div :style="{ order: getMenuOrder('administration.work-queue') }" class="w-full"><NavLink v-if="hasAccess('view import logs') && isMenuActive('administration.work-queue')" href="/work-queue" :icon="ClipboardList" :is-active="isPathActive('/work-queue')">{{ menuLabel('administration.work-queue', 'Work Queue') }}</NavLink></div>

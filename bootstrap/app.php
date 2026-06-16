@@ -13,6 +13,7 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withCommands([
+        \App\Console\Commands\ReconcileMigrationsLog::class,
         \App\Console\Commands\ImportsDoctor::class,
         \App\Console\Commands\RepairFailedImportLogs::class,
         \App\Console\Commands\RecoverIncompleteImportJobs::class,
@@ -22,6 +23,7 @@ return Application::configure(basePath: dirname(__DIR__))
     ->withMiddleware(function (Middleware $middleware) {
         $middleware->trustProxies(at: '*');
         $middleware->web(append: [
+            \App\Http\Middleware\SetActiveEntity::class,
             \App\Http\Middleware\HandleInertiaRequests::class,
             \Illuminate\Http\Middleware\AddLinkHeadersForPreloadedAssets::class,
             \App\Http\Middleware\CheckSidebarMenuActive::class,

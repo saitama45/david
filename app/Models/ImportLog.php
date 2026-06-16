@@ -3,10 +3,14 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use App\Models\Concerns\BelongsToEntity;
 
 class ImportLog extends Model
 {
+    use BelongsToEntity;
+
     protected $fillable = [
+        'entity_id',
         'user_id',
         'type',
         'original_filename',

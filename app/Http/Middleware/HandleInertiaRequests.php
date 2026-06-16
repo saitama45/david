@@ -307,6 +307,11 @@ class HandleInertiaRequests extends Middleware
                 'roles' => $request->user() ? $request->user()->getRoleNames() : [],
                 'permissions' => $request->user() ? $request->user()->getAllPermissions()->pluck('name') : [],
                 'is_admin' => $request->user() ? $request->user()->hasRole('admin') : false,
+                'entities' => $request->user()
+                    ? $request->user()->accessibleEntities()->where('is_active', true)
+                        ->orderBy('name')->get(['entities.id', 'name', 'code', 'logo_path'])
+                    : [],
+                'activeEntity' => app(\App\Support\EntityContext::class)->id(),
             ],
             'notifications' => $notifications,
             'flash' => [

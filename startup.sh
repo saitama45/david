@@ -10,6 +10,12 @@ mkdir -p /home/site/wwwroot/storage/framework/sessions
 mkdir -p /home/site/wwwroot/storage/framework/views
 chmod -R 775 /home/site/wwwroot/storage /home/site/wwwroot/bootstrap/cache
 
+# Ensure the public storage symlink exists (for uploaded files like entity logos).
+# Guarded so it is harmless if the link already exists.
+if [ ! -e /home/site/wwwroot/public/storage ]; then
+  php /home/site/wwwroot/artisan storage:link 2>/dev/null || true
+fi
+
 # 3. Increase PHP-FPM worker limits correctly (Fixes the 502/504 error)
 sed -i 's/^pm.max_children = .*/pm.max_children = 50/g' /usr/local/etc/php-fpm.d/www.conf
 sed -i 's/^pm.start_servers = .*/pm.start_servers = 10/g' /usr/local/etc/php-fpm.d/www.conf
@@ -31,8 +37,14 @@ php /home/site/wwwroot/artisan queue:restart
 
 # 5. Run remaining tasks in background
 (
+  echo "🩹 Reconciling migration log (prevents 'object already exists' on imported schemas)..."
+  php /home/site/wwwroot/artisan migrations:reconcile
+
   echo "⏳ Running migrations..."
   php /home/site/wwwroot/artisan migrate --force
+
+  echo "🔑 Syncing roles & permissions (idempotent)..."
+  php /home/site/wwwroot/artisan db:seed --class=RolesAndPermissionSeeder --force
 
   echo "Reconciling import queue..."
   php /home/site/wwwroot/artisan imports:reconcile --apply

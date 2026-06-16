@@ -4,13 +4,14 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use App\Models\Concerns\BelongsToEntity;
 use OwenIt\Auditing\Contracts\Auditable;
 use App\Enums\IntercoStatus;
 
 class StoreOrder extends Model implements Auditable
 {
     /** @use HasFactory<\Database\Factories\StoreOrderFactory> */
-    use HasFactory, \OwenIt\Auditing\Auditable;
+    use HasFactory, \OwenIt\Auditing\Auditable, BelongsToEntity;
     // Ordering -> Store Order
     //NNSSR-00001
 

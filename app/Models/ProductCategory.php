@@ -2,6 +2,8 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\BelongsToEntity;
+
 use App\Traits\HasSelections;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -11,7 +13,7 @@ use OwenIt\Auditing\Contracts\Auditable;
 class ProductCategory extends Model implements Auditable
 {
     /** @use HasFactory<\Database\Factories\ProductCategoryFactory> */
-    use HasFactory, HasSelections, \OwenIt\Auditing\Auditable;
+    use HasFactory, HasSelections, \OwenIt\Auditing\Auditable, BelongsToEntity;
 
     protected $fillable = [
         'name',

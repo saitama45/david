@@ -2,6 +2,8 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\BelongsToEntity;
+
 use App\Traits\HasSelections;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -14,7 +16,7 @@ use PhpOffice\PhpSpreadsheet\Calculation\Category;
 class ProductInventory extends Model implements Auditable
 {
     /** @use HasFactory<\Database\Factories\ProductInventoryFactory> */
-    use HasFactory, \OwenIt\Auditing\Auditable;
+    use HasFactory, \OwenIt\Auditing\Auditable, BelongsToEntity;
 
     protected $fillable = [
         'inventory_category_id',

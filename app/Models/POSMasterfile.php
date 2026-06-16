@@ -2,6 +2,8 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\BelongsToEntity;
+
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use OwenIt\Auditing\Contracts\Auditable;
@@ -10,7 +12,7 @@ use Illuminate\Database\Eloquent\Builder; // Import Builder
 
 class POSMasterfile extends Model implements Auditable
 {
-    use HasFactory, \OwenIt\Auditing\Auditable, HasSelections; // Add HasSelections trait
+    use HasFactory, \OwenIt\Auditing\Auditable, HasSelections, BelongsToEntity; // Add HasSelections trait
     
     protected $table = 'pos_masterfiles';
 

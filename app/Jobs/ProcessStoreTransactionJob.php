@@ -2,6 +2,7 @@
 
 namespace App\Jobs;
 
+use App\Jobs\Concerns\UsesEntityContext;
 use App\Models\Menu;
 use App\Models\StoreBranch;
 use App\Models\StoreTransaction;
@@ -16,7 +17,7 @@ use Illuminate\Support\Facades\Log;
 
 class ProcessStoreTransactionJob implements ShouldQueue
 {
-    use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
+    use Dispatchable, InteractsWithQueue, Queueable, SerializesModels, UsesEntityContext;
 
     protected $rowData;
     protected $rowNumber;
@@ -46,6 +47,7 @@ class ProcessStoreTransactionJob implements ShouldQueue
     {
         $this->rowData = $rowData;
         $this->rowNumber = $rowNumber;
+        $this->captureEntityContext();
     }
 
     /**
@@ -54,6 +56,11 @@ class ProcessStoreTransactionJob implements ShouldQueue
      * @return void
      */
     public function handle()
+    {
+        $this->runWithEntityContext(fn () => $this->process());
+    }
+
+    protected function process()
     {
         try {
             $row = $this->rowData;

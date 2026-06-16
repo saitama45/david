@@ -3,6 +3,7 @@
 namespace App\Jobs;
 
 use App\Imports\StoreTransactionImport;
+use App\Jobs\Concerns\UsesEntityContext;
 use Exception;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -15,7 +16,7 @@ use Maatwebsite\Excel\Facades\Excel;
 
 class StartImportJob implements ShouldQueue
 {
-    use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
+    use Dispatchable, InteractsWithQueue, Queueable, SerializesModels, UsesEntityContext;
 
     protected $filePath;
 
@@ -43,6 +44,7 @@ class StartImportJob implements ShouldQueue
     {
         $this->filePath = $filePath;
         $this->onQueue('imports');
+        $this->captureEntityContext();
     }
 
     /**
@@ -51,6 +53,11 @@ class StartImportJob implements ShouldQueue
      * @return void
      */
     public function handle()
+    {
+        $this->runWithEntityContext(fn () => $this->process());
+    }
+
+    protected function process()
     {
         try {
             Log::info('Starting import process', [

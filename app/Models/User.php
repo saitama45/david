@@ -26,7 +26,8 @@ class User extends Authenticatable implements Auditable
         'email',
         'password',
         'remarks',
-        'is_active'
+        'is_active',
+        'last_entity_id',
     ];
 
     protected $append = ['full_name'];
@@ -90,6 +91,24 @@ class User extends Authenticatable implements Auditable
             'user_id',
             'store_branch_id'
         );
+    }
+
+    /**
+     * Entities this user may access, derived from their roles
+     * (an entity is accessible if any of the user's roles is granted it).
+     */
+    public function accessibleEntities(): \Illuminate\Database\Eloquent\Builder
+    {
+        $roleIds = $this->roles()->pluck('roles.id');
+
+        return Entity::query()->whereHas('roles', function ($q) use ($roleIds) {
+            $q->whereIn('roles.id', $roleIds);
+        });
+    }
+
+    public function last_entity()
+    {
+        return $this->belongsTo(Entity::class, 'last_entity_id');
     }
 
     // New relationship for suppliers

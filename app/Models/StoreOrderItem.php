@@ -4,13 +4,14 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use App\Models\Concerns\BelongsToEntity;
 use OwenIt\Auditing\Contracts\Auditable;
 use App\Models\SAPMasterfile;
 
 class StoreOrderItem extends Model implements Auditable
 {
     /** @use HasFactory<\Database\Factories\StoreOrderItemFactory> */
-    use HasFactory, \OwenIt\Auditing\Auditable;
+    use HasFactory, \OwenIt\Auditing\Auditable, BelongsToEntity;
 
     protected $touches = ['store_order'];
 

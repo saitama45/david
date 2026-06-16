@@ -2,12 +2,14 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\BelongsToEntity;
+
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
 class OrdersCutoff extends Model
 {
-    use HasFactory;
+    use HasFactory, BelongsToEntity;
 
     /**
      * The table associated with the model.

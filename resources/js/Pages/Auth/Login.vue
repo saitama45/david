@@ -2,16 +2,21 @@
 import Checkbox from "@/components/Checkbox.vue";
 import InputError from "@/components/InputError.vue";
 import InputLabel from "@/components/InputLabel.vue";
+import { computed } from "vue";
 import { Link, useForm } from "@inertiajs/vue3";
 import { Input } from "@/components/ui/input";
 import ImageBanner from "../../../images/temporaryLoginImage.png";
 
-defineProps({
+const props = defineProps({
     canResetPassword: {
         type: Boolean,
     },
     status: {
         type: String,
+    },
+    entities: {
+        type: Array,
+        default: () => [],
     },
 });
 
@@ -19,6 +24,12 @@ const form = useForm({
     email: "",
     password: "",
     remember: false,
+    entity_id: props.entities.length === 1 ? props.entities[0].id : "",
+});
+
+const selectedEntityLogo = computed(() => {
+    const e = props.entities.find((x) => x.id === form.entity_id);
+    return e ? e.logo_url : null;
 });
 
 const submit = () => {
@@ -46,6 +57,36 @@ const submit = () => {
             </h1>
 
             <form class="space-y-5" @submit.prevent="submit">
+                <div>
+                    <InputLabel for="entity_id" value="Entity" />
+
+                    <div class="flex items-center gap-3 mt-1">
+                        <img
+                            v-if="selectedEntityLogo"
+                            :src="selectedEntityLogo"
+                            alt="entity logo"
+                            class="h-12 w-12 rounded object-contain border bg-white shrink-0"
+                        />
+                        <select
+                            id="entity_id"
+                            v-model="form.entity_id"
+                            required
+                            class="block w-full sm:h-12 rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
+                        >
+                            <option value="" disabled>Select an entity</option>
+                            <option
+                                v-for="entity in entities"
+                                :key="entity.id"
+                                :value="entity.id"
+                            >
+                                {{ entity.name }} ({{ entity.code }})
+                            </option>
+                        </select>
+                    </div>
+
+                    <InputError class="mt-2" :message="form.errors.entity_id" />
+                </div>
+
                 <div>
                     <InputLabel for="email" value="Email" />
 

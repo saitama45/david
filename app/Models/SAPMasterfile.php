@@ -2,6 +2,8 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\BelongsToEntity;
+
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use OwenIt\Auditing\Contracts\Auditable;
@@ -10,7 +12,7 @@ use Illuminate\Database\Eloquent\Builder; // Import Builder for scopeOptions
 class SAPMasterfile extends Model implements Auditable
 {
     /** @use HasFactory<\Database\Factories\ProductInventoryFactory> */
-    use HasFactory, \OwenIt\Auditing\Auditable;
+    use HasFactory, \OwenIt\Auditing\Auditable, BelongsToEntity;
     
     protected $table = 'sap_masterfiles';
 

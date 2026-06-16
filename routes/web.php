@@ -122,6 +122,15 @@ Route::get('jobs', function () {
 Route::middleware('auth')
     ->group(function () {
 
+        Route::post('/entity/switch', [\App\Http\Controllers\EntityController::class, 'switch'])->name('entity.switch');
+
+        Route::controller(\App\Http\Controllers\EntityController::class)->name('entities.')->prefix('entities')->group(function () {
+            Route::middleware('permission:view entities')->get('/', 'index')->name('index');
+            Route::middleware('permission:create entities')->post('/', 'store')->name('store');
+            Route::middleware('permission:edit entities')->post('/{entity}', 'update')->name('update');
+            Route::middleware('permission:delete entities')->delete('/{entity}', 'destroy')->name('destroy');
+        });
+
         Route::controller(OrderingCalendarController::class)->name('ordering-calendar.')->prefix('ordering-calendar')->group(function () {
             Route::middleware('permission:view ordering calendar')->get('/', 'index')->name('index');
             Route::get('/data', 'getCalendarData')->name('data');

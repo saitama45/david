@@ -126,6 +126,7 @@ class SidebarMenuSettingsSeeder extends Seeder
             ['menu_key' => 'references.cost-centers',        'parent_key' => 'references', 'sort_order' => 6],
 
             // --- Administration children ---
+            ['menu_key' => 'administration.entities',       'parent_key' => 'administration', 'sort_order' => 0],
             ['menu_key' => 'administration.users',          'parent_key' => 'administration', 'sort_order' => 0],
             ['menu_key' => 'administration.roles',          'parent_key' => 'administration', 'sort_order' => 1],
             ['menu_key' => 'administration.work-queue',     'parent_key' => 'administration', 'sort_order' => 2],

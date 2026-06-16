@@ -64,6 +64,9 @@ class RoleService
                 ],
             ],
             'Administration' => [
+                'Entities' => [
+                    'view entities', 'create entities', 'edit entities', 'delete entities'
+                ],
                 'Users' => [
                     'view users', 'create users', 'edit users', 'view user', 'delete users'
                 ],

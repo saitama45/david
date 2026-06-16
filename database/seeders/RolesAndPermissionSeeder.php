@@ -22,6 +22,10 @@ class RolesAndPermissionSeeder extends Seeder
         $role3 = Role::firstOrCreate(['name' => 'request approver']);
 
         $permissions = [
+            "view entities",
+            "create entities",
+            "edit entities",
+            "delete entities",
             "add stock quantity",
             "approve interco requests",
             "approve mass order",

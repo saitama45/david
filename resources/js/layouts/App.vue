@@ -54,6 +54,12 @@ import PrimeDialog from "primevue/dialog";
 import { ref, reactive, onMounted, onUnmounted, computed, watch } from 'vue';
 
 const page = usePage();
+
+const activeEntity = computed(() => {
+    const entities = page.props.auth?.entities || [];
+    const id = page.props.auth?.activeEntity;
+    return entities.find((e) => e.id === id) || null;
+});
 const user = computed(() => page.props.auth.user);
 
 const props = defineProps({
@@ -87,6 +93,7 @@ const props = defineProps({
 });
 
 import Sidebar from "@/components/Sidebar.vue";
+import EntitySwitcher from "@/components/EntitySwitcher.vue";
 
 const logout = () => {
     router.post("/logout");
@@ -249,6 +256,8 @@ watch(() => groupedMissingSales.value, (newVal) => {
                     <!-- Desktop Sidebar -->
                     <Sidebar />
                 </div>
+                <!-- Entity Switcher (bottom of sidebar) -->
+                <EntitySwitcher class="mt-auto" />
             </div>
         </div>
 
@@ -256,6 +265,20 @@ watch(() => groupedMissingSales.value, (newVal) => {
             <header
                 class="flex-shrink-0 flex h-14 items-center gap-4 border-b bg-muted/40 px-4 lg:h-[60px] lg:px-6"
             >
+                <!-- Active Entity (top nav, left corner) -->
+                <div
+                    v-if="activeEntity"
+                    class="hidden md:flex items-center gap-2 min-w-0"
+                >
+                    <img
+                        v-if="activeEntity.logo_url"
+                        :src="activeEntity.logo_url"
+                        :alt="activeEntity.name"
+                        class="h-8 w-8 shrink-0 rounded object-contain bg-white border"
+                    />
+                    <span class="font-semibold text-sm truncate">{{ activeEntity.name }}</span>
+                </div>
+
                 <!-- Custom Mobile Menu Button -->
                 <Button
                     variant="outline"
@@ -299,6 +322,7 @@ watch(() => groupedMissingSales.value, (newVal) => {
                         <div class="flex-1 overflow-y-auto p-4">
                             <Sidebar />
                         </div>
+                        <EntitySwitcher />
                     </div>
                 </div>
 

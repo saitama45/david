@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\BelongsToEntity;
 use App\Traits\HasSelections;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -12,10 +13,11 @@ use OwenIt\Auditing\Contracts\Auditable;
 class StoreBranch extends Model implements Auditable
 {
     /** @use HasFactory<\Database\Factories\StoreBranchFactory> */
-    use HasFactory, \OwenIt\Auditing\Auditable;
+    use HasFactory, \OwenIt\Auditing\Auditable, BelongsToEntity;
 
     protected $fillable = [
         'id',
+        'entity_id',
         'branch_code',
         'location_code',
         'name',
@@ -33,6 +35,11 @@ class StoreBranch extends Model implements Auditable
         'contact_number',
         'is_active'
     ];
+
+    public function entity()
+    {
+        return $this->belongsTo(Entity::class);
+    }
 
     public function store_orders()
     {
