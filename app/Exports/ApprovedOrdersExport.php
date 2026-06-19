@@ -4,6 +4,7 @@ namespace App\Exports;
 
 use App\Enum\OrderRequestStatus; // Kept if still used elsewhere, but not directly for OrderStatus filtering here
 use App\Enum\OrderStatus; // Import OrderStatus enum
+use App\Http\Services\OrderReceivingService;
 use App\Models\StoreOrder;
 use App\Models\User;
 use Maatwebsite\Excel\Concerns\Exportable;
@@ -19,70 +20,24 @@ class ApprovedOrdersExport implements FromQuery, WithHeadings, WithMapping, With
 {
     use Exportable;
 
-    protected $search;
-    protected $currentFilter; // New property for status filter
+    protected $filters;
+    protected $currentFilter; // Receiving status tab filter
+    protected $service;
 
-    public function __construct($search = null, $currentFilter = 'all') // Constructor now accepts filter
+    public function __construct($filters = [], $currentFilter = 'all', ?OrderReceivingService $service = null)
     {
-        $this->search = $search;
+        $this->filters = is_array($filters) ? $filters : ['search' => $filters];
         $this->currentFilter = $currentFilter;
+        $this->service = $service ?? app(OrderReceivingService::class);
     }
 
     public function query()
     {
         $query = StoreOrder::query()->with(['store_branch', 'supplier', 'encoder', 'approver', 'commiter']);
 
-        // Apply branch filtering based on the logged-in user's assignments
-        $user = User::rolesAndAssignedBranches(); // Assuming this returns user info and assigned branches
-        if (!$user['isAdmin']) {
-            $query->whereIn('store_branch_id', $user['assignedBranches']);
-        }
-
-        // Apply status filter based on $this->currentFilter
-        if ($this->currentFilter === 'all') {
-            // "All" for receiving means orders that are commited, received, or incomplete
-            $query->whereIn('order_status', [
-                OrderStatus::COMMITTED->value,
-                OrderStatus::RECEIVED->value,
-                OrderStatus::INCOMPLETE->value
-            ]);
-        } else {
-            // Determine the canonical lowercase status value from the enum
-            $statusToFilter = '';
-            switch ($this->currentFilter) {
-                case 'commited':
-                    $statusToFilter = strtolower(OrderStatus::COMMITTED->value);
-                    break;
-                case 'received':
-                    $statusToFilter = strtolower(OrderStatus::RECEIVED->value);
-                    break;
-                case 'incomplete':
-                    $statusToFilter = strtolower(OrderStatus::INCOMPLETE->value);
-                    break;
-                // Add other cases if you introduce more specific tabs
-            }
-
-            if ($statusToFilter) {
-                // Apply specific status filter using a case-insensitive comparison with canonical enum value
-                $query->whereRaw('LOWER(order_status) = ?', [$statusToFilter]);
-            } else {
-                // If an unknown filter is passed, return an empty query
-                return $query->whereRaw('1=0');
-            }
-        }
-
-        // Apply search logic
-        if ($this->search) {
-            $query->where(function ($q) {
-                $q->where('order_number', 'like', '%' . $this->search . '%')
-                  ->orWhereHas('supplier', function ($sq) {
-                      $sq->where('name', 'like', '%' . $this->search . '%');
-                  })
-                  ->orWhereHas('store_branch', function ($bq) {
-                      $bq->where('name', 'like', '%' . $this->search . '%');
-                  });
-            });
-        }
+        // Reuse the exact same filter logic as the listing so the export always matches.
+        $this->service->applyCommonFilters($query, $this->filters);
+        $this->service->applyStatusFilter($query, $this->currentFilter);
 
         return $query->latest();
     }

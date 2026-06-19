@@ -45,8 +45,21 @@ class OrderReceivingController extends Controller
 
         return Inertia::render('OrderReceiving/Index', [
             'orders' => $data['orders'],
-            'filters' => request()->only(['search', 'currentFilter']),
-            'counts' => $data['counts']
+            'filters' => request()->only([
+                'search',
+                'currentFilter',
+                'order_number',
+                'delivery_date_from',
+                'delivery_date_to',
+                'placed_date_from',
+                'placed_date_to',
+                'store_ids',
+                'supplier_ids',
+                'variants',
+                'aging',
+            ]),
+            'counts' => $data['counts'],
+            'filterOptions' => $this->orderReceivingService->getFilterOptions(),
         ]);
     }
 
@@ -79,11 +92,23 @@ class OrderReceivingController extends Controller
 
     public function export()
     {
-        $search = request('search');
         $currentFilter = request('currentFilter') ?? 'all';
 
+        $filters = request()->only([
+            'search',
+            'order_number',
+            'delivery_date_from',
+            'delivery_date_to',
+            'placed_date_from',
+            'placed_date_to',
+            'store_ids',
+            'supplier_ids',
+            'variants',
+            'aging',
+        ]);
+
         return Excel::download(
-            new ApprovedOrdersExport($search, $currentFilter),
+            new ApprovedOrdersExport($filters, $currentFilter, $this->orderReceivingService),
             'approved-orders-' . now()->format('Y-m-d') . '.xlsx'
         );
     }

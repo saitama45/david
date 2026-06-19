@@ -29,74 +29,19 @@ class OrderReceivingService extends StoreOrderService
     {
         Log::debug("OrderReceivingService: getOrdersList called with currentFilter: {$currentFilter}");
 
-        $search = request('search');
-        $user = User::rolesAndAssignedBranches();
-
         // Start with a base query that includes relationships
         $query = StoreOrder::query()->with(['store_branch', 'supplier', 'delivery_receipts']);
 
-        // Apply branch filtering based on user roles
-        if (!$user['isAdmin']) {
-            $query->whereIn('store_branch_id', $user['assignedBranches']);
-            Log::debug("OrderReceivingService: Applied branch filter for non-admin user: " . json_encode($user['assignedBranches']));
-        }
-
-        // Apply search filter
-        if ($search) {
-            $query->where(function ($q) use ($search) {
-                $q->where('order_number', 'like', '%' . $search . '%')
-                    ->orWhereHas('supplier', function ($sq) use ($search) {
-                        $sq->where('name', 'like', '%' . $search . '%');
-                    })
-                    ->orWhereHas('store_branch', function ($bq) use ($search) {
-                        $bq->where('name', 'like', '%' . $search . '%');
-                    })
-                    ->orWhereHas('delivery_receipts', function ($drq) use ($search) {
-                        $drq->where('sap_so_number', 'like', '%' . $search . '%');
-                    });
-            });
-            Log::debug("OrderReceivingService: Applied search filter: {$search}");
-        }
+        // Apply all advanced/suggester filters (search, dates, store, supplier, variant, aging, ...)
+        // but NOT the receiving-status tab filter, so the tab counts reflect the applied filters.
+        $this->applyCommonFilters($query, request()->all());
 
         // Calculate counts for all relevant statuses before applying the specific filter for the list
         $counts = $this->getCounts($query);
         Log::debug("OrderReceivingService: Calculated counts: " . json_encode($counts));
 
-        // Apply status filter for the main orders list
-        if ($currentFilter === 'all') {
-            // "All" for receiving means orders that are commited, received, or incomplete
-            $query->whereIn('order_status', [
-                OrderStatus::COMMITTED->value,
-                OrderStatus::RECEIVED->value,
-                OrderStatus::INCOMPLETE->value
-            ]);
-            Log::debug("OrderReceivingService: Applied 'all' status filter: COMMITTED, RECEIVED, INCOMPLETE");
-        } else {
-            // Determine the canonical lowercase status value from the enum
-            $statusToFilter = '';
-            switch ($currentFilter) {
-                case 'commited':
-                    $statusToFilter = strtolower(OrderStatus::COMMITTED->value);
-                    break;
-                case 'received':
-                    $statusToFilter = strtolower(OrderStatus::RECEIVED->value);
-                    break;
-                case 'incomplete':
-                    $statusToFilter = strtolower(OrderStatus::INCOMPLETE->value);
-                    break;
-                // Add other cases if you introduce more specific tabs
-            }
-
-            if ($statusToFilter) {
-                // Apply specific status filter using a case-insensitive comparison with canonical enum value
-                $query->whereRaw('LOWER(order_status) = ?', [$statusToFilter]);
-                Log::debug("OrderReceivingService: Applied specific status filter: LOWER(order_status) = " . $statusToFilter);
-            } else {
-                // Fallback if an unknown filter is passed, prevent showing all orders inadvertently
-                $query->whereRaw('1=0'); // Force no results
-                Log::warning("OrderReceivingService: Unknown status filter '{$currentFilter}'. Forcing empty order results.");
-            }
-        }
+        // Apply receiving-status filter (driven by the tabs) for the main orders list
+        $this->applyStatusFilter($query, $currentFilter);
 
         $orders = $query
             ->latest()
@@ -153,6 +98,244 @@ class OrderReceivingService extends StoreOrderService
         return [
             'orders' => $orders,
             'counts' => $counts
+        ];
+    }
+
+    /**
+     * Apply the shared "suggester" filters to an orders query. This is used by both the
+     * listing (Index) and the Excel export so they always stay consistent. The receiving
+     * status tab filter is intentionally NOT applied here (see applyStatusFilter).
+     *
+     * Supported params:
+     *  - search                : free text (order #, supplier, store, SAP SO #)
+     *  - order_number          : locate a specific order by number
+     *  - delivery_date_from/to : range over order_date (the delivery date)
+     *  - placed_date_from/to   : range over created_at (the order placed date)
+     *  - store_ids[]           : filter by store branch
+     *  - supplier_ids[]        : filter by supplier
+     *  - variants[]            : filter by order type / variant
+     *  - aging[]               : overdue | due_today | upcoming (for not-yet-received orders)
+     *
+     * @param \Illuminate\Database\Eloquent\Builder $query
+     * @param array $params
+     * @return \Illuminate\Database\Eloquent\Builder
+     */
+    public function applyCommonFilters($query, array $params)
+    {
+        $user = User::rolesAndAssignedBranches();
+
+        // Branch restriction for non-admin users
+        if (!$user['isAdmin']) {
+            $query->whereIn('store_branch_id', $user['assignedBranches']);
+            Log::debug("OrderReceivingService: Applied branch filter for non-admin user: " . json_encode($user['assignedBranches']));
+        }
+
+        // Free-text search
+        $search = $params['search'] ?? null;
+        if ($search) {
+            $query->where(function ($q) use ($search) {
+                $q->where('order_number', 'like', '%' . $search . '%')
+                    ->orWhereHas('supplier', function ($sq) use ($search) {
+                        $sq->where('name', 'like', '%' . $search . '%');
+                    })
+                    ->orWhereHas('store_branch', function ($bq) use ($search) {
+                        $bq->where('name', 'like', '%' . $search . '%');
+                    })
+                    ->orWhereHas('delivery_receipts', function ($drq) use ($search) {
+                        $drq->where('sap_so_number', 'like', '%' . $search . '%');
+                    });
+            });
+        }
+
+        // Specific order number
+        if (!empty($params['order_number'])) {
+            $query->where('order_number', 'like', '%' . $params['order_number'] . '%');
+        }
+
+        // Delivery date range (order_date)
+        if (!empty($params['delivery_date_from'])) {
+            $query->whereDate('order_date', '>=', $params['delivery_date_from']);
+        }
+        if (!empty($params['delivery_date_to'])) {
+            $query->whereDate('order_date', '<=', $params['delivery_date_to']);
+        }
+
+        // Order placed date range (created_at)
+        if (!empty($params['placed_date_from'])) {
+            $query->whereDate('created_at', '>=', $params['placed_date_from']);
+        }
+        if (!empty($params['placed_date_to'])) {
+            $query->whereDate('created_at', '<=', $params['placed_date_to']);
+        }
+
+        // Store branch(es)
+        $storeIds = $this->normalizeArrayParam($params['store_ids'] ?? null);
+        if ($storeIds) {
+            $query->whereIn('store_branch_id', $storeIds);
+        }
+
+        // Supplier(s)
+        $supplierIds = $this->normalizeArrayParam($params['supplier_ids'] ?? null);
+        if ($supplierIds) {
+            $query->whereIn('supplier_id', $supplierIds);
+        }
+
+        // Variant(s) / order type
+        $variants = $this->normalizeArrayParam($params['variants'] ?? null);
+        if ($variants) {
+            $query->whereIn('variant', $variants);
+        }
+
+        // Aging / Due status (computed from order_date for not-yet-received orders)
+        $aging = $this->normalizeArrayParam($params['aging'] ?? null);
+        if ($aging) {
+            $this->applyAgingFilter($query, $aging);
+        }
+
+        return $query;
+    }
+
+    /**
+     * Apply the receiving-status tab filter ('all', 'received', 'incomplete', 'commited').
+     *
+     * @param \Illuminate\Database\Eloquent\Builder $query
+     * @param string $currentFilter
+     * @return \Illuminate\Database\Eloquent\Builder
+     */
+    public function applyStatusFilter($query, $currentFilter = 'all')
+    {
+        if ($currentFilter === 'all') {
+            $query->whereIn('order_status', [
+                OrderStatus::COMMITTED->value,
+                OrderStatus::RECEIVED->value,
+                OrderStatus::INCOMPLETE->value,
+            ]);
+            return $query;
+        }
+
+        $map = [
+            'commited' => OrderStatus::COMMITTED->value,
+            'received' => OrderStatus::RECEIVED->value,
+            'incomplete' => OrderStatus::INCOMPLETE->value,
+        ];
+
+        if (isset($map[$currentFilter])) {
+            $query->whereRaw('LOWER(order_status) = ?', [strtolower($map[$currentFilter])]);
+        } else {
+            // Unknown filter -> force no results rather than leaking everything
+            $query->whereRaw('1=0');
+            Log::warning("OrderReceivingService: Unknown status filter '{$currentFilter}'. Forcing empty order results.");
+        }
+
+        return $query;
+    }
+
+    /**
+     * Apply the aging/due-status buckets. Only orders that are not fully received are
+     * considered "overdue", "due today" or "upcoming"; multiple buckets are OR'd together.
+     *
+     * @param \Illuminate\Database\Eloquent\Builder $query
+     * @param array $buckets
+     * @return void
+     */
+    protected function applyAgingFilter($query, array $buckets)
+    {
+        $today = Carbon::today('Asia/Manila')->toDateString();
+        $notReceived = strtolower(OrderStatus::RECEIVED->value);
+
+        $query->where(function ($outer) use ($buckets, $today, $notReceived) {
+            foreach ($buckets as $bucket) {
+                if (!in_array($bucket, ['overdue', 'due_today', 'upcoming'], true)) {
+                    continue;
+                }
+                $outer->orWhere(function ($sub) use ($bucket, $today, $notReceived) {
+                    $sub->whereRaw('LOWER(order_status) <> ?', [$notReceived]);
+                    if ($bucket === 'overdue') {
+                        $sub->whereDate('order_date', '<', $today);
+                    } elseif ($bucket === 'due_today') {
+                        $sub->whereDate('order_date', '=', $today);
+                    } else { // upcoming
+                        $sub->whereDate('order_date', '>', $today);
+                    }
+                });
+            }
+        });
+    }
+
+    /**
+     * Normalize a request parameter that may arrive as an array or a comma-separated
+     * string into a clean array of non-empty values.
+     *
+     * @param mixed $value
+     * @return array
+     */
+    protected function normalizeArrayParam($value): array
+    {
+        if (is_null($value) || $value === '') {
+            return [];
+        }
+        if (!is_array($value)) {
+            $value = explode(',', (string) $value);
+        }
+        return array_values(array_filter($value, fn($v) => $v !== null && $v !== ''));
+    }
+
+    /**
+     * Build the option lists used to populate the filter dropdowns. Store options are
+     * restricted to the branches a non-admin user is assigned to.
+     *
+     * @return array
+     */
+    public function getFilterOptions()
+    {
+        $user = User::rolesAndAssignedBranches();
+
+        $storesQuery = \App\Models\StoreBranch::query()->orderBy('name');
+        if (!$user['isAdmin']) {
+            $storesQuery->whereIn('id', $user['assignedBranches']);
+        }
+
+        $suppliers = \App\Models\Supplier::query()
+            ->orderBy('name')
+            ->get(['id', 'name'])
+            ->map(fn($s) => ['value' => $s->id, 'label' => $s->name])
+            ->values();
+
+        // Distinct variants present among relevant receiving statuses
+        $variantsQuery = StoreOrder::query()
+            ->whereIn('order_status', [
+                OrderStatus::COMMITTED->value,
+                OrderStatus::RECEIVED->value,
+                OrderStatus::INCOMPLETE->value,
+            ])
+            ->whereNotNull('variant')
+            ->where('variant', '<>', '');
+        if (!$user['isAdmin']) {
+            $variantsQuery->whereIn('store_branch_id', $user['assignedBranches']);
+        }
+        $variants = $variantsQuery->distinct()
+            ->orderBy('variant')
+            ->pluck('variant')
+            ->map(fn($v) => ['value' => $v, 'label' => $v])
+            ->values();
+
+        return [
+            'stores' => $storesQuery->get(['id', 'name'])
+                ->map(fn($s) => ['value' => $s->id, 'label' => $s->name])
+                ->values(),
+            'suppliers' => $suppliers,
+            'variants' => $variants,
+            'agingOptions' => [
+                ['value' => 'overdue', 'label' => 'Overdue'],
+                ['value' => 'due_today', 'label' => 'Due Today'],
+                ['value' => 'upcoming', 'label' => 'Upcoming'],
+            ],
+            'statusOptions' => [
+                ['value' => 'all', 'label' => 'All'],
+                ['value' => 'received', 'label' => 'Received'],
+                ['value' => 'incomplete', 'label' => 'Partial Received'],
+                ['value' => 'commited', 'label' => 'Committed'],
+            ],
         ];
     }
 
