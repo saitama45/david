@@ -778,9 +778,15 @@ const time_period = ref(
 );
 
 const inventory_type = ref(props.filters.inventory_type ?? "quantity");
-const activeDashboardTab = ref("overview");
-const activeSalesMixTab = ref("subcategories");
+const canViewOverview = computed(() => hasAccess("view dashboard overview"));
 const canViewSalesMix = computed(() => hasAccess("view sales mix"));
+
+const activeDashboardTab = ref(
+    hasAccess("view dashboard overview") ? "overview" :
+    hasAccess("view sales mix") ? "sales-mix" :
+    null
+);
+const activeSalesMixTab = ref("subcategories");
 
 const formatDate = (date) => {
     const year = date.getFullYear();
@@ -1111,6 +1117,7 @@ const loadActiveSalesMixTab = () => {
 };
 
 const selectDashboardTab = (tab) => {
+    if (tab === "overview" && !canViewOverview.value) return;
     if (tab === "sales-mix" && !canViewSalesMix.value) return;
 
     activeDashboardTab.value = tab;
@@ -1297,6 +1304,7 @@ const registerDoughnutLabelPlugin = () => {
     <Layout heading="Dashboard">
         <div class="mb-6 flex flex-wrap gap-2 border-b border-gray-200">
             <button
+                v-if="canViewOverview"
                 type="button"
                 :class="[
                     'px-4 py-2 text-sm font-semibold transition-colors border-b-2',
@@ -1522,7 +1530,7 @@ const registerDoughnutLabelPlugin = () => {
             </section>
         </div>
 
-        <section v-else class="flex flex-col gap-5">
+        <section v-else-if="activeDashboardTab === 'sales-mix'" class="flex flex-col gap-5">
             <div class="flex flex-wrap gap-2 border-b border-gray-200">
                 <button
                     type="button"
@@ -1850,5 +1858,13 @@ const registerDoughnutLabelPlugin = () => {
                 </div>
             </div>
         </section>
+
+        <div v-else class="flex flex-col items-center justify-center py-24 text-center text-gray-400">
+            <svg class="mb-4 h-12 w-12 text-gray-300" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M18.364 18.364A9 9 0 0 0 5.636 5.636m12.728 12.728A9 9 0 0 1 5.636 5.636m12.728 12.728L5.636 5.636" />
+            </svg>
+            <p class="text-sm font-medium">You don't have access to any Dashboard tabs.</p>
+            <p class="mt-1 text-xs">Contact your administrator to request access.</p>
+        </div>
     </Layout>
 </template>

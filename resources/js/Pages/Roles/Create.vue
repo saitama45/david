@@ -227,47 +227,67 @@ const isPermissionGuideModalVisible = ref(false);
                         </div>
 
                         <!-- Loop through sub-categories within each main category -->
-                        <div
+                        <template
                             v-for="(permissionList, subCategoryLabel) in subCategories"
                             :key="subCategoryLabel"
-                            class="flex flex-col gap-2 pl-4 border-l-2 border-gray-100 my-2 py-1"
                         >
-                            <!-- Display the sub-category name and its "Check All" ToggleSwitch -->
-                            <div class="flex items-center justify-between mb-1">
-                                <SpanBold class="text-xs text-gray-800">{{
-                                    subCategoryLabel
-                                }}</SpanBold>
-                                <div class="flex items-center gap-2">
-                                    <ToggleSwitch
-                                        :inputId="`subcategory-check-all-${mainCategoryLabel}-${subCategoryLabel}`"
-                                        v-model="subCategoryCheckAll(mainCategoryLabel, subCategoryLabel).value"
-                                    />
-                                    <label :for="`subcategory-check-all-${mainCategoryLabel}-${subCategoryLabel}`" class="text-xs text-gray-700">Check All</label>
-                                </div>
-                            </div>
-
-                            <!-- Loop through individual permissions within each sub-category -->
+                            <!-- Single-permission sub-category: collapse to one labeled checkbox -->
                             <div
-                                class="flex items-center gap-3"
-                                v-for="permission in permissionList"
-                                :key="permission.id"
+                                v-if="permissionList.length === 1"
+                                class="flex items-center gap-3 pl-4 my-1"
                             >
-                                <!-- Checkbox for each permission -->
                                 <Checkbox
-                                    :inputId="`permission-${permission.id}`"
+                                    :inputId="`permission-${permissionList[0].id}`"
                                     v-model="form.selectedPermissions"
-                                    :value="permission.id"
+                                    :value="permissionList[0].id"
                                     name="permissions[]"
                                 />
-                                <!-- Label for the checkbox, linked by 'for' attribute -->
                                 <label
-                                    :for="`permission-${permission.id}`"
+                                    :for="`permission-${permissionList[0].id}`"
                                     class="text-xs text-gray-600"
                                 >
-                                    {{ permission.name }}
+                                    {{ subCategoryLabel }}
                                 </label>
                             </div>
-                        </div>
+
+                            <!-- Multi-permission sub-category: show header + Check All + individual checkboxes -->
+                            <div
+                                v-else
+                                class="flex flex-col gap-2 pl-4 border-l-2 border-gray-100 my-2 py-1"
+                            >
+                                <div class="flex items-center justify-between mb-1">
+                                    <SpanBold class="text-xs text-gray-800">{{
+                                        subCategoryLabel
+                                    }}</SpanBold>
+                                    <div class="flex items-center gap-2">
+                                        <ToggleSwitch
+                                            :inputId="`subcategory-check-all-${mainCategoryLabel}-${subCategoryLabel}`"
+                                            v-model="subCategoryCheckAll(mainCategoryLabel, subCategoryLabel).value"
+                                        />
+                                        <label :for="`subcategory-check-all-${mainCategoryLabel}-${subCategoryLabel}`" class="text-xs text-gray-700">Check All</label>
+                                    </div>
+                                </div>
+
+                                <div
+                                    class="flex items-center gap-3"
+                                    v-for="permission in permissionList"
+                                    :key="permission.id"
+                                >
+                                    <Checkbox
+                                        :inputId="`permission-${permission.id}`"
+                                        v-model="form.selectedPermissions"
+                                        :value="permission.id"
+                                        name="permissions[]"
+                                    />
+                                    <label
+                                        :for="`permission-${permission.id}`"
+                                        class="text-xs text-gray-600"
+                                    >
+                                        {{ permission.name }}
+                                    </label>
+                                </div>
+                            </div>
+                        </template>
                     </div>
                 </div>
                 <FormError>{{ form.errors.selectedPermissions }}</FormError>

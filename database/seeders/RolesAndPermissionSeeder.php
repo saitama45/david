@@ -214,6 +214,7 @@ class RolesAndPermissionSeeder extends Seeder
             "view qty variance cost variance report",
             "view received orders for approval list",
             "view roles",
+            "view dashboard overview",
             "view sales budget uploader",
             "view sales mix",
             "view sales report",

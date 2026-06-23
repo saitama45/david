@@ -59,6 +59,9 @@ class RoleService
         // Define the desired hierarchical structure and map permission names to it.
         $permissionStructure = [
             'Dashboard' => [
+                'Overview' => [
+                    'view dashboard overview'
+                ],
                 'Sales Mix' => [
                     'view sales mix'
                 ],
