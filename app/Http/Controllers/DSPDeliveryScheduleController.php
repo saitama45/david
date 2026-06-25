@@ -8,35 +8,32 @@ use App\Models\Supplier;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 
 class DSPDeliveryScheduleController extends Controller
 {
     public function show($id)
     {
         $supplier = Supplier::findOrFail($id);
+        $user = Auth::user();
 
-        // Get existing schedules for this supplier, similar to edit method
-        $schedules = DTSDeliverySchedule::where('variant', $supplier->supplier_code)
-            ->with('store_branch:id,name,branch_code') // Eager load branch details
+        $storeBranches = $user->store_branches()
+            ->where('is_active', true)
+            ->select('store_branches.id', 'store_branches.name', 'store_branches.branch_code')
+            ->orderBy('store_branches.name')
             ->get();
 
-        // Group schedules by day of the week
-        $days = [
-            1 => 'MONDAY', 2 => 'TUESDAY', 3 => 'WEDNESDAY',
-            4 => 'THURSDAY', 5 => 'FRIDAY', 6 => 'SATURDAY', 7 => 'SUNDAY'
-        ];
-
-        $schedulesByDay = [];
-        foreach ($days as $dayId => $dayName) {
-            $branchesForDay = $schedules->where('delivery_schedule_id', $dayId)->pluck('store_branch')->filter();
-            if ($branchesForDay->isNotEmpty()) {
-                $schedulesByDay[$dayName] = $branchesForDay->values();
-            }
-        }
+        $scheduledMap = DTSDeliverySchedule::where('variant', $supplier->supplier_code)
+            ->whereIn('store_branch_id', $storeBranches->pluck('id'))
+            ->get(['store_branch_id', 'delivery_schedule_id'])
+            ->groupBy('store_branch_id')
+            ->map(fn ($rows) => $rows->pluck('delivery_schedule_id')->map(fn ($d) => (int) $d)->values());
 
         return Inertia::render('DSPDeliverySchedule/Show', [
             'supplier' => $supplier,
-            'schedulesByDay' => $schedulesByDay,
+            'storeBranches' => $storeBranches,
+            'scheduledMap' => $scheduledMap,
+            'days' => $this->dayLabels(),
         ]);
     }
 
@@ -72,75 +69,88 @@ class DSPDeliveryScheduleController extends Controller
         $supplier = Supplier::findOrFail($id);
         $user = Auth::user();
 
+        // Rows of the matrix: the user's active branches.
         $storeBranches = $user->store_branches()
             ->where('is_active', true)
             ->select('store_branches.id', 'store_branches.name', 'store_branches.branch_code')
+            ->orderBy('store_branches.name')
             ->get();
 
-        // Get existing schedules for this supplier
-        $existingSchedules = DTSDeliverySchedule::where('variant', $supplier->supplier_code)
-            ->get()
-            ->groupBy('delivery_schedule_id'); // Group by day (1-7)
+        $branchIds = $storeBranches->pluck('id');
 
-        // Prepare schedules data for the view
-        $days = [
-            1 => 'MONDAY', 2 => 'TUESDAY', 3 => 'WEDNESDAY',
-            4 => 'THURSDAY', 5 => 'FRIDAY', 6 => 'SATURDAY', 7 => 'SUNDAY'
-        ];
-
-        $schedulesByDay = [];
-        foreach ($days as $dayId => $dayName) {
-            $scheduledBranchesForDay = $existingSchedules->get($dayId, collect())->map(function ($schedule) use ($storeBranches) {
-                return $storeBranches->firstWhere('id', $schedule->store_branch_id);
-            })->filter()->values(); // Filter out nulls and re-index
-            
-            $schedulesByDay[$dayName] = $scheduledBranchesForDay;
-        }
-
+        // Existing assignments for this supplier, keyed by branch id => [dayIds...].
+        $scheduledMap = DTSDeliverySchedule::where('variant', $supplier->supplier_code)
+            ->whereIn('store_branch_id', $branchIds)
+            ->get(['store_branch_id', 'delivery_schedule_id'])
+            ->groupBy('store_branch_id')
+            ->map(fn ($rows) => $rows->pluck('delivery_schedule_id')->map(fn ($d) => (int) $d)->values());
 
         return Inertia::render('DSPDeliverySchedule/Edit', [
             'supplier' => $supplier,
             'storeBranches' => $storeBranches,
-            'schedulesByDay' => $schedulesByDay,
+            'scheduledMap' => $scheduledMap,
+            'days' => $this->dayLabels(),
         ]);
     }
 
     public function update(Request $request, $id)
     {
         $supplier = Supplier::findOrFail($id);
-        $schedules = $request->input('schedules');
 
-        // Delete old schedules for this supplier
-        DTSDeliverySchedule::where('variant', $supplier->supplier_code)->delete();
+        $validated = $request->validate([
+            'assignments' => 'present|array',
+            'assignments.*' => 'array',
+            'assignments.*.*' => 'integer|between:1,7',
+        ]);
 
-        $dayMap = [
-            'MONDAY' => 1, 'TUESDAY' => 2, 'WEDNESDAY' => 3,
-            'THURSDAY' => 4, 'FRIDAY' => 5, 'SATURDAY' => 6, 'SUNDAY' => 7
-        ];
+        $user = Auth::user();
+        // Only allow writing schedules for branches the user actually owns.
+        $allowedBranchIds = $user->store_branches()
+            ->where('is_active', true)
+            ->pluck('store_branches.id')
+            ->all();
 
         $newSchedules = [];
-        if ($schedules) {
-            foreach ($schedules as $dayName => $branchIds) {
-                if (isset($dayMap[$dayName]) && is_array($branchIds)) {
-                    $dayId = $dayMap[$dayName];
-                    foreach ($branchIds as $branchId) {
-                        $newSchedules[] = [
-                            'delivery_schedule_id' => $dayId,
-                            'store_branch_id' => $branchId,
-                            'variant' => $supplier->supplier_code,
-                            'created_at' => now(),
-                            'updated_at' => now(),
-                        ];
-                    }
-                }
+        foreach ($validated['assignments'] as $branchId => $dayIds) {
+            if (! in_array((int) $branchId, $allowedBranchIds, true)) {
+                continue;
+            }
+            foreach (array_unique($dayIds) as $dayId) {
+                $newSchedules[] = [
+                    'delivery_schedule_id' => $dayId,
+                    'store_branch_id' => (int) $branchId,
+                    'variant' => $supplier->supplier_code,
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                ];
             }
         }
 
-        // Insert new schedules
-        if (!empty($newSchedules)) {
-            DTSDeliverySchedule::insert($newSchedules);
-        }
+        DB::transaction(function () use ($supplier, $allowedBranchIds, $newSchedules) {
+            // Replace only this user's branches for this supplier; leave other
+            // users' branch assignments for the same supplier untouched.
+            DTSDeliverySchedule::where('variant', $supplier->supplier_code)
+                ->whereIn('store_branch_id', $allowedBranchIds)
+                ->delete();
 
-        return redirect()->route('dsp-delivery-schedules.index');
+            if (! empty($newSchedules)) {
+                DTSDeliverySchedule::insert($newSchedules);
+            }
+        });
+
+        return redirect()->route('dsp-delivery-schedules.index')->with('success', 'Delivery schedule updated successfully.');
+    }
+
+    private function dayLabels(): array
+    {
+        return [
+            ['id' => 1, 'label' => 'Mon', 'full' => 'MONDAY'],
+            ['id' => 2, 'label' => 'Tue', 'full' => 'TUESDAY'],
+            ['id' => 3, 'label' => 'Wed', 'full' => 'WEDNESDAY'],
+            ['id' => 4, 'label' => 'Thu', 'full' => 'THURSDAY'],
+            ['id' => 5, 'label' => 'Fri', 'full' => 'FRIDAY'],
+            ['id' => 6, 'label' => 'Sat', 'full' => 'SATURDAY'],
+            ['id' => 7, 'label' => 'Sun', 'full' => 'SUNDAY'],
+        ];
     }
 }

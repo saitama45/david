@@ -1,182 +1,82 @@
 <script setup>
-import { ref, nextTick, onMounted } from 'vue';
+import { ref, reactive, computed } from 'vue';
 import { Head, useForm, Link } from '@inertiajs/vue3';
-import draggable from 'vuedraggable';
-import Multiselect from 'vue-multiselect';
 import { useToast } from '@/components/ui/toast/use-toast';
 import { Toaster } from '@/components/ui/toast';
+import { Search } from 'lucide-vue-next';
 
 const props = defineProps({
     supplier: Object,
     storeBranches: Array,
-    schedulesByDay: Object,
+    // { [branchId]: number[] } — may arrive as [] when empty.
+    scheduledMap: { type: [Object, Array], default: () => ({}) },
+    days: Array,
 });
 
 const { toast } = useToast();
-const days = ['MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY', 'SATURDAY', 'SUNDAY'];
 
-// Initialize with an empty structure
-const form = useForm({
-    schedules: days.reduce((acc, day) => ({ ...acc, [day]: [] }), {}),
+// Reactive assignment state: { [branchId]: number[] of dayIds }.
+const initialMap = Array.isArray(props.scheduledMap) ? {} : props.scheduledMap;
+const assignments = reactive({});
+props.storeBranches.forEach((branch) => {
+    assignments[branch.id] = Array.isArray(initialMap[branch.id]) ? [...initialMap[branch.id]] : [];
 });
 
-// Populate the data after the component is mounted
-onMounted(() => {
-    const initialSchedules = {};
-    for (const day of days) {
-        initialSchedules[day] = (props.schedulesByDay[day] || []).map(branch => ({
-            ...branch,
-            instance_id: `${branch.id}_${Date.now()}_${Math.random()}`
-        }));
-    }
-    form.schedules = initialSchedules;
+const searchQuery = ref('');
+const filteredBranches = computed(() => {
+    const q = searchQuery.value.trim().toLowerCase();
+    if (!q) return props.storeBranches;
+    return props.storeBranches.filter((b) =>
+        b.name.toLowerCase().includes(q) || (b.branch_code || '').toLowerCase().includes(q)
+    );
 });
 
-const stagedBranches = ref([]);
-const multiselectRef = ref(null);
+const isChecked = (branchId, dayId) => assignments[branchId]?.includes(dayId);
 
-// --- Async Search State ---
-const filteredBranchOptions = ref([]);
-const isLoading = ref(false);
-
-const asyncFind = (query) => {
-    if (query.length < 2) {
-        filteredBranchOptions.value = [];
-        return;
-    }
-    isLoading.value = true;
-    const lowerQuery = query.toLowerCase();
-    const result = props.storeBranches.filter(branch => 
-        branch.name.toLowerCase().includes(lowerQuery) ||
-        branch.branch_code.toLowerCase().includes(lowerQuery)
-    ).map(branch => ({
-        ...branch,
-        display_label: `${branch.name} (${branch.branch_code})`
-    }));
-
-    filteredBranchOptions.value = result;
-    isLoading.value = false;
-};
-// ------------------------
-
-const selectedBranch = ref(null);
-
-const onBranchSelect = (selectedOption) => {
-    if (selectedOption) {
-        stagedBranches.value.push({
-            ...selectedOption,
-            instance_id: `${selectedOption.id}_${Date.now()}_${Math.random()}`
-        });
-        selectedBranch.value = null;
-        filteredBranchOptions.value = []; // Clear options after select
-        nextTick(() => {
-            multiselectRef.value?.activate();
-        });
-    }
+const toggleCell = (branchId, dayId) => {
+    const arr = assignments[branchId];
+    const idx = arr.indexOf(dayId);
+    if (idx === -1) arr.push(dayId);
+    else arr.splice(idx, 1);
 };
 
-const handleDayChange = (event, day) => {
-    if (event.added) {
-        const addedElement = event.added.element;
-        const targetList = form.schedules[day];
-        const count = targetList.filter(item => item.id === addedElement.id).length;
+const isScheduled = (branchId) => (assignments[branchId]?.length || 0) > 0;
 
-        if (count > 1) {
-            toast({
-                title: 'Duplicate Entry',
-                description: `'${addedElement.name}' is already scheduled for ${day}.`,
-                variant: 'destructive',
-            });
-            const indexToRemove = targetList.findIndex(item => item.instance_id === addedElement.instance_id);
-            if (indexToRemove !== -1) {
-                form.schedules[day].splice(indexToRemove, 1);
-            }
-        }
-    }
+// Row helper: tick / untick every day for a branch.
+const rowAllChecked = (branchId) => assignments[branchId]?.length === props.days.length;
+const toggleRowAll = (branchId) => {
+    assignments[branchId] = rowAllChecked(branchId) ? [] : props.days.map((d) => d.id);
 };
 
-const moveAllTo = (day) => {
-    const targetList = form.schedules[day];
-    const targetIds = new Set(targetList.map(b => b.id));
-    
-    const branchesToMove = [];
-    const branchesToKeep = [];
-    let duplicatesFoundInStaging = false;
-
-    for (const branch of stagedBranches.value) {
-        if (!targetIds.has(branch.id)) {
-            branchesToMove.push(branch);
-            targetIds.add(branch.id);
-        } else {
-            branchesToKeep.push(branch);
-            duplicatesFoundInStaging = true;
-        }
-    }
-
-    if (branchesToMove.length === 0 && stagedBranches.value.length > 0) {
-        toast({
-            title: 'No Branches Moved',
-            description: `All currently unscheduled branches are already in ${day}'s schedule.`,
-            variant: 'destructive',
-        });
-        return;
-    }
-
-    if (duplicatesFoundInStaging && branchesToMove.length > 0) {
-         toast({
-            title: 'Partial Move',
-            description: `Some branches were not moved because they were already in ${day}'s schedule.`,
-        });
-    }
-
-    form.schedules[day].push(...branchesToMove);
-    stagedBranches.value = branchesToKeep;
+// Column helper: tick / untick a day for every visible branch.
+const colAllChecked = (dayId) =>
+    filteredBranches.value.length > 0 && filteredBranches.value.every((b) => isChecked(b.id, dayId));
+const toggleColAll = (dayId) => {
+    const check = !colAllChecked(dayId);
+    filteredBranches.value.forEach((b) => {
+        const arr = assignments[b.id];
+        const idx = arr.indexOf(dayId);
+        if (check && idx === -1) arr.push(dayId);
+        if (!check && idx !== -1) arr.splice(idx, 1);
+    });
 };
 
-const clearStagedBranches = () => {
-    stagedBranches.value = [];
-};
+const scheduledCount = computed(() => props.storeBranches.filter((b) => isScheduled(b.id)).length);
 
-const clearDay = (day) => {
-    form.schedules[day] = [];
-};
-
-const removeStagedBranch = (instanceId) => {
-    const index = stagedBranches.value.findIndex(b => b.instance_id === instanceId);
-    if (index !== -1) {
-        stagedBranches.value.splice(index, 1);
-    }
-};
-
-const removeScheduledBranch = (day, instanceId) => {
-    const daySchedule = form.schedules[day];
-    if (daySchedule) {
-        const index = daySchedule.findIndex(b => b.instance_id === instanceId);
-        if (index !== -1) {
-            daySchedule.splice(index, 1);
-        }
-    }
-};
-
+const form = useForm({ assignments: {} });
 const submit = () => {
-    const schedulesPayload = {};
-    for (const day of days) {
-        schedulesPayload[day] = form.schedules[day] ? form.schedules[day].map(branch => branch.id) : [];
-    }
-    
-    form.schedules = schedulesPayload;
-    form.post(route('dsp-delivery-schedules.update', props.supplier.id));
+    form.assignments = { ...assignments };
+    form.post(route('dsp-delivery-schedules.update', props.supplier.id), {
+        preserveScroll: true,
+        onSuccess: () => {
+            toast({ title: 'Saved', description: 'Delivery schedule updated successfully.' });
+        },
+        onError: () => {
+            toast({ title: 'Save Failed', description: 'Please try again.', variant: 'destructive' });
+        },
+    });
 };
-
 </script>
-
-<style src="vue-multiselect/dist/vue-multiselect.css"></style>
-<style>
-.ghost {
-    opacity: 0.5;
-    background: #c8ebfb;
-}
-</style>
 
 <template>
     <Head :title="`Delivery Schedule for ${supplier.name}`" />
@@ -184,93 +84,77 @@ const submit = () => {
     <Layout :heading="`Delivery Schedule for ${supplier.name}`">
         <Toaster />
         <div class="p-4 bg-white shadow-md rounded-lg">
-
-            <!-- Search and Staging Area -->
-            <div class="mb-6 p-4 border rounded-lg">
-                <label class="font-bold mb-2 block">Add Branch to Schedule</label>
-                <Multiselect
-                    ref="multiselectRef"
-                    v-model="selectedBranch"
-                    :options="filteredBranchOptions"
-                    :internal-search="false"
-                    :loading="isLoading"
-                    @search-change="asyncFind"
-                    label="display_label"
-                    track-by="id"
-                    placeholder="Type to search for a branch..."
-                    @select="onBranchSelect"
-                    class="mb-4"
-                >
-                    <template #option="{ option }">
-                        <div>
-                            <span class="font-semibold">{{ option.name }}</span>
-                            <span class="text-sm text-gray-500 ml-2">({{ option.branch_code }})</span>
-                        </div>
-                    </template>
-                    <template #noResult>
-                        <span>No branches found. Try a different search.</span>
-                    </template>
-                     <template #noOptions>
-                        <span>Type at least 2 characters to begin searching.</span>
-                    </template>
-                </Multiselect>
-
-                <div class="flex justify-between items-center mt-4 mb-2">
-                    <h4 class="font-semibold text-gray-700">Unscheduled Branches (drag from here)</h4>
-                    <div class="flex items-center gap-2">
-                        <div class="flex items-center gap-1">
-                            <span class="text-xs font-medium mr-1">Move all to:</span>
-                            <button @click="moveAllTo('MONDAY')" title="Move all to Monday" class="px-2 py-1 text-xs bg-gray-200 hover:bg-gray-300 rounded">Mon</button>
-                            <button @click="moveAllTo('TUESDAY')" title="Move all to Tuesday" class="px-2 py-1 text-xs bg-gray-200 hover:bg-gray-300 rounded">Tue</button>
-                            <button @click="moveAllTo('WEDNESDAY')" title="Move all to Wednesday" class="px-2 py-1 text-xs bg-gray-200 hover:bg-gray-300 rounded">Wed</button>
-                            <button @click="moveAllTo('THURSDAY')" title="Move all to Thursday" class="px-2 py-1 text-xs bg-gray-200 hover:bg-gray-300 rounded">Thu</button>
-                            <button @click="moveAllTo('FRIDAY')" title="Move all to Friday" class="px-2 py-1 text-xs bg-gray-200 hover:bg-gray-300 rounded">Fri</button>
-                            <button @click="moveAllTo('SATURDAY')" title="Move all to Saturday" class="px-2 py-1 text-xs bg-gray-200 hover:bg-gray-300 rounded">Sat</button>
-                            <button @click="moveAllTo('SUNDAY')" title="Move all to Sunday" class="px-2 py-1 text-xs bg-gray-200 hover:bg-gray-300 rounded">Sun</button>
-                        </div>
-                        <div class="border-l border-gray-300 pl-2 ml-2">
-                            <button @click="clearStagedBranches" title="Clear all unscheduled branches" class="px-2 py-1 text-xs bg-red-500 text-white hover:bg-red-600 rounded">Clear All</button>
-                        </div>
-                    </div>
+            <!-- Header row: supplier info + search -->
+            <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
+                <div>
+                    <p class="text-sm text-gray-500">Supplier</p>
+                    <p class="font-semibold text-gray-800">{{ supplier.name }} <span class="text-gray-400">({{ supplier.supplier_code }})</span></p>
+                    <p class="text-xs text-gray-500 mt-1">{{ scheduledCount }} of {{ storeBranches.length }} branches scheduled</p>
                 </div>
-                <draggable
-                    v-model="stagedBranches"
-                    group="branches"
-                    item-key="instance_id"
-                    class="flex flex-wrap gap-2 p-4 bg-gray-100 rounded-lg min-h-[70px] border-2 border-dashed border-gray-300"
-                >
-                    <template #item="{ element }">
-                        <div class="relative p-2 pr-7 bg-gray-300 border border-gray-400 rounded cursor-move">
-                            <span>{{ element.name }}</span>
-                            <button @click="removeStagedBranch(element.instance_id)" class="absolute top-0 right-0 px-2 py-1 text-gray-500 hover:text-red-600 font-bold text-lg">&times;</button>
-                        </div>
-                    </template>
-                </draggable>
+                <div class="relative w-full sm:w-72">
+                    <Search class="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                    <Input v-model="searchQuery" placeholder="Search branch name or code..." class="w-full pl-9" />
+                </div>
             </div>
 
-            <!-- Day Columns -->
-            <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-7 gap-4">
-                <div v-for="day in days" :key="day" class="border p-2 rounded-lg">
-                    <div class="flex justify-center items-center mb-2 relative">
-                        <h3 class="font-bold text-center">{{ day }}</h3>
-                        <button @click="clearDay(day)" title="Clear all for this day" class="absolute right-1 top-[-2px] text-gray-400 hover:text-red-600 text-xl font-bold">&times;</button>
-                    </div>
-                    <draggable
-                        v-model="form.schedules[day]"
-                        group="branches"
-                        item-key="instance_id"
-                        @change="(event) => handleDayChange(event, day)"
-                        ghost-class="ghost"
-                        class="min-h-[200px] bg-green-50 p-4 rounded-lg border-2 border-dashed border-green-200 transition-colors duration-200"
-                    >
-                        <template #item="{ element }">
-                            <div class="relative p-2 pr-7 mb-2 bg-blue-100 border border-blue-300 rounded cursor-move">
-                                <span>{{ element.name }}</span>
-                                <button @click="removeScheduledBranch(day, element.instance_id)" class="absolute top-0 right-0 px-2 py-1 text-blue-500 hover:text-red-600 font-bold text-lg">&times;</button>
-                            </div>
-                        </template>
-                    </draggable>
-                </div>
+            <p class="text-sm text-gray-500 mb-3">Tick the delivery days for each branch. Use a column header to set a day for all listed branches, or the "All days" box to set every day for a branch.</p>
+
+            <div class="overflow-x-auto border rounded-lg">
+                <table class="min-w-full text-sm">
+                    <thead class="bg-gray-50 border-b">
+                        <tr>
+                            <th class="px-3 py-2 text-left font-semibold text-gray-600 sticky left-0 bg-gray-50">Branch Code</th>
+                            <th class="px-3 py-2 text-left font-semibold text-gray-600">Branch Name</th>
+                            <th class="px-3 py-2 text-center font-semibold text-gray-600">Status</th>
+                            <th class="px-3 py-2 text-center font-semibold text-gray-600">All days</th>
+                            <th v-for="day in days" :key="day.id" class="px-2 py-2 text-center font-semibold text-gray-600">
+                                <div class="flex flex-col items-center gap-1">
+                                    <span>{{ day.label }}</span>
+                                    <input
+                                        type="checkbox"
+                                        :checked="colAllChecked(day.id)"
+                                        @change="toggleColAll(day.id)"
+                                        title="Toggle this day for all listed branches"
+                                        class="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                                    />
+                                </div>
+                            </th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y">
+                        <tr v-if="!filteredBranches.length">
+                            <td :colspan="4 + days.length" class="px-3 py-6 text-center text-gray-500">No branches found.</td>
+                        </tr>
+                        <tr v-for="branch in filteredBranches" :key="branch.id" class="hover:bg-gray-50">
+                            <td class="px-3 py-2 text-gray-700 sticky left-0 bg-white">{{ branch.branch_code }}</td>
+                            <td class="px-3 py-2 font-medium text-gray-800">{{ branch.name }}</td>
+                            <td class="px-3 py-2 text-center">
+                                <span
+                                    class="inline-block px-2 py-0.5 text-xs font-semibold rounded-full"
+                                    :class="isScheduled(branch.id) ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'"
+                                >
+                                    {{ isScheduled(branch.id) ? 'Scheduled' : 'Unscheduled' }}
+                                </span>
+                            </td>
+                            <td class="px-3 py-2 text-center">
+                                <input
+                                    type="checkbox"
+                                    :checked="rowAllChecked(branch.id)"
+                                    @change="toggleRowAll(branch.id)"
+                                    class="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                                />
+                            </td>
+                            <td v-for="day in days" :key="day.id" class="px-2 py-2 text-center">
+                                <input
+                                    type="checkbox"
+                                    :checked="isChecked(branch.id, day.id)"
+                                    @change="toggleCell(branch.id, day.id)"
+                                    class="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                                />
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
             </div>
 
             <!-- Action Buttons -->
