@@ -3,7 +3,10 @@
 namespace App\Http\Controllers;
 
 use App\Models\MonthEndSchedule;
+use App\Models\MonthEndCountSetting;
 use App\Models\StoreBranch;
+use App\Http\Services\MonthEndCountSettingsService;
+use App\Support\EntityContext;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Carbon;
@@ -13,6 +16,10 @@ use Inertia\Inertia;
 
 class MonthEndScheduleController extends Controller
 {
+    public function __construct(private MonthEndCountSettingsService $settingsService)
+    {
+    }
+
     public function index(Request $request)
     {
         $selectedYear = $request->input('year');
@@ -45,12 +52,41 @@ class MonthEndScheduleController extends Controller
         return Inertia::render('MonthEndSchedule/Index', [
             'schedules' => $schedules,
             'filters' => ['year' => $selectedYear],
+            'settings' => $this->settingsService->current(),
             'can' => [
                 'create_month_end_schedules' => Auth::user()->can('create month end schedules'),
                 'edit_month_end_schedules' => Auth::user()->can('edit month end schedules'),
                 'delete_month_end_schedules' => Auth::user()->can('delete month end schedules'),
+                'manage_month_end_count_settings' => Auth::user()->can('manage month end count settings'),
             ]
         ]);
+    }
+
+    public function updateSettings(Request $request)
+    {
+        $validated = $request->validate([
+            'download_lead_days' => 'required|integer|min:0|max:90',
+            'download_lead_unit' => 'required|in:business,calendar',
+            'block_on_weekends' => 'required|boolean',
+            'upload_start_days' => 'required|integer|min:0|max:90',
+            'upload_start_unit' => 'required|in:business,calendar',
+            'upload_cutoff_enabled' => 'required|boolean',
+            'upload_cutoff_days' => 'nullable|integer|min:0|max:90|required_if:upload_cutoff_enabled,true',
+            'upload_cutoff_unit' => 'required|in:business,calendar',
+            'upload_cutoff_time' => 'nullable|date_format:H:i|required_if:upload_cutoff_enabled,true',
+        ]);
+
+        $entityId = app(EntityContext::class)->id();
+        if (! $entityId) {
+            return back()->withErrors(['error' => 'No active entity selected. Please select an entity before saving settings.']);
+        }
+
+        MonthEndCountSetting::updateOrCreate(
+            ['entity_id' => $entityId],
+            $validated
+        );
+
+        return redirect()->route('month-end-schedules.index')->with('success', 'Month End Count configuration saved successfully.');
     }
 
     public function store(Request $request)

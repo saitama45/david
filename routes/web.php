@@ -581,6 +581,7 @@ Route::middleware('auth')
             ->name('month-end-schedules.')
             ->group(function () {
                 Route::middleware('permission:view month end schedules')->get('/', 'index')->name('index');
+                Route::middleware('permission:manage month end count settings')->put('/settings', 'updateSettings')->name('settings.update');
                 Route::middleware('permission:create month end schedules')->post('/', 'store')->name('store');
                 Route::middleware('permission:edit month end schedules')->put('/{schedule}', 'update')->name('update');
                 Route::middleware('permission:delete month end schedules')->delete('/{schedule}', 'destroy')->name('destroy');

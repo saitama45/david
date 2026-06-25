@@ -149,6 +149,7 @@ class RolesAndPermissionSeeder extends Seeder
             "manage references",
             "manage sidebar",
             "manage wastage settings",
+            "manage month end count settings",
             "perform month end count",
             "receive interco requests",
             "receive orders",

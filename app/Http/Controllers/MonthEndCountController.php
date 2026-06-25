@@ -17,6 +17,7 @@ use Inertia\Inertia;
 use Maatwebsite\Excel\Facades\Excel;
 use App\Exports\MonthEndCountTemplateExport;
 use App\Imports\MonthEndCountImport;
+use App\Http\Services\MonthEndCountSettingsService;
 use Exception;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -24,6 +25,10 @@ use Illuminate\Support\Facades\Cache;
 
 class MonthEndCountController extends Controller
 {
+    public function __construct(private MonthEndCountSettingsService $settingsService)
+    {
+    }
+
     public function index(Request $request)
     {
         $user = Auth::user();
@@ -31,8 +36,9 @@ class MonthEndCountController extends Controller
         $userBranches = $user->store_branches->pluck('name', 'id');
         $userBranchIds = $user->store_branches->pluck('id');
 
+        $settings = $this->settingsService->current();
+        $now = Carbon::now('Asia/Manila');
         $today = Carbon::today('Asia/Manila');
-        $yesterday = Carbon::yesterday('Asia/Manila'); // Re-introduce yesterday
 
         $downloadSchedule = null;
         $uploadSchedule = null;
@@ -40,39 +46,27 @@ class MonthEndCountController extends Controller
         $branchesAwaitingUpload = collect();
         $uploadedCountsAwaitingSubmission = collect();
 
-        // Download schedule logic: 3 business days before calculated_date
-        // Fetch candidate schedules that are today or in the future
+        // Download schedule logic: configurable lead time before calculated_date.
+        // Fetch candidate schedules that are today or in the future.
         $candidateSchedules = MonthEndSchedule::where('calculated_date', '>=', $today)
             ->orderBy('calculated_date', 'asc')
             ->take(5)
             ->get();
 
         foreach ($candidateSchedules as $schedule) {
-            // Determine the valid download start date (3 business days before calculated_date)
-            $validStartDate = Carbon::parse($schedule->calculated_date);
-            $businessDaysToSubtract = 3;
-            while ($businessDaysToSubtract > 0) {
-                $validStartDate->subDay();
-                if (!$validStartDate->isWeekend()) {
-                    $businessDaysToSubtract--;
-                }
-            }
-
-            // If today is a weekend, download is not available
-            if ($today->isWeekend()) {
-                continue;
-            }
-
-            // Check if today is within the valid window
-            if ($today->greaterThanOrEqualTo($validStartDate) && $today->lessThanOrEqualTo($schedule->calculated_date)) {
+            if ($this->settingsService->isDownloadOpen($today, Carbon::parse($schedule->calculated_date), $settings)) {
                 $downloadSchedule = $schedule;
                 break;
             }
         }
 
-        // Upload schedule: the schedule whose calculated_date was yesterday.
-        $globalUploadSchedule = MonthEndSchedule::whereDate('calculated_date', $yesterday)
-            ->first(); // No status filter
+        // Upload schedule: the most recent past schedule still inside its
+        // configurable upload window (start offset .. cutoff).
+        $globalUploadSchedule = MonthEndSchedule::where('calculated_date', '<', $today)
+            ->orderBy('calculated_date', 'desc')
+            ->take(5)
+            ->get()
+            ->first(fn ($schedule) => $this->settingsService->isUploadOpen($now, Carbon::parse($schedule->calculated_date), $settings));
 
         if ($globalUploadSchedule) {
             $allUserBranchIds = $user->store_branches->pluck('id');
@@ -250,17 +244,29 @@ class MonthEndCountController extends Controller
         $branch = StoreBranch::findOrFail($request->branch_id);
         Log::info('MonthEndCountController@upload: Schedule and Branch found.', ['schedule_id' => $schedule->id, 'branch_id' => $branch->id]);
 
-        // Ensure the upload is happening on or after the calculated date (using Asia/Manila timezone)
-        $todayManila = Carbon::today('Asia/Manila')->toDateString();
-        $allowedUploadDate = Carbon::parse($schedule->calculated_date, 'Asia/Manila')->addDay()->toDateString();
+        // Enforce the configurable upload window (start offset .. cutoff) in Asia/Manila.
+        $settings = $this->settingsService->current();
+        $now = Carbon::now('Asia/Manila');
+        $calculatedDate = Carbon::parse($schedule->calculated_date, 'Asia/Manila');
+        $uploadStart = $this->settingsService->uploadStart($calculatedDate, $settings);
+        $uploadCutoff = $this->settingsService->uploadCutoff($calculatedDate, $settings);
 
-        if ($todayManila < $allowedUploadDate) {
-            Log::warning('MonthEndCountController@upload: Upload date is before allowed date.', [
-                'calculated_date' => $schedule->calculated_date instanceof \Carbon\Carbon ? $schedule->calculated_date->toDateString() : $schedule->calculated_date,
-                'allowed_upload_date' => $allowedUploadDate,
-                'today_manila' => $todayManila
+        if ($now->lt($uploadStart)) {
+            Log::warning('MonthEndCountController@upload: Upload date is before the allowed start.', [
+                'calculated_date' => $calculatedDate->toDateString(),
+                'upload_start' => $uploadStart->toDateTimeString(),
+                'now_manila' => $now->toDateTimeString(),
             ]);
-            return back()->withErrors(['error' => 'File can only be uploaded the day after the scheduled count (' . $allowedUploadDate . ').']);
+            return back()->withErrors(['error' => 'File can only be uploaded starting ' . $uploadStart->format('M j, Y') . '.']);
+        }
+
+        if ($uploadCutoff && $now->gt($uploadCutoff)) {
+            Log::warning('MonthEndCountController@upload: Upload date is past the cutoff.', [
+                'calculated_date' => $calculatedDate->toDateString(),
+                'upload_cutoff' => $uploadCutoff->toDateTimeString(),
+                'now_manila' => $now->toDateTimeString(),
+            ]);
+            return back()->withErrors(['error' => 'The upload window for this count closed on ' . $uploadCutoff->format('M j, Y g:i A') . '.']);
         }
         Log::info('MonthEndCountController@upload: Date validation passed.');
 

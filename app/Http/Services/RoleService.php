@@ -93,7 +93,7 @@ class RoleService
                 'Schedules' => [
                     'view dts delivery schedules', 'edit dts delivery schedules', 'export dts delivery schedules',
                     'view dsp delivery schedules', 'view dsp delivery schedule', 'edit dsp delivery schedules',
-                    'view month end schedules', 'create month end schedules', 'edit month end schedules', 'delete month end schedules',
+                    'view month end schedules', 'create month end schedules', 'edit month end schedules', 'delete month end schedules', 'manage month end count settings',
                     'view orders cutoff', 'edit orders cutoff', 'create orders cutoff', 'show orders cutoff'
                 ],
                 'Knowledge Base Articles' => [

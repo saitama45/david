@@ -2,7 +2,7 @@
 import { useForm, Head, router } from '@inertiajs/vue3';
 import { useConfirm } from "primevue/useconfirm";
 import { useToast } from "primevue/usetoast";
-import { CalendarCheck2, Trash2, Pencil, Save, X, Plus, Loader2, Search } from 'lucide-vue-next';
+import { CalendarCheck2, Trash2, Pencil, Save, X, Plus, Loader2, Search, CalendarDays, SlidersHorizontal } from 'lucide-vue-next';
 import InputError from '@/components/InputError.vue';
 import { ref, reactive, watch, computed } from 'vue';
 import { throttle } from 'lodash';
@@ -13,7 +13,43 @@ const props = defineProps({
     schedules: { type: Object, required: true },
     can: { type: Object, required: true },
     filters: { type: Object, default: () => ({}) },
+    settings: { type: Object, required: true },
 });
+
+// --- Tabs ---
+const activeTab = ref('schedules');
+
+// --- Configuration form ---
+const dayUnitOptions = [
+    { value: 'business', label: 'Business days (skip weekends)' },
+    { value: 'calendar', label: 'Calendar days' },
+];
+
+const settingsForm = useForm({
+    download_lead_days: props.settings.download_lead_days,
+    download_lead_unit: props.settings.download_lead_unit,
+    block_on_weekends: props.settings.block_on_weekends,
+    upload_start_days: props.settings.upload_start_days,
+    upload_start_unit: props.settings.upload_start_unit,
+    upload_cutoff_enabled: props.settings.upload_cutoff_enabled,
+    upload_cutoff_days: props.settings.upload_cutoff_days,
+    upload_cutoff_unit: props.settings.upload_cutoff_unit,
+    // <input type="time"> expects HH:mm; the backend stores/returns HH:mm:ss.
+    upload_cutoff_time: (props.settings.upload_cutoff_time || '23:59:00').slice(0, 5),
+});
+
+const saveSettings = () => {
+    settingsForm.put(route('month-end-schedules.settings.update'), {
+        preserveScroll: true,
+        onSuccess: () => {
+            toast.add({ severity: 'success', summary: 'Saved', detail: 'Month End Count configuration saved.', life: 3000 });
+        },
+        onError: (errors) => {
+            const detail = Object.values(errors)[0] || 'Please review the highlighted fields.';
+            toast.add({ severity: 'error', summary: 'Save Failed', detail, life: 5000 });
+        },
+    });
+};
 
 const confirm = useConfirm();
 const toast = useToast();
@@ -230,6 +266,33 @@ const getStatusColor = (status) => {
     <Head title="Month End Schedules" />
 
     <Layout heading="Month End Schedules Management">
+        <!-- Tabs -->
+        <div class="border-b border-gray-200 mb-6">
+            <nav class="-mb-px flex gap-6">
+                <button
+                    type="button"
+                    @click="activeTab = 'schedules'"
+                    class="inline-flex items-center gap-2 py-3 px-1 border-b-2 text-sm font-medium transition-colors"
+                    :class="activeTab === 'schedules' ? 'border-indigo-500 text-indigo-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'"
+                >
+                    <CalendarDays class="h-4 w-4" />
+                    Schedules
+                </button>
+                <button
+                    v-if="can.manage_month_end_count_settings"
+                    type="button"
+                    @click="activeTab = 'configuration'"
+                    class="inline-flex items-center gap-2 py-3 px-1 border-b-2 text-sm font-medium transition-colors"
+                    :class="activeTab === 'configuration' ? 'border-indigo-500 text-indigo-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'"
+                >
+                    <SlidersHorizontal class="h-4 w-4" />
+                    Configuration
+                </button>
+            </nav>
+        </div>
+
+        <!-- Schedules Tab -->
+        <div v-show="activeTab === 'schedules'">
         <div class="bg-white rounded-lg shadow-sm p-4 mb-6">
             <div class="flex justify-between items-center">
                 <div class="w-56">
@@ -310,6 +373,85 @@ const getStatusColor = (status) => {
             <p class="mt-1 text-sm">No schedules have been generated for the selected year.</p>
         </div>
         <Pagination v-if="schedules.data.length > 0" :data="schedules" class="mt-6" />
+        </div>
+
+        <!-- Configuration Tab -->
+        <div v-show="activeTab === 'configuration'" v-if="can.manage_month_end_count_settings">
+            <form @submit.prevent="saveSettings" class="max-w-3xl space-y-6">
+                <!-- Download Window -->
+                <div class="bg-white rounded-lg shadow-sm p-6">
+                    <h3 class="text-lg font-semibold text-gray-800">Download Window</h3>
+                    <p class="text-sm text-gray-500 mt-1">Controls when the count template becomes downloadable, relative to the MEC Schedule Date.</p>
+                    <div class="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div>
+                            <Label for="download_lead_days">Open download this many days before</Label>
+                            <Input id="download_lead_days" type="number" min="0" max="90" v-model="settingsForm.download_lead_days" class="w-full mt-1" />
+                            <InputError :message="settingsForm.errors.download_lead_days" class="mt-1" />
+                        </div>
+                        <div>
+                            <Label for="download_lead_unit">Counted as</Label>
+                            <Select id="download_lead_unit" v-model="settingsForm.download_lead_unit" :options="dayUnitOptions" optionLabel="label" optionValue="value" class="w-full mt-1" />
+                            <InputError :message="settingsForm.errors.download_lead_unit" class="mt-1" />
+                        </div>
+                    </div>
+                    <label class="mt-4 flex items-center gap-2 cursor-pointer">
+                        <input type="checkbox" v-model="settingsForm.block_on_weekends" class="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500" />
+                        <span class="text-sm text-gray-700">Block template download on weekends</span>
+                    </label>
+                    <InputError :message="settingsForm.errors.block_on_weekends" class="mt-1" />
+                </div>
+
+                <!-- Upload Window -->
+                <div class="bg-white rounded-lg shadow-sm p-6">
+                    <h3 class="text-lg font-semibold text-gray-800">Upload Window</h3>
+                    <p class="text-sm text-gray-500 mt-1">Controls when completed counts can be uploaded, relative to the MEC Schedule Date.</p>
+                    <div class="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div>
+                            <Label for="upload_start_days">Open upload this many days after</Label>
+                            <Input id="upload_start_days" type="number" min="0" max="90" v-model="settingsForm.upload_start_days" class="w-full mt-1" />
+                            <InputError :message="settingsForm.errors.upload_start_days" class="mt-1" />
+                        </div>
+                        <div>
+                            <Label for="upload_start_unit">Counted as</Label>
+                            <Select id="upload_start_unit" v-model="settingsForm.upload_start_unit" :options="dayUnitOptions" optionLabel="label" optionValue="value" class="w-full mt-1" />
+                            <InputError :message="settingsForm.errors.upload_start_unit" class="mt-1" />
+                        </div>
+                    </div>
+
+                    <div class="mt-6 pt-4 border-t border-gray-100">
+                        <label class="flex items-center gap-2 cursor-pointer">
+                            <input type="checkbox" v-model="settingsForm.upload_cutoff_enabled" class="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500" />
+                            <span class="text-sm font-medium text-gray-700">Enforce an upload cutoff (deadline)</span>
+                        </label>
+                        <div v-if="settingsForm.upload_cutoff_enabled" class="mt-4 grid grid-cols-1 sm:grid-cols-3 gap-4">
+                            <div>
+                                <Label for="upload_cutoff_days">Cutoff this many days after</Label>
+                                <Input id="upload_cutoff_days" type="number" min="0" max="90" v-model="settingsForm.upload_cutoff_days" class="w-full mt-1" />
+                                <InputError :message="settingsForm.errors.upload_cutoff_days" class="mt-1" />
+                            </div>
+                            <div>
+                                <Label for="upload_cutoff_unit">Counted as</Label>
+                                <Select id="upload_cutoff_unit" v-model="settingsForm.upload_cutoff_unit" :options="dayUnitOptions" optionLabel="label" optionValue="value" class="w-full mt-1" />
+                                <InputError :message="settingsForm.errors.upload_cutoff_unit" class="mt-1" />
+                            </div>
+                            <div>
+                                <Label for="upload_cutoff_time">At time</Label>
+                                <Input id="upload_cutoff_time" type="time" v-model="settingsForm.upload_cutoff_time" class="w-full mt-1" />
+                                <InputError :message="settingsForm.errors.upload_cutoff_time" class="mt-1" />
+                            </div>
+                        </div>
+                        <p v-else class="mt-2 text-sm text-gray-500">No deadline — uploads stay open indefinitely after the start date.</p>
+                    </div>
+                </div>
+
+                <div class="flex justify-end">
+                    <Button type="submit" :disabled="settingsForm.processing" class="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold">
+                        <Save class="-ml-1 mr-2 h-5 w-5" />
+                        Save Configuration
+                    </Button>
+                </div>
+            </form>
+        </div>
     </Layout>
 
     <!-- Generate Modal -->
