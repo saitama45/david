@@ -19,10 +19,14 @@ const props = defineProps({
         type: Object,
         required: true,
     },
+    filter: {
+        type: String,
+        default: "all",
+    },
 });
 
-let filter = ref(props.filters.search);
-const search = ref(filter.value);
+const search = ref(props.filters.search);
+const statusFilter = ref(props.filter || "all");
 const isImportModalVisible = ref(false);
 const isLoading = ref(false);
 
@@ -30,7 +34,10 @@ const skippedItems = ref([]);
 const persistentSkippedItemsMessage = ref('');
 
 const exportRoute = computed(() =>
-    route("month-end-count-templates.export", { search: search.value })
+    route("month-end-count-templates.export", {
+        search: search.value,
+        filter: statusFilter.value,
+    })
 );
 
 watch(
@@ -38,7 +45,7 @@ watch(
     throttle(function (value) {
         router.get(
             route("month-end-count-templates.index"),
-            { search: value },
+            { search: value, filter: statusFilter.value },
             {
                 preserveState: true,
                 replace: true,
@@ -46,6 +53,18 @@ watch(
         );
     }, 500)
 );
+
+const changeFilter = (value) => {
+    statusFilter.value = value;
+    router.get(
+        route("month-end-count-templates.index"),
+        { filter: value, search: search.value },
+        {
+            preserveState: true,
+            replace: true,
+        }
+    );
+};
 
 // Import functionality
 const openImportModal = () => {
@@ -253,6 +272,26 @@ const formatDateTime = (dateString) => {
                 Upload
             </Button>
         </template>
+        <FilterTab>
+            <FilterTabButton
+                label="All"
+                filter="all"
+                :currentFilter="statusFilter"
+                @click="changeFilter('all')"
+            />
+            <FilterTabButton
+                label="Active"
+                filter="is_active"
+                :currentFilter="statusFilter"
+                @click="changeFilter('is_active')"
+            />
+            <FilterTabButton
+                label="Inactive"
+                filter="inactive"
+                :currentFilter="statusFilter"
+                @click="changeFilter('inactive')"
+            />
+        </FilterTab>
         <TableContainer>
             <TableHeader>
                 <div class="flex items-center justify-between w-full">
@@ -278,6 +317,7 @@ const formatDateTime = (dateString) => {
                     <TH>Conversion</TH>
                     <TH>Bulk UOM</TH>
                     <TH>Loose UOM</TH>
+                    <TH>Status</TH>
                     <TH>Created By</TH>
                     <TH>Created At</TH>
                     <TH>Actions</TH>
@@ -294,6 +334,16 @@ const formatDateTime = (dateString) => {
                         <TD>{{ template.config || 'N/A' }}</TD>
                         <TD>{{ template.uom || 'N/A' }}</TD>
                         <TD>{{ template.loose_uom || 'N/A' }}</TD>
+                        <TD>
+                            <span
+                                :class="template.is_active
+                                    ? 'bg-green-100 text-green-800'
+                                    : 'bg-red-100 text-red-800'"
+                                class="px-2 py-1 rounded-full text-xs font-semibold"
+                            >
+                                {{ template.is_active ? 'Active' : 'Inactive' }}
+                            </span>
+                        </TD>
                         <TD>{{ template.created_by ? `${template.created_by.first_name} ${template.created_by.last_name}` : 'N/A' }}</TD>
                         <TD>{{ formatDateTime(template.created_at) }}</TD>
                         <TD>
@@ -349,6 +399,7 @@ const formatDateTime = (dateString) => {
                     <LabelXS>Conversion: {{ template.config || 'N/A' }}</LabelXS>
                     <LabelXS>Bulk UOM: {{ template.uom || 'N/A' }}</LabelXS>
                     <LabelXS>Loose UOM: {{ template.loose_uom || 'N/A' }}</LabelXS>
+                    <LabelXS>Status: {{ template.is_active ? 'Active' : 'Inactive' }}</LabelXS>
                     <LabelXS>Created By: {{ template.created_by ? `${template.created_by.first_name} ${template.created_by.last_name}` : 'N/A' }}</LabelXS>
                     <LabelXS>Created At: {{ formatDateTime(template.created_at) }}</LabelXS>
                 </DivFlexCol>

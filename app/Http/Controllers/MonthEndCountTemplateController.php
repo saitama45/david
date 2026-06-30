@@ -17,15 +17,21 @@ class MonthEndCountTemplateController extends Controller
 {
     public function index(Request $request)
     {
+        $filter = $request->input('filter', 'all');
+
         $templates = MonthEndCountTemplate::query()
             ->with(['createdBy', 'updatedBy'])
             ->search($request->input('search'))
+            ->when($filter === 'is_active', fn ($q) => $q->where('is_active', 1))
+            ->when($filter === 'inactive', fn ($q) => $q->where('is_active', 0))
             ->latest()
-            ->paginate(50);
+            ->paginate(50)
+            ->withQueryString();
 
         return Inertia::render('MonthEndCountTemplates/Index', [
             'templates' => $templates,
-            'filters' => request()->only(['search'])
+            'filters' => request()->only(['search', 'filter']),
+            'filter' => $filter,
         ]);
     }
 
@@ -103,7 +109,7 @@ class MonthEndCountTemplateController extends Controller
     public function export(Request $request)
     {
         return Excel::download(
-            new MonthEndCountTemplatesExport($request->input('search')),
+            new MonthEndCountTemplatesExport($request->input('search'), $request->input('filter')),
             'month-end-count-templates-' . now()->format('Y-m-d') . '.xlsx'
         );
     }
@@ -125,6 +131,8 @@ class MonthEndCountTemplateController extends Controller
             $updatedCount = $import->getUpdatedCount();
             $skippedRows = $import->getSkippedRows();
             $collectionCalled = $import->getCollectionCalled();
+            $reactivatedCount = $import->getReactivatedCount();
+            $deactivatedCount = $import->getDeactivatedCount();
 
             // Log the results for debugging
             Log::info('Month End Count Template Import Results:', [
@@ -132,6 +140,8 @@ class MonthEndCountTemplateController extends Controller
                 'updated' => $updatedCount,
                 'skipped_count' => count($skippedRows),
                 'collection_called' => $collectionCalled,
+                'reactivated' => $reactivatedCount,
+                'deactivated' => $deactivatedCount,
                 'skipped_rows' => $skippedRows,
             ]);
 
@@ -141,6 +151,12 @@ class MonthEndCountTemplateController extends Controller
             }
             if ($updatedCount > 0) {
                 $message[] = "{$updatedCount} templates updated.";
+            }
+            if ($reactivatedCount > 0) {
+                $message[] = "{$reactivatedCount} templates reactivated.";
+            }
+            if ($deactivatedCount > 0) {
+                $message[] = "{$deactivatedCount} templates marked inactive (not in file).";
             }
             
             $redirect = back();

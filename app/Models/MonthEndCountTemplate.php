@@ -21,11 +21,13 @@ class MonthEndCountTemplate extends Model
         'config',
         'uom',
         'loose_uom',
+        'is_active',
         'created_by',
         'updated_by',
     ];
 
     protected $casts = [
+        'is_active' => 'boolean',
         'created_at' => 'datetime',
         'updated_at' => 'datetime',
     ];
@@ -45,15 +47,17 @@ class MonthEndCountTemplate extends Model
     public function scopeSearch($query, $search)
     {
         if ($search) {
-            return $query->where('item_code', 'like', "%$search%")
-                        ->orWhere('item_name', 'like', "%$search%")
-                        ->orWhere('area', 'like', "%$search%")
-                        ->orWhere('category_2', 'like', "%$search%")
-                        ->orWhere('category', 'like', "%$search%")
-                        ->orWhere('packaging_config', 'like', "%$search%")
-                        ->orWhere('config', 'like', "%$search%")
-                        ->orWhere('uom', 'like', "%$search%")
-                        ->orWhere('loose_uom', 'like', "%$search%");
+            return $query->where(function ($q) use ($search) {
+                $q->where('item_code', 'like', "%$search%")
+                    ->orWhere('item_name', 'like', "%$search%")
+                    ->orWhere('area', 'like', "%$search%")
+                    ->orWhere('category_2', 'like', "%$search%")
+                    ->orWhere('category', 'like', "%$search%")
+                    ->orWhere('packaging_config', 'like', "%$search%")
+                    ->orWhere('config', 'like', "%$search%")
+                    ->orWhere('uom', 'like', "%$search%")
+                    ->orWhere('loose_uom', 'like', "%$search%");
+            });
         }
         return $query;
     }

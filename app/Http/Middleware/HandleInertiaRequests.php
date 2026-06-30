@@ -59,8 +59,8 @@ class HandleInertiaRequests extends Middleware
         ];
 
         if ($user) {
-            $cacheKey = 'user_notifications_v5_' . $user->id;
-            
+            $cacheKey = 'user_notifications_v6_' . $user->id;
+
             $notifications = \Illuminate\Support\Facades\Cache::remember($cacheKey, now()->addMinutes(1), function () use ($user) {
                 $data = [
                     'massOrdersApprovalCount' => 0,
@@ -89,8 +89,17 @@ class HandleInertiaRequests extends Middleware
                 $assignedStoreIds = \App\Models\UserAssignedStoreBranch::where('user_id', $user->id)
                     ->pluck('store_branch_id');
 
+                // Notifications are limited to the current calendar month only.
+                // Anything dated before the first day of today's month is not shown.
+                $monthStart = \Carbon\Carbon::now()->startOfMonth();
+                $monthEnd = \Carbon\Carbon::now()->endOfMonth();
+
                 if ($user->can('view store transactions') && $assignedStoreIds->isNotEmpty()) {
+                    // Never look earlier than the start of the current month.
                     $startDate = \Carbon\Carbon::today()->subDays(30);
+                    if ($startDate->lt($monthStart)) {
+                        $startDate = $monthStart->copy();
+                    }
                     $endDate = \Carbon\Carbon::yesterday();
                     
                     // CRITICAL FIX: Use distinct and select only needed columns to avoid pulling millions of rows
@@ -131,7 +140,8 @@ class HandleInertiaRequests extends Middleware
                 }
 
                 if ($user->can('view approved orders')) {
-                    $orderReceivingQuery = \App\Models\StoreOrder::where('order_status', \App\Enum\OrderStatus::COMMITTED->value);
+                    $orderReceivingQuery = \App\Models\StoreOrder::where('order_status', \App\Enum\OrderStatus::COMMITTED->value)
+                        ->whereBetween('order_date', [$monthStart, $monthEnd]);
                     if (!$user->hasRole('admin')) {
                         $orderReceivingQuery->whereIn('store_branch_id', $assignedStoreIds);
                     }
@@ -153,12 +163,14 @@ class HandleInertiaRequests extends Middleware
                     $data['massOrdersApprovalCount'] = \App\Models\StoreOrder::where('variant', 'mass regular')
                         ->whereIn('supplier_id', $suppliersForApproval)
                         ->where('order_status', 'pending')
+                        ->whereBetween('order_date', [$monthStart, $monthEnd])
                         ->count();
                 }
 
                 if ($user->can('edit finished good commits') || $user->can('edit other commits')) {
                     $csMassCommitsQuery = \App\Models\StoreOrder::where('variant', 'mass regular')
                         ->where('order_status', 'approved')
+                        ->whereBetween('order_date', [$monthStart, $monthEnd])
                         ->whereHas('storeOrderItems', function ($q) {
                             $q->where('quantity_commited', '>', 0);
                         });
@@ -174,7 +186,8 @@ class HandleInertiaRequests extends Middleware
                 if ($user->can('edit cs dts mass commit')) {
                     $csDtsQuery = \App\Models\StoreOrder::where('variant', 'mass dts')
                         ->where('order_status', 'approved')
-                        ->whereNotNull('batch_reference');
+                        ->whereNotNull('batch_reference')
+                        ->whereBetween('order_date', [$monthStart, $monthEnd]);
                     $data['csDtsMassCommitsCount'] = $csDtsQuery->distinct('batch_reference')->count('batch_reference');
                     if ($data['csDtsMassCommitsCount'] > 0) {
                         $data['csDtsMassCommitsBatches'] = $csDtsQuery->distinct('batch_reference')->limit(10)->pluck('batch_reference')->toArray();
@@ -185,7 +198,8 @@ class HandleInertiaRequests extends Middleware
                     $intercoApprovalQuery = \App\Models\StoreOrder::whereNotNull('interco_number')
                         ->where('variant', 'INTERCO')
                         ->whereIn('store_branch_id', $assignedStoreIds)
-                        ->where('interco_status', 'open');
+                        ->where('interco_status', 'open')
+                        ->whereBetween('order_date', [$monthStart, $monthEnd]);
                     $data['intercoApprovalCount'] = $intercoApprovalQuery->count();
                     if ($data['intercoApprovalCount'] > 0) {
                         $data['intercoApprovalDates'] = $intercoApprovalQuery->select('order_date')->distinct()->limit(10)->pluck('order_date')
@@ -197,7 +211,8 @@ class HandleInertiaRequests extends Middleware
 
                 if ($user->can('view store commits')) {
                     $storeCommitsQuery = \App\Models\StoreOrder::whereNotNull('interco_number')
-                        ->where('interco_status', 'approved');
+                        ->where('interco_status', 'approved')
+                        ->whereBetween('order_date', [$monthStart, $monthEnd]);
                     if (!$user->hasRole('admin')) {
                         $storeCommitsQuery->whereIn('sending_store_branch_id', $assignedStoreIds);
                     }
@@ -212,7 +227,8 @@ class HandleInertiaRequests extends Middleware
                 
                 if ($user->can('view wastage approval level 1') && $assignedStoreIds->isNotEmpty()) {
                     $baseWastageLvl1Query = \App\Models\Wastage::whereIn('store_branch_id', $assignedStoreIds)
-                        ->where('wastage_status', 'pending');
+                        ->where('wastage_status', 'pending')
+                        ->whereBetween('created_at', [$monthStart, $monthEnd]);
                     
                     $data['wastageLvl1Count'] = \Illuminate\Support\Facades\DB::table(
                         (clone $baseWastageLvl1Query)->select('wastage_no', 'store_branch_id')->distinct(), 
@@ -233,7 +249,8 @@ class HandleInertiaRequests extends Middleware
 
                 if (app(WastageApprovalSettingsService::class)->shouldShowLevel2() && $user->can('view wastage approval level 2') && $assignedStoreIds->isNotEmpty()) {
                     $baseWastageLvl2Query = \App\Models\Wastage::whereIn('store_branch_id', $assignedStoreIds)
-                        ->where('wastage_status', 'approved_lvl1');
+                        ->where('wastage_status', 'approved_lvl1')
+                        ->whereBetween('created_at', [$monthStart, $monthEnd]);
                     
                     $data['wastageLvl2Count'] = \Illuminate\Support\Facades\DB::table(
                         (clone $baseWastageLvl2Query)->select('wastage_no', 'store_branch_id')->distinct(),
@@ -254,7 +271,10 @@ class HandleInertiaRequests extends Middleware
                 
                 if (($user->can('view month end count approvals') || $user->can('approve month end count level 1')) && $assignedStoreIds->isNotEmpty()) {
                     $monthEndLvl1Query = \App\Models\MonthEndCountItem::whereIn('month_end_count_items.branch_id', $assignedStoreIds)
-                        ->where('month_end_count_items.status', 'pending_level1_approval');
+                        ->where('month_end_count_items.status', 'pending_level1_approval')
+                        ->whereHas('schedule', function ($q) use ($monthStart, $monthEnd) {
+                            $q->whereBetween('calculated_date', [$monthStart, $monthEnd]);
+                        });
                     
                     $data['monthEndLvl1Count'] = \Illuminate\Support\Facades\DB::table(
                         (clone $monthEndLvl1Query)->select('month_end_schedule_id', 'branch_id')->distinct(),
@@ -276,7 +296,10 @@ class HandleInertiaRequests extends Middleware
 
                 if (($user->can('view month end count approvals level 2') || $user->can('approve month end count level 2')) && $assignedStoreIds->isNotEmpty()) {
                     $monthEndLvl2Query = \App\Models\MonthEndCountItem::whereIn('month_end_count_items.branch_id', $assignedStoreIds)
-                        ->where('month_end_count_items.status', 'level1_approved');
+                        ->where('month_end_count_items.status', 'level1_approved')
+                        ->whereHas('schedule', function ($q) use ($monthStart, $monthEnd) {
+                            $q->whereBetween('calculated_date', [$monthStart, $monthEnd]);
+                        });
                     
                     $data['monthEndLvl2Count'] = \Illuminate\Support\Facades\DB::table(
                         (clone $monthEndLvl2Query)->select('month_end_schedule_id', 'branch_id')->distinct(),

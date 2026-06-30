@@ -15,17 +15,21 @@ use PhpOffice\PhpSpreadsheet\Style\Alignment;
 class MonthEndCountTemplatesExport implements FromQuery, WithHeadings, WithMapping, WithTitle, WithStyles
 {
     protected $search;
+    protected $filter;
 
-    public function __construct($search = null)
+    public function __construct($search = null, $filter = null)
     {
         $this->search = $search;
+        $this->filter = $filter;
     }
 
     public function query()
     {
         return MonthEndCountTemplate::query()
             ->with(['createdBy', 'updatedBy'])
-            ->search($this->search);
+            ->search($this->search)
+            ->when($this->filter === 'is_active', fn ($q) => $q->where('is_active', 1))
+            ->when($this->filter === 'inactive', fn ($q) => $q->where('is_active', 0));
     }
 
     public function title(): string
@@ -45,6 +49,7 @@ class MonthEndCountTemplatesExport implements FromQuery, WithHeadings, WithMappi
             'Conversion',
             'Bulk UOM',
             'Loose UOM',
+            'Active',
         ];
     }
 
@@ -60,13 +65,14 @@ class MonthEndCountTemplatesExport implements FromQuery, WithHeadings, WithMappi
             $template->config,
             $template->uom,
             $template->loose_uom,
+            $template->is_active ? 'Yes' : 'No',
         ];
     }
 
     public function styles(Worksheet $sheet)
     {
         // Apply header styling (sky blue background, bold text, centered)
-        $sheet->getStyle('A1:I1')->applyFromArray([
+        $sheet->getStyle('A1:J1')->applyFromArray([
             'fill' => [
                 'fillType' => Fill::FILL_SOLID,
                 'startColor' => [

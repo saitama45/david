@@ -13,13 +13,23 @@ use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Arr;
 use Maatwebsite\Excel\Concerns\SkipsEmptyRows;
 use Illuminate\Support\Facades\Validator;
+use Maatwebsite\Excel\Concerns\WithEvents;
+use Maatwebsite\Excel\Events\AfterImport;
 
-class MonthEndCountTemplatesImport implements ToCollection, WithHeadingRow, WithStartRow, SkipsEmptyRows
+class MonthEndCountTemplatesImport implements ToCollection, WithHeadingRow, WithStartRow, SkipsEmptyRows, WithEvents
 {
     private int $createdCount = 0;
     private int $updatedCount = 0;
     private array $skippedRows = [];
     private bool $collectionCalled = false; // New flag
+
+    /**
+     * Set of keys (item_code|bulk_uom|loose_uom) present in the uploaded file.
+     * Used after import to tag missing items as inactive and present items as active.
+     */
+    private array $presentKeys = [];
+    private int $reactivatedCount = 0;
+    private int $deactivatedCount = 0;
 
     /**
      * Column mapping to handle user-friendly Excel column names
@@ -206,7 +216,12 @@ class MonthEndCountTemplatesImport implements ToCollection, WithHeadingRow, With
                 Log::info('Import: Row skipped due to missing SAP Masterfile record', ['original_row_number' => $originalRowNumber, 'item_code' => $itemCode, 'uom' => $bulkUom]);
                 continue;
             }
-            
+
+            // This row is valid and present in the uploaded file, so it must be
+            // tagged active during the post-import sync (item_code + bulk uom + loose uom).
+            $looseUom = Arr::get($row, 'loose_uom');
+            $this->presentKeys[$this->makeKey($itemCode, $bulkUom, $looseUom)] = true;
+
             $conversionValue = Arr::get($row, 'conversion');
             $parsedConversion = null;
             if ($conversionValue !== null) {
@@ -274,7 +289,78 @@ class MonthEndCountTemplatesImport implements ToCollection, WithHeadingRow, With
         ]);
     }
 
+    /**
+     * After the whole file is imported, reconcile active/inactive status:
+     *  - items present in the uploaded file  -> active
+     *  - items missing from the uploaded file -> inactive
+     */
+    public function registerEvents(): array
+    {
+        return [
+            AfterImport::class => function (AfterImport $event) {
+                $this->syncActiveStatus();
+            },
+        ];
+    }
 
+    /**
+     * Build the comparison key used to decide presence in the upload.
+     * Matches by Item Code + Bulk UOM + Loose UOM (case-insensitive, trimmed).
+     */
+    private function makeKey($itemCode, $bulkUom, $looseUom): string
+    {
+        return strtolower(trim((string) $itemCode)) . '|'
+            . strtolower(trim((string) $bulkUom)) . '|'
+            . strtolower(trim((string) $looseUom));
+    }
+
+    /**
+     * Tag templates active/inactive based on what was present in the upload.
+     * Scoped to the current entity automatically via the BelongsToEntity global scope.
+     */
+    private function syncActiveStatus(): void
+    {
+        // Safety guard: if nothing valid was imported, leave existing data untouched
+        // so an empty or invalid file does not deactivate the whole list.
+        if (empty($this->presentKeys)) {
+            Log::info('Import: No valid rows processed; skipping active/inactive sync.');
+            return;
+        }
+
+        $idsToActivate = [];
+        $idsToDeactivate = [];
+
+        MonthEndCountTemplate::query()
+            ->select('id', 'item_code', 'uom', 'loose_uom', 'is_active')
+            ->chunkById(1000, function ($templates) use (&$idsToActivate, &$idsToDeactivate) {
+                foreach ($templates as $template) {
+                    $key = $this->makeKey($template->item_code, $template->uom, $template->loose_uom);
+                    $present = isset($this->presentKeys[$key]);
+
+                    if ($present && !$template->is_active) {
+                        $idsToActivate[] = $template->id;
+                    } elseif (!$present && $template->is_active) {
+                        $idsToDeactivate[] = $template->id;
+                    }
+                }
+            });
+
+        foreach (array_chunk($idsToActivate, 1000) as $chunk) {
+            MonthEndCountTemplate::whereIn('id', $chunk)->update(['is_active' => 1, 'updated_by' => Auth::id(), 'updated_at' => now()]);
+        }
+
+        foreach (array_chunk($idsToDeactivate, 1000) as $chunk) {
+            MonthEndCountTemplate::whereIn('id', $chunk)->update(['is_active' => 0, 'updated_by' => Auth::id(), 'updated_at' => now()]);
+        }
+
+        $this->reactivatedCount = count($idsToActivate);
+        $this->deactivatedCount = count($idsToDeactivate);
+
+        Log::info('Import: Active/inactive sync complete.', [
+            'reactivated' => $this->reactivatedCount,
+            'deactivated' => $this->deactivatedCount,
+        ]);
+    }
 
     /**
      * Convert system column name back to user-friendly format for error messages
@@ -314,5 +400,15 @@ class MonthEndCountTemplatesImport implements ToCollection, WithHeadingRow, With
     public function getCollectionCalled(): bool
     {
         return $this->collectionCalled;
+    }
+
+    public function getReactivatedCount(): int
+    {
+        return $this->reactivatedCount;
+    }
+
+    public function getDeactivatedCount(): int
+    {
+        return $this->deactivatedCount;
     }
 }

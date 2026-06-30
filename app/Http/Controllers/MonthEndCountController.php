@@ -187,8 +187,8 @@ class MonthEndCountController extends Controller
 
     public function downloadTemplate(Request $request)
     {
-        // Fetch all records from MonthEndCountTemplate
-        $templates = MonthEndCountTemplate::all();
+        // Fetch only Active records from MonthEndCountTemplate
+        $templates = MonthEndCountTemplate::where('is_active', 1)->get();
 
         $items = collect();
 
