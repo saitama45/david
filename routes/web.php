@@ -330,6 +330,8 @@ Route::middleware('auth')
             ->name('dashboard.sales-mix.products.revenue');
         Route::middleware('permission:view sales mix')->get('/dashboard/sales-mix/products/quantity', [DashboardController::class, 'salesMixProductsByQuantity'])
             ->name('dashboard.sales-mix.products.quantity');
+        Route::middleware('permission:view adoption rate dashboard')->get('/dashboard/adoption-rate', [DashboardController::class, 'adoptionRate'])
+            ->name('dashboard.adoption-rate');
 
         // User Management Routes
         Route::controller(UserController::class)->prefix('users')->name('users.')->group(function () {

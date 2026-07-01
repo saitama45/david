@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Enum\TimePeriod;
 use App\Enum\UserRole;
+use App\Http\Services\AdoptionRateTrackingService;
 use App\Mail\OneTimePasswordMail;
 use App\Models\Branch;
 // use App\Models\ProductInventory; // This model is now explicitly NOT used for stock/order items
@@ -33,6 +34,10 @@ use Illuminate\Support\Facades\Log; // Import Log facade for error logging
 
 class DashboardController extends Controller
 {
+    public function __construct(private AdoptionRateTrackingService $adoptionRateService)
+    {
+    }
+
     public function index()
     {
         $timePeriods = TimePeriod::values();
@@ -326,6 +331,28 @@ class DashboardController extends Controller
                 'store_count' => count($branchIds),
             ],
         ]);
+    }
+
+    public function adoptionRate(Request $request)
+    {
+        $validated = $request->validate([
+            'branch' => ['nullable'],
+            'branch.*' => ['nullable'],
+            'date_from' => ['nullable', 'date'],
+            'date_to' => ['nullable', 'date', 'after_or_equal:date_from'],
+        ]);
+
+        // The service resolves & enforces store access itself; pass the raw branch
+        // selection through as store_ids (it filters out 'all' and intersects with
+        // the user's accessible stores).
+        $data = $this->adoptionRateService->getWeeklyAdoptionTrend([
+            'store_ids' => $validated['branch'] ?? [],
+            'date_from' => $validated['date_from'] ?? null,
+            'date_to' => $validated['date_to'] ?? null,
+            'tab' => AdoptionRateTrackingService::TAB_OVERALL_ADOPTION_RATE,
+        ], $request->user());
+
+        return response()->json($data);
     }
 
     private function resolveDashboardBranchIds($branch, array $branchesOptions): array

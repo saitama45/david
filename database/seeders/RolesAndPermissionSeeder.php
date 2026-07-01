@@ -159,6 +159,7 @@ class RolesAndPermissionSeeder extends Seeder
             "show roles",
             "upload month end count transaction",
             "view actual cost cogs report",
+            "view adoption rate dashboard",
             "view adoption rate tracking report",
             "view account payable",
             "view approved order",

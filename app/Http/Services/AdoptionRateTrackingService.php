@@ -317,6 +317,78 @@ class AdoptionRateTrackingService
         ];
     }
 
+    /**
+     * Chart-friendly weekly adoption-rate trend for the dashboard tab.
+     *
+     * Reuses the Overall Adoption Rate computation and reshapes it into:
+     *  - weeks:     [{ key, label }, ...]
+     *  - combined:  one series per indicator (avg across the selected stores) + an "Overall" series
+     *  - per_store: one series per store (its weekly overall average)
+     */
+    public function getWeeklyAdoptionTrend(array $filters, User $user): array
+    {
+        $overall = $this->getOverallAdoptionRateData($filters, $user, false);
+        $sections = $overall['rows'];
+
+        if ($sections->isEmpty()) {
+            [$dateFrom, $dateTo] = $this->resolveDateRange($filters);
+            $weeks = $this->buildWeekBuckets($dateFrom, $dateTo);
+        } else {
+            $weeks = $sections->first()['weeks'];
+        }
+
+        $weekKeys = collect($weeks)->pluck('key');
+        $indicatorsMeta = $sections->first()['indicators'] ?? [];
+
+        $combined = collect($indicatorsMeta)->map(function (array $indicator, int $index) use ($sections, $weekKeys) {
+            return [
+                'label' => $indicator['indicator'],
+                'data' => $weekKeys->map(function ($weekKey) use ($sections, $index) {
+                    $values = $sections
+                        ->map(fn (array $section) => $section['indicators'][$index]['rates'][$weekKey] ?? null)
+                        ->filter(fn ($value) => $value !== null)
+                        ->all();
+
+                    return $this->simpleAverage($values);
+                })->all(),
+            ];
+        })->values();
+
+        $combined->push([
+            'label' => 'Overall',
+            'data' => $weekKeys->map(function ($weekKey) use ($sections) {
+                $values = $sections
+                    ->map(fn (array $section) => $section['weekly_averages'][$weekKey] ?? null)
+                    ->filter(fn ($value) => $value !== null)
+                    ->all();
+
+                return $this->simpleAverage($values);
+            })->all(),
+        ]);
+
+        $perStore = $sections->map(function (array $section) use ($weekKeys) {
+            return [
+                'label' => $section['store_code'] ?: $section['store'],
+                'data' => $weekKeys->map(fn ($weekKey) => $section['weekly_averages'][$weekKey] ?? null)->all(),
+            ];
+        })->values();
+
+        return [
+            'weeks' => collect($weeks)->map(fn (array $week) => [
+                'key' => $week['key'],
+                'label' => $week['label'],
+            ])->values(),
+            'combined' => $combined->values(),
+            'per_store' => $perStore,
+            'meta' => [
+                'date_from' => $overall['filters']['date_from'],
+                'date_to' => $overall['filters']['date_to'],
+                'store_count' => $overall['totals']['stores'],
+                'overall_rate' => $overall['totals']['overall_rate'],
+            ],
+        ];
+    }
+
     public function getFilterOptions(User $user): array
     {
         $storeIds = $this->getAccessibleStoreIds($user);

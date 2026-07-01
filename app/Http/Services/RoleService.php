@@ -65,6 +65,9 @@ class RoleService
                 'Sales Mix' => [
                     'view sales mix'
                 ],
+                'Adoption Rate' => [
+                    'view adoption rate dashboard'
+                ],
             ],
             'Administration' => [
                 'Entities' => [

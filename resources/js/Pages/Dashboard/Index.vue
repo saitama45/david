@@ -780,10 +780,12 @@ const time_period = ref(
 const inventory_type = ref(props.filters.inventory_type ?? "quantity");
 const canViewOverview = computed(() => hasAccess("view dashboard overview"));
 const canViewSalesMix = computed(() => hasAccess("view sales mix"));
+const canViewAdoption = computed(() => hasAccess("view adoption rate dashboard"));
 
 const activeDashboardTab = ref(
     hasAccess("view dashboard overview") ? "overview" :
     hasAccess("view sales mix") ? "sales-mix" :
+    hasAccess("view adoption rate dashboard") ? "adoption-rate" :
     null
 );
 const activeSalesMixTab = ref("subcategories");
@@ -845,6 +847,106 @@ const productQuantityMeta = ref({
     date_from: salesMixDateFrom.value,
     date_to: salesMixDateTo.value,
     store_count: 0,
+});
+
+// --- Adoption Rate tab state ---
+const adoptionBranch = ref([branchesOptions.value[0]?.value ?? "all"]);
+const adoptionDateFrom = ref(formatDate(monthStart));
+const adoptionDateTo = ref(formatDate(today));
+const adoptionViewMode = ref("combined"); // 'combined' | 'per_store'
+const adoptionLoaded = ref(false);
+const adoptionLoading = ref(false);
+const adoptionError = ref("");
+const adoptionWeeks = ref([]);
+const adoptionCombined = ref([]);
+const adoptionPerStore = ref([]);
+const adoptionMeta = ref({
+    date_from: adoptionDateFrom.value,
+    date_to: adoptionDateTo.value,
+    store_count: 0,
+    overall_rate: null,
+});
+
+const adoptionPalette = [
+    "#06b6d4", "#f97316", "#8b5cf6", "#10b981", "#ef4444",
+    "#3b82f6", "#eab308", "#ec4899", "#14b8a6", "#64748b",
+];
+
+const adoptionHasData = computed(() => {
+    if (adoptionWeeks.value.length === 0) return false;
+    const series = adoptionViewMode.value === "combined" ? adoptionCombined.value : adoptionPerStore.value;
+
+    return series.length > 0;
+});
+
+const adoptionChartData = computed(() => {
+    const series = adoptionViewMode.value === "combined" ? adoptionCombined.value : adoptionPerStore.value;
+
+    return {
+        labels: adoptionWeeks.value.map((week) => week.label),
+        datasets: series.map((serie, index) => {
+            const isOverall = adoptionViewMode.value === "combined" && serie.label === "Overall";
+            const color = isOverall ? "#0f172a" : adoptionPalette[index % adoptionPalette.length];
+
+            return {
+                label: serie.label,
+                data: serie.data,
+                borderColor: color,
+                backgroundColor: color,
+                borderWidth: isOverall ? 3 : 2,
+                tension: 0.35,
+                spanGaps: true,
+                pointRadius: 3,
+                pointHoverRadius: 5,
+                fill: false,
+            };
+        }),
+    };
+});
+
+const adoptionChartOptions = computed(() => {
+    const documentStyle = getComputedStyle(document.documentElement);
+    const textColor = documentStyle.getPropertyValue("--p-text-color");
+    const textColorSecondary = documentStyle.getPropertyValue("--p-text-muted-color");
+    const surfaceBorder = documentStyle.getPropertyValue("--p-content-border-color");
+
+    return {
+        maintainAspectRatio: false,
+        interaction: { mode: "index", intersect: false },
+        plugins: {
+            legend: { labels: { color: textColor } },
+            tooltip: {
+                callbacks: {
+                    label: (context) => {
+                        const value = context.parsed.y;
+                        const display = value === null || value === undefined ? "N/A" : `${Number(value).toFixed(2)}%`;
+
+                        return `${context.dataset.label}: ${display}`;
+                    },
+                },
+            },
+        },
+        scales: {
+            x: {
+                ticks: { color: textColorSecondary },
+                grid: { color: surfaceBorder },
+            },
+            y: {
+                min: 0,
+                max: 100,
+                ticks: {
+                    color: textColorSecondary,
+                    callback: (value) => `${value}%`,
+                },
+                grid: { color: surfaceBorder },
+                title: {
+                    display: true,
+                    text: "Adoption Rate (%)",
+                    color: textColorSecondary,
+                },
+            },
+        },
+    };
 });
 
 const visibleSalesMixRows = computed(() => {
@@ -1100,6 +1202,47 @@ const loadSalesMixProductsQuantity = async () => {
     }
 };
 
+const loadAdoptionRate = async () => {
+    if (!canViewAdoption.value) return;
+
+    adoptionLoading.value = true;
+    adoptionError.value = "";
+
+    try {
+        const response = await axios.get(route("dashboard.adoption-rate"), {
+            params: {
+                branch: adoptionBranch.value,
+                date_from: adoptionDateFrom.value,
+                date_to: adoptionDateTo.value,
+            },
+        });
+
+        adoptionWeeks.value = response.data.weeks || [];
+        adoptionCombined.value = response.data.combined || [];
+        adoptionPerStore.value = response.data.per_store || [];
+        adoptionMeta.value = response.data.meta || adoptionMeta.value;
+        adoptionLoaded.value = true;
+    } catch (error) {
+        adoptionError.value = error.response?.data?.message || "Unable to load Adoption Rate data.";
+    } finally {
+        adoptionLoading.value = false;
+    }
+};
+
+const applyAdoptionFilters = () => {
+    adoptionLoaded.value = false;
+    loadAdoptionRate();
+};
+
+const resetAdoptionFilters = () => {
+    adoptionBranch.value = [branchesOptions.value[0]?.value ?? "all"];
+    adoptionDateFrom.value = formatDate(monthStart);
+    adoptionDateTo.value = formatDate(today);
+    adoptionViewMode.value = "combined";
+    adoptionLoaded.value = false;
+    loadAdoptionRate();
+};
+
 const loadActiveSalesMixTab = () => {
     if (!canViewSalesMix.value) return;
 
@@ -1119,8 +1262,13 @@ const loadActiveSalesMixTab = () => {
 const selectDashboardTab = (tab) => {
     if (tab === "overview" && !canViewOverview.value) return;
     if (tab === "sales-mix" && !canViewSalesMix.value) return;
+    if (tab === "adoption-rate" && !canViewAdoption.value) return;
 
     activeDashboardTab.value = tab;
+
+    if (tab === "adoption-rate" && !adoptionLoaded.value) {
+        loadAdoptionRate();
+    }
 
     if (tab === "sales-mix" && activeSalesMixTab.value === "subcategories" && !salesMixLoaded.value) {
         loadSalesMixSubcategories();
@@ -1328,6 +1476,19 @@ const registerDoughnutLabelPlugin = () => {
                 @click="selectDashboardTab('sales-mix')"
             >
                 Sales Mix
+            </button>
+            <button
+                v-if="canViewAdoption"
+                type="button"
+                :class="[
+                    'px-4 py-2 text-sm font-semibold transition-colors border-b-2',
+                    activeDashboardTab === 'adoption-rate'
+                        ? 'border-cyan-600 text-cyan-700'
+                        : 'border-transparent text-gray-500 hover:text-gray-800'
+                ]"
+                @click="selectDashboardTab('adoption-rate')"
+            >
+                Adoption Rate
             </button>
         </div>
 
@@ -1855,6 +2016,111 @@ const registerDoughnutLabelPlugin = () => {
                             </div>
                         </section>
                     </div>
+                </div>
+            </div>
+        </section>
+
+        <section v-else-if="activeDashboardTab === 'adoption-rate'" class="flex flex-col gap-5">
+            <div class="grid gap-4 rounded-lg border border-gray-200 bg-white p-4 shadow-sm lg:grid-cols-[minmax(16rem,1fr)_10rem_10rem_auto_auto]">
+                <InputContainer>
+                    <Label class="mb-1 block text-xs font-semibold uppercase text-gray-500">Stores</Label>
+                    <MultiSelect
+                        v-model="adoptionBranch"
+                        filter
+                        placeholder="All Stores"
+                        :options="branchesOptions"
+                        optionLabel="label"
+                        optionValue="value"
+                    ></MultiSelect>
+                </InputContainer>
+                <InputContainer>
+                    <Label class="mb-1 block text-xs font-semibold uppercase text-gray-500">From</Label>
+                    <Input v-model="adoptionDateFrom" type="date" />
+                </InputContainer>
+                <InputContainer>
+                    <Label class="mb-1 block text-xs font-semibold uppercase text-gray-500">To</Label>
+                    <Input v-model="adoptionDateTo" type="date" />
+                </InputContainer>
+                <div class="flex items-end">
+                    <Button class="w-full gap-2" @click="applyAdoptionFilters" :disabled="adoptionLoading">
+                        <Search class="h-4 w-4" />
+                        Apply
+                    </Button>
+                </div>
+                <div class="flex items-end">
+                    <Button class="w-full gap-2" variant="outline" @click="resetAdoptionFilters" :disabled="adoptionLoading">
+                        <RotateCcw class="h-4 w-4" />
+                        Reset
+                    </Button>
+                </div>
+            </div>
+
+            <div class="rounded-lg border border-gray-200 bg-white p-5 shadow-sm">
+                <div class="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                    <div>
+                        <h3 class="text-base font-semibold text-gray-900">Weekly Adoption Rate</h3>
+                        <p class="text-sm text-gray-500">
+                            {{ adoptionMeta.date_from }} to {{ adoptionMeta.date_to }} - {{ adoptionMeta.store_count }} store(s)
+                            <span v-if="adoptionMeta.overall_rate !== null && adoptionMeta.overall_rate !== undefined">
+                                - Overall {{ formatPercent(adoptionMeta.overall_rate) }}
+                            </span>
+                        </p>
+                    </div>
+                    <div class="inline-flex overflow-hidden rounded-md border border-gray-200">
+                        <button
+                            type="button"
+                            :class="[
+                                'px-3 py-1.5 text-sm font-medium transition-colors',
+                                adoptionViewMode === 'combined'
+                                    ? 'bg-cyan-600 text-white'
+                                    : 'bg-white text-gray-600 hover:bg-gray-50'
+                            ]"
+                            @click="adoptionViewMode = 'combined'"
+                        >
+                            Combined
+                        </button>
+                        <button
+                            type="button"
+                            :class="[
+                                'px-3 py-1.5 text-sm font-medium transition-colors border-l border-gray-200',
+                                adoptionViewMode === 'per_store'
+                                    ? 'bg-cyan-600 text-white'
+                                    : 'bg-white text-gray-600 hover:bg-gray-50'
+                            ]"
+                            @click="adoptionViewMode = 'per_store'"
+                        >
+                            Per Store
+                        </button>
+                    </div>
+                </div>
+
+                <p class="mb-4 text-xs text-gray-400">
+                    {{ adoptionViewMode === 'combined'
+                        ? 'Each indicator averaged across the selected stores, plus the combined Overall trend.'
+                        : 'Overall weekly adoption rate for each selected store.' }}
+                </p>
+
+                <div v-if="adoptionLoading" class="flex h-96 items-center justify-center text-sm text-gray-500">
+                    Loading Adoption Rate...
+                </div>
+                <div v-else-if="adoptionError" class="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700">
+                    {{ adoptionError }}
+                </div>
+                <div v-else-if="adoptionLoaded && !adoptionHasData" class="flex h-96 flex-col items-center justify-center text-center text-gray-500">
+                    <BarChart3 class="mb-3 h-10 w-10 text-gray-300" />
+                    <p class="text-sm font-medium">No adoption rate data for this range.</p>
+                </div>
+                <div v-else-if="adoptionLoaded" class="overflow-x-auto">
+                    <Chart
+                        type="line"
+                        :data="adoptionChartData"
+                        :options="adoptionChartOptions"
+                        class="h-[30rem] min-w-[48rem]"
+                    />
+                </div>
+                <div v-else class="flex h-96 flex-col items-center justify-center text-center text-gray-500">
+                    <BarChart3 class="mb-3 h-10 w-10 text-gray-300" />
+                    <p class="text-sm font-medium">Open this tab to load Adoption Rate.</p>
                 </div>
             </div>
         </section>
