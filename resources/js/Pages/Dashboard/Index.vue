@@ -854,6 +854,7 @@ const adoptionBranch = ref([branchesOptions.value[0]?.value ?? "all"]);
 const adoptionDateFrom = ref(formatDate(monthStart));
 const adoptionDateTo = ref(formatDate(today));
 const adoptionViewMode = ref("combined"); // 'combined' | 'per_store'
+const adoptionChartType = ref("line"); // 'line' | 'bar'
 const adoptionLoaded = ref(false);
 const adoptionLoading = ref(false);
 const adoptionError = ref("");
@@ -1239,6 +1240,7 @@ const resetAdoptionFilters = () => {
     adoptionDateFrom.value = formatDate(monthStart);
     adoptionDateTo.value = formatDate(today);
     adoptionViewMode.value = "combined";
+    adoptionChartType.value = "line";
     adoptionLoaded.value = false;
     loadAdoptionRate();
 };
@@ -2066,31 +2068,59 @@ const registerDoughnutLabelPlugin = () => {
                             </span>
                         </p>
                     </div>
-                    <div class="inline-flex overflow-hidden rounded-md border border-gray-200">
-                        <button
-                            type="button"
-                            :class="[
-                                'px-3 py-1.5 text-sm font-medium transition-colors',
-                                adoptionViewMode === 'combined'
-                                    ? 'bg-cyan-600 text-white'
-                                    : 'bg-white text-gray-600 hover:bg-gray-50'
-                            ]"
-                            @click="adoptionViewMode = 'combined'"
-                        >
-                            Combined
-                        </button>
-                        <button
-                            type="button"
-                            :class="[
-                                'px-3 py-1.5 text-sm font-medium transition-colors border-l border-gray-200',
-                                adoptionViewMode === 'per_store'
-                                    ? 'bg-cyan-600 text-white'
-                                    : 'bg-white text-gray-600 hover:bg-gray-50'
-                            ]"
-                            @click="adoptionViewMode = 'per_store'"
-                        >
-                            Per Store
-                        </button>
+                    <div class="flex flex-wrap items-center gap-2">
+                        <div class="inline-flex overflow-hidden rounded-md border border-gray-200">
+                            <button
+                                type="button"
+                                :class="[
+                                    'px-3 py-1.5 text-sm font-medium transition-colors',
+                                    adoptionViewMode === 'combined'
+                                        ? 'bg-cyan-600 text-white'
+                                        : 'bg-white text-gray-600 hover:bg-gray-50'
+                                ]"
+                                @click="adoptionViewMode = 'combined'"
+                            >
+                                Combined
+                            </button>
+                            <button
+                                type="button"
+                                :class="[
+                                    'px-3 py-1.5 text-sm font-medium transition-colors border-l border-gray-200',
+                                    adoptionViewMode === 'per_store'
+                                        ? 'bg-cyan-600 text-white'
+                                        : 'bg-white text-gray-600 hover:bg-gray-50'
+                                ]"
+                                @click="adoptionViewMode = 'per_store'"
+                            >
+                                Per Store
+                            </button>
+                        </div>
+                        <div class="inline-flex overflow-hidden rounded-md border border-gray-200">
+                            <button
+                                type="button"
+                                :class="[
+                                    'px-3 py-1.5 text-sm font-medium transition-colors',
+                                    adoptionChartType === 'line'
+                                        ? 'bg-cyan-600 text-white'
+                                        : 'bg-white text-gray-600 hover:bg-gray-50'
+                                ]"
+                                @click="adoptionChartType = 'line'"
+                            >
+                                Line
+                            </button>
+                            <button
+                                type="button"
+                                :class="[
+                                    'px-3 py-1.5 text-sm font-medium transition-colors border-l border-gray-200',
+                                    adoptionChartType === 'bar'
+                                        ? 'bg-cyan-600 text-white'
+                                        : 'bg-white text-gray-600 hover:bg-gray-50'
+                                ]"
+                                @click="adoptionChartType = 'bar'"
+                            >
+                                Bar
+                            </button>
+                        </div>
                     </div>
                 </div>
 
@@ -2112,7 +2142,8 @@ const registerDoughnutLabelPlugin = () => {
                 </div>
                 <div v-else-if="adoptionLoaded" class="overflow-x-auto">
                     <Chart
-                        type="line"
+                        :key="'adoption-' + adoptionChartType"
+                        :type="adoptionChartType"
                         :data="adoptionChartData"
                         :options="adoptionChartOptions"
                         class="h-[30rem] min-w-[48rem]"
