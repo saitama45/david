@@ -9,7 +9,13 @@ import {
     DropdownMenuSeparator,
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Building2, ChevronsUpDown, Check } from "lucide-vue-next";
+import {
+    Building2,
+    ChevronsUpDown,
+    Check,
+    ExternalLink,
+    Server,
+} from "lucide-vue-next";
 
 const page = usePage();
 
@@ -82,6 +88,24 @@ const switchEntity = (entity) => {
                         v-if="entity.id === activeEntityId"
                         class="h-4 w-4 text-primary"
                     />
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem as-child>
+                    <a
+                        href="https://davidtest.runasp.net/"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        class="cursor-pointer"
+                    >
+                        <Server class="text-muted-foreground" />
+                        <span class="flex flex-1 flex-col min-w-0">
+                            <span class="font-medium">Test Environment</span>
+                            <span class="text-xs text-muted-foreground">
+                                Open in new tab
+                            </span>
+                        </span>
+                        <ExternalLink class="text-muted-foreground" />
+                    </a>
                 </DropdownMenuItem>
             </DropdownMenuContent>
         </DropdownMenu>
