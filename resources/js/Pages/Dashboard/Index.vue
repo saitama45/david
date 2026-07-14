@@ -9,7 +9,7 @@ import { useAuth } from "@/composables/useAuth";
 import Knob from "primevue/knob";
 import { Chart as ChartJS } from "chart.js";
 import axios from "axios";
-import { Check, ClockArrowUp, BookX, Target, TrendingUp, Users, Receipt, BarChart3, RotateCcw, Search } from "lucide-vue-next";
+import { Check, ClockArrowUp, BookX, Target, TrendingUp, Users, Receipt, BarChart3, RotateCcw, Search, ExternalLink } from "lucide-vue-next";
 
 const { hasAccess } = useAuth();
 
@@ -17,6 +17,10 @@ const props = defineProps({
         branches: {
             type: Object,
             required: true,
+        },
+        adoptionStores: {
+            type: Array,
+            default: () => [],
         },
         timePeriods: {
             type: Object,
@@ -91,6 +95,7 @@ const props = defineProps({
     });
 
 const { options: branchesOptions } = useSelectOptions(props.branches);
+const { options: adoptionStoreOptions } = useSelectOptions(props.adoptionStores);
 const { options: timePeriodOptions } = useSelectOptions(props.timePeriods);
 
 const chart_time_period = ref(parseInt(props.filters.chart_time_period ?? 0));
@@ -781,6 +786,7 @@ const inventory_type = ref(props.filters.inventory_type ?? "quantity");
 const canViewOverview = computed(() => hasAccess("view dashboard overview"));
 const canViewSalesMix = computed(() => hasAccess("view sales mix"));
 const canViewAdoption = computed(() => hasAccess("view adoption rate dashboard"));
+const canViewAdoptionReport = computed(() => hasAccess("view adoption rate tracking report"));
 
 const activeDashboardTab = ref(
     hasAccess("view dashboard overview") ? "overview" :
@@ -850,7 +856,7 @@ const productQuantityMeta = ref({
 });
 
 // --- Adoption Rate tab state ---
-const adoptionBranch = ref([branchesOptions.value[0]?.value ?? "all"]);
+const adoptionBranch = ref([adoptionStoreOptions.value[0]?.value ?? "all"]);
 const adoptionDateFrom = ref(formatDate(monthStart));
 const adoptionDateTo = ref(formatDate(today));
 const adoptionViewMode = ref("combined"); // 'combined' | 'per_store'
@@ -864,9 +870,19 @@ const adoptionPerStore = ref([]);
 const adoptionMeta = ref({
     date_from: adoptionDateFrom.value,
     date_to: adoptionDateTo.value,
+    store_ids: [],
     store_count: 0,
     overall_rate: null,
+    indicator_rates: [],
 });
+const adoptionMatchingReportUrl = computed(() => route("reports.adoption-rate-tracking.index", {
+    tab: "overall_adoption_rate",
+    date_from: adoptionMeta.value.date_from,
+    date_to: adoptionMeta.value.date_to,
+    store_ids: adoptionMeta.value.store_ids || [],
+    ordering_templates: [],
+    search: "",
+}));
 
 const adoptionPalette = [
     "#06b6d4", "#f97316", "#8b5cf6", "#10b981", "#ef4444",
@@ -874,17 +890,28 @@ const adoptionPalette = [
 ];
 
 const adoptionHasData = computed(() => {
-    if (adoptionWeeks.value.length === 0) return false;
     const series = adoptionViewMode.value === "combined" ? adoptionCombined.value : adoptionPerStore.value;
 
-    return series.length > 0;
+    return series.length > 0 && (adoptionViewMode.value === "combined" || adoptionWeeks.value.length > 0);
+});
+
+const adoptionChartLabels = computed(() => {
+    if (adoptionViewMode.value !== "combined") {
+        return adoptionWeeks.value.map((week) => week.label);
+    }
+
+    if (adoptionWeeks.value.length >= 2) {
+        return adoptionWeeks.value.map((week) => week.label);
+    }
+
+    return [adoptionMeta.value.date_from, adoptionMeta.value.date_to];
 });
 
 const adoptionChartData = computed(() => {
     const series = adoptionViewMode.value === "combined" ? adoptionCombined.value : adoptionPerStore.value;
 
     return {
-        labels: adoptionWeeks.value.map((week) => week.label),
+        labels: adoptionChartLabels.value,
         datasets: series.map((serie, index) => {
             const isOverall = adoptionViewMode.value === "combined" && serie.label === "Overall";
             const color = isOverall ? "#0f172a" : adoptionPalette[index % adoptionPalette.length];
@@ -1236,7 +1263,7 @@ const applyAdoptionFilters = () => {
 };
 
 const resetAdoptionFilters = () => {
-    adoptionBranch.value = [branchesOptions.value[0]?.value ?? "all"];
+    adoptionBranch.value = [adoptionStoreOptions.value[0]?.value ?? "all"];
     adoptionDateFrom.value = formatDate(monthStart);
     adoptionDateTo.value = formatDate(today);
     adoptionViewMode.value = "combined";
@@ -2030,7 +2057,7 @@ const registerDoughnutLabelPlugin = () => {
                         v-model="adoptionBranch"
                         filter
                         placeholder="All Stores"
-                        :options="branchesOptions"
+                        :options="adoptionStoreOptions"
                         optionLabel="label"
                         optionValue="value"
                     ></MultiSelect>
@@ -2057,15 +2084,40 @@ const registerDoughnutLabelPlugin = () => {
                 </div>
             </div>
 
+            <div v-if="adoptionLoaded" class="grid gap-4 rounded-lg border border-cyan-200 bg-cyan-50 p-5 shadow-sm md:grid-cols-[1fr_auto] md:items-center">
+                <div>
+                    <p class="text-xs font-semibold uppercase tracking-wide text-cyan-700">Report-Tallied Overall Adoption Rate</p>
+                    <p class="mt-1 text-3xl font-semibold text-cyan-900">{{ adoptionMeta.overall_rate === null || adoptionMeta.overall_rate === undefined ? 'N/A' : formatPercent(adoptionMeta.overall_rate) }}</p>
+                    <p class="mt-1 text-sm text-cyan-800">
+                        {{ adoptionMeta.date_from }} to {{ adoptionMeta.date_to }} - {{ adoptionMeta.store_count }} accessible store(s)
+                    </p>
+                    <p class="mt-2 text-xs text-cyan-700">Weekly chart points remain week-specific and are not averaged to produce this whole-period rate.</p>
+                </div>
+                <a v-if="canViewAdoptionReport" :href="adoptionMatchingReportUrl" class="inline-flex h-10 items-center justify-center gap-2 rounded-md bg-cyan-700 px-4 text-sm font-medium text-white transition hover:bg-cyan-800">
+                    View Matching Report
+                    <ExternalLink class="h-4 w-4" />
+                </a>
+            </div>
+
+            <div v-if="adoptionLoaded" class="rounded-lg border border-gray-200 bg-white p-5 shadow-sm">
+                <div class="mb-4">
+                    <h3 class="text-base font-semibold text-gray-900">Report-Tallied Selected Range Indicators</h3>
+                    <p class="text-sm text-gray-500">These percentages use the complete selected date range and match the corresponding Adoption Rate Tracking report tabs.</p>
+                </div>
+                <div class="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
+                    <div v-for="indicator in adoptionMeta.indicator_rates || []" :key="indicator.no" class="rounded-lg border border-gray-200 bg-gray-50 p-4">
+                        <p class="text-sm text-gray-600">{{ indicator.indicator }}</p>
+                        <p class="mt-2 text-2xl font-semibold text-blue-700">{{ indicator.rate === null || indicator.rate === undefined ? 'N/A' : formatPercent(indicator.rate) }}</p>
+                    </div>
+                </div>
+            </div>
+
             <div class="rounded-lg border border-gray-200 bg-white p-5 shadow-sm">
                 <div class="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                     <div>
-                        <h3 class="text-base font-semibold text-gray-900">Weekly Adoption Rate</h3>
+                        <h3 class="text-base font-semibold text-gray-900">{{ adoptionViewMode === 'combined' ? 'Report-Tallied Selected Range Reference Rates' : 'Weekly Adoption Rate by Store' }}</h3>
                         <p class="text-sm text-gray-500">
                             {{ adoptionMeta.date_from }} to {{ adoptionMeta.date_to }} - {{ adoptionMeta.store_count }} store(s)
-                            <span v-if="adoptionMeta.overall_rate !== null && adoptionMeta.overall_rate !== undefined">
-                                - Overall {{ formatPercent(adoptionMeta.overall_rate) }}
-                            </span>
                         </p>
                     </div>
                     <div class="flex flex-wrap items-center gap-2">
@@ -2126,7 +2178,7 @@ const registerDoughnutLabelPlugin = () => {
 
                 <p class="mb-4 text-xs text-gray-400">
                     {{ adoptionViewMode === 'combined'
-                        ? 'Each indicator averaged across the selected stores, plus the combined Overall trend.'
+                        ? 'Each constant line spans the selected period and exactly matches the corresponding selected-range Adoption Rate Tracking report percentage.'
                         : 'Overall weekly adoption rate for each selected store.' }}
                 </p>
 

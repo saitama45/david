@@ -39,6 +39,7 @@ const savingRow = ref(null);
 const localRemarks = ref({});
 const tabsWithoutTemplateFilter = ["sales_upload_timeliness", "wastage_upload_timeliness", "overall_adoption_rate"];
 const renderedTab = computed(() => props.filters.tab || "ordering_timeliness");
+const renderedSearch = computed(() => String(props.filters.search || "").trim());
 const visibleRows = computed(() => props.rows?.data || []);
 const overallSections = computed(() =>
     renderedTab.value === "overall_adoption_rate"
@@ -174,7 +175,7 @@ const saveRemark = async (row) => {
 };
 
 const formatNumber = (number) => new Intl.NumberFormat("en-PH").format(number || 0);
-const formatRate = (rate) => rate === null || rate === undefined ? "N/A" : `${Number(rate).toLocaleString("en-PH", { maximumFractionDigits: 2 })}%`;
+const formatRate = (rate) => rate === null || rate === undefined ? "N/A" : `${Number(rate).toFixed(2)}%`;
 
 const statusClass = (status) => {
     if (status === "Yes") return "bg-emerald-50 text-emerald-700 border-emerald-200";
@@ -310,16 +311,16 @@ const statusClass = (status) => {
                 <p class="mt-1 text-2xl font-semibold text-blue-700">{{ formatRate(totals.combined_adoption_rate) }}</p>
             </div>
             <div class="rounded-lg border border-gray-200 bg-white p-4">
-                <p class="text-sm text-gray-600">FG Yes / No</p>
-                <p class="mt-1 text-2xl font-semibold text-gray-900">{{ formatNumber(totals.fg_yes) }} / {{ formatNumber(totals.fg_no) }}</p>
+                <p class="text-sm text-gray-600">FG Yes / No / NA</p>
+                <p class="mt-1 text-2xl font-semibold text-gray-900">{{ formatNumber(totals.fg_yes) }} / {{ formatNumber(totals.fg_no) }} / {{ formatNumber(totals.fg_na) }}</p>
             </div>
             <div class="rounded-lg border border-gray-200 bg-white p-4">
                 <p class="text-sm text-gray-600">FG Adoption Rate</p>
                 <p class="mt-1 text-2xl font-semibold text-blue-700">{{ formatRate(totals.fg_adoption_rate) }}</p>
             </div>
             <div class="rounded-lg border border-gray-200 bg-white p-4">
-                <p class="text-sm text-gray-600">Traded Yes / No</p>
-                <p class="mt-1 text-2xl font-semibold text-gray-900">{{ formatNumber(totals.traded_yes) }} / {{ formatNumber(totals.traded_no) }}</p>
+                <p class="text-sm text-gray-600">Traded Yes / No / NA</p>
+                <p class="mt-1 text-2xl font-semibold text-gray-900">{{ formatNumber(totals.traded_yes) }} / {{ formatNumber(totals.traded_no) }} / {{ formatNumber(totals.traded_na) }}</p>
             </div>
             <div class="rounded-lg border border-gray-200 bg-white p-4">
                 <p class="text-sm text-gray-600">Traded Adoption Rate</p>
@@ -327,7 +328,7 @@ const statusClass = (status) => {
             </div>
         </div>
 
-        <div v-else-if="renderedTab === 'delivery_logging_timeliness'" class="mb-6 grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
+        <div v-else-if="renderedTab === 'delivery_logging_timeliness'" class="mb-6 grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-5">
             <div class="rounded-lg border border-gray-200 bg-white p-4">
                 <p class="text-sm text-gray-600">Deliveries</p>
                 <p class="mt-1 text-2xl font-semibold text-gray-900">{{ formatNumber(totals.deliveries) }}</p>
@@ -339,6 +340,10 @@ const statusClass = (status) => {
             <div class="rounded-lg border border-gray-200 bg-white p-4">
                 <p class="text-sm text-gray-600">No</p>
                 <p class="mt-1 text-2xl font-semibold text-red-700">{{ formatNumber(totals.no) }}</p>
+            </div>
+            <div class="rounded-lg border border-gray-200 bg-white p-4">
+                <p class="text-sm text-gray-600">NA</p>
+                <p class="mt-1 text-2xl font-semibold text-gray-700">{{ formatNumber(totals.na) }}</p>
             </div>
             <div class="rounded-lg border border-gray-200 bg-white p-4">
                 <p class="text-sm text-gray-600">Adoption Rate</p>
@@ -388,7 +393,11 @@ const statusClass = (status) => {
             </div>
         </div>
 
-        <div v-else-if="renderedTab === 'overall_adoption_rate'" class="mb-6 grid grid-cols-1 gap-4 md:grid-cols-3">
+        <div v-if="renderedTab === 'overall_adoption_rate' && renderedSearch" class="mb-4 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+            Search is active. The Overall Adoption Rate is recalculated from the matching stores and may differ from the dashboard's unsearched selected-range rate.
+        </div>
+
+        <div v-if="renderedTab === 'overall_adoption_rate'" class="mb-6 grid grid-cols-1 gap-4 md:grid-cols-3">
             <div class="rounded-lg border border-gray-200 bg-white p-4">
                 <p class="text-sm text-gray-600">Stores</p>
                 <p class="mt-1 text-2xl font-semibold text-gray-900">{{ formatNumber(totals.stores) }}</p>
@@ -400,6 +409,31 @@ const statusClass = (status) => {
             <div class="rounded-lg border border-gray-200 bg-white p-4">
                 <p class="text-sm text-gray-600">Overall Adoption Rate</p>
                 <p class="mt-1 text-2xl font-semibold text-blue-700">{{ formatRate(totals.overall_rate) }}</p>
+            </div>
+        </div>
+
+        <div v-if="renderedTab === 'overall_adoption_rate'" class="mb-6 overflow-hidden rounded-lg border border-blue-200 bg-white shadow-sm">
+            <div class="border-b border-blue-100 bg-blue-50 px-4 py-3">
+                <h3 class="text-sm font-semibold text-blue-900">All Selected Stores - Report-Tallied Indicator Rates</h3>
+                <p class="mt-1 text-xs text-blue-700">Complete selected date range; these values match the corresponding detail report tabs.</p>
+            </div>
+            <div class="overflow-x-auto">
+                <table class="min-w-full text-sm">
+                    <thead class="bg-gray-50 text-xs uppercase text-gray-500">
+                        <tr>
+                            <th class="border-b px-4 py-3 text-left font-medium">No.</th>
+                            <th class="border-b px-4 py-3 text-left font-medium">Indicator</th>
+                            <th class="border-b px-4 py-3 text-right font-medium">Selected Range Rate</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr v-for="indicator in totals.indicator_rates || []" :key="indicator.no" class="hover:bg-gray-50">
+                            <td class="border-b px-4 py-3">{{ indicator.no }}</td>
+                            <td class="border-b px-4 py-3 font-medium text-gray-900">{{ indicator.indicator }}</td>
+                            <td class="border-b px-4 py-3 text-right font-semibold text-blue-700 tabular-nums">{{ formatRate(indicator.rate) }}</td>
+                        </tr>
+                    </tbody>
+                </table>
             </div>
         </div>
 

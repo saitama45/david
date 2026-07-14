@@ -47,6 +47,17 @@ class DashboardController extends Controller
 
         // Get branches as a clean array for the frontend MultiSelect
         $branchesOptions = StoreBranch::options()->toArray();
+        $adoptionStoreOptions = collect($this->adoptionRateService->getFilterOptions(auth()->user())['stores'])
+            ->map(fn (StoreBranch $store) => [
+                'label' => $store->name . ' (' . ($store->branch_code ?: $store->brand_code ?: $store->id) . ')',
+                'value' => (int) $store->id,
+            ])
+            ->prepend([
+                'label' => 'All Stores',
+                'value' => 'all',
+            ])
+            ->values()
+            ->all();
 
         $branch = request('branch');
 
@@ -124,6 +135,7 @@ class DashboardController extends Controller
         return Inertia::render('Dashboard/Index', [
             'timePeriods' => $timePeriods,
             'branches'    => $branchesOptions,
+            'adoptionStores' => $adoptionStoreOptions,
             'filters'     => request()->only(['branch', 'time_period', 'chart_time_period', 'inventory_type']),
             ...$data,
         ]);

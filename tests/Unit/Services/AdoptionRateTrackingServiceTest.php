@@ -3,6 +3,8 @@
 namespace Tests\Unit\Services;
 
 use App\Http\Services\AdoptionRateTrackingService;
+use App\Models\StoreOrder;
+use App\Models\Supplier;
 use App\Models\Wastage;
 use Carbon\Carbon;
 use ReflectionMethod;
@@ -100,6 +102,143 @@ class AdoptionRateTrackingServiceTest extends TestCase
         $this->assertNull($this->simpleAverage([null, null]));
     }
 
+    public function test_delivery_logging_status_marks_cpo_as_na(): void
+    {
+        $deliveryDate = Carbon::parse('2026-07-01')->startOfDay();
+
+        $this->assertSame('NA', $this->deliveryLoggingStatus('CPO', $deliveryDate->copy(), $deliveryDate));
+        $this->assertSame('NA', $this->deliveryLoggingStatus(' cpo ', null, $deliveryDate));
+    }
+
+    public function test_delivery_logging_status_keeps_non_cpo_timeliness_rules(): void
+    {
+        $deliveryDate = Carbon::parse('2026-07-01')->startOfDay();
+
+        $this->assertSame('Yes', $this->deliveryLoggingStatus('GSI-B', $deliveryDate->copy(), $deliveryDate));
+        $this->assertSame('No', $this->deliveryLoggingStatus('GSI-B', $deliveryDate->copy()->addDay(), $deliveryDate));
+        $this->assertSame('No', $this->deliveryLoggingStatus('GSI-B', null, $deliveryDate));
+    }
+
+    public function test_delivery_logging_rate_averages_eligible_stores_equally_and_excludes_cpo(): void
+    {
+        $rate = $this->deliveryLoggingAdoptionRate(collect([
+            ['store_branch_id' => 1, 'on_time' => 'Yes'],
+            ['store_branch_id' => 1, 'on_time' => 'No'],
+            ['store_branch_id' => 1, 'on_time' => 'No'],
+            ['store_branch_id' => 1, 'on_time' => 'No'],
+            ['store_branch_id' => 2, 'on_time' => 'Yes'],
+            ['store_branch_id' => 2, 'on_time' => 'NA'],
+            ['store_branch_id' => 3, 'on_time' => 'NA'],
+        ]));
+
+        $this->assertSame(62.5, $rate);
+    }
+
+    public function test_delivery_logging_rate_is_null_when_all_rows_are_cpo(): void
+    {
+        $rate = $this->deliveryLoggingAdoptionRate(collect([
+            ['store_branch_id' => 1, 'on_time' => 'NA'],
+            ['store_branch_id' => 2, 'on_time' => 'NA'],
+        ]));
+
+        $this->assertNull($rate);
+    }
+
+    public function test_commit_exclusion_includes_cpo_and_every_drops_supplier_variant(): void
+    {
+        $this->assertTrue($this->isAutomatedCommitOrder('GSI-B', 'CPO'));
+        $this->assertTrue($this->isAutomatedCommitOrder('DROPS', 'FRUITS AND VEGETABLES'));
+        $this->assertTrue($this->isAutomatedCommitOrder('DROPS', 'ICE CREAM'));
+        $this->assertTrue($this->isAutomatedCommitOrder('DROPS', 'SALMON'));
+        $this->assertTrue($this->isAutomatedCommitOrder('DROPS', 'DROPS'));
+        $this->assertFalse($this->isAutomatedCommitOrder('GSI-B', 'GSI-B'));
+    }
+
+    public function test_commit_status_returns_na_when_excluded_and_preserves_manual_rules(): void
+    {
+        $deliveryDate = Carbon::parse('2026-07-02')->startOfDay();
+
+        $this->assertSame('NA', $this->commitStatus(null, $deliveryDate, true));
+        $this->assertSame('Yes', $this->commitStatus($deliveryDate->copy()->subDay(), $deliveryDate));
+        $this->assertSame('No', $this->commitStatus($deliveryDate->copy(), $deliveryDate));
+        $this->assertSame('No', $this->commitStatus(null, $deliveryDate));
+    }
+
+    public function test_commit_rates_average_eligible_stores_equally_and_exclude_automated_only_stores(): void
+    {
+        $rows = collect([
+            ['store_branch_id' => 1, 'fg_on_time' => 'Yes', 'traded_on_time' => 'No'],
+            ['store_branch_id' => 1, 'fg_on_time' => 'No', 'traded_on_time' => 'No'],
+            ['store_branch_id' => 2, 'fg_on_time' => 'Yes', 'traded_on_time' => 'Yes'],
+            ['store_branch_id' => 3, 'fg_on_time' => 'NA', 'traded_on_time' => 'NA'],
+        ]);
+
+        $this->assertSame(75.0, $this->statusAdoptionRateByStore($rows, 'fg_on_time'));
+        $this->assertSame(50.0, $this->statusAdoptionRateByStore($rows, 'traded_on_time'));
+        $this->assertSame(62.5, $this->commitAdoptionRateByStore($rows));
+    }
+
+    public function test_commit_rate_is_null_when_all_stores_only_have_automated_orders(): void
+    {
+        $rows = collect([
+            ['store_branch_id' => 1, 'fg_on_time' => 'NA', 'traded_on_time' => 'NA'],
+            ['store_branch_id' => 2, 'fg_on_time' => 'NA', 'traded_on_time' => 'NA'],
+        ]);
+
+        $this->assertNull($this->statusAdoptionRateByStore($rows, 'fg_on_time'));
+        $this->assertNull($this->statusAdoptionRateByStore($rows, 'traded_on_time'));
+        $this->assertNull($this->commitAdoptionRateByStore($rows));
+    }
+
+    public function test_dashboard_meta_reuses_the_report_whole_period_rate_and_resolved_stores(): void
+    {
+        $weekKey = '2026-05-01|2026-05-03';
+        $overall = [
+            'rows' => collect([[
+                'store' => 'Store 1',
+                'store_code' => 'S1',
+                'weeks' => [[
+                    'key' => $weekKey,
+                    'label' => 'May1-May3',
+                    'start_date' => '2026-05-01',
+                    'end_date' => '2026-05-03',
+                ]],
+                'indicators' => [],
+                'weekly_averages' => [$weekKey => 2.44],
+            ]]),
+            'totals' => [
+                'stores' => 1,
+                'weeks' => 1,
+                'overall_rate' => 9.11,
+                'indicator_rates' => [
+                    ['no' => 3, 'indicator' => 'Timeliness of Receiving of Orders', 'rate' => 25.21],
+                ],
+            ],
+            'filters' => [
+                'date_from' => '2026-05-01',
+                'date_to' => '2026-07-14',
+                'store_ids' => [10, 20],
+            ],
+        ];
+        $service = $this->getMockBuilder(AdoptionRateTrackingService::class)
+            ->onlyMethods(['getOverallAdoptionRateData'])
+            ->getMock();
+        $service->expects($this->once())
+            ->method('getOverallAdoptionRateData')
+            ->willReturn($overall);
+
+        $trend = $service->getWeeklyAdoptionTrend([], new \App\Models\User());
+
+        $this->assertSame(9.11, $trend['meta']['overall_rate']);
+        $this->assertSame([10, 20], $trend['meta']['store_ids']);
+        $this->assertSame('2026-05-01', $trend['meta']['date_from']);
+        $this->assertSame('2026-07-14', $trend['meta']['date_to']);
+        $this->assertSame(25.21, $trend['meta']['indicator_rates'][0]['rate']);
+        $this->assertSame([25.21, 25.21], $trend['combined']->firstWhere('label', 'Timeliness of Receiving of Orders')['data']);
+        $this->assertSame([9.11, 9.11], $trend['combined']->firstWhere('label', 'Overall')['data']);
+        $this->assertSame([2.44], $trend['per_store']->first()['data']);
+    }
+
     private function salesUploadNetworkDays(string $salesDate, string $uploadDate): int
     {
         $method = new ReflectionMethod(AdoptionRateTrackingService::class, 'salesUploadNetworkDays');
@@ -154,5 +293,55 @@ class AdoptionRateTrackingServiceTest extends TestCase
         $method->setAccessible(true);
 
         return $method->invoke(new AdoptionRateTrackingService(), $rates);
+    }
+
+    private function deliveryLoggingStatus(string $template, ?Carbon $loggingDate, Carbon $deliveryDate): string
+    {
+        $method = new ReflectionMethod(AdoptionRateTrackingService::class, 'deliveryLoggingStatus');
+        $method->setAccessible(true);
+
+        return $method->invoke(new AdoptionRateTrackingService(), $template, $loggingDate, $deliveryDate);
+    }
+
+    private function deliveryLoggingAdoptionRate($rows): ?float
+    {
+        $method = new ReflectionMethod(AdoptionRateTrackingService::class, 'deliveryLoggingAdoptionRate');
+        $method->setAccessible(true);
+
+        return $method->invoke(new AdoptionRateTrackingService(), $rows);
+    }
+
+    private function isAutomatedCommitOrder(string $supplierCode, string $template): bool
+    {
+        $order = new StoreOrder();
+        $order->setRelation('supplier', new Supplier(['supplier_code' => $supplierCode]));
+        $method = new ReflectionMethod(AdoptionRateTrackingService::class, 'isAutomatedCommitOrder');
+        $method->setAccessible(true);
+
+        return $method->invoke(new AdoptionRateTrackingService(), $order, $template);
+    }
+
+    private function commitStatus(?Carbon $commitDate, Carbon $deliveryDate, bool $excluded = false): string
+    {
+        $method = new ReflectionMethod(AdoptionRateTrackingService::class, 'commitStatus');
+        $method->setAccessible(true);
+
+        return $method->invoke(new AdoptionRateTrackingService(), $commitDate, $deliveryDate, $excluded);
+    }
+
+    private function statusAdoptionRateByStore($rows, string $field): ?float
+    {
+        $method = new ReflectionMethod(AdoptionRateTrackingService::class, 'statusAdoptionRateByStore');
+        $method->setAccessible(true);
+
+        return $method->invoke(new AdoptionRateTrackingService(), $rows, $field);
+    }
+
+    private function commitAdoptionRateByStore($rows): ?float
+    {
+        $method = new ReflectionMethod(AdoptionRateTrackingService::class, 'commitAdoptionRateByStore');
+        $method->setAccessible(true);
+
+        return $method->invoke(new AdoptionRateTrackingService(), $rows);
     }
 }

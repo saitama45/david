@@ -28,6 +28,8 @@ class AdoptionRateTrackingService
     public const TAB_OVERALL_ADOPTION_RATE = 'overall_adoption_rate';
 
     private const SPECIAL_WEEK_OFFSET_TEMPLATES = ['PUL-O', 'CPO', 'FRUITS AND VEGETABLES'];
+    private const CPO_ORDER_TEMPLATE = 'CPO';
+    private const AUTOMATED_COMMIT_SUPPLIER = 'DROPS';
     private const SALES_UPLOAD_REMARK_TEMPLATE = 'SALES_UPLOAD';
     private const WASTAGE_UPLOAD_REMARK_PREFIX = 'WASTAGE_UPLOAD:';
     private const ENABLED_TABS = [
@@ -96,25 +98,24 @@ class AdoptionRateTrackingService
         $rows = $this->buildCommitRows($orders, $remarks);
         $rows = $this->filterCommitRows($rows, $filters['search'] ?? null);
 
-        $fgDenominator = $rows->whereIn('fg_on_time', ['Yes', 'No'])->count();
         $fgYes = $rows->where('fg_on_time', 'Yes')->count();
-        $tradedDenominator = $rows->whereIn('traded_on_time', ['Yes', 'No'])->count();
         $tradedYes = $rows->where('traded_on_time', 'Yes')->count();
-        $combinedCommitDenominator = $fgDenominator + $tradedDenominator;
-        $combinedCommitYes = $fgYes + $tradedYes;
+        $fgNo = $rows->where('fg_on_time', 'No')->count();
+        $tradedNo = $rows->where('traded_on_time', 'No')->count();
 
         $totals = [
             'orders' => $rows->count(),
             'fg_yes' => $fgYes,
-            'fg_no' => $rows->where('fg_on_time', 'No')->count(),
+            'fg_no' => $fgNo,
             'fg_na' => $rows->where('fg_on_time', 'NA')->count(),
-            'fg_adoption_rate' => $fgDenominator > 0 ? round(($fgYes / $fgDenominator) * 100, 2) : null,
+            'fg_adoption_rate' => $this->statusAdoptionRateByStore($rows, 'fg_on_time'),
             'traded_yes' => $tradedYes,
-            'traded_no' => $rows->where('traded_on_time', 'No')->count(),
-            'traded_adoption_rate' => $tradedDenominator > 0 ? round(($tradedYes / $tradedDenominator) * 100, 2) : null,
-            'combined_yes' => $combinedCommitYes,
-            'combined_no' => $combinedCommitDenominator - $combinedCommitYes,
-            'combined_adoption_rate' => $combinedCommitDenominator > 0 ? round(($combinedCommitYes / $combinedCommitDenominator) * 100, 2) : null,
+            'traded_no' => $tradedNo,
+            'traded_na' => $rows->where('traded_on_time', 'NA')->count(),
+            'traded_adoption_rate' => $this->statusAdoptionRateByStore($rows, 'traded_on_time'),
+            'combined_yes' => $fgYes + $tradedYes,
+            'combined_no' => $fgNo + $tradedNo,
+            'combined_adoption_rate' => $this->commitAdoptionRateByStore($rows),
         ];
 
         return [
@@ -140,10 +141,9 @@ class AdoptionRateTrackingService
             'deliveries' => $rows->count(),
             'yes' => $rows->where('on_time', 'Yes')->count(),
             'no' => $rows->where('on_time', 'No')->count(),
+            'na' => $rows->where('on_time', 'NA')->count(),
         ];
-        $totals['adoption_rate'] = $totals['deliveries'] > 0
-            ? round(($totals['yes'] / $totals['deliveries']) * 100, 2)
-            : null;
+        $totals['adoption_rate'] = $this->deliveryLoggingAdoptionRate($rows);
 
         return [
             'rows' => $paginate ? $this->paginateRows($rows, (int) ($filters['per_page'] ?? 50)) : $rows->values(),
@@ -237,11 +237,24 @@ class AdoptionRateTrackingService
             ->orderBy('name')
             ->get();
 
-        $orderingRows = $this->getOrderingTimelinessData($baseFilters, $user, false)['rows'];
-        $commitRows = $this->getCommitOrderTimelinessData($baseFilters, $user, false)['rows'];
-        $deliveryRows = $this->getDeliveryLoggingTimelinessData($baseFilters, $user, false)['rows'];
-        $salesRows = $this->getSalesUploadTimelinessData($baseFilters, $user, false)['rows'];
-        $wastageRows = $this->getWastageUploadTimelinessData($baseFilters, $user, false)['rows'];
+        $orderingData = $this->getOrderingTimelinessData($baseFilters, $user, false);
+        $commitData = $this->getCommitOrderTimelinessData($baseFilters, $user, false);
+        $deliveryData = $this->getDeliveryLoggingTimelinessData($baseFilters, $user, false);
+        $salesData = $this->getSalesUploadTimelinessData($baseFilters, $user, false);
+        $wastageData = $this->getWastageUploadTimelinessData($baseFilters, $user, false);
+
+        $orderingRows = $orderingData['rows'];
+        $commitRows = $commitData['rows'];
+        $deliveryRows = $deliveryData['rows'];
+        $salesRows = $salesData['rows'];
+        $wastageRows = $wastageData['rows'];
+        $indicatorRates = collect([
+            ['no' => 1, 'indicator' => 'Order Placement', 'rate' => $orderingData['totals']['adoption_rate']],
+            ['no' => 2, 'indicator' => 'Timeliness of Committing of Order', 'rate' => $commitData['totals']['combined_adoption_rate']],
+            ['no' => 3, 'indicator' => 'Timeliness of Receiving of Orders', 'rate' => $deliveryData['totals']['adoption_rate']],
+            ['no' => 4, 'indicator' => 'Timeliness of Sales Uploading', 'rate' => $salesData['totals']['adoption_rate']],
+            ['no' => 5, 'indicator' => 'Timeliness of Wastage Uploading', 'rate' => $wastageData['totals']['upload_adoption_rate']],
+        ]);
 
         $sections = $stores->map(function (StoreBranch $store) use ($weeks, $orderingRows, $commitRows, $deliveryRows, $salesRows, $wastageRows) {
             $storeId = (int) $store->id;
@@ -300,6 +313,19 @@ class AdoptionRateTrackingService
         })->values();
 
         $sections = $this->filterOverallSections($sections, $filters['search'] ?? null);
+        if (!empty($filters['search'])) {
+            $indicatorRates = $indicatorRates->map(function (array $indicator, int $index) use ($sections) {
+                $rates = $sections
+                    ->map(fn (array $section) => $section['indicators'][$index]['overall_rate'] ?? null)
+                    ->filter(fn ($rate) => $rate !== null)
+                    ->values()
+                    ->all();
+
+                $indicator['rate'] = $this->simpleAverage($rates);
+
+                return $indicator;
+            });
+        }
         $visibleOverallRates = $sections
             ->pluck('overall_rate')
             ->filter(fn ($rate) => $rate !== null)
@@ -312,17 +338,18 @@ class AdoptionRateTrackingService
                 'stores' => $sections->count(),
                 'weeks' => count($weeks),
                 'overall_rate' => $this->simpleAverage($visibleOverallRates),
+                'indicator_rates' => $indicatorRates->values()->all(),
             ],
             'filters' => $this->responseFilters($dateFrom, $dateTo, $storeIds, [], $filters, self::TAB_OVERALL_ADOPTION_RATE),
         ];
     }
 
     /**
-     * Chart-friendly weekly adoption-rate trend for the dashboard tab.
+     * Chart-friendly adoption-rate data for the dashboard tab.
      *
      * Reuses the Overall Adoption Rate computation and reshapes it into:
      *  - weeks:     [{ key, label }, ...]
-     *  - combined:  one series per indicator (avg across the selected stores) + an "Overall" series
+     *  - combined:  one report-tallied selected-range point per indicator + an "Overall" point
      *  - per_store: one series per store (its weekly overall average)
      */
     public function getWeeklyAdoptionTrend(array $filters, User $user): array
@@ -338,32 +365,17 @@ class AdoptionRateTrackingService
         }
 
         $weekKeys = collect($weeks)->pluck('key');
-        $indicatorsMeta = $sections->first()['indicators'] ?? [];
-
-        $combined = collect($indicatorsMeta)->map(function (array $indicator, int $index) use ($sections, $weekKeys) {
+        $combinedPointCount = max(2, $weekKeys->count());
+        $combined = collect($overall['totals']['indicator_rates'])->map(function (array $indicator) use ($combinedPointCount) {
             return [
                 'label' => $indicator['indicator'],
-                'data' => $weekKeys->map(function ($weekKey) use ($sections, $index) {
-                    $values = $sections
-                        ->map(fn (array $section) => $section['indicators'][$index]['rates'][$weekKey] ?? null)
-                        ->filter(fn ($value) => $value !== null)
-                        ->all();
-
-                    return $this->simpleAverage($values);
-                })->all(),
+                'data' => array_fill(0, $combinedPointCount, $indicator['rate']),
             ];
         })->values();
 
         $combined->push([
             'label' => 'Overall',
-            'data' => $weekKeys->map(function ($weekKey) use ($sections) {
-                $values = $sections
-                    ->map(fn (array $section) => $section['weekly_averages'][$weekKey] ?? null)
-                    ->filter(fn ($value) => $value !== null)
-                    ->all();
-
-                return $this->simpleAverage($values);
-            })->all(),
+            'data' => array_fill(0, $combinedPointCount, $overall['totals']['overall_rate']),
         ]);
 
         $perStore = $sections->map(function (array $section) use ($weekKeys) {
@@ -383,8 +395,10 @@ class AdoptionRateTrackingService
             'meta' => [
                 'date_from' => $overall['filters']['date_from'],
                 'date_to' => $overall['filters']['date_to'],
+                'store_ids' => $overall['filters']['store_ids'],
                 'store_count' => $overall['totals']['stores'],
                 'overall_rate' => $overall['totals']['overall_rate'],
+                'indicator_rates' => $overall['totals']['indicator_rates'],
             ],
         ];
     }
@@ -488,7 +502,12 @@ class AdoptionRateTrackingService
             return StoreBranch::where('is_active', true)->pluck('id')->map(fn ($id) => (int) $id)->all();
         }
 
-        return $user->store_branches->pluck('id')->map(fn ($id) => (int) $id)->all();
+        return StoreBranch::query()
+            ->where('is_active', true)
+            ->whereIn('id', $user->store_branches->pluck('id'))
+            ->pluck('id')
+            ->map(fn ($id) => (int) $id)
+            ->all();
     }
 
     private function resolveTemplates(array $filters): array
@@ -694,8 +713,9 @@ class AdoptionRateTrackingService
             $fgCommitDate = $this->latestCategoryCommitDate($matchingOrders, $categoryMap, 'fg');
             $tradedCommitDate = $this->latestCategoryCommitDate($matchingOrders, $categoryMap, 'traded');
             $isPulO = $this->displayTemplate($template) === 'PUL-O';
-            $fgStatus = $isPulO ? 'NA' : $this->commitStatus($fgCommitDate, $deliveryDate);
-            $tradedStatus = $this->commitStatus($tradedCommitDate, $deliveryDate);
+            $isAutomatedCommit = $this->isAutomatedCommitOrder($firstOrder, $template);
+            $fgStatus = $this->commitStatus($fgCommitDate, $deliveryDate, $isAutomatedCommit || $isPulO);
+            $tradedStatus = $this->commitStatus($tradedCommitDate, $deliveryDate, $isAutomatedCommit);
             $remark = $remarks->get($key);
 
             $rows->push([
@@ -710,10 +730,10 @@ class AdoptionRateTrackingService
                 'delivery_date_display' => $deliveryDate->format('M j, Y'),
                 'fg_commit_date_display' => $isPulO ? 'NA' : ($fgCommitDate ? $fgCommitDate->format('M j, Y') : 'No Commit'),
                 'fg_on_time' => $fgStatus,
-                'fg_on_time_num' => $fgStatus === 'Yes' ? 1 : 0,
+                'fg_on_time_num' => $fgStatus === 'NA' ? null : ($fgStatus === 'Yes' ? 1 : 0),
                 'traded_commit_date_display' => $tradedCommitDate ? $tradedCommitDate->format('M j, Y') : 'No Commit',
                 'traded_on_time' => $tradedStatus,
-                'traded_on_time_num' => $tradedStatus === 'Yes' ? 1 : 0,
+                'traded_on_time_num' => $tradedStatus === 'NA' ? null : ($tradedStatus === 'Yes' ? 1 : 0),
                 'remarks' => $remark?->remarks,
             ]);
         }
@@ -741,7 +761,7 @@ class AdoptionRateTrackingService
             $deliveryDate = Carbon::parse($firstOrder->order_date)->startOfDay();
             $template = $this->templateForOrder($firstOrder);
             $loggingDate = $this->latestApprovedLoggingDate($matchingOrders);
-            $onTime = $loggingDate && $loggingDate->isSameDay($deliveryDate) ? 'Yes' : 'No';
+            $onTime = $this->deliveryLoggingStatus($template, $loggingDate, $deliveryDate);
             $remark = $remarks->get($key);
 
             $rows->push([
@@ -759,7 +779,7 @@ class AdoptionRateTrackingService
                 'david_logging_date' => $loggingDate?->toDateString(),
                 'david_logging_date_display' => $loggingDate ? $loggingDate->format('M j, Y') : '',
                 'on_time' => $onTime,
-                'on_time_num' => $onTime === 'Yes' ? 1 : 0,
+                'on_time_num' => $onTime === 'NA' ? null : ($onTime === 'Yes' ? 1 : 0),
                 'remarks' => $remark?->remarks,
             ]);
         }
@@ -947,6 +967,44 @@ class AdoptionRateTrackingService
         return round(($yes / $denominator) * 100, 2);
     }
 
+    private function deliveryLoggingAdoptionRate(Collection $rows): ?float
+    {
+        return $this->statusAdoptionRateByStore($rows, 'on_time');
+    }
+
+    private function statusAdoptionRateByStore(Collection $rows, string $field): ?float
+    {
+        $storeRates = $rows
+            ->groupBy(fn (array $row) => (int) ($row['store_branch_id'] ?? 0))
+            ->map(fn (Collection $storeRows) => $this->statusRate($storeRows, $field, ['Yes'], ['Yes', 'No']))
+            ->filter(fn ($rate) => $rate !== null)
+            ->values()
+            ->all();
+
+        return $this->simpleAverage($storeRates);
+    }
+
+    private function deliveryLoggingStatus(string $template, ?Carbon $loggingDate, Carbon $deliveryDate): string
+    {
+        if (strtoupper(trim($template)) === self::CPO_ORDER_TEMPLATE) {
+            return 'NA';
+        }
+
+        return $loggingDate && $loggingDate->isSameDay($deliveryDate) ? 'Yes' : 'No';
+    }
+
+    private function commitAdoptionRateByStore(Collection $rows): ?float
+    {
+        $storeRates = $rows
+            ->groupBy(fn (array $row) => (int) ($row['store_branch_id'] ?? 0))
+            ->map(fn (Collection $storeRows) => $this->commitOverallRate($storeRows))
+            ->filter(fn ($rate) => $rate !== null)
+            ->values()
+            ->all();
+
+        return $this->simpleAverage($storeRates);
+    }
+
     private function commitOverallRate(Collection $rows): ?float
     {
         $statuses = $rows->flatMap(fn (array $row) => [
@@ -1057,13 +1115,26 @@ class AdoptionRateTrackingService
         return $normalized === 'TRADED' ? 'traded' : null;
     }
 
-    private function commitStatus(?Carbon $commitDate, Carbon $deliveryDate): string
+    private function commitStatus(?Carbon $commitDate, Carbon $deliveryDate, bool $excluded = false): string
     {
+        if ($excluded) {
+            return 'NA';
+        }
+
         if (!$commitDate) {
             return 'No';
         }
 
         return $commitDate->lt($deliveryDate->copy()->startOfDay()) ? 'Yes' : 'No';
+    }
+
+    private function isAutomatedCommitOrder(StoreOrder $order, string $template): bool
+    {
+        $supplierCode = strtoupper(trim((string) $order->supplier?->supplier_code));
+        $normalizedTemplate = strtoupper(trim($template));
+
+        return $supplierCode === self::AUTOMATED_COMMIT_SUPPLIER
+            || $normalizedTemplate === self::CPO_ORDER_TEMPLATE;
     }
 
     private function paginateRows(Collection $rows, int $perPage): LengthAwarePaginator
