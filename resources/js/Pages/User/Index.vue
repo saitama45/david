@@ -80,6 +80,16 @@ const isLoading = ref(false);
         :hasExcelDownload="true"
         :exportRoute="exportRoute"
     >
+        <template #header-actions>
+            <Link
+                v-if="hasAccess('delete users')"
+                :href="route('users.deleted')"
+                class="inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 h-9 px-4 py-2 bg-secondary text-secondary-foreground shadow-sm hover:bg-secondary/80 sm:text-normal text-xs"
+            >
+                Deleted Users
+            </Link>
+        </template>
+
         <TableContainer>
             <TableHeader>
                 <SearchBar>

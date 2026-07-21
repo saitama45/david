@@ -116,6 +116,27 @@ class UserController extends Controller
         return to_route('users.index');
     }
 
+    public function deleted()
+    {
+        $users = $this->userService->getDeletedUsersList();
+
+        return Inertia::render('User/Deleted', [
+            'users' => $users,
+            'filters' => request()->only(['search']),
+        ]);
+    }
+
+    public function restore($id)
+    {
+        try {
+            $this->userService->restoreUser($id);
+        } catch (Exception $e) {
+            Log::error("Error restoring user: " . $e->getMessage(), ['trace' => $e->getTraceAsString()]);
+            return back()->withErrors(['error' => $e->getMessage()]);
+        }
+        return to_route('users.deleted');
+    }
+
     public function update(UpdateUserRequest $request, User $user)
     {
         try {

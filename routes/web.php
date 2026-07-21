@@ -336,6 +336,8 @@ Route::middleware('auth')
         // User Management Routes
         Route::controller(UserController::class)->prefix('users')->name('users.')->group(function () {
             Route::middleware('permission:view users')->get('/', 'index')->name('index');
+            Route::middleware('permission:view users')->get('/deleted', 'deleted')->name('deleted');
+            Route::middleware('permission:delete users')->patch('/restore/{id}', 'restore')->name('restore');
             Route::middleware('permission:view user')->get('/show/{user}', 'show')->name('show');
             Route::middleware('permission:create users')->group(function () {
                 Route::get('/create', 'create')->name('create');

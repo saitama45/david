@@ -165,6 +165,32 @@ class UserService
         return $query->latest()->paginate(10)->withQueryString();
     }
 
+    public function getDeletedUsersList()
+    {
+        $search = request('search');
+        $query = User::onlyTrashed()
+            ->select(['id', 'first_name', 'last_name', 'email', 'is_active', 'deleted_at'])
+            ->withOnly(['roles:id,name']);
+
+        if ($search) {
+            $query->where(function ($q) use ($search) {
+                $q->where('first_name', 'like', "%{$search}%")
+                  ->orWhere('last_name', 'like', "%{$search}%")
+                  ->orWhere('email', 'like', "%{$search}%");
+            });
+        }
+
+        return $query->latest('deleted_at')->paginate(10)->withQueryString();
+    }
+
+    public function restoreUser($id)
+    {
+        $user = User::onlyTrashed()->findOrFail($id);
+        $user->restore();
+
+        return $user;
+    }
+
     public function getUserFromTemplate()
     {
         // Support legacy templateId if still passed
