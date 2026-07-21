@@ -8,9 +8,13 @@ on:
 permissions:
   contents: read
 
+# Serialize runs on the same branch. cancel-in-progress must stay false:
+# cancelling a run's GitHub runner does NOT cancel a deployment already in
+# progress on Azure's side, so the next run's OneDeploy would hit a 409 Conflict.
+# Queuing lets each Azure deployment finish before the next one starts.
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 jobs:
   build:
