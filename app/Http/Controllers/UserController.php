@@ -108,10 +108,6 @@ class UserController extends Controller
     public function destroy(User $user)
     {
         try {
-            $user->load(['usage_records', 'store_orders']);
-            if ($user->usage_records->count() > 0 || $user->store_orders->count() > 0) {
-                throw new \Exception("Can't delete this user because there are data associated with it.");
-            }
             $this->userService->deleteUser($user);
         } catch (Exception $e) {
             Log::error("Error deleting user: " . $e->getMessage(), ['trace' => $e->getTraceAsString()]);

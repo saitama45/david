@@ -35,6 +35,7 @@ export function useReferenceDelete() {
                             severity: "error",
                             summary: "Error",
                             detail:
+                                errors.error ||
                                 errors.message ||
                                 "An error occurred while deleting.",
                             life: 5000,

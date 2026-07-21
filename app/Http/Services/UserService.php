@@ -140,16 +140,11 @@ class UserService
 
     public function deleteUser(User $user)
     {
-        return DB::transaction(function () use ($user) {
-            // Detach relations to avoid FK issues
-            $user->store_branches()->detach();
-            $user->suppliers()->detach();
-            // If roles are via spatie relation table, detach
-            if (method_exists($user, 'roles')) {
-                try { $user->roles()->detach(); } catch (\Throwable $e) { /* ignore */ }
-            }
-            $user->delete();
-        });
+        // Soft delete: the row is retained (deleted_at is set), so foreign-key
+        // references (created_by, approved_by, etc.) stay valid and the audit
+        // trail is preserved. Pivot relations are intentionally kept so the
+        // user can be restored consistently.
+        return $user->delete();
     }
 
     public function getUsersList()
