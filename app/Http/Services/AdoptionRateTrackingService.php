@@ -378,6 +378,49 @@ class AdoptionRateTrackingService
             'data' => array_fill(0, $combinedPointCount, $overall['totals']['overall_rate']),
         ]);
 
+        // Per-indicator weekly movement (averaged across the selected stores) so the
+        // Combined view can plot how each indicator actually rose/fell week to week,
+        // in addition to the flat selected-range reference line above. Each section's
+        // indicators carry per-week rates in the same order as $indicator_rates.
+        // Keep the weekly point count aligned with the reference line (which uses
+        // max(2, weeks) points) so both series and the chart labels line up even in
+        // the degenerate single-week case.
+        $padWeekly = function (array $data) use ($combinedPointCount) {
+            if (count($data) >= $combinedPointCount) {
+                return $data;
+            }
+
+            $fill = count($data) > 0 ? end($data) : null;
+
+            return array_pad($data, $combinedPointCount, $fill);
+        };
+
+        $combinedWeekly = collect($overall['totals']['indicator_rates'])
+            ->map(function (array $indicator, int $index) use ($sections, $weekKeys, $padWeekly) {
+                return [
+                    'label' => $indicator['indicator'],
+                    'data' => $padWeekly($weekKeys->map(function ($weekKey) use ($sections, $index) {
+                        $weekRates = $sections
+                            ->map(fn (array $section) => $section['indicators'][$index]['rates'][$weekKey] ?? null)
+                            ->all();
+
+                        return $this->simpleAverage($weekRates);
+                    })->all()),
+                ];
+            })
+            ->values();
+
+        $combinedWeekly->push([
+            'label' => 'Overall',
+            'data' => $padWeekly($weekKeys->map(function ($weekKey) use ($sections) {
+                $weekRates = $sections
+                    ->map(fn (array $section) => $section['weekly_averages'][$weekKey] ?? null)
+                    ->all();
+
+                return $this->simpleAverage($weekRates);
+            })->all()),
+        ]);
+
         $perStore = $sections->map(function (array $section) use ($weekKeys) {
             return [
                 'label' => $section['store_code'] ?: $section['store'],
@@ -391,6 +434,7 @@ class AdoptionRateTrackingService
                 'label' => $week['label'],
             ])->values(),
             'combined' => $combined->values(),
+            'combined_weekly' => $combinedWeekly->values(),
             'per_store' => $perStore,
             'meta' => [
                 'date_from' => $overall['filters']['date_from'],
@@ -797,8 +841,16 @@ class AdoptionRateTrackingService
     {
         $rows = collect();
 
+        // Never generate sales-upload rows for days that have not happened yet:
+        // sales cannot be uploaded for a future date, so counting those days as
+        // "No" wrongly deflates the rate and makes a report run with a future "To"
+        // disagree with the dashboard (whose default "To" is today). Cap the day
+        // loop at today so any range extending past today stops at today.
+        $today = Carbon::today()->startOfDay();
+        $effectiveEnd = $dateTo->gt($today) ? $today : $dateTo->copy();
+
         foreach ($stores as $store) {
-            for ($date = $dateFrom->copy(); $date->lte($dateTo); $date->addDay()) {
+            for ($date = $dateFrom->copy(); $date->lte($effectiveEnd); $date->addDay()) {
                 $salesDate = $date->copy()->startOfDay();
                 $key = $this->scheduledRowKey(self::SALES_UPLOAD_REMARK_TEMPLATE, (int) $store->id, $salesDate->toDateString());
                 $upload = $uploads->get($key);

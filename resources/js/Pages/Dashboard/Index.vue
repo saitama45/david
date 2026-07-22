@@ -867,6 +867,7 @@ const adoptionLoading = ref(false);
 const adoptionError = ref("");
 const adoptionWeeks = ref([]);
 const adoptionCombined = ref([]);
+const adoptionCombinedWeekly = ref([]);
 const adoptionPerStore = ref([]);
 const adoptionMeta = ref({
     date_from: adoptionDateFrom.value,
@@ -908,21 +909,46 @@ const adoptionChartLabels = computed(() => {
     return [adoptionMeta.value.date_from, adoptionMeta.value.date_to];
 });
 
+const adoptionSeriesColor = (label, index) => (label === "Overall" ? "#0f172a" : adoptionPalette[index % adoptionPalette.length]);
+
 const adoptionChartData = computed(() => {
-    const series = adoptionViewMode.value === "combined" ? adoptionCombined.value : adoptionPerStore.value;
+    // Combined view plots the actual weekly movement (solid line / bars) per indicator.
+    if (adoptionViewMode.value === "combined") {
+        const isBar = adoptionChartType.value === "bar";
+
+        return {
+            labels: adoptionChartLabels.value,
+            datasets: adoptionCombinedWeekly.value.map((serie, index) => {
+                const isOverall = serie.label === "Overall";
+                const color = adoptionSeriesColor(serie.label, index);
+
+                return {
+                    label: serie.label,
+                    data: serie.data,
+                    borderColor: color,
+                    backgroundColor: color,
+                    borderWidth: isOverall ? 3 : 2,
+                    tension: 0.35,
+                    spanGaps: true,
+                    pointRadius: isBar ? 0 : 3,
+                    pointHoverRadius: 5,
+                    fill: false,
+                };
+            }),
+        };
+    }
 
     return {
         labels: adoptionChartLabels.value,
-        datasets: series.map((serie, index) => {
-            const isOverall = adoptionViewMode.value === "combined" && serie.label === "Overall";
-            const color = isOverall ? "#0f172a" : adoptionPalette[index % adoptionPalette.length];
+        datasets: adoptionPerStore.value.map((serie, index) => {
+            const color = adoptionSeriesColor(serie.label, index);
 
             return {
                 label: serie.label,
                 data: serie.data,
                 borderColor: color,
                 backgroundColor: color,
-                borderWidth: isOverall ? 3 : 2,
+                borderWidth: 2,
                 tension: 0.35,
                 spanGaps: true,
                 pointRadius: 3,
@@ -1252,6 +1278,7 @@ const loadAdoptionRate = async () => {
 
         adoptionWeeks.value = response.data.weeks || [];
         adoptionCombined.value = response.data.combined || [];
+        adoptionCombinedWeekly.value = response.data.combined_weekly || [];
         adoptionPerStore.value = response.data.per_store || [];
         adoptionMeta.value = response.data.meta || adoptionMeta.value;
         adoptionLoaded.value = true;
@@ -1460,6 +1487,8 @@ const registerAdoptionBarLabelsPlugin = () => {
             chart.data.datasets.forEach((dataset, i) => {
                 const meta = chart.getDatasetMeta(i);
                 if (meta.hidden) return;
+                // Only label the bars themselves — skip overlaid reference/target lines.
+                if ((meta.type || dataset.type) === "line") return;
 
                 meta.data.forEach((bar, index) => {
                     const value = dataset.data[index];
@@ -2215,7 +2244,7 @@ const registerDoughnutLabelPlugin = () => {
 
                 <p class="mb-4 text-xs text-gray-400">
                     {{ adoptionViewMode === 'combined'
-                        ? 'Each constant line spans the selected period and exactly matches the corresponding selected-range Adoption Rate Tracking report percentage.'
+                        ? 'Actual weekly adoption rate per indicator (averaged across the selected stores). Each point is week-specific — the whole-period percentages in the cards above are computed separately, not by averaging these points.'
                         : 'Overall weekly adoption rate for each selected store.' }}
                 </p>
 

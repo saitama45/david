@@ -370,7 +370,7 @@ class DashboardController extends Controller
         // expensive; caching keeps repeat/expanded requests from re-running it and
         // guards against request timeouts. Scoped by user id and active entity so
         // access changes / entity switches never serve another context's data.
-        $cacheKey = 'dashboard_adoption_rate_v1_'
+        $cacheKey = 'dashboard_adoption_rate_v3_'
             . $request->user()->id . '_'
             . ($request->session()->get('active_entity_id') ?? 'none') . '_'
             . md5(json_encode($params));
