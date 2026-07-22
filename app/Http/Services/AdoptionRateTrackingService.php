@@ -930,17 +930,30 @@ class AdoptionRateTrackingService
 
     private function weeklyRates(array $weeks, Collection $rows, int $storeBranchId, string $dateKey, callable $rateResolver): array
     {
-        return collect($weeks)->mapWithKeys(function (array $week) use ($rows, $storeBranchId, $dateKey, $rateResolver) {
-            $weekStart = Carbon::parse($week['start_date'])->startOfDay();
-            $weekEnd = Carbon::parse($week['end_date'])->startOfDay();
-            $weekRows = $rows->filter(function (array $row) use ($storeBranchId, $dateKey, $weekStart, $weekEnd) {
-                if ((int) ($row['store_branch_id'] ?? 0) !== $storeBranchId || empty($row[$dateKey])) {
-                    return false;
-                }
+        // Reduce to this store's rows and parse each row's date exactly once. The
+        // previous implementation re-scanned the full (all-store) row set and
+        // re-parsed every row date once per week, making the cost
+        // O(stores x weeks x allRows) with a Carbon::parse in the innermost loop —
+        // fine at small volumes but multiplicatively explosive over long ranges,
+        // which is what timed out the dashboard request. Here it is O(allRows)
+        // once plus a cheap timestamp compare per (week x storeRow).
+        $storeRows = $rows
+            ->filter(function (array $row) use ($storeBranchId, $dateKey) {
+                return (int) ($row['store_branch_id'] ?? 0) === $storeBranchId && !empty($row[$dateKey]);
+            })
+            ->map(function (array $row) use ($dateKey) {
+                $row['__week_ts'] = Carbon::parse($row[$dateKey])->startOfDay()->getTimestamp();
 
-                $rowDate = Carbon::parse($row[$dateKey])->startOfDay();
+                return $row;
+            })
+            ->values();
 
-                return $rowDate->betweenIncluded($weekStart, $weekEnd);
+        return collect($weeks)->mapWithKeys(function (array $week) use ($storeRows, $rateResolver) {
+            $weekStartTs = Carbon::parse($week['start_date'])->startOfDay()->getTimestamp();
+            $weekEndTs = Carbon::parse($week['end_date'])->startOfDay()->getTimestamp();
+
+            $weekRows = $storeRows->filter(function (array $row) use ($weekStartTs, $weekEndTs) {
+                return $row['__week_ts'] >= $weekStartTs && $row['__week_ts'] <= $weekEndTs;
             });
 
             return [$week['key'] => $rateResolver($weekRows)];

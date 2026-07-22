@@ -126,6 +126,7 @@ onMounted(() => {
     registerDoughnutLabelPlugin();
     registerTopLabelsPlugin();
     registerSalesMixPercentLabelsPlugin();
+    registerAdoptionBarLabelsPlugin();
 
     chartData.value = setChartData();
     chartOptions.value = setChartOptions();
@@ -938,11 +939,15 @@ const adoptionChartOptions = computed(() => {
     const textColorSecondary = documentStyle.getPropertyValue("--p-text-muted-color");
     const surfaceBorder = documentStyle.getPropertyValue("--p-content-border-color");
 
+    const isBar = adoptionChartType.value === "bar";
+
     return {
         maintainAspectRatio: false,
         interaction: { mode: "index", intersect: false },
+        layout: { padding: { top: isBar ? 24 : 0 } },
         plugins: {
             legend: { labels: { color: textColor } },
+            adoptionBarLabels: { enabled: isBar },
             tooltip: {
                 callbacks: {
                     label: (context) => {
@@ -1432,6 +1437,38 @@ const registerSalesMixPercentLabelsPlugin = () => {
 
                 const position = bar.tooltipPosition();
                 ctx.fillText(`${Number(percent).toFixed(2)}%`, position.x + 8, position.y);
+            });
+
+            ctx.restore();
+        },
+    });
+};
+
+const registerAdoptionBarLabelsPlugin = () => {
+    ChartJS.register({
+        id: "adoptionBarLabels",
+        afterDatasetsDraw: function (chart) {
+            const pluginOptions = chart.config.options.plugins?.adoptionBarLabels;
+            if (!pluginOptions?.enabled) return;
+
+            const ctx = chart.ctx;
+            ctx.save();
+            ctx.textAlign = "center";
+            ctx.textBaseline = "bottom";
+            ctx.font = "bold 10px Arial";
+
+            chart.data.datasets.forEach((dataset, i) => {
+                const meta = chart.getDatasetMeta(i);
+                if (meta.hidden) return;
+
+                meta.data.forEach((bar, index) => {
+                    const value = dataset.data[index];
+                    if (value === null || value === undefined) return;
+
+                    ctx.fillStyle = dataset.backgroundColor || "#374151";
+                    const position = bar.tooltipPosition();
+                    ctx.fillText(`${Number(value).toFixed(2)}%`, position.x, position.y - 4);
+                });
             });
 
             ctx.restore();

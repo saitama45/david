@@ -357,12 +357,27 @@ class DashboardController extends Controller
         // The service resolves & enforces store access itself; pass the raw branch
         // selection through as store_ids (it filters out 'all' and intersects with
         // the user's accessible stores).
-        $data = $this->adoptionRateService->getWeeklyAdoptionTrend([
+        $params = [
             'store_ids' => $validated['branch'] ?? [],
             'date_from' => $validated['date_from'] ?? null,
             'date_to' => $validated['date_to'] ?? null,
             'tab' => AdoptionRateTrackingService::TAB_OVERALL_ADOPTION_RATE,
-        ], $request->user());
+        ];
+
+        // Cache the computed trend per user + active entity + filter combination
+        // (10 minutes TTL). The Overall Adoption Rate computation fans out across
+        // five datasets and a per-store weekly loop, so long date ranges are
+        // expensive; caching keeps repeat/expanded requests from re-running it and
+        // guards against request timeouts. Scoped by user id and active entity so
+        // access changes / entity switches never serve another context's data.
+        $cacheKey = 'dashboard_adoption_rate_v1_'
+            . $request->user()->id . '_'
+            . ($request->session()->get('active_entity_id') ?? 'none') . '_'
+            . md5(json_encode($params));
+
+        $data = Cache::remember($cacheKey, now()->addMinutes(10), function () use ($params, $request) {
+            return $this->adoptionRateService->getWeeklyAdoptionTrend($params, $request->user());
+        });
 
         return response()->json($data);
     }
