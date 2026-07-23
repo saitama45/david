@@ -2,7 +2,7 @@
 import { ref, watch, computed } from "vue";
 import { throttle } from "lodash";
 import { router } from "@inertiajs/vue3";
-import { Calendar, Search, RotateCcw, Download, Filter, ChevronDown, ChevronUp, Package, CalendarDays, Building2, Badge as BadgeIcon, Trash2, Image as ImageIcon, Loader2, ArrowUpDown, ArrowUp, ArrowDown } from "lucide-vue-next";
+import { Calendar, Search, RotateCcw, Download, Filter, ChevronDown, ChevronUp, Package, CalendarDays, Building2, Badge as BadgeIcon, Trash2, Image as ImageIcon, Loader2, ArrowUpDown, ArrowUp, ArrowDown, TrendingUp, ListOrdered } from "lucide-vue-next";
 import { useAuth } from "@/composables/useAuth";
 import SearchableSelect from "@/components/ui/select/SearchableSelect.vue";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -10,11 +10,19 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 const props = defineProps({
     wastages: {
         type: Array,
-        required: true,
+        default: () => [],
     },
     paginatedData: {
         type: Object,
-        required: true,
+        default: null,
+    },
+    topItems: {
+        type: Array,
+        default: () => [],
+    },
+    tabs: {
+        type: Array,
+        default: () => [],
     },
     filters: {
         type: Object,
@@ -193,6 +201,20 @@ const perPageOptions = [
     { label: '200 rows', value: 200 }
 ];
 
+// Top waste items options
+const topLimitOptions = [
+    { label: 'Top 5', value: 5 },
+    { label: 'Top 10', value: 10 },
+    { label: 'Top 20', value: 20 },
+    { label: 'Top 50', value: 50 },
+    { label: 'All items', value: 0 }
+];
+
+const topSortOptions = [
+    { label: 'Total Amount', value: 'total_amount' },
+    { label: 'Total Quantity', value: 'total_qty' }
+];
+
 // Store options with proper formatting
 const storeOptions = computed(() => {
     return props.stores.map(store => ({
@@ -217,15 +239,25 @@ const storeBranchId = ref(props.filters.store_branch_id || '');
 const status = ref(props.filters.status || 'approved_lvl2');
 const search = ref(props.filters.search || '');
 const perPage = ref(props.filters.per_page || 50);
+const activeTab = ref(props.filters.tab || 'details');
+const topLimit = ref(props.filters.top_limit ?? 10);
+const topSort = ref(props.filters.top_sort || 'total_amount');
+
+// Tab actually rendered by the server response
+const renderedTab = computed(() => props.filters.tab || 'details');
+const isTopItemsTab = computed(() => renderedTab.value === 'top_items');
 
 const { hasAccess } = useAuth();
 
 // Enhanced filter management with loading states
-const updateFilters = () => {
+const updateFilters = (tab = activeTab.value) => {
     isLoading.value = true;
     router.get(
         route('reports.wastage-report.index'),
         {
+            tab,
+            top_limit: topLimit.value,
+            top_sort: topSort.value,
             date_from: dateFrom.value,
             date_to: dateTo.value,
             store_branch_id: storeBranchId.value,
@@ -261,14 +293,37 @@ const handleSort = (field) => {
 };
 
 // Watch for filter changes and update URL
-watch([dateFrom, dateTo, storeBranchId, status, perPage],
-    throttle(updateFilters, 300)
+watch([dateFrom, dateTo, storeBranchId, status, perPage, topLimit, topSort],
+    throttle(() => updateFilters(), 300)
 );
 
 // Watch for search and column filters with longer throttling
 watch([search, filterWastageNo, filterStore, filterItem, filterStatus, filterReason],
-    throttle(updateFilters, 500)
+    throttle(() => updateFilters(), 500)
 );
+
+// Tab switching
+const selectTab = (tab) => {
+    if (tab.enabled === false || activeTab.value === tab.key) return;
+
+    activeTab.value = tab.key;
+    updateFilters(tab.key);
+};
+
+// Quick range helper for the per-month report
+const applyLastTwelveMonths = () => {
+    const today = new Date();
+    const start = new Date(today.getFullYear(), today.getMonth() - 11, 1);
+
+    const toInput = (date) => {
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const day = String(date.getDate()).padStart(2, '0');
+        return `${date.getFullYear()}-${month}-${day}`;
+    };
+
+    dateFrom.value = toInput(start);
+    dateTo.value = toInput(today);
+};
 
 // Toggle filters for mobile
 const toggleFilters = () => {
@@ -318,11 +373,16 @@ const resetFilters = () => {
     filterReason.value = '';
     sortField.value = '';
     sortDirection.value = 'asc';
+    topLimit.value = 10;
+    topSort.value = 'total_amount';
 };
 
 // Export route
 const exportRoute = computed(() =>
     route('reports.wastage-report.export', {
+        tab: renderedTab.value,
+        top_limit: topLimit.value,
+        top_sort: topSort.value,
         date_from: dateFrom.value,
         date_to: dateTo.value,
         store_branch_id: storeBranchId.value,
@@ -344,6 +404,26 @@ const formatCurrency = (amount) => {
 const formatNumber = (num) => {
     if (!num) return '0';
     return new Intl.NumberFormat('en-PH').format(num);
+};
+
+// Format quantity keeping decimals (wastage qty is stored with 3 decimals)
+const formatQty = (num) => {
+    const value = Number(num || 0);
+    return new Intl.NumberFormat('en-PH', {
+        minimumFractionDigits: 0,
+        maximumFractionDigits: 3
+    }).format(value);
+};
+
+// Format percentage share
+const formatPercent = (num) => `${Number(num || 0).toFixed(1)}%`;
+
+// Highlight styling for the first three ranks of each month
+const getRankClass = (rank) => {
+    if (rank === 1) return 'bg-red-100 text-red-700 border-red-200';
+    if (rank === 2) return 'bg-orange-100 text-orange-700 border-orange-200';
+    if (rank === 3) return 'bg-amber-100 text-amber-700 border-amber-200';
+    return 'bg-gray-100 text-gray-600 border-gray-200';
 };
 
 function formatDate(dateString) {
@@ -399,6 +479,28 @@ const getStatusClass = (status) => {
 
 <template>
     <Layout heading="Wastage Report" :hasExcelDownload="true" :exportRoute="exportRoute">
+        <!-- Report Tabs -->
+        <div v-if="tabs.length" class="mb-5 overflow-x-auto">
+            <div class="inline-flex min-w-full gap-2 border-b border-gray-200">
+                <button
+                    v-for="tab in tabs"
+                    :key="tab.key"
+                    type="button"
+                    :disabled="tab.enabled === false"
+                    @click="selectTab(tab)"
+                    class="whitespace-nowrap border-b-2 px-4 py-3 text-sm font-medium transition"
+                    :class="[
+                        activeTab === tab.key
+                            ? 'border-blue-600 text-blue-700'
+                            : 'border-transparent text-gray-500 hover:text-gray-800',
+                        tab.enabled === false ? 'cursor-not-allowed opacity-45 hover:text-gray-500' : ''
+                    ]"
+                >
+                    {{ tab.label }}
+                </button>
+            </div>
+        </div>
+
         <!-- Mobile Filter Toggle -->
         <div class="lg:hidden mb-4">
             <button
@@ -452,7 +554,7 @@ const getStatusClass = (status) => {
                 </div>
 
                 <!-- Filter Grid -->
-                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+                <div :class="['grid grid-cols-1 md:grid-cols-2 gap-4', isTopItemsTab ? 'lg:grid-cols-6' : 'lg:grid-cols-5']">
                     <!-- Date Range -->
                     <div class="space-y-2">
                         <label class="flex items-center gap-2 text-sm font-medium text-gray-700">
@@ -512,8 +614,8 @@ const getStatusClass = (status) => {
                         />
                     </div>
 
-                    <!-- Per Page -->
-                    <div class="space-y-2">
+                    <!-- Per Page (details tab only) -->
+                    <div v-if="!isTopItemsTab" class="space-y-2">
                         <label class="flex items-center gap-2 text-sm font-medium text-gray-700">
                             <Package class="w-4 h-4" />
                             Per Page
@@ -527,14 +629,60 @@ const getStatusClass = (status) => {
                             :clearable="false"
                         />
                     </div>
+
+                    <!-- Top N per month (top items tab only) -->
+                    <div v-if="isTopItemsTab" class="space-y-2">
+                        <label class="flex items-center gap-2 text-sm font-medium text-gray-700">
+                            <ListOrdered class="w-4 h-4" />
+                            Show per Month
+                        </label>
+                        <Select
+                            v-model="topLimit"
+                            :options="topLimitOptions"
+                            optionLabel="label"
+                            optionValue="value"
+                            class="w-full"
+                            :clearable="false"
+                        />
+                    </div>
+
+                    <!-- Ranking basis (top items tab only) -->
+                    <div v-if="isTopItemsTab" class="space-y-2">
+                        <label class="flex items-center gap-2 text-sm font-medium text-gray-700">
+                            <TrendingUp class="w-4 h-4" />
+                            Rank By
+                        </label>
+                        <Select
+                            v-model="topSort"
+                            :options="topSortOptions"
+                            optionLabel="label"
+                            optionValue="value"
+                            class="w-full"
+                            :clearable="false"
+                        />
+                    </div>
                 </div>
 
                 <!-- Action Buttons -->
                 <div class="flex items-center justify-between mt-6 pt-6 border-t border-gray-200">
                     <div class="text-sm text-gray-600">
-                        Showing {{ paginatedData.data?.length || 0 }} of {{ paginatedData.total || 0 }} results
+                        <template v-if="isTopItemsTab">
+                            {{ topItems.length }} month{{ topItems.length === 1 ? '' : 's' }} in the selected range
+                        </template>
+                        <template v-else>
+                            Showing {{ paginatedData?.data?.length || 0 }} of {{ paginatedData?.total || 0 }} results
+                        </template>
                     </div>
                     <div class="flex items-center gap-3">
+                        <Button
+                            v-if="isTopItemsTab"
+                            @click="applyLastTwelveMonths"
+                            variant="outline"
+                            class="flex items-center gap-2 px-4 py-2 border-gray-300 hover:bg-gray-50 transition-colors"
+                        >
+                            <CalendarDays class="w-4 h-4" />
+                            Last 12 Months
+                        </Button>
                         <Button
                             @click="resetFilters"
                             variant="outline"
@@ -563,7 +711,7 @@ const getStatusClass = (status) => {
                 <div class="flex items-center justify-between">
                     <div>
                         <p class="text-sm text-gray-600">Total Quantity</p>
-                        <p class="text-2xl font-bold text-gray-900">{{ formatNumber(summaryTotals.total_quantity || 0) }}</p>
+                        <p class="text-2xl font-bold text-gray-900">{{ formatQty(summaryTotals.total_quantity || 0) }}</p>
                     </div>
                     <Package class="w-8 h-8 text-green-500" />
                 </div>
@@ -580,7 +728,7 @@ const getStatusClass = (status) => {
         </div>
 
         <!-- Enhanced Data Table -->
-        <div class="bg-white rounded-xl border border-gray-200 shadow-sm overflow-visible">
+        <div v-if="!isTopItemsTab" class="bg-white rounded-xl border border-gray-200 shadow-sm overflow-visible">
             <!-- Loading Overlay -->
             <div v-if="isLoading" class="absolute inset-0 bg-white/80 flex items-center justify-center z-10">
                 <div class="flex items-center gap-3 text-gray-600">
@@ -797,8 +945,130 @@ const getStatusClass = (status) => {
         </div>
 
         <!-- Enhanced Pagination -->
-        <div class="bg-white px-6 py-4 border-t border-gray-200 mt-6 rounded-b-xl">
+        <div v-if="!isTopItemsTab && paginatedData" class="bg-white px-6 py-4 border-t border-gray-200 mt-6 rounded-b-xl">
             <Pagination :data="paginatedData" />
+        </div>
+
+        <!-- Top Waste Items per Month -->
+        <div v-if="isTopItemsTab" class="space-y-6">
+            <!-- Loading Overlay -->
+            <div v-if="isLoading" class="rounded-lg border border-blue-100 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+                Loading report data...
+            </div>
+
+            <!-- Empty State -->
+            <div v-if="!topItems.length" class="bg-white rounded-xl border border-gray-200 shadow-sm p-12 text-center">
+                <TrendingUp class="w-12 h-12 text-gray-300 mx-auto mb-3" />
+                <h3 class="text-lg font-medium text-gray-900">No wastage in the selected range</h3>
+                <p class="text-sm text-gray-500 mt-1">Widen the date range or change the status filter to see monthly rankings.</p>
+            </div>
+
+            <!-- One card per month, newest first -->
+            <div
+                v-for="month in topItems"
+                :key="month.period"
+                class="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden"
+            >
+                <!-- Month Header -->
+                <div class="flex flex-col gap-3 border-b border-gray-200 bg-gray-50 px-6 py-4 md:flex-row md:items-center md:justify-between">
+                    <div class="flex items-center gap-3">
+                        <div class="rounded-lg bg-blue-100 p-2">
+                            <CalendarDays class="w-5 h-5 text-blue-600" />
+                        </div>
+                        <div>
+                            <h3 class="text-base font-semibold text-gray-900">{{ month.period_label }}</h3>
+                            <p class="text-xs text-gray-500">
+                                {{ formatNumber(month.item_count) }} item{{ month.item_count === 1 ? '' : 's' }} wasted
+                                <span v-if="topLimit && month.item_count > month.items.length">
+                                    &middot; showing top {{ month.items.length }}
+                                </span>
+                            </p>
+                        </div>
+                    </div>
+                    <div class="flex items-center gap-6">
+                        <div class="text-right">
+                            <p class="text-xs uppercase tracking-wide text-gray-500">Month Qty</p>
+                            <p class="text-lg font-semibold text-gray-900">{{ formatQty(month.month_total_qty) }}</p>
+                        </div>
+                        <div class="text-right">
+                            <p class="text-xs uppercase tracking-wide text-gray-500">Month Amount</p>
+                            <p class="text-lg font-semibold text-gray-900">{{ formatCurrency(month.month_total_amount) }}</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Desktop Table -->
+                <div class="hidden lg:block overflow-x-auto">
+                    <table class="min-w-full">
+                        <thead class="bg-white border-b border-gray-200">
+                            <tr class="text-xs text-gray-500 uppercase tracking-wider">
+                                <th class="px-6 py-3 text-center font-medium w-20">Rank</th>
+                                <th class="px-6 py-3 text-left font-medium">Item</th>
+                                <th class="px-6 py-3 text-center font-medium">UoM</th>
+                                <th class="px-6 py-3 text-right font-medium">Total Qty</th>
+                                <th class="px-6 py-3 text-right font-medium">Total Amount</th>
+                                <th class="px-6 py-3 text-right font-medium">% of Month</th>
+                                <th class="px-6 py-3 text-center font-medium">Records</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-gray-100">
+                            <tr v-for="item in month.items" :key="item.sap_masterfile_id" class="hover:bg-gray-50 transition-colors">
+                                <td class="px-6 py-4 text-center">
+                                    <span
+                                        class="inline-flex h-7 w-7 items-center justify-center rounded-full border text-xs font-semibold"
+                                        :class="getRankClass(item.rank)"
+                                    >
+                                        {{ item.rank }}
+                                    </span>
+                                </td>
+                                <td class="px-6 py-4 text-sm text-gray-900">
+                                    <span class="font-mono text-gray-600">{{ item.item_code }}</span> -
+                                    <span>{{ item.item_description }}</span>
+                                </td>
+                                <td class="px-6 py-4 text-sm text-center text-gray-600">{{ item.uom }}</td>
+                                <td class="px-6 py-4 text-sm text-right font-medium text-gray-900">{{ formatQty(item.total_qty) }}</td>
+                                <td class="px-6 py-4 text-sm text-right font-semibold text-gray-900">{{ formatCurrency(item.total_amount) }}</td>
+                                <td class="px-6 py-4 text-sm text-right text-gray-600">
+                                    <div class="flex items-center justify-end gap-2">
+                                        <div class="hidden xl:block h-1.5 w-16 rounded-full bg-gray-100">
+                                            <div class="h-1.5 rounded-full bg-blue-500" :style="{ width: Math.min(item.amount_share, 100) + '%' }"></div>
+                                        </div>
+                                        <span>{{ formatPercent(item.amount_share) }}</span>
+                                    </div>
+                                </td>
+                                <td class="px-6 py-4 text-sm text-center text-gray-600">{{ formatNumber(item.record_count) }}</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- Mobile Card Layout -->
+                <div class="lg:hidden divide-y divide-gray-100">
+                    <div v-for="item in month.items" :key="item.sap_masterfile_id" class="p-4">
+                        <div class="flex items-start justify-between gap-3">
+                            <div class="flex items-start gap-3 flex-1">
+                                <span
+                                    class="mt-0.5 inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full border text-xs font-semibold"
+                                    :class="getRankClass(item.rank)"
+                                >
+                                    {{ item.rank }}
+                                </span>
+                                <div class="min-w-0">
+                                    <p class="text-xs font-mono text-gray-500">{{ item.item_code }}</p>
+                                    <p class="text-sm text-gray-900">{{ item.item_description }}</p>
+                                    <p class="text-xs text-gray-500 mt-1">
+                                        {{ formatQty(item.total_qty) }} {{ item.uom }} &middot; {{ formatNumber(item.record_count) }} record{{ item.record_count === 1 ? '' : 's' }}
+                                    </p>
+                                </div>
+                            </div>
+                            <div class="text-right shrink-0">
+                                <p class="text-sm font-semibold text-gray-900">{{ formatCurrency(item.total_amount) }}</p>
+                                <p class="text-xs text-gray-500">{{ formatPercent(item.amount_share) }} of month</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
         </div>
 
         <!-- Image Attachment Dialog -->
