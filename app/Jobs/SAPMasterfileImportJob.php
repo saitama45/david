@@ -60,7 +60,7 @@ class SAPMasterfileImportJob implements ShouldQueue
             }
 
             SAPMasterfileImport::resetSeenCombinations();
-            $import = new SAPMasterfileImport();
+            $import = new SAPMasterfileImport($this->entityId ?? $log->entity_id);
             Excel::import($import, Storage::path($filePath));
             $log->update(['last_heartbeat_at' => now()]);
 

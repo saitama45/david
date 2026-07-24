@@ -3,6 +3,7 @@
 namespace App\Imports;
 
 use App\Models\SAPMasterfile;
+use App\Support\EntityContext;
 use Illuminate\Support\Collection;
 use Maatwebsite\Excel\Concerns\ToCollection;
 use Maatwebsite\Excel\Concerns\WithHeadingRow;
@@ -17,6 +18,19 @@ class SAPMasterfileImport implements ToCollection, WithHeadingRow, WithChunkRead
     protected $processedCount = 0;
     protected $skippedCount = 0;
     protected static $seenCombinations = [];
+
+    protected ?int $entityId;
+
+    /**
+     * Bulk upsert bypasses Eloquent model events, so BelongsToEntity's `creating`
+     * hook never fires and rows would be written with a NULL entity_id (invisible
+     * to every scoped read). The active entity is captured here and stamped onto
+     * each row explicitly.
+     */
+    public function __construct(?int $entityId = null)
+    {
+        $this->entityId = $entityId ?? app(EntityContext::class)->id();
+    }
 
     public static function resetSeenCombinations()
     {
@@ -94,10 +108,19 @@ class SAPMasterfileImport implements ToCollection, WithHeadingRow, WithChunkRead
                 'BaseQty' => (float) ($row['baseqty'] ?? 0),
                 'BaseUOM' => (string) ($row['baseuom'] ?? $row['BaseUOM'] ?? null),
                 'is_active' => (int) ($row['active'] ?? $row['Active'] ?? 1),
+                'entity_id' => $this->entityId,
                 'created_at' => $now,
                 'updated_at' => $now,
             ];
         }
+
+        // Match per entity so one entity's import cannot overwrite another's row for
+        // the same ItemCode/AltUOM. Omitted when there is no entity context, because
+        // the MERGE compiles to `=` and NULL = NULL never matches (which would insert
+        // a duplicate on every re-import).
+        $matchColumns = $this->entityId === null
+            ? ['ItemCode', 'AltUOM']
+            : ['ItemCode', 'AltUOM', 'entity_id'];
 
         // 3. Bulk Upsert (Batch processing)
         // Batch size set to 100 to prevent exceeding SQL Server's 2100 parameter limit
@@ -109,7 +132,7 @@ class SAPMasterfileImport implements ToCollection, WithHeadingRow, WithChunkRead
                 // Attempt to upsert the chunk
                 SAPMasterfile::upsert(
                     $chunk,
-                    ['ItemCode', 'AltUOM'], // Unique columns for match
+                    $matchColumns, // Unique columns for match
                     ['ItemDescription', 'AltQty', 'BaseQty', 'BaseUOM', 'is_active', 'updated_at'] // Columns to update
                 );
                 $this->processedCount += count($chunk);
@@ -121,7 +144,7 @@ class SAPMasterfileImport implements ToCollection, WithHeadingRow, WithChunkRead
                     try {
                         SAPMasterfile::upsert(
                             [$data],
-                            ['ItemCode', 'AltUOM'],
+                            $matchColumns,
                             ['ItemDescription', 'AltQty', 'BaseQty', 'BaseUOM', 'is_active', 'updated_at']
                         );
                         $this->processedCount++;
