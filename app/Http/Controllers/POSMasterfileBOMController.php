@@ -225,7 +225,7 @@ class POSMasterfileBOMController extends Controller
         POSMasterfileBOMImport::resetSeenCombinations();
 
         try {
-            $import = new POSMasterfileBOMImport();
+            $import = new POSMasterfileBOMImport(app(\App\Support\EntityContext::class)->id());
             Excel::import($import, $request->file('pos_bom_file'));
             
             $skippedItems = $import->getSkippedItems();

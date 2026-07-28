@@ -2,9 +2,9 @@
 
 namespace App\Imports;
 
-use App\Models\POSMasterfileBOM;
 use App\Models\POSMasterfile;
 use App\Models\SAPMasterfile;
+use App\Support\EntityContext;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Log;
 use Maatwebsite\Excel\Concerns\ToCollection;
@@ -21,6 +21,20 @@ class POSMasterfileBOMImport implements ToCollection, WithHeadingRow, WithChunkR
     protected $skippedCount = 0;
     protected $emptyCount = 0;
     protected static $seenCombinations = [];
+
+    protected ?int $entityId;
+
+    /**
+     * Rows are written via the raw query builder (DB::table), which bypasses
+     * Eloquent — so BelongsToEntity never stamps entity_id and inserts would land
+     * NULL (invisible to every scoped read). The active entity is captured here
+     * (the import runs synchronously in the web request, where the context IS set)
+     * and applied to every existence check, update and insert below.
+     */
+    public function __construct(?int $entityId = null)
+    {
+        $this->entityId = $entityId ?? app(EntityContext::class)->id();
+    }
 
     public static function resetSeenCombinations()
     {
@@ -97,12 +111,17 @@ class POSMasterfileBOMImport implements ToCollection, WithHeadingRow, WithChunkR
                     'Assembly' => $assembly,
                 ];
 
-                $exists = POSMasterfileBOM::where($attributes)->exists();
-                
-                if ($exists) {
-                    DB::table('pos_masterfiles_bom')
-                        ->where($attributes)
-                        ->update([
+                // Scope the raw existence check and update to the importing entity.
+                // The write path is raw DB::table (no global scope), so without this
+                // an update could match another entity's row for the same business
+                // key, and the existence check must agree with what the update sees.
+                $scoped = fn () => DB::table('pos_masterfiles_bom')
+                    ->where($attributes)
+                    ->when($this->entityId !== null, fn ($q) => $q->where('entity_id', $this->entityId))
+                    ->when($this->entityId === null, fn ($q) => $q->whereNull('entity_id'));
+
+                if ($scoped()->exists()) {
+                    $scoped()->update([
                             'POSDescription' => $posDescription,
                             'ItemDescription' => $itemDescription,
                             'RecPercent' => number_format($recPercent, 4, '.', ''),
@@ -128,6 +147,7 @@ class POSMasterfileBOMImport implements ToCollection, WithHeadingRow, WithChunkR
                         'BOMQty' => number_format($bomQty, 7, '.', ''),
                         'UnitCost' => number_format($unitCost, 4, '.', ''),
                         'TotalCost' => number_format($totalCost, 4, '.', ''),
+                        'entity_id' => $this->entityId,
                         'created_by' => Auth::id(),
                         'updated_by' => Auth::id(),
                         'created_at' => now(),
