@@ -4,6 +4,7 @@ namespace App\Imports;
 
 use App\Models\SupplierItems;
 use App\Models\SAPMasterfile; // Corrected to SAPMasterfile (was SapMasterfile)
+use App\Support\EntityContext;
 use Maatwebsite\Excel\Concerns\ToCollection;
 use Maatwebsite\Excel\Concerns\WithHeadingRow;
 use Maatwebsite\Excel\Concerns\WithChunkReading;
@@ -23,13 +24,23 @@ class SupplierItemsImport implements ToCollection, WithHeadingRow, WithChunkRead
     protected $skippedBySapValidationCount = 0;
     protected $skippedUnauthorizedCount = 0;
     protected $assignedSupplierCodes;
-    
+
+    protected ?int $entityId;
+
     // Store imported keys as: [SupplierCode => [ItemCode|UOM, ...]]
     protected $importedItems = [];
 
-    public function __construct(array $assignedSupplierCodes)
+    /**
+     * The upsert below goes through the raw query builder (DB::table), which
+     * bypasses Eloquent entirely — so BelongsToEntity never stamps entity_id and
+     * rows would land NULL (invisible to every scoped read). The active entity is
+     * captured here (the import runs synchronously inside the web request, where
+     * the context IS set) and stamped onto each row explicitly.
+     */
+    public function __construct(array $assignedSupplierCodes, ?int $entityId = null)
     {
         $this->assignedSupplierCodes = $assignedSupplierCodes;
+        $this->entityId = $entityId ?? app(EntityContext::class)->id();
     }
 
     /**
@@ -144,6 +155,7 @@ class SupplierItemsImport implements ToCollection, WithHeadingRow, WithChunkRead
                 'SupplierCode'      => $supplierCode,
                 'is_active'         => $isActive,
                 'sort_order'        => $sortOrder,
+                'entity_id'         => $this->entityId,
                 'created_at'        => now(),
                 'updated_at'        => now(),
             ];
@@ -161,8 +173,13 @@ class SupplierItemsImport implements ToCollection, WithHeadingRow, WithChunkRead
         // Now, process the collected dataForCurrentChunk in smaller batches for upsert
         if (!empty($dataForCurrentChunk)) {
             foreach (array_chunk($dataForCurrentChunk, $upsertBatchSize) as $miniBatch) {
-                // Define the unique key for upserting: 'ItemCode', 'UOM', and 'SupplierCode'
-                $uniqueBy = ['ItemCode', 'uom', 'SupplierCode'];
+                // Match per entity so one entity's import cannot overwrite another's
+                // row for the same ItemCode/UOM/SupplierCode. entity_id is left out
+                // when there is no context, because the MERGE compiles to `=` and
+                // NULL = NULL never matches (which would duplicate on every re-import).
+                $uniqueBy = $this->entityId === null
+                    ? ['ItemCode', 'uom', 'SupplierCode']
+                    : ['ItemCode', 'uom', 'SupplierCode', 'entity_id'];
 
                 // Define the columns that should be updated if a match is found
                 // Exclude: id, ItemCode, uom, SupplierCode (these are the unique identifiers)
@@ -195,10 +212,15 @@ class SupplierItemsImport implements ToCollection, WithHeadingRow, WithChunkRead
                     // or use a more complex query.
                     // Given typical supplier item counts (thousands), fetching IDs and keys is feasible.
                     
-                    // Fetch all IDs and keys (ItemCode, UOM) for this supplier
+                    // Fetch all IDs and keys (ItemCode, UOM) for this supplier.
+                    // Scope to the importing entity — a SupplierCode can exist under
+                    // more than one entity, and an unscoped sweep would deactivate
+                    // another entity's items that were never part of this import.
                     $dbItems = DB::table('supplier_items')
                         ->where('SupplierCode', $supplierCode)
                         ->where('is_active', 1) // Only interested in currently active items to potentially deactivate
+                        ->when($this->entityId !== null, fn ($q) => $q->where('entity_id', $this->entityId))
+                        ->when($this->entityId === null, fn ($q) => $q->whereNull('entity_id'))
                         ->select('id', 'ItemCode', 'uom')
                         ->get();
 

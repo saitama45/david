@@ -278,7 +278,7 @@ class SupplierItemsController extends Controller
 
         try {
             // Pass the assignedSupplierCodes to the import class
-            $import = new SupplierItemsImport($assignedSupplierCodes);
+            $import = new SupplierItemsImport($assignedSupplierCodes, app(\App\Support\EntityContext::class)->id());
             Excel::import($import, $request->file('products_file'));
 
             $processedCount = $import->getProcessedCount();
