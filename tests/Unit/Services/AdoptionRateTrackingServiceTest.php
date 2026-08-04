@@ -190,6 +190,45 @@ class AdoptionRateTrackingServiceTest extends TestCase
         $this->assertNull($this->commitAdoptionRateByStore($rows));
     }
 
+    public function test_drops_umbrella_template_is_reported_as_fruits_and_vegetables(): void
+    {
+        $this->assertSame('FRUITS AND VEGETABLES', $this->normalizeTemplate('DROPS'));
+        $this->assertSame('FRUITS AND VEGETABLES', $this->normalizeTemplate(' drops '));
+        $this->assertSame('FRUITS AND VEGETABLES', $this->normalizeTemplate('FRUITS AND VEGETABLES'));
+        $this->assertSame('ICE CREAM', $this->normalizeTemplate('ICE CREAM'));
+        $this->assertSame('GSI-P', $this->normalizeTemplate('GSI-P'));
+    }
+
+    public function test_fruits_and_vegetables_filter_also_pulls_the_drops_schedule_variant(): void
+    {
+        $this->assertSame(
+            ['FRUITS AND VEGETABLES', 'DROPS'],
+            $this->scheduleVariantsForTemplates(['FRUITS AND VEGETABLES'])
+        );
+        $this->assertSame(
+            ['FRUITS AND VEGETABLES', 'DROPS'],
+            $this->scheduleVariantsForTemplates(['DROPS'])
+        );
+        $this->assertSame(['ICE CREAM'], $this->scheduleVariantsForTemplates(['ICE CREAM']));
+        $this->assertSame([], $this->scheduleVariantsForTemplates([]));
+    }
+
+    public function test_order_required_templates_flag_a_missing_order_as_no(): void
+    {
+        $this->assertTrue($this->requiresOrderEveryDeliveryDate('GSI-P'));
+        $this->assertTrue($this->requiresOrderEveryDeliveryDate('GSI-B'));
+        $this->assertTrue($this->requiresOrderEveryDeliveryDate('PUL-O'));
+        $this->assertTrue($this->requiresOrderEveryDeliveryDate('FRUITS AND VEGETABLES'));
+        $this->assertTrue($this->requiresOrderEveryDeliveryDate('DROPS'));
+    }
+
+    public function test_optional_delivery_templates_keep_the_no_order_default(): void
+    {
+        $this->assertFalse($this->requiresOrderEveryDeliveryDate('ICE CREAM'));
+        $this->assertFalse($this->requiresOrderEveryDeliveryDate('CPO'));
+        $this->assertFalse($this->requiresOrderEveryDeliveryDate('SALMON'));
+    }
+
     public function test_dashboard_meta_reuses_the_report_whole_period_rate_and_resolved_stores(): void
     {
         $weekKey = '2026-05-01|2026-05-03';
@@ -335,6 +374,30 @@ class AdoptionRateTrackingServiceTest extends TestCase
         $method->setAccessible(true);
 
         return $method->invoke(new AdoptionRateTrackingService(), $rows, $field);
+    }
+
+    private function normalizeTemplate(?string $template): string
+    {
+        $method = new ReflectionMethod(AdoptionRateTrackingService::class, 'normalizeTemplate');
+        $method->setAccessible(true);
+
+        return $method->invoke(new AdoptionRateTrackingService(), $template);
+    }
+
+    private function scheduleVariantsForTemplates(array $templates): array
+    {
+        $method = new ReflectionMethod(AdoptionRateTrackingService::class, 'scheduleVariantsForTemplates');
+        $method->setAccessible(true);
+
+        return $method->invoke(new AdoptionRateTrackingService(), $templates);
+    }
+
+    private function requiresOrderEveryDeliveryDate(string $template): bool
+    {
+        $method = new ReflectionMethod(AdoptionRateTrackingService::class, 'requiresOrderEveryDeliveryDate');
+        $method->setAccessible(true);
+
+        return $method->invoke(new AdoptionRateTrackingService(), $template);
     }
 
     private function commitAdoptionRateByStore($rows): ?float

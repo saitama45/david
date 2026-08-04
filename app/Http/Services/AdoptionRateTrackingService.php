@@ -30,6 +30,28 @@ class AdoptionRateTrackingService
     private const SPECIAL_WEEK_OFFSET_TEMPLATES = ['PUL-O', 'CPO', 'FRUITS AND VEGETABLES'];
     private const CPO_ORDER_TEMPLATE = 'CPO';
     private const AUTOMATED_COMMIT_SUPPLIER = 'DROPS';
+    private const FRUITS_AND_VEGETABLES_TEMPLATE = 'FRUITS AND VEGETABLES';
+
+    /**
+     * DROPS is the umbrella supplier/parent category for the dropshipped
+     * templates. Ice Cream and Salmon carry their own delivery-schedule
+     * variants, so a schedule still filed under the bare "DROPS" variant is
+     * really the store's F&V schedule. Reporting it as its own template both
+     * duplicated F&V data and hid every DROPS-scheduled store from the F&V
+     * filter (only the handful of stores with an explicit F&V variant showed
+     * up), so the report folds DROPS into F&V everywhere.
+     */
+    private const DROPS_UMBRELLA_TEMPLATE = 'DROPS';
+
+    /**
+     * Templates that require an order on every applicable delivery date. A
+     * missing order on one of their scheduled dates is a missed order ("No"),
+     * not an unscheduled date ("No order"). Anything outside this list (Ice
+     * Cream, CPO) keeps "No order", which correctly reads as "no delivery was
+     * expected". GSI templates are matched by prefix.
+     */
+    private const ORDER_REQUIRED_TEMPLATES = ['PUL-O', self::FRUITS_AND_VEGETABLES_TEMPLATE];
+    private const ORDER_REQUIRED_TEMPLATE_PREFIX = 'GSI';
     private const SALES_UPLOAD_REMARK_TEMPLATE = 'SALES_UPLOAD';
     private const WASTAGE_UPLOAD_REMARK_PREFIX = 'WASTAGE_UPLOAD:';
     private const ENABLED_TABS = [
@@ -462,6 +484,9 @@ class AdoptionRateTrackingService
             ->distinct()
             ->orderBy('variant')
             ->pluck('variant')
+            ->map(fn ($variant) => $this->normalizeTemplate($variant))
+            ->unique()
+            ->sort()
             ->map(fn ($variant) => ['label' => $this->displayTemplate($variant), 'value' => $variant])
             ->values();
 
@@ -556,15 +581,38 @@ class AdoptionRateTrackingService
 
     private function resolveTemplates(array $filters): array
     {
-        return array_values(array_filter((array) ($filters['ordering_templates'] ?? [])));
+        return collect((array) ($filters['ordering_templates'] ?? []))
+            ->filter()
+            ->map(fn ($template) => $this->normalizeTemplate((string) $template))
+            ->unique()
+            ->values()
+            ->all();
     }
 
     private function getSchedules(Carbon $dateFrom, Carbon $dateTo, array $storeIds, array $templates): EloquentCollection
     {
+        $variants = $this->scheduleVariantsForTemplates($templates);
+
         return DTSDeliverySchedule::with(['store_branch', 'deliverySchedule'])
             ->whereIn('store_branch_id', $storeIds)
-            ->when(!empty($templates), fn ($query) => $query->whereIn('variant', $templates))
+            ->when(!empty($variants), fn ($query) => $query->whereIn('variant', $variants))
             ->get();
+    }
+
+    /**
+     * Schedule variants that back the requested report templates. F&V also has
+     * to pull the umbrella "DROPS" variant, which is how most stores' F&V
+     * delivery days are actually filed.
+     */
+    private function scheduleVariantsForTemplates(array $templates): array
+    {
+        return collect($templates)
+            ->flatMap(fn ($template) => $this->normalizeTemplate((string) $template) === self::FRUITS_AND_VEGETABLES_TEMPLATE
+                ? [self::FRUITS_AND_VEGETABLES_TEMPLATE, self::DROPS_UMBRELLA_TEMPLATE]
+                : [$template])
+            ->unique()
+            ->values()
+            ->all();
     }
 
     private function getOrders(Carbon $dateFrom, Carbon $dateTo, array $storeIds, array $templates): Collection
@@ -706,15 +754,25 @@ class AdoptionRateTrackingService
                     continue;
                 }
 
-                $template = $schedule->variant;
+                $template = $this->normalizeTemplate($schedule->variant);
                 $key = $this->scheduledRowKey($template, (int) $schedule->store_branch_id, $date->toDateString());
+
+                // A store can carry both an explicit F&V variant and the
+                // umbrella DROPS variant for the same delivery day; both
+                // normalise to the same row, so keep only the first.
+                if ($rows->has($key)) {
+                    continue;
+                }
+
                 $matchingOrders = $orders->get($key, collect());
                 $hasOrder = $matchingOrders->isNotEmpty();
                 $isOnTime = $hasOrder && $matchingOrders->contains(fn (StoreOrder $order) => $this->isOrderOnTime($order, $template, $date));
-                $plotted = $isOnTime ? 'Yes' : ($hasOrder ? 'No' : 'No order');
+                $plotted = $isOnTime
+                    ? 'Yes'
+                    : ($hasOrder || $this->requiresOrderEveryDeliveryDate($template) ? 'No' : 'No order');
                 $remark = $remarks->get($key);
 
-                $rows->push([
+                $rows->put($key, [
                     'row_key' => $key,
                     'week_no' => (int) $date->isoWeek(),
                     'date_range' => $this->formatDateRange($date),
@@ -1405,18 +1463,43 @@ class AdoptionRateTrackingService
     private function templateForOrder(StoreOrder $order): string
     {
         if ($order->variant === 'mass dts' && str_starts_with((string) $order->remarks, 'Mass DTS Order - ')) {
-            return str_replace('Mass DTS Order - ', '', (string) $order->remarks);
+            return $this->normalizeTemplate(str_replace('Mass DTS Order - ', '', (string) $order->remarks));
         }
 
-        if ($order->supplier?->supplier_code === 'DROPS') {
+        if ($order->supplier?->supplier_code === self::AUTOMATED_COMMIT_SUPPLIER) {
             if ($order->variant === 'mass regular') {
-                return 'FRUITS AND VEGETABLES';
+                return self::FRUITS_AND_VEGETABLES_TEMPLATE;
             }
 
-            return $order->variant ?: 'FRUITS AND VEGETABLES';
+            return $this->normalizeTemplate($order->variant ?: self::FRUITS_AND_VEGETABLES_TEMPLATE);
         }
 
-        return $order->supplier?->supplier_code ?: $order->variant;
+        return $this->normalizeTemplate($order->supplier?->supplier_code ?: (string) $order->variant);
+    }
+
+    /**
+     * Fold the umbrella DROPS category into F&V, its only template without a
+     * delivery-schedule variant of its own. See DROPS_UMBRELLA_TEMPLATE.
+     */
+    private function normalizeTemplate(?string $template): string
+    {
+        $template = (string) $template;
+
+        return strtoupper(trim($template)) === self::DROPS_UMBRELLA_TEMPLATE
+            ? self::FRUITS_AND_VEGETABLES_TEMPLATE
+            : $template;
+    }
+
+    /**
+     * Whether a scheduled delivery date without an order is a missed order
+     * ("No") rather than an unscheduled date ("No order").
+     */
+    private function requiresOrderEveryDeliveryDate(string $template): bool
+    {
+        $normalized = strtoupper(trim($this->normalizeTemplate($template)));
+
+        return str_starts_with($normalized, self::ORDER_REQUIRED_TEMPLATE_PREFIX)
+            || in_array($normalized, self::ORDER_REQUIRED_TEMPLATES, true);
     }
 
     private function supplierCodesForTemplates(array $templates): array
