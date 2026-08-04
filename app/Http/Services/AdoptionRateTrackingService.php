@@ -197,8 +197,8 @@ class AdoptionRateTrackingService
 
         $totals = [
             'days' => $rows->count(),
-            'yes' => $rows->where('sales_report_uploaded', 'Yes')->count(),
-            'no' => $rows->where('sales_report_uploaded', 'No')->count(),
+            'yes' => $rows->where('sales_report_uploaded_on_time', 'Yes')->count(),
+            'no' => $rows->where('sales_report_uploaded_on_time', 'No')->count(),
         ];
         $totals['adoption_rate'] = $totals['days'] > 0
             ? round(($totals['yes'] / $totals['days']) * 100, 2)
@@ -306,8 +306,8 @@ class AdoptionRateTrackingService
                     'no' => 4,
                     'indicator' => 'Timeliness of Sales Uploading',
                     'responsible' => 'Sales Audit',
-                    'rates' => $this->weeklyRates($weeks, $salesRows, $storeId, 'date_of_sales', fn (Collection $rows) => $this->statusRate($rows, 'sales_report_uploaded', ['Yes'], ['Yes', 'No'])),
-                    'overall_rate' => $this->statusRate($this->storeRows($salesRows, $storeId), 'sales_report_uploaded', ['Yes'], ['Yes', 'No']),
+                    'rates' => $this->weeklyRates($weeks, $salesRows, $storeId, 'date_of_sales', fn (Collection $rows) => $this->statusRate($rows, 'sales_report_uploaded_on_time', ['Yes'], ['Yes', 'No'])),
+                    'overall_rate' => $this->statusRate($this->storeRows($salesRows, $storeId), 'sales_report_uploaded_on_time', ['Yes'], ['Yes', 'No']),
                 ],
                 [
                     'no' => 5,
@@ -915,7 +915,11 @@ class AdoptionRateTrackingService
                 $uploadDate = $upload?->uploaded_at ? Carbon::parse($upload->uploaded_at)->timezone('Asia/Manila')->startOfDay() : null;
                 $acceptanceCriteria = $salesDate->isWeekend() ? 0 : 1;
                 $networkDays = $uploadDate ? $this->salesUploadNetworkDays($salesDate, $uploadDate) : null;
-                $uploaded = $networkDays !== null && $networkDays <= $acceptanceCriteria ? 'Yes' : 'No';
+                $uploadedOnTime = $networkDays !== null && $networkDays <= $acceptanceCriteria ? 'Yes' : 'No';
+                // Uploaded at all, regardless of timing: driven purely by whether an
+                // upload exists for the sales date, so it never depends on the
+                // acceptance criteria used by the on-time column.
+                $uploaded = $uploadDate ? 'Yes' : 'No';
                 $remark = $remarks->get($key);
 
                 $rows->push([
@@ -932,6 +936,7 @@ class AdoptionRateTrackingService
                     'networkdays' => $networkDays,
                     'day_of_sales' => $salesDate->format('D'),
                     'acceptance_criteria' => $acceptanceCriteria,
+                    'sales_report_uploaded_on_time' => $uploadedOnTime,
                     'sales_report_uploaded' => $uploaded,
                     'remarks' => $remark?->remarks,
                 ]);
@@ -1337,6 +1342,7 @@ class AdoptionRateTrackingService
         return $rows->filter(function (array $row) use ($needle) {
             return str_contains(mb_strtolower($row['store']), $needle)
                 || str_contains(mb_strtolower($row['day_of_sales']), $needle)
+                || str_contains(mb_strtolower($row['sales_report_uploaded_on_time']), $needle)
                 || str_contains(mb_strtolower($row['sales_report_uploaded']), $needle)
                 || str_contains(mb_strtolower((string) $row['remarks']), $needle);
         })->values();

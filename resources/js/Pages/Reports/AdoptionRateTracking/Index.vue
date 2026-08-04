@@ -597,6 +597,7 @@ const statusClass = (status) => {
                             <th class="border-b px-4 py-3 text-left font-medium">Date of Sales</th>
                             <th class="border-b px-4 py-3 text-left font-medium">Date of Actual Sales Upload</th>
                             <th class="border-b px-4 py-3 text-left font-medium">Store</th>
+                            <th class="border-b px-4 py-3 text-left font-medium">Sales Report Uploaded On Time?</th>
                             <th class="border-b px-4 py-3 text-left font-medium">Sales Report Uploaded?</th>
                             <th class="border-b px-4 py-3 text-left font-medium min-w-[260px]">Remarks</th>
                         </tr>
@@ -608,6 +609,11 @@ const statusClass = (status) => {
                             <td class="border-b px-4 py-3">{{ row.date_of_sales_display }}</td>
                             <td class="border-b px-4 py-3">{{ row.actual_sales_upload_date_display }}</td>
                             <td class="border-b px-4 py-3">{{ row.store }}</td>
+                            <td class="border-b px-4 py-3">
+                                <span class="inline-flex rounded-full border px-2.5 py-1 text-xs font-medium" :class="statusClass(row.sales_report_uploaded_on_time)">
+                                    {{ row.sales_report_uploaded_on_time }}
+                                </span>
+                            </td>
                             <td class="border-b px-4 py-3">
                                 <span class="inline-flex rounded-full border px-2.5 py-1 text-xs font-medium" :class="statusClass(row.sales_report_uploaded)">
                                     {{ row.sales_report_uploaded }}
@@ -624,7 +630,7 @@ const statusClass = (status) => {
                             </td>
                         </tr>
                         <tr v-if="!visibleRows.length">
-                            <td colspan="7" class="px-4 py-12 text-center text-gray-500">
+                            <td colspan="8" class="px-4 py-12 text-center text-gray-500">
                                 <ClipboardCheck class="mx-auto mb-3 h-8 w-8 text-gray-400" />
                                 No rows found for the selected filters.
                             </td>

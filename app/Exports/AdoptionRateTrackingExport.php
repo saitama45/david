@@ -70,6 +70,7 @@ class AdoptionRateTrackingExport implements FromCollection, WithHeadings, WithMa
                 'Date of Sales',
                 'Date of Actual Sales Upload',
                 'Store',
+                'Sales Report Uploaded On Time?',
                 'Sales Report Uploaded?',
                 'Remarks',
             ];
@@ -146,6 +147,7 @@ class AdoptionRateTrackingExport implements FromCollection, WithHeadings, WithMa
                 $row['date_of_sales_display'],
                 $row['actual_sales_upload_date_display'],
                 $row['store'],
+                $row['sales_report_uploaded_on_time'],
                 $row['sales_report_uploaded'],
                 $row['remarks'],
             ];
