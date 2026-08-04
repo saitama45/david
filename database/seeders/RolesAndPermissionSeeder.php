@@ -35,6 +35,7 @@ class RolesAndPermissionSeeder extends Seeder
             "approve wastage level 2",
             "cancel wastage approval level 1",
             "cancel wastage approval level 2",
+            "change commit uom",
             "commit interco requests",
             "commit store orders",
             "create bom",

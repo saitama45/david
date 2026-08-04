@@ -996,6 +996,13 @@ const promptConfirmReceive = () => {
                                     <div class="flex flex-col text-xs">
                                         <span class="text-gray-500">Base: <span class="text-gray-900 font-medium">{{ history.store_order_item.supplier_item.sap_master_file?.BaseUOM || '-' }}</span></span>
                                         <span class="text-gray-500">Order: <span class="text-gray-900 font-medium">{{ history.store_order_item.uom }}</span></span>
+                                        <!-- UoM changed during the CS Mass Commit phase: flag it so the receiver
+                                             knows the unit (and therefore the quantities) is not the one ordered. -->
+                                        <span
+                                            v-if="history.store_order_item.uom_change_history"
+                                            class="mt-1 text-red-600 font-semibold whitespace-pre-line max-w-[240px]"
+                                            :title="history.store_order_item.uom_change_history"
+                                        >{{ history.store_order_item.uom_change_history }}</span>
                                     </div>
                                 </td>
                                 <td class="px-4 py-4 text-center font-mono">{{ formatQuantity(history.store_order_item.quantity_ordered) }}</td>

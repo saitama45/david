@@ -6,6 +6,7 @@ use App\Exports\CSMassCommitsExport;
 use App\Models\StoreBranch;
 use App\Models\Supplier;
 use App\Models\StoreOrder;
+use App\Services\CommitUomChangeService;
 use Illuminate\Support\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
@@ -15,6 +16,10 @@ use Maatwebsite\Excel\Facades\Excel;
 
 class CSMassCommitsController extends Controller
 {
+    public function __construct(private CommitUomChangeService $uomChangeService)
+    {
+    }
+
     public function index(Request $request)
     {
         set_time_limit(300);
@@ -70,6 +75,13 @@ class CSMassCommitsController extends Controller
 
         $availableCategories = $reportData['report']->pluck('category')->unique()->values()->all();
 
+        $canChangeUom = $user->can('change commit uom');
+
+        // Only pay for the Alt UoM lookup when the user can actually use the dropdown.
+        $uomOptions = $canChangeUom
+            ? $this->uomChangeService->optionsForItemCodes($reportData['report']->pluck('item_code'))
+            : [];
+
         return Inertia::render('CSMassCommits/Index', [
             'filters' => [
                 'order_date' => $orderDate,
@@ -85,8 +97,10 @@ class CSMassCommitsController extends Controller
             'permissions' => [
                 'canEditFinishedGood' => $user->can('edit finished good commits'),
                 'canEditOther' => $user->can('edit other commits'),
+                'canChangeUom' => $canChangeUom,
             ],
             'availableCategories' => $availableCategories,
+            'uomOptions' => $uomOptions,
         ]);
     }
 
@@ -159,6 +173,9 @@ class CSMassCommitsController extends Controller
             $trailingHeaders = [
                 ['label' => 'TOTAL', 'field' => 'total_quantity'],
                 ['label' => 'WHSE', 'field' => 'whse'],
+                ['label' => 'Remarks', 'field' => 'remarks'],
+                ['label' => 'Committed Date', 'field' => 'committed_date'],
+                ['label' => 'UoM Change History', 'field' => 'uom_change_history'],
             ];
             return [
                 'report' => collect(),
@@ -186,6 +203,9 @@ class CSMassCommitsController extends Controller
             \Illuminate\Support\Facades\DB::raw('SUM(store_order_items.quantity_commited) as total_quantity'),
             \Illuminate\Support\Facades\DB::raw('MAX(store_order_items.committed_date) as committed_date'),
             \Illuminate\Support\Facades\DB::raw('MAX(store_order_items.updated_at) as updated_at'),
+            \Illuminate\Support\Facades\DB::raw('MAX(CAST(store_order_items.uom_change_history AS NVARCHAR(MAX))) as uom_change_history'),
+            // The UoM may only change while every branch behind this row is still uncommitted.
+            \Illuminate\Support\Facades\DB::raw("MAX(CASE WHEN store_order_items.committed_by IS NOT NULL OR store_orders.order_status IN ('committed', 'received', 'incomplete') THEN 1 ELSE 0 END) as uom_locked"),
         ];
 
         // Dynamic Pivot Columns
@@ -214,11 +234,16 @@ class CSMassCommitsController extends Controller
                 $join->on('sap_masterfiles.ItemCode', '=', 'store_order_items.item_code')
                      ->on('sap_masterfiles.AltUOM', '=', 'store_order_items.uom');
             })
-            // Left Join supplier_items
+            // Left Join supplier_items.
+            // Keyed on the UoM the order was PLACED in (original_uom, falling back to the
+            // current uom when it was never changed) rather than the current one: the
+            // supplier catalog only carries a row for the ordered UoM, so keying on the
+            // current value would orphan an item after a commit-phase UoM change and blank
+            // out its category, classification and sort order.
             ->leftJoin('supplier_items', function($join) {
-                $join->on('supplier_items.ItemCode', '=', 'sap_masterfiles.ItemCode')
-                     ->on('supplier_items.uom', '=', 'sap_masterfiles.AltUOM')
-                     ->on('supplier_items.SupplierCode', '=', 'suppliers.supplier_code');
+                $join->on('supplier_items.ItemCode', '=', 'store_order_items.item_code')
+                     ->on('supplier_items.SupplierCode', '=', 'suppliers.supplier_code')
+                     ->whereRaw('supplier_items.uom = COALESCE(store_order_items.original_uom, store_order_items.uom)');
             })
             // Filters
             ->whereDate('store_orders.order_date', $orderDate)
@@ -312,6 +337,7 @@ class CSMassCommitsController extends Controller
             ['label' => 'WHSE', 'field' => 'whse'],
             ['label' => 'Remarks', 'field' => 'remarks'],
             ['label' => 'Committed Date', 'field' => 'committed_date'],
+            ['label' => 'UoM Change History', 'field' => 'uom_change_history'],
         ];
 
         $allHeaders = array_merge($staticHeaders, $dynamicBranchHeaders, $trailingHeaders);
@@ -430,6 +456,67 @@ class CSMassCommitsController extends Controller
         $orderItem->update(['quantity_commited' => $data['new_quantity']]);
 
         return redirect()->back()->with('success', 'Commit quantity updated successfully.');
+    }
+
+    /**
+     * Change the UoM of one CS Mass Commits row and convert its ordered/approved/
+     * committed quantities into the new UoM. Only available before the item is committed.
+     */
+    public function updateUom(Request $request)
+    {
+        $validated = $request->validate([
+            'order_date' => 'required|date',
+            'item_code' => 'required|string|max:255',
+            'current_uom' => 'required|string|max:255',
+            'new_uom' => 'required|string|max:255|different:current_uom',
+            'supplier_id' => 'required|string|exists:suppliers,supplier_code',
+        ]);
+
+        $user = Auth::user();
+
+        // The same category-based gate that guards quantity edits also guards UoM changes.
+        $supplierItem = \App\Models\SupplierItems::where('ItemCode', $validated['item_code'])
+            ->where('SupplierCode', $validated['supplier_id'])
+            ->first()
+            ?? \App\Models\SupplierItems::where('ItemCode', $validated['item_code'])->first();
+
+        $isFinishedGood = in_array(strtoupper((string) $supplierItem?->category), ['FINISHED GOODS', 'FG', 'FINISHED GOOD']);
+
+        if ($isFinishedGood && !$user->can('edit finished good commits')) {
+            return response()->json(['message' => 'You do not have permission to edit items in the FINISHED GOOD category.'], 403);
+        }
+
+        if (!$isFinishedGood && !$user->can('edit other commits')) {
+            return response()->json(['message' => 'You do not have permission to edit items in this category.'], 403);
+        }
+
+        try {
+            $result = $this->uomChangeService->changeUom(
+                $user,
+                $validated['order_date'],
+                $validated['supplier_id'],
+                $validated['item_code'],
+                $validated['current_uom'],
+                $validated['new_uom']
+            );
+        } catch (\RuntimeException $e) {
+            return response()->json(['message' => $e->getMessage()], 422);
+        }
+
+        \Log::info('CS Mass Commits - UoM changed', [
+            'user_id' => $user->id,
+            'order_date' => $validated['order_date'],
+            'supplier_code' => $validated['supplier_id'],
+            'item_code' => $validated['item_code'],
+            'from_uom' => $result['from_uom'],
+            'to_uom' => $result['to_uom'],
+            'items_updated' => $result['updated'],
+        ]);
+
+        return response()->json([
+            'message' => "UoM changed from {$result['from_uom']} to {$result['to_uom']} for {$result['updated']} branch order(s).",
+            'log_entry' => $result['log_entry'],
+        ]);
     }
 
     public function confirmAll(Request $request)

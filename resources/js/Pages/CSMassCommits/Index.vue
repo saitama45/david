@@ -18,6 +18,7 @@ const props = defineProps({
     branchStatuses: { type: Object, required: true },
     permissions: { type: Object, required: true },
     availableCategories: { type: Array, required: true },
+    uomOptions: { type: Object, default: () => ({}) },
 });
 
 const { toast } = useToast();
@@ -137,6 +138,78 @@ const canUserEditRow = (row) => {
     }
 };
 
+// --- Change UoM (commit phase only) ---
+const changingUomFor = ref(null); // `${item_code}|${unit}` while the request is in flight
+
+// Alt UoMs published for this item in the SAP masterfile. The current UoM is always
+// present so the dropdown can display it even if it is no longer an active Alt UoM.
+const uomOptionsFor = (row) => {
+    const options = props.uomOptions[row.item_code] || [];
+    if (row.unit && !options.some(o => o.value === row.unit)) {
+        return [{ label: row.unit, value: row.unit }, ...options];
+    }
+    return options;
+};
+
+const canChangeRowUom = (row) => {
+    if (!props.permissions.canChangeUom) return false;
+    if (row.uom_locked == 1) return false;
+    if (!canUserEditRow(row)) return false;
+    return uomOptionsFor(row).length > 1;
+};
+
+const uomLockReason = (row) => {
+    if (!props.permissions.canChangeUom) return 'You do not have permission to change the UoM.';
+    if (row.uom_locked == 1) return 'The UoM can no longer be changed once the item is committed.';
+    if (!canUserEditRow(row)) return 'You do not have permission to edit items in this category.';
+    return '';
+};
+
+const onUomSelected = (row, newUom) => {
+    if (!newUom || newUom === row.unit) return;
+
+    const currentUom = row.unit;
+    const rowKey = `${row.item_code}|${currentUom}`;
+
+    confirm.require({
+        message: `Change the UoM of ${row.item_code} - ${row.item_name} from "${currentUom}" to "${newUom}"?\n\n`
+            + 'The ordered, approved and committed quantities will be converted (rounded up) and the new UoM '
+            + 'will replace the original one across the whole item journey.',
+        header: 'Confirm UoM Change',
+        icon: 'pi pi-exclamation-triangle',
+        acceptClass: 'p-button-success',
+        rejectClass: 'p-button-danger',
+        accept: async () => {
+            changingUomFor.value = rowKey;
+            try {
+                const { data } = await axios.post(route('cs-mass-commits.update-uom'), {
+                    order_date: orderDate.value,
+                    supplier_id: supplierId.value,
+                    item_code: row.item_code,
+                    current_uom: currentUom,
+                    new_uom: newUom,
+                });
+
+                toast.add({ severity: 'success', summary: 'UoM Changed', detail: data.message, life: 4000 });
+
+                // Reload so the converted quantities, the new UoM and the audit trail all come
+                // back from the server rather than being guessed at in the browser.
+                router.reload({ preserveScroll: true });
+            } catch (error) {
+                console.error('UoM change failed', error);
+                const errorMsg = error.response?.data?.message || 'Failed to change the UoM.';
+                toast.add({ severity: 'error', summary: 'UoM Change Failed', detail: errorMsg, life: 6000 });
+            } finally {
+                changingUomFor.value = null;
+            }
+        },
+        reject: () => {
+            // Nothing to do: the dropdown is bound one-way, so it snaps back to the current UoM.
+            triggerRef(localReport);
+        },
+    });
+};
+
 // --- Excel-like Grid Logic ---
 const selection = ref({ start: null, end: null }); // { r: rowIndex, c: colIndex }
 const activeCell = ref(null); // { r: rowIndex, c: colIndex }
@@ -146,9 +219,11 @@ const isFilling = ref(false);
 const inputRefs = ref({}); // Map of "r-c" to input element
 const cellRefs = ref({}); // Map of "r-c" to td element
 
+const TRAILING_HEADER_COUNT = 5;
+
 const staticHeaders = computed(() => props.dynamicHeaders.slice(0, 5));
-const branchHeaders = computed(() => props.dynamicHeaders.slice(5, -4));
-const trailingHeaders = computed(() => props.dynamicHeaders.slice(-4));
+const branchHeaders = computed(() => props.dynamicHeaders.slice(5, -TRAILING_HEADER_COUNT));
+const trailingHeaders = computed(() => props.dynamicHeaders.slice(-TRAILING_HEADER_COUNT));
 
 // Format updated_at timestamp
 const formatUpdatedAt = (timestamp) => {
@@ -1255,7 +1330,10 @@ onMounted(() => {
                                 
                                 <!-- Trailing Headers -->
                                 <th v-for="header in trailingHeaders" :key="header.field" rowspan="2"
-                                    class="px-4 py-3 text-right whitespace-nowrap font-bold border-b-2 border-slate-200 bg-slate-200">
+                                    :class="[
+                                        'px-4 py-3 whitespace-nowrap font-bold border-b-2 border-slate-200 bg-slate-200',
+                                        header.field === 'uom_change_history' ? 'text-left' : 'text-right'
+                                    ]">
                                     {{ header.label }}
                                 </th>
                                 
@@ -1288,7 +1366,22 @@ onMounted(() => {
                                 </td>
                                 
                                 <td v-for="header in staticHeaders" :key="header.field" class="px-4 py-3 text-left whitespace-nowrap">
-                                    {{ row[header.field] }}
+                                    <template v-if="header.field === 'unit'">
+                                        <Select
+                                            v-if="canChangeRowUom(row)"
+                                            :modelValue="row.unit"
+                                            :options="uomOptionsFor(row)"
+                                            optionLabel="label"
+                                            optionValue="value"
+                                            :disabled="changingUomFor !== null"
+                                            class="w-40"
+                                            @update:modelValue="val => onUomSelected(row, val)"
+                                        />
+                                        <span v-else :title="uomLockReason(row)">{{ row.unit }}</span>
+                                    </template>
+                                    <template v-else>
+                                        {{ row[header.field] }}
+                                    </template>
                                 </td>
                                 
                                 <td v-for="(header, colIndex) in branchHeaders" :key="header.field" 
@@ -1348,9 +1441,18 @@ onMounted(() => {
                                 </td>
 
                                 <td v-for="header in trailingHeaders" :key="header.field"
-                                    class="px-4 py-3 text-right whitespace-nowrap">
+                                    :class="[
+                                        'px-4 py-3',
+                                        header.field === 'uom_change_history'
+                                            ? 'text-left align-top text-xs text-gray-700 whitespace-pre-line min-w-[16rem]'
+                                            : 'text-right whitespace-nowrap'
+                                    ]">
                                     <template v-if="header.field === 'committed_date'">
                                         {{ formatUpdatedAt(row[header.field]) }}
+                                    </template>
+                                    <template v-else-if="header.field === 'uom_change_history'">
+                                        <span v-if="row.uom_change_history">{{ row.uom_change_history }}</span>
+                                        <span v-else class="text-gray-400">&mdash;</span>
                                     </template>
                                     <template v-else>
                                         {{ formatQuantity(row[header.field]) }}

@@ -34,9 +34,11 @@ class StoreOrderItem extends Model implements Auditable
         'cost_per_quantity',
         'total_cost',
         'uom',
+        'original_uom',
         'remarks',
         'committed_by',
         'committed_date',
+        'uom_change_history',
     ];
 
     protected $casts = [
