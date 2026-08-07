@@ -3,6 +3,7 @@ import { ref, computed, watch, nextTick } from 'vue'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import { Upload, X, Image as ImageIcon, AlertCircle, Loader2, ChevronLeft, ChevronRight } from 'lucide-vue-next'
+import { compressImageFile, formatBytes } from '@/lib/imageCompression'
 
 const props = defineProps({
   modelValue: { // Array of new File objects
@@ -28,6 +29,15 @@ const props = defineProps({
   disabled: {
     type: Boolean,
     default: false
+  },
+  // Automatically downscale/re-encode oversized images in the browser
+  compress: {
+    type: Boolean,
+    default: true
+  },
+  maxSizeMb: {
+    type: Number,
+    default: 5
   }
 })
 
@@ -36,6 +46,8 @@ const emit = defineEmits(['update:modelValue', 'update:existingImageUrls', 'erro
 const fileInput = ref(null)
 const error = ref('')
 const dragOver = ref(false)
+const processing = ref(false)
+const compressionNotices = ref([])
 
 // Holds data URLs for new file previews
 const newFilePreviews = ref([])
@@ -273,24 +285,26 @@ const handleImageClick = (image, index) => {
 };
 
 const openFileDialog = () => {
-  if (props.disabled) return
+  if (props.disabled || processing.value) return
   fileInput.value?.click()
 }
 
-const handleFileSelect = (event) => {
+const handleFileSelect = async (event) => {
   const files = event.target.files
   if (files) {
-    processFiles(Array.from(files))
+    await processFiles(Array.from(files))
   }
+  // Allow re-selecting the same file after a removal
+  event.target.value = ''
 }
 
-const handleDrop = (event) => {
+const handleDrop = async (event) => {
   event.preventDefault()
   dragOver.value = false
   if (props.disabled) return
   const files = event.dataTransfer.files
   if (files) {
-    processFiles(Array.from(files))
+    await processFiles(Array.from(files))
   }
 }
 
@@ -305,33 +319,57 @@ const handleDragLeave = () => {
   dragOver.value = false
 }
 
-const processFiles = (files) => {
+const processFiles = async (files) => {
   error.value = ''
+  compressionNotices.value = []
   let newModelValue = props.multiple ? [...props.modelValue] : []
 
   const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png']
-  const maxSize = 5 * 1024 * 1024 // 5MB
+  const maxSize = props.maxSizeMb * 1024 * 1024
 
-  for (const file of files) {
-    if (!props.multiple && newModelValue.length > 0) {
-        break; // Only one file if not multiple
+  processing.value = true
+
+  try {
+    for (const file of files) {
+      if (!props.multiple && newModelValue.length > 0) {
+          break; // Only one file if not multiple
+      }
+
+      // Validate file type
+      if (!allowedTypes.includes(file.type)) {
+        error.value = 'Invalid file type. Only JPEG and PNG images are allowed.'
+        emit('error', error.value)
+        continue;
+      }
+
+      let finalFile = file
+
+      // Shrink oversized photos in the browser instead of rejecting them
+      if (props.compress) {
+        try {
+          const result = await compressImageFile(file, { maxSizeBytes: maxSize })
+          finalFile = result.file
+          if (result.compressed) {
+            compressionNotices.value.push(
+              `${file.name} was resized from ${formatBytes(result.originalSize)} to ${formatBytes(result.size)}.`
+            )
+          }
+        } catch (e) {
+          console.error('Image compression failed, using the original file:', e)
+        }
+      }
+
+      // Validate file size
+      if (finalFile.size > maxSize) {
+        error.value = `File ${file.name} is too large. Maximum size is ${props.maxSizeMb}MB and it could not be compressed further.`
+        emit('error', error.value)
+        continue;
+      }
+
+      newModelValue.push(finalFile)
     }
-
-    // Validate file type
-    if (!allowedTypes.includes(file.type)) {
-      error.value = 'Invalid file type. Only JPEG and PNG images are allowed.'
-      emit('error', error.value)
-      continue;
-    }
-
-    // Validate file size
-    if (file.size > maxSize) {
-      error.value = `File ${file.name} is too large. Maximum size is 5MB.`
-      emit('error', error.value)
-      continue;
-    }
-
-    newModelValue.push(file)
+  } finally {
+    processing.value = false
   }
 
   emit('update:modelValue', newModelValue)
@@ -493,14 +531,19 @@ watch(() => props.modelValue, (newFiles) => {
         :class="[
           'border-2 border-dashed rounded-lg p-8 text-center cursor-pointer transition-colors',
           dragOver ? 'border-blue-400 bg-blue-50' : 'border-gray-300 hover:border-gray-400',
-          disabled ? 'cursor-not-allowed opacity-60' : ''
+          disabled || processing ? 'cursor-not-allowed opacity-60' : ''
         ]"
       >
         <div class="space-y-3">
           <div class="mx-auto w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center">
-            <Upload class="w-6 h-6 text-gray-400" />
+            <Loader2 v-if="processing" class="w-6 h-6 text-blue-600 animate-spin" />
+            <Upload v-else class="w-6 h-6 text-gray-400" />
           </div>
-          <div>
+          <div v-if="processing">
+            <p class="text-sm text-gray-600">Optimizing image…</p>
+            <p class="text-xs text-gray-500 mt-1">Large photos are resized automatically</p>
+          </div>
+          <div v-else>
             <p class="text-sm text-gray-600">
               <span class="font-medium text-blue-600 hover:text-blue-700">Click to upload</span>
             </p>
@@ -509,6 +552,15 @@ watch(() => props.modelValue, (newFiles) => {
         </div>
       </div>
     </div>
+
+    <!-- Compression Notices -->
+    <p
+      v-for="notice in compressionNotices"
+      :key="notice"
+      class="text-xs text-green-700"
+    >
+      {{ notice }}
+    </p>
 
     <!-- Error Alert -->
     <Alert v-if="error" variant="destructive">

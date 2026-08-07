@@ -694,7 +694,7 @@ const handleReasonBlur = (item) => {
                             v-model="item.images"
                             v-model:existing-image-urls="item.existing_image_urls"
                             :label="`Images for ${item.item_code} *`"
-                            helper-text="Upload one or more JPG or PNG images as evidence for this item (max 5MB each)"
+                            helper-text="Upload one or more JPG or PNG images as evidence for this item. Photos larger than 5MB are resized automatically."
                             :disabled="form.processing"
                             multiple
                             required
