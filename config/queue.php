@@ -92,6 +92,22 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | HTTP Queue Worker Trigger
+    |--------------------------------------------------------------------------
+    |
+    | Hosts that cannot run a long-lived `queue:work` process (MonsterASP /
+    | IIS shared hosting, where startup.sh never executes) drain the imports
+    | queue by pinging /run-queue-imports on a schedule. The route is disabled
+    | entirely unless this token is set, so it stays off on Azure where a real
+    | worker already runs. Read via config() — env() returns null once the
+    | config and routes are cached.
+    |
+    */
+
+    'worker_token' => env('QUEUE_WORKER_TOKEN'),
+
+    /*
+    |--------------------------------------------------------------------------
     | Failed Queue Jobs
     |--------------------------------------------------------------------------
     |

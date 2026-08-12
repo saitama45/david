@@ -1264,4 +1264,53 @@ Route::controller(WastageSettingsController::class)
         Route::post('/', 'update')->name('update');
     });
 
+/*
+ * MonsterASP.net / IIS queue trigger.
+ *
+ * Restores the route removed in e2fb5efc5 (2026-06-08). Hosts that cannot run a
+ * persistent `queue:work` process drain the imports queue by pinging this URL on
+ * a schedule; Azure keeps using the worker in startup.sh instead.
+ *
+ * Disabled unless QUEUE_WORKER_TOKEN is set, so it exposes nothing by default.
+ */
+Route::get('/run-queue-imports', function (\Illuminate\Http\Request $request) {
+    $token = config('queue.worker_token');
+
+    // No token configured => the endpoint does not exist on this host.
+    abort_if(blank($token), 404);
+
+    $supplied = (string) $request->query('token', '');
+
+    abort_unless(hash_equals((string) $token, $supplied), 403, 'Unauthorized');
+
+    // A per-minute ping must not stack workers on top of each other.
+    $lock = \Illuminate\Support\Facades\Cache::lock('run-queue-imports', 600);
+
+    if (! $lock->get()) {
+        return response()->json([
+            'status' => 'skipped',
+            'message' => 'A queue worker is already running.',
+        ]);
+    }
+
+    try {
+        set_time_limit(0);
+
+        \Illuminate\Support\Facades\Artisan::call('queue:work', [
+            '--queue' => 'imports',
+            '--stop-when-empty' => true,
+            '--tries' => 1,
+            '--timeout' => 3600,
+            '--max-time' => 280,
+        ]);
+
+        return response()->json([
+            'status' => 'ok',
+            'output' => trim(\Illuminate\Support\Facades\Artisan::output()),
+        ]);
+    } finally {
+        $lock->release();
+    }
+})->name('queue.run-imports');
+
 require __DIR__ . '/auth.php';
