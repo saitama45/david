@@ -229,8 +229,11 @@ class CSMassCommitsController extends Controller
             ->join('store_branches', 'store_branches.id', '=', 'store_orders.store_branch_id')
             // Left Join suppliers
             ->leftJoin('suppliers', 'suppliers.id', '=', 'store_orders.supplier_id')
-            // Left Join sap_masterfiles
-            ->leftJoin('sap_masterfiles', function($join) {
+            // Left Join sap_masterfiles.
+            // Through a one-row-per-key subquery: (ItemCode, AltUOM) is not unique,
+            // and a second matching row would duplicate the store_order_items row,
+            // inflating every SUM below it.
+            ->leftJoinSub(\App\Models\SAPMasterfile::singleRowPerJoinKey(), 'sap_masterfiles', function($join) {
                 $join->on('sap_masterfiles.ItemCode', '=', 'store_order_items.item_code')
                      ->on('sap_masterfiles.AltUOM', '=', 'store_order_items.uom');
             })
@@ -240,7 +243,12 @@ class CSMassCommitsController extends Controller
             // supplier catalog only carries a row for the ordered UoM, so keying on the
             // current value would orphan an item after a commit-phase UoM change and blank
             // out its category, classification and sort order.
-            ->leftJoin('supplier_items', function($join) {
+            // Through a one-row-per-key subquery. (ItemCode, SupplierCode, uom) is
+            // not unique in the catalog — legacy rows imported before entity_id was
+            // stamped sit beside the entity-owned row for the same item — so a
+            // direct join matched both and doubled SUM(quantity_commited) for every
+            // affected item, on every branch and every order date.
+            ->leftJoinSub(\App\Models\SupplierItems::singleRowPerJoinKey(), 'supplier_items', function($join) {
                 $join->on('supplier_items.ItemCode', '=', 'store_order_items.item_code')
                      ->on('supplier_items.SupplierCode', '=', 'suppliers.supplier_code')
                      ->whereRaw('supplier_items.uom = COALESCE(store_order_items.original_uom, store_order_items.uom)');

@@ -19,17 +19,32 @@ class SAPMasterfileImport implements ToCollection, WithHeadingRow, WithChunkRead
     protected $skippedCount = 0;
     protected static $seenCombinations = [];
 
-    protected ?int $entityId;
+    protected int $entityId;
 
     /**
      * Bulk upsert bypasses Eloquent model events, so BelongsToEntity's `creating`
      * hook never fires and rows would be written with a NULL entity_id (invisible
      * to every scoped read). The active entity is captured here and stamped onto
      * each row explicitly.
+     *
+     * An unresolvable entity aborts the import instead of writing NULLs — the
+     * caller (SAPMasterfileImportJob) records the failure on the ImportLog, so it
+     * surfaces as a failed import rather than silently orphaned rows that a later
+     * entity-carrying import then duplicates. See the matching guard in
+     * SupplierItemsImport, and the 2026_07_24 backfill migration that had to
+     * repair exactly this.
      */
     public function __construct(?int $entityId = null)
     {
-        $this->entityId = $entityId ?? app(EntityContext::class)->id();
+        $entityId = $entityId ?? app(EntityContext::class)->id();
+
+        if ($entityId === null) {
+            throw new \RuntimeException(
+                'No active entity for this import. SAP masterfile rows must belong to an entity.'
+            );
+        }
+
+        $this->entityId = $entityId;
     }
 
     public static function resetSeenCombinations()
@@ -115,12 +130,11 @@ class SAPMasterfileImport implements ToCollection, WithHeadingRow, WithChunkRead
         }
 
         // Match per entity so one entity's import cannot overwrite another's row for
-        // the same ItemCode/AltUOM. Omitted when there is no entity context, because
-        // the MERGE compiles to `=` and NULL = NULL never matches (which would insert
-        // a duplicate on every re-import).
-        $matchColumns = $this->entityId === null
-            ? ['ItemCode', 'AltUOM']
-            : ['ItemCode', 'AltUOM', 'entity_id'];
+        // the same ItemCode/AltUOM. entity_id is always set (the constructor refuses
+        // to run without one), which keeps the MERGE's `=` comparison matchable — a
+        // NULL here would never match and would insert a duplicate on every
+        // re-import.
+        $matchColumns = ['ItemCode', 'AltUOM', 'entity_id'];
 
         // 3. Bulk Upsert (Batch processing)
         // Batch size set to 100 to prevent exceeding SQL Server's 2100 parameter limit

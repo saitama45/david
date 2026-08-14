@@ -25,7 +25,7 @@ class SupplierItemsImport implements ToCollection, WithHeadingRow, WithChunkRead
     protected $skippedUnauthorizedCount = 0;
     protected $assignedSupplierCodes;
 
-    protected ?int $entityId;
+    protected int $entityId;
 
     // Store imported keys as: [SupplierCode => [ItemCode|UOM, ...]]
     protected $importedItems = [];
@@ -36,11 +36,28 @@ class SupplierItemsImport implements ToCollection, WithHeadingRow, WithChunkRead
      * rows would land NULL (invisible to every scoped read). The active entity is
      * captured here (the import runs synchronously inside the web request, where
      * the context IS set) and stamped onto each row explicitly.
+     *
+     * An unresolvable entity aborts the import rather than writing NULLs. Rows
+     * that land NULL are not merely invisible: the next import (which DOES carry
+     * an entity) cannot match them, so it inserts a SECOND row for the same
+     * ItemCode/UOM/SupplierCode. Every raw report join then matches both and
+     * doubles the item's quantities. Failing here — the user simply re-picks an
+     * entity and re-uploads — is far cheaper than the silent duplicate.
      */
     public function __construct(array $assignedSupplierCodes, ?int $entityId = null)
     {
         $this->assignedSupplierCodes = $assignedSupplierCodes;
-        $this->entityId = $entityId ?? app(EntityContext::class)->id();
+
+        $entityId = $entityId ?? app(EntityContext::class)->id();
+
+        if ($entityId === null) {
+            throw new \RuntimeException(
+                'No active entity for this import. Supplier items must belong to an entity — '
+                . 'select one and upload again.'
+            );
+        }
+
+        $this->entityId = $entityId;
     }
 
     /**
@@ -174,12 +191,11 @@ class SupplierItemsImport implements ToCollection, WithHeadingRow, WithChunkRead
         if (!empty($dataForCurrentChunk)) {
             foreach (array_chunk($dataForCurrentChunk, $upsertBatchSize) as $miniBatch) {
                 // Match per entity so one entity's import cannot overwrite another's
-                // row for the same ItemCode/UOM/SupplierCode. entity_id is left out
-                // when there is no context, because the MERGE compiles to `=` and
-                // NULL = NULL never matches (which would duplicate on every re-import).
-                $uniqueBy = $this->entityId === null
-                    ? ['ItemCode', 'uom', 'SupplierCode']
-                    : ['ItemCode', 'uom', 'SupplierCode', 'entity_id'];
+                // row for the same ItemCode/UOM/SupplierCode. entity_id is always
+                // set (the constructor refuses to run without one), which keeps the
+                // MERGE's `=` comparison matchable — a NULL here would never match
+                // an existing row and would duplicate on every re-import.
+                $uniqueBy = ['ItemCode', 'uom', 'SupplierCode', 'entity_id'];
 
                 // Define the columns that should be updated if a match is found
                 // Exclude: id, ItemCode, uom, SupplierCode (these are the unique identifiers)
@@ -219,8 +235,7 @@ class SupplierItemsImport implements ToCollection, WithHeadingRow, WithChunkRead
                     $dbItems = DB::table('supplier_items')
                         ->where('SupplierCode', $supplierCode)
                         ->where('is_active', 1) // Only interested in currently active items to potentially deactivate
-                        ->when($this->entityId !== null, fn ($q) => $q->where('entity_id', $this->entityId))
-                        ->when($this->entityId === null, fn ($q) => $q->whereNull('entity_id'))
+                        ->where('entity_id', $this->entityId)
                         ->select('id', 'ItemCode', 'uom')
                         ->get();
 

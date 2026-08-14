@@ -451,11 +451,16 @@ class MassOrdersController extends Controller
         $receiveDatesHistory = DB::table('store_order_items as soi')
             ->join('store_orders as so', 'so.id', '=', 'soi.store_order_id')
             ->leftJoin('suppliers as s', 's.id', '=', 'so.supplier_id')
-            ->leftJoin('sap_masterfiles as sm', function($join) {
+            // Both catalogs are joined through a one-row-per-key subquery. Joining
+            // them directly duplicates the line: neither (ItemCode, AltUOM) nor
+            // (ItemCode, SupplierCode, uom) is unique, so an item carrying more
+            // than one catalog row was listed once per row — the same ordered
+            // quantity appearing as two identical lines.
+            ->leftJoinSub(\App\Models\SAPMasterfile::singleRowPerJoinKey(), 'sm', function($join) {
                 $join->on('sm.ItemCode', '=', 'soi.item_code')
                      ->on('sm.AltUOM', '=', 'soi.uom');
             })
-            ->leftJoin('supplier_items as si', function($join) {
+            ->leftJoinSub(\App\Models\SupplierItems::singleRowPerJoinKey(), 'si', function($join) {
                 $join->on('si.ItemCode', '=', 'sm.ItemCode')
                      ->on('si.uom', '=', 'sm.AltUOM')
                      ->on('si.SupplierCode', '=', 's.supplier_code');

@@ -66,4 +66,38 @@ class SAPMasterfile extends Model implements Auditable
     {
         return $this->attributes['BaseQty'];
     }
+
+    /**
+     * A subquery holding at most ONE row per (ItemCode, AltUOM) — the key reports
+     * join this masterfile on — for use with `leftJoinSub`.
+     *
+     * The pair is not enforced unique in the table, and a repeat of it fans the
+     * driving row out: every joined row is duplicated and any SUM over it is
+     * multiplied. See SupplierItems::singleRowPerJoinKey() for the same guard on
+     * the supplier catalog, where legacy NULL-entity rows made this concrete.
+     */
+    public static function singleRowPerJoinKey(?int $entityId = null): \Illuminate\Database\Query\Builder
+    {
+        $entityId = $entityId ?? app(\App\Support\EntityContext::class)->id();
+
+        $tieBreak = '[is_active] DESC, [id] DESC';
+        $bindings = [];
+
+        if ($entityId !== null) {
+            $tieBreak = 'CASE WHEN [entity_id] = ? THEN 0 ELSE 1 END, ' . $tieBreak;
+            $bindings[] = $entityId;
+        }
+
+        $ranked = \Illuminate\Support\Facades\DB::table('sap_masterfiles')
+            ->select([
+                'id', 'ItemCode', 'ItemDescription', 'AltUOM', 'BaseUOM',
+                'AltQty', 'BaseQty', 'is_active', 'entity_id',
+            ])
+            ->selectRaw(
+                'ROW_NUMBER() OVER (PARTITION BY [ItemCode], [AltUOM] ORDER BY ' . $tieBreak . ') as rn',
+                $bindings
+            );
+
+        return \Illuminate\Support\Facades\DB::query()->fromSub($ranked, 'ranked_sap_masterfiles')->where('rn', 1);
+    }
 }
