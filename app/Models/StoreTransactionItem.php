@@ -22,7 +22,12 @@ class StoreTransactionItem extends Model implements Auditable
         'discount', // Default 0
         'line_total',
         'net_total',
+        'take_out', // true = Take Out, false = Dine In (Sales Report column Q)
         'remarks'
+    ];
+
+    protected $casts = [
+        'take_out' => 'boolean',
     ];
 
     /**

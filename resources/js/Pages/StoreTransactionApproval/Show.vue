@@ -88,6 +88,7 @@ const subtotals = computed(() => {
                     <TH>Quantity</TH>
                     <TH>Price</TH>
                     <TH>Discount</TH>
+                    <TH>Take Out</TH>
                     <TH>Line Total</TH>
                     <TH>Net Total</TH>
                 </TableHead>
@@ -99,6 +100,7 @@ const subtotals = computed(() => {
                         <TD>{{ item.quantity }}</TD>
                         <TD>{{ item.price }}</TD>
                         <TD>{{ item.discount }}</TD>
+                        <TD>{{ item.take_out ? 'Y' : '' }}</TD>
                         <TD>{{ item.line_total }}</TD>
                         <TD>{{ item.net_total }}</TD>
                     </tr>

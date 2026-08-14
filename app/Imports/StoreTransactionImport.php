@@ -15,13 +15,69 @@ use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Str;
 use Maatwebsite\Excel\Concerns\ToCollection;
-use Maatwebsite\Excel\Concerns\WithHeadingRow;
-use Maatwebsite\Excel\Concerns\WithStartRow;
 
-class StoreTransactionImport implements ToCollection, WithHeadingRow, WithStartRow
+class StoreTransactionImport implements ToCollection
 {
     use InventoryUsage;
+
+    /**
+     * Maps a normalised header label (lower-cased, whitespace collapsed) to the
+     * internal key the importer works with. Covers both the legacy Sales Audit
+     * layout and the new HQ "Sales Report by Product" layout, so a file in either
+     * format can be uploaded without the user picking a template.
+     *
+     * Notable new-format differences:
+     *  - "TM-OR#" replaces the separate "TM#" / "Receipt No" pair. The TM number
+     *    is the segment before the dash, so it is recovered in resolveTimNumber().
+     *  - "% Discount" is a new column that would otherwise collapse onto the same
+     *    key as "Discount", so it gets its own key and is ignored.
+     *  - "Take Out" is new: "Y" = take out, blank = dine in.
+     */
+    private const HEADER_ALIASES = [
+        'product id' => 'product_id',
+        'productid' => 'product_id',
+        'product name' => 'product_name',
+        'lot/serial' => 'lot_serial',
+        'lot serial' => 'lot_serial',
+        'date' => 'date',
+        'posted' => 'posted',
+        'tm#' => 'tm',
+        'tm no' => 'tm',
+        'tm no.' => 'tm',
+        'receipt no' => 'receipt_no',
+        'receipt no.' => 'receipt_no',
+        'receipt number' => 'receipt_no',
+        'tm-or#' => 'receipt_no',
+        'tm-or #' => 'receipt_no',
+        'tm or#' => 'receipt_no',
+        'tm-or' => 'receipt_no',
+        'qty' => 'qty',
+        'base qty' => 'base_qty',
+        'unit' => 'uom',
+        'uom' => 'uom',
+        'price' => 'price',
+        'discount' => 'discount',
+        '% discount' => 'discount_percent',
+        'discount %' => 'discount_percent',
+        'line total' => 'line_total',
+        'net total' => 'net_total',
+        'price id' => 'price_id',
+        'take out' => 'take_out',
+        'take-out' => 'take_out',
+        'takeout' => 'take_out',
+        'branch' => 'branch',
+        'customer id' => 'customer_id',
+        'customer' => 'customer',
+        'cust name' => 'customer',
+        'cancel reason' => 'cancel_reason',
+        'reference number' => 'reference_number',
+        'reference' => 'reference_number',
+    ];
+
+    /** Values in the Take Out column that mean "this line was taken out". */
+    private const TAKE_OUT_VALUES = ['Y', 'YES', 'TRUE', '1', 'TAKE OUT', 'TAKEOUT'];
 
     private $rowNumber = 0;
     protected $skippedRows = [];
@@ -29,39 +85,44 @@ class StoreTransactionImport implements ToCollection, WithHeadingRow, WithStartR
     protected $processedReceipts = [];
     protected $storeBranchIds = [];
 
-    public function startRow(): int
-    {
-        return 7;
-    }
-
-    public function headingRow(): int
-    {
-        return 6;
-    }
-
     public function collection(Collection $rows)
     {
+        // The header no longer sits on a fixed row: the legacy export put it on
+        // row 6, the new HQ report puts it higher up. Find it by content instead.
+        [$headerIndex, $headerMap] = $this->detectHeader($rows);
+
+        if ($headerMap === null) {
+            throw new Exception('Could not find the header row. Expected a row containing "Product ID" and "Branch".');
+        }
+
         // Pre-process rows to add row numbers and filter invalid ones
         $validRows = [];
-        $this->rowNumber = $this->startRow() - 1; // Adjust for header
 
-        foreach ($rows as $row) {
-            $this->rowNumber++;
-            
+        foreach ($rows as $index => $rawRow) {
+            if ($index <= $headerIndex) {
+                continue;
+            }
+
+            $this->rowNumber = $index + 1; // Collection is 0-based, spreadsheet rows are 1-based
+
             // Check for "NOTHING FOLLOWS"
-            foreach ($row as $value) {
+            foreach ($rawRow as $value) {
                 if (is_string($value) && stripos($value, 'NOTHING FOLLOWS') !== false) {
                     Log::info('Found "NOTHING FOLLOWS". Ending import.', ['row_number' => $this->rowNumber]);
                     break 2; // Stop processing entirely
                 }
             }
 
-            // Check for SUBTOTAL
-            if (isset($row['product_name']) && is_string($row['product_name']) && stripos($row['product_name'], 'SUBTOTAL:') !== false) {
+            $row = $this->mapRow($rawRow, $headerMap);
+
+            // Check for SUBTOTAL. The legacy file carries it in the Product Name
+            // column, the new one in the TM-OR# (receipt) column.
+            if ($this->isSubtotal($row['product_name'] ?? null) || $this->isSubtotal($row['receipt_no'] ?? null)) {
                 continue;
             }
 
-            // Skip if essential data is missing
+            // Skip if essential data is missing. A line only counts as a sale
+            // (dine in or take out) when it carries a Product ID.
             if (empty($row['product_id'])) {
                 continue;
             }
@@ -83,15 +144,119 @@ class StoreTransactionImport implements ToCollection, WithHeadingRow, WithStartR
         }
     }
 
+    /**
+     * Locate the header row and build a [column index => internal key] map.
+     * Returns [rowIndex, map] or [-1, null] when no header could be found.
+     */
+    private function detectHeader(Collection $rows): array
+    {
+        foreach ($rows as $index => $row) {
+            $map = [];
+
+            foreach ($row as $column => $value) {
+                $key = $this->normalizeHeaderLabel($value);
+
+                // First occurrence wins so a stray repeated label cannot shadow
+                // the real column.
+                if ($key !== null && !in_array($key, $map, true)) {
+                    $map[$column] = $key;
+                }
+            }
+
+            if (in_array('product_id', $map, true) && in_array('branch', $map, true)) {
+                return [$index, $map];
+            }
+
+            // Give up after the preamble rows; the header is always near the top.
+            if ($index >= 30) {
+                break;
+            }
+        }
+
+        return [-1, null];
+    }
+
+    private function normalizeHeaderLabel($value): ?string
+    {
+        if (!is_string($value) && !is_numeric($value)) {
+            return null;
+        }
+
+        // Header cells in the new report wrap ("Net\n Total"), so collapse all
+        // whitespace before matching.
+        $label = strtolower(trim(preg_replace('/\s+/', ' ', (string) $value)));
+
+        if ($label === '') {
+            return null;
+        }
+
+        if (isset(self::HEADER_ALIASES[$label])) {
+            return self::HEADER_ALIASES[$label];
+        }
+
+        $slug = Str::slug($label, '_');
+
+        return $slug === '' ? null : $slug;
+    }
+
+    private function mapRow($rawRow, array $headerMap): array
+    {
+        $row = [];
+
+        foreach ($headerMap as $column => $key) {
+            $row[$key] = $rawRow[$column] ?? null;
+        }
+
+        return $row;
+    }
+
+    private function isSubtotal($value): bool
+    {
+        return is_string($value) && stripos($value, 'SUBTOTAL') !== false;
+    }
+
+    /**
+     * Column Q: "Y" means take out, blank means dine in.
+     */
+    private function isTakeOut($value): bool
+    {
+        if ($value === null) {
+            return false;
+        }
+
+        return in_array(strtoupper(trim((string) $value)), self::TAKE_OUT_VALUES, true);
+    }
+
+    /**
+     * The new report drops the standalone TM# column and prefixes it onto the
+     * receipt instead ("0034-00019066"), so recover it from there when missing.
+     */
+    private function resolveTimNumber($tm, $receiptNumber)
+    {
+        if (is_string($tm)) {
+            $tm = trim($tm);
+        }
+
+        if (!empty($tm) || $tm === 0 || $tm === '0') {
+            return $tm;
+        }
+
+        if (is_string($receiptNumber) && preg_match('/^([^-]+)-/', $receiptNumber, $matches)) {
+            return trim($matches[1]);
+        }
+
+        return $tm;
+    }
+
     private function processReceiptGroup($receiptRows)
     {
         $firstRow = $receiptRows->first();
         $branchCode = isset($firstRow['branch']) ? trim($firstRow['branch']) : '';
         $receiptNumber = isset($firstRow['receipt_no']) ? trim($firstRow['receipt_no']) : '';
-        $date = $firstRow['date'];
-        $posted = $firstRow['posted'];
-        $tm = $firstRow['tm'];
-        
+        $date = $firstRow['date'] ?? null;
+        $posted = $firstRow['posted'] ?? null;
+        $tm = $this->resolveTimNumber($firstRow['tm'] ?? null, $receiptNumber);
+
         // Use the row number of the first item for logging generic errors for the receipt
         $mainRowNumber = $firstRow['__row_number'];
 
@@ -114,35 +279,40 @@ class StoreTransactionImport implements ToCollection, WithHeadingRow, WithStartR
                 return;
             }
 
-            // 3. Aggregate Items within Receipt (Sum Qty for same Product ID)
+            // 3. Aggregate Items within Receipt (Sum Qty for same Product ID).
+            // Take out and dine in lines of the same product stay apart: they are
+            // priced differently and the PMIX report counts them separately.
             $aggregatedItems = [];
             foreach ($receiptRows as $row) {
                 $productId = strtoupper(trim($row['product_id']));
-                
-                if (!isset($aggregatedItems[$productId])) {
-                    $aggregatedItems[$productId] = [
+                $takeOut = $this->isTakeOut($row['take_out'] ?? null);
+                $itemKey = $productId . '|' . ($takeOut ? '1' : '0');
+
+                if (!isset($aggregatedItems[$itemKey])) {
+                    $aggregatedItems[$itemKey] = [
                         'product_id' => $productId,
-                        'product_name' => $row['product_name'],
+                        'product_name' => $row['product_name'] ?? null,
                         'uom' => $row['uom'] ?? null, // Handle missing UOM key
+                        'take_out' => $takeOut,
                         'qty' => 0,
                         'base_qty' => 0, // Assuming we sum this too
-                        'price' => $row['price'], // Keeping first price
+                        'price' => $row['price'] ?? 0, // Keeping first price
                         'discount' => 0,
                         'line_total' => 0,
                         'net_total' => 0,
                         'rows' => [], // Keep track of original rows
                         '__row_number' => $row['__row_number'],
-                        'date' => $row['date'],
-                        'branch' => $row['branch']
+                        'date' => $row['date'] ?? null,
+                        'branch' => $row['branch'] ?? null
                     ];
                 }
 
-                $aggregatedItems[$productId]['qty'] += (float)$row['qty'];
-                $aggregatedItems[$productId]['base_qty'] += (float)($row['base_qty'] ?? 0);
-                $aggregatedItems[$productId]['discount'] += (float)($row['discount'] ?? 0);
-                $aggregatedItems[$productId]['line_total'] += (float)($row['line_total'] ?? 0);
-                $aggregatedItems[$productId]['net_total'] += (float)($row['net_total'] ?? 0);
-                $aggregatedItems[$productId]['rows'][] = $row;
+                $aggregatedItems[$itemKey]['qty'] += (float)($row['qty'] ?? 0);
+                $aggregatedItems[$itemKey]['base_qty'] += (float)($row['base_qty'] ?? 0);
+                $aggregatedItems[$itemKey]['discount'] += (float)($row['discount'] ?? 0);
+                $aggregatedItems[$itemKey]['line_total'] += (float)($row['line_total'] ?? 0);
+                $aggregatedItems[$itemKey]['net_total'] += (float)($row['net_total'] ?? 0);
+                $aggregatedItems[$itemKey]['rows'][] = $row;
             }
 
             // 4. NEW: Validate Ingredient Inventory with proper logic
@@ -151,7 +321,13 @@ class StoreTransactionImport implements ToCollection, WithHeadingRow, WithStartR
 
             // Check each POS item individually for missing masterfiles
             $missingPosMasterfiles = [];
-            foreach ($aggregatedItems as $productId => $itemData) {
+            foreach ($aggregatedItems as $itemData) {
+                $productId = $itemData['product_id'];
+
+                if (isset($posMasterfiles[$productId]) || in_array($productId, $missingPosMasterfiles)) {
+                    continue;
+                }
+
                 $posMasterfile = POSMasterfile::whereRaw('UPPER(POSCode) = ?', [$productId])->first();
 
                 if (!$posMasterfile) {
@@ -160,10 +336,12 @@ class StoreTransactionImport implements ToCollection, WithHeadingRow, WithStartR
                     $posMasterfiles[$productId] = $posMasterfile;
                 }
             }
-            
+
             // If any POS masterfiles are missing, skip each item with its specific error
             if (!empty($missingPosMasterfiles)) {
-                foreach ($aggregatedItems as $productId => $itemData) {
+                foreach ($aggregatedItems as $itemData) {
+                    $productId = $itemData['product_id'];
+
                     if (in_array($productId, $missingPosMasterfiles)) {
                         // Create individual skipped row for this specific item
                         $this->skippedRows[] = [
@@ -186,8 +364,8 @@ class StoreTransactionImport implements ToCollection, WithHeadingRow, WithStartR
                 return;
             }
             
-            foreach ($aggregatedItems as $productId => $itemData) {
-                $posMasterfile = $posMasterfiles[$productId];
+            foreach ($aggregatedItems as $itemData) {
+                $posMasterfile = $posMasterfiles[$itemData['product_id']];
 
                 $bomIngredients = POSMasterfileBOM::where('POSCode', $posMasterfile->POSCode)->get();
 
@@ -240,11 +418,13 @@ class StoreTransactionImport implements ToCollection, WithHeadingRow, WithStartR
                 if ($currentSOH > 0 && $requiredQty > $currentSOH) {
                     $variance = $requiredQty - $currentSOH;
                     // Add each POS item that uses this ingredient with correct description
-                    foreach ($aggregatedItems as $productId => $itemData) {
+                    foreach ($aggregatedItems as $itemData) {
+                        $productId = $itemData['product_id'];
+
                         $bomEntry = POSMasterfileBOM::where('POSCode', $productId)
                             ->where('ItemCode', $itemCode)
                             ->first();
-                            
+
                         if ($bomEntry) {
                             $bomQtyDeduction = POSMasterfileBOM::where('POSCode', $productId)
                                 ->where('ItemCode', $itemCode)
@@ -284,8 +464,8 @@ class StoreTransactionImport implements ToCollection, WithHeadingRow, WithStartR
                     'receipt_number' => $receiptNumber,
                 ]);
 
-                foreach ($aggregatedItems as $productId => $itemData) {
-                    $posMasterfile = $posMasterfiles[$productId];
+                foreach ($aggregatedItems as $itemData) {
+                    $posMasterfile = $posMasterfiles[$itemData['product_id']];
 
                     // Create Item
                     $transaction->store_transaction_items()->create([
@@ -296,6 +476,7 @@ class StoreTransactionImport implements ToCollection, WithHeadingRow, WithStartR
                         'discount' => $itemData['discount'],
                         'line_total' => $itemData['line_total'],
                         'net_total' => $itemData['net_total'],
+                        'take_out' => $itemData['take_out'],
                     ]);
 
                     // Deduct Ingredients
@@ -382,22 +563,22 @@ class StoreTransactionImport implements ToCollection, WithHeadingRow, WithStartR
                 if (!isset($aggregatedItems[$productId])) {
                     $aggregatedItems[$productId] = [
                         'product_id' => $productId,
-                        'product_name' => $row['product_name'],
+                        'product_name' => $row['product_name'] ?? null,
                         'uom' => $row['uom'] ?? null,
                         'qty' => 0,
                         'base_qty' => 0,
-                        'price' => $row['price'],
+                        'price' => $row['price'] ?? 0,
                         'discount' => 0,
                         'line_total' => 0,
                         'net_total' => 0,
-                        'branch' => $row['branch'],
-                        'receipt_no' => $row['receipt_no'],
+                        'branch' => $row['branch'] ?? null,
+                        'receipt_no' => $row['receipt_no'] ?? null,
                         '__row_number' => $row['__row_number'],
-                        'date' => $row['date'],
+                        'date' => $row['date'] ?? null,
                     ];
                 }
-                
-                $aggregatedItems[$productId]['qty'] += (float)$row['qty'];
+
+                $aggregatedItems[$productId]['qty'] += (float)($row['qty'] ?? 0);
                 $aggregatedItems[$productId]['base_qty'] += (float)($row['base_qty'] ?? 0);
                 $aggregatedItems[$productId]['discount'] += (float)($row['discount'] ?? 0);
                 $aggregatedItems[$productId]['line_total'] += (float)($row['line_total'] ?? 0);

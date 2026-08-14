@@ -4,7 +4,7 @@ import { throttle } from "lodash";
 import { router } from "@inertiajs/vue3";
 import { usePage } from "@inertiajs/vue3";
 import { useSelectOptions } from "@/composables/useSelectOptions";
-import { Calendar, Search, RotateCcw, Download, Filter, ChevronDown, ChevronUp, Package, CalendarDays, Building2, Badge as BadgeIcon, ChartColumnBig, ArrowUpDown, ArrowUp, ArrowDown } from "lucide-vue-next";
+import { Calendar, Search, RotateCcw, Download, Filter, ChevronDown, ChevronUp, Package, CalendarDays, Building2, Badge as BadgeIcon, ChartColumnBig, ShoppingBag, ArrowUpDown, ArrowUp, ArrowDown } from "lucide-vue-next";
 import { useAuth } from "@/composables/useAuth";
 import MultiSelect from "primevue/multiselect";
 
@@ -191,17 +191,29 @@ const formatNumber = (num) => {
     return new Intl.NumberFormat('en-PH').format(num);
 };
 
+// Sub-columns rendered under every store, and under the Total group:
+// Qty, Sales, # of Take Out, # of Dine In.
+const COLUMNS_PER_STORE = 4;
+
+// Sum one metric across every store for a single PMIX row
+const sumStores = (item, key) =>
+    Object.values(item.stores).reduce((sum, store) => sum + (store[key] || 0), 0);
+
 // Calculate totals for the report
 const reportTotals = computed(() => {
     const totals = {
         quantity: 0,
-        sales: 0
+        sales: 0,
+        takeOut: 0,
+        dineIn: 0
     };
 
     props.pmixData.forEach(item => {
         Object.values(item.stores).forEach(storeData => {
             totals.quantity += storeData.quantity;
             totals.sales += storeData.sales;
+            totals.takeOut += storeData.take_out || 0;
+            totals.dineIn += storeData.dine_in || 0;
         });
     });
 
@@ -352,7 +364,7 @@ const dynamicStoreColumns = computed(() => {
         </div>
 
         <!-- Report Summary Cards -->
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+        <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4 mb-6">
             <div class="bg-white rounded-lg border border-gray-200 p-4">
                 <div class="flex items-center justify-between">
                     <div>
@@ -378,6 +390,17 @@ const dynamicStoreColumns = computed(() => {
                         <p class="text-2xl font-bold text-gray-900">{{ formatCurrency(reportTotals.sales) }}</p>
                     </div>
                     <BadgeIcon class="w-8 h-8 text-amber-500" />
+                </div>
+            </div>
+            <div class="bg-white rounded-lg border border-gray-200 p-4">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-sm text-gray-600">Take Out / Dine In</p>
+                        <p class="text-2xl font-bold text-gray-900">
+                            {{ formatNumber(reportTotals.takeOut) }} / {{ formatNumber(reportTotals.dineIn) }}
+                        </p>
+                    </div>
+                    <ShoppingBag class="w-8 h-8 text-purple-500" />
                 </div>
             </div>
         </div>
@@ -442,11 +465,11 @@ const dynamicStoreColumns = computed(() => {
                                 </div>
                             </th>
                             <!-- Dynamic Store Columns -->
-                            <th v-for="store in dynamicStoreColumns" :key="store.id" class="px-4 py-3 text-center font-bold border-r border-gray-200 bg-gray-100/50" colspan="2">
+                            <th v-for="store in dynamicStoreColumns" :key="store.id" class="px-4 py-3 text-center font-bold border-r border-gray-200 bg-gray-100/50" :colspan="COLUMNS_PER_STORE">
                                 {{ store.name }}
                             </th>
                             <!-- Total Columns -->
-                            <th class="px-4 py-3 text-center font-bold bg-amber-100/50 border-l border-amber-200" colspan="2">Total Matrix</th>
+                            <th class="px-4 py-3 text-center font-bold bg-amber-100/50 border-l border-amber-200" :colspan="COLUMNS_PER_STORE">Total Matrix</th>
                         </tr>
                         <tr class="text-[10px] text-gray-500 uppercase tracking-wider font-semibold">
                             <!-- Store Sub-headers -->
@@ -467,6 +490,22 @@ const dynamicStoreColumns = computed(() => {
                                         <ArrowUpDown v-else class="w-2.5 h-2.5 text-gray-300 group-hover:text-blue-400" />
                                     </div>
                                 </th>
+                                <th @click="handleSort(`store_${store.id}_takeout`)" class="px-3 py-2 text-center border-r border-gray-100 cursor-pointer hover:bg-gray-100 group transition-colors">
+                                    <div class="flex items-center justify-center gap-1">
+                                        # of Take Out
+                                        <ArrowUp v-if="sortField === `store_${store.id}_takeout` && sortDirection === 'asc'" class="w-2.5 h-2.5 text-blue-600" />
+                                        <ArrowDown v-else-if="sortField === `store_${store.id}_takeout` && sortDirection === 'desc'" class="w-2.5 h-2.5 text-blue-600" />
+                                        <ArrowUpDown v-else class="w-2.5 h-2.5 text-gray-300 group-hover:text-blue-400" />
+                                    </div>
+                                </th>
+                                <th @click="handleSort(`store_${store.id}_dinein`)" class="px-3 py-2 text-center border-r border-gray-100 cursor-pointer hover:bg-gray-100 group transition-colors">
+                                    <div class="flex items-center justify-center gap-1">
+                                        # of Dine In
+                                        <ArrowUp v-if="sortField === `store_${store.id}_dinein` && sortDirection === 'asc'" class="w-2.5 h-2.5 text-blue-600" />
+                                        <ArrowDown v-else-if="sortField === `store_${store.id}_dinein` && sortDirection === 'desc'" class="w-2.5 h-2.5 text-blue-600" />
+                                        <ArrowUpDown v-else class="w-2.5 h-2.5 text-gray-300 group-hover:text-blue-400" />
+                                    </div>
+                                </th>
                             </template>
                             <!-- Total Sub-headers -->
                             <th @click="handleSort('total_qty')" class="px-3 py-2 text-center bg-amber-50 border-r border-gray-200 cursor-pointer hover:bg-amber-100 group transition-colors">
@@ -477,7 +516,7 @@ const dynamicStoreColumns = computed(() => {
                                     <ArrowUpDown v-else class="w-2.5 h-2.5 text-amber-300 group-hover:text-amber-500" />
                                 </div>
                             </th>
-                            <th @click="handleSort('total_sales')" class="px-3 py-2 text-right bg-amber-50 cursor-pointer hover:bg-amber-100 group transition-colors">
+                            <th @click="handleSort('total_sales')" class="px-3 py-2 text-right bg-amber-50 border-r border-gray-200 cursor-pointer hover:bg-amber-100 group transition-colors">
                                 <div class="flex items-center justify-end gap-1 text-amber-900">
                                     Sales
                                     <ArrowUp v-if="sortField === 'total_sales' && sortDirection === 'asc'" class="w-2.5 h-2.5 text-amber-600" />
@@ -485,11 +524,27 @@ const dynamicStoreColumns = computed(() => {
                                     <ArrowUpDown v-else class="w-2.5 h-2.5 text-amber-300 group-hover:text-amber-500" />
                                 </div>
                             </th>
+                            <th @click="handleSort('total_takeout')" class="px-3 py-2 text-center bg-amber-50 border-r border-gray-200 cursor-pointer hover:bg-amber-100 group transition-colors">
+                                <div class="flex items-center justify-center gap-1 text-amber-900">
+                                    # of Take Out
+                                    <ArrowUp v-if="sortField === 'total_takeout' && sortDirection === 'asc'" class="w-2.5 h-2.5 text-amber-600" />
+                                    <ArrowDown v-else-if="sortField === 'total_takeout' && sortDirection === 'desc'" class="w-2.5 h-2.5 text-amber-600" />
+                                    <ArrowUpDown v-else class="w-2.5 h-2.5 text-amber-300 group-hover:text-amber-500" />
+                                </div>
+                            </th>
+                            <th @click="handleSort('total_dinein')" class="px-3 py-2 text-center bg-amber-50 cursor-pointer hover:bg-amber-100 group transition-colors">
+                                <div class="flex items-center justify-center gap-1 text-amber-900">
+                                    # of Dine In
+                                    <ArrowUp v-if="sortField === 'total_dinein' && sortDirection === 'asc'" class="w-2.5 h-2.5 text-amber-600" />
+                                    <ArrowDown v-else-if="sortField === 'total_dinein' && sortDirection === 'desc'" class="w-2.5 h-2.5 text-amber-600" />
+                                    <ArrowUpDown v-else class="w-2.5 h-2.5 text-amber-300 group-hover:text-amber-500" />
+                                </div>
+                            </th>
                         </tr>
                     </thead>
                     <tbody class="bg-white divide-y divide-gray-100">
                         <tr v-if="!paginatedData.data || paginatedData.data.length === 0" class="hover:bg-gray-50">
-                            <td :colspan="4 + (dynamicStoreColumns.length * 2) + 2" class="text-center py-12 text-gray-500">
+                            <td :colspan="4 + ((dynamicStoreColumns.length + 1) * COLUMNS_PER_STORE)" class="text-center py-12 text-gray-500">
                                 <div class="flex flex-col items-center">
                                     <ChartColumnBig class="w-12 h-12 text-gray-300 mb-3" />
                                     <span class="text-lg font-medium">No data available</span>
@@ -511,14 +566,26 @@ const dynamicStoreColumns = computed(() => {
                                 <td class="px-3 py-4 text-sm text-right font-medium text-gray-900">
                                     {{ formatCurrency(item.stores[store.id]?.sales || 0) }}
                                 </td>
+                                <td class="px-3 py-4 text-sm text-center font-medium text-gray-900">
+                                    {{ formatNumber(item.stores[store.id]?.take_out || 0) }}
+                                </td>
+                                <td class="px-3 py-4 text-sm text-center font-medium text-gray-900">
+                                    {{ formatNumber(item.stores[store.id]?.dine_in || 0) }}
+                                </td>
                             </template>
 
                             <!-- Total Row -->
                             <td class="px-3 py-4 text-sm text-center font-bold text-gray-900 bg-amber-50">
-                                {{ formatNumber(Object.values(item.stores).reduce((sum, store) => sum + store.quantity, 0)) }}
+                                {{ formatNumber(sumStores(item, 'quantity')) }}
                             </td>
                             <td class="px-3 py-4 text-sm text-right font-bold text-gray-900 bg-amber-50">
-                                {{ formatCurrency(Object.values(item.stores).reduce((sum, store) => sum + store.sales, 0)) }}
+                                {{ formatCurrency(sumStores(item, 'sales')) }}
+                            </td>
+                            <td class="px-3 py-4 text-sm text-center font-bold text-gray-900 bg-amber-50">
+                                {{ formatNumber(sumStores(item, 'take_out')) }}
+                            </td>
+                            <td class="px-3 py-4 text-sm text-center font-bold text-gray-900 bg-amber-50">
+                                {{ formatNumber(sumStores(item, 'dine_in')) }}
                             </td>
                         </tr>
                     </tbody>
@@ -543,10 +610,13 @@ const dynamicStoreColumns = computed(() => {
                             </div>
                             <div class="text-right">
                                 <div class="text-sm font-semibold text-gray-900">
-                                    {{ formatCurrency(Object.values(item.stores).reduce((sum, store) => sum + store.sales, 0)) }}
+                                    {{ formatCurrency(sumStores(item, 'sales')) }}
                                 </div>
                                 <div class="text-xs text-gray-500">
-                                    {{ formatNumber(Object.values(item.stores).reduce((sum, store) => sum + store.quantity, 0)) }} units
+                                    {{ formatNumber(sumStores(item, 'quantity')) }} units
+                                </div>
+                                <div class="text-xs text-gray-500">
+                                    {{ formatNumber(sumStores(item, 'take_out')) }} take out / {{ formatNumber(sumStores(item, 'dine_in')) }} dine in
                                 </div>
                             </div>
                         </div>
@@ -563,6 +633,9 @@ const dynamicStoreColumns = computed(() => {
                                 <div class="text-right">
                                     <span class="font-medium">{{ formatNumber(item.stores[store.id]?.quantity || 0) }}</span>
                                     <span class="text-gray-500 ml-1">({{ formatCurrency(item.stores[store.id]?.sales || 0) }})</span>
+                                    <div class="text-xs text-gray-500">
+                                        {{ formatNumber(item.stores[store.id]?.take_out || 0) }} take out / {{ formatNumber(item.stores[store.id]?.dine_in || 0) }} dine in
+                                    </div>
                                 </div>
                             </div>
                         </div>

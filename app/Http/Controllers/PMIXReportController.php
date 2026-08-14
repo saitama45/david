@@ -16,6 +16,68 @@ use Maatwebsite\Excel\Facades\Excel;
 
 class PMIXReportController extends Controller
 {
+    /** Sortable per-store metric suffix => key inside the `stores` cell. */
+    private const SORT_KEYS = [
+        'qty' => 'quantity',
+        'sales' => 'sales',
+        'takeout' => 'take_out',
+        'dinein' => 'dine_in',
+    ];
+
+    /**
+     * Aggregate transactions into the PMIX matrix: one row per POS code, one
+     * cell per store.
+     *
+     * Take out / dine in are reported as quantities so that for every store
+     * take_out + dine_in == quantity. Lines imported before the Sales Report
+     * gained its "Take Out" column default to dine in.
+     *
+     * @return array{0: array, 1: array} [$pmixData keyed by POS code, $storeColumns]
+     */
+    private function buildPmixData($transactions): array
+    {
+        $pmixData = [];
+        $storeColumns = [];
+
+        foreach ($transactions as $transaction) {
+            $storeKey = $transaction->store_branch->name . ' (' . $transaction->store_branch->brand_code . ')';
+            $storeColumns[$transaction->store_branch_id] = $storeKey;
+
+            foreach ($transaction->store_transaction_items as $item) {
+                if ($item->posMasterfile) {
+                    $posKey = $item->posMasterfile->POSCode;
+
+                    if (!isset($pmixData[$posKey])) {
+                        $pmixData[$posKey] = [
+                            'POSCode' => $item->posMasterfile->POSCode,
+                            'POSDescription' => $item->posMasterfile->POSDescription,
+                            'Category' => $item->posMasterfile->Category,
+                            'SubCategory' => $item->posMasterfile->SubCategory,
+                            'stores' => []
+                        ];
+                    }
+
+                    if (!isset($pmixData[$posKey]['stores'][$transaction->store_branch_id])) {
+                        $pmixData[$posKey]['stores'][$transaction->store_branch_id] = [
+                            'quantity' => 0,
+                            'sales' => 0,
+                            'take_out' => 0,
+                            'dine_in' => 0
+                        ];
+                    }
+
+                    $pmixData[$posKey]['stores'][$transaction->store_branch_id]['quantity'] += $item->quantity;
+                    $pmixData[$posKey]['stores'][$transaction->store_branch_id]['sales'] += $item->net_total;
+
+                    $classification = $item->take_out ? 'take_out' : 'dine_in';
+                    $pmixData[$posKey]['stores'][$transaction->store_branch_id][$classification] += $item->quantity;
+                }
+            }
+        }
+
+        return [$pmixData, $storeColumns];
+    }
+
     /**
      * Display the PMIX Report page.
      */
@@ -94,39 +156,7 @@ class PMIXReportController extends Controller
         $transactions = $query->orderBy('order_date', 'desc')->get();
 
         // Build PMIX data structure
-        $pmixData = [];
-        $storeColumns = [];
-
-        foreach ($transactions as $transaction) {
-            $storeKey = $transaction->store_branch->name . ' (' . $transaction->store_branch->brand_code . ')';
-            $storeColumns[$transaction->store_branch_id] = $storeKey;
-
-            foreach ($transaction->store_transaction_items as $item) {
-                if ($item->posMasterfile) {
-                    $posKey = $item->posMasterfile->POSCode;
-
-                    if (!isset($pmixData[$posKey])) {
-                        $pmixData[$posKey] = [
-                            'POSCode' => $item->posMasterfile->POSCode,
-                            'POSDescription' => $item->posMasterfile->POSDescription,
-                            'Category' => $item->posMasterfile->Category,
-                            'SubCategory' => $item->posMasterfile->SubCategory,
-                            'stores' => []
-                        ];
-                    }
-
-                    if (!isset($pmixData[$posKey]['stores'][$transaction->store_branch_id])) {
-                        $pmixData[$posKey]['stores'][$transaction->store_branch_id] = [
-                            'quantity' => 0,
-                            'sales' => 0
-                        ];
-                    }
-
-                    $pmixData[$posKey]['stores'][$transaction->store_branch_id]['quantity'] += $item->quantity;
-                    $pmixData[$posKey]['stores'][$transaction->store_branch_id]['sales'] += $item->net_total;
-                }
-            }
-        }
+        [$pmixData, $storeColumns] = $this->buildPmixData($transactions);
 
         // Convert to array for filtering and sorting
         $pmixDataArray = array_values($pmixData);
@@ -157,20 +187,23 @@ class PMIXReportController extends Controller
                 if (in_array($field, ['POSCode', 'POSDescription', 'Category', 'SubCategory'])) {
                     $valA = strtolower($a[$field]);
                     $valB = strtolower($b[$field]);
-                } elseif ($field === 'total_qty') {
-                    $valA = array_sum(array_column($a['stores'], 'quantity'));
-                    $valB = array_sum(array_column($b['stores'], 'quantity'));
-                } elseif ($field === 'total_sales') {
-                    $valA = array_sum(array_column($a['stores'], 'sales'));
-                    $valB = array_sum(array_column($b['stores'], 'sales'));
+                } elseif (str_starts_with($field, 'total_')) {
+                    $key = self::SORT_KEYS[substr($field, strlen('total_'))] ?? null;
+
+                    if ($key) {
+                        $valA = array_sum(array_column($a['stores'], $key));
+                        $valB = array_sum(array_column($b['stores'], $key));
+                    }
                 } elseif (str_starts_with($field, 'store_')) {
-                    $parts = explode('_', $field);
+                    // store_{id}_{qty|sales|takeout|dinein}
+                    $parts = explode('_', $field, 3);
                     $storeId = $parts[1];
-                    $type = $parts[2]; // 'qty' or 'sales'
-                    $key = $type === 'qty' ? 'quantity' : 'sales';
-                    
-                    $valA = $a['stores'][$storeId][$key] ?? 0;
-                    $valB = $b['stores'][$storeId][$key] ?? 0;
+                    $key = self::SORT_KEYS[$parts[2] ?? ''] ?? null;
+
+                    if ($key) {
+                        $valA = $a['stores'][$storeId][$key] ?? 0;
+                        $valB = $b['stores'][$storeId][$key] ?? 0;
+                    }
                 }
 
                 if ($valA == $valB) return 0;
@@ -274,39 +307,7 @@ class PMIXReportController extends Controller
         $transactions = $query->orderBy('order_date', 'desc')->get();
 
         // Build PMIX data structure for export
-        $pmixData = [];
-        $storeColumns = [];
-
-        foreach ($transactions as $transaction) {
-            $storeKey = $transaction->store_branch->name . ' (' . $transaction->store_branch->brand_code . ')';
-            $storeColumns[$transaction->store_branch_id] = $storeKey;
-
-            foreach ($transaction->store_transaction_items as $item) {
-                if ($item->posMasterfile) {
-                    $posKey = $item->posMasterfile->POSCode;
-
-                    if (!isset($pmixData[$posKey])) {
-                        $pmixData[$posKey] = [
-                            'POSCode' => $item->posMasterfile->POSCode,
-                            'POSDescription' => $item->posMasterfile->POSDescription,
-                            'Category' => $item->posMasterfile->Category,
-                            'SubCategory' => $item->posMasterfile->SubCategory,
-                            'stores' => []
-                        ];
-                    }
-
-                    if (!isset($pmixData[$posKey]['stores'][$transaction->store_branch_id])) {
-                        $pmixData[$posKey]['stores'][$transaction->store_branch_id] = [
-                            'quantity' => 0,
-                            'sales' => 0
-                        ];
-                    }
-
-                    $pmixData[$posKey]['stores'][$transaction->store_branch_id]['quantity'] += $item->quantity;
-                    $pmixData[$posKey]['stores'][$transaction->store_branch_id]['sales'] += $item->net_total;
-                }
-            }
-        }
+        [$pmixData, $storeColumns] = $this->buildPmixData($transactions);
 
         // Sort the PMIX data by POS Code
         ksort($pmixData);

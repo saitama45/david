@@ -19,6 +19,11 @@ use PhpOffice\PhpSpreadsheet\Cell\Coordinate;
 
 class PMIXReportExport implements FromCollection, WithHeadings, WithMapping, ShouldAutoSize, WithStyles, WithTitle, WithCustomStartCell, WithEvents
 {
+    /** Sub-columns rendered under every store (and under Total), in order. */
+    private const SUB_HEADINGS = ['Qty', 'Sales', '# of Take Out', '# of Dine In'];
+
+    private const COLUMNS_PER_STORE = 4;
+
     protected $pmixData;
     protected $storeColumns;
     protected $filters;
@@ -87,44 +92,37 @@ class PMIXReportExport implements FromCollection, WithHeadings, WithMapping, Sho
                 $sheet->setCellValue('D3', 'Sub Category');
                 $currentColumn = 5; // Start store columns from E (5)
 
-                // Add store headers (each spanning 2 columns)
+                // Add store headers (each spanning the per-store sub-columns)
                 $storeHeaderColumns = [];
                 foreach ($this->storeColumns as $storeId => $storeName) {
                     $startCol = Coordinate::stringFromColumnIndex($currentColumn);
-                    $endCol = Coordinate::stringFromColumnIndex($currentColumn + 1);
+                    $endCol = Coordinate::stringFromColumnIndex($currentColumn + self::COLUMNS_PER_STORE - 1);
                     $sheet->mergeCells($startCol . '3:' . $endCol . '3');
                     $sheet->setCellValue($startCol . '3', $storeName);
                     $storeHeaderColumns[$storeId] = ['start' => $startCol, 'end' => $endCol];
-                    $currentColumn += 2;
+                    $currentColumn += self::COLUMNS_PER_STORE;
                 }
 
-                // Add Total header (spanning 2 columns)
+                // Add Total header (spanning the same sub-columns)
                 $totalStartCol = Coordinate::stringFromColumnIndex($currentColumn);
-                $totalEndCol = Coordinate::stringFromColumnIndex($currentColumn + 1);
+                $totalEndCol = Coordinate::stringFromColumnIndex($currentColumn + self::COLUMNS_PER_STORE - 1);
                 $sheet->mergeCells($totalStartCol . '3:' . $totalEndCol . '3');
                 $sheet->setCellValue($totalStartCol . '3', 'Total');
 
-                // Row 4: Sub-headers (Qty and Sales)
+                // Row 4: Sub-headers (Qty, Sales, # of Take Out, # of Dine In)
                 $sheet->setCellValue('A4', ''); // Empty for POS Code
                 $sheet->setCellValue('B4', ''); // Empty for Item Description
                 $sheet->setCellValue('C4', ''); // Empty for Category
                 $sheet->setCellValue('D4', ''); // Empty for Sub Category
                 $currentColumn = 5;
 
-                // Add Qty/Sales sub-headers for each store
-                foreach ($this->storeColumns as $storeId => $storeName) {
-                    $qtyCol = Coordinate::stringFromColumnIndex($currentColumn);
-                    $salesCol = Coordinate::stringFromColumnIndex($currentColumn + 1);
-                    $sheet->setCellValue($qtyCol . '4', 'Qty');
-                    $sheet->setCellValue($salesCol . '4', 'Sales');
-                    $currentColumn += 2;
+                // Add sub-headers for each store, then for the Total group
+                foreach (array_merge(array_keys($this->storeColumns), ['__total']) as $groupKey) {
+                    foreach (self::SUB_HEADINGS as $offset => $label) {
+                        $sheet->setCellValue(Coordinate::stringFromColumnIndex($currentColumn + $offset) . '4', $label);
+                    }
+                    $currentColumn += self::COLUMNS_PER_STORE;
                 }
-
-                // Add Total sub-headers
-                $totalQtyCol = Coordinate::stringFromColumnIndex($currentColumn);
-                $totalSalesCol = Coordinate::stringFromColumnIndex($currentColumn + 1);
-                $sheet->setCellValue($totalQtyCol . '4', 'Qty');
-                $sheet->setCellValue($totalSalesCol . '4', 'Sales');
 
                 // Apply styling to report title
                 $sheet->getStyle('A1:' . $highestColumn . '1')->applyFromArray([
@@ -219,21 +217,15 @@ class PMIXReportExport implements FromCollection, WithHeadings, WithMapping, Sho
                 $sheet->getColumnDimension('C')->setWidth(20);  // Category
                 $sheet->getColumnDimension('D')->setWidth(20);  // Sub Category
 
-                // Set widths for store columns
+                // Set widths for store columns, then for the total columns
                 $currentColumn = 5;
-                foreach ($this->storeColumns as $storeId => $storeName) {
-                    $qtyCol = Coordinate::stringFromColumnIndex($currentColumn);
-                    $salesCol = Coordinate::stringFromColumnIndex($currentColumn + 1);
-                    $sheet->getColumnDimension($qtyCol)->setWidth(12);
-                    $sheet->getColumnDimension($salesCol)->setWidth(15);
-                    $currentColumn += 2;
+                $subColumnWidths = [12, 15, 14, 14];
+                foreach (array_merge(array_keys($this->storeColumns), ['__total']) as $groupKey) {
+                    foreach ($subColumnWidths as $offset => $width) {
+                        $sheet->getColumnDimension(Coordinate::stringFromColumnIndex($currentColumn + $offset))->setWidth($width);
+                    }
+                    $currentColumn += self::COLUMNS_PER_STORE;
                 }
-
-                // Set widths for total columns
-                $totalQtyCol = Coordinate::stringFromColumnIndex($currentColumn);
-                $totalSalesCol = Coordinate::stringFromColumnIndex($currentColumn + 1);
-                $sheet->getColumnDimension($totalQtyCol)->setWidth(12);
-                $sheet->getColumnDimension($totalSalesCol)->setWidth(15);
 
                 // Set row heights
                 $sheet->getRowDimension(1)->setRowHeight(30);
@@ -259,22 +251,32 @@ class PMIXReportExport implements FromCollection, WithHeadings, WithMapping, Sho
 
         $totalQty = 0;
         $totalSales = 0;
+        $totalTakeOut = 0;
+        $totalDineIn = 0;
 
-        // Add store-specific quantity and sales data
+        // Add store-specific quantity, sales and take out / dine in counts
         foreach ($this->storeColumns as $storeId => $storeName) {
             $qty = $item['stores'][$storeId]['quantity'] ?? 0;
             $sales = $item['stores'][$storeId]['sales'] ?? 0;
+            $takeOut = $item['stores'][$storeId]['take_out'] ?? 0;
+            $dineIn = $item['stores'][$storeId]['dine_in'] ?? 0;
 
             $row[] = $qty;
             $row[] = $sales;
+            $row[] = $takeOut;
+            $row[] = $dineIn;
 
             $totalQty += $qty;
             $totalSales += $sales;
+            $totalTakeOut += $takeOut;
+            $totalDineIn += $dineIn;
         }
 
         // Add totals
         $row[] = $totalQty;
         $row[] = $totalSales;
+        $row[] = $totalTakeOut;
+        $row[] = $totalDineIn;
 
         return $row;
     }
@@ -314,20 +316,23 @@ class PMIXReportExport implements FromCollection, WithHeadings, WithMapping, Sho
             ],
         ]);
 
-        // Style quantity and sales columns
+        // Style the per-store sub-columns (Qty, Sales, # of Take Out, # of Dine In)
         $columnCount = count($this->storeColumns);
         $startColumn = 5; // Store columns start from E (5)
 
         for ($i = 0; $i < $columnCount; $i++) {
-            $qtyCol = Coordinate::stringFromColumnIndex($startColumn + ($i * 2));
-            $salesCol = Coordinate::stringFromColumnIndex($startColumn + ($i * 2) + 1);
+            $groupStart = $startColumn + ($i * self::COLUMNS_PER_STORE);
+            $salesCol = Coordinate::stringFromColumnIndex($groupStart + 1);
 
-            // Center align quantity columns
-            $sheet->getStyle($qtyCol . $dataStartRow . ':' . $qtyCol . $highestRow)->applyFromArray([
-                'alignment' => [
-                    'horizontal' => Alignment::HORIZONTAL_CENTER,
-                ],
-            ]);
+            // Center align the count columns (Qty, # of Take Out, # of Dine In)
+            foreach ([0, 2, 3] as $offset) {
+                $col = Coordinate::stringFromColumnIndex($groupStart + $offset);
+                $sheet->getStyle($col . $dataStartRow . ':' . $col . $highestRow)->applyFromArray([
+                    'alignment' => [
+                        'horizontal' => Alignment::HORIZONTAL_CENTER,
+                    ],
+                ]);
+            }
 
             // Right align and format sales columns
             $sheet->getStyle($salesCol . $dataStartRow . ':' . $salesCol . $highestRow)->applyFromArray([
@@ -341,23 +346,26 @@ class PMIXReportExport implements FromCollection, WithHeadings, WithMapping, Sho
         }
 
         // Style Total columns with bold formatting and yellow background
-        $totalQtyCol = Coordinate::stringFromColumnIndex($startColumn + ($columnCount * 2));
-        $totalSalesCol = Coordinate::stringFromColumnIndex($startColumn + ($columnCount * 2) + 1);
+        $totalGroupStart = $startColumn + ($columnCount * self::COLUMNS_PER_STORE);
+        $totalSalesCol = Coordinate::stringFromColumnIndex($totalGroupStart + 1);
 
-        $sheet->getStyle($totalQtyCol . $dataStartRow . ':' . $totalQtyCol . $highestRow)->applyFromArray([
-            'font' => [
-                'bold' => true,
-            ],
-            'alignment' => [
-                'horizontal' => Alignment::HORIZONTAL_CENTER,
-            ],
-            'fill' => [
-                'fillType' => Fill::FILL_SOLID,
-                'startColor' => [
-                    'rgb' => 'FFF3CD', // Light yellow background
+        foreach ([0, 2, 3] as $offset) {
+            $col = Coordinate::stringFromColumnIndex($totalGroupStart + $offset);
+            $sheet->getStyle($col . $dataStartRow . ':' . $col . $highestRow)->applyFromArray([
+                'font' => [
+                    'bold' => true,
                 ],
-            ],
-        ]);
+                'alignment' => [
+                    'horizontal' => Alignment::HORIZONTAL_CENTER,
+                ],
+                'fill' => [
+                    'fillType' => Fill::FILL_SOLID,
+                    'startColor' => [
+                        'rgb' => 'FFF3CD', // Light yellow background
+                    ],
+                ],
+            ]);
+        }
 
         $sheet->getStyle($totalSalesCol . $dataStartRow . ':' . $totalSalesCol . $highestRow)->applyFromArray([
             'font' => [

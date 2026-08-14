@@ -47,6 +47,7 @@ class StoreTransactionService
                 'discount' => $item->discount,
                 'line_total' => $item->line_total,
                 'net_total' => $item->net_total,
+                'take_out' => (bool) $item->take_out,
             ];
         });
         return [
