@@ -28,6 +28,10 @@ const props = defineProps({
         type: String,
         required: true,
     },
+    serverNow: {
+        type: String,
+        required: true,
+    },
     branches: {
         type: Object,
     },
@@ -42,6 +46,11 @@ const props = defineProps({
 
 const { hasAccess } = useAuth();
 const { options: branchesOptions } = useSelectOptions(props.branches);
+
+// Manila wall-clock strings are parsed as if they were UTC, so the getUTC*
+// accessors read back Manila values. Everything in the cutoff math below stays
+// in that frame, which keeps it independent of the browser's own timezone.
+const manilaAsUTC = (value) => new Date(value.replace(' ', 'T') + 'Z');
 
 const canEditOrder = (order) => {
     // 1. Initial checks for status and permissions
@@ -64,12 +73,11 @@ const canEditOrder = (order) => {
         return true; // Failsafe
     }
 
-    // 3. Get order placed time as a UTC Date object
+    // 3. Get order placed time in Manila
     if (!order.created_at) {
         return false;
     }
-    const placedAtIsoString = order.created_at.replace(' ', 'T') + 'Z';
-    const placedAtUTC = new Date(placedAtIsoString);
+    const placedAtManila = manilaAsUTC(order.created_at);
 
     // 4. Parse all available cutoffs for the supplier and sort them
     const cutoffs = [];
@@ -92,9 +100,6 @@ const canEditOrder = (order) => {
     });
 
     // 5. Find the next cutoff rule relative to when the order was placed (in Manila time)
-    const manilaOffsetHours = 8;
-    const manilaOffset = manilaOffsetHours * 60 * 60 * 1000;
-    const placedAtManila = new Date(placedAtUTC.getTime() + manilaOffset);
     const placedAtDay = placedAtManila.getUTCDay();
     const placedAtTimeInMinutes = placedAtManila.getUTCHours() * 60 + placedAtManila.getUTCMinutes();
 
@@ -118,23 +123,13 @@ const canEditOrder = (order) => {
     const deadlineMinuteManila = nextCutoffRule.timeInMinutes % 60;
     deadlineManila.setUTCHours(deadlineHourManila, deadlineMinuteManila, 0, 0);
 
-    // 7. Convert the Manila deadline to a true UTC deadline
-    const finalDeadlineUTC = new Date(deadlineManila.getTime() - manilaOffset);
-
-    // 8. Compare with the current time, conditionally based on environment
-    let nowUTC;
-    // Use server time in production, local time otherwise for testing flexibility
-    if (import.meta.env.MODE === 'production') {
-        if (!props.currentDate) {
-            return false; // Failsafe if prop is missing in prod
-        }
-        const nowIsoString = props.currentDate.replace(' ', 'T') + 'Z';
-        nowUTC = new Date(nowIsoString);
-    } else {
-        nowUTC = new Date();
+    // 7. Compare against the server clock, which is Manila wall clock too, so both
+    //    sides of the comparison sit in the same frame in every environment.
+    if (!props.serverNow) {
+        return false; // Failsafe if the prop is missing
     }
-    
-    return nowUTC < finalDeadlineUTC;
+
+    return manilaAsUTC(props.serverNow) < deadlineManila;
 };
 
 // --- Flash Notification Logic ---

@@ -84,7 +84,10 @@ class MassOrdersController extends Controller
             'massOrders' => $massOrders,
             'suppliers' => $suppliers,
             'ordersCutoff' => OrdersCutoff::all(),
-            'currentDate' => Carbon::now()->toDateString(),
+            'currentDate' => Carbon::now('Asia/Manila')->toDateString(),
+            // Full Manila timestamp for the edit-window check. currentDate stays
+            // date-only because the calendar widget parses it as one.
+            'serverNow' => Carbon::now('Asia/Manila')->format('Y-m-d H:i:s'),
             'branches' => $branches,
             'filters' => $request->only(['search', 'from', 'to', 'branchId', 'filterQuery']),
             'canViewCost' => Auth::user()->hasPermissionTo('view cost mass orders'),
