@@ -14,9 +14,12 @@ class UsersExport implements FromQuery, WithHeadings, WithMapping
     use Exportable;
     protected $search;
 
-    public function __construct($search = null)
+    protected $role;
+
+    public function __construct($search = null, $role = null)
     {
         $this->search = $search;
+        $this->role = $role;
     }
 
     public function query()
@@ -24,8 +27,16 @@ class UsersExport implements FromQuery, WithHeadings, WithMapping
         $query = User::query()->with('roles');
 
         if ($this->search) {
-            $query->where(function ($q) {
-                $q->whereAny(['first_name', 'last_name', 'email'], 'like', "%{this->search}%");
+            $search = $this->search;
+            $query->where(function ($q) use ($search) {
+                $q->whereAny(['first_name', 'last_name', 'email'], 'like', "%{$search}%");
+            });
+        }
+
+        if ($this->role) {
+            $role = $this->role;
+            $query->whereHas('roles', function ($q) use ($role) {
+                $q->where('roles.id', $role);
             });
         }
 

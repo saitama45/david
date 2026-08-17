@@ -150,6 +150,7 @@ class UserService
     public function getUsersList()
     {
         $search = request('search');
+        $role = request('role');
         $query = User::query()
             ->select(['id', 'first_name', 'last_name', 'email', 'is_active'])
             ->withOnly(['roles:id,name', 'suppliers:supplier_code,name']);
@@ -159,6 +160,12 @@ class UserService
                 $q->where('first_name', 'like', "%{$search}%")
                   ->orWhere('last_name', 'like', "%{$search}%")
                   ->orWhere('email', 'like', "%{$search}%");
+            });
+        }
+
+        if ($role) {
+            $query->whereHas('roles', function ($q) use ($role) {
+                $q->where('roles.id', $role);
             });
         }
 

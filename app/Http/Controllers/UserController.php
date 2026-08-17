@@ -36,7 +36,7 @@ class UserController extends Controller
 
         return Inertia::render('User/Index', [
             'users' => $users,
-            'filters' => request()->only(['search']),
+            'filters' => request()->only(['search', 'role']),
             'usersList' => $usersList,
             'rolesList' => $rolesList
         ]);
@@ -87,9 +87,10 @@ class UserController extends Controller
     public function export(Request $request)
     {
         $search = $request->input('search');
+        $role = $request->input('role');
 
         return Excel::download(
-            new UsersExport($search),
+            new UsersExport($search, $role),
             'users-' . now()->format('Y-m-d') . '.xlsx'
         );
     }

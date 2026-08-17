@@ -41,6 +41,14 @@ const rolesOption = computed(() => {
     }));
 });
 
+// Role filter. null means "All Roles", which drops the query param entirely.
+const roleFilter = ref(props.filters.role ? Number(props.filters.role) : null);
+
+const roleFilterOptions = computed(() => [
+    { value: null, label: "All Roles" },
+    ...rolesOption.value,
+]);
+
 const isTemplateModalVisible = ref(false);
 
 const openTemplateModal = () => {
@@ -52,7 +60,7 @@ watch(
     throttle(function (value) {
         router.get(
             route("users.index"),
-            { search: value },
+            { search: value, role: roleFilter.value },
             {
                 preserveState: true,
                 replace: true,
@@ -61,11 +69,22 @@ watch(
     }, 500)
 );
 
+watch(roleFilter, (value) => {
+    router.get(
+        route("users.index"),
+        { search: search.value, role: value },
+        {
+            preserveState: true,
+            preserveScroll: true,
+        }
+    );
+});
+
 import { useReferenceDelete } from "@/composables/useReferenceDelete";
 const { deleteModel } = useReferenceDelete();
 const roleId = ref(null);
 const exportRoute = computed(() =>
-    route("users.export", { search: search.value })
+    route("users.export", { search: search.value, role: roleFilter.value })
 );
 
 const isLoading = ref(false);
@@ -99,6 +118,18 @@ const isLoading = ref(false);
                         placeholder="Search..."
                     />
                 </SearchBar>
+
+                <DivFlexCenter class="gap-5">
+                    <Select
+                        filter
+                        showClear
+                        placeholder="Filter by Role"
+                        v-model="roleFilter"
+                        :options="roleFilterOptions"
+                        optionLabel="label"
+                        optionValue="value"
+                    />
+                </DivFlexCenter>
             </TableHeader>
 
             <Table class="sm:table hidden">
