@@ -28,6 +28,7 @@ const props = defineProps({
 const search = ref(props.filters.search);
 const statusFilter = ref(props.filter || "all");
 const isImportModalVisible = ref(false);
+const isOverwriteConfirmVisible = ref(false);
 const isLoading = ref(false);
 
 const skippedItems = ref([]);
@@ -73,6 +74,7 @@ const openImportModal = () => {
 
 const closeImportModal = () => {
     isImportModalVisible.value = false;
+    isOverwriteConfirmVisible.value = false;
     importForm.reset();
 };
 
@@ -80,7 +82,9 @@ const importForm = useForm({
     file: null,
 });
 
-const handleImport = () => {
+// Uploading a template replaces the whole MEC list, so make the user
+// acknowledge that missing items get deactivated before anything is sent.
+const requestImportConfirmation = () => {
     if (!importForm.file) {
         toast.add({
             severity: "error",
@@ -88,6 +92,23 @@ const handleImport = () => {
             detail: "Please select a file to import.",
             life: 3000,
         });
+        return;
+    }
+
+    isOverwriteConfirmVisible.value = true;
+};
+
+const cancelOverwriteConfirmation = () => {
+    isOverwriteConfirmVisible.value = false;
+};
+
+const confirmOverwriteImport = () => {
+    isOverwriteConfirmVisible.value = false;
+    handleImport();
+};
+
+const handleImport = () => {
+    if (!importForm.file) {
         return;
     }
 
@@ -443,13 +464,52 @@ const formatDateTime = (dateString) => {
                         Cancel
                     </Button>
                     <Button
-                        @click="handleImport"
+                        @click="requestImportConfirmation"
                         :disabled="isLoading || !importForm.file"
                     >
                         <span v-if="isLoading">
                             <div class="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
                         </span>
                         Import
+                    </Button>
+                </DivFlexCenter>
+            </DivFlexCol>
+        </Dialog>
+
+        <!-- Overwrite Confirmation Modal -->
+        <Dialog
+            v-model:visible="isOverwriteConfirmVisible"
+            modal
+            :closable="!isLoading"
+            :style="{ width: '32rem' }"
+        >
+            <template #header>
+                <DivFlexCol>
+                    <SpanBold>Overwrite Month End Count List?</SpanBold>
+                    <LabelXS>This replaces the current list</LabelXS>
+                </DivFlexCol>
+            </template>
+
+            <DivFlexCol>
+                <p class="text-sm text-gray-600">
+                    Uploading this template will overwrite the current MEC list.
+                    Items not included in this file will be automatically
+                    deactivated. Do you wish to proceed?
+                </p>
+
+                <DivFlexCenter class="justify-end mt-5 gap-3">
+                    <Button
+                        @click="cancelOverwriteConfirmation"
+                        variant="outline"
+                        :disabled="isLoading"
+                    >
+                        Cancel
+                    </Button>
+                    <Button
+                        @click="confirmOverwriteImport"
+                        :disabled="isLoading"
+                    >
+                        Proceed
                     </Button>
                 </DivFlexCenter>
             </DivFlexCol>
