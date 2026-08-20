@@ -3,13 +3,13 @@
 namespace App\Models;
 
 use App\Models\Concerns\BelongsToEntity;
-
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use OwenIt\Auditing\Contracts\Auditable;
 
-class MonthEndSchedule extends Model
+class MonthEndSchedule extends Model implements Auditable
 {
-    use HasFactory, BelongsToEntity;
+    use BelongsToEntity, HasFactory, \OwenIt\Auditing\Auditable;
 
     protected $fillable = [
         'year',

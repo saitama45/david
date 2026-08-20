@@ -12,6 +12,8 @@ const props = defineProps({
     message: { type: String, required: true },
     userBranches: { type: Object, required: true },
     branchesAwaitingUpload: { type: Object, required: true },
+    uploadWindow: { type: Object, default: null },
+    supportEmail: { type: String, default: '' },
     uploadedCountsAwaitingSubmission: { type: Array, required: true },
     transactions: { type: Object, required: true },
     filters: { type: Object, default: () => ({}) },
@@ -134,6 +136,61 @@ const hasBranchesToUpload = computed(() => {
     return Object.keys(props.branchesAwaitingUpload).length > 0;
 });
 
+// When the upload form is hidden, explain why instead of leaving the page blank.
+// Once the window is open again (e.g. support reopened the count) the upload form
+// is what the user needs, so the notice gets out of the way.
+const showUploadNotice = computed(
+    () => !hasBranchesToUpload.value && props.uploadWindow && props.uploadWindow.state !== 'open',
+);
+
+const uploadNotice = computed(() => {
+    const w = props.uploadWindow;
+    if (!w) return null;
+
+    const branches = w.branches_awaiting.join(', ');
+
+    switch (w.state) {
+        case 'not_yet':
+            return {
+                tone: 'wait',
+                title: `Uploading for ${w.schedule_label} has not opened yet`,
+                body: `The count was taken on ${w.count_date}. You will be able to upload the completed count sheet starting ${w.opens_at}.`,
+                detail: `Still to submit: ${branches}.`,
+                contact: false,
+            };
+        case 'closed':
+            return {
+                tone: 'blocked',
+                title: `The upload window for ${w.schedule_label} has closed`,
+                body: `The deadline was ${w.closes_at} and the count sheet was not submitted, so the upload button is no longer shown.`,
+                detail: `Still missing: ${branches}.`,
+                contact: true,
+            };
+        case 'complete':
+            return {
+                tone: 'done',
+                title: `All your branches have submitted their ${w.schedule_label} count`,
+                body: 'There is nothing left to upload for this period.',
+                detail: null,
+                contact: false,
+            };
+        default:
+            return {
+                tone: 'wait',
+                title: 'No month end count is due yet',
+                body: 'Once a count date has passed, the upload option will appear here.',
+                detail: null,
+                contact: false,
+            };
+    }
+});
+
+const noticeClasses = {
+    wait: 'border-amber-300 bg-amber-50 text-amber-900',
+    blocked: 'border-red-300 bg-red-50 text-red-900',
+    done: 'border-gray-300 bg-gray-50 text-gray-700',
+};
+
 const viewReviewPage = (scheduleId, branchId) => {
     router.get(route('month-end-count.review', { schedule: scheduleId, branch: branchId }));
 };
@@ -186,7 +243,13 @@ const viewReviewPage = (scheduleId, branchId) => {
                 <p v-if="can.upload_month_end_count_transaction" class="font-medium">{{ message }}</p>
                 <p v-else class="font-medium">A month end count is pending upload. Please contact your administrator to get the required permissions to upload the count sheet.</p>
                 <p v-if="uploadSchedule" class="text-sm mt-1">Scheduled for: {{ getMonthName(uploadSchedule.month) }} {{ uploadSchedule.year }} (MEC Schedule Date: {{ uploadSchedule.calculated_date }})</p>
-                
+                <p v-if="uploadWindow && uploadWindow.reopened_until" class="text-sm mt-1 font-semibold" data-testid="upload-deadline">
+                    This count was reopened for your branch. Deadline: upload by {{ uploadWindow.reopened_until }}. After that the upload option is removed again.
+                </p>
+                <p v-else-if="uploadWindow && uploadWindow.closes_at" class="text-sm mt-1 font-semibold" data-testid="upload-deadline">
+                    Deadline: upload by {{ uploadWindow.closes_at }}. After that this upload option is removed, and you will need to submit a ticket to {{ supportEmail }} to request that it be reopened.
+                </p>
+
                 <form v-if="can.upload_month_end_count_transaction" @submit.prevent="submitUpload" class="mt-4 space-y-4">
                     <div>
                         <Label for="upload_branch">Select Branch for Upload</Label>
@@ -214,6 +277,25 @@ const viewReviewPage = (scheduleId, branchId) => {
                         </Button>
                     </div>
                 </form>
+            </div>
+
+            <!-- Upload Not Available: explain the rule instead of showing nothing -->
+            <div v-if="showUploadNotice && uploadNotice" :class="noticeClasses[uploadNotice.tone]"
+                 class="mb-6 p-4 border rounded-md" data-testid="upload-window-notice">
+                <p class="font-medium">{{ uploadNotice.title }}</p>
+                <p class="text-sm mt-1">{{ uploadNotice.body }}</p>
+                <p v-if="uploadNotice.detail" class="text-sm mt-1">{{ uploadNotice.detail }}</p>
+
+                <p v-if="uploadNotice.contact" class="text-sm mt-3">
+                    Please contact
+                    <a :href="`mailto:${supportEmail}?subject=Request to reopen Month End Count - ${uploadWindow.schedule_label}`"
+                       class="font-semibold underline">{{ supportEmail }}</a>
+                    to submit a ticket if you need this count reopened. Include your branch name and the count period.
+                </p>
+
+                <p class="text-xs mt-3 pt-3 border-t border-current/20 opacity-80">
+                    <span class="font-semibold">Current rule:</span> {{ uploadWindow.rule }}
+                </p>
             </div>
 
             <!-- Uploaded Counts Awaiting Submission -->

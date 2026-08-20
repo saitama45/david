@@ -4,18 +4,17 @@ namespace App\Http\Services;
 
 use App\Models\Role;
 use Exception;
-use Spatie\Permission\Models\Permission;
 use Illuminate\Support\Facades\DB;
+use Spatie\Permission\Models\Permission;
 
 class RoleService
 {
-
     public function createRole(array $data)
     {
         DB::beginTransaction();
         try {
             $role = Role::create(['name' => $data['name']]);
-            if (isset($data['selectedPermissions']) && !empty($data['selectedPermissions'])) {
+            if (isset($data['selectedPermissions']) && ! empty($data['selectedPermissions'])) {
                 // Fetch Permission models by their IDs
                 $permissions = Permission::whereIn('id', $data['selectedPermissions'])->get();
                 $role->syncPermissions($permissions);
@@ -25,7 +24,7 @@ class RoleService
             DB::commit();
         } catch (Exception $e) {
             DB::rollBack();
-            throw new Exception("Failed to create role: " . $e->getMessage());
+            throw new Exception('Failed to create role: '.$e->getMessage());
         }
     }
 
@@ -34,9 +33,9 @@ class RoleService
         DB::beginTransaction();
         try {
             $role->update([
-                'name' => $data['name']
+                'name' => $data['name'],
             ]);
-            if (isset($data['selectedPermissions']) && !empty($data['selectedPermissions'])) {
+            if (isset($data['selectedPermissions']) && ! empty($data['selectedPermissions'])) {
                 // Fetch Permission models by their IDs
                 $permissions = Permission::whereIn('id', $data['selectedPermissions'])->get();
                 $role->syncPermissions($permissions);
@@ -46,7 +45,7 @@ class RoleService
             DB::commit();
         } catch (Exception $e) {
             DB::rollBack();
-            throw new Exception("Failed to update role: " . $e->getMessage());
+            throw new Exception('Failed to update role: '.$e->getMessage());
         }
     }
 
@@ -60,24 +59,24 @@ class RoleService
         $permissionStructure = [
             'Dashboard' => [
                 'Overview' => [
-                    'view dashboard overview'
+                    'view dashboard overview',
                 ],
                 'Sales Mix' => [
-                    'view sales mix'
+                    'view sales mix',
                 ],
                 'Adoption Rate' => [
-                    'view adoption rate dashboard'
+                    'view adoption rate dashboard',
                 ],
             ],
             'Administration' => [
                 'Entities' => [
-                    'view entities', 'create entities', 'edit entities', 'delete entities'
+                    'view entities', 'create entities', 'edit entities', 'delete entities',
                 ],
                 'Users' => [
-                    'view users', 'create users', 'edit users', 'view user', 'delete users'
+                    'view users', 'create users', 'edit users', 'view user', 'delete users',
                 ],
                 'Roles' => [
-                    'view roles', 'create roles', 'edit roles', 'delete roles', 'show roles'
+                    'view roles', 'create roles', 'edit roles', 'delete roles', 'show roles',
                 ],
                 'Masterfile' => [
                     'view items list', 'create new items', 'edit items', 'view item', 'delete items', 'export items list',
@@ -86,7 +85,7 @@ class RoleService
                     'view POSMasterfile list', 'create POSMasterfile', 'edit POSMasterfile', 'delete POSMasterfile', 'export POSMasterfile list',
                     'view branches', 'create branch', 'edit branch', 'delete branch', 'export branches',
                     'view suppliers', 'create supplier', 'edit supplier', 'delete supplier', 'export suppliers',
-                    'view import logs'
+                    'view import logs',
                 ],
                 'Templates' => [
                     'view templates', 'create templates', 'edit templates', 'delete templates', 'export templates',
@@ -96,192 +95,192 @@ class RoleService
                 'Schedules' => [
                     'view dts delivery schedules', 'edit dts delivery schedules', 'export dts delivery schedules',
                     'view dsp delivery schedules', 'view dsp delivery schedule', 'edit dsp delivery schedules',
-                    'view month end schedules', 'create month end schedules', 'edit month end schedules', 'delete month end schedules', 'manage month end count settings',
-                    'view orders cutoff', 'edit orders cutoff', 'create orders cutoff', 'show orders cutoff'
+                    'view month end schedules', 'create month end schedules', 'edit month end schedules', 'delete month end schedules', 'manage month end count settings', 'reopen month end count',
+                    'view orders cutoff', 'edit orders cutoff', 'create orders cutoff', 'show orders cutoff',
                 ],
                 'Knowledge Base Articles' => [
-                    'view knowledge base articles', 'create knowledge base articles', 'edit knowledge base articles', 'delete knowledge base articles'
+                    'view knowledge base articles', 'create knowledge base articles', 'edit knowledge base articles', 'delete knowledge base articles',
                 ],
                 'Wastage Settings' => [
-                    'manage wastage settings'
+                    'manage wastage settings',
                 ],
                 'Sidebar Management' => [
-                    'manage sidebar'
+                    'manage sidebar',
                 ],
             ],
             'Ordering' => [
                 'Regular' => [
                     'view store orders', 'create store orders', 'edit store orders', 'view store order', 'export store orders',
                     'view orders for approval list', 'view order for approval', 'approve/decline order request',
-                    'view orders for cs approval list', 'view order for cs approval', 'cs approve/decline order request', 'export orders for cs approval list'
+                    'view orders for cs approval list', 'view order for cs approval', 'cs approve/decline order request', 'export orders for cs approval list',
                 ],
                 'Regular DTS' => [
-                    'view dts orders', 'create dts orders', 'edit dts orders', 'view dts order', 'export dts orders'
+                    'view dts orders', 'create dts orders', 'edit dts orders', 'view dts order', 'export dts orders',
                 ],
                 'Regular Mass Orders' => [
                     'view mass orders', 'create mass orders', 'edit mass orders', 'show mass orders', 'view cost mass orders',
                     'view mass order approval', 'approve mass order', 'reject mass order',
-                    'view cs mass commits', 'create cs mass commits', 'edit cs mass commits', 'edit finished good commits', 'edit other commits', 'change commit uom', 'export cs mass commits'
+                    'view cs mass commits', 'create cs mass commits', 'edit cs mass commits', 'edit finished good commits', 'edit other commits', 'change commit uom', 'export cs mass commits',
                 ],
                 'DTS Mass Orders' => [
                     'view dts mass orders', 'create dts mass orders', 'edit dts mass orders', 'export dts mass orders',
-                    'view cs dts mass commit', 'edit cs dts mass commit'
+                    'view cs dts mass commit', 'edit cs dts mass commit',
                 ],
                 'Stock Transfer' => [
                     'view interco requests', 'create interco requests', 'edit interco requests', 'approve interco requests', 'commit interco requests', 'export interco requests',
-                    'view interco approvals', 'view store commits', 'commit store orders', 'export store commits'
+                    'view interco approvals', 'view store commits', 'commit store orders', 'export store commits',
                 ],
                 'Ordering Tools' => [
-                    'view ordering calendar', 'export ordering calendar', 'view order calculator'
+                    'view ordering calendar', 'export ordering calendar', 'view order calculator',
                 ],
                 'Others' => [
                     'view emergency orders', 'create emergency orders', 'edit emergency orders', 'delete emergency orders', 'export emergency orders',
                     'view emergency order approval', 'approve emergency order', 'decline emergency order',
                     'view additional orders', 'create additional orders', 'edit additional orders', 'delete additional orders', 'export additional orders',
-                    'view additional order approval', 'approve additional order', 'decline additional order'
+                    'view additional order approval', 'approve additional order', 'decline additional order',
                 ],
             ],
             'Receiving' => [
                 'Direct Receiving' => [
-                    'view direct receiving', 'create direct receiving', 'edit direct receiving', 'delete direct receiving', 'export direct receiving'
+                    'view direct receiving', 'create direct receiving', 'edit direct receiving', 'delete direct receiving', 'export direct receiving',
                 ],
                 'Approved Orders' => [
-                    'view approved orders', 'view approved order', 'receive orders', 'export approved orders'
+                    'view approved orders', 'view approved order', 'receive orders', 'export approved orders',
                 ],
                 'Receiving Approvals' => [
-                    'view received orders for approval list', 'view approved order for approval', 'approve received orders', 'approve image attachments', 'export received orders for approval list'
+                    'view received orders for approval list', 'view approved order for approval', 'approve received orders', 'approve image attachments', 'export received orders for approval list',
                 ],
                 'Confirmed/Approved Received SO' => [
-                    'view approved received items', 'view approved received item', 'cancel approved received item', 'export approved received items'
+                    'view approved received items', 'view approved received item', 'cancel approved received item', 'export approved received items',
                 ],
                 'Interco Receiving' => [
-                    'view interco receiving', 'receive interco requests', 'view interco receiving approvals', 'export interco receiving'
+                    'view interco receiving', 'receive interco requests', 'view interco receiving approvals', 'export interco receiving',
                 ],
             ],
             'Sales' => [
                 'Store Transactions' => [
-                    'view store transactions', 'create store transactions', 'view store transaction', 'edit store transactions', 'export store transactions'
+                    'view store transactions', 'create store transactions', 'view store transaction', 'edit store transactions', 'export store transactions',
                 ],
                 'Store Transactions Approval' => [
-                    'view store transactions approval', 'approve store transactions', 'decline store transactions'
+                    'view store transactions approval', 'approve store transactions', 'decline store transactions',
                 ],
                 'Sales/Budget Uploader' => [
-                    'view sales budget uploader'
+                    'view sales budget uploader',
                 ],
             ],
             'Inventory' => [
                 'Stock Management' => [
-                    'view stock management', 'log stock usage', 'add stock quantity', 'view stock management history', 'export stock management', 'export stock management history'
+                    'view stock management', 'log stock usage', 'add stock quantity', 'view stock management history', 'export stock management', 'export stock management history',
                 ],
                 'SOH Adjustment' => [
-                    'view soh adjustment', 'create soh adjustment', 'edit soh adjustment', 'delete soh adjustment', 'export soh adjustment'
+                    'view soh adjustment', 'create soh adjustment', 'edit soh adjustment', 'delete soh adjustment', 'export soh adjustment',
                 ],
                 'Wastage' => [
                     'view wastage record', 'create wastage record', 'edit wastage record', 'delete wastage record', 'export wastage record', 'view cost wastage record',
                     'view wastage approval level 1', 'approve wastage level 1', 'cancel wastage approval level 1', 'edit wastage approval level 1', 'delete wastage approval level 1', 'view total cost in wastage approval level 1',
-                    'view wastage approval level 2', 'approve wastage level 2', 'cancel wastage approval level 2', 'edit wastage approval level 2', 'delete wastage approval level 2', 'view total cost in wastage approval level 2'
+                    'view wastage approval level 2', 'approve wastage level 2', 'cancel wastage approval level 2', 'edit wastage approval level 2', 'delete wastage approval level 2', 'view total cost in wastage approval level 2',
                 ],
                 'MEC' => [
                     'perform month end count', 'download month end count template', 'upload month end count transaction', 'edit month end count items', 'view month end count transaction',
                     'view month end count approvals', 'edit month end count approval items', 'approve month end count level 1',
-                    'view month end count approvals level 2', 'approve month end count level 2'
+                    'view month end count approvals level 2', 'approve month end count level 2',
                 ],
                 'Low on Stocks' => [
-                    'view low on stocks', 'export low on stocks'
+                    'view low on stocks', 'export low on stocks',
                 ],
             ],
             'Bill of Materials' => [
                 'BOM List' => [
                     'view bom list', 'view bom', 'create bom', 'edit bom', 'delete bom', 'export bom list',
-                    'view POSMasterfile BOM list', 'view POSMasterfile BOM', 'create POSMasterfile BOM', 'edit POSMasterfile BOM', 'delete POSMasterfile BOM', 'import POSMasterfile BOM', 'export POSMasterfile BOM'
+                    'view POSMasterfile BOM list', 'view POSMasterfile BOM', 'create POSMasterfile BOM', 'edit POSMasterfile BOM', 'delete POSMasterfile BOM', 'import POSMasterfile BOM', 'export POSMasterfile BOM',
                 ],
             ],
             'Reports' => [
                 'Consolidated SO Report' => [
-                    'view consolidated so report', 'export consolidated so report'
+                    'view consolidated so report', 'export consolidated so report',
                 ],
                 'Interco Report' => [
-                    'view interco report', 'export interco report'
+                    'view interco report', 'export interco report',
                 ],
                 'Inventory Movement Report' => [
-                    'view inventory movement report', 'export inventory movement report'
+                    'view inventory movement report', 'export inventory movement report',
                 ],
                 'PMIX Report' => [
-                    'view pmix report', 'export pmix report'
+                    'view pmix report', 'export pmix report',
                 ],
                 'Wastage Report' => [
-                    'view wastage report', 'export wastage report'
+                    'view wastage report', 'export wastage report',
                 ],
                 'Qty Variance / Cost Variance Report' => [
-                    'view qty variance cost variance report', 'export qty variance cost variance report'
+                    'view qty variance cost variance report', 'export qty variance cost variance report',
                 ],
                 'Actual Cost / COGS Report' => [
-                    'view actual cost cogs report', 'export actual cost cogs report'
+                    'view actual cost cogs report', 'export actual cost cogs report',
                 ],
                 'Delivery Report' => [
-                    'view delivery report', 'export delivery report'
+                    'view delivery report', 'export delivery report',
                 ],
                 'Adoption Rate Tracking' => [
-                    'view adoption rate tracking report', 'export adoption rate tracking report', 'edit adoption rate tracking remarks'
+                    'view adoption rate tracking report', 'export adoption rate tracking report', 'edit adoption rate tracking remarks',
                 ],
                 'Top 10 Inventories' => [
-                    'view top 10 inventories', 'export top 10 inventories'
+                    'view top 10 inventories', 'export top 10 inventories',
                 ],
                 'Days Inventory Outstanding' => [
-                    'view days inventory outstanding', 'export days inventory outstanding'
+                    'view days inventory outstanding', 'export days inventory outstanding',
                 ],
                 'Days Payable Outstanding' => [
-                    'view days payable outstanding', 'export days payable outstanding'
+                    'view days payable outstanding', 'export days payable outstanding',
                 ],
                 'Sales Report' => [
-                    'view sales report', 'export sales report'
+                    'view sales report', 'export sales report',
                 ],
                 'Inventories Report' => [
-                    'view inventories report', 'export inventories report'
+                    'view inventories report', 'export inventories report',
                 ],
                 'Upcoming Inventories' => [
-                    'view upcoming inventories', 'export upcoming inventories'
+                    'view upcoming inventories', 'export upcoming inventories',
                 ],
                 'Account Payable' => [
-                    'view account payable', 'export account payable'
+                    'view account payable', 'export account payable',
                 ],
                 'Cost Of Goods' => [
-                    'view cost of goods', 'export cost of goods'
+                    'view cost of goods', 'export cost of goods',
                 ],
                 'Item Orders Summary' => [
-                    'view items order summary', 'export items order summary'
+                    'view items order summary', 'export items order summary',
                 ],
                 'Ice Cream Orders' => [
-                    'view ice cream orders', 'export ice cream orders'
+                    'view ice cream orders', 'export ice cream orders',
                 ],
                 'Salmon Orders' => [
-                    'view salmon orders', 'export salmon orders'
+                    'view salmon orders', 'export salmon orders',
                 ],
                 'Fruits and Vegetables Orders' => [
-                    'view fruits and vegetables orders', 'export fruits and vegetables orders'
+                    'view fruits and vegetables orders', 'export fruits and vegetables orders',
                 ],
             ],
             'References' => [
                 'Categories' => [
-                    'view category list', 'create category', 'edit category', 'delete category', 'export category list'
+                    'view category list', 'create category', 'edit category', 'delete category', 'export category list',
                 ],
                 'WIP List' => [
-                    'view wip list', 'create wip', 'edit wip', 'delete wip', 'export wip list'
+                    'view wip list', 'create wip', 'edit wip', 'delete wip', 'export wip list',
                 ],
                 'Menu Categories' => [
-                    'view menu categories', 'create menu category', 'edit menu category', 'delete menu category', 'export menu categories'
+                    'view menu categories', 'create menu category', 'edit menu category', 'delete menu category', 'export menu categories',
                 ],
                 'UOM Conversions' => [
-                    'view uom conversions', 'create uom conversion', 'edit uom conversion', 'delete uom conversion', 'export uom conversions'
+                    'view uom conversions', 'create uom conversion', 'edit uom conversion', 'delete uom conversion', 'export uom conversions',
                 ],
                 'Inventory Categories' => [
-                    'view inventory categories', 'create inventory category', 'edit inventory category', 'delete inventory category', 'export inventory categories'
+                    'view inventory categories', 'create inventory category', 'edit inventory category', 'delete inventory category', 'export inventory categories',
                 ],
                 'Unit of Measurements' => [
-                    'view unit of measurements', 'create unit of measurement', 'edit unit of measurement', 'delete unit of measurement', 'export unit of measurements'
+                    'view unit of measurements', 'create unit of measurement', 'edit unit of measurement', 'delete unit of measurement', 'export unit of measurements',
                 ],
                 'Cost Centers' => [
-                    'view cost centers', 'create cost center', 'edit cost center', 'delete cost center', 'export cost centers'
+                    'view cost centers', 'create cost center', 'edit cost center', 'delete cost center', 'export cost centers',
                 ],
             ],
         ];
@@ -298,7 +297,7 @@ class RoleService
                     }
                 }
                 // Only add sub-category if it has permissions
-                if (!empty($currentSubCategoryPermissions)) {
+                if (! empty($currentSubCategoryPermissions)) {
                     $groupedPermissions[$mainCategoryLabel][$subCategoryLabel] = $currentSubCategoryPermissions;
                 }
             }
@@ -319,6 +318,7 @@ class RoleService
         if ($search) {
             $query->where('name', 'like', "%$search%");
         }
+
         return $query->latest()->paginate(10);
     }
 

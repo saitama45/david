@@ -2,164 +2,180 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-## What this is
+## Permanent session instructions
 
-**David Inventory System** — a Laravel 11 + Inertia + Vue 3 inventory, ordering and
-approval platform for a multi-branch food operation. ~90 page modules, 121 controllers,
-59 models, 134 migrations. Runs on **SQL Server** (`sqlsrv`), deployed to Azure App Service.
+1. At the beginning of every new session, read this file and Claude auto memory first.
+2. Do not start a task by broadly or recursively scanning the entire repository.
+3. Use the project map below to identify the relevant subsystem, then read only the files needed.
+4. Perform broader exploration only if the documentation is missing, stale, or contradicted by source.
+5. Source code remains authoritative when it conflicts with documentation.
+6. After a verified architectural or workflow change, update this file and the relevant note in `docs/knowledge/`.
+7. Save reusable discoveries, conventions, debugging insights, and architectural knowledge to auto memory.
+8. Do not save temporary progress, speculative conclusions, or task-specific status as memory.
+9. Keep this file concise to minimize startup tokens. Detailed knowledge belongs in `docs/knowledge/`;
+   open only the relevant note per task — do not `@`-import them all.
+10. Before ending each significant task, check whether documentation or memory has gone stale, and update it.
 
-## Commands
+## Detailed knowledge (read only what the task needs)
 
-```bash
-composer dev              # server + queue:listen + pail + vite, all at once (preferred)
-php artisan serve         # app only
-npm run dev               # vite only
-npm run build             # production assets
+| Note | Read it for |
+|---|---|
+| [docs/knowledge/Architecture.md](docs/knowledge/Architecture.md) | Layering, service catalogue, middleware order, frontend structure |
+| [docs/knowledge/Data-Flows.md](docs/knowledge/Data-Flows.md) | Request lifecycle, import/queue flow, approvals, entity switching |
+| [docs/knowledge/Database.md](docs/knowledge/Database.md) | Schema, tenancy columns, SQL Server dialect, migrations, safety |
+| [docs/knowledge/Authentication.md](docs/knowledge/Authentication.md) | Entity login, permission enforcement, QA accounts |
+| [docs/knowledge/Integrations.md](docs/knowledge/Integrations.md) | Google Drive, Excel, PDF, Redis, Sanctum, Ziggy, deployment |
+| [docs/knowledge/Decisions.md](docs/knowledge/Decisions.md) | Why the architecture is shaped this way, and what it costs |
 
-php artisan test                                   # full suite
-php artisan test --testsuite=Unit                  # unit only
-php artisan test --filter=MassOrdersIndexTest      # single test class
-./vendor/bin/pest tests/Feature/MassOrdersIndexTest.php   # single file
-./vendor/bin/pint                                  # format PHP
-```
+## System purpose
 
-End-to-end (Playwright, self-contained in `e2e/` with its own `package.json` and `.env.e2e`):
-
-```bash
-cd e2e
-npm run qa            # read-only smoke run
-npm run qa:watch      # headed, slowed down, watchable
-npm run qa:full       # includes destructive workflow tests (E2E_DESTRUCTIVE=1)
-npm run qa:purge      # clean up marked test data
-```
-
-`php artisan david:e2e seed-user` / `david:e2e purge` manage the test account and its data
-from the app side.
-
-## Database safety
-
-`daviddb` is the protected developer database — never run `migrate:fresh`, `migrate:refresh`,
-`db:wipe`, or destructive SQL against it.
-
-Feature tests are safe **because** [phpunit.xml](phpunit.xml) force-overrides the connection
-to `daviddb_test`, and [tests/Pest.php](tests/Pest.php) applies `RefreshDatabase` to everything
-in `tests/Feature`. That combination wipes whatever database is effectively configured, so
-before running tests, confirm the override is still in place. `APP_ENV=testing` alone proves
-nothing.
+- **DAVID Inventory System** — inventory, ordering and multi-level approval platform for a
+  multi-branch food operation (entities: Nono's, Coffee Bean & Tea Leaf).
+- Store ordering (regular / mass / DTS / interco / emergency / F&V / ice cream), approval matrices,
+  receiving, wastage, month-end counts, stock adjustments, cost and inventory reporting.
+- Ingests sales and masterfile data (POS, SAP) through queued Excel imports.
+- Scale: ~90 page modules, 105 module controllers (121 files incl. `Auth/`), 59 models, 134 migrations, 567 routes.
 
 ## Architecture
 
-### Entity multi-tenancy
+- **Frontend:** Vue 3 + Inertia 1 SPA, PrimeVue 4, Tailwind, Vite; Ziggy for named routes.
+- **Backend:** Laravel 11 / PHP 8.3. Thin controllers → services → Eloquent. **No repository layer.**
+- **Database:** SQL Server (`sqlsrv`); session, cache and queue all on the database driver.
+- **Auth:** Breeze session login (**requires an entity**) + Sanctum for the small API surface;
+  Spatie `laravel-permission` enforced per route.
+- **Background:** dedicated `imports` queue, worker started by `startup.sh`, state in `import_logs`.
+- **Integrations:** Google Drive, maatwebsite/excel, dompdf, Redis (installed, not the cache), Sanctum.
 
-Every tenant-owned row carries `entity_id`, and 47 models opt in via
-[BelongsToEntity](app/Models/Concerns/BelongsToEntity.php):
+## Entry points
 
-- [SetActiveEntity](app/Http/Middleware/SetActiveEntity.php) resolves the active entity per
-  request — `session('active_entity_id')` → `user.last_entity_id` → first allowed — always
-  re-validated against the user's accessible entities, then binds it into
-  [EntityContext](app/Support/EntityContext.php) (a singleton).
-- `EntityScope` filters every query; `creating` stamps `entity_id` automatically.
-- `Model::withoutEntityScope()` bypasses the filter for cross-entity admin work.
+- [public/index.php](public/index.php) — HTTP front controller
+- [bootstrap/app.php](bootstrap/app.php) — middleware stack, aliases, registered commands
+- [routes/web.php](routes/web.php) — all app routes (~88 KB, 374 permission guards)
+- [routes/auth.php](routes/auth.php) · [routes/api.php](routes/api.php) · [routes/console.php](routes/console.php)
+- [resources/js/app.js](resources/js/app.js) — Inertia + Vue bootstrap
+- [resources/views/app.blade.php](resources/views/app.blade.php) — root Blade shell
+- [artisan](artisan) — CLI entry
+- [startup.sh](startup.sh) — Azure boot: migrations, permission seeder, queue worker
 
-Two consequences that bite:
+## Directory responsibilities
 
-1. **Queued jobs and console commands have no session**, so no active entity is bound. When
-   nothing is set, scoped models are deliberately **not** filtered — a job that should be
-   entity-aware must set it itself, ideally via `EntityContext::runAs($id, fn () => ...)`.
-2. A new model with an `entity_id` column is not scoped until it uses the trait.
+- `app/Http/Controllers/` — 105 module controllers + `Auth/`, one per module, kept thin
+- `app/Http/Services/` — **primary business logic** (20 classes)
+- `app/Services/` — infrastructure only: Google Drive, import queue, UOM commits
+- `app/Models/` — 59 models; 46 use `BelongsToEntity`
+- `app/Models/Concerns/`, `app/Models/Scopes/` — `BelongsToEntity`, `EntityScope`
+- `app/Support/` — `EntityContext`, `StockQuantity`
+- `app/Http/Middleware/` — `SetActiveEntity`, `HandleInertiaRequests`, `CheckUserPermission`, `CheckSidebarMenuActive`
+- `app/Imports/` (22) · `app/Exports/` (54) — Excel readers/writers
+- `app/Jobs/` — `StartImportJob`, `SAPMasterfileImportJob`, `StoreTransactionImportJob`, `ProcessStoreTransactionJob`
+- `app/Console/Commands/` — import reconcilers, `david:e2e`
+- `app/Enum/` **and** `app/Enums/` — two live namespaces (see pitfalls)
+- `resources/js/Pages/<Module>/` — Inertia pages, one directory per module
+- `database/migrations/` (134) · `database/seeders/` (52)
+- `tests/Feature/`, `tests/Unit/` — Pest · `e2e/` — self-contained Playwright suite
+- `docs/knowledge/` — detailed notes indexed above
 
-`Entity` is the parent of `StoreBranch`. Users pick an entity at login and switch from the sidebar.
+## Main data flows
 
-### Permissions
+1. Request enters [routes/web.php](routes/web.php) behind `auth` + `check.persmission:<permission>`.
+2. [SetActiveEntity](app/Http/Middleware/SetActiveEntity.php) binds the active entity into
+   [EntityContext](app/Support/EntityContext.php).
+3. Validation in the controller (`$request->validate`), then delegation to `app/Http/Services/*`.
+4. Persistence via Eloquent; [BelongsToEntity](app/Models/Concerns/BelongsToEntity.php) filters by
+   `entity_id` and stamps it on create.
+5. [HandleInertiaRequests](app/Http/Middleware/HandleInertiaRequests.php) shares auth, permissions,
+   entities, sidebar settings and approval-count notifications.
+6. Renders an Inertia page in `resources/js/Pages/<Module>/`.
+7. Heavy work → `imports` queue → `import_logs`, reconciled every 60s in production.
 
-Spatie `laravel-permission`, enforced at the route level — [routes/web.php](routes/web.php)
-carries 374 permission guards.
+Full detail: [Data-Flows.md](docs/knowledge/Data-Flows.md).
 
-**The middleware alias is misspelled and must stay that way:** `check.persmission`
-(registered in [bootstrap/app.php](bootstrap/app.php)). Renaming it breaks every route.
+## Key components
 
-Permissions are seeded idempotently by `RolesAndPermissionSeeder`, which runs on every
-deploy. Add new permissions there, never by hand in the database. The full permission list
-is shared to the frontend on every request, so Vue pages gate UI with `can(...)` rather than
-re-querying.
+**Services** ([app/Http/Services/](app/Http/Services/)): `WorkflowService`, `ApprovalMatrixService`,
+`OrderApprovalService`, `MassOrderService`, `StoreOrderService`, `DTSStoreOrderService`,
+`OrderCalculatorService`, `OrderReceivingService`, `IntercoService`, `WastageService`,
+`MonthEndCountSettingsService`, `RoleService`, `UserService`, `AdoptionRateTrackingService`.
 
-### Inertia shared props
+**Models**: `StoreOrder` + `StoreOrderItem` (core aggregate, discriminated by `variant` and
+`order_status`), `Wastage`, `ProductInventory`, `SupplierItems`, `SAPMasterfile`, `POSMasterfileBOM`,
+`StoreBranch`, `Entity`, `User`, `MonthEndCountItem`, `SidebarMenuSetting`.
 
-[HandleInertiaRequests](app/Http/Middleware/HandleInertiaRequests.php) shares `auth` (user,
-roles, permissions, accessible entities, `activeEntity`), `flash`, `sidebarSettings`,
-`wastageApprovalConfig`, and a large `notifications` payload of pending-approval counts.
+**Controllers**: `DashboardController`, `MassOrdersController`, `DTSMassOrdersController`,
+`IntercoController`, `WastageController`, `CSMassCommitsController`, `StockManagementController`,
+`MonthEndCountController`, `ApprovalMatrixController`.
 
-The notification block runs a dozen count queries, so it is cached per user for one minute
-under `user_notifications_v6_<id>`. **Bump that cache key** when changing the shape of the
-payload, or users keep the stale structure for a minute. Notifications are deliberately
-limited to the current calendar month.
+**Repositories**: none — services use Eloquent directly.
 
-### Services
+## Database
 
-Most business logic lives in **`app/Http/Services/`** (20 classes — `WorkflowService`,
-`ApprovalMatrixService`, `RoleService`, `MassOrderService`, `OrderCalculatorService`,
-`MonthEndCountSettingsService`, …), *not* `app/Services/`, which holds only the three
-infrastructure services (Google Drive, import queue, UOM commits). Put new domain logic in
-`app/Http/Services/` to match.
+SQL Server (`sqlsrv`), timezone `Asia/Manila`. `entities` is the tenant root, `store_branches`
+belongs to it, and 46 models carry `entity_id` filtered by a global scope. Most models are audited
+(`owen-it/laravel-auditing`). Migrations run automatically on deploy.
+Full detail: [Database.md](docs/knowledge/Database.md).
 
-### Imports
+## Authentication and authorization
 
-Excel imports (`maatwebsite/excel`) are queued on the **`imports`** queue over the `database`
-driver, coordinated by `ImportQueueService` and tracked in `import_logs`. Because a stuck row
-can block the queue, several reconcilers exist, registered in `bootstrap/app.php`:
+Login posts **`entity_id` with email/password**;
+[AuthenticatedSessionController](app/Http/Controllers/Auth/AuthenticatedSessionController.php)
+rejects inaccessible entities, then stores `session('active_entity_id')` and `users.last_entity_id`.
+`SetActiveEntity` re-resolves and re-validates it per request. Authorization is Spatie permissions
+via the `check.persmission:<permission>` route alias; the full permission list is shared to the
+frontend so Vue gates UI with `can(...)`. `CheckSidebarMenuActive` is a second gate on top.
+Entity switching: `POST /entity/switch {entity_id}` with `X-XSRF-TOKEN`.
+Full detail: [Authentication.md](docs/knowledge/Authentication.md).
 
-```bash
-php artisan imports:reconcile [--apply] [--stale-minutes=]   # runs every 60s in production
-php artisan imports:doctor
-php artisan imports:requeue-stuck [--apply] [--include-failed] [--stale-minutes=60]
-php artisan imports:recover-incomplete-jobs [--apply]
-php artisan imports:repair-failed-logs [--apply]
-php artisan migrations:reconcile      # prevents "object already exists" on imported schemas
-```
+## Commands
 
-All of them **dry-run by default** — nothing changes without `--apply`.
+- **Development:** `composer dev` (server + queue:listen + pail + vite), or `php artisan serve` +
+  `npm run dev`. Use `PHP_CLI_SERVER_WORKERS=10` when driving Playwright.
+- **Build:** `npm run build`
+- **Lint:** `./vendor/bin/pint`
+- **Tests:** `php artisan test` · `--testsuite=Unit` · `--filter=MassOrdersIndexTest` ·
+  `./vendor/bin/pest tests/Feature/MassOrdersIndexTest.php`
+- **E2E** (from `e2e/`): `npm run qa` (read-only) · `qa:watch` (headed) · `qa:full` (destructive) ·
+  `qa:purge`
+- **Imports** (dry-run unless `--apply`): `imports:reconcile`, `imports:doctor`,
+  `imports:requeue-stuck`, `imports:recover-incomplete-jobs`, `imports:repair-failed-logs`,
+  `migrations:reconcile`
+- **QA fixture:** `php artisan david:e2e seed-user` / `php artisan david:e2e purge`
 
-### Approvals
+## Database safety
 
-Multi-level approval workflows (orders, wastage, month-end counts, interco, cash pull-out)
-run through `WorkflowService` + `ApprovalMatrixService`. Approval levels are data-driven —
-e.g. wastage level 2 only appears when `WastageApprovalSettingsService::shouldShowLevel2()`.
+- **`daviddb` is a protected local database.** Never run destructive operations against it.
+- Never run `migrate:fresh`, `migrate:refresh`, `migrate:reset`, `db:wipe`, destructive seeders,
+  `DROP`, or `TRUNCATE` against it.
+- Laravel tests must always use a separate isolated test database. [phpunit.xml](phpunit.xml)
+  force-overrides `DB_DATABASE` to `daviddb_test`, and [tests/Pest.php](tests/Pest.php) applies
+  `RefreshDatabase` to `tests/Feature` — that combination wipes whatever database is effectively
+  configured.
+- **Verify the active connection before running tests, migrations, seeders, or any
+  database-modifying command.** `APP_ENV=testing` alone proves nothing.
+- Restores, drops and truncations are for the user to run manually.
 
-### Frontend
+## Architectural decisions (summary)
 
-`resources/js/Pages/<Module>/` per module, plus `components/`, `composables/`, `layouts/`,
-`lib/`. PrimeVue 4 + Tailwind, with radix-vue/reka-ui, `vuedraggable` (sidebar ordering),
-Quill, Chart.js. Ziggy exposes named routes to JS. Sidebar visibility is DB-backed
-(`SidebarMenuSetting`) and enforced server-side by `CheckSidebarMenuActive`.
+Multi-tenancy by global scope; services instead of repositories; imports queued and reconciled;
+route-level permissions shared to the frontend; data-driven sidebar; migrations run on deploy;
+SQL Server as the target. Rationale and trade-offs: [Decisions.md](docs/knowledge/Decisions.md).
 
-Models implement `owen-it/laravel-auditing`, so most writes produce audit rows.
+## Pitfalls and non-obvious behavior
 
-## SQL Server constraints
-
-This is the most common source of code that works locally in a query builder and fails in
-production:
-
-- No `LIMIT`/`OFFSET` — use `->limit()`/`->take()` and let Eloquent emit `TOP`/`OFFSET FETCH`.
-- Date truncation is `CONVERT(date, col)`, not `DATE(col)`.
-- `distinct()` combined with `count()` across multiple columns does not translate; the
-  codebase wraps the subquery instead — `DB::table($query->select(...)->distinct(), 'sub')->count()`.
-- Avoid `whereHas` chains over the large transaction tables; existing code selects narrow
-  columns and dedupes in PHP for exactly this reason.
-
-## Deployment
-
-Azure App Service runs [startup.sh](startup.sh) on boot — **not** a GitHub workflow. It
-reconciles the migration log, runs `migrate --force`, re-seeds roles and permissions, starts
-the `imports` queue worker and a periodic import reconciler, then rebuilds the config/route/view
-caches. **Migrations run automatically in production**, so a merged migration ships on the next
-restart.
-
-## Conventions
-
-- New CRUD module: use the `laravel-inertia-module` skill — it covers every touch point
-  (permission, seeder, sidebar entry, role-edit UI, layout settings) so none is missed.
-- After any code change: run the `regression-test` skill.
-- Commit messages: one-line subject, no body unless asked.
-- The repo root holds ad-hoc debug scripts (`check_*.php`, `debug_*.php`, `find_*.php`,
-  `sales_report.php`, …). They are throwaway diagnostics, not part of the application — don't
-  treat them as reference implementations.
+- **`check.persmission` is misspelled** in `bootstrap/app.php` and used by 374 routes. Do not fix it.
+- **Queued jobs and console commands have no session**, so no entity is bound — and with no context
+  `EntityScope` does **not** filter. Use `EntityContext::runAs($id, fn () => ...)`.
+- **A new model with `entity_id` is unscoped** until it uses `BelongsToEntity`.
+- **Bump the notification cache key** (`user_notifications_v6_<id>`, 1-min TTL in
+  `HandleInertiaRequests`) when changing that payload's shape.
+- **Two enum namespaces**: `App\Enum\` (OrderStatus, UserRole, Days, TimePeriod) and `App\Enums\`
+  (IntercoStatus, WastageStatus).
+- **Services live in `app/Http/Services/`**, not `app/Services/`.
+- **SQL Server, not MySQL**: no `LIMIT` in raw SQL, `CONVERT(date, col)` not `DATE()`, `DATEDIFF`
+  not `TIMESTAMPDIFF`, `STRING_AGG` not `GROUP_CONCAT`. Multi-column distinct counts need a subquery.
+- **Never chain `->with()` onto `selectRaw` + `groupBy`** — Eloquent silently returns null relations.
+- **Date-only columns need `'date:Y-m-d'` casts**, or UTC serialization shows the previous day.
+- **`e2e/.env.e2e` names `storerep@gmail.com`, which does not exist** in `daviddb`; the working QA
+  pair is in auto memory (`reference_david_qa_profiles`), not the one in the `regression-test` skill.
+- **Repo root holds throwaway diagnostics** (`check_*.php`, `debug_*.php`, `find_*.php`). Not app code.
+- New CRUD module → `laravel-inertia-module` skill. After changes → `regression-test` skill.
+  Commit messages: one-line subject, no body.

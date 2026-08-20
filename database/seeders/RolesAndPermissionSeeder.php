@@ -151,6 +151,7 @@ class RolesAndPermissionSeeder extends Seeder
             "manage sidebar",
             "manage wastage settings",
             "manage month end count settings",
+            "reopen month end count",
             "perform month end count",
             "receive interco requests",
             "receive orders",

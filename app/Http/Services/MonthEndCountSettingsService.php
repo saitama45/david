@@ -158,4 +158,54 @@ class MonthEndCountSettingsService
 
         return is_null($cutoff) || $now->lte($cutoff);
     }
+
+    /**
+     * Whether a specific branch may upload right now — either the normal window
+     * is open, or support granted that branch a reopen that has not expired.
+     */
+    public function isUploadOpenForBranch(Carbon $now, Carbon $calculatedDate, array $settings, ?Carbon $reopenedUntil): bool
+    {
+        if ($this->isUploadOpen($now, $calculatedDate, $settings)) {
+            return true;
+        }
+
+        return $reopenedUntil !== null && $now->lte($reopenedUntil);
+    }
+
+    /**
+     * Human-readable phrase for a day offset, e.g. "5 calendar days" or
+     * "1 working day". Used to explain the rules on screen.
+     */
+    public function describeOffset(int $days, string $unit): string
+    {
+        $noun = $unit === 'business' ? 'working day' : 'calendar day';
+
+        if ($days === 0) {
+            return 'the same day';
+        }
+
+        return $days.' '.$noun.($days === 1 ? '' : 's');
+    }
+
+    /**
+     * Plain-language summary of the upload rules, built from the entity's own
+     * settings so the on-screen explanation can never drift from the rules
+     * actually being enforced.
+     */
+    public function describeUploadRule(array $settings): string
+    {
+        $start = (int) $settings['upload_start_days'] === 0
+            ? 'Uploading opens on the count date'
+            : 'Uploading opens '.$this->describeOffset((int) $settings['upload_start_days'], $settings['upload_start_unit']).' after the count date';
+
+        if (! $settings['upload_cutoff_enabled'] || is_null($settings['upload_cutoff_days'])) {
+            return $start.' and stays open until the count is approved.';
+        }
+
+        $time = Carbon::parse($settings['upload_cutoff_time'])->format('g:i A');
+
+        return $start.' and closes '
+            .$this->describeOffset((int) $settings['upload_cutoff_days'], $settings['upload_cutoff_unit'])
+            .' after it, at '.$time.'.';
+    }
 }

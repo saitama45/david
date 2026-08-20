@@ -10,6 +10,7 @@
     "qa:full": "cross-env E2E_DESTRUCTIVE=1 playwright test",
     "qa:full:watch": "cross-env E2E_DESTRUCTIVE=1 SLOWMO=350 playwright test --headed",
     "qa:demo": "cross-env E2E_DESTRUCTIVE=1 SLOWMO=800 playwright test --project=setup --project=workflow --headed",
+    "qa:mec": "cross-env E2E_DESTRUCTIVE=1 SLOWMO=550 node run-mec-demo.js",
     "qa:purge": "node purge.js",
     "qa:ui": "playwright test --ui",
     "qa:report": "playwright show-report",

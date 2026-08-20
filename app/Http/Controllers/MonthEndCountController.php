@@ -2,32 +2,28 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\MonthEndSchedule;
-use App\Models\MonthEndCountItem;
-use App\Models\StoreBranch;
-use App\Models\SupplierItems;
-use App\Models\SAPMasterfile;
-use App\Models\ProductInventoryStock;
-use App\Models\ProductInventoryStockManager;
-use App\Models\MonthEndCountTemplate;
-use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Carbon;
-use Inertia\Inertia;
-use Maatwebsite\Excel\Facades\Excel;
-use App\Exports\MonthEndCountTemplateExport;
-use App\Imports\MonthEndCountImport;
 use App\Http\Services\MonthEndCountSettingsService;
+use App\Imports\MonthEndCountImport;
+use App\Models\MonthEndCountItem;
+use App\Models\MonthEndCountReopen;
+use App\Models\MonthEndCountTemplate;
+use App\Models\MonthEndSchedule;
+use App\Models\ProductInventoryStock;
+use App\Models\SAPMasterfile;
+use App\Models\StoreBranch;
 use Exception;
+use Illuminate\Http\Request;
+use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Cache;
+use Inertia\Inertia;
+use Maatwebsite\Excel\Facades\Excel;
 
 class MonthEndCountController extends Controller
 {
-    public function __construct(private MonthEndCountSettingsService $settingsService)
-    {
-    }
+    public function __construct(private MonthEndCountSettingsService $settingsService) {}
 
     public function index(Request $request)
     {
@@ -60,33 +56,28 @@ class MonthEndCountController extends Controller
             }
         }
 
-        // Upload schedule: the most recent past schedule still inside its
-        // configurable upload window (start offset .. cutoff).
-        $globalUploadSchedule = MonthEndSchedule::where('calculated_date', '<', $today)
+        // Upload schedule: the most recent past schedule this user can still
+        // upload for — either inside the normal window, or via a support-granted
+        // reopen on one of their branches.
+        $pastSchedules = MonthEndSchedule::where('calculated_date', '<', $today)
             ->orderBy('calculated_date', 'desc')
             ->take(5)
-            ->get()
-            ->first(fn ($schedule) => $this->settingsService->isUploadOpen($now, Carbon::parse($schedule->calculated_date), $settings));
+            ->get();
 
-        if ($globalUploadSchedule) {
-            $allUserBranchIds = $user->store_branches->pluck('id');
+        foreach ($pastSchedules as $schedule) {
+            $uploadable = $this->uploadableBranchesFor($schedule, $userBranchIds, $now, $settings);
 
-            // Find branches that have already uploaded (and not rejected) for this schedule.
-            $branchesWithNonRejectedItems = MonthEndCountItem::where('month_end_schedule_id', $globalUploadSchedule->id)
-                ->whereIn('branch_id', $allUserBranchIds)
-                ->whereNotIn('status', ['rejected'])
-                ->select('branch_id')
-                ->distinct()
-                ->pluck('branch_id');
-
-            // Branches that still need to upload are those assigned to the user that are not in the above list.
-            $branchesAwaitingUploadIds = $allUserBranchIds->diff($branchesWithNonRejectedItems);
-            $branchesAwaitingUpload = StoreBranch::whereIn('id', $branchesAwaitingUploadIds)->pluck('name', 'id');
-
-            if ($branchesAwaitingUpload->isNotEmpty()) {
-                $uploadSchedule = $globalUploadSchedule;
+            if ($uploadable->isNotEmpty()) {
+                $uploadSchedule = $schedule;
+                $branchesAwaitingUpload = $uploadable;
+                break;
             }
         }
+
+        // Explain the upload window whatever state it is in. Without this the
+        // page simply renders nothing when the window is shut, which reads to
+        // the user as "you have nothing to do" rather than "you are locked out".
+        $uploadWindow = $this->describeUploadWindow($now, $today, $userBranchIds, $settings);
 
         // NEW: Get uploaded counts by the current user that are still in 'uploaded' status
         $uploadedCountsAwaitingSubmission = MonthEndCountItem::with(['schedule', 'branch'])
@@ -141,7 +132,6 @@ class MonthEndCountController extends Controller
         $query->when($request->input('uploader_name'), fn ($q, $name) => $q->where(DB::raw("u.first_name + ' ' + u.last_name"), 'like', "%{$name}%"));
         $query->when($request->input('status'), fn ($q, $status) => $q->havingRaw("STRING_AGG(CAST(meci.status AS NVARCHAR(MAX)), ', ') LIKE ?", ["%{$status}%"]));
 
-
         // Sorting
         $sort = $request->input('sort', 'calculated_date');
         $direction = $request->input('direction', 'desc');
@@ -172,6 +162,8 @@ class MonthEndCountController extends Controller
                 'month' => $uploadSchedule->month,
             ] : null,
             'message' => $message,
+            'uploadWindow' => $uploadWindow,
+            'supportEmail' => config('app.support_email'),
             'userBranches' => $userBranches,
             'branchesAwaitingUpload' => $branchesAwaitingUpload, // Pass this to frontend
             'uploadedCountsAwaitingSubmission' => $uploadedCountsAwaitingSubmission, // New prop
@@ -181,8 +173,128 @@ class MonthEndCountController extends Controller
                 'view_transaction' => $user->can('view month end count transaction'),
                 'download_month_end_count_template' => $user->can('download month end count template'),
                 'upload_month_end_count_transaction' => $user->can('upload month end count transaction'),
-            ]
+            ],
         ]);
+    }
+
+    /**
+     * Branches assigned to the user that still owe a count for this schedule.
+     */
+    private function branchesAwaitingUploadFor(MonthEndSchedule $schedule, $userBranchIds)
+    {
+        $alreadyUploaded = MonthEndCountItem::where('month_end_schedule_id', $schedule->id)
+            ->whereIn('branch_id', $userBranchIds)
+            ->whereNotIn('status', ['rejected'])
+            ->select('branch_id')
+            ->distinct()
+            ->pluck('branch_id');
+
+        return StoreBranch::whereIn('id', $userBranchIds->diff($alreadyUploaded))->pluck('name', 'id');
+    }
+
+    /**
+     * Active (unexpired) reopens for these branches on this schedule, keyed by
+     * branch id. Anchored to Manila like the rest of the count window maths.
+     */
+    private function activeReopensFor(MonthEndSchedule $schedule, $branchIds, Carbon $now)
+    {
+        return MonthEndCountReopen::where('month_end_schedule_id', $schedule->id)
+            ->whereIn('branch_id', $branchIds)
+            ->get()
+            ->mapWithKeys(fn ($r) => [
+                $r->branch_id => Carbon::parse($r->reopened_until->format('Y-m-d H:i:s'), 'Asia/Manila'),
+            ])
+            ->filter(fn ($until) => $now->lte($until));
+    }
+
+    /**
+     * Branches the user may actually upload for right now: still owing a count,
+     * and either inside the normal window or covered by an active reopen.
+     */
+    private function uploadableBranchesFor(MonthEndSchedule $schedule, $userBranchIds, Carbon $now, array $settings)
+    {
+        $awaiting = $this->branchesAwaitingUploadFor($schedule, $userBranchIds);
+
+        if ($awaiting->isEmpty()) {
+            return $awaiting;
+        }
+
+        $calculatedDate = Carbon::parse($schedule->calculated_date, 'Asia/Manila');
+
+        if ($this->settingsService->isUploadOpen($now, $calculatedDate, $settings)) {
+            return $awaiting;
+        }
+
+        $reopens = $this->activeReopensFor($schedule, $awaiting->keys(), $now);
+
+        return $awaiting->filter(fn ($name, $branchId) => $reopens->has($branchId));
+    }
+
+    /**
+     * Describe the upload window for the count the user is expected to act on
+     * (the most recent past schedule), in whatever state that window is in.
+     *
+     * States: 'none' (nothing scheduled yet), 'not_yet' (counted, window has
+     * not opened), 'open', 'complete' (window open, nothing left to submit)
+     * and 'closed' (deadline passed with counts still outstanding).
+     */
+    private function describeUploadWindow(Carbon $now, Carbon $today, $userBranchIds, array $settings): array
+    {
+        $schedule = MonthEndSchedule::where('calculated_date', '<', $today)
+            ->orderBy('calculated_date', 'desc')
+            ->first();
+
+        $base = [
+            'rule' => $this->settingsService->describeUploadRule($settings),
+            'schedule_label' => null,
+            'count_date' => null,
+            'opens_at' => null,
+            'closes_at' => null,
+            'reopened_until' => null,
+            'branches_awaiting' => [],
+        ];
+
+        if (! $schedule) {
+            return array_merge($base, ['state' => 'none']);
+        }
+
+        $calculatedDate = Carbon::parse($schedule->calculated_date, 'Asia/Manila');
+        $opensAt = $this->settingsService->uploadStart($calculatedDate, $settings);
+        $closesAt = $this->settingsService->uploadCutoff($calculatedDate, $settings);
+        $awaiting = $this->branchesAwaitingUploadFor($schedule, $userBranchIds);
+
+        // Only branches that are still blocked belong in the notice — a branch
+        // support has reopened gets the upload form instead.
+        $uploadable = $this->uploadableBranchesFor($schedule, $userBranchIds, $now, $settings);
+        $blocked = $awaiting->diffKeys($uploadable);
+
+        // A reopened branch is working to the reopen deadline, not the original
+        // cutoff — showing the original would quote a date already in the past.
+        $reopenedUntil = $this->activeReopensFor($schedule, $uploadable->keys(), $now)->max();
+
+        $base = array_merge($base, [
+            'schedule_label' => $calculatedDate->format('F Y'),
+            'count_date' => $calculatedDate->format('M j, Y'),
+            'opens_at' => $opensAt->format('M j, Y'),
+            'closes_at' => $closesAt ? $closesAt->format('M j, Y \a\t g:i A') : null,
+            'reopened_until' => $reopenedUntil?->format('M j, Y \a\t g:i A'),
+            'branches_awaiting' => $blocked->values()->all(),
+        ]);
+
+        if ($awaiting->isEmpty()) {
+            return array_merge($base, ['state' => 'complete']);
+        }
+
+        // Nothing blocked means uploading is available; the form covers it.
+        if ($blocked->isEmpty()) {
+            return array_merge($base, ['state' => 'open']);
+        }
+
+        if ($now->lt($opensAt)) {
+            return array_merge($base, ['state' => 'not_yet']);
+        }
+
+        return array_merge($base, ['state' => 'closed']);
     }
 
     public function downloadTemplate(Request $request)
@@ -225,7 +337,7 @@ class MonthEndCountController extends Controller
             ]);
         }
 
-        $fileName = 'month_end_count_template_' . Carbon::now()->format('Ymd_His') . '.xlsx';
+        $fileName = 'month_end_count_template_'.Carbon::now()->format('Ymd_His').'.xlsx';
 
         return Excel::download(new \App\Exports\MonthEndCountDownloadExport($items), $fileName);
     }
@@ -251,22 +363,34 @@ class MonthEndCountController extends Controller
         $uploadStart = $this->settingsService->uploadStart($calculatedDate, $settings);
         $uploadCutoff = $this->settingsService->uploadCutoff($calculatedDate, $settings);
 
-        if ($now->lt($uploadStart)) {
+        // A support-granted reopen overrides the window for this branch only.
+        $reopenedUntil = $this->activeReopensFor($schedule, [$branch->id], $now)->get($branch->id);
+
+        if ($reopenedUntil) {
+            Log::info('MonthEndCountController@upload: Branch has an active reopen.', [
+                'branch_id' => $branch->id,
+                'reopened_until' => $reopenedUntil->toDateTimeString(),
+            ]);
+        }
+
+        if (! $reopenedUntil && $now->lt($uploadStart)) {
             Log::warning('MonthEndCountController@upload: Upload date is before the allowed start.', [
                 'calculated_date' => $calculatedDate->toDateString(),
                 'upload_start' => $uploadStart->toDateTimeString(),
                 'now_manila' => $now->toDateTimeString(),
             ]);
-            return back()->withErrors(['error' => 'File can only be uploaded starting ' . $uploadStart->format('M j, Y') . '.']);
+
+            return back()->withErrors(['error' => 'File can only be uploaded starting '.$uploadStart->format('M j, Y').'.']);
         }
 
-        if ($uploadCutoff && $now->gt($uploadCutoff)) {
+        if (! $reopenedUntil && $uploadCutoff && $now->gt($uploadCutoff)) {
             Log::warning('MonthEndCountController@upload: Upload date is past the cutoff.', [
                 'calculated_date' => $calculatedDate->toDateString(),
                 'upload_cutoff' => $uploadCutoff->toDateTimeString(),
                 'now_manila' => $now->toDateTimeString(),
             ]);
-            return back()->withErrors(['error' => 'The upload window for this count closed on ' . $uploadCutoff->format('M j, Y g:i A') . '.']);
+
+            return back()->withErrors(['error' => 'The upload window for this count closed on '.$uploadCutoff->format('M j, Y g:i A').'.']);
         }
         Log::info('MonthEndCountController@upload: Date validation passed.');
 
@@ -282,14 +406,16 @@ class MonthEndCountController extends Controller
                 'schedule_id' => $schedule->id,
                 'branch_id' => $branch->id,
                 'branch_name' => $branch->name,
-                'existing_status' => $existingUpload->status
+                'existing_status' => $existingUpload->status,
             ]);
+
             return back()->withErrors(['error' => "The branch \"{$branch->name}\" has already uploaded for this schedule. Multiple uploads from the same branch are not allowed."]);
         }
 
         // Additional schedule-level validation - only block if schedule is expired (not level2_approved since different branches can upload)
         if ($schedule->status === 'expired') {
             Log::warning('MonthEndCountController@upload: Schedule is expired.', ['schedule_id' => $schedule->id, 'status' => $schedule->status]);
+
             return back()->withErrors(['error' => 'This schedule has expired and is no longer open for uploads.']);
         }
         Log::info('MonthEndCountController@upload: Branch-specific validation passed.');
@@ -303,10 +429,12 @@ class MonthEndCountController extends Controller
             // Schedule status is now managed by the approval process, not individual uploads.
 
             Log::info('MonthEndCountController@upload: Import transaction completed. Redirecting to review page.');
+
             return redirect()->route('month-end-count.review', ['schedule' => $schedule->id, 'branch' => $branch->id])->with('success', 'Month end count uploaded successfully. Please review and submit for approval.');
         } catch (Exception $e) {
             Log::error('MonthEndCountController@upload: Error during upload process.', ['error' => $e->getMessage(), 'trace' => $e->getTraceAsString()]);
-            return back()->withErrors(['error' => 'Error processing file: ' . $e->getMessage()]);
+
+            return back()->withErrors(['error' => 'Error processing file: '.$e->getMessage()]);
         }
     }
 
@@ -318,7 +446,7 @@ class MonthEndCountController extends Controller
 
         // Ensure the user has access to this branch
         $user = Auth::user();
-        if (!$user->store_branches->contains($branch->id)) {
+        if (! $user->store_branches->contains($branch->id)) {
             abort(403, 'You do not have access to this branch.');
         }
 
@@ -354,7 +482,7 @@ class MonthEndCountController extends Controller
     {
         // Ensure the user has access to this branch
         $user = Auth::user();
-        if (!$user->store_branches->contains($branch->id)) {
+        if (! $user->store_branches->contains($branch->id)) {
             abort(403, 'You do not have access to this branch.');
         }
 
@@ -386,13 +514,15 @@ class MonthEndCountController extends Controller
                 $item->save();
             }
             DB::commit();
-            Cache::forget('user_notifications_v5_' . Auth::id());
+            Cache::forget('user_notifications_v5_'.Auth::id());
             $this->clearMonthEndNotificationCachesForBranch($branch->id);
+
             return redirect()->route('month-end-count.index')->with('success', 'Count submitted for Level 1 approval.');
         } catch (Exception $e) {
             DB::rollBack();
             Log::error('MonthEndCountController@submitForApproval: Error submitting items for approval.', ['error' => $e->getMessage(), 'trace' => $e->getTraceAsString()]);
-            return back()->withErrors(['error' => 'Error submitting items for approval: ' . $e->getMessage()]);
+
+            return back()->withErrors(['error' => 'Error submitting items for approval: '.$e->getMessage()]);
         }
     }
 
@@ -414,22 +544,22 @@ class MonthEndCountController extends Controller
             ->pluck('id');
 
         foreach ($affectedUserIds as $userId) {
-            Cache::forget('user_notifications_v5_' . $userId);
+            Cache::forget('user_notifications_v5_'.$userId);
         }
     }
 
     public function updateReviewItem(Request $request, MonthEndCountItem $monthEndCountItem)
     {
         $user = Auth::user();
-        if (!$user->store_branches->contains($monthEndCountItem->branch_id)) {
+        if (! $user->store_branches->contains($monthEndCountItem->branch_id)) {
             abort(403, 'You do not have access to this branch.');
         }
 
-        if (!$user->can('edit month end count items')) {
+        if (! $user->can('edit month end count items')) {
             abort(403, 'You do not have permission to edit count items.');
         }
 
-        if ($request->has('config') && !empty($monthEndCountItem->packaging_config)) {
+        if ($request->has('config') && ! empty($monthEndCountItem->packaging_config)) {
             return redirect()->back()->withErrors(['error' => 'Config cannot be edited when Packaging Config has a value.']);
         }
 

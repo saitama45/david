@@ -91,11 +91,10 @@ watch(detailSearchQuery, throttle((newValue) => {
 }, 300));
 
 // --- Computed Properties ---
-const isEditable = (schedule) => {
-    if (!props.can.edit_month_end_schedules) return false;
-    const submittedCount = Object.values(schedule.progress || {}).reduce((a, b) => a + b, 0);
-    return submittedCount === 0;
-};
+// Editing the count date stays available after stores have submitted, because
+// moving it is the blunt way to reopen a whole month. Prefer the per-store
+// reopen in the Store Progress modal, which leaves this date alone.
+const isEditable = (schedule) => props.can.edit_month_end_schedules;
 
 const isDeletable = (schedule) => {
     if (!props.can.delete_month_end_schedules) return false;
@@ -130,6 +129,8 @@ const openDetailsModal = (schedule) => {
     selectedSchedule.value = schedule;
     detailSearchQuery.value = '';
     detailsResponse.value = null;
+    selectedReopenBranches.value = [];
+    reopenUntil.value = defaultReopenUntil();
     showDetailsModal.value = true;
     fetchDetails(1, '');
 };
@@ -182,6 +183,71 @@ const submitGenerate = () => {
             showGenerateModal.value = false;
         },
     });
+};
+
+// --- Reopening the upload window for specific stores ---
+// Support grants this after their approver signs off. It targets only the
+// stores selected and leaves the schedule's count date alone.
+const selectedReopenBranches = ref([]);
+const reopenUntil = ref('');
+const isReopening = ref(false);
+
+const reopenableItems = computed(() => detailItems.value.filter((i) => i.can_reopen));
+
+const allReopenableSelected = computed(
+    () => reopenableItems.value.length > 0
+        && reopenableItems.value.every((i) => selectedReopenBranches.value.includes(i.id)),
+);
+
+const toggleAllReopenable = () => {
+    selectedReopenBranches.value = allReopenableSelected.value
+        ? []
+        : reopenableItems.value.map((i) => i.id);
+};
+
+// Default the deadline to 3 days out at 11:59 PM — a working grace period that
+// support can shorten or extend.
+const defaultReopenUntil = () => {
+    const d = new Date();
+    d.setDate(d.getDate() + 3);
+    d.setHours(23, 59, 0, 0);
+    const pad = (n) => String(n).padStart(2, '0');
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+};
+
+const submitReopen = () => {
+    if (!selectedReopenBranches.value.length || !reopenUntil.value) return;
+
+    isReopening.value = true;
+    router.post(
+        route('month-end-schedules.reopen', selectedSchedule.value.id),
+        {
+            branch_ids: selectedReopenBranches.value,
+            reopened_until: reopenUntil.value.replace('T', ' ') + ':00',
+        },
+        {
+            preserveScroll: true,
+            onSuccess: (page) => {
+                selectedReopenBranches.value = [];
+                fetchDetails();
+                toast.add({
+                    severity: 'success',
+                    summary: 'Upload reopened',
+                    detail: page?.props?.flash?.success || 'The selected stores can upload again.',
+                    life: 6000,
+                });
+            },
+            onError: (errors) => {
+                toast.add({
+                    severity: 'error',
+                    summary: 'Reopen failed',
+                    detail: errors.error || 'Could not reopen the upload window.',
+                    life: 6000,
+                });
+            },
+            onFinish: () => { isReopening.value = false; },
+        },
+    );
 };
 
 const deleteSchedule = (scheduleId) => {
@@ -342,6 +408,7 @@ const getStatusColor = (status) => {
 
                     <div
                         @click="isProgressClickable(schedule) ? openDetailsModal(schedule) : null"
+                        :data-testid="isProgressClickable(schedule) ? 'schedule-progress' : null"
                         class="group"
                         :class="{ 'cursor-pointer': isProgressClickable(schedule), 'cursor-default': !isProgressClickable(schedule) }"
                     >
@@ -490,8 +557,23 @@ const getStatusColor = (status) => {
                     <Loader2 class="h-8 w-8 text-indigo-400 animate-spin" />
                 </div>
                 <ul v-else-if="detailItems.length > 0" class="divide-y max-h-[50vh] overflow-y-auto">
-                    <li v-for="item in detailItems" :key="item.id" class="flex items-center justify-between p-3 hover:bg-gray-50">
-                        <span class="text-gray-800 font-medium truncate pr-4">{{ item.name }}</span>
+                    <li v-for="item in detailItems" :key="item.id" class="flex items-center justify-between p-3 hover:bg-gray-50 gap-3">
+                        <label class="flex items-center gap-3 min-w-0 flex-1" :class="{ 'cursor-pointer': can.reopen_month_end_count && item.can_reopen }">
+                            <input
+                                v-if="can.reopen_month_end_count"
+                                type="checkbox"
+                                :value="item.id"
+                                v-model="selectedReopenBranches"
+                                :disabled="!item.can_reopen"
+                                class="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500 disabled:opacity-40 shrink-0"
+                            />
+                            <span class="min-w-0">
+                                <span class="text-gray-800 font-medium truncate block">{{ item.name }}</span>
+                                <span v-if="item.reopen_active" class="text-xs text-amber-700">
+                                    Reopened until {{ item.reopened_until }}
+                                </span>
+                            </span>
+                        </label>
                         <span class="px-2.5 py-0.5 text-xs font-semibold rounded-full shrink-0"
                                 :style="{ backgroundColor: getStatusColor(item.status) + '20', color: getStatusColor(item.status) }">
                             {{ item.status }}
@@ -500,6 +582,37 @@ const getStatusColor = (status) => {
                 </ul>
                 <div v-else class="text-center py-12 text-gray-500">
                     <p>No stores found for your search.</p>
+                </div>
+            </div>
+
+            <!-- Reopen the upload window for the stores selected above -->
+            <div v-if="can.reopen_month_end_count" class="border rounded-lg p-4 bg-amber-50 border-amber-200 space-y-3">
+                <div class="flex items-start justify-between gap-3">
+                    <div>
+                        <p class="font-semibold text-amber-900">Reopen upload for selected stores</p>
+                        <p class="text-xs text-amber-800 mt-0.5">
+                            Only stores that have not submitted can be reopened. This does not change the MEC Schedule Date.
+                        </p>
+                    </div>
+                    <Button type="button" variant="outline" size="sm" :disabled="!reopenableItems.length" @click="toggleAllReopenable">
+                        {{ allReopenableSelected ? 'Clear' : 'Select all' }}
+                    </Button>
+                </div>
+
+                <div class="flex flex-wrap items-end gap-3">
+                    <div class="flex-1 min-w-[14rem]">
+                        <label for="reopen_until" class="block text-xs font-medium text-amber-900 mb-1">Allow uploads until</label>
+                        <Input id="reopen_until" v-model="reopenUntil" type="datetime-local" class="w-full bg-white" />
+                    </div>
+                    <Button
+                        type="button"
+                        :disabled="!selectedReopenBranches.length || !reopenUntil || isReopening"
+                        class="bg-amber-600 hover:bg-amber-700 text-white font-semibold"
+                        @click="submitReopen"
+                    >
+                        <Loader2 v-if="isReopening" class="h-4 w-4 mr-2 animate-spin" />
+                        Reopen {{ selectedReopenBranches.length ? `(${selectedReopenBranches.length})` : '' }}
+                    </Button>
                 </div>
             </div>
 
