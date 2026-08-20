@@ -17,7 +17,7 @@ return [
 
     // Address shown when a business rule blocks an action and the user needs
     // to raise a support request (e.g. reopening a closed month end count).
-    'support_email' => env('SUPPORT_EMAIL', 'tassupport@tablegroup.com.ph'),
+    'support_email' => env('SUPPORT_EMAIL', 'tasservices@tablegroup.com.ph'),
 
     /*
     |--------------------------------------------------------------------------
