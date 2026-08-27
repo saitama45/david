@@ -33,7 +33,7 @@ const props = defineProps({
         required: true,
     },
     branches: {
-        type: Object,
+        type: Array,
     },
     filters: {
         type: Object,
@@ -552,24 +552,21 @@ const downloadFileName = computed(() => {
                                     Reset Filter
                                 </Button>
                             </div>
-                            <label class="text-xs">From</label>
+                            <label class="text-xs">From Delivery Date</label>
                             <Input type="date" v-model="from" />
-                            <label class="text-xs">To</label>
+                            <label class="text-xs">To Delivery Date</label>
                             <Input type="date" v-model="to" />
                             <label class="text-xs">Store</label>
-                            <SelectShad v-model="branchId">
-                                <SelectTrigger>
-                                    <SelectValue placeholder="Select a store" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    <SelectGroup>
-                                        <SelectLabel>Stores</SelectLabel>
-                                        <SelectItem v-for="(value, key) in branches" :value="key">
-                                            {{ value }}
-                                        </SelectItem>
-                                    </SelectGroup>
-                                </SelectContent>
-                            </SelectShad>
+                            <Select
+                                v-model="branchId"
+                                filter
+                                append-to="self"
+                                :options="branchesOptions"
+                                optionLabel="label"
+                                optionValue="value"
+                                placeholder="Select a store"
+                                class="w-full"
+                            />
                         </PopoverContent>
                     </Popover>
                 </DivFlexCenter>

@@ -38,11 +38,15 @@ class MassOrdersController extends Controller
     {
         $user = Auth::user();
         $user->load('store_branches');
-        $branchIds = $user->store_branches->pluck('id');
+
+        $rolesAndBranches = \App\Models\User::rolesAndAssignedBranches();
 
         $query = \App\Models\StoreOrder::with(['supplier', 'store_branch', 'delivery_receipts'])
-            ->where('variant', 'mass regular')
-            ->whereIn('store_branch_id', $branchIds);
+            ->where('variant', 'mass regular');
+
+        if (! $rolesAndBranches['isAdmin']) {
+            $query->whereIn('store_branch_id', $rolesAndBranches['assignedBranches']);
+        }
 
         if ($request->filled('search')) {
             $searchTerm = $request->input('search');
@@ -58,7 +62,7 @@ class MassOrdersController extends Controller
             $query->whereBetween('order_date', [$request->input('from'), $request->input('to')]);
         }
 
-        if ($request->filled('branchId')) {
+        if ($request->filled('branchId') && $request->input('branchId') !== 'all') {
             $query->where('store_branch_id', $request->input('branchId'));
         }
 
@@ -78,7 +82,7 @@ class MassOrdersController extends Controller
                 ];
             });
 
-        $branches = $user->store_branches->pluck('name', 'id');
+        $branches = StoreBranch::options();
 
         return Inertia::render('MassOrders/Index', [
             'massOrders' => $massOrders,
