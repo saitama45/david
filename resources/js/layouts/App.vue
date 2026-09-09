@@ -1,4 +1,5 @@
 <script setup>
+import WorkflowGuidance from "@/components/WorkflowGuidance.vue";
 import Logo from "../../images/temporaryLoginImage.png";
 import {
     DropdownMenu,
@@ -61,6 +62,7 @@ const activeEntity = computed(() => {
     return entities.find((e) => e.id === id) || null;
 });
 const user = computed(() => page.props.auth.user);
+const userRole = computed(() => (page.props.auth?.roles || []).join(", "));
 
 const props = defineProps({
     heading: String,
@@ -484,7 +486,10 @@ watch(() => groupedMissingSales.value, (newVal) => {
                         </div>
                     </DropdownMenuContent>
                 </DropdownMenu>
-                <span class="text-sm font-medium">{{ user?.first_name }}</span>
+                <div class="flex flex-col items-end leading-tight">
+                    <span class="text-sm font-medium">{{ user?.first_name }}</span>
+                    <span v-if="userRole" class="text-xs text-muted-foreground">{{ userRole }}</span>
+                </div>
                 <DropdownMenu>
                     <DropdownMenuTrigger as-child>
                         <Button
@@ -540,6 +545,7 @@ watch(() => groupedMissingSales.value, (newVal) => {
                     </DivFlexCenter>
                 </div>
                 <div class="space-y-5">
+                    <WorkflowGuidance />
                     <!-- MainView -->
                     <slot />
                 </div>
