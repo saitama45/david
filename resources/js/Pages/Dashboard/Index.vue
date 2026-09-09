@@ -1,6 +1,7 @@
 <script setup>
 import MyActionsSummary from "@/components/dashboard/MyActionsSummary.vue";
-import { ref, onMounted, computed, watch } from 'vue';
+import SuccessRateTab from "@/components/dashboard/SuccessRateTab.vue";
+import { ref, onMounted, computed, watch, nextTick } from 'vue';
 import StatisticOverview from "../../components/dashboard/StatisticOverview.vue";
 import Chart from "primevue/chart";
 import MultiSelect from "primevue/multiselect";
@@ -789,13 +790,18 @@ const canViewOverview = computed(() => hasAccess("view dashboard overview"));
 const canViewSalesMix = computed(() => hasAccess("view sales mix"));
 const canViewAdoption = computed(() => hasAccess("view adoption rate dashboard"));
 const canViewAdoptionReport = computed(() => hasAccess("view adoption rate tracking report"));
+const canViewSuccessRate = computed(() => hasAccess("view success rate dashboard"));
 
 const activeDashboardTab = ref(
     hasAccess("view dashboard overview") ? "overview" :
     hasAccess("view sales mix") ? "sales-mix" :
     hasAccess("view adoption rate dashboard") ? "adoption-rate" :
+    hasAccess("view success rate dashboard") ? "success-rate" :
     null
 );
+// The Success Rate tab owns its own filters/fetch; the page only tells it when
+// to make its first (lazy) load.
+const successRateTab = ref(null);
 const activeSalesMixTab = ref("subcategories");
 
 const formatDate = (date) => {
@@ -1325,11 +1331,16 @@ const selectDashboardTab = (tab) => {
     if (tab === "overview" && !canViewOverview.value) return;
     if (tab === "sales-mix" && !canViewSalesMix.value) return;
     if (tab === "adoption-rate" && !canViewAdoption.value) return;
+    if (tab === "success-rate" && !canViewSuccessRate.value) return;
 
     activeDashboardTab.value = tab;
 
     if (tab === "adoption-rate" && !adoptionLoaded.value) {
         loadAdoptionRate();
+    }
+
+    if (tab === "success-rate" && !successRateTab.value?.loaded) {
+        nextTick(() => successRateTab.value?.load());
     }
 
     if (tab === "sales-mix" && activeSalesMixTab.value === "subcategories" && !salesMixLoaded.value) {
@@ -1586,6 +1597,19 @@ const registerDoughnutLabelPlugin = () => {
                 @click="selectDashboardTab('adoption-rate')"
             >
                 Adoption Rate
+            </button>
+            <button
+                v-if="canViewSuccessRate"
+                type="button"
+                :class="[
+                    'px-4 py-2 text-sm font-semibold transition-colors border-b-2',
+                    activeDashboardTab === 'success-rate'
+                        ? 'border-cyan-600 text-cyan-700'
+                        : 'border-transparent text-gray-500 hover:text-gray-800'
+                ]"
+                @click="selectDashboardTab('success-rate')"
+            >
+                Success Rate
             </button>
         </div>
 
@@ -2275,6 +2299,12 @@ const registerDoughnutLabelPlugin = () => {
                 </div>
             </div>
         </section>
+
+        <SuccessRateTab
+            v-else-if="activeDashboardTab === 'success-rate'"
+            ref="successRateTab"
+            :store-options="adoptionStoreOptions"
+        />
 
         <div v-else class="flex flex-col items-center justify-center py-24 text-center text-gray-400">
             <svg class="mb-4 h-12 w-12 text-gray-300" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">

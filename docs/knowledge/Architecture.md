@@ -42,8 +42,39 @@ Ordering is split by variant: `StoreOrderService` (regular), `MassOrderService` 
 
 Supporting: `RoleService` (permission grouping for the role UI), `UserService`,
 `MonthEndCountSettingsService`, `WastageService`, `AdoptionRateTrackingService`,
-`ConsolidatedSOReportService`, `DeliveryScheduleService`, `StoreTransactionService`,
-`CSCommitService`, `ApprovalNotificationService`.
+`SuccessRateService`, `ConsolidatedSOReportService`, `DeliveryScheduleService`,
+`StoreTransactionService`, `CSCommitService`, `ApprovalNotificationService`.
+
+`SuccessRateService` backs the Dashboard **Success Rate** tab, a port of the
+"David - Adoption Rate and Success Rate" workbook. The **only** hand-keyed inputs are weekly
+helpdesk ticket counts — Incoming and Closed per module (the workbook's "c/o SO" columns).
+
+Transaction volume (the workbook's "c/o BS" columns) is **derived, never entered**: for each week a
+module's transactions are the rows in that module's Adoption Rate adoption denominator, so Success
+Rate and Adoption Rate are measured over exactly the same population.
+
+| Ticket module | Adoption Rate dataset | Row date field |
+|---|---|---|
+| Order | `getOrderingTimelinessData` | `david_delivery_date` |
+| Commit | `getCommitOrderTimelinessData` | `delivery_date` |
+| Receiving | `getDeliveryLoggingTimelinessData` | `sap_dr_date` |
+| Sales Upload | `getSalesUploadTimelinessData` | `date_of_sales` |
+| Wastage | `getWastageUploadTimelinessData` | `date_of_wastage` |
+| MEC | *none* — contributes no transactions | — |
+
+MEC is a ticket type with no adoption indicator, matching the workbook, whose MEC transactions
+column is empty for all 18 weeks. Admin/Technical concerns likewise carry no transaction base.
+
+From those two the service derives Success Rate (`1 - total tickets / total transactions`), Close
+Rate (`total closed / total tickets`), the module-vs-technical split and the running averages.
+Per-week Adoption Rate falls back to `getWeeklyAdoptionTrend()` unless the week carries a manual
+override. A week whose tickets were never encoded reports **no** success rate rather than a
+misleading 100%, since its denominator is live but its numerator is simply unrecorded.
+
+The transaction counts and the adoption trend come from the same five datasets, so they are computed
+and cached **together, and separately from the ticket figures**: fetching them twice would double
+the cost of the page's most expensive query, and sharing a cache entry with the tickets made every
+encoded week invalidate the (very slow) trend so the save appeared to hang.
 
 ## Core models
 

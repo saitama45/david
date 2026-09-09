@@ -334,6 +334,10 @@ Route::middleware('auth')
             ->name('dashboard.sales-mix.products.quantity');
         Route::middleware('permission:view adoption rate dashboard')->get('/dashboard/adoption-rate', [DashboardController::class, 'adoptionRate'])
             ->name('dashboard.adoption-rate');
+        Route::middleware('permission:view success rate dashboard')->get('/dashboard/success-rate', [DashboardController::class, 'successRate'])
+            ->name('dashboard.success-rate');
+        Route::middleware('permission:manage success rate tickets')->post('/dashboard/success-rate/week', [DashboardController::class, 'saveSuccessRateWeek'])
+            ->name('dashboard.success-rate.week');
 
         // User Management Routes
         Route::controller(UserController::class)->prefix('users')->name('users.')->group(function () {

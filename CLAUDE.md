@@ -34,7 +34,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - Store ordering (regular / mass / DTS / interco / emergency / F&V / ice cream), approval matrices,
   receiving, wastage, month-end counts, stock adjustments, cost and inventory reporting.
 - Ingests sales and masterfile data (POS, SAP) through queued Excel imports.
-- Scale: ~90 page modules, 105 module controllers (121 files incl. `Auth/`), 59 models, 134 migrations, 567 routes.
+- Scale: ~90 page modules, 106 module controllers (121 files incl. `Auth/` and `Api/`), 61 models, 136 migrations, 571 routes.
 
 ## Architecture
 
@@ -59,10 +59,10 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Directory responsibilities
 
-- `app/Http/Controllers/` — 105 module controllers + `Auth/`, one per module, kept thin
-- `app/Http/Services/` — **primary business logic** (20 classes)
+- `app/Http/Controllers/` — 106 module controllers + `Auth/`, one per module, kept thin
+- `app/Http/Services/` — **primary business logic** (23 classes)
 - `app/Services/` — infrastructure only: Google Drive, import queue, UOM commits
-- `app/Models/` — 59 models; 46 use `BelongsToEntity`
+- `app/Models/` — 61 models; 48 use `BelongsToEntity`
 - `app/Models/Concerns/`, `app/Models/Scopes/` — `BelongsToEntity`, `EntityScope`
 - `app/Support/` — `EntityContext`, `StockQuantity`
 - `app/Http/Middleware/` — `SetActiveEntity`, `HandleInertiaRequests`, `CheckUserPermission`, `CheckSidebarMenuActive`
@@ -71,7 +71,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - `app/Console/Commands/` — import reconcilers, `david:e2e`
 - `app/Enum/` **and** `app/Enums/` — two live namespaces (see pitfalls)
 - `resources/js/Pages/<Module>/` — Inertia pages, one directory per module
-- `database/migrations/` (134) · `database/seeders/` (52)
+- `database/migrations/` (136) · `database/seeders/` (52)
 - `tests/Feature/`, `tests/Unit/` — Pest · `e2e/` — self-contained Playwright suite
 - `docs/knowledge/` — detailed notes indexed above
 
@@ -95,11 +95,13 @@ Full detail: [Data-Flows.md](docs/knowledge/Data-Flows.md).
 **Services** ([app/Http/Services/](app/Http/Services/)): `WorkflowService`, `ApprovalMatrixService`,
 `OrderApprovalService`, `MassOrderService`, `StoreOrderService`, `DTSStoreOrderService`,
 `OrderCalculatorService`, `OrderReceivingService`, `IntercoService`, `WastageService`,
-`MonthEndCountSettingsService`, `RoleService`, `UserService`, `AdoptionRateTrackingService`.
+`MonthEndCountSettingsService`, `RoleService`, `UserService`, `AdoptionRateTrackingService`,
+`SuccessRateService`.
 
 **Models**: `StoreOrder` + `StoreOrderItem` (core aggregate, discriminated by `variant` and
 `order_status`), `Wastage`, `ProductInventory`, `SupplierItems`, `SAPMasterfile`, `POSMasterfileBOM`,
-`StoreBranch`, `Entity`, `User`, `MonthEndCountItem`, `SidebarMenuSetting`.
+`StoreBranch`, `Entity`, `User`, `MonthEndCountItem`, `SidebarMenuSetting`,
+`SuccessRateWeeklyTicket`.
 
 **Controllers**: `DashboardController`, `MassOrdersController`, `DTSMassOrdersController`,
 `IntercoController`, `WastageController`, `CSMassCommitsController`, `StockManagementController`,
@@ -165,6 +167,13 @@ SQL Server as the target. Rationale and trade-offs: [Decisions.md](docs/knowledg
 - **Queued jobs and console commands have no session**, so no entity is bound — and with no context
   `EntityScope` does **not** filter. Use `EntityContext::runAs($id, fn () => ...)`.
 - **A new model with `entity_id` is unscoped** until it uses `BelongsToEntity`.
+- **Dashboard Success Rate tab: only tickets are typed in.** `success_rate_weekly_tickets` stores
+  Incoming/Closed per module and nothing else. Transaction volume is counted per week from the five
+  Adoption Rate datasets (MEC has no indicator, so it contributes none), and Success Rate / Close
+  Rate / totals are derived in `SuccessRateService`. Never add a transactions column.
+  Transactions + adoption fallback are cached **together, and separately from the ticket data** —
+  sharing one cache entry makes every save re-run the slow Adoption Rate trend and the save looks
+  hung.
 - **Bump the notification cache key** (`user_notifications_v6_<id>`, 1-min TTL in
   `HandleInertiaRequests`) when changing that payload's shape.
 - **Two enum namespaces**: `App\Enum\` (OrderStatus, UserRole, Days, TimePeriod) and `App\Enums\`

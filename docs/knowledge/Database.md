@@ -47,9 +47,23 @@ Two consequences:
    scoped models return every entity's rows unless the job sets `EntityContext` itself.
 2. **A new `entity_id` column is not scoped** until the trait is added to the model.
 
+## Hand-keyed tables
+
+Almost every table is populated by app activity or imports. The exception is
+`success_rate_weekly_tickets`, which holds weekly helpdesk ticket counts typed in by users on the
+Dashboard **Success Rate** tab (one row per `entity_id` + `week_start`, Monday-normalised).
+
+It stores **hand-keyed ticket counts only** — `<module>_incoming` / `_closed` for the six modules,
+`admin_incoming` / `admin_closed` for technical concerns, plus an optional `adoption_rate_override`.
+
+Transaction volume is deliberately **not** a column: it is counted per week from the Adoption Rate
+datasets on read, so it can never go stale against actual order/commit/receiving/sales/wastage
+activity. Success Rate, Close Rate and every total are likewise derived in `SuccessRateService`. Do
+not add computed or transaction columns here.
+
 ## Migrations
 
-134 migrations in `database/migrations/`, plus a shared base class in
+136 migrations in `database/migrations/`, plus a shared base class in
 `database/support/migrations/` (`Database\Support\Migrations\` PSR-4 namespace).
 
 Migrations **run automatically in production** — [startup.sh](../../startup.sh) executes

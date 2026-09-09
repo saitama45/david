@@ -5,6 +5,8 @@ namespace App\Http\Controllers;
 use App\Enum\TimePeriod;
 use App\Enum\UserRole;
 use App\Http\Services\AdoptionRateTrackingService;
+use App\Http\Services\SuccessRateService;
+use App\Models\SuccessRateWeeklyTicket;
 use App\Mail\OneTimePasswordMail;
 use App\Models\Branch;
 // use App\Models\ProductInventory; // This model is now explicitly NOT used for stock/order items
@@ -34,7 +36,10 @@ use Illuminate\Support\Facades\Log; // Import Log facade for error logging
 
 class DashboardController extends Controller
 {
-    public function __construct(private AdoptionRateTrackingService $adoptionRateService)
+    public function __construct(
+        private AdoptionRateTrackingService $adoptionRateService,
+        private SuccessRateService $successRateService
+    )
     {
     }
 
@@ -380,6 +385,58 @@ class DashboardController extends Controller
         });
 
         return response()->json($data);
+    }
+
+    /**
+     * Success Rate tab: weekly helpdesk ticket tallies with every rate derived
+     * from the workbook formulas (see SuccessRateService).
+     */
+    public function successRate(Request $request)
+    {
+        $validated = $request->validate([
+            'branch' => ['nullable'],
+            'branch.*' => ['nullable'],
+            'date_from' => ['nullable', 'date'],
+            'date_to' => ['nullable', 'date', 'after_or_equal:date_from'],
+        ]);
+
+        $params = [
+            'store_ids' => $validated['branch'] ?? [],
+            'date_from' => $validated['date_from'] ?? null,
+            'date_to' => $validated['date_to'] ?? null,
+        ];
+
+        // Intentionally uncached at this level. The only expensive part is the
+        // fallback adoption rate, which SuccessRateService caches on its own;
+        // the ticket figures are a single indexed lookup and must stay live so a
+        // week the user just encoded shows up immediately.
+        return response()->json(
+            $this->successRateService->getWeeklyTrend($params, $request->user())
+        );
+    }
+
+    /**
+     * Save one week of keyed-in ticket counts. Only Incoming/Closed counts and
+     * the optional adoption-rate override are accepted - transaction volume is
+     * read from live activity and every rate is recomputed on read.
+     */
+    public function saveSuccessRateWeek(Request $request)
+    {
+        $rules = [
+            'week_start' => ['required', 'date'],
+            'adoption_rate_override' => ['nullable', 'numeric', 'min:0', 'max:100'],
+            'remarks' => ['nullable', 'string', 'max:2000'],
+        ];
+
+        foreach (SuccessRateWeeklyTicket::countColumns() as $column) {
+            $rules[$column] = ['nullable', 'integer', 'min:0'];
+        }
+
+        $this->successRateService->saveWeek($request->validate($rules), $request->user());
+
+        // No cache to invalidate: successRate() reads ticket counts live, and the
+        // separately cached adoption-rate map is unaffected by a ticket edit.
+        return response()->json(['message' => 'Week saved.']);
     }
 
     private function resolveDashboardBranchIds($branch, array $branchesOptions): array
