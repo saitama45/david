@@ -28,8 +28,16 @@ class AdoptionRateTrackingController extends Controller
 
         $data = $this->service->getReportData($filters, $request->user());
         $options = $this->service->getFilterOptions($request->user());
+        $guidance = app(\App\Http\Services\WorkflowGuidanceService::class);
+        $pageRows = $data['rows']->getCollection();
+        $metrics = $data['workflow_metrics'] ?? [];
+        $data['rows']->setCollection($pageRows->map(fn ($row) => $row + [
+            'next_actions' => $guidance->reportActions($request->user(), $data['filters']['tab'], $row),
+        ]));
+
 
         return Inertia::render('Reports/AdoptionRateTracking/Index', [
+            'workflowMetrics' => $metrics,
             'rows' => $data['rows'],
             'totals' => $data['totals'],
             'filters' => $data['filters'],

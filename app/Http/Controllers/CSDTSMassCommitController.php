@@ -236,6 +236,7 @@ class CSDTSMassCommitController extends Controller
         }
 
         return Inertia::render('CSDTSMassCommits/Edit', [
+            'workflowRecords' => $orders->whereIn('store_branch_id', auth()->user()->store_branches()->pluck('store_branches.id'))->map(fn ($order) => $order->only(['id', 'store_branch_id', 'supplier_id', 'order_status']))->values(),
             'batch_number' => $batchNumber,
             'variant' => $variant,
             'date_from' => $dateFrom,

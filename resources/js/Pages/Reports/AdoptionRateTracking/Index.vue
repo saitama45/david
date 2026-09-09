@@ -1,4 +1,5 @@
 <script setup>
+import WorkflowTask from "@/components/WorkflowTask.vue";
 import { computed, ref, watch } from "vue";
 import { router } from "@inertiajs/vue3";
 import { throttle } from "lodash";
@@ -16,6 +17,7 @@ import {
 } from "lucide-vue-next";
 
 const props = defineProps({
+    workflowMetrics: { type: Object, default: () => ({}) },
     rows: { type: Object, required: true },
     totals: { type: Object, required: true },
     filters: { type: Object, required: true },
@@ -186,6 +188,13 @@ const statusClass = (status) => {
 
 <template>
     <Layout heading="Adoption Rate Tracking" :hasExcelDownload="true" :exportRoute="exportRoute">
+        <section v-if="renderedTab !== 'overall_adoption_rate'" class="mb-4 rounded-lg border border-blue-200 bg-blue-50 p-4 text-sm">
+            <p class="font-semibold">Completion: {{ formatRate(workflowMetrics.completion_rate) }} · On time: {{ formatRate(workflowMetrics.on_time_rate) }} · Outstanding: {{ workflowMetrics.outstanding }}</p>
+            <p class="mt-1">{{ workflowMetrics.scope }}</p>
+            <p v-if="workflowMetrics.limitation" class="mt-2 text-amber-900">{{ workflowMetrics.limitation }}</p>
+            <Link :href="route('my-actions.index')" class="mt-2 inline-block font-medium text-blue-700 underline">Open My Actions and handoff waiting times →</Link>
+        </section>
+
         <div class="mb-5 overflow-x-auto">
             <div class="inline-flex min-w-full gap-2 border-b border-gray-200">
                 <button
@@ -476,6 +485,9 @@ const statusClass = (status) => {
                                     </Button>
                                 </div>
                                 <span v-else class="text-gray-700">{{ row.remarks || "" }}</span>
+                                <div class="mt-3 space-y-3 border-t pt-2"><WorkflowTask v-for="task in row.next_actions || []" :key="task.id" :task="task" compact />
+                                    <span v-if="!row.next_actions?.length" class="text-xs text-slate-500">No outstanding action identified for this indicator. Late completed work does not need resubmission.</span>
+                                </div>
                             </td>
                         </tr>
                         <tr v-if="!visibleRows.length">
@@ -529,6 +541,9 @@ const statusClass = (status) => {
                                     </Button>
                                 </div>
                                 <span v-else class="text-gray-700">{{ row.remarks || "" }}</span>
+                                <div class="mt-3 space-y-3 border-t pt-2"><WorkflowTask v-for="task in row.next_actions || []" :key="task.id" :task="task" compact />
+                                    <span v-if="!row.next_actions?.length" class="text-xs text-slate-500">No outstanding action identified for this indicator. Late completed work does not need resubmission.</span>
+                                </div>
                             </td>
                         </tr>
                         <tr v-if="!visibleRows.length">
@@ -578,6 +593,9 @@ const statusClass = (status) => {
                                     </Button>
                                 </div>
                                 <span v-else class="text-gray-700">{{ row.remarks || "" }}</span>
+                                <div class="mt-3 space-y-3 border-t pt-2"><WorkflowTask v-for="task in row.next_actions || []" :key="task.id" :task="task" compact />
+                                    <span v-if="!row.next_actions?.length" class="text-xs text-slate-500">No outstanding action identified for this indicator. Late completed work does not need resubmission.</span>
+                                </div>
                             </td>
                         </tr>
                         <tr v-if="!visibleRows.length">
@@ -627,6 +645,9 @@ const statusClass = (status) => {
                                     </Button>
                                 </div>
                                 <span v-else class="text-gray-700">{{ row.remarks || "" }}</span>
+                                <div class="mt-3 space-y-3 border-t pt-2"><WorkflowTask v-for="task in row.next_actions || []" :key="task.id" :task="task" compact />
+                                    <span v-if="!row.next_actions?.length" class="text-xs text-slate-500">No outstanding action identified for this indicator. Late completed work does not need resubmission.</span>
+                                </div>
                             </td>
                         </tr>
                         <tr v-if="!visibleRows.length">
@@ -684,6 +705,9 @@ const statusClass = (status) => {
                                     </Button>
                                 </div>
                                 <span v-else class="text-gray-700">{{ row.remarks || "" }}</span>
+                                <div class="mt-3 space-y-3 border-t pt-2"><WorkflowTask v-for="task in row.next_actions || []" :key="task.id" :task="task" compact />
+                                    <span v-if="!row.next_actions?.length" class="text-xs text-slate-500">No outstanding action identified for this indicator. Late completed work does not need resubmission.</span>
+                                </div>
                             </td>
                         </tr>
                         <tr v-if="!visibleRows.length">

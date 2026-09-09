@@ -31,6 +31,31 @@ class WastageApprovalSettingsService
         return $this->requiredLevels() === 1;
     }
 
+    public function guidanceDefinitions(): array
+    {
+        $oneLevel = $this->isOneLevelMode();
+
+        return [
+            'wastage' => [
+                'rule' => $oneLevel
+                    ? 'Create a wastage record with the actual quantities, reasons and required evidence. Submit it for Level 1 final approval.'
+                    : 'Create a wastage record with the actual quantities, reasons and required evidence. Submit it for Level 1 review, followed by Level 2 final approval.',
+            ],
+            'wastage_1' => [
+                'label' => $oneLevel ? 'Review wastage Level 1 (final approval)' : 'Review wastage Level 1',
+                'rule' => ($oneLevel
+                    ? 'Review quantities and available stock. Level 1 is the final approval under the current Wastage Settings. Approval completes this record and updates inventory.'
+                    : 'Review quantities and available stock. After Level 1 approval, the record goes to Level 2 for final approval.')
+                    .' If stock validation blocks approval, correct the quantity or resolve the stock discrepancy first.',
+            ],
+            'wastage_2' => [
+                'rule' => $oneLevel
+                    ? 'This record reached Level 2 before the approval setup changed. Complete its Level 2 final review. New and pending records now finish at Level 1.'
+                    : 'Review the Level 1 approved quantities and complete Level 2 final approval.',
+            ],
+        ];
+    }
+
     public function hasInFlightLevel2Records(): bool
     {
         return Wastage::where('wastage_status', WastageStatus::APPROVED_LVL1->value)->exists();

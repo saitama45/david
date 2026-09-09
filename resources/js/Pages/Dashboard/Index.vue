@@ -1,4 +1,5 @@
 <script setup>
+import MyActionsSummary from "@/components/dashboard/MyActionsSummary.vue";
 import { ref, onMounted, computed, watch } from 'vue';
 import StatisticOverview from "../../components/dashboard/StatisticOverview.vue";
 import Chart from "primevue/chart";
@@ -1545,6 +1546,7 @@ const registerDoughnutLabelPlugin = () => {
 </script>
 <template>
     <Layout heading="Dashboard">
+        <MyActionsSummary />
         <div class="mb-6 flex flex-wrap gap-2 border-b border-gray-200">
             <button
                 v-if="canViewOverview"

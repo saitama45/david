@@ -23,11 +23,13 @@ any migration, seeder, or test.**
   applies `RefreshDatabase` to everything in `tests/Feature`. That combination **wipes whatever
   database is effectively configured** — so verify the override is intact before running tests.
   `APP_ENV=testing` alone proves nothing.
-- Never delete, reset, migrate, or truncate a database unless explicitly authorized. Restores and
-  drops are for the user to run manually.
-- The Playwright suite: `npm run qa` is read-only; `qa:full` is destructive and gated on
-  `E2E_DESTRUCTIVE=1`, which triggers a backup in `e2e/global-setup.js` and a purge in
-  `e2e/global-teardown.js`.
+- Normal database work is allowed and expected on `daviddb`: reads, inserts, updates, upserts,
+  safe backfills/idempotent seeders, additive schema changes and reviewed forward migrations.
+  Claude should perform those operations directly instead of asking the user. Never execute
+  delete/soft-delete actions, destructive schema changes, resets, drops or truncations there.
+- The Playwright suite may read, create and update marked records on `daviddb`. Physical-delete
+  and purge runs require the isolated test database. Soft-delete must never be executed in any
+  database, including tests; verify it without invoking the action. A backup does not override this.
 
 ## Multi-tenancy
 

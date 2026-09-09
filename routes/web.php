@@ -122,6 +122,8 @@ Route::get('jobs', function () {
 Route::middleware('auth')
     ->group(function () {
 
+        Route::get('/my-actions', \App\Http\Controllers\MyActionsController::class)->name('my-actions.index');
+
         Route::post('/entity/switch', [\App\Http\Controllers\EntityController::class, 'switch'])->name('entity.switch');
 
         Route::controller(\App\Http\Controllers\EntityController::class)->name('entities.')->prefix('entities')->group(function () {

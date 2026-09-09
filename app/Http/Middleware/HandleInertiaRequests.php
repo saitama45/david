@@ -336,6 +336,14 @@ class HandleInertiaRequests extends Middleware
                     : [],
                 'activeEntity' => app(\App\Support\EntityContext::class)->id(),
             ],
+            'workflowGuidance' => function () use ($request, $user) {
+                if (!$user || !$request->routeIs('mass-orders.*', 'dts-mass-orders.*', 'mass-orders-approval.*', 'cs-mass-commits.*', 'cs-dts-mass-commits.*', 'orders-receiving.*', 'receiving-approvals.*', 'store-transactions.*', 'wastage.*', 'wastage-approval-lvl1.*', 'wastage-approval-lvl2.*', 'month-end-count.*', 'month-end-count-approvals.*', 'month-end-count-approvals-level2.*', 'interco.*', 'interco-approval.*', 'interco-receiving.*', 'store-commits.*')) return null;
+                return [
+                    'catalog' => app(\App\Http\Services\WorkflowGuidanceService::class)->catalog($user),
+                    'branches' => $user->store_branches()->get(['store_branches.id', 'name']),
+                    'suppliers' => $user->suppliers()->get(['suppliers.id', 'name', 'suppliers.supplier_code']),
+                ];
+            },
             'notifications' => $notifications,
             'flash' => [
                 'message' => $request->session()->get('message'),

@@ -344,6 +344,9 @@ watchEffect(() => {
     <nav
         class="flex flex-col items-start pl-4 text-sm font-medium transition-all duration-300 overflow-hidden w-64"
     >
+        <div class="w-full" style="order: -1">
+            <NavLink :href="route('my-actions.index')" :icon="ClipboardCheck" :is-active="isPathActive('/my-actions')">My Actions</NavLink>
+        </div>
         <!-- Dashboard Link -->
         <div :style="{ order: getMenuOrder('dashboard') }" class="w-full">
             <NavLink v-if="isMenuActive('dashboard')" href="/dashboard" :icon="Home" :is-active="isPathActive('/dashboard')">

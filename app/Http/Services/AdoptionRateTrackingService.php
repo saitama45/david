@@ -20,6 +20,58 @@ use Illuminate\Support\Collection;
 
 class AdoptionRateTrackingService
 {
+    private array $guidanceCutoffs = [];
+
+    public function pendingCommitKeys(Collection $orders): array
+    {
+        (new EloquentCollection($orders->all()))->loadMissing('store_order_items.sapMasterfile');
+        $map = $this->categoryMapForOrders($orders, true);
+        $fallback = $map->values()->keyBy(fn ($item) => strtoupper(trim($item->SupplierCode)) . '|' . strtoupper(trim($item->ItemCode)));
+        $result = [];
+        foreach ($orders as $order) {
+            $template = $this->templateForOrder($order);
+            if ($this->isAutomatedCommitOrder($order, $template)) continue;
+            foreach ($order->store_order_items as $item) {
+                if (!empty($item->committed_date)) continue;
+                $category = $map->get($this->categoryKey($item->item_code, $item->uom, $order->supplier?->supplier_code))?->category;
+                $category = $category ?: $fallback->get(strtoupper(trim((string) $order->supplier?->supplier_code)) . '|' . strtoupper(trim($item->item_code)))?->category;
+                $category = $category ?: $item->sapMasterfile?->Category;
+                $type = $this->categoryType($category);
+                if ($type === 'fg' && $this->displayTemplate($template) !== 'PUL-O') $result[$order->id][] = 'fg_commit';
+                if ($type !== 'fg') $result[$order->id][] = 'other_commit';
+            }
+        }
+        return array_map(fn ($keys) => array_values(array_unique($keys)), $result);
+    }
+
+    private function guidanceOrderingDeadline(string $template, Carbon $deliveryDate): ?string
+    {
+        $key = $template . ':' . $deliveryDate->toDateString();
+        if (array_key_exists($key, $this->guidanceCutoffs)) return $this->guidanceCutoffs[$key];
+        $cutoff = OrdersCutoff::where('ordering_template', $template)->first();
+        $deadlines = collect();
+        if ($cutoff) {
+            for ($week = 0; $week < 5; $week++) {
+                $base = $deliveryDate->copy()->subWeeks($week);
+                foreach ([1, 2] as $number) {
+                    $candidate = $this->cutoffDate($base, $cutoff->{'cutoff_' . $number . '_day'}, $cutoff->{'cutoff_' . $number . '_time'});
+                    if ($candidate && in_array($deliveryDate->toDateString(), $this->availableDatesAt($cutoff, $template, $candidate->copy()->subSecond()), true)) $deadlines->push($candidate);
+                }
+            }
+        }
+        return $this->guidanceCutoffs[$key] = $deadlines->sort()->last()?->format('Y-m-d H:i:s');
+    }
+
+    private function guidanceSalesDeadline(Carbon $salesDate): string
+    {
+        $deadline = $salesDate->copy();
+        if ($deadline->isWeekend()) {
+            while ($deadline->isWeekend()) $deadline->addDay();
+        } else {
+            do { $deadline->addDay(); } while ($deadline->isWeekend());
+        }
+        return $deadline->endOfDay()->format('Y-m-d H:i:s');
+    }
     public const TAB_ORDERING_TIMELINESS = 'ordering_timeliness';
     public const TAB_COMMIT_ORDER_TIMELINESS = 'commit_order_timeliness';
     public const TAB_DELIVERY_LOGGING_TIMELINESS = 'delivery_logging_timeliness';
@@ -102,6 +154,7 @@ class AdoptionRateTrackingService
             : null;
 
         return [
+            'workflow_metrics' => app(WorkflowGuidanceService::class)->reportMetrics(self::TAB_ORDERING_TIMELINESS, $rows),
             'rows' => $paginate ? $this->paginateRows($rows, (int) ($filters['per_page'] ?? 50)) : $rows->values(),
             'totals' => $totals,
             'filters' => $this->responseFilters($dateFrom, $dateTo, $storeIds, $templates, $filters, self::TAB_ORDERING_TIMELINESS),
@@ -141,6 +194,7 @@ class AdoptionRateTrackingService
         ];
 
         return [
+            'workflow_metrics' => app(WorkflowGuidanceService::class)->reportMetrics(self::TAB_COMMIT_ORDER_TIMELINESS, $rows),
             'rows' => $paginate ? $this->paginateRows($rows, (int) ($filters['per_page'] ?? 50)) : $rows->values(),
             'totals' => $totals,
             'filters' => $this->responseFilters($dateFrom, $dateTo, $storeIds, $templates, $filters, self::TAB_COMMIT_ORDER_TIMELINESS),
@@ -168,6 +222,7 @@ class AdoptionRateTrackingService
         $totals['adoption_rate'] = $this->deliveryLoggingAdoptionRate($rows);
 
         return [
+            'workflow_metrics' => app(WorkflowGuidanceService::class)->reportMetrics(self::TAB_DELIVERY_LOGGING_TIMELINESS, $rows),
             'rows' => $paginate ? $this->paginateRows($rows, (int) ($filters['per_page'] ?? 50)) : $rows->values(),
             'totals' => $totals,
             'filters' => $this->responseFilters($dateFrom, $dateTo, $storeIds, $templates, $filters, self::TAB_DELIVERY_LOGGING_TIMELINESS),
@@ -205,6 +260,7 @@ class AdoptionRateTrackingService
             : null;
 
         return [
+            'workflow_metrics' => app(WorkflowGuidanceService::class)->reportMetrics(self::TAB_SALES_UPLOAD_TIMELINESS, $rows),
             'rows' => $paginate ? $this->paginateRows($rows, (int) ($filters['per_page'] ?? 50)) : $rows->values(),
             'totals' => $totals,
             'filters' => $this->responseFilters($dateFrom, $dateTo, $storeIds, [], $filters, self::TAB_SALES_UPLOAD_TIMELINESS),
@@ -237,6 +293,7 @@ class AdoptionRateTrackingService
             : null;
 
         return [
+            'workflow_metrics' => app(WorkflowGuidanceService::class)->reportMetrics(self::TAB_WASTAGE_UPLOAD_TIMELINESS, $rows),
             'rows' => $paginate ? $this->paginateRows($rows, (int) ($filters['per_page'] ?? 50)) : $rows->values(),
             'totals' => $totals,
             'filters' => $this->responseFilters($dateFrom, $dateTo, $storeIds, [], $filters, self::TAB_WASTAGE_UPLOAD_TIMELINESS),
@@ -658,6 +715,7 @@ class AdoptionRateTrackingService
                 'delivery_receipts',
                 'store_order_items.ordered_item_receive_dates' => fn ($query) => $query->where('status', 'approved'),
             ])
+            ->withCount(['ordered_item_receive_dates as pending_receipt' => fn ($q) => $q->where('status', 'pending')])
             ->whereIn('store_branch_id', $storeIds)
             ->whereBetween('order_date', [$dateFrom->toDateString(), $dateTo->toDateString()])
             ->whereHas('store_order_items')
@@ -737,6 +795,8 @@ class AdoptionRateTrackingService
 
     private function buildRows(EloquentCollection $schedules, Collection $orders, Collection $remarks, Carbon $dateFrom, Carbon $dateTo): Collection
     {
+        $guidanceSuppliers = Supplier::pluck('id', 'supplier_code');
+
         $rows = collect();
         $dates = collect();
 
@@ -782,6 +842,9 @@ class AdoptionRateTrackingService
                     'store_branch_id' => (int) $schedule->store_branch_id,
                     'david_delivery_date' => $date->toDateString(),
                     'david_delivery_date_display' => $date->format('M j, Y'),
+                    'supplier_id' => $guidanceSuppliers->get(in_array($template, ['FRUITS AND VEGETABLES', 'ICE CREAM', 'SALMON']) ? 'DROPS' : $template),
+                    'order_exists' => $hasOrder,
+                    'action_deadline' => $this->guidanceOrderingDeadline($template, $date),
                     'plotted' => $plotted,
                     'plotted_num' => $plotted === 'Yes' ? 1 : 0,
                     'remarks' => $remark?->remarks,
@@ -801,6 +864,7 @@ class AdoptionRateTrackingService
     private function buildCommitRows(Collection $orders, Collection $remarks): Collection
     {
         $categoryMap = $this->categoryMapForOrders($orders->flatten(1));
+        $pendingKeys = $this->pendingCommitKeys($orders->flatten(1));
         $rows = collect();
 
         foreach ($orders as $key => $matchingOrders) {
@@ -822,15 +886,20 @@ class AdoptionRateTrackingService
 
             $rows->push([
                 'row_key' => $key,
+                'pending_commit_keys' => $matchingOrders->flatMap(fn ($order) => $pendingKeys[$order->id] ?? [])->unique()->values()->all(),
+                'order_id' => $firstOrder->id,
+                'order_status' => $firstOrder->order_status,
                 'week_no' => (int) $deliveryDate->isoWeek(),
                 'date_range' => $this->formatDateRange($deliveryDate),
                 'store' => $this->displayStore($firstOrder->store_branch),
                 'store_branch_id' => (int) $firstOrder->store_branch_id,
+                'supplier_id' => $firstOrder->supplier_id,
                 'supplier_code' => $this->displayTemplate($template),
                 'ordering_template' => $template,
                 'delivery_date' => $deliveryDate->toDateString(),
                 'delivery_date_display' => $deliveryDate->format('M j, Y'),
                 'fg_commit_date_display' => $isPulO ? 'NA' : ($fgCommitDate ? $fgCommitDate->format('M j, Y') : 'No Commit'),
+                'action_deadline' => $deliveryDate->copy()->subDay()->endOfDay()->format('Y-m-d H:i:s'),
                 'fg_on_time' => $fgStatus,
                 'fg_on_time_num' => $fgStatus === 'NA' ? null : ($fgStatus === 'Yes' ? 1 : 0),
                 'traded_commit_date_display' => $tradedCommitDate ? $tradedCommitDate->format('M j, Y') : 'No Commit',
@@ -868,6 +937,10 @@ class AdoptionRateTrackingService
 
             $rows->push([
                 'row_key' => $key,
+                'order_id' => $firstOrder->id,
+                'order_status' => $firstOrder->order_status,
+                'pending_receipt' => $matchingOrders->contains(fn ($order) => $order->pending_receipt > 0),
+                'supplier_id' => $firstOrder->supplier_id,
                 'week_no' => (int) $deliveryDate->isoWeek(),
                 'date_range' => $this->formatDateRange($deliveryDate),
                 'supplier_code' => $this->displayTemplate($template),
@@ -878,6 +951,7 @@ class AdoptionRateTrackingService
                 'so_po_number' => $this->joinReceiptValues($matchingOrders, 'sap_so_number'),
                 'sap_dr_date' => $deliveryDate->toDateString(),
                 'sap_dr_date_display' => $deliveryDate->format('M j, Y'),
+                'action_deadline' => $deliveryDate->copy()->endOfDay()->format('Y-m-d H:i:s'),
                 'david_logging_date' => $loggingDate?->toDateString(),
                 'david_logging_date_display' => $loggingDate ? $loggingDate->format('M j, Y') : '',
                 'on_time' => $onTime,
@@ -932,6 +1006,7 @@ class AdoptionRateTrackingService
                     'date_of_sales' => $salesDate->toDateString(),
                     'date_of_sales_display' => $salesDate->format('M j, Y'),
                     'actual_sales_upload_date' => $uploadDate?->toDateString(),
+                    'action_deadline' => $this->guidanceSalesDeadline($salesDate),
                     'actual_sales_upload_date_display' => $uploadDate ? $uploadDate->format('M j, Y') : '',
                     'networkdays' => $networkDays,
                     'day_of_sales' => $salesDate->format('D'),
@@ -974,6 +1049,7 @@ class AdoptionRateTrackingService
                 'wastage_id' => (int) $wastage->id,
                 'wastage_no' => $wastage->wastage_no,
                 'status' => $wastage->status_label,
+                'workflow_status' => $wastage->wastage_status?->value,
                 'date_of_wastage' => $wastageDay->toDateString(),
                 'date_of_wastage_display' => $wastageDate->format('M j, Y'),
                 'date_of_wastage_upload' => $uploadDay->toDateString(),
@@ -1186,7 +1262,7 @@ class AdoptionRateTrackingService
         return $values->isEmpty() ? 'N/A' : $values->implode(', ');
     }
 
-    private function categoryMapForOrders(Collection $orders): Collection
+    private function categoryMapForOrders(Collection $orders, bool $includeOtherUoms = false): Collection
     {
         $keys = $orders
             ->flatMap(fn (StoreOrder $order) => $order->store_order_items->map(fn ($item) => [
@@ -1207,7 +1283,7 @@ class AdoptionRateTrackingService
         return SupplierItems::query()
             ->whereIn('ItemCode', $keys->pluck('item_code')->unique()->values()->all())
             ->whereIn('SupplierCode', $keys->pluck('supplier_code')->unique()->values()->all())
-            ->when(!empty($uoms), fn ($query) => $query->whereIn('uom', $uoms))
+            ->when(!$includeOtherUoms && !empty($uoms), fn ($query) => $query->whereIn('uom', $uoms))
             ->get(['ItemCode', 'uom', 'SupplierCode', 'category'])
             ->keyBy(fn (SupplierItems $item) => $this->categoryKey($item->ItemCode, $item->uom, $item->SupplierCode));
     }
