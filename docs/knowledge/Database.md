@@ -97,6 +97,13 @@ Multi-column distinct counts do not translate — wrap a subquery:
 
 ## Eloquent gotchas
 
+- **Eager loading an unbounded set fails outright on SQL Server.** Eloquent emits one
+  `where <fk> in (...)` listing every parent key, and SQL Server refuses the statement past its
+  expression limit (`SQLSTATE[42000] ... An expression services limit has been reached`) — string
+  keys hit the 2,100-parameter cap sooner. A whole-range, all-stores report pull reaches tens of
+  thousands of `store_order_items`, so `AdoptionRateTrackingService` loads those relations in
+  batches (`chunkedLoad()` / `EAGER_LOAD_CHUNK`) instead of one statement. Any new report that
+  eager-loads across a full date range needs the same treatment.
 - **Never chain `->with()` onto a `selectRaw` + `groupBy` query.** Without the primary key in the
   select, Eloquent cannot match relations and silently returns null. Load related models separately
   and key them in PHP.

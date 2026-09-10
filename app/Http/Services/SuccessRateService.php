@@ -36,38 +36,34 @@ class SuccessRateService
     /**
      * Ticket module -> the Adoption Rate dataset that measures the same activity.
      *
-     * Each entry names the service method that produces the rows, the row's date
-     * field (used to bucket into weeks) and the status fields whose Yes/No values
-     * form that indicator's adoption denominator. A week's transaction count is
-     * the number of rows in that denominator, so Success Rate and Adoption Rate
-     * are measured over exactly the same population.
+     * Keys match AdoptionRateTrackingService::getIndicatorDatasets(). Each entry
+     * names the row's date field (used to bucket into weeks) and the status
+     * fields whose Yes/No values form that indicator's adoption denominator. A
+     * week's transaction count is the number of rows in that denominator, so
+     * Success Rate and Adoption Rate are measured over exactly the same
+     * population.
      *
      * MEC is deliberately absent: it has no Adoption Rate indicator, matching the
      * workbook, whose MEC transactions column is empty for all 18 weeks.
      */
     private const TRANSACTION_SOURCES = [
         'order' => [
-            'method' => 'getOrderingTimelinessData',
             'date' => 'david_delivery_date',
             'status' => ['plotted'],
         ],
         'commit' => [
-            'method' => 'getCommitOrderTimelinessData',
             'date' => 'delivery_date',
             'status' => ['fg_on_time', 'traded_on_time'],
         ],
         'receiving' => [
-            'method' => 'getDeliveryLoggingTimelinessData',
             'date' => 'sap_dr_date',
             'status' => ['on_time'],
         ],
         'sales_upload' => [
-            'method' => 'getSalesUploadTimelinessData',
             'date' => 'date_of_sales',
             'status' => ['sales_report_uploaded_on_time'],
         ],
         'wastage' => [
-            'method' => 'getWastageUploadTimelinessData',
             'date' => 'date_of_wastage',
             'status' => ['wastage_report_uploaded'],
         ],
@@ -227,20 +223,22 @@ class SuccessRateService
      */
     private function computeTransactionsByWeekStart(array $filters, User $user): array
     {
+        try {
+            // Memoised in AdoptionRateTrackingService, so this shares one pass
+            // with the adoption rate instead of building all five datasets twice.
+            $datasets = $this->adoptionRateService->getIndicatorDatasets($filters, $user);
+        } catch (\Throwable $e) {
+            // An unavailable dataset must not blank out the whole tab; the weeks
+            // simply carry no transactions for the range.
+            report($e);
+
+            return [];
+        }
+
         $result = [];
 
         foreach (self::TRANSACTION_SOURCES as $module => $source) {
-            try {
-                $rows = $this->adoptionRateService->{$source['method']}($filters, $user, false)['rows'];
-            } catch (\Throwable $e) {
-                // One unavailable dataset must not blank out the whole tab; the
-                // module simply contributes no transactions for the range.
-                report($e);
-
-                continue;
-            }
-
-            foreach ($rows as $row) {
+            foreach ($datasets[$module]['rows'] ?? [] as $row) {
                 if (! $this->countsAsTransaction($row, $source['status'])) {
                     continue;
                 }

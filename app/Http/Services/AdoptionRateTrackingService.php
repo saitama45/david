@@ -20,11 +20,60 @@ use Illuminate\Support\Collection;
 
 class AdoptionRateTrackingService
 {
+    /**
+     * How many parents one eager-load statement may cover.
+     *
+     * Eloquent eager-loads a relation with a single `where in (...)` over every
+     * parent key, and SQL Server caps how many expressions one statement may
+     * carry. A whole-range, all-stores report pull reaches tens of thousands of
+     * order items, which fails the query outright with "An expression services
+     * limit has been reached", so relations on those pulls are loaded in
+     * bounded batches instead. Kept under the 2,100 bound parameters SQL Server
+     * accepts for a statement, which is the tighter of the two ceilings and the
+     * one that applies to string keys.
+     */
+    private const EAGER_LOAD_CHUNK = 1000;
+
+    /**
+     * The only store_order_items columns these reports read.
+     *
+     * Naming them keeps the wide ones - uom_change_history, remarks, the cost
+     * and quantity columns - off the wire. At roughly 63 items per order this
+     * pull is the largest single transfer behind the Adoption and Success Rate
+     * tabs. `id`, `store_order_id` and `entity_id` are structural: the relation
+     * and the entity scope need them.
+     */
+    private const ORDER_ITEM_COLUMNS = [
+        'id',
+        'store_order_id',
+        'entity_id',
+        'item_code',
+        'uom',
+        'committed_date',
+        'sap_masterfile_id',
+    ];
+
     private array $guidanceCutoffs = [];
+
+    /**
+     * The ordering cutoffs, memoised by template. There are only a handful of
+     * rows but they are consulted once per order and once per guidance
+     * deadline, which over a full report range is hundreds of identical
+     * round-trips - by far the largest cost in building the ordering dataset.
+     */
+    private array $orderingCutoffs = [];
+
+    /** Per-request memo of the five indicator datasets, keyed by range + stores. */
+    private array $indicatorDatasets = [];
 
     public function pendingCommitKeys(Collection $orders): array
     {
-        (new EloquentCollection($orders->all()))->loadMissing('store_order_items.sapMasterfile');
+        $this->chunkedLoad($orders, ['store_order_items'], true);
+        $this->chunkedLoad(
+            $orders->flatMap(fn (StoreOrder $order) => $order->store_order_items->all()),
+            ['sapMasterfile'],
+            true
+        );
         $map = $this->categoryMapForOrders($orders, true);
         $fallback = $map->values()->keyBy(fn ($item) => strtoupper(trim($item->SupplierCode)) . '|' . strtoupper(trim($item->ItemCode)));
         $result = [];
@@ -48,7 +97,7 @@ class AdoptionRateTrackingService
     {
         $key = $template . ':' . $deliveryDate->toDateString();
         if (array_key_exists($key, $this->guidanceCutoffs)) return $this->guidanceCutoffs[$key];
-        $cutoff = OrdersCutoff::where('ordering_template', $template)->first();
+        $cutoff = $this->cutoffForTemplate($template);
         $deadlines = collect();
         if ($cutoff) {
             for ($week = 0; $week < 5; $week++) {
@@ -300,15 +349,51 @@ class AdoptionRateTrackingService
         ];
     }
 
-    public function getOverallAdoptionRateData(array $filters, User $user, bool $paginate = true): array
+    /**
+     * The five indicator datasets the Overall tab is built from, unpaginated and
+     * unfiltered by template or search.
+     *
+     * Memoised for the lifetime of this instance because building them fans out
+     * across every order, sales upload and wastage row in the range - the most
+     * expensive work in this service. The Success Rate tab reads the same five
+     * datasets for its transaction volume, so without this a single request
+     * would build all of them twice and run long enough to be killed.
+     *
+     * @return array<string, array> keyed by indicator: order, commit, receiving,
+     *                              sales_upload, wastage
+     */
+    public function getIndicatorDatasets(array $filters, User $user): array
     {
         [$dateFrom, $dateTo] = $this->resolveDateRange($filters);
         $storeIds = $this->resolveStoreIds($filters, $user);
+
+        // Only the range and the stores change what these datasets contain;
+        // pagination, tab and search never reach them.
+        $key = md5(json_encode([$dateFrom->toDateString(), $dateTo->toDateString(), $storeIds]));
+
+        if (isset($this->indicatorDatasets[$key])) {
+            return $this->indicatorDatasets[$key];
+        }
+
         $baseFilters = array_merge($filters, [
             'store_ids' => $storeIds,
             'ordering_templates' => [],
             'search' => null,
         ]);
+
+        return $this->indicatorDatasets[$key] = [
+            'order' => $this->getOrderingTimelinessData($baseFilters, $user, false),
+            'commit' => $this->getCommitOrderTimelinessData($baseFilters, $user, false),
+            'receiving' => $this->getDeliveryLoggingTimelinessData($baseFilters, $user, false),
+            'sales_upload' => $this->getSalesUploadTimelinessData($baseFilters, $user, false),
+            'wastage' => $this->getWastageUploadTimelinessData($baseFilters, $user, false),
+        ];
+    }
+
+    public function getOverallAdoptionRateData(array $filters, User $user, bool $paginate = true): array
+    {
+        [$dateFrom, $dateTo] = $this->resolveDateRange($filters);
+        $storeIds = $this->resolveStoreIds($filters, $user);
 
         $weeks = $this->buildWeekBuckets($dateFrom, $dateTo);
         $stores = StoreBranch::whereIn('id', $storeIds)
@@ -316,11 +401,13 @@ class AdoptionRateTrackingService
             ->orderBy('name')
             ->get();
 
-        $orderingData = $this->getOrderingTimelinessData($baseFilters, $user, false);
-        $commitData = $this->getCommitOrderTimelinessData($baseFilters, $user, false);
-        $deliveryData = $this->getDeliveryLoggingTimelinessData($baseFilters, $user, false);
-        $salesData = $this->getSalesUploadTimelinessData($baseFilters, $user, false);
-        $wastageData = $this->getWastageUploadTimelinessData($baseFilters, $user, false);
+        $datasets = $this->getIndicatorDatasets($filters, $user);
+
+        $orderingData = $datasets['order'];
+        $commitData = $datasets['commit'];
+        $deliveryData = $datasets['receiving'];
+        $salesData = $datasets['sales_upload'];
+        $wastageData = $datasets['wastage'];
 
         $orderingRows = $orderingData['rows'];
         $commitRows = $commitData['rows'];
@@ -676,7 +763,7 @@ class AdoptionRateTrackingService
     {
         $supplierCodes = $this->supplierCodesForTemplates($templates);
 
-        return StoreOrder::with(['supplier', 'store_order_items'])
+        $orders = StoreOrder::with(['supplier'])
             ->whereIn('store_branch_id', $storeIds)
             ->whereBetween('order_date', [$dateFrom->toDateString(), $dateTo->toDateString()])
             ->whereHas('store_order_items')
@@ -696,8 +783,13 @@ class AdoptionRateTrackingService
                         });
                 }
             })
-            ->get()
-            ->groupBy(fn (StoreOrder $order) => $this->orderRowKey($order));
+            ->get();
+
+        $this->chunkedLoad($orders, [
+            'store_order_items' => fn ($query) => $query->select(self::ORDER_ITEM_COLUMNS),
+        ]);
+
+        return $orders->groupBy(fn (StoreOrder $order) => $this->orderRowKey($order));
     }
 
     private function getCommitOrders(Carbon $dateFrom, Carbon $dateTo, array $storeIds, array $templates): Collection
@@ -709,12 +801,7 @@ class AdoptionRateTrackingService
     {
         $supplierCodes = $this->supplierCodesForTemplates($templates);
 
-        return StoreOrder::with([
-                'supplier',
-                'store_branch',
-                'delivery_receipts',
-                'store_order_items.ordered_item_receive_dates' => fn ($query) => $query->where('status', 'approved'),
-            ])
+        $orders = StoreOrder::with(['supplier', 'store_branch', 'delivery_receipts'])
             ->withCount(['ordered_item_receive_dates as pending_receipt' => fn ($q) => $q->where('status', 'pending')])
             ->whereIn('store_branch_id', $storeIds)
             ->whereBetween('order_date', [$dateFrom->toDateString(), $dateTo->toDateString()])
@@ -735,8 +822,33 @@ class AdoptionRateTrackingService
                         });
                 }
             })
-            ->get()
-            ->groupBy(fn (StoreOrder $order) => $this->orderRowKey($order));
+            ->get();
+
+        $this->chunkedLoad($orders, [
+            'store_order_items' => fn ($query) => $query->select(self::ORDER_ITEM_COLUMNS),
+        ]);
+
+        $this->chunkedLoad(
+            $orders->flatMap(fn (StoreOrder $order) => $order->store_order_items->all()),
+            ['ordered_item_receive_dates' => fn ($query) => $query->where('status', 'approved')]
+        );
+
+        return $orders->groupBy(fn (StoreOrder $order) => $this->orderRowKey($order));
+    }
+
+    /**
+     * Eager-load relations onto an already fetched set in batches small enough
+     * that no single statement trips SQL Server's expression limit. The models
+     * are the same instances the caller holds, so the relations land where the
+     * report builders expect them.
+     */
+    private function chunkedLoad(Collection $models, array $relations, bool $missingOnly = false): void
+    {
+        $models->chunk(self::EAGER_LOAD_CHUNK)->each(function (Collection $chunk) use ($relations, $missingOnly) {
+            $chunk = new EloquentCollection($chunk->all());
+
+            $missingOnly ? $chunk->loadMissing($relations) : $chunk->load($relations);
+        });
     }
 
     private function getSalesUploads(Carbon $dateFrom, Carbon $dateTo, array $storeIds): Collection
@@ -1465,7 +1577,7 @@ class AdoptionRateTrackingService
 
     private function isOrderOnTime(StoreOrder $order, string $template, Carbon $deliveryDate): bool
     {
-        $cutoff = OrdersCutoff::where('ordering_template', $template)->first();
+        $cutoff = $this->cutoffForTemplate($template);
 
         if (!$cutoff) {
             return true;
@@ -1475,6 +1587,15 @@ class AdoptionRateTrackingService
         $availableDates = $this->availableDatesAt($cutoff, $template, $plottedAt);
 
         return in_array($deliveryDate->toDateString(), $availableDates, true);
+    }
+
+    private function cutoffForTemplate(string $template): ?OrdersCutoff
+    {
+        if (!array_key_exists($template, $this->orderingCutoffs)) {
+            $this->orderingCutoffs[$template] = OrdersCutoff::where('ordering_template', $template)->first();
+        }
+
+        return $this->orderingCutoffs[$template];
     }
 
     private function availableDatesAt(OrdersCutoff $cutoff, string $template, Carbon $now): array
