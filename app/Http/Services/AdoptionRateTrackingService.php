@@ -7,16 +7,19 @@ use App\Models\DTSDeliverySchedule;
 use App\Models\OrdersCutoff;
 use App\Models\StoreBranch;
 use App\Models\StoreOrder;
+use App\Models\StoreOrderItem;
 use App\Models\StoreTransaction;
 use App\Models\Supplier;
 use App\Models\SupplierItems;
 use App\Models\User;
 use App\Models\Wastage;
+use App\Support\EntityContext;
 use Carbon\Carbon;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Collection as EloquentCollection;
 use Illuminate\Pagination\LengthAwarePaginator as Paginator;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\DB;
 
 class AdoptionRateTrackingService
 {
@@ -68,29 +71,90 @@ class AdoptionRateTrackingService
 
     public function pendingCommitKeys(Collection $orders): array
     {
-        $this->chunkedLoad($orders, ['store_order_items'], true);
-        $this->chunkedLoad(
-            $orders->flatMap(fn (StoreOrder $order) => $order->store_order_items->all()),
-            ['sapMasterfile'],
-            true
-        );
+        $this->chunkedLoad($orders, [
+            'store_order_items' => fn ($query) => $query->select(self::ORDER_ITEM_COLUMNS),
+        ], true);
         $map = $this->categoryMapForOrders($orders, true);
         $fallback = $map->values()->keyBy(fn ($item) => strtoupper(trim($item->SupplierCode)) . '|' . strtoupper(trim($item->ItemCode)));
+        // Load the SAP masterfile only for the lines that actually consult it.
+        // Only uncommitted lines the supplier-item maps cannot categorise reach
+        // that fallback, so eager-loading a masterfile per order line - the
+        // whole pull, committed lines included - spends most of the request's
+        // memory on models nothing reads.
+        $sapCategories = $this->sapCategoriesForItems($this->itemsNeedingSapCategory($orders, $map, $fallback));
         $result = [];
         foreach ($orders as $order) {
             $template = $this->templateForOrder($order);
             if ($this->isAutomatedCommitOrder($order, $template)) continue;
             foreach ($order->store_order_items as $item) {
                 if (!empty($item->committed_date)) continue;
-                $category = $map->get($this->categoryKey($item->item_code, $item->uom, $order->supplier?->supplier_code))?->category;
-                $category = $category ?: $fallback->get(strtoupper(trim((string) $order->supplier?->supplier_code)) . '|' . strtoupper(trim($item->item_code)))?->category;
-                $category = $category ?: $item->sapMasterfile?->Category;
+                $category = $this->supplierItemCategory($map, $fallback, $order, $item);
+                $category = $category ?: ($sapCategories[(int) $item->id] ?? null);
                 $type = $this->categoryType($category);
                 if ($type === 'fg' && $this->displayTemplate($template) !== 'PUL-O') $result[$order->id][] = 'fg_commit';
                 if ($type !== 'fg') $result[$order->id][] = 'other_commit';
             }
         }
         return array_map(fn ($keys) => array_values(array_unique($keys)), $result);
+    }
+
+    /**
+     * An order line's category from the supplier-item maps, before the SAP
+     * masterfile fallback. An empty result means the maps could not place it.
+     */
+    private function supplierItemCategory(Collection $map, Collection $fallback, StoreOrder $order, $item): ?string
+    {
+        $supplierCode = $order->supplier?->supplier_code;
+        $category = $map->get($this->categoryKey($item->item_code, $item->uom, $supplierCode))?->category;
+
+        return $category ?: $fallback->get(strtoupper(trim((string) $supplierCode)) . '|' . strtoupper(trim((string) $item->item_code)))?->category;
+    }
+
+    /**
+     * SAP masterfile category per order line, for the lines that need it.
+     *
+     * Resolving it goes through the model's accessor, which picks between
+     * duplicate masterfile rows, so these lines are hydrated as models. That is
+     * affordable precisely because the set is small - the whole point of
+     * `itemsNeedingSapCategory()` is that most lines never reach this fallback.
+     *
+     * @return array<int, string|null> store_order_item_id => category
+     */
+    private function sapCategoriesForItems(Collection $items): array
+    {
+        $categories = [];
+
+        $items->pluck('id')
+            ->chunk(self::EAGER_LOAD_CHUNK)
+            ->each(function (Collection $chunk) use (&$categories) {
+                $models = StoreOrderItem::whereIn('id', $chunk->all())->get();
+                $this->chunkedLoad($models, ['sapMasterfile'], true);
+
+                $models->each(function (StoreOrderItem $item) use (&$categories) {
+                    $categories[(int) $item->id] = $item->sapMasterfile?->Category;
+                });
+            });
+
+        return $categories;
+    }
+
+    /** The uncommitted lines the supplier-item maps could not categorise. */
+    private function itemsNeedingSapCategory(Collection $orders, Collection $map, Collection $fallback): Collection
+    {
+        $items = collect();
+
+        foreach ($orders as $order) {
+            if ($this->isAutomatedCommitOrder($order, $this->templateForOrder($order))) continue;
+            foreach ($order->store_order_items as $item) {
+                if (!empty($item->committed_date)) continue;
+                // Falsy, not null: the caller falls back with `?:`, so an empty
+                // category has to count as unplaced here too or the line would
+                // reach an unloaded relation and lazy-load one row at a time.
+                if (!$this->supplierItemCategory($map, $fallback, $order, $item)) $items->push($item);
+            }
+        }
+
+        return $items;
     }
 
     private function guidanceOrderingDeadline(string $template, Carbon $deliveryDate): ?string
@@ -259,7 +323,9 @@ class AdoptionRateTrackingService
         $orders = $this->getDeliveryLoggingOrders($dateFrom, $dateTo, $storeIds, $templates);
         $remarks = $this->getRemarks(self::TAB_DELIVERY_LOGGING_TIMELINESS, $dateFrom, $dateTo, $storeIds, $templates);
 
-        $rows = $this->buildDeliveryLoggingRows($orders, $remarks);
+        $loggingDates = $this->approvedLoggingDatesByOrder($orders);
+
+        $rows = $this->buildDeliveryLoggingRows($orders, $remarks, $loggingDates);
         $rows = $this->filterDeliveryLoggingRows($rows, $filters['search'] ?? null);
 
         $totals = [
@@ -759,7 +825,16 @@ class AdoptionRateTrackingService
             ->all();
     }
 
-    private function getOrders(Carbon $dateFrom, Carbon $dateTo, array $storeIds, array $templates): Collection
+    /**
+     * Orders for the ordering and commit datasets.
+     *
+     * Items are loaded only when asked for: the ordering report reads nothing
+     * off them (it only needs the order to exist, which `whereHas` already
+     * decides), while the commit report needs each line's category and commit
+     * date. Hydrating a model per order line for both is the largest single
+     * allocation on the page and pushes the request past its memory limit.
+     */
+    private function getOrders(Carbon $dateFrom, Carbon $dateTo, array $storeIds, array $templates, bool $withItems = false): Collection
     {
         $supplierCodes = $this->supplierCodesForTemplates($templates);
 
@@ -785,16 +860,51 @@ class AdoptionRateTrackingService
             })
             ->get();
 
-        $this->chunkedLoad($orders, [
-            'store_order_items' => fn ($query) => $query->select(self::ORDER_ITEM_COLUMNS),
-        ]);
+        if ($withItems) {
+            $this->attachOrderItems($orders);
+        }
 
         return $orders->groupBy(fn (StoreOrder $order) => $this->orderRowKey($order));
     }
 
+    /**
+     * Attach each order's lines as plain rows rather than Eloquent models.
+     *
+     * The commit report reads three fields off a line and never writes one, but
+     * a hydrated model carries its attributes twice over plus relation and
+     * casting machinery - roughly 1.5KB against 0.3KB for a plain row. At tens
+     * of thousands of lines that difference is most of the request's memory
+     * limit. `setRelation` keeps `$order->store_order_items` reading the same
+     * way for every consumer.
+     *
+     * Raw query, so `EntityScope` is reapplied by hand - the item model carries
+     * it and dropping it here would read across entities.
+     */
+    private function attachOrderItems(Collection $orders): void
+    {
+        $entity = app(EntityContext::class);
+        $itemsByOrder = [];
+
+        $orders->pluck('id')
+            ->chunk(self::EAGER_LOAD_CHUNK)
+            ->each(function (Collection $chunk) use (&$itemsByOrder, $entity) {
+                DB::table('store_order_items')
+                    ->whereIn('store_order_id', $chunk->all())
+                    ->when($entity->has(), fn ($query) => $query->where('entity_id', $entity->id()))
+                    ->get(self::ORDER_ITEM_COLUMNS)
+                    ->each(function ($item) use (&$itemsByOrder) {
+                        $itemsByOrder[(int) $item->store_order_id][] = $item;
+                    });
+            });
+
+        foreach ($orders as $order) {
+            $order->setRelation('store_order_items', collect($itemsByOrder[(int) $order->id] ?? []));
+        }
+    }
+
     private function getCommitOrders(Carbon $dateFrom, Carbon $dateTo, array $storeIds, array $templates): Collection
     {
-        return $this->getOrders($dateFrom, $dateTo, $storeIds, $templates);
+        return $this->getOrders($dateFrom, $dateTo, $storeIds, $templates, true);
     }
 
     private function getDeliveryLoggingOrders(Carbon $dateFrom, Carbon $dateTo, array $storeIds, array $templates): Collection
@@ -824,16 +934,52 @@ class AdoptionRateTrackingService
             })
             ->get();
 
-        $this->chunkedLoad($orders, [
-            'store_order_items' => fn ($query) => $query->select(self::ORDER_ITEM_COLUMNS),
-        ]);
-
-        $this->chunkedLoad(
-            $orders->flatMap(fn (StoreOrder $order) => $order->store_order_items->all()),
-            ['ordered_item_receive_dates' => fn ($query) => $query->where('status', 'approved')]
-        );
-
         return $orders->groupBy(fn (StoreOrder $order) => $this->orderRowKey($order));
+    }
+
+    /**
+     * The latest approved receive date per order.
+     *
+     * One grouped query per batch of orders, rather than hydrating every order
+     * item and every receive date to reduce them in PHP. The report needs a
+     * single date per order and nothing else off those rows, and the full pull
+     * runs to six figures on a wide range - the allocation that exhausted the
+     * request's memory limit.
+     *
+     * Raw query, so `EntityScope` does not apply itself to either table - it is
+     * reapplied by hand below, because both models carry it and dropping it
+     * here would read across entities.
+     *
+     * @return array<int, string> store_order_id => received_date
+     */
+    private function approvedLoggingDatesByOrder(Collection $orders): array
+    {
+        $entity = app(EntityContext::class);
+        $dates = [];
+
+        $orders->flatten(1)
+            ->pluck('id')
+            ->unique()
+            ->values()
+            ->chunk(self::EAGER_LOAD_CHUNK)
+            ->each(function (Collection $chunk) use (&$dates, $entity) {
+                DB::table('ordered_item_receive_dates as receive_dates')
+                    ->join('store_order_items as items', 'items.id', '=', 'receive_dates.store_order_item_id')
+                    ->where('receive_dates.status', 'approved')
+                    ->whereNotNull('receive_dates.received_date')
+                    ->whereIn('items.store_order_id', $chunk->all())
+                    ->when($entity->has(), fn ($query) => $query
+                        ->where('receive_dates.entity_id', $entity->id())
+                        ->where('items.entity_id', $entity->id()))
+                    ->groupBy('items.store_order_id')
+                    ->selectRaw('items.store_order_id, max(receive_dates.received_date) as received_date')
+                    ->get()
+                    ->each(function ($row) use (&$dates) {
+                        $dates[(int) $row->store_order_id] = $row->received_date;
+                    });
+            });
+
+        return $dates;
     }
 
     /**
@@ -1030,7 +1176,7 @@ class AdoptionRateTrackingService
             ->values();
     }
 
-    private function buildDeliveryLoggingRows(Collection $orders, Collection $remarks): Collection
+    private function buildDeliveryLoggingRows(Collection $orders, Collection $remarks, array $loggingDates): Collection
     {
         $rows = collect();
 
@@ -1043,7 +1189,7 @@ class AdoptionRateTrackingService
 
             $deliveryDate = Carbon::parse($firstOrder->order_date)->startOfDay();
             $template = $this->templateForOrder($firstOrder);
-            $loggingDate = $this->latestApprovedLoggingDate($matchingOrders);
+            $loggingDate = $this->latestApprovedLoggingDate($matchingOrders, $loggingDates);
             $onTime = $this->deliveryLoggingStatus($template, $loggingDate, $deliveryDate);
             $remark = $remarks->get($key);
 
@@ -1350,13 +1496,12 @@ class AdoptionRateTrackingService
         return round($numericRates->avg(), 2);
     }
 
-    private function latestApprovedLoggingDate(Collection $orders): ?Carbon
+    private function latestApprovedLoggingDate(Collection $orders, array $loggingDates): ?Carbon
     {
         return $orders
-            ->flatMap(fn (StoreOrder $order) => $order->store_order_items)
-            ->flatMap(fn ($item) => $item->ordered_item_receive_dates)
-            ->filter(fn ($receiveDate) => !empty($receiveDate->received_date))
-            ->map(fn ($receiveDate) => Carbon::parse($receiveDate->received_date)->startOfDay())
+            ->map(fn (StoreOrder $order) => $loggingDates[(int) $order->id] ?? null)
+            ->filter()
+            ->map(fn ($receivedDate) => Carbon::parse($receivedDate)->startOfDay())
             ->sort()
             ->last();
     }
