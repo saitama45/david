@@ -174,6 +174,10 @@ SQL Server as the target. Rationale and trade-offs: [Decisions.md](docs/knowledg
   Transactions + adoption fallback are cached **together, and separately from the ticket data** —
   sharing one cache entry makes every save re-run the slow Adoption Rate trend and the save looks
   hung.
+- **A new permission is invisible in the role editor until it is listed in
+  `RoleService::getPermissionsGroup()`'s `$permissionStructure`.** Unlisted permissions are silently
+  dropped, not grouped under "Others". Admin still gets them (the seeder syncs all permissions to it),
+  so the gap only shows when another role needs access.
 - **Bump the notification cache key** (`user_notifications_v6_<id>`, 1-min TTL in
   `HandleInertiaRequests`) when changing that payload's shape.
 - **Two enum namespaces**: `App\Enum\` (OrderStatus, UserRole, Days, TimePeriod) and `App\Enums\`

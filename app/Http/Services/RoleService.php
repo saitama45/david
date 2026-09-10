@@ -67,6 +67,10 @@ class RoleService
                 'Adoption Rate' => [
                     'view adoption rate dashboard',
                 ],
+                'Success Rate' => [
+                    'view success rate dashboard',
+                    'manage success rate tickets',
+                ],
             ],
             'Administration' => [
                 'Entities' => [
