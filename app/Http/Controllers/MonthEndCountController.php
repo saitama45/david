@@ -3,6 +3,8 @@
 namespace App\Http\Controllers;
 
 use App\Http\Services\MonthEndCountSettingsService;
+use App\Http\Services\RuleExceptionService;
+use App\Http\Services\RuleExceptions\MecUploadWindowEvaluator;
 use App\Imports\MonthEndCountImport;
 use App\Models\MonthEndCountItem;
 use App\Models\MonthEndCountReopen;
@@ -23,7 +25,10 @@ use Maatwebsite\Excel\Facades\Excel;
 
 class MonthEndCountController extends Controller
 {
-    public function __construct(private MonthEndCountSettingsService $settingsService) {}
+    public function __construct(
+        private MonthEndCountSettingsService $settingsService,
+        private RuleExceptionService $ruleExceptions,
+    ) {}
 
     public function index(Request $request)
     {
@@ -227,7 +232,8 @@ class MonthEndCountController extends Controller
 
         $reopens = $this->activeReopensFor($schedule, $awaiting->keys(), $now);
 
-        return $awaiting->filter(fn ($name, $branchId) => $reopens->has($branchId));
+        return $awaiting->filter(fn ($name, $branchId) => $reopens->has($branchId)
+            || $this->ruleExceptions->usableGrant('mec.upload_window', MecUploadWindowEvaluator::subjectKey((int) $schedule->id, (int) $branchId)));
     }
 
     /**
@@ -279,6 +285,8 @@ class MonthEndCountController extends Controller
             'closes_at' => $closesAt ? $closesAt->format('M j, Y \a\t g:i A') : null,
             'reopened_until' => $reopenedUntil?->format('M j, Y \a\t g:i A'),
             'branches_awaiting' => $blocked->values()->all(),
+            'schedule_id' => (int) $schedule->id,
+            'blocked_branches' => $blocked->map(fn ($name, $id) => ['id' => (int) $id, 'name' => $name])->values()->all(),
         ]);
 
         if ($awaiting->isEmpty()) {
@@ -354,6 +362,11 @@ class MonthEndCountController extends Controller
 
         $schedule = MonthEndSchedule::findOrFail($request->schedule_id);
         $branch = StoreBranch::findOrFail($request->branch_id);
+
+        // Only a user assigned to the branch may upload its count.
+        if (! Auth::user()->store_branches()->where('store_branches.id', $branch->id)->exists()) {
+            abort(403, 'You do not have access to this branch.');
+        }
         Log::info('MonthEndCountController@upload: Schedule and Branch found.', ['schedule_id' => $schedule->id, 'branch_id' => $branch->id]);
 
         // Enforce the configurable upload window (start offset .. cutoff) in Asia/Manila.
@@ -383,14 +396,20 @@ class MonthEndCountController extends Controller
             return back()->withErrors(['error' => 'File can only be uploaded starting '.$uploadStart->format('M j, Y').'.']);
         }
 
-        if (! $reopenedUntil && $uploadCutoff && $now->gt($uploadCutoff)) {
+        // Past the cutoff with no support reopen: an approved one-time business-rule
+        // exception for this schedule + branch lets this single upload through.
+        $exceptionKey = MecUploadWindowEvaluator::subjectKey((int) $schedule->id, (int) $branch->id);
+        $usesException = ! $reopenedUntil && $uploadCutoff && $now->gt($uploadCutoff)
+            && $this->ruleExceptions->usableGrant('mec.upload_window', $exceptionKey) !== null;
+
+        if (! $reopenedUntil && ! $usesException && $uploadCutoff && $now->gt($uploadCutoff)) {
             Log::warning('MonthEndCountController@upload: Upload date is past the cutoff.', [
                 'calculated_date' => $calculatedDate->toDateString(),
                 'upload_cutoff' => $uploadCutoff->toDateTimeString(),
                 'now_manila' => $now->toDateTimeString(),
             ]);
 
-            return back()->withErrors(['error' => 'The upload window for this count closed on '.$uploadCutoff->format('M j, Y g:i A').'.']);
+            return back()->withErrors(['error' => 'The upload window for this count closed on '.$uploadCutoff->format('M j, Y g:i A').'. Request a business-rule exception to upload late.']);
         }
         Log::info('MonthEndCountController@upload: Date validation passed.');
 
@@ -422,7 +441,15 @@ class MonthEndCountController extends Controller
 
         try {
             Log::info('MonthEndCountController@upload: Starting Excel import.', ['branch_id' => $branch->id, 'schedule_id' => $schedule->id]);
-            Excel::import(new MonthEndCountImport($branch->id, $schedule->id), $request->file('file'));
+            // The grant is consumed in the same transaction as the import, so a
+            // failed import leaves the exception unused.
+            DB::transaction(function () use ($branch, $schedule, $request, $usesException, $exceptionKey) {
+                Excel::import(new MonthEndCountImport($branch->id, $schedule->id), $request->file('file'));
+
+                if ($usesException) {
+                    $this->ruleExceptions->consume('mec.upload_window', $exceptionKey, Auth::user(), 'month_end_count', $exceptionKey);
+                }
+            });
             Log::info('MonthEndCountController@upload: Excel import completed.');
 
             // REMOVED: $schedule->status = 'uploaded'; $schedule->save();
@@ -514,7 +541,7 @@ class MonthEndCountController extends Controller
                 $item->save();
             }
             DB::commit();
-            Cache::forget('user_notifications_v5_'.Auth::id());
+            Cache::forget('user_notifications_v7_'.Auth::id());
             $this->clearMonthEndNotificationCachesForBranch($branch->id);
 
             return redirect()->route('month-end-count.index')->with('success', 'Count submitted for Level 1 approval.');
@@ -544,7 +571,7 @@ class MonthEndCountController extends Controller
             ->pluck('id');
 
         foreach ($affectedUserIds as $userId) {
-            Cache::forget('user_notifications_v5_'.$userId);
+            Cache::forget('user_notifications_v7_'.$userId);
         }
     }
 

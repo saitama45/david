@@ -218,6 +218,12 @@ class AdoptionRateTrackingService
     private const ORDER_REQUIRED_TEMPLATES = ['PUL-O', self::FRUITS_AND_VEGETABLES_TEMPLATE];
     private const ORDER_REQUIRED_TEMPLATE_PREFIX = 'GSI';
     private const SALES_UPLOAD_REMARK_TEMPLATE = 'SALES_UPLOAD';
+
+    /**
+     * Status shown for a late item whose business-rule excuse was approved.
+     * Not Yes and not No, so every Yes/No adoption denominator skips it.
+     */
+    public const EXCUSED = 'Excused';
     private const WASTAGE_UPLOAD_REMARK_PREFIX = 'WASTAGE_UPLOAD:';
     private const ENABLED_TABS = [
         self::TAB_ORDERING_TIMELINESS,
@@ -326,6 +332,7 @@ class AdoptionRateTrackingService
         $loggingDates = $this->approvedLoggingDatesByOrder($orders);
 
         $rows = $this->buildDeliveryLoggingRows($orders, $remarks, $loggingDates);
+        $rows = $this->applyExcuses($rows, 'receiving.late_logging', 'on_time');
         $rows = $this->filterDeliveryLoggingRows($rows, $filters['search'] ?? null);
 
         $totals = [
@@ -333,6 +340,7 @@ class AdoptionRateTrackingService
             'yes' => $rows->where('on_time', 'Yes')->count(),
             'no' => $rows->where('on_time', 'No')->count(),
             'na' => $rows->where('on_time', 'NA')->count(),
+            'excused' => $rows->where('on_time', self::EXCUSED)->count(),
         ];
         $totals['adoption_rate'] = $this->deliveryLoggingAdoptionRate($rows);
 
@@ -363,15 +371,18 @@ class AdoptionRateTrackingService
         );
 
         $rows = $this->buildSalesUploadRows($stores, $uploads, $remarks, $dateFrom, $dateTo);
+        $rows = $this->applyExcuses($rows, 'sales.late_upload', 'sales_report_uploaded_on_time');
         $rows = $this->filterSalesUploadRows($rows, $filters['search'] ?? null);
 
         $totals = [
             'days' => $rows->count(),
             'yes' => $rows->where('sales_report_uploaded_on_time', 'Yes')->count(),
             'no' => $rows->where('sales_report_uploaded_on_time', 'No')->count(),
+            'excused' => $rows->where('sales_report_uploaded_on_time', self::EXCUSED)->count(),
         ];
-        $totals['adoption_rate'] = $totals['days'] > 0
-            ? round(($totals['yes'] / $totals['days']) * 100, 2)
+        // Excused days leave the denominator, like NA elsewhere.
+        $totals['adoption_rate'] = ($totals['yes'] + $totals['no']) > 0
+            ? round(($totals['yes'] / ($totals['yes'] + $totals['no'])) * 100, 2)
             : null;
 
         return [
@@ -391,17 +402,20 @@ class AdoptionRateTrackingService
         $remarks = $this->getWastageUploadRemarks($dateFrom, $dateTo, $storeIds);
 
         $rows = $this->buildWastageUploadRows($wastages, $remarks);
+        $rows = $this->applyExcuses($rows, 'wastage.late_upload', 'wastage_report_uploaded');
         $rows = $this->filterWastageUploadRows($rows, $filters['search'] ?? null);
 
         $totals = [
             'rows' => $rows->count(),
             'upload_yes' => $rows->where('wastage_report_uploaded', 'Yes')->count(),
             'upload_no' => $rows->where('wastage_report_uploaded', 'No')->count(),
+            'upload_excused' => $rows->where('wastage_report_uploaded', self::EXCUSED)->count(),
             'approval_yes' => $rows->where('wastage_report_approved', 'Yes')->count(),
             'approval_no' => $rows->where('wastage_report_approved', 'No')->count(),
         ];
-        $totals['upload_adoption_rate'] = $totals['rows'] > 0
-            ? round(($totals['upload_yes'] / $totals['rows']) * 100, 2)
+        // Excused uploads leave the denominator, like NA elsewhere.
+        $totals['upload_adoption_rate'] = ($totals['upload_yes'] + $totals['upload_no']) > 0
+            ? round(($totals['upload_yes'] / ($totals['upload_yes'] + $totals['upload_no'])) * 100, 2)
             : null;
         $totals['approval_adoption_rate'] = $totals['rows'] > 0
             ? round(($totals['approval_yes'] / $totals['rows']) * 100, 2)
@@ -1016,7 +1030,9 @@ class AdoptionRateTrackingService
     {
         return Wastage::with(['storeBranch'])
             ->whereIn('store_branch_id', $storeIds)
-            ->whereBetween('created_at', [$dateFrom->copy()->startOfDay(), $dateTo->copy()->endOfDay()])
+            // Bucketed by the day the wastage happened; older records have no
+            // wastage_date and fall back to the day they were recorded.
+            ->whereRaw('COALESCE(wastage_date, CAST(created_at AS date)) BETWEEN ? AND ?', [$dateFrom->toDateString(), $dateTo->toDateString()])
             ->orderBy('created_at')
             ->orderBy('wastage_no')
             ->orderBy('id')
@@ -1287,7 +1303,9 @@ class AdoptionRateTrackingService
     private function buildWastageUploadRows(Collection $wastages, Collection $remarks): Collection
     {
         return $wastages->map(function (Wastage $wastage) use ($remarks) {
-            $wastageDate = Carbon::parse($wastage->created_at)->timezone('Asia/Manila');
+            $wastageDate = $wastage->wastage_date
+                ? Carbon::parse($wastage->wastage_date->format('Y-m-d'), 'Asia/Manila')
+                : Carbon::parse($wastage->created_at)->timezone('Asia/Manila');
             $uploadDate = Carbon::parse($wastage->created_at)->timezone('Asia/Manila');
             $wastageDay = $wastageDate->copy()->startOfDay();
             $uploadDay = $uploadDate->copy()->startOfDay();
@@ -1794,6 +1812,45 @@ class AdoptionRateTrackingService
             (int) $order->store_branch_id,
             Carbon::parse($order->order_date)->toDateString()
         );
+    }
+
+    /**
+     * Mark late rows covered by an approved business-rule excuse as Excused and
+     * carry the reason, so the report explains why they no longer count.
+     */
+    private function applyExcuses(Collection $rows, string $ruleKey, string $statusField): Collection
+    {
+        $lateKeys = $rows->where($statusField, 'No')->pluck('row_key')->filter()->unique()->values();
+
+        if ($lateKeys->isEmpty()) {
+            return $rows;
+        }
+
+        // SQL Server allows ~2100 parameters per statement.
+        $excuses = $lateKeys->chunk(1000)->flatMap(fn ($keys) => \App\Models\RuleExceptionRequest::query()
+            ->where('rule_key', $ruleKey)
+            ->where('status', \App\Enums\RuleExceptionStatus::APPROVED->value)
+            ->whereIn('subject_key', $keys->all())
+            ->get(['id', 'subject_key', 'reason_code', 'justification'])
+        )->keyBy('subject_key');
+
+        if ($excuses->isEmpty()) {
+            return $rows;
+        }
+
+        return $rows->map(function (array $row) use ($excuses, $statusField) {
+            $excuse = ($row[$statusField] ?? null) === 'No' ? $excuses->get($row['row_key'] ?? '') : null;
+
+            if (! $excuse) {
+                return $row;
+            }
+
+            $row[$statusField] = self::EXCUSED;
+            $row['excuse_request_id'] = $excuse->id;
+            $row['excuse_reason'] = config("rule_exceptions.reasons.{$excuse->reason_code}", $excuse->reason_code).': '.$excuse->justification;
+
+            return $row;
+        })->values();
     }
 
     private function scheduledRowKey(string $template, int $storeBranchId, string $date): string

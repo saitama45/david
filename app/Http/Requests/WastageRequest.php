@@ -143,6 +143,11 @@ class WastageRequest extends FormRequest
             }
         } else {
             // This is a CREATE request
+            $rules['wastage_date'] = [
+                'required',
+                'date',
+                'before_or_equal:'.\Carbon\Carbon::now('Asia/Manila')->toDateString(),
+            ];
             $rules['cartItems'] = [
                 'required',
                 'array',
@@ -195,6 +200,8 @@ class WastageRequest extends FormRequest
         $messages = [
             'store_branch_id.required' => 'Please select a store branch.',
             'store_branch_id.exists' => 'Selected store branch is invalid.',
+            'wastage_date.required' => 'Enter the date the wastage happened.',
+            'wastage_date.before_or_equal' => 'The wastage date cannot be in the future.',
 
             'remarks.max' => 'Remarks must not exceed 1000 characters.',
 

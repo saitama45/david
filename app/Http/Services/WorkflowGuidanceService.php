@@ -147,9 +147,9 @@ class WorkflowGuidanceService
         $observations = $rows->flatMap(fn ($row) => match ($tab) {
             'ordering_timeliness' => ($row['plotted'] ?? '') === 'No order' ? [] : [[(bool) ($row['order_exists'] ?? false), $row['plotted'] === 'Yes']],
             'commit_order_timeliness' => collect(['fg', 'traded'])->filter(fn ($category) => $row[$category.'_on_time'] !== 'NA')->map(fn ($category) => [! in_array($row[$category.'_commit_date_display'], ['No Commit', 'NA', '']), $row[$category.'_on_time'] === 'Yes'])->all(),
-            'delivery_logging_timeliness' => $row['on_time'] === 'NA' ? [] : [[! empty($row['david_logging_date']), $row['on_time'] === 'Yes']],
-            'sales_upload_timeliness' => [[$row['sales_report_uploaded'] === 'Yes', $row['sales_report_uploaded_on_time'] === 'Yes']],
-            'wastage_upload_timeliness' => [[true, $row['wastage_report_uploaded'] === 'Yes']],
+            'delivery_logging_timeliness' => in_array($row['on_time'], ['NA', 'Excused'], true) ? [] : [[! empty($row['david_logging_date']), $row['on_time'] === 'Yes']],
+            'sales_upload_timeliness' => $row['sales_report_uploaded_on_time'] === 'Excused' ? [] : [[$row['sales_report_uploaded'] === 'Yes', $row['sales_report_uploaded_on_time'] === 'Yes']],
+            'wastage_upload_timeliness' => $row['wastage_report_uploaded'] === 'Excused' ? [] : [[true, $row['wastage_report_uploaded'] === 'Yes']],
             default => [],
         });
         $total = $observations->count();

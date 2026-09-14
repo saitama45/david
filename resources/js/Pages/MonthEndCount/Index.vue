@@ -5,6 +5,7 @@ import { ref, computed, watch } from 'vue';
 import { throttle } from 'lodash';
 import InputError from '@/components/InputError.vue';
 import { useToast } from '@/composables/useToast';
+import RuleExceptionRequestDialog from '@/components/rule-exceptions/RuleExceptionRequestDialog.vue';
 
 const props = defineProps({
     downloadSchedule: { type: Object, default: null },
@@ -22,6 +23,19 @@ const props = defineProps({
 
 const { toast } = useToast();
 const selectedBranchId = ref(null);
+
+// Stores still locked out after the window closed; each can ask for a one-time exception.
+const blockedBranches = computed(() =>
+    props.uploadWindow?.state === 'closed' ? (props.uploadWindow.blocked_branches ?? []) : []
+);
+const exceptionDialog = ref({ open: false, subject: {}, title: '' });
+const requestUploadException = (branch) => {
+    exceptionDialog.value = {
+        open: true,
+        subject: { schedule_id: props.uploadWindow.schedule_id, store_branch_id: branch.id },
+        title: `Request a late Month End Count upload for ${branch.name}`,
+    };
+};
 
 const uploadForm = useForm({
     schedule_id: props.uploadSchedule ? props.uploadSchedule.id : null,
@@ -250,6 +264,15 @@ const viewReviewPage = (scheduleId, branchId) => {
                     Deadline: upload by {{ uploadWindow.closes_at }}. After that this upload option is removed, and you will need to submit a ticket to {{ supportEmail }} to request that it be reopened.
                 </p>
 
+                <div v-if="blockedBranches.length" class="mt-3 text-sm">
+                    <p>Closed for: {{ blockedBranches.map((b) => b.name).join(', ') }}.</p>
+                    <div class="mt-2 flex flex-wrap gap-2">
+                        <Button v-for="branch in blockedBranches" :key="branch.id" size="sm" variant="outline" @click="requestUploadException(branch)">
+                            Request exception - {{ branch.name }}
+                        </Button>
+                    </div>
+                </div>
+
                 <form v-if="can.upload_month_end_count_transaction" @submit.prevent="submitUpload" class="mt-4 space-y-4">
                     <div>
                         <Label for="upload_branch">Select Branch for Upload</Label>
@@ -286,12 +309,25 @@ const viewReviewPage = (scheduleId, branchId) => {
                 <p class="text-sm mt-1">{{ uploadNotice.body }}</p>
                 <p v-if="uploadNotice.detail" class="text-sm mt-1">{{ uploadNotice.detail }}</p>
 
-                <p v-if="uploadNotice.contact" class="text-sm mt-3">
-                    Please contact
-                    <a :href="`mailto:${supportEmail}?subject=Request to reopen Month End Count - ${uploadWindow.schedule_label}`"
-                       class="font-semibold underline">{{ supportEmail }}</a>
-                    to submit a ticket if you need this count reopened. Include your branch name and the count period.
-                </p>
+                <div v-if="uploadNotice.contact && blockedBranches.length" class="text-sm mt-3">
+                    <p>If you could not upload in time, request a one-time exception for the store. Your Month End Count approver reviews it.</p>
+                    <div class="mt-2 flex flex-wrap gap-2">
+                        <Button
+                            v-for="branch in blockedBranches"
+                            :key="branch.id"
+                            size="sm"
+                            variant="outline"
+                            data-testid="request-upload-exception"
+                            @click="requestUploadException(branch)"
+                        >
+                            Request exception - {{ branch.name }}
+                        </Button>
+                    </div>
+                    <p class="mt-2 text-xs opacity-80">
+                        For anything else, contact
+                        <a :href="`mailto:${supportEmail}?subject=Month End Count - ${uploadWindow.schedule_label}`" class="font-semibold underline">{{ supportEmail }}</a>.
+                    </p>
+                </div>
 
                 <p class="text-xs mt-3 pt-3 border-t border-current/20 opacity-80">
                     <span class="font-semibold">Current rule:</span> {{ uploadWindow.rule }}
@@ -450,5 +486,12 @@ const viewReviewPage = (scheduleId, branchId) => {
                 <Pagination :data="transactions" />
             </TableContainer>
         </div>
+
+        <RuleExceptionRequestDialog
+            v-model:open="exceptionDialog.open"
+            rule-key="mec.upload_window"
+            :subject="exceptionDialog.subject"
+            :title="exceptionDialog.title"
+        />
     </Layout>
 </template>

@@ -15,6 +15,9 @@ use App\Models\StoreBranch;
 use Maatwebsite\Excel\Facades\Excel;
 use App\Imports\MassOrderImport;
 use App\Http\Services\MassOrderService;
+use App\Http\Services\OrderingCutoffService;
+use App\Http\Services\RuleExceptionService;
+use App\Http\Services\RuleExceptions\MassOrderLateOrderEvaluator;
 use Exception;
 use Illuminate\Support\Facades\DB;
 
@@ -25,8 +28,12 @@ class MassOrdersController extends Controller
     protected $massOrderService;
     protected $storeOrderService;
 
-    public function __construct(MassOrderService $massOrderService, \App\Http\Services\StoreOrderService $storeOrderService)
-    {
+    public function __construct(
+        MassOrderService $massOrderService,
+        \App\Http\Services\StoreOrderService $storeOrderService,
+        private OrderingCutoffService $cutoffs,
+        private RuleExceptionService $ruleExceptions,
+    ) {
         $this->massOrderService = $massOrderService;
         $this->storeOrderService = $storeOrderService;
     }
@@ -72,6 +79,22 @@ class MassOrdersController extends Controller
 
         $massOrders = $query->latest()->paginate(15)->withQueryString();
 
+        // Orders on this page the user holds an approved one-time edit exception for.
+        $editGrants = \App\Models\RuleExceptionRequest::query()
+            ->where('rule_key', 'mass_order.edit_after_cutoff')
+            ->where('status', \App\Enums\RuleExceptionStatus::APPROVED->value)
+            ->where('valid_until', '>=', $this->cutoffs->now()->format('Y-m-d H:i:s'))
+            ->whereIn('subject_key', collect($massOrders->items())->pluck('order_number')->all() ?: ['__none__'])
+            ->pluck('subject_key')
+            ->values();
+
+        $exceptionStoreOptions = $user->store_branches()
+            ->where('is_active', true)
+            ->orderBy('name')
+            ->get(['store_branches.id', 'store_branches.name'])
+            ->map(fn ($store) => ['value' => (int) $store->id, 'label' => $store->name])
+            ->values();
+
         $suppliers = $user->suppliers()
             ->where('is_active', true)
             ->get()
@@ -95,6 +118,8 @@ class MassOrdersController extends Controller
             'branches' => $branches,
             'filters' => $request->only(['search', 'from', 'to', 'branchId', 'filterQuery']),
             'canViewCost' => Auth::user()->hasPermissionTo('view cost mass orders'),
+            'editGrants' => $editGrants,
+            'exceptionStoreOptions' => $exceptionStoreOptions,
         ]);
     }
 
@@ -201,6 +226,43 @@ class MassOrdersController extends Controller
                 ]);
             }
 
+            // Ordering cutoff, enforced on the server. Past the cutoff, only stores
+            // holding an approved one-time exception for this template + date may
+            // order; each grant is consumed inside the upload transaction.
+            $grantKeys = [];
+            $dateBlock = $this->cutoffs->massOrderDateBlock($supplierCodeFromDropdown, $orderDate->toDateString());
+
+            if ($dateBlock) {
+                foreach ($finalBranches->where('is_active', true) as $branch) {
+                    if (! in_array($branch->brand_code, $validUploadedStores, true)) {
+                        continue;
+                    }
+
+                    $key = MassOrderLateOrderEvaluator::subjectKey($supplierCodeFromDropdown, $orderDate->toDateString(), (int) $branch->id);
+
+                    if ($this->ruleExceptions->usableGrant('mass_order.late_order', $key)) {
+                        $grantKeys[(int) $branch->id] = $key;
+                    } else {
+                        $invalidStores[] = $branch->brand_code;
+                        $pre_skipped_stores[] = [
+                            'brand_code' => $branch->brand_code,
+                            'reason' => $dateBlock.' Request a business-rule exception to order for this date.',
+                        ];
+                    }
+                }
+
+                $validUploadedStores = array_values(array_diff($validUploadedStores, $invalidStores));
+
+                if (empty($validUploadedStores)) {
+                    return redirect()->back()->with([
+                        'success' => false,
+                        'message' => 'Upload blocked. '.$dateBlock.' No store in the file has an approved exception for this date.',
+                        'skipped_stores' => $pre_skipped_stores,
+                        'created_count' => 0,
+                    ]);
+                }
+            }
+
             // Remove invalid store columns from the data before passing to the service
             if (!empty($invalidStores)) {
                 $invalidStoreHeaders = [];
@@ -216,7 +278,15 @@ class MassOrdersController extends Controller
                 });
             }
 
-            $result = $this->massOrderService->processMassOrderUpload($rows, $supplierCodeFromDropdown, $request->input('order_date'), $determinedOrderStatus);
+            $consumeGrant = $grantKeys
+                ? function ($storeBranch, $order) use ($grantKeys) {
+                    if (isset($grantKeys[(int) $storeBranch->id])) {
+                        $this->ruleExceptions->consume('mass_order.late_order', $grantKeys[(int) $storeBranch->id], Auth::user(), 'store_order', $order->order_number);
+                    }
+                }
+                : null;
+
+            $result = $this->massOrderService->processMassOrderUpload($rows, $supplierCodeFromDropdown, $request->input('order_date'), $determinedOrderStatus, $consumeGrant);
 
             // Merge pre-validation skipped stores with the result from the service
             $all_skipped_stores = array_merge($pre_skipped_stores, $result['skipped_stores']);
@@ -312,52 +382,22 @@ class MassOrdersController extends Controller
             abort(403, 'You do not have access to use the selected ordering template.');
         }
 
-        $orderingTemplate = $supplier_code === 'DROPS' ? 'FRUITS AND VEGETABLES' : $supplier_code;
-        $cutoff = \App\Models\OrdersCutoff::where('ordering_template', $orderingTemplate)->first();
-        if (!$cutoff) {
-            return response()->json([]);
-        }
+        $enabledDates = $this->cutoffs->massOrderAvailableDates($supplier_code);
 
-        $now = Carbon::now('Asia/Manila');
+        // Dates the user's stores hold an approved late-order exception for stay
+        // selectable; the upload still only accepts the granted stores.
+        $grantedDates = \App\Models\RuleExceptionRequest::query()
+            ->where('rule_key', 'mass_order.late_order')
+            ->where('status', \App\Enums\RuleExceptionStatus::APPROVED->value)
+            ->where('valid_until', '>=', $this->cutoffs->now()->format('Y-m-d H:i:s'))
+            ->whereIn('store_branch_id', Auth::user()->store_branches()->pluck('store_branches.id'))
+            ->get(['context'])
+            ->filter(fn ($grant) => ($grant->context['supplier_code'] ?? null) === $supplier_code)
+            ->map(fn ($grant) => $grant->context['order_date'])
+            ->all();
 
-        $getCutoffDate = function($day, $time) use ($now) {
-            if (!$day || !$time) return null;
-            $dayIndex = ($day == 7) ? 0 : $day;
-            return $now->copy()->startOfWeek(Carbon::SUNDAY)->addDays($dayIndex)->setTimeFromTimeString($time);
-        };
-
-        $cutoff1Date = $getCutoffDate($cutoff->cutoff_1_day, $cutoff->cutoff_1_time);
-        $cutoff2Date = $getCutoffDate($cutoff->cutoff_2_day, $cutoff->cutoff_2_time);
-
-        $daysToCoverStr = '';
-        $isSpecialLogic = str_starts_with($supplier_code, 'GSI') || $supplier_code === 'PUL-O' || $supplier_code === 'CPO' || $orderingTemplate === 'FRUITS AND VEGETABLES'; // Define special logic once
-
-        // Determine which set of days and which week to use
-        if ($cutoff1Date && $now->lt($cutoff1Date)) {
-            $daysToCoverStr = $cutoff->days_covered_1;
-            $weekOffset = $isSpecialLogic ? 1 : 0; // Apply special logic
-        } elseif ($cutoff2Date && $now->lt($cutoff2Date)) {
-            $daysToCoverStr = $cutoff->days_covered_2;
-            $weekOffset = $isSpecialLogic ? 1 : 0; // Apply special logic
-        } else {
-            // After all cutoffs, it's next week for most, but week-after-next for special logic.
-            $daysToCoverStr = $cutoff->days_covered_1;
-            $weekOffset = $isSpecialLogic ? 2 : 1; // Apply special logic
-        }
-
-        $startOfTargetWeek = $now->copy()->startOfWeek(Carbon::SUNDAY)->addWeeks($weekOffset);
-
-        $daysToCover = $daysToCoverStr ? explode(',', $daysToCoverStr) : [];
-        $dayMap = ['Sun' => 0, 'Mon' => 1, 'Tue' => 2, 'Wed' => 3, 'Thu' => 4, 'Fri' => 5, 'Sat' => 6];
-
-        $enabledDates = [];
-        foreach ($daysToCover as $day) {
-            $day = trim($day);
-            if (isset($dayMap[$day])) {
-                $date = $startOfTargetWeek->copy()->addDays($dayMap[$day]);
-                $enabledDates[] = $date->toDateString();
-            }
-        }
+        $enabledDates = array_values(array_unique(array_merge($enabledDates, $grantedDates)));
+        sort($enabledDates);
 
         return response()->json($enabledDates);
     }
@@ -566,47 +606,7 @@ class MassOrdersController extends Controller
 
 
         // --- START: Get initial enabled dates ---
-        $enabledDates = [];
-        $cutoff = \App\Models\OrdersCutoff::where('ordering_template', $initialSupplierCode)->first();
-        if ($cutoff) {
-            $now = Carbon::now('Asia/Manila');
-            $getCutoffDate = function($day, $time) use ($now) {
-                if (!$day || !$time) return null;
-                $dayIndex = ($day == 7) ? 0 : $day;
-                return $now->copy()->startOfWeek(Carbon::SUNDAY)->addDays($dayIndex)->setTimeFromTimeString($time);
-            };
-
-            $cutoff1Date = $getCutoffDate($cutoff->cutoff_1_day, $cutoff->cutoff_1_time);
-            $cutoff2Date = $getCutoffDate($cutoff->cutoff_2_day, $cutoff->cutoff_2_time);
-
-            $daysToCoverStr = '';
-            $weekOffset = 0;
-
-            $isSpecialLogic = str_starts_with($initialSupplierCode, 'GSI') || $initialSupplierCode === 'PUL-O' || $initialSupplierCode === 'CPO' || $initialSupplierCode === 'DROPS';
-
-            if ($cutoff1Date && $now->lt($cutoff1Date)) {
-                $daysToCoverStr = $cutoff->days_covered_1;
-                $weekOffset = $isSpecialLogic ? 1 : 0;
-            } elseif ($cutoff2Date && $now->lt($cutoff2Date)) {
-                $daysToCoverStr = $cutoff->days_covered_2;
-                $weekOffset = $isSpecialLogic ? 1 : 0;
-            } else {
-                $daysToCoverStr = $cutoff->days_covered_1;
-                $weekOffset = $isSpecialLogic ? 2 : 1;
-            }
-
-            $startOfTargetWeek = $now->copy()->startOfWeek(Carbon::SUNDAY)->addWeeks($weekOffset);
-            $daysToCover = $daysToCoverStr ? explode(',', $daysToCoverStr) : [];
-            $dayMap = ['Sun' => 0, 'Mon' => 1, 'Tue' => 2, 'Wed' => 3, 'Thu' => 4, 'Fri' => 5, 'Sat' => 6];
-
-            foreach ($daysToCover as $day) {
-                $day = trim($day);
-                if (isset($dayMap[$day])) {
-                    $date = $startOfTargetWeek->copy()->addDays($dayMap[$day]);
-                    $enabledDates[] = $date->toDateString();
-                }
-            }
-        }
+        $enabledDates = $this->cutoffs->massOrderAvailableDates($initialSupplierCode);
         // --- END: Get initial enabled dates ---
 
 
@@ -624,26 +624,65 @@ class MassOrdersController extends Controller
     {
         $storeOrder = \App\Models\StoreOrder::where('order_number', $id)->firstOrFail();
         $order = $storeOrder->load('store_order_items');
+        $validatedData = $request->validated();
+
+        // Edit rules, enforced on the server. Status is never waivable; the edit
+        // cutoff can be lifted once by an approved business-rule exception.
+        $supplierCode = (string) $order->supplier?->supplier_code;
+        $now = $this->cutoffs->now();
+
+        if (! in_array($order->order_status, $this->cutoffs->massOrderEditableStatuses($supplierCode), true)) {
+            return back()->withErrors(['error' => "This order is already {$order->order_status} and can no longer be edited."]);
+        }
+
+        $newDate = Carbon::parse($validatedData['order_date'])->toDateString();
+        if ($newDate !== Carbon::parse($order->order_date)->toDateString()
+            && ($dateBlock = $this->cutoffs->massOrderDateBlock((string) $validatedData['supplier_id'], $newDate, $now))) {
+            return back()->withErrors(['error' => $dateBlock]);
+        }
+
+        $editDeadline = $this->cutoffs->massOrderEditDeadline($supplierCode, $order->created_at);
+        $usesException = $editDeadline && $now->gte($editDeadline);
+
+        if ($usesException) {
+            if (! $this->ruleExceptions->usableGrant('mass_order.edit_after_cutoff', (string) $order->order_number)) {
+                return back()->withErrors([
+                    'error' => 'The edit cutoff for this order passed on '.$editDeadline->format('M j, Y g:i A').'. Request a business-rule exception to edit it.',
+                ]);
+            }
+
+            if ((string) $validatedData['supplier_id'] !== $supplierCode || (int) $validatedData['branch_id'] !== (int) $order->store_branch_id) {
+                return back()->withErrors(['error' => 'Under an exception only the items, quantities and delivery date can change, not the store or template.']);
+            }
+        }
+
         try {
-            $validatedData = $request->validated();
             // Force the variant to 'mass regular' for mass orders
             $validatedData['variant'] = 'mass regular';
 
-            $this->storeOrderService->updateOrder($order, $validatedData);
+            DB::transaction(function () use ($order, $validatedData, $usesException) {
+                $this->storeOrderService->updateOrder($order, $validatedData);
 
-            // Refresh the order to get the latest items including newly added ones
-            $order->refresh();
+                // Refresh the order to get the latest items including newly added ones
+                $order->refresh();
 
-            // After the order and its items are updated by the service,
-            // update the approved and committed quantities for mass orders.
-            $order->storeOrderItems()->update([
-                'quantity_approved' => \Illuminate\Support\Facades\DB::raw('quantity_ordered'),
-                'quantity_commited' => \Illuminate\Support\Facades\DB::raw('quantity_ordered'),
-                'committed_by' => \Illuminate\Support\Facades\Auth::id(),
-                'committed_date' => now(),
-            ]);
+                // After the order and its items are updated by the service,
+                // update the approved and committed quantities for mass orders.
+                $order->storeOrderItems()->update([
+                    'quantity_approved' => \Illuminate\Support\Facades\DB::raw('quantity_ordered'),
+                    'quantity_commited' => \Illuminate\Support\Facades\DB::raw('quantity_ordered'),
+                    'committed_by' => \Illuminate\Support\Facades\Auth::id(),
+                    'committed_date' => now(),
+                ]);
+
+                if ($usesException) {
+                    $this->ruleExceptions->consume('mass_order.edit_after_cutoff', (string) $order->order_number, Auth::user(), 'store_order', $order->order_number);
+                }
+            });
 
             return redirect()->route('mass-orders.index')->with('success', 'Order updated successfully!');
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            throw $e;
         } catch (\Exception $e) {
             \Illuminate\Support\Facades\Log::error("Error updating store order from MassOrders: " . $e->getMessage(), ['trace' => $e->getTraceAsString()]);
             return back()->withErrors(['error' => 'Failed to update order: ' . $e->getMessage()]);

@@ -58,9 +58,9 @@ test.describe('Month End Count upload window explains itself', () => {
     await expect(mailto).toBeVisible();
     const address = (await mailto.innerText()).trim();
     const href = await mailto.getAttribute('href');
-    expect(href).toContain('Request to reopen Month End Count');
-    await expect(notice).toContainText("submit a ticket");
-    await qa.check(`And it gives a way out: submit a ticket to ${address}, pre-filled with the period so support can reopen it.`);
+    expect(href).toContain('Month End Count');
+    await expect(notice.getByTestId('request-upload-exception').first()).toBeVisible();
+    await qa.check(`And it gives a way out: request a one-time exception for the store, with ${address} still listed for anything else.`);
 
     const rule = (await notice.locator('p').last().innerText()).trim();
     await qa.check(`Finally it states the rule being enforced, read from this entity's own settings: ${rule.replace(/^Current rule:\s*/, '')}`);

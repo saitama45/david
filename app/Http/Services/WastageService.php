@@ -171,6 +171,7 @@ class WastageService
 
             $wastage = Wastage::create([
                 'wastage_no' => $wastageNo,
+                'wastage_date' => $data['wastage_date'] ?? now('Asia/Manila')->toDateString(),
                 'store_branch_id' => $data['store_branch_id'],
                 'sap_masterfile_id' => $data['sap_masterfile_id'],
                 'wastage_qty' => $data['wastage_qty'],
@@ -205,6 +206,7 @@ class WastageService
             foreach ($data['cartItems'] as $item) {
                 $wastage = Wastage::create([
                     'wastage_no' => $wastageNo, // SAME for all items in transaction
+                    'wastage_date' => $data['wastage_date'] ?? now('Asia/Manila')->toDateString(),
                     'store_branch_id' => $data['store_branch_id'],
                     'sap_masterfile_id' => $item['sap_masterfile_id'],
                     'wastage_qty' => $item['quantity'],

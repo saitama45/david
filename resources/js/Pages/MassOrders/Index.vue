@@ -9,6 +9,7 @@ import { Calendar as CalendarIcon, Download, Upload, Eye, Pencil } from 'lucide-
 import { throttle } from "lodash";
 import { useAuth } from "@/composables/useAuth";
 import { useSelectOptions } from "@/composables/useSelectOptions";
+import RuleExceptionRequestDialog from "@/components/rule-exceptions/RuleExceptionRequestDialog.vue";
 
 
 const props = defineProps({
@@ -42,6 +43,15 @@ const props = defineProps({
         type: Boolean,
         default: false,
     },
+    // Order numbers with an approved, unused business-rule edit exception.
+    editGrants: {
+        type: Array,
+        default: () => [],
+    },
+    exceptionStoreOptions: {
+        type: Array,
+        default: () => [],
+    },
 });
 
 const { hasAccess } = useAuth();
@@ -64,6 +74,11 @@ const canEditOrder = (order) => {
         return false;
     }
 
+    // An approved one-time exception reopens editing past the cutoff.
+    if (props.editGrants.includes(order.order_number)) {
+        return true;
+    }
+
     // 2. Find cutoff rules for the supplier
     if (!supplierCode) {
         return true; // Failsafe
@@ -83,11 +98,11 @@ const canEditOrder = (order) => {
     const cutoffs = [];
     if (cutoffRules.cutoff_1_day !== null && cutoffRules.cutoff_1_time) {
         const [h, m] = cutoffRules.cutoff_1_time.split(':').map(Number);
-        cutoffs.push({ day: cutoffRules.cutoff_1_day, timeInMinutes: h * 60 + m });
+        cutoffs.push({ day: cutoffRules.cutoff_1_day % 7, timeInMinutes: h * 60 + m });
     }
     if (cutoffRules.cutoff_2_day !== null && cutoffRules.cutoff_2_time) {
         const [h, m] = cutoffRules.cutoff_2_time.split(':').map(Number);
-        cutoffs.push({ day: cutoffRules.cutoff_2_day, timeInMinutes: h * 60 + m });
+        cutoffs.push({ day: cutoffRules.cutoff_2_day % 7, timeInMinutes: h * 60 + m });
     }
 
     if (cutoffs.length === 0) {
@@ -130,6 +145,42 @@ const canEditOrder = (order) => {
     }
 
     return manilaAsUTC(props.serverNow) < deadlineManila;
+};
+
+// "Request edit" (business-rule exception) is hidden for now.
+const showEditExceptionRequests = false;
+
+// Status and permission allow editing, only the cutoff is in the way.
+const isEditCutoffLocked = (order) => {
+    const supplierCode = order.supplier?.supplier_code;
+    const allowedStatuses = supplierCode === 'DROPS' ? ['pending', 'approved', 'committed'] : ['pending', 'approved'];
+
+    return allowedStatuses.includes(order.order_status) && hasAccess('edit mass orders') && !canEditOrder(order);
+};
+
+// --- Business-rule exception requests ---
+const exceptionDialog = ref({ open: false, ruleKey: 'mass_order.edit_after_cutoff', subject: {}, askDate: false, stores: null, title: '' });
+
+const requestEditException = (order) => {
+    exceptionDialog.value = {
+        open: true,
+        ruleKey: 'mass_order.edit_after_cutoff',
+        subject: { order_number: order.order_number },
+        askDate: false,
+        stores: null,
+        title: `Request to edit ${order.order_number} after its cutoff`,
+    };
+};
+
+const requestLateOrderException = () => {
+    exceptionDialog.value = {
+        open: true,
+        ruleKey: 'mass_order.late_order',
+        subject: { supplier_code: form.supplier_code },
+        askDate: true,
+        stores: props.exceptionStoreOptions,
+        title: `Request to order ${form.supplier_code} after the cutoff`,
+    };
 };
 
 // --- Flash Notification Logic ---
@@ -469,6 +520,14 @@ const downloadFileName = computed(() => {
                             <div v-if="form.order_date" class="mt-2 text-sm text-gray-500">
                                 Selected Day: <span class="font-semibold">{{ selectedDayInfo }}</span>
                             </div>
+                            <button
+                                v-if="form.supplier_code && form.supplier_code !== 'CPO' && hasAccess('create mass orders')"
+                                type="button"
+                                class="mt-2 text-xs font-medium text-cyan-700 underline"
+                                @click="requestLateOrderException"
+                            >
+                                Missed the cutoff for a date? Request an exception
+                            </button>
                             <!-- Calendar Popup -->
                             <div v-show="showCalendar" :class="['absolute z-50 bg-white border border-gray-200 rounded-lg shadow-lg p-4 w-full min-w-[300px]', calendarPositionClass]">
                                 <div class="flex justify-between items-center mb-4">
@@ -608,6 +667,14 @@ const downloadFileName = computed(() => {
                                     <button v-if="canEditOrder(order)" class="text-blue-500" @click="editOrderDetails(order.order_number)">
                                         <Pencil class="size-5" />
                                     </button>
+                                    <button
+                                        v-else-if="showEditExceptionRequests && isEditCutoffLocked(order)"
+                                        class="text-xs font-medium text-amber-700 underline"
+                                        title="The edit cutoff has passed"
+                                        @click="requestEditException(order)"
+                                    >
+                                        Request edit
+                                    </button>
                                 </DivFlexCenter>
                             </TD>
                         </tr>
@@ -624,6 +691,9 @@ const downloadFileName = computed(() => {
                         <button v-if="canEditOrder(order)" class="text-blue-500" @click="editOrderDetails(order.order_number)">
                             <Pencil class="size-5" />
                         </button>
+                        <button v-else-if="showEditExceptionRequests && isEditCutoffLocked(order)" class="text-xs font-medium text-amber-700 underline" @click="requestEditException(order)">
+                            Request edit
+                        </button>
                     </MobileTableHeading>
                     <LabelXS>SO Number: {{ order.delivery_receipts && order.delivery_receipts.length > 0 ? order.delivery_receipts[0].sap_so_number : "N/A" }}</LabelXS>
                     <LabelXS>Status: <span :class="statusBadgeColor(order.order_status)" class="font-semibold p-1 rounded text-white">{{ order.order_status ? ((order.order_status.toUpperCase() === 'RECEIVED' || order.order_status.toUpperCase() === 'INCOMPLETE') ? 'RECEIVED' : order.order_status.toUpperCase()) : 'N/A' }}</span></LabelXS>
@@ -635,5 +705,14 @@ const downloadFileName = computed(() => {
 
             <Pagination :data="massOrders" />
         </TableContainer>
+
+        <RuleExceptionRequestDialog
+            v-model:open="exceptionDialog.open"
+            :rule-key="exceptionDialog.ruleKey"
+            :subject="exceptionDialog.subject"
+            :ask-date="exceptionDialog.askDate"
+            :store-options="exceptionDialog.stores"
+            :title="exceptionDialog.title"
+        />
     </Layout>
 </template>

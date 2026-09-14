@@ -7,6 +7,7 @@ import { useAuth } from "@/composables/useAuth";
 import { useToast } from 'primevue/usetoast';
 import Dialog from 'primevue/dialog';
 import Select from 'primevue/select';
+import RuleExceptionRequestDialog from "@/components/rule-exceptions/RuleExceptionRequestDialog.vue";
 
 const props = defineProps({
     batches: {
@@ -24,11 +25,41 @@ const props = defineProps({
     counts: {
         type: Object,
         default: () => ({})
+    },
+    exceptionStoreOptions: {
+        type: Array,
+        default: () => []
     }
 });
 
 const { hasAccess } = useAuth();
 const toast = useToast();
+
+// --- Business-rule exception requests ---
+const exceptionDialog = ref({ open: false, ruleKey: 'dts_mass_order.edit_locked', subject: {}, askDate: false, stores: null, title: '' });
+
+const requestBatchEditException = (batch) => {
+    exceptionDialog.value = {
+        open: true,
+        ruleKey: 'dts_mass_order.edit_locked',
+        subject: { batch_number: batch.batch_number },
+        askDate: false,
+        stores: null,
+        title: `Request to edit batch ${batch.batch_number} after its cutoff`,
+    };
+};
+
+const requestLateDtsException = (variant) => {
+    showVariantModal.value = false;
+    exceptionDialog.value = {
+        open: true,
+        ruleKey: 'dts_mass_order.late_order',
+        subject: { variant },
+        askDate: true,
+        stores: props.exceptionStoreOptions,
+        title: `Request to order ${variant} after the cutoff`,
+    };
+};
 
 // Filter logic
 let filterQuery = ref((usePage().props.filters?.filterQuery || "committed").toString());
@@ -405,6 +436,14 @@ const formatQuantity = (value) => {
                                     <button v-if="hasAccess('edit dts mass orders') && batch.can_edit && batch.status !== 'received'" class="text-blue-500" @click="editBatchDetails(batch.batch_number)">
                                         <Pencil class="size-5" />
                                     </button>
+                                    <button
+                                        v-else-if="hasAccess('edit dts mass orders') && !batch.can_edit && batch.variant !== 'N/A' && batch.status === 'COMMITTED'"
+                                        class="text-xs font-medium text-amber-700 underline"
+                                        title="The edit cutoff has passed"
+                                        @click="requestBatchEditException(batch)"
+                                    >
+                                        Request edit
+                                    </button>
                                 </DivFlexCenter>
                             </TD>
                         </tr>
@@ -420,6 +459,13 @@ const formatQuantity = (value) => {
                         </button>
                         <button v-if="hasAccess('edit dts mass orders') && batch.can_edit && batch.status !== 'received'" class="text-blue-500" @click="editBatchDetails(batch.batch_number)">
                             <Pencil class="size-5" />
+                        </button>
+                        <button
+                            v-else-if="hasAccess('edit dts mass orders') && !batch.can_edit && batch.variant !== 'N/A' && batch.status === 'COMMITTED'"
+                            class="text-xs font-medium text-amber-700 underline"
+                            @click="requestBatchEditException(batch)"
+                        >
+                            Request edit
                         </button>
                     </MobileTableHeading>
                     <LabelXS>PO Number: {{ batch.sap_so_number_for_batch ?? "N/A" }}</LabelXS>
@@ -450,6 +496,15 @@ const formatQuantity = (value) => {
                         class="w-full"
                     />
                 </div>
+
+                <button
+                    v-if="selectedVariant && !isCutoffMissing"
+                    type="button"
+                    class="text-xs font-medium text-cyan-700 underline"
+                    @click="requestLateDtsException(selectedVariant)"
+                >
+                    Missed the cutoff for a date? Request an exception
+                </button>
 
                 <!-- Date From (only show when variant is selected) -->
                 <div v-if="selectedVariant" class="relative">
@@ -561,5 +616,14 @@ const formatQuantity = (value) => {
                 </div>
             </template>
         </Dialog>
+
+        <RuleExceptionRequestDialog
+            v-model:open="exceptionDialog.open"
+            :rule-key="exceptionDialog.ruleKey"
+            :subject="exceptionDialog.subject"
+            :ask-date="exceptionDialog.askDate"
+            :store-options="exceptionDialog.stores"
+            :title="exceptionDialog.title"
+        />
     </Layout>
 </template>

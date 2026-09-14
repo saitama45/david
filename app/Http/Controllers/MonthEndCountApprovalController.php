@@ -226,7 +226,7 @@ class MonthEndCountApprovalController extends Controller
             }
 
             DB::commit();
-            Cache::forget('user_notifications_v5_' . Auth::id());
+            Cache::forget('user_notifications_v7_' . Auth::id());
             $this->clearMonthEndNotificationCaches($branch->id, ['approve month end count level 1', 'approve month end count level 2', 'view month end count approvals', 'view month end count approvals level 2']);
             return redirect()->route('month-end-count-approvals.index')->with('success', 'Level 1 approval completed.');
         } catch (Exception $e) {
@@ -255,7 +255,7 @@ class MonthEndCountApprovalController extends Controller
             ->pluck('id');
 
         foreach ($affectedUserIds as $userId) {
-            Cache::forget('user_notifications_v5_' . $userId);
+            Cache::forget('user_notifications_v7_' . $userId);
         }
     }
 
@@ -340,7 +340,7 @@ class MonthEndCountApprovalController extends Controller
             }
 
             DB::commit();
-            Cache::forget('user_notifications_v5_' . Auth::id());
+            Cache::forget('user_notifications_v7_' . Auth::id());
             $this->clearMonthEndNotificationCaches($branch->id, ['approve month end count level 2', 'view month end count approvals level 2']);
             return redirect()->back()->with('success', 'Level 2 approval completed and inventory updated.');
         } catch (Exception $e) {

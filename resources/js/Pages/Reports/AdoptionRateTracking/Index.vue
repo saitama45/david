@@ -1,5 +1,7 @@
 <script setup>
 import WorkflowTask from "@/components/WorkflowTask.vue";
+import RuleExceptionRequestDialog from "@/components/rule-exceptions/RuleExceptionRequestDialog.vue";
+import { useAuth } from "@/composables/useAuth";
 import { computed, ref, watch } from "vue";
 import { router } from "@inertiajs/vue3";
 import { throttle } from "lodash";
@@ -177,11 +179,26 @@ const saveRemark = async (row) => {
 };
 
 const formatNumber = (number) => new Intl.NumberFormat("en-PH").format(number || 0);
+// Late items on these indicators can be excused through a business-rule
+// exception; the performer permission mirrors config/rule_exceptions.php.
+const { hasAccess } = useAuth();
+const excuseRules = {
+    "receiving.late_logging": "receive orders",
+    "sales.late_upload": "create store transactions",
+    "wastage.late_upload": "create wastage record",
+};
+const canRequestExcuse = (ruleKey) => hasAccess(excuseRules[ruleKey]);
+const excuseDialog = ref({ open: false, ruleKey: "sales.late_upload", subject: {} });
+const requestExcuse = (ruleKey, row) => {
+    excuseDialog.value = { open: true, ruleKey, subject: { row_key: row.row_key } };
+};
+
 const formatRate = (rate) => rate === null || rate === undefined ? "N/A" : `${Number(rate).toFixed(2)}%`;
 
 const statusClass = (status) => {
     if (status === "Yes") return "bg-emerald-50 text-emerald-700 border-emerald-200";
     if (status === "No") return "bg-red-50 text-red-700 border-red-200";
+    if (status === "Excused") return "bg-amber-50 text-amber-800 border-amber-200";
     return "bg-gray-50 text-gray-700 border-gray-200";
 };
 </script>
@@ -584,6 +601,15 @@ const statusClass = (status) => {
                                 <span class="inline-flex rounded-full border px-2.5 py-1 text-xs font-medium" :class="statusClass(row.on_time)">
                                     {{ row.on_time }}
                                 </span>
+                                <p v-if="row.on_time === 'Excused'" class="mt-1 max-w-[16rem] text-xs text-gray-500" :title="row.excuse_reason">{{ row.excuse_reason }}</p>
+                                <button
+                                    v-else-if="row.on_time === 'No' && canRequestExcuse('receiving.late_logging')"
+                                    type="button"
+                                    class="mt-1 block text-xs font-medium text-cyan-700 underline"
+                                    @click="requestExcuse('receiving.late_logging', row)"
+                                >
+                                    Request excuse
+                                </button>
                             </td>
                             <td class="border-b px-4 py-3">
                                 <div v-if="canEditRemarks" class="flex items-start gap-2">
@@ -631,6 +657,15 @@ const statusClass = (status) => {
                                 <span class="inline-flex rounded-full border px-2.5 py-1 text-xs font-medium" :class="statusClass(row.sales_report_uploaded_on_time)">
                                     {{ row.sales_report_uploaded_on_time }}
                                 </span>
+                                <p v-if="row.sales_report_uploaded_on_time === 'Excused'" class="mt-1 max-w-[16rem] text-xs text-gray-500" :title="row.excuse_reason">{{ row.excuse_reason }}</p>
+                                <button
+                                    v-else-if="row.sales_report_uploaded_on_time === 'No' && canRequestExcuse('sales.late_upload')"
+                                    type="button"
+                                    class="mt-1 block text-xs font-medium text-cyan-700 underline"
+                                    @click="requestExcuse('sales.late_upload', row)"
+                                >
+                                    Request excuse
+                                </button>
                             </td>
                             <td class="border-b px-4 py-3">
                                 <span class="inline-flex rounded-full border px-2.5 py-1 text-xs font-medium" :class="statusClass(row.sales_report_uploaded)">
@@ -691,6 +726,15 @@ const statusClass = (status) => {
                                 <span class="inline-flex rounded-full border px-2.5 py-1 text-xs font-medium" :class="statusClass(row.wastage_report_uploaded)">
                                     {{ row.wastage_report_uploaded }}
                                 </span>
+                                <p v-if="row.wastage_report_uploaded === 'Excused'" class="mt-1 max-w-[16rem] text-xs text-gray-500" :title="row.excuse_reason">{{ row.excuse_reason }}</p>
+                                <button
+                                    v-else-if="row.wastage_report_uploaded === 'No' && canRequestExcuse('wastage.late_upload')"
+                                    type="button"
+                                    class="mt-1 block text-xs font-medium text-cyan-700 underline"
+                                    @click="requestExcuse('wastage.late_upload', row)"
+                                >
+                                    Request excuse
+                                </button>
                             </td>
                             <td class="border-b px-4 py-3">
                                 <span class="inline-flex rounded-full border px-2.5 py-1 text-xs font-medium" :class="statusClass(row.wastage_report_approved)">
@@ -772,5 +816,12 @@ const statusClass = (status) => {
                 <Pagination :data="rows" />
             </div>
         </div>
+
+        <RuleExceptionRequestDialog
+            v-model:open="excuseDialog.open"
+            :rule-key="excuseDialog.ruleKey"
+            :subject="excuseDialog.subject"
+            title="Request an excuse for a late item"
+        />
     </Layout>
 </template>

@@ -22,7 +22,7 @@ Detail behind the summary in [CLAUDE.md](../../CLAUDE.md).
 ### Notification payload (performance-sensitive)
 
 The `notifications` prop runs roughly a dozen count queries for pending approvals across every
-subsystem. It is cached per user for **one minute** under `user_notifications_v6_<id>`.
+subsystem. It is cached per user for **one minute** under `user_notifications_v7_<id>`.
 
 - Bump the version in that cache key whenever the payload's **shape** changes, or users keep the
   stale structure for up to a minute.
@@ -61,9 +61,50 @@ does **not** filter — an entity-aware job must set it explicitly, ideally
 ## Approval flow
 
 Orders, wastage, month-end counts, interco and cash pull-out share the same shape: a status column
-advances through levels (`pending` → `approved_lvl1` → `approved` and variants), driven by
-`WorkflowService` + `ApprovalMatrixService`. Which levels exist is configuration, not code — read
-the relevant settings service before assuming a two-level flow.
+advances through levels (`pending` → `approved_lvl1` → `approved` and variants), gated per level by a
+Spatie permission and the approver's store assignment, and written by that module's own controller.
+There is no generic matrix (`WorkflowService` / `ApprovalMatrixService` are dead code). Which levels
+exist can be a setting — read the relevant settings service before assuming a two-level flow.
+
+## Business-rule exceptions
+
+For a store that cannot meet a business rule or deadline. `RuleExceptionService` +
+`RuleExceptionController` (`/rule-exceptions`), rules in `config/rule_exceptions.php`, one evaluator
+per rule in `app/Http/Services/RuleExceptions/`.
+
+| Family | Rules | Effect of approval |
+|---|---|---|
+| **unlock** — the server blocks the action | `mec.upload_window`, `mass_order.late_order`, `mass_order.edit_after_cutoff`, `dts_mass_order.late_order`, `dts_mass_order.edit_locked` | a **one-time grant**, valid until a time the approver sets, consumed by the action |
+| **excuse** — nothing is blocked, the item is scored late | `receiving.late_logging`, `sales.late_upload`, `wastage.late_upload` | the Adoption Rate row shows `Excused` + reason |
+
+Flow: blocked screen → *Request exception* dialog (asks `/rule-exceptions/eligibility` first) →
+`pending` → module approver approves/rejects in the queue → unlock: action succeeds once and the grant
+becomes `consumed`; unused grants become `expired` (`rule-exceptions:expire`, every 15 min).
+
+Controls, all enforced in the service rather than the UI:
+
+- Requester holds the rule's performer permission; approver holds the module's **existing** approver
+  permission (DTS uses `approve mass order`). Both must be assigned to the store; the approver is
+  never the requester.
+- A request is refused unless the evaluator confirms the action is **currently blocked** (or the row
+  is really `No`, filed within 7 days). Only time rules are waivable — status, permission, store
+  scope, delivery schedule, booked DTS dates, received DTS batches and past delivery dates are not.
+- One open (pending/approved) request per `rule_key` + `subject_key`: service check plus a SQL Server
+  filtered unique index.
+- Validity is capped by the rule (`max_validity_hours`) and by the subject (the delivery day's start).
+- Consumption locks the grant row inside the protected transaction, so a failed action leaves the
+  grant unused and a second use fails. `consume()` throws if called outside a transaction.
+- Every transition writes one append-only `rule_exception_request_actions` row (IP, user agent,
+  snapshot); the model throws on update/delete. Evidence files live on the private `local` disk.
+
+Where each unlock is consumed: `MassOrdersController@uploadMassOrder` (per store, via the
+`processMassOrderUpload` callback — ungranted stores are skipped), `MassOrdersController@update`,
+`DTSMassOrdersController@store` / `@update`, `MonthEndCountController@upload` (import + consume in one
+transaction). The legacy admin MEC reopen still works alongside.
+
+Excuses are overlaid in `AdoptionRateTrackingService::applyExcuses()`. `Excused` is neither Yes nor
+No, so every Yes/No adoption denominator skips it, but `SuccessRateService` still counts it as a
+transaction and `WorkflowGuidanceService::reportMetrics()` ignores it.
 
 ## Entity switching
 

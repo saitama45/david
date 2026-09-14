@@ -92,7 +92,7 @@ Full detail: [Data-Flows.md](docs/knowledge/Data-Flows.md).
 
 ## Key components
 
-**Services** ([app/Http/Services/](app/Http/Services/)): `WorkflowService`, `ApprovalMatrixService`,
+**Services** ([app/Http/Services/](app/Http/Services/)): `RuleExceptionService`, `OrderingCutoffService`,
 `OrderApprovalService`, `MassOrderService`, `StoreOrderService`, `DTSStoreOrderService`,
 `OrderCalculatorService`, `OrderReceivingService`, `IntercoService`, `WastageService`,
 `MonthEndCountSettingsService`, `RoleService`, `UserService`, `AdoptionRateTrackingService`,
@@ -105,7 +105,7 @@ Full detail: [Data-Flows.md](docs/knowledge/Data-Flows.md).
 
 **Controllers**: `DashboardController`, `MassOrdersController`, `DTSMassOrdersController`,
 `IntercoController`, `WastageController`, `CSMassCommitsController`, `StockManagementController`,
-`MonthEndCountController`, `ApprovalMatrixController`.
+`MonthEndCountController`, `RuleExceptionController`.
 
 **Repositories**: none — services use Eloquent directly.
 
@@ -178,8 +178,16 @@ SQL Server as the target. Rationale and trade-offs: [Decisions.md](docs/knowledg
   `RoleService::getPermissionsGroup()`'s `$permissionStructure`.** Unlisted permissions are silently
   dropped, not grouped under "Others". Admin still gets them (the seeder syncs all permissions to it),
   so the gap only shows when another role needs access.
-- **Bump the notification cache key** (`user_notifications_v6_<id>`, 1-min TTL in
-  `HandleInertiaRequests`) when changing that payload's shape.
+- **Bump the notification cache key** (`user_notifications_v7_<id>`, 1-min TTL in
+  `HandleInertiaRequests`) when changing that payload's shape, and every `Cache::forget` of it.
+- **There is no live approval matrix.** `WorkflowService`, `ApprovalMatrixService` and their
+  controllers/tests are dead code (tables dropped 2025-11-30). Real approvals are a Spatie permission
+  + the approver's store assignment + a status column on the module's own table.
+- **Ordering cutoffs are enforced on the server** through `OrderingCutoffService` (mass orders, DTS).
+  Never re-derive cutoff maths in a controller or Vue page. A blocked action may only pass with an
+  approved one-time grant from `RuleExceptionService`, consumed **inside** the action's transaction.
+  Detail: [Data-Flows.md](docs/knowledge/Data-Flows.md#business-rule-exceptions).
+- **DTS batch update deletes and recreates the batch.** Any guard must run before its transaction.
 - **Two enum namespaces**: `App\Enum\` (OrderStatus, UserRole, Days, TimePeriod) and `App\Enums\`
   (IntercoStatus, WastageStatus).
 - **Services live in `app/Http/Services/`**, not `app/Services/`.

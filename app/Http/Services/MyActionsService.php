@@ -5,6 +5,7 @@ namespace App\Http\Services;
 use App\Models\MonthEndCountItem;
 use App\Models\MonthEndCountReopen;
 use App\Models\MonthEndSchedule;
+use App\Models\RuleExceptionRequest;
 use App\Models\StoreOrder;
 use App\Models\User;
 use App\Models\Wastage;
@@ -131,6 +132,38 @@ class MyActionsService
             $this->missingCounts($user, $branches, $tasks);
         }
 
+        // Business-rule exception requests waiting for a decision at the user's stores.
+        $exceptionKeys = [
+            'mass_orders' => 'exception_ordering', 'dts_mass_orders' => 'exception_ordering', 'month_end_count' => 'exception_mec',
+            'receiving' => 'exception_receiving', 'store_transactions' => 'exception_sales', 'wastage' => 'exception_wastage',
+        ];
+        if ($canView(array_unique(array_values($exceptionKeys))) && $branchIds->isNotEmpty()) {
+            RuleExceptionRequest::where('status', 'pending')->whereIn('store_branch_id', $branchIds)->orderBy('requested_at')->limit(200)->get()
+                ->each(function (RuleExceptionRequest $request) use ($user, $branches, $tasks, $exceptionKeys) {
+                    $key = $exceptionKeys[$request->module] ?? null;
+                    if (! $key) {
+                        return;
+                    }
+                    $task = $this->guidance->task($user, $key, [
+                        'id' => 'rule-exception:'.$request->id, 'branch_id' => (int) $request->store_branch_id,
+                        'branch' => $branches[$request->store_branch_id]->name,
+                        'reference' => '#'.$request->id.' '.($request->context['summary'] ?? $request->subject_key),
+                        'waiting_since' => $request->requested_at->toIso8601String(),
+                        // An unlock request is pointless once its delivery day starts.
+                        'deadline' => isset($request->context['order_date']) ? $request->context['order_date'].' 00:00:00' : null,
+                    ]);
+                    // The requester can never approve their own request.
+                    if ((int) $request->requested_by === (int) $user->id) {
+                        $task['can_act'] = false;
+                        $task['ownership'] = 'waiting';
+                    }
+                    if ($task['url']) {
+                        $task['url'] = route('rule-exceptions.index', ['tab' => 'approvals']);
+                    }
+                    $tasks->push($task);
+                });
+        }
+
         // Missing submissions use the same schedules and exclusions as the adoption report.
         foreach (['ordering_timeliness' => ['order', 'dts_order'], 'sales_upload_timeliness' => ['sales']] as $tab => $keys) {
             if (! $canView($keys) || $branchIds->isEmpty()) {
@@ -227,8 +260,9 @@ class MyActionsService
                     'branch' => $branch->name, 'reference' => 'Month end count '.$date->format('M Y'), 'deadline' => $deadline,
                 ]);
                 if ($closed) {
-                    $task['action'] = 'Request reopening of the count upload window';
-                    $task['rule'] = 'Contact tasservices@tablegroup.com.ph with the branch and count period to request reopening. Upload is unavailable until support reopens the branch window.';
+                    $task['action'] = 'Request a late upload exception';
+                    $task['rule'] = 'The upload window has closed. On Month End Count, request a one-time business-rule exception for this branch and give the reason; your Month End Count approver decides. Upload stays unavailable until it is approved.';
+                    $task['url'] = route('month-end-count.index');
                     $task['blocked'] = true;
                 }
                 $tasks->push($task);

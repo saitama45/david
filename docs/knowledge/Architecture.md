@@ -31,9 +31,21 @@ Two service directories exist and mean different things:
 
 ## Domain services
 
-`WorkflowService` and `ApprovalMatrixService` drive every multi-level approval (orders, wastage,
-month-end counts, interco, cash pull-out). Approval levels are data-driven, not hard-coded — e.g.
-`WastageApprovalSettingsService::shouldShowLevel2()` decides whether a second level exists at all.
+Approvals are per module, not generic: each is a Spatie permission (e.g. `approve mass order`,
+`approve wastage level 1`), the approver's store assignment, and a status column on the module's own
+table. Level counts can be settings — `WastageApprovalSettingsService::shouldShowLevel2()` decides
+whether wastage has a second level. `WorkflowService` / `ApprovalMatrixService` are **dead code**:
+their tables were dropped on 2025-11-30 and nothing live calls them.
+
+`OrderingCutoffService` is the single source of the Mass Order and DTS cutoff rules (available
+delivery dates, mass-order edit deadline, DTS batch edit lock), enforced on the server. It replaced
+copies in `MassOrdersController`, `DTSMassOrdersController` and the Mass Orders page, and was proven
+equivalent to them (80,352 cutoff/time combinations, 0 mismatches). `StoreOrderController` and
+`AdoptionRateTrackingService::cutoffForTemplate()` still carry their own copies.
+
+`RuleExceptionService` governs business-rule exceptions — see
+[Data-Flows.md](Data-Flows.md#business-rule-exceptions). One evaluator per rule lives in
+`app/Http/Services/RuleExceptions/`; the rule registry is `config/rule_exceptions.php`.
 
 Ordering is split by variant: `StoreOrderService` (regular), `MassOrderService` (mass),
 `DTSStoreOrderService` (direct-to-store), `IntercoService` (inter-company),

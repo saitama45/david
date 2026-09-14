@@ -75,6 +75,11 @@ class RoleService
                     'manage success rate tickets',
                 ],
             ],
+            'Business Rule Exceptions' => [
+                'Exception Log' => [
+                    'view rule exception log',
+                ],
+            ],
             'Administration' => [
                 'Entities' => [
                     'view entities', 'create entities', 'edit entities', 'delete entities',

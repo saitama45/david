@@ -12,9 +12,81 @@ use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Carbon\Carbon;
 use Maatwebsite\Excel\Facades\Excel;
+use App\Http\Services\OrderingCutoffService;
+use App\Http\Services\RuleExceptionService;
+use App\Http\Services\RuleExceptions\DtsEditEvaluator;
+use App\Http\Services\RuleExceptions\DtsLateOrderEvaluator;
 
 class DTSMassOrdersController extends Controller
 {
+    public function __construct(
+        private OrderingCutoffService $cutoffs,
+        private RuleExceptionService $ruleExceptions,
+    ) {}
+
+    /**
+     * Server-side ordering cutoff for a new DTS batch. Returns the grant subject
+     * keys the batch needs (one per late date + store), or an error string.
+     * A variant with no cutoff is never waivable.
+     *
+     * @return array{0:?string,1:string[]}
+     */
+    private function dtsCutoffCheck(string $variant, array $orders): array
+    {
+        if (! $this->cutoffs->cutoffFor($variant)) {
+            return ["No ordering cutoff is configured for {$variant}.", []];
+        }
+
+        // Normalise both payload shapes to date => [store ids with a quantity].
+        $storesByDate = [];
+        foreach ($orders as $key => $value) {
+            $byDate = $variant === 'FRUITS AND VEGETABLES' ? (array) $value : [$key => $value];
+
+            foreach ($byDate as $date => $stores) {
+                foreach ((array) $stores as $storeId => $quantity) {
+                    if (! empty($quantity) && $quantity > 0) {
+                        $storesByDate[Carbon::parse($date)->toDateString()][(int) $storeId] = true;
+                    }
+                }
+            }
+        }
+
+        // Mirrors the Create screen: any date between the first and last available
+        // date is orderable; dates outside that span need an approved exception.
+        $span = DtsLateOrderEvaluator::orderableSpan($this->cutoffs, $variant);
+        $grantKeys = [];
+        $missing = [];
+
+        foreach ($storesByDate as $date => $stores) {
+            if (DtsLateOrderEvaluator::inSpan($span, $date)) {
+                continue;
+            }
+
+            foreach (array_keys($stores) as $storeId) {
+                $key = DtsLateOrderEvaluator::subjectKey($variant, $date, $storeId);
+
+                if ($this->ruleExceptions->usableGrant('dts_mass_order.late_order', $key)) {
+                    $grantKeys[] = $key;
+                } else {
+                    $missing[] = (StoreBranch::find($storeId)?->name ?? "Store {$storeId}").' on '.Carbon::parse($date)->format('M j');
+                }
+            }
+        }
+
+        if ($missing) {
+            return ['The ordering cutoff has passed for: '.implode(', ', $missing).'. Request a business-rule exception for each, or remove those quantities.', []];
+        }
+
+        return [null, $grantKeys];
+    }
+
+    private function consumeDtsGrants(string $ruleKey, array $keys, string $batchNumber): void
+    {
+        foreach ($keys as $key) {
+            $this->ruleExceptions->consume($ruleKey, $key, auth()->user(), 'dts_batch', $batchNumber);
+        }
+    }
+
     /**
      * Get base query for DTS mass orders with proper filtering
      * Ensures consistent filtering across all queries
@@ -216,7 +288,15 @@ class DTSMassOrdersController extends Controller
             return $batch;
         });
 
+        $exceptionStoreOptions = auth()->user()->store_branches()
+            ->where('is_active', true)
+            ->orderBy('name')
+            ->get(['store_branches.id', 'store_branches.name'])
+            ->map(fn ($store) => ['value' => (int) $store->id, 'label' => $store->name])
+            ->values();
+
         return Inertia::render('DTSMassOrders/Index', [
+            'exceptionStoreOptions' => $exceptionStoreOptions,
             'variants' => $variants,
             'batches' => $batches,
             'filters' => [
@@ -363,6 +443,11 @@ class DTSMassOrdersController extends Controller
     {
         $variant = $request->input('variant');
 
+        [$cutoffError, $grantKeys] = $this->dtsCutoffCheck((string) $variant, (array) $request->input('orders', []));
+        if ($cutoffError) {
+            return back()->withErrors(['error' => $cutoffError]);
+        }
+
         // Different validation and processing for FRUITS AND VEGETABLES
         if ($variant === 'FRUITS AND VEGETABLES') {
             $request->validate([
@@ -378,6 +463,7 @@ class DTSMassOrdersController extends Controller
                 \DB::beginTransaction();
 
                 $batchNumber = $this->generateBatchNumber();
+                $this->consumeDtsGrants('dts_mass_order.late_order', $grantKeys, $batchNumber);
                 $lastOrderNumbers = []; // Initialize map to track last order numbers for each store branch
 
                 // Pivot the orders data to be date/store centric
@@ -467,6 +553,7 @@ class DTSMassOrdersController extends Controller
                 \DB::beginTransaction();
 
                 $batchNumber = $this->generateBatchNumber();
+                $this->consumeDtsGrants('dts_mass_order.late_order', $grantKeys, $batchNumber);
                 $lastOrderNumbers = []; // Initialize map to track last order numbers for each store branch
 
                 foreach ($orders as $date => $stores) {
@@ -925,8 +1012,35 @@ class DTSMassOrdersController extends Controller
 
     public function update(Request $request, $batchNumber)
     {
+        // Guard BEFORE the transaction: saving deletes and recreates the batch.
+        // Facts come from the stored batch, never from the submitted form.
+        $facts = DtsEditEvaluator::batchFacts((string) $batchNumber);
+        if (! $facts) {
+            abort(404);
+        }
+
+        if ($facts['variant'] === 'N/A' || $request->input('variant') !== $facts['variant']) {
+            return back()->withErrors(['error' => 'This batch cannot be edited as submitted.']);
+        }
+
+        $usesException = $this->cutoffs->dtsBatchEditLocked($facts['variant'], $facts['date_from']);
+
+        if ($usesException) {
+            if (! $this->ruleExceptions->usableGrant('dts_mass_order.edit_locked', (string) $batchNumber)) {
+                return back()->withErrors(['error' => 'The edit cutoff for this batch has passed. Request a business-rule exception to edit it.']);
+            }
+
+            if (array_diff($facts['statuses'], ['committed']) !== []) {
+                return back()->withErrors(['error' => 'Part of this batch has moved past commitment, so it cannot be edited.']);
+            }
+        }
+
         try {
             \DB::beginTransaction();
+
+            if ($usesException) {
+                $this->consumeDtsGrants('dts_mass_order.edit_locked', [(string) $batchNumber], (string) $batchNumber);
+            }
 
             $orders = $request->input('orders', []);
             $variant = $request->input('variant');
@@ -1305,66 +1419,22 @@ class DTSMassOrdersController extends Controller
         \Log::info("--- DTS Mass Order Date Debug (v2) ---");
         \Log::info("Starting getAvailableDates for variant: " . $variant);
 
-        $cutoff = \App\Models\OrdersCutoff::where('ordering_template', $variant)->first();
-        $enabledDates = [];
+        $enabledDates = $this->cutoffs->dtsEnabledDates($variant);
 
-        if ($cutoff) {
-            $now = \Carbon\Carbon::now('Asia/Manila');
+        // Late dates the user's stores hold an approved exception for.
+        $grantedDates = \App\Models\RuleExceptionRequest::query()
+            ->where('rule_key', 'dts_mass_order.late_order')
+            ->where('status', \App\Enums\RuleExceptionStatus::APPROVED->value)
+            ->where('valid_until', '>=', $this->cutoffs->now()->format('Y-m-d H:i:s'))
+            ->whereIn('store_branch_id', auth()->user()->store_branches()->pluck('store_branches.id'))
+            ->get(['context'])
+            ->filter(fn ($grant) => ($grant->context['variant'] ?? null) === $variant)
+            ->map(fn ($grant) => $grant->context['order_date'])
+            ->all();
 
-            $getCutoffDate = function($day, $time) use ($now) {
-                if (!$day || !$time) return null;
-                $dayIndex = ($day == 7) ? 0 : $day;
-                return $now->copy()->startOfWeek(\Carbon\Carbon::SUNDAY)->addDays($dayIndex)->setTimeFromTimeString($time);
-            };
+        $enabledDates = array_values(array_unique(array_merge($enabledDates, $grantedDates)));
+        sort($enabledDates);
 
-            $cutoff1Date = $getCutoffDate($cutoff->cutoff_1_day, $cutoff->cutoff_1_time);
-            $cutoff2Date = $getCutoffDate($cutoff->cutoff_2_day, $cutoff->cutoff_2_time);
-
-            $daysToCoverStr = '';
-            $weekOffset = 0;
-
-            // Determine which set of days and which week to use
-            if ($cutoff1Date && $now->lt($cutoff1Date)) {
-                $daysToCoverStr = $cutoff->days_covered_1;
-                // If there is no second cutoff (i.e., a single weekly cutoff),
-                // ordering before this cutoff is for the *next* week's delivery cycle.
-                if (!$cutoff->cutoff_2_day) {
-                    $weekOffset = 1; // Next week
-                } else {
-                    // For variants with multiple cutoffs, being before the first cutoff
-                    // means ordering for the current week's first set of delivery days.
-                    $weekOffset = 0; // Current week
-                }
-            } elseif ($cutoff2Date && $now->lt($cutoff2Date)) {
-                $daysToCoverStr = $cutoff->days_covered_2;
-                $weekOffset = 0; // Current week (ordering for the second set of delivery days)
-            } else {
-                // After all cutoffs for the current week have passed, ordering is for the next week's first cycle.
-                $daysToCoverStr = $cutoff->days_covered_1;
-                $weekOffset = 1; // Next week
-            }
-
-            $startOfTargetWeek = $now->copy()->startOfWeek(\Carbon\Carbon::SUNDAY)->addWeeks($weekOffset);
-
-            $daysToCover = $daysToCoverStr ? explode(',', $daysToCoverStr) : [];
-            $dayMap = ['Sun' => 0, 'Mon' => 1, 'Tue' => 2, 'Wed' => 3, 'Thu' => 4, 'Fri' => 5, 'Sat' => 6];
-
-            foreach ($daysToCover as $day) {
-                $day = trim($day);
-                if (isset($dayMap[$day])) {
-                    $date = $startOfTargetWeek->copy()->addDays($dayMap[$day]);
-                    $enabledDates[] = $date->toDateString();
-                }
-            }
-        } else {
-            // If no cutoff is defined (e.g., for Fruits and Vegetables), enable a default range.
-            $start = \Carbon\Carbon::tomorrow();
-            $end = \Carbon\Carbon::tomorrow()->addDays(59);
-            while($start->lte($end)) {
-                $enabledDates[] = $start->toDateString();
-                $start->addDay();
-            }
-        }
         \Log::info("Initial enabled dates for {$variant}:", $enabledDates);
 
         // Get all distinct booked dates for this variant with consistent filtering
@@ -1398,67 +1468,11 @@ class DTSMassOrdersController extends Controller
 
     private function canEditBatch($batch)
     {
-        // Check if the current time is past the cutoff for this batch's variant
-        $variant = $batch->variant;
-        if ($variant === 'N/A') {
+        if ($batch->variant === 'N/A') {
             return false;
         }
 
-        $cutoff = \App\Models\OrdersCutoff::where('ordering_template', $variant)->first();
-        if (!$cutoff) {
-            return true; // If no cutoff defined, allow editing
-        }
-
-        $now = Carbon::now('Asia/Manila');
-
-        // Get the earliest order date from the batch
-        $dateFrom = Carbon::parse($batch->date_from);
-
-        // Determine which week the batch orders belong to
-        $batchWeekStart = $dateFrom->copy()->startOfWeek(Carbon::SUNDAY);
-        $currentWeekStart = $now->copy()->startOfWeek(Carbon::SUNDAY);
-
-        // If batch is from a past week, don't allow editing
-        if ($batchWeekStart->lt($currentWeekStart)) {
-            return false;
-        }
-
-        // If batch is from current week, check cutoffs
-        if ($batchWeekStart->eq($currentWeekStart)) {
-            $getCutoffDateTime = function($day, $time) use ($now) {
-                if (!$day || !$time) return null;
-                $dayIndex = ($day == 7) ? 0 : $day;
-                return $now->copy()->startOfWeek(Carbon::SUNDAY)->addDays($dayIndex)->setTimeFromTimeString($time);
-            };
-
-            $cutoff1DateTime = $getCutoffDateTime($cutoff->cutoff_1_day, $cutoff->cutoff_1_time);
-            $cutoff2DateTime = $getCutoffDateTime($cutoff->cutoff_2_day, $cutoff->cutoff_2_time);
-
-            // If current time is past cutoff2, don't allow editing
-            if ($cutoff2DateTime && $now->gte($cutoff2DateTime)) {
-                return false;
-            }
-
-            // If current time is past cutoff1 but before cutoff2, check if batch was for days_covered_1
-            // For simplicity, we'll check if any order dates match the days_covered_1
-            if ($cutoff1DateTime && $now->gte($cutoff1DateTime)) {
-                $dayMap = ['Sun' => 0, 'Mon' => 1, 'Tue' => 2, 'Wed' => 3, 'Thu' => 4, 'Fri' => 5, 'Sat' => 6];
-                $daysCovered1 = $cutoff->days_covered_1 ? explode(',', $cutoff->days_covered_1) : [];
-
-                foreach ($daysCovered1 as $day) {
-                    $day = trim($day);
-                    if (isset($dayMap[$day])) {
-                        $dayDate = $batchWeekStart->copy()->addDays($dayMap[$day]);
-                        if ($dateFrom->eq($dayDate)) {
-                            // This batch is for days_covered_1 and cutoff1 has passed
-                            return false;
-                        }
-                    }
-                }
-            }
-        }
-
-        // If batch is from future week, allow editing
-        return true;
+        return ! $this->cutoffs->dtsBatchEditLocked($batch->variant, Carbon::parse($batch->date_from)->toDateString())
+            || $this->ruleExceptions->usableGrant('dts_mass_order.edit_locked', (string) $batch->batch_number) !== null;
     }
 }

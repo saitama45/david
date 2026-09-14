@@ -30,8 +30,15 @@ const confirm = useConfirm()
 const toast = useToast()
 
 // Form state
+// Local calendar date, so the default and the max match what the user sees.
+const todayString = (() => {
+  const d = new Date()
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+})()
+
 const form = useForm({
   store_branch_id: '',
+  wastage_date: todayString,
   remarks: '',
   cartItems: [],
 })
@@ -414,6 +421,23 @@ const handleReasonBlur = (item) => {
               />
               <p v-if="form.errors.store_branch_id" class="text-sm text-red-600">
                 {{ form.errors.store_branch_id }}
+              </p>
+            </div>
+
+            <!-- Wastage Date -->
+            <div class="space-y-2">
+              <Label for="wastage_date">Wastage Date *</Label>
+              <Input
+                id="wastage_date"
+                v-model="form.wastage_date"
+                type="date"
+                :max="todayString"
+                :class="{ 'border-red-500': form.errors.wastage_date || (showErrors && !form.wastage_date) }"
+                required
+              />
+              <p class="text-xs text-gray-500">The day the wastage happened. Record it within 1 working day.</p>
+              <p v-if="form.errors.wastage_date" class="text-sm text-red-600">
+                {{ form.errors.wastage_date }}
               </p>
             </div>
 

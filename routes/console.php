@@ -25,6 +25,11 @@ Schedule::command('queue:work database --queue=imports --once --tries=1 --timeou
     ->runInBackground()
     ->appendOutputTo(storage_path('logs/queue-worker.log'));
 
+// Expire approved business-rule exception grants that were never used in time.
+Schedule::command('rule-exceptions:expire')
+    ->everyFifteenMinutes()
+    ->withoutOverlapping(15);
+
 // Clear orphaned 'processing' rows and dispatch the next pending import, so a
 // crashed worker cannot leave the queue blocked indefinitely.
 Schedule::command('imports:reconcile --apply')

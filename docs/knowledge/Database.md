@@ -61,6 +61,19 @@ datasets on read, so it can never go stale against actual order/commit/receiving
 activity. Success Rate, Close Rate and every total are likewise derived in `SuccessRateService`. Do
 not add computed or transaction columns here.
 
+## Business-rule exception tables
+
+- `rule_exception_requests` — one row per exception request (`BelongsToEntity`, audited). `type` is
+  `unlock` or `excuse`; `subject_key` identifies the one item it covers; `context` (json) holds the
+  subject facts. **No cascading deletes** — it is an audit record. A raw SQL Server filtered unique
+  index `rer_open_subject_unique (entity_id, rule_key, subject_key) WHERE status IN ('pending','approved')`
+  allows one open request per item while keeping full history.
+- `rule_exception_request_actions` — append-only trail, one row per transition; the model refuses
+  updates and deletes.
+- `wastages.wastage_date` (nullable) — the day the wastage happened, captured on create. Wastage
+  timeliness used to compare `created_at` with itself and could never be late; old rows fall back to
+  `created_at`.
+
 ## Migrations
 
 136 migrations in `database/migrations/`, plus a shared base class in

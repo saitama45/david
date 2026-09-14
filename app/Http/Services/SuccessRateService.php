@@ -265,7 +265,8 @@ class SuccessRateService
     private function countsAsTransaction(array $row, array $statusFields): bool
     {
         foreach ($statusFields as $field) {
-            if (in_array($row[$field] ?? null, ['Yes', 'No'], true)) {
+            // Excused rows left the adoption denominator but were still real activity.
+            if (in_array($row[$field] ?? null, ['Yes', 'No', AdoptionRateTrackingService::EXCUSED], true)) {
                 return true;
             }
         }

@@ -196,6 +196,18 @@ class MonthEndScheduleController extends Controller
             'reopened_until' => 'required|date',
         ]);
 
+        // `exists` ignores the entity scope; only branches of the schedule's
+        // entity may be reopened.
+        $branchIds = array_unique(array_map('intval', $validated['branch_ids']));
+        $inEntity = StoreBranch::withoutEntityScope()
+            ->where('entity_id', $schedule->entity_id)
+            ->whereIn('id', $branchIds)
+            ->count();
+
+        if ($inEntity !== count($branchIds)) {
+            return back()->withErrors(['error' => 'Only stores belonging to this schedule\'s entity can be reopened.']);
+        }
+
         $until = Carbon::parse($validated['reopened_until'], 'Asia/Manila');
 
         if ($until->lte(Carbon::now('Asia/Manila'))) {

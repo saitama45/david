@@ -56,10 +56,11 @@ class HandleInertiaRequests extends Middleware
             'orderReceivingDates' => [],
             'salesUploadReminderCount' => 0,
             'salesUploadMissingDetails' => [],
+            'ruleExceptionApprovalCount' => 0,
         ];
 
         if ($user) {
-            $cacheKey = 'user_notifications_v6_' . $user->id;
+            $cacheKey = 'user_notifications_v7_' . $user->id;
 
             $notifications = \Illuminate\Support\Facades\Cache::remember($cacheKey, now()->addMinutes(1), function () use ($user) {
                 $data = [
@@ -84,6 +85,7 @@ class HandleInertiaRequests extends Middleware
                     'orderReceivingDates' => [],
                     'salesUploadReminderCount' => 0,
                     'salesUploadMissingDetails' => [],
+                    'ruleExceptionApprovalCount' => 0,
                 ];
 
                 $assignedStoreIds = \App\Models\UserAssignedStoreBranch::where('user_id', $user->id)
@@ -318,6 +320,11 @@ class HandleInertiaRequests extends Middleware
                             ->toArray();
                     }
                 }
+
+                // Business-rule exception requests this user can decide.
+                $data['ruleExceptionApprovalCount'] = app(\App\Http\Services\RuleExceptionService::class)
+                    ->decidableQuery($user)
+                    ->count();
 
                 return $data;
             });

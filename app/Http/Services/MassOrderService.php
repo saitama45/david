@@ -24,7 +24,12 @@ class MassOrderService
         $this->storeOrderService = $storeOrderService;
     }
 
-    public function processMassOrderUpload(Collection $rows, $supplierCode, $orderDate, $initialOrderStatus = 'approved')
+    /**
+     * @param  callable|null  $onOrderCreated  fn (StoreBranch $store, StoreOrder $order) run inside the
+     *                                         upload transaction after each order is created; throwing
+     *                                         rolls the whole upload back
+     */
+    public function processMassOrderUpload(Collection $rows, $supplierCode, $orderDate, $initialOrderStatus = 'approved', ?callable $onOrderCreated = null)
     {
         if ($rows->isEmpty()) {
             throw new Exception('The uploaded file is empty or invalid.');
@@ -142,6 +147,11 @@ class MassOrderService
                         ]);
                     }
                 }
+
+                if ($onOrderCreated) {
+                    $onOrderCreated($storeBranch, $order);
+                }
+
                 $createdCount++;
             }
 

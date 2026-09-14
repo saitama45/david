@@ -50,6 +50,7 @@ import {
     ChevronDown,
     ChevronRight,
     Calculator,
+    ShieldAlert,
 } from "lucide-vue-next";
 
 const auth = computed(() => usePage().props.auth);
@@ -65,6 +66,10 @@ const hasAccess = (access) => {
 const sidebarSettings = computed(() => usePage().props.sidebarSettings || {});
 const wastageApprovalConfig = computed(() => usePage().props.wastageApprovalConfig || {});
 const canShowWastageLevel2 = computed(() => wastageApprovalConfig.value.show_level2 !== false);
+
+// Hidden from the sidebar for now; the pages stay reachable by URL.
+const showMyActionsLink = false;
+const showRuleExceptionsLink = false;
 
 const isMenuActive = (key) => {
     const setting = sidebarSettings.value[key];
@@ -344,8 +349,12 @@ watchEffect(() => {
     <nav
         class="flex flex-col items-start pl-4 text-sm font-medium transition-all duration-300 overflow-hidden w-64"
     >
-        <div class="w-full" style="order: -1">
+        <div v-if="showMyActionsLink" class="w-full" style="order: -1">
             <NavLink :href="route('my-actions.index')" :icon="ClipboardCheck" :is-active="isPathActive('/my-actions')">My Actions</NavLink>
+        </div>
+        <!-- Business-rule exception requests: every user can see their own; approvers also get a queue. -->
+        <div v-if="showRuleExceptionsLink" class="w-full" style="order: -1">
+            <NavLink :href="route('rule-exceptions.index')" :icon="ShieldAlert" :is-active="isPathActive('/rule-exceptions')">Rule Exceptions</NavLink>
         </div>
         <!-- Dashboard Link -->
         <div :style="{ order: getMenuOrder('dashboard') }" class="w-full">

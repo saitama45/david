@@ -124,6 +124,21 @@ Route::middleware('auth')
 
         Route::get('/my-actions', \App\Http\Controllers\MyActionsController::class)->name('my-actions.index');
 
+        // Business-rule exception requests. Authorization is decided per rule in
+        // RuleExceptionService (performer permission to request, the module's
+        // approver permission to decide, store assignment for both).
+        Route::controller(\App\Http\Controllers\RuleExceptionController::class)->name('rule-exceptions.')->prefix('rule-exceptions')->group(function () {
+            Route::get('/', 'index')->name('index');
+            Route::get('/eligibility', 'eligibility')->name('eligibility');
+            Route::middleware('permission:view rule exception log')->get('/export', 'export')->name('export');
+            Route::post('/', 'store')->middleware('throttle:20,1')->name('store');
+            Route::get('/{ruleException}', 'show')->whereNumber('ruleException')->name('show');
+            Route::get('/{ruleException}/attachment', 'attachment')->whereNumber('ruleException')->name('attachment');
+            Route::post('/{ruleException}/approve', 'approve')->whereNumber('ruleException')->name('approve');
+            Route::post('/{ruleException}/reject', 'reject')->whereNumber('ruleException')->name('reject');
+            Route::post('/{ruleException}/cancel', 'cancel')->whereNumber('ruleException')->name('cancel');
+        });
+
         Route::post('/entity/switch', [\App\Http\Controllers\EntityController::class, 'switch'])->name('entity.switch');
 
         Route::controller(\App\Http\Controllers\EntityController::class)->name('entities.')->prefix('entities')->group(function () {
