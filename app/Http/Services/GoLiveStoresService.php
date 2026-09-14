@@ -36,7 +36,7 @@ class GoLiveStoresService
         $stores = StoreBranch::query()
             ->where('is_active', true)
             ->orderBy('name')
-            ->get(['id', 'name']);
+            ->get(['id', 'name', 'branch_code']);
 
         $weeks = $this->buildWeekBuckets($dateFrom, $dateTo);
         $goLiveDates = $this->goLiveDates($stores->pluck('id')->all());
@@ -113,6 +113,20 @@ class GoLiveStoresService
             'go_live_rate' => $last['go_live_rate'] ?? null,
             'new_in_range' => array_sum(array_column($rows, 'new_go_live')),
             'not_live_stores' => $notLive,
+            // Every live store with the day it went live, so the UI can list the
+            // stores behind any week's count (go_live_date <= that week's end).
+            'live_store_list' => $stores
+                ->filter(fn ($store) => isset($goLiveDates[(int) $store->id]))
+                ->map(fn ($store) => [
+                    'id' => (int) $store->id,
+                    'name' => $store->name,
+                    'branch_code' => $store->branch_code ?? null,
+                    'go_live_date' => $goLiveDates[(int) $store->id],
+                    'go_live_week' => 'Week '.Carbon::parse($goLiveDates[(int) $store->id])->isoWeek,
+                ])
+                ->sortBy([['go_live_date', 'asc'], ['name', 'asc']])
+                ->values()
+                ->all(),
             'weeks' => count($rows),
         ];
     }

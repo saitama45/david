@@ -50,5 +50,7 @@ test('a store goes live in the week of its first ordering transaction and stays 
 
     expect($totals['live_stores'])->toBe(3)
         ->and($totals['new_in_range'])->toBe(2)
-        ->and($totals['not_live_stores'])->toBe(['Delta']);
+        ->and($totals['not_live_stores'])->toBe(['Delta'])
+        ->and(array_column($totals['live_store_list'], 'name'))->toBe(['Alpha', 'Bravo', 'Charlie'])
+        ->and($totals['live_store_list'][1]['go_live_date'])->toBe('2026-05-10');
 });

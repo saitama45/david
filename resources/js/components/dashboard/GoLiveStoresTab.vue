@@ -12,6 +12,7 @@ import axios from "axios";
 import Chart from "primevue/chart";
 import { Chart as ChartJS } from "chart.js";
 import { BarChart3, RotateCcw, Search } from "lucide-vue-next";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
 const LIVE_COLOR = "#16a34a";
 const START_WEEK = 19;
@@ -89,6 +90,38 @@ const resetFilters = () => {
     loaded.value = false;
     load();
 };
+
+// --- Store list behind a count ---------------------------------------------
+// A store counts as live in a week when it went live on or before that week's end.
+const storeListOpen = ref(false);
+const storeListTitle = ref("");
+const storeListEnd = ref(null);
+const storeListWeekStart = ref(null);
+const storeListSearch = ref("");
+
+const openStoreList = (row = null) => {
+    storeListEnd.value = row?.week_end ?? null;
+    storeListWeekStart.value = row?.week_start ?? null;
+    storeListTitle.value = row
+        ? `Go-Live Stores as of ${row.week_label} (${row.week_range})`
+        : "Go-Live Stores";
+    storeListSearch.value = "";
+    storeListOpen.value = true;
+};
+
+const storeListRows = computed(() => {
+    const search = storeListSearch.value.trim().toLowerCase();
+
+    return (totals.value.live_store_list ?? [])
+        .filter((store) => !storeListEnd.value || store.go_live_date <= storeListEnd.value)
+        .filter((store) => !search || `${store.name} ${store.branch_code ?? ""}`.toLowerCase().includes(search));
+});
+
+const isNewInWeek = (store) =>
+    storeListWeekStart.value && store.go_live_date >= storeListWeekStart.value && store.go_live_date <= storeListEnd.value;
+
+const formatLongDate = (value) =>
+    new Date(`${value}T00:00:00`).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
 
 // The parent triggers the first load lazily, only when this tab is opened.
 defineExpose({ load, loaded });
@@ -223,13 +256,18 @@ onMounted(registerPointLabelsPlugin);
         </div>
 
         <div v-if="loaded" class="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-            <div class="rounded-lg border border-green-200 bg-green-50 p-5 shadow-sm">
+            <button
+                type="button"
+                class="rounded-lg border border-green-200 bg-green-50 p-5 text-left shadow-sm transition hover:border-green-400 hover:bg-green-100"
+                title="View these stores"
+                @click="openStoreList()"
+            >
                 <p class="text-xs font-semibold uppercase tracking-wide text-green-700">Go-Live Stores</p>
                 <p class="mt-1 text-3xl font-semibold text-green-900">
                     {{ totals.live_stores }} <span class="text-lg font-medium text-green-700">/ {{ totals.total_stores }}</span>
                 </p>
-                <p class="mt-1 text-xs text-green-700">Stores with at least 1 ordering transaction</p>
-            </div>
+                <p class="mt-1 text-xs text-green-700">Stores with at least 1 ordering transaction · <span class="underline">View stores</span></p>
+            </button>
             <div class="rounded-lg border border-cyan-200 bg-cyan-50 p-5 shadow-sm">
                 <p class="text-xs font-semibold uppercase tracking-wide text-cyan-700">Go-Live Rate</p>
                 <p class="mt-1 text-3xl font-semibold text-cyan-900">{{ formatPercent(totals.go_live_rate) }}</p>
@@ -304,7 +342,17 @@ onMounted(registerPointLabelsPlugin);
                                 </template>
                                 <span v-else class="text-gray-400">-</span>
                             </td>
-                            <td class="px-3 py-2 text-right font-semibold text-green-700">{{ row.live_stores }} / {{ row.total_stores }}</td>
+                            <td class="px-3 py-2 text-right">
+                                <button
+                                    type="button"
+                                    class="font-semibold text-green-700 underline decoration-dotted underline-offset-2 hover:text-green-900 disabled:no-underline"
+                                    :disabled="!row.live_stores"
+                                    :title="row.live_stores ? 'View these stores' : ''"
+                                    @click="openStoreList(row)"
+                                >
+                                    {{ row.live_stores }} / {{ row.total_stores }}
+                                </button>
+                            </td>
                             <td class="px-3 py-2 text-right text-gray-700">{{ row.not_live_stores }}</td>
                             <td class="px-3 py-2 text-right text-gray-700">{{ formatPercent(row.go_live_rate) }}</td>
                         </tr>
@@ -326,5 +374,48 @@ onMounted(registerPointLabelsPlugin);
                 </span>
             </div>
         </div>
+
+        <Dialog v-model:open="storeListOpen">
+            <DialogContent class="max-h-[90vh] overflow-y-auto sm:max-w-2xl">
+                <DialogHeader>
+                    <DialogTitle>{{ storeListTitle }}</DialogTitle>
+                    <DialogDescription>
+                        {{ storeListRows.length }} store(s) live<span v-if="storeListEnd"> by {{ formatLongDate(storeListEnd) }}</span>.
+                        A store goes live on its first ordering transaction in Mass Orders.
+                    </DialogDescription>
+                </DialogHeader>
+
+                <Input v-model="storeListSearch" placeholder="Search store or branch code..." />
+
+                <div class="overflow-x-auto">
+                    <table class="min-w-full divide-y divide-gray-200 text-sm">
+                        <thead class="bg-gray-50 text-xs uppercase tracking-wide text-gray-500">
+                            <tr>
+                                <th class="px-3 py-2 text-left">#</th>
+                                <th class="px-3 py-2 text-left">Store</th>
+                                <th class="px-3 py-2 text-left">Branch Code</th>
+                                <th class="px-3 py-2 text-left">Go-Live Date</th>
+                                <th class="px-3 py-2 text-left">Go-Live Week</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-gray-100">
+                            <tr v-if="!storeListRows.length">
+                                <td colspan="5" class="px-3 py-6 text-center text-gray-500">No stores found.</td>
+                            </tr>
+                            <tr v-for="(store, index) in storeListRows" :key="store.id" :class="isNewInWeek(store) ? 'bg-green-50' : ''">
+                                <td class="px-3 py-2 text-gray-500">{{ index + 1 }}</td>
+                                <td class="px-3 py-2 font-medium text-gray-900">
+                                    {{ store.name }}
+                                    <span v-if="isNewInWeek(store)" class="ml-1 rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-700">New this week</span>
+                                </td>
+                                <td class="px-3 py-2 text-gray-700">{{ store.branch_code || "-" }}</td>
+                                <td class="whitespace-nowrap px-3 py-2 text-gray-700">{{ formatLongDate(store.go_live_date) }}</td>
+                                <td class="px-3 py-2 text-gray-700">{{ store.go_live_week }}</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </DialogContent>
+        </Dialog>
     </section>
 </template>
