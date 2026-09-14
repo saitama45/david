@@ -338,6 +338,8 @@ Route::middleware('auth')
             ->name('dashboard.success-rate');
         Route::middleware('permission:manage success rate tickets')->post('/dashboard/success-rate/week', [DashboardController::class, 'saveSuccessRateWeek'])
             ->name('dashboard.success-rate.week');
+        Route::middleware('permission:view go-live stores dashboard')->get('/dashboard/go-live-stores', [DashboardController::class, 'goLiveStores'])
+            ->name('dashboard.go-live-stores');
 
         // User Management Routes
         Route::controller(UserController::class)->prefix('users')->name('users.')->group(function () {

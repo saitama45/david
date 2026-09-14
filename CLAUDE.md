@@ -96,7 +96,7 @@ Full detail: [Data-Flows.md](docs/knowledge/Data-Flows.md).
 `OrderApprovalService`, `MassOrderService`, `StoreOrderService`, `DTSStoreOrderService`,
 `OrderCalculatorService`, `OrderReceivingService`, `IntercoService`, `WastageService`,
 `MonthEndCountSettingsService`, `RoleService`, `UserService`, `AdoptionRateTrackingService`,
-`SuccessRateService`.
+`SuccessRateService`, `GoLiveStoresService`.
 
 **Models**: `StoreOrder` + `StoreOrderItem` (core aggregate, discriminated by `variant` and
 `order_status`), `Wastage`, `ProductInventory`, `SupplierItems`, `SAPMasterfile`, `POSMasterfileBOM`,

@@ -1,6 +1,7 @@
 <script setup>
 import MyActionsSummary from "@/components/dashboard/MyActionsSummary.vue";
 import SuccessRateTab from "@/components/dashboard/SuccessRateTab.vue";
+import GoLiveStoresTab from "@/components/dashboard/GoLiveStoresTab.vue";
 import { ref, onMounted, computed, watch, nextTick } from 'vue';
 import StatisticOverview from "../../components/dashboard/StatisticOverview.vue";
 import Chart from "primevue/chart";
@@ -129,6 +130,11 @@ onMounted(() => {
     registerTopLabelsPlugin();
     registerSalesMixPercentLabelsPlugin();
     registerAdoptionBarLabelsPlugin();
+
+    // Lazy tabs only load on click, so load now if the user lands on one.
+    if (activeDashboardTab.value === "go-live-stores") {
+        nextTick(() => goLiveStoresTab.value?.load());
+    }
 
     chartData.value = setChartData();
     chartOptions.value = setChartOptions();
@@ -791,9 +797,11 @@ const canViewSalesMix = computed(() => hasAccess("view sales mix"));
 const canViewAdoption = computed(() => hasAccess("view adoption rate dashboard"));
 const canViewAdoptionReport = computed(() => hasAccess("view adoption rate tracking report"));
 const canViewSuccessRate = computed(() => hasAccess("view success rate dashboard"));
+const canViewGoLiveStores = computed(() => hasAccess("view go-live stores dashboard"));
 
 const activeDashboardTab = ref(
     hasAccess("view dashboard overview") ? "overview" :
+    hasAccess("view go-live stores dashboard") ? "go-live-stores" :
     hasAccess("view sales mix") ? "sales-mix" :
     hasAccess("view adoption rate dashboard") ? "adoption-rate" :
     hasAccess("view success rate dashboard") ? "success-rate" :
@@ -802,6 +810,7 @@ const activeDashboardTab = ref(
 // The Success Rate tab owns its own filters/fetch; the page only tells it when
 // to make its first (lazy) load.
 const successRateTab = ref(null);
+const goLiveStoresTab = ref(null);
 const activeSalesMixTab = ref("subcategories");
 
 const formatDate = (date) => {
@@ -1332,6 +1341,7 @@ const selectDashboardTab = (tab) => {
     if (tab === "sales-mix" && !canViewSalesMix.value) return;
     if (tab === "adoption-rate" && !canViewAdoption.value) return;
     if (tab === "success-rate" && !canViewSuccessRate.value) return;
+    if (tab === "go-live-stores" && !canViewGoLiveStores.value) return;
 
     activeDashboardTab.value = tab;
 
@@ -1341,6 +1351,10 @@ const selectDashboardTab = (tab) => {
 
     if (tab === "success-rate" && !successRateTab.value?.loaded) {
         nextTick(() => successRateTab.value?.load());
+    }
+
+    if (tab === "go-live-stores" && !goLiveStoresTab.value?.loaded) {
+        nextTick(() => goLiveStoresTab.value?.load());
     }
 
     if (tab === "sales-mix" && activeSalesMixTab.value === "subcategories" && !salesMixLoaded.value) {
@@ -1571,6 +1585,19 @@ const registerDoughnutLabelPlugin = () => {
                 @click="selectDashboardTab('overview')"
             >
                 Overview
+            </button>
+            <button
+                v-if="canViewGoLiveStores"
+                type="button"
+                :class="[
+                    'px-4 py-2 text-sm font-semibold transition-colors border-b-2',
+                    activeDashboardTab === 'go-live-stores'
+                        ? 'border-cyan-600 text-cyan-700'
+                        : 'border-transparent text-gray-500 hover:text-gray-800'
+                ]"
+                @click="selectDashboardTab('go-live-stores')"
+            >
+                Go-Live Stores
             </button>
             <button
                 v-if="canViewSalesMix"
@@ -2304,6 +2331,11 @@ const registerDoughnutLabelPlugin = () => {
             v-else-if="activeDashboardTab === 'success-rate'"
             ref="successRateTab"
             :store-options="adoptionStoreOptions"
+        />
+
+        <GoLiveStoresTab
+            v-else-if="activeDashboardTab === 'go-live-stores'"
+            ref="goLiveStoresTab"
         />
 
         <div v-else class="flex flex-col items-center justify-center py-24 text-center text-gray-400">

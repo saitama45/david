@@ -42,7 +42,7 @@ Ordering is split by variant: `StoreOrderService` (regular), `MassOrderService` 
 
 Supporting: `RoleService` (permission grouping for the role UI), `UserService`,
 `MonthEndCountSettingsService`, `WastageService`, `AdoptionRateTrackingService`,
-`SuccessRateService`, `ConsolidatedSOReportService`, `DeliveryScheduleService`,
+`SuccessRateService`, `GoLiveStoresService`, `ConsolidatedSOReportService`, `DeliveryScheduleService`,
 `StoreTransactionService`, `CSCommitService`, `ApprovalNotificationService`.
 
 `SuccessRateService` backs the Dashboard **Success Rate** tab, a port of the
@@ -75,6 +75,18 @@ The transaction counts and the adoption trend come from the same five datasets, 
 and cached **together, and separately from the ticket figures**: fetching them twice would double
 the cost of the page's most expensive query, and sharing a cache entry with the tickets made every
 encoded week invalidate the (very slow) trend so the save appeared to hang.
+
+`GoLiveStoresService` backs the Dashboard **Go-Live Stores** tab (`dashboard.go-live-stores`,
+permission `view go-live stores dashboard`) — a rollout tracker, not an activity metric. A store goes
+live in the ISO week of its first ordering transaction: its first `store_orders` row with
+`variant = 'mass regular'` (the /mass-orders page), any status, bucketed on `created_at` (not
+`order_date`, which is the future delivery date). It then stays live; whether it keeps ordering is the
+Success Rate / Adoption Rate tabs' job. The store universe is every **active** (`is_active = 1`)
+branch of the entity, independent of the viewer's store assignments. Default range starts at ISO
+week 19. One grouped `toBase()` query (EntityScope kept, StoreOrder's default `$with` skipped).
+
+`store_branches` carries two status fields: `is_active` ("Active Status") is authoritative;
+`store_status` is legacy free text that reads "Active" even for inactive branches — do not use it.
 
 ## Core models
 

@@ -19,8 +19,21 @@ class StoreBranchController extends Controller
             $query->whereAny(['name', 'location_code', 'branch_code'], 'like', "%$search%");
 
         $branches = $query->latest()->paginate(10)->withQueryString();
+
+        // Counted on is_active ("Active Status") only; store_status is free text
+        // and reads "Active" even for inactive branches.
+        $statusCounts = StoreBranch::query()
+            ->selectRaw('SUM(CASE WHEN is_active = 1 THEN 1 ELSE 0 END) AS active')
+            ->selectRaw('SUM(CASE WHEN is_active = 1 THEN 0 ELSE 1 END) AS inactive')
+            ->toBase()
+            ->first();
+
         return Inertia::render('StoreBranch/Index', [
             'data' => $branches,
+            'statusCounts' => [
+                'active' => (int) ($statusCounts->active ?? 0),
+                'inactive' => (int) ($statusCounts->inactive ?? 0),
+            ],
             'filters' => request()->only(['search'])
         ]);
     }

@@ -39,6 +39,10 @@ const props = defineProps({
         type: Object,
         required: true,
     },
+    statusCounts: {
+        type: Object,
+        default: () => ({ active: 0, inactive: 0 }),
+    },
 });
 
 const { search } = useSearch("branches.index");
@@ -60,6 +64,9 @@ const createNewStoreBranch = () => {
 
 const { deleteModel } = useReferenceDelete();
 
+// SQL Server returns is_active as "1"/"0" and the string "0" is truthy in JS.
+const isActive = (branch) => Number(branch.is_active) === 1;
+
 const exportRoute = computed(() =>
     route("branches.export", { search: search.value })
 );
@@ -74,6 +81,17 @@ const exportRoute = computed(() =>
         :hasExcelDownload="true"
         :exportRoute="exportRoute"
     >
+        <div class="mb-4 grid grid-cols-2 gap-4 sm:max-w-md">
+            <div class="rounded-lg border border-green-200 bg-green-50 p-4">
+                <p class="text-xs font-semibold uppercase tracking-wide text-green-700">Active Stores</p>
+                <p class="mt-1 text-2xl font-semibold text-green-900">{{ statusCounts.active }}</p>
+            </div>
+            <div class="rounded-lg border border-gray-200 bg-gray-50 p-4">
+                <p class="text-xs font-semibold uppercase tracking-wide text-gray-600">Inactive Stores</p>
+                <p class="mt-1 text-2xl font-semibold text-gray-900">{{ statusCounts.inactive }}</p>
+            </div>
+        </div>
+
         <TableContainer>
             <TableHeader>
                 <SearchBar>
@@ -91,6 +109,7 @@ const exportRoute = computed(() =>
                     <TH> Name</TH>
                     <TH> Branch Code</TH>
                     <TH> Location Code</TH> <!-- Added Location Code -->
+                    <TH> Active Status</TH>
                     <TH> Actions </TH>
                 </TableHead>
                 <TableBody>
@@ -99,6 +118,14 @@ const exportRoute = computed(() =>
                         <TD>{{ branch.name }}</TD>
                         <TD>{{ branch.branch_code }}</TD>
                         <TD>{{ branch.location_code ?? "N/a" }}</TD> <!-- Added Location Code -->
+                        <TD>
+                            <span
+                                :class="isActive(branch) ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'"
+                                class="px-2 py-0.5 rounded-full text-xs font-medium"
+                            >
+                                {{ isActive(branch) ? "Active" : "Inactive" }}
+                            </span>
+                        </TD>
                         <TD>
                             <ShowButton @click="viewDetails(branch.id)" />
                             <EditButton
@@ -127,6 +154,7 @@ const exportRoute = computed(() =>
                     </MobileTableHeading>
                     <LabelXS>{{ branch.branch_code }}</LabelXS>
                     <LabelXS>{{ branch.location_code ?? "N/a" }}</LabelXS> <!-- Added Location Code for mobile -->
+                    <LabelXS>Status: {{ isActive(branch) ? "Active" : "Inactive" }}</LabelXS>
                 </MobileTableRow>
             </MobileTableContainer>
             <Pagination :data="data" />

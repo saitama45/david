@@ -61,6 +61,9 @@ class RoleService
                 'Overview' => [
                     'view dashboard overview',
                 ],
+                'Go-Live Stores' => [
+                    'view go-live stores dashboard',
+                ],
                 'Sales Mix' => [
                     'view sales mix',
                 ],

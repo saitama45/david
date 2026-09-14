@@ -220,6 +220,7 @@ class RolesAndPermissionSeeder extends Seeder
             "view received orders for approval list",
             "view roles",
             "view dashboard overview",
+            "view go-live stores dashboard",
             "view sales budget uploader",
             "view sales mix",
             "view success rate dashboard",

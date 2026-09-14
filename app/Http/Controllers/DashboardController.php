@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Enum\TimePeriod;
 use App\Enum\UserRole;
 use App\Http\Services\AdoptionRateTrackingService;
+use App\Http\Services\GoLiveStoresService;
 use App\Http\Services\SuccessRateService;
 use App\Models\SuccessRateWeeklyTicket;
 use App\Mail\OneTimePasswordMail;
@@ -38,7 +39,8 @@ class DashboardController extends Controller
 {
     public function __construct(
         private AdoptionRateTrackingService $adoptionRateService,
-        private SuccessRateService $successRateService
+        private SuccessRateService $successRateService,
+        private GoLiveStoresService $goLiveStoresService
     )
     {
     }
@@ -413,6 +415,20 @@ class DashboardController extends Controller
         return response()->json(
             $this->successRateService->getWeeklyTrend($params, $request->user())
         );
+    }
+
+    /**
+     * Go-Live Stores tab: per week, how many active /branches stores have gone
+     * live, i.e. recorded their first ordering transaction (see GoLiveStoresService).
+     */
+    public function goLiveStores(Request $request)
+    {
+        $validated = $request->validate([
+            'date_from' => ['nullable', 'date'],
+            'date_to' => ['nullable', 'date', 'after_or_equal:date_from'],
+        ]);
+
+        return response()->json($this->goLiveStoresService->getWeeklyTrend($validated));
     }
 
     /**
