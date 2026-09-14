@@ -426,9 +426,10 @@ class DashboardController extends Controller
         $validated = $request->validate([
             'date_from' => ['nullable', 'date'],
             'date_to' => ['nullable', 'date', 'after_or_equal:date_from'],
+            'period' => ['nullable', 'in:week,month'],
         ]);
 
-        return response()->json($this->goLiveStoresService->getWeeklyTrend($validated));
+        return response()->json($this->goLiveStoresService->getTrend($validated));
     }
 
     /**

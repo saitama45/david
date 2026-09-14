@@ -2,8 +2,8 @@
 /**
  * Dashboard > Go-Live Stores tab.
  *
- * Rollout tracker for the stores listed in /branches. A store goes live in the
- * week of its first ordering transaction (its first /mass-orders order) and
+ * Rollout tracker for the stores listed in /branches, weekly or monthly. A store
+ * goes live on its first ordering transaction (its first /mass-orders order) and
  * stays live; whether it keeps ordering is for the Success Rate and Adoption
  * Rate tabs. All figures come from GoLiveStoresService.
  */
@@ -46,6 +46,8 @@ const defaultFrom = (() => {
 
 const dateFrom = ref(defaultFrom);
 const dateTo = ref(defaultTo);
+const period = ref("week"); // 'week' | 'month'
+const periodNoun = computed(() => (period.value === "month" ? "month" : "week"));
 
 const loaded = ref(false);
 const loading = ref(false);
@@ -65,6 +67,7 @@ const load = async () => {
             params: {
                 date_from: dateFrom.value,
                 date_to: dateTo.value,
+                period: period.value,
             },
         });
 
@@ -84,15 +87,22 @@ const applyFilters = () => {
     load();
 };
 
+const setPeriod = (value) => {
+    if (period.value === value) return;
+    period.value = value;
+    applyFilters();
+};
+
 const resetFilters = () => {
     dateFrom.value = defaultFrom;
     dateTo.value = defaultTo;
+    period.value = "week";
     loaded.value = false;
     load();
 };
 
 // --- Store list behind a count ---------------------------------------------
-// A store counts as live in a week when it went live on or before that week's end.
+// A store counts as live in a period when it went live on or before that period's end.
 const storeListOpen = ref(false);
 const storeListTitle = ref("");
 const storeListEnd = ref(null);
@@ -100,10 +110,10 @@ const storeListWeekStart = ref(null);
 const storeListSearch = ref("");
 
 const openStoreList = (row = null) => {
-    storeListEnd.value = row?.week_end ?? null;
-    storeListWeekStart.value = row?.week_start ?? null;
+    storeListEnd.value = row?.period_end ?? null;
+    storeListWeekStart.value = row?.period_start ?? null;
     storeListTitle.value = row
-        ? `Go-Live Stores as of ${row.week_label} (${row.week_range})`
+        ? `Go-Live Stores as of ${row.period_label} (${row.period_range})`
         : "Go-Live Stores";
     storeListSearch.value = "";
     storeListOpen.value = true;
@@ -130,7 +140,7 @@ const formatPercent = (value) =>
     value === null || value === undefined ? "N/A" : `${Number(value).toFixed(2)}%`;
 
 const chartData = computed(() => ({
-    labels: rows.value.map((row) => row.week_label),
+    labels: rows.value.map((row) => row.period_label),
     datasets: [
         {
             label: "Go-Live Stores",
@@ -161,7 +171,7 @@ const chartOptions = computed(() => {
                     title: (items) => {
                         const row = rows.value[items[0]?.dataIndex];
 
-                        return row ? `${row.week_label} (${row.week_range})` : "";
+                        return row ? `${row.period_label} (${row.period_range})` : "";
                     },
                     label: (context) => {
                         const row = rows.value[context.dataIndex];
@@ -171,7 +181,7 @@ const chartOptions = computed(() => {
                     afterBody: (items) => {
                         const row = rows.value[items[0]?.dataIndex];
 
-                        return row?.new_stores.length ? [`New this week: ${row.new_stores.join(", ")}`] : [];
+                        return row?.new_stores.length ? [`New this ${periodNoun.value}: ${row.new_stores.join(", ")}`] : [];
                     },
                 },
             },
@@ -276,7 +286,7 @@ onMounted(registerPointLabelsPlugin);
             <div class="rounded-lg border border-blue-200 bg-blue-50 p-5 shadow-sm">
                 <p class="text-xs font-semibold uppercase tracking-wide text-blue-700">New Go-Lives in Range</p>
                 <p class="mt-1 text-3xl font-semibold text-blue-900">{{ totals.new_in_range }}</p>
-                <p class="mt-1 text-xs text-blue-700">First ordering transaction within {{ totals.weeks || 0 }} week(s)</p>
+                <p class="mt-1 text-xs text-blue-700">First ordering transaction within {{ totals.periods || 0 }} {{ periodNoun }}(s)</p>
             </div>
             <div class="rounded-lg border border-gray-200 bg-gray-50 p-5 shadow-sm">
                 <p class="text-xs font-semibold uppercase tracking-wide text-gray-600">Not Yet Live</p>
@@ -286,11 +296,31 @@ onMounted(registerPointLabelsPlugin);
         </div>
 
         <div class="rounded-lg border border-gray-200 bg-white p-5 shadow-sm">
-            <div class="mb-4">
-                <h3 class="text-base font-semibold text-gray-900">DAVID Go-Live Stores per Week</h3>
-                <p class="text-sm text-gray-500">
-                    {{ meta.date_from }} to {{ meta.date_to }} - {{ totals.weeks || 0 }} week(s)
-                </p>
+            <div class="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                    <h3 class="text-base font-semibold text-gray-900">
+                        DAVID Go-Live Stores per {{ period === 'month' ? 'Month' : 'Week' }}
+                    </h3>
+                    <p class="text-sm text-gray-500">
+                        {{ meta.date_from }} to {{ meta.date_to }} - {{ totals.periods || 0 }} {{ periodNoun }}(s)
+                    </p>
+                </div>
+                <div class="inline-flex rounded-md border border-gray-200 bg-gray-50 p-1" role="group" aria-label="Group by">
+                    <button
+                        v-for="option in [{ value: 'week', label: 'Weekly' }, { value: 'month', label: 'Monthly' }]"
+                        :key="option.value"
+                        type="button"
+                        :disabled="loading"
+                        :aria-pressed="period === option.value"
+                        :class="[
+                            'rounded px-4 py-1.5 text-sm font-medium transition-colors',
+                            period === option.value ? 'bg-white text-green-700 shadow-sm' : 'text-gray-500 hover:text-gray-800',
+                        ]"
+                        @click="setPeriod(option.value)"
+                    >
+                        {{ option.label }}
+                    </button>
+                </div>
             </div>
 
             <div v-if="loading" class="flex h-96 items-center justify-center text-sm text-gray-500">
@@ -301,7 +331,7 @@ onMounted(registerPointLabelsPlugin);
             </div>
             <div v-else-if="loaded && !hasData" class="flex h-96 flex-col items-center justify-center text-center text-gray-500">
                 <BarChart3 class="mb-3 h-10 w-10 text-gray-300" />
-                <p class="text-sm font-medium">No weeks in this range.</p>
+                <p class="text-sm font-medium">No {{ periodNoun }}s in this range.</p>
             </div>
             <div v-else-if="loaded" class="overflow-x-auto">
                 <Chart type="line" :data="chartData" :options="chartOptions" class="h-[26rem] min-w-[48rem]" />
@@ -314,17 +344,17 @@ onMounted(registerPointLabelsPlugin);
 
         <div v-if="loaded && hasData" class="rounded-lg border border-gray-200 bg-white p-5 shadow-sm">
             <div class="mb-4">
-                <h3 class="text-base font-semibold text-gray-900">Weekly Go-Live Tally</h3>
+                <h3 class="text-base font-semibold text-gray-900">{{ period === 'month' ? 'Monthly' : 'Weekly' }} Go-Live Tally</h3>
                 <p class="text-sm text-gray-500">
-                    A store goes live in the week of its first ordering transaction in Mass Orders.
+                    A store goes live in the {{ periodNoun }} of its first ordering transaction in Mass Orders.
                 </p>
             </div>
             <div class="overflow-x-auto">
                 <table class="min-w-full divide-y divide-gray-200 text-sm">
                     <thead class="bg-gray-50 text-xs uppercase tracking-wide text-gray-500">
                         <tr>
-                            <th class="px-3 py-2 text-left">Week Range</th>
-                            <th class="px-3 py-2 text-left">Week No</th>
+                            <th class="px-3 py-2 text-left">{{ period === 'month' ? 'Month Range' : 'Week Range' }}</th>
+                            <th class="px-3 py-2 text-left">{{ period === 'month' ? 'Month' : 'Week No' }}</th>
                             <th class="px-3 py-2 text-left">New Go-Live Stores</th>
                             <th class="px-3 py-2 text-right">Go-Live Stores</th>
                             <th class="px-3 py-2 text-right">Not Yet Live</th>
@@ -332,9 +362,9 @@ onMounted(registerPointLabelsPlugin);
                         </tr>
                     </thead>
                     <tbody class="divide-y divide-gray-100">
-                        <tr v-for="row in rows" :key="row.week_start">
-                            <td class="whitespace-nowrap px-3 py-2 text-gray-700">{{ row.week_range }}</td>
-                            <td class="whitespace-nowrap px-3 py-2 font-medium text-gray-900">{{ row.week_label }}</td>
+                        <tr v-for="row in rows" :key="row.period_start">
+                            <td class="whitespace-nowrap px-3 py-2 text-gray-700">{{ row.period_range }}</td>
+                            <td class="whitespace-nowrap px-3 py-2 font-medium text-gray-900">{{ row.period_label }}</td>
                             <td class="px-3 py-2 text-gray-700">
                                 <template v-if="row.new_go_live">
                                     <span class="font-medium text-green-700">+{{ row.new_go_live }}</span>
@@ -395,7 +425,7 @@ onMounted(registerPointLabelsPlugin);
                                 <th class="px-3 py-2 text-left">Store</th>
                                 <th class="px-3 py-2 text-left">Branch Code</th>
                                 <th class="px-3 py-2 text-left">Go-Live Date</th>
-                                <th class="px-3 py-2 text-left">Go-Live Week</th>
+                                <th class="px-3 py-2 text-left">{{ period === 'month' ? 'Go-Live Month' : 'Go-Live Week' }}</th>
                             </tr>
                         </thead>
                         <tbody class="divide-y divide-gray-100">
@@ -406,11 +436,11 @@ onMounted(registerPointLabelsPlugin);
                                 <td class="px-3 py-2 text-gray-500">{{ index + 1 }}</td>
                                 <td class="px-3 py-2 font-medium text-gray-900">
                                     {{ store.name }}
-                                    <span v-if="isNewInWeek(store)" class="ml-1 rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-700">New this week</span>
+                                    <span v-if="isNewInWeek(store)" class="ml-1 rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-700">New this {{ periodNoun }}</span>
                                 </td>
                                 <td class="px-3 py-2 text-gray-700">{{ store.branch_code || "-" }}</td>
                                 <td class="whitespace-nowrap px-3 py-2 text-gray-700">{{ formatLongDate(store.go_live_date) }}</td>
-                                <td class="px-3 py-2 text-gray-700">{{ store.go_live_week }}</td>
+                                <td class="px-3 py-2 text-gray-700">{{ period === 'month' ? store.go_live_month : store.go_live_week }}</td>
                             </tr>
                         </tbody>
                     </table>

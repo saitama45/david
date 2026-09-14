@@ -44,7 +44,7 @@ test('a store goes live in the week of its first ordering transaction and stays 
         ->and($rows[0]['new_stores'])->toBe(['Bravo'])
         ->and(array_column($rows, 'not_live_stores'))->toBe([2, 2, 1])
         ->and($rows[2]['go_live_rate'])->toBe(75.0)
-        ->and($rows[0]['week_label'])->toBe('Week 19');
+        ->and($rows[0]['period_label'])->toBe('Week 19');
 
     $totals = goLiveInvoke('buildTotals', [$rows, $stores, $goLiveDates]);
 
@@ -53,4 +53,22 @@ test('a store goes live in the week of its first ordering transaction and stays 
         ->and($totals['not_live_stores'])->toBe(['Delta'])
         ->and(array_column($totals['live_store_list'], 'name'))->toBe(['Alpha', 'Bravo', 'Charlie'])
         ->and($totals['live_store_list'][1]['go_live_date'])->toBe('2026-05-10');
+});
+
+test('monthly buckets are whole calendar months and count stores live by each month end', function () {
+    $months = goLiveInvoke('buildMonthBuckets', [
+        Carbon\Carbon::parse('2026-05-04'),
+        Carbon\Carbon::parse('2026-07-10')->endOfDay(),
+    ]);
+
+    expect(array_column($months, 'period_label'))->toBe(['May 2026', 'Jun 2026', 'Jul 2026'])
+        ->and($months[1]['start_date'])->toBe('2026-06-01')
+        ->and($months[1]['end_date'])->toBe('2026-06-30');
+
+    $stores = collect([goLiveStore(1, 'Alpha'), goLiveStore(2, 'Bravo'), goLiveStore(3, 'Charlie')]);
+    $rows = goLiveInvoke('buildRows', [$months, $stores, [1 => '2026-04-20', 2 => '2026-05-31', 3 => '2026-06-01']]);
+
+    expect(array_column($rows, 'live_stores'))->toBe([2, 3, 3])
+        ->and(array_column($rows, 'new_go_live'))->toBe([1, 1, 0])
+        ->and($rows[1]['new_stores'])->toBe(['Charlie']);
 });

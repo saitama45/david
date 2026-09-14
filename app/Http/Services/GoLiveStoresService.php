@@ -10,8 +10,8 @@ use Illuminate\Support\Collection;
 /**
  * Dashboard > Go-Live Stores tab.
  *
- * Tracks the rollout of DAVID across the stores listed in /branches. A store
- * goes live in the ISO week of its first ordering transaction - its first
+ * Tracks the rollout of DAVID across the stores listed in /branches, per ISO
+ * week or per calendar month. A store goes live on its first ordering transaction - its first
  * /mass-orders order (store_orders.variant = 'mass regular', any status) - and
  * stays live. Whether it keeps ordering afterwards is the Success Rate and
  * Adoption Rate tabs' concern, not this one.
@@ -26,21 +26,26 @@ class GoLiveStoresService
 
     public const START_WEEK = 19;
 
+    public const PERIODS = ['week', 'month'];
+
     /**
-     * @param  array{date_from?:string|null,date_to?:string|null}  $filters
+     * @param  array{date_from?:string|null,date_to?:string|null,period?:string|null}  $filters
      */
-    public function getWeeklyTrend(array $filters): array
+    public function getTrend(array $filters): array
     {
         [$dateFrom, $dateTo] = $this->resolveDateRange($filters);
+        $period = in_array($filters['period'] ?? null, self::PERIODS, true) ? $filters['period'] : 'week';
 
         $stores = StoreBranch::query()
             ->where('is_active', true)
             ->orderBy('name')
             ->get(['id', 'name', 'branch_code']);
 
-        $weeks = $this->buildWeekBuckets($dateFrom, $dateTo);
+        $buckets = $period === 'month'
+            ? $this->buildMonthBuckets($dateFrom, $dateTo)
+            : $this->buildWeekBuckets($dateFrom, $dateTo);
         $goLiveDates = $this->goLiveDates($stores->pluck('id')->all());
-        $rows = $this->buildRows($weeks, $stores, $goLiveDates);
+        $rows = $this->buildRows($buckets, $stores, $goLiveDates);
 
         return [
             'rows' => $rows,
@@ -48,33 +53,34 @@ class GoLiveStoresService
             'filters' => [
                 'date_from' => $dateFrom->toDateString(),
                 'date_to' => $dateTo->toDateString(),
+                'period' => $period,
             ],
         ];
     }
 
     /**
-     * Pure: one row per week from the store list and each store's go-live date.
+     * Pure: one row per period bucket from the store list and each store's go-live date.
      *
      * @param  Collection<int, object{id:int,name:string}>  $stores
      * @param  array<int, string>  $goLiveDates  store id => Y-m-d of its first ordering transaction
      */
-    private function buildRows(array $weeks, Collection $stores, array $goLiveDates): array
+    private function buildRows(array $buckets, Collection $stores, array $goLiveDates): array
     {
         $totalStores = $stores->count();
         $names = $stores->mapWithKeys(fn ($store) => [(int) $store->id => $store->name]);
 
-        return collect($weeks)->map(function (array $week) use ($totalStores, $names, $goLiveDates) {
+        return collect($buckets)->map(function (array $bucket) use ($totalStores, $names, $goLiveDates) {
             $newStores = [];
             $liveCount = 0;
 
             foreach ($goLiveDates as $storeId => $date) {
-                if ($date > $week['end_date']) {
+                if ($date > $bucket['end_date']) {
                     continue;
                 }
 
                 $liveCount++;
 
-                if ($date >= $week['start_date']) {
+                if ($date >= $bucket['start_date']) {
                     $newStores[] = $names[$storeId] ?? (string) $storeId;
                 }
             }
@@ -82,10 +88,10 @@ class GoLiveStoresService
             sort($newStores);
 
             return [
-                'week_start' => $week['start_date'],
-                'week_end' => $week['end_date'],
-                'week_label' => 'Week '.$week['week_no'],
-                'week_range' => $week['label'],
+                'period_start' => $bucket['start_date'],
+                'period_end' => $bucket['end_date'],
+                'period_label' => $bucket['period_label'],
+                'period_range' => $bucket['label'],
                 'new_go_live' => count($newStores),
                 'new_stores' => $newStores,
                 'live_stores' => $liveCount,
@@ -123,11 +129,12 @@ class GoLiveStoresService
                     'branch_code' => $store->branch_code ?? null,
                     'go_live_date' => $goLiveDates[(int) $store->id],
                     'go_live_week' => 'Week '.Carbon::parse($goLiveDates[(int) $store->id])->isoWeek,
+                    'go_live_month' => Carbon::parse($goLiveDates[(int) $store->id])->format('M Y'),
                 ])
                 ->sortBy([['go_live_date', 'asc'], ['name', 'asc']])
                 ->values()
                 ->all(),
-            'weeks' => count($rows),
+            'periods' => count($rows),
         ];
     }
 
@@ -197,10 +204,34 @@ class GoLiveStoresService
                 'start_date' => $weekStart->toDateString(),
                 'end_date' => $weekEnd->toDateString(),
                 'week_no' => (int) $weekStart->isoWeek,
+                'period_label' => 'Week '.$weekStart->isoWeek,
                 'label' => $weekStart->format('M j').'-'.$weekEnd->format('M j'),
             ];
         }
 
         return $weeks;
+    }
+
+    /** Whole calendar months covering the range, never clipped to its edges. */
+    private function buildMonthBuckets(Carbon $dateFrom, Carbon $dateTo): array
+    {
+        $months = [];
+
+        for (
+            $monthStart = $dateFrom->copy()->startOfMonth();
+            $monthStart->lte($dateTo);
+            $monthStart->addMonthNoOverflow()
+        ) {
+            $monthEnd = $monthStart->copy()->endOfMonth();
+
+            $months[] = [
+                'start_date' => $monthStart->toDateString(),
+                'end_date' => $monthEnd->toDateString(),
+                'period_label' => $monthStart->format('M Y'),
+                'label' => $monthStart->format('M j').'-'.$monthEnd->format('M j'),
+            ];
+        }
+
+        return $months;
     }
 }
