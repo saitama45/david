@@ -4,17 +4,11 @@ on:
   push:
     branches:
       - master
+  # Manual "Run workflow" button, for redeploying a commit that never got a run.
+  workflow_dispatch:
 
 permissions:
   contents: read
-
-# Serialize runs on the same branch. cancel-in-progress must stay false:
-# cancelling a run's GitHub runner does NOT cancel a deployment already in
-# progress on Azure's side, so the next run's OneDeploy would hit a 409 Conflict.
-# Queuing lets each Azure deployment finish before the next one starts.
-concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: false
 
 jobs:
   build:
@@ -33,22 +27,11 @@ jobs:
           ini-values: post_max_size=256M, max_execution_time=180
           tools: composer:v2
 
-      # 1. Cache Composer dependencies
-      - name: Get Composer Cache Directory
-        id: composer-cache
-        run: echo "dir=$(composer config cache-files-dir)" >> $GITHUB_OUTPUT
-
-      - name: Cache Composer dependencies
-        uses: actions/cache@v4
-        with:
-          path: ${{ steps.composer-cache.outputs.dir }}
-          key: ${{ runner.os }}-composer-${{ hashFiles('**/composer.lock') }}
-          restore-keys: ${{ runner.os }}-composer-
-
+      # vendor/ is committed, so this only strips the dev packages. A Composer
+      # cache never had anything to restore and is deliberately not used.
       - name: Install Composer Dependencies
         run: composer install --no-dev --optimize-autoloader --no-interaction --no-progress --prefer-dist
 
-      # 2. Cache NPM dependencies
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
@@ -86,6 +69,34 @@ jobs:
           touch build_output/storage/framework/views/index.html
           touch build_output/storage/logs/index.html
 
+      # One file instead of ~44k: uploading the folder as-is spent ~30s on the
+      # per-file artifact upload alone. The FTP package keeps its full content -
+      # FTP-Deploy-Action deletes whatever disappears from it, and removing the
+      # Google API clients there would cost one very long deletion run.
+      - name: Create FTP Package
+        run: tar -cf ftp.tar -C build_output .
+
+      - name: Upload FTP Package
+        uses: actions/upload-artifact@v4
+        with:
+          name: ftp-package
+          path: ftp.tar
+          compression-level: 0
+          retention-days: 1
+
+      # google/apiclient-services ships a client for every Google API: ~31k of the
+      # ~44k files in the package, while the app only uses Google\Service\Drive.
+      # Azure extracts the zip file by file onto its network share, so those files
+      # alone made the Azure deploy take ~10 minutes on every run.
+      - name: Remove unused Google API clients from the Azure package
+        run: |
+          cd build_output/vendor/google/apiclient-services/src
+          find . -mindepth 1 -maxdepth 1 ! -name Drive ! -name Drive.php -exec rm -rf {} +
+          cd "$GITHUB_WORKSPACE"
+          # Rebuild the optimized classmap so it no longer lists the removed files.
+          composer dump-autoload --working-dir=build_output --optimize --no-dev --no-scripts --no-interaction
+          echo "Files in Azure package: $(find build_output -type f | wc -l)"
+
       - name: Create Azure Zip Package
         run: |
           cd build_output
@@ -99,17 +110,17 @@ jobs:
           compression-level: 0
           retention-days: 1
 
-      - name: Upload FTP Package
-        uses: actions/upload-artifact@v4
-        with:
-          name: ftp-package
-          path: build_output/
-          retention-days: 1
-
   deploy_azure:
     name: Deploy to Azure App
     needs: build
     runs-on: ubuntu-latest
+    # Locks are per target, never workflow-wide, so a slow FTP sync cannot hold
+    # back the next Azure deploy. cancel-in-progress must stay false: cancelling
+    # the runner does NOT cancel a deployment already running on Azure's side, so
+    # the next run's OneDeploy would hit a 409 Conflict.
+    concurrency:
+      group: deploy-azure
+      cancel-in-progress: false
 
     steps:
       - name: Download Azure Package
@@ -129,6 +140,9 @@ jobs:
     name: Deploy to FTP
     needs: build
     runs-on: ubuntu-latest
+    concurrency:
+      group: deploy-ftp-site10
+      cancel-in-progress: false
 
     steps:
       - name: Download FTP Package
@@ -136,6 +150,11 @@ jobs:
         with:
           name: ftp-package
           path: .
+
+      - name: Extract FTP Package
+        run: |
+          mkdir -p ftp_output
+          tar -xf ftp.tar -C ftp_output
 
       - name: Deploy to FTP
         uses: SamKirkland/FTP-Deploy-Action@v4.3.4
@@ -146,6 +165,9 @@ jobs:
           protocol: ftp
           port: 21
           timeout: 120000
+          # Same content and the action's default sync-state file as before, so
+          # only changed files are sent and nothing is deleted on the server.
+          local-dir: ./ftp_output/
           exclude: |
             **/.git*
             **/.git*/**
