@@ -68,10 +68,17 @@ class HelpdeskTicketTallyClient
         }
 
         if (! $response->successful() || ! is_array($response->json('weeks'))) {
-            return $this->fail(
-                $response->json('message') ?: "Helpdesk returned HTTP {$response->status()}.",
-                ['status' => $response->status()]
-            );
+            $message = $response->json('message') ?: "Helpdesk returned HTTP {$response->status()}.";
+
+            // On a key mismatch Helpdesk returns short fingerprints of both keys,
+            // so an admin can tell which app holds the wrong value.
+            if ($response->json('helpdesk_key_fingerprint')) {
+                $message .= ' Helpdesk key: '.$response->json('helpdesk_key_fingerprint')
+                    .'; DAVID sent: '.($response->json('received_key_fingerprint') ?? 'nothing')
+                    .' (request to '.parse_url((string) config('services.helpdesk.url'), PHP_URL_HOST).')';
+            }
+
+            return $this->fail($message, ['status' => $response->status()]);
         }
 
         $counts = [];
