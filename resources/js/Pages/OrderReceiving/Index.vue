@@ -302,6 +302,7 @@ const getSupplierDisplayName = (supplier, variant) => {
                                 if (target && (
                                     target.closest('.p-multiselect-overlay') ||
                                     target.closest('.p-datepicker') ||
+                                    target.closest('.p-datepicker-panel') ||
                                     target.closest('.p-select-overlay') ||
                                     target.closest('[data-pc-name]')
                                 )) {
