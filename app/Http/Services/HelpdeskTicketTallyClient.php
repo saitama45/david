@@ -57,8 +57,8 @@ class HelpdeskTicketTallyClient
         try {
             $response = Http::acceptJson()
                 ->timeout(config('services.helpdesk.timeout', 10))
-                ->withHeaders(['X-Integration-Key' => config('services.helpdesk.key')])
-                ->get(rtrim(config('services.helpdesk.url'), '/').'/api/integrations/david/ticket-tally', [
+                ->withHeaders(['X-Integration-Key' => trim((string) config('services.helpdesk.key'))])
+                ->get(rtrim(trim((string) config('services.helpdesk.url')), '/').'/api/integrations/david/ticket-tally', [
                     'entity' => $entityCode,
                     'date_from' => $dateFrom->toDateString(),
                     'date_to' => $dateTo->toDateString(),

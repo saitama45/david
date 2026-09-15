@@ -66,7 +66,11 @@ it('uses helpdesk counts, sends the entity code and key, and snapshots non-zero 
 it('falls back to the last saved counts when helpdesk fails', function () {
     $user = User::factory()->create();
     $service = app(SuccessRateService::class);
-    $service->saveWeek(['week_start' => '2026-09-14', 'commit_incoming' => 4, 'commit_closed' => 1, 'remarks' => 'kept'], $user);
+    // A snapshot left by an earlier successful sync.
+    SuccessRateWeeklyTicket::create([
+        'week_start' => '2026-09-14', 'week_end' => '2026-09-20', 'iso_year' => 2026, 'week_no' => 38,
+        'commit_incoming' => 4, 'commit_closed' => 1, 'remarks' => 'kept',
+    ]);
 
     Http::fake(['helpdesk.test/*' => Http::response(['message' => 'boom'], 500)]);
 
@@ -75,6 +79,25 @@ it('falls back to the last saved counts when helpdesk fails', function () {
     expect($trend['ticket_source']['mode'])->toBe('manual')
         ->and($trend['ticket_source']['error'])->toBe('boom')
         ->and($trend['rows'][0])->toMatchArray(['commit_incoming' => 4, 'total_tickets' => 4, 'remarks' => 'kept']);
+});
+
+it('never overwrites helpdesk counts when a week is saved while the api is configured', function () {
+    Http::fake(['helpdesk.test/*' => Http::response(['message' => 'Integration key does not match Helpdesk.'], 401)]);
+
+    $user = User::factory()->create();
+    $service = app(SuccessRateService::class);
+    $record = $service->saveWeek(['week_start' => '2026-09-14', 'order_incoming' => 9, 'remarks' => 'first'], $user);
+
+    expect((int) $record->fresh()->order_incoming)->toBe(0)
+        ->and($record->fresh()->remarks)->toBe('first');
+
+    $trend = $service->getWeeklyTrend(['date_from' => '2026-09-14', 'date_to' => '2026-09-20'], $user);
+
+    expect($trend['ticket_source'])->toMatchArray([
+        'mode' => 'manual',
+        'configured' => true,
+        'error' => 'Integration key does not match Helpdesk.',
+    ]);
 });
 
 it('stays manual without calling helpdesk when it is not configured', function () {

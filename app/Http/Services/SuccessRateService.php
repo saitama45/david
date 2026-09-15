@@ -153,8 +153,12 @@ class SuccessRateService
             'updated_by' => $user->id,
         ];
 
-        foreach (SuccessRateWeeklyTicket::countColumns() as $column) {
-            $attributes[$column] = max(0, (int) ($data[$column] ?? 0));
+        // With the Helpdesk API configured, Incoming/Closed are owned by Helpdesk:
+        // a save only touches the override and remarks, never the synced counts.
+        if (! $this->helpdesk->isConfigured()) {
+            foreach (SuccessRateWeeklyTicket::countColumns() as $column) {
+                $attributes[$column] = max(0, (int) ($data[$column] ?? 0));
+            }
         }
 
         return SuccessRateWeeklyTicket::updateOrCreate(

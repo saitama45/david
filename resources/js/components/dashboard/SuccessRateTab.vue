@@ -78,8 +78,10 @@ const meta = ref({ date_from: defaultFrom, date_to: defaultTo });
 const showCloseRate = ref(false);
 // Where Incoming/Closed came from: { mode: 'helpdesk'|'manual', configured, entity_code, error }.
 const ticketSource = ref({ mode: "manual", configured: false, entity_code: null, error: null });
-// Counts pulled live from Helpdesk are read-only here; only override/remarks stay editable.
-const liveTickets = computed(() => ticketSource.value?.mode === "helpdesk");
+// Once the Helpdesk API is configured it is the only source of Incoming/Closed, so the counts
+// stay read-only even while a fetch is failing (the tab then shows the last saved counts).
+// Only the adoption override and remarks remain editable.
+const liveTickets = computed(() => ticketSource.value?.configured === true);
 
 const hasData = computed(() => rows.value.length > 0);
 
@@ -309,10 +311,13 @@ const saveWeek = async () => {
         remarks: form.value.remarks || null,
     };
 
-    modules.value.forEach((module) => {
-        payload[`${module.key}_incoming`] = num(form.value[`${module.key}_incoming`]);
-        payload[`${module.key}_closed`] = num(form.value[`${module.key}_closed`]);
-    });
+    // Helpdesk-sourced counts are never sent back, so saving remarks can't overwrite them.
+    if (!liveTickets.value) {
+        modules.value.forEach((module) => {
+            payload[`${module.key}_incoming`] = num(form.value[`${module.key}_incoming`]);
+            payload[`${module.key}_closed`] = num(form.value[`${module.key}_closed`]);
+        });
+    }
 
     try {
         await axios.post(route("dashboard.success-rate.week"), payload);
