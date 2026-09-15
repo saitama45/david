@@ -58,7 +58,8 @@ const defaultFrom = (() => {
     return formatDate(start);
 })();
 
-const defaultBranch = () => [props.storeOptions[0]?.value ?? "all"];
+// Preselect every accessible store (the dashboard no longer sends an "All Stores" entry).
+const defaultBranch = () => props.storeOptions.map((option) => option.value);
 
 const branch = ref(defaultBranch());
 const dateFrom = ref(defaultFrom);
@@ -361,7 +362,7 @@ onMounted(registerPointLabelsPlugin);
                 <MultiSelect
                     v-model="branch"
                     filter
-                    placeholder="All Stores"
+                    placeholder="Select stores"
                     :options="storeOptions"
                     optionLabel="label"
                     optionValue="value"

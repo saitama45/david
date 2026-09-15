@@ -184,8 +184,8 @@ class SuccessRateService
      * across five datasets and a per-store weekly loop and can take tens of
      * seconds; when it shared a cache entry with the ticket figures, every encoded
      * week invalidated it and the save appeared to hang while it all recomputed.
-     * Keyed by user + active entity so access changes and entity switches never
-     * serve another context's numbers.
+     * Keyed by user + active entity + accessible stores so store-assignment
+     * changes and entity switches never serve another context's numbers.
      *
      * @return array{adoption: array<string, float>, transactions: array<string, array<string, int>>}
      */
@@ -197,10 +197,10 @@ class SuccessRateService
             'date_to' => $filters['date_to'] ?? null,
         ];
 
-        $cacheKey = 'success_rate_derived_v2_'
+        $cacheKey = 'success_rate_derived_v3_'
             .$user->id.'_'
             .(app(EntityContext::class)->id() ?? 'none').'_'
-            .md5(json_encode($scoped));
+            .md5(json_encode([$scoped, $this->adoptionRateService->accessibleStoreIds($user)]));
 
         return Cache::remember($cacheKey, now()->addMinutes(10), function () use ($scoped, $user) {
             return [

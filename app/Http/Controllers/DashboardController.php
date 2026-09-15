@@ -59,10 +59,6 @@ class DashboardController extends Controller
                 'label' => $store->name . ' (' . ($store->branch_code ?: $store->brand_code ?: $store->id) . ')',
                 'value' => (int) $store->id,
             ])
-            ->prepend([
-                'label' => 'All Stores',
-                'value' => 'all',
-            ])
             ->values()
             ->all();
 
@@ -375,12 +371,13 @@ class DashboardController extends Controller
         // (10 minutes TTL). The Overall Adoption Rate computation fans out across
         // five datasets and a per-store weekly loop, so long date ranges are
         // expensive; caching keeps repeat/expanded requests from re-running it and
-        // guards against request timeouts. Scoped by user id and active entity so
-        // access changes / entity switches never serve another context's data.
-        $cacheKey = 'dashboard_adoption_rate_v3_'
+        // guards against request timeouts. Scoped by user id, active entity and the
+        // user's accessible stores, so an entity switch or a store-assignment change
+        // never serves a result tallied over the old store set.
+        $cacheKey = 'dashboard_adoption_rate_v4_'
             . $request->user()->id . '_'
             . ($request->session()->get('active_entity_id') ?? 'none') . '_'
-            . md5(json_encode($params));
+            . md5(json_encode([$params, $this->adoptionRateService->accessibleStoreIds($request->user())]));
 
         $data = Cache::remember($cacheKey, now()->addMinutes(10), function () use ($params, $request) {
             return $this->adoptionRateService->getWeeklyAdoptionTrend($params, $request->user());

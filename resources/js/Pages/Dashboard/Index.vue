@@ -873,7 +873,10 @@ const productQuantityMeta = ref({
 });
 
 // --- Adoption Rate tab state ---
-const adoptionBranch = ref([adoptionStoreOptions.value[0]?.value ?? "all"]);
+// Preselect every accessible store, as the Adoption Rate Tracking report does,
+// so the filter names the stores actually tallied instead of an "All Stores" entry.
+const allAdoptionStoreIds = () => adoptionStoreOptions.value.map((option) => option.value);
+const adoptionBranch = ref(allAdoptionStoreIds());
 const adoptionDateFrom = ref(formatDate(monthStart));
 const adoptionDateTo = ref(formatDate(today));
 const adoptionViewMode = ref("combined"); // 'combined' | 'per_store'
@@ -1311,7 +1314,7 @@ const applyAdoptionFilters = () => {
 };
 
 const resetAdoptionFilters = () => {
-    adoptionBranch.value = [adoptionStoreOptions.value[0]?.value ?? "all"];
+    adoptionBranch.value = allAdoptionStoreIds();
     adoptionDateFrom.value = formatDate(monthStart);
     adoptionDateTo.value = formatDate(today);
     adoptionViewMode.value = "combined";
@@ -2175,7 +2178,7 @@ const registerDoughnutLabelPlugin = () => {
                     <MultiSelect
                         v-model="adoptionBranch"
                         filter
-                        placeholder="All Stores"
+                        placeholder="Select stores"
                         :options="adoptionStoreOptions"
                         optionLabel="label"
                         optionValue="value"

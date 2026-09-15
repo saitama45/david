@@ -787,6 +787,15 @@ class AdoptionRateTrackingService
         return array_values(array_intersect(array_map('intval', $requested), $accessible));
     }
 
+    /**
+     * Stores the user may report on. Callers that cache report output must key
+     * on this, or a store-assignment change keeps serving the old store set.
+     */
+    public function accessibleStoreIds(User $user): array
+    {
+        return $this->getAccessibleStoreIds($user);
+    }
+
     private function getAccessibleStoreIds(User $user): array
     {
         $user->loadMissing(['roles', 'store_branches']);
