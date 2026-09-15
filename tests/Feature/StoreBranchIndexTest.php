@@ -57,3 +57,32 @@ it('still finds a branch by name', function () {
             ->where('data.data', fn ($branches) => collect($branches)->pluck('branch_code')->contains('NNSFW'))
         );
 });
+
+it('filters branches by the active status card', function () {
+    $user = createStoreBranchIndexUser();
+
+    StoreBranch::create(['branch_code' => 'NNACT', 'name' => 'Active Branch', 'store_status' => 'active', 'is_active' => true]);
+    StoreBranch::create(['branch_code' => 'NNINA', 'name' => 'Inactive Branch', 'store_status' => 'active', 'is_active' => false]);
+
+    $this->actingAs($user)->get(route('branches.index', ['status' => 'active']))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('filters.status', 'active')
+            ->where('data.data', fn ($branches) => collect($branches)->pluck('branch_code')->contains('NNACT')
+                && ! collect($branches)->pluck('branch_code')->contains('NNINA'))
+        );
+});
+
+it('filters branches by the inactive status card', function () {
+    $user = createStoreBranchIndexUser();
+
+    StoreBranch::create(['branch_code' => 'NNACT', 'name' => 'Active Branch', 'store_status' => 'active', 'is_active' => true]);
+    StoreBranch::create(['branch_code' => 'NNINA', 'name' => 'Inactive Branch', 'store_status' => 'active', 'is_active' => false]);
+
+    $this->actingAs($user)->get(route('branches.index', ['status' => 'inactive']))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('data.data', fn ($branches) => collect($branches)->pluck('branch_code')->contains('NNINA')
+                && ! collect($branches)->pluck('branch_code')->contains('NNACT'))
+        );
+});

@@ -18,6 +18,12 @@ class StoreBranchController extends Controller
         if ($search)
             $query->whereAny(['name', 'location_code', 'branch_code'], 'like', "%$search%");
 
+        $status = request('status');
+        if ($status === 'active')
+            $query->where('is_active', true);
+        elseif ($status === 'inactive')
+            $query->where(fn ($q) => $q->where('is_active', false)->orWhereNull('is_active'));
+
         $branches = $query->latest()->paginate(10)->withQueryString();
 
         // Counted on is_active ("Active Status") only; store_status is free text
@@ -34,7 +40,7 @@ class StoreBranchController extends Controller
                 'active' => (int) ($statusCounts->active ?? 0),
                 'inactive' => (int) ($statusCounts->inactive ?? 0),
             ],
-            'filters' => request()->only(['search'])
+            'filters' => request()->only(['search', 'status'])
         ]);
     }
 
