@@ -20,7 +20,7 @@ import {
     DialogHeader,
     DialogTitle,
 } from "@/components/ui/dialog";
-import { BarChart3, RotateCcw, Search, Pencil } from "lucide-vue-next";
+import { BarChart3, RotateCcw, Search, Pencil, RefreshCw } from "lucide-vue-next";
 import { useAuth } from "@/composables/useAuth";
 
 const props = defineProps({
@@ -64,6 +64,9 @@ const defaultBranch = () => props.storeOptions.map((option) => option.value);
 const branch = ref(defaultBranch());
 const dateFrom = ref(defaultFrom);
 const dateTo = ref(defaultTo);
+// Tickets are encoded per week; 'month' only regroups those weeks server-side.
+const period = ref("week"); // 'week' | 'month'
+const isMonthly = computed(() => period.value === "month");
 
 const loaded = ref(false);
 const loading = ref(false);
@@ -73,10 +76,14 @@ const modules = ref([]);
 const totals = ref({});
 const meta = ref({ date_from: defaultFrom, date_to: defaultTo });
 const showCloseRate = ref(false);
+// Where Incoming/Closed came from: { mode: 'helpdesk'|'manual', configured, entity_code, error }.
+const ticketSource = ref({ mode: "manual", configured: false, entity_code: null, error: null });
+// Counts pulled live from Helpdesk are read-only here; only override/remarks stay editable.
+const liveTickets = computed(() => ticketSource.value?.mode === "helpdesk");
 
 const hasData = computed(() => rows.value.length > 0);
 
-const load = async () => {
+const load = async (refresh = false) => {
     loading.value = true;
     error.value = "";
 
@@ -86,6 +93,8 @@ const load = async () => {
                 branch: branch.value,
                 date_from: dateFrom.value,
                 date_to: dateTo.value,
+                period: period.value,
+                refresh: refresh === true ? 1 : undefined,
             },
         });
 
@@ -93,6 +102,7 @@ const load = async () => {
         modules.value = data.modules ?? [];
         totals.value = data.totals ?? {};
         meta.value = data.filters ?? meta.value;
+        ticketSource.value = data.ticket_source ?? ticketSource.value;
         loaded.value = true;
     } catch (e) {
         error.value = e.response?.data?.message || "Failed to load Success Rate data.";
@@ -106,10 +116,17 @@ const applyFilters = () => {
     load();
 };
 
+const setPeriod = (value) => {
+    if (period.value === value) return;
+    period.value = value;
+    applyFilters();
+};
+
 const resetFilters = () => {
     branch.value = defaultBranch();
     dateFrom.value = defaultFrom;
     dateTo.value = defaultTo;
+    period.value = "week";
     loaded.value = false;
     load();
 };
@@ -131,7 +148,7 @@ const transactionBreakdown = (row) =>
         .join(String.fromCharCode(10));
 
 const chartData = computed(() => {
-    const labels = rows.value.map((row) => row.week_label);
+    const labels = rows.value.map((row) => row.period_label);
 
     const datasets = [
         {
@@ -186,7 +203,7 @@ const chartOptions = computed(() => {
                     title: (items) => {
                         const row = rows.value[items[0]?.dataIndex];
 
-                        return row ? `${row.week_label} (${row.week_range})` : "";
+                        return row ? `${row.period_label} (${row.period_range})` : "";
                     },
                 },
             },
@@ -429,10 +446,28 @@ onMounted(registerPointLabelsPlugin);
                         {{ totals.weeks || 0 }} week(s) encoded
                     </p>
                 </div>
-                <label class="inline-flex items-center gap-2 text-sm text-gray-600">
-                    <input v-model="showCloseRate" type="checkbox" class="rounded border-gray-300" />
-                    Show Close Rate
-                </label>
+                <div class="flex flex-wrap items-center gap-4">
+                    <div class="inline-flex rounded-md border border-gray-200 bg-gray-50 p-1" role="group" aria-label="Group by">
+                        <button
+                            v-for="option in [{ value: 'week', label: 'Weekly' }, { value: 'month', label: 'Monthly' }]"
+                            :key="option.value"
+                            type="button"
+                            :disabled="loading"
+                            :aria-pressed="period === option.value"
+                            :class="[
+                                'rounded px-4 py-1.5 text-sm font-medium transition-colors',
+                                period === option.value ? 'bg-white text-blue-700 shadow-sm' : 'text-gray-500 hover:text-gray-800',
+                            ]"
+                            @click="setPeriod(option.value)"
+                        >
+                            {{ option.label }}
+                        </button>
+                    </div>
+                    <label class="inline-flex items-center gap-2 text-sm text-gray-600">
+                        <input v-model="showCloseRate" type="checkbox" class="rounded border-gray-300" />
+                        Show Close Rate
+                    </label>
+                </div>
             </div>
 
             <div v-if="loading" class="flex h-96 items-center justify-center text-sm text-gray-500">
@@ -455,21 +490,50 @@ onMounted(registerPointLabelsPlugin);
         </div>
 
         <div v-if="loaded && hasData" class="rounded-lg border border-gray-200 bg-white p-5 shadow-sm">
-            <div class="mb-4">
-                <h3 class="text-base font-semibold text-gray-900">Weekly Ticket Tally</h3>
-                <p class="text-sm text-gray-500">
-                    Only Incoming and Closed tickets are encoded. Transactions are counted from live
-                    Order, Commit, Receiving, Sales Upload and Wastage activity, and every rate is
-                    calculated from the two.
-                    <span v-if="!canManage">You have read-only access.</span>
-                </p>
+            <div class="mb-4 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                <div>
+                    <h3 class="text-base font-semibold text-gray-900">{{ isMonthly ? 'Monthly' : 'Weekly' }} Ticket Tally</h3>
+                    <p class="text-sm text-gray-500">
+                        <template v-if="isMonthly">
+                            Each week counts toward the month holding its Thursday. Counts are summed, Success
+                            Rate uses tallied weeks only, and Adoption Rate averages the month's weeks.
+                        </template>
+                        <template v-if="liveTickets">
+                            Incoming and Closed are pulled from Helpdesk for {{ ticketSource.entity_code }}:
+                            Incoming = tickets created that week on a DAVID item, Closed = those tickets now closed.
+                        </template>
+                        <template v-else>
+                            Only Incoming and Closed tickets are encoded.
+                        </template>
+                        Transactions are counted from live Order, Commit, Receiving, Sales Upload and Wastage
+                        activity, and every rate is calculated from the two.
+                        <span v-if="!canManage">You have read-only access.</span>
+                    </p>
+                    <p
+                        v-if="ticketSource.configured && ticketSource.error"
+                        class="mt-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800"
+                    >
+                        Helpdesk counts unavailable ({{ ticketSource.error }}). Showing the last saved counts.
+                    </p>
+                </div>
+                <Button
+                    v-if="ticketSource.configured"
+                    size="sm"
+                    variant="outline"
+                    class="shrink-0 gap-2"
+                    :disabled="loading"
+                    @click="load(true)"
+                >
+                    <RefreshCw class="h-3.5 w-3.5" />
+                    Refresh from Helpdesk
+                </Button>
             </div>
             <div class="overflow-x-auto">
                 <table class="min-w-full divide-y divide-gray-200 text-sm">
                     <thead class="bg-gray-50 text-xs uppercase tracking-wide text-gray-500">
                         <tr>
-                            <th class="px-3 py-2 text-left">Week Range</th>
-                            <th class="px-3 py-2 text-left">Week No</th>
+                            <th class="px-3 py-2 text-left">{{ isMonthly ? 'Month Range' : 'Week Range' }}</th>
+                            <th class="px-3 py-2 text-left">{{ isMonthly ? 'Month' : 'Week No' }}</th>
                             <th class="px-3 py-2 text-right">Module</th>
                             <th class="px-3 py-2 text-right">Technical</th>
                             <th class="px-3 py-2 text-right">Total Tickets</th>
@@ -483,9 +547,14 @@ onMounted(registerPointLabelsPlugin);
                         </tr>
                     </thead>
                     <tbody class="divide-y divide-gray-100">
-                        <tr v-for="row in rows" :key="row.week_start" :class="row.has_record ? '' : 'bg-gray-50/60'">
-                            <td class="whitespace-nowrap px-3 py-2 text-gray-700">{{ row.week_range }}</td>
-                            <td class="whitespace-nowrap px-3 py-2 font-medium text-gray-900">{{ row.week_label }}</td>
+                        <tr v-for="row in rows" :key="row.period_start" :class="row.has_record ? '' : 'bg-gray-50/60'">
+                            <td class="whitespace-nowrap px-3 py-2 text-gray-700">{{ row.period_range }}</td>
+                            <td class="whitespace-nowrap px-3 py-2 font-medium text-gray-900">
+                                {{ row.period_label }}
+                                <span v-if="isMonthly" class="block text-xs font-normal text-gray-400">
+                                    {{ row.weeks_with_data }} of {{ row.weeks }} week(s) encoded
+                                </span>
+                            </td>
                             <td class="px-3 py-2 text-right text-gray-700">{{ row.module_concerns }}</td>
                             <td class="px-3 py-2 text-right text-gray-700">{{ row.technical_concerns }}</td>
                             <td class="px-3 py-2 text-right font-medium text-gray-900">{{ row.total_tickets }}</td>
@@ -501,9 +570,9 @@ onMounted(registerPointLabelsPlugin);
                                 <span v-if="row.adoption_rate_override !== null" class="ml-1 text-xs font-normal text-gray-400">(manual)</span>
                             </td>
                             <td class="px-3 py-2 text-right">
-                                <Button v-if="canManage" size="sm" variant="outline" class="gap-1" @click="openEditor(row)">
+                                <Button v-if="canManage && !isMonthly" size="sm" variant="outline" class="gap-1" @click="openEditor(row)">
                                     <Pencil class="h-3.5 w-3.5" />
-                                    {{ row.has_record ? 'Edit' : 'Encode' }}
+                                    {{ liveTickets || row.has_record ? 'Edit' : 'Encode' }}
                                 </Button>
                             </td>
                         </tr>
@@ -530,9 +599,15 @@ onMounted(registerPointLabelsPlugin);
         <Dialog v-model:open="dialogOpen">
             <DialogContent class="max-h-[90vh] overflow-y-auto sm:max-w-3xl">
                 <DialogHeader>
-                    <DialogTitle>Encode Tickets - {{ form?.week_label }}</DialogTitle>
+                    <DialogTitle>{{ liveTickets ? 'Week Tickets' : 'Encode Tickets' }} - {{ form?.week_label }}</DialogTitle>
                     <DialogDescription>
-                        {{ form?.week_range }} - enter Incoming and Closed tickets per module.
+                        <template v-if="liveTickets">
+                            {{ form?.week_range }} - Incoming and Closed come from Helpdesk
+                            ({{ ticketSource.entity_code }}) and cannot be edited here.
+                        </template>
+                        <template v-else>
+                            {{ form?.week_range }} - enter Incoming and Closed tickets per module.
+                        </template>
                         Transactions come from live system activity and rates are calculated
                         automatically.
                     </DialogDescription>
@@ -558,10 +633,10 @@ onMounted(registerPointLabelsPlugin);
                                 <tr v-for="module in modules" :key="module.key">
                                     <td class="px-3 py-2 font-medium text-gray-800">{{ module.label }}</td>
                                     <td class="px-3 py-2">
-                                        <Input v-model="form[`${module.key}_incoming`]" type="number" min="0" class="w-24" />
+                                        <Input v-model="form[`${module.key}_incoming`]" type="number" min="0" class="w-24" :disabled="liveTickets" />
                                     </td>
                                     <td class="px-3 py-2">
-                                        <Input v-model="form[`${module.key}_closed`]" type="number" min="0" class="w-24" />
+                                        <Input v-model="form[`${module.key}_closed`]" type="number" min="0" class="w-24" :disabled="liveTickets" />
                                     </td>
                                     <td class="px-3 py-2 text-right tabular-nums">
                                         <span v-if="module.has_transactions" class="font-medium text-gray-700">

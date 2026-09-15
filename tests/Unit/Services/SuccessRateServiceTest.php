@@ -30,7 +30,9 @@ function successRateService(): SuccessRateService
     // test from booting the whole Adoption Rate stack.
     $adoption = Mockery::mock(App\Http\Services\AdoptionRateTrackingService::class);
 
-    return new SuccessRateService($adoption);
+    $helpdesk = Mockery::mock(App\Http\Services\HelpdeskTicketTallyClient::class);
+
+    return new SuccessRateService($adoption, $helpdesk);
 }
 
 function ticketRecord(array $values): SuccessRateWeeklyTicket

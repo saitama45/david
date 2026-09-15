@@ -13,6 +13,7 @@ use App\Models\Supplier;
 use App\Models\SupplierItems;
 use App\Models\User;
 use App\Models\Wastage;
+use App\Support\CommitOrderLine;
 use App\Support\EntityContext;
 use Carbon\Carbon;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
@@ -36,6 +37,9 @@ class AdoptionRateTrackingService
      * one that applies to string keys.
      */
     private const EAGER_LOAD_CHUNK = 1000;
+
+    /** Orders per order-line query in attachOrderItems(). */
+    private const ORDER_LINE_CHUNK = 200;
 
     /**
      * The only store_order_items columns these reports read.
@@ -902,21 +906,42 @@ class AdoptionRateTrackingService
      *
      * Raw query, so `EntityScope` is reapplied by hand - the item model carries
      * it and dropping it here would read across entities.
+     *
+     * Even plain rows were too heavy at dashboard ranges (57k lines = 40MB), so
+     * each line is kept as a compact CommitOrderLine and its repeated strings
+     * (item codes, UOMs, commit dates) share one copy through a pool.
      */
     private function attachOrderItems(Collection $orders): void
     {
         $entity = app(EntityContext::class);
         $itemsByOrder = [];
+        $pool = [];
+        $intern = function ($value) use (&$pool): ?string {
+            if ($value === null) {
+                return null;
+            }
+
+            $value = (string) $value;
+
+            return $pool[$value] ??= $value;
+        };
 
         $orders->pluck('id')
-            ->chunk(self::EAGER_LOAD_CHUNK)
-            ->each(function (Collection $chunk) use (&$itemsByOrder, $entity) {
+            // Small batches: one buffered result of 1000 orders' lines is itself
+            // tens of MB, and a streamed cursor is several times slower on sqlsrv.
+            ->chunk(self::ORDER_LINE_CHUNK)
+            ->each(function (Collection $chunk) use (&$itemsByOrder, $entity, $intern) {
                 DB::table('store_order_items')
                     ->whereIn('store_order_id', $chunk->all())
                     ->when($entity->has(), fn ($query) => $query->where('entity_id', $entity->id()))
-                    ->get(self::ORDER_ITEM_COLUMNS)
-                    ->each(function ($item) use (&$itemsByOrder) {
-                        $itemsByOrder[(int) $item->store_order_id][] = $item;
+                    ->get(['id', 'store_order_id', 'item_code', 'uom', 'committed_date'])
+                    ->each(function ($item) use (&$itemsByOrder, $intern) {
+                        $itemsByOrder[(int) $item->store_order_id][] = new CommitOrderLine(
+                            (int) $item->id,
+                            $intern($item->item_code),
+                            $intern($item->uom),
+                            $intern($item->committed_date),
+                        );
                     });
             });
 
@@ -1548,25 +1573,42 @@ class AdoptionRateTrackingService
 
     private function categoryMapForOrders(Collection $orders, bool $includeOtherUoms = false): Collection
     {
-        $keys = $orders
-            ->flatMap(fn (StoreOrder $order) => $order->store_order_items->map(fn ($item) => [
-                'item_code' => $item->item_code,
-                'uom' => $item->uom,
-                'supplier_code' => $order->supplier?->supplier_code,
-            ]))
-            ->filter(fn ($item) => $item['item_code'] && $item['supplier_code'])
-            ->unique(fn ($item) => $this->categoryKey($item['item_code'], $item['uom'], $item['supplier_code']))
-            ->values();
+        // Distinct codes gathered in one pass: mapping every line to an array
+        // first cost more memory than the lines themselves on a wide range.
+        $itemCodes = [];
+        $supplierCodes = [];
+        $uoms = [];
 
-        if ($keys->isEmpty()) {
+        foreach ($orders as $order) {
+            $supplierCode = $order->supplier?->supplier_code;
+
+            if (!$supplierCode) {
+                continue;
+            }
+
+            foreach ($order->store_order_items as $item) {
+                if (!$item->item_code) {
+                    continue;
+                }
+
+                $itemCodes[$item->item_code] = true;
+                $supplierCodes[$supplierCode] = true;
+
+                if ($item->uom) {
+                    $uoms[$item->uom] = true;
+                }
+            }
+        }
+
+        if ($itemCodes === []) {
             return collect();
         }
 
-        $uoms = $keys->pluck('uom')->filter()->unique()->values()->all();
+        $uoms = array_map('strval', array_keys($uoms));
 
         return SupplierItems::query()
-            ->whereIn('ItemCode', $keys->pluck('item_code')->unique()->values()->all())
-            ->whereIn('SupplierCode', $keys->pluck('supplier_code')->unique()->values()->all())
+            ->whereIn('ItemCode', array_map('strval', array_keys($itemCodes)))
+            ->whereIn('SupplierCode', array_map('strval', array_keys($supplierCodes)))
             ->when(!$includeOtherUoms && !empty($uoms), fn ($query) => $query->whereIn('uom', $uoms))
             ->get(['ItemCode', 'uom', 'SupplierCode', 'category'])
             ->keyBy(fn (SupplierItems $item) => $this->categoryKey($item->ItemCode, $item->uom, $item->SupplierCode));

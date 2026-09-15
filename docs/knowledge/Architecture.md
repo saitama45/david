@@ -83,6 +83,13 @@ Per-week Adoption Rate falls back to `getWeeklyAdoptionTrend()` unless the week 
 override. A week whose tickets were never encoded reports **no** success rate rather than a
 misleading 100%, since its denominator is live but its numerator is simply unrecorded.
 
+A **Weekly / Monthly** toggle (`period=week|month`) only regroups the weekly rows: each whole ISO
+week joins the month holding its Thursday, counts and transactions are summed, Success Rate is
+re-derived over encoded weeks only, Close Rate from the summed counts, and Adoption Rate averages
+the month's weeks. Encoding stays weekly, and `totals` (the running averages) stay weekly in both
+views. The derived-data cache is keyed on user + entity + filters + **accessible stores**, never on
+the period, so a store-assignment change re-tallies and toggling the view reuses the cache.
+
 The transaction counts and the adoption trend come from the same five datasets, so they are computed
 and cached **together, and separately from the ticket figures**: fetching them twice would double
 the cost of the page's most expensive query, and sharing a cache entry with the tickets made every

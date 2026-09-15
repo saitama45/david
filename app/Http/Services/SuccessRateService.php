@@ -2,6 +2,7 @@
 
 namespace App\Http\Services;
 
+use App\Models\Entity;
 use App\Models\SuccessRateWeeklyTicket;
 use App\Models\User;
 use App\Support\EntityContext;
@@ -69,37 +70,60 @@ class SuccessRateService
         ],
     ];
 
-    public function __construct(private AdoptionRateTrackingService $adoptionRateService) {}
+    public const PERIODS = ['week', 'month'];
+
+    public function __construct(
+        private AdoptionRateTrackingService $adoptionRateService,
+        private HelpdeskTicketTallyClient $helpdesk,
+    ) {}
 
     /**
      * Build the full Success Rate payload for a date range.
      *
-     * @param  array{date_from?:string|null,date_to?:string|null,store_ids?:array}  $filters
+     * Tickets are always counted and derived per week. The monthly view only
+     * regroups those weekly rows (see buildMonthRows), and the running averages
+     * in `totals` stay weekly so the headline figures never shift with the view.
+     *
+     * Incoming/Closed come from ghelpdesk when it is configured and reachable;
+     * otherwise the last saved (or hand-encoded) counts are used.
+     *
+     * @param  array{date_from?:string|null,date_to?:string|null,store_ids?:array,period?:string|null,refresh?:bool}  $filters
      */
     public function getWeeklyTrend(array $filters, User $user): array
     {
+        $period = in_array($filters['period'] ?? null, self::PERIODS, true) ? $filters['period'] : 'week';
+
         [$dateFrom, $dateTo] = $this->resolveDateRange($filters);
 
         $weeks = $this->buildWeekBuckets($dateFrom, $dateTo);
         $records = $this->recordsForWeeks($weeks);
         $derived = $this->derivedByWeekStart($filters, $user);
 
-        $rows = collect($weeks)->map(function (array $week) use ($records, $derived) {
+        [$live, $ticketSource] = $this->liveTicketCounts($weeks, (bool) ($filters['refresh'] ?? false));
+
+        if ($live !== null) {
+            $records = $this->persistLiveCounts($weeks, $live, $records);
+        }
+
+        $rows = collect($weeks)->map(function (array $week) use ($records, $derived, $live) {
             $start = $week['start_date'];
 
             return $this->buildRow(
                 $week,
                 $records->get($start),
                 $derived['adoption'][$start] ?? null,
-                $derived['transactions'][$start] ?? []
+                $derived['transactions'][$start] ?? [],
+                $live === null ? null : ($live[$start] ?? [])
             );
         })->values();
 
         return [
-            'rows' => $rows->all(),
+            'rows' => ($period === 'month' ? $this->buildMonthRows($rows) : $rows)->all(),
             'totals' => $this->buildTotals($rows),
             'modules' => $this->moduleDefinitions(),
+            'ticket_source' => $ticketSource,
             'filters' => [
+                'period' => $period,
                 'date_from' => $dateFrom->toDateString(),
                 'date_to' => $dateTo->toDateString(),
                 'store_ids' => array_values(array_filter(
@@ -156,6 +180,103 @@ class SuccessRateService
         }
 
         return round(max(0, min(100, $value)), 2);
+    }
+
+    /**
+     * Fetch this entity's weekly counts from ghelpdesk.
+     *
+     * @return array{0: array<string, array<string, int>>|null, 1: array}
+     *         [counts keyed by week_start or null when unavailable, source metadata for the UI]
+     */
+    private function liveTicketCounts(array $weeks, bool $refresh): array
+    {
+        $entity = ($entityId = app(EntityContext::class)->id()) ? Entity::find($entityId) : null;
+
+        $source = [
+            'mode' => 'manual',
+            'configured' => $this->helpdesk->isConfigured(),
+            'entity_code' => $entity?->code,
+            'error' => null,
+        ];
+
+        if (! $source['configured'] || $weeks === []) {
+            return [null, $source];
+        }
+
+        if (! $entity?->code) {
+            $source['error'] = 'No active entity to match against Helpdesk.';
+
+            return [null, $source];
+        }
+
+        $counts = $this->helpdesk->weeklyCounts(
+            $entity->code,
+            Carbon::parse($weeks[0]['start_date']),
+            Carbon::parse(end($weeks)['end_date']),
+            $refresh
+        );
+
+        if ($counts === null) {
+            $source['error'] = $this->helpdesk->lastError() ?? 'Helpdesk is unavailable.';
+
+            return [null, $source];
+        }
+
+        $source['mode'] = 'helpdesk';
+
+        return [$counts, $source];
+    }
+
+    /**
+     * Save live counts onto the weekly rows, so the tab still shows the last
+     * known numbers if ghelpdesk is later unreachable. Only writes when a count
+     * actually changed, and never creates a row for an all-zero week. Override
+     * and remarks are left untouched.
+     *
+     * @param  Collection<string, SuccessRateWeeklyTicket>  $records
+     * @return Collection<string, SuccessRateWeeklyTicket>
+     */
+    private function persistLiveCounts(array $weeks, array $live, Collection $records): Collection
+    {
+        foreach ($weeks as $week) {
+            $start = $week['start_date'];
+            $counts = [];
+
+            foreach (SuccessRateWeeklyTicket::countColumns() as $column) {
+                $counts[$column] = (int) ($live[$start][$column] ?? 0);
+            }
+
+            $record = $records->get($start);
+
+            if (! $record && array_sum($counts) === 0) {
+                continue;
+            }
+
+            try {
+                if ($record) {
+                    $record->fill($counts);
+
+                    if ($record->isDirty()) {
+                        $record->save();
+                    }
+
+                    continue;
+                }
+
+                $records->put($start, SuccessRateWeeklyTicket::create(array_merge($counts, [
+                    'week_start' => $start,
+                    'week_end' => $week['end_date'],
+                    'iso_year' => $week['iso_year'],
+                    'week_no' => $week['week_no'],
+                ])));
+            } catch (\Throwable $e) {
+                // A concurrent load may have created the same week first; the
+                // live counts are still shown, so a lost snapshot write is harmless.
+                report($e);
+            }
+        }
+
+        return $records;
     }
 
     /** @return Collection<string, SuccessRateWeeklyTicket> keyed by week_start */
@@ -337,18 +458,26 @@ class SuccessRateService
     /**
      * Derive one table row from a week bucket, its (possibly missing) ticket
      * record and the live transaction counts for that week.
+     *
+     * $liveCounts (from ghelpdesk) wins over the record's counts when given; a
+     * week with live counts always has a real tally, even if every count is zero.
      */
     private function buildRow(
         array $week,
         ?SuccessRateWeeklyTicket $record,
         ?float $systemAdoption,
-        array $transactions
+        array $transactions,
+        ?array $liveCounts = null
     ): array {
         $counts = [];
 
         foreach (SuccessRateWeeklyTicket::countColumns() as $column) {
-            $counts[$column] = (int) ($record->{$column} ?? 0);
+            $counts[$column] = $liveCounts !== null
+                ? (int) ($liveCounts[$column] ?? 0)
+                : (int) ($record->{$column} ?? 0);
         }
+
+        $hasTally = $record !== null || $liveCounts !== null;
 
         $moduleKeys = array_keys(SuccessRateWeeklyTicket::MODULES);
 
@@ -383,19 +512,22 @@ class SuccessRateService
             'week_no' => $week['week_no'],
             'week_label' => 'Week '.$week['week_no'],
             'week_range' => $week['label'],
-            'has_record' => $record !== null,
+            'period_start' => $week['start_date'],
+            'period_label' => 'Week '.$week['week_no'],
+            'period_range' => $week['label'],
+            'has_record' => $hasTally,
             'module_concerns' => $moduleConcerns,
             'technical_concerns' => $technicalConcerns,
             'total_tickets' => $totalTickets,
             'total_closed' => $totalClosed,
             'total_open' => $totalTickets - $totalClosed,
             'total_transactions' => $totalTransactions,
-            // Only weeks whose tickets have actually been encoded get a rate.
-            // Transactions are live, so an un-encoded week has a real denominator
+            // Only weeks whose tickets have actually been tallied get a rate.
+            // Transactions are live, so an un-tallied week has a real denominator
             // and zero tickets - reporting that as a flawless 100% would invent a
-            // score for a week nobody has tallied yet and inflate the running
-            // average. A week deliberately encoded as all zeros does score 100%.
-            'success_rate' => $record !== null && $totalTransactions > 0
+            // score for a week nobody has counted and inflate the running average.
+            // A week tallied as all zeros (encoded, or live from Helpdesk) does score 100%.
+            'success_rate' => $hasTally && $totalTransactions > 0
                 ? round((1 - ($totalTickets / $totalTransactions)) * 100, 2)
                 : null,
             'close_rate' => $totalTickets > 0
@@ -405,6 +537,61 @@ class SuccessRateService
             'adoption_rate_override' => $override !== null ? round((float) $override, 2) : null,
             'remarks' => $record?->remarks,
         ]);
+    }
+
+    /**
+     * Regroup weekly rows into calendar months.
+     *
+     * A whole ISO week belongs to the month holding its Thursday - the same rule
+     * that numbers ISO weeks - so a week straddling two months is never split
+     * or counted twice. Counts and transactions are summed; the rates are
+     * re-derived from those sums rather than averaged:
+     *   Success Rate  over encoded weeks only, as a weekly row requires
+     *   Close Rate    summed closed / summed tickets
+     *   Adoption Rate simple average of the weeks' rates (it has no counts to sum)
+     */
+    private function buildMonthRows(Collection $weekRows): Collection
+    {
+        $moduleKeys = array_keys(SuccessRateWeeklyTicket::MODULES);
+        $sumColumns = array_merge(
+            SuccessRateWeeklyTicket::countColumns(),
+            array_map(fn ($m) => $m.'_transactions', $moduleKeys),
+            ['module_concerns', 'technical_concerns', 'total_tickets', 'total_closed', 'total_open', 'total_transactions']
+        );
+
+        return $weekRows
+            ->groupBy(fn (array $row) => Carbon::parse($row['week_start'])->addDays(3)->format('Y-m'))
+            ->map(function (Collection $weeks, string $month) use ($sumColumns) {
+                $monthStart = Carbon::createFromFormat('Y-m-d', $month.'-01');
+                $encoded = $weeks->where('has_record', true);
+
+                $row = [];
+                foreach ($sumColumns as $column) {
+                    $row[$column] = (int) $weeks->sum($column);
+                }
+
+                $encodedTickets = (int) $encoded->sum('total_tickets');
+                $encodedTransactions = (int) $encoded->sum('total_transactions');
+
+                return array_merge($row, [
+                    'period_start' => $monthStart->toDateString(),
+                    'period_label' => $monthStart->format('M Y'),
+                    'period_range' => Carbon::parse($weeks->first()['week_start'])->format('M j')
+                        .'-'.Carbon::parse($weeks->last()['week_end'])->format('M j'),
+                    'weeks' => $weeks->count(),
+                    'weeks_with_data' => $encoded->count(),
+                    'has_record' => $encoded->isNotEmpty(),
+                    'success_rate' => $encoded->isNotEmpty() && $encodedTransactions > 0
+                        ? round((1 - ($encodedTickets / $encodedTransactions)) * 100, 2)
+                        : null,
+                    'close_rate' => $row['total_tickets'] > 0
+                        ? round(($row['total_closed'] / $row['total_tickets']) * 100, 2)
+                        : null,
+                    'adoption_rate' => $this->average($weeks->pluck('adoption_rate')),
+                    'adoption_rate_override' => null,
+                ]);
+            })
+            ->values();
     }
 
     /** Running averages and the module/technical ticket-type split. */

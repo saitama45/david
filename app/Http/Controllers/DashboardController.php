@@ -397,18 +397,22 @@ class DashboardController extends Controller
             'branch.*' => ['nullable'],
             'date_from' => ['nullable', 'date'],
             'date_to' => ['nullable', 'date', 'after_or_equal:date_from'],
+            'period' => ['nullable', 'in:week,month'],
+            'refresh' => ['nullable', 'boolean'],
         ]);
 
         $params = [
             'store_ids' => $validated['branch'] ?? [],
             'date_from' => $validated['date_from'] ?? null,
             'date_to' => $validated['date_to'] ?? null,
+            'period' => $validated['period'] ?? 'week',
+            // Bypasses the short Helpdesk tally cache ("Refresh from Helpdesk").
+            'refresh' => (bool) ($validated['refresh'] ?? false),
         ];
 
-        // Intentionally uncached at this level. The only expensive part is the
-        // fallback adoption rate, which SuccessRateService caches on its own;
-        // the ticket figures are a single indexed lookup and must stay live so a
-        // week the user just encoded shows up immediately.
+        // Intentionally uncached at this level. The expensive parts - the
+        // fallback adoption rate and the Helpdesk ticket tally - are cached on
+        // their own, and saved weeks must show up immediately.
         return response()->json(
             $this->successRateService->getWeeklyTrend($params, $request->user())
         );

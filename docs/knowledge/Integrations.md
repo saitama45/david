@@ -42,6 +42,16 @@ database driver** — do not assume Redis is the cache backend.
 `laravel/sanctum`. Only one API surface exists: the `auth:sanctum` group in
 [routes/api.php](../../routes/api.php). The main app is session-authenticated.
 
+## ghelpdesk ticket tally (outbound)
+
+The Dashboard **Success Rate** tab pulls weekly Incoming/Closed ticket counts from ghelpdesk
+(`GET {HELPDESK_API_URL}/api/integrations/david/ticket-tally`, header `X-Integration-Key` =
+`HELPDESK_API_KEY`) via `app/Http/Services/HelpdeskTicketTallyClient.php` (cached 5 min; the tab's
+"Refresh from Helpdesk" bypasses it). Matched by the active entity's `code`. Live counts are
+read-only in the week modal and snapshotted into `success_rate_weekly_tickets`; if ghelpdesk is
+unset/unreachable the tab falls back to the saved (or hand-encoded) counts. Which helpdesk items
+count is controlled in ghelpdesk by `items.report_key`.
+
 ## Ziggy
 
 `tightenco/ziggy` exposes named Laravel routes to JS. Registered in
