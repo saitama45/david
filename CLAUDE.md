@@ -188,6 +188,10 @@ SQL Server as the target. Rationale and trade-offs: [Decisions.md](docs/knowledg
   approved one-time grant from `RuleExceptionService`, consumed **inside** the action's transaction.
   Detail: [Data-Flows.md](docs/knowledge/Data-Flows.md#business-rule-exceptions).
 - **DTS batch update deletes and recreates the batch.** Any guard must run before its transaction.
+- **Sales are dated by `store_transactions.order_date`, not `created_at`.** `created_at` is only the
+  import timestamp — a day's POS file is uploaded the next day, and one upload usually carries
+  several earlier sales dates. Any sales-by-date report must filter `order_date` (date-only, so
+  `whereBetween` is already inclusive). The Inventory Movement Report had this wrong until 2026-09-18.
 - **Two enum namespaces**: `App\Enum\` (OrderStatus, UserRole, Days, TimePeriod) and `App\Enums\`
   (IntercoStatus, WastageStatus).
 - **Services live in `app/Http/Services/`**, not `app/Services/`.

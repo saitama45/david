@@ -237,13 +237,13 @@ class InventoryMovementReportController extends Controller
                     ->where('so.store_branch_id', $branchId)
                     ->whereBetween('so.order_date', [$dateFrom, $dateTo]);
             })
-            // Check for sales via BOM
+            // Check for sales via BOM based on the POS sales date (order_date), not the import timestamp
             ->orWhereExists(function($sub) use ($branchId, $dateFrom, $dateTo) {
                 $sub->select(DB::raw(1))
                     ->from('store_transaction_items as sti')
                     ->join('store_transactions as st', 'sti.store_transaction_id', '=', 'st.id')
                     ->where('st.store_branch_id', $branchId)
-                    ->whereBetween('st.created_at', [$dateFrom . ' 00:00:00', $dateTo . ' 23:59:59'])
+                    ->whereBetween('st.order_date', [$dateFrom, $dateTo])
                     ->whereExists(function($inner) {
                         $inner->select(DB::raw(1))
                             ->from('pos_masterfiles_bom as b')
@@ -406,14 +406,14 @@ class InventoryMovementReportController extends Controller
                 ->get();
             $receivedData = $receivedData->merge($receivedChunk);
 
-            // 2. Sales
+            // 2. Sales (dated by the POS sales date, not the import timestamp)
             $salesChunk = DB::table('store_transaction_items as sti')
                 ->join('store_transactions as st', 'sti.store_transaction_id', '=', 'st.id')
                 ->join('pos_masterfiles as pm', 'sti.product_id', '=', 'pm.id')
                 ->join('pos_masterfiles_bom as bom', 'pm.POSCode', '=', 'bom.POSCode')
                 ->join('sap_masterfiles as sap', 'bom.ItemCode', '=', 'sap.ItemCode')
                 ->where('st.store_branch_id', $branchId)
-                ->whereBetween('st.created_at', [$dateFrom . ' 00:00:00', $dateTo . ' 23:59:59'])
+                ->whereBetween('st.order_date', [$dateFrom, $dateTo])
                 ->whereIn('sap.id', $chunk)
                 ->select('sap.ItemCode',
                     DB::raw('SUM(COALESCE(sti.quantity, 0) * COALESCE(bom.BOMQty, 0)) as total_sales'))
