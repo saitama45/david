@@ -187,7 +187,11 @@ const statusBadgeColor = (status) => {
             return "bg-yellow-500 text-white";
         case "INCOMPLETE":
             return "bg-orange-500 text-white";
-        case "COMMITED": // Keeping this case, and the tab is now re-added
+        // Orders are treated as auto-committed from approval onwards, so approved and
+        // partially committed orders share the committed styling.
+        case "APPROVED":
+        case "PARTIAL_COMMITTED":
+        case "COMMITTED":
             return "bg-blue-400 text-white";
         default:
             return "bg-gray-500 text-white"; // Fallback for other statuses
@@ -546,7 +550,7 @@ const getSupplierDisplayName = (supplier, variant) => {
                     <LabelXS>SO/PO Number: {{ order.delivery_receipts && order.delivery_receipts.length > 0 ? order.delivery_receipts[0].sap_so_number : "N/A" }}</LabelXS>
                     <LabelXS
                         >Receiving Status:
-                        {{ (order.order_status.toUpperCase() === 'RECEIVED' || order.order_status.toUpperCase() === 'INCOMPLETE') ? 'RECEIVED' : order.order_status.toUpperCase() }}</LabelXS
+                        {{ (order.order_status.toUpperCase() === 'RECEIVED' || order.order_status.toUpperCase() === 'INCOMPLETE') ? 'RECEIVED' : order.order_status.toUpperCase().replace("_", " ") }}</LabelXS
                     >
                     <LabelXS>Order Date: {{ order.order_date }}</LabelXS>
                     <LabelXS v-if="String(order.supplier_id) === '5' && order.variant && order.variant !== 'N/A' && order.variant !== 'mass dts'">

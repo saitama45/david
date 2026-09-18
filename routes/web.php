@@ -526,6 +526,8 @@ Route::middleware('auth')
                 Route::post('/orders-receiving/add-delivery-receipt-number', 'addDeliveryReceiptNumber')->name('add-delivery-receipt-number');
                 Route::put('/orders-receiving/update-delivery-receipt-number/{id}', 'updateDeliveryReceiptNumber')->name('update-delivery-receipt-number');
 
+                Route::post('/orders-receiving/{order}/add-unlisted-item', 'addUnlistedItem')->name('add-unlisted-item');
+
                 Route::post('/orders-receiving/delete-receiving-history/{id}', 'deleteReceiveDateHistory')->name('delete-receiving-history');
                 Route::post('/orders-receiving/update-receiving-history', 'updateReceiveDateHistory')->name('update-receiving-history');
 

@@ -201,6 +201,9 @@ class StoreOrderService
     {
         DB::beginTransaction();
         try {
+            // Receiving history must survive an edit. Checked before anything is written.
+            $this->guardAgainstReceivedItemChanges($order, $data);
+
             $supplier = Supplier::where('supplier_code', $data['supplier_id'])->first();
 
             if (!$supplier) {
@@ -287,5 +290,98 @@ class StoreOrderService
             Log::error("Error in StoreOrderService@updateOrder: " . $e->getMessage(), ['trace' => $e->getTraceAsString()]);
             throw $e;
         }
+    }
+
+    /**
+     * Refuse an edit that would destroy or contradict receiving history.
+     *
+     * updateOrder() hard-deletes the items dropped from the order, and
+     * ordered_item_receive_dates is declared cascadeOnDelete, so removing a line that has
+     * already been received silently destroys its receipt history — no error, no audit row.
+     * (Once a receipt is confirmed, purchase_item_batches holds a non-cascading reference
+     * and the database refuses the delete instead, which surfaces as an opaque failure.)
+     *
+     * An untouched worksheet placeholder does not count as receiving: every receivable item
+     * now carries one, and blocking on those would make every order uneditable. A row counts
+     * only once a receiver has actually filled it in (received_date) or it has been confirmed
+     * (status approved/received), or the item itself has banked a quantity.
+     *
+     * @throws Exception when the edit would drop or under-cut a received line.
+     */
+    protected function guardAgainstReceivedItemChanges(StoreOrder $order, array $data): void
+    {
+        $items = $order->store_order_items()->get();
+
+        if ($items->isEmpty()) {
+            return;
+        }
+
+        $receivedPerItem = OrderedItemReceiveDate::query()
+            ->whereIn('store_order_item_id', $items->pluck('id'))
+            ->where(fn ($q) => $q->whereNotNull('received_date')
+                ->orWhereIn('status', ['approved', 'received']))
+            ->get()
+            ->groupBy('store_order_item_id')
+            ->map(fn ($rows) => (float) $rows->sum('quantity_received'));
+
+        $receivedFor = fn (StoreOrderItem $item) => max(
+            (float) ($receivedPerItem[$item->id] ?? 0),
+            (float) ($item->quantity_received ?? 0)
+        );
+
+        $keptCodes = collect($data['orders'] ?? [])
+            ->pluck('inventory_code')
+            ->filter()
+            ->map(fn ($code) => (string) $code)
+            ->all();
+
+        // Lines being removed from the order.
+        $blockedRemovals = $items
+            ->reject(fn ($item) => in_array((string) $item->item_code, $keptCodes, true))
+            ->filter(fn ($item) => $receivedFor($item) > 0)
+            ->pluck('item_code')
+            ->values();
+
+        if ($blockedRemovals->isNotEmpty()) {
+            throw new Exception(
+                'These items have already been received and cannot be removed from the order: '
+                .$blockedRemovals->implode(', ')
+                .'. Cancel the receiving record first, then edit the order.'
+            );
+        }
+
+        // Lines being cut below what has already come in.
+        $requestedQuantities = collect($data['orders'] ?? [])
+            ->filter(fn ($row) => isset($row['inventory_code']))
+            ->mapWithKeys(fn ($row) => [(string) $row['inventory_code'] => (float) ($row['quantity'] ?? 0)]);
+
+        $blockedReductions = $items
+            ->filter(function ($item) use ($requestedQuantities, $receivedFor) {
+                $received = $receivedFor($item);
+                if ($received <= 0 || ! $requestedQuantities->has((string) $item->item_code)) {
+                    return false;
+                }
+
+                return $requestedQuantities[(string) $item->item_code] < $received;
+            })
+            ->map(fn ($item) => $item->item_code.' (received '.$this->trimQuantity($receivedFor($item))
+                .', requested '.$this->trimQuantity($requestedQuantities[(string) $item->item_code]).')')
+            ->values();
+
+        if ($blockedReductions->isNotEmpty()) {
+            throw new Exception(
+                'These quantities are already below what has been received: '
+                .$blockedReductions->implode('; ')
+                .'. Adjust the receiving record first, then edit the order.'
+            );
+        }
+    }
+
+    /**
+     * Render a quantity without trailing zeroes for use in error messages.
+     */
+    protected function trimQuantity(float $quantity): string
+    {
+        return rtrim(rtrim(number_format($quantity, 2, '.', ''), '0'), '.');
     }
 }

@@ -16,9 +16,44 @@ use App\Models\OrderedItemReceiveDate; // Added missing use statement
 use App\Models\ProductInventoryStock; // Added missing use statement
 use App\Models\ProductInventoryStockManager; // Added missing use statement
 use App\Models\PurchaseItemBatch; // Added missing use statement
+use App\Models\SAPMasterfile;
+use App\Models\SupplierItems;
 
 class OrderReceivingService extends StoreOrderService
 {
+    /**
+     * Statuses that make an order "ready to receive". Orders are treated as auto-committed
+     * from approval onwards, so an approved or partially committed order must not be hidden
+     * from the listing just because some of its items are not committed yet.
+     */
+    public const COMMITTED_STATUSES = [
+        OrderStatus::APPROVED->value,
+        OrderStatus::PARTIAL_COMMITTED->value,
+        OrderStatus::COMMITTED->value,
+    ];
+
+    /**
+     * Every status the Order Receiving module works with: the receivable ones above plus
+     * the two receiving outcomes.
+     */
+    public const RECEIVING_STATUSES = [
+        OrderStatus::APPROVED->value,
+        OrderStatus::PARTIAL_COMMITTED->value,
+        OrderStatus::COMMITTED->value,
+        OrderStatus::RECEIVED->value,
+        OrderStatus::INCOMPLETE->value,
+    ];
+
+    /**
+     * Days after the delivery date during which recorded quantities may still be corrected.
+     *
+     * Confirm Receive no longer ends this: an item found after confirming can still be added
+     * and corrected, because that is how deliveries are actually worked. What ends it is the
+     * calendar — past this window the delivery is history and anything found belongs in SOH
+     * Adjustment, which carries its own approver step.
+     */
+    public const RECEIVING_EDIT_WINDOW_DAYS = 3;
+
     /**
      * Get a list of orders for receiving, filtered by status and search term.
      *
@@ -205,22 +240,22 @@ class OrderReceivingService extends StoreOrderService
     public function applyStatusFilter($query, $currentFilter = 'all')
     {
         if ($currentFilter === 'all') {
-            $query->whereIn('order_status', [
-                OrderStatus::COMMITTED->value,
-                OrderStatus::RECEIVED->value,
-                OrderStatus::INCOMPLETE->value,
-            ]);
+            $query->whereIn('order_status', self::RECEIVING_STATUSES);
             return $query;
         }
 
+        // The Committed tab covers everything that is ready to receive but not yet received:
+        // approved, partially committed and fully committed orders.
         $map = [
-            'commited' => OrderStatus::COMMITTED->value,
-            'received' => OrderStatus::RECEIVED->value,
-            'incomplete' => OrderStatus::INCOMPLETE->value,
+            'commited' => self::COMMITTED_STATUSES,
+            'received' => [OrderStatus::RECEIVED->value],
+            'incomplete' => [OrderStatus::INCOMPLETE->value],
         ];
 
         if (isset($map[$currentFilter])) {
-            $query->whereRaw('LOWER(order_status) = ?', [strtolower($map[$currentFilter])]);
+            $statuses = array_map('strtolower', $map[$currentFilter]);
+            $placeholders = implode(',', array_fill(0, count($statuses), '?'));
+            $query->whereRaw("LOWER(order_status) IN ({$placeholders})", $statuses);
         } else {
             // Unknown filter -> force no results rather than leaking everything
             $query->whereRaw('1=0');
@@ -303,11 +338,7 @@ class OrderReceivingService extends StoreOrderService
 
         // Distinct variants present among relevant receiving statuses
         $variantsQuery = StoreOrder::query()
-            ->whereIn('order_status', [
-                OrderStatus::COMMITTED->value,
-                OrderStatus::RECEIVED->value,
-                OrderStatus::INCOMPLETE->value,
-            ])
+            ->whereIn('order_status', self::RECEIVING_STATUSES)
             ->whereNotNull('variant')
             ->where('variant', '<>', '');
         if (!$user['isAdmin']) {
@@ -350,7 +381,7 @@ class OrderReceivingService extends StoreOrderService
         $counts = [
             'received' => (clone $baseQuery)->where('order_status', OrderStatus::RECEIVED->value)->count(),
             'incomplete' => (clone $baseQuery)->where('order_status', OrderStatus::INCOMPLETE->value)->count(),
-            'commited' => (clone $baseQuery)->where('order_status', OrderStatus::COMMITTED->value)->count(),
+            'commited' => (clone $baseQuery)->whereIn('order_status', self::COMMITTED_STATUSES)->count(),
         ];
         // The 'all' count is the sum of relevant receiving statuses
         $counts['all'] = $counts['received'] + $counts['incomplete'] + $counts['commited'];
@@ -375,6 +406,150 @@ class OrderReceivingService extends StoreOrderService
     }
 
 
+    /**
+     * Why this order may not have receipts recorded against it yet, or null when it may.
+     *
+     * The delivery receipt and image requirement lived only in the Confirm Receive button in
+     * the browser, so recording quantities line by line through the edit modal — or posting
+     * to any receiving endpoint directly — skipped it entirely. Every path that records or
+     * finalises a receipt checks this instead.
+     */
+    public function deliveryEvidenceProblem(StoreOrder $order): ?string
+    {
+        $missing = [];
+
+        if ($order->delivery_receipts()->count() === 0) {
+            $missing[] = 'a delivery receipt';
+        }
+
+        if ($order->image_attachments()->count() === 0) {
+            $missing[] = 'an image attachment';
+        }
+
+        if ($missing === []) {
+            return null;
+        }
+
+        return 'Add '.implode(' and ', $missing).' to this order before recording received quantities.';
+    }
+
+    /**
+     * The last moment this delivery's recorded quantities may be corrected: the end of the
+     * third day after its delivery date, in Manila time.
+     */
+    public function receivingEditDeadline(StoreOrder $order): ?Carbon
+    {
+        if (! $order->order_date) {
+            return null;
+        }
+
+        return Carbon::parse($order->order_date, 'Asia/Manila')
+            ->addDays(self::RECEIVING_EDIT_WINDOW_DAYS)
+            ->endOfDay();
+    }
+
+    /**
+     * Why this delivery can no longer be corrected, or null while it is still within the
+     * editing window.
+     */
+    public function receivingEditWindowProblem(StoreOrder $order): ?string
+    {
+        $deadline = $this->receivingEditDeadline($order);
+
+        if (! $deadline || Carbon::now('Asia/Manila')->lte($deadline)) {
+            return null;
+        }
+
+        return 'The '.self::RECEIVING_EDIT_WINDOW_DAYS.'-day window for correcting this delivery closed on '
+            .$deadline->format('M j, Y').'.';
+    }
+
+    /**
+     * @throws Exception when the delivery is past its editing window.
+     */
+    public function assertWithinReceivingEditWindow(StoreOrder $order): void
+    {
+        if ($problem = $this->receivingEditWindowProblem($order)) {
+            throw new \Exception($problem);
+        }
+    }
+
+    /**
+     * @throws Exception when the order carries no delivery receipt or no image attachment.
+     */
+    public function assertDeliveryEvidence(StoreOrder $order): void
+    {
+        if ($problem = $this->deliveryEvidenceProblem($order)) {
+            throw new \Exception($problem);
+        }
+    }
+
+    /**
+     * Make sure a store order item has a receiving worksheet row.
+     *
+     * The Receiving History table on /orders-receiving/show is driven entirely by
+     * ordered_item_receive_dates, and those rows were only ever created by a commit
+     * action (CS Mass Commits, CS Commit) or, for DROPS, at order creation. An order
+     * that reaches receiving without passing through a commit — an approved or partially
+     * committed one — therefore had an empty worksheet and no way to receive against it.
+     *
+     * The placeholder carries the committed quantity but no received_date and no
+     * receiver, so it reads as "still to receive" until someone actually fills it in.
+     *
+     * @return bool true when a row was created, false when one already existed.
+     */
+    public function ensureReceivingPlaceholder(StoreOrderItem $item): bool
+    {
+        if ($item->ordered_item_receive_dates()->exists()) {
+            return false;
+        }
+
+        $item->ordered_item_receive_dates()->create([
+            'received_by_user_id' => null,
+            'quantity_received' => $item->quantity_commited ?? $item->quantity_approved ?? $item->quantity_ordered ?? 0,
+            'received_date' => null,
+            'status' => 'pending',
+        ]);
+
+        return true;
+    }
+
+    /**
+     * Materialise the receiving worksheet for a whole order. Idempotent: only items with
+     * no row at all get one, so it is safe to call on every view of the order.
+     *
+     * @return int number of placeholders created.
+     */
+    public function ensureReceivingPlaceholders(StoreOrder $order): int
+    {
+        if (! in_array($order->order_status, self::RECEIVING_STATUSES, true)) {
+            return 0;
+        }
+
+        $missing = $order->store_order_items()
+            ->whereDoesntHave('ordered_item_receive_dates')
+            ->get();
+
+        if ($missing->isEmpty()) {
+            return 0;
+        }
+
+        DB::transaction(function () use ($missing) {
+            foreach ($missing as $item) {
+                $this->ensureReceivingPlaceholder($item);
+            }
+        });
+
+        Log::info('OrderReceivingService: Created receiving placeholders', [
+            'order_id' => $order->id,
+            'order_number' => $order->order_number,
+            'order_status' => $order->order_status,
+            'created' => $missing->count(),
+        ]);
+
+        return $missing->count();
+    }
+
     public function receiveOrder($id, array $data)
     {
         $orderedItem = StoreOrderItem::with('store_order')->findOrFail($id);
@@ -389,6 +564,108 @@ class OrderReceivingService extends StoreOrderService
         ]);
         $orderedItem->save();
         DB::commit();
+    }
+
+    /**
+     * Record an item that was delivered but never ordered.
+     *
+     * ordered_item_receive_dates.store_order_item_id is NOT NULL, so a receipt must hang off
+     * a store_order_items row; an unlisted delivery therefore creates that line with
+     * quantity_ordered = 0. No other line in the system carries a zero ordered quantity, so
+     * that doubles as the "arrived but never ordered" marker for reporting.
+     *
+     * @throws Exception when the item cannot be received safely.
+     */
+    public function addUnlistedItem(StoreOrder $order, array $data): StoreOrderItem
+    {
+        // Deliberately not gated on order status: an item found after Confirm Receive can
+        // still be added, and Confirm Receive reappears for it (the button keys off
+        // unconfirmed rows, not the order status), so it still reaches stock. The calendar
+        // still applies though — adding must close when correcting does, or the 3-day window
+        // could be sidestepped by adding a line instead of editing one.
+        $this->assertWithinReceivingEditWindow($order);
+        $this->assertDeliveryEvidence($order);
+
+        $supplierCode = (string) ($order->supplier?->supplier_code ?? '');
+        $itemCode = (string) $data['item_code'];
+
+        // Same catalogue the order itself was placed from.
+        $catalogueItem = SupplierItems::forSupplierCode($supplierCode)
+            ->firstWhere('ItemCode', $itemCode);
+
+        if (! $catalogueItem) {
+            throw new \Exception("{$itemCode} is not in the {$supplierCode} item list, so it cannot be received against this order.");
+        }
+
+        if ($order->store_order_items()->where('item_code', $itemCode)->exists()) {
+            throw new \Exception("{$itemCode} is already on this order. Record the delivered quantity on its existing row instead of adding it again.");
+        }
+
+        $uom = $catalogueItem->uom;
+
+        // confirmReceive() needs both of these to convert the receipt into base UOM, and it
+        // only logs a warning when they are missing — the receipt would silently never reach
+        // stock. Fail here instead, while the user can still act on it.
+        $orderedMasterfile = SAPMasterfile::where('ItemCode', $itemCode)
+            ->whereRaw('UPPER(AltUOM) = ?', [strtoupper((string) $uom)])
+            ->first();
+
+        if (! $orderedMasterfile) {
+            throw new \Exception("{$itemCode} has no SAP masterfile entry for UOM {$uom}, so the quantity could not be converted to stock.");
+        }
+
+        if (! SAPMasterfile::where('ItemCode', $itemCode)->whereColumn('BaseUOM', 'AltUOM')->exists()) {
+            throw new \Exception("{$itemCode} has no base-UOM SAP masterfile entry, so the quantity could not be posted to stock on hand.");
+        }
+
+        $quantity = (float) $data['quantity_received'];
+        $cost = (float) ($catalogueItem->cost ?? 0);
+
+        return DB::transaction(function () use ($order, $itemCode, $uom, $quantity, $cost, $orderedMasterfile, $data) {
+            $item = $order->store_order_items()->create([
+                'item_code' => $itemCode,
+                'sap_masterfile_id' => $orderedMasterfile->id,
+                'quantity_ordered' => 0,
+                'quantity_approved' => 0,
+                'quantity_commited' => $quantity,
+                'quantity_received' => 0,
+                'cost_per_quantity' => $cost,
+                'total_cost' => $quantity * $cost,
+                'uom' => $uom,
+                'remarks' => 'Received without being ordered.',
+                // StoreOrder::updateOrderStatusBasedOnCommits() counts items with committed_by
+                // set. Leaving it null would drop a fully committed order back to
+                // partial_committed the next time CS Mass Commits runs over it.
+                'committed_by' => Auth::id(),
+                'committed_date' => Carbon::now('Asia/Manila'),
+            ]);
+
+            $item->ordered_item_receive_dates()->create([
+                'received_by_user_id' => Auth::id(),
+                'quantity_received' => $quantity,
+                'received_date' => Carbon::now('Asia/Manila')->format('Y-m-d H:i:s'),
+                'expiry_date' => ! empty($data['expiry_date'])
+                    ? Carbon::parse($data['expiry_date'])->format('Y-m-d')
+                    : null,
+                'remarks' => $data['remarks'],
+                // 'received', not 'pending': the user is recording goods physically in hand,
+                // exactly like saving an ordered line through the edit modal. A pending row
+                // carries no received_date, so leaving it pending would show a receipt date
+                // against a row labelled "still to receive".
+                'status' => 'received',
+            ]);
+
+            Log::info('OrderReceivingService: Unlisted item received', [
+                'order_id' => $order->id,
+                'order_number' => $order->order_number,
+                'item_code' => $itemCode,
+                'uom' => $uom,
+                'quantity' => $quantity,
+                'user_id' => Auth::id(),
+            ]);
+
+            return $item;
+        });
     }
 
     public function addDeliveryReceiptNumber(array $data)
@@ -424,6 +701,16 @@ class OrderReceivingService extends StoreOrderService
     public function updateReceiveDateHistory(array $data)
     {
         $history = OrderedItemReceiveDate::findOrFail($data['id']);
+
+        // The edit modal does not post a received_date, so a worksheet placeholder stayed
+        // date-less even after the receiver filled it in. That left "Received At" blank and
+        // pinned Receiving Progress at 0%, and it is the signal confirmReceive uses to tell
+        // a real receipt from an untouched placeholder. Stamp it on the first save.
+        if (! $history->received_date) {
+            $data['received_date'] = Carbon::now('Asia/Manila')->format('Y-m-d H:i:s');
+            $data['received_by_user_id'] = Auth::id();
+        }
+
         $history->update($data);
     }
 

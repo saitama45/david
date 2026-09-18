@@ -50,6 +50,38 @@ class SupplierItems extends Model implements Auditable
     // the result of the getSapMasterfileAttribute() method is automatically included.
     protected $appends = ['sap_master_file'];
 
+    /**
+     * Supplier codes consolidated under the CPO ordering template. CPO carries no items of
+     * its own; it offers the union of these templates' catalogues.
+     */
+    public const CPO_CONSOLIDATED_SUPPLIER_CODES = ['GSI-B', 'GSI-P', 'PUL-O', 'DROPS', 'CPO'];
+
+    /**
+     * The catalogue that may be ordered — or received — against a supplier code.
+     *
+     * Single source of truth for mass ordering (MassOrdersController) and for receiving an
+     * item that was delivered but never ordered (OrderReceivingService::addUnlistedItem),
+     * so both offer exactly the same list.
+     *
+     * @return \Illuminate\Support\Collection<int, static>
+     */
+    public static function forSupplierCode(string $supplierCode)
+    {
+        if ($supplierCode === 'CPO') {
+            return static::whereIn('SupplierCode', self::CPO_CONSOLIDATED_SUPPLIER_CODES)
+                ->where('is_active', true)
+                ->get()
+                ->unique('ItemCode')
+                ->values();
+        }
+
+        return static::where('SupplierCode', $supplierCode)
+            ->where('is_active', true)
+            ->get()
+            ->sortBy(fn ($item) => $item->sort_order ?? 0)
+            ->values();
+    }
+
    // Define the options scope to return ItemCode as value and a concatenated string as label
     public function scopeOptions(Builder $query)
     {

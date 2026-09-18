@@ -23,7 +23,8 @@ use Illuminate\Support\Facades\DB;
 
 class MassOrdersController extends Controller
 {
-    private const CPO_CONSOLIDATED_SUPPLIER_CODES = ['GSI-B', 'GSI-P', 'PUL-O', 'DROPS', 'CPO'];
+    /** @see SupplierItems::CPO_CONSOLIDATED_SUPPLIER_CODES — the catalogue rule lives on the model. */
+    private const CPO_CONSOLIDATED_SUPPLIER_CODES = SupplierItems::CPO_CONSOLIDATED_SUPPLIER_CODES;
 
     protected $massOrderService;
     protected $storeOrderService;
@@ -49,7 +50,17 @@ class MassOrdersController extends Controller
         $rolesAndBranches = \App\Models\User::rolesAndAssignedBranches();
 
         $query = \App\Models\StoreOrder::with(['supplier', 'store_branch', 'delivery_receipts'])
-            ->where('variant', 'mass regular');
+            ->where('variant', 'mass regular')
+            // Number of lines receiving has started on. Editing those is refused server-side
+            // (StoreOrderService::guardAgainstReceivedItemChanges); untouched worksheet
+            // placeholders do not count. Used to swap the edit button for a hint.
+            // withCount, not withExists: SQL Server rejects a bare EXISTS() as a select expression.
+            ->withCount(['store_order_items as receiving_records' => fn ($q) => $q
+                ->where(fn ($i) => $i
+                    ->where('quantity_received', '>', 0)
+                    ->orWhereHas('ordered_item_receive_dates', fn ($r) => $r
+                        ->where(fn ($d) => $d->whereNotNull('received_date')
+                            ->orWhereIn('status', ['approved', 'received']))))]);
 
         if (! $rolesAndBranches['isAdmin']) {
             $query->whereIn('store_branch_id', $rolesAndBranches['assignedBranches']);
@@ -440,21 +451,8 @@ class MassOrdersController extends Controller
 
     private function getMassOrderSupplierItems(string $supplierCode)
     {
-        if ($supplierCode === 'CPO') {
-            return SupplierItems::whereIn('SupplierCode', self::CPO_CONSOLIDATED_SUPPLIER_CODES)
-                ->where('is_active', true)
-                ->get()
-                ->unique('ItemCode')
-                ->values();
-        }
-
-        return SupplierItems::where('SupplierCode', $supplierCode)
-            ->where('is_active', true)
-            ->get()
-            ->sortBy(function ($item) {
-                return $item->sort_order ?? 0;
-            })
-            ->values();
+        // Shared with receiving, so an item that can be ordered can also be received unlisted.
+        return SupplierItems::forSupplierCode($supplierCode);
     }
 
     public function show($id)
@@ -493,6 +491,10 @@ class MassOrdersController extends Controller
                 ]);
             }
         ])->where('order_number', $id)->firstOrFail();
+
+        // Statuses in which an order is past commitment and awaiting delivery. Shared with
+        // the receiving module so both pages agree on what "committed" means.
+        $receivableStatuses = "'".implode("','", \App\Http\Services\OrderReceivingService::RECEIVING_STATUSES)."'";
 
         // Optimized receiving history query mimicking the provided SQL logic
         $receiveDatesHistory = DB::table('store_order_items as soi')
@@ -533,14 +535,19 @@ class MassOrdersController extends Controller
                 'receive.expiry_date',
                 'u.first_name as received_by_first_name',
                 'u.last_name as received_by_last_name',
+                // Mirrors the receiving page: a row counts as received once it is 'received'
+                // (saved by the receiver) or 'approved' (swept into stock by Confirm Receive).
+                // Commitment is read from the order status, not from committed_by — orders are
+                // auto-committed from approval onwards, and a line committed that way carries
+                // no committer.
                 DB::raw("CASE
-                    WHEN [receive].[status] = 'approved' THEN 'RECEIVED'
-                    WHEN [soi].[committed_by] IS NOT NULL THEN 'TO RECEIVE'
+                    WHEN [receive].[status] IN ('approved', 'received') THEN 'RECEIVED'
+                    WHEN [so].[order_status] IN ({$receivableStatuses}) THEN 'TO RECEIVE'
                     ELSE 'TO COMMIT'
                 END as display_status"),
                 DB::raw("[soi].[quantity_commited] as committed_display"),
                 DB::raw("CASE
-                    WHEN [receive].[status] = 'approved' THEN [receive].[quantity_received]
+                    WHEN [receive].[status] IN ('approved', 'received') THEN [receive].[quantity_received]
                     ELSE 0
                 END as received_display"),
             ])

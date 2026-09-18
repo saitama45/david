@@ -6,6 +6,7 @@ use App\Enum\OrderRequestStatus;
 use App\Enum\OrderStatus;
 use App\Exports\ApprovedOrdersExport;
 use App\Http\Requests\OrderReceiving\AddDeliveryReceiptNumberRequest;
+use App\Http\Requests\OrderReceiving\AddUnlistedReceivedItemRequest;
 use App\Http\Requests\OrderReceiving\ReceiveOrderRequest;
 use App\Http\Requests\OrderReceiving\UpdateDeliveryReceiptNumberRequest;
 use App\Http\Requests\OrderReceiving\UpdateReceiveDateHistoryRequest;
@@ -67,7 +68,12 @@ class OrderReceivingController extends Controller
     {
         set_time_limit(0);
         $order = $this->orderReceivingService->getOrderDetails($id);
-        
+
+        // Orders that reach receiving without passing through a commit (approved, partially
+        // committed) have no worksheet rows yet, which left this page showing "No receiving
+        // history available" with no way to receive anything. Idempotent.
+        $this->orderReceivingService->ensureReceivingPlaceholders($order);
+
         // Fetch images directly from the relationship to ensure the accessor is called
         $images = $order->image_attachments()->get();
 
@@ -86,7 +92,24 @@ class OrderReceivingController extends Controller
             'order' => $order,
             'orderedItems' => $orderedItems,
             'receiveDatesHistory' => $receiveDatesHistory,
-            'images' => $images
+            'images' => $images,
+            // The page hides the edit pencil on the same rule the server enforces.
+            'receivingEditDeadline' => optional($this->orderReceivingService->receivingEditDeadline($order))
+                ->format('Y-m-d H:i:s'),
+            // Catalogue for the "item delivered but not ordered" picker. Mapped to a lean
+            // shape on purpose: serialising the models would fire SupplierItems' appended
+            // sap_master_file accessor once per row.
+            'unlistedItemOptions' => \App\Models\SupplierItems::forSupplierCode((string) ($order->supplier?->supplier_code ?? ''))
+                ->reject(fn ($item) => $orderedItems->contains('item_code', $item->ItemCode))
+                // Cost is deliberately not exposed here: the picker does not show a price,
+                // and the line's cost is read from the catalogue server-side when the item
+                // is added (OrderReceivingService::addUnlistedItem).
+                ->map(fn ($item) => [
+                    'item_code' => $item->ItemCode,
+                    'item_name' => $item->item_name,
+                    'uom' => $item->uom,
+                ])
+                ->values(),
         ]);
     }
 
@@ -113,9 +136,30 @@ class OrderReceivingController extends Controller
         );
     }
 
+    public function addUnlistedItem(AddUnlistedReceivedItemRequest $request, StoreOrder $order)
+    {
+        try {
+            $this->orderReceivingService->addUnlistedItem($order, $request->validated());
+        } catch (\Exception $e) {
+            Log::warning("OrderReceivingController: Unlisted item rejected for order {$order->order_number}: ".$e->getMessage());
+
+            return back()->withErrors(['error' => $e->getMessage()]);
+        }
+
+        return redirect()->back()->with('success', 'Item added to the receiving history.');
+    }
+
     public function receive(ReceiveOrderRequest $request, $id)
     {
+        $order = StoreOrderItem::findOrFail($id)->store_order;
+
+        if ($problem = $this->orderReceivingService->receivingEditWindowProblem($order)
+            ?? $this->orderReceivingService->deliveryEvidenceProblem($order)) {
+            return back()->withErrors(['error' => $problem]);
+        }
+
         $this->orderReceivingService->receiveOrder($id, $request->validated());
+
         return redirect()->back();
     }
 
@@ -165,7 +209,18 @@ class OrderReceivingController extends Controller
             'remarks' => 'nullable|string',
         ]);
 
-        $history = OrderedItemReceiveDate::findOrFail($validated['id']);
+        $history = OrderedItemReceiveDate::with('store_order_item.store_order')->findOrFail($validated['id']);
+
+        // Recording a quantity here marks the line received, exactly as Confirm Receive does.
+        // Without this check a user could work down the list with the edit button and receive
+        // the whole order without ever attaching a delivery receipt or an image.
+        $order = $history->store_order_item?->store_order;
+
+        if ($order && $problem = $this->orderReceivingService->receivingEditWindowProblem($order)
+            ?? $this->orderReceivingService->deliveryEvidenceProblem($order)) {
+            return back()->withErrors(['error' => $problem]);
+        }
+
         $history->update([
             'quantity_received' => $validated['quantity_received'],
             'remarks' => $validated['remarks'],
@@ -204,6 +259,12 @@ class OrderReceivingController extends Controller
 
     public function confirmReceive($id)
     {
+        $order = StoreOrder::findOrFail($id);
+
+        if ($problem = $this->orderReceivingService->deliveryEvidenceProblem($order)) {
+            return back()->withErrors(['error' => $problem]);
+        }
+
         DB::beginTransaction();
         try {
             // 1. Update remarks for any ALREADY APPROVED items that have no remarks (Fix for data consistency)

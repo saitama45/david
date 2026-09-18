@@ -6,6 +6,7 @@ use App\Exports\CSMassCommitsExport;
 use App\Models\StoreBranch;
 use App\Models\Supplier;
 use App\Models\StoreOrder;
+use App\Http\Services\OrderReceivingService;
 use App\Services\CommitUomChangeService;
 use Illuminate\Support\Carbon;
 use Illuminate\Http\Request;
@@ -16,8 +17,10 @@ use Maatwebsite\Excel\Facades\Excel;
 
 class CSMassCommitsController extends Controller
 {
-    public function __construct(private CommitUomChangeService $uomChangeService)
-    {
+    public function __construct(
+        private CommitUomChangeService $uomChangeService,
+        private OrderReceivingService $orderReceiving,
+    ) {
     }
 
     public function index(Request $request)
@@ -675,14 +678,10 @@ class CSMassCommitsController extends Controller
                          $orderHasUpdates = true;
                     }
 
-                    // Create placeholder receive date record if it doesn't exist
-                    if ($item->quantity_commited >= 0 && $item->ordered_item_receive_dates()->doesntExist()) {
-                        $item->ordered_item_receive_dates()->create([
-                            'quantity_received' => $item->quantity_commited,
-                            'status' => 'pending',
-                            'received_by_user_id' => null,
-                        ]);
-                    }
+                    // Create the receiving worksheet row if it doesn't exist. Shared with
+                    // OrderReceivingController::show(), which materialises the same rows for
+                    // orders that reach receiving without being committed here.
+                    $this->orderReceiving->ensureReceivingPlaceholder($item);
                 }
 
                 \Log::info('CS Mass Commits - Order processing complete', [

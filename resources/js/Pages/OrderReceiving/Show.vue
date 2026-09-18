@@ -3,7 +3,7 @@ import { ref, watch, computed, onMounted, onUnmounted } from "vue";
 import { useForm } from "@inertiajs/vue3";
 import { useToast } from "primevue/usetoast";
 import { router } from "@inertiajs/vue3";
-import { X, Eye } from "lucide-vue-next";
+import { X, Eye, PackagePlus, Search, Check, Loader2 } from "lucide-vue-next";
 import { useConfirm } from "primevue/useconfirm";
 import dayjs from "dayjs";
 import utc from "dayjs/plugin/utc"; // Import UTC plugin
@@ -42,9 +42,13 @@ const formatQuantity = (value) => {
 
 const getStatusClass = (status) => {
     switch (status?.toLowerCase()) {
-        case "approved":
         case "received":
             return "bg-green-100 text-green-800 border-green-200";
+        // Ready to receive: approved / partially committed orders are treated as committed.
+        case "approved":
+        case "partial_committed":
+        case "committed":
+            return "bg-blue-100 text-blue-800 border-blue-200";
         case "pending":
             return "bg-yellow-100 text-yellow-800 border-yellow-200";
         case "rejected":
@@ -121,6 +125,14 @@ const props = defineProps({
     order: {
         type: Object,
         required: true,
+    },
+    unlistedItemOptions: {
+        type: Array,
+        default: () => [],
+    },
+    receivingEditDeadline: {
+        type: String,
+        default: null,
     },
     orderedItems: {
         type: Object,
@@ -329,6 +341,76 @@ const deleteReceiveDate = (id) => {
 const isEditModalVisible = ref(false);
 const currentEditingItem = ref(null);
 
+// --- "Delivered but not ordered" ------------------------------------------------
+const isUnlistedModalVisible = ref(false);
+const unlistedSearch = ref("");
+const unlistedForm = useForm({
+    item_code: "",
+    quantity_received: null,
+    expiry_date: null,
+    remarks: "Received without being ordered.",
+});
+
+const unlistedMatches = computed(() => {
+    const term = unlistedSearch.value.trim().toLowerCase();
+    const list = props.unlistedItemOptions;
+    if (!term) return list;
+    return list.filter(
+        (i) =>
+            i.item_code.toLowerCase().includes(term) ||
+            (i.item_name || "").toLowerCase().includes(term)
+    );
+});
+
+// Quick reasons an unordered item turns up on a delivery.
+const unlistedReasonPresets = [
+    "Delivered but not ordered",
+    "Substitute for an ordered item",
+    "Bonus / free goods",
+];
+
+const selectedUnlistedItem = computed(() =>
+    props.unlistedItemOptions.find((i) => i.item_code === unlistedForm.item_code) || null
+);
+
+const openUnlistedModal = () => {
+    unlistedForm.reset();
+    unlistedForm.clearErrors();
+    unlistedSearch.value = "";
+    isUnlistedModalVisible.value = true;
+};
+
+const closeUnlistedModal = () => {
+    isUnlistedModalVisible.value = false;
+};
+
+const submitUnlistedItem = () => {
+    isLoading.value = true;
+    unlistedForm.post(route("orders-receiving.add-unlisted-item", props.order.id), {
+        preserveScroll: true,
+        onSuccess: () => {
+            toast.add({
+                severity: "success",
+                summary: "Item Added",
+                detail: "The item was added to the receiving history.",
+                life: 5000,
+            });
+            isUnlistedModalVisible.value = false;
+        },
+        onError: (errors) => {
+            toast.add({
+                severity: "error",
+                summary: "Unable to Add Item",
+                detail: errors.error || "Please check the details and try again.",
+                life: 7000,
+            });
+        },
+        onFinish: () => {
+            isLoading.value = false;
+        },
+    });
+};
+
 const closeEditModal = () => {
     isEditModalVisible.value = false;
 };
@@ -410,9 +492,55 @@ const variance = computed(() => {
     return received - committed;
 });
 
-const canConfirmReceive = computed(() => {
-    return props.order.delivery_receipts.length > 0 && props.images.length > 0;
+// A delivery receipt and an image are required before any quantity may be recorded, not
+// only before Confirm Receive. The server enforces the same rule on every receiving
+// endpoint (OrderReceivingService::deliveryEvidenceProblem).
+const missingEvidence = computed(() => {
+    const missing = [];
+    if (props.order.delivery_receipts.length === 0) missing.push("a delivery receipt");
+    if (props.images.length === 0) missing.push("an image attachment");
+    return missing;
 });
+
+// Confirm Receive no longer ends receiving: an item found afterwards can still be added and
+// corrected. What ends it is the calendar - quantities may be corrected until the end of the
+// third day after the delivery date, after which the delivery is read-only. The server
+// enforces the same rule (OrderReceivingService::receivingEditWindowProblem).
+const isPastEditWindow = computed(() => {
+    if (!props.receivingEditDeadline) return false;
+    return dayjs().tz("Asia/Manila").isAfter(dayjs.tz(props.receivingEditDeadline, "Asia/Manila"));
+});
+
+const editWindowHint = computed(() =>
+    props.receivingEditDeadline
+        ? `The 3-day window for correcting this delivery closed on ${dayjs
+              .tz(props.receivingEditDeadline, "Asia/Manila")
+              .format("MMM D, YYYY")}.`
+        : ""
+);
+
+const canRecordReceipt = computed(
+    () => !isPastEditWindow.value && missingEvidence.value.length === 0
+);
+
+const evidenceHint = computed(() =>
+    missingEvidence.value.length === 0
+        ? ""
+        : `Add ${missingEvidence.value.join(" and ")} before recording received quantities.`
+);
+
+// Confirming is deliberately NOT tied to the editing window. The window governs changing a
+// delivery; confirming only posts quantities that were already recorded. Blocking it after
+// three days would strand those quantities outside stock permanently, since Confirm Receive
+// is the only thing that posts them. It stays available until it has been used, then the
+// button disappears because no unconfirmed rows remain.
+const canConfirmReceive = computed(() => missingEvidence.value.length === 0);
+
+// Rows that have not yet been posted to stock. Confirm Receive keys off these rather than the
+// order status, so an item added after the order was marked received can still be posted.
+const hasUnconfirmedRows = computed(() =>
+    props.receiveDatesHistory.some((h) => ["pending", "received"].includes(String(h.status).toLowerCase()))
+);
 
 const openEditModalForm = (id) => {
     const data = props.receiveDatesHistory;
@@ -695,7 +823,7 @@ const promptConfirmReceive = () => {
                                 <div>
                                     <span class="text-xs text-gray-400 block mb-1">Current Status</span>
                                     <span :class="['px-2.5 py-0.5 rounded-full text-xs font-medium border', getStatusClass(order.order_status)]">
-                                        {{ (order.order_status.toUpperCase() === 'RECEIVED' || order.order_status.toUpperCase() === 'INCOMPLETE') ? 'RECEIVED' : order.order_status.toUpperCase() }}
+                                        {{ (order.order_status.toUpperCase() === 'RECEIVED' || order.order_status.toUpperCase() === 'INCOMPLETE') ? 'RECEIVED' : order.order_status.toUpperCase().replace("_", " ") }}
                                     </span>
                                 </div>
                                 <div>
@@ -942,9 +1070,27 @@ const promptConfirmReceive = () => {
                             <p v-else class="text-xs text-green-600 font-medium">
                                 ✓ All items have been received
                             </p>
+                            <p v-if="isPastEditWindow" class="mt-1 text-xs font-medium text-gray-600">
+                                🔒 {{ editWindowHint }}
+                            </p>
+                            <p v-else-if="!canRecordReceipt" class="mt-1 text-xs font-medium text-red-600">
+                                🔒 {{ evidenceHint }}
+                            </p>
                         </div>
+                        <div class="flex items-center gap-3">
+                            <Button
+                            v-if="unlistedItemOptions.length > 0"
+                            :disabled="!canRecordReceipt"
+                            variant="outline"
+                            class="border-2 border-dashed border-indigo-400 bg-indigo-50 text-indigo-700 font-semibold shadow-sm hover:bg-indigo-100 hover:border-indigo-500 hover:text-indigo-800 hover:shadow-md transition-all"
+                            @click="openUnlistedModal"
+                            :title="canRecordReceipt ? 'Record an item that was delivered but is not on this order' : (isPastEditWindow ? editWindowHint : evidenceHint)"
+                        >
+                            <PackagePlus class="size-4" />
+                            Add Unlisted Item
+                        </Button>
                         <Button
-                            v-if="order.order_status != 'received'"
+                            v-if="hasUnconfirmedRows"
                             @click="promptConfirmReceive"
                             :disabled="!canConfirmReceive"
                             :variant="!canConfirmReceive ? 'secondary' : 'default'"
@@ -952,6 +1098,7 @@ const promptConfirmReceive = () => {
                         >
                             Confirm Receive
                         </Button>
+                        </div>
                     </div>
                 </div>
                 <div class="overflow-auto max-h-[600px]">
@@ -1028,9 +1175,11 @@ const promptConfirmReceive = () => {
                                             title="View Details"
                                         />
                                         <EditButton
-                                            v-if="history.status === 'pending' || history.status === 'received'"
-                                            @click="openEditModalForm(history.id)"
-                                            title="Edit Item"
+                                            v-if="!isPastEditWindow && (history.status === 'pending' || history.status === 'received')"
+                                            :disabled="!canRecordReceipt"
+                                            :class="!canRecordReceipt ? 'opacity-40 cursor-not-allowed' : ''"
+                                            @click="canRecordReceipt && openEditModalForm(history.id)"
+                                            :title="canRecordReceipt ? 'Edit Item' : evidenceHint"
                                         />
                                     </div>
                                 </td>
@@ -1051,8 +1200,11 @@ const promptConfirmReceive = () => {
                                 />
                                 <EditButton
                                     class="size-8"
-                                    v-if="history.status === 'pending'"
-                                    @click="openEditModalForm(history.id)"
+                                    v-if="!isPastEditWindow && (history.status === 'pending' || history.status === 'received')"
+                                    :disabled="!canRecordReceipt"
+                                    :class="!canRecordReceipt ? 'opacity-40 cursor-not-allowed' : ''"
+                                    @click="canRecordReceipt && openEditModalForm(history.id)"
+                                    :title="canRecordReceipt ? 'Edit Item' : evidenceHint"
                                 />
                             </div>
                         </div>
@@ -1155,6 +1307,187 @@ const promptConfirmReceive = () => {
                 </DialogFooter>
             </DialogContent>
         </Dialog>
+
+        <!-- "Delivered but not ordered" Modal -->
+        <div
+            v-if="isUnlistedModalVisible"
+            class="fixed inset-0 z-50 flex items-center justify-center p-4"
+        >
+            <div class="absolute inset-0 bg-gray-900/60 backdrop-blur-sm" @click="closeUnlistedModal"></div>
+
+            <div class="relative z-10 flex max-h-[90vh] w-full flex-col overflow-hidden rounded-2xl bg-white shadow-2xl ring-1 ring-black/5 sm:max-w-[600px]">
+                <!-- Header -->
+                <div class="flex items-start gap-4 border-b border-gray-100 px-6 py-5">
+                    <div class="flex size-11 shrink-0 items-center justify-center rounded-xl bg-indigo-50 text-indigo-600 ring-1 ring-indigo-100">
+                        <PackagePlus class="size-5" />
+                    </div>
+                    <div class="min-w-0 flex-1">
+                        <h2 class="text-lg font-semibold text-gray-900">Add Unlisted Item</h2>
+                        <p class="mt-0.5 text-sm text-gray-500">
+                            Record an item that arrived with this delivery but was never ordered.
+                        </p>
+                    </div>
+                    <button
+                        @click="closeUnlistedModal"
+                        class="shrink-0 rounded-lg p-1.5 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600"
+                        aria-label="Close"
+                    >
+                        <X class="size-5" />
+                    </button>
+                </div>
+
+                <!-- Body -->
+                <div class="flex-1 space-y-6 overflow-y-auto px-6 py-5">
+                    <!-- Item picker -->
+                    <div>
+                        <div class="mb-2 flex items-baseline justify-between">
+                            <Label class="text-xs font-semibold uppercase tracking-wide text-gray-700">
+                                Item <span class="text-red-500">*</span>
+                            </Label>
+                            <span class="text-xs text-gray-400">
+                                {{ unlistedMatches.length }} of {{ unlistedItemOptions.length }} available
+                            </span>
+                        </div>
+
+                        <div class="relative mb-2">
+                            <Search class="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-gray-400" />
+                            <Input
+                                v-model="unlistedSearch"
+                                placeholder="Search by item code or name..."
+                                class="pl-9"
+                            />
+                        </div>
+
+                        <div class="max-h-56 divide-y divide-gray-100 overflow-y-auto rounded-lg border border-gray-200 bg-white">
+                            <button
+                                v-for="item in unlistedMatches"
+                                :key="item.item_code"
+                                type="button"
+                                @click="unlistedForm.item_code = item.item_code"
+                                :class="[
+                                    'flex w-full items-center gap-3 px-3 py-2.5 text-left transition-colors',
+                                    unlistedForm.item_code === item.item_code
+                                        ? 'bg-indigo-50/80'
+                                        : 'hover:bg-gray-50',
+                                ]"
+                            >
+                                <div class="min-w-0 flex-1">
+                                    <p class="truncate text-sm font-medium text-gray-900">{{ item.item_name }}</p>
+                                    <p class="mt-1 flex items-center gap-2 text-xs text-gray-500">
+                                        <span class="rounded bg-gray-100 px-1.5 py-0.5 font-mono text-[11px] text-gray-600">{{ item.item_code }}</span>
+                                        <span>{{ item.uom }}</span>
+                                    </p>
+                                </div>
+                                <Check
+                                    v-if="unlistedForm.item_code === item.item_code"
+                                    class="size-4 shrink-0 text-indigo-600"
+                                />
+                            </button>
+
+                            <div v-if="unlistedMatches.length === 0" class="px-3 py-8 text-center">
+                                <p class="text-sm font-medium text-gray-600">No matching items</p>
+                                <p class="mt-1 text-xs text-gray-400">Try a different item code or name.</p>
+                            </div>
+                        </div>
+
+                        <p class="mt-2 text-xs text-gray-500">
+                            Items from this order&apos;s supplier list, excluding those already on the order.
+                        </p>
+                        <FormError>{{ unlistedForm.errors.item_code }}</FormError>
+                    </div>
+
+                    <!-- Quantity + expiry -->
+                    <div class="grid gap-4 sm:grid-cols-2">
+                        <div>
+                            <Label class="text-xs font-semibold uppercase tracking-wide text-gray-700">
+                                Quantity Received <span class="text-red-500">*</span>
+                            </Label>
+                            <div class="relative mt-2">
+                                <Input
+                                    v-model="unlistedForm.quantity_received"
+                                    type="number"
+                                    step="any"
+                                    min="0"
+                                    placeholder="0"
+                                    class="pr-16 font-semibold"
+                                />
+                                <span
+                                    v-if="selectedUnlistedItem"
+                                    class="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-xs font-medium text-gray-400"
+                                >
+                                    {{ selectedUnlistedItem.uom }}
+                                </span>
+                            </div>
+                            <FormError>{{ unlistedForm.errors.quantity_received }}</FormError>
+                        </div>
+
+                        <div>
+                            <Label class="text-xs font-semibold uppercase tracking-wide text-gray-700">Expiry Date</Label>
+                            <Input v-model="unlistedForm.expiry_date" type="date" class="mt-2" />
+                            <p class="mt-1.5 text-xs text-gray-500">Optional - leave blank for non-perishables.</p>
+                            <FormError>{{ unlistedForm.errors.expiry_date }}</FormError>
+                        </div>
+                    </div>
+
+                    <!-- Reason -->
+                    <div>
+                        <Label class="text-xs font-semibold uppercase tracking-wide text-gray-700">
+                            Reason <span class="text-red-500">*</span>
+                        </Label>
+                        <div class="mb-2 mt-2 flex flex-wrap gap-2">
+                            <button
+                                v-for="preset in unlistedReasonPresets"
+                                :key="preset"
+                                type="button"
+                                @click="unlistedForm.remarks = preset"
+                                :class="[
+                                    'rounded-full border px-3 py-1 text-xs font-medium transition-colors',
+                                    unlistedForm.remarks === preset
+                                        ? 'border-indigo-300 bg-indigo-50 text-indigo-700'
+                                        : 'border-gray-200 bg-white text-gray-600 hover:border-gray-300 hover:bg-gray-50',
+                                ]"
+                            >
+                                {{ preset }}
+                            </button>
+                        </div>
+                        <textarea
+                            v-model="unlistedForm.remarks"
+                            rows="2"
+                            placeholder="Why was this item received without being ordered?"
+                            class="flex w-full resize-none rounded-md border border-gray-300 bg-white px-3 py-2 text-sm shadow-sm outline-none transition-colors focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20"
+                        ></textarea>
+                        <FormError>{{ unlistedForm.errors.remarks }}</FormError>
+                    </div>
+
+                    <div
+                        v-if="unlistedForm.errors.error"
+                        class="rounded-lg border border-red-200 bg-red-50 px-3 py-2.5 text-sm text-red-700"
+                    >
+                        {{ unlistedForm.errors.error }}
+                    </div>
+                </div>
+
+                <!-- Footer -->
+                <div class="flex items-center justify-between gap-3 border-t border-gray-100 bg-gray-50 px-6 py-4">
+                    <p class="hidden text-xs text-gray-500 sm:block">
+                        <span v-if="selectedUnlistedItem">
+                            Adding <span class="font-medium text-gray-700">{{ selectedUnlistedItem.item_name }}</span>
+                        </span>
+                        <span v-else>Select an item to continue.</span>
+                    </p>
+                    <div class="ml-auto flex gap-2">
+                        <Button variant="ghost" @click="closeUnlistedModal">Cancel</Button>
+                        <Button
+                            :disabled="!unlistedForm.item_code || !unlistedForm.quantity_received || !unlistedForm.remarks || unlistedForm.processing"
+                            @click="submitUnlistedItem"
+                        >
+                            <Loader2 v-if="unlistedForm.processing" class="size-4 animate-spin" />
+                            {{ unlistedForm.processing ? "Adding..." : "Add Item" }}
+                        </Button>
+                    </div>
+                </div>
+            </div>
+        </div>
 
         <!-- Edit Modal (Custom styled to match) -->
         <div

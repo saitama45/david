@@ -63,6 +63,13 @@ const { options: branchesOptions } = useSelectOptions(props.branches);
 const manilaAsUTC = (value) => new Date(value.replace(' ', 'T') + 'Z');
 
 const canEditOrder = (order) => {
+    // Receiving has started: the server refuses item changes on this order, because removing
+    // a received line would cascade-delete its receiving history. Untouched worksheet
+    // placeholders do not set this flag.
+    if (order.receiving_records > 0) {
+        return false;
+    }
+
     // 1. Initial checks for status and permissions
     const supplierCode = order.supplier?.supplier_code;
     const allowedStatuses = supplierCode === 'DROPS' 
@@ -664,7 +671,14 @@ const downloadFileName = computed(() => {
                                     <button v-if="hasAccess('show mass orders')" @click="showOrderDetails(order.order_number)">
                                         <Eye class="size-5" />
                                     </button>
-                                    <button v-if="canEditOrder(order)" class="text-blue-500" @click="editOrderDetails(order.order_number)">
+                                    <span
+                                        v-if="order.receiving_records > 0 && order.order_status !== 'received' && hasAccess('edit mass orders')"
+                                        class="text-xs font-medium text-gray-500"
+                                        title="Receiving has started on this order, so its items can no longer be changed."
+                                    >
+                                        Receiving started
+                                    </span>
+                                    <button v-else-if="canEditOrder(order)" class="text-blue-500" @click="editOrderDetails(order.order_number)">
                                         <Pencil class="size-5" />
                                     </button>
                                     <button
@@ -688,7 +702,14 @@ const downloadFileName = computed(() => {
                         <button v-if="hasAccess('show mass orders')" @click="showOrderDetails(order.order_number)">
                             <Eye class="size-5" />
                         </button>
-                        <button v-if="canEditOrder(order)" class="text-blue-500" @click="editOrderDetails(order.order_number)">
+                        <span
+                            v-if="order.receiving_records > 0 && order.order_status !== 'received' && hasAccess('edit mass orders')"
+                            class="text-xs font-medium text-gray-500"
+                            title="Receiving has started on this order, so its items can no longer be changed."
+                        >
+                            Receiving started
+                        </span>
+                        <button v-else-if="canEditOrder(order)" class="text-blue-500" @click="editOrderDetails(order.order_number)">
                             <Pencil class="size-5" />
                         </button>
                         <button v-else-if="showEditExceptionRequests && isEditCutoffLocked(order)" class="text-xs font-medium text-amber-700 underline" @click="requestEditException(order)">
