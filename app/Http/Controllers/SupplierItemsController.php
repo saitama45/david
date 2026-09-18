@@ -144,7 +144,7 @@ class SupplierItemsController extends Controller
         // Pass assignedSupplierCodes to the export class
         return Excel::download(
             new SupplierItemsExport($search, $filter, $assignedSupplierCodes),
-            'SupplierItems-list-' . now()->format('Y-m-d') . '.xlsx'
+            'SupplierItems-list-' . now('Asia/Manila')->format('Y-m-d') . '.xlsx'
         );
     }
 
@@ -320,9 +320,9 @@ class SupplierItemsController extends Controller
             return back()->with('error', 'No skipped import details found to download.');
         }
 
-        $fileName = 'skipped_supplier_items_log_' . now()->format('Y-m-d_His') . '.txt';
+        $fileName = 'skipped_supplier_items_log_' . now('Asia/Manila')->format('Y-m-d_His') . '.txt';
         $content = "Skipped Supplier Items Import Log\n";
-        $content .= "Generated on: " . now()->toDateTimeString() . "\n\n";
+        $content .= "Generated on: " . now('Asia/Manila')->toDateTimeString() . "\n\n";
 
         foreach ($skippedDetails as $index => $detail) {
             $content .= "--- Skipped Row " . ($index + 1) . " ---\n";

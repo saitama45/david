@@ -101,8 +101,8 @@ class PMIXReportController extends Controller
         ]);
 
         // Set default values
-        $filters['date_from'] = $filters['date_from'] ?? Carbon::today()->startOfMonth()->format('Y-m-d');
-        $filters['date_to'] = $filters['date_to'] ?? Carbon::today()->format('Y-m-d');
+        $filters['date_from'] = $filters['date_from'] ?? Carbon::today('Asia/Manila')->startOfMonth()->format('Y-m-d');
+        $filters['date_to'] = $filters['date_to'] ?? Carbon::today('Asia/Manila')->format('Y-m-d');
         $filters['per_page'] = $filters['per_page'] ?? 50;
         $filters['store_ids'] = $filters['store_ids'] ?? [];
 
@@ -258,8 +258,8 @@ class PMIXReportController extends Controller
         ]);
 
         // Set defaults for export
-        $filters['date_from'] = $filters['date_from'] ?? Carbon::today()->startOfMonth()->format('Y-m-d');
-        $filters['date_to'] = $filters['date_to'] ?? Carbon::today()->format('Y-m-d');
+        $filters['date_from'] = $filters['date_from'] ?? Carbon::today('Asia/Manila')->startOfMonth()->format('Y-m-d');
+        $filters['date_to'] = $filters['date_to'] ?? Carbon::today('Asia/Manila')->format('Y-m-d');
         $filters['store_ids'] = $filters['store_ids'] ?? [];
 
         // Get user's assigned stores
@@ -315,7 +315,7 @@ class PMIXReportController extends Controller
         // Export to Excel using PMIXReportExport class
         return Excel::download(
             new PMIXReportExport($pmixData, $storeColumns, $filters),
-            'pmix-report-' . Carbon::now()->format('Y-m-d') . '.xlsx'
+            'pmix-report-' . Carbon::now('Asia/Manila')->format('Y-m-d') . '.xlsx'
         );
     }
 }

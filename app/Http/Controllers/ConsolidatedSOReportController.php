@@ -23,7 +23,7 @@ class ConsolidatedSOReportController extends Controller
     public function index(Request $request)
     {
         $user = \Illuminate\Support\Facades\Auth::user();
-        $orderDate = $request->input('order_date', \Carbon\Carbon::today()->format('Y-m-d'));
+        $orderDate = $request->input('order_date', \Carbon\Carbon::today('Asia/Manila')->format('Y-m-d'));
         $supplierCode = $request->input('supplier_id', 'all');
 
         // Get user's assigned suppliers for the dropdown
@@ -88,7 +88,7 @@ class ConsolidatedSOReportController extends Controller
     public function export(Request $request)
     {
         $user = \Illuminate\Support\Facades\Auth::user();
-        $orderDate = $request->input('order_date', \Carbon\Carbon::today()->format('Y-m-d'));
+        $orderDate = $request->input('order_date', \Carbon\Carbon::today('Asia/Manila')->format('Y-m-d'));
         $supplierCode = $request->input('supplier_id', 'all');
 
         // Convert supplier_code from request to supplier_id for the service

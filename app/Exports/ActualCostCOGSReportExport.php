@@ -29,8 +29,8 @@ class ActualCostCOGSReportExport implements FromCollection, WithHeadings, WithMa
         $this->data = $data;
         $this->filters = $filters;
         // Ensure 'year' and 'month' are set with defaults if not present
-        $this->filters['year'] = $this->filters['year'] ?? Carbon::now()->year;
-        $this->filters['month'] = $this->filters['month'] ?? Carbon::now()->month;
+        $this->filters['year'] = $this->filters['year'] ?? Carbon::now('Asia/Manila')->year;
+        $this->filters['month'] = $this->filters['month'] ?? Carbon::now('Asia/Manila')->month;
     }
 
     public function collection()
@@ -89,7 +89,7 @@ class ActualCostCOGSReportExport implements FromCollection, WithHeadings, WithMa
                 // Row 2: Date Range and Generated info
                 $monthName = Carbon::create()->month($this->filters['month'])->format('F');
                 $dateRange = 'Month: ' . $monthName . ' ' . ($this->filters['year'] ?? 'N/A');
-                $generatedInfo = 'Generated on: ' . now()->format('Y-m-d H:i:s');
+                $generatedInfo = 'Generated on: ' . now('Asia/Manila')->format('Y-m-d H:i:s');
 
                 $middleColumnIndex = intval($totalDataColumns / 2);
                 $middleColumn = Coordinate::stringFromColumnIndex($middleColumnIndex);

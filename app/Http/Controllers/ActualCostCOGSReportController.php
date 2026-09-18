@@ -37,8 +37,8 @@ class ActualCostCOGSReportController extends Controller
         ]);
 
         // Set default values
-        $filters['year'] = $filters['year'] ?? Carbon::now()->year;
-        $filters['month'] = $filters['month'] ?? Carbon::now()->month;
+        $filters['year'] = $filters['year'] ?? Carbon::now('Asia/Manila')->year;
+        $filters['month'] = $filters['month'] ?? Carbon::now('Asia/Manila')->month;
         $filters['per_page'] = $filters['per_page'] ?? 50;
         
         $user->load('store_branches');
@@ -183,8 +183,8 @@ class ActualCostCOGSReportController extends Controller
         $user = Auth::user();
         $filters = $request->only(['year', 'month', 'store_ids', 'search']);
 
-        $filters['year'] = $filters['year'] ?? Carbon::now()->year;
-        $filters['month'] = $filters['month'] ?? Carbon::now()->month;
+        $filters['year'] = $filters['year'] ?? Carbon::now('Asia/Manila')->year;
+        $filters['month'] = $filters['month'] ?? Carbon::now('Asia/Manila')->month;
         
         $user->load('store_branches');
         $assignedStoreIds = $user->store_branches->pluck('id');

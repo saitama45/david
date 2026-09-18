@@ -37,8 +37,8 @@ class IntercoReportController extends Controller
         ]);
 
         // Set default values
-        $filters['date_from'] = $filters['date_from'] ?? Carbon::today()->startOfMonth()->format('Y-m-d');
-        $filters['date_to'] = $filters['date_to'] ?? Carbon::today()->format('Y-m-d');
+        $filters['date_from'] = $filters['date_from'] ?? Carbon::today('Asia/Manila')->startOfMonth()->format('Y-m-d');
+        $filters['date_to'] = $filters['date_to'] ?? Carbon::today('Asia/Manila')->format('Y-m-d');
         $filters['interco_status'] = $filters['interco_status'] ?? 'received';
         $filters['per_page'] = $filters['per_page'] ?? 50;
 
@@ -188,7 +188,7 @@ class IntercoReportController extends Controller
         // Export to Excel using IntercoReportExport class
         return Excel::download(
             new IntercoReportExport($filters),
-            'interco-report-' . Carbon::now()->format('Y-m-d') . '.xlsx'
+            'interco-report-' . Carbon::now('Asia/Manila')->format('Y-m-d') . '.xlsx'
         );
     }
 }

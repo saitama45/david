@@ -37,7 +37,7 @@ class SalesReportController extends Controller
             if ($time_period != 0) {
                 $query->whereMonth('order_date', $time_period);
             } else {
-                $query->whereYear('order_date', Carbon::today()->year);
+                $query->whereYear('order_date', Carbon::today('Asia/Manila')->year);
             }
         }
 

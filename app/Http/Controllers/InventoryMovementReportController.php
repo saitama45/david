@@ -32,8 +32,8 @@ class InventoryMovementReportController extends Controller
         $filters = $request->only(['date_from', 'date_to', 'branch_id', 'supplier_code', 'search', 'per_page', 'sort_field', 'sort_direction']);
         
         // Defaults
-        $filters['date_from'] = $filters['date_from'] ?? Carbon::today()->startOfMonth()->format('Y-m-d');
-        $filters['date_to'] = $filters['date_to'] ?? Carbon::today()->format('Y-m-d');
+        $filters['date_from'] = $filters['date_from'] ?? Carbon::today('Asia/Manila')->startOfMonth()->format('Y-m-d');
+        $filters['date_to'] = $filters['date_to'] ?? Carbon::today('Asia/Manila')->format('Y-m-d');
         $filters['per_page'] = $filters['per_page'] ?? 50;
 
         $user->load('store_branches');
@@ -109,7 +109,7 @@ class InventoryMovementReportController extends Controller
 
     public function exportPdf(Request $request)
     {
-        ['filters' => $filters, 'movementData' => $movementData, 'branch' => $branch, 'supplier' => $supplier]
+        ['filters' => $filters, 'movementData' => $movementData, 'branch' => $branch, 'supplier' => $supplier, 'generatedAt' => $generatedAt]
             = $this->buildExportReport($request);
 
         $pdf = Pdf::loadView('pdf.inventory-movement-report', [
@@ -117,7 +117,7 @@ class InventoryMovementReportController extends Controller
             'filters' => $filters,
             'branch' => $branch,
             'supplier' => $supplier,
-            'date_generated' => Carbon::now()->format('Y-m-d H:i:s'),
+            'date_generated' => $generatedAt,
             'generated_by' => Auth::user()->full_name,
         ]);
 
@@ -126,7 +126,7 @@ class InventoryMovementReportController extends Controller
 
     public function exportExcel(Request $request)
     {
-        ['filters' => $filters, 'movementData' => $movementData, 'branch' => $branch, 'supplier' => $supplier]
+        ['filters' => $filters, 'movementData' => $movementData, 'branch' => $branch, 'supplier' => $supplier, 'generatedAt' => $generatedAt]
             = $this->buildExportReport($request);
 
         $fileName = 'inventory-movement-report'
@@ -139,7 +139,8 @@ class InventoryMovementReportController extends Controller
                 $filters,
                 $branch,
                 $supplier,
-                Auth::user()->full_name
+                Auth::user()->full_name,
+                $generatedAt
             ),
             $fileName
         );
@@ -157,8 +158,8 @@ class InventoryMovementReportController extends Controller
         $user = Auth::user();
         $filters = $request->only(['date_from', 'date_to', 'branch_id', 'supplier_code', 'search']);
 
-        $filters['date_from'] = $filters['date_from'] ?? Carbon::today()->startOfMonth()->format('Y-m-d');
-        $filters['date_to'] = $filters['date_to'] ?? Carbon::today()->format('Y-m-d');
+        $filters['date_from'] = $filters['date_from'] ?? Carbon::today('Asia/Manila')->startOfMonth()->format('Y-m-d');
+        $filters['date_to'] = $filters['date_to'] ?? Carbon::today('Asia/Manila')->format('Y-m-d');
 
         $assignedSupplierCodes = $this->getSupplierOptions($user)->pluck('value')->toArray();
 
@@ -193,6 +194,9 @@ class InventoryMovementReportController extends Controller
             'supplier' => !empty($filters['supplier_code'])
                 ? Supplier::where('supplier_code', $filters['supplier_code'])->first()
                 : null,
+            // Stamped in Asia/Manila explicitly: APP_TIMEZONE is not set in every
+            // environment, and a bare now() then prints the report 8 hours behind.
+            'generatedAt' => Carbon::now('Asia/Manila')->format('Y-m-d H:i:s'),
         ];
     }
 

@@ -6,6 +6,7 @@ use App\Models\POSMasterfileBOM;
 use App\Models\SAPMasterfile;
 use App\Models\StoreBranch;
 use App\Models\User;
+use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 use Maatwebsite\Excel\Facades\Excel;
 use PhpOffice\PhpSpreadsheet\IOFactory;
@@ -79,6 +80,16 @@ function excelExportFixture(): array
     return ['user' => $user, 'branch' => $branch];
 }
 
+function sheetFromResponse($response)
+{
+    $path = tempnam(sys_get_temp_dir(), 'imr').'.xlsx';
+
+    // Excel::download hands back a BinaryFileResponse over a temp file.
+    copy($response->baseResponse->getFile()->getPathname(), $path);
+
+    return [IOFactory::load($path)->getActiveSheet(), $path];
+}
+
 function writtenSheet(InventoryMovementReportExport $export)
 {
     $path = tempnam(sys_get_temp_dir(), 'imr').'.xlsx';
@@ -110,7 +121,8 @@ it('writes the same columns as the PDF, with quantities as numbers', function ()
         ['date_from' => '2026-09-16', 'date_to' => '2026-09-16'],
         $fixture['branch'],
         null,
-        'QA Tester'
+        'QA Tester',
+        '2026-09-18 15:16:42'
     );
 
     [$sheet, $path] = writtenSheet($export);
@@ -119,6 +131,7 @@ it('writes the same columns as the PDF, with quantities as numbers', function ()
     expect($sheet->getCell('A1')->getValue())->toBe('Inventory Movement Report');
     expect($sheet->getCell('A2')->getValue())->toBe('Sep 16, 2026 - Sep 16, 2026');
     expect($sheet->getCell('A3')->getValue())->toContain('Filinvest Super Mall');
+    expect($sheet->getCell('A3')->getValue())->toContain('Generated: 2026-09-18 15:16:42');
     expect($sheet->getCell('A4')->getValue())->toBe('ITEM INFO');
     expect($sheet->getCell('E4')->getValue())->toBe('PROCUREMENT (DATE RANGE)');
     expect($sheet->getCell('H4')->getValue())->toBe('BEGINNING');
@@ -157,7 +170,8 @@ it('auto-sizes every column and aligns text left, UOM centre, quantities right',
         ['date_from' => '2026-09-16', 'date_to' => '2026-09-16'],
         $fixture['branch'],
         null,
-        'QA Tester'
+        'QA Tester',
+        '2026-09-18 15:16:42'
     );
 
     [$sheet, $path] = writtenSheet($export);
@@ -191,6 +205,34 @@ it('still streams the PDF export from the shared builder', function () {
 
     $response->assertOk();
     expect($response->headers->get('content-type'))->toContain('application/pdf');
+});
+
+it('stamps the generated time in Asia/Manila even when the app runs on UTC', function () {
+    config(['app.timezone' => 'UTC']);
+    date_default_timezone_set('UTC');
+
+    $fixture = excelExportFixture();
+
+    $manilaNow = Carbon::now('Asia/Manila');
+
+    $response = $this->actingAs($fixture['user'])->get(route('reports.inventory-movement.export-excel', [
+        'branch_id' => $fixture['branch']->id,
+        'date_from' => '2026-09-16',
+        'date_to' => '2026-09-16',
+    ]));
+
+    $response->assertOk();
+
+    [$sheet, $path] = sheetFromResponse($response);
+
+    preg_match('/Generated: (\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2})/', $sheet->getCell('A3')->getValue(), $matches);
+
+    expect($matches[1] ?? null)->not->toBeNull();
+
+    // Manila is UTC+8: a UTC stamp would be eight hours off, far outside this window.
+    expect(abs(Carbon::parse($matches[1], 'Asia/Manila')->diffInMinutes($manilaNow)))->toBeLessThan(5);
+
+    unlink($path);
 });
 
 /**

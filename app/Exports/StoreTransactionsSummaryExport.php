@@ -26,7 +26,7 @@ class StoreTransactionsSummaryExport implements FromCollection, WithHeadings, Wi
     public function collection()
     {
         $from = $this->from ? Carbon::parse($this->from)->format('Y-m-d') : '1999-01-01';
-        $to = $this->to ? Carbon::parse($this->to)->format('Y-m-d') : Carbon::today()->addMonth();
+        $to = $this->to ? Carbon::parse($this->to)->format('Y-m-d') : Carbon::today('Asia/Manila')->addMonth();
 
         $branchId = $this->branchId;
 

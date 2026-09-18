@@ -33,7 +33,7 @@ class PDFReportController extends Controller
             'orders' => $orders,
             'start_date' => $start_date,
             'end_date' => $end_date,
-            'date_generated' => Carbon::now()->format('Y-m-d H:i:s'),
+            'date_generated' => Carbon::now('Asia/Manila')->format('Y-m-d H:i:s'),
             'generated_by' => Auth::user()->full_name,
             'pending' => $orders->where('order_status', 'pending')->count(),
             'approved' => $orders->where('order_status', 'approved')->count(),

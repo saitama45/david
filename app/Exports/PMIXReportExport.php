@@ -72,7 +72,7 @@ class PMIXReportExport implements FromCollection, WithHeadings, WithMapping, Sho
 
                 // Row 2: Date Range and Generated info
                 $dateRange = 'Date Range: ' . ($this->filters['date_from'] ?? 'N/A') . ' to ' . ($this->filters['date_to'] ?? 'N/A');
-                $generatedInfo = 'Generated on: ' . now()->format('Y-m-d H:i:s');
+                $generatedInfo = 'Generated on: ' . now('Asia/Manila')->format('Y-m-d H:i:s');
 
                 // Merge cells for date range (columns A to middle)
                 $middleColumn = Coordinate::stringFromColumnIndex(intval($totalColumns / 2));

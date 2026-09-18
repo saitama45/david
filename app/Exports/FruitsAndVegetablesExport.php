@@ -20,7 +20,7 @@ class FruitsAndVegetablesExport implements FromCollection, WithHeadings
     {
         $this->search = $search;
         $this->branchId = $branchId;
-        $this->startDate = $startDate ? Carbon::parse($startDate) : Carbon::now()->startOfWeek();
+        $this->startDate = $startDate ? Carbon::parse($startDate) : Carbon::now('Asia/Manila')->startOfWeek();
         $this->initializeDates();
         $this->initializeStoreOrders();
     }

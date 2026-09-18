@@ -29,8 +29,8 @@ class IntercoReportExport implements FromQuery, WithHeadings, WithMapping, Shoul
 
         // Set default filters
         $filters = $this->filters;
-        $filters['date_from'] = $filters['date_from'] ?? Carbon::today()->startOfMonth()->format('Y-m-d');
-        $filters['date_to'] = $filters['date_to'] ?? Carbon::today()->format('Y-m-d');
+        $filters['date_from'] = $filters['date_from'] ?? Carbon::today('Asia/Manila')->startOfMonth()->format('Y-m-d');
+        $filters['date_to'] = $filters['date_to'] ?? Carbon::today('Asia/Manila')->format('Y-m-d');
         $filters['interco_status'] = $filters['interco_status'] ?? 'received';
 
         // Get user's assigned stores

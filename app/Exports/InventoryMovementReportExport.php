@@ -74,7 +74,8 @@ class InventoryMovementReportExport implements FromCollection, ShouldAutoSize, W
         private array $filters,
         private $branch,
         private $supplier,
-        private string $generatedBy
+        private string $generatedBy,
+        private string $generatedAt
     ) {}
 
     public function collection()
@@ -139,7 +140,7 @@ class InventoryMovementReportExport implements FromCollection, ShouldAutoSize, W
                     .'  |  Supplier: '.($this->supplier
                         ? $this->supplier->name.' ('.$this->supplier->supplier_code.')'
                         : 'All Suppliers')
-                    .'  |  Generated: '.now()->format('Y-m-d H:i:s')
+                    .'  |  Generated: '.$this->generatedAt
                     .'  |  By: '.$this->generatedBy);
 
                 // Row 4: group headers, each merged across the columns it covers.

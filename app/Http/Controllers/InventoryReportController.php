@@ -35,7 +35,7 @@ class InventoryReportController extends Controller
         if ($time_period != 0) {
             $query->whereMonth('transaction_date', '<=', $time_period);
         } else {
-            $query->whereYear('transaction_date', Carbon::today()->year);
+            $query->whereYear('transaction_date', Carbon::today('Asia/Manila')->year);
         }
 
         $query->join('sap_masterfiles as sap', 'product_inventory_stock_managers.product_inventory_id', '=', 'sap.id')

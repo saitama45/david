@@ -28,7 +28,7 @@ class StockManagementLogUsageExport implements FromCollection, WithHeadings, Wit
                     'inventory_code' => $item->inventory_code,
                     'quantity' => 0,
                     'unit_cost' => 0,
-                    'transaction_date' => now()->format('Y-m-d')
+                    'transaction_date' => now('Asia/Manila')->format('Y-m-d')
                 ];
             });
     }

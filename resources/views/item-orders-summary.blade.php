@@ -128,7 +128,7 @@
         </table>
 
         <div class="footer">
-            <p>Generated on {{ now()->format('M d, Y h:i A') }}</p>
+            <p>Generated on {{ now('Asia/Manila')->format('M d, Y h:i A') }}</p>
         </div>
     </div>
 </body>

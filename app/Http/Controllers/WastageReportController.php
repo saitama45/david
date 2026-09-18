@@ -67,8 +67,8 @@ class WastageReportController extends Controller
             : self::TAB_DETAILS;
 
         // Set default values
-        $filters['date_from'] = $filters['date_from'] ?? Carbon::today()->startOfMonth()->format('Y-m-d');
-        $filters['date_to'] = $filters['date_to'] ?? Carbon::today()->format('Y-m-d');
+        $filters['date_from'] = $filters['date_from'] ?? Carbon::today('Asia/Manila')->startOfMonth()->format('Y-m-d');
+        $filters['date_to'] = $filters['date_to'] ?? Carbon::today('Asia/Manila')->format('Y-m-d');
         $filters['status'] = $filters['status'] ?? 'approved_lvl2';
         $filters['per_page'] = $filters['per_page'] ?? 50;
 
@@ -383,7 +383,7 @@ class WastageReportController extends Controller
 
             $export = new WastageReportExport($exportData);
 
-            return Excel::download($export, 'wastage_report_' . now()->format('Y_m_d_His') . '.xlsx');
+            return Excel::download($export, 'wastage_report_' . now('Asia/Manila')->format('Y_m_d_His') . '.xlsx');
 
         } catch (\Exception $e) {
             \Log::error('Wastage report export failed: ' . $e->getMessage(), [
@@ -427,6 +427,6 @@ class WastageReportController extends Controller
             'top_limit' => $filters['top_limit'],
         ]);
 
-        return Excel::download($export, 'top_waste_items_per_month_' . now()->format('Y_m_d_His') . '.xlsx');
+        return Excel::download($export, 'top_waste_items_per_month_' . now('Asia/Manila')->format('Y_m_d_His') . '.xlsx');
     }
 }

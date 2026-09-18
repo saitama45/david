@@ -49,8 +49,8 @@ class QtyVarianceCostVarianceReportController extends Controller
         }
 
         $filters = [
-            'date_from' => $request->get('date_from', now()->startOfMonth()->format('Y-m-d')),
-            'date_to' => $request->get('date_to', now()->format('Y-m-d')),
+            'date_from' => $request->get('date_from', now('Asia/Manila')->startOfMonth()->format('Y-m-d')),
+            'date_to' => $request->get('date_to', now('Asia/Manila')->format('Y-m-d')),
             'store_ids' => $storeIdsFilter,
             'search' => $request->get('search', ''),
             'per_page' => $request->get('per_page', 50),
@@ -259,8 +259,8 @@ class QtyVarianceCostVarianceReportController extends Controller
         }
 
         $filters = [
-            'date_from' => $request->get('date_from', now()->startOfMonth()->format('Y-m-d')),
-            'date_to' => $request->get('date_to', now()->format('Y-m-d')),
+            'date_from' => $request->get('date_from', now('Asia/Manila')->startOfMonth()->format('Y-m-d')),
+            'date_to' => $request->get('date_to', now('Asia/Manila')->format('Y-m-d')),
             'store_ids' => $storeIdsFilter,
             'search' => $request->get('search', ''),
             'sort_field' => $request->get('sort_field', ''),
@@ -419,7 +419,7 @@ class QtyVarianceCostVarianceReportController extends Controller
             $varianceData = $varianceData->sortBy('store_name');
         }
 
-        $filename = 'qty_variance_cost_variance_report_' . Carbon::now()->format('Ymd_His') . '.xlsx';
+        $filename = 'qty_variance_cost_variance_report_' . Carbon::now('Asia/Manila')->format('Ymd_His') . '.xlsx';
 
         return Excel::download(new QtyVarianceCostVarianceReportExport($varianceData->toArray()), $filename);
     }

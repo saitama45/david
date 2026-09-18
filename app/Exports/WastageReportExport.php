@@ -169,7 +169,7 @@ class WastageReportExport implements FromCollection, WithHeadings, WithStyles, W
 
                 // Add generation date
                 $sheet->mergeCells('A2:'.$highestColumn.'2');
-                $sheet->setCellValue('A2', 'Generated on: ' . now()->format('F d, Y - h:i A'));
+                $sheet->setCellValue('A2', 'Generated on: ' . now('Asia/Manila')->format('F d, Y - h:i A'));
                 $sheet->getStyle('A2')->applyFromArray([
                     'font' => [
                         'size' => 11,

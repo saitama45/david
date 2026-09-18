@@ -231,7 +231,7 @@ class WastageTopItemsExport implements FromCollection, WithHeadings, WithStyles,
 
         $topLimit = $this->meta['top_limit'] ?? null;
         $parts[] = empty($topLimit) ? 'All items per month' : ('Top ' . $topLimit . ' items per month');
-        $parts[] = 'Generated on: ' . now()->format('F d, Y - h:i A');
+        $parts[] = 'Generated on: ' . now('Asia/Manila')->format('F d, Y - h:i A');
 
         return implode('  |  ', $parts);
     }
