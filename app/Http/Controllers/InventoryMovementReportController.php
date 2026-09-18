@@ -16,7 +16,10 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Auth;
 use Inertia\Inertia;
 use Carbon\Carbon;
+use App\Exports\InventoryMovementReportExport;
 use Barryvdh\DomPDF\Facade\Pdf;
+use Illuminate\Support\Str;
+use Maatwebsite\Excel\Facades\Excel;
 
 class InventoryMovementReportController extends Controller
 {
@@ -106,12 +109,54 @@ class InventoryMovementReportController extends Controller
 
     public function exportPdf(Request $request)
     {
+        ['filters' => $filters, 'movementData' => $movementData, 'branch' => $branch, 'supplier' => $supplier]
+            = $this->buildExportReport($request);
+
+        $pdf = Pdf::loadView('pdf.inventory-movement-report', [
+            'movementData' => $movementData,
+            'filters' => $filters,
+            'branch' => $branch,
+            'supplier' => $supplier,
+            'date_generated' => Carbon::now()->format('Y-m-d H:i:s'),
+            'generated_by' => Auth::user()->full_name,
+        ]);
+
+        return $pdf->setPaper('legal', 'landscape')->stream('inventory-movement-report.pdf');
+    }
+
+    public function exportExcel(Request $request)
+    {
+        ['filters' => $filters, 'movementData' => $movementData, 'branch' => $branch, 'supplier' => $supplier]
+            = $this->buildExportReport($request);
+
+        $fileName = 'inventory-movement-report'
+            . ($branch ? '-' . Str::slug($branch->branch_code ?: $branch->name) : '')
+            . '-' . $filters['date_from'] . '-to-' . $filters['date_to'] . '.xlsx';
+
+        return Excel::download(
+            new InventoryMovementReportExport(
+                $movementData,
+                $filters,
+                $branch,
+                $supplier,
+                Auth::user()->full_name
+            ),
+            $fileName
+        );
+    }
+
+    /**
+     * Resolve the same filtered dataset both exports render, so the PDF and the
+     * Excel file can never disagree about what the report contains.
+     */
+    private function buildExportReport(Request $request): array
+    {
         ini_set('max_execution_time', 600); // 10 minutes
         ini_set('memory_limit', '1024M');
 
         $user = Auth::user();
         $filters = $request->only(['date_from', 'date_to', 'branch_id', 'supplier_code', 'search']);
-        
+
         $filters['date_from'] = $filters['date_from'] ?? Carbon::today()->startOfMonth()->format('Y-m-d');
         $filters['date_to'] = $filters['date_to'] ?? Carbon::today()->format('Y-m-d');
 
@@ -140,22 +185,15 @@ class InventoryMovementReportController extends Controller
         $this->applySupplierFilter($query, $filters);
 
         $sapItems = $query->get();
-        $movementData = $this->getMovementData($sapItems, $filters);
-        $branch = StoreBranch::find($filters['branch_id']);
-        $supplier = !empty($filters['supplier_code'])
-            ? Supplier::where('supplier_code', $filters['supplier_code'])->first()
-            : null;
 
-        $pdf = Pdf::loadView('pdf.inventory-movement-report', [
-            'movementData' => $movementData,
+        return [
             'filters' => $filters,
-            'branch' => $branch,
-            'supplier' => $supplier,
-            'date_generated' => Carbon::now()->format('Y-m-d H:i:s'),
-            'generated_by' => Auth::user()->full_name,
-        ]);
-
-        return $pdf->setPaper('legal', 'landscape')->stream('inventory-movement-report.pdf');
+            'movementData' => $this->getMovementData($sapItems, $filters),
+            'branch' => StoreBranch::find($filters['branch_id']),
+            'supplier' => !empty($filters['supplier_code'])
+                ? Supplier::where('supplier_code', $filters['supplier_code'])->first()
+                : null,
+        ];
     }
 
     private function applySupplierFilter($query, $filters)

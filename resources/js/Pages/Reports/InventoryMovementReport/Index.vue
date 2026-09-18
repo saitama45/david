@@ -2,7 +2,7 @@
 import { ref, watch, computed } from "vue";
 import { throttle } from "lodash";
 import { router } from "@inertiajs/vue3";
-import { Calendar, Search, RotateCcw, Filter, ChevronDown, Package, CalendarDays, Building2, TrendingUp, TrendingDown, ClipboardCheck, Info, FileText, Truck, ArrowUpDown, ArrowUp, ArrowDown } from "lucide-vue-next";
+import { Calendar, Search, RotateCcw, Filter, ChevronDown, Package, CalendarDays, Building2, TrendingUp, TrendingDown, ClipboardCheck, Info, FileText, FileSpreadsheet, Truck, ArrowUpDown, ArrowUp, ArrowDown } from "lucide-vue-next";
 import SearchableSelect from "@/components/ui/select/SearchableSelect.vue";
 import Pagination from "@/components/table/Pagination.vue";
 
@@ -115,16 +115,20 @@ const resetFilters = () => {
     updateFilters();
 };
 
+const exportParams = () => new URLSearchParams({
+    date_from: dateFrom.value,
+    date_to: dateTo.value,
+    branch_id: branchId.value,
+    supplier_code: supplierCode.value,
+    search: search.value,
+});
+
 const exportPdf = () => {
-    const params = new URLSearchParams({
-        date_from: dateFrom.value,
-        date_to: dateTo.value,
-        branch_id: branchId.value,
-        supplier_code: supplierCode.value,
-        search: search.value,
-    });
-    
-    window.open(route('reports.inventory-movement.export-pdf') + '?' + params.toString(), '_blank');
+    window.open(route('reports.inventory-movement.export-pdf') + '?' + exportParams().toString(), '_blank');
+};
+
+const exportExcel = () => {
+    window.location.href = route('reports.inventory-movement.export-excel') + '?' + exportParams().toString();
 };
 
 const formatDate = (dateString) => {
@@ -151,6 +155,10 @@ const formatNumber = (num) => {
             <Button @click="exportPdf" variant="outline" class="flex items-center gap-2 border-blue-200 text-blue-700 hover:bg-blue-50">
                 <FileText class="w-4 h-4" />
                 Export PDF
+            </Button>
+            <Button @click="exportExcel" variant="outline" class="flex items-center gap-2 border-green-200 text-green-700 hover:bg-green-50">
+                <FileSpreadsheet class="w-4 h-4" />
+                Export Excel
             </Button>
         </template>
         <div class="bg-white rounded-xl border border-gray-200 shadow-sm mb-6">
