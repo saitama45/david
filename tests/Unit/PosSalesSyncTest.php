@@ -61,6 +61,7 @@ class PosSalesSyncTest extends TestCase
         }
         (require base_path('database/migrations/2026_09_20_000001_create_pos_sync_receipts_table.php'))->up();
         (require base_path('database/migrations/2026_09_20_000003_create_sales_posting_controls.php'))->up();
+        (require base_path('database/migrations/2026_09_20_000004_add_fingerprint_to_pos_sync_exceptions.php'))->up();
         DB::table('store_branches')->insert(['id' => 1, 'entity_id' => 1, 'location_code' => 'TEST', 'is_active' => 1, 'branch_code' => 'TEST']);
         DB::table('pos_masterfiles')->insert(['id' => 10, 'entity_id' => 1, 'POSCode' => 'COFFEE', 'POSDescription' => 'Coffee']);
         DB::table('sap_masterfiles')->insert(['id' => 20, 'entity_id' => 1, 'ItemCode' => 'BEANS', 'ItemDescription' => 'Beans', 'BaseUOM' => 'KG', 'AltUOM' => 'KG']);
@@ -511,6 +512,76 @@ class PosSalesSyncTest extends TestCase
         $rows = (new PosReceiptMapper)->map($this->sale(), [$this->line()], $this->profile());
         return ['identity' => ['COMPANY', 'TEST', 'PUB', '1'], 'key' => hash('sha256', 'receipt-1'),
             'rows' => $rows, 'hash' => hash('sha256', json_encode($rows)), 'error' => null];
+    }
+
+    public function test_idle_scan_reuses_exception_and_detects_bom_repair_without_source_change(): void
+    {
+        $sync = new PosSalesSync;
+        $packet = $this->packet();
+        $bom = (array) DB::table('pos_masterfiles_bom')->first();
+        DB::table('pos_masterfiles_bom')->delete();
+        $this->mock(PosSalesSource::class)->shouldReceive('receipts')->andReturnUsing(function () use ($packet) {
+            yield $packet;
+        });
+        $this->assertTrue($sync->hasPendingWork($this->profile(), '2026-09-14', '2026-09-20'));
+        $this->assertSame('review', $sync->process($packet, $this->profile(), 123)['status']);
+        DB::table('pos_sync_exceptions')->update(['retry_at' => now()->subMinute()]);
+        for ($i = 0; $i < 3; $i++) {
+            $this->assertFalse($sync->hasPendingWork($this->profile(), '2026-09-14', '2026-09-20'));
+        }
+        $this->assertSame(1, DB::table('pos_sync_exceptions')->count());
+        $this->assertSame(1, (int) DB::table('pos_sync_exceptions')->value('attempts'));
+        $this->assertTrue(\Carbon\Carbon::parse(DB::table('pos_sync_exceptions')->value('retry_at'))->isFuture());
+        $this->assertSame(0, DB::table('store_transactions')->count());
+        DB::table('pos_masterfiles_bom')->insert($bom);
+        $this->assertTrue($sync->hasPendingWork($this->profile(), '2026-09-14', '2026-09-20'));
+        $this->assertSame('imported', $sync->process($packet, $this->profile(), 124)['status']);
+        $this->assertFalse($sync->hasPendingWork($this->profile(), '2026-09-14', '2026-09-20'));
+        $this->assertSame(1, DB::table('store_transactions')->count());
+    }
+
+    public function test_quiet_scan_still_detects_changed_source_and_destination_damage(): void
+    {
+        $sync = new PosSalesSync;
+        $packet = $this->packet();
+        $this->mock(PosSalesSource::class)->shouldReceive('receipts')->andReturnUsing(function () use (&$packet) {
+            yield $packet;
+        });
+        $sync->process($packet, $this->profile(), 123);
+        $this->assertFalse($sync->hasPendingWork($this->profile(), '2026-09-14', '2026-09-20'));
+        $packet['hash'] = hash('sha256', 'revision-2');
+        $this->assertTrue($sync->hasPendingWork($this->profile(), '2026-09-14', '2026-09-20'));
+        $sync->process($packet, $this->profile(), 124);
+        $this->assertFalse($sync->hasPendingWork($this->profile(), '2026-09-14', '2026-09-20'));
+        $packet['hash'] = hash('sha256', 'revision-3');
+        $this->assertTrue($sync->hasPendingWork($this->profile(), '2026-09-14', '2026-09-20'));
+        $packet = $this->packet();
+        // Restoring a receipt also queues resolution of its outstanding issue.
+        $this->assertTrue($sync->hasPendingWork($this->profile(), '2026-09-14', '2026-09-20'));
+        $sync->process($packet, $this->profile(), 125);
+        DB::table('product_inventory_stock_managers')->where('action', 'out')->update(['quantity' => 9]);
+        $this->assertTrue($sync->hasPendingWork($this->profile(), '2026-09-14', '2026-09-20'));
+    }
+
+    public function test_scheduled_idle_scan_advances_cursor_without_enqueueing(): void
+    {
+        Schema::create('import_logs', function (Blueprint $table) {
+            $table->id(); $table->integer('entity_id'); $table->string('type');
+            $table->string('status'); $table->string('original_filename');
+        });
+        (require base_path('database/migrations/2026_09_20_000002_create_pos_sync_cursors_table.php'))->up();
+        $profile = $this->profile();
+        config(['pos_sync.enabled' => true, 'pos_sync.profiles' => ['test' => $profile]]);
+        $this->mock(PosSalesSource::class)->shouldReceive('receipts')->once()->andReturnUsing(function () {
+            yield from [];
+        });
+        $sync = $this->partialMock(PosSalesSync::class);
+        $sync->shouldReceive('dispatchPending')->once();
+        $sync->shouldReceive('profile')->with('test', true)->andReturn($profile);
+        $sync->shouldNotReceive('enqueue');
+        $this->artisan('pos:sync-sales', ['--scheduled' => true])->assertExitCode(0);
+        $this->assertSame(1, DB::table('pos_sync_cursors')->count());
+        $this->assertSame(0, DB::table('import_logs')->count());
     }
 
     public function test_preview_does_not_write_and_retries_do_not_deduct_twice(): void

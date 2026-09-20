@@ -92,6 +92,47 @@ class PosSalesSync
         });
     }
 
+    /** Check candidates without creating jobs, reports, sales, or inventory movements. */
+    public function hasPendingWork(array $profile, string $from, string $to, ?array $window = null): bool
+    {
+        foreach (app(PosSalesSource::class)->receipts($profile, $from, $to, $window) as $packet) {
+            $result = $this->process($packet, $profile);
+            $exception = DB::table('pos_sync_exceptions')->where('source_key', $packet['key'])
+                ->where('entity_id', $profile['entity_id'])->where('store_branch_id', $profile['branch_id'])
+                ->whereNull('resolved_at')->first();
+
+            if ($result['status'] === 'review' && $exception
+                && $exception->reason === $result['reason']
+                && hash_equals((string) ($exception->packet_fingerprint ?? ''), $this->packetFingerprint($packet))) {
+                // Keep one unresolved record. Recheck master data in five minutes,
+                // without producing another Work Queue entry for the same issue.
+                DB::table('pos_sync_exceptions')->where('id', $exception->id)
+                    ->whereNull('resolved_at')->where('retry_at', '<=', now())
+                    ->update(['retry_at' => now()->addMinutes(5), 'updated_at' => now()]);
+                continue;
+            }
+
+            if (in_array($result['status'], ['unchanged', 'excluded', 'ineligible'], true) && !$exception) {
+                continue;
+            }
+            if ($result['status'] === 'reconciled' && !$exception) {
+                $hash = DB::table('pos_sync_receipts')->where('source_key', $packet['key'])->value('source_hash');
+                if ($hash === ($packet['hash'] ?? null)) continue;
+            }
+            // New sales/issues, changed source, repaired BOMs, and exception
+            // resolutions must go through the worker's transactional checks.
+            return true;
+        }
+        return false;
+    }
+
+    private function packetFingerprint(array $packet): string
+    {
+        return hash('sha256', json_encode([
+            $packet['identity'], $packet['hash'] ?? null, $packet['error'] ?? null, $packet['excluded'] ?? false,
+        ], JSON_THROW_ON_ERROR));
+    }
+
     /** Called inside the job's entity context. Preview performs reads only. */
     public function process(array $packet, array $profile, ?int $logId = null): array
     {
@@ -176,6 +217,7 @@ class PosSalesSync
                 DB::table('pos_sync_exceptions')->updateOrInsert(['source_key' => $packet['key']], [
                     'entity_id' => $profile['entity_id'], 'store_branch_id' => $profile['branch_id'],
                     'source_identity' => json_encode($packet['identity']), 'reason' => $result['reason'],
+                    'packet_fingerprint' => $this->packetFingerprint($packet),
                     'attempts' => ($old->attempts ?? 0) + 1, 'retry_at' => now()->addMinutes(5),
                     'resolved_at' => null, 'created_at' => $old->created_at ?? now(), 'updated_at' => now(),
                 ]);

@@ -17,7 +17,7 @@ class ReconcilePosSales extends Command
         }
         $failed = false;
         foreach (array_keys(config('pos_sync.profiles', [])) as $name) {
-            $code = $this->call('pos:sync-sales', ['--profile' => $name, '--apply' => true,
+            $code = $this->call('pos:sync-sales', ['--profile' => $name, '--apply' => true, '--only-changes' => true,
                 '--from' => $this->option('from') ?: now()->subDays(7)->format('Y-m-d'),
                 '--to' => $this->option('to') ?: now()->format('Y-m-d')]);
             $failed = $failed || $code !== self::SUCCESS;

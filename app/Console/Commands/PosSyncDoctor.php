@@ -19,6 +19,9 @@ class PosSyncDoctor extends Command
             foreach (['pos_sync_receipts','pos_sync_cursors','sales_postings','pos_sync_exceptions','sales_posting_corrections','jobs','import_logs'] as $table) {
                 if (!Schema::hasTable($table)) throw new \RuntimeException("Missing application table: {$table}");
             }
+            if (!Schema::hasColumn('pos_sync_exceptions', 'packet_fingerprint')) {
+                throw new \RuntimeException('Run migrations to enable quiet POS retries (missing packet_fingerprint).');
+            }
             if ((int) config('queue.connections.database.retry_after') <= 3600) throw new \RuntimeException('DB_QUEUE_RETRY_AFTER must exceed the 3600-second worker timeout.');
             $names = array_keys(config('pos_sync.profiles', []));
             if (!$names) throw new \RuntimeException('No store mappings found in config/pos_sync_profiles.json (or its optional environment override).');

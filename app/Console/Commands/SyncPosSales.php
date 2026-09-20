@@ -16,7 +16,8 @@ class SyncPosSales extends Command
     protected $signature = 'pos:sync-sales {--profile= : Profile in config/pos_sync.php}
         {--from= : First sales date (YYYY-MM-DD)} {--to= : Last sales date (YYYY-MM-DD)}
         {--apply : Queue posting; otherwise preview only} {--scheduled : Queue enabled profiles}
-        {--output= : Write preview rows and reconciliation results to CSV}';
+        {--output= : Write preview rows and reconciliation results to CSV}
+        {--only-changes : Queue only actionable sales or changed issues}';
 
     protected $description = 'Preview or queue POS sales through the shared store transaction processor';
 
@@ -85,10 +86,11 @@ class SyncPosSales extends Command
                                         'since' => ($previous ? \Carbon\Carbon::parse($previous)->subSeconds(30) : (isset($profile['start_date']) ? \Carbon\Carbon::parse($profile['start_date'])->startOfDay() : now()->subDays(config('pos_sync.lookback_days', 7))))->format('Y-m-d H:i:s'),
                                         'until' => now()->subSeconds(config('pos_sync.settle_seconds', 5))->format('Y-m-d H:i:s'),
                                     ];
-                                    if (!$source->keys($profile, $from, $to, $window)->exists()) {
-                                        $sync->advanceCursor($profile, $window['until']);
-                                        return;
-                                    }
+                                }
+                                if (($scheduled || $this->option('only-changes')) && !$sync->hasPendingWork($profile, $from, $to, $window)) {
+                                    if ($window) $sync->advanceCursor($profile, $window['until']);
+                                    $this->info("{$name}: no actionable changes; no Work Queue entry created.");
+                                    return;
                                 }
                                 $log = $sync->enqueue($name, $profile, $from, $to, $window);
                                 $this->info("{$name}: queued as Work Queue #{$log->id}.");
