@@ -1,0 +1,47 @@
+{
+    "database": "daviddb_test",
+    "product_id": 23835,
+    "branch_id": 40,
+    "verified_at": "2026-09-20T16:49:29+08:00",
+    "approval_date_soh": "8.0000000000",
+    "current_soh": "15.0000000000",
+    "stock_cache": "15.0",
+    "repair_movements": [
+        {
+            "id": 1046749,
+            "purchase_item_batch_id": null,
+            "product_inventory_id": "23835",
+            "store_branch_id": "40",
+            "cost_center_id": null,
+            "quantity": "49.0000000000",
+            "action": "add",
+            "unit_cost": "0.0000",
+            "total_cost": "0.0000",
+            "transaction_date": "2026-09-04T16:00:00.000000Z",
+            "is_stock_adjustment": true,
+            "is_stock_adjustment_approved": true,
+            "remarks": "MEC_REPAIR::904190; Reversal of legacy MEC movement #904190; original retained; evidence stock-repairs\/mec-904190-20260920164928.json||MEC_REF::68,40",
+            "created_at": "2026-09-20T08:49:28.963000Z",
+            "updated_at": "2026-09-20T08:49:28.963000Z",
+            "entity_id": "1"
+        },
+        {
+            "id": 1046750,
+            "purchase_item_batch_id": null,
+            "product_inventory_id": "23835",
+            "store_branch_id": "40",
+            "cost_center_id": null,
+            "quantity": "4.0000000000",
+            "action": "add",
+            "unit_cost": "0.0000",
+            "total_cost": "0.0000",
+            "transaction_date": "2026-09-04T16:00:00.000000Z",
+            "is_stock_adjustment": true,
+            "is_stock_adjustment_approved": true,
+            "remarks": "MEC_REPAIR::904190; Corrected count 8.0000000000 at approval 2026-09-05; replaces legacy movement #904190||MEC_REF::68,40",
+            "created_at": "2026-09-20T08:49:28.970000Z",
+            "updated_at": "2026-09-20T08:49:28.970000Z",
+            "entity_id": "1"
+        }
+    ]
+}

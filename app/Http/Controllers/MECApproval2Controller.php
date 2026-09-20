@@ -173,11 +173,18 @@ class MECApproval2Controller extends Controller
 
         DB::beginTransaction();
         try {
+            StoreBranch::whereKey($branch->id)->lockForUpdate()->firstOrFail();
+            if (!$schedule->calculated_date) throw new \RuntimeException('Count schedule has no effective date.');
+            // Preserve the existing rule: stock is reset when final approval occurs.
+            $effectiveDate = Carbon::now()->toDateString();
             $countItems = MonthEndCountItem::where('month_end_schedule_id', $schedule->id)
                 ->where('branch_id', $branch->id)
                 ->where('status', 'level1_approved')
                 ->with('sapMasterfile') // Eager load the original masterfile to get the ItemCode
-                ->get();
+                ->lockForUpdate()->get();
+
+            if ($countItems->isEmpty()) throw new \RuntimeException('No items awaiting Level 2 approval.');
+            if ($countItems->contains(fn ($item) => $item->sapMasterfile === null)) throw new \RuntimeException('A counted item has no SAP masterfile.');
 
             // Group items by the ItemCode of their related SAP Masterfile to aggregate quantities
             $groupedItems = $countItems->filter(function ($item) {
@@ -191,46 +198,34 @@ class MECApproval2Controller extends Controller
                 // 2. Find the single target masterfile for this group.
                 // The target has the same ItemCode, but its BaseUOM = AltUOM.
                 $targetSapMasterfile = DB::table('sap_masterfiles')
+                    ->where('entity_id', $branch->entity_id)
                     ->where('ItemCode', $itemCode)
                     ->whereColumn('BaseUOM', 'AltUOM')
-                    ->first();
+                    ->get();
 
-                if ($targetSapMasterfile) {
-                    // 3. Update ProductInventoryStock with the final aggregated quantity.
-                    $productStock = ProductInventoryStock::firstOrNew([
-                        'product_inventory_id' => (int) $targetSapMasterfile->id,
-                        'store_branch_id' => (int) $branch->id,
-                    ]);
-
-                    $currentSOH = $productStock->exists ? StockQuantity::normalize($productStock->quantity) : StockQuantity::normalize(0);
-                    $adjustmentQuantity = StockQuantity::adjustment($totalAggregatedQty, $currentSOH);
-
-                    $productStock->quantity = $totalAggregatedQty; // Set to the final aggregated count
-                    $productStock->recently_added = 0;
-                    $productStock->used = 0;
-                    $productStock->save();
-
-                    // 4. Create ONE stock manager entry for the total adjustment for this product.
-                    if (!StockQuantity::isZero($adjustmentQuantity)) {
-                        $remarkText = "Month End Count Approved for the month of " . Carbon::createFromDate(null, $schedule->month)->format('F') . " {$schedule->year}";
-                        $remarkData = "MEC_REF::{$schedule->id},{$branch->id}";
-
-                        ProductInventoryStockManager::create([
-                            'product_inventory_id' => (int) $targetSapMasterfile->id,
-                            'store_branch_id' => (int) $branch->id,
-                            'quantity' => StockQuantity::absolute($adjustmentQuantity),
-                            'action' => StockQuantity::isPositive($adjustmentQuantity) ? 'add' : 'out',
-                            'transaction_date' => Carbon::now(),
-                            'unit_cost' => 0,
-                            'total_cost' => 0,
-                            'is_stock_adjustment' => true,
-                            'is_stock_adjustment_approved' => true,
-                            'remarks' => "{$remarkText}||{$remarkData}",
-                        ]);
-                    }
+                if ($targetSapMasterfile->count() > 1) {
+                    $units = $items->map(fn ($item) => strtoupper(trim($item->uom)))->unique();
+                    if ($units->count() === 1) $targetSapMasterfile = $targetSapMasterfile->filter(fn ($target) => strtoupper(trim($target->BaseUOM)) === $units->first())->values();
                 }
-            }
+                if ($targetSapMasterfile->count() !== 1) throw new \RuntimeException("Missing or ambiguous base-stock masterfile for {$itemCode}.");
+                $targetSapMasterfile = $targetSapMasterfile->first();
 
+                if ($items->contains(fn ($item) => !is_numeric($item->total_qty) || $item->total_qty < 0
+                    || strcasecmp(trim($item->uom), trim($targetSapMasterfile->BaseUOM)) !== 0)) {
+                    throw new \RuntimeException("Count units or quantities require reconciliation for {$itemCode}.");
+                }
+                $sameProductIds = \App\Models\SAPMasterfile::where('ItemCode', $itemCode)->pluck('id');
+                if (MonthEndCountItem::where('branch_id', $branch->id)->whereIn('sap_masterfile_id', $sameProductIds)
+                    ->where('status', 'level2_approved')->whereHas('schedule', fn ($q) => $q->whereDate('calculated_date', '>', $schedule->calculated_date->toDateString()))->exists()) {
+                    throw new \RuntimeException("A later count is already approved for {$itemCode}; reconcile the count sequence before approving an older period.");
+                }
+
+                $remarkText = 'Month End Count Approved for the month of '.Carbon::createFromDate($schedule->year, $schedule->month, 1)->format('F Y');
+                app(\App\Services\MonthEndStockAdjustment::class)->post(
+                    (int) $targetSapMasterfile->id, (int) $branch->id, $totalAggregatedQty, $effectiveDate,
+                    "{$remarkText}; counted {$totalAggregatedQty}; effective {$effectiveDate}||MEC_REF::{$schedule->id},{$branch->id}"
+                );
+            }
             // 5. After processing all groups, update the status of all original items.
             foreach ($countItems as $item) {
                 $item->update([

@@ -321,10 +321,9 @@ class MonthEndCountController extends Controller
                     ->first();
 
                 if ($sapMasterfile) {
-                    $stock = ProductInventoryStock::where('product_inventory_id', $sapMasterfile->id)
-                        ->where('store_branch_id', $request->branch_id)
-                        ->first();
-                    $currentSoh = $stock ? $stock->quantity : 0;
+                    $currentSoh = app(\App\Services\MonthEndStockAdjustment::class)->balance(
+                        (int) $sapMasterfile->id, (int) $request->branch_id
+                    );
                 }
             }
 

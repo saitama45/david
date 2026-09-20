@@ -259,93 +259,9 @@ class MonthEndCountApprovalController extends Controller
         }
     }
 
-    public function approveLevel2(MonthEndSchedule $schedule, StoreBranch $branch)
+    public function approveLevel2($scheduleId, $branchId)
     {
-        if (!Auth::user()->can('approve month end count level 2')) {
-            abort(403, 'You do not have permission to approve at Level 2.');
-        }
-
-        // Ensure schedule is in 'level1_approved' status
-        if ($schedule->status !== 'level1_approved') {
-            return back()->withErrors(['error' => 'Schedule is not in Level 1 approved status.']);
-        }
-
-        /*
-        // Time-sensitive approval condition
-        $deadline = Carbon::parse($schedule->calculated_date)->addDays(2)->endOfDay();
-        if (Carbon::now('Asia/Manila')->greaterThan($deadline)) {
-            // Mark items as expired if not approved within deadline
-            MonthEndCountItem::where('month_end_schedule_id', $schedule->id)
-                ->where('branch_id', $branch->id)
-                ->where('status', 'level1_approved')
-                ->update(['status' => 'expired']);
-            return back()->withErrors(['error' => 'Approval deadline has passed. Items marked as expired.']);
-        }
-        */
-
-        DB::beginTransaction();
-        try {
-            $countItems = MonthEndCountItem::where('month_end_schedule_id', $schedule->id)
-                ->where('branch_id', $branch->id)
-                ->where('status', 'level1_approved')
-                ->get();
-
-            foreach ($countItems as $item) {
-                // Update ProductInventoryStock
-                $productStock = ProductInventoryStock::firstOrNew([
-                    'product_inventory_id' => (int) $item->sap_masterfile_id,
-                    'store_branch_id' => (int) $item->branch_id,
-                ]);
-
-                $finalQuantity = StockQuantity::normalize($item->total_qty);
-                $oldQuantity = $productStock->exists ? StockQuantity::normalize($productStock->quantity) : StockQuantity::normalize(0);
-                $adjustmentQuantity = StockQuantity::adjustment($finalQuantity, $oldQuantity);
-
-                $productStock->quantity = $finalQuantity;
-                $productStock->recently_added = 0;
-                $productStock->used = 0;
-                $productStock->save();
-
-                // Log adjustment in ProductInventoryStockManager
-                if (!StockQuantity::isZero($adjustmentQuantity)) {
-                    ProductInventoryStockManager::create([
-                        'product_inventory_id' => (int) $item->sap_masterfile_id,
-                        'store_branch_id' => (int) $item->branch_id,
-                        'quantity' => StockQuantity::absolute($adjustmentQuantity),
-                        'action' => StockQuantity::isPositive($adjustmentQuantity) ? 'add' : 'out',
-                        'transaction_date' => Carbon::now(),
-                        'is_stock_adjustment' => true,
-                        'is_stock_adjustment_approved' => true, // Auto-approved for month end count
-                        'remarks' => $item->remarks ?? 'Month End Count Adjustment',
-                    ]);
-                }
-
-                // Update item status
-                $item->update([
-                    'status' => 'level2_approved',
-                    'level2_approved_by' => Auth::id(),
-                    'level2_approved_at' => Carbon::now(),
-                ]);
-            }
-
-            // Update the schedule status if all items for this schedule are now level2_approved
-            // Only mark schedule as level2_approved when ALL branches have completed Level 2 approval
-            $hasUnapprovedItems = MonthEndCountItem::where('month_end_schedule_id', $schedule->id)
-                ->whereIn('status', ['uploaded', 'pending_level1_approval', 'level1_approved'])
-                ->exists();
-
-            if (!$hasUnapprovedItems) {
-                $schedule->status = 'level2_approved';
-                $schedule->save();
-            }
-
-            DB::commit();
-            Cache::forget('user_notifications_v7_' . Auth::id());
-            $this->clearMonthEndNotificationCaches($branch->id, ['approve month end count level 2', 'view month end count approvals level 2']);
-            return redirect()->back()->with('success', 'Level 2 approval completed and inventory updated.');
-        } catch (Exception $e) {
-            DB::rollBack();
-            return back()->withErrors(['error' => 'Error during Level 2 approval: ' . $e->getMessage()]);
-        }
+        // Both approval routes must use the same count baseline and effective date.
+        return app(MECApproval2Controller::class)->approveLevel2($scheduleId, $branchId);
     }
 }
