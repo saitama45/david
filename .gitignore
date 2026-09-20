@@ -15,3 +15,8 @@
 docker-compose.override.yml
 user.php
 vendor
+
+# POS runner process state and OS locks
+/storage/framework/pos-local-runner.*
+/storage/framework/pos-runtime-ready
+/storage/framework/pos-sales-*.lock

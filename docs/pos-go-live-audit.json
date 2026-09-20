@@ -1,0 +1,213 @@
+{
+    "checked_at": "2026-09-20T12:53:23+08:00",
+    "database": "daviddb_test",
+    "stores": [
+        {
+            "profile": "bic",
+            "branch": "NNBIC",
+            "go_live": null,
+            "eligible_from": null,
+            "prior_pos_postings": 0,
+            "outside_new_eligibility": 0
+        },
+        {
+            "profile": "cln",
+            "branch": "NNCLN",
+            "go_live": "2026-05-25",
+            "eligible_from": "2026-09-14",
+            "prior_pos_postings": 138,
+            "outside_new_eligibility": 0
+        },
+        {
+            "profile": "evi",
+            "branch": "NNEVI",
+            "go_live": "2026-06-23",
+            "eligible_from": "2026-09-14",
+            "prior_pos_postings": 57,
+            "outside_new_eligibility": 0
+        },
+        {
+            "profile": "evo",
+            "branch": "NNEVO",
+            "go_live": "2026-06-23",
+            "eligible_from": "2026-09-14",
+            "prior_pos_postings": 56,
+            "outside_new_eligibility": 0
+        },
+        {
+            "profile": "fil",
+            "branch": "NNFIL",
+            "go_live": "2025-12-01",
+            "eligible_from": "2026-09-14",
+            "prior_pos_postings": 0,
+            "outside_new_eligibility": 0
+        },
+        {
+            "profile": "gal",
+            "branch": "NNGAL",
+            "go_live": null,
+            "eligible_from": null,
+            "prior_pos_postings": 0,
+            "outside_new_eligibility": 0
+        },
+        {
+            "profile": "gfd",
+            "branch": "NNGFD",
+            "go_live": "2026-08-27",
+            "eligible_from": "2026-09-14",
+            "prior_pos_postings": 176,
+            "outside_new_eligibility": 0
+        },
+        {
+            "profile": "gwm",
+            "branch": "NNGWM",
+            "go_live": "2026-07-23",
+            "eligible_from": "2026-09-14",
+            "prior_pos_postings": 154,
+            "outside_new_eligibility": 0
+        },
+        {
+            "profile": "klt",
+            "branch": "NNKLT",
+            "go_live": "2026-08-27",
+            "eligible_from": "2026-09-14",
+            "prior_pos_postings": 59,
+            "outside_new_eligibility": 0
+        },
+        {
+            "profile": "lct",
+            "branch": "NNLCT",
+            "go_live": "2026-05-25",
+            "eligible_from": "2026-09-14",
+            "prior_pos_postings": 76,
+            "outside_new_eligibility": 0
+        },
+        {
+            "profile": "lgc",
+            "branch": "NNLGC",
+            "go_live": "2026-04-24",
+            "eligible_from": "2026-09-14",
+            "prior_pos_postings": 0,
+            "outside_new_eligibility": 0
+        },
+        {
+            "profile": "nt1",
+            "branch": "NNNT1",
+            "go_live": null,
+            "eligible_from": null,
+            "prior_pos_postings": 0,
+            "outside_new_eligibility": 0
+        },
+        {
+            "profile": "oka",
+            "branch": "NNOKA",
+            "go_live": "2026-01-27",
+            "eligible_from": "2026-09-14",
+            "prior_pos_postings": 125,
+            "outside_new_eligibility": 0
+        },
+        {
+            "profile": "opu",
+            "branch": "NNOPU",
+            "go_live": null,
+            "eligible_from": null,
+            "prior_pos_postings": 0,
+            "outside_new_eligibility": 0
+        },
+        {
+            "profile": "rao",
+            "branch": "NNRAO",
+            "go_live": "2026-04-24",
+            "eligible_from": "2026-09-14",
+            "prior_pos_postings": 129,
+            "outside_new_eligibility": 0
+        },
+        {
+            "profile": "rml",
+            "branch": "NNRML",
+            "go_live": "2026-04-24",
+            "eligible_from": "2026-09-14",
+            "prior_pos_postings": 80,
+            "outside_new_eligibility": 0
+        },
+        {
+            "profile": "sfw",
+            "branch": "NNSFW",
+            "go_live": "2026-04-23",
+            "eligible_from": "2026-09-14",
+            "prior_pos_postings": 109,
+            "outside_new_eligibility": 0
+        },
+        {
+            "profile": "sma",
+            "branch": "NNSMA",
+            "go_live": "2026-05-26",
+            "eligible_from": "2026-09-14",
+            "prior_pos_postings": 136,
+            "outside_new_eligibility": 0
+        },
+        {
+            "profile": "ssr",
+            "branch": "NNSSR",
+            "go_live": null,
+            "eligible_from": null,
+            "prior_pos_postings": 115,
+            "outside_new_eligibility": 115
+        },
+        {
+            "profile": "tol",
+            "branch": "NNTOL",
+            "go_live": null,
+            "eligible_from": null,
+            "prior_pos_postings": 102,
+            "outside_new_eligibility": 102
+        },
+        {
+            "profile": "upm",
+            "branch": "NNUPM",
+            "go_live": "2026-03-23",
+            "eligible_from": "2026-09-14",
+            "prior_pos_postings": 62,
+            "outside_new_eligibility": 0
+        },
+        {
+            "profile": "utc",
+            "branch": "NNUTC",
+            "go_live": "2026-04-23",
+            "eligible_from": "2026-09-14",
+            "prior_pos_postings": 114,
+            "outside_new_eligibility": 0
+        },
+        {
+            "profile": "via",
+            "branch": "NNVIA",
+            "go_live": null,
+            "eligible_from": null,
+            "prior_pos_postings": 22,
+            "outside_new_eligibility": 22
+        }
+    ],
+    "live_without_source_mapping": [
+        {
+            "id": 7,
+            "branch_code": "NNABA"
+        },
+        {
+            "id": 12,
+            "branch_code": "NNHSS"
+        },
+        {
+            "id": 17,
+            "branch_code": "NNNUV"
+        },
+        {
+            "id": 19,
+            "branch_code": "NNPDM"
+        },
+        {
+            "id": 31,
+            "branch_code": "NNVER"
+        }
+    ],
+    "unmapped_source_matches": []
+}

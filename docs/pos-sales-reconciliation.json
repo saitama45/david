@@ -1,0 +1,84 @@
+{
+    "database": "daviddb_test",
+    "sales_dates": [
+        "2026-08-01",
+        "2026-08-31"
+    ],
+    "comparison": "Historical imported items versus latest source snapshots. Monetary comparisons must agree at cent precision (difference < 0.005). Matching keys include date, terminal, receipt, product and take-out. Unmatched items are not treated as successful comparisons.",
+    "branches": {
+        "FIL": {
+            "destination_items": 10915,
+            "matched_items": 8503,
+            "quantity_matches": 8474,
+            "base_quantity_matches": 8471,
+            "price_matches": 8501,
+            "discount_matches": 8502,
+            "line_total_matches": 8497,
+            "net_total_matches": 8490,
+            "posted_matches": 8503
+        },
+        "ABA": {
+            "destination_items": 6338,
+            "matched_items": 0
+        },
+        "OKA": {
+            "destination_items": 5326,
+            "matched_items": 4999,
+            "quantity_matches": 4985,
+            "base_quantity_matches": 4956,
+            "price_matches": 4998,
+            "discount_matches": 4999,
+            "line_total_matches": 4991,
+            "net_total_matches": 4977,
+            "posted_matches": 4999
+        },
+        "LCT": {
+            "destination_items": 3840,
+            "matched_items": 3511,
+            "quantity_matches": 3494,
+            "base_quantity_matches": 3488,
+            "price_matches": 3510,
+            "discount_matches": 3511,
+            "line_total_matches": 3507,
+            "net_total_matches": 3464,
+            "posted_matches": 3511
+        },
+        "VER": {
+            "destination_items": 3241,
+            "matched_items": 0
+        },
+        "UTC": {
+            "destination_items": 3202,
+            "matched_items": 2897,
+            "quantity_matches": 2890,
+            "base_quantity_matches": 2880,
+            "price_matches": 2892,
+            "discount_matches": 2897,
+            "line_total_matches": 2888,
+            "net_total_matches": 2882,
+            "posted_matches": 2897
+        },
+        "UPM": {
+            "destination_items": 3176,
+            "matched_items": 2946,
+            "quantity_matches": 2944,
+            "base_quantity_matches": 2943,
+            "price_matches": 2946,
+            "discount_matches": 2945,
+            "line_total_matches": 2944,
+            "net_total_matches": 2941,
+            "posted_matches": 2946
+        },
+        "RAO": {
+            "destination_items": 3147,
+            "matched_items": 2899,
+            "quantity_matches": 2898,
+            "base_quantity_matches": 2876,
+            "price_matches": 2898,
+            "discount_matches": 2899,
+            "line_total_matches": 2897,
+            "net_total_matches": 2890,
+            "posted_matches": 2899
+        }
+    }
+}

@@ -20,7 +20,7 @@ class POSMasterfileExport implements FromQuery, WithHeadings, WithMapping
 
     public function query()
     {
-        $query = POSMasterfile::query(); // Start with your POSMasterfile model
+        $query = POSMasterfile::query()->withCount('posMasterfileBOMs as bom_items_count'); // Start with your POSMasterfile model
 
         // Apply search logic
         if ($this->search) {
@@ -39,6 +39,12 @@ class POSMasterfileExport implements FromQuery, WithHeadings, WithMapping
                 $query->where('is_active', true);
             } elseif ($this->filter === 'inactive') {
                 $query->where('is_active', false);
+            } elseif ($this->filter === 'no_bom') {
+                // Active POS codes that have no BOM (recipe) rows yet.
+                $query->where('is_active', true)->whereDoesntHave('posMasterfileBOMs');
+            } elseif ($this->filter === 'with_bom') {
+                // Active POS codes that already have BOM (recipe) rows.
+                $query->where('is_active', true)->whereHas('posMasterfileBOMs');
             }
             // Add other filter conditions if you have more filters (e.g., by category, etc.)
         }
@@ -57,6 +63,7 @@ class POSMasterfileExport implements FromQuery, WithHeadings, WithMapping
             'Category',
             'SubCategory',
             'SRP',
+            'BOM Items',
             'Active',
             'Created At',
             'Updated At',
@@ -78,6 +85,7 @@ class POSMasterfileExport implements FromQuery, WithHeadings, WithMapping
             $item->Category,
             $item->SubCategory,
             $item->SRP,
+            $item->bom_items_count,
             $item->is_active ? 'Yes' : 'No', // Convert boolean to readable string
             $item->created_at,
             $item->updated_at,

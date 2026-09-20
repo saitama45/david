@@ -4,6 +4,19 @@ use Illuminate\Foundation\Inspiring;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Schedule;
 
+Schedule::command('pos:reconcile-sales')->dailyAt('01:00')->withoutOverlapping(60);
+
+Schedule::command('pos:sync-sales --scheduled')
+    ->everyTenSeconds()
+    ->withoutOverlapping(10);
+
+// Fallback when a persistent dedicated POS worker is not installed.
+Schedule::command('queue:work database --queue=pos-sales --once --tries=1 --timeout=3600')
+    ->everyTenSeconds()
+    ->withoutOverlapping(70)
+    ->runInBackground()
+    ->appendOutputTo(storage_path('logs/pos-sales-worker.log'));
+
 Artisan::command('inspire', function () {
     $this->comment(Inspiring::quote());
 })->purpose('Display an inspiring quote')->hourly();

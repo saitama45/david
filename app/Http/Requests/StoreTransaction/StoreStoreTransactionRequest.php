@@ -23,7 +23,7 @@ class StoreStoreTransactionRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'order_date' => ['required'],
+            'order_date' => ['required', 'date_format:Y-m-d'],
             'lot_serial' => ['nullable'],
             'posted' => ['required'],
             'tim_number' => ['required'],
@@ -31,7 +31,15 @@ class StoreStoreTransactionRequest extends FormRequest
             'store_branch_id' => ['required'],
             'customer_id' => ['nullable'],
             'customer' => ['nullable'],
-            'items' => ['required', 'array'],
+            'items' => ['required', 'array', 'min:1'],
+            'items.*.product_id' => ['required', 'integer'],
+            'items.*.quantity' => ['required', 'integer', 'min:1', 'max:2147483647'],
+            'items.*.base_quantity' => ['sometimes', 'integer', 'min:1', 'max:2147483647'],
+            'items.*.price' => ['required', 'numeric', 'min:0'],
+            'items.*.discount' => ['required', 'numeric'],
+            'items.*.line_total' => ['required', 'numeric', 'min:0'],
+            'items.*.net_total' => ['required', 'numeric', 'min:0'],
+            'items.*.take_out' => ['sometimes', 'boolean'],
         ];
     }
 }

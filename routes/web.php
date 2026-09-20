@@ -777,6 +777,8 @@ Route::middleware('auth')
 
         // Work Queue (Import Logs)
         Route::controller(ImportLogController::class)->prefix('work-queue')->name('import-logs.')->group(function () {
+            Route::middleware('permission:view import logs')->get('/missing-bom', 'missingBom')->name('missing-bom');
+            Route::middleware('permission:view import logs|create store transactions')->get('/sales-completions', 'salesCompletions')->name('sales-completions');
             Route::middleware('permission:view import logs')->get('/', 'index')->name('index');
             Route::middleware('permission:view import logs')->get('/{id}/download', 'download')->name('download');
         });

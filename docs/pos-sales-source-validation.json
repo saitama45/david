@@ -1,0 +1,16 @@
+{
+    "database": "daviddb_test",
+    "branch": "UTC",
+    "date": "2026-09-19",
+    "preview_only": true,
+    "receipt_counts": {
+        "ready": 64,
+        "review": 20
+    },
+    "review_reasons": {
+        "Receipt merchandise does not match its header; source may be incomplete.": 8,
+        "Unposted, void or return receipt requires separate reconciliation.": 12
+    },
+    "sql_php_lines_compared": 394,
+    "sql_php_differences": []
+}

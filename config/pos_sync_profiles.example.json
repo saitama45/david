@@ -1,0 +1,209 @@
+{
+  "bic": {
+    "company": "CBTL-16102182",
+    "site": "BIC",
+    "entity_id": 1,
+    "branch_id": 23,
+    "branch_code": "NNBIC",
+    "user_id": 1,
+    "start_date": "2026-09-14"
+  },
+  "cln": {
+    "company": "CBTL-25021982",
+    "site": "CLN",
+    "entity_id": 1,
+    "branch_id": 35,
+    "branch_code": "NNCLN",
+    "user_id": 1,
+    "start_date": "2026-09-14"
+  },
+  "evi": {
+    "company": "CBTL-25021982",
+    "site": "EVI",
+    "entity_id": 1,
+    "branch_id": 40,
+    "branch_code": "NNEVI",
+    "user_id": 1,
+    "start_date": "2026-09-14"
+  },
+  "evo": {
+    "company": "CBTL-25021982",
+    "site": "EVO",
+    "entity_id": 1,
+    "branch_id": 36,
+    "branch_code": "NNEVO",
+    "user_id": 1,
+    "start_date": "2026-09-14"
+  },
+  "fil": {
+    "company": "CBTL-25021982",
+    "site": "FIL",
+    "entity_id": 1,
+    "branch_id": 8,
+    "branch_code": "NNFIL",
+    "user_id": 1,
+    "start_date": "2026-09-14"
+  },
+  "gal": {
+    "company": "CBTL-16102182",
+    "site": "GAL",
+    "entity_id": 1,
+    "branch_id": 34,
+    "branch_code": "NNGAL",
+    "user_id": 1,
+    "start_date": "2026-09-14"
+  },
+  "gfd": {
+    "company": "CBTL-25021982",
+    "site": "GFD",
+    "entity_id": 1,
+    "branch_id": 11,
+    "branch_code": "NNGFD",
+    "user_id": 1,
+    "start_date": "2026-09-14"
+  },
+  "gwm": {
+    "company": "CBTL-25021982",
+    "site": "GWM",
+    "entity_id": 1,
+    "branch_id": 9,
+    "branch_code": "NNGWM",
+    "user_id": 1,
+    "start_date": "2026-09-14"
+  },
+  "klt": {
+    "company": "CBTL-25021982",
+    "site": "KLT",
+    "entity_id": 1,
+    "branch_id": 13,
+    "branch_code": "NNKLT",
+    "user_id": 1,
+    "start_date": "2026-09-14"
+  },
+  "lct": {
+    "company": "CBTL-25021982",
+    "site": "LCT",
+    "entity_id": 1,
+    "branch_id": 41,
+    "branch_code": "NNLCT",
+    "user_id": 1,
+    "start_date": "2026-09-14"
+  },
+  "lgc": {
+    "company": "CBTL-24050682",
+    "site": "LGC",
+    "entity_id": 1,
+    "branch_id": 14,
+    "branch_code": "NNLGC",
+    "user_id": 1,
+    "start_date": "2026-09-14"
+  },
+  "nt1": {
+    "company": "WPOS-26021882",
+    "site": "NT1",
+    "entity_id": 1,
+    "branch_id": 42,
+    "branch_code": "NNNT1",
+    "user_id": 1,
+    "start_date": "2026-09-14"
+  },
+  "oka": {
+    "company": "CBTL-25021982",
+    "site": "OKA",
+    "entity_id": 1,
+    "branch_id": 15,
+    "branch_code": "NNOKA",
+    "user_id": 1,
+    "start_date": "2026-09-14"
+  },
+  "opu": {
+    "company": "CBTL-16102182",
+    "site": "OPU",
+    "entity_id": 1,
+    "branch_id": 18,
+    "branch_code": "NNOPU",
+    "user_id": 1,
+    "start_date": "2026-09-14"
+  },
+  "rao": {
+    "company": "CBTL-25021982",
+    "site": "RAO",
+    "entity_id": 1,
+    "branch_id": 20,
+    "branch_code": "NNRAO",
+    "user_id": 1,
+    "start_date": "2026-09-14"
+  },
+  "rml": {
+    "company": "CBTL-25021982",
+    "site": "RML",
+    "entity_id": 1,
+    "branch_id": 39,
+    "branch_code": "NNRML",
+    "user_id": 1,
+    "start_date": "2026-09-14"
+  },
+  "sfw": {
+    "company": "CBTL-25021982",
+    "site": "SFW",
+    "entity_id": 1,
+    "branch_id": 24,
+    "branch_code": "NNSFW",
+    "user_id": 1,
+    "start_date": "2026-09-14"
+  },
+  "sma": {
+    "company": "CBTL-25021982",
+    "site": "SMA",
+    "entity_id": 1,
+    "branch_id": 22,
+    "branch_code": "NNSMA",
+    "user_id": 1,
+    "start_date": "2026-09-14"
+  },
+  "ssr": {
+    "company": "CBTL-25021982",
+    "site": "SSR",
+    "entity_id": 1,
+    "branch_id": 26,
+    "branch_code": "NNSSR",
+    "user_id": 1,
+    "start_date": "2026-09-14"
+  },
+  "tol": {
+    "company": "CBTL-25021982",
+    "site": "TOL",
+    "entity_id": 1,
+    "branch_id": 28,
+    "branch_code": "NNTOL",
+    "user_id": 1,
+    "start_date": "2026-09-14"
+  },
+  "upm": {
+    "company": "CBTL-25021982",
+    "site": "UPM",
+    "entity_id": 1,
+    "branch_id": 30,
+    "branch_code": "NNUPM",
+    "user_id": 1,
+    "start_date": "2026-09-14"
+  },
+  "utc": {
+    "company": "CBTL-25021982",
+    "site": "UTC",
+    "entity_id": 1,
+    "branch_id": 16,
+    "branch_code": "NNUTC",
+    "user_id": 1,
+    "start_date": "2026-09-14"
+  },
+  "via": {
+    "company": "CBTL-25021982",
+    "site": "VIA",
+    "entity_id": 1,
+    "branch_id": 6,
+    "branch_code": "NNVIA",
+    "user_id": 1,
+    "start_date": "2026-09-14"
+  }
+}

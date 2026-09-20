@@ -1,0 +1,537 @@
+{
+  "database": "daviddb_test",
+  "cutover": "2026-09-18",
+  "profiles": [
+    "bic",
+    "cln",
+    "evi",
+    "evo",
+    "fil",
+    "gal",
+    "gfd",
+    "gwm",
+    "klt",
+    "lct",
+    "lgc",
+    "nt1",
+    "oka",
+    "opu",
+    "rao",
+    "rml",
+    "sfw",
+    "sma",
+    "ssr",
+    "tol",
+    "upm",
+    "utc",
+    "via"
+  ],
+  "preflight": {
+    "bic": {
+      "counts": [],
+      "review_reasons": []
+    },
+    "cln": {
+      "counts": {
+        "review": 50,
+        "ready": 138,
+        "excluded": 14
+      },
+      "review_reasons": {
+        "Missing BOM for NON03020027. Configure its recipe or explicitly classify it as non-inventory.": 6,
+        "Missing BOM for NON01120011. Configure its recipe or explicitly classify it as non-inventory.": 5,
+        "Receipt merchandise does not match its header; source may be incomplete.": 4,
+        "Missing BOM for NON01100065. Configure its recipe or explicitly classify it as non-inventory.": 1,
+        "Missing or ambiguous unit conversion for 835A2G.": 1,
+        "Missing or ambiguous unit conversion for 833A2G.": 1,
+        "Missing BOM for NON03020028. Configure its recipe or explicitly classify it as non-inventory.": 6,
+        "Missing BOM for NON03070006. Configure its recipe or explicitly classify it as non-inventory.": 4,
+        "Missing BOM for NON01100054. Configure its recipe or explicitly classify it as non-inventory.": 1,
+        "Missing BOM for NON03070007. Configure its recipe or explicitly classify it as non-inventory.": 3,
+        "Missing BOM for NON01040012. Configure its recipe or explicitly classify it as non-inventory.": 3,
+        "Missing BOM for NON01100066. Configure its recipe or explicitly classify it as non-inventory.": 1,
+        "Missing BOM for NON01120007. Configure its recipe or explicitly classify it as non-inventory.": 1,
+        "Missing BOM for NON03070005. Configure its recipe or explicitly classify it as non-inventory.": 6,
+        "Missing BOM for NON01100063. Configure its recipe or explicitly classify it as non-inventory.": 1,
+        "Missing or ambiguous unit conversion for 837A2G.": 1,
+        "Missing BOM for NON01120014. Configure its recipe or explicitly classify it as non-inventory.": 2,
+        "Unposted, void or return receipt requires separate reconciliation.": 1,
+        "Missing BOM for NON02070019. Configure its recipe or explicitly classify it as non-inventory.": 1,
+        "Missing BOM for NON01100055. Configure its recipe or explicitly classify it as non-inventory.": 1
+      }
+    },
+    "evi": {
+      "counts": {
+        "review": 14,
+        "ready": 57,
+        "excluded": 10
+      },
+      "review_reasons": {
+        "Missing BOM for NON03020027. Configure its recipe or explicitly classify it as non-inventory.": 2,
+        "Missing BOM for NON03180003. Configure its recipe or explicitly classify it as non-inventory.": 1,
+        "Missing BOM for NON03180004. Configure its recipe or explicitly classify it as non-inventory.": 1,
+        "Missing BOM for NON03180006. Configure its recipe or explicitly classify it as non-inventory.": 1,
+        "Missing BOM for NON01100066. Configure its recipe or explicitly classify it as non-inventory.": 1,
+        "Missing BOM for NON03180001. Configure its recipe or explicitly classify it as non-inventory.": 1,
+        "Missing BOM for NON03020028. Configure its recipe or explicitly classify it as non-inventory.": 2,
+        "Missing BOM for NON03070006. Configure its recipe or explicitly classify it as non-inventory.": 2,
+        "Missing BOM for NON03070007. Configure its recipe or explicitly classify it as non-inventory.": 1,
+        "Missing BOM for NON01120007. Configure its recipe or explicitly classify it as non-inventory.": 1,
+        "Missing or ambiguous unit conversion for 171A2A.": 1
+      }
+    },
+    "evo": {
+      "counts": {
+        "ready": 56,
+        "review": 30,
+        "excluded": 6
+      },
+      "review_reasons": {
+        "Missing BOM for NON03180005. Configure its recipe or explicitly classify it as non-inventory.": 4,
+        "Missing BOM for NON03180021. Configure its recipe or explicitly classify it as non-inventory.": 2,
+        "Missing BOM for NON03070007. Configure its recipe or explicitly classify it as non-inventory.": 2,
+        "Receipt merchandise does not match its header; source may be incomplete.": 1,
+        "Missing BOM for NON03020027. Configure its recipe or explicitly classify it as non-inventory.": 1,
+        "Missing or ambiguous unit conversion for 171A2A.": 3,
+        "Missing BOM for NON03070006. Configure its recipe or explicitly classify it as non-inventory.": 5,
+        "Missing BOM for NON01100063. Configure its recipe or explicitly classify it as non-inventory.": 1,
+        "Receipt has no active sold lines.": 5,
+        "Missing BOM for NON01020011. Configure its recipe or explicitly classify it as non-inventory.": 1,
+        "Missing BOM for NON01100031. Configure its recipe or explicitly classify it as non-inventory.": 1,
+        "Missing BOM for NON03020028. Configure its recipe or explicitly classify it as non-inventory.": 3,
+        "Missing BOM for NON03070005. Configure its recipe or explicitly classify it as non-inventory.": 1
+      }
+    },
+    "fil": {
+      "counts": [],
+      "review_reasons": []
+    },
+    "gal": {
+      "counts": {
+        "review": 68,
+        "excluded": 15
+      },
+      "review_reasons": {
+        "Receipt lines have not arrived.": 68
+      }
+    },
+    "gfd": {
+      "counts": {
+        "excluded": 19,
+        "ready": 176,
+        "review": 42
+      },
+      "review_reasons": {
+        "Missing BOM for NON03020027. Configure its recipe or explicitly classify it as non-inventory.": 6,
+        "Missing BOM for NON03180020. Configure its recipe or explicitly classify it as non-inventory.": 1,
+        "Missing BOM for NON01100068. Configure its recipe or explicitly classify it as non-inventory.": 1,
+        "Missing or ambiguous unit conversion for 835A2G.": 3,
+        "Missing BOM for NON01100066. Configure its recipe or explicitly classify it as non-inventory.": 1,
+        "Missing BOM for NON01040012. Configure its recipe or explicitly classify it as non-inventory.": 1,
+        "Missing BOM for NON03070007. Configure its recipe or explicitly classify it as non-inventory.": 7,
+        "Missing BOM for NON03020028. Configure its recipe or explicitly classify it as non-inventory.": 5,
+        "Missing BOM for NON03070006. Configure its recipe or explicitly classify it as non-inventory.": 3,
+        "Missing or ambiguous unit conversion for 171A2A.": 2,
+        "Missing or ambiguous unit conversion for 834A2G.": 1,
+        "Missing BOM for NON03070005. Configure its recipe or explicitly classify it as non-inventory.": 1,
+        "Receipt merchandise does not match its header; source may be incomplete.": 4,
+        "Missing BOM for NON03020025. Configure its recipe or explicitly classify it as non-inventory.": 1,
+        "Missing BOM for NON01100028. Configure its recipe or explicitly classify it as non-inventory.": 1,
+        "Missing BOM for NON01100063. Configure its recipe or explicitly classify it as non-inventory.": 1,
+        "Missing BOM for NON03180002. Configure its recipe or explicitly classify it as non-inventory.": 1,
+        "Missing BOM for NON01100054. Configure its recipe or explicitly classify it as non-inventory.": 1,
+        "Missing BOM for NON01100064. Configure its recipe or explicitly classify it as non-inventory.": 1
+      }
+    },
+    "gwm": {
+      "counts": {
+        "review": 62,
+        "ready": 154,
+        "excluded": 33
+      },
+      "review_reasons": {
+        "Missing BOM for NON03020027. Configure its recipe or explicitly classify it as non-inventory.": 4,
+        "Receipt merchandise does not match its header; source may be incomplete.": 11,
+        "Missing BOM for NON03020028. Configure its recipe or explicitly classify it as non-inventory.": 8,
+        "Unposted, void or return receipt requires separate reconciliation.": 2,
+        "Missing BOM for NON03180020. Configure its recipe or explicitly classify it as non-inventory.": 5,
+        "Missing BOM for NON03070007. Configure its recipe or explicitly classify it as non-inventory.": 3,
+        "Missing BOM for NON03180005. Configure its recipe or explicitly classify it as non-inventory.": 4,
+        "Missing BOM for NON03180008. Configure its recipe or explicitly classify it as non-inventory.": 4,
+        "Missing BOM for NON01050064. Configure its recipe or explicitly classify it as non-inventory.": 2,
+        "Missing BOM for NON03180009. Configure its recipe or explicitly classify it as non-inventory.": 1,
+        "Missing BOM for NON03180021. Configure its recipe or explicitly classify it as non-inventory.": 1,
+        "Missing BOM for NON03070006. Configure its recipe or explicitly classify it as non-inventory.": 3,
+        "Missing BOM for NON03070005. Configure its recipe or explicitly classify it as non-inventory.": 3,
+        "Missing BOM for NON01100063. Configure its recipe or explicitly classify it as non-inventory.": 6,
+        "Missing or ambiguous unit conversion for 834A2G.": 1,
+        "Missing BOM for NON01100031. Configure its recipe or explicitly classify it as non-inventory.": 1,
+        "Missing BOM for NON03180002. Configure its recipe or explicitly classify it as non-inventory.": 2,
+        "Missing BOM for NON01040012. Configure its recipe or explicitly classify it as non-inventory.": 1
+      }
+    },
+    "klt": {
+      "counts": {
+        "excluded": 17,
+        "review": 24,
+        "ready": 59
+      },
+      "review_reasons": {
+        "Missing BOM for NON01050064. Configure its recipe or explicitly classify it as non-inventory.": 1,
+        "Missing BOM for NON01160009. Configure its recipe or explicitly classify it as non-inventory.": 3,
+        "Missing BOM for NON01160001. Configure its recipe or explicitly classify it as non-inventory.": 3,
+        "Missing BOM for NON01160002. Configure its recipe or explicitly classify it as non-inventory.": 4,
+        "Missing BOM for NON01160006. Configure its recipe or explicitly classify it as non-inventory.": 3,
+        "Missing BOM for NON01160004. Configure its recipe or explicitly classify it as non-inventory.": 1,
+        "Missing BOM for NON01160010. Configure its recipe or explicitly classify it as non-inventory.": 1,
+        "Missing BOM for NON03020028. Configure its recipe or explicitly classify it as non-inventory.": 1,
+        "Missing BOM for NON03070005. Configure its recipe or explicitly classify it as non-inventory.": 1,
+        "Missing BOM for NON03070007. Configure its recipe or explicitly classify it as non-inventory.": 1,
+        "Missing BOM for NON01120011. Configure its recipe or explicitly classify it as non-inventory.": 1,
+        "Missing BOM for NON01040012. Configure its recipe or explicitly classify it as non-inventory.": 1,
+        "Missing BOM for NON03020027. Configure its recipe or explicitly classify it as non-inventory.": 1,
+        "Missing BOM for NON03070006. Configure its recipe or explicitly classify it as non-inventory.": 1,
+        "Missing BOM for NON01100031. Configure its recipe or explicitly classify it as non-inventory.": 1
+      }
+    },
+    "lct": {
+      "counts": {
+        "review": 34,
+        "ready": 76,
+        "excluded": 7
+      },
+      "review_reasons": {
+        "Missing BOM for NON03180006. Configure its recipe or explicitly classify it as non-inventory.": 2,
+        "Missing BOM for NON01100056. Configure its recipe or explicitly classify it as non-inventory.": 2,
+        "Missing BOM for NON03180008. Configure its recipe or explicitly classify it as non-inventory.": 1,
+        "Receipt has no active sold lines.": 12,
+        "Missing BOM for NON03020027. Configure its recipe or explicitly classify it as non-inventory.": 2,
+        "Receipt merchandise does not match its header; source may be incomplete.": 1,
+        "Missing BOM for NON01120008. Configure its recipe or explicitly classify it as non-inventory.": 2,
+        "Missing BOM for NON03070005. Configure its recipe or explicitly classify it as non-inventory.": 1,
+        "Missing BOM for NON03070007. Configure its recipe or explicitly classify it as non-inventory.": 3,
+        "Missing BOM for NON03070006. Configure its recipe or explicitly classify it as non-inventory.": 2,
+        "Missing or ambiguous unit conversion for 171A2A.": 1,
+        "Missing BOM for NON01010017. Configure its recipe or explicitly classify it as non-inventory.": 1,
+        "Missing BOM for NON01120007. Configure its recipe or explicitly classify it as non-inventory.": 1,
+        "Missing or ambiguous unit conversion for 837A2G.": 2,
+        "Missing BOM for NON01100061. Configure its recipe or explicitly classify it as non-inventory.": 1
+      }
+    },
+    "lgc": {
+      "counts": {
+        "review": 115,
+        "excluded": 1
+      },
+      "review_reasons": {
+        "Receipt lines have not arrived.": 115
+      }
+    },
+    "nt1": {
+      "counts": [],
+      "review_reasons": []
+    },
+    "oka": {
+      "counts": {
+        "ready": 125,
+        "excluded": 19,
+        "review": 45
+      },
+      "review_reasons": {
+        "Missing or ambiguous unit conversion for 171A2A.": 4,
+        "Receipt merchandise does not match its header; source may be incomplete.": 6,
+        "Missing BOM for NON03070007. Configure its recipe or explicitly classify it as non-inventory.": 3,
+        "Missing BOM for NON03070005. Configure its recipe or explicitly classify it as non-inventory.": 1,
+        "Missing BOM for NON03070006. Configure its recipe or explicitly classify it as non-inventory.": 10,
+        "Missing BOM for NON01120007. Configure its recipe or explicitly classify it as non-inventory.": 1,
+        "Missing BOM for NON01100032. Configure its recipe or explicitly classify it as non-inventory.": 1,
+        "Missing or ambiguous unit conversion for 835A2G.": 4,
+        "Missing BOM for NON03020027. Configure its recipe or explicitly classify it as non-inventory.": 4,
+        "Missing BOM for NON03020028. Configure its recipe or explicitly classify it as non-inventory.": 7,
+        "Missing or ambiguous unit conversion for 834A2G.": 1,
+        "Missing BOM for NON01100054. Configure its recipe or explicitly classify it as non-inventory.": 1,
+        "Missing BOM for NON02070019. Configure its recipe or explicitly classify it as non-inventory.": 1,
+        "Missing BOM for NON01040012. Configure its recipe or explicitly classify it as non-inventory.": 1
+      }
+    },
+    "opu": {
+      "counts": {
+        "review": 17,
+        "excluded": 7
+      },
+      "review_reasons": {
+        "Missing POS masterfile: NON001010006": 1,
+        "Receipt merchandise does not match its header; source may be incomplete.": 1,
+        "Missing POS masterfile: NON001060001": 1,
+        "Missing POS masterfile: NON001020008": 1,
+        "Missing POS masterfile: NON002020002": 1,
+        "Missing POS masterfile: NON002020010": 1,
+        "Missing POS masterfile: NON002040005": 1,
+        "Missing POS masterfile: NON001010018": 2,
+        "Missing POS masterfile: NON003020004": 1,
+        "Missing POS masterfile: NON003020008": 2,
+        "Missing POS masterfile: NON001030001": 1,
+        "Missing POS masterfile: NON002030017": 1,
+        "Missing POS masterfile: NON002030019": 1,
+        "Missing POS masterfile: NON002070010": 1,
+        "Missing POS masterfile: NON001030002": 1
+      }
+    },
+    "rao": {
+      "counts": {
+        "ready": 129,
+        "review": 20,
+        "excluded": 21
+      },
+      "review_reasons": {
+        "Missing BOM for NON03070006. Configure its recipe or explicitly classify it as non-inventory.": 3,
+        "Missing or ambiguous unit conversion for 162D9A.": 1,
+        "Missing BOM for NON01100031. Configure its recipe or explicitly classify it as non-inventory.": 1,
+        "Missing BOM for NON01100068. Configure its recipe or explicitly classify it as non-inventory.": 1,
+        "Missing BOM for NON01040012. Configure its recipe or explicitly classify it as non-inventory.": 3,
+        "Receipt merchandise does not match its header; source may be incomplete.": 2,
+        "Missing BOM for NON03180020. Configure its recipe or explicitly classify it as non-inventory.": 3,
+        "Missing BOM for NON03180021. Configure its recipe or explicitly classify it as non-inventory.": 1,
+        "Missing BOM for NON03070010. Configure its recipe or explicitly classify it as non-inventory.": 1,
+        "Missing BOM for NON01100059. Configure its recipe or explicitly classify it as non-inventory.": 1,
+        "Missing or ambiguous unit conversion for 834A2G.": 1,
+        "Missing or ambiguous unit conversion for 171A2A.": 1,
+        "Missing BOM for NON01100063. Configure its recipe or explicitly classify it as non-inventory.": 1
+      }
+    },
+    "rml": {
+      "counts": {
+        "ready": 80,
+        "review": 19,
+        "excluded": 2
+      },
+      "review_reasons": {
+        "Unposted, void or return receipt requires separate reconciliation.": 1,
+        "Missing BOM for NON03070007. Configure its recipe or explicitly classify it as non-inventory.": 2,
+        "Missing BOM for NON03070006. Configure its recipe or explicitly classify it as non-inventory.": 1,
+        "Missing BOM for NON03020027. Configure its recipe or explicitly classify it as non-inventory.": 3,
+        "Missing BOM for NON01100031. Configure its recipe or explicitly classify it as non-inventory.": 1,
+        "Missing BOM for NON03020028. Configure its recipe or explicitly classify it as non-inventory.": 2,
+        "Missing BOM for NON01100064. Configure its recipe or explicitly classify it as non-inventory.": 2,
+        "Missing or ambiguous unit conversion for 833A2G.": 1,
+        "Missing BOM for NON01050064. Configure its recipe or explicitly classify it as non-inventory.": 1,
+        "Receipt merchandise does not match its header; source may be incomplete.": 1,
+        "Missing BOM for NON03070005. Configure its recipe or explicitly classify it as non-inventory.": 1,
+        "Missing BOM for NON01100067. Configure its recipe or explicitly classify it as non-inventory.": 1,
+        "Missing or ambiguous unit conversion for 835A2G.": 1,
+        "Missing BOM for NON01100063. Configure its recipe or explicitly classify it as non-inventory.": 1
+      }
+    },
+    "sfw": {
+      "counts": {
+        "review": 29,
+        "ready": 109,
+        "excluded": 6
+      },
+      "review_reasons": {
+        "Missing or ambiguous unit conversion for 835A2G.": 1,
+        "Receipt merchandise does not match its header; source may be incomplete.": 6,
+        "Missing BOM for NON01100055. Configure its recipe or explicitly classify it as non-inventory.": 1,
+        "Missing BOM for NON01100063. Configure its recipe or explicitly classify it as non-inventory.": 2,
+        "Missing BOM for NON03020027. Configure its recipe or explicitly classify it as non-inventory.": 4,
+        "Missing BOM for NON03020025. Configure its recipe or explicitly classify it as non-inventory.": 1,
+        "Missing BOM for NON03020028. Configure its recipe or explicitly classify it as non-inventory.": 4,
+        "Missing BOM for NON03180009. Configure its recipe or explicitly classify it as non-inventory.": 1,
+        "Missing BOM for NON03070005. Configure its recipe or explicitly classify it as non-inventory.": 2,
+        "Missing BOM for NON01120011. Configure its recipe or explicitly classify it as non-inventory.": 1,
+        "Missing BOM for NON01120007. Configure its recipe or explicitly classify it as non-inventory.": 1,
+        "Missing BOM for NON02070019. Configure its recipe or explicitly classify it as non-inventory.": 1,
+        "Missing BOM for NON01040012. Configure its recipe or explicitly classify it as non-inventory.": 1,
+        "Missing BOM for NON03070006. Configure its recipe or explicitly classify it as non-inventory.": 2,
+        "Missing BOM for NON03070007. Configure its recipe or explicitly classify it as non-inventory.": 1
+      }
+    },
+    "sma": {
+      "counts": {
+        "ready": 136,
+        "review": 36,
+        "excluded": 19
+      },
+      "review_reasons": {
+        "Receipt merchandise does not match its header; source may be incomplete.": 6,
+        "Missing BOM for NON03100016. Configure its recipe or explicitly classify it as non-inventory.": 1,
+        "Missing BOM for NON03020028. Configure its recipe or explicitly classify it as non-inventory.": 7,
+        "Missing BOM for NON02070019. Configure its recipe or explicitly classify it as non-inventory.": 1,
+        "Missing or ambiguous unit conversion for 171A2A.": 1,
+        "Missing BOM for NON03020027. Configure its recipe or explicitly classify it as non-inventory.": 6,
+        "Missing BOM for NON03070006. Configure its recipe or explicitly classify it as non-inventory.": 5,
+        "Missing or ambiguous unit conversion for 834A2G.": 2,
+        "Missing BOM for NON01100031. Configure its recipe or explicitly classify it as non-inventory.": 2,
+        "Missing BOM for NON03070005. Configure its recipe or explicitly classify it as non-inventory.": 2,
+        "Missing BOM for NON01100030. Configure its recipe or explicitly classify it as non-inventory.": 1,
+        "Missing BOM for NON01100065. Configure its recipe or explicitly classify it as non-inventory.": 1,
+        "Missing BOM for NON03070007. Configure its recipe or explicitly classify it as non-inventory.": 1
+      }
+    },
+    "ssr": {
+      "counts": {
+        "review": 52,
+        "ready": 115,
+        "excluded": 11
+      },
+      "review_reasons": {
+        "Missing BOM for NON03180011. Configure its recipe or explicitly classify it as non-inventory.": 2,
+        "Missing BOM for NON03070007. Configure its recipe or explicitly classify it as non-inventory.": 7,
+        "Missing BOM for NON03180005. Configure its recipe or explicitly classify it as non-inventory.": 1,
+        "Missing BOM for NON03180002. Configure its recipe or explicitly classify it as non-inventory.": 4,
+        "Missing or ambiguous unit conversion for 171A2A.": 2,
+        "Missing BOM for NON01100059. Configure its recipe or explicitly classify it as non-inventory.": 1,
+        "Missing BOM for NON03180001. Configure its recipe or explicitly classify it as non-inventory.": 3,
+        "Missing BOM for NON03020028. Configure its recipe or explicitly classify it as non-inventory.": 4,
+        "Missing BOM for NON01100031. Configure its recipe or explicitly classify it as non-inventory.": 1,
+        "Unposted, void or return receipt requires separate reconciliation.": 2,
+        "Missing BOM for NON03020027. Configure its recipe or explicitly classify it as non-inventory.": 1,
+        "Missing BOM for NON01100063. Configure its recipe or explicitly classify it as non-inventory.": 5,
+        "Missing BOM for NON03180013. Configure its recipe or explicitly classify it as non-inventory.": 1,
+        "Missing BOM for NON03070006. Configure its recipe or explicitly classify it as non-inventory.": 2,
+        "Missing BOM for NON03070005. Configure its recipe or explicitly classify it as non-inventory.": 3,
+        "Missing or ambiguous unit conversion for 835A2G.": 1,
+        "Receipt merchandise does not match its header; source may be incomplete.": 4,
+        "Missing BOM for NON01100065. Configure its recipe or explicitly classify it as non-inventory.": 1,
+        "Missing BOM for NON03180021. Configure its recipe or explicitly classify it as non-inventory.": 2,
+        "Missing BOM for NON03180008. Configure its recipe or explicitly classify it as non-inventory.": 2,
+        "Missing BOM for NON01120010. Configure its recipe or explicitly classify it as non-inventory.": 1,
+        "Missing BOM for NON03020025. Configure its recipe or explicitly classify it as non-inventory.": 1,
+        "Missing BOM for NON01040012. Configure its recipe or explicitly classify it as non-inventory.": 1
+      }
+    },
+    "tol": {
+      "counts": {
+        "review": 28,
+        "ready": 102,
+        "excluded": 14
+      },
+      "review_reasons": {
+        "Missing BOM for NON03070007. Configure its recipe or explicitly classify it as non-inventory.": 8,
+        "Missing BOM for NON01100031. Configure its recipe or explicitly classify it as non-inventory.": 1,
+        "Missing BOM for NON03020028. Configure its recipe or explicitly classify it as non-inventory.": 2,
+        "Missing BOM for NON03020027. Configure its recipe or explicitly classify it as non-inventory.": 3,
+        "Missing BOM for NON01050064. Configure its recipe or explicitly classify it as non-inventory.": 1,
+        "Missing BOM for NON03100001. Configure its recipe or explicitly classify it as non-inventory.": 1,
+        "Missing BOM for NON03070005. Configure its recipe or explicitly classify it as non-inventory.": 3,
+        "Missing BOM for NON03070006. Configure its recipe or explicitly classify it as non-inventory.": 3,
+        "Missing or ambiguous unit conversion for 834A2G.": 2,
+        "Missing BOM for NON01040012. Configure its recipe or explicitly classify it as non-inventory.": 2,
+        "Missing or ambiguous unit conversion for 171A2A.": 1,
+        "Missing or ambiguous unit conversion for 162D9A.": 1
+      }
+    },
+    "upm": {
+      "counts": {
+        "review": 29,
+        "ready": 62,
+        "excluded": 14
+      },
+      "review_reasons": {
+        "Missing BOM for NON03070007. Configure its recipe or explicitly classify it as non-inventory.": 2,
+        "Missing BOM for NON03020028. Configure its recipe or explicitly classify it as non-inventory.": 1,
+        "Missing BOM for NON03020027. Configure its recipe or explicitly classify it as non-inventory.": 1,
+        "Missing BOM for NON03070006. Configure its recipe or explicitly classify it as non-inventory.": 3,
+        "Missing BOM for NON03180003. Configure its recipe or explicitly classify it as non-inventory.": 2,
+        "Unposted, void or return receipt requires separate reconciliation.": 2,
+        "Missing BOM for NON03180008. Configure its recipe or explicitly classify it as non-inventory.": 3,
+        "Missing BOM for NON03180010. Configure its recipe or explicitly classify it as non-inventory.": 1,
+        "Missing BOM for NON03180005. Configure its recipe or explicitly classify it as non-inventory.": 4,
+        "Missing BOM for NON03180006. Configure its recipe or explicitly classify it as non-inventory.": 2,
+        "Missing BOM for NON03180021. Configure its recipe or explicitly classify it as non-inventory.": 1,
+        "Receipt merchandise does not match its header; source may be incomplete.": 3,
+        "Missing BOM for NON03180011. Configure its recipe or explicitly classify it as non-inventory.": 1,
+        "Missing BOM for NON03180009. Configure its recipe or explicitly classify it as non-inventory.": 1,
+        "Missing BOM for NON01100054. Configure its recipe or explicitly classify it as non-inventory.": 1,
+        "Missing BOM for NON03180020. Configure its recipe or explicitly classify it as non-inventory.": 1
+      }
+    },
+    "utc": {
+      "counts": {
+        "unchanged": 114,
+        "review": 33,
+        "excluded": 16
+      },
+      "review_reasons": {
+        "Receipt merchandise does not match its header; source may be incomplete.": 14,
+        "Missing BOM for NON03180003. Configure its recipe or explicitly classify it as non-inventory.": 1,
+        "Missing BOM for NON01140005. Configure its recipe or explicitly classify it as non-inventory.": 1,
+        "Missing BOM for NON03070010. Configure its recipe or explicitly classify it as non-inventory.": 1,
+        "Missing BOM for NON03180020. Configure its recipe or explicitly classify it as non-inventory.": 1,
+        "Missing BOM for NON03180004. Configure its recipe or explicitly classify it as non-inventory.": 1,
+        "Missing BOM for NON03180008. Configure its recipe or explicitly classify it as non-inventory.": 1,
+        "Missing BOM for NON03180001. Configure its recipe or explicitly classify it as non-inventory.": 1,
+        "Missing BOM for NON03020027. Configure its recipe or explicitly classify it as non-inventory.": 1,
+        "Missing BOM for NON01100068. Configure its recipe or explicitly classify it as non-inventory.": 1,
+        "Missing or ambiguous unit conversion for 834A2G.": 2,
+        "Missing BOM for NON03180009. Configure its recipe or explicitly classify it as non-inventory.": 1,
+        "Missing BOM for NON03180007. Configure its recipe or explicitly classify it as non-inventory.": 1,
+        "Missing BOM for NON03180005. Configure its recipe or explicitly classify it as non-inventory.": 2,
+        "Missing BOM for NON03070005. Configure its recipe or explicitly classify it as non-inventory.": 2,
+        "Missing BOM for NON01040012. Configure its recipe or explicitly classify it as non-inventory.": 1,
+        "Missing BOM for NON03070006. Configure its recipe or explicitly classify it as non-inventory.": 1
+      }
+    },
+    "via": {
+      "counts": {
+        "review": 6,
+        "ready": 22,
+        "excluded": 27
+      },
+      "review_reasons": {
+        "Missing BOM for NON03070006. Configure its recipe or explicitly classify it as non-inventory.": 1,
+        "Missing BOM for NON03180009. Configure its recipe or explicitly classify it as non-inventory.": 1,
+        "Receipt merchandise does not match its header; source may be incomplete.": 1,
+        "Missing BOM for NON03020028. Configure its recipe or explicitly classify it as non-inventory.": 3
+      }
+    }
+  },
+  "utc_pilot": {
+    "pilot_log": {
+      "id": "639",
+      "status": "completed",
+      "processed_count": "114",
+      "skipped_count": "33",
+      "error_message": null,
+      "completed_at": "2026-09-20 11:14:32.607"
+    },
+    "posted_receipts": 114,
+    "linked_movement_count": 3682,
+    "intact_failed": [],
+    "sales_count": 56777,
+    "movement_count": 384499,
+    "pilot_net_sales": "185760.18000000008"
+  },
+  "utc_replay": {
+    "replay_log": {
+      "id": "640",
+      "status": "completed",
+      "processed_count": "0",
+      "skipped_count": "33"
+    },
+    "new_sales": 0,
+    "new_movements": 0
+  },
+  "concurrent_evi": {
+    "logs": [
+      {
+        "id": "641",
+        "status": "completed",
+        "processed_count": "57",
+        "skipped_count": "14",
+        "error_message": null
+      },
+      {
+        "id": "642",
+        "status": "completed",
+        "processed_count": "0",
+        "skipped_count": "14",
+        "error_message": null
+      }
+    ],
+    "tracked_receipts": 57,
+    "destination_receipts": 57,
+    "expected_ready": 57,
+    "intact_failed": []
+  }
+}

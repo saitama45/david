@@ -18,13 +18,25 @@ const props = defineProps({
         type: Object,
         required: true,
     },
+    filters: {
+        type: Object,
+        default: () => ({}),
+    },
+    noBomCount: {
+        type: Number,
+        default: 0,
+    },
+    withBomCount: {
+        type: Number,
+        default: 0,
+    },
 });
 
 const handleClick = () => {
     router.get(route("POSMasterfile.create"));
 };
 
-let filter = ref(page.props.filter || "all");
+let filter = ref(props.filters?.filter || "all");
 
 const { search } = useSearch("POSMasterfile.index");
 
@@ -236,6 +248,22 @@ onUnmounted(() => {
                 :currentFilter="filter"
                 @click="changeFilter('inactive')"
             />
+            <FilterTabButton
+                label="Active, No BOM"
+                filter="no_bom"
+                :currentFilter="filter"
+                :hasBadge="true"
+                :badgeText="String(noBomCount)"
+                @click="changeFilter('no_bom')"
+            />
+            <FilterTabButton
+                label="Active, With BOM"
+                filter="with_bom"
+                :currentFilter="filter"
+                :hasBadge="true"
+                :badgeText="String(withBomCount)"
+                @click="changeFilter('with_bom')"
+            />
         </FilterTab>
 
         <!-- Persistent Skipped Items Message -->
@@ -287,6 +315,7 @@ onUnmounted(() => {
                     <TH>Category</TH>
                     <TH>SubCategory</TH>
                     <TH>SRP</TH>
+                    <TH>BOM</TH>
                     <TH>Active</TH>
                     <TH>Action</TH>
                 </TableHead>
@@ -299,7 +328,30 @@ onUnmounted(() => {
                         <TD>{{ item.Category }}</TD>
                         <TD>{{ item.SubCategory }}</TD>
                         <TD>{{ item.SRP }}</TD>
-                        <TD>{{ Number(item.is_active) ? 'Yes' : 'No' }}</TD>
+                        <TD>
+                            <span
+                                v-if="item.bom_items_count > 0"
+                                class="text-xs text-gray-700"
+                                >{{ item.bom_items_count }} item(s)</span
+                            >
+                            <span
+                                v-else
+                                class="inline-block rounded bg-red-100 px-2 py-0.5 text-xs font-semibold text-red-700"
+                                >No BOM</span
+                            >
+                        </TD>
+                        <TD>
+                            <span
+                                v-if="Number(item.is_active)"
+                                class="inline-block rounded bg-green-100 px-2 py-0.5 text-xs font-semibold text-green-700"
+                                >Yes</span
+                            >
+                            <span
+                                v-else
+                                class="inline-block rounded bg-gray-100 px-2 py-0.5 text-xs font-semibold text-gray-600"
+                                >No</span
+                            >
+                        </TD>
                         <TD class="flex items-center gap-2">
                             <ShowButton
                                 v-if="hasAccess('view item')"
@@ -351,6 +403,14 @@ onUnmounted(() => {
                     <LabelXS>Category: {{ item.Category }}</LabelXS>
                     <LabelXS>SubCategory: {{ item.SubCategory }}</LabelXS>
                     <LabelXS>SRP: {{ item.SRP }}</LabelXS>
+                    <LabelXS>
+                        BOM:
+                        {{
+                            item.bom_items_count > 0
+                                ? `${item.bom_items_count} item(s)`
+                                : "No BOM"
+                        }}
+                    </LabelXS>
                     <LabelXS>Active: {{ Number(item.is_active) ? 'Yes' : 'No' }}</LabelXS>
                 </MobileTableRow>
             </MobileTableContainer>

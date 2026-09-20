@@ -42,6 +42,7 @@ class StoreTransactionController extends Controller
         $branchId = request('branchId') ?? 'all';
 
         $transactionsQuery = StoreTransaction::query()
+            ->whereIn('store_transactions.store_branch_id', app(\App\Services\SalesImportStatus::class)->branchIds(request()->user()))
             ->leftJoin('store_transaction_items', 'store_transactions.id', '=', 'store_transaction_items.store_transaction_id')
             ->leftJoin('store_branches', 'store_transactions.store_branch_id', '=', 'store_branches.id')
             ->whereBetween('order_date', [$from, $to])
@@ -89,7 +90,8 @@ class StoreTransactionController extends Controller
                 'search' => request('search')
             ],
             'branches' => $branches,
-            'transactions' => $transactions
+            'transactions' => $transactions,
+            'salesSyncStatus' => fn () => app(\App\Services\SalesImportStatus::class)->summary(request()->user(), $branchId),
         ]);
     }
 
@@ -156,7 +158,7 @@ class StoreTransactionController extends Controller
     public function import(Request $request)
     {
         $request->validate([
-            'store_transactions_file' => ['required', 'file', 'mimes:xlsx,xls,csv'],
+            'store_transactions_file' => ['required', 'file', 'mimes:xlsx,xls,csv', 'max:20480'],
         ]);
 
         $originalName = $request->file('store_transactions_file')->getClientOriginalName();
@@ -201,7 +203,7 @@ class StoreTransactionController extends Controller
     public function update(UpdateStoreTransactionRequest $request, StoreTransaction $storeTransaction)
     {
         $this->storeTransactionService->updateStoreTransaction($storeTransaction, $request->validated());
-        return to_route('store-transactions.index')->with('success', 'Store transaction updated successfully.');
+        return to_route('store-transactions.index')->with('success', 'Sales correction posted with linked inventory reversals and replacement consumption.');
     }
 
     public function store(StoreStoreTransactionRequest $request)
@@ -212,6 +214,7 @@ class StoreTransactionController extends Controller
 
     public function edit(StoreTransaction $storeTransaction)
     {
+        abort_unless(in_array($storeTransaction->store_branch_id, app(\App\Services\SalesImportStatus::class)->branchIds(request()->user())), 403);
         $posMasterfiles = POSMasterfile::options();
         $branches = StoreBranch::options();
         $transaction =  $storeTransaction->load(['store_transaction_items.posMasterfile']);

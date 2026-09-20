@@ -1,0 +1,270 @@
+Store,Receipt count,Reason
+CLN,6,Missing BOM for NON03020027. Configure its recipe or explicitly classify it as non-inventory.
+CLN,6,Missing BOM for NON03020028. Configure its recipe or explicitly classify it as non-inventory.
+CLN,6,Missing BOM for NON03070005. Configure its recipe or explicitly classify it as non-inventory.
+CLN,5,Missing BOM for NON01120011. Configure its recipe or explicitly classify it as non-inventory.
+CLN,4,Receipt merchandise does not match its header; source may be incomplete.
+CLN,4,Missing BOM for NON03070006. Configure its recipe or explicitly classify it as non-inventory.
+CLN,3,Missing BOM for NON03070007. Configure its recipe or explicitly classify it as non-inventory.
+CLN,3,Missing BOM for NON01040012. Configure its recipe or explicitly classify it as non-inventory.
+CLN,2,Missing BOM for NON01120014. Configure its recipe or explicitly classify it as non-inventory.
+CLN,1,Missing BOM for NON01100065. Configure its recipe or explicitly classify it as non-inventory.
+CLN,1,Missing or ambiguous unit conversion for 835A2G.
+CLN,1,Missing or ambiguous unit conversion for 833A2G.
+CLN,1,Missing BOM for NON01100054. Configure its recipe or explicitly classify it as non-inventory.
+CLN,1,Missing BOM for NON01100066. Configure its recipe or explicitly classify it as non-inventory.
+CLN,1,Missing BOM for NON01120007. Configure its recipe or explicitly classify it as non-inventory.
+CLN,1,Missing BOM for NON01100063. Configure its recipe or explicitly classify it as non-inventory.
+CLN,1,Missing or ambiguous unit conversion for 837A2G.
+CLN,1,"Unposted, void or return receipt requires separate reconciliation."
+CLN,1,Missing BOM for NON02070019. Configure its recipe or explicitly classify it as non-inventory.
+CLN,1,Missing BOM for NON01100055. Configure its recipe or explicitly classify it as non-inventory.
+EVI,2,Missing BOM for NON03020027. Configure its recipe or explicitly classify it as non-inventory.
+EVI,2,Missing BOM for NON03020028. Configure its recipe or explicitly classify it as non-inventory.
+EVI,2,Missing BOM for NON03070006. Configure its recipe or explicitly classify it as non-inventory.
+EVI,1,Missing BOM for NON03180003. Configure its recipe or explicitly classify it as non-inventory.
+EVI,1,Missing BOM for NON03180004. Configure its recipe or explicitly classify it as non-inventory.
+EVI,1,Missing BOM for NON03180006. Configure its recipe or explicitly classify it as non-inventory.
+EVI,1,Missing BOM for NON01100066. Configure its recipe or explicitly classify it as non-inventory.
+EVI,1,Missing BOM for NON03180001. Configure its recipe or explicitly classify it as non-inventory.
+EVI,1,Missing BOM for NON03070007. Configure its recipe or explicitly classify it as non-inventory.
+EVI,1,Missing BOM for NON01120007. Configure its recipe or explicitly classify it as non-inventory.
+EVI,1,Missing or ambiguous unit conversion for 171A2A.
+EVO,5,Missing BOM for NON03070006. Configure its recipe or explicitly classify it as non-inventory.
+EVO,5,Receipt has no active sold lines.
+EVO,4,Missing BOM for NON03180005. Configure its recipe or explicitly classify it as non-inventory.
+EVO,3,Missing or ambiguous unit conversion for 171A2A.
+EVO,3,Missing BOM for NON03020028. Configure its recipe or explicitly classify it as non-inventory.
+EVO,2,Missing BOM for NON03180021. Configure its recipe or explicitly classify it as non-inventory.
+EVO,2,Missing BOM for NON03070007. Configure its recipe or explicitly classify it as non-inventory.
+EVO,1,Receipt merchandise does not match its header; source may be incomplete.
+EVO,1,Missing BOM for NON03020027. Configure its recipe or explicitly classify it as non-inventory.
+EVO,1,Missing BOM for NON01100063. Configure its recipe or explicitly classify it as non-inventory.
+EVO,1,Missing BOM for NON01020011. Configure its recipe or explicitly classify it as non-inventory.
+EVO,1,Missing BOM for NON01100031. Configure its recipe or explicitly classify it as non-inventory.
+EVO,1,Missing BOM for NON03070005. Configure its recipe or explicitly classify it as non-inventory.
+GAL,68,Receipt lines have not arrived.
+GFD,7,Missing BOM for NON03070007. Configure its recipe or explicitly classify it as non-inventory.
+GFD,6,Missing BOM for NON03020027. Configure its recipe or explicitly classify it as non-inventory.
+GFD,5,Missing BOM for NON03020028. Configure its recipe or explicitly classify it as non-inventory.
+GFD,4,Receipt merchandise does not match its header; source may be incomplete.
+GFD,3,Missing or ambiguous unit conversion for 835A2G.
+GFD,3,Missing BOM for NON03070006. Configure its recipe or explicitly classify it as non-inventory.
+GFD,2,Missing or ambiguous unit conversion for 171A2A.
+GFD,1,Missing BOM for NON03180020. Configure its recipe or explicitly classify it as non-inventory.
+GFD,1,Missing BOM for NON01100068. Configure its recipe or explicitly classify it as non-inventory.
+GFD,1,Missing BOM for NON01100066. Configure its recipe or explicitly classify it as non-inventory.
+GFD,1,Missing BOM for NON01040012. Configure its recipe or explicitly classify it as non-inventory.
+GFD,1,Missing or ambiguous unit conversion for 834A2G.
+GFD,1,Missing BOM for NON03070005. Configure its recipe or explicitly classify it as non-inventory.
+GFD,1,Missing BOM for NON03020025. Configure its recipe or explicitly classify it as non-inventory.
+GFD,1,Missing BOM for NON01100028. Configure its recipe or explicitly classify it as non-inventory.
+GFD,1,Missing BOM for NON01100063. Configure its recipe or explicitly classify it as non-inventory.
+GFD,1,Missing BOM for NON03180002. Configure its recipe or explicitly classify it as non-inventory.
+GFD,1,Missing BOM for NON01100054. Configure its recipe or explicitly classify it as non-inventory.
+GFD,1,Missing BOM for NON01100064. Configure its recipe or explicitly classify it as non-inventory.
+GWM,11,Receipt merchandise does not match its header; source may be incomplete.
+GWM,8,Missing BOM for NON03020028. Configure its recipe or explicitly classify it as non-inventory.
+GWM,6,Missing BOM for NON01100063. Configure its recipe or explicitly classify it as non-inventory.
+GWM,5,Missing BOM for NON03180020. Configure its recipe or explicitly classify it as non-inventory.
+GWM,4,Missing BOM for NON03020027. Configure its recipe or explicitly classify it as non-inventory.
+GWM,4,Missing BOM for NON03180005. Configure its recipe or explicitly classify it as non-inventory.
+GWM,4,Missing BOM for NON03180008. Configure its recipe or explicitly classify it as non-inventory.
+GWM,3,Missing BOM for NON03070007. Configure its recipe or explicitly classify it as non-inventory.
+GWM,3,Missing BOM for NON03070006. Configure its recipe or explicitly classify it as non-inventory.
+GWM,3,Missing BOM for NON03070005. Configure its recipe or explicitly classify it as non-inventory.
+GWM,2,"Unposted, void or return receipt requires separate reconciliation."
+GWM,2,Missing BOM for NON01050064. Configure its recipe or explicitly classify it as non-inventory.
+GWM,2,Missing BOM for NON03180002. Configure its recipe or explicitly classify it as non-inventory.
+GWM,1,Missing BOM for NON03180009. Configure its recipe or explicitly classify it as non-inventory.
+GWM,1,Missing BOM for NON03180021. Configure its recipe or explicitly classify it as non-inventory.
+GWM,1,Missing or ambiguous unit conversion for 834A2G.
+GWM,1,Missing BOM for NON01100031. Configure its recipe or explicitly classify it as non-inventory.
+GWM,1,Missing BOM for NON01040012. Configure its recipe or explicitly classify it as non-inventory.
+KLT,4,Missing BOM for NON01160002. Configure its recipe or explicitly classify it as non-inventory.
+KLT,3,Missing BOM for NON01160009. Configure its recipe or explicitly classify it as non-inventory.
+KLT,3,Missing BOM for NON01160001. Configure its recipe or explicitly classify it as non-inventory.
+KLT,3,Missing BOM for NON01160006. Configure its recipe or explicitly classify it as non-inventory.
+KLT,1,Missing BOM for NON01050064. Configure its recipe or explicitly classify it as non-inventory.
+KLT,1,Missing BOM for NON01160004. Configure its recipe or explicitly classify it as non-inventory.
+KLT,1,Missing BOM for NON01160010. Configure its recipe or explicitly classify it as non-inventory.
+KLT,1,Missing BOM for NON03020028. Configure its recipe or explicitly classify it as non-inventory.
+KLT,1,Missing BOM for NON03070005. Configure its recipe or explicitly classify it as non-inventory.
+KLT,1,Missing BOM for NON03070007. Configure its recipe or explicitly classify it as non-inventory.
+KLT,1,Missing BOM for NON01120011. Configure its recipe or explicitly classify it as non-inventory.
+KLT,1,Missing BOM for NON01040012. Configure its recipe or explicitly classify it as non-inventory.
+KLT,1,Missing BOM for NON03020027. Configure its recipe or explicitly classify it as non-inventory.
+KLT,1,Missing BOM for NON03070006. Configure its recipe or explicitly classify it as non-inventory.
+KLT,1,Missing BOM for NON01100031. Configure its recipe or explicitly classify it as non-inventory.
+LCT,12,Receipt has no active sold lines.
+LCT,3,Missing BOM for NON03070007. Configure its recipe or explicitly classify it as non-inventory.
+LCT,2,Missing BOM for NON03180006. Configure its recipe or explicitly classify it as non-inventory.
+LCT,2,Missing BOM for NON01100056. Configure its recipe or explicitly classify it as non-inventory.
+LCT,2,Missing BOM for NON03020027. Configure its recipe or explicitly classify it as non-inventory.
+LCT,2,Missing BOM for NON01120008. Configure its recipe or explicitly classify it as non-inventory.
+LCT,2,Missing BOM for NON03070006. Configure its recipe or explicitly classify it as non-inventory.
+LCT,2,Missing or ambiguous unit conversion for 837A2G.
+LCT,1,Missing BOM for NON03180008. Configure its recipe or explicitly classify it as non-inventory.
+LCT,1,Receipt merchandise does not match its header; source may be incomplete.
+LCT,1,Missing BOM for NON03070005. Configure its recipe or explicitly classify it as non-inventory.
+LCT,1,Missing or ambiguous unit conversion for 171A2A.
+LCT,1,Missing BOM for NON01010017. Configure its recipe or explicitly classify it as non-inventory.
+LCT,1,Missing BOM for NON01120007. Configure its recipe or explicitly classify it as non-inventory.
+LCT,1,Missing BOM for NON01100061. Configure its recipe or explicitly classify it as non-inventory.
+LGC,115,Receipt lines have not arrived.
+OKA,10,Missing BOM for NON03070006. Configure its recipe or explicitly classify it as non-inventory.
+OKA,7,Missing BOM for NON03020028. Configure its recipe or explicitly classify it as non-inventory.
+OKA,6,Receipt merchandise does not match its header; source may be incomplete.
+OKA,4,Missing or ambiguous unit conversion for 171A2A.
+OKA,4,Missing or ambiguous unit conversion for 835A2G.
+OKA,4,Missing BOM for NON03020027. Configure its recipe or explicitly classify it as non-inventory.
+OKA,3,Missing BOM for NON03070007. Configure its recipe or explicitly classify it as non-inventory.
+OKA,1,Missing BOM for NON03070005. Configure its recipe or explicitly classify it as non-inventory.
+OKA,1,Missing BOM for NON01120007. Configure its recipe or explicitly classify it as non-inventory.
+OKA,1,Missing BOM for NON01100032. Configure its recipe or explicitly classify it as non-inventory.
+OKA,1,Missing or ambiguous unit conversion for 834A2G.
+OKA,1,Missing BOM for NON01100054. Configure its recipe or explicitly classify it as non-inventory.
+OKA,1,Missing BOM for NON02070019. Configure its recipe or explicitly classify it as non-inventory.
+OKA,1,Missing BOM for NON01040012. Configure its recipe or explicitly classify it as non-inventory.
+OPU,2,Missing POS masterfile: NON001010018
+OPU,2,Missing POS masterfile: NON003020008
+OPU,1,Missing POS masterfile: NON001010006
+OPU,1,Receipt merchandise does not match its header; source may be incomplete.
+OPU,1,Missing POS masterfile: NON001060001
+OPU,1,Missing POS masterfile: NON001020008
+OPU,1,Missing POS masterfile: NON002020002
+OPU,1,Missing POS masterfile: NON002020010
+OPU,1,Missing POS masterfile: NON002040005
+OPU,1,Missing POS masterfile: NON003020004
+OPU,1,Missing POS masterfile: NON001030001
+OPU,1,Missing POS masterfile: NON002030017
+OPU,1,Missing POS masterfile: NON002030019
+OPU,1,Missing POS masterfile: NON002070010
+OPU,1,Missing POS masterfile: NON001030002
+RAO,3,Missing BOM for NON03070006. Configure its recipe or explicitly classify it as non-inventory.
+RAO,3,Missing BOM for NON01040012. Configure its recipe or explicitly classify it as non-inventory.
+RAO,3,Missing BOM for NON03180020. Configure its recipe or explicitly classify it as non-inventory.
+RAO,2,Receipt merchandise does not match its header; source may be incomplete.
+RAO,1,Missing or ambiguous unit conversion for 162D9A.
+RAO,1,Missing BOM for NON01100031. Configure its recipe or explicitly classify it as non-inventory.
+RAO,1,Missing BOM for NON01100068. Configure its recipe or explicitly classify it as non-inventory.
+RAO,1,Missing BOM for NON03180021. Configure its recipe or explicitly classify it as non-inventory.
+RAO,1,Missing BOM for NON03070010. Configure its recipe or explicitly classify it as non-inventory.
+RAO,1,Missing BOM for NON01100059. Configure its recipe or explicitly classify it as non-inventory.
+RAO,1,Missing or ambiguous unit conversion for 834A2G.
+RAO,1,Missing or ambiguous unit conversion for 171A2A.
+RAO,1,Missing BOM for NON01100063. Configure its recipe or explicitly classify it as non-inventory.
+RML,3,Missing BOM for NON03020027. Configure its recipe or explicitly classify it as non-inventory.
+RML,2,Missing BOM for NON03070007. Configure its recipe or explicitly classify it as non-inventory.
+RML,2,Missing BOM for NON03020028. Configure its recipe or explicitly classify it as non-inventory.
+RML,2,Missing BOM for NON01100064. Configure its recipe or explicitly classify it as non-inventory.
+RML,1,"Unposted, void or return receipt requires separate reconciliation."
+RML,1,Missing BOM for NON03070006. Configure its recipe or explicitly classify it as non-inventory.
+RML,1,Missing BOM for NON01100031. Configure its recipe or explicitly classify it as non-inventory.
+RML,1,Missing or ambiguous unit conversion for 833A2G.
+RML,1,Missing BOM for NON01050064. Configure its recipe or explicitly classify it as non-inventory.
+RML,1,Receipt merchandise does not match its header; source may be incomplete.
+RML,1,Missing BOM for NON03070005. Configure its recipe or explicitly classify it as non-inventory.
+RML,1,Missing BOM for NON01100067. Configure its recipe or explicitly classify it as non-inventory.
+RML,1,Missing or ambiguous unit conversion for 835A2G.
+RML,1,Missing BOM for NON01100063. Configure its recipe or explicitly classify it as non-inventory.
+SFW,6,Receipt merchandise does not match its header; source may be incomplete.
+SFW,4,Missing BOM for NON03020027. Configure its recipe or explicitly classify it as non-inventory.
+SFW,4,Missing BOM for NON03020028. Configure its recipe or explicitly classify it as non-inventory.
+SFW,2,Missing BOM for NON01100063. Configure its recipe or explicitly classify it as non-inventory.
+SFW,2,Missing BOM for NON03070005. Configure its recipe or explicitly classify it as non-inventory.
+SFW,2,Missing BOM for NON03070006. Configure its recipe or explicitly classify it as non-inventory.
+SFW,1,Missing or ambiguous unit conversion for 835A2G.
+SFW,1,Missing BOM for NON01100055. Configure its recipe or explicitly classify it as non-inventory.
+SFW,1,Missing BOM for NON03020025. Configure its recipe or explicitly classify it as non-inventory.
+SFW,1,Missing BOM for NON03180009. Configure its recipe or explicitly classify it as non-inventory.
+SFW,1,Missing BOM for NON01120011. Configure its recipe or explicitly classify it as non-inventory.
+SFW,1,Missing BOM for NON01120007. Configure its recipe or explicitly classify it as non-inventory.
+SFW,1,Missing BOM for NON02070019. Configure its recipe or explicitly classify it as non-inventory.
+SFW,1,Missing BOM for NON01040012. Configure its recipe or explicitly classify it as non-inventory.
+SFW,1,Missing BOM for NON03070007. Configure its recipe or explicitly classify it as non-inventory.
+SMA,7,Missing BOM for NON03020028. Configure its recipe or explicitly classify it as non-inventory.
+SMA,6,Receipt merchandise does not match its header; source may be incomplete.
+SMA,6,Missing BOM for NON03020027. Configure its recipe or explicitly classify it as non-inventory.
+SMA,5,Missing BOM for NON03070006. Configure its recipe or explicitly classify it as non-inventory.
+SMA,2,Missing or ambiguous unit conversion for 834A2G.
+SMA,2,Missing BOM for NON01100031. Configure its recipe or explicitly classify it as non-inventory.
+SMA,2,Missing BOM for NON03070005. Configure its recipe or explicitly classify it as non-inventory.
+SMA,1,Missing BOM for NON03100016. Configure its recipe or explicitly classify it as non-inventory.
+SMA,1,Missing BOM for NON02070019. Configure its recipe or explicitly classify it as non-inventory.
+SMA,1,Missing or ambiguous unit conversion for 171A2A.
+SMA,1,Missing BOM for NON01100030. Configure its recipe or explicitly classify it as non-inventory.
+SMA,1,Missing BOM for NON01100065. Configure its recipe or explicitly classify it as non-inventory.
+SMA,1,Missing BOM for NON03070007. Configure its recipe or explicitly classify it as non-inventory.
+SSR,7,Missing BOM for NON03070007. Configure its recipe or explicitly classify it as non-inventory.
+SSR,5,Missing BOM for NON01100063. Configure its recipe or explicitly classify it as non-inventory.
+SSR,4,Missing BOM for NON03180002. Configure its recipe or explicitly classify it as non-inventory.
+SSR,4,Missing BOM for NON03020028. Configure its recipe or explicitly classify it as non-inventory.
+SSR,4,Receipt merchandise does not match its header; source may be incomplete.
+SSR,3,Missing BOM for NON03180001. Configure its recipe or explicitly classify it as non-inventory.
+SSR,3,Missing BOM for NON03070005. Configure its recipe or explicitly classify it as non-inventory.
+SSR,2,Missing BOM for NON03180011. Configure its recipe or explicitly classify it as non-inventory.
+SSR,2,Missing or ambiguous unit conversion for 171A2A.
+SSR,2,"Unposted, void or return receipt requires separate reconciliation."
+SSR,2,Missing BOM for NON03070006. Configure its recipe or explicitly classify it as non-inventory.
+SSR,2,Missing BOM for NON03180021. Configure its recipe or explicitly classify it as non-inventory.
+SSR,2,Missing BOM for NON03180008. Configure its recipe or explicitly classify it as non-inventory.
+SSR,1,Missing BOM for NON03180005. Configure its recipe or explicitly classify it as non-inventory.
+SSR,1,Missing BOM for NON01100059. Configure its recipe or explicitly classify it as non-inventory.
+SSR,1,Missing BOM for NON01100031. Configure its recipe or explicitly classify it as non-inventory.
+SSR,1,Missing BOM for NON03020027. Configure its recipe or explicitly classify it as non-inventory.
+SSR,1,Missing BOM for NON03180013. Configure its recipe or explicitly classify it as non-inventory.
+SSR,1,Missing or ambiguous unit conversion for 835A2G.
+SSR,1,Missing BOM for NON01100065. Configure its recipe or explicitly classify it as non-inventory.
+SSR,1,Missing BOM for NON01120010. Configure its recipe or explicitly classify it as non-inventory.
+SSR,1,Missing BOM for NON03020025. Configure its recipe or explicitly classify it as non-inventory.
+SSR,1,Missing BOM for NON01040012. Configure its recipe or explicitly classify it as non-inventory.
+TOL,8,Missing BOM for NON03070007. Configure its recipe or explicitly classify it as non-inventory.
+TOL,3,Missing BOM for NON03020027. Configure its recipe or explicitly classify it as non-inventory.
+TOL,3,Missing BOM for NON03070005. Configure its recipe or explicitly classify it as non-inventory.
+TOL,3,Missing BOM for NON03070006. Configure its recipe or explicitly classify it as non-inventory.
+TOL,2,Missing BOM for NON03020028. Configure its recipe or explicitly classify it as non-inventory.
+TOL,2,Missing or ambiguous unit conversion for 834A2G.
+TOL,2,Missing BOM for NON01040012. Configure its recipe or explicitly classify it as non-inventory.
+TOL,1,Missing BOM for NON01100031. Configure its recipe or explicitly classify it as non-inventory.
+TOL,1,Missing BOM for NON01050064. Configure its recipe or explicitly classify it as non-inventory.
+TOL,1,Missing BOM for NON03100001. Configure its recipe or explicitly classify it as non-inventory.
+TOL,1,Missing or ambiguous unit conversion for 171A2A.
+TOL,1,Missing or ambiguous unit conversion for 162D9A.
+UPM,4,Missing BOM for NON03180005. Configure its recipe or explicitly classify it as non-inventory.
+UPM,3,Missing BOM for NON03070006. Configure its recipe or explicitly classify it as non-inventory.
+UPM,3,Missing BOM for NON03180008. Configure its recipe or explicitly classify it as non-inventory.
+UPM,3,Receipt merchandise does not match its header; source may be incomplete.
+UPM,2,Missing BOM for NON03070007. Configure its recipe or explicitly classify it as non-inventory.
+UPM,2,Missing BOM for NON03180003. Configure its recipe or explicitly classify it as non-inventory.
+UPM,2,"Unposted, void or return receipt requires separate reconciliation."
+UPM,2,Missing BOM for NON03180006. Configure its recipe or explicitly classify it as non-inventory.
+UPM,1,Missing BOM for NON03020028. Configure its recipe or explicitly classify it as non-inventory.
+UPM,1,Missing BOM for NON03020027. Configure its recipe or explicitly classify it as non-inventory.
+UPM,1,Missing BOM for NON03180010. Configure its recipe or explicitly classify it as non-inventory.
+UPM,1,Missing BOM for NON03180021. Configure its recipe or explicitly classify it as non-inventory.
+UPM,1,Missing BOM for NON03180011. Configure its recipe or explicitly classify it as non-inventory.
+UPM,1,Missing BOM for NON03180009. Configure its recipe or explicitly classify it as non-inventory.
+UPM,1,Missing BOM for NON01100054. Configure its recipe or explicitly classify it as non-inventory.
+UPM,1,Missing BOM for NON03180020. Configure its recipe or explicitly classify it as non-inventory.
+UTC,14,Receipt merchandise does not match its header; source may be incomplete.
+UTC,2,Missing or ambiguous unit conversion for 834A2G.
+UTC,2,Missing BOM for NON03180005. Configure its recipe or explicitly classify it as non-inventory.
+UTC,2,Missing BOM for NON03070005. Configure its recipe or explicitly classify it as non-inventory.
+UTC,1,Missing BOM for NON03180003. Configure its recipe or explicitly classify it as non-inventory.
+UTC,1,Missing BOM for NON01140005. Configure its recipe or explicitly classify it as non-inventory.
+UTC,1,Missing BOM for NON03070010. Configure its recipe or explicitly classify it as non-inventory.
+UTC,1,Missing BOM for NON03180020. Configure its recipe or explicitly classify it as non-inventory.
+UTC,1,Missing BOM for NON03180004. Configure its recipe or explicitly classify it as non-inventory.
+UTC,1,Missing BOM for NON03180008. Configure its recipe or explicitly classify it as non-inventory.
+UTC,1,Missing BOM for NON03180001. Configure its recipe or explicitly classify it as non-inventory.
+UTC,1,Missing BOM for NON03020027. Configure its recipe or explicitly classify it as non-inventory.
+UTC,1,Missing BOM for NON01100068. Configure its recipe or explicitly classify it as non-inventory.
+UTC,1,Missing BOM for NON03180009. Configure its recipe or explicitly classify it as non-inventory.
+UTC,1,Missing BOM for NON03180007. Configure its recipe or explicitly classify it as non-inventory.
+UTC,1,Missing BOM for NON01040012. Configure its recipe or explicitly classify it as non-inventory.
+UTC,1,Missing BOM for NON03070006. Configure its recipe or explicitly classify it as non-inventory.
+VIA,3,Missing BOM for NON03020028. Configure its recipe or explicitly classify it as non-inventory.
+VIA,1,Missing BOM for NON03070006. Configure its recipe or explicitly classify it as non-inventory.
+VIA,1,Missing BOM for NON03180009. Configure its recipe or explicitly classify it as non-inventory.
+VIA,1,Receipt merchandise does not match its header; source may be incomplete.

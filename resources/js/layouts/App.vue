@@ -1,4 +1,5 @@
 <script setup>
+import SalesImportNotifications from "@/components/SalesImportNotifications.vue";
 import WorkflowGuidance from "@/components/WorkflowGuidance.vue";
 import Logo from "../../images/temporaryLoginImage.png";
 import {
@@ -193,6 +194,7 @@ watch(() => groupedMissingSales.value, (newVal) => {
 
 <template>
     <Toast />
+    <SalesImportNotifications />
     <ConfirmDialog></ConfirmDialog>
     <PrimeDialog v-model:visible="isSalesReminderModalOpen" modal header="Sales Upload Reminder" :style="{ width: '50rem' }" :breakpoints="{ '960px': '75vw', '641px': '90vw' }">
         <div class="py-2">

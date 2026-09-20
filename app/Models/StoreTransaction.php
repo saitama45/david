@@ -29,7 +29,7 @@ class StoreTransaction extends Model implements Auditable
 
     protected $casts = [
         'is_approved' => 'boolean', // Cast to boolean
-        'order_date' => 'date',
+        'order_date' => 'date:Y-m-d',
     ];
 
     public function store_branch()

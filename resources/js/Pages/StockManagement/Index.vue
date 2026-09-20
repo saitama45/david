@@ -1,5 +1,6 @@
 <script setup>
 import { useSelectOptions } from "@/composables/useSelectOptions";
+import { useStockRefresh } from "@/composables/useStockRefresh";
 import { usePage, router, useForm, Link } from "@inertiajs/vue3";
 import { Eye } from "lucide-vue-next";
 
@@ -106,6 +107,7 @@ const exportRoute = computed(() =>
 );
 
 const isUpdateModalVisible = ref(false);
+useStockRefresh(["products", "storeSummary"], () => isUpdateModalVisible.value || form.processing || updateForm.processing);
 const openUpdateModal = () => {
     isUpdateModalVisible.value = true;
 };

@@ -1,4 +1,6 @@
 <script setup>
+import SalesSyncStatus from "@/components/SalesSyncStatus.vue";
+import { useStockRefresh } from "@/composables/useStockRefresh";
 import {
     Dialog,
     DialogContent,
@@ -18,7 +20,8 @@ import { useToast } from "@/composables/useToast";
 const { toast } = useToast();
 import { useConfirm } from "primevue/useconfirm";
 const confirm = useConfirm();
-const { transactions, branches } = defineProps({
+const { transactions, branches, salesSyncStatus } = defineProps({
+    salesSyncStatus: Object,
     transactions: {
         type: Object,
         required: true,
@@ -127,6 +130,7 @@ const importForm = useForm({
 });
 const isLoading = ref(false);
 const isImportStoreTransactionModalOpen = ref(false);
+useStockRefresh(["salesSyncStatus", "transactions"], () => isImportStoreTransactionModalOpen.value);
 const openImportStoreTransactionModal = () => {
     isImportStoreTransactionModalOpen.value = true;
 };
@@ -333,6 +337,7 @@ const closeSkippedRowsCard = () => {
         :hasExcelDownload="true"
         :exportRoute="exportRoute"
     >
+        <SalesSyncStatus :status="salesSyncStatus" :branch-id="branchId" />
         <!-- Skipped Rows Card (Persistent Message) -->
         <Transition
             enter-active-class="transition ease-out duration-200"

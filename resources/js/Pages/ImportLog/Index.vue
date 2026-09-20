@@ -2,9 +2,14 @@
 import { useSelectOptions } from "@/composables/useSelectOptions";
 import { router } from "@inertiajs/vue3";
 import { throttle } from "lodash";
-import { computed, onMounted, onUnmounted, ref, watch } from "vue";
+import { computed, ref, watch } from "vue";
+
+import { useStockRefresh } from "@/composables/useStockRefresh";
+import { salesStatusLabel as statusLabel, salesStatusClass as statusClass } from "@/composables/salesImportStatus";
+useStockRefresh(["logs"]);
 
 const props = defineProps({
+    canReviewBom: Boolean,
     logs: {
         type: Object,
         required: true,
@@ -24,16 +29,19 @@ const props = defineProps({
 });
 
 const { options: branchOptions } = useSelectOptions(props.branches);
+const tab = ref(props.filters.tab ?? "all");
+const tabs = [{ value: "all", label: "All Jobs" }, { value: "automated", label: "Automated POS Sync" }, { value: "manual", label: "Manual Imports" }];
 const search = ref(props.filters.search ?? "");
 const branchId = ref(props.filters.branchId ?? "all");
 
 const tableColspan = computed(() => (props.isAdmin ? 12 : 11));
-let refreshTimer = null;
+
 
 const getLogs = (replace = false) => {
     router.get(
         route("import-logs.index"),
         {
+            tab: tab.value,
             search: search.value || null,
             branchId: branchId.value || "all",
         },
@@ -52,6 +60,8 @@ watch(
     }, 500)
 );
 
+watch(tab, () => getLogs());
+
 watch(branchId, () => {
     getLogs();
 });
@@ -69,30 +79,11 @@ const refreshPage = () => {
     });
 };
 
-const statusLabel = (status) => {
-    const map = {
-        pending: "Pending",
-        processing: "Processing",
-        completed: "Completed",
-        failed: "Failed",
-    };
-    return map[status] ?? status;
-};
-
-const statusClass = (status) => {
-    const map = {
-        pending: "bg-gray-100 text-gray-700",
-        processing: "bg-yellow-100 text-yellow-700",
-        completed: "bg-green-100 text-green-700",
-        failed: "bg-red-100 text-red-700",
-    };
-    return map[status] ?? "bg-gray-100 text-gray-700";
-};
-
 const typeLabel = (type) => {
     const map = {
         sap_masterfile: "SAP Masterfile",
         store_transaction: "Store Transaction",
+        pos_sales: "POS Sales Sync",
     };
     return map[type] ?? type;
 };
@@ -131,27 +122,17 @@ const shortError = (message) => {
     return message.length > 90 ? `${message.slice(0, 90)}...` : message;
 };
 
-onMounted(() => {
-    refreshTimer = setInterval(() => {
-        const hasActiveLogs = props.logs.data.some((log) =>
-            ["pending", "processing"].includes(log.status)
-        );
-
-        if (hasActiveLogs) {
-            refreshPage();
-        }
-    }, 15000);
-});
-
-onUnmounted(() => {
-    if (refreshTimer) {
-        clearInterval(refreshTimer);
-    }
-});
 </script>
 
 <template>
     <Layout heading="Work Queue">
+        <nav class="mb-4 flex flex-wrap gap-2" aria-label="Work Queue sources">
+            <button v-for="option in tabs" :key="option.value" type="button" @click="tab = option.value"
+                :aria-current="tab === option.value ? 'page' : undefined"
+                class="rounded border px-4 py-2 text-sm" :class="tab === option.value ? 'bg-primary text-primary-foreground' : 'bg-background'">{{ option.label }}</button>
+            <a v-if="canReviewBom" :href="route('import-logs.missing-bom')" class="rounded border px-4 py-2 text-sm">Missing BOM</a>
+        </nav>
+        <p class="mb-4 text-sm text-muted-foreground">Updates every 10 seconds. Check skipped counts and download the report for records that need review.</p>
         <TableContainer>
             <TableHeader>
                 <SearchBar>
@@ -214,9 +195,9 @@ onUnmounted(() => {
                         <TD>
                             <span
                                 class="px-2 py-1 rounded text-xs font-medium"
-                                :class="statusClass(log.status)"
+                                :class="statusClass(log.display_status ?? log.status)"
                             >
-                                {{ statusLabel(log.status) }}
+                                {{ statusLabel(log.display_status ?? log.status) }}
                             </span>
                         </TD>
                         <TD class="max-w-[240px] truncate" :title="storeNames(log)">
@@ -230,11 +211,11 @@ onUnmounted(() => {
                         <TD>{{ formatDate(log.completed_at) }}</TD>
                         <TD>
                             <a
-                                v-if="log.skipped_count > 0 && log.skipped_file_path"
+                                v-if="log.skipped_file_path && (log.skipped_count > 0 || log.type === 'pos_sales')"
                                 :href="route('import-logs.download', log.id)"
                                 class="text-xs text-blue-600 underline hover:text-blue-800"
                             >
-                                Download Skipped
+                                {{ log.type === 'pos_sales' ? 'Download Report' : 'Download Skipped' }}
                             </a>
                             <span v-else-if="log.status === 'failed'" class="text-xs text-red-500" :title="log.error_message">
                                 {{ shortError(log.error_message) }}
@@ -250,9 +231,9 @@ onUnmounted(() => {
                     <MobileTableHeading :title="typeLabel(log.type)">
                         <span
                             class="px-2 py-1 rounded text-xs font-medium"
-                            :class="statusClass(log.status)"
+                            :class="statusClass(log.display_status ?? log.status)"
                         >
-                            {{ statusLabel(log.status) }}
+                            {{ statusLabel(log.display_status ?? log.status) }}
                         </span>
                     </MobileTableHeading>
                     <LabelXS>File: {{ log.original_filename }}</LabelXS>
@@ -266,12 +247,12 @@ onUnmounted(() => {
                     <LabelXS v-if="log.status === 'failed'" class="text-red-600">
                         Error: {{ shortError(log.error_message) }}
                     </LabelXS>
-                    <div v-if="log.skipped_count > 0 && log.skipped_file_path" class="mt-1">
+                    <div v-if="log.skipped_file_path && (log.skipped_count > 0 || log.type === 'pos_sales')" class="mt-1">
                         <a
                             :href="route('import-logs.download', log.id)"
                             class="text-xs text-blue-600 underline"
                         >
-                            Download Skipped Items
+                            {{ log.type === 'pos_sales' ? 'Download Report' : 'Download Skipped Items' }}
                         </a>
                     </div>
                 </MobileTableRow>

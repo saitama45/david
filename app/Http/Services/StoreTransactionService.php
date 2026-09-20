@@ -14,22 +14,27 @@ class StoreTransactionService
 
     public function createStoreTransaction(array $data)
     {
-        $data['order_date'] = Carbon::parse($data['order_date'])->addDay();
-        DB::beginTransaction();
-        $transaction = StoreTransaction::create(Arr::except($data, ['items']));
+        $processor = new \App\Services\StoreTransactionReceiptProcessor(auth()->user());
+        $sale = $processor->processReceiptGroup(collect($this->postingRows($data)));
+        if (!$sale) throw \Illuminate\Validation\ValidationException::withMessages([
+            'items' => implode(' | ', array_unique(array_column($processor->getSkippedRows(), 'reason'))),
+        ]);
+        $sale->update(Arr::only($data, ['lot_serial', 'customer_id', 'customer', 'remarks']));
+    }
 
-        foreach ($data['items'] as $item) {
-            $transaction->store_transaction_items()->create([
-                'product_id' => $item['product_id'], // This is now POSMasterfile.id
-                'base_quantity' => $item['quantity'],
-                'quantity' => $item['quantity'],
-                'price' => $item['price'],
-                'discount' => $item['discount'],
-                'line_total' => $item['line_total'],
-                'net_total' => $item['net_total'],
-            ]);
-        }
-        DB::commit();
+    private function postingRows(array $data): array
+    {
+        $branch = \App\Models\StoreBranch::findOrFail($data['store_branch_id']);
+        if (!in_array($branch->id, (new \App\Services\SalesImportStatus)->branchIds(auth()->user()))) abort(403);
+        return array_map(function ($item) use ($data, $branch) {
+            $pos = \App\Models\POSMasterfile::findOrFail($item['product_id']);
+            return ['__branch_id' => $branch->id, 'branch' => $branch->location_code, '__row_number' => 1,
+                'date' => $data['order_date'], 'receipt_no' => $data['receipt_number'], 'tm' => $data['tim_number'],
+                'posted' => $data['posted'], 'product_id' => $pos->POSCode, 'product_name' => $pos->POSDescription,
+                'qty' => $item['quantity'], 'base_qty' => $item['base_quantity'] ?? $item['quantity'],
+                'price' => $item['price'], 'discount' => $item['discount'], 'line_total' => $item['line_total'],
+                'net_total' => $item['net_total'], 'take_out' => !empty($item['take_out']) ? 'Y' : ''];
+        }, $data['items']);
     }
 
     public function getTransactionDetails(StoreTransaction $transaction)
@@ -174,21 +179,12 @@ class StoreTransactionService
 
     public function updateStoreTransaction(StoreTransaction $transaction, array $data)
     {
-        DB::beginTransaction();
-        $transaction->update(Arr::except($data, ['items']));
-        $transaction->store_transaction_items()->delete();
-        foreach ($data['items'] as $item) {
-            $transaction->store_transaction_items()->create([
-                'product_id' => $item['product_id'],
-                'base_quantity' => $item['quantity'],
-                'quantity' => $item['quantity'],
-                'price' => $item['price'],
-                'discount' => $item['discount'],
-                'line_total' => $item['line_total'],
-                'net_total' => $item['net_total'],
-            ]);
+        try {
+            (new \App\Services\SalesPostingCorrection)->replace($transaction, $this->postingRows($data), auth()->user(), $data['correction_reason']);
+        } catch (\Symfony\Component\HttpKernel\Exception\HttpException $e) {
+            throw $e;
+        } catch (\InvalidArgumentException|\RuntimeException $e) {
+            throw \Illuminate\Validation\ValidationException::withMessages(['items' => $e->getMessage()]);
         }
-
-        DB::commit();
     }
 }

@@ -73,6 +73,7 @@ const importTransactions = () => {
     });
 };
 
+let nextRowId = 0;
 const itemForm = useForm({
     id: null, // This should be POSMasterfile.id
     product_id: null, // This also refers to POSMasterfile.id
@@ -84,8 +85,10 @@ const itemForm = useForm({
     net_total: null,
 });
 
+const calendarDate = (value) => value instanceof Date
+    ? `${value.getFullYear()}-${String(value.getMonth() + 1).padStart(2, "0")}-${String(value.getDate()).padStart(2, "0")}` : value;
 const form = useForm({
-    order_date: transaction.order_date ? new Date(transaction.order_date) : null,
+    order_date: transaction.order_date ? new Date(...transaction.order_date.slice(0, 10).split("-").map((n, i) => Number(n) - (i === 1 ? 1 : 0))) : null,
     lot_serial: transaction.lot_serial,
     posted: transaction.posted,
     tim_number: transaction.tim_number,
@@ -93,6 +96,7 @@ const form = useForm({
     store_branch_id: transaction.store_branch_id.toString(),
     customer_id: transaction.customer_id,
     customer: transaction.customer,
+    correction_reason: "",
     items: [],
 });
 
@@ -104,7 +108,7 @@ transaction.store_transaction_items.forEach((item) => {
     }
 
     const product = {
-        id: item.posMasterfile.id,
+        id: ++nextRowId,
         product_id: item.posMasterfile.id,
         name: item.posMasterfile.POSDescription,
         quantity: item.quantity,
@@ -112,6 +116,8 @@ transaction.store_transaction_items.forEach((item) => {
         price: item.price,
         line_total: item.line_total,
         net_total: item.net_total,
+        base_quantity: item.base_quantity,
+        take_out: Boolean(item.take_out),
     };
     form.items.push(product);
 });
@@ -145,48 +151,37 @@ const addToItemsList = () => {
         return;
     }
     console.log(itemForm);
-    const existingItemIndex = form.items.findIndex(
-        (item) => item.id === itemForm.id
-    );
-    if (existingItemIndex === -1) {
-        itemForm.line_total = parseFloat(itemForm.quantity * itemForm.price);
-        itemForm.net_total = parseFloat(itemForm.quantity * itemForm.price);
-        form.items.push({ ...itemForm });
-    } else {
-        const item = form.items[existingItemIndex];
-        item.quantity = parseFloat(item.quantity) + parseFloat(itemForm.quantity);
-        item.line_total = parseFloat(item.quantity * item.price);
-        const discountAmount = (item.discount / 100) * item.line_total;
-        item.net_total = parseFloat(item.line_total - discountAmount);
+    const quantity = Number(itemForm.quantity);
+    const price = Number(itemForm.price);
+    const discount = Number(itemForm.discount || 0);
+    const lineTotal = Number((quantity * price - discount).toFixed(2));
+    if (!Number.isInteger(quantity) || quantity <= 0 || !Number.isFinite(lineTotal) || lineTotal < 0) {
+        itemForm.setError("quantity", "Enter a positive whole quantity and valid sales amounts.");
+        return;
     }
+    form.items.push({
+        id: ++nextRowId,
+        product_id: itemForm.product_id,
+        name: itemForm.name,
+        quantity,
+        base_quantity: quantity,
+        price,
+        discount,
+        line_total: lineTotal,
+        net_total: Number(itemForm.net_total ?? lineTotal),
+        take_out: false,
+    });
 
     itemForm.reset();
     itemForm.clearErrors();
 };
 
 watch(
-    () => itemForm.quantity,
-    (newQuantity) => {
-        if (newQuantity && itemForm.price) {
-            itemForm.line_total = parseFloat(newQuantity * itemForm.price);
-            const discountAmount =
-                (itemForm.discount / 100) * itemForm.line_total;
-            itemForm.net_total = parseFloat(
-                itemForm.line_total - discountAmount
-            );
-        }
-    }
-);
-
-watch(
-    () => itemForm.discount,
-    (newDiscount) => {
-        if (itemForm.line_total) {
-            const discountAmount = (newDiscount / 100) * itemForm.line_total;
-            itemForm.net_total = parseFloat(
-                itemForm.line_total - discountAmount
-            );
-        }
+    () => [itemForm.quantity, itemForm.price, itemForm.discount],
+    () => {
+        const total = Number(itemForm.quantity || 0) * Number(itemForm.price || 0) - Number(itemForm.discount || 0);
+        itemForm.line_total = Number(total.toFixed(2));
+        itemForm.net_total = itemForm.line_total;
     }
 );
 
@@ -214,7 +209,7 @@ const update = () => {
             severity: "info",
         },
         accept: () => {
-            form.put(route("store-transactions.update", transaction.id), {
+            form.transform(data => ({ ...data, order_date: calendarDate(data.order_date) })).put(route("store-transactions.update", transaction.id), {
                 onSuccess: () => {
                     toast.add({
                         severity: "success",
@@ -269,7 +264,14 @@ onMounted(() => {
 });
 </script>
 <template>
-    <Layout heading="Edit Store Transaction">
+    <Layout heading="Correct Store Transaction">
+        <div class="mb-4 rounded border p-4 space-y-2">
+            <p class="text-sm">Corrections reverse the recorded ingredient consumption and post replacement consumption. Store, sales date, terminal and receipt number must remain the same. This is not a refund or physical return.</p>
+            <label for="correction-reason" class="block font-medium">Reason for correction</label>
+            <textarea id="correction-reason" v-model="form.correction_reason" class="w-full rounded border p-2" minlength="10" maxlength="1000" required />
+            <p v-if="form.errors.correction_reason" class="text-sm text-red-600">{{ form.errors.correction_reason }}</p>
+            <p v-if="form.errors.items" class="text-sm text-red-600">{{ form.errors.items }}</p>
+        </div>
         <Card class="grid grid-cols-3 gap-3 p-5">
             <Card>
                 <CardHeader>
@@ -283,27 +285,27 @@ onMounted(() => {
                     <DivFlexCol class="gap-3">
                         <InputContainer>
                             <LabelXS>Date</LabelXS>
-                            <DatePicker v-model="form.order_date" showIcon />
+                            <DatePicker v-model="form.order_date" showIcon disabled />
                             <FormError>{{ form.errors.order_date }}</FormError>
                         </InputContainer>
                         <InputContainer>
                             <LabelXS>Lot/Serial</LabelXS>
-                            <Input v-model="form.lot_serial" />
+                            <Input v-model="form.lot_serial" disabled />
                             <FormError>{{ form.errors.lot_serial }}</FormError>
                         </InputContainer>
                         <InputContainer>
                             <LabelXS>Posted</LabelXS>
-                            <Input v-model="form.posted" />
+                            <Input v-model="form.posted" disabled />
                             <FormError>{{ form.errors.posted }}</FormError>
                         </InputContainer>
                         <InputContainer>
                             <LabelXS>TM#</LabelXS>
-                            <Input v-model="form.tim_number" />
+                            <Input v-model="form.tim_number" disabled />
                             <FormError>{{ form.errors.tim_number }}</FormError>
                         </InputContainer>
                         <InputContainer>
                             <LabelXS>Receipt No.</LabelXS>
-                            <Input v-model="form.receipt_number" />
+                            <Input v-model="form.receipt_number" disabled />
                             <FormError>{{
                                 form.errors.receipt_number
                             }}</FormError>
@@ -312,6 +314,7 @@ onMounted(() => {
                             <LabelXS>Branch</LabelXS>
                             <Select
                                 v-model="form.store_branch_id"
+                                disabled
                                 filter
                                 placeholder="Select a branch"
                                 :options="branchesOptions"
@@ -324,12 +327,12 @@ onMounted(() => {
                         </InputContainer>
                         <InputContainer>
                             <LabelXS>Customer ID</LabelXS>
-                            <Input v-model="form.customer_id" />
+                            <Input v-model="form.customer_id" disabled />
                             <FormError>{{ form.errors.customer_id }}</FormError>
                         </InputContainer>
                         <InputContainer>
                             <LabelXS>Customer</LabelXS>
-                            <Input v-model="form.customer" />
+                            <Input v-model="form.customer" disabled />
                             <FormError>{{ form.errors.customer }}</FormError>
                         </InputContainer>
                     </DivFlexCol>
@@ -383,7 +386,7 @@ onMounted(() => {
                                 }}</FormError>
                             </InputContainer>
                             <InputContainer class="w-full">
-                                <LabelXS>Discount</LabelXS>
+                                <LabelXS>Discount amount</LabelXS>
                                 <Input
                                     type="number"
                                     v-model="itemForm.discount"
@@ -438,7 +441,7 @@ onMounted(() => {
                             <TH>Actions</TH>
                         </TableHead>
                         <TableBody>
-                            <tr v-for="item in form.items">
+                            <tr v-for="item in form.items" :key="item.id">
                                 <TD>{{ item.name }}</TD>
                                 <TD>{{ item.price }}</TD>
                                 <TD>{{ item.quantity }}</TD>

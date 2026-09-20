@@ -57,6 +57,7 @@ const importTransactions = () => {
     });
 };
 
+let nextRowId = 0;
 const itemForm = useForm({
     id: null,
     product_id: null,
@@ -68,6 +69,8 @@ const itemForm = useForm({
     net_total: null,
 });
 
+const calendarDate = (value) => value instanceof Date
+    ? `${value.getFullYear()}-${String(value.getMonth() + 1).padStart(2, "0")}-${String(value.getDate()).padStart(2, "0")}` : value;
 const form = useForm({
     order_date: null,
     lot_serial: null,
@@ -134,47 +137,37 @@ const addToItemsList = () => {
         return;
     }
     console.log(itemForm);
-    const existingItemIndex = form.items.findIndex(
-        (item) => item.id === itemForm.id
-    );
-    if (existingItemIndex === -1) {
-        itemForm.line_total = parseFloat(itemForm.quantity * itemForm.price);
-        itemForm.net_total = parseFloat(itemForm.quantity * itemForm.price);
-        form.items.push({ ...itemForm });
-    } else {
-        const item = form.items[existingItemIndex];
-        item.quantity += itemForm.quantity;
-        itemForm.line_total = parseFloat(itemForm.quantity * itemForm.price);
-        itemForm.net_total = parseFloat(itemForm.quantity * itemForm.price);
+    const quantity = Number(itemForm.quantity);
+    const price = Number(itemForm.price);
+    const discount = Number(itemForm.discount || 0);
+    const lineTotal = Number((quantity * price - discount).toFixed(2));
+    if (!Number.isInteger(quantity) || quantity <= 0 || !Number.isFinite(lineTotal) || lineTotal < 0) {
+        itemForm.setError("quantity", "Enter a positive whole quantity and valid sales amounts.");
+        return;
     }
+    form.items.push({
+        id: ++nextRowId,
+        product_id: itemForm.product_id,
+        name: itemForm.name,
+        quantity,
+        base_quantity: quantity,
+        price,
+        discount,
+        line_total: lineTotal,
+        net_total: Number(itemForm.net_total ?? lineTotal),
+        take_out: false,
+    });
 
     itemForm.reset();
     itemForm.clearErrors();
 };
 
 watch(
-    () => itemForm.quantity,
-    (newQuantity) => {
-        if (newQuantity && itemForm.price) {
-            itemForm.line_total = parseFloat(newQuantity * itemForm.price);
-            const discountAmount =
-                (itemForm.discount / 100) * itemForm.line_total;
-            itemForm.net_total = parseFloat(
-                itemForm.line_total - discountAmount
-            );
-        }
-    }
-);
-
-watch(
-    () => itemForm.discount,
-    (newDiscount) => {
-        if (itemForm.line_total) {
-            const discountAmount = (newDiscount / 100) * itemForm.line_total;
-            itemForm.net_total = parseFloat(
-                itemForm.line_total - discountAmount
-            );
-        }
+    () => [itemForm.quantity, itemForm.price, itemForm.discount],
+    () => {
+        const total = Number(itemForm.quantity || 0) * Number(itemForm.price || 0) - Number(itemForm.discount || 0);
+        itemForm.line_total = Number(total.toFixed(2));
+        itemForm.net_total = itemForm.line_total;
     }
 );
 
@@ -202,7 +195,7 @@ const store = () => {
             severity: "info",
         },
         accept: () => {
-            form.post(route("store-transactions.store"), {
+            form.transform(data => ({ ...data, order_date: calendarDate(data.order_date) })).post(route("store-transactions.store"), {
                 onSuccess: () => {
                     toast.add({
                         severity: "success",
@@ -236,7 +229,12 @@ const editQuantity = () => {
 
     const index = form.items.findIndex((item) => item.id === formQuantity.id);
 
-    form.items[index].quantity = formQuantity.quantity;
+    const item = form.items[index];
+    const ratio = Number(item.base_quantity || item.quantity) / Number(item.quantity);
+    item.quantity = Number(formQuantity.quantity);
+    item.base_quantity = item.quantity * ratio;
+    item.line_total = Number((item.quantity * Number(item.price) - Number(item.discount || 0)).toFixed(2));
+    item.net_total = item.line_total;
     form.items[index].total_cost = parseFloat(
         form.items[index].quantity * form.items[index].cost
     ).toFixed(2);
@@ -373,7 +371,7 @@ const editQuantity = () => {
                                 }}</FormError>
                             </InputContainer>
                             <InputContainer class="w-full">
-                                <LabelXS>Discount</LabelXS>
+                                <LabelXS>Discount amount</LabelXS>
                                 <Input
                                     type="number"
                                     v-model="itemForm.discount"
@@ -428,7 +426,7 @@ const editQuantity = () => {
                             <TH>Actions</TH>
                         </TableHead>
                         <TableBody>
-                            <tr v-for="item in form.items">
+                            <tr v-for="item in form.items" :key="item.id">
                                 <TD>{{ item.name }}</TD>
                                 <TD>{{ item.price }}</TD>
                                 <TD>{{ item.quantity }}</TD>

@@ -1,5 +1,8 @@
 <script setup>
 import { computed } from 'vue';
+import { useStockRefresh } from '@/composables/useStockRefresh';
+
+useStockRefresh(['history']);
 
 const { branches, history } = defineProps({
     branches: {

@@ -25,13 +25,21 @@ class POSMasterfileController extends Controller
         $search = request('search');
         $filter = request('filter');
 
-        $query = POSMasterfile::query();
+        $query = POSMasterfile::query()->withCount('posMasterfileBOMs as bom_items_count');
 
         if ($filter === 'inactive')
             $query->where('is_active', '=', 0);
 
         if ($filter === 'is_active')
             $query->where('is_active', '=', 1);
+
+        // Active POS codes that have no BOM (recipe) rows yet.
+        if ($filter === 'no_bom')
+            $query->where('is_active', '=', 1)->whereDoesntHave('posMasterfileBOMs');
+
+        // Active POS codes that already have BOM (recipe) rows.
+        if ($filter === 'with_bom')
+            $query->where('is_active', '=', 1)->whereHas('posMasterfileBOMs');
 
         if ($search)
             $query->whereAny(['POSCode', 'POSDescription', 'POSName'], 'like', "%$search%"); // Include POSName in search
@@ -40,7 +48,15 @@ class POSMasterfileController extends Controller
 
         return Inertia::render('POSMasterfile/Index', [
             'items' => $items,
-            'filters' => request()->only(['search', 'filter'])
+            'filters' => request()->only(['search', 'filter']),
+            'noBomCount' => POSMasterfile::query()
+                ->where('is_active', '=', 1)
+                ->whereDoesntHave('posMasterfileBOMs')
+                ->count(),
+            'withBomCount' => POSMasterfile::query()
+                ->where('is_active', '=', 1)
+                ->whereHas('posMasterfileBOMs')
+                ->count(),
         ])->with('success', true);
     }
 

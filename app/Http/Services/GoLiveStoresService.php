@@ -144,7 +144,7 @@ class GoLiveStoresService
      *
      * @return array<int, string> store id => Y-m-d
      */
-    private function goLiveDates(array $storeIds): array
+    public function goLiveDates(array $storeIds): array
     {
         if (empty($storeIds)) {
             return [];

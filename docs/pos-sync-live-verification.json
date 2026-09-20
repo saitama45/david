@@ -1,0 +1,88 @@
+{
+    "database": "daviddb_test",
+    "verified_at": "2026-09-20T11:22:55+08:00",
+    "posted_receipts": 1710,
+    "linked_movements": 49435,
+    "intact_failed": [],
+    "unresolved_receipts": 753,
+    "logs": [
+        {
+            "status": "completed",
+            "batches": "27"
+        }
+    ],
+    "store_counts": [
+        {
+            "store_branch_id": "9",
+            "receipts": "154"
+        },
+        {
+            "store_branch_id": "15",
+            "receipts": "125"
+        },
+        {
+            "store_branch_id": "26",
+            "receipts": "115"
+        },
+        {
+            "store_branch_id": "35",
+            "receipts": "138"
+        },
+        {
+            "store_branch_id": "6",
+            "receipts": "22"
+        },
+        {
+            "store_branch_id": "24",
+            "receipts": "109"
+        },
+        {
+            "store_branch_id": "30",
+            "receipts": "62"
+        },
+        {
+            "store_branch_id": "41",
+            "receipts": "76"
+        },
+        {
+            "store_branch_id": "36",
+            "receipts": "56"
+        },
+        {
+            "store_branch_id": "13",
+            "receipts": "59"
+        },
+        {
+            "store_branch_id": "22",
+            "receipts": "136"
+        },
+        {
+            "store_branch_id": "39",
+            "receipts": "80"
+        },
+        {
+            "store_branch_id": "16",
+            "receipts": "114"
+        },
+        {
+            "store_branch_id": "40",
+            "receipts": "57"
+        },
+        {
+            "store_branch_id": "11",
+            "receipts": "176"
+        },
+        {
+            "store_branch_id": "20",
+            "receipts": "129"
+        },
+        {
+            "store_branch_id": "28",
+            "receipts": "102"
+        }
+    ],
+    "scanner": {
+        "at": "2026-09-20T11:21:41+08:00",
+        "success": true
+    }
+}

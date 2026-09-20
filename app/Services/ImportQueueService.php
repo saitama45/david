@@ -30,7 +30,7 @@ class ImportQueueService
 
         if (Schema::hasTable('jobs')) {
             DB::table('jobs')
-                ->where('queue', 'imports')
+                ->whereIn('queue', ['imports', 'pos-sales'])
                 ->orderBy('id')
                 ->get(['id', 'payload'])
                 ->each(function ($job) use ($importLogId, &$deleted) {
@@ -42,7 +42,7 @@ class ImportQueueService
 
         if (Schema::hasTable('failed_jobs')) {
             DB::table('failed_jobs')
-                ->where('queue', 'imports')
+                ->whereIn('queue', ['imports', 'pos-sales'])
                 ->orderBy('id')
                 ->get(['id', 'payload'])
                 ->each(function ($job) use ($importLogId, &$deleted) {
@@ -89,10 +89,11 @@ class ImportQueueService
 
     public function hasActiveImport(?int $ignoreImportLogId = null): bool
     {
-        return ImportLog::where('status', 'processing')->exists()
-            || $this->queuedImportLogIds()
-                ->when($ignoreImportLogId, fn (Collection $ids) => $ids->reject(fn (int $id) => $id === $ignoreImportLogId))
-                ->isNotEmpty();
+        return ImportLog::where('status', 'processing')->where('type', '!=', 'pos_sales')->exists()
+            || ImportLog::withoutEntityScope()->where('type', '!=', 'pos_sales')
+                ->whereIn('id', $this->queuedImportLogIds()
+                    ->when($ignoreImportLogId, fn (Collection $ids) => $ids->reject(fn (int $id) => $id === $ignoreImportLogId)))
+                ->exists();
     }
 
     public function queueJobForImportLogId(int $importLogId): ?object
@@ -102,7 +103,7 @@ class ImportQueueService
         }
 
         return DB::table('jobs')
-            ->where('queue', 'imports')
+            ->whereIn('queue', ['imports', 'pos-sales'])
             ->orderBy('id')
             ->get(['id', 'payload', 'attempts', 'reserved_at', 'available_at', 'created_at'])
             ->first(fn ($job) => $this->extractImportLogId((string) $job->payload) === $importLogId);
@@ -115,7 +116,7 @@ class ImportQueueService
         }
 
         return DB::table('failed_jobs')
-            ->where('queue', 'imports')
+            ->whereIn('queue', ['imports', 'pos-sales'])
             ->orderByDesc('id')
             ->get(['id', 'payload', 'exception', 'failed_at'])
             ->first(fn ($job) => $this->extractImportLogId((string) $job->payload) === $importLogId);
@@ -175,7 +176,7 @@ class ImportQueueService
         }
 
         return DB::table('jobs')
-            ->where('queue', 'imports')
+            ->whereIn('queue', ['imports', 'pos-sales'])
             ->pluck('payload')
             ->map(fn ($payload) => $this->extractImportLogId((string) $payload))
             ->filter()
@@ -188,6 +189,7 @@ class ImportQueueService
         return match ($type) {
             'sap_masterfile' => SAPMasterfileImportJob::class,
             'store_transaction' => StoreTransactionImportJob::class,
+            'pos_sales' => \App\Jobs\PosSalesSyncJob::class,
             default => null,
         };
     }
@@ -207,6 +209,7 @@ class ImportQueueService
     private function nextPendingLog(): ?ImportLog
     {
         return ImportLog::where('status', 'pending')
+            ->where('type', '!=', 'pos_sales')
             ->orderBy('created_at')
             ->lockForUpdate()
             ->first();

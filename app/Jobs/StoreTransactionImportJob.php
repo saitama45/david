@@ -15,7 +15,6 @@ use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
-use Maatwebsite\Excel\Facades\Excel;
 use Throwable;
 
 class StoreTransactionImportJob implements ShouldQueue
@@ -43,6 +42,7 @@ class StoreTransactionImportJob implements ShouldQueue
 
     protected function process(ImportLog $log): void
     {
+        if ($log->status === 'completed') return;
         $log->update([
             'status' => 'processing',
             'processing_started_at' => $log->processing_started_at ?? now(),
@@ -52,6 +52,7 @@ class StoreTransactionImportJob implements ShouldQueue
         ]);
 
         try {
+            (new \App\Services\SalesPostingLedger)->requireReady();
             $filePath = $this->filePath ?: $log->source_file_path;
 
             Log::info('StoreTransaction Import: Job started.', ['file' => $filePath]);
@@ -60,15 +61,21 @@ class StoreTransactionImportJob implements ShouldQueue
                 throw new Exception("Import file not found: {$filePath}");
             }
 
-            $import = new StoreTransactionImport();
-            DB::beginTransaction();
-            Excel::import($import, Storage::path($filePath));
-            DB::commit();
+            $owner = \App\Models\User::findOrFail($log->user_id);
+            if (!$owner->can('create store transactions')) throw new \RuntimeException('Uploader no longer has sales import permission.');
+            if (!$owner->accessibleEntities()->whereKey($log->entity_id)->exists()) throw new \RuntimeException('Uploader no longer has access to this entity.');
+            $import = new StoreTransactionImport($owner, 'manual', null, $log->id);
+            // Use a receipt-level transaction instead of the package's workbook-wide transaction.
+            $reader = new \Maatwebsite\Excel\Reader(
+                app(\Maatwebsite\Excel\Files\TemporaryFileFactory::class),
+                new \Maatwebsite\Excel\Transactions\NullTransactionHandler
+            );
+            $reader->read($import, Storage::path($filePath));
             $log->update(['last_heartbeat_at' => now()]);
 
             $skippedRows    = $import->getSkippedRows();
             $skippedCount   = count($skippedRows);
-            $processedCount = $import->getCreatedCount();
+            $processedCount = DB::table('sales_postings')->where('import_log_id', $log->id)->count();
             $storeBranchIds = $import->getStoreBranchIds();
 
             $skippedFilePath = null;
@@ -94,7 +101,7 @@ class StoreTransactionImportJob implements ShouldQueue
                         ]
                     ));
                 }
-                Storage::put($skippedFilePath, implode("\n", $csvLines));
+                if (!Storage::put($skippedFilePath, implode("\n", $csvLines))) throw new \RuntimeException("Could not save the skipped sales report.");
             }
 
             $log->update([
@@ -107,7 +114,7 @@ class StoreTransactionImportJob implements ShouldQueue
             ]);
             $log->storeBranches()->sync($storeBranchIds);
 
-            Storage::delete($filePath);
+            // Retain the source for audit and recovery.
 
             Log::info('StoreTransaction Import: Job completed.', [
                 'processed' => $processedCount,
@@ -129,9 +136,6 @@ class StoreTransactionImportJob implements ShouldQueue
                 'completed_at'  => now(),
             ]);
 
-            if (!empty($filePath ?? null)) {
-                Storage::delete($filePath);
-            }
 
             Log::error('StoreTransaction Import: Job failed.', ['error' => $e->getMessage()]);
             app(ImportQueueService::class)->dispatchNextPending($this->importLogId);

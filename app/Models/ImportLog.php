@@ -33,6 +33,12 @@ class ImportLog extends Model
         'completed_at' => 'datetime',
     ];
 
+    public function getDisplayStatusAttribute(): string
+    {
+        return $this->status === 'completed' && $this->skipped_count > 0
+            ? 'completed_with_issues' : $this->status;
+    }
+
     public function user()
     {
         return $this->belongsTo(User::class);
