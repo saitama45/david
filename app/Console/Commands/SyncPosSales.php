@@ -86,6 +86,13 @@ class SyncPosSales extends Command
                                         'since' => ($previous ? \Carbon\Carbon::parse($previous)->subSeconds(30) : (isset($profile['start_date']) ? \Carbon\Carbon::parse($profile['start_date'])->startOfDay() : now()->subDays(config('pos_sync.lookback_days', 7))))->format('Y-m-d H:i:s'),
                                         'until' => now()->subSeconds(config('pos_sync.settle_seconds', 5))->format('Y-m-d H:i:s'),
                                     ];
+                                    $arrivals = $source->arrivalWindow($profile, $window, $previous);
+                                    if (!$arrivals) {
+                                        $sync->advanceCursor($profile, $window['until']);
+                                        $this->info("{$name}: no new POS arrivals; no Work Queue entry created.");
+                                        return;
+                                    }
+                                    $window = $arrivals;
                                 }
                                 if (($scheduled || $this->option('only-changes')) && !$sync->hasPendingWork($profile, $from, $to, $window)) {
                                     if ($window) $sync->advanceCursor($profile, $window['until']);

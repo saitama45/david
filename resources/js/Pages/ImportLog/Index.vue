@@ -6,9 +6,10 @@ import { computed, ref, watch } from "vue";
 
 import { useStockRefresh } from "@/composables/useStockRefresh";
 import { salesStatusLabel as statusLabel, salesStatusClass as statusClass } from "@/composables/salesImportStatus";
-useStockRefresh(["logs"]);
+useStockRefresh(["logs", "unresolvedPosReceipts"]);
 
 const props = defineProps({
+    unresolvedPosReceipts: Number,
     canReviewBom: Boolean,
     logs: {
         type: Object,
@@ -74,7 +75,7 @@ const resetFilters = () => {
 
 const refreshPage = () => {
     router.reload({
-        only: ["logs"],
+        only: ["logs", "unresolvedPosReceipts"],
         preserveScroll: true,
     });
 };
@@ -133,6 +134,11 @@ const shortError = (message) => {
             <a v-if="canReviewBom" :href="route('import-logs.missing-bom')" class="rounded border px-4 py-2 text-sm">Missing BOM</a>
         </nav>
         <p class="mb-4 text-sm text-muted-foreground">Updates every 10 seconds. Check skipped counts and download the report for records that need review.</p>
+        <p v-if="tab !== 'manual' && unresolvedPosReceipts !== null && unresolvedPosReceipts !== undefined" class="mb-4 text-sm">
+            <strong>Unresolved POS receipts: {{ unresolvedPosReceipts.toLocaleString() }}</strong>
+            — All recorded unresolved receipts for your authorized stores and selected store filter, across all runs.
+            Job search does not filter this total. Skipped below counts only receipts skipped in that job.
+        </p>
         <TableContainer>
             <TableHeader>
                 <SearchBar>

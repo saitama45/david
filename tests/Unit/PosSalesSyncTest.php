@@ -572,16 +572,71 @@ class PosSalesSyncTest extends TestCase
         (require base_path('database/migrations/2026_09_20_000002_create_pos_sync_cursors_table.php'))->up();
         $profile = $this->profile();
         config(['pos_sync.enabled' => true, 'pos_sync.profiles' => ['test' => $profile]]);
-        $this->mock(PosSalesSource::class)->shouldReceive('receipts')->once()->andReturnUsing(function () {
-            yield from [];
-        });
+        $source = $this->mock(PosSalesSource::class);
+        $source->shouldReceive('arrivalWindow')->once()->andReturnNull();
+        $source->shouldNotReceive('receipts');
         $sync = $this->partialMock(PosSalesSync::class);
         $sync->shouldReceive('dispatchPending')->once();
         $sync->shouldReceive('profile')->with('test', true)->andReturn($profile);
         $sync->shouldNotReceive('enqueue');
+        $sync->shouldNotReceive('hasPendingWork');
         $this->artisan('pos:sync-sales', ['--scheduled' => true])->assertExitCode(0);
         $this->assertSame(1, DB::table('pos_sync_cursors')->count());
         $this->assertSame(0, DB::table('import_logs')->count());
+    }
+
+    public function test_automatic_queue_requires_fresh_source_arrivals_not_due_exceptions_or_overlap(): void
+    {
+        foreach (['pos_sale','pos_sale_product','pos_sale_cancel'] as $name) {
+            Schema::create($name, function (Blueprint $table) {
+                foreach (['fcompanyid','fsiteid','fpubid','frecno','fsale_date','_sync_timestamp'] as $column) $table->string($column);
+            });
+        }
+        foreach (['mst_account','mst_discount','mst_product','mst_pricelevel'] as $name) {
+            Schema::create($name, function (Blueprint $table) {
+                $table->string('fcompanyid'); $table->string('_sync_timestamp');
+            });
+        }
+        $header = ['fcompanyid'=>'COMPANY','fsiteid'=>'TEST','fpubid'=>'PUB','frecno'=>'1',
+            'fsale_date'=>'20260919','_sync_timestamp'=>'2026-09-19 10:59:45'];
+        DB::table('pos_sale')->insert($header);
+        DB::table('pos_sale')->insert(array_replace($header,['frecno'=>'99']));
+        DB::table('pos_sync_exceptions')->insert(['source_key'=>hash('sha256','old-due'),
+            'entity_id'=>1,'store_branch_id'=>1,'source_identity'=>json_encode(['COMPANY','TEST','PUB','99']),
+            'reason'=>'Old issue', 'retry_at'=>now()->subDay(), 'created_at'=>now(),'updated_at'=>now()]);
+        $window = ['since'=>'2026-09-19 10:59:30','until'=>'2026-09-19 11:00:30'];
+        $previous = '2026-09-19 11:00:00';
+        $source = new PosSalesSource;
+        // Old arrivals inside the overlap and due issues cannot trigger a job.
+        $this->assertNull($source->arrivalWindow($this->profile(),$window,$previous));
+        foreach (['pos_sale','pos_sale_product','pos_sale_cancel'] as $table) {
+            DB::table($table)->insert(array_replace($header,['_sync_timestamp'=>'2026-09-19 11:00:10']));
+            $fresh = $source->arrivalWindow($this->profile(),$window,$previous);
+            $this->assertTrue($fresh['source_only']);
+            $this->assertFalse($fresh['reference_changed']);
+            DB::table($table)->where('_sync_timestamp','2026-09-19 11:00:10')->delete();
+        }
+        foreach (['mst_account','mst_discount','mst_product','mst_pricelevel'] as $table) {
+            DB::table($table)->insert(['fcompanyid'=>'COMPANY','_sync_timestamp'=>'2026-09-19 11:00:10']);
+            $fresh = $source->arrivalWindow($this->profile(),$window,$previous);
+            $this->assertTrue($fresh['reference_changed']);
+            $this->assertNull($source->arrivalWindow($this->profile(),$window,$window['until']));
+            DB::table($table)->delete();
+        }
+        // The worker must not append an unrelated old exception to a fresh window.
+        $later = ['since'=>'2026-09-19 11:00:00','until'=>'2026-09-19 11:00:30','source_only'=>true];
+        DB::table('pos_sale_product')->insert(array_replace($header,['_sync_timestamp'=>'2026-09-19 11:00:10']));
+        $keys = $source->candidateKeys($this->profile(),'2026-09-19','2026-09-19',$later);
+        $this->assertCount(1,$keys);
+        $this->assertSame('1',$keys[0]->frecno);
+    }
+
+    public function test_scan_loop_does_not_run_daily_reconciliation(): void
+    {
+        $loop = \Mockery::mock(\App\Console\Commands\PosScanLoop::class)->makePartial();
+        $loop->shouldReceive('call')->once()->with('pos:sync-sales',['--scheduled'=>true])->andReturn(0);
+        $loop->shouldReceive('option')->with('once')->andReturn(true);
+        $this->assertSame(0,$loop->handle());
     }
 
     public function test_preview_does_not_write_and_retries_do_not_deduct_twice(): void
@@ -668,7 +723,7 @@ class PosSalesSyncTest extends TestCase
         } catch (\InvalidArgumentException $e) {
             $this->assertStringContainsString('Conflicting', $e->getMessage());
         }
-        $this->expectExceptionMessage('does not match its header');
+        $this->expectExceptionMessage('Receipt totals conflict:');
         $mapper->map($this->sale(), [$changed], $this->profile());
     }
 
@@ -709,12 +764,54 @@ class PosSalesSyncTest extends TestCase
         DB::table('pos_sync_exceptions')->insert(['source_key' => hash('sha256', 'retry'), 'entity_id' => 1,
             'store_branch_id' => 1, 'source_identity' => json_encode(['COMPANY','TEST','PUB','1']),
             'reason' => 'Master data needs repair', 'retry_at' => now()->subMinute(), 'created_at' => now(), 'updated_at' => now()]);
-        $this->assertTrue($source->keys($this->profile(), '2026-09-19', '2026-09-19', $future)->exists());
+        $this->assertCount(1, $source->candidateKeys($this->profile(), '2026-09-19', '2026-09-19', $future));
         DB::table('pos_sync_exceptions')->update(['resolved_at' => now()]);
-        $this->assertFalse($source->keys($this->profile(), '2026-09-19', '2026-09-19', $future)->exists());
+        $this->assertCount(0, $source->candidateKeys($this->profile(), '2026-09-19', '2026-09-19', $future));
         DB::table('store_orders')->delete();
         $this->assertFalse($source->keys($this->profile(), '2026-09-19', '2026-09-19')->exists());
 
+    }
+
+    public function test_retry_candidates_include_all_due_receipts_across_chunks_without_duplicates(): void
+    {
+        Schema::create('pos_sale', function (Blueprint $table) {
+            foreach (['fcompanyid','fsiteid','fpubid','frecno','fsale_date','_sync_timestamp'] as $column) $table->string($column);
+        });
+        foreach (['pos_sale_product', 'pos_sale_cancel'] as $name) {
+            Schema::create($name, function (Blueprint $table) {
+                foreach (['fcompanyid','fpubid','frecno','_sync_timestamp'] as $column) $table->string($column);
+            });
+        }
+        $headers = []; $exceptions = [];
+        for ($i = 1; $i <= 1205; $i++) {
+            $headers[] = ['fcompanyid'=>'COMPANY','fsiteid'=>'TEST','fpubid'=>'PUB','frecno'=>(string)$i,
+                'fsale_date'=>'20260919','_sync_timestamp'=>'2026-09-19 10:00:00'];
+            $exceptions[] = ['source_key'=>hash('sha256', 'retry-'.$i),'entity_id'=>1,'store_branch_id'=>1,
+                'source_identity'=>json_encode(['COMPANY','TEST','PUB',(string)$i]),'reason'=>'Needs review',
+                'retry_at'=>now()->subMinute(),'created_at'=>now(),'updated_at'=>now()];
+        }
+        foreach (array_chunk($headers, 100) as $chunk) DB::table('pos_sale')->insert($chunk);
+        foreach (array_chunk($exceptions, 100) as $chunk) DB::table('pos_sync_exceptions')->insert($chunk);
+        $window = ['since'=>'2026-09-19 09:00:00','until'=>'2026-09-19 11:00:00'];
+        $source = new PosSalesSource;
+        // Every key also occurs in changed-source discovery; no duplicate receipts.
+        $this->assertCount(1205, $source->candidateKeys($this->profile(), '2026-09-19', '2026-09-19', $window));
+        $window = ['since'=>'2040-01-01','until'=>'2040-01-02'];
+        $this->assertCount(1205, $source->candidateKeys($this->profile(), '2026-09-19', '2026-09-19', $window));
+        DB::table('pos_sync_exceptions')->where('id', 1)->update(['resolved_at'=>now()]);
+        DB::table('pos_sync_exceptions')->where('id', 2)->update(['retry_at'=>now()->addHour()]);
+        DB::table('pos_sync_exceptions')->where('id', 3)->update(['entity_id'=>2]);
+        DB::table('pos_sync_exceptions')->where('id', 4)->update(['store_branch_id'=>2]);
+        DB::table('pos_sync_exceptions')->where('id', 5)->update(['source_identity'=>json_encode(['COMPANY','OTHER','PUB','5'])]);
+        DB::table('pos_sale')->where('frecno','6')->update(['fsale_date'=>'20200101']);
+        $this->assertCount(1199, $source->candidateKeys($this->profile(), '2026-09-19', '2026-09-19', $window));
+        $status = $this->partialMock(\App\Services\SalesImportStatus::class);
+        $status->shouldReceive('branchIds')->andReturn([1]);
+        $user = new \App\Models\User;
+        // The visible unresolved total includes not-yet-due records, but never
+        // resolved records, another entity, or an unauthorized branch.
+        $this->assertSame(1202, $status->unresolvedReceipts($user));
+        $this->assertSame(0, $status->unresolvedReceipts($user, 2));
     }
 
     public function test_work_queue_job_reports_success_and_replay_is_harmless(): void
@@ -765,6 +862,78 @@ class PosSalesSyncTest extends TestCase
         }
         $this->expectExceptionMessage('fractional quantity');
         $mapper->map($this->sale(), [array_replace($this->line(), ['fqty' => '0.5'])], $this->profile());
+    }
+
+    public function test_subtotal_is_corrected_only_when_detail_net_corroborates_header_net(): void
+    {
+        $mapper = new PosReceiptMapper;
+        $sale = array_replace($this->sale(), ['fsubtotal'=>'999', 'fgross'=>'162']);
+        $line = array_replace($this->line(), ['fvar'=>'-10']);
+        $corrections = [];
+        $rows = $mapper->map($sale, [$line], $this->profile(), $corrections);
+        $this->assertSame(180.0, $rows[0]['line_total']);
+        $this->assertSame(162.0, $rows[0]['net_total']);
+        $this->assertCount(1, $corrections);
+        $this->assertStringContainsString('from 999.00 to 180.00', $corrections[0]);
+        $this->assertSame('999', $sale['fsubtotal']);
+        $packet = $this->packet();
+        $packet['rows'] = $rows;
+        $packet['hash'] = hash('sha256', json_encode($rows));
+        $sync = new PosSalesSync;
+        $this->assertSame('imported', $sync->process($packet, $this->profile(), 123)['status']);
+        $this->assertSame('unchanged', $sync->process($packet, $this->profile(), 124)['status']);
+        $this->assertSame(1, DB::table('store_transactions')->count());
+        $this->assertSame(1, DB::table('product_inventory_stock_managers')->where('action','out')->count());
+    }
+
+    public function test_conflicting_totals_and_unknown_adjustments_are_not_guessed(): void
+    {
+        $mapper = new PosReceiptMapper;
+        foreach ([
+            [$this->sale(), array_replace($this->line(), ['fqty'=>'1','ftotal_line'=>'90','fvar'=>'0'])],
+            [array_replace($this->sale(), ['fsubtotal'=>'999']), array_diff_key($this->line(), ['fvar'=>true])],
+        ] as [$sale, $line]) {
+            try {
+                $mapper->map($sale, [$line], $this->profile());
+                $this->fail('Uncorroborated receipt must not import');
+            } catch (\InvalidArgumentException $e) {
+                $this->assertStringContainsString('Receipt totals conflict:', $e->getMessage());
+            }
+        }
+        $this->assertSame(0, DB::table('store_transactions')->count());
+    }
+
+    public function test_zero_header_imports_positive_details_and_retries_without_double_deduction(): void
+    {
+        $sale = array_replace($this->sale(), ['fsubtotal'=>'0','fgross'=>'0','ftotal_qty'=>'0']);
+        $line = array_replace($this->line(), ['fqty'=>'32','funitprice'=>'395','ftotal_line'=>'12640','fvar'=>'0']);
+        $corrections = [];
+        $rows = (new PosReceiptMapper)->map($sale, [$line], $this->profile(), $corrections);
+        $this->assertSame(32.0, $rows[0]['qty']);
+        $this->assertSame(12640.0, $rows[0]['line_total']);
+        $this->assertSame(12640.0, $rows[0]['net_total']);
+        $this->assertStringContainsString('Zero-value header', $corrections[0]);
+        $packet = array_replace($this->packet(), ['rows'=>$rows, 'hash'=>hash('sha256',json_encode($rows))]);
+        $sync = new PosSalesSync;
+        $this->assertSame('imported', $sync->process($packet,$this->profile(),123)['status']);
+        $this->assertSame('unchanged', $sync->process($packet,$this->profile(),124)['status']);
+        $this->assertSame(1, DB::table('store_transactions')->count());
+        $this->assertSame(16.0, (float)DB::table('product_inventory_stock_managers')->where('action','out')->sum('quantity'));
+    }
+
+    public function test_zero_header_preserves_per_line_discounts_and_excludes_inactive_items(): void
+    {
+        $sale = array_replace($this->sale(), ['fsubtotal'=>'0','fgross'=>'0']);
+        $first = array_replace($this->line(), ['fvar'=>'-10']);
+        $second = array_replace($this->line(), ['fseqno'=>'2','fvar'=>'0']);
+        $inactive = array_replace($this->line(), ['fseqno'=>'3','fstatus_flag'=>'W']);
+        $rows = (new PosReceiptMapper)->map($sale, [$first,$second,$inactive], $this->profile());
+        $this->assertCount(2, $rows);
+        $this->assertSame(162.0, $rows[0]['net_total']);
+        $this->assertSame(180.0, $rows[1]['net_total']);
+        $this->assertSame(20.0, $rows[0]['discount']);
+        $this->expectExceptionMessage('Unposted, void or return');
+        (new PosReceiptMapper)->map(array_replace($sale,['fvoid_flag'=>'1']), [$first], $this->profile());
     }
 
     public function test_report_amounts_take_out_and_posted_time_follow_pos_report_values(): void

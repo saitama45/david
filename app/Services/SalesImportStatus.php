@@ -45,6 +45,16 @@ class SalesImportStatus
         ];
     }
 
+    public function unresolvedReceipts(User $user, $branchId = 'all'): int
+    {
+        if (!\Illuminate\Support\Facades\Schema::hasTable('pos_sync_exceptions')) return 0;
+        $branches = $this->branchIds($user);
+        if ($branchId !== 'all') $branches = array_values(array_intersect($branches, [(int) $branchId]));
+        return \Illuminate\Support\Facades\DB::table('pos_sync_exceptions')
+            ->where('entity_id', app(\App\Support\EntityContext::class)->id())
+            ->whereIn('store_branch_id', $branches)->whereNull('resolved_at')->count();
+    }
+
     public function summary(User $user, $branchId = 'all'): array
     {
         $branches = $this->branchIds($user);
@@ -65,9 +75,7 @@ class SalesImportStatus
         return [
             'scanner_checked_at' => $scanner['at'] ?? null,
             'scanner_ok' => !empty($scanner['success']) && \Carbon\Carbon::parse($scanner['at'])->gt(now()->subSeconds(90)),
-            'unresolved_receipts' => \Illuminate\Support\Facades\Schema::hasTable('pos_sync_exceptions')
-                ? \Illuminate\Support\Facades\DB::table('pos_sync_exceptions')->where('entity_id', app(\App\Support\EntityContext::class)->id())
-                    ->whereIn('store_branch_id', $branches)->whereNull('resolved_at')->count() : 0,
+            'unresolved_receipts' => $this->unresolvedReceipts($user, $branchId),
             'automation_enabled' => (bool) config('pos_sync.enabled') && $configured->isNotEmpty(),
             'last_successful_sync' => $successful?->completed_at?->toIso8601String(),
             'latest_sales_date' => $date ? substr((string) $date, 0, 10) : null,

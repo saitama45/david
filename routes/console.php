@@ -4,7 +4,7 @@ use Illuminate\Foundation\Inspiring;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Schedule;
 
-Schedule::command('pos:reconcile-sales')->dailyAt('01:00')->withoutOverlapping(60);
+// Reconciliation is an explicit operator action; idle schedules must not create POS jobs.
 
 Schedule::command('pos:sync-sales --scheduled')
     ->everyTenSeconds()

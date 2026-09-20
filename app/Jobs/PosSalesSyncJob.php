@@ -54,7 +54,8 @@ class PosSalesSyncJob implements ShouldQueue
                     if (in_array($result['status'], ['review', 'ineligible'], true)) {
                         $skipped++;
                     }
-                    fputcsv($report, [implode('/', $packet['identity']), $result['status'], $result['reason']]);
+                    fputcsv($report, [implode('/', $packet['identity']), $result['status'],
+                        implode(' | ', array_merge([$result['reason']], $packet['corrections'] ?? []))]);
                     $log->update(['last_heartbeat_at' => now(), 'skipped_count' => $skipped]);
                 }
             } catch (Throwable $e) {

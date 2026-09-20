@@ -131,6 +131,8 @@ class ImportLogController extends Controller
             });
 
         return Inertia::render('ImportLog/Index', [
+            'unresolvedPosReceipts' => $user->can('view store transactions')
+                ? app(SalesImportStatus::class)->unresolvedReceipts($user, $branchId) : null,
             'canReviewBom' => $user->can('view store transactions'),
             'logs' => $logs,
             'branches' => StoreBranch::options()->toArray(),

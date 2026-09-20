@@ -31,7 +31,7 @@ The SQL enriches optional report labels from `mst_product`, `mst_account`, and t
 - Choose the latest source revision by `fupdated_date`, then `_sync_timestamp`. Open-bill and finalized-bill header copies can coexist. Equal-version conflicting copies are held for review.
 - A bill can open on one terminal and be paid on another. The line terminal does not have to equal the final header terminal. The final header also supplies the business date; active lines must still belong to the correct branch.
 - Post only finalized, nonvoid, nonreturn receipts with a positive receipt number. Include current line status `1`; exclude removed/waiting/void lines. The existence of a cancellation note does not void the whole receipt.
-- Header `ftotal_qty` excludes some zero-priced choices and is not a reliable line count. Check the sum of active `ftotal_line` against header `fsubtotal`. Inconsistent replicas are reported instead of posting partial stock consumption.
+- Header `ftotal_qty` excludes some zero-priced choices and is not a reliable line count. Compare active `ftotal_line` with header `fsubtotal`. A mismatching subtotal is recalculated for import only when every active line has an explicit numeric saved `fvar`, amounts are nonnegative, and their adjusted net sum agrees with `fgross - fservice_charge` within 0.02. The original and corrected subtotal are recorded in the Work Queue CSV; source POS tables remain unchanged. Other conflicts report actual header/detail amounts and remain unposted.
 - The current destination quantity columns are integers; nonpositive or fractional quantities are reported rather than truncated.
 
 ## Timing and stock behavior
@@ -112,7 +112,7 @@ Manual create uses the same posting process. Queue execution rechecks uploader p
 
 ## Recovery and reconciliation controls
 
-Unresolved POS receipts are stored independently of the discovery cursor. While automation runs, up to 100 due exceptions per store are included in a scan after a five-minute retry delay. The sales summary displays the persistent unresolved count while Work Queue continues to display Completed as requested. Reports retain the reasons and outcomes of each attempt.
+Unresolved POS receipts are stored independently of the discovery cursor. They do not trigger automatic jobs or get appended to automatic source-change batches. Work Queue and the sales summary display the full recorded unresolved count. Reprocessing old receipts after BOM or rule fixes is an explicit operator action when no new POS data has arrived. See `docs/pos-quiet-sync.md`. Reports retain each attempt's actual results.
 
 `pos:reconcile-sales` queues a date-based recheck of the last seven days at 01:00 application time through the Laravel scheduler, independent of source change timestamps. An existing active batch causes that profile to be skipped on that invocation. Explicit --from/--to selects older periods. Source deletions and unavailable historical BOM versions still require reconciliation; the application does not guess returns or recreate historical recipes. Posting snapshots preserve the actual quantities/costs used for later audited corrections.
 
@@ -139,7 +139,7 @@ Logs are `storage/logs/pos-local-scanner.log`, `pos-local-scanner-error.log`, `p
 
 ## Azure startup and settings
 
-`startup.sh` starts the dedicated POS scanner and worker only after this boot's migration step, config cache and `pos:doctor` checks succeed. The scanner executes incremental discovery every ten seconds and triggers daily reconciliation after 01:00 application time. It does not require a separate Laravel scheduler for POS operation. The worker is supervised and restarts after exit. Startup preserves an existing sales-posting pause across cache clearing.
+`startup.sh` starts the dedicated POS scanner and worker only after this boot's migration step, config cache and `pos:doctor` checks succeed. The scanner checks replication arrivals every ten seconds. Automatic daily reconciliation has been removed from both the scanner and Laravel scheduler; reconciliation remains an explicit operator action. It does not require a separate Laravel scheduler for POS operation. The worker is supervised and restarts after exit. Startup preserves an existing sales-posting pause across cache clearing.
 
 Table-to-table processing is enabled by default and store mappings ship in `config/pos_sync_profiles.json`; Azure does not need POS_SYNC_ENABLED or POS_SYNC_PROFILES settings. These names remain optional overrides, so an existing false/empty override must be removed if it should no longer apply. The mapping connects source company/site to the application entity/branch and Work Queue owner; it does not configure or replace desktop replication. Startup validates the shipped IDs and cutover dates against the target database. The optional settings example reflects local mappings, not independently verified production IDs. The database queue retry_after defaults to 3900 seconds. Non-inventory exceptions remain explicit: missing recipes otherwise skip and report individual receipts without blocking valid sales.
 
