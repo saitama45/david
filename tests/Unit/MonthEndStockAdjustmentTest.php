@@ -143,4 +143,52 @@ class MonthEndStockAdjustmentTest extends TestCase
             $this->assertSame(6,DB::table('product_inventory_stock_managers')->count());
         } finally { \Illuminate\Support\Carbon::setTestNow(); }
     }
+
+    public function test_bulk_repair_reconstructs_earlier_and_later_counts_without_double_adjusting(): void
+    {
+        $this->movement(904190,'out',49,'2026-09-05');
+        DB::table('product_inventory_stock_managers')->where('id',904190)->update([
+            'is_stock_adjustment'=>1,'is_stock_adjustment_approved'=>1,'remarks'=>'August count||MEC_REF::68,40']);
+        DB::table('month_end_schedules')->insert(['id'=>69,'entity_id'=>1,'calculated_date'=>'2026-09-18']);
+        DB::table('month_end_count_items')->insert(['entity_id'=>1,'month_end_schedule_id'=>69,'branch_id'=>40,'sap_masterfile_id'=>23835,'status'=>'level2_approved','total_qty'=>6,'uom'=>'PC']);
+        $this->movement(904191,'out',3,'2026-09-18');
+        DB::table('product_inventory_stock_managers')->where('id',904191)->update([
+            'is_stock_adjustment'=>1,'is_stock_adjustment_approved'=>1,'remarks'=>'Later count||MEC_REF::69,40']);
+        $repair = new \App\Services\MonthEndHistoryRepair;
+        $preview = $repair->run(40,23835,false,'preview.json');
+        $this->assertSame('1.0000000000',$preview['after']); // Latest count 6, then five sold.
+        $this->assertCount(2,$preview['changes']);
+        $this->assertSame(7,DB::table('product_inventory_stock_managers')->count());
+        $applied = $repair->run(40,23835,true,'bulk-test.json');
+        $this->assertSame('1.0000000000',(new MonthEndStockAdjustment)->balance(23835,40));
+        $this->assertSame('8.0000000000',(new MonthEndStockAdjustment)->balance(23835,40,'2026-09-05'));
+        $this->assertSame('6.0000000000',(new MonthEndStockAdjustment)->balance(23835,40,'2026-09-18'));
+        $this->assertCount(2,$applied['movement_ids']);
+        $this->assertSame('unchanged',$repair->run(40,23835,true,'repeat.json')['status']);
+        $this->assertSame(9,DB::table('product_inventory_stock_managers')->count());
+    }
+
+    public function test_bulk_recognizes_existing_single_repair_and_database_guard(): void
+    {
+        $this->movement(904190,'out',49,'2026-09-05');
+        DB::table('product_inventory_stock_managers')->where('id',904190)->update([
+            'is_stock_adjustment'=>1,'is_stock_adjustment_approved'=>1,'remarks'=>'August count||MEC_REF::68,40']);
+        $this->artisan('stock:repair-month-end',['movement'=>904190,'--apply'=>true])->assertExitCode(0);
+        $repair = new \App\Services\MonthEndHistoryRepair;
+        $this->assertSame('unchanged',$repair->run(40,23835,false,'existing.json')['status']);
+        $this->artisan('stock:repair-month-end-all',['--apply'=>true,'--expect-database'=>'daviddb'])->assertExitCode(1);
+        $this->artisan('stock:repair-month-end-all',['--expect-database'=>':memory:'])->assertExitCode(0);
+        $this->assertSame(8,DB::table('product_inventory_stock_managers')->count());
+    }
+
+    public function test_bulk_missing_count_movement_blocks_whole_sequence_without_partial_writes(): void
+    {
+        $this->movement(904190,'out',49,'2026-09-05');
+        DB::table('product_inventory_stock_managers')->where('id',904190)->update([
+            'is_stock_adjustment'=>1,'is_stock_adjustment_approved'=>1,'remarks'=>'August count||MEC_REF::68,40']);
+        DB::table('month_end_schedules')->insert(['id'=>69,'entity_id'=>1,'calculated_date'=>'2026-09-18']);
+        DB::table('month_end_count_items')->insert(['entity_id'=>1,'month_end_schedule_id'=>69,'branch_id'=>40,'sap_masterfile_id'=>23835,'status'=>'level2_approved','total_qty'=>6,'uom'=>'PC']);
+        $this->artisan('stock:repair-month-end-all',['--apply'=>true,'--expect-database'=>':memory:'])->assertExitCode(2);
+        $this->assertSame(6,DB::table('product_inventory_stock_managers')->count());
+    }
 }
