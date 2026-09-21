@@ -19,6 +19,9 @@ class SAPMasterfileImport implements ToCollection, WithHeadingRow, WithChunkRead
     protected $skippedCount = 0;
     protected static $seenCombinations = [];
 
+    /** BaseUOM accepted for each ItemCode so far in this import, upper-cased. */
+    protected static array $baseUomByItem = [];
+
     protected int $entityId;
 
     /**
@@ -50,6 +53,33 @@ class SAPMasterfileImport implements ToCollection, WithHeadingRow, WithChunkRead
     public static function resetSeenCombinations()
     {
         self::$seenCombinations = [];
+        self::$baseUomByItem = [];
+    }
+
+    /**
+     * An ItemCode has one base unit. sap_masterfiles carries a row per
+     * ItemCode + AltUOM, all of them sharing that base, and stock, month end
+     * counts and BOM deductions are all expressed in it.
+     *
+     * A file that brings an item in under a second base unit does not correct
+     * the first - the upsert key is ItemCode + AltUOM, so it adds a parallel set
+     * of rows. The store then counts the item twice, once per base, while the
+     * ledger only ever adjusts one of them. That is how 647A2A ended up as both
+     * PC and LIT on 2025-11-28, and it is not recoverable by arithmetic: there
+     * is no conversion between the two bases.
+     *
+     * So the row is refused rather than the file: the upload still completes and
+     * the conflict lands on the skipped-items report for someone to settle in
+     * SAP. Items already holding several bases are left alone - the row is
+     * allowed if it matches any of them, so existing rows stay maintainable.
+     *
+     * @param  array<int, string>  $established  upper-cased bases already on file
+     */
+    public static function conflictingBaseUom(string $baseUom, array $established): bool
+    {
+        $baseUom = strtoupper(trim($baseUom));
+
+        return $baseUom !== '' && $established !== [] && ! in_array($baseUom, $established, true);
     }
 
     public function collection(Collection $rows)
@@ -108,12 +138,33 @@ class SAPMasterfileImport implements ToCollection, WithHeadingRow, WithChunkRead
 
         $now = Carbon::now();
         $upsertData = [];
+        $knownBaseUoms = $this->baseUomsOnFile(array_unique($itemCodesInChunk));
 
         // 2. Prepare data for bulk upsert
         foreach ($validRows as $validRow) {
             $itemCode = $validRow['itemCode'];
             $altUOM = $validRow['altUOM'];
             $row = $validRow['row'];
+            $baseUOM = (string) ($row['baseuom'] ?? $row['BaseUOM'] ?? null);
+
+            // Earlier rows of this same file count as established too, so a file
+            // that contradicts itself is caught on its second base unit.
+            $established = array_values(array_unique(array_merge(
+                $knownBaseUoms[$itemCode] ?? [],
+                isset(self::$baseUomByItem[$itemCode]) ? [self::$baseUomByItem[$itemCode]] : []
+            )));
+
+            if (self::conflictingBaseUom($baseUOM, $established)) {
+                $this->addSkippedItem($itemCode, $altUOM, $row['item_description'] ?? '',
+                    "BaseUOM '".trim($baseUOM)."' conflicts with '".implode("' / '", $established)
+                    ."' already on file for this item. Correct the base unit in SAP; importing it would count the item twice.");
+                $this->skippedCount++;
+                continue;
+            }
+
+            if (trim($baseUOM) !== '' && ! isset(self::$baseUomByItem[$itemCode])) {
+                self::$baseUomByItem[$itemCode] = strtoupper(trim($baseUOM));
+            }
 
             $upsertData[] = [
                 'ItemCode' => $itemCode,
@@ -121,7 +172,7 @@ class SAPMasterfileImport implements ToCollection, WithHeadingRow, WithChunkRead
                 'ItemDescription' => (string) ($row['item_description'] ?? $row['Item Description'] ?? $row['ItemDescription'] ?? null),
                 'AltQty' => (float) ($row['altqty'] ?? 1),
                 'BaseQty' => (float) ($row['baseqty'] ?? 0),
-                'BaseUOM' => (string) ($row['baseuom'] ?? $row['BaseUOM'] ?? null),
+                'BaseUOM' => $baseUOM,
                 'is_active' => (int) ($row['active'] ?? $row['Active'] ?? 1),
                 'entity_id' => $this->entityId,
                 'created_at' => $now,
@@ -170,6 +221,29 @@ class SAPMasterfileImport implements ToCollection, WithHeadingRow, WithChunkRead
                 }
             }
         }
+    }
+
+    /**
+     * Base units already recorded for these items, upper-cased, per ItemCode.
+     *
+     * @param  array<int, string>  $itemCodes
+     * @return array<string, array<int, string>>
+     */
+    protected function baseUomsOnFile(array $itemCodes): array
+    {
+        if (! $itemCodes) {
+            return [];
+        }
+
+        return collect(\Illuminate\Support\Facades\DB::table('sap_masterfiles')
+            ->where('entity_id', $this->entityId)
+            ->whereIn('ItemCode', $itemCodes)
+            ->select('ItemCode', 'BaseUOM')->distinct()->get())
+            ->groupBy('ItemCode')
+            ->map(fn ($rows) => $rows->pluck('BaseUOM')
+                ->map(fn ($uom) => strtoupper(trim((string) $uom)))
+                ->filter()->unique()->values()->all())
+            ->all();
     }
 
     protected function addSkippedItem(?string $itemCode, ?string $altUOM, ?string $itemDescription, string $reason): void
