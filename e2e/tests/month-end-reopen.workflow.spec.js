@@ -47,9 +47,9 @@ test.describe('Month End Count: locked out, then reopened', () => {
     await qa.check(`Now it explains the state: "${headline}"`);
 
     await expect(notice).toContainText(rep.branch);
-    await expect(notice.getByTestId('request-upload-exception').first()).toBeVisible();
+    await expect(notice.getByTestId('request-upload-exception')).toHaveCount(0);
     const address = (await notice.locator('a[href^="mailto:"]').innerText()).trim();
-    await qa.check(`It names the branch still missing, offers a one-time exception request, and still lists ${address} for anything else.`);
+    await qa.check(`It names the branch still missing and lists ${address} for a store that could not upload in time.`);
 
     const rule = (await notice.locator('p').last().innerText()).trim();
     await qa.say(`It also states the rule being enforced: ${rule.replace(/^Current rule:\s*/, '')}`);
