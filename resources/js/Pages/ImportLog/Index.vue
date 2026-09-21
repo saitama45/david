@@ -217,11 +217,11 @@ const shortError = (message) => {
                         <TD>{{ formatDate(log.completed_at) }}</TD>
                         <TD>
                             <a
-                                v-if="log.skipped_file_path && (log.skipped_count > 0 || log.type === 'pos_sales')"
+                                v-if="log.skipped_file_path && (log.skipped_count > 0 || log.type === 'pos_sales' || log.type === 'sap_masterfile')"
                                 :href="route('import-logs.download', log.id)"
                                 class="text-xs text-blue-600 underline hover:text-blue-800"
                             >
-                                {{ log.type === 'pos_sales' ? 'Download Report' : 'Download Skipped' }}
+                                {{ ['pos_sales', 'sap_masterfile'].includes(log.type) ? 'Download Report' : 'Download Skipped' }}
                             </a>
                             <span v-else-if="log.status === 'failed'" class="text-xs text-red-500" :title="log.error_message">
                                 {{ shortError(log.error_message) }}
@@ -253,12 +253,12 @@ const shortError = (message) => {
                     <LabelXS v-if="log.status === 'failed'" class="text-red-600">
                         Error: {{ shortError(log.error_message) }}
                     </LabelXS>
-                    <div v-if="log.skipped_file_path && (log.skipped_count > 0 || log.type === 'pos_sales')" class="mt-1">
+                    <div v-if="log.skipped_file_path && (log.skipped_count > 0 || log.type === 'pos_sales' || log.type === 'sap_masterfile')" class="mt-1">
                         <a
                             :href="route('import-logs.download', log.id)"
                             class="text-xs text-blue-600 underline"
                         >
-                            {{ log.type === 'pos_sales' ? 'Download Report' : 'Download Skipped Items' }}
+                            {{ ['pos_sales', 'sap_masterfile'].includes(log.type) ? 'Download Report' : 'Download Skipped Items' }}
                         </a>
                     </div>
                 </MobileTableRow>

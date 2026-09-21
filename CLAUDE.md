@@ -192,6 +192,12 @@ SQL Server as the target. Rationale and trade-offs: [Decisions.md](docs/knowledg
   import timestamp — a day's POS file is uploaded the next day, and one upload usually carries
   several earlier sales dates. Any sales-by-date report must filter `order_date` (date-only, so
   `whereBetween` is already inclusive). The Inventory Movement Report had this wrong until 2026-09-18.
+- **SAP Item Type belongs to the ItemCode, not the `sap_masterfiles` row.** It lives in
+  `sap_item_type_assignments (entity_id, item_code)`; read it with `SAPMasterfile::withItemType()` /
+  `whereItemType()`. Never add a per-row type column - rows are per AltUOM and would drift apart.
+  Types are deactivated, never deleted. An import without an `Item Type` column leaves types alone.
+- **Fresh migrations create a UNIQUE index on `sap_masterfiles.ItemCode`** that the live database does
+  not have (one row per AltUOM). Test fixtures needing two UOM rows must drop it.
 - **Two enum namespaces**: `App\Enum\` (OrderStatus, UserRole, Days, TimePeriod) and `App\Enums\`
   (IntercoStatus, WastageStatus).
 - **Services live in `app/Http/Services/`**, not `app/Services/`.

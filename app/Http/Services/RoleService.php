@@ -92,7 +92,7 @@ class RoleService
                 ],
                 'Masterfile' => [
                     'view items list', 'create new items', 'edit items', 'view item', 'delete items', 'export items list',
-                    'view sapitems list', 'create sapitems', 'edit sapitems', 'delete sapitems', 'export sapitems list',
+                    'view sapitems list', 'create sapitems', 'edit sapitems', 'delete sapitems', 'export sapitems list', 'manage sapitem types',
                     'view SupplierItems list', 'create SupplierItems', 'edit SupplierItems', 'delete SupplierItems', 'export SupplierItems list',
                     'view POSMasterfile list', 'create POSMasterfile', 'edit POSMasterfile', 'delete POSMasterfile', 'export POSMasterfile list',
                     'view branches', 'create branch', 'edit branch', 'delete branch', 'export branches',

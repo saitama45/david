@@ -11,16 +11,18 @@ class SAPMasterfileExport implements FromQuery, WithHeadings, WithMapping
 {
     protected $search;
     protected $filter;
+    protected $type;
 
-    public function __construct($search = null, $filter = null)
+    public function __construct($search = null, $filter = null, $type = null)
     {
         $this->search = $search;
         $this->filter = $filter;
+        $this->type = $type;
     }
 
     public function query()
     {
-        $query = SAPMasterfile::query(); // Start with your SAPMasterfile model
+        $query = SAPMasterfile::query()->withItemType()->whereItemType($this->type);
 
         // Apply search logic
         if ($this->search) {
@@ -56,6 +58,7 @@ class SAPMasterfileExport implements FromQuery, WithHeadings, WithMapping
             'Alternate UOM',
             'Alternate QTY',
             'Active',
+            'Item Type',
             'Created At',
             'Updated At',
         ];
@@ -77,6 +80,7 @@ class SAPMasterfileExport implements FromQuery, WithHeadings, WithMapping
             $item->AltUOM,
             $item->AltQty,
             $item->is_active ? 'Yes' : 'No', // Convert boolean to readable string
+            $item->sap_item_type_name ?? '',
             $item->created_at,
             $item->updated_at,
         ];

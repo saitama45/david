@@ -67,12 +67,16 @@ class SAPMasterfileImportJob implements ShouldQueue
             $skippedItems = $import->getSkippedItems();
             $skippedCount = $import->getSkippedCount();
             $processedCount = $import->getProcessedCount();
+            // Warnings are rows that imported but need attention (an Item Type
+            // not on the managed list). They share the report but are not skips.
+            $warnings = array_map(fn ($item) => ['reason' => 'Imported - '.$item['reason']] + $item,
+                $import->getWarnings());
 
             $skippedFilePath = null;
-            if ($skippedCount > 0) {
+            if ($skippedCount > 0 || $warnings !== []) {
                 $skippedFilePath = "import-logs/{$log->id}_skipped.csv";
                 $csvLines = ["Item Code,AltUOM,Description,Reason"];
-                foreach ($skippedItems as $item) {
+                foreach (array_merge($skippedItems, $warnings) as $item) {
                     $csvLines[] = implode(',', array_map(
                         fn($v) => '"' . str_replace('"', '""', $v ?? '') . '"',
                         [$item['item_code'], $item['alt_uom'], $item['item_description'], $item['reason']]
@@ -95,6 +99,7 @@ class SAPMasterfileImportJob implements ShouldQueue
             Log::info('SAPMasterfile Import: Job completed.', [
                 'processed' => $processedCount,
                 'skipped'   => $skippedCount,
+                'warnings'  => count($warnings),
             ]);
 
             app(ImportQueueService::class)->dispatchNextPending($this->importLogId);

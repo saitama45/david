@@ -2,12 +2,14 @@
 
 namespace App\Imports;
 
+use App\Http\Services\SapItemTypeService;
 use App\Models\SAPMasterfile;
 use App\Support\EntityContext;
 use Illuminate\Support\Collection;
 use Maatwebsite\Excel\Concerns\ToCollection;
 use Maatwebsite\Excel\Concerns\WithHeadingRow;
 use Maatwebsite\Excel\Concerns\WithChunkReading;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 use Carbon\Carbon;
@@ -19,8 +21,20 @@ class SAPMasterfileImport implements ToCollection, WithHeadingRow, WithChunkRead
     protected $skippedCount = 0;
     protected static $seenCombinations = [];
 
+    /** Item codes the downloadable template uses for its example rows. Never imported. */
+    public const SAMPLE_PREFIX = 'SAMPLE-';
+
     /** BaseUOM accepted for each ItemCode so far in this import, upper-cased. */
     protected static array $baseUomByItem = [];
+
+    /** Item Type accepted for each ItemCode so far in this import: ItemCode => type name. */
+    protected static array $typeByItem = [];
+
+    /** Rows imported with a note, e.g. an Item Type that is not on the managed list. */
+    protected $warnings = [];
+
+    /** @var array<string, array{id: int, name: string, is_active: bool}>|null */
+    protected ?array $itemTypes = null;
 
     protected int $entityId;
 
@@ -54,6 +68,7 @@ class SAPMasterfileImport implements ToCollection, WithHeadingRow, WithChunkRead
     {
         self::$seenCombinations = [];
         self::$baseUomByItem = [];
+        self::$typeByItem = [];
     }
 
     /**
@@ -105,6 +120,14 @@ class SAPMasterfileImport implements ToCollection, WithHeadingRow, WithChunkRead
                 continue;
             }
 
+            // A template uploaded without deleting its example rows must not add
+            // dummy items to the masterfile.
+            if (Str::startsWith(strtoupper($itemCode), self::SAMPLE_PREFIX)) {
+                $this->addSkippedItem($itemCode, $altUOM, $row['item_description'] ?? '', 'Sample row from the template; not imported.');
+                $this->skippedCount++;
+                continue;
+            }
+
             if (empty($altUOM)) {
                 $this->addSkippedItem($itemCode, $altUOM, $row['item_description'] ?? '', 'AltUOM is missing or empty.');
                 $this->skippedCount++;
@@ -138,6 +161,8 @@ class SAPMasterfileImport implements ToCollection, WithHeadingRow, WithChunkRead
 
         $now = Carbon::now();
         $upsertData = [];
+        $pendingTypes = [];
+        $imported = [];
         $knownBaseUoms = $this->baseUomsOnFile(array_unique($itemCodesInChunk));
 
         // 2. Prepare data for bulk upsert
@@ -164,6 +189,10 @@ class SAPMasterfileImport implements ToCollection, WithHeadingRow, WithChunkRead
 
             if (trim($baseUOM) !== '' && ! isset(self::$baseUomByItem[$itemCode])) {
                 self::$baseUomByItem[$itemCode] = strtoupper(trim($baseUOM));
+            }
+
+            if (($typeId = $this->itemTypeFor($itemCode, $altUOM, $row)) !== null) {
+                $pendingTypes[$itemCode] = $typeId;
             }
 
             $upsertData[] = [
@@ -201,6 +230,9 @@ class SAPMasterfileImport implements ToCollection, WithHeadingRow, WithChunkRead
                     ['ItemDescription', 'AltQty', 'BaseQty', 'BaseUOM', 'is_active', 'updated_at'] // Columns to update
                 );
                 $this->processedCount += count($chunk);
+                foreach ($chunk as $data) {
+                    $imported[$data['ItemCode']] = true;
+                }
             } catch (\Exception $e) {
                 Log::warning("SAPMasterfile Import Bulk Upsert failed for a chunk, falling back to row-by-row. Error: " . $e->getMessage());
                 
@@ -213,6 +245,7 @@ class SAPMasterfileImport implements ToCollection, WithHeadingRow, WithChunkRead
                             ['ItemDescription', 'AltQty', 'BaseQty', 'BaseUOM', 'is_active', 'updated_at']
                         );
                         $this->processedCount++;
+                        $imported[$data['ItemCode']] = true;
                     } catch (\Exception $innerE) {
                         $this->addSkippedItem($data['ItemCode'], $data['AltUOM'], $data['ItemDescription'] ?? '', 'Error processing row: ' . $innerE->getMessage());
                         $this->skippedCount++;
@@ -220,6 +253,80 @@ class SAPMasterfileImport implements ToCollection, WithHeadingRow, WithChunkRead
                     }
                 }
             }
+        }
+
+        // Only items whose SAP rows made it in get their type.
+        $this->assignItemTypes(array_intersect_key($pendingTypes, $imported), $now);
+    }
+
+    /**
+     * The Item Type id this row sets, or null when it sets none.
+     *
+     * A blank or missing Item Type leaves the item's type alone, so an ordinary
+     * SAP extract (which has no such column) never clears anyone's types. An
+     * unknown or deactivated name is not created - that is how free-text lists
+     * fill up with near-duplicates - the SAP row still imports, with a warning.
+     */
+    protected function itemTypeFor(string $itemCode, string $altUOM, array $row): ?int
+    {
+        $name = SapItemTypeService::normalize($row['item_type'] ?? null);
+        if ($name === '') {
+            return null;
+        }
+
+        $description = $row['item_description'] ?? '';
+        $accepted = self::$typeByItem[$itemCode] ?? null;
+        if ($accepted !== null) {
+            if ($accepted !== $name) {
+                $this->addWarning($itemCode, $altUOM, $description,
+                    "Item Type '{$name}' ignored; this file already gave this item code '{$accepted}'.");
+            }
+
+            return null;
+        }
+
+        $this->itemTypes ??= app(SapItemTypeService::class)->nameMap($this->entityId);
+        $type = $this->itemTypes[$name] ?? null;
+        self::$typeByItem[$itemCode] = $name;
+
+        if (! $type || ! $type['is_active']) {
+            $this->addWarning($itemCode, $altUOM, $description, $type
+                ? "Item Type '{$name}' is deactivated; the item's type was left unchanged."
+                : "Item Type '{$name}' is not on the managed list; the item's type was left unchanged.");
+
+            return null;
+        }
+
+        return $type['id'];
+    }
+
+    /** @param  array<string, int>  $types  ItemCode => type id */
+    protected function assignItemTypes(array $types, Carbon $now): void
+    {
+        if (! $types) {
+            return;
+        }
+
+        $current = DB::table('sap_item_type_assignments')
+            ->where('entity_id', $this->entityId)
+            // Numeric item codes become int array keys; an int parameter against this
+            // nvarchar column makes SQL Server convert every row and fail on 'ABC'.
+            ->whereIn('item_code', array_map('strval', array_keys($types)))
+            ->pluck('sap_item_type_id', 'item_code');
+
+        $rows = [];
+        foreach ($types as $itemCode => $typeId) {
+            if (isset($current[$itemCode]) && (int) $current[$itemCode] === $typeId) {
+                continue;
+            }
+            $rows[] = ['entity_id' => $this->entityId, 'item_code' => (string) $itemCode,
+                'sap_item_type_id' => $typeId, 'created_at' => $now, 'updated_at' => $now];
+        }
+
+        // 5 columns a row keeps a batch of 300 under SQL Server's 2,100-parameter limit.
+        foreach (array_chunk($rows, 300) as $chunk) {
+            DB::table('sap_item_type_assignments')
+                ->upsert($chunk, ['entity_id', 'item_code'], ['sap_item_type_id', 'updated_at']);
         }
     }
 
@@ -255,6 +362,22 @@ class SAPMasterfileImport implements ToCollection, WithHeadingRow, WithChunkRead
             'reason' => $reason,
         ];
         Log::warning("SAPMasterfileImport: Skipped item - Item Code: '{$itemCode}', AltUOM: '{$altUOM}', Description: '{$itemDescription}', Reason: '{$reason}'");
+    }
+
+    protected function addWarning(?string $itemCode, ?string $altUOM, ?string $itemDescription, string $reason): void
+    {
+        $this->warnings[] = [
+            'item_code' => $itemCode,
+            'alt_uom' => $altUOM,
+            'item_description' => $itemDescription,
+            'reason' => $reason,
+        ];
+    }
+
+    /** Rows that imported but need attention. Not counted as skipped. */
+    public function getWarnings(): array
+    {
+        return $this->warnings;
     }
 
     public function getSkippedItems(): array

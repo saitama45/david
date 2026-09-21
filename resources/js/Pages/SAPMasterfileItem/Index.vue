@@ -1,5 +1,5 @@
 <script setup>
-import { useSearch } from "@/composables/useSearch";
+import { throttle } from "lodash";
 import { useForm } from "@inertiajs/vue3";
 import { useConfirm } from "primevue/useconfirm";
 import { useToast } from "primevue/usetoast";
@@ -18,30 +18,49 @@ const props = defineProps({
         type: Object,
         required: true,
     },
+    filters: {
+        type: Object,
+        default: () => ({}),
+    },
+    itemTypes: {
+        type: Array,
+        default: () => [],
+    },
 });
 
 const handleClick = () => {
     router.get(route("sapitems.create"));
 };
 
-let filter = ref(page.props.filter || "all");
-
-const { search } = useSearch("sapitems.index");
+const filter = ref(props.filters.filter || "all");
+const search = ref(props.filters.search || "");
+const type = ref(props.filters.type || "all");
 
 const changeFilter = (currentFilter) => {
     filter.value = currentFilter;
 };
 
-watch(filter, function (value) {
-    router.get(
-        route("sapitems.index"),
-        { filter: value },
-        {
-            preserveState: true,
-            replace: true,
-        }
-    );
-});
+// Search, the active filter and the type filter travel together; sent one at a
+// time, each request would drop the other two.
+watch(
+    [search, filter, type],
+    throttle(() => {
+        router.get(
+            route("sapitems.index"),
+            { search: search.value, filter: filter.value, type: type.value },
+            { preserveState: true, replace: true }
+        );
+    }, 500)
+);
+
+const typeOptions = computed(() => [
+    { label: "All types", value: "all" },
+    { label: "Uncategorised", value: "uncategorised" },
+    ...props.itemTypes.map((t) => ({
+        label: t.is_active ? t.name : `${t.name} (inactive)`,
+        value: String(t.id),
+    })),
+]);
 
 const { hasAccess } = useAuth();
 const { deleteModel } = useReferenceDelete();
@@ -50,6 +69,7 @@ const exportRoute = computed(() =>
     route("sapitems.export", {
         search: search.value,
         filter: filter.value,
+        type: type.value,
     })
 );
 
@@ -302,6 +322,21 @@ onUnmounted(() => {
                         placeholder="Search..."
                     />
                 </SearchBar>
+                <Select
+                    v-model="type"
+                    :options="typeOptions"
+                    optionLabel="label"
+                    optionValue="value"
+                    class="min-w-48"
+                    aria-label="Filter by item type"
+                />
+                <Button
+                    v-if="hasAccess('manage sapitem types')"
+                    variant="outline"
+                    @click="router.get(route('sap-item-types.index'))"
+                >
+                    Manage Types
+                </Button>
                 <Button @click="openFormModal">Update List</Button>
             </TableHeader>
 
@@ -310,6 +345,7 @@ onUnmounted(() => {
                    <TH>Id</TH>
                     <TH>Item Code</TH>
                     <TH>Item Desc</TH>
+                    <TH>Type</TH>
                     <TH>Base UOM</TH>
                     <TH>Base QTY</TH>
                     <TH>Alternate UOM</TH>
@@ -323,6 +359,10 @@ onUnmounted(() => {
                         <TD>{{ item.id }}</TD>
                         <TD>{{ item.ItemCode }}</TD>
                         <TD>{{ item.ItemDescription }}</TD>
+                        <TD>
+                            <span v-if="item.sap_item_type_name">{{ item.sap_item_type_name }}</span>
+                            <span v-else class="text-gray-400">Uncategorised</span>
+                        </TD>
                         <TD>{{ item.BaseUOM }}</TD>
                         <TD>{{ item.BaseQty }}</TD>
                         <TD>{{ item.AltUOM }}</TD>
@@ -330,16 +370,17 @@ onUnmounted(() => {
                         <TD>{{ Number(item.is_active) ? 'Yes' : 'No' }}</TD>
                         <TD class="flex items-center gap-2">
                             <ShowButton
-                                v-if="hasAccess('view item')"
+                                v-if="hasAccess('view sapitems list')"
                                 :isLink="true"
                                 :href="route('sapitems.show', item.id)"
                             />
                             <EditButton
-                                v-if="hasAccess('edit items')"
+                                v-if="hasAccess('edit sapitems')"
                                 :isLink="true"
                                 :href="route('sapitems.edit', item.id)"
                             />
                             <DeleteButton
+                                v-if="hasAccess('delete sapitems')"
                                 @click="
                                     deleteModel(
                                         route('sapitems.destroy', item.id),
@@ -357,15 +398,16 @@ onUnmounted(() => {
                     <MobileTableHeading
                         :title="`${item.ItemDescription} (${item.ItemCode})`" >
                         <ShowButton
-                            v-if="hasAccess('view item')"
+                            v-if="hasAccess('view sapitems list')"
                             :isLink="true"
                             :href="route('sapitems.show', item.id)" />
                         <EditButton
-                            v-if="hasAccess('edit items')"
+                            v-if="hasAccess('edit sapitems')"
                             :isLink="true"
                             :href="route('sapitems.edit', item.id)"
                         />
                         <DeleteButton
+                            v-if="hasAccess('delete sapitems')"
                             @click="
                                 deleteModel(
                                     route('sapitems.destroy', item.id),
@@ -375,6 +417,7 @@ onUnmounted(() => {
                         />
                     </MobileTableHeading>
                     <LabelXS>Item No: {{ item.ItemCode }}</LabelXS>
+                    <LabelXS>Type: {{ item.sap_item_type_name ?? 'Uncategorised' }}</LabelXS>
                     <LabelXS>Base UOM: {{ item.BaseUOM }}</LabelXS>
                     <LabelXS>Base Qty: {{ item.BaseQty }}</LabelXS>
                     <LabelXS>Alt UOM: {{ item.AltUOM }}</LabelXS>

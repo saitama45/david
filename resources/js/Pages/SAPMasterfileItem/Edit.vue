@@ -1,5 +1,6 @@
 <script setup>
 import { useForm, router } from "@inertiajs/vue3";
+import { ref, watch, computed } from "vue";
 import { useSelectOptions } from "@/composables/useSelectOptions";
 import MultiSelect from "primevue/multiselect";
 import { useConfirm } from "primevue/useconfirm";
@@ -49,7 +50,26 @@ const props = defineProps({
         type: Object,
         required: true,
     },
+    itemTypes: {
+        type: Array,
+        default: () => [],
+    },
+    currentTypeId: {
+        type: Number,
+        default: null,
+    },
+    uomCount: {
+        type: Number,
+        default: 1,
+    },
 });
+
+const itemTypeOptions = computed(() =>
+    props.itemTypes.map((t) => ({
+        label: t.is_active ? t.name : `${t.name} (inactive)`,
+        value: t.id,
+    }))
+);
 
 // const { options: inventoryCategoryOptions } = useSelectOptions(
 //     props.inventoryCategories
@@ -112,6 +132,7 @@ const form = useForm({
     AltUOM: item.AltUOM ?? null,
     BaseUOM: item.BaseUOM ?? null,
     is_active: item.is_active !== null ? Number(item.is_active) : null,
+    sap_item_type_id: props.currentTypeId,
 });
 
 const handleUpdate = () => {
@@ -204,6 +225,23 @@ const activeStatuses = ref([
                     />
                     <FormError v-if="form.errors.is_active">
                         {{ form.errors.is_active }}
+                    </FormError>
+                </InputContainer>
+                <InputContainer>
+                    <LabelXS>Item Type</LabelXS>
+                    <Select
+                        v-model="form.sap_item_type_id"
+                        :options="itemTypeOptions"
+                        optionLabel="label"
+                        optionValue="value"
+                        placeholder="Uncategorised"
+                        showClear
+                    />
+                    <span class="text-xs text-gray-500">
+                        Applies to all {{ uomCount }} UOM row{{ uomCount === 1 ? '' : 's' }} of item code {{ item.ItemCode }}.
+                    </span>
+                    <FormError v-if="form.errors.sap_item_type_id">
+                        {{ form.errors.sap_item_type_id }}
                     </FormError>
                 </InputContainer>
             </CardContent>

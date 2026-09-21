@@ -3,10 +3,14 @@ import CardContent from "@/components/ui/card/CardContent.vue";
 import { useBackButton } from "@/composables/useBackButton";
 const { backButton } = useBackButton(route("sapitems.index"));
 
-const { item } = defineProps({
+const { item, itemTypeName } = defineProps({
     item: {
         type: Object,
         required: true,
+    },
+    itemTypeName: {
+        type: String,
+        default: null,
     },
     // orders: {
     //     type: Object,
@@ -51,6 +55,11 @@ const { item } = defineProps({
                     <Label>Base UOM</Label>
                     <Label class="font-bold">{{
                         item.BaseUOM ?? "N/a"
+                    }}</Label>
+
+                    <Label>Item Type</Label>
+                    <Label class="font-bold">{{
+                        itemTypeName ?? "Uncategorised"
                     }}</Label>
 
                     <Label>Is Active</Label>

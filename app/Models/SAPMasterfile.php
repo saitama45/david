@@ -62,6 +62,57 @@ class SAPMasterfile extends Model implements Auditable
                      })->all(); // Convert the collection to a plain array
     }
 
+    /**
+     * Adds sap_item_type_id and sap_item_type_name to each row.
+     *
+     * The type is held per ItemCode in sap_item_type_assignments, not on this
+     * row, so every UOM row of a code reports the same type. Correlated
+     * subqueries rather than a join: they cannot fan rows out, and they leave
+     * the unqualified columns other callers filter on unambiguous.
+     */
+    public function scopeWithItemType(Builder $query): Builder
+    {
+        if ($query->getQuery()->columns === null) {
+            $query->select('sap_masterfiles.*');
+        }
+
+        return $query->addSelect([
+            'sap_item_type_id' => $this->itemTypeAssignment()->select('sita.sap_item_type_id'),
+            'sap_item_type_name' => $this->itemTypeAssignment()
+                ->join('sap_item_types as sit', 'sit.id', '=', 'sita.sap_item_type_id')
+                ->select('sit.name'),
+        ]);
+    }
+
+    /** Filter by Item Type: a type id, 'uncategorised', or null / 'all' for everything. */
+    public function scopeWhereItemType(Builder $query, $type): Builder
+    {
+        if ($type === null || $type === '' || $type === 'all') {
+            return $query;
+        }
+
+        if ($type === 'uncategorised') {
+            return $query->whereNotExists(fn ($q) => $this->correlateItemType($q->selectRaw('1'))
+                ->whereNotNull('sita.sap_item_type_id'));
+        }
+
+        return $query->whereExists(fn ($q) => $this->correlateItemType($q->selectRaw('1'))
+            ->where('sita.sap_item_type_id', (int) $type));
+    }
+
+    /** This row's ItemCode assignment, correlated on the outer sap_masterfiles row. */
+    private function itemTypeAssignment(): \Illuminate\Database\Query\Builder
+    {
+        return $this->correlateItemType(\Illuminate\Support\Facades\DB::query());
+    }
+
+    private function correlateItemType(\Illuminate\Database\Query\Builder $query): \Illuminate\Database\Query\Builder
+    {
+        return $query->from('sap_item_type_assignments as sita')
+            ->whereColumn('sita.entity_id', 'sap_masterfiles.entity_id')
+            ->whereColumn('sita.item_code', 'sap_masterfiles.ItemCode');
+    }
+
     public function getBaseQTYAttribute()
     {
         return $this->attributes['BaseQty'];

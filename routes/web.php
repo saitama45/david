@@ -800,6 +800,17 @@ Route::middleware('auth')
             Route::middleware('permission:export sapitems list')->get('/sapitems-list/export', 'export')->name('export');
         });
 
+        // SAP Item Types - reached from the SAP Masterlist page, so no sidebar entry.
+        // No destroy route: types are deactivated, since items point at them.
+        Route::controller(\App\Http\Controllers\SapItemTypeController::class)
+            ->prefix('sapitems-list/types')->name('sap-item-types.')
+            ->middleware('permission:manage sapitem types')
+            ->group(function () {
+                Route::get('/', 'index')->name('index');
+                Route::post('/store', 'store')->name('store');
+                Route::put('/update/{id}', 'update')->name('update');
+            });
+
         // Supplier Items
         Route::controller(SupplierItemsController::class)->name('SupplierItems.')->group(function () {
             Route::middleware('permission:view SupplierItems list')->get('/SupplierItems-list', 'index')->name('index');
