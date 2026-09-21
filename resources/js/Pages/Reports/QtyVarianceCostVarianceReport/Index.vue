@@ -712,6 +712,14 @@ const getVarianceIcon = (variance) => {
                                                     <span class="text-gray-600">Wastage</span>
                                                     <span class="font-mono font-medium text-red-600">-{{ formatNumber(breakdowns[item.id].wastage) }}</span>
                                                 </div>
+                                                <div v-if="Number(breakdowns[item.id].other) !== 0" class="flex items-center justify-between">
+                                                    <span class="text-gray-600">Other Movements</span>
+                                                    <span class="font-mono font-medium text-gray-900">{{ formatNumber(breakdowns[item.id].other) }}</span>
+                                                </div>
+                                                <div class="flex items-center justify-between border-t border-gray-200 pt-2">
+                                                    <span class="font-medium text-gray-700">Stock on Hand</span>
+                                                    <span class="font-mono font-semibold text-gray-900">{{ formatNumber(breakdowns[item.id].theoretical) }}</span>
+                                                </div>
                                             </div>
                                         </div>
                                     </div>

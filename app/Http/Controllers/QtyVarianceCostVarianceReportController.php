@@ -3,15 +3,10 @@
 namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
-use App\Models\User;
 use App\Models\StoreBranch;
 use App\Models\MonthEndCountItem;
 use App\Models\MonthEndSchedule;
-use App\Models\SAPMasterfile;
-use App\Models\StoreOrder;
-use App\Models\StoreOrderItem;
-use App\Models\StoreTransaction;
-use App\Models\Wastage;
+use App\Services\MonthEndStockVariance;
 use Inertia\Inertia;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -67,88 +62,7 @@ class QtyVarianceCostVarianceReportController extends Controller
         $filterYear = $filterDate->year;
         $filterMonth = $filterDate->month;
 
-        $prevMonthDate = $filterDate->copy()->subMonth();
-        $dateFrom = $filterDate->copy()->startOfMonth()->format('Y-m-d');
-        $dateTo = $filterDate->copy()->endOfMonth()->format('Y-m-d');
-        $wastageStatus = \App\Enums\WastageStatus::APPROVED_LVL2->value;
-
-        $theoreticalInventorySubquery = DB::raw("(
-            COALESCE((
-                SELECT meci_prev.total_qty
-                FROM month_end_count_items meci_prev
-                JOIN month_end_schedules mes_prev ON meci_prev.month_end_schedule_id = mes_prev.id
-                WHERE meci_prev.branch_id = meci.branch_id
-                  AND meci_prev.item_code = meci.item_code
-                  AND mes_prev.year = {$prevMonthDate->year}
-                  AND mes_prev.month = {$prevMonthDate->month}
-            ), 0)
-            +
-            COALESCE((
-                SELECT SUM(oird.quantity_received)
-                FROM ordered_item_receive_dates oird
-                JOIN store_order_items soi ON oird.store_order_item_id = soi.id
-                JOIN store_orders so ON soi.store_order_id = so.id
-                WHERE so.store_branch_id = meci.branch_id
-                  AND soi.item_code = meci.item_code
-                  AND so.interco_number IS NULL
-                  AND oird.status = 'approved'
-                  AND oird.received_date BETWEEN '{$dateFrom}' AND '{$dateTo}'
-            ), 0)
-            +
-            COALESCE((
-                SELECT SUM(oird.quantity_received)
-                FROM ordered_item_receive_dates oird
-                JOIN store_order_items soi ON oird.store_order_item_id = soi.id
-                JOIN store_orders so ON soi.store_order_id = so.id
-                WHERE so.store_branch_id = meci.branch_id
-                  AND soi.item_code = meci.item_code
-                  AND so.interco_number IS NOT NULL
-                  AND oird.status = 'approved'
-                  AND oird.received_date BETWEEN '{$dateFrom}' AND '{$dateTo}'
-            ), 0)
-            -
-            COALESCE((
-                SELECT SUM(COALESCE(sti.quantity, 0) * COALESCE(bom.BOMQty, 0))
-                FROM store_transaction_items sti
-                JOIN store_transactions st ON sti.store_transaction_id = st.id
-                JOIN pos_masterfiles pm ON sti.product_id = pm.id
-                JOIN pos_masterfiles_bom bom ON pm.POSCode = bom.POSCode
-                WHERE st.store_branch_id = meci.branch_id
-                  AND bom.ItemCode = meci.item_code
-                  AND st.order_date BETWEEN '{$dateFrom}' AND '{$dateTo}'
-            ), 0)
-            -
-            COALESCE((
-                SELECT SUM(w.wastage_qty)
-                FROM wastages w
-                JOIN sap_masterfiles sap ON w.sap_masterfile_id = sap.id
-                WHERE w.store_branch_id = meci.branch_id
-                  AND sap.ItemCode = meci.item_code
-                  AND w.wastage_status = '{$wastageStatus}'
-                  AND w.created_at BETWEEN '{$dateFrom} 00:00:00' AND '{$dateTo} 23:59:59'
-            ), 0)
-        ) as theoretical_inventory");
-
-        $query = MonthEndCountItem::query()
-            ->from('month_end_count_items as meci')
-            ->select(
-                'meci.id',
-                DB::raw("CONCAT(sb.name, ' (', sb.branch_code, ')') as store_name"),
-                'sm.ItemCode as item_code',
-                'sm.ItemDescription as item_description',
-                'sm.BaseUOM as uom',
-                'meci.total_qty as actual_inventory',
-                $theoreticalInventorySubquery,
-                // Subquery to get the cost from the latest active supplier item
-                DB::raw('(SELECT TOP 1 cost FROM supplier_items si WHERE si.ItemCode = sm.ItemCode AND si.is_active = 1 ORDER BY si.id DESC) as cost')
-            )
-            ->join('store_branches as sb', 'meci.branch_id', '=', 'sb.id')
-            ->join('sap_masterfiles as sm', 'meci.sap_masterfile_id', '=', 'sm.id')
-            ->join('month_end_schedules as mes', 'meci.month_end_schedule_id', '=', 'mes.id')
-            ->whereNotNull('meci.level2_approved_at')
-            ->whereIn('meci.branch_id', $filters['store_ids'])
-            ->where('mes.year', $filterYear)
-            ->where('mes.month', $filterMonth);
+        $query = $this->varianceQuery($filters, $filterYear, $filterMonth);
 
         if ($filters['search']) {
             $search = $filters['search'];
@@ -276,87 +190,7 @@ class QtyVarianceCostVarianceReportController extends Controller
         $filterYear = $filterDate->year;
         $filterMonth = $filterDate->month;
 
-        $prevMonthDate = $filterDate->copy()->subMonth();
-        $dateFrom = $filterDate->copy()->startOfMonth()->format('Y-m-d');
-        $dateTo = $filterDate->copy()->endOfMonth()->format('Y-m-d');
-        $wastageStatus = \App\Enums\WastageStatus::APPROVED_LVL2->value;
-
-        $theoreticalInventorySubquery = DB::raw("(
-            COALESCE((
-                SELECT meci_prev.total_qty
-                FROM month_end_count_items meci_prev
-                JOIN month_end_schedules mes_prev ON meci_prev.month_end_schedule_id = mes_prev.id
-                WHERE meci_prev.branch_id = meci.branch_id
-                  AND meci_prev.item_code = meci.item_code
-                  AND mes_prev.year = {$prevMonthDate->year}
-                  AND mes_prev.month = {$prevMonthDate->month}
-            ), 0)
-            +
-            COALESCE((
-                SELECT SUM(oird.quantity_received)
-                FROM ordered_item_receive_dates oird
-                JOIN store_order_items soi ON oird.store_order_item_id = soi.id
-                JOIN store_orders so ON soi.store_order_id = so.id
-                WHERE so.store_branch_id = meci.branch_id
-                  AND soi.item_code = meci.item_code
-                  AND so.interco_number IS NULL
-                  AND oird.status = 'approved'
-                  AND oird.received_date BETWEEN '{$dateFrom}' AND '{$dateTo}'
-            ), 0)
-            +
-            COALESCE((
-                SELECT SUM(oird.quantity_received)
-                FROM ordered_item_receive_dates oird
-                JOIN store_order_items soi ON oird.store_order_item_id = soi.id
-                JOIN store_orders so ON soi.store_order_id = so.id
-                WHERE so.store_branch_id = meci.branch_id
-                  AND soi.item_code = meci.item_code
-                  AND so.interco_number IS NOT NULL
-                  AND oird.status = 'approved'
-                  AND oird.received_date BETWEEN '{$dateFrom}' AND '{$dateTo}'
-            ), 0)
-            -
-            COALESCE((
-                SELECT SUM(COALESCE(sti.quantity, 0) * COALESCE(bom.BOMQty, 0))
-                FROM store_transaction_items sti
-                JOIN store_transactions st ON sti.store_transaction_id = st.id
-                JOIN pos_masterfiles pm ON sti.product_id = pm.id
-                JOIN pos_masterfiles_bom bom ON pm.POSCode = bom.POSCode
-                WHERE st.store_branch_id = meci.branch_id
-                  AND bom.ItemCode = meci.item_code
-                  AND st.order_date BETWEEN '{$dateFrom}' AND '{$dateTo}'
-            ), 0)
-            -
-            COALESCE((
-                SELECT SUM(w.wastage_qty)
-                FROM wastages w
-                JOIN sap_masterfiles sap ON w.sap_masterfile_id = sap.id
-                WHERE w.store_branch_id = meci.branch_id
-                  AND sap.ItemCode = meci.item_code
-                  AND w.wastage_status = '{$wastageStatus}'
-                  AND w.created_at BETWEEN '{$dateFrom} 00:00:00' AND '{$dateTo} 23:59:59'
-            ), 0)
-        ) as theoretical_inventory");
-
-        $query = MonthEndCountItem::query()
-            ->from('month_end_count_items as meci')
-            ->select(
-                'meci.id',
-                DB::raw("CONCAT(sb.name, ' (', sb.branch_code, ')') as store_name"),
-                'sm.ItemCode as item_code',
-                'sm.ItemDescription as item_description',
-                'sm.BaseUOM as uom',
-                'meci.total_qty as actual_inventory',
-                $theoreticalInventorySubquery,
-                DB::raw('(SELECT TOP 1 cost FROM supplier_items si WHERE si.ItemCode = sm.ItemCode AND si.is_active = 1 ORDER BY si.id DESC) as cost')
-            )
-            ->join('store_branches as sb', 'meci.branch_id', '=', 'sb.id')
-            ->join('sap_masterfiles as sm', 'meci.sap_masterfile_id', '=', 'sm.id')
-            ->join('month_end_schedules as mes', 'meci.month_end_schedule_id', '=', 'mes.id')
-            ->whereNotNull('meci.level2_approved_at')
-            ->whereIn('meci.branch_id', $filters['store_ids'])
-            ->where('mes.year', $filterYear)
-            ->where('mes.month', $filterMonth);
+        $query = $this->varianceQuery($filters, $filterYear, $filterMonth);
 
         if ($filters['search']) {
             $search = $filters['search'];
@@ -428,79 +262,66 @@ class QtyVarianceCostVarianceReportController extends Controller
     {
         $assignedStoreIds = $this->getAssignedStoreIds(Auth::user());
 
-        $meci = MonthEndCountItem::with(['schedule', 'sapMasterfile'])
+        $meci = MonthEndCountItem::with('schedule')
             ->whereIn('branch_id', $assignedStoreIds)
             ->findOrFail($id);
-        
-        $sapItem = $meci->sapMasterfile;
-        $branchId = $meci->branch_id;
-        $itemCode = $meci->item_code;
-        $schedule = $meci->schedule;
-        
-        $currMonthDate = Carbon::create($schedule->year, $schedule->month, 1);
-        $prevMonthDate = $currMonthDate->copy()->subMonth();
-        
-        $dateFrom = $currMonthDate->startOfMonth()->format('Y-m-d');
-        $dateTo = $currMonthDate->copy()->endOfMonth()->format('Y-m-d');
-        
-        // 1. Beginning Balance
-        $begBal = MonthEndCountItem::where('branch_id', $branchId)
-            ->where('item_code', $itemCode)
-            ->whereHas('schedule', function($q) use ($prevMonthDate) {
-                $q->where('year', $prevMonthDate->year)
-                  ->where('month', $prevMonthDate->month);
-            })
-            ->value('total_qty') ?? 0;
-            
-        // 2. Regular Received (Procurement Received where Interco is Null)
-        $regularReceived = DB::table('ordered_item_receive_dates as oird')
-            ->join('store_order_items as soi', 'oird.store_order_item_id', '=', 'soi.id')
-            ->join('store_orders as so', 'soi.store_order_id', '=', 'so.id')
-            ->where('so.store_branch_id', $branchId)
-            ->where('soi.item_code', $itemCode)
-            ->whereNull('so.interco_number')
-            ->where('oird.status', 'approved')
-            ->whereBetween('oird.received_date', [$dateFrom, $dateTo])
-            ->sum('oird.quantity_received');
-            
-        // 3. CPO Received (Procurement Received where Interco is NOT Null)
-        $cpoReceived = DB::table('ordered_item_receive_dates as oird')
-            ->join('store_order_items as soi', 'oird.store_order_item_id', '=', 'soi.id')
-            ->join('store_orders as so', 'soi.store_order_id', '=', 'so.id')
-            ->where('so.store_branch_id', $branchId)
-            ->where('soi.item_code', $itemCode)
-            ->whereNotNull('so.interco_number')
-            ->where('oird.status', 'approved')
-            ->whereBetween('oird.received_date', [$dateFrom, $dateTo])
-            ->sum('oird.quantity_received');
-            
-        // 4. Sales
-        $sales = DB::table('store_transaction_items as sti')
-            ->join('store_transactions as st', 'sti.store_transaction_id', '=', 'st.id')
-            ->join('pos_masterfiles as pm', 'sti.product_id', '=', 'pm.id')
-            ->join('pos_masterfiles_bom as bom', 'pm.POSCode', '=', 'bom.POSCode')
-            ->where('st.store_branch_id', $branchId)
-            ->where('bom.ItemCode', $itemCode)
-            ->whereBetween('st.order_date', [$dateFrom, $dateTo])
-            ->sum(DB::raw('COALESCE(sti.quantity, 0) * COALESCE(bom.BOMQty, 0)'));
-            
-        // 5. Wastage
-        $wastage = Wastage::join('sap_masterfiles as sap', 'wastages.sap_masterfile_id', '=', 'sap.id')
-            ->where('wastages.store_branch_id', $branchId)
-            ->where('sap.ItemCode', $itemCode)
-            ->where('wastage_status', \App\Enums\WastageStatus::APPROVED_LVL2->value)
-            ->whereBetween('wastages.created_at', [$dateFrom . ' 00:00:00', $dateTo . ' 23:59:59'])
-            ->sum('wastages.wastage_qty');
 
-        return response()->json([
-            'actual_mec' => (float)$meci->total_qty,
-            'beg_bal' => (float)$begBal,
-            'regular_received' => (float)$regularReceived,
-            'cpo_received' => (float)$cpoReceived,
-            'sales' => (float)$sales,
-            'wastage' => (float)$wastage,
-            'theoretical' => (float)($begBal + $regularReceived + $cpoReceived - $sales - $wastage)
-        ]);
+        // The report row is the branch + item group, not this single line: an
+        // item registered under two BaseUOMs is counted twice and adjusted once.
+        $group = MonthEndCountItem::where('month_end_schedule_id', $meci->month_end_schedule_id)
+            ->where('branch_id', $meci->branch_id)->where('item_code', $meci->item_code)
+            ->whereNotNull('level2_approved_at')
+            ->selectRaw('SUM(total_qty) as counted, MAX(level2_approved_at) as approved_at')
+            ->first();
+
+        $breakdown = app(MonthEndStockVariance::class)->breakdown(
+            (int) $meci->month_end_schedule_id, (int) $meci->branch_id, (string) $meci->item_code,
+            $group->counted, $group->approved_at ? (string) $group->approved_at : null
+        );
+
+        return response()->json(array_merge(['actual_mec' => (float) $group->counted], $breakdown));
+    }
+
+    /**
+     * One row per branch + item code, the grain the month end count is approved
+     * and posted at. Theoretical inventory is the stock on hand the count
+     * reconciled - see MonthEndStockVariance.
+     */
+    private function varianceQuery(array $filters, int $filterYear, int $filterMonth)
+    {
+        $variance = app(MonthEndStockVariance::class);
+        $scheduleIds = MonthEndSchedule::where('year', $filterYear)->where('month', $filterMonth)
+            ->pluck('id')->all();
+
+        return MonthEndCountItem::query()
+            ->from('month_end_count_items as meci')
+            ->join('store_branches as sb', 'meci.branch_id', '=', 'sb.id')
+            ->join('sap_masterfiles as sm', 'meci.sap_masterfile_id', '=', 'sm.id')
+            ->join('month_end_schedules as mes', 'meci.month_end_schedule_id', '=', 'mes.id')
+            ->leftJoinSub($variance->adjustments($scheduleIds), 'adj', function ($join) {
+                $join->on('adj.store_branch_id', '=', 'meci.branch_id')
+                    ->on('adj.item_code', '=', 'meci.item_code');
+            })
+            // The count posts to one base-stock row, which names the UOM it was
+            // reconciled in; without a posting the counted line names it.
+            ->leftJoin('sap_masterfiles as adjsm', 'adjsm.id', '=', 'adj.product_inventory_id')
+            ->leftJoinSub($variance->costs(), 'cost', 'cost.item_code', '=', 'meci.item_code')
+            ->whereNotNull('meci.level2_approved_at')
+            ->whereIn('meci.branch_id', $filters['store_ids'])
+            ->where('mes.year', $filterYear)
+            ->where('mes.month', $filterMonth)
+            ->groupBy('meci.branch_id', 'meci.item_code', 'sb.name', 'sb.branch_code',
+                'adj.adjustment', 'adjsm.BaseUOM', 'cost.cost')
+            ->select(
+                DB::raw('MIN(meci.id) as id'),
+                DB::raw("CONCAT(sb.name, ' (', sb.branch_code, ')') as store_name"),
+                'meci.item_code as item_code',
+                DB::raw('MAX(sm.ItemDescription) as item_description'),
+                DB::raw('COALESCE(adjsm.BaseUOM, MAX(sm.BaseUOM)) as uom'),
+                DB::raw('SUM(meci.total_qty) as actual_inventory'),
+                DB::raw('SUM(meci.total_qty) - COALESCE(adj.adjustment, 0) as theoretical_inventory'),
+                DB::raw('cost.cost as cost')
+            );
     }
 
     private function getAssignedStoreIds($user)
