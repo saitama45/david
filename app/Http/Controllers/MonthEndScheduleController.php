@@ -98,6 +98,13 @@ class MonthEndScheduleController extends Controller
 
         $year = $request->year;
 
+        // insert() below bypasses Eloquent, so BelongsToEntity never stamps
+        // entity_id; without it the rows land NULL and invisible to every entity.
+        $entityId = app(EntityContext::class)->id();
+        if (! $entityId) {
+            return back()->withErrors(['error' => 'No active entity selected. Please select an entity before generating schedules.']);
+        }
+
         // Check if schedules for this year already exist
         $exists = MonthEndSchedule::where('year', $year)->exists();
         if ($exists) {
@@ -116,6 +123,7 @@ class MonthEndScheduleController extends Controller
             }
 
             $schedulesToCreate[] = [
+                'entity_id' => $entityId,
                 'year' => $year,
                 'month' => $month,
                 'calculated_date' => $date->toDateString(),

@@ -330,14 +330,15 @@ onUnmounted(() => {
                     class="min-w-48"
                     aria-label="Filter by item type"
                 />
-                <Button
-                    v-if="hasAccess('manage sapitem types')"
-                    variant="outline"
-                    @click="router.get(route('sap-item-types.index'))"
-                >
-                    Manage Types
-                </Button>
-                <Button @click="openFormModal">Update List</Button>
+                <div class="flex gap-2">
+                    <Button
+                        v-if="hasAccess('manage sapitem types')"
+                        @click="router.get(route('sap-item-types.index'))"
+                    >
+                        Manage Types
+                    </Button>
+                    <Button @click="openFormModal">Update List</Button>
+                </div>
             </TableHeader>
 
             <Table>

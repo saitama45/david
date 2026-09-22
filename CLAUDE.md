@@ -62,7 +62,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - `app/Http/Controllers/` — 106 module controllers + `Auth/`, one per module, kept thin
 - `app/Http/Services/` — **primary business logic** (23 classes)
 - `app/Services/` — infrastructure only: Google Drive, import queue, UOM commits
-- `app/Models/` — 61 models; 48 use `BelongsToEntity`
+- `app/Models/` — 61 models; 47 use `BelongsToEntity`
 - `app/Models/Concerns/`, `app/Models/Scopes/` — `BelongsToEntity`, `EntityScope`
 - `app/Support/` — `EntityContext`, `StockQuantity`
 - `app/Http/Middleware/` — `SetActiveEntity`, `HandleInertiaRequests`, `CheckUserPermission`, `CheckSidebarMenuActive`
@@ -167,6 +167,10 @@ SQL Server as the target. Rationale and trade-offs: [Decisions.md](docs/knowledg
 - **Queued jobs and console commands have no session**, so no entity is bound — and with no context
   `EntityScope` does **not** filter. Use `EntityContext::runAs($id, fn () => ...)`.
 - **A new model with `entity_id` is unscoped** until it uses `BelongsToEntity`.
+- **`Model::insert()`, `upsert()` and `DB::table()` skip `BelongsToEntity`**, so `entity_id` lands NULL
+  (invisible, and it collides on `(entity_id, …)` unique indexes). Stamp it from `EntityContext` explicitly.
+- **`DeliverySchedule` (the 7 weekday rows) is shared, not entity-scoped.** All entities' store schedules
+  point at ids 1–7; scoping it hid every non-Nono's store from templates. Don't add `BelongsToEntity` back.
 - **Dashboard Success Rate tab: only tickets are typed in.** `success_rate_weekly_tickets` stores
   Incoming/Closed per module and nothing else. Transaction volume is counted per week from the five
   Adoption Rate datasets (MEC has no indicator, so it contributes none), and Success Rate / Close
