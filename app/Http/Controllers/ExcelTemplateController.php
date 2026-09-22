@@ -2,7 +2,7 @@
 
 namespace App\Http\Controllers;
 
-use App\Exports\SupplierItemsExport;
+use App\Exports\SupplierItemsTemplateExport;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Storage;
@@ -71,7 +71,7 @@ class ExcelTemplateController extends Controller
 
         $assignedSupplierCodes = $user->suppliers->pluck('supplier_code')->toArray();
 
-        return Excel::download(new SupplierItemsExport(null, null, $assignedSupplierCodes), 'SupplierItems_template.xlsx');
+        return Excel::download(new SupplierItemsTemplateExport($assignedSupplierCodes), 'SupplierItems_template.xlsx');
     }
 
     public function storeTransactionsTemplate()

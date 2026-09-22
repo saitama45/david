@@ -2,12 +2,14 @@
 
 namespace App\Imports;
 
+use App\Exports\SupplierItemsTemplateExport;
 use App\Models\SupplierItems;
 use App\Models\SAPMasterfile; // Corrected to SAPMasterfile (was SapMasterfile)
 use App\Support\EntityContext;
 use Maatwebsite\Excel\Concerns\ToCollection;
 use Maatwebsite\Excel\Concerns\WithHeadingRow;
 use Maatwebsite\Excel\Concerns\WithChunkReading;
+use Maatwebsite\Excel\Concerns\WithMultipleSheets;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Log;
 use Carbon\Carbon;
@@ -16,7 +18,7 @@ use Illuminate\Support\Facades\DB; // Import DB facade for upsert
 use Maatwebsite\Excel\Concerns\WithEvents;
 use Maatwebsite\Excel\Events\AfterImport;
 
-class SupplierItemsImport implements ToCollection, WithHeadingRow, WithChunkReading, WithEvents
+class SupplierItemsImport implements ToCollection, WithHeadingRow, WithChunkReading, WithEvents, WithMultipleSheets
 {
     protected $skippedDetails = [];
     protected $processedCount = 0;
@@ -61,6 +63,15 @@ class SupplierItemsImport implements ToCollection, WithHeadingRow, WithChunkRead
     }
 
     /**
+     * Only the first sheet is imported; any extra sheets a user adds (notes,
+     * scratch work) must never be upserted.
+     */
+    public function sheets(): array
+    {
+        return [0 => $this];
+    }
+
+    /**
      * @param Collection $rows
      *
      * @return void
@@ -70,7 +81,10 @@ class SupplierItemsImport implements ToCollection, WithHeadingRow, WithChunkRead
         // Define a conservative batch size for the upsert operation to avoid SQL Server parameter limits.
         // This value is chosen to provide a significant buffer, making it less reliant on exact column counts.
         // Even if more columns are added later, this batch size should remain safe.
-        $upsertBatchSize = 100; 
+        $upsertBatchSize = 100;
+
+        // The downloaded template starts with example rows; they are never imported.
+        $rows = $rows->reject(fn ($row) => SupplierItemsTemplateExport::isSampleRow($row['item_code'] ?? null));
 
         // Group rows by ItemCode + UOM + SupplierCode to handle duplicates within the Excel chunk itself
         // This ensures that for a given combination, only the LAST occurrence in the Excel chunk is processed

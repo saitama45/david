@@ -179,17 +179,6 @@ const requestEditException = (order) => {
     };
 };
 
-const requestLateOrderException = () => {
-    exceptionDialog.value = {
-        open: true,
-        ruleKey: 'mass_order.late_order',
-        subject: { supplier_code: form.supplier_code },
-        askDate: true,
-        stores: props.exceptionStoreOptions,
-        title: `Request to order ${form.supplier_code} after the cutoff`,
-    };
-};
-
 // --- Flash Notification Logic ---
 const flash = computed(() => usePage().props.flash);
 const flashMessageVisible = ref(false);
@@ -527,14 +516,6 @@ const downloadFileName = computed(() => {
                             <div v-if="form.order_date" class="mt-2 text-sm text-gray-500">
                                 Selected Day: <span class="font-semibold">{{ selectedDayInfo }}</span>
                             </div>
-                            <button
-                                v-if="form.supplier_code && form.supplier_code !== 'CPO' && hasAccess('create mass orders')"
-                                type="button"
-                                class="mt-2 text-xs font-medium text-cyan-700 underline"
-                                @click="requestLateOrderException"
-                            >
-                                Missed the cutoff for a date? Request an exception
-                            </button>
                             <!-- Calendar Popup -->
                             <div v-show="showCalendar" :class="['absolute z-50 bg-white border border-gray-200 rounded-lg shadow-lg p-4 w-full min-w-[300px]', calendarPositionClass]">
                                 <div class="flex justify-between items-center mb-4">

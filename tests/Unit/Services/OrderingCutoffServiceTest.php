@@ -52,6 +52,25 @@ test('CPO has no delivery date restriction', function () {
     expect((new OrderingCutoffService)->massOrderDateBlock('CPO', '2020-01-01'))->toBeNull();
 });
 
+test('a mass order template with no cutoff row is open from tomorrow for 60 days', function () {
+    $service = new class extends OrderingCutoffService
+    {
+        public function cutoffFor(string $orderingTemplate): ?\App\Models\OrdersCutoff
+        {
+            return null;
+        }
+    };
+    $now = manila('2026-09-22 23:30');
+
+    $dates = $service->massOrderAvailableDates('DTSP', $now);
+
+    expect($dates)->toHaveCount(60)
+        ->and($dates[0])->toBe('2026-09-23')
+        ->and(end($dates))->toBe('2026-11-21')
+        ->and($service->massOrderDateBlock('DTSP', '2026-10-15', $now))->toBeNull()
+        ->and($service->massOrderDateBlock('DTSP', '2026-09-22', $now))->not->toBeNull();
+});
+
 test('mass order edit deadline is the first cutoff after placement', function () use ($gsi) {
     $service = new OrderingCutoffService;
 

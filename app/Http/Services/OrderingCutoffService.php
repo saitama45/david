@@ -56,13 +56,14 @@ class OrderingCutoffService
 
     /**
      * Delivery dates a mass order may currently be placed for (Y-m-d).
-     * Empty when the template has no cutoff configured.
+     * A template with no cutoff configured is unrestricted: tomorrow + 59 days.
      */
     public function massOrderAvailableDates(string $supplierCode, ?Carbon $now = null): array
     {
+        $now ??= $this->now();
         $cutoff = $this->cutoffFor($this->massOrderTemplate($supplierCode));
 
-        return $cutoff ? $this->massOrderDatesFor($cutoff, $supplierCode, $now ?? $this->now()) : [];
+        return $cutoff ? $this->massOrderDatesFor($cutoff, $supplierCode, $now) : $this->openDates($now);
     }
 
     /** Pure: mass-order dates for a cutoff row at a moment in time. */
@@ -103,13 +104,13 @@ class OrderingCutoffService
 
         $date = Carbon::parse($orderDate)->toDateString();
 
-        if (! $this->cutoffFor($this->massOrderTemplate($supplierCode))) {
-            return "No ordering cutoff is configured for {$supplierCode}, so no delivery date is open.";
+        if (in_array($date, $this->massOrderAvailableDates($supplierCode, $now), true)) {
+            return null;
         }
 
-        return in_array($date, $this->massOrderAvailableDates($supplierCode, $now), true)
-            ? null
-            : "The ordering cutoff for {$supplierCode} deliveries on ".Carbon::parse($date)->format('M j, Y').' has passed.';
+        return $this->cutoffFor($this->massOrderTemplate($supplierCode))
+            ? "The ordering cutoff for {$supplierCode} deliveries on ".Carbon::parse($date)->format('M j, Y').' has passed.'
+            : "{$supplierCode} deliveries can only be ordered from tomorrow up to 60 days ahead.";
     }
 
     /**
@@ -177,16 +178,7 @@ class OrderingCutoffService
         $now ??= $this->now();
         $cutoff = $this->cutoffFor($variant);
 
-        if ($cutoff) {
-            return $this->dtsDatesFor($cutoff, $now);
-        }
-
-        $dates = [];
-        for ($date = $now->copy()->addDay()->startOfDay(), $end = $date->copy()->addDays(59); $date->lte($end); $date->addDay()) {
-            $dates[] = $date->toDateString();
-        }
-
-        return $dates;
+        return $cutoff ? $this->dtsDatesFor($cutoff, $now) : $this->openDates($now);
     }
 
     /** Pure: DTS dates for a cutoff row at a moment in time. */
@@ -248,6 +240,17 @@ class OrderingCutoffService
     }
 
     // --- helpers -------------------------------------------------------------
+
+    /** Dates open to a template with no cutoff row: tomorrow + 59 days. */
+    private function openDates(Carbon $now): array
+    {
+        $dates = [];
+        for ($date = $now->copy()->timezone(self::TIMEZONE)->addDay()->startOfDay(), $end = $date->copy()->addDays(59); $date->lte($end); $date->addDay()) {
+            $dates[] = $date->toDateString();
+        }
+
+        return $dates;
+    }
 
     private function cutoffMoment($day, $time, Carbon $now): ?Carbon
     {

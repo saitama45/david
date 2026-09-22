@@ -77,6 +77,10 @@ per rule in `app/Http/Services/RuleExceptions/`.
 | **unlock** — the server blocks the action | `mec.upload_window`, `mass_order.late_order`, `mass_order.edit_after_cutoff`, `dts_mass_order.late_order`, `dts_mass_order.edit_locked` | a **one-time grant**, valid until a time the approver sets, consumed by the action |
 | **excuse** — nothing is blocked, the item is scored late | `receiving.late_logging`, `sales.late_upload`, `wastage.late_upload` | the Adoption Rate row shows `Excused` + reason |
 
+An ordering template with **no `orders_cutoff` row** is unrestricted: `OrderingCutoffService` opens
+tomorrow + 59 days for both mass orders and DTS (CPO stays fully unrestricted). The Mass Orders create
+dialog no longer offers the *late order* request link (removed 2026-09-22); the rule and its grants remain.
+
 Flow: blocked screen → *Request exception* dialog (asks `/rule-exceptions/eligibility` first) →
 `pending` → module approver approves/rejects in the queue → unlock: action succeeds once and the grant
 becomes `consumed`; unused grants become `expired` (`rule-exceptions:expire`, every 15 min).
