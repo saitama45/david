@@ -200,6 +200,9 @@ SQL Server as the target. Rationale and trade-offs: [Decisions.md](docs/knowledg
   `sap_item_type_assignments (entity_id, item_code)`; read it with `SAPMasterfile::withItemType()` /
   `whereItemType()`. Never add a per-row type column - rows are per AltUOM and would drift apart.
   Types are deactivated, never deleted. An import without an `Item Type` column leaves types alone.
+- **SAP import key is ItemCode + AltUOM + BaseUOM** (per entity). SAP restates a pack in a second
+  base (Case = 48 Can and Case = 18720 Gm); both rows import. A second base is still refused unless
+  the file gave that same AltUOM under the accepted base first. Stored blank-BaseUOM pairs match without it.
 - **Fresh migrations create a UNIQUE index on `sap_masterfiles.ItemCode`** that the live database does
   not have (one row per AltUOM). Test fixtures needing two UOM rows must drop it.
 - **Two enum namespaces**: `App\Enum\` (OrderStatus, UserRole, Days, TimePeriod) and `App\Enums\`

@@ -24,8 +24,11 @@ class SAPMasterfileImport implements ToCollection, WithHeadingRow, WithChunkRead
     /** Item codes the downloadable template uses for its example rows. Never imported. */
     public const SAMPLE_PREFIX = 'SAMPLE-';
 
-    /** BaseUOM accepted for each ItemCode so far in this import, upper-cased. */
+    /** BaseUOMs accepted for each ItemCode so far in this import, upper-cased. */
     protected static array $baseUomByItem = [];
+
+    /** AltUOMs accepted for each ItemCode so far in this import: ItemCode => [ALTUOM => true]. */
+    protected static array $packsByItem = [];
 
     /** Item Type accepted for each ItemCode so far in this import: ItemCode => type name. */
     protected static array $typeByItem = [];
@@ -68,6 +71,7 @@ class SAPMasterfileImport implements ToCollection, WithHeadingRow, WithChunkRead
     {
         self::$seenCombinations = [];
         self::$baseUomByItem = [];
+        self::$packsByItem = [];
         self::$typeByItem = [];
     }
 
@@ -134,17 +138,19 @@ class SAPMasterfileImport implements ToCollection, WithHeadingRow, WithChunkRead
                 continue;
             }
 
-            $combination = $itemCode . '_' . $altUOM;
+            // SAP extracts restate a pack in a second base unit (Case = 48 Can, then
+            // Case = 18720 Gm). Those are different rows, not copies, so BaseUOM is
+            // part of the key.
+            $baseKey = strtoupper(trim((string) ($row['baseuom'] ?? $row['BaseUOM'] ?? '')));
+            $combination = $itemCode . '_' . $altUOM . '_' . $baseKey;
 
-            // Check for duplicates in the current import
-            if (in_array($combination, self::$seenCombinations)) {
+            if (isset(self::$seenCombinations[$combination])) {
                 $this->addSkippedItem($itemCode, $altUOM, $row['item_description'] ?? '', 'Duplicate item within the import file. Only the first occurrence was processed.');
                 $this->skippedCount++;
                 continue;
             }
 
-            // Add to seen combinations
-            self::$seenCombinations[] = $combination;
+            self::$seenCombinations[$combination] = true;
             $itemCodesInChunk[] = $itemCode;
             
             $validRows[] = [
@@ -176,10 +182,14 @@ class SAPMasterfileImport implements ToCollection, WithHeadingRow, WithChunkRead
             // that contradicts itself is caught on its second base unit.
             $established = array_values(array_unique(array_merge(
                 $knownBaseUoms[$itemCode] ?? [],
-                isset(self::$baseUomByItem[$itemCode]) ? [self::$baseUomByItem[$itemCode]] : []
+                self::$baseUomByItem[$itemCode] ?? []
             )));
+            $packKey = strtoupper($altUOM);
 
-            if (self::conflictingBaseUom($baseUOM, $established)) {
+            // A pack this file already gave under the accepted base, restated in
+            // another unit (Case = 48 Can, then Case = 18720 Gm), is a conversion SAP
+            // carries, not a changed base - it and its base row are let in.
+            if (self::conflictingBaseUom($baseUOM, $established) && ! isset(self::$packsByItem[$itemCode][$packKey])) {
                 $this->addSkippedItem($itemCode, $altUOM, $row['item_description'] ?? '',
                     "BaseUOM '".trim($baseUOM)."' conflicts with '".implode("' / '", $established)
                     ."' already on file for this item. Correct the base unit in SAP; importing it would count the item twice.");
@@ -187,8 +197,10 @@ class SAPMasterfileImport implements ToCollection, WithHeadingRow, WithChunkRead
                 continue;
             }
 
-            if (trim($baseUOM) !== '' && ! isset(self::$baseUomByItem[$itemCode])) {
-                self::$baseUomByItem[$itemCode] = strtoupper(trim($baseUOM));
+            self::$packsByItem[$itemCode][$packKey] = true;
+            $baseKey = strtoupper(trim($baseUOM));
+            if ($baseKey !== '' && ! in_array($baseKey, self::$baseUomByItem[$itemCode] ?? [], true)) {
+                self::$baseUomByItem[$itemCode][] = $baseKey;
             }
 
             if (($typeId = $this->itemTypeFor($itemCode, $altUOM, $row)) !== null) {
@@ -213,9 +225,40 @@ class SAPMasterfileImport implements ToCollection, WithHeadingRow, WithChunkRead
         // the same ItemCode/AltUOM. entity_id is always set (the constructor refuses
         // to run without one), which keeps the MERGE's `=` comparison matchable — a
         // NULL here would never match and would insert a duplicate on every
-        // re-import.
-        $matchColumns = ['ItemCode', 'AltUOM', 'entity_id'];
+        // re-import. BaseUOM is matched too, since one pack can carry a row per base.
+        //
+        // A pair stored with a blank BaseUOM is still matched without it, so its
+        // row is filled in rather than joined by a second one. Only the file's first
+        // row for that pair goes that way; two in one MERGE would hit the same row.
+        $blankPairs = $this->pairsWithBlankBaseUom(array_unique($itemCodesInChunk));
+        $groups = ['pair' => [], 'base' => []];
+        foreach ($upsertData as $data) {
+            $pair = $data['ItemCode'].'_'.strtoupper($data['AltUOM']);
+            if (isset($blankPairs[$pair])) {
+                unset($blankPairs[$pair]);
+                $groups['pair'][] = $data;
+            } else {
+                $groups['base'][] = $data;
+            }
+        }
 
+        foreach ($groups as $group => $groupRows) {
+            $this->upsertRows($groupRows, $group === 'pair'
+                ? ['ItemCode', 'AltUOM', 'entity_id']
+                : ['ItemCode', 'AltUOM', 'BaseUOM', 'entity_id'], $imported);
+        }
+
+        // Only items whose SAP rows made it in get their type.
+        $this->assignItemTypes(array_intersect_key($pendingTypes, $imported), $now);
+    }
+
+    /**
+     * @param  array<int, array<string, mixed>>  $upsertData
+     * @param  array<int, string>  $matchColumns
+     * @param  array<string, bool>  $imported  ItemCodes that made it in, filled here
+     */
+    protected function upsertRows(array $upsertData, array $matchColumns, array &$imported): void
+    {
         // 3. Bulk Upsert (Batch processing)
         // Batch size set to 100 to prevent exceeding SQL Server's 2100 parameter limit
         $upsertBatchSize = 100;
@@ -254,9 +297,27 @@ class SAPMasterfileImport implements ToCollection, WithHeadingRow, WithChunkRead
                 }
             }
         }
+    }
 
-        // Only items whose SAP rows made it in get their type.
-        $this->assignItemTypes(array_intersect_key($pendingTypes, $imported), $now);
+    /**
+     * ItemCode + AltUOM pairs stored with a blank BaseUOM, keyed "ItemCode_ALTUOM".
+     *
+     * @param  array<int, string>  $itemCodes
+     * @return array<string, bool>
+     */
+    protected function pairsWithBlankBaseUom(array $itemCodes): array
+    {
+        if (! $itemCodes) {
+            return [];
+        }
+
+        return DB::table('sap_masterfiles')
+            ->where('entity_id', $this->entityId)
+            ->whereIn('ItemCode', $itemCodes)
+            ->where(fn ($q) => $q->whereNull('BaseUOM')->orWhere('BaseUOM', ''))
+            ->get(['ItemCode', 'AltUOM'])
+            ->mapWithKeys(fn ($r) => [$r->ItemCode.'_'.strtoupper(trim((string) $r->AltUOM)) => true])
+            ->all();
     }
 
     /**
