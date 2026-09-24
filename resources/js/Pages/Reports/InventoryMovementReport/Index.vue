@@ -392,7 +392,16 @@ const formatNumber = (num) => {
                             <td class="px-3 py-4 text-gray-900 border-r border-gray-100">{{ item.supplier || '-' }}</td>
                             <td class="px-3 py-4 font-mono text-gray-900 border-r border-gray-100">{{ item.sap_code }}</td>
                             <td class="px-3 py-4 text-gray-900 border-r border-gray-100">{{ item.item_description }}</td>
-                            <td class="px-3 py-4 text-center text-gray-500 border-r border-gray-100 italic">{{ item.uom }}</td>
+                            <td class="px-3 py-4 text-center text-gray-500 border-r border-gray-100 italic">
+                                {{ item.uom }}
+                                <div
+                                    v-if="item.unconverted_units?.length"
+                                    class="mt-1 not-italic text-[10px] text-amber-600"
+                                    :title="`No SAP conversion from ${item.unconverted_units.join(', ')} to ${item.uom}; those quantities are excluded.`"
+                                >
+                                    Excl. {{ item.unconverted_units.join(', ') }}
+                                </div>
+                            </td>
                             <td class="px-3 py-4 text-center text-gray-600 border-r border-gray-100">{{ formatNumber(item.ordered_qty) }}</td>
                             <td class="px-3 py-4 text-center text-gray-600 border-r border-gray-100">{{ formatNumber(item.committed_qty) }}</td>
                             <td class="px-3 py-4 text-center font-medium text-blue-600 border-r border-gray-100 bg-blue-50/30">{{ formatNumber(item.received_qty) }}</td>
