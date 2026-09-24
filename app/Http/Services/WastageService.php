@@ -89,41 +89,48 @@ class WastageService
 
     private function buildFinalApprovalDeductions(Collection $relatedWastages, int $storeBranchId, string $quantityLevel): array
     {
-        $groupedItems = $relatedWastages->filter(fn($item) => $item->sapMasterfile !== null)
-            ->groupBy('sapMasterfile.ItemCode');
-
         $stockErrors = [];
         $deductions = [];
+        $stockUnits = [];
+        $groups = [];
 
-        foreach ($groupedItems as $itemCode => $items) {
-            $totalQtyToDeductInBaseUom = 0;
-            $totalCostOfWastage = 0;
-
-            foreach ($items as $item) {
-                if ($item->reason === 'Scrap') {
-                    continue;
-                }
-
-                $originalSapMasterfile = $item->sapMasterfile;
-                $conversionFactor = $originalSapMasterfile->BaseQty > 0 ? $originalSapMasterfile->BaseQty : 1;
-                $approvedQty = $quantityLevel === 'level1'
-                    ? ($item->approverlvl1_qty ?? $item->wastage_qty)
-                    : ($item->approverlvl2_qty ?? $item->approverlvl1_qty ?? $item->wastage_qty);
-
-                $totalQtyToDeductInBaseUom += $approvedQty * $conversionFactor;
-                $totalCostOfWastage += $approvedQty * $item->cost;
-            }
-
-            if ($totalQtyToDeductInBaseUom <= 0) {
+        // Stock lives on the item's SAP base-unit row; each wasted unit converts into it.
+        foreach ($relatedWastages as $item) {
+            if ($item->sapMasterfile === null || $item->reason === 'Scrap') {
                 continue;
             }
 
-            $targetSapMasterfile = SAPMasterfile::where('ItemCode', $itemCode)
-                ->whereColumn('BaseUOM', 'AltUOM')
-                ->first();
+            $itemCode = $item->sapMasterfile->ItemCode;
+            $stockUnit = $stockUnits[$itemCode] ??= \App\Support\ItemStockUnit::forItem($itemCode);
+            $unit = $item->sapMasterfile->AltUOM;
+            $targetSapMasterfile = $stockUnit->stockRowFor($unit);
+            $conversionFactor = $stockUnit->factor($unit);
 
-            if (!$targetSapMasterfile) {
-                \Log::warning('SOH Update skipped: no target SAP Masterfile (BaseUOM=AltUOM) found for ItemCode.', ['item_code' => $itemCode]);
+            if (!$targetSapMasterfile || !$conversionFactor) {
+                $stockErrors[] = [
+                    'item_code' => $itemCode,
+                    'item_description' => $item->sapMasterfile->ItemDescription,
+                    'available' => 0,
+                    'required' => 0,
+                    'message' => "No base-stock SAP masterfile that {$unit} converts into for item {$itemCode}.",
+                ];
+                continue;
+            }
+
+            $approvedQty = $quantityLevel === 'level1'
+                ? ($item->approverlvl1_qty ?? $item->wastage_qty)
+                : ($item->approverlvl2_qty ?? $item->approverlvl1_qty ?? $item->wastage_qty);
+
+            $groups[$targetSapMasterfile->id] ??= ['target' => $targetSapMasterfile, 'quantity' => 0, 'cost' => 0];
+            $groups[$targetSapMasterfile->id]['quantity'] += $approvedQty * $conversionFactor;
+            $groups[$targetSapMasterfile->id]['cost'] += $approvedQty * $item->cost;
+        }
+
+        foreach ($groups as $group) {
+            $targetSapMasterfile = $group['target'];
+            $totalQtyToDeductInBaseUom = $group['quantity'];
+
+            if ($totalQtyToDeductInBaseUom <= 0) {
                 continue;
             }
 
@@ -133,7 +140,7 @@ class WastageService
 
             if (!$productStock || $productStock->quantity < $totalQtyToDeductInBaseUom) {
                 $stockErrors[] = [
-                    'item_code' => $itemCode,
+                    'item_code' => $targetSapMasterfile->ItemCode,
                     'item_description' => $targetSapMasterfile->ItemDescription,
                     'available' => $productStock->quantity ?? 0,
                     'required' => $totalQtyToDeductInBaseUom,
@@ -146,7 +153,7 @@ class WastageService
                 'product_stock' => $productStock,
                 'product_inventory_id' => $targetSapMasterfile->id,
                 'quantity' => $totalQtyToDeductInBaseUom,
-                'total_cost' => $totalCostOfWastage,
+                'total_cost' => $group['cost'],
             ];
         }
 

@@ -206,6 +206,11 @@ SQL Server as the target. Rationale and trade-offs: [Decisions.md](docs/knowledg
   `sap_item_type_assignments (entity_id, item_code)`; read it with `SAPMasterfile::withItemType()` /
   `whereItemType()`. Never add a per-row type column - rows are per AltUOM and would drift apart.
   Types are deactivated, never deleted. An import without an `Item Type` column leaves types alone.
+- **Stock lives on one base row per linked unit group - resolve it with `App\Support\ItemStockUnit`.** Never
+  pick "the `BaseUOM = AltUOM` row" with `->first()`: an item can have two (Can/Can + Case/Case). Units
+  SAP links by conversion share the SAP base unit's row (48 Can = 1 Case -> Case); an unlinked base
+  (Sprite's Can next to LIT) keeps its own. Convert with `factor()` (BaseQty / AltQty, chained), never
+  `BaseQty` alone. Misplaced history: `php artisan stock:rekey-base-rows` (dry run; `--apply`).
 - **SAP import key is ItemCode + AltUOM + BaseUOM** (per entity). SAP restates a pack in a second
   base (Case = 48 Can and Case = 18720 Gm); both rows import. A second base is still refused unless
   the file gave that same AltUOM under the accepted base first. Stored blank-BaseUOM pairs match without it.

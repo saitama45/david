@@ -700,7 +700,12 @@ class WastageController extends Controller
             }
 
             $items = $query->get();
-            $itemIds = $items->pluck('id')->all();
+
+            // Each item's SOH sits on its SAP base-unit row; every unit shows it converted.
+            $stockUnits = SAPMasterfile::whereIn('ItemCode', $items->pluck('ItemCode')->unique()->all())
+                ->orderBy('id')->get()->groupBy('ItemCode')
+                ->map(fn ($rows) => \App\Support\ItemStockUnit::fromRows($rows));
+            $itemIds = $items->map(fn ($item) => $stockUnits->get($item->ItemCode)?->stockRowFor($item->AltUOM)?->id)->filter()->unique()->values()->all();
 
             $stockByProductId = DB::table('product_inventory_stock_managers')
                 ->select(
@@ -717,8 +722,12 @@ class WastageController extends Controller
                 ->get()
                 ->keyBy('product_inventory_id');
 
-            $processedItems = $items->map(function ($item) use ($stockByProductId) {
-                $soh = $stockByProductId->get($item->id)->stock_on_hand ?? 0;
+            $processedItems = $items->map(function ($item) use ($stockByProductId, $stockUnits) {
+                $stockUnit = $stockUnits->get($item->ItemCode);
+                $factor = $stockUnit?->factor($item->AltUOM);
+                $stockRow = $stockUnit?->stockRowFor($item->AltUOM);
+                $baseSoh = $stockRow ? ($stockByProductId->get($stockRow->id)->stock_on_hand ?? 0) : 0;
+                $soh = $factor ? $baseSoh / $factor : 0;
 
                 return [
                     'id' => $item->id,

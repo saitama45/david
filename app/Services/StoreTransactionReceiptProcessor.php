@@ -6,6 +6,7 @@ use App\Models\POSMasterfile;
 use App\Models\POSMasterfileBOM;
 use App\Models\ProductInventoryStockManager;
 use App\Models\SAPMasterfile;
+use App\Support\ItemStockUnit;
 use App\Models\StoreBranch;
 use App\Models\StoreTransaction;
 use App\Models\User;
@@ -103,26 +104,12 @@ class StoreTransactionReceiptProcessor
                         throw new \InvalidArgumentException("Missing BOM for {$pos->POSCode}. Configure its recipe or explicitly classify it as non-inventory.");
                     }
                     foreach ($bom as $recipe) {
-                        // Receiving and Stock Management use the BaseUOM=AltUOM row.
-                        $targets = SAPMasterfile::where('ItemCode', $recipe->ItemCode)->whereColumn('BaseUOM', 'AltUOM')->get();
-                        if ($targets->count() > 1) {
-                            $targets = $targets->filter(fn ($item) => strcasecmp(trim($item->BaseUOM), trim($recipe->BOMUOM)) === 0)->values();
-                        }
-                        if ($targets->count() !== 1) throw new \InvalidArgumentException("Missing or ambiguous base-stock masterfile: {$recipe->ItemCode}.");
-                        $sap = $targets->first();
-                        $factor = 1.0;
-                        if (strcasecmp(trim($recipe->BOMUOM), trim($sap->BaseUOM)) !== 0) {
-                            $conversions = SAPMasterfile::where('ItemCode', $recipe->ItemCode)
-                                ->whereRaw('UPPER(AltUOM) = ?', [strtoupper(trim($recipe->BOMUOM))])
-                                ->whereRaw('UPPER(BaseUOM) = ?', [strtoupper(trim($sap->BaseUOM))])->get();
-                            if ($conversions->count() !== 1) throw new \InvalidArgumentException("Missing or ambiguous unit conversion for {$recipe->ItemCode}.");
-                            $conversion = $conversions->first();
-                            // The receiving workflow treats BaseQty as base units per one alternate unit.
-                            if ((float) $conversion->BaseQty <= 0 || (float) $conversion->AltQty !== 1.0) {
-                                throw new \InvalidArgumentException("Unit conversion must define one alternate unit for {$recipe->ItemCode} before posting.");
-                            }
-                            $factor = (float) $conversion->BaseQty;
-                        }
+                        // Stock lives on the item's SAP base-unit row; the recipe unit converts into it.
+                        $stockUnit = ItemStockUnit::forItem($recipe->ItemCode, (int) $branch->entity_id);
+                        $sap = $stockUnit->stockRowFor($recipe->BOMUOM);
+                        if (!$sap) throw new \InvalidArgumentException("Missing base-stock masterfile: {$recipe->ItemCode}.");
+                        $factor = $stockUnit->factor($recipe->BOMUOM);
+                        if (!$factor) throw new \InvalidArgumentException("Missing unit conversion from {$recipe->BOMUOM} to a stock unit for {$recipe->ItemCode}.");
                         if (!is_numeric($recipe->BOMQty) || (float) $recipe->BOMQty <= 0 || !is_finite((float) $recipe->BOMQty)) {
                             throw new \InvalidArgumentException("Invalid BOM quantity for {$recipe->ItemCode}.");
                         }

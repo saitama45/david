@@ -177,33 +177,28 @@ class IntercoRequest extends FormRequest
                 continue;
             }
 
-            // Get the SAP masterfile ID from the item code first
-            $sapMasterfile = \App\Models\SAPMasterfile::where('ItemCode', $itemCode)
-                ->where('is_active', true)
-                ->first();
+            // Stock lives on the item's SAP base-unit row; the requested unit converts into it.
+            $stockUnit = \App\Support\ItemStockUnit::forItem($itemCode);
+            $factor = $stockUnit->factor($item['uom'] ?? null);
 
-            if ($sapMasterfile) {
-                \Log::info("Found SAP Masterfile for {$itemCode}: " . json_encode(['id' => $sapMasterfile->id, 'description' => $sapMasterfile->ItemDescription]));
-            } else {
-                \Log::warning("SAP Masterfile not found for item code: {$itemCode}");
-            }
+            $stockRow = $stockUnit->stockRowFor($item['uom'] ?? null);
 
-            if (!$sapMasterfile) {
+            if (!$stockRow || !$factor) {
                 $validator->errors()->add("items.{$index}.item_code",
-                    "Item {$itemCode} not found in product masterfile.");
+                    "Item {$itemCode} has no SAP conversion from " . ($item['uom'] ?? '(blank)') . " to its stock unit.");
                 continue;
             }
 
-            // Check stock availability in sending store using the correct numeric ID
-            $stock = \App\Models\ProductInventoryStock::where('product_inventory_id', $sapMasterfile->id)
+            $stock = \App\Models\ProductInventoryStock::where('product_inventory_id', $stockRow->id)
                 ->where('store_branch_id', $sendingStoreId)
                 ->first();
 
             if (!$stock) {
                 $validator->errors()->add("items.{$index}.quantity_ordered",
                     "No stock record found for item {$itemCode} in the sending store.");
-            } elseif ($stock->quantity < $quantity) {
-                $available = $stock->quantity;
+            } elseif ($stock->quantity < $quantity * $factor) {
+                // Report both figures in the requested unit.
+                $available = round($stock->quantity / $factor, 4);
                 $validator->errors()->add("items.{$index}.quantity_ordered",
                     "Insufficient stock for item {$itemCode}. Available: {$available}, Requested: {$quantity}.");
             }

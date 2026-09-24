@@ -17,6 +17,7 @@ use Illuminate\Support\Facades\Log;
 use App\Models\ProductInventoryStockManager;
 use App\Models\PurchaseItemBatch;
 use App\Models\SAPMasterfile;
+use App\Support\ItemStockUnit;
 use Inertia\Inertia;
 use Carbon\Carbon;
 
@@ -115,7 +116,7 @@ class IntercoReceivingController extends Controller
 
             if ($itemCode) {
                 // Find the master file based on the determined item code
-                $sapMasterfile = SAPMasterfile::where('ItemCode', $itemCode)->first();
+                $sapMasterfile = ItemStockUnit::forItem($itemCode)->stockRowFor($item->uom) ?? SAPMasterfile::where('ItemCode', $itemCode)->first();
 
                 if ($sapMasterfile) {
                     // Flatten the structure for the frontend
@@ -145,7 +146,7 @@ class IntercoReceivingController extends Controller
             if ($history->store_order_item) {
                 $itemCode = $history->store_order_item->supplierItem->ItemCode ?? $history->store_order_item->item_code;
                 if ($itemCode) {
-                    $sapMasterfile = SAPMasterfile::where('ItemCode', $itemCode)->first();
+                    $sapMasterfile = ItemStockUnit::forItem($itemCode)->stockRowFor($item->uom) ?? SAPMasterfile::where('ItemCode', $itemCode)->first();
                     if ($sapMasterfile) {
                         // Attach flattened data directly to the history's store_order_item
                         $history->store_order_item->ItemCode = $sapMasterfile->ItemCode;
@@ -257,29 +258,18 @@ class IntercoReceivingController extends Controller
                     continue;
                 }
 
-                // Find the SAP Masterfile for the specific UOM it was ordered/received in
-                $originalSapMasterfile = SAPMasterfile::where('ItemCode', $itemCode)->where('AltUOM', $uom)->first();
+                // Stock lives on the item's SAP base-unit row; the received unit converts into it.
+                $stockUnit = ItemStockUnit::forItem($itemCode);
+                $stockUpdateTarget = $stockUnit->stockRowFor($uom);
+                $conversionFactor = $stockUnit->factor($uom);
 
-                if (!$originalSapMasterfile) {
-                    Log::warning("IntercoReceivingController: Could not find original SAP Masterfile for ItemCode '{$itemCode}' and UOM '{$uom}'. Skipping history item ID {$history->id}.");
+                if (!$stockUpdateTarget || !$conversionFactor) {
+                    Log::warning("IntercoReceivingController: No SAP conversion from '{$uom}' to the stock unit of '{$itemCode}'. Skipping history item ID {$history->id}.");
                     continue;
                 }
 
-                // Find the target SAP Masterfile for SOH (where BaseUOM = AltUOM)
-                $stockUpdateTarget = SAPMasterfile::where('ItemCode', $originalSapMasterfile->ItemCode)->whereColumn('BaseUOM', 'AltUOM')->first();
-                if (!$stockUpdateTarget) {
-                    $stockUpdateTarget = $originalSapMasterfile;
-                     Log::warning("IntercoReceivingController: No target SAP Masterfile (BaseUOM=AltUOM) found for ItemCode: {$originalSapMasterfile->ItemCode}. Falling back to original SAPMasterfile ID: {$originalSapMasterfile->id}.");
-                }
-
-                // Calculate conversion and quantities
-                $conversionFactor = (is_numeric($originalSapMasterfile->BaseQty) && $originalSapMasterfile->BaseQty > 0)
-                    ? $originalSapMasterfile->BaseQty
-                    : 1;
                 $quantityInBaseUom = $history->quantity_received * $conversionFactor;
-                $costInBaseUom = ($conversionFactor != 0)
-                    ? $storeOrderItem->cost_per_quantity / $conversionFactor
-                    : $storeOrderItem->cost_per_quantity;
+                $costInBaseUom = $storeOrderItem->cost_per_quantity / $conversionFactor;
 
                 // Aggregate data by the target SOH item's ID
                 $targetId = $stockUpdateTarget->id;

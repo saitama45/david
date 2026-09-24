@@ -192,28 +192,19 @@ class MECApproval2Controller extends Controller
             })->groupBy('sapMasterfile.ItemCode');
 
             foreach ($groupedItems as $itemCode => $items) {
-                // 1. Calculate the total aggregated quantity for this group (same ItemCode).
-                $totalAggregatedQty = StockQuantity::normalize($items->sum('total_qty'));
-
-                // 2. Find the single target masterfile for this group.
-                // The target has the same ItemCode, but its BaseUOM = AltUOM.
-                $targetSapMasterfile = DB::table('sap_masterfiles')
-                    ->where('entity_id', $branch->entity_id)
-                    ->where('ItemCode', $itemCode)
-                    ->whereColumn('BaseUOM', 'AltUOM')
-                    ->get();
-
-                if ($targetSapMasterfile->count() > 1) {
-                    $units = $items->map(fn ($item) => strtoupper(trim($item->uom)))->unique();
-                    if ($units->count() === 1) $targetSapMasterfile = $targetSapMasterfile->filter(fn ($target) => strtoupper(trim($target->BaseUOM)) === $units->first())->values();
+                // Stock lives on the item's SAP base-unit row; each counted unit converts into it.
+                $stockUnit = \App\Support\ItemStockUnit::forItem($itemCode, (int) $branch->entity_id);
+                $countsByRow = [];
+                foreach ($items as $item) {
+                    $target = $stockUnit->stockRowFor($item->uom);
+                    $factor = $stockUnit->factor($item->uom);
+                    if (!is_numeric($item->total_qty) || $item->total_qty < 0 || !$target || !$factor) {
+                        throw new \RuntimeException("Count units or quantities require reconciliation for {$itemCode}.");
+                    }
+                    $countsByRow[$target->id] ??= ['target' => $target, 'qty' => 0.0];
+                    $countsByRow[$target->id]['qty'] += (float) $item->total_qty * $factor;
                 }
-                if ($targetSapMasterfile->count() !== 1) throw new \RuntimeException("Missing or ambiguous base-stock masterfile for {$itemCode}.");
-                $targetSapMasterfile = $targetSapMasterfile->first();
 
-                if ($items->contains(fn ($item) => !is_numeric($item->total_qty) || $item->total_qty < 0
-                    || strcasecmp(trim($item->uom), trim($targetSapMasterfile->BaseUOM)) !== 0)) {
-                    throw new \RuntimeException("Count units or quantities require reconciliation for {$itemCode}.");
-                }
                 $sameProductIds = \App\Models\SAPMasterfile::where('ItemCode', $itemCode)->pluck('id');
                 if (MonthEndCountItem::where('branch_id', $branch->id)->whereIn('sap_masterfile_id', $sameProductIds)
                     ->where('status', 'level2_approved')->whereHas('schedule', fn ($q) => $q->whereDate('calculated_date', '>', $schedule->calculated_date->toDateString()))->exists()) {
@@ -221,10 +212,13 @@ class MECApproval2Controller extends Controller
                 }
 
                 $remarkText = 'Month End Count Approved for the month of '.Carbon::createFromDate($schedule->year, $schedule->month, 1)->format('F Y');
-                app(\App\Services\MonthEndStockAdjustment::class)->post(
-                    (int) $targetSapMasterfile->id, (int) $branch->id, $totalAggregatedQty, $effectiveDate,
-                    "{$remarkText}; counted {$totalAggregatedQty}; effective {$effectiveDate}||MEC_REF::{$schedule->id},{$branch->id}"
-                );
+                foreach ($countsByRow as $count) {
+                    $totalAggregatedQty = StockQuantity::normalize($count['qty']);
+                    app(\App\Services\MonthEndStockAdjustment::class)->post(
+                        (int) $count['target']->id, (int) $branch->id, $totalAggregatedQty, $effectiveDate,
+                        "{$remarkText}; counted {$totalAggregatedQty}; effective {$effectiveDate}||MEC_REF::{$schedule->id},{$branch->id}"
+                    );
+                }
             }
             // 5. After processing all groups, update the status of all original items.
             foreach ($countItems as $item) {

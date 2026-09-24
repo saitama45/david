@@ -572,82 +572,15 @@ class InventoryMovementReportController extends Controller
     }
 
     /**
-     * How many of the item's BaseUOM each of its units holds, from the masterfile's
-     * conversion rows (AltQty x AltUOM = BaseQty x BaseUOM, e.g. 1000 Gm = 1 Bag, so 1 Gm = 0.001 Bag).
+     * The unit the item's stock is kept in (its SAP base unit) and how many of it each
+     * of its units holds - the same resolution every stock writer uses.
      *
      * @return array{0: string, 1: array<string, float>} display unit, and size per UPPER unit
      */
     private function resolveUnits($rows): array
     {
-        $labels = [];
-        $edges = [];
-        $baseCounts = [];
+        $stockUnit = \App\Support\ItemStockUnit::fromRows(collect($rows));
 
-        foreach ($rows as $row) {
-            $alt = strtoupper(trim((string) $row->AltUOM));
-            $base = strtoupper(trim((string) $row->BaseUOM));
-
-            foreach ([$alt => $row->AltUOM, $base => $row->BaseUOM] as $key => $label) {
-                if ($key !== '') {
-                    $labels[$key] ??= trim((string) $label);
-                    $edges[$key] ??= [];
-                }
-            }
-
-            if ($alt === '' || $base === '' || $alt === $base || (float) $row->AltQty <= 0 || (float) $row->BaseQty <= 0) {
-                continue;
-            }
-
-            // One AltUOM holds BaseQty / AltQty of the BaseUOM.
-            $factor = (float) $row->BaseQty / (float) $row->AltQty;
-            $baseCounts[$base] = ($baseCounts[$base] ?? 0) + 1;
-            $edges[$alt][$base] = $factor;
-            $edges[$base][$alt] = 1 / $factor;
-        }
-
-        // Units with no conversion between them form separate groups; report in the
-        // largest group, which holds the item's real stock units.
-        $best = [];
-        $seen = [];
-        foreach (array_keys($edges) as $start) {
-            if (isset($seen[$start])) {
-                continue;
-            }
-
-            $sizes = [$start => 1.0];
-            $queue = [$start];
-            while ($queue) {
-                $unit = array_shift($queue);
-                foreach ($edges[$unit] as $next => $factor) {
-                    if (!isset($sizes[$next])) {
-                        // 1 unit = factor next, so next is 1/factor the size of unit.
-                        $sizes[$next] = $sizes[$unit] / $factor;
-                        $queue[] = $next;
-                    }
-                }
-            }
-
-            $seen += $sizes;
-            if (count($sizes) > count($best)) {
-                $best = $sizes;
-            }
-        }
-
-        if (!$best) {
-            return ['', []];
-        }
-
-        // Report in the BaseUOM the conversion rows point at (Gm -> Bag reports in Bag);
-        // an item with no conversion falls back to its smallest unit.
-        $bases = array_intersect_key($baseCounts, $best);
-        if ($bases) {
-            arsort($bases);
-            $displayKey = array_key_first($bases);
-        } else {
-            $displayKey = array_search(min($best), $best, true);
-        }
-        $displaySize = $best[$displayKey];
-
-        return [$labels[$displayKey], array_map(fn ($size) => $size / $displaySize, $best)];
+        return [$stockUnit->unit(), $stockUnit->factors()];
     }
 }

@@ -581,16 +581,17 @@ class IntercoController extends Controller
                 ->get()
                 ->keyBy('product_inventory_id');
 
-            // 5. Create a map from ItemCode -> SOH
-            $itemCodeToSohMap = [];
-            foreach ($stockTrackingItems as $item) {
-                $stockValue = $stockData->get($item->id)->stock_on_hand ?? 0;
-                $itemCodeToSohMap[$item->ItemCode] = $stockValue;
-            }
+            // 5. Each item's SOH sits on its SAP base-unit row; show it in each variant's own unit.
+            $stockUnits = SAPMasterfile::whereIn('ItemCode', $itemCodes)->orderBy('id')->get()
+                ->groupBy('ItemCode')->map(fn ($rows) => \App\Support\ItemStockUnit::fromRows($rows));
 
             // 6. Map the original search results and apply the correct SOH to each variant.
-            $processedItems = $foundItems->map(function ($item) use ($itemCodeToSohMap) {
-                $stockQty = $itemCodeToSohMap[$item->ItemCode] ?? 0;
+            $processedItems = $foundItems->map(function ($item) use ($stockUnits, $stockData) {
+                $stockUnit = $stockUnits->get($item->ItemCode);
+                $factor = $stockUnit?->factor($item->AltUOM);
+                $stockRow = $stockUnit?->stockRowFor($item->AltUOM);
+                $baseStock = $stockRow ? ($stockData->get($stockRow->id)->stock_on_hand ?? 0) : 0;
+                $stockQty = $factor ? $baseStock / $factor : 0;
 
                 return [
                     'id' => $item->id,
@@ -638,10 +639,10 @@ class IntercoController extends Controller
                 return response()->json(['error' => 'Item not found'], 404);
             }
 
-            // Find the stock-tracking masterfile for this item's ItemCode
-            $stockTrackingItem = SAPMasterfile::where('ItemCode', $itemCode)
-                ->whereColumn('BaseUOM', 'AltUOM')
-                ->first();
+            // The item's SOH sits on its SAP base-unit row; show it in the selected unit.
+            $stockUnit = \App\Support\ItemStockUnit::forItem($itemCode);
+            $stockTrackingItem = $stockUnit->stockRowFor($selectedItem->AltUOM);
+            $factor = $stockUnit->factor($selectedItem->AltUOM);
 
             $stock = 0;
             if ($stockTrackingItem) {
@@ -651,7 +652,7 @@ class IntercoController extends Controller
                     ->where('product_inventory_id', $stockTrackingItem->id)
                     ->sum(DB::raw('CASE WHEN action IN (\'add\', \'add_quantity\') THEN quantity WHEN action = \'out\' THEN -quantity ELSE 0 END'));
                 
-                $stock = $calculatedStock ?? 0;
+                $stock = $factor ? ($calculatedStock ?? 0) / $factor : 0;
             }
 
             $itemDetails = [

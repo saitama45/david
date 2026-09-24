@@ -614,8 +614,8 @@ class OrderReceivingService extends StoreOrderService
             throw new \Exception("{$itemCode} has no SAP masterfile entry for UOM {$uom}, so the quantity could not be converted to stock.");
         }
 
-        if (! SAPMasterfile::where('ItemCode', $itemCode)->whereColumn('BaseUOM', 'AltUOM')->exists()) {
-            throw new \Exception("{$itemCode} has no base-UOM SAP masterfile entry, so the quantity could not be posted to stock on hand.");
+        if (! \App\Support\ItemStockUnit::forItem($itemCode)->stockRowFor($uom)) {
+            throw new \Exception("{$itemCode} has no base-UOM SAP masterfile entry that {$uom} converts into, so the quantity could not be posted to stock on hand.");
         }
 
         $quantity = (float) $data['quantity_received'];

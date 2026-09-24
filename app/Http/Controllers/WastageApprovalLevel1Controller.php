@@ -293,54 +293,9 @@ class WastageApprovalLevel1Controller extends Controller
                     ->with('success', 'Wastage record approved successfully. Inventory stock updated.');
             }
 
-            // Stock Validation Logic
-            $groupedItems = $relatedWastages->filter(fn($item) => $item->sapMasterfile !== null)
-                                            ->groupBy('sapMasterfile.ItemCode');
-
-            $stockErrors = [];
-
-            foreach ($groupedItems as $itemCode => $items) {
-                $totalQtyToDeductInBaseUom = 0;
-
-                foreach ($items as $item) {
-                    if ($item->reason === 'Scrap') {
-                        continue;
-                    }
-
-                    $originalSapMasterfile = $item->sapMasterfile;
-                    $conversionFactor = $originalSapMasterfile->BaseQty > 0 ? $originalSapMasterfile->BaseQty : 1;
-                    $approvedQty = $item->approverlvl1_qty ?? $item->wastage_qty;
-
-                    $totalQtyToDeductInBaseUom += $approvedQty * $conversionFactor;
-                }
-                
-                if ($totalQtyToDeductInBaseUom <= 0) {
-                    continue;
-                }
-
-                $targetSapMasterfile = \App\Models\SAPMasterfile::where('ItemCode', $itemCode)
-                    ->whereColumn('BaseUOM', 'AltUOM')
-                    ->first();
-
-                if (!$targetSapMasterfile) {
-                    \Log::warning('SOH Update validation Skipped: No target SAP Masterfile (BaseUOM=AltUOM) found for ItemCode.', ['item_code' => $itemCode]);
-                    continue;
-                }
-                
-                $productStock = \App\Models\ProductInventoryStock::where('product_inventory_id', $targetSapMasterfile->id)
-                    ->where('store_branch_id', $storeBranchId)
-                    ->first();
-
-                if (!$productStock || $productStock->quantity < $totalQtyToDeductInBaseUom) {
-                    $stockErrors[] = [
-                        'item_code' => $itemCode,
-                        'item_description' => $targetSapMasterfile->ItemDescription,
-                        'available' => $productStock->quantity ?? 0,
-                        'required' => $totalQtyToDeductInBaseUom,
-                        'message' => "Insufficient stock for item {$targetSapMasterfile->ItemDescription}. Available: " . ($productStock->quantity ?? 0) . ", Required: {$totalQtyToDeductInBaseUom}"
-                    ];
-                }
-            }
+            // Stock Validation Logic - the same check the final approval runs, at level-1 quantities.
+            $stockErrors = app(\App\Http\Services\WastageService::class)
+                ->getFinalApprovalStockErrors($relatedWastages, $storeBranchId, 'level1');
 
             if (!empty($stockErrors)) {
                 return redirect()->back()->with([

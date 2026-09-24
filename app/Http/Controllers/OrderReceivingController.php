@@ -20,6 +20,7 @@ use App\Models\StoreOrder;
 use App\Models\StoreOrderItem;
 use App\Models\User;
 use App\Models\SAPMasterfile;
+use App\Support\ItemStockUnit;
 use App\Models\ImageAttachment;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
@@ -303,30 +304,18 @@ class OrderReceivingController extends Controller
                     continue;
                 }
 
-                // Find the SAP Masterfile for the specific UOM it was ordered/received in
-                $originalSapMasterfile = SAPMasterfile::where('ItemCode', $itemCode)->where('AltUOM', $uom)->first();
+                // Stock lives on the item's SAP base-unit row; the received unit converts into it.
+                $stockUnit = ItemStockUnit::forItem($itemCode);
+                $targetSapMasterfile = $stockUnit->stockRowFor($uom);
+                $conversionFactor = $stockUnit->factor($uom);
 
-                if (!$originalSapMasterfile) {
-                    Log::warning("OrderReceivingController: Could not find original SAP Masterfile for ItemCode '{$itemCode}' and UOM '{$uom}'. Skipping history item ID {$history->id}.");
+                if (!$targetSapMasterfile || !$conversionFactor) {
+                    Log::warning("OrderReceivingController: No SAP conversion from '{$uom}' to the stock unit of '{$itemCode}'. Skipping history item ID {$history->id}.");
                     continue;
                 }
 
-                // Find the target SAP Masterfile for SOH (where BaseUOM = AltUOM)
-                $targetSapMasterfile = SAPMasterfile::where('ItemCode', $itemCode)->whereColumn('BaseUOM', 'AltUOM')->first();
-
-                if (!$targetSapMasterfile) {
-                    Log::warning("OrderReceivingController: Could not find target SOH SAP Masterfile for ItemCode '{$itemCode}'. Skipping history item ID {$history->id}.");
-                    continue;
-                }
-
-                // Calculate conversion and quantities
-                $conversionFactor = (is_numeric($originalSapMasterfile->BaseQty) && $originalSapMasterfile->BaseQty > 0)
-                    ? $originalSapMasterfile->BaseQty
-                    : 1;
                 $quantityInBaseUom = $history->quantity_received * $conversionFactor;
-                $costInBaseUom = ($conversionFactor != 0)
-                    ? $history->store_order_item->cost_per_quantity / $conversionFactor
-                    : $history->store_order_item->cost_per_quantity;
+                $costInBaseUom = $history->store_order_item->cost_per_quantity / $conversionFactor;
 
                 // Aggregate data by the target SOH item's ID
                 $targetId = $targetSapMasterfile->id;
