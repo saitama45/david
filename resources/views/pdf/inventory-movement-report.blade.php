@@ -29,6 +29,7 @@
         <strong>By:</strong> {{ $generated_by }}
     </div>
 
+    <p>All quantities use the unit shown in the UOM column (for example, 1 Sleeve = 25 Pc).</p>
     <table>
         <thead>
             <tr style="background-color: #f3f4f6; font-size: 8px;">

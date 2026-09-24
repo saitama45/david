@@ -426,7 +426,12 @@ class InventoryMovementReportController extends Controller
             $totals['committed'] = $totals['committed']->merge($procurement()
                 ->where('so.store_branch_id', $branchId)
                 ->whereNull('so.interco_number')
-                ->whereNotNull('soi.committed_by')
+                // Auto-committed orders can have no committer. Use the same
+                // eligible statuses as receiving, while retaining explicit line commitments.
+                ->where(function ($query) {
+                    $query->whereNotNull('soi.committed_by')
+                        ->orWhereIn('so.order_status', \App\Http\Services\OrderReceivingService::RECEIVING_STATUSES);
+                })
                 ->select($unitSum('soi.item_code', 'soi.uom', 'COALESCE(soi.quantity_commited, 0)'))
                 ->get());
 
@@ -507,6 +512,7 @@ class InventoryMovementReportController extends Controller
             $blankUnit = $stockUnits->count() === 1 ? $stockUnits->first() : '';
             $unconverted = [];
             $values = [];
+            $procurementSources = [];
 
             foreach ($metrics as $metric) {
                 $values[$metric] = 0.0;
@@ -520,6 +526,17 @@ class InventoryMovementReportController extends Controller
                     }
 
                     $values[$metric] += (float) $row->qty * $size;
+
+                    if (in_array($metric, ['ordered', 'committed', 'received'], true)) {
+                        $sourceKey = $row->unit === '' ? $blankUnit : $row->unit;
+                        $sourceLabel = $rows->flatMap(fn ($sapRow) => [$sapRow->AltUOM, $sapRow->BaseUOM])
+                            ->first(fn ($label) => strtoupper(trim((string) $label)) === $sourceKey) ?? $sourceKey;
+                        $procurementSources[$metric][] = [
+                            'quantity' => (float) $row->qty,
+                            'uom' => trim((string) $sourceLabel),
+                            'conversion_factor' => $size,
+                        ];
+                    }
                 }
 
                 $values[$metric] = round($values[$metric], 4);
@@ -545,6 +562,7 @@ class InventoryMovementReportController extends Controller
                 'interco_out_qty' => $values['interco_out'],
                 'theoretical_qty' => round($theoretical, 4),
                 'actual_mec' => $values['actual_mec'],
+                'procurement_sources' => $procurementSources,
                 // Quantities in a unit with no conversion to the display unit are left out.
                 'unconverted_units' => array_values(array_unique($unconverted)),
             ];

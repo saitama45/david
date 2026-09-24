@@ -245,6 +245,9 @@ const formatNumber = (num) => {
             </div>
         </div>
 
+        <p class="mb-3 text-sm text-gray-600">
+            All totals use the unit shown in the UOM column. Procurement quantities in their original units appear below the totals (for example, 1 Sleeve = 25 Pc).
+        </p>
         <div class="bg-white rounded-xl border border-gray-200 shadow-sm overflow-visible">
             <div v-if="isLoading" class="absolute inset-0 bg-white/80 flex items-center justify-center z-10">
                 <div class="flex items-center gap-3 text-gray-600">
@@ -402,9 +405,22 @@ const formatNumber = (num) => {
                                     Excl. {{ item.unconverted_units.join(', ') }}
                                 </div>
                             </td>
-                            <td class="px-3 py-4 text-center text-gray-600 border-r border-gray-100">{{ formatNumber(item.ordered_qty) }}</td>
-                            <td class="px-3 py-4 text-center text-gray-600 border-r border-gray-100">{{ formatNumber(item.committed_qty) }}</td>
-                            <td class="px-3 py-4 text-center font-medium text-blue-600 border-r border-gray-100 bg-blue-50/30">{{ formatNumber(item.received_qty) }}</td>
+                            <td
+                                v-for="metric in ['ordered', 'committed', 'received']"
+                                :key="metric"
+                                class="px-3 py-4 text-center border-r border-gray-100"
+                                :class="metric === 'received' ? 'font-medium text-blue-600 bg-blue-50/30' : 'text-gray-600'"
+                            >
+                                {{ formatNumber(item[`${metric}_qty`]) }}
+                                <div
+                                    v-for="source in item.procurement_sources?.[metric] || []"
+                                    :key="source.uom"
+                                    class="mt-1 text-[10px] font-normal text-gray-500 whitespace-nowrap"
+                                    :title="`1 ${source.uom} = ${formatNumber(source.conversion_factor)} ${item.uom}`"
+                                >
+                                    {{ formatNumber(source.quantity) }} {{ source.uom }}
+                                </div>
+                            </td>
                             <td class="px-3 py-4 text-center font-medium text-emerald-600 border-r border-gray-100 bg-emerald-50/30">{{ formatNumber(item.beg_bal_qty) }}</td>
                             <td class="px-3 py-4 text-center font-medium text-red-600 border-r border-gray-100 bg-red-50/30">{{ formatNumber(item.sales_qty) }}</td>
                             <td class="px-3 py-4 text-center font-medium text-orange-600 border-r border-gray-100 bg-orange-50/30">{{ formatNumber(item.wastage_qty) }}</td>

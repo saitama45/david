@@ -130,6 +130,9 @@ class InventoryMovementReportExport implements FromCollection, ShouldAutoSize, W
 
                 $sheet->mergeCells('A1:'.$last.'1');
                 $sheet->setCellValue('A1', 'Inventory Movement Report');
+                $sheet->getComment('D5')->getText()->createTextRun(
+                    'All quantities use the unit shown in this column (for example, 1 Sleeve = 25 Pc).'
+                );
 
                 $sheet->mergeCells('A2:'.$last.'2');
                 $sheet->setCellValue('A2', Carbon::parse($this->filters['date_from'])->format('M d, Y')

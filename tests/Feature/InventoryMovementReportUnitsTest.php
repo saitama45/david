@@ -48,8 +48,37 @@ it('reports an item with two base rows once, in its smallest unit', function () 
         'store_order_item_id' => $orderItemId, 'quantity_received' => 1, 'status' => 'approved',
     ]);
 
+    // Pending orders may already carry a default committed quantity, but have
+    // not reached receiving eligibility and must not inflate commitments.
+    $pendingOrderId = DB::table('store_orders')->insertGetId([
+        'encoder_id' => $user->id, 'supplier_id' => $supplierId, 'store_branch_id' => $branch->id,
+        'order_number' => 'GL4T-00002', 'order_date' => '2026-09-25', 'order_status' => 'pending',
+    ]);
+    DB::table('store_order_items')->insert([
+        'store_order_id' => $pendingOrderId, 'item_code' => 'RM-ESP', 'uom' => 'Bag',
+        'quantity_ordered' => 5, 'quantity_approved' => 0, 'quantity_commited' => 5,
+        'cost_per_quantity' => 0, 'total_cost' => 0,
+    ]);
+
+    foreach ([['Pc', 'Sleeve', 25, 1], ['Sleeve', 'Sleeve', 1, 1], ['Pc', 'Pc', 1, 1]] as [$alt, $base, $altQty, $baseQty]) {
+        SAPMasterfile::create([
+            'ItemCode' => 'RM-CUP', 'ItemDescription' => '8oz Double wall cup',
+            'AltUOM' => $alt, 'BaseUOM' => $base, 'AltQty' => $altQty, 'BaseQty' => $baseQty, 'is_active' => true,
+        ]);
+    }
+    $cupItemId = DB::table('store_order_items')->insertGetId([
+        'store_order_id' => $orderId, 'item_code' => 'RM-CUP', 'uom' => 'Sleeve',
+        'quantity_ordered' => 1, 'quantity_approved' => 1, 'quantity_commited' => 1, 'quantity_received' => 1,
+        'cost_per_quantity' => 0, 'total_cost' => 0,
+    ]);
+    DB::table('ordered_item_receive_dates')->insert([
+        ['store_order_item_id' => $cupItemId, 'quantity_received' => 1, 'status' => 'approved'],
+        ['store_order_item_id' => $cupItemId, 'quantity_received' => 9, 'status' => 'pending'],
+    ]);
+
     $pos = POSMasterfile::create(['POSCode' => 'POS-PB', 'POSDescription' => 'Pure Black', 'SRP' => 105]);
     POSMasterfileBOM::create(['POSCode' => $pos->POSCode, 'ItemCode' => 'RM-ESP', 'BOMQty' => 18, 'BOMUOM' => 'Gm']);
+    POSMasterfileBOM::create(['POSCode' => $pos->POSCode, 'ItemCode' => 'RM-CUP', 'BOMQty' => 1, 'BOMUOM' => 'Pc']);
 
     $transactionId = DB::table('store_transactions')->insertGetId([
         'store_branch_id' => $branch->id, 'order_date' => '2026-09-24', 'posted' => 'Y',
@@ -75,8 +104,22 @@ it('reports an item with two base rows once, in its smallest unit', function () 
     expect($espresso)->toHaveCount(1)
         ->and($espresso[0]['uom'])->toBe('Gm')
         ->and((float) $espresso[0]['ordered_qty'])->toBe(2000.0)
+        ->and((float) $espresso[0]['committed_qty'])->toBe(2000.0)
         ->and((float) $espresso[0]['received_qty'])->toBe(1000.0)
         ->and((float) $espresso[0]['sales_qty'])->toBe(36.0)
         ->and((float) $espresso[0]['theoretical_qty'])->toBe(964.0)
         ->and($espresso[0]['unconverted_units'])->toBe([]);
+
+    $cups = array_values(array_filter($rows, fn ($row) => $row['sap_code'] === 'RM-CUP'));
+    expect($cups)->toHaveCount(1)
+        ->and($cups[0]['uom'])->toBe('Pc')
+        ->and((float) $cups[0]['ordered_qty'])->toBe(25.0)
+        ->and((float) $cups[0]['committed_qty'])->toBe(25.0)
+        ->and((float) $cups[0]['received_qty'])->toBe(25.0)
+        ->and((float) $cups[0]['sales_qty'])->toBe(2.0)
+        ->and((float) $cups[0]['theoretical_qty'])->toBe(23.0)
+        ->and($cups[0]['procurement_sources']['received'])->toHaveCount(1)
+        ->and((float) $cups[0]['procurement_sources']['received'][0]['quantity'])->toBe(1.0)
+        ->and($cups[0]['procurement_sources']['received'][0]['uom'])->toBe('Sleeve')
+        ->and((float) $cups[0]['procurement_sources']['received'][0]['conversion_factor'])->toBe(25.0);
 });
