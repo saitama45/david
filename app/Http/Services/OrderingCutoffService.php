@@ -27,6 +27,12 @@ class OrderingCutoffService
     /** Mass order template with no delivery-date restriction at all. */
     public const UNRESTRICTED_MASS_TEMPLATE = 'CPO';
 
+    /**
+     * Temporary: mass order templates with no cutoff also accept today and this many
+     * past days, so late deliveries can still be encoded. Set to 0 to restore tomorrow-only.
+     */
+    public const MASS_ORDER_BACKDATE_DAYS = 60;
+
     private const DAY_MAP = ['Sun' => 0, 'Mon' => 1, 'Tue' => 2, 'Wed' => 3, 'Thu' => 4, 'Fri' => 5, 'Sat' => 6];
 
     /** @var array<string, OrdersCutoff|null> */
@@ -56,14 +62,16 @@ class OrderingCutoffService
 
     /**
      * Delivery dates a mass order may currently be placed for (Y-m-d).
-     * A template with no cutoff configured is unrestricted: tomorrow + 59 days.
+     * A template with no cutoff configured is open from MASS_ORDER_BACKDATE_DAYS ago
+     * up to tomorrow + 59 days.
      */
     public function massOrderAvailableDates(string $supplierCode, ?Carbon $now = null): array
     {
         $now ??= $this->now();
         $cutoff = $this->cutoffFor($this->massOrderTemplate($supplierCode));
 
-        return $cutoff ? $this->massOrderDatesFor($cutoff, $supplierCode, $now) : $this->openDates($now);
+        return $cutoff ? $this->massOrderDatesFor($cutoff, $supplierCode, $now)
+            : $this->openDates($now, self::MASS_ORDER_BACKDATE_DAYS);
     }
 
     /** Pure: mass-order dates for a cutoff row at a moment in time. */
@@ -110,7 +118,7 @@ class OrderingCutoffService
 
         return $this->cutoffFor($this->massOrderTemplate($supplierCode))
             ? "The ordering cutoff for {$supplierCode} deliveries on ".Carbon::parse($date)->format('M j, Y').' has passed.'
-            : "{$supplierCode} deliveries can only be ordered from tomorrow up to 60 days ahead.";
+            : "{$supplierCode} deliveries can only be ordered from ".self::MASS_ORDER_BACKDATE_DAYS.' days back up to 60 days ahead.';
     }
 
     /**
@@ -241,11 +249,14 @@ class OrderingCutoffService
 
     // --- helpers -------------------------------------------------------------
 
-    /** Dates open to a template with no cutoff row: tomorrow + 59 days. */
-    private function openDates(Carbon $now): array
+    /** Dates open to a template with no cutoff row: tomorrow + 59 days, plus today and $daysBack past days. */
+    private function openDates(Carbon $now, int $daysBack = 0): array
     {
         $dates = [];
-        for ($date = $now->copy()->timezone(self::TIMEZONE)->addDay()->startOfDay(), $end = $date->copy()->addDays(59); $date->lte($end); $date->addDay()) {
+        $tomorrow = $now->copy()->timezone(self::TIMEZONE)->addDay()->startOfDay();
+        $end = $tomorrow->copy()->addDays(59);
+        $date = $daysBack > 0 ? $tomorrow->copy()->subDays($daysBack + 1) : $tomorrow;
+        for (; $date->lte($end); $date->addDay()) {
             $dates[] = $date->toDateString();
         }
 

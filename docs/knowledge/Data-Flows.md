@@ -78,7 +78,9 @@ per rule in `app/Http/Services/RuleExceptions/`.
 | **excuse** — nothing is blocked, the item is scored late | `receiving.late_logging`, `sales.late_upload`, `wastage.late_upload` | the Adoption Rate row shows `Excused` + reason |
 
 An ordering template with **no `orders_cutoff` row** is unrestricted: `OrderingCutoffService` opens
-tomorrow + 59 days for both mass orders and DTS (CPO stays fully unrestricted). The Mass Orders create
+tomorrow + 59 days for both mass orders and DTS (CPO stays fully unrestricted). Mass orders also
+accept today and the past `MASS_ORDER_BACKDATE_DAYS` (60) days — a temporary allowance added 2026-09-24;
+set it to 0 to restore tomorrow-only. The Mass Orders create
 dialog no longer offers the *late order* request link (removed 2026-09-22); the rule and its grants remain.
 
 Flow: blocked screen → *Request exception* dialog (asks `/rule-exceptions/eligibility` first) →
