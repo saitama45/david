@@ -29,7 +29,7 @@
         <strong>By:</strong> {{ $generated_by }}
     </div>
 
-    <p>All quantities use the unit shown in the UOM column (for example, 1 Sleeve = 25 Pc).</p>
+    <p>All quantities use the SAP base unit shown in the UOM column (for example, 36 Gm of a 1,000 Gm Bag = 0.036 Bag).</p>
     <table>
         <thead>
             <tr style="background-color: #f3f4f6; font-size: 8px;">
@@ -63,17 +63,17 @@
                     <td class="text-left">{{ $item['sap_code'] }}</td>
                     <td class="text-left">{{ $item['item_description'] }}</td>
                     <td>{{ $item['uom'] }}</td>
-                    <td class="text-right">{{ number_format($item['ordered_qty'], 2) }}</td>
-                    <td class="text-right">{{ number_format($item['committed_qty'], 2) }}</td>
-                    <td class="text-right font-bold" style="background-color: #f0f7ff;">{{ number_format($item['received_qty'], 2) }}</td>
-                    <td class="text-right font-bold" style="background-color: #f0fff4;">{{ number_format($item['beg_bal_qty'], 2) }}</td>
-                    <td class="text-right">{{ number_format($item['sales_qty'], 2) }}</td>
-                    <td class="text-right">{{ number_format($item['wastage_qty'], 2) }}</td>
-                    <td class="text-right">{{ number_format($item['interco_in_qty'], 2) }}</td>
-                    <td class="text-right">{{ number_format($item['interco_out_qty'], 2) }}</td>
-                    <td class="text-right font-bold" style="background-color: #f5f3ff;">{{ number_format($item['theoretical_qty'], 2) }}</td>
+                    <td class="text-right">{{ rtrim(rtrim(number_format($item['ordered_qty'], 4), '0'), '.') }}</td>
+                    <td class="text-right">{{ rtrim(rtrim(number_format($item['committed_qty'], 4), '0'), '.') }}</td>
+                    <td class="text-right font-bold" style="background-color: #f0f7ff;">{{ rtrim(rtrim(number_format($item['received_qty'], 4), '0'), '.') }}</td>
+                    <td class="text-right font-bold" style="background-color: #f0fff4;">{{ rtrim(rtrim(number_format($item['beg_bal_qty'], 4), '0'), '.') }}</td>
+                    <td class="text-right">{{ rtrim(rtrim(number_format($item['sales_qty'], 4), '0'), '.') }}</td>
+                    <td class="text-right">{{ rtrim(rtrim(number_format($item['wastage_qty'], 4), '0'), '.') }}</td>
+                    <td class="text-right">{{ rtrim(rtrim(number_format($item['interco_in_qty'], 4), '0'), '.') }}</td>
+                    <td class="text-right">{{ rtrim(rtrim(number_format($item['interco_out_qty'], 4), '0'), '.') }}</td>
+                    <td class="text-right font-bold" style="background-color: #f5f3ff;">{{ rtrim(rtrim(number_format($item['theoretical_qty'], 4), '0'), '.') }}</td>
                     <td class="text-right font-bold">
-                        {{ $item['actual_mec'] !== null ? number_format($item['actual_mec'], 2) : '-' }}
+                        {{ $item['actual_mec'] !== null ? rtrim(rtrim(number_format($item['actual_mec'], 4), '0'), '.') : '-' }}
                     </td>
                 </tr>
             @endforeach

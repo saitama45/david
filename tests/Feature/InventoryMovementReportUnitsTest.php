@@ -11,10 +11,10 @@ use Spatie\Permission\Models\Permission;
 
 /**
  * An item SAP restates in two bases (Bag/Bag and Gm/Gm, with 1000 Gm = 1 Bag) must be
- * one report row in its smallest unit. It used to be two rows with every quantity
+ * one report row in its SAP BaseUOM (36 Gm sold = 0.036 Bag). It used to be two rows with every quantity
  * doubled, and Theoretical subtracted grams sold from bags received.
  */
-it('reports an item with two base rows once, in its smallest unit', function () {
+it('reports an item with two base rows once, in its SAP base unit', function () {
     // Fresh migrations keep a UNIQUE index on ItemCode the live schema does not have.
     if (DB::selectOne("SELECT 1 AS present FROM sys.indexes WHERE object_id = OBJECT_ID('sap_masterfiles') AND name = 'sap_masterfiles_itemcode_unique'")) {
         DB::statement('DROP INDEX sap_masterfiles_itemcode_unique ON sap_masterfiles');
@@ -102,24 +102,24 @@ it('reports an item with two base rows once, in its smallest unit', function () 
     $espresso = array_values(array_filter($rows, fn ($row) => $row['sap_code'] === 'RM-ESP'));
 
     expect($espresso)->toHaveCount(1)
-        ->and($espresso[0]['uom'])->toBe('Gm')
-        ->and((float) $espresso[0]['ordered_qty'])->toBe(2000.0)
-        ->and((float) $espresso[0]['committed_qty'])->toBe(2000.0)
-        ->and((float) $espresso[0]['received_qty'])->toBe(1000.0)
-        ->and((float) $espresso[0]['sales_qty'])->toBe(36.0)
-        ->and((float) $espresso[0]['theoretical_qty'])->toBe(964.0)
+        ->and($espresso[0]['uom'])->toBe('Bag')
+        ->and((float) $espresso[0]['ordered_qty'])->toBe(2.0)
+        ->and((float) $espresso[0]['committed_qty'])->toBe(2.0)
+        ->and((float) $espresso[0]['received_qty'])->toBe(1.0)
+        ->and((float) $espresso[0]['sales_qty'])->toBe(0.036)
+        ->and((float) $espresso[0]['theoretical_qty'])->toBe(0.964)
         ->and($espresso[0]['unconverted_units'])->toBe([]);
 
     $cups = array_values(array_filter($rows, fn ($row) => $row['sap_code'] === 'RM-CUP'));
     expect($cups)->toHaveCount(1)
-        ->and($cups[0]['uom'])->toBe('Pc')
-        ->and((float) $cups[0]['ordered_qty'])->toBe(25.0)
-        ->and((float) $cups[0]['committed_qty'])->toBe(25.0)
-        ->and((float) $cups[0]['received_qty'])->toBe(25.0)
-        ->and((float) $cups[0]['sales_qty'])->toBe(2.0)
-        ->and((float) $cups[0]['theoretical_qty'])->toBe(23.0)
+        ->and($cups[0]['uom'])->toBe('Sleeve')
+        ->and((float) $cups[0]['ordered_qty'])->toBe(1.0)
+        ->and((float) $cups[0]['committed_qty'])->toBe(1.0)
+        ->and((float) $cups[0]['received_qty'])->toBe(1.0)
+        ->and((float) $cups[0]['sales_qty'])->toBe(0.08)
+        ->and((float) $cups[0]['theoretical_qty'])->toBe(0.92)
         ->and($cups[0]['procurement_sources']['received'])->toHaveCount(1)
         ->and((float) $cups[0]['procurement_sources']['received'][0]['quantity'])->toBe(1.0)
         ->and($cups[0]['procurement_sources']['received'][0]['uom'])->toBe('Sleeve')
-        ->and((float) $cups[0]['procurement_sources']['received'][0]['conversion_factor'])->toBe(25.0);
+        ->and((float) $cups[0]['procurement_sources']['received'][0]['conversion_factor'])->toBe(1.0);
 });

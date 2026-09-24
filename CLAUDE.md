@@ -199,8 +199,9 @@ SQL Server as the target. Rationale and trade-offs: [Decisions.md](docs/knowledg
 - **Never join `sap_masterfiles` on `ItemCode` inside a SUM.** An item has one row per AltUOM (and can
   have two `BaseUOM=AltUOM` rows), so every line is counted once per matching row. Sum per
   `(item_code, unit)` from the source table and convert with `AltQty × AltUOM = BaseQty × BaseUOM`.
-  The Inventory Movement Report does this: one row per ItemCode, in the smallest unit, with
-  inconvertible units listed in `unconverted_units` (fixed 2026-09-24; it had doubled every total).
+  The Inventory Movement Report does this: one row per ItemCode, in the SAP BaseUOM of its conversion
+  rows (36 Gm sold of a 1000 Gm Bag = 0.036 Bag), with inconvertible units listed in `unconverted_units`
+  (fixed 2026-09-24; it had doubled every total).
 - **SAP Item Type belongs to the ItemCode, not the `sap_masterfiles` row.** It lives in
   `sap_item_type_assignments (entity_id, item_code)`; read it with `SAPMasterfile::withItemType()` /
   `whereItemType()`. Never add a per-row type column - rows are per AltUOM and would drift apart.

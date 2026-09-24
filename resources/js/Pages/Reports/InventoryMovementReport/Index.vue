@@ -246,7 +246,7 @@ const formatNumber = (num) => {
         </div>
 
         <p class="mb-3 text-sm text-gray-600">
-            All totals use the unit shown in the UOM column. Procurement quantities in their original units appear below the totals (for example, 1 Sleeve = 25 Pc).
+            All totals use the SAP base unit shown in the UOM column. Procurement quantities in their original units appear below the totals (for example, 36 Gm sold of a 1,000 Gm Bag = 0.036 Bag).
         </p>
         <div class="bg-white rounded-xl border border-gray-200 shadow-sm overflow-visible">
             <div v-if="isLoading" class="absolute inset-0 bg-white/80 flex items-center justify-center z-10">
@@ -413,7 +413,7 @@ const formatNumber = (num) => {
                             >
                                 {{ formatNumber(item[`${metric}_qty`]) }}
                                 <div
-                                    v-for="source in item.procurement_sources?.[metric] || []"
+                                    v-for="source in (item.procurement_sources?.[metric] || []).filter((s) => s.uom.toUpperCase() !== item.uom.toUpperCase())"
                                     :key="source.uom"
                                     class="mt-1 text-[10px] font-normal text-gray-500 whitespace-nowrap"
                                     :title="`1 ${source.uom} = ${formatNumber(source.conversion_factor)} ${item.uom}`"

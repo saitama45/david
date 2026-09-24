@@ -131,7 +131,7 @@ class InventoryMovementReportExport implements FromCollection, ShouldAutoSize, W
                 $sheet->mergeCells('A1:'.$last.'1');
                 $sheet->setCellValue('A1', 'Inventory Movement Report');
                 $sheet->getComment('D5')->getText()->createTextRun(
-                    'All quantities use the unit shown in this column (for example, 1 Sleeve = 25 Pc).'
+                    'All quantities use the unit shown in this column (the SAP base unit, for example 36 Gm of a 1,000 Gm Bag = 0.036 Bag).'
                 );
 
                 $sheet->mergeCells('A2:'.$last.'2');
@@ -226,7 +226,7 @@ class InventoryMovementReportExport implements FromCollection, ShouldAutoSize, W
 
         $sheet->getStyle('E'.$firstRow.':'.$last.$lastRow)->applyFromArray([
             'alignment' => ['horizontal' => Alignment::HORIZONTAL_RIGHT],
-            'numberFormat' => ['formatCode' => '#,##0.00'],
+            'numberFormat' => ['formatCode' => '#,##0.00##'],
         ]);
 
         foreach (self::HIGHLIGHTED_COLUMNS as $column => $rgb) {

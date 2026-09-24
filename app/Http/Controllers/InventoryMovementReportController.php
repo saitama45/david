@@ -337,7 +337,7 @@ class InventoryMovementReportController extends Controller
 
 
     /**
-     * One row per ItemCode, every quantity converted into the item's smallest unit.
+     * One row per ItemCode, every quantity converted into the item's SAP BaseUOM (36 Gm sold = 0.036 Bag).
      *
      * An item carries several sap_masterfiles rows (one per AltUOM, and since SAP restates
      * packs in a second base, possibly two BaseUOM=AltUOM rows). Orders are in the ordered
@@ -539,7 +539,7 @@ class InventoryMovementReportController extends Controller
                     }
                 }
 
-                $values[$metric] = round($values[$metric], 4);
+                $values[$metric] = round($values[$metric], 6);
             }
 
             $theoretical = $values['beg_bal'] + $values['received'] + $values['interco_in']
@@ -560,7 +560,7 @@ class InventoryMovementReportController extends Controller
                 'wastage_qty' => $values['wastage'],
                 'interco_in_qty' => $values['interco_in'],
                 'interco_out_qty' => $values['interco_out'],
-                'theoretical_qty' => round($theoretical, 4),
+                'theoretical_qty' => round($theoretical, 6),
                 'actual_mec' => $values['actual_mec'],
                 'procurement_sources' => $procurementSources,
                 // Quantities in a unit with no conversion to the display unit are left out.
@@ -572,8 +572,8 @@ class InventoryMovementReportController extends Controller
     }
 
     /**
-     * How many of the item's smallest unit each of its units holds, from the masterfile's
-     * conversion rows (AltQty x AltUOM = BaseQty x BaseUOM, e.g. 1000 Gm = 1 Bag).
+     * How many of the item's BaseUOM each of its units holds, from the masterfile's
+     * conversion rows (AltQty x AltUOM = BaseQty x BaseUOM, e.g. 1000 Gm = 1 Bag, so 1 Gm = 0.001 Bag).
      *
      * @return array{0: string, 1: array<string, float>} display unit, and size per UPPER unit
      */
@@ -581,6 +581,7 @@ class InventoryMovementReportController extends Controller
     {
         $labels = [];
         $edges = [];
+        $baseCounts = [];
 
         foreach ($rows as $row) {
             $alt = strtoupper(trim((string) $row->AltUOM));
@@ -599,6 +600,7 @@ class InventoryMovementReportController extends Controller
 
             // One AltUOM holds BaseQty / AltQty of the BaseUOM.
             $factor = (float) $row->BaseQty / (float) $row->AltQty;
+            $baseCounts[$base] = ($baseCounts[$base] ?? 0) + 1;
             $edges[$alt][$base] = $factor;
             $edges[$base][$alt] = 1 / $factor;
         }
@@ -635,9 +637,17 @@ class InventoryMovementReportController extends Controller
             return ['', []];
         }
 
-        $smallest = min($best);
-        $displayKey = array_search($smallest, $best, true);
+        // Report in the BaseUOM the conversion rows point at (Gm -> Bag reports in Bag);
+        // an item with no conversion falls back to its smallest unit.
+        $bases = array_intersect_key($baseCounts, $best);
+        if ($bases) {
+            arsort($bases);
+            $displayKey = array_key_first($bases);
+        } else {
+            $displayKey = array_search(min($best), $best, true);
+        }
+        $displaySize = $best[$displayKey];
 
-        return [$labels[$displayKey], array_map(fn ($size) => $size / $smallest, $best)];
+        return [$labels[$displayKey], array_map(fn ($size) => $size / $displaySize, $best)];
     }
 }

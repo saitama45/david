@@ -189,7 +189,7 @@ it('auto-sizes every column and aligns text left, UOM centre, quantities right',
     expect($sheet->getStyle('C6')->getAlignment()->getHorizontal())->toBe(Alignment::HORIZONTAL_LEFT);
     expect($sheet->getStyle('D6')->getAlignment()->getHorizontal())->toBe(Alignment::HORIZONTAL_CENTER);
     expect($sheet->getStyle('I6')->getAlignment()->getHorizontal())->toBe(Alignment::HORIZONTAL_RIGHT);
-    expect($sheet->getStyle('I6')->getNumberFormat()->getFormatCode())->toBe('#,##0.00');
+    expect($sheet->getStyle('I6')->getNumberFormat()->getFormatCode())->toBe('#,##0.00##');
 
     unlink($path);
 });
