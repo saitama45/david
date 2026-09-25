@@ -654,19 +654,33 @@ class WastageController extends Controller
     /**
      * Get cost from SupplierItems table for a given ItemCode
      */
-    private function getItemCostFromSupplier(string $itemCode): float
+    /**
+     * Supplier cost of one $unit: its own supplier row, else another linked unit's cost
+     * converted through the SAP factors (1800 per Case = 37.50 per Can at 48 Can = 1 Case).
+     *
+     * @param  \Illuminate\Support\Collection<string, float>  $costsByUnit  UPPER unit => cost
+     */
+    private function unitCost($costsByUnit, ?\App\Support\ItemStockUnit $stockUnit, ?string $unit): float
     {
-        try {
-            $cost = \App\Models\SupplierItems::where('ItemCode', $itemCode)
-                ->where('is_active', true)
-                ->value('cost');
+        $key = strtoupper(trim((string) $unit));
 
-            return $cost ?: 1.0;
-
-        } catch (\Exception $e) {
-            \Log::warning('getItemCostFromSupplier error for ItemCode ' . $itemCode . ': ' . $e->getMessage());
-            return 1.0;
+        if ($costsByUnit->has($key)) {
+            return $costsByUnit->get($key);
         }
+
+        $factor = $stockUnit?->factor($unit);
+        $stockRow = $stockUnit?->stockRowFor($unit);
+
+        if ($factor && $stockRow) {
+            foreach ($costsByUnit as $otherUnit => $cost) {
+                $otherFactor = $stockUnit->factor($otherUnit);
+                if ($otherFactor && $stockUnit->stockRowFor($otherUnit)?->id === $stockRow->id) {
+                    return round($cost * $factor / $otherFactor, 4);
+                }
+            }
+        }
+
+        return 1.0;
     }
 
     /**
@@ -722,7 +736,17 @@ class WastageController extends Controller
                 ->get()
                 ->keyBy('product_inventory_id');
 
-            $processedItems = $items->map(function ($item) use ($stockByProductId, $stockUnits) {
+            // Supplier cost is per unit (Condense Milk: Can 37.50, Case 1800), so key it by ItemCode + unit.
+            $supplierCosts = \App\Models\SupplierItems::whereIn('ItemCode', $items->pluck('ItemCode')->unique()->all())
+                ->where('is_active', true)
+                ->orderBy('id')
+                ->get(['ItemCode', 'uom', 'cost'])
+                ->groupBy('ItemCode')
+                ->map(fn ($rows) => $rows->filter(fn ($row) => $row->uom && (float) $row->cost > 0)
+                    ->unique(fn ($row) => strtoupper(trim($row->uom)))
+                    ->mapWithKeys(fn ($row) => [strtoupper(trim($row->uom)) => (float) $row->cost]));
+
+            $processedItems = $items->map(function ($item) use ($stockByProductId, $stockUnits, $supplierCosts) {
                 $stockUnit = $stockUnits->get($item->ItemCode);
                 $factor = $stockUnit?->factor($item->AltUOM);
                 $stockRow = $stockUnit?->stockRowFor($item->AltUOM);
@@ -735,7 +759,7 @@ class WastageController extends Controller
                     'description' => $item->ItemDescription ?: "Product Item {$item->ItemCode}",
                     'uom' => $item->BaseUOM,
                     'alt_uom' => $item->AltUOM,
-                    'cost_per_quantity' => $this->getItemCostFromSupplier($item->ItemCode),
+                    'cost_per_quantity' => $this->unitCost($supplierCosts->get($item->ItemCode, collect()), $stockUnit, $item->AltUOM),
                     'stock' => round($soh ?: 0, 4),
                 ];
             });
