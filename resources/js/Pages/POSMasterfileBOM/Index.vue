@@ -18,7 +18,61 @@ const props = defineProps({
         type: Object,
         required: true,
     },
+    pendingDuplicates: {
+        type: Array,
+        default: () => [],
+    },
 });
+
+// Rows the import held back: same POS Code, Item Code, BOM UOM and Assembly as an
+// existing line, only a different BOM Qty. They are added only once the user allows them.
+const selectedDuplicates = ref([]);
+const isResolvingDuplicates = ref(false);
+
+watch(() => props.pendingDuplicates, (rows) => {
+    const ids = rows.map((row) => row.id);
+    selectedDuplicates.value = selectedDuplicates.value.filter((id) => ids.includes(id));
+});
+
+const allDuplicatesSelected = computed({
+    get: () => props.pendingDuplicates.length > 0 && selectedDuplicates.value.length === props.pendingDuplicates.length,
+    set: (checked) => {
+        selectedDuplicates.value = checked ? props.pendingDuplicates.map((row) => row.id) : [];
+    },
+});
+
+const formatQty = (qty) => Number(qty).toLocaleString(undefined, { maximumFractionDigits: 7 });
+
+const resolveDuplicates = (action, ids) => {
+    if (ids.length === 0) return;
+    const allow = action === 'allow';
+
+    confirm.require({
+        header: allow ? 'Allow repeated BOM lines?' : 'Dismiss repeated BOM lines?',
+        message: allow
+            ? `Add ${ids.length} line(s) next to the existing line for the same item. Every allowed line is deducted separately on each sale, so only allow them if the recipe really uses the item more than once.`
+            : `Drop ${ids.length} line(s) from the review list without saving them.`,
+        icon: 'pi pi-exclamation-triangle',
+        acceptLabel: allow ? 'Allow' : 'Dismiss',
+        rejectLabel: 'Cancel',
+        acceptClass: allow ? 'p-button-warning' : 'p-button-secondary',
+        accept: () => {
+            isResolvingDuplicates.value = true;
+            router.post(route(`pos-bom.duplicates.${action}`), { ids }, {
+                preserveScroll: true,
+                onSuccess: () => {
+                    const message = page.props.flash?.success || page.props.flash?.warning;
+                    if (message) {
+                        toast.add({ severity: page.props.flash?.success ? 'success' : 'warn', summary: allow ? 'Lines allowed' : 'Rows dismissed', detail: message, life: 4000 });
+                    }
+                },
+                onFinish: () => {
+                    isResolvingDuplicates.value = false;
+                },
+            });
+        },
+    });
+};
 
 let filter = ref(page.props.filter || "all");
 
@@ -253,6 +307,85 @@ onUnmounted(() => {
                     <li>Duplicate items within the import file</li>
                 </ul>
             </p>
+        </div>
+
+        <!-- Rows held back by the import for review -->
+        <div v-if="pendingDuplicates.length > 0" class="bg-amber-50 border border-amber-400 rounded-lg p-4 mb-4">
+            <div class="flex flex-wrap items-start justify-between gap-3">
+                <div>
+                    <h3 class="font-semibold text-amber-900">
+                        Needs review: {{ pendingDuplicates.length }} repeated BOM line(s) were not imported
+                    </h3>
+                    <p class="text-sm text-amber-800 mt-1">
+                        Each row has the same POS Code, Item Code, Assembly and BOM UOM as an existing line; only the BOM Qty differs.
+                        Allow the ones the recipe really needs, or dismiss them.
+                    </p>
+                </div>
+                <div class="flex gap-2">
+                    <Button
+                        class="bg-amber-600 hover:bg-amber-700"
+                        :disabled="selectedDuplicates.length === 0 || isResolvingDuplicates"
+                        @click="resolveDuplicates('allow', selectedDuplicates)"
+                    >
+                        Allow selected ({{ selectedDuplicates.length }})
+                    </Button>
+                    <Button
+                        variant="outline"
+                        :disabled="selectedDuplicates.length === 0 || isResolvingDuplicates"
+                        @click="resolveDuplicates('dismiss', selectedDuplicates)"
+                    >
+                        Dismiss selected
+                    </Button>
+                </div>
+            </div>
+
+            <div class="mt-3 overflow-x-auto max-h-96 overflow-y-auto bg-white rounded border border-amber-200">
+                <table class="min-w-full text-sm">
+                    <thead class="bg-amber-100 text-amber-900 sticky top-0">
+                        <tr>
+                            <th class="px-3 py-2 text-left">
+                                <input type="checkbox" v-model="allDuplicatesSelected" aria-label="Select all repeated lines" />
+                            </th>
+                            <th class="px-3 py-2 text-left">POS Code</th>
+                            <th class="px-3 py-2 text-left">POS Desc</th>
+                            <th class="px-3 py-2 text-left">Assembly</th>
+                            <th class="px-3 py-2 text-left">Item Code</th>
+                            <th class="px-3 py-2 text-left">Item Desc</th>
+                            <th class="px-3 py-2 text-right">BOM Qty (new)</th>
+                            <th class="px-3 py-2 text-right">BOM Qty already saved</th>
+                            <th class="px-3 py-2 text-left">BOM UOM</th>
+                            <th class="px-3 py-2 text-left">Action</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr v-for="item in pendingDuplicates" :key="item.id" class="border-t border-amber-100">
+                            <td class="px-3 py-2">
+                                <input type="checkbox" :value="item.id" v-model="selectedDuplicates" :aria-label="`Select ${item.row.ItemCode}`" />
+                            </td>
+                            <td class="px-3 py-2">{{ item.row.POSCode }}</td>
+                            <td class="px-3 py-2">{{ item.row.POSDescription }}</td>
+                            <td class="px-3 py-2">{{ item.row.Assembly }}</td>
+                            <td class="px-3 py-2">{{ item.row.ItemCode }}</td>
+                            <td class="px-3 py-2">{{ item.row.ItemDescription }}</td>
+                            <td class="px-3 py-2 text-right font-semibold">{{ formatQty(item.row.BOMQty) }}</td>
+                            <td class="px-3 py-2 text-right text-gray-600">{{ item.existing_qtys.map(formatQty).join(', ') }}</td>
+                            <td class="px-3 py-2">{{ item.row.BOMUOM }}</td>
+                            <td class="px-3 py-2 whitespace-nowrap">
+                                <button
+                                    class="text-amber-700 hover:underline font-medium mr-3"
+                                    :disabled="isResolvingDuplicates"
+                                    @click="resolveDuplicates('allow', [item.id])"
+                                >Allow</button>
+                                <button
+                                    class="text-gray-600 hover:underline"
+                                    :disabled="isResolvingDuplicates"
+                                    @click="resolveDuplicates('dismiss', [item.id])"
+                                >Dismiss</button>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
         </div>
 
         <FilterTab>

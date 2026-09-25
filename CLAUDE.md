@@ -219,6 +219,10 @@ SQL Server as the target. Rationale and trade-offs: [Decisions.md](docs/knowledg
   the file gave that same AltUOM under the accepted base first. Stored blank-BaseUOM pairs match without it.
 - **Fresh migrations create a UNIQUE index on `sap_masterfiles.ItemCode`** that the live database does
   not have (one row per AltUOM). Test fixtures needing two UOM rows must drop it.
+- **A POS BOM line is POSCode + ItemCode + BOMUOM + Assembly, but one item may repeat with a different
+  BOMQty** (each line is deducted separately per sale). The import updates the line with the same
+  BOMQty; a repeat with a new BOMQty is held back in the session for the user to allow or dismiss on
+  `/pos-bom-list`, never written over the line before it (it silently did until 2026-09-25).
 - **Two enum namespaces**: `App\Enum\` (OrderStatus, UserRole, Days, TimePeriod) and `App\Enums\`
   (IntercoStatus, WastageStatus).
 - **Services live in `app/Http/Services/`**, not `app/Services/`.

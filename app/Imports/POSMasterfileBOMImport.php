@@ -10,17 +10,20 @@ use Illuminate\Support\Facades\Log;
 use Maatwebsite\Excel\Concerns\ToCollection;
 use Maatwebsite\Excel\Concerns\WithHeadingRow;
 use Maatwebsite\Excel\Concerns\WithChunkReading;
+use Maatwebsite\Excel\Concerns\WithCalculatedFormulas;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Str;
 use Illuminate\Support\Facades\DB;
 
-class POSMasterfileBOMImport implements ToCollection, WithHeadingRow, WithChunkReading
+class POSMasterfileBOMImport implements ToCollection, WithHeadingRow, WithChunkReading, WithCalculatedFormulas
 {
     protected $skippedItems = [];
     protected $processedCount = 0;
     protected $skippedCount = 0;
     protected $emptyCount = 0;
     protected static $seenCombinations = [];
+    protected static $seenKeys = [];
+    protected $pendingDuplicates = [];
 
     protected ?int $entityId;
 
@@ -39,6 +42,7 @@ class POSMasterfileBOMImport implements ToCollection, WithHeadingRow, WithChunkR
     public static function resetSeenCombinations()
     {
         self::$seenCombinations = [];
+        self::$seenKeys = [];
     }
 
     public function collection(Collection $rows)
@@ -104,55 +108,42 @@ class POSMasterfileBOMImport implements ToCollection, WithHeadingRow, WithChunkR
                 $unitCost = $toFloat($row['unit_cost'] ?? $row['UNIT COST'] ?? 0);
                 $totalCost = $toFloat($row['total_cost'] ?? $row['TOTAL COST'] ?? 0);
 
-                $attributes = [
+                $data = [
                     'POSCode' => $posCode,
                     'ItemCode' => $itemCode,
                     'BOMUOM' => $bomUOM,
                     'Assembly' => $assembly,
+                    'POSDescription' => $posDescription,
+                    'ItemDescription' => $itemDescription,
+                    'RecPercent' => number_format($recPercent, 4, '.', ''),
+                    'RecipeQty' => number_format($recipeQty, 4, '.', ''),
+                    'RecipeUOM' => $recipeUOM,
+                    'BOMQty' => number_format($bomQty, 7, '.', ''),
+                    'UnitCost' => number_format($unitCost, 4, '.', ''),
+                    'TotalCost' => number_format($totalCost, 4, '.', ''),
                 ];
 
-                // Scope the raw existence check and update to the importing entity.
-                // The write path is raw DB::table (no global scope), so without this
-                // an update could match another entity's row for the same business
-                // key, and the existence check must agree with what the update sees.
-                $scoped = fn () => DB::table('pos_masterfiles_bom')
-                    ->where($attributes)
-                    ->when($this->entityId !== null, fn ($q) => $q->where('entity_id', $this->entityId))
-                    ->when($this->entityId === null, fn ($q) => $q->whereNull('entity_id'));
+                // A line is POS Code + Item Code + BOM UOM + Assembly. The same line with a
+                // different BOM Qty is allowed, but only once the user confirms it - otherwise
+                // it would silently overwrite the line before it.
+                $key = strtolower("{$posCode}|{$itemCode}|{$bomUOM}|{$assembly}");
+                $lines = $this->lines($data)->get(['id', 'BOMQty']);
+                $sameQty = $lines->first(fn ($line) => $this->sameQty($line->BOMQty, $data['BOMQty']));
+                $firstInFile = !isset(self::$seenKeys[$key]);
+                self::$seenKeys[$key] = true;
 
-                if ($scoped()->exists()) {
-                    $scoped()->update([
-                            'POSDescription' => $posDescription,
-                            'ItemDescription' => $itemDescription,
-                            'RecPercent' => number_format($recPercent, 4, '.', ''),
-                            'RecipeQty' => number_format($recipeQty, 4, '.', ''),
-                            'RecipeUOM' => $recipeUOM,
-                            'BOMQty' => number_format($bomQty, 7, '.', ''),
-                            'UnitCost' => number_format($unitCost, 4, '.', ''),
-                            'TotalCost' => number_format($totalCost, 4, '.', ''),
-                            'updated_by' => Auth::id(),
-                            'updated_at' => now(),
-                        ]);
+                if ($sameQty) {
+                    $this->write($data, $sameQty->id);
+                } elseif ($firstInFile && $lines->count() <= 1) {
+                    // One line on file: a re-upload with a new BOM Qty corrects it.
+                    $this->write($data, $lines->first()?->id);
                 } else {
-                    DB::table('pos_masterfiles_bom')->insert([
-                        'POSCode' => $posCode,
-                        'ItemCode' => $itemCode,
-                        'BOMUOM' => $bomUOM,
-                        'Assembly' => $assembly,
-                        'POSDescription' => $posDescription,
-                        'ItemDescription' => $itemDescription,
-                        'RecPercent' => number_format($recPercent, 4, '.', ''),
-                        'RecipeQty' => number_format($recipeQty, 4, '.', ''),
-                        'RecipeUOM' => $recipeUOM,
-                        'BOMQty' => number_format($bomQty, 7, '.', ''),
-                        'UnitCost' => number_format($unitCost, 4, '.', ''),
-                        'TotalCost' => number_format($totalCost, 4, '.', ''),
-                        'entity_id' => $this->entityId,
-                        'created_by' => Auth::id(),
-                        'updated_by' => Auth::id(),
-                        'created_at' => now(),
-                        'updated_at' => now(),
-                    ]);
+                    $this->pendingDuplicates[] = [
+                        'id' => (string) Str::uuid(),
+                        'row' => $data,
+                        'existing_qtys' => $lines->pluck('BOMQty')->map(fn ($qty) => (float) $qty)->values()->all(),
+                    ];
+                    continue;
                 }
 
                 $this->processedCount++;
@@ -162,6 +153,61 @@ class POSMasterfileBOMImport implements ToCollection, WithHeadingRow, WithChunkR
                 Log::error("Error processing POSMasterfileBOM row: " . $e->getMessage(), ['row' => $row->toArray()]);
             }
         }
+    }
+
+    /**
+     * Save a confirmed extra line: updates the line with this exact BOM Qty if it is
+     * already there (a repeated allow), otherwise adds it next to the existing ones.
+     */
+    public function saveAllowedLine(array $data): void
+    {
+        $line = $this->lines($data)->get(['id', 'BOMQty'])
+            ->first(fn ($line) => $this->sameQty($line->BOMQty, $data['BOMQty']));
+
+        $this->write($data, $line?->id);
+    }
+
+    /**
+     * The existing lines for this POS Code + Item Code + BOM UOM + Assembly, scoped to the
+     * importing entity. The write path is raw DB::table (no global scope), so without this
+     * an update could match another entity's row for the same business key.
+     */
+    protected function lines(array $data)
+    {
+        return DB::table('pos_masterfiles_bom')
+            ->where(array_intersect_key($data, array_flip(['POSCode', 'ItemCode', 'BOMUOM', 'Assembly'])))
+            ->when($this->entityId !== null, fn ($q) => $q->where('entity_id', $this->entityId))
+            ->when($this->entityId === null, fn ($q) => $q->whereNull('entity_id'));
+    }
+
+    protected function write(array $data, ?int $id): void
+    {
+        if ($id !== null) {
+            DB::table('pos_masterfiles_bom')->where('id', $id)->update($data + [
+                'updated_by' => Auth::id(),
+                'updated_at' => now(),
+            ]);
+
+            return;
+        }
+
+        DB::table('pos_masterfiles_bom')->insert($data + [
+            'entity_id' => $this->entityId,
+            'created_by' => Auth::id(),
+            'updated_by' => Auth::id(),
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+    }
+
+    protected function sameQty($a, $b): bool
+    {
+        return number_format((float) $a, 7, '.', '') === number_format((float) $b, 7, '.', '');
+    }
+
+    public function getPendingDuplicates(): array
+    {
+        return $this->pendingDuplicates;
     }
 
     protected function addSkippedItem(?string $posCode, ?string $itemCode, ?string $assembly, string $reason): void

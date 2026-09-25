@@ -6,6 +6,7 @@ use App\Models\POSMasterfileBOM;
 use App\Models\User; // Assuming User model is needed for created_by/updated_by
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Inertia\Inertia;
 use Maatwebsite\Excel\Facades\Excel;
@@ -62,6 +63,7 @@ class POSMasterfileBOMController extends Controller
             'boms' => $boms,
             'filters' => $request->only(['search', 'filter']), // Pass filter back to frontend
             'filter' => $filter, // Pass current filter to the frontend
+            'pendingDuplicates' => session($this->pendingKey(), []),
         ]);
     }
 
@@ -233,41 +235,31 @@ class POSMasterfileBOMController extends Controller
             $skippedCount = $import->getSkippedCount();
             $emptyCount = $import->getEmptyCount();
 
+            // Rows repeating a line with a different BOM Qty wait for the user to allow them.
+            $pending = $import->getPendingDuplicates();
+            session()->put($this->pendingKey(), $pending);
+
+            $parts = [$processedCount > 0 ? "Import successful. Processed {$processedCount} items." : 'No items were imported.'];
+            if ($skippedCount > 0) {
+                $parts[] = "{$skippedCount} rows were skipped due to validation errors or duplicates.";
+                session()->flash('skippedItems', $skippedItems);
+            }
+            if ($pending) {
+                $parts[] = count($pending) . ' rows repeat an existing BOM line with a different BOM Qty. Review them above the list.';
+            }
+            if ($processedCount === 0 && $skippedCount === 0 && !$pending) {
+                $parts = ['No valid items found in the import file.'];
+            }
+            if ($emptyCount > 0) {
+                $parts[] = "{$emptyCount} empty rows were ignored.";
+            }
             if ($processedCount > 0) {
-                $message = 'Import successful. Processed ' . $processedCount . ' items.';
-                
-                if ($skippedCount > 0) {
-                    $message .= ' ' . $skippedCount . ' rows were skipped due to validation errors or duplicates.';
-                    if ($emptyCount > 0) {
-                        $message .= ' ' . $emptyCount . ' empty rows were ignored.';
-                    }
-                    session()->flash('skippedItems', $skippedItems);
-                    session()->flash('warning', $message);
-                } else {
-                    if ($emptyCount > 0) {
-                        $message .= ' ' . $emptyCount . ' empty rows were ignored.';
-                        session()->flash('warning', $message);
-                    } else {
-                        session()->flash('success', $message);
-                    }
-                }
                 // Pass success count to flash for the frontend to display
                 session()->flash('success_count', $processedCount);
-
-            } else if ($skippedCount > 0) {
-                $message = 'No items were imported. ' . $skippedCount . ' rows were skipped due to validation errors or duplicates.';
-                if ($emptyCount > 0) {
-                    $message .= ' ' . $emptyCount . ' empty rows were ignored.';
-                }
-                session()->flash('skippedItems', $skippedItems);
-                session()->flash('warning', $message);
-            } else {
-                $message = 'No valid items found in the import file.';
-                if ($emptyCount > 0) {
-                    $message .= ' ' . $emptyCount . ' empty rows were ignored.';
-                }
-                session()->flash('warning', $message);
             }
+
+            $clean = $processedCount > 0 && $skippedCount === 0 && !$pending && $emptyCount === 0;
+            session()->flash($clean ? 'success' : 'warning', implode(' ', $parts));
 
             return redirect()->route('pos-bom.index');
 
@@ -279,5 +271,44 @@ class POSMasterfileBOMController extends Controller
 
             return back()->with('error', 'Import failed: ' . $e->getMessage() . '. Please check logs for details.');
         }
+    }
+
+    /**
+     * Add the selected rows the import held back (same POS Code, Item Code, BOM UOM and
+     * Assembly as an existing line, different BOM Qty) as their own BOM lines.
+     */
+    public function allowDuplicates(Request $request)
+    {
+        $ids = $request->validate(['ids' => 'required|array|min:1', 'ids.*' => 'string'])['ids'];
+        $pending = collect(session($this->pendingKey(), []));
+        $selected = $pending->whereIn('id', $ids);
+
+        if ($selected->isEmpty()) {
+            return back()->with('warning', 'Those rows are no longer waiting for review.');
+        }
+
+        $import = new POSMasterfileBOMImport(app(\App\Support\EntityContext::class)->id());
+        DB::transaction(fn () => $selected->each(fn ($item) => $import->saveAllowedLine($item['row'])));
+
+        session()->put($this->pendingKey(), $pending->whereNotIn('id', $ids)->values()->all());
+
+        return back()->with('success', $selected->count() . ' BOM line(s) added.');
+    }
+
+    /** Drop the selected held-back rows without saving them. */
+    public function dismissDuplicates(Request $request)
+    {
+        $ids = $request->validate(['ids' => 'required|array|min:1', 'ids.*' => 'string'])['ids'];
+        $pending = collect(session($this->pendingKey(), []));
+
+        session()->put($this->pendingKey(), $pending->whereNotIn('id', $ids)->values()->all());
+
+        return back()->with('success', $pending->whereIn('id', $ids)->count() . ' row(s) dismissed. Nothing was saved for them.');
+    }
+
+    /** Held-back rows are kept per entity, so switching entity never mixes them up. */
+    private function pendingKey(): string
+    {
+        return 'pos_bom_pending_duplicates.' . (app(\App\Support\EntityContext::class)->id() ?? 'none');
     }
 }

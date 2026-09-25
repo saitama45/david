@@ -860,6 +860,8 @@ Route::middleware('auth')
                 Route::post('/pos-bom-list/store', 'store')->name('store');
                 Route::get('/pos-bom-list/create', 'create')->name('create');
                 Route::post('/pos-bom-list/import', 'import')->name('import');
+                Route::post('/pos-bom-list/duplicates/allow', 'allowDuplicates')->name('duplicates.allow');
+                Route::post('/pos-bom-list/duplicates/dismiss', 'dismissDuplicates')->name('duplicates.dismiss');
                 // Route for downloading skipped import log
                 Route::get('/pos-bom-list/download-skipped-log', 'downloadSkippedImportLog')->name('downloadSkippedImportLog');
             });
