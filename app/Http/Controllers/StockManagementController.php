@@ -72,68 +72,96 @@ class StockManagementController extends Controller
             ]);
         }
 
-        // Optimized approach: Use a subquery for stock data with branch filter to drastically reduce rows
-        $stockSubquery = DB::table('product_inventory_stock_managers')
-            ->select(
-                'product_inventory_id',
-                DB::raw('SUM(CASE
-                    WHEN action IN (\'add\', \'add_quantity\') THEN quantity
-                    WHEN action = \'out\' THEN -quantity
-                    ELSE 0
-                END) as total_current_soh'),
-                DB::raw('SUM(CASE WHEN action = \'out\' THEN quantity ELSE 0 END) as total_recorded_used')
-            )
-            ->where('store_branch_id', '=', $branchId)
-            ->groupBy('product_inventory_id');
+        $sohCase = "SUM(CASE WHEN action IN ('add', 'add_quantity') THEN quantity WHEN action = 'out' THEN -quantity ELSE 0 END)";
+
+        // One row per ItemCode + unit: Condense Milk lists Can, Case and Gm although Gm has no
+        // Gm/Gm row. A unit's own base row wins over a conversion row restating it.
+        $unitRows = SAPMasterfile::query()
+            ->select('sap_masterfiles.id')
+            ->selectRaw('ROW_NUMBER() OVER (PARTITION BY sap_masterfiles.ItemCode, UPPER(LTRIM(RTRIM(sap_masterfiles.AltUOM)))
+                ORDER BY CASE WHEN UPPER(LTRIM(RTRIM(sap_masterfiles.BaseUOM))) = UPPER(LTRIM(RTRIM(sap_masterfiles.AltUOM))) THEN 0 ELSE 1 END, sap_masterfiles.id) as unit_rn')
+            ->whereNotNull('sap_masterfiles.AltUOM')
+            ->where('sap_masterfiles.AltUOM', '!=', '')
+            ->when($search, function ($query) use ($search) {
+                $query->where(function ($q) use ($search) {
+                    $q->where('sap_masterfiles.ItemDescription', 'like', "%{$search}%")
+                      ->orWhere('sap_masterfiles.ItemCode', 'like', "%{$search}%");
+                });
+            });
+
+        // Items holding stock at this branch sort first (their stock sits on one row per item).
+        $itemStock = DB::table('product_inventory_stock_managers as m')
+            ->join('sap_masterfiles as stock_items', 'stock_items.id', '=', 'm.product_inventory_id')
+            ->where('m.store_branch_id', $branchId)
+            ->groupBy('stock_items.ItemCode')
+            ->select('stock_items.ItemCode as item_code', DB::raw("SUM(CASE WHEN m.action IN ('add', 'add_quantity') THEN m.quantity WHEN m.action = 'out' THEN -m.quantity ELSE 0 END) as item_soh"));
 
         $productsQuery = SAPMasterfile::query()
-            ->leftJoinSub($stockSubquery, 'stock', function ($join) {
-                $join->on('sap_masterfiles.id', '=', 'stock.product_inventory_id');
-            })
+            ->whereIn('sap_masterfiles.id', DB::query()->fromSub($unitRows, 'unit_rows')->where('unit_rn', 1)->select('id'))
+            ->leftJoinSub($itemStock, 'item_stock', 'item_stock.item_code', '=', 'sap_masterfiles.ItemCode')
             ->select(
                 'sap_masterfiles.id',
                 'sap_masterfiles.ItemDescription as name',
                 'sap_masterfiles.ItemCode as inventory_code',
                 'sap_masterfiles.BaseUOM as uom',
                 'sap_masterfiles.AltUOM as alt_uom',
-                'sap_masterfiles.BaseQty as base_qty',
-                DB::raw('COALESCE(stock.total_current_soh, 0) as stock_on_hand'),
-                DB::raw('COALESCE(stock.total_recorded_used, 0) as recorded_used'),
-                DB::raw('COALESCE(stock.total_current_soh, 0) * COALESCE(sap_masterfiles.BaseQty, 1) as total_base_uom_soh')
+                'sap_masterfiles.BaseQty as base_qty'
             )
-            ->whereColumn('sap_masterfiles.BaseUOM', 'sap_masterfiles.AltUOM')
-            ->when($search, function ($query) use ($search) {
-                $query->where(function ($q) use ($search) {
-                    $q->where('sap_masterfiles.ItemDescription', 'like', "%{$search}%")
-                      ->orWhere('sap_masterfiles.ItemCode', 'like', "%{$search}%");
-                });
-            })
-            ->orderByRaw('CASE WHEN COALESCE(stock.total_current_soh, 0) > 0 THEN 0 ELSE 1 END')
-            ->orderBy('sap_masterfiles.ItemDescription');
-
-        Log::info('StockManagementController: Products query SQL: ' . $productsQuery->toSql());
-        Log::info('StockManagementController: Products query Bindings: ' . json_encode($productsQuery->getBindings()));
+            ->orderByRaw('CASE WHEN COALESCE(item_stock.item_soh, 0) > 0 THEN 0 ELSE 1 END')
+            ->orderBy('sap_masterfiles.ItemDescription')
+            ->orderBy('sap_masterfiles.ItemCode')
+            ->orderBy('sap_masterfiles.AltUOM');
 
         $products = $productsQuery->paginate(10)->withQueryString();
 
-        $products->getCollection()->each(function ($product) {
-            Log::info("StockManagementController: Product '{$product->name}' (ID: {$product->id}) - SOH: {$product->stock_on_hand}, Recorded Used: {$product->recorded_used}, BaseUOM SOH: {$product->total_base_uom_soh}");
+        // Each unit shows the item's stock converted from the base row it lives on
+        // (Condense Milk: 1 Case = 48 Can = 18720 Gm, all from the Case row).
+        $page = $products->getCollection();
+        $stockUnits = SAPMasterfile::whereIn('ItemCode', $page->pluck('inventory_code')->unique()->all())
+            ->orderBy('id')->get()->groupBy('ItemCode')
+            ->map(fn ($rows) => \App\Support\ItemStockUnit::fromRows($rows));
+        $stockRowIds = $page->map(fn ($product) => $stockUnits->get($product->inventory_code)?->stockRowFor($product->alt_uom)?->id)
+            ->filter()->unique()->values()->all();
+        $stockByRow = DB::table('product_inventory_stock_managers')
+            ->select(
+                'product_inventory_id',
+                DB::raw($sohCase . ' as total_current_soh'),
+                DB::raw("SUM(CASE WHEN action = 'out' THEN quantity ELSE 0 END) as total_recorded_used")
+            )
+            ->where('store_branch_id', $branchId)
+            ->whereIn('product_inventory_id', $stockRowIds)
+            ->groupBy('product_inventory_id')
+            ->get()
+            ->keyBy('product_inventory_id');
+
+        $page->each(function ($product) use ($stockUnits, $stockByRow) {
+            $stockUnit = $stockUnits->get($product->inventory_code);
+            $stockRow = $stockUnit?->stockRowFor($product->alt_uom);
+            $factor = $stockUnit?->factor($product->alt_uom);
+            $stock = $stockRow ? $stockByRow->get($stockRow->id) : null;
+            $baseSoh = (float) ($stock->total_current_soh ?? 0);
+
+            $product->stock_row_id = $stockRow?->id;
+            $product->uom = $stockUnit?->unitFor($product->alt_uom) ?: $product->uom;
+            $product->stock_on_hand = $factor ? $baseSoh / $factor : 0;
+            $product->recorded_used = $factor ? (float) ($stock->total_recorded_used ?? 0) / $factor : 0;
+            $product->total_base_uom_soh = $baseSoh;
         });
 
-        Log::info('StockManagementController: Final products data sent to Inertia:', ['products_data' => $products->toArray()]);
-
-        // Prepare store summary data for dashboard card
+        // Prepare store summary data for dashboard card. Units of one item share a stock row,
+        // so totals count each stock row once, in its own unit.
         $storeSummary = null;
         if ($search && $branchId) {
             $selectedBranch = $branches->firstWhere('value', $branchId);
-            $productsCollection = $products->getCollection();
+            $productsCollection = $page;
+            $stockTotal = fn ($rows) => $rows->filter(fn ($row) => $row->stock_row_id)->unique('stock_row_id')->sum('total_base_uom_soh');
 
             // Group by BaseUOM to create dashboard summary
-            $baseUomGroups = $productsCollection->groupBy('uom')->map(function ($group, $baseUom) {
+            $baseUomGroups = $productsCollection->groupBy('uom')->map(function ($group, $baseUom) use ($stockTotal) {
                 return [
                     'base_uom' => $baseUom,
-                    'total_soh' => $group->sum('stock_on_hand'),
-                    'total_base_uom_soh' => $group->sum('total_base_uom_soh'),
+                    'total_soh' => $stockTotal($group),
+                    'total_base_uom_soh' => $stockTotal($group),
                     'item_count' => $group->count(),
                     'primary_item' => $group->first() // Get first item as representative
                 ];
@@ -159,8 +187,8 @@ class StockManagementController extends Controller
                     'dashboard_stats' => [
                         'total_items' => $products->total(),
                         'total_unique_base_uoms' => $baseUomGroups->count(),
-                        'overall_total_soh' => $productsCollection->sum('stock_on_hand'),
-                        'overall_total_base_uom_soh' => $productsCollection->sum('total_base_uom_soh')
+                        'overall_total_soh' => $stockTotal($productsCollection),
+                        'overall_total_base_uom_soh' => $stockTotal($productsCollection)
                     ]
                 ];
             }

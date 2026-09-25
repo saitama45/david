@@ -585,8 +585,10 @@ class IntercoController extends Controller
             $stockUnits = SAPMasterfile::whereIn('ItemCode', $itemCodes)->orderBy('id')->get()
                 ->groupBy('ItemCode')->map(fn ($rows) => \App\Support\ItemStockUnit::fromRows($rows));
 
-            // 6. Map the original search results and apply the correct SOH to each variant.
-            $processedItems = $foundItems->map(function ($item) use ($stockUnits, $stockData) {
+            $supplierCosts = \App\Support\SupplierUnitCost::forItems($itemCodes);
+
+            // 6. One entry per unit (a Case = 48 Can row does not repeat Can), each with its own SOH and cost.
+            $processedItems = \App\Support\ItemStockUnit::onePerUnit($foundItems)->map(function ($item) use ($stockUnits, $stockData, $supplierCosts) {
                 $stockUnit = $stockUnits->get($item->ItemCode);
                 $factor = $stockUnit?->factor($item->AltUOM);
                 $stockRow = $stockUnit?->stockRowFor($item->AltUOM);
@@ -599,7 +601,7 @@ class IntercoController extends Controller
                     'description' => $item->ItemDescription ?? "Product Item {$item->ItemCode}",
                     'uom' => $item->BaseUOM,
                     'alt_uom' => $item->AltUOM,
-                    'cost_per_quantity' => $this->getItemCostFromSupplier($item->ItemCode),
+                    'cost_per_quantity' => $supplierCosts->for($item->ItemCode, $stockUnit, $item->AltUOM),
                     'stock' => number_format($stockQty, 2, '.', ''), // Format to 2 decimal places
                     'is_available' => $stockQty > 0,
                 ];
@@ -661,7 +663,7 @@ class IntercoController extends Controller
                 'description' => $selectedItem->ItemDescription ?? "Product Item {$selectedItem->ItemCode}",
                 'uom' => $selectedItem->BaseUOM,
                 'alt_uom' => $selectedItem->AltUOM,
-                'cost_per_quantity' => $this->getItemCostFromSupplier($selectedItem->ItemCode),
+                'cost_per_quantity' => \App\Support\SupplierUnitCost::forItems([$itemCode])->for($itemCode, $stockUnit, $selectedItem->AltUOM),
                 'stock' => number_format($stock, 2, '.', ''), // Format to 2 decimal places
                 'is_available' => $stock > 0,
             ];
@@ -697,23 +699,6 @@ class IntercoController extends Controller
         }
     }
 
-    /**
-     * Get cost from SupplierItems table for a given ItemCode
-     */
-    private function getItemCostFromSupplier(string $itemCode): float
-    {
-        try {
-            $cost = \App\Models\SupplierItems::where('ItemCode', $itemCode)
-                ->where('is_active', true)
-                ->value('cost');
-
-            return $cost ?: 1.0;
-
-        } catch (\Exception $e) {
-            \Log::warning('getItemCostFromSupplier error for ItemCode ' . $itemCode . ': ' . $e->getMessage());
-            return 1.0;
-        }
-    }
 
     /**
      * Get average cost for an item (helper method)

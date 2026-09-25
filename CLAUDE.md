@@ -211,6 +211,9 @@ SQL Server as the target. Rationale and trade-offs: [Decisions.md](docs/knowledg
   SAP links by conversion share the SAP base unit's row (48 Can = 1 Case -> Case); an unlinked base
   (Sprite's Can next to LIT) keeps its own. Convert with `factor()` (BaseQty / AltQty, chained), never
   `BaseQty` alone. Misplaced history: `php artisan stock:rekey-base-rows` (dry run; `--apply`).
+  Item pickers and stock lists offer **every unit** (Gm has no Gm/Gm row) once each via
+  `ItemStockUnit::onePerUnit()` - never filter to `BaseUOM = AltUOM` rows. Price a unit with
+  `App\Support\SupplierUnitCost` (supplier cost is per ItemCode + uom), never by ItemCode alone.
 - **SAP import key is ItemCode + AltUOM + BaseUOM** (per entity). SAP restates a pack in a second
   base (Case = 48 Can and Case = 18720 Gm); both rows import. A second base is still refused unless
   the file gave that same AltUOM under the accepted base first. Stored blank-BaseUOM pairs match without it.

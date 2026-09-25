@@ -133,6 +133,22 @@ final class ItemStockUnit
         return new self($primary, $stockUnitOf, $factors, $baseRows, $labels);
     }
 
+    /**
+     * One sap_masterfiles row per ItemCode + AltUOM, so every unit SAP defines is offered
+     * once: Condense Milk lists Can, Case and Gm although Gm has no Gm/Gm row. A unit's own
+     * base row wins over a conversion row that restates it (Can/Can over Case = 48 Can).
+     *
+     * @param  Collection<int, object>  $rows
+     * @return Collection<int, object>
+     */
+    public static function onePerUnit(Collection $rows): Collection
+    {
+        return $rows
+            ->sortBy(fn ($row) => [self::key($row->BaseUOM) === self::key($row->AltUOM) ? 0 : 1, $row->id])
+            ->unique(fn ($row) => $row->ItemCode . '|' . self::key($row->AltUOM))
+            ->values();
+    }
+
     /** The primary stock row (what a blank unit posts to); null when the item has none. */
     public function stockRow(): ?object
     {

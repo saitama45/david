@@ -506,7 +506,7 @@ const getTotalBaseUOMSOH = (product) => {
                                     v-if="hasAccess('view stock management history') && product.id"
                                     :href="
                                         route('stock-management.show', {
-                                            id: product.id,
+                                            id: product.stock_row_id ?? product.id,
                                             branchId: branchId
                                         })
                                     "
@@ -530,7 +530,7 @@ const getTotalBaseUOMSOH = (product) => {
                             v-if="hasAccess('view stock management history') && product.id"
                             :href="
                                 route('stock-management.show', {
-                                    id: product.id,
+                                    id: product.stock_row_id ?? product.id,
                                     branchId: branchId
                                 })
                             "
