@@ -23,6 +23,12 @@ use Maatwebsite\Excel\Facades\Excel;
 
 class InventoryMovementReportController extends Controller
 {
+    /** SAP Item Types whose stock is used up in operations rather than sold through a recipe. */
+    private const SUPPLIES_ITEM_TYPES = ['OPERATING SUPPLIES', 'CLEANING SUPPLIES'];
+
+    /** The Supplier Items category that tags an item as supplies. */
+    private const SUPPLIES_CATEGORY = 'SUPPLIES';
+
     public function index(Request $request)
     {
         ini_set('max_execution_time', 600); // 10 minutes
@@ -387,6 +393,8 @@ class InventoryMovementReportController extends Controller
                 ->implode(', ')
             );
 
+        $suppliesTags = $this->suppliesTags($sapItems, $sapItemCodes);
+
         $metrics = ['ordered', 'committed', 'received', 'sales', 'wastage', 'interco_in', 'interco_out', 'beg_bal', 'actual_mec'];
         $totals = array_fill_keys($metrics, collect());
 
@@ -545,6 +553,15 @@ class InventoryMovementReportController extends Controller
             $theoretical = $values['beg_bal'] + $values['received'] + $values['interco_in']
                 - $values['sales'] - $values['wastage'] - $values['interco_out'];
 
+            // Supplies are used up without a transaction (gloves, cleaners, tissue), so only
+            // the month end count shows how much went: whatever the other movements leave
+            // unexplained. Recipe items (cups, lids) are already in Sales, so only the rest
+            // counts. A count above the books is a gain, not usage, and stays as a variance.
+            $suppliesType = $suppliesTags[$itemCode] ?? null;
+            $suppliesCounted = $suppliesType !== null && $totals['actual_mec']->has($itemCode);
+            $supplies = $suppliesCounted ? max(0.0, round($theoretical - $values['actual_mec'], 6)) : 0.0;
+            $theoretical -= $supplies;
+
             $movementData[] = [
                 'supplier' => ($filters['supplier_code'] ?? null) === 'CPO'
                     ? ($selectedSupplier?->name ?? 'CPO')
@@ -558,6 +575,9 @@ class InventoryMovementReportController extends Controller
                 'beg_bal_qty' => $values['beg_bal'],
                 'sales_qty' => $values['sales'],
                 'wastage_qty' => $values['wastage'],
+                'supplies_qty' => $supplies,
+                'supplies_type' => $suppliesType,
+                'supplies_counted' => $suppliesCounted,
                 'interco_in_qty' => $values['interco_in'],
                 'interco_out_qty' => $values['interco_out'],
                 'theoretical_qty' => round($theoretical, 6),
@@ -569,6 +589,43 @@ class InventoryMovementReportController extends Controller
         }
 
         return $movementData;
+    }
+
+    /**
+     * Supplies items and the tag that makes them so: an OPERATING / CLEANING SUPPLIES
+     * SAP Item Type, else a "Supplies" Supplier Items category.
+     *
+     * @return array<string, string> ItemCode => tag label
+     */
+    private function suppliesTags($sapItems, array $itemCodes): array
+    {
+        $entityIds = collect($sapItems)->pluck('entity_id')->filter()->unique()->values()->all();
+        $tags = [];
+
+        foreach (array_chunk($itemCodes, 1000) as $chunk) {
+            $byCategory = SupplierItems::whereIn('ItemCode', $chunk)
+                ->whereRaw('UPPER(LTRIM(RTRIM(category))) = ?', [self::SUPPLIES_CATEGORY])
+                ->distinct()
+                ->pluck('ItemCode');
+
+            foreach ($byCategory as $itemCode) {
+                $tags[$itemCode] = 'Supplies';
+            }
+
+            // The Item Type belongs to the ItemCode per entity (sap_item_type_assignments).
+            $byType = DB::table('sap_item_type_assignments as sita')
+                ->join('sap_item_types as sit', 'sit.id', '=', 'sita.sap_item_type_id')
+                ->whereIn('sita.item_code', $chunk)
+                ->when($entityIds, fn ($q) => $q->whereIn('sita.entity_id', $entityIds))
+                ->whereIn(DB::raw('UPPER(LTRIM(RTRIM(sit.name)))'), self::SUPPLIES_ITEM_TYPES)
+                ->get(['sita.item_code', 'sit.name']);
+
+            foreach ($byType as $row) {
+                $tags[$row->item_code] = ucwords(strtolower(trim($row->name)));
+            }
+        }
+
+        return $tags;
     }
 
     /**

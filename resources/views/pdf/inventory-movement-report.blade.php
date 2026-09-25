@@ -29,14 +29,14 @@
         <strong>By:</strong> {{ $generated_by }}
     </div>
 
-    <p>All quantities use the SAP base unit shown in the UOM column (for example, 36 Gm of a 1,000 Gm Bag = 0.036 Bag).</p>
+    <p>All quantities use the SAP base unit shown in the UOM column (for example, 36 Gm of a 1,000 Gm Bag = 0.036 Bag). Supplies Used is the usage the month end count shows for Operating / Cleaning Supplies items.</p>
     <table>
         <thead>
             <tr style="background-color: #f3f4f6; font-size: 8px;">
                 <th colspan="4">ITEM INFO</th>
                 <th colspan="3">PROCUREMENT (DATE RANGE)</th>
                 <th>BEGINNING</th>
-                <th colspan="4">DEDUCTIONS / TRANSFERS</th>
+                <th colspan="5">DEDUCTIONS / TRANSFERS</th>
                 <th colspan="2">FINAL BALANCE</th>
             </tr>
             <tr style="background-color: #eee;">
@@ -50,6 +50,7 @@
                 <th>Beg Bal Qty</th>
                 <th>Sales Qty</th>
                 <th>Wastage Qty</th>
+                <th>Supplies Used</th>
                 <th>In Interco</th>
                 <th>Out Interco</th>
                 <th>Theoretical</th>
@@ -69,6 +70,7 @@
                     <td class="text-right font-bold" style="background-color: #f0fff4;">{{ rtrim(rtrim(number_format($item['beg_bal_qty'], 4), '0'), '.') }}</td>
                     <td class="text-right">{{ rtrim(rtrim(number_format($item['sales_qty'], 4), '0'), '.') }}</td>
                     <td class="text-right">{{ rtrim(rtrim(number_format($item['wastage_qty'], 4), '0'), '.') }}</td>
+                    <td class="text-right">{{ $item['supplies_counted'] ? rtrim(rtrim(number_format($item['supplies_qty'], 4), '0'), '.') : '-' }}</td>
                     <td class="text-right">{{ rtrim(rtrim(number_format($item['interco_in_qty'], 4), '0'), '.') }}</td>
                     <td class="text-right">{{ rtrim(rtrim(number_format($item['interco_out_qty'], 4), '0'), '.') }}</td>
                     <td class="text-right font-bold" style="background-color: #f5f3ff;">{{ rtrim(rtrim(number_format($item['theoretical_qty'], 4), '0'), '.') }}</td>

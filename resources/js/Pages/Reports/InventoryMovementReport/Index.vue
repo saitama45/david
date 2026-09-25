@@ -247,6 +247,7 @@ const formatNumber = (num) => {
 
         <p class="mb-3 text-sm text-gray-600">
             All totals use the SAP base unit shown in the UOM column. Procurement quantities in their original units appear below the totals (for example, 36 Gm sold of a 1,000 Gm Bag = 0.036 Bag).
+            Supplies Used applies to Operating / Cleaning Supplies items: the usage the month end count shows once sales, wastage and transfers are accounted for.
         </p>
         <div class="bg-white rounded-xl border border-gray-200 shadow-sm overflow-visible">
             <div v-if="isLoading" class="absolute inset-0 bg-white/80 flex items-center justify-center z-10">
@@ -263,7 +264,7 @@ const formatNumber = (num) => {
                             <th colspan="4" class="px-3 py-3 text-center text-xs font-bold text-gray-500 uppercase tracking-wider border-r border-gray-200 bg-gray-100">Item Info</th>
                             <th colspan="3" class="px-3 py-3 text-center text-xs font-bold text-gray-500 uppercase tracking-wider border-r border-gray-200 bg-blue-50">Procurement (Date Range)</th>
                             <th class="px-3 py-3 text-center text-xs font-bold text-gray-500 uppercase tracking-wider border-r border-gray-200 bg-emerald-50">Beginning</th>
-                            <th colspan="4" class="px-3 py-3 text-center text-xs font-bold text-gray-500 uppercase tracking-wider border-r border-gray-200 bg-orange-50">Deductions / Transfers</th>
+                            <th colspan="5" class="px-3 py-3 text-center text-xs font-bold text-gray-500 uppercase tracking-wider border-r border-gray-200 bg-orange-50">Deductions / Transfers</th>
                             <th colspan="2" class="px-3 py-3 text-center text-xs font-bold text-gray-500 uppercase tracking-wider bg-purple-50">Final Balance</th>
                         </tr>
                         <tr class="text-[10px] text-gray-500 uppercase tracking-wider font-semibold">
@@ -347,6 +348,14 @@ const formatNumber = (num) => {
                                     <ArrowUpDown v-else class="w-3 h-3 text-gray-400 group-hover:text-blue-400" />
                                 </div>
                             </th>
+                            <th @click="handleSort('supplies_qty')" class="px-3 py-3 text-center border-r border-gray-200 cursor-pointer hover:bg-gray-100 group transition-colors" title="Operating / Cleaning Supplies used, from the month end count">
+                                <div class="flex items-center justify-center gap-2">
+                                    Supplies Used
+                                    <ArrowUp v-if="sortField === 'supplies_qty' && sortDirection === 'asc'" class="w-3 h-3 text-blue-600" />
+                                    <ArrowDown v-else-if="sortField === 'supplies_qty' && sortDirection === 'desc'" class="w-3 h-3 text-blue-600" />
+                                    <ArrowUpDown v-else class="w-3 h-3 text-gray-400 group-hover:text-blue-400" />
+                                </div>
+                            </th>
                             <th @click="handleSort('interco_in_qty')" class="px-3 py-3 text-center border-r border-gray-200 cursor-pointer hover:bg-gray-100 group transition-colors">
                                 <div class="flex items-center justify-center gap-2">
                                     Inbound Interco
@@ -383,7 +392,7 @@ const formatNumber = (num) => {
                     </thead>
                     <tbody class="bg-white divide-y divide-gray-100">
                         <tr v-if="movementData.length === 0" class="hover:bg-gray-50">
-                            <td colspan="14" class="text-center py-12 text-gray-500">
+                            <td colspan="15" class="text-center py-12 text-gray-500">
                                 <div class="flex flex-col items-center">
                                     <Package class="w-12 h-12 text-gray-300 mb-3" />
                                     <span class="text-lg font-medium">No movement data found</span>
@@ -424,6 +433,12 @@ const formatNumber = (num) => {
                             <td class="px-3 py-4 text-center font-medium text-emerald-600 border-r border-gray-100 bg-emerald-50/30">{{ formatNumber(item.beg_bal_qty) }}</td>
                             <td class="px-3 py-4 text-center font-medium text-red-600 border-r border-gray-100 bg-red-50/30">{{ formatNumber(item.sales_qty) }}</td>
                             <td class="px-3 py-4 text-center font-medium text-orange-600 border-r border-gray-100 bg-orange-50/30">{{ formatNumber(item.wastage_qty) }}</td>
+                            <td class="px-3 py-4 text-center border-r border-gray-100" :class="item.supplies_type ? 'font-medium text-amber-700 bg-amber-50/30' : 'text-gray-400'">
+                                <template v-if="item.supplies_counted">{{ formatNumber(item.supplies_qty) }}</template>
+                                <span v-else-if="item.supplies_type" class="text-[11px] italic text-gray-400">Awaiting MEC</span>
+                                <template v-else>-</template>
+                                <div v-if="item.supplies_type" class="mt-1 text-[10px] font-normal text-gray-500 whitespace-nowrap">{{ item.supplies_type }}</div>
+                            </td>
                             <td class="px-3 py-4 text-center text-gray-600 border-r border-gray-100">{{ formatNumber(item.interco_in_qty) }}</td>
                             <td class="px-3 py-4 text-center text-gray-600 border-r border-gray-100">{{ formatNumber(item.interco_out_qty) }}</td>
                             <td class="px-3 py-4 text-center font-bold text-gray-900 border-r border-gray-100 bg-purple-50/30">{{ formatNumber(item.theoretical_qty) }}</td>

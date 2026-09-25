@@ -136,18 +136,18 @@ it('writes the same columns as the PDF, with quantities as numbers', function ()
     expect($sheet->getCell('E4')->getValue())->toBe('PROCUREMENT (DATE RANGE)');
     expect($sheet->getCell('H4')->getValue())->toBe('BEGINNING');
     expect($sheet->getCell('I4')->getValue())->toBe('DEDUCTIONS / TRANSFERS');
-    expect($sheet->getCell('M4')->getValue())->toBe('FINAL BALANCE');
+    expect($sheet->getCell('N4')->getValue())->toBe('FINAL BALANCE');
 
     $headings = [];
 
-    foreach (range('A', 'N') as $column) {
+    foreach (range('A', 'O') as $column) {
         $headings[] = $sheet->getCell($column.'5')->getValue();
     }
 
     expect($headings)->toBe([
         'Supplier', 'SAP Code', 'Item Description', 'UOM',
         'Ordered', 'Committed', 'Received', 'Beg Bal Qty',
-        'Sales Qty', 'Wastage Qty', 'In Interco', 'Out Interco',
+        'Sales Qty', 'Wastage Qty', 'Supplies Used', 'In Interco', 'Out Interco',
         'Theoretical', 'Actual MEC',
     ]);
 
@@ -155,9 +155,10 @@ it('writes the same columns as the PDF, with quantities as numbers', function ()
     expect($sheet->getCell('B6')->getValue())->toBe('199D9A');
     expect($sheet->getCell('C6')->getValue())->toBe('Sugar Cookies, medium');
     expect($sheet->getCell('I6')->getValue())->toBe(4.0);
-    expect($sheet->getCell('M6')->getValue())->toBe(-4.0); // theoretical = 0 - sales
+    expect($sheet->getCell('K6')->getValue())->toBe(0.0); // not a supplies item
+    expect($sheet->getCell('N6')->getValue())->toBe(-4.0); // theoretical = 0 - sales
     expect($sheet->getCell('E6')->getValue())->toBe(0.0); // zero quantities stay 0, not blank
-    expect($sheet->getCell('N6')->getValue())->toBe(0.0);
+    expect($sheet->getCell('O6')->getValue())->toBe(0.0);
 
     unlink($path);
 });
@@ -176,7 +177,7 @@ it('auto-sizes every column and aligns text left, UOM centre, quantities right',
 
     [$sheet, $path] = writtenSheet($export);
 
-    foreach (range('A', 'N') as $column) {
+    foreach (range('A', 'O') as $column) {
         $dimension = $sheet->getColumnDimension($column);
 
         // A written sheet resolves auto-size into a real width; nothing is left

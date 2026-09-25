@@ -39,7 +39,7 @@ class InventoryMovementReportExport implements FromCollection, ShouldAutoSize, W
         'ITEM INFO' => 4,
         'PROCUREMENT (DATE RANGE)' => 3,
         'BEGINNING' => 1,
-        'DEDUCTIONS / TRANSFERS' => 4,
+        'DEDUCTIONS / TRANSFERS' => 5,
         'FINAL BALANCE' => 2,
     ];
 
@@ -54,6 +54,7 @@ class InventoryMovementReportExport implements FromCollection, ShouldAutoSize, W
         'Beg Bal Qty',
         'Sales Qty',
         'Wastage Qty',
+        'Supplies Used',
         'In Interco',
         'Out Interco',
         'Theoretical',
@@ -64,10 +65,10 @@ class InventoryMovementReportExport implements FromCollection, ShouldAutoSize, W
     private const HIGHLIGHTED_COLUMNS = [
         'G' => 'F0F7FF', // Received
         'H' => 'F0FFF4', // Beg Bal Qty
-        'M' => 'F5F3FF', // Theoretical
+        'N' => 'F5F3FF', // Theoretical
     ];
 
-    private const LAST_COLUMN = 'N';
+    private const LAST_COLUMN = 'O';
 
     public function __construct(
         private $movementData,
@@ -114,6 +115,7 @@ class InventoryMovementReportExport implements FromCollection, ShouldAutoSize, W
             (float) $item['beg_bal_qty'],
             (float) $item['sales_qty'],
             (float) $item['wastage_qty'],
+            (float) ($item['supplies_qty'] ?? 0),
             (float) $item['interco_in_qty'],
             (float) $item['interco_out_qty'],
             (float) $item['theoretical_qty'],

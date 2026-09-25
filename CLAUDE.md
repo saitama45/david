@@ -196,6 +196,11 @@ SQL Server as the target. Rationale and trade-offs: [Decisions.md](docs/knowledg
   import timestamp — a day's POS file is uploaded the next day, and one upload usually carries
   several earlier sales dates. Any sales-by-date report must filter `order_date` (date-only, so
   `whereBetween` is already inclusive). The Inventory Movement Report had this wrong until 2026-09-18.
+- **Supplies usage has no transaction - only the MEC count reveals it.** An item is supplies when its
+  SAP Item Type is OPERATING / CLEANING SUPPLIES or a supplier item's category is `Supplies`. Nobody
+  logs usage (the Stock Management log-usage / cost-centre path has never been used), so the level-2
+  MEC adjustment is where it lands. The Inventory Movement Report's Supplies Used is the book balance
+  the count does not find (never negative; recipe items like cups are already in Sales).
 - **Never join `sap_masterfiles` on `ItemCode` inside a SUM.** An item has one row per AltUOM (and can
   have two `BaseUOM=AltUOM` rows), so every line is counted once per matching row. Sum per
   `(item_code, unit)` from the source table and convert with `AltQty × AltUOM = BaseQty × BaseUOM`.
