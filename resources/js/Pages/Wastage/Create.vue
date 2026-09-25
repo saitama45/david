@@ -222,7 +222,8 @@ const addToCart = () => {
     images: [], // Per-item images
   }
 
-  cartItems.value.push(cartItem)
+  // Newest item goes on top of the cart
+  cartItems.value.unshift(cartItem)
 
   // Clear selected item
   selectedAutoCompleteItem.value = null
@@ -546,12 +547,13 @@ const handleReasonBlur = (item) => {
               </Button>
             </div>
 
-            <div class="border rounded-lg overflow-hidden">
+            <div class="border rounded-lg overflow-x-auto">
               <table class="w-full">
                 <thead class="bg-gray-50">
                   <tr>
                     <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Item</th>
                     <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Reason</th>
+                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Evidence *</th>
                     <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">UoM</th>
                     <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Quantity</th>
                     <th v-if="canViewCost" class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Cost</th>
@@ -560,86 +562,81 @@ const handleReasonBlur = (item) => {
                   </tr>
                 </thead>
                 <tbody class="divide-y divide-gray-200">
-                  <template v-for="(item, index) in cartItems" :key="item.id">
-                    <tr class="hover:bg-gray-50 bg-white">
-                      <td class="px-4 py-4">
-                        <div>
-                          <div class="font-medium text-gray-900">{{ item.item_code }}</div>
-                          <div class="text-sm text-gray-500">{{ item.description }}</div>
-                        </div>
-                      </td>
-                      <td class="px-4 py-4" style="min-width: 170px;">
-                        <Select
-                          v-model="item.reason"
-                          :options="reasonOptions"
-                          class="w-full"
-                          @blur="handleReasonBlur(item)"
+                  <tr v-for="(item, index) in cartItems" :key="item.id" class="hover:bg-gray-50 bg-white">
+                    <td class="px-4 py-3">
+                      <div>
+                        <div class="font-medium text-gray-900">{{ item.item_code }}</div>
+                        <div class="text-sm text-gray-500">{{ item.description }}</div>
+                      </div>
+                    </td>
+                    <td class="px-4 py-3" style="min-width: 170px;">
+                      <Select
+                        v-model="item.reason"
+                        :options="reasonOptions"
+                        class="w-full"
+                        @blur="handleReasonBlur(item)"
+                      />
+                    </td>
+                    <td class="px-4 py-3" style="min-width: 150px;">
+                      <div :id="`item-images-${item.id}`">
+                        <ImageUpload
+                          v-model="item.images"
+                          compact
+                          :disabled="form.processing"
+                          multiple
+                          required
+                          :has-error="showErrors && !(item.images && item.images.length > 0)"
                         />
-                      </td>
-                      <td class="px-4 py-4">
-                        <div class="text-sm text-gray-900">{{ item.uom }}</div>
-                      </td>
-                      <td class="px-4 py-4">
-                        <Input
-                          :id="`item-qty-${item.id}`"
-                          type="number"
-                          v-model="item.quantity"
-                          @input="updateCartItemQuantity(item.id, $event.target.value)"
-                          step="0.001"
-                          min="0.001"
-                          class="w-24 h-8 text-sm"
-                          :class="{ 'border-red-500': showErrors && !(parseFloat(item.quantity) > 0) }"
-                        />
-                      </td>
-                      <td v-if="canViewCost" class="px-4 py-4">
-                        <Input
-                          type="number"
-                          v-model="item.cost"
-                          step="0.01"
-                          min="0"
-                          class="w-24 h-8 text-sm bg-gray-100"
-                          readonly
-                        />
-                      </td>
-                      <td v-if="canViewCost" class="px-4 py-4">
-                        <div class="text-sm font-medium text-gray-900">
-                          {{ formatCurrency(item.total_cost) }}
-                        </div>
-                      </td>
-                      <td class="px-4 py-4 text-center">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          @click="removeFromCart(item.id)"
-                          class="text-red-600 hover:text-red-700 hover:bg-red-50"
-                        >
-                          <Trash2 class="w-4 h-4" />
-                        </Button>
-                      </td>
-                    </tr>
-                    <!-- Image Upload Row -->
-                    <tr class="bg-gray-50/50 border-b border-gray-200">
-                      <td :colspan="canViewCost ? 7 : 5" class="px-4 py-3">
-                        <div :id="`item-images-${item.id}`" class="pl-4 border-l-2 border-blue-200 py-2" :class="{ 'border-red-500': showErrors && !(item.images && item.images.length > 0) }">
-                          <ImageUpload
-                            v-model="item.images"
-                            :label="`Images for ${item.item_code} *`"
-                            helper-text="Upload one or more JPG or PNG images as evidence for this item. Photos larger than 5MB are resized automatically."
-                            :disabled="form.processing"
-                            multiple
-                            required
-                          />
-                          <p v-if="form.errors[`cartItems.${index}.images`]" class="text-sm text-red-600 mt-1">
-                            {{ form.errors[`cartItems.${index}.images`] }}
-                          </p>
-                        </div>
-                      </td>
-                    </tr>
-                  </template>
+                        <p v-if="form.errors[`cartItems.${index}.images`]" class="text-xs text-red-600 mt-1">
+                          {{ form.errors[`cartItems.${index}.images`] }}
+                        </p>
+                      </div>
+                    </td>
+                    <td class="px-4 py-3">
+                      <div class="text-sm text-gray-900">{{ item.uom }}</div>
+                    </td>
+                    <td class="px-4 py-3">
+                      <Input
+                        :id="`item-qty-${item.id}`"
+                        type="number"
+                        v-model="item.quantity"
+                        @input="updateCartItemQuantity(item.id, $event.target.value)"
+                        step="0.001"
+                        min="0.001"
+                        class="w-24 h-8 text-sm"
+                        :class="{ 'border-red-500': showErrors && !(parseFloat(item.quantity) > 0) }"
+                      />
+                    </td>
+                    <td v-if="canViewCost" class="px-4 py-3">
+                      <Input
+                        type="number"
+                        v-model="item.cost"
+                        step="0.01"
+                        min="0"
+                        class="w-24 h-8 text-sm bg-gray-100"
+                        readonly
+                      />
+                    </td>
+                    <td v-if="canViewCost" class="px-4 py-3">
+                      <div class="text-sm font-medium text-gray-900">
+                        {{ formatCurrency(item.total_cost) }}
+                      </div>
+                    </td>
+                    <td class="px-4 py-3 text-center">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        @click="removeFromCart(item.id)"
+                        class="text-red-600 hover:text-red-700 hover:bg-red-50"
+                      >
+                        <Trash2 class="w-4 h-4" />
+                      </Button>
+                    </td>
+                  </tr>
                 </tbody>
                 <tfoot class="bg-gray-50" v-if="canViewCost">
                   <tr>
-                    <td colspan="5" class="px-4 py-3 text-right font-medium text-gray-900">
+                    <td colspan="6" class="px-4 py-3 text-right font-medium text-gray-900">
                       Cart Total:
                     </td>
                     <td colspan="2" class="px-4 py-3 font-bold text-green-600">

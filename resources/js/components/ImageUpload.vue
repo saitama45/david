@@ -2,7 +2,7 @@
 import { ref, computed, watch, nextTick } from 'vue'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
-import { Upload, X, Image as ImageIcon, AlertCircle, Loader2, ChevronLeft, ChevronRight } from 'lucide-vue-next'
+import { Upload, X, Image as ImageIcon, AlertCircle, Loader2, ChevronLeft, ChevronRight, Plus } from 'lucide-vue-next'
 import { compressImageFile, formatBytes } from '@/lib/imageCompression'
 
 const props = defineProps({
@@ -38,6 +38,14 @@ const props = defineProps({
   maxSizeMb: {
     type: Number,
     default: 5
+  },
+  compact: {
+    type: Boolean,
+    default: false
+  },
+  hasError: {
+    type: Boolean,
+    default: false
   }
 })
 
@@ -281,7 +289,14 @@ const handleImageClick = (image, index) => {
 
   // Open image in new tab
   console.log('🔗 Opening image in new tab:', image.url);
-  window.open(image.url, '_blank');
+  if (image.url.startsWith('data:')) {
+    const newTab = window.open();
+    if (newTab) {
+      newTab.document.write(`<title>${image.file?.name || 'Image Preview'}</title><body style="margin:0;background:#111;display:flex;align-items:center;justify-content:center;min-height:100vh;"><img src="${image.url}" style="max-width:100%;max-height:100vh;object-fit:contain;" /></body>`);
+    }
+  } else {
+    window.open(image.url, '_blank');
+  }
 };
 
 const openFileDialog = () => {
@@ -427,7 +442,92 @@ watch(() => props.modelValue, (newFiles) => {
 </script>
 
 <template>
-  <div class="space-y-3">
+  <div>
+    <!-- COMPACT MODE -->
+    <div v-if="compact" class="flex flex-col gap-1">
+    <div class="flex items-center gap-1.5 flex-wrap">
+      <!-- Previews for existing and new images -->
+      <div
+        v-for="(image, index) in allImages"
+        :key="image.id"
+        class="relative group w-9 h-9 rounded border border-gray-200 overflow-hidden flex-shrink-0 bg-gray-50 shadow-sm"
+      >
+        <!-- Loading State -->
+        <div v-if="imageLoadingStates[image.id]" class="w-full h-full flex items-center justify-center bg-gray-100">
+          <Loader2 class="w-3.5 h-3.5 text-blue-600 animate-spin" />
+        </div>
+
+        <!-- Error State -->
+        <div
+          v-else-if="imageErrors[image.id]"
+          class="w-full h-full flex items-center justify-center bg-red-50 text-red-500 cursor-pointer"
+          :title="imageErrors[image.id]"
+          @click="retryWithNextUrl(image)"
+        >
+          <AlertCircle class="w-3.5 h-3.5" />
+        </div>
+
+        <!-- Image -->
+        <img
+          v-else
+          :src="image.url"
+          :alt="image.type === 'new' ? image.file.name : 'Image'"
+          class="w-full h-full object-cover cursor-pointer hover:opacity-90 transition-opacity"
+          @click="handleImageClick(image, index)"
+          @load="() => handleImageLoad(image.id)"
+          @error="() => handleImageError(image.id, image)"
+          @loadstart="() => initializeImageLoading(image)"
+          title="Click to view image"
+        />
+
+        <!-- Remove Button -->
+        <button
+          type="button"
+          @click.stop="removeImage(image)"
+          :disabled="disabled"
+          class="absolute top-0 right-0 bg-red-600 hover:bg-red-700 text-white rounded-bl p-0.5 opacity-80 group-hover:opacity-100 transition-opacity"
+          title="Remove photo"
+        >
+          <X class="w-2.5 h-2.5" />
+        </button>
+      </div>
+
+      <!-- Compact Upload Button -->
+      <button
+        v-if="multiple || !hasImages"
+        type="button"
+        @click="openFileDialog"
+        @drop.prevent="handleDrop"
+        @dragover.prevent="handleDragOver"
+        @dragleave.prevent="handleDragLeave"
+        :disabled="disabled || processing"
+        :class="[
+          'h-9 text-xs font-medium rounded border border-dashed transition-colors flex items-center justify-center gap-1 flex-shrink-0 cursor-pointer',
+          dragOver ? 'border-blue-500 bg-blue-100 text-blue-700' : '',
+          !dragOver && hasError ? 'border-red-500 bg-red-50 text-red-600 hover:bg-red-100' : '',
+          !dragOver && !hasError && hasImages ? 'w-9 border-gray-300 text-gray-500 hover:border-blue-400 hover:text-blue-600 hover:bg-blue-50/50' : '',
+          !dragOver && !hasError && !hasImages ? 'px-2.5 border-gray-300 text-gray-600 hover:border-blue-500 hover:text-blue-600 hover:bg-blue-50/50' : '',
+          disabled || processing ? 'cursor-not-allowed opacity-60' : ''
+        ]"
+        :title="hasImages ? 'Add more images' : 'Upload photo evidence (JPG/PNG)'"
+      >
+        <Loader2 v-if="processing" class="w-3.5 h-3.5 text-blue-600 animate-spin" />
+        <template v-else-if="hasImages">
+          <Plus class="w-4 h-4" />
+        </template>
+        <template v-else>
+          <Upload class="w-3.5 h-3.5" />
+          <span>Upload</span>
+        </template>
+      </button>
+    </div>
+
+    <!-- Error message if any -->
+    <span v-if="error" class="text-xs text-red-600 mt-0.5">{{ error }}</span>
+  </div>
+
+  <!-- FULL / REGULAR MODE -->
+  <div v-else class="space-y-3">
     <div>
       <label class="block text-sm font-medium text-gray-700 mb-1">{{ label }}</label>
       <p v-if="helperText" class="text-xs text-gray-500">{{ helperText }}</p>
@@ -567,6 +667,7 @@ watch(() => props.modelValue, (newFiles) => {
       <AlertCircle class="h-4 w-4" />
       <AlertDescription>{{ error }}</AlertDescription>
     </Alert>
+  </div>
 
     <!-- Hidden File Input -->
     <input
@@ -578,8 +679,7 @@ watch(() => props.modelValue, (newFiles) => {
       :disabled="disabled"
       :multiple="multiple"
     />
-
-      </div>
+  </div>
 </template>
 
 <style scoped>

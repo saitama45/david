@@ -184,7 +184,9 @@ class RekeyBaseStockRows extends Command
                         'recently_added' => DB::raw('recently_added + '.$quantity),
                     ]);
                 } else {
+                    // DB::table() skips BelongsToEntity; without entity_id the row is invisible to the app.
                     DB::table('product_inventory_stocks')->insert([
+                        'entity_id' => $c['to']->entity_id,
                         'product_inventory_id' => $c['to']->id, 'store_branch_id' => $branchId,
                         'quantity' => $quantity, 'recently_added' => $quantity, 'used' => 0,
                         'created_at' => now(), 'updated_at' => now(),
