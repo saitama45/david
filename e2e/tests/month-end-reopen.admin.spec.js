@@ -2,7 +2,8 @@ const { test, expect } = require('@playwright/test');
 
 /**
  * Read-only: the per-store reopen control lives in the Store Progress modal on
- * /month-end-schedules. Opens it for a month that has submissions and checks the
+ * /month-end-schedules. Opens it for the first clickable month (one with
+ * submissions, or any past month for a user who can reopen) and checks the
  * control renders, that submitted stores cannot be selected, and that stores
  * still owing a count can be.
  */
@@ -10,7 +11,7 @@ test('Store Progress modal offers a per-store reopen', async ({ page }) => {
   await page.goto('/month-end-schedules');
   await expect(page.getByRole('heading', { name: /Month End Schedules/i })).toBeVisible();
 
-  // Open the progress modal for the first month that has any submissions.
+  // Open the progress modal for the first clickable month.
   const progress = page.getByTestId('schedule-progress').first();
   await expect(progress).toBeVisible();
   await progress.click();
