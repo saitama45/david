@@ -12,6 +12,7 @@ const props = defineProps({
     message: { type: String, required: true },
     userBranches: { type: Object, required: true },
     branchesAwaitingUpload: { type: Object, required: true },
+    returnedCounts: { type: Array, default: () => [] },
     uploadWindow: { type: Object, default: null },
     supportEmail: { type: String, default: '' },
     uploadedCountsAwaitingSubmission: { type: Array, required: true },
@@ -257,6 +258,12 @@ const viewReviewPage = (scheduleId, branchId) => {
 
                 <div v-if="blockedBranches.length" class="mt-3 text-sm">
                     <p>Closed for: {{ blockedBranches.map((b) => b.name).join(', ') }}.</p>
+                </div>
+
+                <div v-for="returned in returnedCounts" :key="returned.branch_name" class="mt-3 p-3 border border-red-300 bg-red-50 rounded-md text-red-800 text-sm" data-testid="mec-returned">
+                    <p class="font-semibold">{{ returned.branch_name }}: your count was rejected. Please correct it and upload again.</p>
+                    <p class="mt-1">Reason: {{ returned.reason }}</p>
+                    <p class="text-xs mt-1 opacity-80">Rejected by {{ returned.rejected_by || 'N/A' }} on {{ returned.rejected_at }}</p>
                 </div>
 
                 <form v-if="can.upload_month_end_count_transaction" @submit.prevent="submitUpload" class="mt-4 space-y-4">

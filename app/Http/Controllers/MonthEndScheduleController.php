@@ -307,8 +307,9 @@ class MonthEndScheduleController extends Controller
             $status = $progress->get($store->id);
             $store->status = $status ? str_replace('_', ' ', Str::title($status->status)) : 'Not Started';
 
-            // A store that already submitted has nothing to reopen.
-            $store->has_submitted = $status !== null;
+            // A store that already submitted has nothing to reopen. A rejected
+            // count was sent back, so that store owes a count again.
+            $store->has_submitted = $status !== null && $status->status !== 'rejected';
             $store->can_reopen = ! $store->has_submitted;
 
             $reopen = $reopens->get($store->id);

@@ -659,6 +659,7 @@ Route::middleware('auth')
                 Route::middleware('permission:view month end count approvals')->get('/{schedule_id}/{branch_id}', 'show')->name('show');
                 Route::middleware('permission:edit month end count approval items')->put('/items/{monthEndCountItem}', 'updateItem')->name('update-item');
                 Route::middleware('permission:approve month end count level 1')->post('/{schedule_id}/{branch_id}/approve-level1', 'approveLevel1')->name('approve-level1');
+                Route::middleware('permission:approve month end count level 1')->post('/{schedule_id}/{branch_id}/reject-level1', 'rejectLevel1')->name('reject-level1');
                 Route::middleware('permission:approve month end count level 2')->post('/{schedule_id}/{branch_id}/approve-level2', 'approveLevel2')->name('approve-level2');
             });
 

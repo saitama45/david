@@ -7,6 +7,7 @@ use App\Http\Services\RuleExceptionService;
 use App\Http\Services\RuleExceptions\MecUploadWindowEvaluator;
 use App\Imports\MonthEndCountImport;
 use App\Models\MonthEndCountItem;
+use App\Models\MonthEndCountRejection;
 use App\Models\MonthEndCountReopen;
 use App\Models\MonthEndCountTemplate;
 use App\Models\MonthEndSchedule;
@@ -83,6 +84,23 @@ class MonthEndCountController extends Controller
         // page simply renders nothing when the window is shut, which reads to
         // the user as "you have nothing to do" rather than "you are locked out".
         $uploadWindow = $this->describeUploadWindow($now, $today, $userBranchIds, $settings);
+
+        // Why a branch now owes this count again, when an approver returned it.
+        $returnedCounts = $uploadSchedule
+            ? MonthEndCountRejection::with(['branch:id,name', 'rejecter:id,first_name,last_name'])
+                ->where('month_end_schedule_id', $uploadSchedule->id)
+                ->whereIn('branch_id', $branchesAwaitingUpload->keys())
+                ->orderByDesc('id')
+                ->get()
+                ->unique('branch_id')
+                ->map(fn ($r) => [
+                    'branch_name' => $r->branch?->name,
+                    'reason' => $r->reason,
+                    'rejected_by' => $r->rejecter ? trim($r->rejecter->first_name.' '.$r->rejecter->last_name) : null,
+                    'rejected_at' => $r->created_at->timezone('Asia/Manila')->format('M j, Y g:i A'),
+                ])
+                ->values()
+            : collect();
 
         // NEW: Get uploaded counts by the current user that are still in 'uploaded' status
         $uploadedCountsAwaitingSubmission = MonthEndCountItem::with(['schedule', 'branch'])
@@ -171,6 +189,7 @@ class MonthEndCountController extends Controller
             'supportEmail' => config('app.support_email'),
             'userBranches' => $userBranches,
             'branchesAwaitingUpload' => $branchesAwaitingUpload, // Pass this to frontend
+            'returnedCounts' => $returnedCounts,
             'uploadedCountsAwaitingSubmission' => $uploadedCountsAwaitingSubmission, // New prop
             'transactions' => $transactions,
             'filters' => $request->only(['year', 'month', 'calculated_date', 'status', 'branch_name', 'uploader_name', 'sort', 'direction']),
@@ -443,6 +462,15 @@ class MonthEndCountController extends Controller
             // The grant is consumed in the same transaction as the import, so a
             // failed import leaves the exception unused.
             DB::transaction(function () use ($branch, $schedule, $request, $usesException, $exceptionKey) {
+                // A count the approver rejected is replaced by this upload, not
+                // merged into it: items missing from the new file would otherwise
+                // linger beside it as 'rejected'. Who rejected it and why stays in
+                // month_end_count_rejections.
+                MonthEndCountItem::where('month_end_schedule_id', $schedule->id)
+                    ->where('branch_id', $branch->id)
+                    ->where('status', 'rejected')
+                    ->delete();
+
                 Excel::import(new MonthEndCountImport($branch->id, $schedule->id), $request->file('file'));
 
                 if ($usesException) {

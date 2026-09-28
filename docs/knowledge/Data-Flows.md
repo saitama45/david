@@ -112,6 +112,22 @@ Excuses are overlaid in `AdoptionRateTrackingService::applyExcuses()`. `Excused`
 No, so every Yes/No adoption denominator skips it, but `SuccessRateService` still counts it as a
 transaction and `WorkflowGuidanceService::reportMetrics()` ignores it.
 
+## Month End Count approval and rejection
+
+`uploaded` (store reviews) → `pending_level1_approval` → `level1_approved` → `level2_approved` (stock
+applied). Statuses live on every `month_end_count_items` row of a schedule + branch.
+
+A Level 1 approver can **reject** (`MonthEndCountApprovalController@rejectLevel1`, same permission as
+approve). It needs a reason and a re-upload deadline, and in one transaction it:
+- sets the rows to `rejected`, which every "has this branch submitted?" check already excludes;
+- writes a `month_end_count_rejections` row (who, why, how many items) that outlives those rows;
+- grants a `month_end_count_reopens` row until the deadline, never shortening a later one. The store
+  can re-upload even after the window closed.
+
+The re-upload (`MonthEndCountController@upload`) deletes the `rejected` rows inside the import
+transaction, so the new count replaces the old one rather than merging with it. `/month-end-count`
+shows the store the reason (`returnedCounts`).
+
 ## Entity switching
 
 `POST /entity/switch {entity_id}` with an `X-XSRF-TOKEN` header. It updates

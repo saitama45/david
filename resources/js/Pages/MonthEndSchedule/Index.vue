@@ -277,7 +277,10 @@ const getMonthName = (monthNumber) => {
 
 const progressSummary = (schedule) => {
     const totalStores = schedule.total_stores || 0;
-    const submittedCount = Object.values(schedule.progress || {}).reduce((a, b) => a + b, 0);
+    // A rejected count was sent back to the store, so it is not submitted.
+    const submittedCount = Object.entries(schedule.progress || {})
+        .filter(([status]) => status !== 'rejected')
+        .reduce((sum, [, count]) => sum + count, 0);
     return `${submittedCount} / ${totalStores}`;
 };
 
