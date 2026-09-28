@@ -42,14 +42,9 @@ class MonthEndScheduleController extends Controller
             ->get()
             ->groupBy('month_end_schedule_id');
 
-        $today = Carbon::today('Asia/Manila')->toDateString();
-
-        $schedules->getCollection()->transform(function ($schedule) use ($progressData, $totalActiveStores, $today) {
+        $schedules->getCollection()->transform(function ($schedule) use ($progressData, $totalActiveStores) {
             $schedule->total_stores = $totalActiveStores;
             $schedule->progress = $progressData->get($schedule->id, collect())->keyBy('status')->map(fn ($item) => (int) $item->count);
-            // Same "past" test Month End Count uses to pick the upload schedule;
-            // only a past count has an upload window that can be reopened.
-            $schedule->count_date_passed = $schedule->calculated_date->toDateString() < $today;
 
             return $schedule;
         });

@@ -102,14 +102,10 @@ const isDeletable = (schedule) => {
     return submittedCount === 0;
 };
 
-// The reopen panel lives in the Store Progress modal and only targets stores
-// that have NOT submitted, so a past count with nothing submitted must still
-// open it for users who can reopen.
-const isProgressClickable = (schedule) => {
-    const submittedCount = Object.values(schedule.progress || {}).reduce((a, b) => a + b, 0);
-    if (submittedCount > 0) return true;
-    return props.can.reopen_month_end_count && schedule.count_date_passed && schedule.total_stores > 0;
-};
+// Always openable, submissions or not: the reopen panel in the Store Progress
+// modal only targets stores that have NOT submitted, so gating the modal on a
+// submission hid it exactly when nobody had uploaded.
+const isProgressClickable = (schedule) => schedule.total_stores > 0;
 
 const detailItems = computed(() => detailsResponse.value?.data || []);
 
