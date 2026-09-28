@@ -112,6 +112,21 @@ Excuses are overlaid in `AdoptionRateTrackingService::applyExcuses()`. `Excused`
 No, so every Yes/No adoption denominator skips it, but `SuccessRateService` still counts it as a
 transaction and `WorkflowGuidanceService::reportMetrics()` ignores it.
 
+## Month End Count template: Current SOH
+
+The downloaded template's **Current SOH** is the Inventory Movement Report's **Theoretical SOH**
+for the month to date (1st of the month → today): previous month's count + approved receipts +
+interco in − sales − level 2 wastage − interco out. Both call `InventoryMovementService::movementData()`,
+so they cannot drift apart. The value is per ItemCode in the SAP base unit, restated in each template
+line's Bulk UOM through `ItemStockUnit` factors; a Bulk UOM with no conversion is left blank.
+
+The download is **withheld** while the store has open work in that period
+(`MonthEndCountReadinessService::blockers()`): orders not RECEIVED (approval, commit or receiving
+open), a RECEIVED order with unapproved receipt lines, interco not received / not committed by the
+sender, wastage below level 2, the previous month's count not level 2 approved, and pending SOH
+adjustments. `/month-end-count` lists them per branch with links; the server refuses too. Sales have
+no approval step (`StoreTransactionApprovalController` queries a dropped `is_approved` column).
+
 ## Month End Count approval and rejection
 
 `uploaded` (store reviews) → `pending_level1_approval` → `level1_approved` → `level2_approved` (stock

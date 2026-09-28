@@ -95,8 +95,8 @@ Full detail: [Data-Flows.md](docs/knowledge/Data-Flows.md).
 **Services** ([app/Http/Services/](app/Http/Services/)): `RuleExceptionService`, `OrderingCutoffService`,
 `OrderApprovalService`, `MassOrderService`, `StoreOrderService`, `DTSStoreOrderService`,
 `OrderCalculatorService`, `OrderReceivingService`, `IntercoService`, `WastageService`,
-`MonthEndCountSettingsService`, `RoleService`, `UserService`, `AdoptionRateTrackingService`,
-`SuccessRateService`, `GoLiveStoresService`.
+`MonthEndCountSettingsService`, `MonthEndCountReadinessService`, `InventoryMovementService`,
+`RoleService`, `UserService`, `AdoptionRateTrackingService`, `SuccessRateService`, `GoLiveStoresService`.
 
 **Models**: `StoreOrder` + `StoreOrderItem` (core aggregate, discriminated by `variant` and
 `order_status`), `Wastage`, `ProductInventory`, `SupplierItems`, `SAPMasterfile`, `POSMasterfileBOM`,

@@ -13,6 +13,8 @@ const props = defineProps({
     userBranches: { type: Object, required: true },
     branchesAwaitingUpload: { type: Object, required: true },
     returnedCounts: { type: Array, default: () => [] },
+    downloadBlockers: { type: Object, default: () => ({}) },
+    sohPeriod: { type: Object, default: null },
     uploadWindow: { type: Object, default: null },
     supportEmail: { type: String, default: '' },
     uploadedCountsAwaitingSubmission: { type: Array, required: true },
@@ -23,6 +25,11 @@ const props = defineProps({
 
 const { toast } = useToast();
 const selectedBranchId = ref(null);
+
+// Unfinished work that keeps the selected branch's template from a reliable Current SOH.
+const selectedBranchBlockers = computed(() =>
+    selectedBranchId.value ? (props.downloadBlockers?.[selectedBranchId.value] ?? []) : []
+);
 
 // Stores still locked out after the window closed.
 const blockedBranches = computed(() =>
@@ -218,6 +225,9 @@ const viewReviewPage = (scheduleId, branchId) => {
                 <p v-else class="font-medium">A month end count is scheduled. Please contact your administrator to get the required permissions to download the template.</p>
                 <p class="font-medium">{{ message }}</p> -->
                 <p v-if="downloadSchedule" class="text-sm mt-1">Scheduled for: {{ getMonthName(downloadSchedule.month) }} {{ downloadSchedule.year }} (MEC Schedule Date: {{ downloadSchedule.calculated_date }})</p>
+                <p v-if="sohPeriod" class="text-xs mt-1">
+                    Current SOH in the template is the Theoretical SOH from {{ sohPeriod.from }} to {{ sohPeriod.through }}, as in the Inventory Movement Report.
+                </p>
 
                 <!-- <div v-if="can.download_month_end_count_template"> -->
                 <div>
@@ -235,7 +245,23 @@ const viewReviewPage = (scheduleId, branchId) => {
                         />
                     </div>
 
-                    <a v-if="selectedBranchId" :href="route('month-end-count.download', { branch_id: selectedBranchId })"
+                    <p v-if="$page.props.errors?.download" class="mt-4 p-3 border border-red-300 bg-red-50 rounded-md text-red-800 text-sm">
+                        {{ $page.props.errors.download }}
+                    </p>
+                    <div v-if="selectedBranchId && selectedBranchBlockers.length" class="mt-4 p-3 border border-red-300 bg-red-50 rounded-md text-red-800 text-sm" data-testid="mec-download-blockers">
+                        <p class="font-semibold">The template is not available yet.</p>
+                        <p class="mt-1">
+                            Current SOH is the theoretical stock from {{ sohPeriod?.from }} to {{ sohPeriod?.through }}, so everything in that period
+                            must be finished first:
+                        </p>
+                        <ul class="list-disc ml-5 mt-2 space-y-1">
+                            <li v-for="blocker in selectedBranchBlockers" :key="blocker.key">
+                                <a v-if="blocker.url" :href="blocker.url" class="underline font-medium">{{ blocker.label }}</a>
+                                <span v-else>{{ blocker.label }}</span>
+                            </li>
+                        </ul>
+                    </div>
+                    <a v-else-if="selectedBranchId" :href="route('month-end-count.download', { branch_id: selectedBranchId })"
                        class="mt-4 inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
                         <Download class="-ml-1 mr-2 h-5 w-5" />
                         Download Count Template

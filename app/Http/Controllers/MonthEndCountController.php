@@ -2,6 +2,8 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Services\InventoryMovementService;
+use App\Http\Services\MonthEndCountReadinessService;
 use App\Http\Services\MonthEndCountSettingsService;
 use App\Http\Services\RuleExceptionService;
 use App\Http\Services\RuleExceptions\MecUploadWindowEvaluator;
@@ -14,6 +16,7 @@ use App\Models\MonthEndSchedule;
 use App\Models\ProductInventoryStock;
 use App\Models\SAPMasterfile;
 use App\Models\StoreBranch;
+use App\Support\ItemStockUnit;
 use Exception;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
@@ -29,6 +32,8 @@ class MonthEndCountController extends Controller
     public function __construct(
         private MonthEndCountSettingsService $settingsService,
         private RuleExceptionService $ruleExceptions,
+        private MonthEndCountReadinessService $readiness,
+        private InventoryMovementService $movements,
     ) {}
 
     public function index(Request $request)
@@ -84,6 +89,11 @@ class MonthEndCountController extends Controller
         // page simply renders nothing when the window is shut, which reads to
         // the user as "you have nothing to do" rather than "you are locked out".
         $uploadWindow = $this->describeUploadWindow($now, $today, $userBranchIds, $settings);
+
+        // The template's Current SOH is the month-to-date Theoretical SOH, so it is only
+        // offered once nothing in that period is still open for the branch.
+        [$sohFrom, $sohThrough] = $this->readiness->period($today);
+        $downloadBlockers = $this->readiness->blockers($userBranchIds, $sohFrom, $sohThrough);
 
         // Why a branch now owes this count again, when an approver returned it.
         $returnedCounts = $uploadSchedule
@@ -190,6 +200,11 @@ class MonthEndCountController extends Controller
             'userBranches' => $userBranches,
             'branchesAwaitingUpload' => $branchesAwaitingUpload, // Pass this to frontend
             'returnedCounts' => $returnedCounts,
+            'downloadBlockers' => (object) $downloadBlockers,
+            'sohPeriod' => [
+                'from' => Carbon::parse($sohFrom)->format('M j, Y'),
+                'through' => Carbon::parse($sohThrough)->format('M j, Y'),
+            ],
             'uploadedCountsAwaitingSubmission' => $uploadedCountsAwaitingSubmission, // New prop
             'transactions' => $transactions,
             'filters' => $request->only(['year', 'month', 'calculated_date', 'status', 'branch_name', 'uploader_name', 'sort', 'direction']),
@@ -326,25 +341,31 @@ class MonthEndCountController extends Controller
 
     public function downloadTemplate(Request $request)
     {
+        $request->validate(['branch_id' => 'required|integer']);
+        $branch = StoreBranch::findOrFail($request->branch_id);
+
+        if (! Auth::user()->store_branches()->where('store_branches.id', $branch->id)->exists()) {
+            abort(403, 'You do not have access to this branch.');
+        }
+
+        // Current SOH is only as good as the transactions behind it: nothing in the
+        // period may still be waiting on approval, commit or receiving.
+        [$from, $through] = $this->readiness->period(Carbon::today('Asia/Manila'));
+        $blockers = $this->readiness->blockers([$branch->id], $from, $through)[$branch->id] ?? [];
+
+        if ($blockers !== []) {
+            return back()->withErrors(['download' => "{$branch->name} still has unfinished transactions this month: "
+                .implode('; ', array_column($blockers, 'label')).'. Finish them, then download the template.']);
+        }
+
         // Fetch only Active records from MonthEndCountTemplate
         $templates = MonthEndCountTemplate::where('is_active', 1)->get();
+        $theoretical = $this->theoreticalSohByLine($templates, (int) $branch->id, $from, $through);
 
         $items = collect();
 
         foreach ($templates as $template) {
-            $currentSoh = 0;
-            if ($request->has('branch_id')) {
-                $sapMasterfile = SAPMasterfile::where('ItemCode', $template->item_code)
-                    ->where('AltUOM', $template->uom)
-                    ->where('is_active', true)
-                    ->first();
-
-                if ($sapMasterfile) {
-                    $currentSoh = app(\App\Services\MonthEndStockAdjustment::class)->balance(
-                        (int) $sapMasterfile->id, (int) $request->branch_id
-                    );
-                }
-            }
+            $currentSoh = $theoretical[$template->id] ?? null;
 
             $items->push([
                 'Item Code' => $template->item_code,
@@ -366,6 +387,40 @@ class MonthEndCountController extends Controller
         $fileName = 'month_end_count_template_'.Carbon::now()->format('Ymd_His').'.xlsx';
 
         return Excel::download(new \App\Exports\MonthEndCountDownloadExport($items), $fileName);
+    }
+
+    /**
+     * Current SOH per template line: the Inventory Movement Report's Theoretical SOH for
+     * the period (in the item's SAP base unit), restated in the line's Bulk UOM. A line
+     * whose Bulk UOM has no SAP conversion to that base is left blank rather than guessed.
+     *
+     * @return array<int, float|null> template id => quantity in its Bulk UOM
+     */
+    private function theoreticalSohByLine($templates, int $branchId, string $from, string $through): array
+    {
+        $sapItems = collect();
+        foreach ($templates->pluck('item_code')->filter()->unique()->chunk(1000) as $chunk) {
+            $sapItems = $sapItems->merge(SAPMasterfile::where('is_active', true)->whereIn('ItemCode', $chunk->values()->all())->get());
+        }
+
+        $theoretical = collect($this->movements->movementData($sapItems, [
+            'branch_id' => $branchId,
+            'date_from' => $from,
+            'date_to' => $through,
+        ]))->keyBy('sap_code');
+        $rowsByCode = $sapItems->groupBy('ItemCode');
+
+        $result = [];
+        foreach ($templates as $template) {
+            $row = $theoretical->get($template->item_code);
+            $size = $row
+                ? (ItemStockUnit::fromRows($rowsByCode[$template->item_code])->factors()[strtoupper(trim((string) $template->uom))] ?? null)
+                : null;
+
+            $result[$template->id] = $size ? round($row['theoretical_qty'] / $size, 4) : null;
+        }
+
+        return $result;
     }
 
     public function upload(Request $request)
