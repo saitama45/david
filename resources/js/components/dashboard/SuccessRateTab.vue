@@ -158,6 +158,7 @@ const chartData = computed(() => {
             borderColor: SUCCESS_COLOR,
             backgroundColor: SUCCESS_COLOR,
             data: rows.value.map((row) => row.success_rate),
+            yAxisID: "success",
             tension: 0.25,
             spanGaps: true,
         },
@@ -166,6 +167,7 @@ const chartData = computed(() => {
             borderColor: ADOPTION_COLOR,
             backgroundColor: ADOPTION_COLOR,
             data: rows.value.map((row) => row.adoption_rate),
+            yAxisID: "y",
             tension: 0.25,
             spanGaps: true,
         },
@@ -177,6 +179,7 @@ const chartData = computed(() => {
             borderColor: CLOSE_COLOR,
             backgroundColor: CLOSE_COLOR,
             data: rows.value.map((row) => row.close_rate),
+            yAxisID: "y",
             tension: 0.25,
             spanGaps: true,
             borderDash: [6, 4],
@@ -191,6 +194,15 @@ const chartOptions = computed(() => {
     const textColor = documentStyle.getPropertyValue("--p-text-color");
     const textColorSecondary = documentStyle.getPropertyValue("--p-text-muted-color");
     const surfaceBorder = documentStyle.getPropertyValue("--p-content-border-color");
+
+    // Success Rate lives within a point or two of 100%, which is a flat line on a
+    // 0-100 axis. It gets its own band, zoomed to whole percents (never under a
+    // 1-point span) so a real dip shows without inflating rounding noise.
+    const successValues = rows.value
+        .map((row) => row.success_rate)
+        .filter((value) => value !== null && value !== undefined)
+        .map(Number);
+    const successMin = successValues.length ? Math.min(99, Math.floor(Math.min(...successValues))) : 0;
 
     return {
         maintainAspectRatio: false,
@@ -215,9 +227,41 @@ const chartOptions = computed(() => {
                 ticks: { color: textColorSecondary, maxRotation: 60, minRotation: 45 },
                 grid: { display: false },
             },
-            y: {
-                min: 0,
+            // Stacked left axes are laid out top-down by descending weight: the
+            // Success Rate band sits above the 0-100 Adoption/Close band.
+            success: {
+                type: "linear",
+                position: "left",
+                stack: "rates",
+                stackWeight: 1,
+                weight: 1,
+                min: successMin,
                 max: 100,
+                title: { display: true, text: "Success Rate", color: SUCCESS_COLOR },
+                ticks: {
+                    color: textColorSecondary,
+                    maxTicksLimit: 4,
+                    callback: (value) => `${Number(Number(value).toFixed(2))}%`,
+                },
+                grid: { color: surfaceBorder },
+            },
+            y: {
+                position: "left",
+                stack: "rates",
+                stackWeight: 2,
+                // Headroom past 100% keeps this band's 100% line clear of the
+                // Success Rate band's floor line directly above it. Ticks are fixed
+                // because Chart.js would swap the 100 tick for the 110 bound.
+                min: 0,
+                max: 110,
+                afterBuildTicks: (scale) => {
+                    scale.ticks = [0, 25, 50, 75, 100].map((value) => ({ value }));
+                },
+                title: {
+                    display: true,
+                    text: showCloseRate.value ? "Adoption / Close Rate" : "Adoption Rate",
+                    color: textColorSecondary,
+                },
                 ticks: { color: textColorSecondary, stepSize: 25, callback: (value) => `${value}%` },
                 grid: { color: surfaceBorder },
             },
@@ -355,16 +399,18 @@ const registerPointLabelsPlugin = () => {
                     const value = dataset.data[index];
                     if (value === null || value === undefined) return;
 
-                    // Success Rate rides the top of the plot, so its labels go
-                    // below the line; everything else sits above its point.
-                    const below = dataset.label === "Success Rate";
+                    // Labels sit above their point unless that would run past the
+                    // top of the point's own band (a 100% week), then below it.
+                    const below = point.y - datasetMeta.yScale.top < 18;
+                    // Success Rate moves in hundredths of a percent; rounding it
+                    // printed 99.87% as "100%". Match the table's 2 decimals.
+                    const text =
+                        dataset.label === "Success Rate"
+                            ? formatPercent(value)
+                            : `${Math.round(Number(value))}%`;
                     ctx.textBaseline = below ? "top" : "bottom";
                     ctx.fillStyle = dataset.borderColor || "#374151";
-                    ctx.fillText(
-                        `${Math.round(Number(value))}%`,
-                        point.x,
-                        below ? point.y + 6 : point.y - 6
-                    );
+                    ctx.fillText(text, point.x, below ? point.y + 6 : point.y - 6);
                 });
             });
 
