@@ -114,39 +114,9 @@ const handleImport = () => {
 
     isLoading.value = true;
     importForm.post(route('month-end-count-templates.import'), {
+        // The redirect re-mounts this page, and onMounted reports the result from the flash.
         onSuccess: () => {
             closeImportModal();
-            const flash = page.props.flash;
-            if (flash && flash.skippedItems && flash.skippedItems.length > 0) {
-                skippedItems.value = flash.skippedItems;
-                if (skippedItems.value.length <= 15) {
-                    persistentSkippedItemsMessage.value = formatSkippedItemsMessage(skippedItems.value);
-                } else {
-                    persistentSkippedItemsMessage.value = '';
-                }
-                toast.add({
-                    severity: "warn",
-                    summary: "Import Completed with Warnings",
-                    detail: `${skippedItems.value.length} rows were skipped. Download the report for details.`,
-                    life: 5000,
-                });
-            } else if (flash && flash.success) {
-                persistentSkippedItemsMessage.value = '';
-                toast.add({
-                    severity: "success",
-                    summary: "Success",
-                    detail: flash.success || "Templates imported successfully.",
-                    life: 3000,
-                });
-            } else if (flash && flash.error) {
-                persistentSkippedItemsMessage.value = '';
-                 toast.add({
-                    severity: "error",
-                    summary: "Import Error",
-                    detail: flash.error,
-                    life: 5000,
-                });
-            }
         },
         onError: (errors) => {
             closeImportModal();

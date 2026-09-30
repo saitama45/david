@@ -112,16 +112,9 @@ const handleUpdate = () => {
             severity: "success",
         },
         accept: () => {
+            // The list page toasts the server's success message; only errors are toasted here.
             form.put(route("POSMasterfile.update", item.id), {
                 preserveScroll: true,
-                onSuccess: () => {
-                    toast.add({
-                        severity: "success",
-                        summary: "Success",
-                        detail: "FG Details Successfully Updated",
-                        life: 3000,
-                    });
-                },
                 onError: (e) => {
                     console.error(e);
                     toast.add({

@@ -9,8 +9,10 @@ use App\Models\POSMasterfile;
 use App\Models\MenuCategory;
 use App\Models\SAPMasterfile;
 use App\Models\POSMasterfileBOM; // Import POSMasterfileBOM
+use App\Support\EntityContext;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\Rule;
 use Inertia\Inertia;
 use Maatwebsite\Excel\Facades\Excel;
 use Illuminate\Support\Facades\Log;
@@ -65,7 +67,19 @@ class POSMasterfileController extends Controller
      */
     public function create()
     {
-        return Inertia::render('POSMasterfile/Create', []);
+        // Menu categories cover only a few of the categories POS items carry, so the
+        // ones already in use are offered too; a new one can still be typed.
+        $categories = collect(MenuCategory::pluck('name'))
+            ->merge(POSMasterfile::whereNotNull('Category')->where('Category', '<>', '')->distinct()->pluck('Category'))
+            ->map(fn ($name) => trim((string) $name))
+            ->filter()
+            ->unique(fn ($name) => strtoupper($name))
+            ->sort()
+            ->values();
+
+        return Inertia::render('POSMasterfile/Create', [
+            'categories' => $categories,
+        ]);
     }
 
     public function export()
@@ -84,17 +98,26 @@ class POSMasterfileController extends Controller
      */
     public function store(Request $request)
     {
+        $request->merge(collect($request->only(['POSCode', 'POSDescription', 'Category', 'SubCategory']))
+            ->map(fn ($value) => is_string($value) ? trim($value) : $value)
+            ->all());
+
         $validated = $request->validate([
-            'POSCode' => ['nullable'],
-            'POSDescription' => ['nullable'], // Corrected: Validating POSDescription
-            'Category' => ['nullable'],
-            'SubCategory' => ['nullable'],
-            'SRP' => ['nullable'],
-            'is_active' => ['nullable'],
+            // The import keys POS items on POSCode within the entity; so does the unique index.
+            'POSCode' => ['required', 'string', 'max:255', Rule::unique('pos_masterfiles', 'POSCode')
+                ->where('entity_id', app(EntityContext::class)->id())],
+            'POSDescription' => ['required', 'string', 'max:255'],
+            'Category' => ['nullable', 'string', 'max:255'],
+            'SubCategory' => ['nullable', 'string', 'max:255'],
+            'SRP' => ['required', 'numeric', 'min:0', 'max:99999999.99'],
+            'is_active' => ['required', 'boolean'],
+        ], [
+            'POSCode.unique' => 'This POS code already exists. Edit it instead.',
         ]);
 
         POSMasterfile::create($validated);
-        return to_route("POSMasterfile.index");
+
+        return to_route('POSMasterfile.index')->with('success', 'POS item created.');
     }
 
     /**

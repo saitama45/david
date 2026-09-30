@@ -103,44 +103,10 @@ const importForm = useForm({
 const importFile = () => {
     isLoading.value = true;
     importForm.post(route("POSMasterfile.import"), {
+        // The redirect re-mounts this page, and onMounted reports the result from the flash.
         onSuccess: () => {
             isLoading.value = false;
             isImportModalVisible.value = false;
-
-            if (page.props.flash && page.props.flash.skippedItems && page.props.flash.skippedItems.length > 0) {
-                skippedItems.value = page.props.flash.skippedItems;
-                
-                if (skippedItems.value.length <= 15) {
-                    persistentSkippedItemsMessage.value = formatSkippedItemsMessage(skippedItems.value);
-                } else {
-                    persistentSkippedItemsMessage.value = '';
-                }
-                
-                toast.add({
-                    severity: "warn",
-                    summary: "Import Completed with Warnings",
-                    detail: `${skippedItems.value.length} items were skipped. Download the report for details.`, 
-                    life: 5000,
-                });
-            } else if (page.props.flash && page.props.flash.success) {
-                persistentSkippedItemsMessage.value = '';
-                skippedItems.value = [];
-                toast.add({
-                    severity: "success",
-                    summary: "Success",
-                    detail: page.props.flash.success,
-                    life: 3000,
-                });
-            } else if (page.props.flash && page.props.flash.warning) {
-                persistentSkippedItemsMessage.value = '';
-                skippedItems.value = page.props.flash.skippedItems || [];
-                 toast.add({
-                    severity: "warn",
-                    summary: "Import Warning",
-                    detail: page.props.flash.warning,
-                    life: 5000,
-                });
-            }
         },
         onError: (e) => {
             isLoading.value = false;
@@ -204,6 +170,13 @@ onMounted(() => {
             detail: page.props.flash.success,
             life: 3000,
         });
+    } else if (page.props.flash && page.props.flash.warning) {
+        toast.add({
+            severity: "warn",
+            summary: "Import Warning",
+            detail: page.props.flash.warning,
+            life: 5000,
+        });
     } else if (page.props.flash && page.props.flash.error) {
         toast.add({
             severity: "error",
@@ -223,7 +196,7 @@ onUnmounted(() => {
 <template>
     <Layout
         heading="POSMasterfile List"
-        :hasButton="hasAccess('create new POSMasterfile items')"
+        :hasButton="hasAccess('create POSMasterfile')"
         buttonName="Create New Item"
         :handleClick="handleClick"
         :hasExcelDownload="true"

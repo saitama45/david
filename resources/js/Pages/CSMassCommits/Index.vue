@@ -130,6 +130,11 @@ const isCellDisabled = (row, brandCode) => {
 };
 
 const canUserEditRow = (row) => {
+    // CONTROL items are editable with the CONTROL permission, whatever their category.
+    const isControl = String(row.classification ?? '').trim().toUpperCase() === 'CONTROL';
+    if (isControl && props.permissions.canEditControl) {
+        return true;
+    }
     const isFinishedGood = ['FINISHED GOODS', 'FG', 'FINISHED GOOD'].includes(row.category);
     if (isFinishedGood) {
         return props.permissions.canEditFinishedGood;

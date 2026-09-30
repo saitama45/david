@@ -1,280 +1,129 @@
 <script setup>
-import { useForm, router } from "@inertiajs/vue3";
-import { useSelectOptions } from "@/composables/useSelectOptions";
-import MultiSelect from "primevue/multiselect";
-import { useConfirm } from "primevue/useconfirm";
+import { useForm } from "@inertiajs/vue3";
+import { computed } from "vue";
 import { useToast } from "primevue/usetoast";
 
-const isImportModalVisible = ref(false);
+const toast = useToast();
 
-const importForm = useForm({
-    products_file: null,
+const props = defineProps({
+    itemTypes: {
+        type: Array,
+        default: () => [],
+    },
 });
 
-const importFile = () => {
-    isLoading.value = true;
-    importForm.post(route("sapitems.import"), {
-        onSuccess: () => {
-            toast.add({
-                severity: "success",
-                summary: "Success",
-                detail: "New Products Created",
-                life: 3000,
-            });
-            isLoading.value = false;
-        },
-        onError: (e) => {
-            isLoading.value = false;
+const itemTypeOptions = computed(() =>
+    props.itemTypes.map((t) => ({ label: t.name, value: t.id }))
+);
+
+const activeStatuses = [
+    { label: "Active", value: 1 },
+    { label: "Inactive", value: 0 },
+];
+
+const form = useForm({
+    ItemCode: "",
+    ItemDescription: "",
+    AltQty: 1,
+    AltUOM: "",
+    BaseQty: 1,
+    BaseUOM: "",
+    is_active: 1,
+    sap_item_type_id: null,
+});
+
+const handleCreate = () => {
+    // The list page toasts the server's success message; only errors are toasted here.
+    form.post(route("sapitems.store"), {
+        preserveScroll: true,
+        onError: () => {
             toast.add({
                 severity: "error",
                 summary: "Error",
-                detail: "An error occured while trying to create new products. Please make sure that you are using the correct format.",
+                detail: "Please check the highlighted fields.",
                 life: 3000,
             });
         },
     });
 };
-const toast = useToast();
-
-const confirm = useConfirm();
-
-const form = useForm({
-    inventory_category_id: null,
-    unit_of_measurement_id: null,
-    category_a: null,
-    category_b: null,
-    packaging: null,
-    conversion: null,
-    name: null,
-    inventory_code: null,
-    brand: null,
-    cost: null,
-    categories: null,
-});
-
-const props = defineProps({
-    inventoryCategories: {
-        type: Object,
-        required: true,
-    },
-    unitOfMeasurements: {
-        type: Object,
-        required: true,
-    },
-    productCategories: {
-        type: Object,
-        required: true,
-    },
-});
-
-const { options: inventoryCategoryOptions } = useSelectOptions(
-    props.inventoryCategories
-);
-const { options: unitOfMeasurementsOptions } = useSelectOptions(
-    props.unitOfMeasurements
-);
-const { options: productCategoriesOptions } = useSelectOptions(
-    props.productCategories
-);
-
-const handleCreate = () => {
-    confirm.require({
-        message: "Are you sure you want to create this product?",
-        header: "Confirmation",
-        icon: "pi pi-exclamation-triangle",
-        rejectProps: {
-            label: "Cancel",
-            severity: "secondary",
-            outlined: true,
-        },
-        acceptProps: {
-            label: "Create",
-            severity: "success",
-        },
-        accept: () => {
-            form.post(route("sapitems.store"), {
-                preserveScroll: true,
-                onSuccess: () => {
-                    toast.add({
-                        severity: "success",
-                        summary: "Success",
-                        detail: "New Product Successfully Created",
-                        life: 3000,
-                    });
-                },
-                onError: (e) => {
-                    console.log(e);
-                },
-            });
-        },
-    });
-};
-const isLoading = ref(false);
-const handleCancel = () => {
-    router.get(route("sapitems.index"));
-};
-
-const openFormModal = () => {
-    return (isImportModalVisible.value = true);
-};
-
-watch(isImportModalVisible, (value) => {
-    if (!value) {
-        importForm.reset();
-        importForm.clearErrors();
-        isLoading.value = false;
-    }
-});
 </script>
 
 <template>
-    <Layout
-        heading="Create New Product"
-        :hasButton="true"
-        buttonName="Import Excel"
-        :handleClick="openFormModal"
-    >
+    <Layout heading="Create SAP Item">
         <Card>
             <CardHeader>
-                <CardTitle>Product Details</CardTitle>
-                <CardDescription
-                    >Input all the important fields</CardDescription
-                >
+                <CardTitle>SAP Item Details</CardTitle>
+                <CardDescription>
+                    One row per item code and unit. The conversion reads
+                    {{ form.AltQty || 0 }} {{ form.AltUOM || "Alt UOM" }} =
+                    {{ form.BaseQty || 0 }} {{ form.BaseUOM || "Base UOM" }}.
+                </CardDescription>
             </CardHeader>
             <CardContent class="grid sm:grid-cols-2 gap-5">
                 <InputContainer>
-                    <Label>Inventory Category</Label>
+                    <Label>Item Code</Label>
+                    <Input v-model="form.ItemCode" />
+                    <FormError>{{ form.errors.ItemCode }}</FormError>
+                </InputContainer>
+                <InputContainer>
+                    <Label>Item Description</Label>
+                    <Input v-model="form.ItemDescription" />
+                    <FormError>{{ form.errors.ItemDescription }}</FormError>
+                </InputContainer>
+                <InputContainer>
+                    <Label>Alt Qty</Label>
+                    <Input v-model="form.AltQty" type="number" min="0" step="any" />
+                    <FormError>{{ form.errors.AltQty }}</FormError>
+                </InputContainer>
+                <InputContainer>
+                    <Label>Alt UOM</Label>
+                    <Input v-model="form.AltUOM" placeholder="e.g. Case" />
+                    <FormError>{{ form.errors.AltUOM }}</FormError>
+                </InputContainer>
+                <InputContainer>
+                    <Label>Base Qty</Label>
+                    <Input v-model="form.BaseQty" type="number" min="0" step="any" />
+                    <FormError>{{ form.errors.BaseQty }}</FormError>
+                </InputContainer>
+                <InputContainer>
+                    <Label>Base UOM</Label>
+                    <Input v-model="form.BaseUOM" placeholder="e.g. Can" />
+                    <FormError>{{ form.errors.BaseUOM }}</FormError>
+                </InputContainer>
+                <InputContainer>
+                    <LabelXS>Active Status</LabelXS>
                     <Select
-                        filter
-                        placeholder="Select inventory category"
-                        v-model="form.inventory_category_id"
-                        :options="inventoryCategoryOptions"
+                        v-model="form.is_active"
+                        :options="activeStatuses"
                         optionLabel="label"
                         optionValue="value"
-                    >
-                    </Select>
-                    <FormError>{{
-                        form.errors.inventory_category_id
-                    }}</FormError>
+                        placeholder="Select a Status"
+                    />
+                    <FormError>{{ form.errors.is_active }}</FormError>
                 </InputContainer>
                 <InputContainer>
-                    <Label>Name</Label>
-                    <Input v-model="form.name" />
-                    <FormError>{{ form.errors.name }}</FormError>
-                </InputContainer>
-                <InputContainer>
-                    <Label>Inventory Code</Label>
-                    <Input v-model="form.inventory_code" />
-                    <FormError>{{ form.errors.inventory_code }}</FormError>
-                </InputContainer>
-                <InputContainer>
-                    <Label>Brand</Label>
-                    <Input v-model="form.brand" />
-                    <FormError>{{ form.errors.brand }}</FormError>
-                </InputContainer>
-                <InputContainer>
-                    <Label>Packaging</Label>
-                    <Input v-model="form.packaging" />
-                    <FormError>{{ form.errors.packaging }}</FormError>
-                </InputContainer>
-                <InputContainer>
-                    <Label>Conversion</Label>
-                    <Input v-model="form.conversion" type="number" />
-                    <FormError>{{ form.errors.conversion }}</FormError>
-                </InputContainer>
-                <InputContainer>
-                    <Label>Unit of measurement</Label>
+                    <LabelXS>Item Type</LabelXS>
                     <Select
-                        filter
-                        placeholder="Select unit of measurement"
-                        v-model="form.unit_of_measurement_id"
-                        :options="unitOfMeasurementsOptions"
+                        v-model="form.sap_item_type_id"
+                        :options="itemTypeOptions"
                         optionLabel="label"
                         optionValue="value"
-                    >
-                    </Select>
-                    <FormError>{{
-                        form.errors.unit_of_measurement_id
-                    }}</FormError>
+                        placeholder="Uncategorised"
+                        showClear
+                    />
+                    <span class="text-xs text-gray-500">
+                        Applies to every UOM row of the item code. Leave blank
+                        to keep the type an existing code already has.
+                    </span>
+                    <FormError>{{ form.errors.sap_item_type_id }}</FormError>
                 </InputContainer>
-                <InputContainer>
-                    <Label>Category - A</Label>
-                    <Input v-model="form.category_a"  />
-                    <FormError>{{ form.errors.category_a }}</FormError>
-                </InputContainer>
-                <InputContainer>
-                    <Label>Category - B</Label>
-                    <Input v-model="form.category_b"  />
-                    <FormError>{{ form.errors.category_b }}</FormError>
-                </InputContainer>
-                <InputContainer>
-                    <Label>Cost</Label>
-                    <Input v-model="form.cost" type="number" />
-                    <FormError>{{ form.errors.cost }}</FormError>
-                </InputContainer>
-                <!-- <InputContainer>
-                    <Label>Product Category</Label>
-                    <MultiSelect
-                        filter
-                        placeholder="Select product category"
-                        v-model="form.categories"
-                        :options="productCategoriesOptions"
-                        optionLabel="label"
-                        optionValue="value"
-                    >
-                    </MultiSelect>
-                    <FormError>{{ form.errors.categories }}</FormError>
-                </InputContainer> -->
             </CardContent>
             <CardFooter class="justify-end gap-3">
-                <Button @click="handleCancel" variant="outline">Cancel</Button>
-                <Button @click="handleCreate">Create</Button>
+                <BackButton />
+                <Button :disabled="form.processing" @click="handleCreate">
+                    Create
+                </Button>
             </CardFooter>
         </Card>
     </Layout>
-
-    <Dialog v-model:open="isImportModalVisible">
-        <DialogContent class="sm:max-w-[600px]">
-            <DialogHeader>
-                <DialogTitle>Import Products</DialogTitle>
-                <DialogDescription>
-                    Import the excel file of the products.
-                </DialogDescription>
-            </DialogHeader>
-            <div class="space-y-5">
-                <div class="flex flex-col space-y-1">
-                    <Input
-                        type="file"
-                        @input="
-                            importForm.products_file = $event.target.files[0]
-                        "
-                    />
-                    <FormError>{{ importForm.errors.products_file }}</FormError>
-                </div>
-                <div class="flex flex-col space-y-1">
-                    <Label class="text-xs">Accepted Products File Format</Label>
-                    <ul>
-                        <li class="text-xs">
-                            <a
-                                class="text-blue-500 underline"
-                                href="/excel/products-template"
-                                >Click to download</a
-                            >
-                        </li>
-                    </ul>
-                </div>
-            </div>
-            <DialogFooter>
-                <Button
-                    :disabled="isLoading"
-                    @click="importFile"
-                    type="submit"
-                    class="gap-2"
-                >
-                    Proceed
-                    <span><Loading v-if="isLoading" /></span>
-                </Button>
-            </DialogFooter>
-        </DialogContent>
-    </Dialog>
 </template>

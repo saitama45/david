@@ -111,43 +111,10 @@ const importForm = useForm({
 const importFile = () => {
     isLoading.value = true;
     importForm.post(route("sapitems.import"), {
+        // The redirect re-mounts this page, and onMounted reports the result from the flash.
         onSuccess: () => {
             isLoading.value = false;
             isImportModalVisible.value = false;
-
-            if (page.props.flash && page.props.flash.info) {
-                importQueuedMessage.value = page.props.flash.info;
-                toast.add({
-                    severity: "info",
-                    summary: "Import Queued",
-                    detail: "Your import is being processed in the background.",
-                    life: 5000,
-                });
-            } else if (page.props.flash && page.props.flash.skippedItems && page.props.flash.skippedItems.length > 0) {
-                skippedItems.value = page.props.flash.skippedItems;
-
-                // Only show message if 15 or fewer items
-                if (skippedItems.value.length <= 15) {
-                    persistentSkippedItemsMessage.value = formatSkippedItemsMessage(skippedItems.value);
-                } else {
-                    persistentSkippedItemsMessage.value = '';
-                }
-
-                toast.add({
-                    severity: "warn",
-                    summary: "Import Completed with Warnings",
-                    detail: `${skippedItems.value.length} items were skipped during import. Download the report for details.`,
-                    life: 5000,
-                });
-            } else if (page.props.flash && page.props.flash.success) {
-                persistentSkippedItemsMessage.value = '';
-                toast.add({
-                    severity: "success",
-                    summary: "Success",
-                    detail: page.props.flash.success,
-                    life: 3000,
-                });
-            }
         },
         onError: (e) => {
             isLoading.value = false;
@@ -238,7 +205,7 @@ onUnmounted(() => {
 <template>
     <Layout
         heading="SAPMasterfile List"
-        :hasButton="hasAccess('create new SAPMasterfile items')"
+        :hasButton="hasAccess('create sapitems')"
         buttonName="Create New Item"
         :handleClick="handleClick"
         :hasExcelDownload="true"

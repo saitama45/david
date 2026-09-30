@@ -13,6 +13,8 @@ use Maatwebsite\Excel\Facades\Excel;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Response;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 use App\Models\User; // Ensure User model is imported
 use App\Models\Supplier; // Ensure Supplier model is imported
 use App\Models\SAPMasterfile; // Ensure SAPMasterfile is imported
@@ -117,12 +119,94 @@ class SupplierItemsController extends Controller
         ])->with('success', true);
     }
 
-    // The 'create' method is removed as per the requirement that users only manage assigned items.
-    // If you need a form for creating new SupplierItems, it should be restricted to admin roles.
-    // public function create()
-    // {
-    //     return Inertia::render('SupplierItems/Create', []);
-    // }
+    public function create()
+    {
+        // Only the user's assigned suppliers are offered, as in the list and the import.
+        return Inertia::render('SupplierItems/Create', [
+            'suppliers' => Auth::user()->suppliers->map(fn ($supplier) => [
+                'label' => $supplier->name . ' (' . $supplier->supplier_code . ')',
+                'value' => $supplier->supplier_code,
+            ])->values(),
+        ]);
+    }
+
+    /**
+     * Add one catalog item by hand, under the same rules as the import: the supplier
+     * must be assigned to the user, and ItemCode + unit must be a row of the SAP masterfile.
+     */
+    public function store(Request $request)
+    {
+        $assignedSupplierCodes = Auth::user()->suppliers->pluck('supplier_code')->all();
+
+        $request->merge(collect($request->only([
+            'ItemCode', 'item_name', 'SupplierCode', 'category', 'category2', 'area', 'brand',
+            'classification', 'packaging_config', 'uom',
+        ]))->map(fn ($value) => is_string($value) ? trim($value) : $value)->all());
+
+        $validated = $request->validate([
+            'SupplierCode' => ['required', 'string', Rule::in($assignedSupplierCodes)],
+            'ItemCode' => ['required', 'string', 'max:255'],
+            'uom' => ['required', 'string', 'max:255'],
+            'item_name' => ['nullable', 'string', 'max:255'],
+            'category' => ['nullable', 'string', 'max:255'],
+            'category2' => ['nullable', 'string', 'max:255'],
+            'area' => ['nullable', 'string', 'max:255'],
+            'brand' => ['nullable', 'string', 'max:255'],
+            'classification' => ['nullable', 'string', 'max:255'],
+            'packaging_config' => ['nullable', 'string', 'max:255'],
+            'config' => ['nullable', 'numeric', 'min:0', 'max:999999.99'],
+            'cost' => ['required', 'numeric', 'min:0', 'max:99999999.99'],
+            'srp' => ['nullable', 'numeric', 'min:0', 'max:99999999.99'],
+            'sort_order' => ['nullable', 'integer', 'min:0'],
+            'is_active' => ['required', 'boolean'],
+        ], [
+            'SupplierCode.in' => 'You can only add items for suppliers assigned to you.',
+        ]);
+
+        $sapRows = SAPMasterfile::where('ItemCode', $validated['ItemCode'])->get(['AltUOM', 'ItemDescription']);
+        $sapRow = $sapRows->first(fn ($row) => strtoupper(trim((string) $row->AltUOM)) === strtoupper($validated['uom']));
+
+        if ($sapRows->isEmpty()) {
+            throw ValidationException::withMessages([
+                'ItemCode' => "{$validated['ItemCode']} is not in the SAP Masterfile. Add it there first.",
+            ]);
+        }
+
+        if (! $sapRow) {
+            throw ValidationException::withMessages([
+                'uom' => "'{$validated['uom']}' is not a unit of {$validated['ItemCode']} in the SAP Masterfile. Use one of: "
+                    . $sapRows->pluck('AltUOM')->map(fn ($uom) => trim((string) $uom))->unique()->implode(', ') . '.',
+            ]);
+        }
+
+        // Stored in SAP's spelling, so joins and comparisons on the unit keep matching.
+        $validated['uom'] = trim((string) $sapRow->AltUOM);
+
+        $exists = SupplierItems::where('ItemCode', $validated['ItemCode'])
+            ->where('SupplierCode', $validated['SupplierCode'])
+            ->where('uom', $validated['uom'])
+            ->exists();
+
+        if ($exists) {
+            throw ValidationException::withMessages([
+                'ItemCode' => "{$validated['ItemCode']} ({$validated['uom']}) is already in {$validated['SupplierCode']}'s items. Edit it instead.",
+            ]);
+        }
+
+        // Blank fields arrive as null, but the text columns are NOT NULL; store them as the import does.
+        foreach (['category', 'category2', 'area', 'brand', 'classification', 'packaging_config'] as $column) {
+            $validated[$column] = $validated[$column] ?? '';
+        }
+
+        SupplierItems::create(array_merge($validated, [
+            'item_name' => ($validated['item_name'] ?? null) ?: (string) $sapRow->ItemDescription,
+            'config' => $validated['config'] ?? 0,
+            'srp' => $validated['srp'] ?? 0,
+            'sort_order' => $validated['sort_order'] ?? 0,
+        ]));
+
+        return to_route('SupplierItems.index')->with('success', 'Supplier item created.');
+    }
 
     public function export()
     {

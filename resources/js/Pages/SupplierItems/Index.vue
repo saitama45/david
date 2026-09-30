@@ -5,7 +5,6 @@ import { useSearch } from "@/composables/useSearch";
 import { useForm } from "@inertiajs/vue3";
 import { useConfirm } from "primevue/useconfirm";
 import { useToast } from "primevue/usetoast";
-import Toast from 'primevue/toast';
 import { router } from "@inertiajs/vue3";
 import { useAuth } from "@/composables/useAuth";
 import { useReferenceDelete } from "@/composables/useReferenceDelete";
@@ -163,13 +162,12 @@ watch(importSummary, (newValue) => {
 <template>
     <Layout
         heading="Supplier Items List"
-        :hasButton="false" 
+        :hasButton="hasAccess('create SupplierItems')"
         buttonName="Create New Item"
-        :handleClick="null"
+        :handleClick="() => router.get(route('SupplierItems.create'))"
         :hasExcelDownload="true"
         :exportRoute="exportRoute"
     >
-        <Toast /> 
 
         <div v-if="importSummary" class="mb-6">
             <div v-if="importSummary.success_message" class="bg-green-100 border-l-4 border-green-500 text-green-700 p-4 mb-4" role="alert">

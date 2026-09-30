@@ -46,16 +46,9 @@ const handleCreate = () => {
             severity: "success",
         },
         accept: () => {
+            // The list page toasts the server's success message; only errors are toasted here.
             form.post(route("month-end-count-templates.store"), {
                 preserveScroll: true,
-                onSuccess: () => {
-                    toast.add({
-                        severity: "success",
-                        summary: "Success",
-                        detail: "New Template Successfully Created",
-                        life: 3000,
-                    });
-                },
                 onError: (e) => {
                     console.log(e);
                     // You might want to display a more user-friendly error message here

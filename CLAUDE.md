@@ -222,6 +222,10 @@ SQL Server as the target. Rationale and trade-offs: [Decisions.md](docs/knowledg
 - **SAP import key is ItemCode + AltUOM + BaseUOM** (per entity). SAP restates a pack in a second
   base (Case = 48 Can and Case = 18720 Gm); both rows import. A second base is still refused unless
   the file gave that same AltUOM under the accepted base first. Stored blank-BaseUOM pairs match without it.
+  The one-by-one Create on `/sapitems-list` applies the same key and base guard (a pack already on file may be
+  restated); Supplier Items' Create applies the import's assigned-supplier and SAP ItemCode + unit checks.
+- **`supplier_items` text columns (category, brand, classification, packaging_config) and `config` are NOT
+  NULL**, but blank form inputs arrive as null (ConvertEmptyStringsToNull). Store `''` / `0`, as the import does.
 - **Fresh migrations create a UNIQUE index on `sap_masterfiles.ItemCode`** that the live database does
   not have (one row per AltUOM). Test fixtures needing two UOM rows must drop it.
 - **A POS BOM line is POSCode + ItemCode + BOMUOM + Assembly, but one item may repeat with a different
@@ -235,6 +239,10 @@ SQL Server as the target. Rationale and trade-offs: [Decisions.md](docs/knowledg
   not `TIMESTAMPDIFF`, `STRING_AGG` not `GROUP_CONCAT`. Multi-column distinct counts need a subquery.
 - **Never chain `->with()` onto `selectRaw` + `groupBy`** — Eloquent silently returns null relations.
 - **Date-only columns need `'date:Y-m-d'` casts**, or UTC serialization shows the previous day.
+- **Toast each action from one place.** The layout mounts the only PrimeVue `<Toast />`; a page adding its
+  own shows every toast twice. Inertia 1.3 re-creates the page on any visit without `preserveState`,
+  even a redirect back to itself, so a page that toasts `flash.success` in `onMounted` already covers
+  its forms and imports. Their `onSuccess` must not toast it again.
 - **`e2e/.env.e2e` names `storerep@gmail.com`, which does not exist** in `daviddb`; the working QA
   pair is in auto memory (`reference_david_qa_profiles`), not the one in the `regression-test` skill.
 - **Repo root holds throwaway diagnostics** (`check_*.php`, `debug_*.php`, `find_*.php`). Not app code.

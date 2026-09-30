@@ -249,36 +249,52 @@ class StoreOrderItem extends Model implements Auditable
     /**
      * Check if this item can be committed by the current user based on permissions
      */
-    public function canBeCommittedBy($user, $category = null)
+    public function canBeCommittedBy($user, $category = null, $classification = null)
     {
         if (!$user) {
             return false;
         }
 
         $itemCategory = $category;
+        $itemClassification = $classification;
 
         if (!$itemCategory) {
             // Check supplierItem relationship first (primary source for category)
             if ($this->supplierItem) {
                 $itemCategory = $this->supplierItem->category;
+                $itemClassification ??= $this->supplierItem->classification;
             } elseif ($this->sapMasterfile) {
                 // Fallback to SAP masterfile if supplierItem not available
                 $itemCategory = $this->sapMasterfile->Category;
             }
         }
 
-        if ($itemCategory) {
-            $isFinishedGood = in_array(strtoupper($itemCategory), ['FINISHED GOODS', 'FG', 'FINISHED GOOD']);
-
-            // User can commit if they have the appropriate permission for the item category
-            if ($isFinishedGood) {
-                return $user->can('edit finished good commits');
-            } else {
-                return $user->can('edit other commits');
-            }
+        // If no category found, default to false (deny) to prevent unauthorized access
+        if (!$itemCategory && !self::isControlClassification($itemClassification)) {
+            return false;
         }
 
-        // If no category found, default to false (deny) to prevent unauthorized access
-        return false;
+        return self::userCanEditCommit($user, $itemCategory, $itemClassification);
+    }
+
+    /**
+     * The CS Mass Commits edit gate, shared by quantity edits, UoM changes and Confirm All.
+     * A CONTROL item is editable with 'edit control commits' whatever its category;
+     * otherwise the category decides between the finished good and other permissions.
+     */
+    public static function userCanEditCommit($user, ?string $category, ?string $classification = null): bool
+    {
+        if (self::isControlClassification($classification) && $user->can('edit control commits')) {
+            return true;
+        }
+
+        $isFinishedGood = in_array(strtoupper(trim((string) $category)), ['FINISHED GOODS', 'FG', 'FINISHED GOOD']);
+
+        return $user->can($isFinishedGood ? 'edit finished good commits' : 'edit other commits');
+    }
+
+    public static function isControlClassification(?string $classification): bool
+    {
+        return strtoupper(trim((string) $classification)) === 'CONTROL';
     }
 }

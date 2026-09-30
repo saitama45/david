@@ -100,6 +100,7 @@ class CSMassCommitsController extends Controller
             'permissions' => [
                 'canEditFinishedGood' => $user->can('edit finished good commits'),
                 'canEditOther' => $user->can('edit other commits'),
+                'canEditControl' => $user->can('edit control commits'),
                 'canChangeUom' => $canChangeUom,
             ],
             'availableCategories' => $availableCategories,
@@ -428,18 +429,9 @@ class CSMassCommitsController extends Controller
              $supplierItem = \App\Models\SupplierItems::where('ItemCode', $data['item_code'])->firstOrFail();
         }
 
-        $category = $supplierItem->category;
-
         // Perform permission check
-        $user = Auth::user();
-        $isFinishedGood = in_array(strtoupper($category), ['FINISHED GOODS', 'FG', 'FINISHED GOOD']);
-
-        if ($isFinishedGood && !$user->can('edit finished good commits')) {
-            return response()->json(['message' => 'You do not have permission to edit items in the FINISHED GOOD category.'], 403);
-        }
-
-        if (!$isFinishedGood && !$user->can('edit other commits')) {
-            return response()->json(['message' => 'You do not have permission to edit items in this category.'], 403);
+        if ($denied = $this->commitEditDenied(Auth::user(), $supplierItem)) {
+            return $denied;
         }
 
         $orderItem = \App\Models\StoreOrderItem::where('item_code', $data['item_code'])
@@ -470,6 +462,24 @@ class CSMassCommitsController extends Controller
     }
 
     /**
+     * The 403 response when the user may not edit this item's commits, or null when they may.
+     */
+    private function commitEditDenied($user, ?\App\Models\SupplierItems $supplierItem)
+    {
+        $category = $supplierItem?->category;
+
+        if (\App\Models\StoreOrderItem::userCanEditCommit($user, $category, $supplierItem?->classification)) {
+            return null;
+        }
+
+        $isFinishedGood = in_array(strtoupper(trim((string) $category)), ['FINISHED GOODS', 'FG', 'FINISHED GOOD']);
+
+        return response()->json(['message' => $isFinishedGood
+            ? 'You do not have permission to edit items in the FINISHED GOOD category.'
+            : 'You do not have permission to edit items in this category.'], 403);
+    }
+
+    /**
      * Change the UoM of one CS Mass Commits row and convert its ordered/approved/
      * committed quantities into the new UoM. Only available before the item is committed.
      */
@@ -485,20 +495,14 @@ class CSMassCommitsController extends Controller
 
         $user = Auth::user();
 
-        // The same category-based gate that guards quantity edits also guards UoM changes.
+        // The same category/classification gate that guards quantity edits also guards UoM changes.
         $supplierItem = \App\Models\SupplierItems::where('ItemCode', $validated['item_code'])
             ->where('SupplierCode', $validated['supplier_id'])
             ->first()
             ?? \App\Models\SupplierItems::where('ItemCode', $validated['item_code'])->first();
 
-        $isFinishedGood = in_array(strtoupper((string) $supplierItem?->category), ['FINISHED GOODS', 'FG', 'FINISHED GOOD']);
-
-        if ($isFinishedGood && !$user->can('edit finished good commits')) {
-            return response()->json(['message' => 'You do not have permission to edit items in the FINISHED GOOD category.'], 403);
-        }
-
-        if (!$isFinishedGood && !$user->can('edit other commits')) {
-            return response()->json(['message' => 'You do not have permission to edit items in this category.'], 403);
+        if ($denied = $this->commitEditDenied($user, $supplierItem)) {
+            return $denied;
         }
 
         try {
@@ -549,6 +553,7 @@ class CSMassCommitsController extends Controller
         \Log::info('CS Mass Commits - User permissions loaded', [
             'can_edit_finished_good_commits' => $user->can('edit finished good commits'),
             'can_edit_other_commits' => $user->can('edit other commits'),
+            'can_edit_control_commits' => $user->can('edit control commits'),
             'assigned_branches_count' => $user->store_branches->count(),
             'assigned_suppliers_count' => $user->suppliers->count()
         ]);
@@ -605,23 +610,27 @@ class CSMassCommitsController extends Controller
                 $supplierCode = $order->supplier->supplier_code ?? null;
                 $supplierCategories = [];
                 $fallbackCategories = []; // Fallback map: ItemCode -> Category
+                $supplierClassifications = [];
+                $fallbackClassifications = []; // Fallback map: ItemCode -> Classification
 
                 if ($supplierCode) {
                     $supplierItems = \App\Models\SupplierItems::where('SupplierCode', $supplierCode)
                         ->whereIn('ItemCode', $order->store_order_items->pluck('item_code'))
-                        ->select('ItemCode', 'uom', 'category')
+                        ->select('ItemCode', 'uom', 'category', 'classification')
                         ->get();
 
                     foreach ($supplierItems as $si) {
                         $code = strtoupper(trim($si->ItemCode));
                         $uom = strtoupper(trim($si->uom));
-                        
+
                         $key = $code . '_' . $uom;
                         $supplierCategories[$key] = $si->category;
-                        
-                        // Populate fallback: if multiple UOMs exist, this takes the last one, 
+                        $supplierClassifications[$key] = $si->classification;
+
+                        // Populate fallback: if multiple UOMs exist, this takes the last one,
                         // but usually category is consistent across UOMs for the same item.
                         $fallbackCategories[$code] = $si->category;
+                        $fallbackClassifications[$code] = $si->classification;
                     }
                 }
 
@@ -649,7 +658,9 @@ class CSMassCommitsController extends Controller
                     // Ensure category is clean for comparison
                     $itemCategory = trim($itemCategory);
 
-                    $canCommit = $item->canBeCommittedBy($user, $itemCategory);
+                    $itemClassification = $supplierClassifications[$lookupKey] ?? $fallbackClassifications[$cleanCode] ?? null;
+
+                    $canCommit = $item->canBeCommittedBy($user, $itemCategory, $itemClassification);
 
                     // Check if user can commit this specific item based on permissions
                     if (!$canCommit) {

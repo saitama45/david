@@ -169,7 +169,7 @@ class HandleInertiaRequests extends Middleware
                         ->count();
                 }
 
-                if ($user->can('edit finished good commits') || $user->can('edit other commits')) {
+                if ($user->can('edit finished good commits') || $user->can('edit other commits') || $user->can('edit control commits')) {
                     $csMassCommitsQuery = \App\Models\StoreOrder::where('variant', 'mass regular')
                         ->where('order_status', 'approved')
                         ->whereBetween('order_date', [$monthStart, $monthEnd])

@@ -1,8 +1,6 @@
 <script setup>
 import { Head, Link, useForm } from '@inertiajs/vue3';
 import { computed, ref } from 'vue';
-import { useToast } from 'primevue/usetoast';
-import Toast from 'primevue/toast';
 import Dialog from 'primevue/dialog';
 import Button from 'primevue/button';
 
@@ -10,7 +8,6 @@ const props = defineProps({
     variants: Array,
 });
 
-const toast = useToast();
 const showConfirmDialog = ref(false);
 
 const form = useForm({
@@ -63,14 +60,9 @@ const submit = () => {
     if (form.processing) return;
     showConfirmDialog.value = false;
 
+    // The list page toasts the server's success message.
     form.post(route('orders-cutoff.store'), {
         onSuccess: () => {
-            toast.add({
-                severity: 'success',
-                summary: 'Success!',
-                detail: 'New order cutoff has been created.',
-                life: 3000
-            });
             form.reset();
         },
     });
@@ -82,7 +74,6 @@ const submit = () => {
     <Head title="Create Order Cutoff" />
 
     <Layout heading="Create New Order Cutoff">
-        <Toast />
         <Dialog v-model:visible="showConfirmDialog" modal header="Confirmation" :style="{ width: '25rem' }">
             <div class="flex items-center">
                 <i class="pi pi-exclamation-triangle mr-3" style="font-size: 2rem"></i>

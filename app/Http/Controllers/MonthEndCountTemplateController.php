@@ -102,8 +102,8 @@ class MonthEndCountTemplateController extends Controller
     {
         $monthEndCountTemplate->delete();
 
-        return redirect()->route('month-end-count-templates.index')
-                        ->with('success', 'Template deleted successfully.');
+        // No flash: the list's delete action (useReferenceDelete) already toasts the result.
+        return redirect()->route('month-end-count-templates.index');
     }
 
     public function export(Request $request)

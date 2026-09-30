@@ -9,9 +9,11 @@ use App\Models\ImportLog;
 use App\Models\SAPMasterfile;
 use App\Models\SapItemType;
 use App\Services\ImportQueueService;
+use App\Support\EntityContext;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Maatwebsite\Excel\Facades\Excel;
 use Illuminate\Support\Facades\Log;
@@ -45,9 +47,10 @@ class SAPMasterfileController extends Controller
         ])->with('success', true);
     }
 
-    public function create()
+    public function create(SapItemTypeService $types)
     {
         return Inertia::render('SAPMasterfileItem/Create', [
+            'itemTypes' => $types->options(),
         ]);
     }
 
@@ -85,21 +88,64 @@ class SAPMasterfileController extends Controller
         ]);
     }
 
-    public function store(Request $request)
+    /**
+     * Add one SAP row by hand, under the same rules as the import: the key is
+     * ItemCode + AltUOM + BaseUOM, and an item keeps one base unit.
+     */
+    public function store(Request $request, SapItemTypeService $types)
     {
+        $request->merge(collect($request->only(['ItemCode', 'ItemDescription', 'AltUOM', 'BaseUOM']))
+            ->map(fn ($value) => is_string($value) ? trim($value) : $value)
+            ->all());
 
         $validated = $request->validate([
-            'ItemCode' => ['nullable'],
-            'ItemDescription' => ['nullable'],
-            'AltQty' => ['nullable'],
-            'BaseQty' => ['nullable'],
-            'AltUOM' => ['nullable'],
-            'BaseUOM' => ['required'],
-            'is_active' => ['nullable'],
+            'ItemCode' => ['required', 'string', 'max:255'],
+            'ItemDescription' => ['required', 'string', 'max:255'],
+            'AltQty' => ['required', 'numeric', 'gt:0'],
+            'AltUOM' => ['required', 'string', 'max:255'],
+            'BaseQty' => ['required', 'numeric', 'gt:0'],
+            'BaseUOM' => ['required', 'string', 'max:255'],
+            'is_active' => ['required', 'boolean'],
+            'sap_item_type_id' => ['nullable', 'integer', Rule::exists('sap_item_types', 'id')
+                ->where('entity_id', app(EntityContext::class)->id())
+                ->where('is_active', true)],
         ]);
 
-        SAPMasterfile::create($validated);
-        return to_route("sapitems.index");
+        $normalize = fn ($uom) => strtoupper(trim((string) $uom));
+        $altUom = $normalize($validated['AltUOM']);
+        $baseUom = $normalize($validated['BaseUOM']);
+        $rows = SAPMasterfile::where('ItemCode', $validated['ItemCode'])->get(['AltUOM', 'BaseUOM']);
+
+        // A pair stored with a blank BaseUOM is the same row, as in the import.
+        if ($rows->contains(fn ($row) => $normalize($row->AltUOM) === $altUom
+            && in_array($normalize($row->BaseUOM), [$baseUom, ''], true))) {
+            throw ValidationException::withMessages([
+                'AltUOM' => "{$validated['ItemCode']} already has a {$validated['AltUOM']} row. Edit that row instead.",
+            ]);
+        }
+
+        // A pack already on file restated in another unit (Case = 48 Can, then
+        // Case = 18720 Gm) is a conversion SAP carries, not a changed base.
+        $established = $rows->map(fn ($row) => $normalize($row->BaseUOM))->filter()->unique()->values()->all();
+        $restatesPack = $rows->contains(fn ($row) => $normalize($row->AltUOM) === $altUom);
+
+        if (SAPMasterfileImport::conflictingBaseUom($baseUom, $established) && ! $restatesPack) {
+            throw ValidationException::withMessages([
+                'BaseUOM' => "Base UOM '{$validated['BaseUOM']}' conflicts with '".implode("' / '", $established)
+                    ."' already on file for {$validated['ItemCode']}. An item keeps one base unit; adding it would count the item twice.",
+            ]);
+        }
+
+        DB::transaction(function () use ($validated, $types) {
+            $item = SAPMasterfile::create(collect($validated)->except('sap_item_type_id')->all());
+
+            // The type belongs to the ItemCode; a blank choice leaves an existing code's type alone.
+            if (! empty($validated['sap_item_type_id'])) {
+                $types->assign((int) $item->entity_id, (string) $item->ItemCode, (int) $validated['sap_item_type_id']);
+            }
+        });
+
+        return to_route('sapitems.index')->with('success', 'SAP item created.');
     }
 
     public function destroy($id)

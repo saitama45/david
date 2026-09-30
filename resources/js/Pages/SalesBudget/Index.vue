@@ -5,7 +5,6 @@ import PrimaryButton from '@/components/PrimaryButton.vue';
 import InputLabel from '@/components/InputLabel.vue';
 import InputError from '@/components/InputError.vue';
 import { useToast } from 'primevue/usetoast';
-import Toast from 'primevue/toast';
 import { Download, UploadCloud, FileSpreadsheet, CheckCircle, Info, AlertTriangle } from 'lucide-vue-next';
 
 const toast = useToast();
@@ -99,7 +98,6 @@ const downloadTemplate = () => {
     <Head title="Sales/Budget Data Uploader" />
 
     <Layout heading="Sales/Budget Data Uploader">
-        <Toast />
         <div class="py-8 max-w-5xl mx-auto space-y-8 sm:px-6 lg:px-8">
             
             <!-- Information & Download Section -->

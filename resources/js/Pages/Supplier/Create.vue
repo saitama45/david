@@ -4,7 +4,6 @@ import { useToast } from "primevue/usetoast";
 // Import Dropdown component from PrimeVue
 import Dropdown from 'primevue/dropdown';
 // Import Toast component from PrimeVue for displaying messages
-import Toast from 'primevue/toast';
 
 const toast = useToast();
 
@@ -53,7 +52,6 @@ const store = () => {
 
 <template>
     <Layout heading="Create New Supplier">
-        <Toast /> <!-- Add Toast component here to display messages -->
         <Card class="sm:grid sm:grid-cols-2 gap-5 p-5">
             <InputContainer>
                 <LabelXS>Name</LabelXS>

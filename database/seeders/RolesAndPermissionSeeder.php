@@ -81,6 +81,7 @@ class RolesAndPermissionSeeder extends Seeder
             "download month end count template",
             "edit bom",
             "edit branch",
+            "edit control commits",
             "edit cs dts mass commit",
             "edit cs mass commits",
             "edit dsp delivery schedules",

@@ -1,8 +1,6 @@
 <script setup>
 import { Head, Link, useForm } from '@inertiajs/vue3';
 import { computed, ref } from 'vue';
-import { useToast } from 'primevue/usetoast';
-import Toast from 'primevue/toast';
 import Dialog from 'primevue/dialog';
 import Button from 'primevue/button';
 
@@ -11,7 +9,6 @@ const props = defineProps({
     variants: Array,
 });
 
-const toast = useToast();
 const showConfirmDialog = ref(false);
 
 const form = useForm({
@@ -65,16 +62,8 @@ const submit = () => {
     if (form.processing) return;
     showConfirmDialog.value = false;
 
-    form.post(route('orders-cutoff.update', props.ordersCutoff.id), {
-        onSuccess: () => {
-            toast.add({
-                severity: 'success',
-                summary: 'Success!',
-                detail: 'Order cutoff has been updated.',
-                life: 3000
-            });
-        },
-    });
+    // The list page toasts the server's success message.
+    form.post(route('orders-cutoff.update', props.ordersCutoff.id));
 };
 
 </script>
@@ -83,7 +72,6 @@ const submit = () => {
     <Head title="Edit Order Cutoff" />
 
     <Layout heading="Edit Order Cutoff">
-        <Toast />
         <Dialog v-model:visible="showConfirmDialog" modal header="Confirmation" :style="{ width: '25rem' }">
             <div class="flex items-center">
                 <i class="pi pi-exclamation-triangle mr-3" style="font-size: 2rem"></i>
