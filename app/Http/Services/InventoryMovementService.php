@@ -264,6 +264,8 @@ class InventoryMovementService
                 'interco_out_qty' => $values['interco_out'],
                 'theoretical_qty' => round($theoretical, 6),
                 'actual_mec' => $values['actual_mec'],
+                // Actual MEC - Theoretical SOH. The + 0.0 turns a rounded -0.0 into 0.
+                'variance_qty' => round($values['actual_mec'] - $theoretical, 6) + 0.0,
                 'procurement_sources' => $procurementSources,
                 // Quantities in a unit with no conversion to the display unit are left out.
                 'unconverted_units' => array_values(array_unique($unconverted)),

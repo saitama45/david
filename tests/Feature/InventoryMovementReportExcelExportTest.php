@@ -140,7 +140,7 @@ it('writes the same columns as the PDF, with quantities as numbers', function ()
 
     $headings = [];
 
-    foreach (range('A', 'O') as $column) {
+    foreach (range('A', 'P') as $column) {
         $headings[] = $sheet->getCell($column.'5')->getValue();
     }
 
@@ -148,7 +148,7 @@ it('writes the same columns as the PDF, with quantities as numbers', function ()
         'Supplier', 'SAP Code', 'Item Description', 'UOM',
         'Ordered', 'Committed', 'Received', 'Beg Bal Qty',
         'Sales Qty', 'Wastage Qty', 'Supplies Used', 'In Interco', 'Out Interco',
-        'Theoretical', 'Actual MEC',
+        'Theoretical', 'Actual MEC', 'Variance',
     ]);
 
     // First data row holds the item, with Sales Qty as a number, not a string.
@@ -159,6 +159,7 @@ it('writes the same columns as the PDF, with quantities as numbers', function ()
     expect($sheet->getCell('N6')->getValue())->toBe(-4.0); // theoretical = 0 - sales
     expect($sheet->getCell('E6')->getValue())->toBe(0.0); // zero quantities stay 0, not blank
     expect($sheet->getCell('O6')->getValue())->toBe(0.0);
+    expect($sheet->getCell('P6')->getValue())->toBe(4.0); // variance = actual MEC - theoretical
 
     unlink($path);
 });
@@ -177,7 +178,7 @@ it('auto-sizes every column and aligns text left, UOM centre, quantities right',
 
     [$sheet, $path] = writtenSheet($export);
 
-    foreach (range('A', 'O') as $column) {
+    foreach (range('A', 'P') as $column) {
         $dimension = $sheet->getColumnDimension($column);
 
         // A written sheet resolves auto-size into a real width; nothing is left

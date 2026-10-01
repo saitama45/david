@@ -265,7 +265,7 @@ const formatNumber = (num) => {
                             <th colspan="3" class="px-3 py-3 text-center text-xs font-bold text-gray-500 uppercase tracking-wider border-r border-gray-200 bg-blue-50">Procurement (Date Range)</th>
                             <th class="px-3 py-3 text-center text-xs font-bold text-gray-500 uppercase tracking-wider border-r border-gray-200 bg-emerald-50">Beginning</th>
                             <th colspan="5" class="px-3 py-3 text-center text-xs font-bold text-gray-500 uppercase tracking-wider border-r border-gray-200 bg-orange-50">Deductions / Transfers</th>
-                            <th colspan="2" class="px-3 py-3 text-center text-xs font-bold text-gray-500 uppercase tracking-wider bg-purple-50">Final Balance</th>
+                            <th colspan="3" class="px-3 py-3 text-center text-xs font-bold text-gray-500 uppercase tracking-wider bg-purple-50">Final Balance</th>
                         </tr>
                         <tr class="text-[10px] text-gray-500 uppercase tracking-wider font-semibold">
                             <th @click="handleSort('supplier')" class="px-3 py-3 text-left border-r border-gray-200 min-w-[160px] cursor-pointer hover:bg-gray-100 group transition-colors">
@@ -380,7 +380,7 @@ const formatNumber = (num) => {
                                     <ArrowUpDown v-else class="w-3 h-3 text-gray-400 group-hover:text-blue-400" />
                                 </div>
                             </th>
-                            <th @click="handleSort('actual_mec')" class="px-3 py-3 text-center cursor-pointer hover:bg-gray-100 group transition-colors">
+                            <th @click="handleSort('actual_mec')" class="px-3 py-3 text-center border-r border-gray-200 cursor-pointer hover:bg-gray-100 group transition-colors">
                                 <div class="flex items-center justify-center gap-2">
                                     Actual MEC
                                     <ArrowUp v-if="sortField === 'actual_mec' && sortDirection === 'asc'" class="w-3 h-3 text-blue-600" />
@@ -388,11 +388,19 @@ const formatNumber = (num) => {
                                     <ArrowUpDown v-else class="w-3 h-3 text-gray-400 group-hover:text-blue-400" />
                                 </div>
                             </th>
+                            <th @click="handleSort('variance_qty')" class="px-3 py-3 text-center cursor-pointer hover:bg-gray-100 group transition-colors" title="Actual MEC - Theoretical SOH">
+                                <div class="flex items-center justify-center gap-2">
+                                    Variance
+                                    <ArrowUp v-if="sortField === 'variance_qty' && sortDirection === 'asc'" class="w-3 h-3 text-blue-600" />
+                                    <ArrowDown v-else-if="sortField === 'variance_qty' && sortDirection === 'desc'" class="w-3 h-3 text-blue-600" />
+                                    <ArrowUpDown v-else class="w-3 h-3 text-gray-400 group-hover:text-blue-400" />
+                                </div>
+                            </th>
                         </tr>
                     </thead>
                     <tbody class="bg-white divide-y divide-gray-100">
                         <tr v-if="movementData.length === 0" class="hover:bg-gray-50">
-                            <td colspan="15" class="text-center py-12 text-gray-500">
+                            <td colspan="16" class="text-center py-12 text-gray-500">
                                 <div class="flex flex-col items-center">
                                     <Package class="w-12 h-12 text-gray-300 mb-3" />
                                     <span class="text-lg font-medium">No movement data found</span>
@@ -442,8 +450,11 @@ const formatNumber = (num) => {
                             <td class="px-3 py-4 text-center text-gray-600 border-r border-gray-100">{{ formatNumber(item.interco_in_qty) }}</td>
                             <td class="px-3 py-4 text-center text-gray-600 border-r border-gray-100">{{ formatNumber(item.interco_out_qty) }}</td>
                             <td class="px-3 py-4 text-center font-bold text-gray-900 border-r border-gray-100 bg-purple-50/30">{{ formatNumber(item.theoretical_qty) }}</td>
-                            <td class="px-3 py-4 text-center font-bold" :class="item.actual_mec !== null ? 'text-indigo-600 bg-indigo-50/30' : 'text-gray-400 font-normal italic'">
+                            <td class="px-3 py-4 text-center font-bold border-r border-gray-100" :class="item.actual_mec !== null ? 'text-indigo-600 bg-indigo-50/30' : 'text-gray-400 font-normal italic'">
                                 {{ item.actual_mec !== null ? formatNumber(item.actual_mec) : 'Not Available' }}
+                            </td>
+                            <td class="px-3 py-4 text-center font-bold" :class="item.variance_qty < 0 ? 'text-red-600' : item.variance_qty > 0 ? 'text-emerald-600' : 'text-gray-500'">
+                                {{ formatNumber(item.variance_qty) }}
                             </td>
                         </tr>
                     </tbody>
@@ -464,6 +475,8 @@ const formatNumber = (num) => {
                 <div class="text-sm text-blue-800">
                     <p class="font-bold mb-1">Theoretical SOH Formula:</p>
                     <p>Beginning Balance + Received Qty + Inbound Interco - Sales Qty - Wastage Qty - Outbound Interco</p>
+                    <p class="font-bold mt-2 mb-1">Variance Formula:</p>
+                    <p>Actual MEC - Theoretical SOH</p>
                     <p class="mt-2 text-xs opacity-80">* Sales Qty is calculated based on BOM (Bill of Materials) linked to POS transactions.</p>
                 </div>
             </div>

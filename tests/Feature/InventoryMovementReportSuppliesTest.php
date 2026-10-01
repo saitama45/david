@@ -101,7 +101,8 @@ it('takes supplies usage from the month end count and closes theoretical on it',
     expect($rows['GLOVES']['supplies_type'])->toBe('Operating Supplies')
         ->and($rows['GLOVES']['supplies_counted'])->toBeTrue()
         ->and((float) $rows['GLOVES']['supplies_qty'])->toBe(7.0)
-        ->and((float) $rows['GLOVES']['theoretical_qty'])->toBe(5.0);
+        ->and((float) $rows['GLOVES']['theoretical_qty'])->toBe(5.0)
+        ->and((float) $rows['GLOVES']['variance_qty'])->toBe(0.0);
 
     // Straws in the recipe are already in Sales: 100 - 30 sold - 60 counted = 10 used on top.
     expect($rows['STRAW']['supplies_type'])->toBe('Supplies')
@@ -122,5 +123,7 @@ it('leaves supplies alone until counted, and never treats food as supplies', fun
     expect($rows['BEANS']['supplies_type'])->toBeNull()
         ->and((float) $rows['BEANS']['supplies_qty'])->toBe(0.0)
         ->and((float) $rows['BEANS']['theoretical_qty'])->toBe(5.0)
-        ->and((float) $rows['BEANS']['actual_mec'])->toBe(4.0);
+        ->and((float) $rows['BEANS']['actual_mec'])->toBe(4.0)
+        // Variance = Actual MEC - Theoretical SOH.
+        ->and((float) $rows['BEANS']['variance_qty'])->toBe(-1.0);
 });

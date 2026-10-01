@@ -37,7 +37,7 @@
                 <th colspan="3">PROCUREMENT (DATE RANGE)</th>
                 <th>BEGINNING</th>
                 <th colspan="5">DEDUCTIONS / TRANSFERS</th>
-                <th colspan="2">FINAL BALANCE</th>
+                <th colspan="3">FINAL BALANCE</th>
             </tr>
             <tr style="background-color: #eee;">
                 <th class="text-left" width="12%">Supplier</th>
@@ -55,6 +55,7 @@
                 <th>Out Interco</th>
                 <th>Theoretical</th>
                 <th>Actual MEC</th>
+                <th>Variance</th>
             </tr>
         </thead>
         <tbody>
@@ -77,6 +78,7 @@
                     <td class="text-right font-bold">
                         {{ $item['actual_mec'] !== null ? rtrim(rtrim(number_format($item['actual_mec'], 4), '0'), '.') : '-' }}
                     </td>
+                    <td class="text-right font-bold">{{ rtrim(rtrim(number_format($item['variance_qty'], 4), '0'), '.') }}</td>
                 </tr>
             @endforeach
         </tbody>

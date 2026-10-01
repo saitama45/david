@@ -40,7 +40,7 @@ class InventoryMovementReportExport implements FromCollection, ShouldAutoSize, W
         'PROCUREMENT (DATE RANGE)' => 3,
         'BEGINNING' => 1,
         'DEDUCTIONS / TRANSFERS' => 5,
-        'FINAL BALANCE' => 2,
+        'FINAL BALANCE' => 3,
     ];
 
     private const COLUMN_HEADINGS = [
@@ -59,6 +59,7 @@ class InventoryMovementReportExport implements FromCollection, ShouldAutoSize, W
         'Out Interco',
         'Theoretical',
         'Actual MEC',
+        'Variance',
     ];
 
     /** Columns the PDF shades and bolds, keyed by column letter. */
@@ -68,7 +69,7 @@ class InventoryMovementReportExport implements FromCollection, ShouldAutoSize, W
         'N' => 'F5F3FF', // Theoretical
     ];
 
-    private const LAST_COLUMN = 'O';
+    private const LAST_COLUMN = 'P';
 
     public function __construct(
         private $movementData,
@@ -120,6 +121,7 @@ class InventoryMovementReportExport implements FromCollection, ShouldAutoSize, W
             (float) $item['interco_out_qty'],
             (float) $item['theoretical_qty'],
             (float) $item['actual_mec'],
+            (float) $item['variance_qty'],
         ];
     }
 
@@ -238,8 +240,8 @@ class InventoryMovementReportExport implements FromCollection, ShouldAutoSize, W
             ]);
         }
 
-        // Actual MEC is bold in the PDF but carries no fill.
-        $sheet->getStyle($last.$firstRow.':'.$last.$lastRow)
+        // Actual MEC and Variance are bold in the PDF but carry no fill.
+        $sheet->getStyle('O'.$firstRow.':'.$last.$lastRow)
             ->getFont()->setBold(true);
 
         return $sheet;
