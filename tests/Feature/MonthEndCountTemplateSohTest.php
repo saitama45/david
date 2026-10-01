@@ -149,11 +149,10 @@ it('blocks a store on every unfinished transaction this month, and only this mon
         'orders_not_yet_fully_received' => 1,
         'receipt_approval' => 1,
         'interco_receive' => 1,
-        'interco_send' => 1,
         'wastage_level1' => 1,
         'wastage_level2' => 1,
         'previous_count' => 1,
-        'soh_adjustment' => 1,
+        // The interco A has not committed as sender, and its unapproved SOH adjustment, do not block.
     ])->and($blockers)->not->toHaveKey($b->id);
 });
 

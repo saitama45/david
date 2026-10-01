@@ -186,25 +186,20 @@ class MonthEndCountReadinessService
                 $plural((int) $row->total, 'delivery', 'deliveries').' with a receipt awaiting approval', 'receiving-approvals.index');
         }
 
-        // Interco: the receiving store waits until it is received, the sending store until
-        // it has committed what it sends.
-        $intercoSides = [
-            'interco_receive' => ['store_branch_id', ['open', 'approved', 'committed', 'in_transit'], 'not yet received', 'interco-receiving.index'],
-            'interco_send' => ['sending_store_branch_id', ['open', 'approved'], 'not yet committed by this store', 'store-commits.index'],
-        ];
-        foreach ($intercoSides as $key => [$column, $statuses, $stage, $route]) {
-            $rows = DB::table('store_orders')
-                ->whereNotNull('interco_number')
-                ->whereIn($column, $branchIds)
-                ->whereBetween('order_date', [$from, $through])
-                ->whereIn('interco_status', $statuses)
-                ->select("{$column} as branch_id", DB::raw('COUNT(*) as total'))
-                ->groupBy($column)
-                ->get();
-            foreach ($rows as $row) {
-                $add((int) $row->branch_id, $key, (int) $row->total,
-                    $plural((int) $row->total, 'interco transfer', 'interco transfers').' '.$stage, $route);
-            }
+        // Interco: the receiving store waits until its transfer is received. The sending
+        // store is not held to committing what it sends - by request, no commit of any kind
+        // stands between a store and its count.
+        $intercoIncoming = DB::table('store_orders')
+            ->whereNotNull('interco_number')
+            ->whereIn('store_branch_id', $branchIds)
+            ->whereBetween('order_date', [$from, $through])
+            ->whereIn('interco_status', ['open', 'approved', 'committed', 'in_transit'])
+            ->select('store_branch_id', DB::raw('COUNT(*) as total'))
+            ->groupBy('store_branch_id')
+            ->get();
+        foreach ($intercoIncoming as $row) {
+            $add((int) $row->store_branch_id, 'interco_receive', (int) $row->total,
+                $plural((int) $row->total, 'interco transfer', 'interco transfers').' not yet received', 'interco-receiving.index');
         }
 
         // Wastage is dated by created_at, as the report's Wastage is.
@@ -243,19 +238,7 @@ class MonthEndCountReadinessService
             }
         }
 
-        // SOH adjustments waiting for their approver.
-        $adjustments = DB::table('product_inventory_stock_managers')
-            ->whereIn('store_branch_id', $branchIds)
-            ->where('action', 'soh_adjustment')
-            ->where('is_stock_adjustment_approved', false)
-            ->whereBetween('transaction_date', [$from.' 00:00:00', $through.' 23:59:59'])
-            ->select('store_branch_id', DB::raw('COUNT(*) as total'))
-            ->groupBy('store_branch_id')
-            ->get();
-        foreach ($adjustments as $row) {
-            $add((int) $row->store_branch_id, 'soh_adjustment', (int) $row->total,
-                $plural((int) $row->total, 'SOH adjustment', 'SOH adjustments').' awaiting approval', 'soh-adjustment.index');
-        }
+        // Unapproved SOH adjustments do not block the count either (removed by request).
 
         return $blockers;
     }

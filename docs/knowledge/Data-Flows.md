@@ -141,10 +141,12 @@ today" then covered an empty October and every Current SOH came out 0 (fixed 202
 The download is **withheld** while the store has open work in that period
 (`MonthEndCountReadinessService::blockersForPeriods()`): orders not RECEIVED (approval or receiving
 open - there is no "awaiting commit" blocker, since an approved order is received directly and so just
-counts as not yet received), a RECEIVED order with unapproved receipt lines, interco not received / not committed by the
-sender, wastage below level 2, the previous month's count not level 2 approved, and pending SOH
-adjustments. `/month-end-count` lists them per branch with links; the server refuses too. Sales have
+counts as not yet received), a RECEIVED order with unapproved receipt lines, an incoming interco
+transfer not received, wastage below level 2, and the previous month's count not level 2 approved.
+`/month-end-count` lists them per branch with links; the server refuses too. Sales have
 no approval step (`StoreTransactionApprovalController` queries a dropped `is_approved` column).
+Two checks were dropped on 2026-10-01 at the user's request and must not come back: an interco
+transfer the store sends but has not committed, and unapproved SOH adjustments.
 
 The **upload is withheld on the same checks** (`blockersForUpload()`, from the 1st of the month counted
 through today): a branch with open work is taken out of the upload form's branch list and shown in a
