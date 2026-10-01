@@ -59,6 +59,36 @@ const getStatusClass = (status) => {
     }
 };
 
+// Status of a Receiving History row. A pending row has not been received yet: it is
+// "To Receive" once the line is committed, and "To Commit" until then. A line counts as
+// committed when CS committed it, or when the whole order is past commitment
+// (auto-committed lines carry no committer).
+const receivingRowStatus = (history) => {
+    const status = String(history?.status ?? "").toLowerCase();
+
+    if (status === "approved" || status === "received") return "RECEIVED";
+    if (status !== "pending") return status.toUpperCase();
+
+    const committed = history.store_order_item?.committed_by != null
+        || ["committed", "received", "incomplete"].includes(String(props.order.order_status).toLowerCase());
+
+    return committed ? "TO RECEIVE" : "TO COMMIT";
+};
+
+// Same colours as the Receiving History on the Mass Orders page.
+const receivingRowStatusClass = (history) => {
+    switch (receivingRowStatus(history)) {
+        case "RECEIVED":
+            return "bg-green-100 text-green-800 border-green-200";
+        case "TO RECEIVE":
+            return "bg-purple-100 text-purple-800 border-purple-200";
+        case "TO COMMIT":
+            return "bg-blue-100 text-blue-800 border-blue-200";
+        default:
+            return getStatusClass(history?.status);
+    }
+};
+
 // Define remarks options for the dropdown
 const remarksOptions = [
     { label: 'Damaged goods', value: 'Damaged goods' },
@@ -1162,9 +1192,9 @@ const promptConfirmReceive = () => {
                                 <td class="px-4 py-4 text-center">
                                     <span :class="[
                                         'px-2.5 py-0.5 text-xs font-semibold rounded-full border',
-                                        getStatusClass(history.status)
+                                        receivingRowStatusClass(history)
                                     ]">
-                                        {{ history.status.toLowerCase() === 'approved' ? 'RECEIVED' : history.status.toLowerCase() === 'received' ? 'RECEIVED' : history.status.toLowerCase() === 'pending' ? 'PENDING' : history.status.toUpperCase() }}
+                                        {{ receivingRowStatus(history) }}
                                     </span>
                                 </td>
                                 <td class="px-4 py-4 max-w-[200px] truncate text-sm text-gray-600" :title="history.remarks">{{ history.remarks || '-' }}</td>
@@ -1215,7 +1245,7 @@ const promptConfirmReceive = () => {
                             </div>
                             <div class="flex flex-col items-end">
                                 <span class="text-xs text-gray-500 mb-1">Status</span>
-                                <span :class="['px-2 py-0.5 rounded text-xs font-bold border', getStatusClass(history.status)]">{{ history.status.toUpperCase() }}</span>
+                                <span :class="['px-2 py-0.5 rounded text-xs font-bold border', receivingRowStatusClass(history)]">{{ receivingRowStatus(history) }}</span>
                             </div>
                             <div class="col-span-2 flex flex-col" v-if="history.remarks">
                                 <span class="text-xs text-gray-500">Remarks</span>
@@ -1599,8 +1629,8 @@ const promptConfirmReceive = () => {
                         </div>
                         <div>
                             <span class="text-xs text-gray-500 block">Status</span>
-                             <span :class="['inline-block px-2 py-0.5 rounded text-xs font-bold border mt-1', getStatusClass(selectedItem?.status)]">
-                                {{ selectedItem?.status.toUpperCase() }}
+                             <span :class="['inline-block px-2 py-0.5 rounded text-xs font-bold border mt-1', receivingRowStatusClass(selectedItem)]">
+                                {{ receivingRowStatus(selectedItem) }}
                             </span>
                         </div>
                         <div>
