@@ -85,6 +85,20 @@ class MonthEndCountController extends Controller
             }
         }
 
+        // A branch with unfinished transactions in the period cannot get the template, so it
+        // must not be offered the upload either: it leaves the upload form and is listed
+        // with what it still has to finish.
+        $uploadPendingBranches = collect();
+        $uploadPendingPeriod = null;
+        if ($uploadSchedule) {
+            $pending = $this->readiness->blockersForUpload($uploadSchedule, $branchesAwaitingUpload->keys(), $today);
+            $uploadPendingBranches = $branchesAwaitingUpload->only(array_keys($pending))
+                ->map(fn ($name, $branchId) => ['id' => (int) $branchId, 'name' => $name, 'blockers' => $pending[$branchId]])
+                ->values();
+            $branchesAwaitingUpload = $branchesAwaitingUpload->except(array_keys($pending));
+            $uploadPendingPeriod = $this->readiness->uploadPeriod($uploadSchedule, $today);
+        }
+
         // Explain the upload window whatever state it is in. Without this the
         // page simply renders nothing when the window is shut, which reads to
         // the user as "you have nothing to do" rather than "you are locked out".
@@ -199,6 +213,11 @@ class MonthEndCountController extends Controller
             'supportEmail' => config('app.support_email'),
             'userBranches' => $userBranches,
             'branchesAwaitingUpload' => $branchesAwaitingUpload, // Pass this to frontend
+            'uploadPendingBranches' => $uploadPendingBranches,
+            'uploadPendingPeriod' => $uploadPendingPeriod ? [
+                'from' => Carbon::parse($uploadPendingPeriod[0])->format('M j, Y'),
+                'through' => Carbon::parse($uploadPendingPeriod[1])->format('M j, Y'),
+            ] : null,
             'returnedCounts' => $returnedCounts,
             'downloadBlockers' => (object) $downloadBlockers,
             'sohPeriods' => (object) array_map(fn ($period) => [
@@ -509,6 +528,24 @@ class MonthEndCountController extends Controller
             Log::warning('MonthEndCountController@upload: Schedule is expired.', ['schedule_id' => $schedule->id, 'status' => $schedule->status]);
 
             return back()->withErrors(['error' => 'This schedule has expired and is no longer open for uploads.']);
+        }
+
+        // The count is taken against the template's Current SOH, and the template is
+        // withheld while anything in the period is still open. The page hides the upload
+        // for such a branch; this stops a stale page or a direct request.
+        $today = Carbon::today('Asia/Manila');
+        $pending = $this->readiness->blockersForUpload($schedule, [$branch->id], $today)[$branch->id] ?? [];
+
+        if ($pending !== []) {
+            Log::warning('MonthEndCountController@upload: Branch has unfinished transactions in the period.', [
+                'schedule_id' => $schedule->id,
+                'branch_id' => $branch->id,
+                'blockers' => array_column($pending, 'label'),
+            ]);
+
+            return back()->withErrors(['error' => "{$branch->name} still has unfinished transactions since "
+                .Carbon::parse($this->readiness->uploadPeriod($schedule, $today)[0])->format('M j, Y').': '
+                .implode('; ', array_column($pending, 'label')).'. Finish them, then download the template and upload the count.']);
         }
         Log::info('MonthEndCountController@upload: Branch-specific validation passed.');
 

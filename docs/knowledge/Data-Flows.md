@@ -145,6 +145,15 @@ sender, wastage below level 2, the previous month's count not level 2 approved, 
 adjustments. `/month-end-count` lists them per branch with links; the server refuses too. Sales have
 no approval step (`StoreTransactionApprovalController` queries a dropped `is_approved` column).
 
+The **upload is withheld on the same checks** (`blockersForUpload()`, from the 1st of the month counted
+through today): a branch with open work is taken out of the upload form's branch list and shown in a
+notice with what it must finish, and `MonthEndCountController@upload` refuses it too. The upload form
+follows the branch picked in the download box: once a branch is picked the form shows only if that
+branch can upload, so a pending branch never sits above a form meant for the user's other stores. Until 2026-10-01
+only the download was gated, so a store could upload a count it could not have taken on the template.
+The window rules still apply first; a branch that clears its pending work after the deadline needs a
+reopen like any other late store.
+
 ## Month End Count approval and rejection
 
 `uploaded` (store reviews) → `pending_level1_approval` → `level1_approved` → `level2_approved` (stock

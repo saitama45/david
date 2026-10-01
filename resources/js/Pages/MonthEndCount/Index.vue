@@ -12,6 +12,10 @@ const props = defineProps({
     message: { type: String, required: true },
     userBranches: { type: Object, required: true },
     branchesAwaitingUpload: { type: Object, required: true },
+    // Branches that owe the count but still have unfinished transactions in its period:
+    // [{ id, name, blockers: [{ key, label, url }] }]. They are not offered the upload.
+    uploadPendingBranches: { type: Array, default: () => [] },
+    uploadPendingPeriod: { type: Object, default: null },
     returnedCounts: { type: Array, default: () => [] },
     downloadBlockers: { type: Object, default: () => ({}) },
     sohPeriods: { type: Object, default: () => ({}) },
@@ -45,6 +49,14 @@ const uploadForm = useForm({
     schedule_id: props.uploadSchedule ? props.uploadSchedule.id : null,
     branch_id: null,
     file: null,
+});
+
+// The upload follows the branch picked for download, when that branch can upload.
+watch(selectedBranchId, (branchId) => {
+    uploadForm.branch_id = branchId
+        && Object.prototype.hasOwnProperty.call(props.branchesAwaitingUpload, String(branchId))
+        ? String(branchId)
+        : null;
 });
 
 const sortKey = ref(props.filters.sort || 'calculated_date');
@@ -152,6 +164,37 @@ const getMonthName = (monthNumber) => {
 
 const hasBranchesToUpload = computed(() => {
     return Object.keys(props.branchesAwaitingUpload).length > 0;
+});
+
+const isUploadable = (branchId) => branchId !== null && branchId !== undefined
+    && Object.prototype.hasOwnProperty.call(props.branchesAwaitingUpload, String(branchId));
+
+// The page works on one branch at a time - the one picked in the download box. Once a
+// branch is picked the upload section is about that branch only, so a branch that still
+// has unfinished transactions (or nothing to upload) never sits above an upload form
+// that belongs to the user's other branches.
+const showUploadForm = computed(
+    () => hasBranchesToUpload.value && (!selectedBranchId.value || isUploadable(selectedBranchId.value)),
+);
+
+const visiblePendingBranches = computed(() => selectedBranchId.value
+    ? props.uploadPendingBranches.filter((branch) => String(branch.id) === String(selectedBranchId.value))
+    : props.uploadPendingBranches);
+
+const uploadCountLabel = computed(() => props.uploadSchedule
+    ? `${getMonthName(props.uploadSchedule.month)} ${props.uploadSchedule.year} `
+    : '');
+
+const uploadPendingPeriodLabel = computed(() => props.uploadPendingPeriod
+    ? `from ${props.uploadPendingPeriod.from} to ${props.uploadPendingPeriod.through} `
+    : '');
+
+// The deadline the blocked branches are still working to, when the notice below is about
+// the same count the upload window describes.
+const uploadPendingDeadline = computed(() => {
+    const w = props.uploadWindow;
+    if (!w || !props.uploadSchedule || w.schedule_id !== props.uploadSchedule.id) return null;
+    return w.reopened_until || w.closes_at || null;
 });
 
 // When the upload form is hidden, explain why instead of leaving the page blank.
@@ -276,7 +319,7 @@ const viewReviewPage = (scheduleId, branchId) => {
             </div>
 
             <!-- Upload Section -->
-            <div v-if="hasBranchesToUpload" class="mb-6 p-4 border border-green-300 bg-green-50 rounded-md text-green-800">
+            <div v-if="showUploadForm" class="mb-6 p-4 border border-green-300 bg-green-50 rounded-md text-green-800" data-testid="mec-upload-box">
                 <p v-if="can.upload_month_end_count_transaction" class="font-medium">{{ message }}</p>
                 <p v-else class="font-medium">A month end count is pending upload. Please contact your administrator to get the required permissions to upload the count sheet.</p>
                 <p v-if="uploadSchedule" class="text-sm mt-1">Scheduled for: {{ getMonthName(uploadSchedule.month) }} {{ uploadSchedule.year }} (MEC Schedule Date: {{ uploadSchedule.calculated_date }})</p>
@@ -324,6 +367,28 @@ const viewReviewPage = (scheduleId, branchId) => {
                         </Button>
                     </div>
                 </form>
+            </div>
+
+            <!-- Upload withheld: the branch still has unfinished transactions in the period -->
+            <div v-if="visiblePendingBranches.length" class="mb-6 p-4 border border-red-300 bg-red-50 rounded-md text-red-800" data-testid="mec-upload-pending">
+                <p class="font-medium">
+                    Uploading the {{ uploadCountLabel }}count is not available yet for
+                    {{ visiblePendingBranches.length === 1 ? 'this branch' : 'these branches' }}.
+                </p>
+                <p class="text-sm mt-1">
+                    Everything {{ uploadPendingPeriodLabel }}must be finished before the count can be uploaded:
+                </p>
+                <div v-for="branch in visiblePendingBranches" :key="branch.id" class="mt-3 text-sm">
+                    <p class="font-semibold">{{ branch.name }}</p>
+                    <ul class="list-disc ml-5 mt-1 space-y-1">
+                        <li v-for="blocker in branch.blockers" :key="blocker.key">
+                            <a v-if="blocker.url" :href="blocker.url" class="underline font-medium">{{ blocker.label }}</a>
+                            <span v-else>{{ blocker.label }}</span>
+                        </li>
+                    </ul>
+                </div>
+                <p class="text-sm mt-3">Once these are finished, download the template and upload the completed count sheet here.</p>
+                <p v-if="uploadPendingDeadline" class="text-sm mt-1 font-semibold">Deadline: upload by {{ uploadPendingDeadline }}.</p>
             </div>
 
             <!-- Upload Not Available: explain the rule instead of showing nothing -->

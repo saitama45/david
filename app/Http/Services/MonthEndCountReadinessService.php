@@ -89,6 +89,33 @@ class MonthEndCountReadinessService
     }
 
     /**
+     * The period a schedule's count must be settled over before it can be uploaded: the
+     * first day of the month counted, through today. For the count a branch takes next
+     * this is the same period its template's Current SOH covers.
+     *
+     * @return array{0: string, 1: string} [Y-m-d from, Y-m-d through]
+     */
+    public function uploadPeriod(MonthEndSchedule $schedule, Carbon $today): array
+    {
+        return [
+            min(Carbon::create($schedule->year, $schedule->month, 1)->toDateString(), $today->copy()->startOfMonth()->toDateString()),
+            $today->toDateString(),
+        ];
+    }
+
+    /**
+     * Unfinished work that keeps a branch from uploading this schedule's count. The count
+     * is taken against the template's Current SOH, and the template is withheld while
+     * anything in the period is open - so a count uploaded then was not taken on it.
+     *
+     * @return array<int, list<array{key: string, label: string, count: int, url: ?string}>> branch id => blockers
+     */
+    public function blockersForUpload(MonthEndSchedule $schedule, $branchIds, Carbon $today): array
+    {
+        return $this->blockers($branchIds, ...$this->uploadPeriod($schedule, $today));
+    }
+
+    /**
      * Unfinished work per branch in the period.
      *
      * @return array<int, list<array{key: string, label: string, count: int, url: ?string}>> branch id => blockers

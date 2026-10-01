@@ -14,6 +14,7 @@ use App\Models\UserAssignedStoreBranch;
 use App\Support\EntityContext;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Maatwebsite\Excel\Concerns\WithStrictNullComparison;
@@ -249,4 +250,44 @@ it('refuses the template while the store has unfinished transactions, or is not 
     $outsider = StoreBranch::create(['branch_code' => 'TX', 'brand_code' => 'TX', 'name' => 'Not Mine', 'store_status' => 'Active', 'is_active' => 1]);
     expect(fn () => app(MonthEndCountController::class)->downloadTemplate(Request::create('/month-end-count/download', 'GET', ['branch_id' => $outsider->id])))
         ->toThrow(HttpException::class);
+});
+
+it('withholds the upload from a store with unfinished transactions, on the page and on the server', function () {
+    $f = mecSohFixture();
+    ['A' => $a, 'B' => $b, 'C' => $c] = $f['stores']->all();
+
+    // The day after August's count: the upload window is open for every store.
+    Carbon::setTestNow(Carbon::parse('2026-09-01 10:00', 'Asia/Manila'));
+    mecSohOrder($f, $a, '2026-08-20', 'committed');
+
+    test()->actingAs($f['user']);
+    $request = fn () => Request::create('/month-end-count', 'GET', [], [], [], ['HTTP_X_INERTIA' => 'true']);
+    $page = app(MonthEndCountController::class)->index($request())->toResponse($request())->getData(true)['props'];
+
+    // A is not offered the upload; it is listed with what it still has to finish.
+    expect(array_keys($page['branchesAwaitingUpload']))->toEqualCanonicalizing([$b->id, $c->id])
+        ->and($page['uploadPendingBranches'])->toHaveCount(1)
+        ->and($page['uploadPendingBranches'][0]['id'])->toBe($a->id)
+        ->and($page['uploadPendingBranches'][0]['blockers'][0]['label'])->toBe('1 order not yet received')
+        ->and($page['uploadPendingPeriod'])->toBe(['from' => 'Aug 1, 2026', 'through' => 'Sep 1, 2026']);
+
+    Excel::fake();
+    $upload = fn (StoreBranch $store) => app(MonthEndCountController::class)->upload(Request::create(
+        '/month-end-count/upload', 'POST', ['schedule_id' => $f['august']->id, 'branch_id' => $store->id], [],
+        ['file' => UploadedFile::fake()->create('count.xlsx', 5, 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')]
+    ));
+
+    // A stale page or a direct request is refused too.
+    $refused = $upload($a);
+    expect($refused)->toBeInstanceOf(RedirectResponse::class)
+        ->and($refused->getTargetUrl())->not->toContain('review')
+        ->and(session('errors')->get('error')[0])->toContain('Store A still has unfinished transactions since Aug 1, 2026: 1 order not yet received');
+
+    expect($upload($b)->getTargetUrl())->toBe(route('month-end-count.review', ['schedule' => $f['august']->id, 'branch' => $b->id]));
+
+    // Once the order is received, A gets the upload back.
+    DB::table('store_orders')->where('store_branch_id', $a->id)->update(['order_status' => 'received']);
+    $page = app(MonthEndCountController::class)->index($request())->toResponse($request())->getData(true)['props'];
+    expect(array_keys($page['branchesAwaitingUpload']))->toContain($a->id)
+        ->and($page['uploadPendingBranches'])->toBe([]);
 });
