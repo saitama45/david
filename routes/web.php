@@ -1288,6 +1288,9 @@ Route::middleware('auth')
         Route::delete('/{knowledgeBase}', 'destroy')->name('destroy');
     });
 
+    // Change Log: a static page, its entries live in resources/js/Pages/ChangeLog/entries.js
+    Route::inertia('/change-log', 'ChangeLog/Index')->middleware('auth')->name('change-log.index');
+
 // Sidebar Management Routes
 Route::controller(SidebarManagementController::class)
     ->prefix('sidebar-management')

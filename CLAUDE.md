@@ -260,5 +260,9 @@ SQL Server as the target. Rationale and trade-offs: [Decisions.md](docs/knowledg
 - **`e2e/.env.e2e` names `storerep@gmail.com`, which does not exist** in `daviddb`; the working QA
   pair is in auto memory (`reference_david_qa_profiles`), not the one in the `regression-test` skill.
 - **Repo root holds throwaway diagnostics** (`check_*.php`, `debug_*.php`, `find_*.php`). Not app code.
+- **A change users will notice gets a Change Log entry** at the top of
+  [resources/js/Pages/ChangeLog/entries.js](resources/js/Pages/ChangeLog/entries.js) (page `/change-log`,
+  the header button beside Knowledge Base). Write the process and the business rules in plain words for
+  store and office users: no table, file, class or command names.
 - New CRUD module → `laravel-inertia-module` skill. After changes → `regression-test` skill.
   Commit messages: one-line subject, no body.

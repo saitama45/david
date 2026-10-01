@@ -158,6 +158,13 @@ Aliases: `check.persmission` (note the misspelling), `check.sidebar.active`, plu
   reusable logic (e.g. sidebar ordering); `lib/` — helpers.
 - Sidebar order and labels are data-driven through `SidebarMenuSetting` and the `sidebarSettings`
   Inertia prop, with drag-reorder in the UI.
+- The header (`layouts/App.vue`) links to two help pages: **Knowledge Base** (`/knowledge-base`,
+  database-backed articles) and **Change Log** (`/change-log`). The Change Log is a static page with no
+  controller, table or permission (`Route::inertia`, behind `auth`): its entries are the array in
+  `Pages/ChangeLog/entries.js`, newest first, each with a date, module, type (New Release /
+  Enhancements / Removed - there is no "Fixed"; a correction is logged as an enhancement), summary,
+  process steps and business rules. It is written for users, so it ships with the
+  code change it describes rather than being edited in the app.
 
 ## Background processing
 

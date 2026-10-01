@@ -348,7 +348,12 @@ watch(() => groupedMissingSales.value, (newVal) => {
                     <BookOpen class="h-4 w-4 mr-2" />
                     Knowledge Base
                 </Link>
-                
+                <Link href="/change-log" class="inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 h-9 px-4 py-2 bg-secondary text-secondary-foreground shadow-sm hover:bg-secondary/80">
+                    <ScrollText class="h-4 w-4 sm:mr-2" />
+                    <span class="hidden sm:inline">Change Log</span>
+                    <span class="sr-only sm:hidden">Change Log</span>
+                </Link>
+
                 <!-- Notification Bell -->
                 <DropdownMenu>
                     <DropdownMenuTrigger as-child>
