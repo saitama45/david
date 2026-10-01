@@ -18,7 +18,7 @@ export const changeLog = [
     // ---------------------------------------------------------------- October 1, 2026
     {
         date: '2026-10-01',
-        module: 'User Management',
+        module: 'Users',
         type: 'new',
         title: 'Tick every live store at once when editing a user',
         summary:
@@ -40,7 +40,7 @@ export const changeLog = [
     },
     {
         date: '2026-10-01',
-        module: 'Order Receiving',
+        module: 'Inbound Orders (Receiving)',
         type: 'improved',
         title: 'Receiving History now says what each line is waiting for',
         summary:
@@ -106,7 +106,7 @@ export const changeLog = [
     },
     {
         date: '2026-10-01',
-        module: 'Qty / Cost Variance Report',
+        module: 'Qty Variance / Cost Variance Report',
         type: 'improved',
         title: 'Pick the count from a list of MEC Scheduled Dates',
         summary:
@@ -120,7 +120,7 @@ export const changeLog = [
     },
     {
         date: '2026-10-01',
-        module: 'Adoption Rate',
+        module: 'Adoption Rate Tracking',
         type: 'improved',
         title: 'Only go-live stores are measured, and Commit and Sales Upload are always scored on time',
         summary:
@@ -137,7 +137,7 @@ export const changeLog = [
     },
     {
         date: '2026-10-01',
-        module: 'Adoption Rate',
+        module: 'Adoption Rate Tracking',
         type: 'removed',
         title: '"Request excuse" link removed from Delivery Logging Timeliness',
         summary:
@@ -151,13 +151,13 @@ export const changeLog = [
     // ---------------------------------------------------------------- September 30, 2026
     {
         date: '2026-09-30',
-        module: 'Masterfiles',
+        module: 'Masterfile',
         type: 'new',
         title: 'Add a single SAP item, supplier item or POS item without uploading a file',
         summary:
             'Adding one item used to mean preparing and importing an Excel file. Each masterfile now has a Create form that applies the same checks as the import.',
         steps: [
-            'Open SAP Items, Supplier Items or POS Items and click Create.',
+            'Open SAP Masterlist, Supplier Items or POS Masterlist and click Create.',
             'Fill in the form and save.',
             'If a check fails, the form says which field is wrong and why, and nothing is saved.',
         ],
@@ -195,7 +195,7 @@ export const changeLog = [
         type: 'improved',
         title: 'Success messages appear once instead of twice',
         summary:
-            'After saving or importing, the green confirmation message popped up twice on several pages (SAP Items, POS Items, Supplier Items, Month End Count Templates, Orders Cutoff, Suppliers and Sales Budget). Each action now shows a single message.',
+            'After saving or importing, the green confirmation message popped up twice on several pages (SAP Masterlist, POS Masterlist, Supplier Items, Month End Count Templates, Ordering Cut off, Suppliers and Sales/Budget Uploader). Each action now shows a single message.',
         affects: 'Everyone.',
     },
 
@@ -219,7 +219,7 @@ export const changeLog = [
         summary:
             'A count uploaded with mistakes could not be corrected: the approver could only approve it. The Level 1 approver can now reject it, which returns it to the store and reopens the upload.',
         steps: [
-            'The Level 1 approver opens the count in Month End Count Approvals and chooses Reject.',
+            'The Level 1 approver opens the count in MEC Approval 1st Level and chooses Reject.',
             'The approver types the reason and sets a re-upload deadline. The form suggests three days ahead at 11:59 PM.',
             'The count is returned to the store, and uploading is reopened for that store until the deadline, even if the regular upload window has already closed.',
             'On the Month End Count page the store sees that its count was rejected, by whom, when and why.',
@@ -252,13 +252,13 @@ export const changeLog = [
     },
     {
         date: '2026-09-28',
-        module: 'Month End Schedules',
+        module: 'Month End Count Schedules',
         type: 'improved',
         title: 'Store Progress can be opened for any month',
         summary:
             'Store Progress only opened when at least one store had submitted. For a past month where nobody uploaded, it could not be opened at all, which was exactly when a store\'s upload needed to be reopened.',
         steps: [
-            'Open Month End Schedules and click the progress bar of the month.',
+            'Open Month End Count Schedules and click the progress bar of the month.',
             'Tick the stores that still have to upload.',
             'Pick the date and time the upload should stay open until, then click Reopen.',
         ],
@@ -289,13 +289,13 @@ export const changeLog = [
     },
     {
         date: '2026-09-25',
-        module: 'POS BOM',
+        module: 'BOM List',
         type: 'improved',
         title: 'A repeated BOM line with a different quantity is held for review',
         summary:
             'When an uploaded BOM file repeated a line with a different quantity, the second line silently replaced the first, so the recipe deducted the wrong amount. Such lines are now set aside for a person to decide.',
         steps: [
-            'Upload the BOM file on the POS BOM list.',
+            'Upload the BOM file on the BOM List page.',
             'A line that matches an existing one and has the same BOM Qty simply updates that line.',
             'A line that matches an existing one but has a different BOM Qty is not imported. It appears in an amber "Needs review" box at the top of the page.',
             'Tick the rows and choose "Allow selected" or "Dismiss selected".',
@@ -309,7 +309,7 @@ export const changeLog = [
     },
     {
         date: '2026-09-25',
-        module: 'Wastage, Interco and Stock Management',
+        module: 'Wastage, Interco Transfer and Stock Management',
         type: 'improved',
         title: 'Every unit of an item is offered once, with its own cost and stock',
         summary:
@@ -326,7 +326,7 @@ export const changeLog = [
     // ---------------------------------------------------------------- September 24, 2026
     {
         date: '2026-09-24',
-        module: 'Stock on Hand',
+        module: 'Stock Management',
         type: 'improved',
         title: 'One stock balance per item across its linked units',
         summary:
@@ -375,7 +375,7 @@ export const changeLog = [
     // ---------------------------------------------------------------- September 23, 2026
     {
         date: '2026-09-23',
-        module: 'SAP Masterfile Import',
+        module: 'SAP Masterlist',
         type: 'improved',
         title: 'The same pack stated in two base units is accepted',
         summary:
@@ -406,11 +406,11 @@ export const changeLog = [
     },
     {
         date: '2026-09-22',
-        module: 'Order Templates',
+        module: 'Ordering Templates',
         type: 'improved',
-        title: 'Stores of every entity now appear in order templates',
+        title: 'Stores of every entity now appear in ordering templates',
         summary:
-            'Only Nono\'s stores were showing up in order templates. The weekday delivery schedules (Monday to Sunday) were tied to one entity, which hid the stores of the others.',
+            'Only Nono\'s stores were showing up in ordering templates. The weekday delivery schedules (Monday to Sunday) were tied to one entity, which hid the stores of the others.',
         rules: [
             'The seven weekday delivery schedules are shared by all entities.',
             'Month end schedules that are generated now belong to the entity that generated them, so they show up for that entity.',
@@ -434,7 +434,7 @@ export const changeLog = [
     // ---------------------------------------------------------------- September 21, 2026
     {
         date: '2026-09-21',
-        module: 'SAP Items',
+        module: 'SAP Masterlist',
         type: 'new',
         title: 'Item Types for SAP items',
         summary:
@@ -442,7 +442,7 @@ export const changeLog = [
         steps: [
             'Maintain the list of Item Types: add a type, rename it, or switch it on or off.',
             'Set an item\'s type when editing the item, or through the import file\'s "Item Type" column. The import template offers the types in a dropdown.',
-            'Filter the SAP Items list by Item Type.',
+            'Filter the SAP Masterlist by Item Type.',
         ],
         rules: [
             'The type belongs to the item code. All unit rows of the same item share one type.',
@@ -455,7 +455,7 @@ export const changeLog = [
     },
     {
         date: '2026-09-21',
-        module: 'SAP Masterfile Import',
+        module: 'SAP Masterlist',
         type: 'improved',
         title: 'Rows that contradict an item\'s base unit are refused',
         summary:
@@ -471,7 +471,7 @@ export const changeLog = [
     },
     {
         date: '2026-09-21',
-        module: 'Qty / Cost Variance Report',
+        module: 'Qty Variance / Cost Variance Report',
         type: 'improved',
         title: 'Theoretical inventory now comes from the stock history',
         summary:
@@ -493,13 +493,13 @@ export const changeLog = [
             'A store that missed the upload window could file a one-time exception request from the Month End Count page. Those buttons were removed.',
         rules: [
             'A store that could not upload in time now contacts support, using the contact shown on the page.',
-            'An authorised user reopens the upload for that store from Store Progress in Month End Schedules.',
+            'An authorised user reopens the upload for that store from Store Progress in Month End Count Schedules.',
         ],
         affects: 'Store users who missed the upload window.',
     },
     {
         date: '2026-09-21',
-        module: 'POS Sales Sync',
+        module: 'Work Queue',
         type: 'improved',
         title: 'The automatic sync only runs when new POS data arrives',
         summary:
@@ -517,7 +517,7 @@ export const changeLog = [
     // ---------------------------------------------------------------- September 20, 2026
     {
         date: '2026-09-20',
-        module: 'Sales',
+        module: 'Store Transactions',
         type: 'new',
         title: 'POS sales post automatically and deduct stock',
         summary:
@@ -566,27 +566,55 @@ export const changeLog = [
     // ---------------------------------------------------------------- September 18, 2026
     {
         date: '2026-09-18',
-        module: 'Order Receiving',
+        module: 'Inbound Orders (Receiving)',
         type: 'new',
-        title: 'Receive without waiting for a commit, add unordered items, and new proof and time-limit rules',
+        title: '"Add Unlisted Item": record an item that was delivered but not on the order',
         summary:
-            'An approved order could not be received until the commissary committed it, and an item that arrived without being ordered could not be recorded at all. Receiving now starts from approval, and the proof-of-delivery rule is enforced on every way of recording a receipt.',
+            'When a delivery arrived with an item that was never ordered (a substitute, a bonus, or simply an extra), there was no way to record it, so it never reached stock. The order\'s receiving page now has an "Add Unlisted Item" button for it.',
         steps: [
-            'Once an order is approved it appears in Order Receiving, under the Committed tab, ready to be received.',
-            'Attach the delivery receipt and at least one photo.',
+            'Open the order from Inbound Orders.',
+            'Make sure the order has its delivery receipt and an image attached. The button stays locked until both are there.',
+            'Click "Add Unlisted Item" beside Confirm Receive.',
+            'Search and pick the item. The list shows the items of the order\'s supplier that are not already on the order.',
+            'Enter the Quantity Received. The unit shown beside it is the supplier item\'s unit.',
+            'Enter the Expiry Date if the item has one. Leave it blank for non-perishables.',
+            'Give the Reason. You can pick a ready-made one ("Delivered but not ordered", "Substitute for an ordered item", "Bonus / free goods") or type your own.',
+            'Save. The item is added to the order\'s Receiving History.',
+            'Click Confirm Receive to post it to stock, the same as any other received line.',
+        ],
+        rules: [
+            'The item must be in the item list of the order\'s supplier. An item of another supplier cannot be added.',
+            'The item must not already be on the order. If it is, record the delivered quantity on its existing line instead.',
+            'The item must have its unit set up in the SAP masterfile, otherwise the quantity cannot be converted to stock and the item is refused.',
+            'Quantity Received is required and must be more than zero.',
+            'Reason is required.',
+            'Expiry Date is optional. When given, it must be a future date.',
+            'The order needs a delivery receipt and an image attachment before an unlisted item can be added.',
+            'An unlisted item can be added until the end of the third day after the delivery date, even after Confirm Receive was already done. Confirm Receive comes back for the new line.',
+            'The cost is taken from the supplier\'s item list. It is not typed in.',
+            'The line is saved with an ordered quantity of zero, which marks it as "arrived but never ordered" for reporting.',
+            'The button does not appear when the supplier has no other items to add.',
+        ],
+        affects: 'Store users who receive deliveries.',
+    },
+    {
+        date: '2026-09-18',
+        module: 'Inbound Orders (Receiving)',
+        type: 'improved',
+        title: 'Receive as soon as the order is approved, with proof of delivery and a 3-day correction window',
+        summary:
+            'An approved order could not be received until the commissary committed it. Receiving now starts from approval, and the proof-of-delivery rule is enforced on every way of recording a receipt.',
+        steps: [
+            'Once an order is approved it appears in Inbound Orders, under the COMMITED tab, ready to be received.',
+            'Attach the delivery receipt and at least one image.',
             'Record the quantity received on each line.',
-            'If an item was delivered but not ordered, add it: pick it from the supplier\'s item list, enter the quantity, an expiry date if there is one, and the reason.',
             'Click Confirm Receive to post the received quantities to stock.',
             'Corrections can be made for three days after the delivery date.',
         ],
         rules: [
             'Approved, partially committed and committed orders are all ready to receive.',
             'No received quantity can be recorded until the order has a delivery receipt and an image attached. This used to be checked only by the Confirm Receive button, so it could be skipped by editing line by line.',
-            'Received quantities can be corrected until the end of the third day after the delivery date. After that, differences are handled through SOH Adjustment, which has its own approval.',
-            'An unordered item must be in the supplier\'s item list, must not already be on the order, and must have a SAP unit so it can be converted to stock.',
-            'For an unordered item, the quantity must be more than zero, the reason is required, and the expiry date is optional but must be a future date.',
-            'An unordered item is saved with an ordered quantity of zero, which marks it as "arrived but never ordered" for reporting.',
-            'An unordered item can be added even after Confirm Receive, within the three days. Confirm Receive comes back for the new line.',
+            'Received quantities can be corrected until the end of the third day after the delivery date. After that the page shows that the 3-day window has closed, and differences are handled through SOH Adjustment, which has its own approval.',
             'Once receiving has started on an order, its items can no longer be changed from Mass Orders.',
         ],
         affects: 'Store users who receive deliveries, and commissary staff.',

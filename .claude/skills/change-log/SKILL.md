@@ -69,8 +69,18 @@ for that day if one does not exist yet. Use today's date in Manila time.
 },
 ```
 
-Reuse an existing `module` name when the change belongs to one, so the page's module filter does
-not fill up with near-duplicates.
+**`module` is the page's label in the sidebar**, read from `menuLabel('<key>', '<label>')` in
+`resources/js/components/Sidebar.vue` (Inbound Orders, SAP Masterlist, BOM List, Month End Count
+Schedules), never a name of your own. Reuse an existing `module` when the change belongs to one,
+so the page's module filter does not fill up with near-duplicates.
+
+**Name the feature by its exact on-screen label, in the title.** Open the Vue page and copy the
+button or dialog text ("Add Unlisted Item", "Check All Live Stores", "Confirm Receive"). People
+search the log by the label they clicked. An entry that called "Add Unlisted Item" an "unordered
+item" under "Order Receiving" could not be found by searching "unlisted" or "inbound".
+
+**One feature, one entry.** A new button or dialog gets its own entry even when it shipped in the
+same commit as other changes, so its title can carry its name.
 
 ## Step 4 — Wording rules
 
@@ -81,7 +91,8 @@ The reader is a store or office user, not a developer.
 - No table, column, file, class, method, route, command or commit names. No developer terms:
   "stock history", not "ledger"; "one balance per item", not "base row"; "the system checks", not
   "the service validates".
-- Use the names users see on screen: page titles, button labels, status names, permission names.
+- Use the names users see on screen, spelled exactly as shown: sidebar labels, page titles, button
+  labels, tab names, status names, permission names. Do not paraphrase a label.
 - Give a real example where it helps ("36 Gm sold of a 1,000 Gm Bag is shown as 0.036 Bag").
 - State each rule as a full sentence that stands on its own.
 - Plain sentences only. No dashes used as punctuation inside the text.
@@ -107,6 +118,10 @@ changeLog.forEach((e, i) => {
 console.log('entries:', changeLog.length, 'problems:', problems.length ? problems : 'none');
 "
 ```
+
+Then check the entry can be found: the page's search box matches the title, summary, module,
+steps, rules and "affects" text. The button label and the sidebar label must both appear in the
+new entry, word for word.
 
 ## Step 6 — Report and commit together
 
