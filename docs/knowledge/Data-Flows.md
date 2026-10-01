@@ -139,8 +139,9 @@ today" then covered an empty October and every Current SOH came out 0 (fixed 202
 `MonthEndCountDownloadExport::collection()` turns `''` into `null` to keep the fillable cells empty.
 
 The download is **withheld** while the store has open work in that period
-(`MonthEndCountReadinessService::blockersForPeriods()`): orders not RECEIVED (approval, commit or receiving
-open), a RECEIVED order with unapproved receipt lines, interco not received / not committed by the
+(`MonthEndCountReadinessService::blockersForPeriods()`): orders not RECEIVED (approval or receiving
+open - there is no "awaiting commit" blocker, since an approved order is received directly and so just
+counts as not yet received), a RECEIVED order with unapproved receipt lines, interco not received / not committed by the
 sender, wastage below level 2, the previous month's count not level 2 approved, and pending SOH
 adjustments. `/month-end-count` lists them per branch with links; the server refuses too. Sales have
 no approval step (`StoreTransactionApprovalController` queries a dropped `is_approved` column).

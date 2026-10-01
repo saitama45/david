@@ -144,8 +144,8 @@ it('blocks a store on every unfinished transaction this month, and only this mon
 
     expect(collect($blockers[$a->id])->pluck('count', 'key')->all())->toEqual([
         'orders_awaiting_approval' => 1,
-        'orders_awaiting_commit' => 1,
-        'orders_not_yet_received' => 1,
+        // Approved and committed alike: committing is not a prerequisite of receiving.
+        'orders_not_yet_received' => 2,
         'orders_not_yet_fully_received' => 1,
         'receipt_approval' => 1,
         'interco_receive' => 1,

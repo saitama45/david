@@ -18,11 +18,17 @@ use Illuminate\Support\Facades\Route;
  */
 class MonthEndCountReadinessService
 {
-    /** Regular orders that are not RECEIVED yet: approval, commit or receiving still open. */
+    /**
+     * Regular orders that are not RECEIVED yet: approval or receiving still open.
+     *
+     * Committing is not a step the store waits on - an approved order is received straight
+     * from Inbound Receiving (OrderReceivingService::COMMITTED_STATUSES) - so an approved
+     * or partially committed order is simply one that has not been received yet.
+     */
     private const ORDER_STAGES = [
         'pending' => ['awaiting approval', 'mass-orders-approval.index'],
-        'approved' => ['awaiting commit', null],
-        'partial_committed' => ['awaiting commit', null],
+        'approved' => ['not yet received', 'orders-receiving.index'],
+        'partial_committed' => ['not yet received', 'orders-receiving.index'],
         'committed' => ['not yet received', 'orders-receiving.index'],
         'incomplete' => ['not yet fully received', 'orders-receiving.index'],
     ];
