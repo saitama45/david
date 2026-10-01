@@ -260,9 +260,13 @@ SQL Server as the target. Rationale and trade-offs: [Decisions.md](docs/knowledg
 - **`e2e/.env.e2e` names `storerep@gmail.com`, which does not exist** in `daviddb`; the working QA
   pair is in auto memory (`reference_david_qa_profiles`), not the one in the `regression-test` skill.
 - **Repo root holds throwaway diagnostics** (`check_*.php`, `debug_*.php`, `find_*.php`). Not app code.
-- **A change users will notice gets a Change Log entry** at the top of
+- **Every New Release, Enhancement and Removed feature goes into the Change Log automatically, in the
+  same task and commit - never wait to be asked.** Entries live at the top of
   [resources/js/Pages/ChangeLog/entries.js](resources/js/Pages/ChangeLog/entries.js) (page `/change-log`,
   the header button beside Knowledge Base). Write the process and the business rules in plain words for
-  store and office users: no table, file, class or command names.
-- New CRUD module → `laravel-inertia-module` skill. After changes → `regression-test` skill.
+  store and office users: no table, file, class or command names. Types are New Release, Enhancements
+  and Removed; there is no "Fixed" (a correction is an Enhancement). Internal-only work is not logged.
+  Follow the project `change-log` skill ([.claude/skills/change-log/SKILL.md](.claude/skills/change-log/SKILL.md)).
+- New CRUD module → `laravel-inertia-module` skill. After changes → `regression-test` skill, then
+  the `change-log` skill for anything users will notice.
   Commit messages: one-line subject, no body.
