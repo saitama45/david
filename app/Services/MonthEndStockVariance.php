@@ -41,27 +41,44 @@ class MonthEndStockVariance
     ];
 
     /**
-     * What each month end count adjusted the ledger by, per branch + item code.
-     * Join this to the count rows; a branch/item without a row was not adjusted.
+     * What each month end count adjusted the ledger by, per count + branch +
+     * item code. Join this to the count rows; a branch/item without a row was
+     * not adjusted.
+     *
+     * Kept per count: summed across several schedules, one month's adjustment
+     * would be charged to another month's count.
      *
      * @param  array<int, int>  $scheduleIds  the schedules being reported on
      */
     public function adjustments(array $scheduleIds): \Illuminate\Database\Query\Builder
     {
+        $scheduleIds = array_values(array_unique(array_map('intval', $scheduleIds)));
+
+        // Which count a posting belongs to, read from its MEC_REF remark. The
+        // ids are integers, so inlining them into the CASE is safe.
+        $schedule = $scheduleIds
+            ? 'CASE '.implode(' ', array_map(
+                fn (int $id) => "WHEN pm.remarks LIKE '%".$this->reference($id)."%' THEN ".$id,
+                $scheduleIds
+            )).' END'
+            : null;
+
         return DB::table('product_inventory_stock_managers as pm')
             ->join('sap_masterfiles as s', 'pm.product_inventory_id', '=', 's.id')
             ->where(function ($query) use ($scheduleIds) {
                 foreach ($scheduleIds as $id) {
-                    $query->orWhere('pm.remarks', 'like', '%'.$this->reference((int) $id).'%');
+                    $query->orWhere('pm.remarks', 'like', '%'.$this->reference($id).'%');
                 }
                 if (! $scheduleIds) {
                     $query->whereRaw('1 = 0');
                 }
             })
             ->groupBy('pm.store_branch_id', 's.ItemCode')
+            ->when($schedule, fn ($query) => $query->groupBy(DB::raw($schedule)))
             ->select(
                 'pm.store_branch_id',
                 DB::raw('s.ItemCode as item_code'),
+                DB::raw(($schedule ?? 'CAST(NULL AS int)').' as month_end_schedule_id'),
                 DB::raw('SUM('.self::SIGNED_QTY.') as adjustment'),
                 DB::raw('MIN(pm.product_inventory_id) as product_inventory_id')
             );

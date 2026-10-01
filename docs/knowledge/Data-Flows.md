@@ -81,6 +81,9 @@ Excuses exist only for rows the Adoption Rate report holds, and it holds go-live
 their go-live week); a row of a store that is not live is refused as "not in the report".
 `sales.late_upload` is dormant: a live store's sales day is always scored `Yes` (sales post
 automatically from the POS), so there is nothing to excuse.
+`receiving.late_logging` can no longer be requested from the UI: the "Request excuse" link on the
+Delivery Logging Timeliness tab was removed on 2026-10-01. The rule stays on the server so excuses
+approved before then still show as `Excused`.
 
 An ordering template with **no `orders_cutoff` row** is unrestricted: `OrderingCutoffService` opens
 tomorrow + 59 days for both mass orders and DTS (CPO stays fully unrestricted). Mass orders also

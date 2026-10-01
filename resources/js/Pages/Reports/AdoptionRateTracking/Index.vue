@@ -183,7 +183,6 @@ const formatNumber = (number) => new Intl.NumberFormat("en-PH").format(number ||
 // exception; the performer permission mirrors config/rule_exceptions.php.
 const { hasAccess } = useAuth();
 const excuseRules = {
-    "receiving.late_logging": "receive orders",
     "sales.late_upload": "create store transactions",
     "wastage.late_upload": "create wastage record",
 };
@@ -602,14 +601,6 @@ const statusClass = (status) => {
                                     {{ row.on_time }}
                                 </span>
                                 <p v-if="row.on_time === 'Excused'" class="mt-1 max-w-[16rem] text-xs text-gray-500" :title="row.excuse_reason">{{ row.excuse_reason }}</p>
-                                <button
-                                    v-else-if="row.on_time === 'No' && canRequestExcuse('receiving.late_logging')"
-                                    type="button"
-                                    class="mt-1 block text-xs font-medium text-cyan-700 underline"
-                                    @click="requestExcuse('receiving.late_logging', row)"
-                                >
-                                    Request excuse
-                                </button>
                             </td>
                             <td class="border-b px-4 py-3">
                                 <div v-if="canEditRemarks" class="flex items-start gap-2">

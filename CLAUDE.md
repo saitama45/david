@@ -205,6 +205,11 @@ SQL Server as the target. Rationale and trade-offs: [Decisions.md](docs/knowledg
   import timestamp — a day's POS file is uploaded the next day, and one upload usually carries
   several earlier sales dates. Any sales-by-date report must filter `order_date` (date-only, so
   `whereBetween` is already inclusive). The Inventory Movement Report had this wrong until 2026-09-18.
+- **A month end count is identified by its MEC Scheduled Date, not by a calendar month.**
+  `month_end_schedules.calculated_date` often sits in the month after the schedule's `year`/`month`
+  (the March 2026 count is dated Apr 5), so never map a picked date to a count through its month. The
+  Qty / Cost Variance report picks its one count from a dropdown of those dates (`mec_date`), not from
+  a free From / To range.
 - **Supplies usage has no transaction - only the MEC count reveals it.** An item is supplies when its
   SAP Item Type is OPERATING / CLEANING SUPPLIES or a supplier item's category is `Supplies`. Nobody
   logs usage (the Stock Management log-usage / cost-centre path has never been used), so the level-2

@@ -28,6 +28,7 @@ class QtyVarianceCostVarianceReportExport implements FromCollection, WithHeading
     public function headings(): array
     {
         return [
+            'MEC Scheduled Date',
             'Store Branch',
             'Item Code',
             'Item Description',
@@ -45,6 +46,7 @@ class QtyVarianceCostVarianceReportExport implements FromCollection, WithHeading
     public function map($item): array
     {
         return [
+            \Carbon\Carbon::parse($item['mec_date'])->format('M j, Y'),
             $item['store_name'],
             $item['item_code'],
             $item['item_description'],
@@ -62,7 +64,7 @@ class QtyVarianceCostVarianceReportExport implements FromCollection, WithHeading
     public function styles(Worksheet $sheet)
     {
         // Style the header row
-        $sheet->getStyle('A1:K1')->applyFromArray([
+        $sheet->getStyle('A1:L1')->applyFromArray([
             'font' => [
                 'bold' => true,
                 'color' => ['argb' => 'FFFFFFFF'],
@@ -80,7 +82,7 @@ class QtyVarianceCostVarianceReportExport implements FromCollection, WithHeading
         ]);
 
         // Apply border to all data cells
-        $sheet->getStyle('A1:K' . $sheet->getHighestRow())->applyFromArray([
+        $sheet->getStyle('A1:L' . $sheet->getHighestRow())->applyFromArray([
             'borders' => [
                 'allBorders' => [
                     'borderStyle' => Border::BORDER_THIN,

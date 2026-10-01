@@ -28,6 +28,16 @@ const props = defineProps({
     assignedStoreIds: {
         type: Array,
         required: true,
+    },
+    // MEC Scheduled Dates from /month-end-schedules: [{ value: 'YYYY-MM-DD', label, disabled }].
+    // A date whose count has no approved result yet is listed but cannot be picked.
+    mecDates: {
+        type: Array,
+        default: () => [],
+    },
+    defaultMecDate: {
+        type: String,
+        default: null,
     }
 });
 
@@ -53,26 +63,8 @@ const storeOptions = computed(() => {
     }));
 });
 
-// Helper to get current date in YYYY-MM-DD format
-const getCurrentDate = () => {
-    const today = new Date();
-    const year = today.getFullYear();
-    const month = String(today.getMonth() + 1).padStart(2, '0'); // Months are 0-indexed
-    const day = String(today.getDate()).padStart(2, '0');
-    return `${year}-${month}-${day}`;
-};
-
-// Helper to get the first day of the current month in YYYY-MM-DD format
-const getFirstDayOfMonth = () => {
-    const today = new Date();
-    const year = today.getFullYear();
-    const month = String(today.getMonth() + 1).padStart(2, '0');
-    return `${year}-${month}-01`;
-};
-
-// Initialize filters with default values
-const dateFrom = ref(props.filters.date_from || getFirstDayOfMonth());
-const dateTo = ref(props.filters.date_to || getCurrentDate());
+// The report shows one count, picked by its MEC Scheduled Date - never a free date.
+const mecDate = ref(props.filters.mec_date || props.defaultMecDate);
 const storeIds = ref(props.filters.store_ids || []);
 const search = ref(props.filters.search || '');
 const perPage = ref(props.filters.per_page || 50);
@@ -126,8 +118,7 @@ const updateFilters = () => {
     router.get(
         route('reports.qty-variance-cost-variance-report.index'),
         {
-            date_from: dateFrom.value,
-            date_to: dateTo.value,
+            mec_date: mecDate.value,
             store_ids: storeIds.value,
             search: search.value,
             per_page: perPage.value,
@@ -159,7 +150,7 @@ const handleSort = (field) => {
 };
 
 // Watch for filter changes and update URL
-watch([dateFrom, dateTo, storeIds, perPage],
+watch([mecDate, storeIds, perPage],
     throttle(updateFilters, 300)
 );
 
@@ -176,8 +167,7 @@ const toggleFilters = () => {
 // Active filters count for mobile indicator
 const activeFiltersCount = computed(() => {
     let count = 0;
-    if (dateFrom.value) count++;
-    if (dateTo.value) count++;
+    if (mecDate.value) count++;
     if (storeIds.value && storeIds.value.length > 0) count++;
     if (search.value) count++;
     if (filterStore.value) count++;
@@ -197,8 +187,7 @@ const shouldShowFilters = computed(() => {
 
 // Reset filters to defaults
 const resetFilters = () => {
-    dateFrom.value = getFirstDayOfMonth();
-    dateTo.value = getCurrentDate();
+    mecDate.value = props.defaultMecDate;
     storeIds.value = props.assignedStoreIds;
     search.value = '';
     perPage.value = 50;
@@ -213,8 +202,7 @@ const resetFilters = () => {
 // Export route
 const exportRoute = computed(() =>
     route('reports.qty-variance-cost-variance-report.export', {
-        date_from: dateFrom.value,
-        date_to: dateTo.value,
+        mec_date: mecDate.value,
         store_ids: storeIds.value,
         search: search.value,
     })
@@ -327,28 +315,21 @@ const getVarianceIcon = (variance) => {
 
                 <!-- Filter Grid -->
                 <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                    <!-- Date Range -->
-                    <div class="space-y-2">
+                    <!-- MEC Scheduled Date (two columns wide so the label is not cut off) -->
+                    <div class="space-y-2 lg:col-span-2">
                         <label class="flex items-center gap-2 text-sm font-medium text-gray-700">
                             <CalendarDays class="w-4 h-4" />
-                            From Date
+                            MEC Scheduled Date
                         </label>
-                        <Input
-                            type="date"
-                            v-model="dateFrom"
-                            class="w-full border-gray-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 rounded-lg"
-                        />
-                    </div>
-
-                    <div class="space-y-2">
-                        <label class="flex items-center gap-2 text-sm font-medium text-gray-700">
-                            <CalendarDays class="w-4 h-4" />
-                            To Date
-                        </label>
-                        <Input
-                            type="date"
-                            v-model="dateTo"
-                            class="w-full border-gray-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 rounded-lg"
+                        <Select
+                            v-model="mecDate"
+                            :options="mecDates"
+                            optionLabel="label"
+                            optionValue="value"
+                            optionDisabled="disabled"
+                            placeholder="No approved month end count yet"
+                            class="w-full"
+                            :clearable="false"
                         />
                     </div>
 
