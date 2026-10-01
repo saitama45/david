@@ -16,6 +16,7 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
+use Maatwebsite\Excel\Concerns\WithStrictNullComparison;
 use Maatwebsite\Excel\Facades\Excel;
 use Symfony\Component\HttpKernel\Exception\HttpException;
 
@@ -131,7 +132,12 @@ it('blocks a store on every unfinished transaction this month, and only this mon
     mecSohWastage($b, $f['user'], 'W-9', 'pending', '2026-08-15 09:00:00');
 
     $readiness = app(MonthEndCountReadinessService::class);
-    expect($readiness->period(Carbon::today('Asia/Manila')))->toBe(['2026-09-01', '2026-09-28']);
+    // A and B submitted August's count, so both are on September; C still owes August.
+    expect($readiness->periods([$a->id, $b->id, $c->id], Carbon::today('Asia/Manila')))->toBe([
+        $a->id => ['2026-09-01', '2026-09-28'],
+        $b->id => ['2026-09-01', '2026-09-28'],
+        $c->id => ['2026-08-01', '2026-09-28'],
+    ]);
 
     $blockers = $readiness->blockers([$a->id, $b->id], '2026-09-01', '2026-09-28');
 
@@ -182,8 +188,50 @@ it('fills Current SOH with the Theoretical SOH of the report, in each line\'s Bu
     Excel::assertDownloaded('month_end_count_template_'.Carbon::now()->format('Ymd_His').'.xlsx', function (MonthEndCountDownloadExport $export) {
         $soh = $export->collection()->mapWithKeys(fn ($row) => [$row['Item Code'].'|'.$row['Bulk UOM'] => $row['Current SOH']]);
 
-        return $soh['RM-ESP|Bag'] == 4.5 && $soh['RM-ESP|Gm'] == 4500 && $soh['RM-NONE|Pc'] === null;
+        // A line with no SAP item shows zero, and the writer must not drop zeros as blanks.
+        return $soh['RM-ESP|Bag'] == 4.5 && $soh['RM-ESP|Gm'] == 4500 && $soh['RM-NONE|Pc'] === 0
+            && $export instanceof WithStrictNullComparison
+            && $export->collection()->first()['Bulk Qty'] === null;
     });
+});
+
+it('keeps Current SOH on the month being counted once the calendar rolls into the next month', function () {
+    $f = mecSohFixture();
+    $a = $f['stores']['A'];
+    $sap = mecSohEspresso();
+
+    // September's count falls due on the 30th; the store takes it on October 1.
+    MonthEndSchedule::create(['year' => 2026, 'month' => 9, 'calculated_date' => '2026-09-30', 'created_by' => $f['user']->id]);
+    MonthEndSchedule::create(['year' => 2026, 'month' => 10, 'calculated_date' => '2026-10-30', 'created_by' => $f['user']->id]);
+    mecSohMecCount($f, $a, $sap['Bag'], 'level2_approved', 2);
+    $order = mecSohOrder($f, $a, '2026-09-10', 'received');
+    $line = DB::table('store_order_items')->insertGetId([
+        'store_order_id' => $order, 'item_code' => 'RM-ESP', 'uom' => 'Bag',
+        'quantity_ordered' => 3, 'quantity_approved' => 3, 'quantity_commited' => 3, 'cost_per_quantity' => 0, 'total_cost' => 0,
+    ]);
+    DB::table('ordered_item_receive_dates')->insert(['store_order_item_id' => $line, 'quantity_received' => 3, 'status' => 'approved']);
+    MonthEndCountTemplate::create(['item_code' => 'RM-ESP', 'item_name' => 'RM-ESP', 'uom' => 'Bag', 'is_active' => true, 'created_by' => $f['user']->id]);
+
+    Carbon::setTestNow(Carbon::parse('2026-10-01 10:00', 'Asia/Manila'));
+    $readiness = app(MonthEndCountReadinessService::class);
+    expect($readiness->periods([$a->id], Carbon::today('Asia/Manila')))->toBe([$a->id => ['2026-09-01', '2026-10-01']]);
+
+    Excel::fake();
+    test()->actingAs($f['user']);
+    app(MonthEndCountController::class)->downloadTemplate(Request::create('/month-end-count/download', 'GET', ['branch_id' => $a->id]));
+
+    // August's 2 Bag + 3 received in September, not an empty October.
+    Excel::assertDownloaded('month_end_count_template_'.Carbon::now()->format('Ymd_His').'.xlsx',
+        fn (MonthEndCountDownloadExport $export) => $export->collection()->first()['Current SOH'] == 5);
+
+    // Once September's count is in, the template moves on to October.
+    $september = MonthEndSchedule::where('year', 2026)->where('month', 9)->first();
+    DB::table('month_end_count_items')->insert([
+        'entity_id' => $september->entity_id, 'month_end_schedule_id' => $september->id, 'branch_id' => $a->id,
+        'sap_masterfile_id' => $sap['Bag'], 'item_code' => 'RM-ESP', 'item_name' => 'Espresso', 'uom' => 'Bag',
+        'total_qty' => 4, 'status' => 'uploaded', 'created_by' => $f['user']->id,
+    ]);
+    expect($readiness->periods([$a->id], Carbon::today('Asia/Manila')))->toBe([$a->id => ['2026-10-01', '2026-10-01']]);
 });
 
 it('refuses the template while the store has unfinished transactions, or is not the user\'s', function () {

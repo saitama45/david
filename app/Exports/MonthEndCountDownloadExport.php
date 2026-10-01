@@ -5,12 +5,14 @@ namespace App\Exports;
 use Illuminate\Support\Collection;
 use Maatwebsite\Excel\Concerns\FromCollection;
 use Maatwebsite\Excel\Concerns\WithHeadings;
+use Maatwebsite\Excel\Concerns\WithStrictNullComparison;
 use Maatwebsite\Excel\Concerns\WithStyles;
 use PhpOffice\PhpSpreadsheet\Worksheet\Worksheet;
 use PhpOffice\PhpSpreadsheet\Style\Fill;
 use PhpOffice\PhpSpreadsheet\Style\Alignment;
 
-class MonthEndCountDownloadExport implements FromCollection, WithHeadings, WithStyles
+// Strict null comparison: without it the writer treats a Current SOH of 0 as an empty cell.
+class MonthEndCountDownloadExport implements FromCollection, WithHeadings, WithStrictNullComparison, WithStyles
 {
     protected $items;
 
@@ -21,7 +23,8 @@ class MonthEndCountDownloadExport implements FromCollection, WithHeadings, WithS
 
     public function collection()
     {
-        return $this->items;
+        // Blank text and the user-fillable columns stay empty cells, as before.
+        return $this->items->map(fn ($row) => array_map(fn ($value) => $value === '' ? null : $value, $row));
     }
 
     public function headings(): array

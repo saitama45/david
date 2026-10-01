@@ -14,7 +14,7 @@ const props = defineProps({
     branchesAwaitingUpload: { type: Object, required: true },
     returnedCounts: { type: Array, default: () => [] },
     downloadBlockers: { type: Object, default: () => ({}) },
-    sohPeriod: { type: Object, default: null },
+    sohPeriods: { type: Object, default: () => ({}) },
     uploadWindow: { type: Object, default: null },
     supportEmail: { type: String, default: '' },
     uploadedCountsAwaitingSubmission: { type: Array, required: true },
@@ -29,6 +29,11 @@ const selectedBranchId = ref(null);
 // Unfinished work that keeps the selected branch's template from a reliable Current SOH.
 const selectedBranchBlockers = computed(() =>
     selectedBranchId.value ? (props.downloadBlockers?.[selectedBranchId.value] ?? []) : []
+);
+
+// The period the selected branch's Current SOH covers: the month of the count it takes next, to date.
+const sohPeriod = computed(() =>
+    selectedBranchId.value ? (props.sohPeriods?.[selectedBranchId.value] ?? null) : null
 );
 
 // Stores still locked out after the window closed.

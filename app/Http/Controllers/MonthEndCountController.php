@@ -90,10 +90,10 @@ class MonthEndCountController extends Controller
         // the user as "you have nothing to do" rather than "you are locked out".
         $uploadWindow = $this->describeUploadWindow($now, $today, $userBranchIds, $settings);
 
-        // The template's Current SOH is the month-to-date Theoretical SOH, so it is only
-        // offered once nothing in that period is still open for the branch.
-        [$sohFrom, $sohThrough] = $this->readiness->period($today);
-        $downloadBlockers = $this->readiness->blockers($userBranchIds, $sohFrom, $sohThrough);
+        // The template's Current SOH is the Theoretical SOH of the month being counted, so
+        // it is only offered once nothing in that period is still open for the branch.
+        $sohPeriods = $this->readiness->periods($userBranchIds, $today);
+        $downloadBlockers = $this->readiness->blockersForPeriods($sohPeriods);
 
         // Why a branch now owes this count again, when an approver returned it.
         $returnedCounts = $uploadSchedule
@@ -201,10 +201,10 @@ class MonthEndCountController extends Controller
             'branchesAwaitingUpload' => $branchesAwaitingUpload, // Pass this to frontend
             'returnedCounts' => $returnedCounts,
             'downloadBlockers' => (object) $downloadBlockers,
-            'sohPeriod' => [
-                'from' => Carbon::parse($sohFrom)->format('M j, Y'),
-                'through' => Carbon::parse($sohThrough)->format('M j, Y'),
-            ],
+            'sohPeriods' => (object) array_map(fn ($period) => [
+                'from' => Carbon::parse($period[0])->format('M j, Y'),
+                'through' => Carbon::parse($period[1])->format('M j, Y'),
+            ], $sohPeriods),
             'uploadedCountsAwaitingSubmission' => $uploadedCountsAwaitingSubmission, // New prop
             'transactions' => $transactions,
             'filters' => $request->only(['year', 'month', 'calculated_date', 'status', 'branch_name', 'uploader_name', 'sort', 'direction']),
@@ -350,11 +350,11 @@ class MonthEndCountController extends Controller
 
         // Current SOH is only as good as the transactions behind it: nothing in the
         // period may still be waiting on approval, commit or receiving.
-        [$from, $through] = $this->readiness->period(Carbon::today('Asia/Manila'));
+        [$from, $through] = $this->readiness->periods([$branch->id], Carbon::today('Asia/Manila'))[$branch->id];
         $blockers = $this->readiness->blockers([$branch->id], $from, $through)[$branch->id] ?? [];
 
         if ($blockers !== []) {
-            return back()->withErrors(['download' => "{$branch->name} still has unfinished transactions this month: "
+            return back()->withErrors(['download' => "{$branch->name} still has unfinished transactions since ".Carbon::parse($from)->format('M j, Y').': '
                 .implode('; ', array_column($blockers, 'label')).'. Finish them, then download the template.']);
         }
 
@@ -365,7 +365,7 @@ class MonthEndCountController extends Controller
         $items = collect();
 
         foreach ($templates as $template) {
-            $currentSoh = $theoretical[$template->id] ?? null;
+            $currentSoh = $theoretical[$template->id] ?? 0;
 
             $items->push([
                 'Item Code' => $template->item_code,
@@ -392,9 +392,9 @@ class MonthEndCountController extends Controller
     /**
      * Current SOH per template line: the Inventory Movement Report's Theoretical SOH for
      * the period (in the item's SAP base unit), restated in the line's Bulk UOM. A line
-     * whose Bulk UOM has no SAP conversion to that base is left blank rather than guessed.
+     * with no SAP item, or whose Bulk UOM has no SAP conversion to that base, shows zero.
      *
-     * @return array<int, float|null> template id => quantity in its Bulk UOM
+     * @return array<int, float> template id => quantity in its Bulk UOM
      */
     private function theoreticalSohByLine($templates, int $branchId, string $from, string $through): array
     {
@@ -417,7 +417,7 @@ class MonthEndCountController extends Controller
                 ? (ItemStockUnit::fromRows($rowsByCode[$template->item_code])->factors()[strtoupper(trim((string) $template->uom))] ?? null)
                 : null;
 
-            $result[$template->id] = $size ? round($row['theoretical_qty'] / $size, 4) : null;
+            $result[$template->id] = $size ? round($row['theoretical_qty'] / $size, 4) : 0;
         }
 
         return $result;

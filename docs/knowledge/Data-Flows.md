@@ -115,13 +115,23 @@ transaction and `WorkflowGuidanceService::reportMetrics()` ignores it.
 ## Month End Count template: Current SOH
 
 The downloaded template's **Current SOH** is the Inventory Movement Report's **Theoretical SOH**
-for the month to date (1st of the month → today): previous month's count + approved receipts +
+for the month being counted, to date: previous month's count + approved receipts +
 interco in − sales − level 2 wastage − interco out. Both call `InventoryMovementService::movementData()`,
 so they cannot drift apart. The value is per ItemCode in the SAP base unit, restated in each template
-line's Bulk UOM through `ItemStockUnit` factors; a Bulk UOM with no conversion is left blank.
+line's Bulk UOM through `ItemStockUnit` factors; a line with no SAP item or no conversion shows 0.
+
+**The period is per branch, not the calendar month** (`MonthEndCountReadinessService::periods()`): it
+starts on the 1st of the month of the count the branch takes next - the last scheduled count while the
+branch has not submitted it (rejected rows do not count), else the next one on the schedule - and runs
+through today. A count is taken after its month ends (September's on October 1); "1st of this month →
+today" then covered an empty October and every Current SOH came out 0 (fixed 2026-10-01).
+
+**Zeros need `WithStrictNullComparison`.** maatwebsite/excel writes `0` as an empty cell without it
+(`0 == null`), which is why those zeros looked like a missing column. With it, `''` is written too, so
+`MonthEndCountDownloadExport::collection()` turns `''` into `null` to keep the fillable cells empty.
 
 The download is **withheld** while the store has open work in that period
-(`MonthEndCountReadinessService::blockers()`): orders not RECEIVED (approval, commit or receiving
+(`MonthEndCountReadinessService::blockersForPeriods()`): orders not RECEIVED (approval, commit or receiving
 open), a RECEIVED order with unapproved receipt lines, interco not received / not committed by the
 sender, wastage below level 2, the previous month's count not level 2 approved, and pending SOH
 adjustments. `/month-end-count` lists them per branch with links; the server refuses too. Sales have

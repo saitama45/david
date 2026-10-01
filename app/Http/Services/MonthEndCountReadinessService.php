@@ -11,8 +11,8 @@ use Illuminate\Support\Facades\Route;
  * What still has to be finished before a store's Month End Count template can carry a
  * trustworthy Current SOH.
  *
- * Current SOH is the Inventory Movement Report's Theoretical SOH for the month to date.
- * That figure only counts approved receipts, level 2 approved wastage and the previous
+ * Current SOH is the Inventory Movement Report's Theoretical SOH for the month being
+ * counted, to date. That figure only counts approved receipts, level 2 approved wastage and the previous
  * month's count, so any order, transfer, wastage or count still open in the period would
  * leave it wrong. The template is withheld until the store's period is settled.
  */
@@ -28,14 +28,64 @@ class MonthEndCountReadinessService
     ];
 
     /**
-     * The period the template's Current SOH covers: the first day of this month through
-     * today, the same range the report defaults to.
+     * The period each branch's template covers: the first day of the month of the count
+     * the branch takes next, through today.
      *
-     * @return array{0: string, 1: string} Y-m-d from, Y-m-d through
+     * That count is the last scheduled one while the branch has not submitted it, else
+     * the next one on the schedule. A count is taken after its month has ended (September's
+     * on October 1), so the calendar month of today would start a new month with nothing
+     * in it and leave every Current SOH at zero.
+     *
+     * @return array<int, array{0: string, 1: string}> branch id => [Y-m-d from, Y-m-d through]
      */
-    public function period(Carbon $today): array
+    public function periods($branchIds, Carbon $today): array
     {
-        return [$today->copy()->startOfMonth()->toDateString(), $today->toDateString()];
+        $branchIds = collect($branchIds)->map(fn ($id) => (int) $id)->unique()->values();
+        $thisMonth = $today->copy()->startOfMonth()->toDateString();
+        $monthOf = fn (?MonthEndSchedule $schedule) => $schedule
+            ? min(Carbon::create($schedule->year, $schedule->month, 1)->toDateString(), $thisMonth)
+            : $thisMonth;
+
+        $last = MonthEndSchedule::where('calculated_date', '<', $today->toDateString())->orderByDesc('calculated_date')->first();
+        $next = MonthEndSchedule::where('calculated_date', '>=', $today->toDateString())->orderBy('calculated_date')->first();
+
+        // A rejected count was sent back to the store; it is not a count.
+        $submitted = $last && $branchIds->isNotEmpty()
+            ? DB::table('month_end_count_items')
+                ->where('month_end_schedule_id', $last->id)
+                ->whereIn('branch_id', $branchIds->all())
+                ->where('status', '!=', 'rejected')
+                ->distinct()
+                ->pluck('branch_id')
+                ->map(fn ($id) => (int) $id)
+            : collect();
+
+        $periods = [];
+        foreach ($branchIds as $branchId) {
+            $owesLast = $last && ! $submitted->contains($branchId);
+            $periods[$branchId] = [$monthOf($owesLast ? $last : $next), $today->toDateString()];
+        }
+
+        return $periods;
+    }
+
+    /**
+     * Unfinished work per branch, each within its own period.
+     *
+     * @param  array<int, array{0: string, 1: string}>  $periods  as periods() returns them
+     * @return array<int, list<array{key: string, label: string, count: int, url: ?string}>> branch id => blockers
+     */
+    public function blockersForPeriods(array $periods): array
+    {
+        $blockers = [];
+        $branchesByPeriod = collect($periods)->keys()->groupBy(fn ($branchId) => implode('|', $periods[$branchId]));
+
+        foreach ($branchesByPeriod as $period => $branchIds) {
+            [$from, $through] = explode('|', $period);
+            $blockers += $this->blockers($branchIds, $from, $through);
+        }
+
+        return $blockers;
     }
 
     /**
