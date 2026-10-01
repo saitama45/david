@@ -73,6 +73,53 @@ class AdoptionRateTrackingService
     /** Per-request memo of the five indicator datasets, keyed by range + stores. */
     private array $indicatorDatasets = [];
 
+    /** Per-request memo of liveFromByStore(), keyed by the store set. */
+    private array $liveFromByStores = [];
+
+    /**
+     * The day each store counts as live from: the Monday of its go-live week,
+     * exactly as the Go-Live Stores tab counts it. A store with no entry has
+     * not gone live.
+     *
+     * @return array<int, string> store id => Y-m-d
+     */
+    private function liveFromByStore(array $storeIds): array
+    {
+        return $this->liveFromByStores[md5(json_encode($storeIds))] ??= array_map(
+            fn (string $date) => Carbon::parse($date)->startOfWeek(Carbon::MONDAY)->toDateString(),
+            app(GoLiveStoresService::class)->goLiveDates($storeIds)
+        );
+    }
+
+    /**
+     * Adoption is only measured for stores that have gone live. A row for a
+     * store that was not live yet on the row's date is left out of the dataset,
+     * so it neither counts toward any rate nor as a Success Rate transaction.
+     *
+     * My Actions passes `include_not_live` to keep every row: a store that is
+     * not live still has work it must be reminded of.
+     */
+    private function liveRows(Collection $rows, string $dateField, array $storeIds, array $filters): Collection
+    {
+        if (!empty($filters['include_not_live'])) {
+            return $rows;
+        }
+
+        return $this->rowsLiveOn($rows, $dateField, $this->liveFromByStore($storeIds));
+    }
+
+    /** @param  array<int, string>  $liveFrom  store id => Y-m-d */
+    private function rowsLiveOn(Collection $rows, string $dateField, array $liveFrom): Collection
+    {
+        return $rows
+            ->filter(function (array $row) use ($dateField, $liveFrom) {
+                $from = $liveFrom[(int) ($row['store_branch_id'] ?? 0)] ?? null;
+
+                return $from !== null && ($row[$dateField] ?? '') >= $from;
+            })
+            ->values();
+    }
+
     public function pendingCommitKeys(Collection $orders): array
     {
         $this->chunkedLoad($orders, [
@@ -263,6 +310,7 @@ class AdoptionRateTrackingService
         $remarks = $this->getRemarks(self::TAB_ORDERING_TIMELINESS, $dateFrom, $dateTo, $storeIds, $templates);
 
         $rows = $this->buildRows($schedules, $orders, $remarks, $dateFrom, $dateTo);
+        $rows = $this->liveRows($rows, 'david_delivery_date', $storeIds, $filters);
         $rows = $this->filterRows($rows, $filters['search'] ?? null);
 
         $totals = [
@@ -294,6 +342,7 @@ class AdoptionRateTrackingService
         $remarks = $this->getRemarks(self::TAB_COMMIT_ORDER_TIMELINESS, $dateFrom, $dateTo, $storeIds, $templates);
 
         $rows = $this->buildCommitRows($orders, $remarks);
+        $rows = $this->liveRows($rows, 'delivery_date', $storeIds, $filters);
         $rows = $this->filterCommitRows($rows, $filters['search'] ?? null);
 
         $fgYes = $rows->where('fg_on_time', 'Yes')->count();
@@ -336,6 +385,7 @@ class AdoptionRateTrackingService
         $loggingDates = $this->approvedLoggingDatesByOrder($orders);
 
         $rows = $this->buildDeliveryLoggingRows($orders, $remarks, $loggingDates);
+        $rows = $this->liveRows($rows, 'sap_dr_date', $storeIds, $filters);
         $rows = $this->applyExcuses($rows, 'receiving.late_logging', 'on_time');
         $rows = $this->filterDeliveryLoggingRows($rows, $filters['search'] ?? null);
 
@@ -374,7 +424,8 @@ class AdoptionRateTrackingService
             [self::SALES_UPLOAD_REMARK_TEMPLATE]
         );
 
-        $rows = $this->buildSalesUploadRows($stores, $uploads, $remarks, $dateFrom, $dateTo);
+        $rows = $this->buildSalesUploadRows($stores, $uploads, $remarks, $dateFrom, $dateTo, $this->liveFromByStore($storeIds));
+        $rows = $this->liveRows($rows, 'date_of_sales', $storeIds, $filters);
         $rows = $this->applyExcuses($rows, 'sales.late_upload', 'sales_report_uploaded_on_time');
         $rows = $this->filterSalesUploadRows($rows, $filters['search'] ?? null);
 
@@ -406,6 +457,7 @@ class AdoptionRateTrackingService
         $remarks = $this->getWastageUploadRemarks($dateFrom, $dateTo, $storeIds);
 
         $rows = $this->buildWastageUploadRows($wastages, $remarks);
+        $rows = $this->liveRows($rows, 'date_of_wastage', $storeIds, $filters);
         $rows = $this->applyExcuses($rows, 'wastage.late_upload', 'wastage_report_uploaded');
         $rows = $this->filterWastageUploadRows($rows, $filters['search'] ?? null);
 
@@ -480,10 +532,15 @@ class AdoptionRateTrackingService
         $storeIds = $this->resolveStoreIds($filters, $user);
 
         $weeks = $this->buildWeekBuckets($dateFrom, $dateTo);
+        // Only stores that had gone live by the end of the range get a section;
+        // a store that is not live has no rows in any indicator dataset.
+        $liveFrom = $this->liveFromByStore($storeIds);
         $stores = StoreBranch::whereIn('id', $storeIds)
             ->where('is_active', true)
             ->orderBy('name')
-            ->get();
+            ->get()
+            ->filter(fn (StoreBranch $store) => ($liveFrom[(int) $store->id] ?? '9999-12-31') <= $dateTo->toDateString())
+            ->values();
 
         $datasets = $this->getIndicatorDatasets($filters, $user);
 
@@ -1188,8 +1245,8 @@ class AdoptionRateTrackingService
             $tradedCommitDate = $this->latestCategoryCommitDate($matchingOrders, $categoryMap, 'traded');
             $isPulO = $this->displayTemplate($template) === 'PUL-O';
             $isAutomatedCommit = $this->isAutomatedCommitOrder($firstOrder, $template);
-            $fgStatus = $this->commitStatus($fgCommitDate, $deliveryDate, $isAutomatedCommit || $isPulO);
-            $tradedStatus = $this->commitStatus($tradedCommitDate, $deliveryDate, $isAutomatedCommit);
+            $fgStatus = $this->commitStatus($isAutomatedCommit || $isPulO);
+            $tradedStatus = $this->commitStatus($isAutomatedCommit);
             $remark = $remarks->get($key);
 
             $rows->push([
@@ -1277,7 +1334,11 @@ class AdoptionRateTrackingService
             ->values();
     }
 
-    private function buildSalesUploadRows(Collection $stores, Collection $uploads, Collection $remarks, Carbon $dateFrom, Carbon $dateTo): Collection
+    /**
+     * @param  array<int, string>  $liveFrom  store id => Y-m-d the store counts as live from
+     *                                        (liveFromByStore())
+     */
+    private function buildSalesUploadRows(Collection $stores, Collection $uploads, Collection $remarks, Carbon $dateFrom, Carbon $dateTo, array $liveFrom = []): Collection
     {
         $rows = collect();
 
@@ -1290,6 +1351,8 @@ class AdoptionRateTrackingService
         $effectiveEnd = $dateTo->gt($today) ? $today : $dateTo->copy();
 
         foreach ($stores as $store) {
+            $storeLiveFrom = $liveFrom[(int) $store->id] ?? null;
+
             for ($date = $dateFrom->copy(); $date->lte($effectiveEnd); $date->addDay()) {
                 $salesDate = $date->copy()->startOfDay();
                 $key = $this->scheduledRowKey(self::SALES_UPLOAD_REMARK_TEMPLATE, (int) $store->id, $salesDate->toDateString());
@@ -1297,7 +1360,14 @@ class AdoptionRateTrackingService
                 $uploadDate = $upload?->uploaded_at ? Carbon::parse($upload->uploaded_at)->timezone('Asia/Manila')->startOfDay() : null;
                 $acceptanceCriteria = $salesDate->isWeekend() ? 0 : 1;
                 $networkDays = $uploadDate ? $this->salesUploadNetworkDays($salesDate, $uploadDate) : null;
-                $uploadedOnTime = $networkDays !== null && $networkDays <= $acceptanceCriteria ? 'Yes' : 'No';
+                // A go-live store's sales post automatically from the POS, so its
+                // sales day is no longer something it can upload late: every day
+                // from its go-live week counts as on time, and the upload date and
+                // network days are for reference only. A store that is not live
+                // yet is scored on its actual upload; liveRows() then leaves it
+                // out of the report, so that verdict only reaches My Actions.
+                $isLive = $storeLiveFrom !== null && $salesDate->toDateString() >= $storeLiveFrom;
+                $uploadedOnTime = $isLive || ($networkDays !== null && $networkDays <= $acceptanceCriteria) ? 'Yes' : 'No';
                 // Uploaded at all, regardless of timing: driven purely by whether an
                 // upload exists for the sales date, so it never depends on the
                 // acceptance criteria used by the on-time column.
@@ -1645,17 +1715,17 @@ class AdoptionRateTrackingService
         return $normalized === 'TRADED' ? 'traded' : null;
     }
 
-    private function commitStatus(?Carbon $commitDate, Carbon $deliveryDate, bool $excluded = false): string
+    /**
+     * Committing is no longer a prerequisite of receiving - an approved order is
+     * received straight from Inbound Receiving, which stamps the commit itself -
+     * so a commit can no longer be late. Every order that would have needed one
+     * counts as on time; the commit dates stay on the row for reference only.
+     * The row keeps a Yes (rather than NA) so it still counts as a transaction
+     * on the Success Rate tab.
+     */
+    private function commitStatus(bool $excluded = false): string
     {
-        if ($excluded) {
-            return 'NA';
-        }
-
-        if (!$commitDate) {
-            return 'No';
-        }
-
-        return $commitDate->lt($deliveryDate->copy()->startOfDay()) ? 'Yes' : 'No';
+        return $excluded ? 'NA' : 'Yes';
     }
 
     private function isAutomatedCommitOrder(StoreOrder $order, string $template): bool

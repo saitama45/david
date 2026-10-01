@@ -77,6 +77,27 @@ Rate and Adoption Rate are measured over exactly the same population.
 MEC is a ticket type with no adoption indicator, matching the workbook, whose MEC transactions
 column is empty for all 18 weeks. Admin/Technical concerns likewise carry no transaction base.
 
+The Commit indicator no longer measures timeliness. Committing stopped being a prerequisite of
+receiving, so `commitStatus()` scores every order that needs a commit as `Yes` (100%) and keeps `NA`
+for DROPS, CPO and PUL-O finished goods. The rows stay `Yes` rather than `NA` so they still count as
+commit transactions here; commit dates remain on the report for reference only.
+
+The Sales Upload indicator is fixed at 100% for the same kind of reason: sales post automatically from
+the POS replica (`pos:sync-sales`, see [pos-sales-sync.md](../pos-sales-sync.md)), so
+`buildSalesUploadRows()` scores a live store's day `Yes` whether or not anything was uploaded. The
+"Uploaded?" column, upload date and network days stay factual.
+
+**Only go-live stores are measured.** `AdoptionRateTrackingService::liveRows()` removes, from all five
+indicator datasets, every row of a store that was not live on the row's date. Live means from the
+Monday of the store's go-live week, using the Go-Live Stores tab's definition
+(`GoLiveStoresService::goLiveDates()`: the store's first `/mass-orders` order), not the POS feed list in
+`config/pos_sync_profiles.json`. Such rows therefore count toward no indicator rate, get no section on
+the Overall tab or series on the dashboard, and are not Success Rate transactions; a live store's days
+before its go-live week are left out the same way. The one caller that keeps them is My Actions
+(`include_not_live`), because a store that is not live still has orders and sales uploads to be
+reminded of — that is also the only place the real "uploaded within 1 working day" verdict of a
+not-live store is still read.
+
 From those two the service derives Success Rate (`1 - total tickets / total transactions`), Close
 Rate (`total closed / total tickets`), the module-vs-technical split and the running averages.
 Per-week Adoption Rate falls back to `getWeeklyAdoptionTrend()` unless the week carries a manual

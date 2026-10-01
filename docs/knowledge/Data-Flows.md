@@ -77,6 +77,11 @@ per rule in `app/Http/Services/RuleExceptions/`.
 | **unlock** — the server blocks the action | `mec.upload_window`, `mass_order.late_order`, `mass_order.edit_after_cutoff`, `dts_mass_order.late_order`, `dts_mass_order.edit_locked` | a **one-time grant**, valid until a time the approver sets, consumed by the action |
 | **excuse** — nothing is blocked, the item is scored late | `receiving.late_logging`, `sales.late_upload`, `wastage.late_upload` | the Adoption Rate row shows `Excused` + reason |
 
+Excuses exist only for rows the Adoption Rate report holds, and it holds go-live stores only (from
+their go-live week); a row of a store that is not live is refused as "not in the report".
+`sales.late_upload` is dormant: a live store's sales day is always scored `Yes` (sales post
+automatically from the POS), so there is nothing to excuse.
+
 An ordering template with **no `orders_cutoff` row** is unrestricted: `OrderingCutoffService` opens
 tomorrow + 59 days for both mass orders and DTS (CPO stays fully unrestricted). Mass orders also
 accept today and the past `MASS_ORDER_BACKDATE_DAYS` (60) days — a temporary allowance added 2026-09-24;

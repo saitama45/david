@@ -322,7 +322,7 @@ class SuccessRateService
             'date_to' => $filters['date_to'] ?? null,
         ];
 
-        $cacheKey = 'success_rate_derived_v3_'
+        $cacheKey = 'success_rate_derived_v7_'
             .$user->id.'_'
             .(app(EntityContext::class)->id() ?? 'none').'_'
             .md5(json_encode([$scoped, $this->adoptionRateService->accessibleStoreIds($user)]));

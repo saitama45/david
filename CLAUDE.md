@@ -178,6 +178,15 @@ SQL Server as the target. Rationale and trade-offs: [Decisions.md](docs/knowledg
   Transactions + adoption fallback are cached **together, and separately from the ticket data** —
   sharing one cache entry makes every save re-run the slow Adoption Rate trend and the save looks
   hung.
+- **Adoption Rate only counts go-live stores, and its commit and sales upload indicators are always
+  100%.** `AdoptionRateTrackingService::liveRows()` drops every row of a store that was not live on the
+  row's date (live = from the Monday of its go-live week, `GoLiveStoresService::goLiveDates()`, the
+  Go-Live tab's own definition) from all five datasets, so those rows reach no rate, no Overall section
+  and no Success Rate transaction count. Only My Actions passes `include_not_live` to keep them.
+  Committing is no longer a prerequisite of receiving, so `commitStatus()` returns `Yes` (`NA` only for
+  DROPS / CPO / PUL-O finished goods); sales post automatically from the POS replica (`pos:sync-sales`),
+  so a live store's sales day is `Yes`, upload or not. Both must stay `Yes`, not `NA`: the Success Rate
+  tab counts Yes/No rows as transactions. A new dataset must call `liveRows()` too.
 - **A new permission is invisible in the role editor until it is listed in
   `RoleService::getPermissionsGroup()`'s `$permissionStructure`.** Unlisted permissions are silently
   dropped, not grouped under "Others". Admin still gets them (the seeder syncs all permissions to it),

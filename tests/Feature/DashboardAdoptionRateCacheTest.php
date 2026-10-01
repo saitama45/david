@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Services\AdoptionRateTrackingService;
+use App\Http\Services\GoLiveStoresService;
 use App\Models\StoreBranch;
 use App\Models\User;
 use Illuminate\Support\Facades\Cache;
@@ -17,6 +18,15 @@ it('keys the dashboard adoption rate cache on the user accessible stores', funct
 
     $user->store_branches()->attach($first->id);
 
+    // The adoption rate only counts go-live stores; both went live before the range.
+    app()->instance(GoLiveStoresService::class, new class extends GoLiveStoresService
+    {
+        public function goLiveDates(array $storeIds): array
+        {
+            return array_fill_keys($storeIds, '2026-04-06');
+        }
+    });
+
     $this->actingAs($user)->getJson(route('dashboard.adoption-rate', ['date_from' => '2026-05-01', 'date_to' => '2026-05-31']))
         ->assertOk()
         ->assertJsonPath('meta.store_count', 1);
@@ -27,7 +37,7 @@ it('keys the dashboard adoption rate cache on the user accessible stores', funct
         'date_to' => '2026-05-31',
         'tab' => AdoptionRateTrackingService::TAB_OVERALL_ADOPTION_RATE,
     ];
-    $key = fn (array $storeIds) => 'dashboard_adoption_rate_v4_' . $user->id . '_'
+    $key = fn (array $storeIds) => 'dashboard_adoption_rate_v8_' . $user->id . '_'
         . (session('active_entity_id') ?? 'none') . '_'
         . md5(json_encode([$params, $storeIds]));
 

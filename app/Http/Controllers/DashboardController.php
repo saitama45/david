@@ -374,7 +374,7 @@ class DashboardController extends Controller
         // guards against request timeouts. Scoped by user id, active entity and the
         // user's accessible stores, so an entity switch or a store-assignment change
         // never serves a result tallied over the old store set.
-        $cacheKey = 'dashboard_adoption_rate_v4_'
+        $cacheKey = 'dashboard_adoption_rate_v8_'
             . $request->user()->id . '_'
             . ($request->session()->get('active_entity_id') ?? 'none') . '_'
             . md5(json_encode([$params, $this->adoptionRateService->accessibleStoreIds($request->user())]));

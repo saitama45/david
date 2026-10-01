@@ -3,6 +3,7 @@
 namespace Tests\Unit\Services;
 
 use App\Http\Services\AdoptionRateTrackingService;
+use App\Models\StoreBranch;
 use App\Models\StoreOrder;
 use App\Models\Supplier;
 use App\Models\Wastage;
@@ -154,14 +155,100 @@ class AdoptionRateTrackingServiceTest extends TestCase
         $this->assertFalse($this->isAutomatedCommitOrder('GSI-B', 'GSI-B'));
     }
 
-    public function test_commit_status_returns_na_when_excluded_and_preserves_manual_rules(): void
+    public function test_commit_status_is_always_on_time_unless_the_order_is_excluded(): void
     {
-        $deliveryDate = Carbon::parse('2026-07-02')->startOfDay();
+        $this->assertSame('NA', $this->commitStatus(true));
+        $this->assertSame('Yes', $this->commitStatus());
+    }
 
-        $this->assertSame('NA', $this->commitStatus(null, $deliveryDate, true));
-        $this->assertSame('Yes', $this->commitStatus($deliveryDate->copy()->subDay(), $deliveryDate));
-        $this->assertSame('No', $this->commitStatus($deliveryDate->copy(), $deliveryDate));
-        $this->assertSame('No', $this->commitStatus(null, $deliveryDate));
+    public function test_commit_rate_is_full_once_every_required_commit_counts_as_on_time(): void
+    {
+        $rows = collect([
+            ['store_branch_id' => 1, 'fg_on_time' => $this->commitStatus(), 'traded_on_time' => $this->commitStatus()],
+            ['store_branch_id' => 2, 'fg_on_time' => $this->commitStatus(true), 'traded_on_time' => $this->commitStatus()],
+            ['store_branch_id' => 3, 'fg_on_time' => $this->commitStatus(true), 'traded_on_time' => $this->commitStatus(true)],
+        ]);
+
+        $this->assertSame(100.0, $this->commitAdoptionRateByStore($rows));
+        $this->assertSame(100.0, $this->commitOverallRate($rows->where('store_branch_id', 2)));
+        $this->assertNull($this->commitOverallRate($rows->where('store_branch_id', 3)));
+    }
+
+    public function test_a_go_live_store_sales_day_counts_as_on_time_from_its_go_live_week(): void
+    {
+        Carbon::setTestNow(Carbon::parse('2026-09-20 10:00', 'Asia/Manila'));
+
+        $live = (new StoreBranch())->forceFill(['id' => 7, 'branch_code' => 'NNUTC', 'name' => 'Live Store']);
+        $notLive = (new StoreBranch())->forceFill(['id' => 8, 'branch_code' => 'NNABA', 'name' => 'Not Live Store']);
+        $method = new ReflectionMethod(AdoptionRateTrackingService::class, 'buildSalesUploadRows');
+        $method->setAccessible(true);
+
+        $rows = $method->invoke(
+            new AdoptionRateTrackingService(),
+            collect([$live, $notLive]),
+            // The not-live store uploaded Monday's sales on Tuesday; nothing else arrived.
+            collect(['SALES_UPLOAD|8|2026-09-14' => (object) ['uploaded_at' => '2026-09-15 09:00:00']]),
+            collect(),
+            Carbon::parse('2026-09-13')->startOfDay(),
+            Carbon::parse('2026-09-15')->startOfDay(),
+            [7 => '2026-09-14']
+        )->keyBy('row_key');
+
+        Carbon::setTestNow();
+
+        $onTime = fn (int $storeId, string $date) => $rows["SALES_UPLOAD|{$storeId}|{$date}"]['sales_report_uploaded_on_time'];
+
+        $this->assertSame('No', $onTime(7, '2026-09-13'));
+        $this->assertSame('Yes', $onTime(7, '2026-09-14'));
+        $this->assertSame('Yes', $onTime(7, '2026-09-15'));
+        // Whether a file actually arrived stays factual.
+        $this->assertSame('No', $rows['SALES_UPLOAD|7|2026-09-15']['sales_report_uploaded']);
+
+        // A store that is not live is still scored on its actual upload (My Actions reads it).
+        $this->assertSame('No', $onTime(8, '2026-09-13'));
+        $this->assertSame('Yes', $onTime(8, '2026-09-14'));
+        $this->assertSame('No', $onTime(8, '2026-09-15'));
+    }
+
+    public function test_rows_of_stores_that_are_not_live_yet_are_left_out_of_the_adoption_datasets(): void
+    {
+        $method = new ReflectionMethod(AdoptionRateTrackingService::class, 'rowsLiveOn');
+        $method->setAccessible(true);
+
+        $rows = collect([
+            ['store_branch_id' => 7, 'date_of_sales' => '2026-09-12', 'sales_report_uploaded_on_time' => 'No'],
+            ['store_branch_id' => 7, 'date_of_sales' => '2026-09-13', 'sales_report_uploaded_on_time' => 'No'],
+            ['store_branch_id' => 7, 'date_of_sales' => '2026-09-14', 'sales_report_uploaded_on_time' => 'Yes'],
+            ['store_branch_id' => 7, 'date_of_sales' => '2026-09-15', 'sales_report_uploaded_on_time' => 'Yes'],
+            ['store_branch_id' => 8, 'date_of_sales' => '2026-09-14', 'sales_report_uploaded_on_time' => 'No'],
+            ['store_branch_id' => 8, 'date_of_sales' => '2026-09-15', 'sales_report_uploaded_on_time' => 'No'],
+        ]);
+
+        // Store 7 is live from the 14th; store 8 never went live.
+        $live = $method->invoke(new AdoptionRateTrackingService(), $rows, 'date_of_sales', [7 => '2026-09-14']);
+
+        $this->assertSame(['2026-09-14', '2026-09-15'], $live->pluck('date_of_sales')->all());
+        $this->assertSame([7], $live->pluck('store_branch_id')->unique()->values()->all());
+        $this->assertSame(100.0, $this->statusAdoptionRateByStore($live, 'sales_report_uploaded_on_time'));
+        // Counted, the same rows would have dragged the rate down.
+        $this->assertSame(25.0, $this->statusAdoptionRateByStore($rows, 'sales_report_uploaded_on_time'));
+    }
+
+    public function test_the_go_live_day_is_the_monday_of_the_week_of_the_first_order(): void
+    {
+        $service = new AdoptionRateTrackingService();
+        app()->instance(\App\Http\Services\GoLiveStoresService::class, new class extends \App\Http\Services\GoLiveStoresService
+        {
+            public function goLiveDates(array $storeIds): array
+            {
+                return [7 => '2026-09-16'];
+            }
+        });
+
+        $method = new ReflectionMethod(AdoptionRateTrackingService::class, 'liveFromByStore');
+        $method->setAccessible(true);
+
+        $this->assertSame([7 => '2026-09-14'], $method->invoke($service, [7, 8]));
     }
 
     public function test_commit_rates_average_eligible_stores_equally_and_exclude_automated_only_stores(): void
@@ -360,12 +447,12 @@ class AdoptionRateTrackingServiceTest extends TestCase
         return $method->invoke(new AdoptionRateTrackingService(), $order, $template);
     }
 
-    private function commitStatus(?Carbon $commitDate, Carbon $deliveryDate, bool $excluded = false): string
+    private function commitStatus(bool $excluded = false): string
     {
         $method = new ReflectionMethod(AdoptionRateTrackingService::class, 'commitStatus');
         $method->setAccessible(true);
 
-        return $method->invoke(new AdoptionRateTrackingService(), $commitDate, $deliveryDate, $excluded);
+        return $method->invoke(new AdoptionRateTrackingService(), $excluded);
     }
 
     private function statusAdoptionRateByStore($rows, string $field): ?float

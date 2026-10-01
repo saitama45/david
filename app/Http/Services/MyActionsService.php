@@ -169,7 +169,8 @@ class MyActionsService
             if (! $canView($keys) || $branchIds->isEmpty()) {
                 continue;
             }
-            $data = $this->adoption->getReportData($filters + ['tab' => $tab, 'store_ids' => $branchIds->all()], $user, false);
+            // The adoption report leaves out stores that are not live; their missing work is still owed.
+            $data = $this->adoption->getReportData($filters + ['tab' => $tab, 'store_ids' => $branchIds->all(), 'include_not_live' => true], $user, false);
             foreach ($data['rows'] as $row) {
                 foreach ($this->guidance->reportActions($user, $tab, $row) as $task) {
                     $tasks->push($task);
