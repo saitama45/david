@@ -23,6 +23,10 @@ const props = defineProps({
         type: Object,
         required: true,
     },
+    liveBranchIds: {
+        type: Array,
+        default: () => [],
+    },
     suppliers: {
         type: Object,
         required: true,
@@ -86,6 +90,32 @@ const isAllBranchesChecked = computed({
         } else {
             form.assignedBranches = [];
         }
+    }
+});
+
+// Stores that are live on the dashboard's Go-Live Stores tab.
+const liveBranchIdSet = computed(() => new Set(props.liveBranchIds.map(Number)));
+
+const selectableBranches = computed(() => branchesOptions.value.filter(b => b.value !== 'all'));
+
+// Counts the ticked boxes, so it follows every check, uncheck and "Check All Branches".
+const checkedBranchesCount = computed(() =>
+    selectableBranches.value.filter(branch => form.assignedBranches.includes(branch.value)).length
+);
+
+const liveBranches = computed(() => selectableBranches.value.filter(branch => liveBranchIdSet.value.has(branch.value)));
+
+// Turning it on adds every live store to what is already ticked; turning it off unticks
+// the live stores only. Stores that are not live are left as they are either way.
+const isAllLiveBranchesChecked = computed({
+    get: () => liveBranches.value.length > 0 &&
+        liveBranches.value.every(branch => form.assignedBranches.includes(branch.value)),
+    set: (value) => {
+        const others = form.assignedBranches.filter(id => !liveBranchIdSet.value.has(id));
+
+        form.assignedBranches = value
+            ? [...others, ...liveBranches.value.map(branch => branch.value)]
+            : others;
     }
 });
 
@@ -261,16 +291,28 @@ const handleCancel = () => {
                     </InputContainer>
 
                     <InputContainer class="sm:col-span-2">
-                        <div class="flex items-center space-x-2 mb-2">
-                            <ToggleSwitch v-model="isAllBranchesChecked" id="editCheckAllBranches" />
-                            <label for="editCheckAllBranches" class="text-sm font-medium text-gray-700">Check All Branches</label>
+                        <div class="flex flex-wrap items-center gap-x-6 gap-y-2 mb-2">
+                            <div class="flex items-center space-x-2">
+                                <ToggleSwitch v-model="isAllBranchesChecked" id="editCheckAllBranches" />
+                                <label for="editCheckAllBranches" class="text-sm font-medium text-gray-700">Check All Branches</label>
+                                <span class="rounded-full bg-blue-100 px-2 py-0.5 text-xs font-semibold text-blue-700">
+                                    {{ checkedBranchesCount }} of {{ selectableBranches.length }} checked
+                                </span>
+                            </div>
+                            <div class="flex items-center space-x-2">
+                                <ToggleSwitch v-model="isAllLiveBranchesChecked" id="editCheckAllLiveBranches" :disabled="liveBranches.length === 0" />
+                                <label for="editCheckAllLiveBranches" class="text-sm font-medium text-gray-700">Check All Live Stores</label>
+                                <span class="rounded-full bg-green-100 px-2 py-0.5 text-xs font-semibold text-green-700">
+                                    {{ liveBranches.length }} live
+                                </span>
+                            </div>
                         </div>
                         <LabelXS> Assign Branches </LabelXS>
                         <div
                             class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4"
                         >
                             <div
-                                v-for="branch in branchesOptions.filter(b => b.value !== 'all')"
+                                v-for="branch in selectableBranches"
                                 :key="branch.value"
                                 class="flex items-center space-x-2"
                             >
@@ -281,6 +323,10 @@ const handleCancel = () => {
                                 />
                                 <label class="text-xs text-gray-600">
                                     {{ branch.label }}
+                                    <span
+                                        v-if="liveBranchIdSet.has(branch.value)"
+                                        class="ml-1 rounded-full bg-green-100 px-1.5 py-0.5 text-[10px] font-semibold text-green-700"
+                                    >Live</span>
                                 </label>
                             </div>
                         </div>

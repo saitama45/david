@@ -6,6 +6,7 @@ use App\Enum\UserRole;
 use App\Exports\UsersExport;
 use App\Http\Requests\User\StoreUserRequest;
 use App\Http\Requests\User\UpdateUserRequest;
+use App\Http\Services\GoLiveStoresService;
 use App\Http\Services\UserService;
 use App\Models\StoreBranch;
 use App\Models\User;
@@ -74,12 +75,19 @@ class UserController extends Controller
         });
         $suppliers = Supplier::reportOptions()->toArray();
 
+        // Live as the dashboard's Go-Live Stores tab defines it: the store has placed
+        // its first ordering transaction.
+        $liveBranchIds = array_keys(
+            app(GoLiveStoresService::class)->goLiveDates($branches->pluck('value')->all())
+        );
+
         Log::debug('UserController@edit: User object being passed to Inertia:', ['user' => $user]);
 
         return Inertia::render('User/Edit', [
             'user' => $user,
             'roles' => $roles,
             'branches' => $branches,
+            'liveBranchIds' => $liveBranchIds,
             'suppliers' => $suppliers
         ]);
     }
