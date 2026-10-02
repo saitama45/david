@@ -177,7 +177,10 @@ SQL Server as the target. Rationale and trade-offs: [Decisions.md](docs/knowledg
   Rate / totals are derived in `SuccessRateService`. Never add a transactions column.
   Transactions + adoption fallback are cached **together, and separately from the ticket data** —
   sharing one cache entry makes every save re-run the slow Adoption Rate trend and the save looks
-  hung.
+  hung. With `HELPDESK_API_URL`/`KEY` set, Incoming/Closed come from ghelpdesk instead
+  (`HelpdeskTicketTallyClient`, 5-min cache). A ticket type showing 0 there is a ghelpdesk item
+  missing its "DAVID Success Rate" type on helpdesk `/items` (`items.report_key`), not a DAVID bug;
+  NONOS counts every helpdesk company's tickets (`DAVID_TALLY_ALL_TICKETS_ENTITY` in ghelpdesk).
 - **Adoption Rate only counts go-live stores, and its commit and sales upload indicators are always
   100%.** `AdoptionRateTrackingService::liveRows()` drops every row of a store that was not live on the
   row's date (live = from the Monday of its go-live week, `GoLiveStoresService::goLiveDates()`, the

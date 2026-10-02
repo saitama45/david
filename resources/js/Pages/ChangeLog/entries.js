@@ -18,6 +18,24 @@ export const changeLog = [
     // ---------------------------------------------------------------- October 2, 2026
     {
         date: '2026-10-02',
+        module: 'Dashboard',
+        type: 'improved',
+        title: 'Success Rate now counts every ticket type from Helpdesk, not only MEC',
+        summary:
+            'On the Success Rate tab, Incoming and Closed come from Helpdesk, but only MEC tickets were being counted. Order, Commit, Receiving, Wastage, Sales Upload and Admin / Technical Concerns tickets showed 0 even after they were tagged in Helpdesk. All seven ticket types are now counted, including in past weeks.',
+        rules: [
+            'A ticket counts under the DAVID ticket type set on its Helpdesk item. Renaming the item in Helpdesk no longer stops its tickets from being counted.',
+            'A new Helpdesk item counts only after its "DAVID Success Rate" type is picked on the item in Helpdesk. Items left as "Not counted", such as Account or the Wastages Concern items, are not counted.',
+            'Incoming is the tickets opened in that week, Monday to Sunday. A ticket opened on a Sunday belongs to the week that ends that day.',
+            'Closed is those same tickets that are now closed. Resolved and waiting tickets are not closed yet.',
+            'For Nono\'s, every DAVID ticket counts, whichever company or mailbox it came through (head office TGI tickets and Coffee Bean tickets included), until Coffee Bean starts using the system.',
+            'A partner escalation copy of a ticket is not counted a second time.',
+            'Helpdesk counts are kept for up to 5 minutes. "Refresh from Helpdesk" fetches them at once.',
+        ],
+        affects: 'Management and anyone reading the Success Rate tab, and Helpdesk admins who manage the DAVID items.',
+    },
+    {
+        date: '2026-10-02',
         module: 'BOM List',
         type: 'new',
         title: '"Create New Item" button to add one BOM line without uploading a file',
