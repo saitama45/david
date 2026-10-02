@@ -15,6 +15,24 @@
 //   affects  who will notice the change
 
 export const changeLog = [
+    // ---------------------------------------------------------------- October 2, 2026
+    {
+        date: '2026-10-02',
+        module: 'Inbound Orders (Receiving)',
+        type: 'improved',
+        title: '"Confirm Receive" button renamed to "Confirm Receive All"',
+        summary:
+            'The button under Receiving History on an order\'s receiving page was called "Confirm Receive", which did not say that it confirms every pending line in one go. It is now called "Confirm Receive All". Only the name changed. What the button does is the same as before.',
+        rules: [
+            '"Confirm Receive All" posts all received quantities that are still pending to stock at once. It does not confirm one line at a time.',
+            'The button shows only while the order has received quantities that are not yet confirmed.',
+            'The button stays locked until the order has a delivery receipt and an image attached.',
+            'The system asks you to confirm first, because the action cannot be undone.',
+            'The Confirm Receive button on Interco Receiving keeps its name.',
+        ],
+        affects: 'Store users who receive deliveries.',
+    },
+
     // ---------------------------------------------------------------- October 1, 2026
     {
         date: '2026-10-01',

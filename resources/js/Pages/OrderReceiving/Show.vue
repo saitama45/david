@@ -1126,7 +1126,7 @@ const promptConfirmReceive = () => {
                             :variant="!canConfirmReceive ? 'secondary' : 'default'"
                             :title="!canConfirmReceive ? 'A delivery receipt and image are required before confirming.' : 'Confirm all pending received items'"
                         >
-                            Confirm Receive
+                            Confirm Receive All
                         </Button>
                         </div>
                     </div>
