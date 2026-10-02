@@ -223,10 +223,11 @@ const openEditQuantityModal = (id, quantity) => {
                 </TableHead>
                 <TableBody>
                     <tr v-for="item in orderedItems" :key="order.id">
-                        <TD>{{ item.supplier_item.ItemCode }}</TD>
-                        <TD>{{ item.supplier_item.item_name }}</TD>
+                        <!-- A received line added from the SAP Masterlist has no supplier item. -->
+                        <TD>{{ item.supplier_item?.ItemCode ?? item.item_code }}</TD>
+                        <TD>{{ item.supplier_item?.item_name ?? item.item_description }}</TD>
                         <TD>{{
-                            item.supplier_item.uom
+                            item.supplier_item?.uom ?? item.uom
                         }}</TD>
                         <TD class="flex items-center gap-3">
                             {{
@@ -262,7 +263,7 @@ const openEditQuantityModal = (id, quantity) => {
             <MobileTableContainer>
                 <MobileTableRow v-for="item in orderedItems" :key="order.id">
                     <MobileTableHeading
-                        :title="`${item.supplier_item.item_name} (${item.supplier_item.ItemCode})`"
+                        :title="`${item.supplier_item?.item_name ?? item.item_description} (${item.supplier_item?.ItemCode ?? item.item_code})`"
                     >
                         <DivFlexCenter
                             class="gap-2"
@@ -279,7 +280,7 @@ const openEditQuantityModal = (id, quantity) => {
                     <LabelXS
                         >UOM:
                         {{
-                            item.supplier_item.uom
+                            item.supplier_item?.uom ?? item.uom
                         }}</LabelXS
                     >
                     <LabelXS

@@ -97,7 +97,8 @@ class OrderReceivingController extends Controller
             // The page hides the edit pencil on the same rule the server enforces.
             'receivingEditDeadline' => optional($this->orderReceivingService->receivingEditDeadline($order))
                 ->format('Y-m-d H:i:s'),
-            // Catalogue for the "item delivered but not ordered" picker. Mapped to a lean
+            // Supplier Items tab of the "item delivered but not ordered" picker; the SAP
+            // Masterlist tab is searched on demand (unlistedSapItems). Mapped to a lean
             // shape on purpose: serialising the models would fire SupplierItems' appended
             // sap_master_file accessor once per row.
             'unlistedItemOptions' => \App\Models\SupplierItems::forSupplierCode((string) ($order->supplier?->supplier_code ?? ''))
@@ -148,6 +149,18 @@ class OrderReceivingController extends Controller
         }
 
         return redirect()->back()->with('success', 'Item added to the receiving history.');
+    }
+
+    /**
+     * The SAP Masterlist tab of the "Add Unlisted Item" picker, searched as the user types.
+     */
+    public function unlistedSapItems(Request $request, StoreOrder $order)
+    {
+        $validated = $request->validate(['search' => ['nullable', 'string', 'max:100']]);
+
+        return response()->json(
+            $this->orderReceivingService->unlistedSapItems($order, $validated['search'] ?? null)
+        );
     }
 
     public function receive(ReceiveOrderRequest $request, $id)
@@ -296,7 +309,9 @@ class OrderReceivingController extends Controller
 
             // 1. Aggregate quantities in BASE UOM
             foreach ($historyItems as $history) {
-                $itemCode = optional($history->store_order_item->supplierItem)->ItemCode;
+                // The line's own item code, not its supplier item's: a line added from the SAP
+                // Masterlist has no supplier item and must still reach stock.
+                $itemCode = optional($history->store_order_item)->item_code;
                 $uom = optional($history->store_order_item)->uom;
 
                 if (!$itemCode || !$uom) {

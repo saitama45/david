@@ -3,7 +3,8 @@ import { ref, watch, computed, onMounted, onUnmounted } from "vue";
 import { useForm } from "@inertiajs/vue3";
 import { useToast } from "primevue/usetoast";
 import { router } from "@inertiajs/vue3";
-import { X, Eye, PackagePlus, Search, Check, Loader2 } from "lucide-vue-next";
+import axios from "axios";
+import { X, Eye, PackagePlus, Search, Check, Loader2, AlertTriangle } from "lucide-vue-next";
 import { useConfirm } from "primevue/useconfirm";
 import dayjs from "dayjs";
 import utc from "dayjs/plugin/utc"; // Import UTC plugin
@@ -376,12 +377,22 @@ const isUnlistedModalVisible = ref(false);
 const unlistedSearch = ref("");
 const unlistedForm = useForm({
     item_code: "",
+    uom: "",
+    cost: 0,
     quantity_received: null,
     expiry_date: null,
     remarks: "Received without being ordered.",
 });
 
-const unlistedMatches = computed(() => {
+// The item is picked from one of two lists: the order's supplier list, which the page
+// already holds, or the whole SAP Masterlist, which is searched on the server.
+const unlistedTabs = [
+    { key: "supplier", label: "Supplier Items" },
+    { key: "sap", label: "SAP Masterlist" },
+];
+const unlistedTab = ref("supplier");
+
+const supplierMatches = computed(() => {
     const term = unlistedSearch.value.trim().toLowerCase();
     const list = props.unlistedItemOptions;
     if (!term) return list;
@@ -392,6 +403,53 @@ const unlistedMatches = computed(() => {
     );
 });
 
+const sapItems = ref([]);
+// Active SAP Masterlist items not yet on the order; null until the first search returns.
+const sapAvailable = ref(null);
+const sapHasMore = ref(false);
+const sapLoading = ref(false);
+const sapError = ref("");
+let sapSearchTimer = null;
+let sapRequestId = 0;
+
+const loadSapItems = async () => {
+    // A slower, older search must not overwrite the answer to the latest one.
+    const requestId = ++sapRequestId;
+    sapLoading.value = true;
+    sapError.value = "";
+
+    try {
+        const { data } = await axios.get(
+            route("orders-receiving.unlisted-sap-items", props.order.id),
+            { params: { search: unlistedSearch.value.trim() } }
+        );
+        if (requestId !== sapRequestId) return;
+        sapItems.value = data.items;
+        sapAvailable.value = data.available;
+        sapHasMore.value = data.more;
+    } catch (error) {
+        if (requestId !== sapRequestId) return;
+        sapItems.value = [];
+        sapError.value = "The SAP Masterlist could not be loaded. Please try again.";
+    } finally {
+        if (requestId === sapRequestId) sapLoading.value = false;
+    }
+};
+
+watch(unlistedSearch, () => {
+    if (unlistedTab.value !== "sap") return;
+    clearTimeout(sapSearchTimer);
+    sapSearchTimer = setTimeout(loadSapItems, 300);
+});
+
+watch(unlistedTab, (tab) => {
+    if (tab === "sap" && isUnlistedModalVisible.value) loadSapItems();
+});
+
+const unlistedMatches = computed(() =>
+    unlistedTab.value === "supplier" ? supplierMatches.value : sapItems.value
+);
+
 // Quick reasons an unordered item turns up on a delivery.
 const unlistedReasonPresets = [
     "Delivered but not ordered",
@@ -399,19 +457,85 @@ const unlistedReasonPresets = [
     "Bonus / free goods",
 ];
 
-const selectedUnlistedItem = computed(() =>
-    props.unlistedItemOptions.find((i) => i.item_code === unlistedForm.item_code) || null
+// An item is listed once per unit in both lists, so the unit is part of what was picked.
+const selectedUnlistedItem = ref(null);
+
+const isUnlistedItemSelected = (item) =>
+    unlistedForm.item_code === item.item_code && unlistedForm.uom === item.uom;
+
+const selectUnlistedItem = (item) => {
+    unlistedForm.item_code = item.item_code;
+    unlistedForm.uom = item.uom;
+    // Every pick starts from zero again, so a cost typed for another item is never carried over.
+    unlistedForm.cost = 0;
+    selectedUnlistedItem.value = item;
+};
+
+// Supplier Items rows, and SAP Masterlist rows this order's supplier also lists, are received
+// at the supplier's cost. Any other SAP Masterlist item has no price on file: the receiver
+// types one, and it stays zero unless they do.
+const unlistedNeedsCost = computed(() => selectedUnlistedItem.value?.supplier_listed === false);
+
+const unlistedCostIsZero = computed(() => !(Number(unlistedForm.cost) > 0));
+
+const unlistedTotalCost = computed(() =>
+    (Number(unlistedForm.cost) || 0) * (Number(unlistedForm.quantity_received) || 0)
 );
+
+const formatPeso = (value) =>
+    Number(value || 0).toLocaleString("en-PH", { minimumFractionDigits: 2, maximumFractionDigits: 4 });
 
 const openUnlistedModal = () => {
     unlistedForm.reset();
     unlistedForm.clearErrors();
     unlistedSearch.value = "";
+    selectedUnlistedItem.value = null;
+    sapItems.value = [];
+    sapAvailable.value = null;
+    sapHasMore.value = false;
+    sapError.value = "";
     isUnlistedModalVisible.value = true;
+
+    // Start on the supplier's list; when all of it is already on the order, go straight to
+    // the SAP Masterlist.
+    const tab = props.unlistedItemOptions.length > 0 ? "supplier" : "sap";
+    if (unlistedTab.value === tab) {
+        if (tab === "sap") loadSapItems();
+    } else {
+        unlistedTab.value = tab;
+    }
 };
 
 const closeUnlistedModal = () => {
     isUnlistedModalVisible.value = false;
+};
+
+// A zero cost is allowed, but never by accident: the receiver has to say yes to it first.
+const promptSubmitUnlistedItem = () => {
+    if (!unlistedNeedsCost.value || !unlistedCostIsZero.value) {
+        submitUnlistedItem();
+        return;
+    }
+
+    const item = selectedUnlistedItem.value;
+
+    confirm.require({
+        header: "Receive at zero cost?",
+        message: `${item.item_name} (${item.uom}) has no cost entered, so it will be received at ZERO cost. Its stock will be added with no value. Go back and type the cost per ${item.uom} if you know it.`,
+        icon: "pi pi-exclamation-triangle",
+        rejectProps: {
+            label: "Go back and enter a cost",
+            severity: "secondary",
+            outlined: true,
+        },
+        acceptProps: {
+            label: "Receive at zero cost",
+            severity: "warn",
+        },
+        accept: () => {
+            submitUnlistedItem();
+        },
+    });
 };
 
 const submitUnlistedItem = () => {
@@ -1108,13 +1232,16 @@ const promptConfirmReceive = () => {
                             </p>
                         </div>
                         <div class="flex items-center gap-3">
+                            <!-- Always offered while the delivery can still be corrected, even when the
+                                 supplier has nothing left to add: the dialog says so. It goes away
+                                 only when the 3-day window closes. -->
                             <Button
-                            v-if="unlistedItemOptions.length > 0"
+                            v-if="!isPastEditWindow"
                             :disabled="!canRecordReceipt"
                             variant="outline"
                             class="border-2 border-dashed border-indigo-400 bg-indigo-50 text-indigo-700 font-semibold shadow-sm hover:bg-indigo-100 hover:border-indigo-500 hover:text-indigo-800 hover:shadow-md transition-all"
                             @click="openUnlistedModal"
-                            :title="canRecordReceipt ? 'Record an item that was delivered but is not on this order' : (isPastEditWindow ? editWindowHint : evidenceHint)"
+                            :title="canRecordReceipt ? 'Record an item that was delivered but is not on this order' : evidenceHint"
                         >
                             <PackagePlus class="size-4" />
                             Add Unlisted Item
@@ -1161,17 +1288,19 @@ const promptConfirmReceive = () => {
                                 class="hover:bg-gray-50 transition-colors duration-150"
                             >
                                 <td class="px-4 py-4 text-center font-mono text-gray-500">{{ index + 1 }}</td>
+                                <!-- A line added from the SAP Masterlist has no supplier item: fall back
+                                     to the line's own item code and SAP description. -->
                                 <td class="px-4 py-4 font-mono text-xs text-gray-600">{{
-                                    history.store_order_item.supplier_item
-                                        .ItemCode
+                                    history.store_order_item.supplier_item?.ItemCode
+                                        ?? history.store_order_item.item_code
                                 }}</td>
                                 <td class="px-4 py-4 font-medium text-gray-800">{{
-                                    history.store_order_item.supplier_item
-                                        .item_name
+                                    history.store_order_item.supplier_item?.item_name
+                                        ?? history.store_order_item.item_description
                                 }}</td>
                                 <td class="px-4 py-4">
                                     <div class="flex flex-col text-xs">
-                                        <span class="text-gray-500">Base: <span class="text-gray-900 font-medium">{{ history.store_order_item.supplier_item.sap_master_file?.BaseUOM || '-' }}</span></span>
+                                        <span class="text-gray-500">Base: <span class="text-gray-900 font-medium">{{ history.store_order_item.supplier_item?.sap_master_file?.BaseUOM || '-' }}</span></span>
                                         <span class="text-gray-500">Order: <span class="text-gray-900 font-medium">{{ history.store_order_item.uom }}</span></span>
                                         <!-- UoM changed during the CS Mass Commit phase: flag it so the receiver
                                              knows the unit (and therefore the quantities) is not the one ordered. -->
@@ -1222,7 +1351,7 @@ const promptConfirmReceive = () => {
                 <div class="block md:hidden p-4 space-y-4">
                     <div v-for="history in receiveDatesHistory" :key="history.id" class="bg-white border border-gray-200 rounded-lg p-4">
                         <div class="flex justify-between items-start mb-3">
-                            <h4 class="font-medium text-gray-900 text-sm">{{ history.store_order_item.supplier_item.item_name }}</h4>
+                            <h4 class="font-medium text-gray-900 text-sm">{{ history.store_order_item.supplier_item?.item_name ?? history.store_order_item.item_description }}</h4>
                             <div class="flex gap-1">
                                 <ShowButton
                                     class="size-8"
@@ -1374,16 +1503,37 @@ const promptConfirmReceive = () => {
                             <Label class="text-xs font-semibold uppercase tracking-wide text-gray-700">
                                 Item <span class="text-red-500">*</span>
                             </Label>
-                            <span class="text-xs text-gray-400">
-                                {{ unlistedMatches.length }} of {{ unlistedItemOptions.length }} available
+                            <span v-if="unlistedTab === 'supplier'" class="text-xs text-gray-400">
+                                {{ supplierMatches.length }} of {{ unlistedItemOptions.length }} available
                             </span>
+                            <span v-else-if="sapAvailable !== null" class="text-xs text-gray-400">
+                                {{ sapAvailable.toLocaleString() }} item(s) available
+                            </span>
+                        </div>
+
+                        <!-- Where to look for the item -->
+                        <div class="mb-2 grid grid-cols-2 gap-1 rounded-lg bg-gray-100 p-1">
+                            <button
+                                v-for="tab in unlistedTabs"
+                                :key="tab.key"
+                                type="button"
+                                @click="unlistedTab = tab.key"
+                                :class="[
+                                    'rounded-md px-3 py-1.5 text-sm font-medium transition-colors',
+                                    unlistedTab === tab.key
+                                        ? 'bg-white text-indigo-700 shadow-sm'
+                                        : 'text-gray-600 hover:text-gray-900',
+                                ]"
+                            >
+                                {{ tab.label }}
+                            </button>
                         </div>
 
                         <div class="relative mb-2">
                             <Search class="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-gray-400" />
                             <Input
                                 v-model="unlistedSearch"
-                                placeholder="Search by item code or name..."
+                                :placeholder="unlistedTab === 'supplier' ? 'Search Supplier Items by item code or name...' : 'Search SAP Masterlist by item code or name...'"
                                 class="pl-9"
                             />
                         </div>
@@ -1391,12 +1541,12 @@ const promptConfirmReceive = () => {
                         <div class="max-h-56 divide-y divide-gray-100 overflow-y-auto rounded-lg border border-gray-200 bg-white">
                             <button
                                 v-for="item in unlistedMatches"
-                                :key="item.item_code"
+                                :key="`${item.item_code}|${item.uom}`"
                                 type="button"
-                                @click="unlistedForm.item_code = item.item_code"
+                                @click="selectUnlistedItem(item)"
                                 :class="[
                                     'flex w-full items-center gap-3 px-3 py-2.5 text-left transition-colors',
-                                    unlistedForm.item_code === item.item_code
+                                    isUnlistedItemSelected(item)
                                         ? 'bg-indigo-50/80'
                                         : 'hover:bg-gray-50',
                                 ]"
@@ -1409,21 +1559,104 @@ const promptConfirmReceive = () => {
                                     </p>
                                 </div>
                                 <Check
-                                    v-if="unlistedForm.item_code === item.item_code"
+                                    v-if="isUnlistedItemSelected(item)"
                                     class="size-4 shrink-0 text-indigo-600"
                                 />
                             </button>
 
-                            <div v-if="unlistedMatches.length === 0" class="px-3 py-8 text-center">
-                                <p class="text-sm font-medium text-gray-600">No matching items</p>
-                                <p class="mt-1 text-xs text-gray-400">Try a different item code or name.</p>
-                            </div>
+                            <!-- Supplier Items tab: nothing left, or nothing matches -->
+                            <template v-if="unlistedTab === 'supplier'">
+                                <div v-if="unlistedItemOptions.length === 0" class="px-3 py-8 text-center">
+                                    <p class="text-sm font-medium text-gray-600">All items are already on this order</p>
+                                    <p class="mt-1 text-xs text-gray-400">
+                                        Every item in this supplier&apos;s item list is already on this order.
+                                        Look for other items in the SAP Masterlist tab.
+                                    </p>
+                                </div>
+                                <div v-else-if="supplierMatches.length === 0" class="px-3 py-8 text-center">
+                                    <p class="text-sm font-medium text-gray-600">No matching items</p>
+                                    <p class="mt-1 text-xs text-gray-400">Try a different item code or name, or look in the SAP Masterlist tab.</p>
+                                </div>
+                            </template>
+
+                            <!-- SAP Masterlist tab: searching, failed, nothing left, or nothing matches -->
+                            <template v-else>
+                                <div v-if="sapLoading && sapItems.length === 0" class="flex items-center justify-center gap-2 px-3 py-8 text-sm text-gray-500">
+                                    <Loader2 class="size-4 animate-spin" />
+                                    Searching the SAP Masterlist...
+                                </div>
+                                <div v-else-if="sapError" class="px-3 py-8 text-center">
+                                    <p class="text-sm font-medium text-red-600">{{ sapError }}</p>
+                                </div>
+                                <div v-else-if="sapAvailable === 0" class="px-3 py-8 text-center">
+                                    <p class="text-sm font-medium text-gray-600">All items are already on this order</p>
+                                    <p class="mt-1 text-xs text-gray-400">Every active item in the SAP Masterlist is already on this order.</p>
+                                </div>
+                                <div v-else-if="sapItems.length === 0" class="px-3 py-8 text-center">
+                                    <p class="text-sm font-medium text-gray-600">No matching items</p>
+                                    <p class="mt-1 text-xs text-gray-400">Try a different item code or name.</p>
+                                </div>
+                            </template>
                         </div>
 
-                        <p class="mt-2 text-xs text-gray-500">
+                        <p v-if="unlistedTab === 'supplier'" class="mt-2 text-xs text-gray-500">
                             Items from this order&apos;s supplier list, excluding those already on the order.
                         </p>
+                        <p v-else class="mt-2 text-xs text-gray-500">
+                            Active items from the SAP Masterlist, excluding those already on the order.
+                            <span v-if="sapHasMore">Only the first matches are shown. Type an item code or name to narrow the list.</span>
+                        </p>
                         <FormError>{{ unlistedForm.errors.item_code }}</FormError>
+                    </div>
+
+                    <!-- Cost: asked only for an item that has no price on file. Loud while it is zero. -->
+                    <div
+                        v-if="unlistedNeedsCost"
+                        :class="[
+                            'rounded-lg border-2 px-4 py-3',
+                            unlistedCostIsZero ? 'border-amber-400 bg-amber-50' : 'border-gray-200 bg-gray-50',
+                        ]"
+                    >
+                        <div class="flex items-start gap-3">
+                            <AlertTriangle v-if="unlistedCostIsZero" class="mt-0.5 size-5 shrink-0 text-amber-600" />
+                            <div class="min-w-0 flex-1">
+                                <p v-if="unlistedCostIsZero" class="text-sm font-bold text-amber-900">
+                                    This item will be received at ZERO cost
+                                </p>
+                                <p v-else class="text-sm font-semibold text-gray-900">
+                                    This item will be received at ₱{{ formatPeso(unlistedForm.cost) }} per {{ selectedUnlistedItem.uom }}
+                                </p>
+                                <p :class="['mt-1 text-xs', unlistedCostIsZero ? 'text-amber-800' : 'text-gray-600']">
+                                    {{ selectedUnlistedItem.item_name }} is not in this supplier&apos;s item list, so the system has no
+                                    price for it. Type the cost per {{ selectedUnlistedItem.uom }} from the delivery receipt or invoice.
+                                    If you leave it at zero, its stock is added with no value.
+                                </p>
+
+                                <div class="mt-3 grid items-end gap-3 sm:grid-cols-2">
+                                    <div>
+                                        <Label class="text-xs font-semibold uppercase tracking-wide text-gray-700">
+                                            Cost per {{ selectedUnlistedItem.uom }}
+                                        </Label>
+                                        <div class="relative mt-2">
+                                            <span class="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm font-medium text-gray-400">₱</span>
+                                            <Input
+                                                v-model="unlistedForm.cost"
+                                                type="number"
+                                                step="any"
+                                                min="0"
+                                                placeholder="0"
+                                                class="bg-white pl-7 font-semibold"
+                                            />
+                                        </div>
+                                    </div>
+                                    <p class="pb-2 text-xs text-gray-600">
+                                        Total: <span class="font-semibold text-gray-900">₱{{ formatPeso(unlistedTotalCost) }}</span>
+                                        <span class="text-gray-400"> (cost x quantity received)</span>
+                                    </p>
+                                </div>
+                                <FormError>{{ unlistedForm.errors.cost }}</FormError>
+                            </div>
+                        </div>
                     </div>
 
                     <!-- Quantity + expiry -->
@@ -1501,7 +1734,8 @@ const promptConfirmReceive = () => {
                 <div class="flex items-center justify-between gap-3 border-t border-gray-100 bg-gray-50 px-6 py-4">
                     <p class="hidden text-xs text-gray-500 sm:block">
                         <span v-if="selectedUnlistedItem">
-                            Adding <span class="font-medium text-gray-700">{{ selectedUnlistedItem.item_name }}</span>
+                            Adding <span class="font-medium text-gray-700">{{ selectedUnlistedItem.item_name }} ({{ selectedUnlistedItem.uom }})</span>
+                            <span v-if="unlistedNeedsCost && unlistedCostIsZero" class="font-bold text-amber-700"> at ZERO cost</span>
                         </span>
                         <span v-else>Select an item to continue.</span>
                     </p>
@@ -1509,7 +1743,7 @@ const promptConfirmReceive = () => {
                         <Button variant="ghost" @click="closeUnlistedModal">Cancel</Button>
                         <Button
                             :disabled="!unlistedForm.item_code || !unlistedForm.quantity_received || !unlistedForm.remarks || unlistedForm.processing"
-                            @click="submitUnlistedItem"
+                            @click="promptSubmitUnlistedItem"
                         >
                             <Loader2 v-if="unlistedForm.processing" class="size-4 animate-spin" />
                             {{ unlistedForm.processing ? "Adding..." : "Add Item" }}
@@ -1613,11 +1847,11 @@ const promptConfirmReceive = () => {
                         <div class="grid grid-cols-2 gap-4">
                              <div>
                                 <span class="text-xs text-gray-500 uppercase tracking-wide">Item Name</span>
-                                <p class="font-medium text-gray-900 mt-0.5">{{ selectedItem?.store_order_item.supplier_item.item_name }}</p>
+                                <p class="font-medium text-gray-900 mt-0.5">{{ selectedItem?.store_order_item.supplier_item?.item_name ?? selectedItem?.store_order_item.item_description }}</p>
                             </div>
                             <div>
                                 <span class="text-xs text-gray-500 uppercase tracking-wide">Item Code</span>
-                                <p class="font-mono text-gray-700 mt-0.5">{{ selectedItem?.store_order_item.supplier_item.ItemCode }}</p>
+                                <p class="font-mono text-gray-700 mt-0.5">{{ selectedItem?.store_order_item.supplier_item?.ItemCode ?? selectedItem?.store_order_item.item_code }}</p>
                             </div>
                         </div>
                      </div>

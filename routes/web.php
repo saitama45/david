@@ -527,6 +527,7 @@ Route::middleware('auth')
                 Route::put('/orders-receiving/update-delivery-receipt-number/{id}', 'updateDeliveryReceiptNumber')->name('update-delivery-receipt-number');
 
                 Route::post('/orders-receiving/{order}/add-unlisted-item', 'addUnlistedItem')->name('add-unlisted-item');
+                Route::get('/orders-receiving/{order}/unlisted-sap-items', 'unlistedSapItems')->name('unlisted-sap-items');
 
                 Route::post('/orders-receiving/delete-receiving-history/{id}', 'deleteReceiveDateHistory')->name('delete-receiving-history');
                 Route::post('/orders-receiving/update-receiving-history', 'updateReceiveDateHistory')->name('update-receiving-history');
@@ -860,6 +861,7 @@ Route::middleware('auth')
             Route::middleware('permission:create POSMasterfile BOM')->group(function () {
                 Route::post('/pos-bom-list/store', 'store')->name('store');
                 Route::get('/pos-bom-list/create', 'create')->name('create');
+                Route::get('/pos-bom-list/lookup', 'lookup')->name('lookup');
                 Route::post('/pos-bom-list/import', 'import')->name('import');
                 Route::post('/pos-bom-list/duplicates/allow', 'allowDuplicates')->name('duplicates.allow');
                 Route::post('/pos-bom-list/duplicates/dismiss', 'dismissDuplicates')->name('duplicates.dismiss');

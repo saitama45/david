@@ -587,39 +587,56 @@ class OrderReceivingService extends StoreOrderService
         $this->assertDeliveryEvidence($order);
 
         $supplierCode = (string) ($order->supplier?->supplier_code ?? '');
-        $itemCode = (string) $data['item_code'];
-
-        // Same catalogue the order itself was placed from.
-        $catalogueItem = SupplierItems::forSupplierCode($supplierCode)
-            ->firstWhere('ItemCode', $itemCode);
-
-        if (! $catalogueItem) {
-            throw new \Exception("{$itemCode} is not in the {$supplierCode} item list, so it cannot be received against this order.");
-        }
+        $itemCode = trim((string) $data['item_code']);
+        $requestedUom = trim((string) ($data['uom'] ?? ''));
 
         if ($order->store_order_items()->where('item_code', $itemCode)->exists()) {
             throw new \Exception("{$itemCode} is already on this order. Record the delivered quantity on its existing row instead of adding it again.");
         }
 
-        $uom = $catalogueItem->uom;
+        // The order's own supplier list first: it carries the price. A supplier lists an
+        // item once per unit (Pack and Gm), so the unit is part of the match.
+        $catalogueItem = SupplierItems::forSupplierCode($supplierCode)
+            ->first(fn ($item) => $item->ItemCode === $itemCode
+                && ($requestedUom === '' || strcasecmp(trim((string) $item->uom), $requestedUom) === 0));
+
+        $uom = $catalogueItem ? (string) $catalogueItem->uom : $requestedUom;
+
+        if ($uom === '') {
+            throw new \Exception("Pick the unit {$itemCode} was received in.");
+        }
 
         // confirmReceive() needs both of these to convert the receipt into base UOM, and it
         // only logs a warning when they are missing — the receipt would silently never reach
         // stock. Fail here instead, while the user can still act on it.
-        $orderedMasterfile = SAPMasterfile::where('ItemCode', $itemCode)
-            ->whereRaw('UPPER(AltUOM) = ?', [strtoupper((string) $uom)])
-            ->first();
+        $sapRows = SAPMasterfile::where('ItemCode', $itemCode)
+            ->whereRaw('UPPER(AltUOM) = ?', [strtoupper($uom)]);
+
+        // An item outside the supplier's list may be any item of the SAP Masterlist, as long
+        // as it is active there.
+        $orderedMasterfile = $catalogueItem
+            ? $sapRows->first()
+            : $sapRows->where('is_active', true)->first();
 
         if (! $orderedMasterfile) {
-            throw new \Exception("{$itemCode} has no SAP masterfile entry for UOM {$uom}, so the quantity could not be converted to stock.");
+            throw new \Exception($catalogueItem
+                ? "{$itemCode} has no SAP masterfile entry for UOM {$uom}, so the quantity could not be converted to stock."
+                : "{$itemCode} ({$uom}) is not an active item in the SAP Masterlist or in the {$supplierCode} item list, so it cannot be received against this order.");
         }
 
-        if (! \App\Support\ItemStockUnit::forItem($itemCode)->stockRowFor($uom)) {
+        $stockUnit = \App\Support\ItemStockUnit::forItem($itemCode);
+
+        if (! $stockUnit->stockRowFor($uom)) {
             throw new \Exception("{$itemCode} has no base-UOM SAP masterfile entry that {$uom} converts into, so the quantity could not be posted to stock on hand.");
         }
 
         $quantity = (float) $data['quantity_received'];
-        $cost = (float) ($catalogueItem->cost ?? 0);
+
+        // The supplier's list knows its own price. Outside it there is no price to look up,
+        // so the receiver types one; left alone it is zero, which the page makes them confirm.
+        $cost = $catalogueItem
+            ? (float) ($catalogueItem->cost ?? 0)
+            : (float) ($data['cost'] ?? 0);
 
         return DB::transaction(function () use ($order, $itemCode, $uom, $quantity, $cost, $orderedMasterfile, $data) {
             $item = $order->store_order_items()->create([
@@ -666,6 +683,80 @@ class OrderReceivingService extends StoreOrderService
 
             return $item;
         });
+    }
+
+    /**
+     * Active SAP Masterlist items that can be received against this order although they
+     * were never ordered: one row per ItemCode + unit, without the items already on the
+     * order and without units that have no stock row to post to.
+     *
+     * The masterlist is too large to hand to the page (9,000+ rows), so it is searched
+     * here and only the first $limit items come back.
+     *
+     * supplier_listed marks a row the order's supplier also lists in that unit: it is
+     * received at the supplier's cost, so the page asks for no cost.
+     *
+     * @return array{items: array<int, array{item_code: string, item_name: string, uom: string, supplier_listed: bool}>, available: int, more: bool}
+     */
+    public function unlistedSapItems(StoreOrder $order, ?string $search = null, int $limit = 50): array
+    {
+        $onOrder = $order->store_order_items()->pluck('item_code')->filter()->unique()->values()->all();
+
+        $supplierListed = SupplierItems::forSupplierCode((string) ($order->supplier?->supplier_code ?? ''))
+            ->mapWithKeys(fn ($item) => [$item->ItemCode.'|'.strtoupper(trim((string) $item->uom)) => true]);
+
+        $candidates = SAPMasterfile::query()
+            ->where('is_active', true)
+            ->when($onOrder, fn ($query) => $query->whereNotIn('ItemCode', $onOrder));
+
+        $available = (clone $candidates)->distinct()->count('ItemCode');
+
+        // SQL Server reads %, _ and [ as wildcards.
+        $term = str_replace(['[', '%', '_'], ['[[]', '[%]', '[_]'], trim((string) $search));
+
+        $itemCodes = (clone $candidates)
+            ->when($term !== '', fn ($query) => $query->where(fn ($query) => $query
+                ->where('ItemCode', 'like', "%{$term}%")
+                ->orWhere('ItemDescription', 'like', "%{$term}%")))
+            ->select('ItemCode')
+            ->distinct()
+            ->orderBy('ItemCode')
+            ->limit($limit + 1)
+            ->pluck('ItemCode');
+
+        $more = $itemCodes->count() > $limit;
+        $itemCodes = $itemCodes->take($limit);
+
+        // Every row of each item, inactive ones included: the stock unit is worked out from
+        // all of an item's conversions, as ItemStockUnit::forItem() does.
+        $rowsByItem = SAPMasterfile::whereIn('ItemCode', $itemCodes->all())
+            ->orderBy('id')
+            ->get()
+            ->groupBy(fn ($row) => strtoupper(trim((string) $row->ItemCode)));
+
+        $items = [];
+
+        foreach ($itemCodes as $itemCode) {
+            $rows = $rowsByItem->get(strtoupper(trim((string) $itemCode)), collect());
+            $stockUnit = \App\Support\ItemStockUnit::fromRows($rows);
+
+            foreach (\App\Support\ItemStockUnit::onePerUnit($rows->filter(fn ($row) => (bool) $row->is_active)) as $row) {
+                $uom = trim((string) $row->AltUOM);
+
+                if ($uom === '' || ! $stockUnit->stockRowFor($uom)) {
+                    continue;
+                }
+
+                $items[] = [
+                    'item_code' => $row->ItemCode,
+                    'item_name' => $row->ItemDescription,
+                    'uom' => $uom,
+                    'supplier_listed' => $supplierListed->has($row->ItemCode.'|'.strtoupper($uom)),
+                ];
+            }
+        }
+
+        return ['items' => $items, 'available' => $available, 'more' => $more];
     }
 
     public function addDeliveryReceiptNumber(array $data)

@@ -238,6 +238,13 @@ SQL Server as the target. Rationale and trade-offs: [Decisions.md](docs/knowledg
   the file gave that same AltUOM under the accepted base first. Stored blank-BaseUOM pairs match without it.
   The one-by-one Create on `/sapitems-list` applies the same key and base guard (a pack already on file may be
   restated); Supplier Items' Create applies the import's assigned-supplier and SAP ItemCode + unit checks.
+- **An order line can have no supplier item.** Add Unlisted Item (`/orders-receiving/show`) takes any
+  active SAP Masterlist item + unit, not only the order's supplier list, so `store_order_items` rows
+  exist whose `supplierItem` is null (ordered qty 0). Read the line's own `item_code` / `uom` /
+  `item_description`, never `supplierItem->…` or `supplier_item.…` without a fallback: Confirm Receive
+  All used the supplier item's code and would have marked such a line received without posting stock.
+  Such a line's cost is what the receiver typed (default 0, confirmed on the page); only an item + unit
+  the order's supplier lists takes the supplier cost, and a typed cost is ignored for it.
 - **`supplier_items` text columns (category, brand, classification, packaging_config) and `config` are NOT
   NULL**, but blank form inputs arrive as null (ConvertEmptyStringsToNull). Store `''` / `0`, as the import does.
 - **Fresh migrations create a UNIQUE index on `sap_masterfiles.ItemCode`** that the live database does
@@ -246,6 +253,8 @@ SQL Server as the target. Rationale and trade-offs: [Decisions.md](docs/knowledg
   BOMQty** (each line is deducted separately per sale). The import updates the line with the same
   BOMQty; a repeat with a new BOMQty is held back in the session for the user to allow or dismiss on
   `/pos-bom-list`, never written over the line before it (it silently did until 2026-09-25).
+  The one-by-one Create there refuses the same line + BOMQty, saves a repeat only with `allow_repeat`
+  (the form asks first), and - stricter than the import - requires BOMUOM to be a SAP unit of the item.
 - **Two enum namespaces**: `App\Enum\` (OrderStatus, UserRole, Days, TimePeriod) and `App\Enums\`
   (IntercoStatus, WastageStatus).
 - **Services live in `app/Http/Services/`**, not `app/Services/`.

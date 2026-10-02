@@ -96,6 +96,10 @@ watch(filter, function (value) {
 const { hasAccess } = useAuth();
 const { deleteModel } = useReferenceDelete();
 
+const handleClick = () => {
+    router.get(route("pos-bom.create"));
+};
+
 const exportRoute = computed(() =>
     route("pos-bom.export", {
         search: search.value,
@@ -262,8 +266,9 @@ onUnmounted(() => {
 <template>
     <Layout
         heading="BOM List"
-        :hasButton="false" 
-        :handleClick="null" 
+        :hasButton="hasAccess('create POSMasterfile BOM')"
+        buttonName="Create New Item"
+        :handleClick="handleClick"
         :hasExcelDownload="true"
         :exportRoute="exportRoute"
     >

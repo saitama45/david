@@ -120,7 +120,7 @@ const rejectOrder = () => {
                         </TableHead>
                         <TableBody>
                             <tr v-for="(item, index) in order.store_order_items" :key="item.id">
-                                <TD>{{ item.supplier_item.item_name }}</TD>
+                                <TD>{{ item.supplier_item?.item_name ?? item.item_description }}</TD>
                                 <TD>{{ item.quantity_ordered }}</TD>
                                 <TD>
                                     <Input

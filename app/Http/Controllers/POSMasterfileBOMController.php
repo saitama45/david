@@ -2,9 +2,12 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\POSMasterfile;
 use App\Models\POSMasterfileBOM;
+use App\Models\SAPMasterfile;
 use App\Models\User; // Assuming User model is needed for created_by/updated_by
 use Illuminate\Http\Request;
+use Illuminate\Validation\ValidationException;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -72,47 +75,142 @@ class POSMasterfileBOMController extends Controller
      */
     public function create()
     {
-        // You might pass dropdown options here, e.g., POS items, UOMs
         return Inertia::render('POSMasterfileBOM/Create');
     }
 
     /**
-     * Store a newly created resource in storage.
+     * What the Create form shows once a code is typed: the POS item's description, and the
+     * ingredient's description with the units SAP gives it.
      */
-    public function store(Request $request) // Replace Request with StorePOSMasterfileBOMRequest for validation
+    public function lookup(Request $request)
     {
-        $user = Auth::user();
-        if (!$user) {
-            return back()->with('error', 'Authentication required to store POS BOM.');
-        }
+        $posCode = trim((string) $request->query('pos_code', ''));
+        $itemCode = trim((string) $request->query('item_code', ''));
 
-        // Basic validation - replace with a Form Request for complex validation
-        $validatedData = $request->validate([
-            'POSCode' => 'required|string|max:255',
-            'POSDescription' => 'nullable|string|max:255',
-            'Assembly' => 'nullable|string|max:255',
-            'ItemCode' => 'required|string|max:255',
-            'ItemDescription' => 'nullable|string|max:255',
-            'RecPercent' => 'nullable|numeric',
-            'RecipeQty' => 'nullable|numeric',
-            'RecipeUOM' => 'nullable|string|max:50',
-            'BOMQty' => 'nullable|numeric',
-            'BOMUOM' => 'nullable|string|max:50',
-            'UnitCost' => 'nullable|numeric',
-            'TotalCost' => 'nullable|numeric',
+        $posItem = $posCode === '' ? null : POSMasterfile::where('POSCode', $posCode)->first();
+        $sapRows = $itemCode === '' ? collect() : SAPMasterfile::where('ItemCode', $itemCode)->orderBy('id')->get();
+
+        return response()->json([
+            'pos' => $posItem ? ['code' => $posItem->POSCode, 'description' => $posItem->POSDescription] : null,
+            'item' => $sapRows->isEmpty() ? null : [
+                'code' => $sapRows->first()->ItemCode,
+                'description' => $sapRows->first()->ItemDescription,
+                'units' => $this->sapUnits($sapRows),
+            ],
+        ]);
+    }
+
+    /**
+     * Add one BOM line by hand, under the same rules as the import: the POS Code and Item
+     * Code must be on their masterlists, the BOM Qty must be above zero, and a line is
+     * POS Code + Item Code + BOM UOM + Assembly. Repeating a line with another BOM Qty is
+     * deducted twice per sale, so it is saved only once the user has confirmed it.
+     */
+    public function store(Request $request)
+    {
+        $request->merge(collect($request->only(['POSCode', 'Assembly', 'ItemCode', 'RecipeUOM', 'BOMUOM']))
+            ->map(fn ($value) => is_string($value) ? trim($value) : $value)
+            ->all());
+
+        $validated = $request->validate([
+            'POSCode' => ['required', 'string', 'max:255'],
+            'Assembly' => ['nullable', 'string', 'max:255'],
+            'ItemCode' => ['required', 'string', 'max:255'],
+            'RecPercent' => ['nullable', 'numeric', 'min:0'],
+            'RecipeQty' => ['nullable', 'numeric', 'min:0'],
+            'RecipeUOM' => ['nullable', 'string', 'max:50'],
+            'BOMQty' => ['required', 'numeric', 'gt:0'],
+            'BOMUOM' => ['required', 'string', 'max:50'],
+            'UnitCost' => ['nullable', 'numeric', 'min:0'],
+            'TotalCost' => ['nullable', 'numeric', 'min:0'],
+            'allow_repeat' => ['nullable', 'boolean'],
         ]);
 
-        try {
-            POSMasterfileBOM::create(array_merge($validatedData, [
-                'created_by' => $user->id,
-                'updated_by' => $user->id,
-            ]));
+        $posItem = POSMasterfile::where('POSCode', $validated['POSCode'])->first();
 
-            return redirect()->route('pos-bom.index')->with('success', 'POS BOM created successfully.');
-        } catch (Exception $e) {
-            Log::error("Error creating POS BOM: " . $e->getMessage(), ['trace' => $e->getTraceAsString()]);
-            return back()->withErrors(['error' => 'Failed to create POS BOM: ' . $e->getMessage()]);
+        if (! $posItem) {
+            throw ValidationException::withMessages([
+                'POSCode' => "{$validated['POSCode']} is not in the POS Masterlist. Add it there first.",
+            ]);
         }
+
+        $sapRows = SAPMasterfile::where('ItemCode', $validated['ItemCode'])->orderBy('id')->get();
+
+        if ($sapRows->isEmpty()) {
+            throw ValidationException::withMessages([
+                'ItemCode' => "{$validated['ItemCode']} is not in the SAP Masterlist. Add it there first.",
+            ]);
+        }
+
+        // A sale can only deduct the ingredient in a unit SAP knows for it.
+        $units = $this->sapUnits($sapRows);
+        $bomUom = collect($units)->first(fn ($unit) => strtoupper($unit) === strtoupper($validated['BOMUOM']));
+
+        if (! $bomUom) {
+            throw ValidationException::withMessages([
+                'BOMUOM' => "'{$validated['BOMUOM']}' is not a unit of {$validated['ItemCode']} in the SAP Masterlist. Use one of: ".implode(', ', $units).'.',
+            ]);
+        }
+
+        // Blank inputs arrive as null; the import stores a blank Assembly as ''.
+        $assembly = (string) ($validated['Assembly'] ?? '');
+        $bomQty = number_format((float) $validated['BOMQty'], 7, '.', '');
+
+        $lines = POSMasterfileBOM::where('POSCode', $posItem->POSCode)
+            ->where('ItemCode', $sapRows->first()->ItemCode)
+            ->where('BOMUOM', $bomUom)
+            ->where(fn ($query) => $assembly === ''
+                ? $query->whereNull('Assembly')->orWhere('Assembly', '')
+                : $query->where('Assembly', $assembly))
+            ->get(['id', 'BOMQty']);
+
+        if ($lines->contains(fn ($line) => number_format((float) $line->BOMQty, 7, '.', '') === $bomQty)) {
+            throw ValidationException::withMessages([
+                'BOMQty' => 'This BOM line already exists with the same BOM Qty. Edit it instead.',
+            ]);
+        }
+
+        if ($lines->isNotEmpty() && ! $request->boolean('allow_repeat')) {
+            $existing = $lines->map(fn ($line) => rtrim(rtrim(number_format((float) $line->BOMQty, 7, '.', ''), '0'), '.'))->implode(', ');
+
+            throw ValidationException::withMessages([
+                'repeat' => "This recipe already has this item in {$bomUom} with BOM Qty {$existing}.",
+            ]);
+        }
+
+        POSMasterfileBOM::create([
+            'POSCode' => $posItem->POSCode,
+            'POSDescription' => $posItem->POSDescription,
+            'Assembly' => $assembly,
+            'ItemCode' => $sapRows->first()->ItemCode,
+            'ItemDescription' => $sapRows->first()->ItemDescription,
+            'RecPercent' => $validated['RecPercent'] ?? 0,
+            'RecipeQty' => $validated['RecipeQty'] ?? 0,
+            'RecipeUOM' => (string) ($validated['RecipeUOM'] ?? ''),
+            'BOMQty' => $bomQty,
+            'BOMUOM' => $bomUom,
+            'UnitCost' => $validated['UnitCost'] ?? 0,
+            'TotalCost' => $validated['TotalCost'] ?? 0,
+            'created_by' => Auth::id(),
+            'updated_by' => Auth::id(),
+        ]);
+
+        return to_route('pos-bom.index')->with('success', 'BOM line created.');
+    }
+
+    /**
+     * Every unit SAP gives an item, as SAP spells it, each once.
+     *
+     * @return array<int, string>
+     */
+    private function sapUnits($sapRows): array
+    {
+        return $sapRows
+            ->flatMap(fn ($row) => [trim((string) $row->AltUOM), trim((string) $row->BaseUOM)])
+            ->filter()
+            ->unique(fn ($unit) => strtoupper($unit))
+            ->values()
+            ->all();
     }
 
     /**
