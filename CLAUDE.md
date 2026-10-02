@@ -241,13 +241,16 @@ SQL Server as the target. Rationale and trade-offs: [Decisions.md](docs/knowledg
   the file gave that same AltUOM under the accepted base first. Stored blank-BaseUOM pairs match without it.
   The one-by-one Create on `/sapitems-list` applies the same key and base guard (a pack already on file may be
   restated); Supplier Items' Create applies the import's assigned-supplier and SAP ItemCode + unit checks.
-- **An order line can have no supplier item.** Add Unlisted Item (`/orders-receiving/show`) takes any
-  active SAP Masterlist item + unit, not only the order's supplier list, so `store_order_items` rows
-  exist whose `supplierItem` is null (ordered qty 0). Read the line's own `item_code` / `uom` /
-  `item_description`, never `supplierItem->…` or `supplier_item.…` without a fallback: Confirm Receive
-  All used the supplier item's code and would have marked such a line received without posting stock.
-  Such a line's cost is what the receiver typed (default 0, confirmed on the page); only an item + unit
-  the order's supplier lists takes the supplier cost, and a typed cost is ignored for it.
+- **An order line can have no supplier item.** Add Unlisted Item (`/orders-receiving/show`) briefly
+  (2026-10-02) took any active SAP Masterlist item, so `store_order_items` rows exist whose
+  `supplierItem` is null (ordered qty 0). Read the line's own `item_code` / `uom` / `item_description`,
+  never `supplierItem->…` or `supplier_item.…` without a fallback: Confirm Receive All used the supplier
+  item's code and would have marked such a line received without posting stock. Add Unlisted Item now
+  takes only the order's supplier list (item + unit, at the supplier cost); the SAP tab was removed "for now".
+- **Receiving is locked by Final Receive All, not by time.** `store_orders.receiving_finalized_at/_by`;
+  every item-list action (receive, edit/delete history, add unlisted, confirm) checks
+  `OrderReceivingService::receivingLockedProblem()`. Confirm Receive All posts but leaves the list open.
+  The old 3-day window from `order_date` is gone. Delivery receipts and images stay editable.
 - **`supplier_items` text columns (category, brand, classification, packaging_config) and `config` are NOT
   NULL**, but blank form inputs arrive as null (ConvertEmptyStringsToNull). Store `''` / `0`, as the import does.
 - **Fresh migrations create a UNIQUE index on `sap_masterfiles.ItemCode`** that the live database does

@@ -94,13 +94,15 @@ class OrderReceivingController extends Controller
             'orderedItems' => $orderedItems,
             'receiveDatesHistory' => $receiveDatesHistory,
             'images' => $images,
-            // The page hides the edit pencil on the same rule the server enforces.
-            'receivingEditDeadline' => optional($this->orderReceivingService->receivingEditDeadline($order))
-                ->format('Y-m-d H:i:s'),
-            // Supplier Items tab of the "item delivered but not ordered" picker; the SAP
-            // Masterlist tab is searched on demand (unlistedSapItems). Mapped to a lean
-            // shape on purpose: serialising the models would fire SupplierItems' appended
-            // sap_master_file accessor once per row.
+            // Set once Final Receive All locked the item list; the page then hides every
+            // receiving action, on the same rule the server enforces.
+            'receivingFinalized' => $order->receiving_finalized_at ? [
+                'at' => $order->receiving_finalized_at->format('M j, Y g:i A'),
+                'by' => $order->receivingFinalizedBy?->full_name,
+            ] : null,
+            // The "item delivered but not ordered" picker: the order's own supplier list only.
+            // Mapped to a lean shape on purpose: serialising the models would fire
+            // SupplierItems' appended sap_master_file accessor once per row.
             'unlistedItemOptions' => \App\Models\SupplierItems::forSupplierCode((string) ($order->supplier?->supplier_code ?? ''))
                 ->reject(fn ($item) => $orderedItems->contains('item_code', $item->ItemCode))
                 // Cost is deliberately not exposed here: the picker does not show a price,
@@ -151,23 +153,11 @@ class OrderReceivingController extends Controller
         return redirect()->back()->with('success', 'Item added to the receiving history.');
     }
 
-    /**
-     * The SAP Masterlist tab of the "Add Unlisted Item" picker, searched as the user types.
-     */
-    public function unlistedSapItems(Request $request, StoreOrder $order)
-    {
-        $validated = $request->validate(['search' => ['nullable', 'string', 'max:100']]);
-
-        return response()->json(
-            $this->orderReceivingService->unlistedSapItems($order, $validated['search'] ?? null)
-        );
-    }
-
     public function receive(ReceiveOrderRequest $request, $id)
     {
         $order = StoreOrderItem::findOrFail($id)->store_order;
 
-        if ($problem = $this->orderReceivingService->receivingEditWindowProblem($order)
+        if ($problem = $this->orderReceivingService->receivingLockedProblem($order)
             ?? $this->orderReceivingService->deliveryEvidenceProblem($order)) {
             return back()->withErrors(['error' => $problem]);
         }
@@ -208,7 +198,14 @@ class OrderReceivingController extends Controller
 
     public function deleteReceiveDateHistory($id)
     {
-        $history = OrderedItemReceiveDate::with('store_order_item')->findOrFail($id);
+        $history = OrderedItemReceiveDate::with('store_order_item.store_order')->findOrFail($id);
+
+        if ($order = $history->store_order_item?->store_order) {
+            if ($problem = $this->orderReceivingService->receivingLockedProblem($order)) {
+                return back()->withErrors(['error' => $problem]);
+            }
+        }
+
         DB::beginTransaction();
         $history->delete();
         DB::commit();
@@ -230,7 +227,7 @@ class OrderReceivingController extends Controller
         // the whole order without ever attaching a delivery receipt or an image.
         $order = $history->store_order_item?->store_order;
 
-        if ($order && $problem = $this->orderReceivingService->receivingEditWindowProblem($order)
+        if ($order && $problem = $this->orderReceivingService->receivingLockedProblem($order)
             ?? $this->orderReceivingService->deliveryEvidenceProblem($order)) {
             return back()->withErrors(['error' => $problem]);
         }
@@ -271,145 +268,27 @@ class OrderReceivingController extends Controller
     }
 
 
+    /**
+     * Confirm Receive All: post every recorded but unconfirmed receipt to stock. The item list
+     * stays open afterwards, so an item found later can still be added and confirmed.
+     */
     public function confirmReceive($id)
     {
         $order = StoreOrder::findOrFail($id);
 
-        if ($problem = $this->orderReceivingService->deliveryEvidenceProblem($order)) {
+        if ($problem = $this->orderReceivingService->receivingLockedProblem($order)
+            ?? $this->orderReceivingService->deliveryEvidenceProblem($order)) {
             return back()->withErrors(['error' => $problem]);
         }
 
         DB::beginTransaction();
         try {
-            // 1. Update remarks for any ALREADY APPROVED items that have no remarks (Fix for data consistency)
-            OrderedItemReceiveDate::whereHas('store_order_item.store_order', fn ($q) => $q->where('id', $id))
-                ->where('status', 'approved')
-                ->where(function ($q) {
-                    $q->whereNull('remarks')->orWhere('remarks', '');
-                })
-                ->update(['remarks' => 'Received']);
+            $posted = $this->postUnconfirmedReceipts($id);
 
-            $historyItems = OrderedItemReceiveDate::with([
-                'store_order_item.store_order',
-                'store_order_item.supplierItem'
-            ])
-            ->whereHas('store_order_item.store_order', fn ($q) => $q->where('id', $id))
-            ->whereIn('status', ['pending', 'received'])
-            ->get();
-
-            if ($historyItems->isEmpty()) {
-                // Even if there are no pending items, re-evaluate the order status to ensure it's correct
-                // (e.g., if previous attempts left it as 'incomplete')
-                $this->orderReceivingService->getOrderStatus($id);
-                DB::commit(); // Commit the remarks fix if any
-                return back()->with('info', 'No pending items to confirm.');
-            }
-
-            $aggregatedData = [];
-
-            // 1. Aggregate quantities in BASE UOM
-            foreach ($historyItems as $history) {
-                // The line's own item code, not its supplier item's: a line added from the SAP
-                // Masterlist has no supplier item and must still reach stock.
-                $itemCode = optional($history->store_order_item)->item_code;
-                $uom = optional($history->store_order_item)->uom;
-
-                if (!$itemCode || !$uom) {
-                    Log::warning("OrderReceivingController: Skipping history item ID {$history->id} due to incomplete data (ItemCode or UOM missing).");
-                    continue;
-                }
-
-                // Stock lives on the item's SAP base-unit row; the received unit converts into it.
-                $stockUnit = ItemStockUnit::forItem($itemCode);
-                $targetSapMasterfile = $stockUnit->stockRowFor($uom);
-                $conversionFactor = $stockUnit->factor($uom);
-
-                if (!$targetSapMasterfile || !$conversionFactor) {
-                    Log::warning("OrderReceivingController: No SAP conversion from '{$uom}' to the stock unit of '{$itemCode}'. Skipping history item ID {$history->id}.");
-                    continue;
-                }
-
-                $quantityInBaseUom = $history->quantity_received * $conversionFactor;
-                $costInBaseUom = $history->store_order_item->cost_per_quantity / $conversionFactor;
-
-                // Aggregate data by the target SOH item's ID
-                $targetId = $targetSapMasterfile->id;
-                if (!isset($aggregatedData[$targetId])) {
-                    $aggregatedData[$targetId] = [
-                        'total_base_qty' => 0,
-                        'total_cost' => 0,
-                        'unit_cost' => $costInBaseUom, // Base cost per base UOM
-                        'target_masterfile' => $targetSapMasterfile,
-                        'store_order' => $history->store_order_item->store_order,
-                        'store_order_item' => $history->store_order_item, // Pass for context
-                    ];
-                }
-                $aggregatedData[$targetId]['total_base_qty'] += $quantityInBaseUom;
-                $aggregatedData[$targetId]['total_cost'] += $history->quantity_received * $history->store_order_item->cost_per_quantity;
-            }
-
-            // 2. Process aggregated data
-            foreach ($aggregatedData as $data) {
-                $finalSOHToAdd = $data['total_base_qty'];
-                $storeOrder = $data['store_order'];
-                $targetSapMasterfile = $data['target_masterfile'];
-
-                if ($storeOrder->isInterco()) {
-                    $this->processInventoryOutForInterco($storeOrder, $finalSOHToAdd, $targetSapMasterfile);
-                }
-
-                $stock = ProductInventoryStock::firstOrNew([
-                    'product_inventory_id' => $targetSapMasterfile->id,
-                    'store_branch_id' => $storeOrder->store_branch_id
-                ]);
-                $stock->quantity += $finalSOHToAdd;
-                $stock->recently_added = ($stock->recently_added ?? 0) + $finalSOHToAdd;
-                $stock->save();
-
-                $batch = PurchaseItemBatch::create([
-                    'store_order_item_id' => $data['store_order_item']->id,
-                    'product_inventory_id' => $targetSapMasterfile->id,
-                    'store_branch_id' => $storeOrder->store_branch_id,
-                    'purchase_date' => Carbon::today()->format('Y-m-d'),
-                    'quantity' => $finalSOHToAdd,
-                    'unit_cost' => $data['unit_cost'],
-                    'remaining_quantity' => $finalSOHToAdd
-                ]);
-
-                $batch->product_inventory_stock_managers()->create([
-                    'product_inventory_id' => $targetSapMasterfile->id,
-                    'store_branch_id' => $storeOrder->store_branch_id,
-                    'quantity' => $finalSOHToAdd,
-                    'action' => 'add_quantity',
-                    'transaction_date' => Carbon::today()->format('Y-m-d'),
-                    'unit_cost' => $data['unit_cost'],
-                    'total_cost' => $data['total_cost'],
-                    'remarks' => 'From newly received items. (Order Number: ' . $storeOrder->order_number . ')'
-                ]);
-            }
-
-            // 3. Update individual history and order item records
-            foreach ($historyItems as $history) {
-                $updateData = [
-                    'status' => 'approved',
-                    'approval_action_by' => Auth::id(),
-                    'received_date' => $history->received_date ?? Carbon::now('Asia/Manila'),
-                    'received_by_user_id' => Auth::id(),
-                ];
-
-                if (is_null($history->remarks) || trim($history->remarks) === '') {
-                    $updateData['remarks'] = 'Received';
-                }
-
-                $history->update($updateData);
-                $history->store_order_item->quantity_received += $history->quantity_received;
-                $history->store_order_item->save();
-            }
-
-            // 4. Recalculate and update order status
+            // Re-evaluated even when nothing was posted, in case a previous attempt left the
+            // order 'incomplete'.
             $this->orderReceivingService->getOrderStatus($id);
             DB::commit();
-
         } catch (\Exception $e) {
             DB::rollBack();
             Log::error("OrderReceivingController: Error confirming receive for order ID {$id}: " . $e->getMessage(), [
@@ -418,6 +297,183 @@ class OrderReceivingController extends Controller
             return back()->with('error', 'Failed to confirm receive. Check logs for details.');
         }
 
-        return back();
+        return $posted === 0 ? back()->with('info', 'No pending items to confirm.') : back();
+    }
+
+    /**
+     * Final Receive All: post every unconfirmed receipt exactly as Confirm Receive All does,
+     * then lock the order's item list for good. Nothing can be added, edited or received on
+     * it afterwards (OrderReceivingService::receivingLockedProblem).
+     */
+    public function finalReceive($id)
+    {
+        $order = StoreOrder::findOrFail($id);
+
+        if ($problem = $this->orderReceivingService->receivingLockedProblem($order)
+            ?? $this->orderReceivingService->deliveryEvidenceProblem($order)) {
+            return back()->withErrors(['error' => $problem]);
+        }
+
+        DB::beginTransaction();
+        try {
+            // Stamped first and only while still open, so two receivers clicking at once
+            // cannot both post the same receipts.
+            $stamped = StoreOrder::whereKey($id)
+                ->whereNull('receiving_finalized_at')
+                ->update([
+                    'receiving_finalized_at' => Carbon::now('Asia/Manila')->format('Y-m-d H:i:s'),
+                    'receiving_finalized_by' => Auth::id(),
+                ]);
+
+            if ($stamped === 0) {
+                DB::rollBack();
+
+                return back()->withErrors(['error' => 'This delivery was already finalized.']);
+            }
+
+            $this->postUnconfirmedReceipts($id);
+            $this->orderReceivingService->getOrderStatus($id);
+            DB::commit();
+        } catch (\Exception $e) {
+            DB::rollBack();
+            Log::error("OrderReceivingController: Error finalizing receive for order ID {$id}: " . $e->getMessage(), [
+                'trace' => $e->getTraceAsString()
+            ]);
+            return back()->withErrors(['error' => 'Failed to finalize receiving. Nothing was changed. Check logs for details.']);
+        }
+
+        return back()->with('success', 'Receiving finalized. This delivery is now locked.');
+    }
+
+    /**
+     * Post every pending or received (not yet approved) receipt of the order to stock and
+     * mark it approved. Runs inside the caller's transaction.
+     *
+     * @return int how many receipts were posted
+     */
+    private function postUnconfirmedReceipts($id): int
+    {
+        // 1. Update remarks for any ALREADY APPROVED items that have no remarks (Fix for data consistency)
+        OrderedItemReceiveDate::whereHas('store_order_item.store_order', fn ($q) => $q->where('id', $id))
+            ->where('status', 'approved')
+            ->where(function ($q) {
+                $q->whereNull('remarks')->orWhere('remarks', '');
+            })
+            ->update(['remarks' => 'Received']);
+
+        $historyItems = OrderedItemReceiveDate::with([
+            'store_order_item.store_order',
+            'store_order_item.supplierItem'
+        ])
+        ->whereHas('store_order_item.store_order', fn ($q) => $q->where('id', $id))
+        ->whereIn('status', ['pending', 'received'])
+        ->get();
+
+        if ($historyItems->isEmpty()) {
+            return 0;
+        }
+
+        $aggregatedData = [];
+
+        // 1. Aggregate quantities in BASE UOM
+        foreach ($historyItems as $history) {
+            // The line's own item code, not its supplier item's: a line added from the SAP
+            // Masterlist has no supplier item and must still reach stock.
+            $itemCode = optional($history->store_order_item)->item_code;
+            $uom = optional($history->store_order_item)->uom;
+
+            if (!$itemCode || !$uom) {
+                Log::warning("OrderReceivingController: Skipping history item ID {$history->id} due to incomplete data (ItemCode or UOM missing).");
+                continue;
+            }
+
+            // Stock lives on the item's SAP base-unit row; the received unit converts into it.
+            $stockUnit = ItemStockUnit::forItem($itemCode);
+            $targetSapMasterfile = $stockUnit->stockRowFor($uom);
+            $conversionFactor = $stockUnit->factor($uom);
+
+            if (!$targetSapMasterfile || !$conversionFactor) {
+                Log::warning("OrderReceivingController: No SAP conversion from '{$uom}' to the stock unit of '{$itemCode}'. Skipping history item ID {$history->id}.");
+                continue;
+            }
+
+            $quantityInBaseUom = $history->quantity_received * $conversionFactor;
+            $costInBaseUom = $history->store_order_item->cost_per_quantity / $conversionFactor;
+
+            // Aggregate data by the target SOH item's ID
+            $targetId = $targetSapMasterfile->id;
+            if (!isset($aggregatedData[$targetId])) {
+                $aggregatedData[$targetId] = [
+                    'total_base_qty' => 0,
+                    'total_cost' => 0,
+                    'unit_cost' => $costInBaseUom, // Base cost per base UOM
+                    'target_masterfile' => $targetSapMasterfile,
+                    'store_order' => $history->store_order_item->store_order,
+                    'store_order_item' => $history->store_order_item, // Pass for context
+                ];
+            }
+            $aggregatedData[$targetId]['total_base_qty'] += $quantityInBaseUom;
+            $aggregatedData[$targetId]['total_cost'] += $history->quantity_received * $history->store_order_item->cost_per_quantity;
+        }
+
+        // 2. Process aggregated data
+        foreach ($aggregatedData as $data) {
+            $finalSOHToAdd = $data['total_base_qty'];
+            $storeOrder = $data['store_order'];
+            $targetSapMasterfile = $data['target_masterfile'];
+
+            if ($storeOrder->isInterco()) {
+                $this->processInventoryOutForInterco($storeOrder, $finalSOHToAdd, $targetSapMasterfile);
+            }
+
+            $stock = ProductInventoryStock::firstOrNew([
+                'product_inventory_id' => $targetSapMasterfile->id,
+                'store_branch_id' => $storeOrder->store_branch_id
+            ]);
+            $stock->quantity += $finalSOHToAdd;
+            $stock->recently_added = ($stock->recently_added ?? 0) + $finalSOHToAdd;
+            $stock->save();
+
+            $batch = PurchaseItemBatch::create([
+                'store_order_item_id' => $data['store_order_item']->id,
+                'product_inventory_id' => $targetSapMasterfile->id,
+                'store_branch_id' => $storeOrder->store_branch_id,
+                'purchase_date' => Carbon::today()->format('Y-m-d'),
+                'quantity' => $finalSOHToAdd,
+                'unit_cost' => $data['unit_cost'],
+                'remaining_quantity' => $finalSOHToAdd
+            ]);
+
+            $batch->product_inventory_stock_managers()->create([
+                'product_inventory_id' => $targetSapMasterfile->id,
+                'store_branch_id' => $storeOrder->store_branch_id,
+                'quantity' => $finalSOHToAdd,
+                'action' => 'add_quantity',
+                'transaction_date' => Carbon::today()->format('Y-m-d'),
+                'unit_cost' => $data['unit_cost'],
+                'total_cost' => $data['total_cost'],
+                'remarks' => 'From newly received items. (Order Number: ' . $storeOrder->order_number . ')'
+            ]);
+        }
+
+        // 3. Update individual history and order item records
+        foreach ($historyItems as $history) {
+            $updateData = [
+                'status' => 'approved',
+                'approval_action_by' => Auth::id(),
+                'received_date' => $history->received_date ?? Carbon::now('Asia/Manila'),
+                'received_by_user_id' => Auth::id(),
+            ];
+
+            if (is_null($history->remarks) || trim($history->remarks) === '') {
+                $updateData['remarks'] = 'Received';
+            }
+
+            $history->update($updateData);
+            $history->store_order_item->quantity_received += $history->quantity_received;
+            $history->store_order_item->save();
+        }
+
+        return $historyItems->count();
     }
 }

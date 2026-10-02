@@ -18,6 +18,59 @@ export const changeLog = [
     // ---------------------------------------------------------------- October 2, 2026
     {
         date: '2026-10-02',
+        module: 'Inbound Orders (Receiving)',
+        type: 'new',
+        title: '"Final Receive All" button: receive everything and lock the delivery',
+        summary:
+            '"Confirm Receive All" posts what was received to stock but leaves the delivery open, so it was never clear when receiving was finished. Receiving History now has a "Final Receive All" button beside "Confirm Receive All". It is the last step for a delivery: it receives every remaining item and then locks the item list so nothing on it can be changed again.',
+        steps: [
+            'Open the order from Inbound Orders and attach the delivery receipt and an image.',
+            'Record the received quantities, add any unlisted items, and use "Confirm Receive All" as often as needed. The list stays open after it.',
+            'When the delivery is complete, click "Final Receive All".',
+            'Read the "Final Receive All?" message. It says how many items not yet confirmed will be received now. Click "Final Receive All" to finish, or "Cancel" to go back.',
+            'The page then shows "Finalized with Final Receive All" with the date and the name of the user who did it.',
+        ],
+        rules: [
+            '"Final Receive All" receives every item not yet confirmed exactly as "Confirm Receive All" does, at the quantity recorded on its line, and posts it to stock.',
+            'After "Final Receive All", no item can be added, edited or received on that delivery. "Add Unlisted Item", "Confirm Receive All", "Final Receive All" and the edit buttons are removed from the page, and the system refuses any change to the items.',
+            'It cannot be undone.',
+            'The button stays locked until the order has a delivery receipt and an image attached.',
+            'Delivery receipts and images can still be added after the delivery is finalized. Only the item list is locked.',
+            'Users with the "receive orders" permission can use it, the same as "Confirm Receive All".',
+        ],
+        affects: 'Store users who receive deliveries.',
+    },
+    {
+        date: '2026-10-02',
+        module: 'Inbound Orders (Receiving)',
+        type: 'improved',
+        title: 'No more 3-day limit for correcting a delivery: it stays open until "Final Receive All"',
+        summary:
+            'Received quantities could only be corrected, and unlisted items added, until the end of the third day after the delivery date. That limit is removed. A delivery now stays open for corrections until someone clicks "Final Receive All".',
+        rules: [
+            'Received quantities can be edited and "Add Unlisted Item" can be used on any delivery that has not been finalized, however old it is.',
+            'Deliveries whose 3-day window had already closed are open again until they are finalized.',
+            'A delivery receipt and an image must still be attached before any quantity is recorded.',
+        ],
+        affects: 'Store users who receive deliveries.',
+    },
+    {
+        date: '2026-10-02',
+        module: 'Inbound Orders (Receiving)',
+        type: 'removed',
+        title: '"SAP Masterlist" tab removed from "Add Unlisted Item"',
+        summary:
+            'The "Add Unlisted Item" dialog had two tabs, "Supplier Items" and "SAP Masterlist". The "SAP Masterlist" tab has been removed for now. Unlisted items are picked from the order\'s supplier item list only, as before.',
+        rules: [
+            'The dialog lists the active items of the order\'s supplier that are not yet on the order, once for each unit the supplier lists.',
+            'An unlisted item is received at that supplier\'s cost. The cost box and the "Receive at zero cost?" question are gone.',
+            'An item that is not in the order\'s supplier item list cannot be added. When every item of the supplier is already on the order, the dialog says "All items are already on this order".',
+            'Lines already added from the SAP Masterlist stay on their orders as they are.',
+        ],
+        affects: 'Store users who receive deliveries.',
+    },
+    {
+        date: '2026-10-02',
         module: 'Dashboard',
         type: 'improved',
         title: 'Success Rate now counts every ticket type from Helpdesk, not only MEC',

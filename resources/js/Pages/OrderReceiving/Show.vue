@@ -3,13 +3,13 @@ import { ref, watch, computed, onMounted, onUnmounted } from "vue";
 import { useForm } from "@inertiajs/vue3";
 import { useToast } from "primevue/usetoast";
 import { router } from "@inertiajs/vue3";
-import axios from "axios";
-import { X, Eye, PackagePlus, Search, Check, Loader2, AlertTriangle } from "lucide-vue-next";
+import { X, Eye, PackagePlus, Search, Check, Loader2, Lock } from "lucide-vue-next";
 import { useConfirm } from "primevue/useconfirm";
 import dayjs from "dayjs";
 import utc from "dayjs/plugin/utc"; // Import UTC plugin
 import timezone from "dayjs/plugin/timezone"; // Import Timezone plugin
 import { useBackButton } from "@/composables/useBackButton";
+import { useAuth } from "@/composables/useAuth";
 import {
     Dialog,
     DialogContent,
@@ -28,6 +28,10 @@ dayjs.tz.setDefault("Asia/Manila");
 
 const toast = useToast();
 const confirm = useConfirm();
+// Every item-list action is behind "receive orders" on the server; viewers without it
+// see the history read-only instead of buttons that would be refused.
+const { hasAccess } = useAuth();
+const hasReceivePermission = hasAccess("receive orders");
 
 const { backButton } = useBackButton(route("orders-receiving.index"));
 
@@ -161,8 +165,9 @@ const props = defineProps({
         type: Array,
         default: () => [],
     },
-    receivingEditDeadline: {
-        type: String,
+    // { at, by } once Final Receive All locked the item list, otherwise null.
+    receivingFinalized: {
+        type: Object,
         default: null,
     },
     orderedItems: {
@@ -378,21 +383,13 @@ const unlistedSearch = ref("");
 const unlistedForm = useForm({
     item_code: "",
     uom: "",
-    cost: 0,
     quantity_received: null,
     expiry_date: null,
     remarks: "Received without being ordered.",
 });
 
-// The item is picked from one of two lists: the order's supplier list, which the page
-// already holds, or the whole SAP Masterlist, which is searched on the server.
-const unlistedTabs = [
-    { key: "supplier", label: "Supplier Items" },
-    { key: "sap", label: "SAP Masterlist" },
-];
-const unlistedTab = ref("supplier");
-
-const supplierMatches = computed(() => {
+// Picked from the order's own supplier list only, which the page already holds.
+const unlistedMatches = computed(() => {
     const term = unlistedSearch.value.trim().toLowerCase();
     const list = props.unlistedItemOptions;
     if (!term) return list;
@@ -403,53 +400,6 @@ const supplierMatches = computed(() => {
     );
 });
 
-const sapItems = ref([]);
-// Active SAP Masterlist items not yet on the order; null until the first search returns.
-const sapAvailable = ref(null);
-const sapHasMore = ref(false);
-const sapLoading = ref(false);
-const sapError = ref("");
-let sapSearchTimer = null;
-let sapRequestId = 0;
-
-const loadSapItems = async () => {
-    // A slower, older search must not overwrite the answer to the latest one.
-    const requestId = ++sapRequestId;
-    sapLoading.value = true;
-    sapError.value = "";
-
-    try {
-        const { data } = await axios.get(
-            route("orders-receiving.unlisted-sap-items", props.order.id),
-            { params: { search: unlistedSearch.value.trim() } }
-        );
-        if (requestId !== sapRequestId) return;
-        sapItems.value = data.items;
-        sapAvailable.value = data.available;
-        sapHasMore.value = data.more;
-    } catch (error) {
-        if (requestId !== sapRequestId) return;
-        sapItems.value = [];
-        sapError.value = "The SAP Masterlist could not be loaded. Please try again.";
-    } finally {
-        if (requestId === sapRequestId) sapLoading.value = false;
-    }
-};
-
-watch(unlistedSearch, () => {
-    if (unlistedTab.value !== "sap") return;
-    clearTimeout(sapSearchTimer);
-    sapSearchTimer = setTimeout(loadSapItems, 300);
-});
-
-watch(unlistedTab, (tab) => {
-    if (tab === "sap" && isUnlistedModalVisible.value) loadSapItems();
-});
-
-const unlistedMatches = computed(() =>
-    unlistedTab.value === "supplier" ? supplierMatches.value : sapItems.value
-);
-
 // Quick reasons an unordered item turns up on a delivery.
 const unlistedReasonPresets = [
     "Delivered but not ordered",
@@ -457,7 +407,7 @@ const unlistedReasonPresets = [
     "Bonus / free goods",
 ];
 
-// An item is listed once per unit in both lists, so the unit is part of what was picked.
+// A supplier lists an item once per unit (Pack and Gm), so the unit is part of what was picked.
 const selectedUnlistedItem = ref(null);
 
 const isUnlistedItemSelected = (item) =>
@@ -466,76 +416,19 @@ const isUnlistedItemSelected = (item) =>
 const selectUnlistedItem = (item) => {
     unlistedForm.item_code = item.item_code;
     unlistedForm.uom = item.uom;
-    // Every pick starts from zero again, so a cost typed for another item is never carried over.
-    unlistedForm.cost = 0;
     selectedUnlistedItem.value = item;
 };
-
-// Supplier Items rows, and SAP Masterlist rows this order's supplier also lists, are received
-// at the supplier's cost. Any other SAP Masterlist item has no price on file: the receiver
-// types one, and it stays zero unless they do.
-const unlistedNeedsCost = computed(() => selectedUnlistedItem.value?.supplier_listed === false);
-
-const unlistedCostIsZero = computed(() => !(Number(unlistedForm.cost) > 0));
-
-const unlistedTotalCost = computed(() =>
-    (Number(unlistedForm.cost) || 0) * (Number(unlistedForm.quantity_received) || 0)
-);
-
-const formatPeso = (value) =>
-    Number(value || 0).toLocaleString("en-PH", { minimumFractionDigits: 2, maximumFractionDigits: 4 });
 
 const openUnlistedModal = () => {
     unlistedForm.reset();
     unlistedForm.clearErrors();
     unlistedSearch.value = "";
     selectedUnlistedItem.value = null;
-    sapItems.value = [];
-    sapAvailable.value = null;
-    sapHasMore.value = false;
-    sapError.value = "";
     isUnlistedModalVisible.value = true;
-
-    // Start on the supplier's list; when all of it is already on the order, go straight to
-    // the SAP Masterlist.
-    const tab = props.unlistedItemOptions.length > 0 ? "supplier" : "sap";
-    if (unlistedTab.value === tab) {
-        if (tab === "sap") loadSapItems();
-    } else {
-        unlistedTab.value = tab;
-    }
 };
 
 const closeUnlistedModal = () => {
     isUnlistedModalVisible.value = false;
-};
-
-// A zero cost is allowed, but never by accident: the receiver has to say yes to it first.
-const promptSubmitUnlistedItem = () => {
-    if (!unlistedNeedsCost.value || !unlistedCostIsZero.value) {
-        submitUnlistedItem();
-        return;
-    }
-
-    const item = selectedUnlistedItem.value;
-
-    confirm.require({
-        header: "Receive at zero cost?",
-        message: `${item.item_name} (${item.uom}) has no cost entered, so it will be received at ZERO cost. Its stock will be added with no value. Go back and type the cost per ${item.uom} if you know it.`,
-        icon: "pi pi-exclamation-triangle",
-        rejectProps: {
-            label: "Go back and enter a cost",
-            severity: "secondary",
-            outlined: true,
-        },
-        acceptProps: {
-            label: "Receive at zero cost",
-            severity: "warn",
-        },
-        accept: () => {
-            submitUnlistedItem();
-        },
-    });
 };
 
 const submitUnlistedItem = () => {
@@ -656,25 +549,21 @@ const missingEvidence = computed(() => {
     return missing;
 });
 
-// Confirm Receive no longer ends receiving: an item found afterwards can still be added and
-// corrected. What ends it is the calendar - quantities may be corrected until the end of the
-// third day after the delivery date, after which the delivery is read-only. The server
-// enforces the same rule (OrderReceivingService::receivingEditWindowProblem).
-const isPastEditWindow = computed(() => {
-    if (!props.receivingEditDeadline) return false;
-    return dayjs().tz("Asia/Manila").isAfter(dayjs.tz(props.receivingEditDeadline, "Asia/Manila"));
-});
+// Confirm Receive All does not end receiving: an item found afterwards can still be added and
+// corrected. Only Final Receive All does, and for good - the item list is then read-only. The
+// server enforces the same rule (OrderReceivingService::receivingLockedProblem).
+const isFinalized = computed(() => !!props.receivingFinalized);
 
-const editWindowHint = computed(() =>
-    props.receivingEditDeadline
-        ? `The 3-day window for correcting this delivery closed on ${dayjs
-              .tz(props.receivingEditDeadline, "Asia/Manila")
-              .format("MMM D, YYYY")}.`
+const finalizedHint = computed(() =>
+    props.receivingFinalized
+        ? `Finalized with Final Receive All on ${props.receivingFinalized.at}${
+              props.receivingFinalized.by ? ` by ${props.receivingFinalized.by}` : ""
+          }. Items can no longer be added, changed or received.`
         : ""
 );
 
 const canRecordReceipt = computed(
-    () => !isPastEditWindow.value && missingEvidence.value.length === 0
+    () => !isFinalized.value && missingEvidence.value.length === 0
 );
 
 const evidenceHint = computed(() =>
@@ -683,11 +572,8 @@ const evidenceHint = computed(() =>
         : `Add ${missingEvidence.value.join(" and ")} before recording received quantities.`
 );
 
-// Confirming is deliberately NOT tied to the editing window. The window governs changing a
-// delivery; confirming only posts quantities that were already recorded. Blocking it after
-// three days would strand those quantities outside stock permanently, since Confirm Receive
-// is the only thing that posts them. It stays available until it has been used, then the
-// button disappears because no unconfirmed rows remain.
+// Confirm Receive All stays available until it has been used, then disappears because no
+// unconfirmed rows remain. Final Receive All posts any left as well, so none are stranded.
 const canConfirmReceive = computed(() => missingEvidence.value.length === 0);
 
 // Rows that have not yet been posted to stock. Confirm Receive keys off these rather than the
@@ -939,6 +825,71 @@ const promptConfirmReceive = () => {
         },
         accept: () => {
             confirmReceive();
+        },
+    });
+};
+
+// Final Receive All: posts whatever is still unconfirmed, then locks the item list for good.
+const unconfirmedRowCount = computed(
+    () => props.receiveDatesHistory.filter((h) => ["pending", "received"].includes(String(h.status).toLowerCase())).length
+);
+
+const finalReceiveForm = useForm({});
+
+const finalReceive = () => {
+    finalReceiveForm.put(route("orders-receiving.final-receive", props.order.id), {
+        preserveScroll: true,
+        onSuccess: () => {
+            toast.add({
+                severity: "success",
+                summary: "Receiving Finalized",
+                detail: "This delivery is now locked. Its items can no longer be changed.",
+                life: 5000,
+            });
+        },
+        onError: (errors) => {
+            toast.add({
+                severity: "error",
+                summary: "Unable to Finalize",
+                detail: errors.error || "Please try again.",
+                life: 7000,
+            });
+        },
+    });
+};
+
+const promptFinalReceive = () => {
+    if (!canConfirmReceive.value) {
+        toast.add({
+            severity: "error",
+            summary: "Unable to Finalize",
+            detail: "A delivery receipt and image are required before finalizing.",
+            life: 5000,
+        });
+        return;
+    }
+
+    const pending = unconfirmedRowCount.value;
+
+    confirm.require({
+        header: "Final Receive All?",
+        message:
+            (pending > 0
+                ? `${pending} item(s) not yet confirmed will be received now, exactly as Confirm Receive All does. `
+                : "Every item is already confirmed. ")
+            + "This is the final step for this delivery: afterwards no item can be added, edited or received on this page. This cannot be undone.",
+        icon: "pi pi-lock",
+        rejectProps: {
+            label: "Cancel",
+            severity: "secondary",
+            outlined: true,
+        },
+        acceptProps: {
+            label: "Final Receive All",
+            severity: "danger",
+        },
+        accept: () => {
+            finalReceive();
         },
     });
 };
@@ -1224,19 +1175,22 @@ const promptConfirmReceive = () => {
                             <p v-else class="text-xs text-green-600 font-medium">
                                 ✓ All items have been received
                             </p>
-                            <p v-if="isPastEditWindow" class="mt-1 text-xs font-medium text-gray-600">
-                                🔒 {{ editWindowHint }}
+                            <p
+                                v-if="isFinalized"
+                                class="mt-1 inline-flex items-center gap-1.5 rounded-md border border-emerald-200 bg-emerald-50 px-2 py-1 text-xs font-semibold text-emerald-800"
+                            >
+                                <Lock class="size-3.5" />
+                                {{ finalizedHint }}
                             </p>
                             <p v-else-if="!canRecordReceipt" class="mt-1 text-xs font-medium text-red-600">
                                 🔒 {{ evidenceHint }}
                             </p>
                         </div>
-                        <div class="flex items-center gap-3">
-                            <!-- Always offered while the delivery can still be corrected, even when the
-                                 supplier has nothing left to add: the dialog says so. It goes away
-                                 only when the 3-day window closes. -->
+                        <!-- Everything here goes away once Final Receive All has locked the list.
+                             Add Unlisted Item is offered even when the supplier has nothing left
+                             to add: the dialog says so. -->
+                        <div v-if="!isFinalized && hasReceivePermission" class="flex items-center gap-3">
                             <Button
-                            v-if="!isPastEditWindow"
                             :disabled="!canRecordReceipt"
                             variant="outline"
                             class="border-2 border-dashed border-indigo-400 bg-indigo-50 text-indigo-700 font-semibold shadow-sm hover:bg-indigo-100 hover:border-indigo-500 hover:text-indigo-800 hover:shadow-md transition-all"
@@ -1251,9 +1205,24 @@ const promptConfirmReceive = () => {
                             @click="promptConfirmReceive"
                             :disabled="!canConfirmReceive"
                             :variant="!canConfirmReceive ? 'secondary' : 'default'"
-                            :title="!canConfirmReceive ? 'A delivery receipt and image are required before confirming.' : 'Confirm all pending received items'"
+                            :title="!canConfirmReceive ? 'A delivery receipt and image are required before confirming.' : 'Confirm all pending received items. The list stays open for changes.'"
                         >
                             Confirm Receive All
+                        </Button>
+                        <Button
+                            @click="promptFinalReceive"
+                            :disabled="!canConfirmReceive || finalReceiveForm.processing"
+                            :class="[
+                                'gap-2 font-bold shadow-md ring-2 ring-offset-1 transition-all',
+                                canConfirmReceive
+                                    ? 'bg-emerald-600 text-white ring-emerald-300 hover:bg-emerald-700'
+                                    : 'bg-gray-200 text-gray-500 ring-gray-200',
+                            ]"
+                            :title="!canConfirmReceive ? 'A delivery receipt and image are required before finalizing.' : 'Final step: receive everything and lock this delivery so its items can no longer be changed'"
+                        >
+                            <Loader2 v-if="finalReceiveForm.processing" class="size-4 animate-spin" />
+                            <Lock v-else class="size-4" />
+                            Final Receive All
                         </Button>
                         </div>
                     </div>
@@ -1288,8 +1257,8 @@ const promptConfirmReceive = () => {
                                 class="hover:bg-gray-50 transition-colors duration-150"
                             >
                                 <td class="px-4 py-4 text-center font-mono text-gray-500">{{ index + 1 }}</td>
-                                <!-- A line added from the SAP Masterlist has no supplier item: fall back
-                                     to the line's own item code and SAP description. -->
+                                <!-- A line added from the SAP Masterlist (while Add Unlisted Item offered it)
+                                     has no supplier item: fall back to the line's own code and description. -->
                                 <td class="px-4 py-4 font-mono text-xs text-gray-600">{{
                                     history.store_order_item.supplier_item?.ItemCode
                                         ?? history.store_order_item.item_code
@@ -1334,7 +1303,7 @@ const promptConfirmReceive = () => {
                                             title="View Details"
                                         />
                                         <EditButton
-                                            v-if="!isPastEditWindow && (history.status === 'pending' || history.status === 'received')"
+                                            v-if="!isFinalized && hasReceivePermission && (history.status === 'pending' || history.status === 'received')"
                                             :disabled="!canRecordReceipt"
                                             :class="!canRecordReceipt ? 'opacity-40 cursor-not-allowed' : ''"
                                             @click="canRecordReceipt && openEditModalForm(history.id)"
@@ -1359,7 +1328,7 @@ const promptConfirmReceive = () => {
                                 />
                                 <EditButton
                                     class="size-8"
-                                    v-if="!isPastEditWindow && (history.status === 'pending' || history.status === 'received')"
+                                    v-if="!isFinalized && hasReceivePermission && (history.status === 'pending' || history.status === 'received')"
                                     :disabled="!canRecordReceipt"
                                     :class="!canRecordReceipt ? 'opacity-40 cursor-not-allowed' : ''"
                                     @click="canRecordReceipt && openEditModalForm(history.id)"
@@ -1503,37 +1472,16 @@ const promptConfirmReceive = () => {
                             <Label class="text-xs font-semibold uppercase tracking-wide text-gray-700">
                                 Item <span class="text-red-500">*</span>
                             </Label>
-                            <span v-if="unlistedTab === 'supplier'" class="text-xs text-gray-400">
-                                {{ supplierMatches.length }} of {{ unlistedItemOptions.length }} available
+                            <span class="text-xs text-gray-400">
+                                {{ unlistedMatches.length }} of {{ unlistedItemOptions.length }} available
                             </span>
-                            <span v-else-if="sapAvailable !== null" class="text-xs text-gray-400">
-                                {{ sapAvailable.toLocaleString() }} item(s) available
-                            </span>
-                        </div>
-
-                        <!-- Where to look for the item -->
-                        <div class="mb-2 grid grid-cols-2 gap-1 rounded-lg bg-gray-100 p-1">
-                            <button
-                                v-for="tab in unlistedTabs"
-                                :key="tab.key"
-                                type="button"
-                                @click="unlistedTab = tab.key"
-                                :class="[
-                                    'rounded-md px-3 py-1.5 text-sm font-medium transition-colors',
-                                    unlistedTab === tab.key
-                                        ? 'bg-white text-indigo-700 shadow-sm'
-                                        : 'text-gray-600 hover:text-gray-900',
-                                ]"
-                            >
-                                {{ tab.label }}
-                            </button>
                         </div>
 
                         <div class="relative mb-2">
                             <Search class="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-gray-400" />
                             <Input
                                 v-model="unlistedSearch"
-                                :placeholder="unlistedTab === 'supplier' ? 'Search Supplier Items by item code or name...' : 'Search SAP Masterlist by item code or name...'"
+                                placeholder="Search Supplier Items by item code or name..."
                                 class="pl-9"
                             />
                         </div>
@@ -1564,99 +1512,23 @@ const promptConfirmReceive = () => {
                                 />
                             </button>
 
-                            <!-- Supplier Items tab: nothing left, or nothing matches -->
-                            <template v-if="unlistedTab === 'supplier'">
-                                <div v-if="unlistedItemOptions.length === 0" class="px-3 py-8 text-center">
-                                    <p class="text-sm font-medium text-gray-600">All items are already on this order</p>
-                                    <p class="mt-1 text-xs text-gray-400">
-                                        Every item in this supplier&apos;s item list is already on this order.
-                                        Look for other items in the SAP Masterlist tab.
-                                    </p>
-                                </div>
-                                <div v-else-if="supplierMatches.length === 0" class="px-3 py-8 text-center">
-                                    <p class="text-sm font-medium text-gray-600">No matching items</p>
-                                    <p class="mt-1 text-xs text-gray-400">Try a different item code or name, or look in the SAP Masterlist tab.</p>
-                                </div>
-                            </template>
-
-                            <!-- SAP Masterlist tab: searching, failed, nothing left, or nothing matches -->
-                            <template v-else>
-                                <div v-if="sapLoading && sapItems.length === 0" class="flex items-center justify-center gap-2 px-3 py-8 text-sm text-gray-500">
-                                    <Loader2 class="size-4 animate-spin" />
-                                    Searching the SAP Masterlist...
-                                </div>
-                                <div v-else-if="sapError" class="px-3 py-8 text-center">
-                                    <p class="text-sm font-medium text-red-600">{{ sapError }}</p>
-                                </div>
-                                <div v-else-if="sapAvailable === 0" class="px-3 py-8 text-center">
-                                    <p class="text-sm font-medium text-gray-600">All items are already on this order</p>
-                                    <p class="mt-1 text-xs text-gray-400">Every active item in the SAP Masterlist is already on this order.</p>
-                                </div>
-                                <div v-else-if="sapItems.length === 0" class="px-3 py-8 text-center">
-                                    <p class="text-sm font-medium text-gray-600">No matching items</p>
-                                    <p class="mt-1 text-xs text-gray-400">Try a different item code or name.</p>
-                                </div>
-                            </template>
-                        </div>
-
-                        <p v-if="unlistedTab === 'supplier'" class="mt-2 text-xs text-gray-500">
-                            Items from this order&apos;s supplier list, excluding those already on the order.
-                        </p>
-                        <p v-else class="mt-2 text-xs text-gray-500">
-                            Active items from the SAP Masterlist, excluding those already on the order.
-                            <span v-if="sapHasMore">Only the first matches are shown. Type an item code or name to narrow the list.</span>
-                        </p>
-                        <FormError>{{ unlistedForm.errors.item_code }}</FormError>
-                    </div>
-
-                    <!-- Cost: asked only for an item that has no price on file. Loud while it is zero. -->
-                    <div
-                        v-if="unlistedNeedsCost"
-                        :class="[
-                            'rounded-lg border-2 px-4 py-3',
-                            unlistedCostIsZero ? 'border-amber-400 bg-amber-50' : 'border-gray-200 bg-gray-50',
-                        ]"
-                    >
-                        <div class="flex items-start gap-3">
-                            <AlertTriangle v-if="unlistedCostIsZero" class="mt-0.5 size-5 shrink-0 text-amber-600" />
-                            <div class="min-w-0 flex-1">
-                                <p v-if="unlistedCostIsZero" class="text-sm font-bold text-amber-900">
-                                    This item will be received at ZERO cost
+                            <!-- Nothing left, or nothing matches -->
+                            <div v-if="unlistedItemOptions.length === 0" class="px-3 py-8 text-center">
+                                <p class="text-sm font-medium text-gray-600">All items are already on this order</p>
+                                <p class="mt-1 text-xs text-gray-400">
+                                    Every item in this supplier&apos;s item list is already on this order.
                                 </p>
-                                <p v-else class="text-sm font-semibold text-gray-900">
-                                    This item will be received at ₱{{ formatPeso(unlistedForm.cost) }} per {{ selectedUnlistedItem.uom }}
-                                </p>
-                                <p :class="['mt-1 text-xs', unlistedCostIsZero ? 'text-amber-800' : 'text-gray-600']">
-                                    {{ selectedUnlistedItem.item_name }} is not in this supplier&apos;s item list, so the system has no
-                                    price for it. Type the cost per {{ selectedUnlistedItem.uom }} from the delivery receipt or invoice.
-                                    If you leave it at zero, its stock is added with no value.
-                                </p>
-
-                                <div class="mt-3 grid items-end gap-3 sm:grid-cols-2">
-                                    <div>
-                                        <Label class="text-xs font-semibold uppercase tracking-wide text-gray-700">
-                                            Cost per {{ selectedUnlistedItem.uom }}
-                                        </Label>
-                                        <div class="relative mt-2">
-                                            <span class="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm font-medium text-gray-400">₱</span>
-                                            <Input
-                                                v-model="unlistedForm.cost"
-                                                type="number"
-                                                step="any"
-                                                min="0"
-                                                placeholder="0"
-                                                class="bg-white pl-7 font-semibold"
-                                            />
-                                        </div>
-                                    </div>
-                                    <p class="pb-2 text-xs text-gray-600">
-                                        Total: <span class="font-semibold text-gray-900">₱{{ formatPeso(unlistedTotalCost) }}</span>
-                                        <span class="text-gray-400"> (cost x quantity received)</span>
-                                    </p>
-                                </div>
-                                <FormError>{{ unlistedForm.errors.cost }}</FormError>
+                            </div>
+                            <div v-else-if="unlistedMatches.length === 0" class="px-3 py-8 text-center">
+                                <p class="text-sm font-medium text-gray-600">No matching items</p>
+                                <p class="mt-1 text-xs text-gray-400">Try a different item code or name.</p>
                             </div>
                         </div>
+
+                        <p class="mt-2 text-xs text-gray-500">
+                            Items from this order&apos;s supplier list, excluding those already on the order.
+                        </p>
+                        <FormError>{{ unlistedForm.errors.item_code }}</FormError>
                     </div>
 
                     <!-- Quantity + expiry -->
@@ -1735,7 +1607,6 @@ const promptConfirmReceive = () => {
                     <p class="hidden text-xs text-gray-500 sm:block">
                         <span v-if="selectedUnlistedItem">
                             Adding <span class="font-medium text-gray-700">{{ selectedUnlistedItem.item_name }} ({{ selectedUnlistedItem.uom }})</span>
-                            <span v-if="unlistedNeedsCost && unlistedCostIsZero" class="font-bold text-amber-700"> at ZERO cost</span>
                         </span>
                         <span v-else>Select an item to continue.</span>
                     </p>
@@ -1743,7 +1614,7 @@ const promptConfirmReceive = () => {
                         <Button variant="ghost" @click="closeUnlistedModal">Cancel</Button>
                         <Button
                             :disabled="!unlistedForm.item_code || !unlistedForm.quantity_received || !unlistedForm.remarks || unlistedForm.processing"
-                            @click="promptSubmitUnlistedItem"
+                            @click="submitUnlistedItem"
                         >
                             <Loader2 v-if="unlistedForm.processing" class="size-4 animate-spin" />
                             {{ unlistedForm.processing ? "Adding..." : "Add Item" }}

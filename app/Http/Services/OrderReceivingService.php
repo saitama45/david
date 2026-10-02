@@ -45,16 +45,6 @@ class OrderReceivingService extends StoreOrderService
     ];
 
     /**
-     * Days after the delivery date during which recorded quantities may still be corrected.
-     *
-     * Confirm Receive no longer ends this: an item found after confirming can still be added
-     * and corrected, because that is how deliveries are actually worked. What ends it is the
-     * calendar — past this window the delivery is history and anything found belongs in SOH
-     * Adjustment, which carries its own approver step.
-     */
-    public const RECEIVING_EDIT_WINDOW_DAYS = 3;
-
-    /**
      * Get a list of orders for receiving, filtered by status and search term.
      *
      * @param string $currentFilter The current status filter ('all', 'received', 'incomplete', 'commited').
@@ -434,42 +424,33 @@ class OrderReceivingService extends StoreOrderService
     }
 
     /**
-     * The last moment this delivery's recorded quantities may be corrected: the end of the
-     * third day after its delivery date, in Manila time.
+     * Why this order's receiving item list can no longer be changed, or null while it can.
+     *
+     * Confirm Receive All posts what was recorded but leaves the list open: an item found
+     * afterwards can still be added and corrected. Only "Final Receive All" closes it, and
+     * for good. (It replaced a 3-day window counted from the delivery date.)
      */
-    public function receivingEditDeadline(StoreOrder $order): ?Carbon
+    public function receivingLockedProblem(StoreOrder $order): ?string
     {
-        if (! $order->order_date) {
+        if (! $order->receiving_finalized_at) {
             return null;
         }
 
-        return Carbon::parse($order->order_date, 'Asia/Manila')
-            ->addDays(self::RECEIVING_EDIT_WINDOW_DAYS)
-            ->endOfDay();
+        $by = $order->receivingFinalizedBy?->full_name;
+
+        // Stored as Manila wall time, like received_date, so it is shown as stored.
+        return 'This delivery was finalized with Final Receive All on '
+            .$order->receiving_finalized_at->format('M j, Y g:i A')
+            .($by ? " by {$by}" : '')
+            .'. Its items can no longer be added, changed or received.';
     }
 
     /**
-     * Why this delivery can no longer be corrected, or null while it is still within the
-     * editing window.
+     * @throws Exception when the order was finalized with Final Receive All.
      */
-    public function receivingEditWindowProblem(StoreOrder $order): ?string
+    public function assertReceivingNotFinalized(StoreOrder $order): void
     {
-        $deadline = $this->receivingEditDeadline($order);
-
-        if (! $deadline || Carbon::now('Asia/Manila')->lte($deadline)) {
-            return null;
-        }
-
-        return 'The '.self::RECEIVING_EDIT_WINDOW_DAYS.'-day window for correcting this delivery closed on '
-            .$deadline->format('M j, Y').'.';
-    }
-
-    /**
-     * @throws Exception when the delivery is past its editing window.
-     */
-    public function assertWithinReceivingEditWindow(StoreOrder $order): void
-    {
-        if ($problem = $this->receivingEditWindowProblem($order)) {
+        if ($problem = $this->receivingLockedProblem($order)) {
             throw new \Exception($problem);
         }
     }
@@ -578,65 +559,50 @@ class OrderReceivingService extends StoreOrderService
      */
     public function addUnlistedItem(StoreOrder $order, array $data): StoreOrderItem
     {
-        // Deliberately not gated on order status: an item found after Confirm Receive can
-        // still be added, and Confirm Receive reappears for it (the button keys off
-        // unconfirmed rows, not the order status), so it still reaches stock. The calendar
-        // still applies though — adding must close when correcting does, or the 3-day window
-        // could be sidestepped by adding a line instead of editing one.
-        $this->assertWithinReceivingEditWindow($order);
+        // Deliberately not gated on order status: an item found after Confirm Receive All can
+        // still be added, and the button reappears for it (it keys off unconfirmed rows, not
+        // the order status), so it still reaches stock. Only Final Receive All closes the list.
+        $this->assertReceivingNotFinalized($order);
         $this->assertDeliveryEvidence($order);
 
         $supplierCode = (string) ($order->supplier?->supplier_code ?? '');
         $itemCode = trim((string) $data['item_code']);
         $requestedUom = trim((string) ($data['uom'] ?? ''));
 
-        if ($order->store_order_items()->where('item_code', $itemCode)->exists()) {
-            throw new \Exception("{$itemCode} is already on this order. Record the delivered quantity on its existing row instead of adding it again.");
-        }
-
-        // The order's own supplier list first: it carries the price. A supplier lists an
+        // Only the order's own supplier list, which carries the price. A supplier lists an
         // item once per unit (Pack and Gm), so the unit is part of the match.
         $catalogueItem = SupplierItems::forSupplierCode($supplierCode)
             ->first(fn ($item) => $item->ItemCode === $itemCode
                 && ($requestedUom === '' || strcasecmp(trim((string) $item->uom), $requestedUom) === 0));
 
-        $uom = $catalogueItem ? (string) $catalogueItem->uom : $requestedUom;
-
-        if ($uom === '') {
-            throw new \Exception("Pick the unit {$itemCode} was received in.");
+        if (! $catalogueItem) {
+            throw new \Exception("{$itemCode}".($requestedUom !== '' ? " ({$requestedUom})" : '')
+                ." is not in the {$supplierCode} item list, so it cannot be received against this order.");
         }
+
+        if ($order->store_order_items()->where('item_code', $itemCode)->exists()) {
+            throw new \Exception("{$itemCode} is already on this order. Record the delivered quantity on its existing row instead of adding it again.");
+        }
+
+        $uom = (string) $catalogueItem->uom;
 
         // confirmReceive() needs both of these to convert the receipt into base UOM, and it
         // only logs a warning when they are missing — the receipt would silently never reach
         // stock. Fail here instead, while the user can still act on it.
-        $sapRows = SAPMasterfile::where('ItemCode', $itemCode)
-            ->whereRaw('UPPER(AltUOM) = ?', [strtoupper($uom)]);
-
-        // An item outside the supplier's list may be any item of the SAP Masterlist, as long
-        // as it is active there.
-        $orderedMasterfile = $catalogueItem
-            ? $sapRows->first()
-            : $sapRows->where('is_active', true)->first();
+        $orderedMasterfile = SAPMasterfile::where('ItemCode', $itemCode)
+            ->whereRaw('UPPER(AltUOM) = ?', [strtoupper($uom)])
+            ->first();
 
         if (! $orderedMasterfile) {
-            throw new \Exception($catalogueItem
-                ? "{$itemCode} has no SAP masterfile entry for UOM {$uom}, so the quantity could not be converted to stock."
-                : "{$itemCode} ({$uom}) is not an active item in the SAP Masterlist or in the {$supplierCode} item list, so it cannot be received against this order.");
+            throw new \Exception("{$itemCode} has no SAP masterfile entry for UOM {$uom}, so the quantity could not be converted to stock.");
         }
 
-        $stockUnit = \App\Support\ItemStockUnit::forItem($itemCode);
-
-        if (! $stockUnit->stockRowFor($uom)) {
+        if (! \App\Support\ItemStockUnit::forItem($itemCode)->stockRowFor($uom)) {
             throw new \Exception("{$itemCode} has no base-UOM SAP masterfile entry that {$uom} converts into, so the quantity could not be posted to stock on hand.");
         }
 
         $quantity = (float) $data['quantity_received'];
-
-        // The supplier's list knows its own price. Outside it there is no price to look up,
-        // so the receiver types one; left alone it is zero, which the page makes them confirm.
-        $cost = $catalogueItem
-            ? (float) ($catalogueItem->cost ?? 0)
-            : (float) ($data['cost'] ?? 0);
+        $cost = (float) ($catalogueItem->cost ?? 0);
 
         return DB::transaction(function () use ($order, $itemCode, $uom, $quantity, $cost, $orderedMasterfile, $data) {
             $item = $order->store_order_items()->create([
@@ -683,80 +649,6 @@ class OrderReceivingService extends StoreOrderService
 
             return $item;
         });
-    }
-
-    /**
-     * Active SAP Masterlist items that can be received against this order although they
-     * were never ordered: one row per ItemCode + unit, without the items already on the
-     * order and without units that have no stock row to post to.
-     *
-     * The masterlist is too large to hand to the page (9,000+ rows), so it is searched
-     * here and only the first $limit items come back.
-     *
-     * supplier_listed marks a row the order's supplier also lists in that unit: it is
-     * received at the supplier's cost, so the page asks for no cost.
-     *
-     * @return array{items: array<int, array{item_code: string, item_name: string, uom: string, supplier_listed: bool}>, available: int, more: bool}
-     */
-    public function unlistedSapItems(StoreOrder $order, ?string $search = null, int $limit = 50): array
-    {
-        $onOrder = $order->store_order_items()->pluck('item_code')->filter()->unique()->values()->all();
-
-        $supplierListed = SupplierItems::forSupplierCode((string) ($order->supplier?->supplier_code ?? ''))
-            ->mapWithKeys(fn ($item) => [$item->ItemCode.'|'.strtoupper(trim((string) $item->uom)) => true]);
-
-        $candidates = SAPMasterfile::query()
-            ->where('is_active', true)
-            ->when($onOrder, fn ($query) => $query->whereNotIn('ItemCode', $onOrder));
-
-        $available = (clone $candidates)->distinct()->count('ItemCode');
-
-        // SQL Server reads %, _ and [ as wildcards.
-        $term = str_replace(['[', '%', '_'], ['[[]', '[%]', '[_]'], trim((string) $search));
-
-        $itemCodes = (clone $candidates)
-            ->when($term !== '', fn ($query) => $query->where(fn ($query) => $query
-                ->where('ItemCode', 'like', "%{$term}%")
-                ->orWhere('ItemDescription', 'like', "%{$term}%")))
-            ->select('ItemCode')
-            ->distinct()
-            ->orderBy('ItemCode')
-            ->limit($limit + 1)
-            ->pluck('ItemCode');
-
-        $more = $itemCodes->count() > $limit;
-        $itemCodes = $itemCodes->take($limit);
-
-        // Every row of each item, inactive ones included: the stock unit is worked out from
-        // all of an item's conversions, as ItemStockUnit::forItem() does.
-        $rowsByItem = SAPMasterfile::whereIn('ItemCode', $itemCodes->all())
-            ->orderBy('id')
-            ->get()
-            ->groupBy(fn ($row) => strtoupper(trim((string) $row->ItemCode)));
-
-        $items = [];
-
-        foreach ($itemCodes as $itemCode) {
-            $rows = $rowsByItem->get(strtoupper(trim((string) $itemCode)), collect());
-            $stockUnit = \App\Support\ItemStockUnit::fromRows($rows);
-
-            foreach (\App\Support\ItemStockUnit::onePerUnit($rows->filter(fn ($row) => (bool) $row->is_active)) as $row) {
-                $uom = trim((string) $row->AltUOM);
-
-                if ($uom === '' || ! $stockUnit->stockRowFor($uom)) {
-                    continue;
-                }
-
-                $items[] = [
-                    'item_code' => $row->ItemCode,
-                    'item_name' => $row->ItemDescription,
-                    'uom' => $uom,
-                    'supplier_listed' => $supplierListed->has($row->ItemCode.'|'.strtoupper($uom)),
-                ];
-            }
-        }
-
-        return ['items' => $items, 'available' => $available, 'more' => $more];
     }
 
     public function addDeliveryReceiptNumber(array $data)

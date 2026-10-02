@@ -52,6 +52,7 @@ class StoreOrder extends Model implements Auditable
         'approval_action_date' => 'date:F d, Y h:i a',
         'transfer_date' => 'date',
         'interco_status' => IntercoStatus::class,
+        'receiving_finalized_at' => 'datetime',
     ];
 
     /**
@@ -74,6 +75,12 @@ class StoreOrder extends Model implements Auditable
     public function encoder()
     {
         return $this->belongsTo(User::class, 'encoder_id');
+    }
+
+    /** Who clicked "Final Receive All", which locked this order's receiving item list. */
+    public function receivingFinalizedBy()
+    {
+        return $this->belongsTo(User::class, 'receiving_finalized_by');
     }
 
     public function approver()

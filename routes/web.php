@@ -527,7 +527,6 @@ Route::middleware('auth')
                 Route::put('/orders-receiving/update-delivery-receipt-number/{id}', 'updateDeliveryReceiptNumber')->name('update-delivery-receipt-number');
 
                 Route::post('/orders-receiving/{order}/add-unlisted-item', 'addUnlistedItem')->name('add-unlisted-item');
-                Route::get('/orders-receiving/{order}/unlisted-sap-items', 'unlistedSapItems')->name('unlisted-sap-items');
 
                 Route::post('/orders-receiving/delete-receiving-history/{id}', 'deleteReceiveDateHistory')->name('delete-receiving-history');
                 Route::post('/orders-receiving/update-receiving-history', 'updateReceiveDateHistory')->name('update-receiving-history');
@@ -540,6 +539,7 @@ Route::middleware('auth')
                 Route::middleware('permission:export approved orders')->get('/orders-receiving/export', 'export')->name('export'); // Corrected permission
 
                 Route::put('/orders-receiving/confirm-receive/{id}', 'confirmReceive')->name('confirm-receive');
+                Route::put('/orders-receiving/final-receive/{id}', 'finalReceive')->name('final-receive');
             });
         });
 
