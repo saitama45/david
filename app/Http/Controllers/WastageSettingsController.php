@@ -25,9 +25,11 @@ class WastageSettingsController extends Controller
     {
         $validated = $request->validate([
             'required_levels' => ['required', 'integer', 'in:1,2'],
+            'allow_negative_stock' => ['required', 'boolean'],
         ]);
 
         $this->settings->setRequiredLevels((int) $validated['required_levels']);
+        $this->settings->setAllowNegativeStock((bool) $validated['allow_negative_stock']);
 
         return back()->with('success', 'Wastage approval settings saved successfully.');
     }

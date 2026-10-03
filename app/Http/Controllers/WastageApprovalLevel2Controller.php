@@ -218,8 +218,15 @@ class WastageApprovalLevel2Controller extends Controller
             })->toArray(),
         ];
 
+        // Items this approval would take below zero SOH, for the confirmation dialog.
+        $awaitingApproval = $relatedWastageRecords->filter(fn ($record) => $record->wastage_status === WastageStatus::APPROVED_LVL1);
+        $negativeStockItems = $awaitingApproval->isNotEmpty()
+            ? $this->wastageService->getApprovalStockCheck($awaitingApproval->values(), $wastage->store_branch_id, 'level2')['negative']
+            : [];
+
         return Inertia::render('WastageApprovalLevel2/Show', [
             'wastage' => $wastageData,
+            'negative_stock_items' => $negativeStockItems,
             'permissions' => [
                 'can_approve' => $user->hasPermissionTo('approve wastage level 2'),
                 'can_edit' => $user->hasPermissionTo('edit wastage approval level 2'),
@@ -269,14 +276,16 @@ class WastageApprovalLevel2Controller extends Controller
 
             \DB::beginTransaction();
 
-            $stockErrors = $this->wastageService->getFinalApprovalStockErrors($relatedWastages, $storeBranchId, 'level2');
+            $stockProblem = $this->wastageService->approvalStockProblem(
+                $relatedWastages,
+                $storeBranchId,
+                'level2',
+                $request->boolean('confirm_negative_stock')
+            );
 
-            if (!empty($stockErrors)) {
+            if ($stockProblem) {
                 \DB::rollBack();
-                return redirect()->back()->with([
-                    'approval_error' => 'Cannot approve wastage due to insufficient stock for some items.',
-                    'approval_stock_errors' => $stockErrors,
-                ]);
+                return redirect()->back()->with($stockProblem);
             }
 
             $this->wastageService->finalizeWastageApproval(

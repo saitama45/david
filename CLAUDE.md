@@ -251,6 +251,10 @@ SQL Server as the target. Rationale and trade-offs: [Decisions.md](docs/knowledg
   every item-list action (receive, edit/delete history, add unlisted, confirm) checks
   `OrderReceivingService::receivingLockedProblem()`. Confirm Receive All posts but leaves the list open.
   The old 3-day window from `order_date` is gone. Delivery receipts and images stay editable.
+- **Wastage approval may take SOH negative** while Wastage Settings' "Negative Stock on Approval" is on
+  (the default). A shortfall needs `confirm_negative_stock` on the approve request, enforced by
+  `WastageService::approvalStockProblem()`; never re-add a hard stock block in the controllers.
+  Detail: [Data-Flows.md](docs/knowledge/Data-Flows.md#approval-flow).
 - **`supplier_items` text columns (category, brand, classification, packaging_config) and `config` are NOT
   NULL**, but blank form inputs arrive as null (ConvertEmptyStringsToNull). Store `''` / `0`, as the import does.
 - **Fresh migrations create a UNIQUE index on `sap_masterfiles.ItemCode`** that the live database does

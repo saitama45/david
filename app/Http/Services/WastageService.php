@@ -17,9 +17,45 @@ use Illuminate\Pagination\LengthAwarePaginator;
 
 class WastageService
 {
-    public function getFinalApprovalStockErrors(Collection $relatedWastages, int $storeBranchId, string $quantityLevel = 'level2'): array
+    /**
+     * Stock check for approving a wastage. `errors` block the approval; `negative` are the items
+     * whose SOH the approval takes below zero (only when Wastage Settings allows it).
+     */
+    public function getApprovalStockCheck(Collection $relatedWastages, int $storeBranchId, string $quantityLevel = 'level2'): array
     {
-        return $this->buildFinalApprovalDeductions($relatedWastages, $storeBranchId, $quantityLevel)['errors'];
+        $deductionData = $this->buildFinalApprovalDeductions($relatedWastages, $storeBranchId, $quantityLevel);
+
+        return [
+            'errors' => $deductionData['errors'],
+            'negative' => $deductionData['negative'],
+        ];
+    }
+
+    /**
+     * What stops this approval, as the session flash the Show page reads; null when it may go ahead.
+     * Items going to negative stock pass only once the approver confirmed them in the dialog.
+     */
+    public function approvalStockProblem(Collection $relatedWastages, int $storeBranchId, string $quantityLevel, bool $negativeStockConfirmed): ?array
+    {
+        $check = $this->getApprovalStockCheck($relatedWastages, $storeBranchId, $quantityLevel);
+
+        if (!empty($check['errors'])) {
+            return [
+                'approval_error' => app(WastageApprovalSettingsService::class)->allowsNegativeStock()
+                    ? 'Cannot approve wastage: some items have no stock unit to deduct from.'
+                    : 'Cannot approve wastage due to insufficient stock for some items.',
+                'approval_stock_errors' => $check['errors'],
+            ];
+        }
+
+        if (!empty($check['negative']) && !$negativeStockConfirmed) {
+            return [
+                'approval_error' => 'Some items will go to negative stock. Review them and approve again to confirm.',
+                'approval_stock_errors' => $check['negative'],
+            ];
+        }
+
+        return null;
     }
 
     public function finalizeWastageApproval(
@@ -90,9 +126,11 @@ class WastageService
     private function buildFinalApprovalDeductions(Collection $relatedWastages, int $storeBranchId, string $quantityLevel): array
     {
         $stockErrors = [];
+        $negativeStock = [];
         $deductions = [];
         $stockUnits = [];
         $groups = [];
+        $allowNegative = app(WastageApprovalSettingsService::class)->allowsNegativeStock();
 
         // Stock lives on the item's SAP base-unit row; each wasted unit converts into it.
         foreach ($relatedWastages as $item) {
@@ -121,7 +159,7 @@ class WastageService
                 ? ($item->approverlvl1_qty ?? $item->wastage_qty)
                 : ($item->approverlvl2_qty ?? $item->approverlvl1_qty ?? $item->wastage_qty);
 
-            $groups[$targetSapMasterfile->id] ??= ['target' => $targetSapMasterfile, 'quantity' => 0, 'cost' => 0];
+            $groups[$targetSapMasterfile->id] ??= ['target' => $targetSapMasterfile, 'unit' => $stockUnit->unitFor($unit), 'quantity' => 0, 'cost' => 0];
             $groups[$targetSapMasterfile->id]['quantity'] += $approvedQty * $conversionFactor;
             $groups[$targetSapMasterfile->id]['cost'] += $approvedQty * $item->cost;
         }
@@ -138,7 +176,26 @@ class WastageService
                 ->where('store_branch_id', $storeBranchId)
                 ->first();
 
-            if (!$productStock || $productStock->quantity < $totalQtyToDeductInBaseUom) {
+            if ((!$productStock || $productStock->quantity < $totalQtyToDeductInBaseUom) && $allowNegative) {
+                $available = (float) ($productStock->quantity ?? 0);
+                $negativeStock[] = [
+                    'item_code' => $targetSapMasterfile->ItemCode,
+                    'item_description' => $targetSapMasterfile->ItemDescription,
+                    'uom' => $group['unit'],
+                    'available' => round($available, 4),
+                    'required' => round($totalQtyToDeductInBaseUom, 4),
+                    'resulting' => round($available - $totalQtyToDeductInBaseUom, 4),
+                ];
+
+                // A store that never held the item has no stock row yet; the approval opens one at 0.
+                $productStock ??= new ProductInventoryStock([
+                    'product_inventory_id' => $targetSapMasterfile->id,
+                    'store_branch_id' => $storeBranchId,
+                    'quantity' => 0,
+                    'recently_added' => 0,
+                    'used' => 0,
+                ]);
+            } elseif (!$productStock || $productStock->quantity < $totalQtyToDeductInBaseUom) {
                 $stockErrors[] = [
                     'item_code' => $targetSapMasterfile->ItemCode,
                     'item_description' => $targetSapMasterfile->ItemDescription,
@@ -159,6 +216,7 @@ class WastageService
 
         return [
             'errors' => $stockErrors,
+            'negative' => $negativeStock,
             'deductions' => $deductions,
         ];
     }

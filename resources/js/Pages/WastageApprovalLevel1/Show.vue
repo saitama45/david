@@ -5,8 +5,9 @@ import { useConfirm } from "primevue/useconfirm";
 import { useToast } from "@/composables/useToast";
 import { useForm } from "@inertiajs/vue3";
 import { ref, watch, computed } from 'vue';
-import { Edit, Save, X, Trash2, Paperclip, Loader2, AlertCircle, ImageIcon } from "lucide-vue-next";
+import { Edit, Save, X, Trash2, Paperclip, Loader2, AlertCircle, AlertTriangle, ImageIcon } from "lucide-vue-next";
 import { useAuth } from "@/composables/useAuth";
+import NegativeStockConfirmDialog from "@/components/wastage/NegativeStockConfirmDialog.vue";
 
 const confirm = useConfirm();
 const { toast } = useToast();
@@ -30,6 +31,14 @@ const props = defineProps({
     approval_stock_errors: {
         type: Array,
         default: () => [],
+    },
+    negative_stock_items: {
+        type: Array,
+        default: () => [],
+    },
+    deducts_stock_on_approval: {
+        type: Boolean,
+        default: true,
     },
 });
 
@@ -98,7 +107,15 @@ const remarksForm = useForm({
     remarks: null,
 });
 
+const isNegativeStockDialogOpen = ref(false);
+
 const approveWastage = (id) => {
+    // Items without enough stock get their own dialog, which names them and what their SOH becomes.
+    if (props.negative_stock_items.length > 0) {
+        isNegativeStockDialogOpen.value = true;
+        return;
+    }
+
     confirm.require({
         message: "Are you sure you want to approve this wastage record?",
         header: "Confirmation",
@@ -112,35 +129,43 @@ const approveWastage = (id) => {
             label: "Confirm",
             severity: "info",
         },
-        accept: () => {
-            isLoading.value = true;
-            remarksForm.order_id = id;
-            remarksForm.post(route("wastage-approval-lvl1.approve"), {
-                onSuccess: (page) => {
-                    // Check if the backend returned validation errors for the approval
-                    if (page.props.approval_error || (page.props.approval_stock_errors && page.props.approval_stock_errors.length > 0)) {
-                        isLoading.value = false;
-                        toast.add({
-                            severity: "error",
-                            summary: "Approval Failed",
-                            detail: page.props.approval_error || "Please check the errors below.",
-                            life: 5000,
-                        });
-                        return;
-                    }
+        accept: () => submitApproval(id, false),
+    });
+};
 
-                    toast.add({
-                        severity: "success",
-                        summary: "Success",
-                        detail: "Wastage record approved successfully.",
-                        life: 3000,
-                    });
-                    router.get(route("wastage-approval-lvl1.index"), {}, { replace: true });
-                },
-                onError: () => {
-                    isLoading.value = false;
-                },
+const submitApproval = (id, confirmNegativeStock) => {
+    isLoading.value = true;
+    remarksForm.order_id = id;
+    remarksForm.transform((data) => ({
+        ...data,
+        confirm_negative_stock: confirmNegativeStock,
+    })).post(route("wastage-approval-lvl1.approve"), {
+        onFinish: () => {
+            isNegativeStockDialogOpen.value = false;
+        },
+        onSuccess: (page) => {
+            // Check if the backend returned validation errors for the approval
+            if (page.props.approval_error || (page.props.approval_stock_errors && page.props.approval_stock_errors.length > 0)) {
+                isLoading.value = false;
+                toast.add({
+                    severity: "error",
+                    summary: "Approval Failed",
+                    detail: page.props.approval_error || "Please check the errors below.",
+                    life: 5000,
+                });
+                return;
+            }
+
+            toast.add({
+                severity: "success",
+                summary: "Success",
+                detail: "Wastage record approved successfully.",
+                life: 3000,
             });
+            router.get(route("wastage-approval-lvl1.index"), {}, { replace: true });
+        },
+        onError: () => {
+            isLoading.value = false;
         },
     });
 };
@@ -475,6 +500,35 @@ const handleImageClick = (image) => {
                     </div>
                 </div>
             </div>
+
+            <!-- Negative stock warning: approval is allowed, but these items' SOH will drop below zero -->
+            <div
+                v-if="!approval_error && wastage.wastage_status === 'pending' && negative_stock_items.length > 0"
+                class="mb-6 flex gap-3 rounded-lg border-2 border-red-300 bg-red-50 p-4 text-sm text-red-900"
+            >
+                <AlertTriangle class="mt-0.5 h-5 w-5 flex-shrink-0 text-red-600" />
+                <div>
+                    <p class="font-bold">
+                        Not enough stock on hand for {{ negative_stock_items.length }}
+                        {{ negative_stock_items.length === 1 ? "item" : "items" }}
+                    </p>
+                    <p class="mt-1">
+                        {{ deducts_stock_on_approval
+                            ? "Approving this wastage will make their stock on hand negative:"
+                            : "Their stock on hand will go negative when Level 2 approves this wastage:" }}
+                        <strong>{{ negative_stock_items.map((item) => item.item_description).join(", ") }}</strong>.
+                        You will be asked to confirm.
+                    </p>
+                </div>
+            </div>
+
+            <NegativeStockConfirmDialog
+                v-model:visible="isNegativeStockDialogOpen"
+                :items="negative_stock_items"
+                :deducts-stock="deducts_stock_on_approval"
+                :processing="remarksForm.processing"
+                @confirm="submitApproval(wastage.id, true)"
+            />
 
             <section class="flex flex-col gap-5">
                 <section class="sm:flex-row flex flex-col gap-5">

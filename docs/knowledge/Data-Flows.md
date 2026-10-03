@@ -66,6 +66,15 @@ Spatie permission and the approver's store assignment, and written by that modul
 There is no generic matrix (`WorkflowService` / `ApprovalMatrixService` are dead code). Which levels
 exist can be a setting — read the relevant settings service before assuming a two-level flow.
 
+**Wastage stock check.** Both wastage approval levels run `WastageService::approvalStockProblem()`
+before writing. `wastage.approval_allow_negative_stock` (`WastageApprovalSettingsService`, `/wastage-settings`,
+default **on**) decides what a shortfall does: on, it lands in `negative` and is deducted below zero
+(a missing stock row is opened at 0); off, it is a blocking error, as before 2026-10-03. A unit that
+does not convert to a stock row always blocks. A shortfall passes only when the approve request carries
+`confirm_negative_stock`, which the Show page sends from its "Approve with Negative Stock?" dialog,
+so stock that drops after the page loaded is refused again rather than approved silently. The Show
+pages get the preview as `negative_stock_items` from `getApprovalStockCheck()`.
+
 ## Business-rule exceptions
 
 For a store that cannot meet a business rule or deadline. `RuleExceptionService` +

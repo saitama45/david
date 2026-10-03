@@ -10,6 +10,8 @@ class WastageApprovalSettingsService
 {
     public const REQUIRED_LEVELS_KEY = 'wastage.approval_required_levels';
 
+    public const ALLOW_NEGATIVE_STOCK_KEY = 'wastage.approval_allow_negative_stock';
+
     public function requiredLevels(): int
     {
         $levels = (int) Setting::get(self::REQUIRED_LEVELS_KEY, 2);
@@ -24,6 +26,17 @@ class WastageApprovalSettingsService
         }
 
         Setting::set(self::REQUIRED_LEVELS_KEY, $levels, 'integer');
+    }
+
+    /** Whether approving a wastage may take stock (SOH) below zero. On unless turned off in Wastage Settings. */
+    public function allowsNegativeStock(): bool
+    {
+        return (bool) Setting::get(self::ALLOW_NEGATIVE_STOCK_KEY, true);
+    }
+
+    public function setAllowNegativeStock(bool $allow): void
+    {
+        Setting::set(self::ALLOW_NEGATIVE_STOCK_KEY, $allow ? 'true' : 'false', 'boolean');
     }
 
     public function isOneLevelMode(): bool
@@ -46,7 +59,9 @@ class WastageApprovalSettingsService
                 'rule' => ($oneLevel
                     ? 'Review quantities and available stock. Level 1 is the final approval under the current Wastage Settings. Approval completes this record and updates inventory.'
                     : 'Review quantities and available stock. After Level 1 approval, the record goes to Level 2 for final approval.')
-                    .' If stock validation blocks approval, correct the quantity or resolve the stock discrepancy first.',
+                    .($this->allowsNegativeStock()
+                        ? ' Items without enough stock can still be approved after you confirm they will go to negative stock.'
+                        : ' If stock validation blocks approval, correct the quantity or resolve the stock discrepancy first.'),
             ],
             'wastage_2' => [
                 'rule' => $oneLevel
@@ -73,6 +88,7 @@ class WastageApprovalSettingsService
             'is_one_level_mode' => $this->isOneLevelMode(),
             'has_in_flight_level2_records' => $this->hasInFlightLevel2Records(),
             'show_level2' => $this->shouldShowLevel2(),
+            'allow_negative_stock' => $this->allowsNegativeStock(),
         ];
     }
 }

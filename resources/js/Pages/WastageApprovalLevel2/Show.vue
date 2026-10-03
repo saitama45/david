@@ -5,8 +5,9 @@ import { useConfirm } from "primevue/useconfirm";
 import { useToast } from "@/composables/useToast";
 import { useForm } from "@inertiajs/vue3";
 import { ref, watch, computed } from 'vue';
-import { Edit, Save, X, Trash2, Paperclip, Loader2, AlertCircle, ImageIcon } from "lucide-vue-next";
+import { Edit, Save, X, Trash2, Paperclip, Loader2, AlertCircle, AlertTriangle, ImageIcon } from "lucide-vue-next";
 import { useAuth } from "@/composables/useAuth";
+import NegativeStockConfirmDialog from "@/components/wastage/NegativeStockConfirmDialog.vue";
 
 const confirm = useConfirm();
 const { toast } = useToast();
@@ -28,6 +29,10 @@ const props = defineProps({
         default: '',
     },
     approval_stock_errors: {
+        type: Array,
+        default: () => [],
+    },
+    negative_stock_items: {
         type: Array,
         default: () => [],
     },
@@ -104,7 +109,15 @@ const remarksForm = useForm({
     remarks: null,
 });
 
+const isNegativeStockDialogOpen = ref(false);
+
 const approveWastage = (id) => {
+    // Items without enough stock get their own dialog, which names them and what their SOH becomes.
+    if (props.negative_stock_items.length > 0) {
+        isNegativeStockDialogOpen.value = true;
+        return;
+    }
+
     confirm.require({
         message: "Are you sure you want to approve this wastage record?",
         header: "Confirmation",
@@ -118,28 +131,38 @@ const approveWastage = (id) => {
             label: "Confirm",
             severity: "info",
         },
-        accept: () => {
-            isLoading.value = true;
-            remarksForm.order_id = id;
-            remarksForm.post(route("wastage-approval-lvl2.approve"), {
-                onSuccess: (page) => {
-                    // Only proceed with success actions if a success flash message exists.
-                    // This handles the case where the server returns an Inertia::render with errors (200 OK) instead of a redirect.
-                    if (page.props.flash?.success) {
-                        toast.add({
-                            severity: "success",
-                            summary: "Success",
-                            detail: page.props.flash.success,
-                            life: 3000,
-                        });
-                        router.get(route("wastage-approval-lvl2.index"), {}, { replace: true });
-                    }
-                },
-                onError: (errors) => {
-                    isLoading.value = false;
-                    // Flash errors will be handled by computed properties
-                },
-            });
+        accept: () => submitApproval(id, false),
+    });
+};
+
+const submitApproval = (id, confirmNegativeStock) => {
+    isLoading.value = true;
+    remarksForm.order_id = id;
+    remarksForm.transform((data) => ({
+        ...data,
+        confirm_negative_stock: confirmNegativeStock,
+    })).post(route("wastage-approval-lvl2.approve"), {
+        onFinish: () => {
+            isNegativeStockDialogOpen.value = false;
+        },
+        onSuccess: (page) => {
+            // Only proceed with success actions if a success flash message exists.
+            // This handles the case where the server returns an Inertia::render with errors (200 OK) instead of a redirect.
+            if (page.props.flash?.success) {
+                toast.add({
+                    severity: "success",
+                    summary: "Success",
+                    detail: page.props.flash.success,
+                    life: 3000,
+                });
+                router.get(route("wastage-approval-lvl2.index"), {}, { replace: true });
+            } else {
+                isLoading.value = false;
+            }
+        },
+        onError: (errors) => {
+            isLoading.value = false;
+            // Flash errors will be handled by computed properties
         },
     });
 };
@@ -485,7 +508,33 @@ const handleImageClick = (image) => {
                 </div>
             </div>
         </div>
-        
+
+        <!-- Negative stock warning: approval is allowed, but these items' SOH will drop below zero -->
+        <div
+            v-if="!errorMessage && wastage.wastage_status === 'approved_lvl1' && negative_stock_items.length > 0"
+            class="mb-4 flex gap-3 rounded-md border-2 border-red-300 bg-red-50 p-4 text-sm text-red-900"
+        >
+            <AlertTriangle class="mt-0.5 h-5 w-5 flex-shrink-0 text-red-600" />
+            <div>
+                <p class="font-bold">
+                    Not enough stock on hand for {{ negative_stock_items.length }}
+                    {{ negative_stock_items.length === 1 ? "item" : "items" }}
+                </p>
+                <p class="mt-1">
+                    Approving this wastage will make their stock on hand negative:
+                    <strong>{{ negative_stock_items.map((item) => item.item_description).join(", ") }}</strong>.
+                    You will be asked to confirm.
+                </p>
+            </div>
+        </div>
+
+        <NegativeStockConfirmDialog
+            v-model:visible="isNegativeStockDialogOpen"
+            :items="negative_stock_items"
+            :processing="remarksForm.processing"
+            @confirm="submitApproval(wastage.id, true)"
+        />
+
         <TableContainer>
             <section class="flex flex-col gap-5">
                 <section class="sm:flex-row flex flex-col gap-5">

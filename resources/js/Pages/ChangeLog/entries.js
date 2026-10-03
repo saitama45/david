@@ -15,6 +15,51 @@
 //   affects  who will notice the change
 
 export const changeLog = [
+    // ---------------------------------------------------------------- October 3, 2026
+    {
+        date: '2026-10-03',
+        module: 'Wastage Settings',
+        type: 'new',
+        title: '"Negative Stock on Approval" setting: allow or block approving wastage when stock on hand is not enough',
+        summary:
+            'A wastage could not be approved while any of its items had less stock on hand (SOH) than the quantity wasted. Wastage Settings now has a "Negative Stock on Approval" setting that decides this. It is turned on: wastage can be approved even when the stock on hand is not enough, and that stock on hand goes below zero.',
+        steps: [
+            'Open Wastage Settings.',
+            'Under "Negative Stock on Approval", choose "Allow negative stock" or "Block approval". The badge beside the title shows whether it is On or Off, and a red warning explains what "Allow negative stock" does.',
+            'Click "Save Changes".',
+            'Read the "Save Wastage Settings?" message. It says in capitals whether negative stock will be allowed or blocked. Click "Yes, save settings" to save, or "Cancel" to go back without saving.',
+        ],
+        rules: [
+            'The setting is on, so negative stock on hand is allowed until someone changes it.',
+            'The setting applies to every store.',
+            'With "Block approval", a wastage cannot be approved while any item does not have enough stock on hand, as before.',
+            'Only users with the "manage wastage settings" permission can open Wastage Settings and change it.',
+        ],
+        affects: 'Administrators who manage Wastage Settings, and everyone who approves wastage.',
+    },
+    {
+        date: '2026-10-03',
+        module: 'Wastage Approval 1st Level and 2nd Level',
+        type: 'improved',
+        title: 'Approve Wastage with negative stock on hand after confirming the "Approve with Negative Stock?" message',
+        summary:
+            'On Wastage Approval 1st Level and Wastage Approval 2nd Level, a wastage with an item that had too little stock on hand was refused with "Cannot approve wastage due to insufficient stock for some items." While "Negative Stock on Approval" is turned on in Wastage Settings, it can now be approved, after the approver confirms which items will go to negative stock on hand.',
+        steps: [
+            'Open the wastage from Wastage Approval 1st Level or Wastage Approval 2nd Level.',
+            'A red box at the top says "Not enough stock on hand" and names the items that will go negative.',
+            'Click "Approve Wastage". The "Approve with Negative Stock?" message lists each item with its Current SOH, the Wastage quantity and the SOH After approval.',
+            'Click "Yes, approve with negative stock" to approve, or "Cancel" to go back and correct the quantity first.',
+        ],
+        rules: [
+            'Example: Chocolate Chip Walnut Cookies (pack of 8) with 0 on hand and 0.75 Pack wasted are approved and the stock on hand becomes -0.75 Pack.',
+            'A store that never had the item starts from 0, so its stock on hand becomes the negative of the quantity wasted.',
+            'When wastage needs two approval levels, stock is taken off only at Level 2. The 1st Level message then warns that the stock on hand will go negative when Level 2 approves it.',
+            'If the stock on hand changed after the page was opened and an item would now go negative, the approval stops with "Some items will go to negative stock. Review them and approve again to confirm."',
+            'An item whose unit cannot be converted to its stock unit still cannot be approved. The message is "Cannot approve wastage: some items have no stock unit to deduct from."',
+            'When "Negative Stock on Approval" is turned off in Wastage Settings, approval is refused for any item without enough stock on hand, as before.',
+        ],
+        affects: 'Users who approve wastage at Level 1 or Level 2.',
+    },
     // ---------------------------------------------------------------- October 2, 2026
     {
         date: '2026-10-02',
