@@ -2,202 +2,163 @@
 
 namespace App\Services;
 
+use App\Http\Services\InventoryMovementService;
+use App\Models\MonthEndSchedule;
+use App\Models\SAPMasterfile;
+use App\Support\ItemStockUnit;
+use App\Support\SupplierUnitCost;
+use Carbon\Carbon;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 
 /**
- * Qty / Cost Variance is the difference the month end count found between the
- * counted stock and the system's stock on hand.
+ * Qty / Cost Variance is the difference a month end count found between the counted
+ * stock and the stock the period's movements leave.
  *
- * Theoretical inventory is that SOH - the same figure Stock Management shows,
- * read from the movement ledger (product_inventory_stock_managers) rather than
- * recomputed from orders, sales and wastage. Recomputing was wrong: receipts are
- * recorded in the order's UOM (a case, a pack), while the ledger stores base
- * units, so pack receipts were credited at a fraction of what was delivered.
+ * Every quantity is the Inventory Movement Report's own (InventoryMovementService) for
+ * the count's period, so the two reports tally line for line: Actual Inventory is its
+ * Actual MEC, Theoretical Inventory its Theoretical SOH (Supplies Used already taken
+ * out) and Qty Variance its Variance, all in the item's SAP base unit. Cost is the
+ * supplier cost of that same unit.
  *
- * At level 2 approval MonthEndStockAdjustment posts the difference between SOH
- * and the count to the ledger, so:
+ * Theoretical used to be read back from the stock ledger (counted - what the count
+ * adjusted the ledger by). That knew nothing of Supplies Used and left the count in the
+ * unit it was typed in, so supplies the count fully explained still showed a shortage,
+ * and the cost of one unit was multiplied by a quantity in another.
  *
- *     theoretical = counted - (what the count adjusted the ledger by)
- *
- * A count that needed no adjustment posts nothing, which is why a missing
- * posting means the ledger already agreed with the count.
- *
- * Grain: branch + ItemCode, because that is what MECApproval2Controller
- * aggregates and posts. An item registered under two BaseUOMs is counted on two
- * lines but adjusted once, so per-line rows would double count its movements.
+ * Grain: branch + ItemCode. An item counted on two lines (two units) is one row.
  */
 class MonthEndStockVariance
 {
-    /** Ledger sign convention, shared with MonthEndStockAdjustment::balance(). */
-    private const SIGNED_QTY = "CASE WHEN pm.action IN ('add','add_quantity') THEN pm.quantity
-        WHEN pm.action IN ('out','deduct','log_usage') THEN -pm.quantity ELSE 0 END";
-
-    /** Movement buckets, in the order they are tested. The rest is 'other'. */
-    private const SOURCES = [
-        'regular_received' => ['From newly received items.%', 'Added quantity from direct receiving%'],
-        'cpo_received' => ['From newly received interco items.%'],
-        'sales' => ['Deducted from store transaction%', 'Sale #%'],
-        'wastage' => ['Wastage%'],
-    ];
+    public function __construct(private readonly InventoryMovementService $movements) {}
 
     /**
-     * What each month end count adjusted the ledger by, per count + branch +
-     * item code. Join this to the count rows; a branch/item without a row was
-     * not adjusted.
+     * The dates a count's movements are read over: the 1st of the month counted through
+     * its MEC Scheduled Date. Entering the same dates in the Inventory Movement Report
+     * gives the same figures.
      *
-     * Kept per count: summed across several schedules, one month's adjustment
-     * would be charged to another month's count.
+     * The date is kept inside the month counted. A count scheduled in the following month
+     * (March's on April 5) is read to the end of March, because the Inventory Movement
+     * Report takes its Actual MEC from the month its To date falls in - a range ending
+     * in April would compare the stock with April's count.
      *
-     * @param  array<int, int>  $scheduleIds  the schedules being reported on
+     * @return array{0: string, 1: string} [Y-m-d from, Y-m-d to]
      */
-    public function adjustments(array $scheduleIds): \Illuminate\Database\Query\Builder
+    public function period(MonthEndSchedule $schedule): array
     {
-        $scheduleIds = array_values(array_unique(array_map('intval', $scheduleIds)));
+        $from = Carbon::create($schedule->year, $schedule->month, 1)->startOfDay();
+        $monthEnd = $from->copy()->endOfMonth()->startOfDay();
+        $scheduled = Carbon::parse($schedule->calculated_date)->startOfDay();
 
-        // Which count a posting belongs to, read from its MEC_REF remark. The
-        // ids are integers, so inlining them into the CASE is safe.
-        $schedule = $scheduleIds
-            ? 'CASE '.implode(' ', array_map(
-                fn (int $id) => "WHEN pm.remarks LIKE '%".$this->reference($id)."%' THEN ".$id,
-                $scheduleIds
-            )).' END'
-            : null;
-
-        return DB::table('product_inventory_stock_managers as pm')
-            ->join('sap_masterfiles as s', 'pm.product_inventory_id', '=', 's.id')
-            ->where(function ($query) use ($scheduleIds) {
-                foreach ($scheduleIds as $id) {
-                    $query->orWhere('pm.remarks', 'like', '%'.$this->reference($id).'%');
-                }
-                if (! $scheduleIds) {
-                    $query->whereRaw('1 = 0');
-                }
-            })
-            ->groupBy('pm.store_branch_id', 's.ItemCode')
-            ->when($schedule, fn ($query) => $query->groupBy(DB::raw($schedule)))
-            ->select(
-                'pm.store_branch_id',
-                DB::raw('s.ItemCode as item_code'),
-                DB::raw(($schedule ?? 'CAST(NULL AS int)').' as month_end_schedule_id'),
-                DB::raw('SUM('.self::SIGNED_QTY.') as adjustment'),
-                DB::raw('MIN(pm.product_inventory_id) as product_inventory_id')
-            );
+        return [$from->toDateString(), $scheduled->max($from)->min($monthEnd)->toDateString()];
     }
 
-    /** The latest active supplier cost per item, as the report has always taken it. */
-    public function costs(): \Illuminate\Database\Query\Builder
+    /**
+     * One row per branch + item code with a level 2 approved count on the schedule.
+     *
+     * @param  array<int, int>  $branchIds  the stores to report on
+     * @param  string|null  $itemCode  only this item, for the drill-down of one row
+     * @return Collection<int, array<string, mixed>>
+     */
+    public function rows(MonthEndSchedule $schedule, array $branchIds, ?string $itemCode = null): Collection
     {
-        return DB::table('supplier_items as si')
-            ->joinSub(
-                DB::table('supplier_items')->where('is_active', 1)
-                    ->groupBy('ItemCode')->select('ItemCode', DB::raw('MAX(id) as id')),
-                'latest',
-                'latest.id',
-                '=',
-                'si.id'
+        // SQL Server allows 2100 parameters per query.
+        $counted = collect($branchIds)->map(fn ($id) => (int) $id)->unique()->chunk(1000)
+            ->flatMap(fn (Collection $chunk) => DB::table('month_end_count_items as meci')
+                ->join('sap_masterfiles as sm', 'meci.sap_masterfile_id', '=', 'sm.id')
+                ->join('store_branches as sb', 'meci.branch_id', '=', 'sb.id')
+                ->where('meci.month_end_schedule_id', $schedule->id)
+                ->whereIn('meci.branch_id', $chunk->values()->all())
+                ->whereNotNull('meci.level2_approved_at')
+                ->when($itemCode !== null, fn ($query) => $query->where('sm.ItemCode', $itemCode))
+                ->groupBy('meci.branch_id', 'sm.ItemCode', 'sb.name', 'sb.branch_code')
+                ->select(
+                    DB::raw('MIN(meci.id) as id'),
+                    'meci.branch_id',
+                    DB::raw('sm.ItemCode as item_code'),
+                    DB::raw('MAX(sm.ItemDescription) as item_description'),
+                    DB::raw("CONCAT(sb.name, ' (', sb.branch_code, ')') as store_name")
+                )
+                ->get());
+
+        if ($counted->isEmpty()) {
+            return collect();
+        }
+
+        $itemCodes = $counted->pluck('item_code')->unique()->values();
+
+        // The Inventory Movement Report resolves units from the item's active SAP rows. An
+        // item switched off since its count keeps its row here, on the rows it still has.
+        $sapItems = SAPMasterfile::query()
+            ->when(
+                $itemCodes->count() <= 200,
+                fn ($query) => $query->whereIn('ItemCode', $itemCodes->all()),
+                // A long list is slow to bind and can pass SQL Server's 2100 parameters, so
+                // the items are named by the count itself; another store's extra items are unused.
+                fn ($query) => $query->whereIn('ItemCode', DB::table('month_end_count_items as meci')
+                    ->join('sap_masterfiles as counted', 'counted.id', '=', 'meci.sap_masterfile_id')
+                    ->where('meci.month_end_schedule_id', $schedule->id)
+                    ->whereNotNull('meci.level2_approved_at')
+                    ->select('counted.ItemCode'))
             )
-            ->select(DB::raw('si.ItemCode as item_code'), 'si.cost');
-    }
-
-    /**
-     * The movements behind one row, so the drill-down explains the report row it
-     * was opened from.
-     *
-     * Theoretical is taken from the count's own ledger adjustment, exactly as the
-     * report takes it, and the beginning balance is what that leaves once the
-     * period's movements are accounted for - so the parts always add up to the
-     * figure on the row, whatever was backdated into the period afterwards.
-     *
-     * @return array<string, float|null>
-     */
-    public function breakdown(int $scheduleId, int $branchId, string $itemCode, $counted, ?string $approvedAt = null): array
-    {
-        $productIds = DB::table('sap_masterfiles')->where('ItemCode', $itemCode)
-            ->whereColumn('BaseUOM', 'AltUOM')->pluck('id')->all();
-
-        // The count posts to the base-stock row, so that is where its movements live.
-        $posted = DB::table('product_inventory_stock_managers')
-            ->where('store_branch_id', $branchId)
-            ->where('remarks', 'like', '%'.$this->reference($scheduleId).'%')
-            ->when($productIds, fn ($q) => $q->whereIn('product_inventory_id', $productIds))
             ->orderBy('id')
-            ->get(['id', 'product_inventory_id', 'quantity', 'action']);
+            ->get()
+            ->groupBy('ItemCode')
+            ->flatMap(function (Collection $rows) {
+                $active = $rows->filter(fn ($row) => (bool) $row->is_active);
 
-        if ($posted->isNotEmpty()) {
-            $productIds = $posted->pluck('product_inventory_id')->unique()->all();
-        }
+                return $active->isNotEmpty() ? $active : $rows;
+            });
 
-        if (! $productIds) {
-            return $this->emptyBreakdown();
-        }
+        [$from, $to] = $this->period($schedule);
+        $movements = array_map(
+            fn (array $rows) => array_column($rows, null, 'sap_code'),
+            $this->movements->movementDataForBranches($sapItems, $counted->pluck('branch_id')->all(), ['date_from' => $from, 'date_to' => $to])
+        );
 
-        $adjustment = $posted->sum(fn ($row) => in_array($row->action, ['add', 'add_quantity'], true)
-            ? (float) $row->quantity : -(float) $row->quantity);
-        $theoretical = (float) $counted - $adjustment;
+        $stockUnits = $sapItems->groupBy('ItemCode')->map(fn (Collection $rows) => ItemStockUnit::fromRows($rows));
+        $costs = SupplierUnitCost::forItems($itemCodes);
+        $mecDate = Carbon::parse($schedule->calculated_date)->format('Y-m-d');
 
-        // This count's adjustment closes the period, the previous count's opens
-        // it. Ordering by id, not date: a count is posted on the day it is
-        // approved, which is after the movements it reconciles.
-        $closesAt = $posted->min('id');
-        if (! $closesAt && $approvedAt) {
-            $closesAt = DB::table('product_inventory_stock_managers')
-                ->whereIn('product_inventory_id', $productIds)->where('store_branch_id', $branchId)
-                ->whereDate('transaction_date', '<=', substr($approvedAt, 0, 10))->max('id');
-            $closesAt = $closesAt ? $closesAt + 1 : null;
-        }
+        return $counted->map(function ($line) use ($movements, $stockUnits, $costs, $mecDate) {
+            $movement = $movements[(int) $line->branch_id][$line->item_code] ?? [];
+            $uom = (string) ($movement['uom'] ?? '');
+            // Priced in the unit the quantities are in; an item no supplier prices has no cost.
+            $cost = $costs->find((string) $line->item_code, $stockUnits->get($line->item_code), $uom) ?? 0.0;
+            $actual = (float) ($movement['actual_mec'] ?? 0);
+            $theoretical = (float) ($movement['theoretical_qty'] ?? 0);
+            $actualCost = round($cost * $actual, 4);
+            $theoreticalCost = round($cost * $theoretical, 4);
 
-        $opensAt = DB::table('product_inventory_stock_managers')
-            ->whereIn('product_inventory_id', $productIds)->where('store_branch_id', $branchId)
-            ->where('remarks', 'like', '%MEC_REF::%')
-            ->where('remarks', 'not like', '%'.$this->reference($scheduleId).'%')
-            ->when($closesAt, fn ($q) => $q->where('id', '<', $closesAt))
-            ->max('id');
-
-        $movements = DB::table('product_inventory_stock_managers as pm')
-            ->whereIn('pm.product_inventory_id', $productIds)->where('pm.store_branch_id', $branchId)
-            ->when($closesAt, fn ($q) => $q->where('pm.id', '<', $closesAt))
-            ->when($opensAt, fn ($q) => $q->where('pm.id', '>', $opensAt))
-            ->selectRaw('pm.remarks, SUM('.self::SIGNED_QTY.') as v')->groupBy('pm.remarks')->get();
-
-        $buckets = array_fill_keys(array_keys(self::SOURCES), 0.0) + ['other' => 0.0];
-        foreach ($movements as $movement) {
-            $buckets[$this->bucket((string) $movement->remarks)] += (float) $movement->v;
-        }
-
-        return [
-            // The page prints received as +x and sales/wastage as -x.
-            'beg_bal' => $theoretical - array_sum($buckets),
-            'regular_received' => $buckets['regular_received'],
-            'cpo_received' => $buckets['cpo_received'],
-            'sales' => -$buckets['sales'],
-            'wastage' => -$buckets['wastage'],
-            'other' => $buckets['other'],
-            'theoretical' => $theoretical,
-        ];
-    }
-
-    private function bucket(string $remarks): string
-    {
-        foreach (self::SOURCES as $bucket => $patterns) {
-            foreach ($patterns as $pattern) {
-                if (fnmatch(str_replace('%', '*', $pattern), $remarks)) {
-                    return $bucket;
-                }
-            }
-        }
-
-        return 'other';
-    }
-
-    private function reference(int $scheduleId): string
-    {
-        return 'MEC_REF::'.$scheduleId.',';
-    }
-
-    /** @return array<string, float|null> */
-    private function emptyBreakdown(): array
-    {
-        return ['beg_bal' => null, 'regular_received' => null, 'cpo_received' => null,
-            'sales' => null, 'wastage' => null, 'other' => null, 'theoretical' => null];
+            return [
+                'id' => (int) $line->id,
+                'branch_id' => (int) $line->branch_id,
+                'mec_date' => $mecDate,
+                'store_name' => $line->store_name,
+                'item_code' => $line->item_code,
+                'item_description' => $movement['item_description'] ?? $line->item_description,
+                'uom' => $uom,
+                'cost' => $cost,
+                'actual_inventory' => $actual,
+                'theoretical_inventory' => $theoretical,
+                'qty_variance' => (float) ($movement['variance_qty'] ?? 0),
+                'actual_cost' => $actualCost,
+                'theoretical_cost' => $theoreticalCost,
+                'cost_variance' => round($actualCost - $theoreticalCost, 4),
+                // Counted or moved in a unit SAP does not convert to the row's unit: left out of the quantities.
+                'unconverted_units' => $movement['unconverted_units'] ?? [],
+                // What Theoretical Inventory is made of, as the Inventory Movement Report columns.
+                'breakdown' => [
+                    'beg_bal' => (float) ($movement['beg_bal_qty'] ?? 0),
+                    'received' => (float) ($movement['received_qty'] ?? 0),
+                    'interco_in' => (float) ($movement['interco_in_qty'] ?? 0),
+                    'sales' => (float) ($movement['sales_qty'] ?? 0),
+                    'wastage' => (float) ($movement['wastage_qty'] ?? 0),
+                    'supplies' => (float) ($movement['supplies_qty'] ?? 0),
+                    'supplies_type' => $movement['supplies_type'] ?? null,
+                    'interco_out' => (float) ($movement['interco_out_qty'] ?? 0),
+                ],
+            ];
+        })->values();
     }
 }

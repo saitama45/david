@@ -157,6 +157,37 @@ no approval step (`StoreTransactionApprovalController` queries a dropped `is_app
 Two checks were dropped on 2026-10-01 at the user's request and must not come back: an interco
 transfer the store sends but has not committed, and unapproved SOH adjustments.
 
+## Qty Variance / Cost Variance report
+
+`/reports/qty-variance-cost-variance-report` shows one count (picked by MEC Scheduled Date), one row per
+store + ItemCode with a level 2 approved line. **It computes nothing itself**: `MonthEndStockVariance::rows()`
+calls `InventoryMovementService::movementDataForBranches()` and relabels the Inventory Movement Report's
+row - Actual Inventory = Actual MEC, Theoretical Inventory = Theoretical SOH (Supplies Used already
+deducted), Qty Variance = Variance, UoM = the SAP base unit (`ItemStockUnit`). The drill-down
+(`getBreakdown`) returns the same row's Beg Bal / Received / Interco / Sales / Wastage / Supplies Used.
+`tests/Feature/QtyVarianceCostVarianceReportTest.php` asserts the two reports agree line for line.
+
+**Period** (`MonthEndStockVariance::period()`): the 1st of the schedule's `year`/`month` through its
+`calculated_date`, clamped to that month. The clamp is deliberate: `movementData()` takes Beg Bal from the
+schedule of the month before `date_from` and Actual MEC from the schedule of `date_to`'s month, so a range
+ending in April would compare March's stock with April's count. The page prints the period so the same
+dates can be typed into the Inventory Movement Report.
+
+**Cost** is `SupplierUnitCost::find()` for the row's base unit: the supplier price of that unit, else a
+linked unit's price through the SAP factors (37.50 per Can = 1,800 per Case at 48 Can), else 0. `for()`
+keeps its 1.0 fallback for the stock writers.
+
+Until 2026-10-04 theoretical was read back from the ledger (counted − the `MEC_REF` adjustment) and cost
+was the latest supplier row by ItemCode. That ignored Supplies Used (a supplies item the count explained
+still showed a shortage), summed count lines in their own units, and priced a Case at the Can's cost.
+
+**Long item lists are not bound into SQL.** pdo_sqlsrv costs about 0.5 ms per bound parameter on every
+query of every request, so a month's item list (≈600 codes × a dozen queries) took 4-5 s. Above 200 codes
+`movementDataForBranches()` and `SupplierUnitCost::forItems()` leave the item filter out: each query is
+already narrowed to the branches and period, and rows of other items are never looked up. Item codes are
+cast to strings before binding - a numeric code ("213") becomes an int array key, and SQL Server then
+casts the whole `ItemCode` column to int and fails.
+
 The **upload is withheld on the same checks** (`blockersForUpload()`, from the 1st of the month counted
 through today): a branch with open work is taken out of the upload form's branch list and shown in a
 notice with what it must finish, and `MonthEndCountController@upload` refuses it too. The upload form

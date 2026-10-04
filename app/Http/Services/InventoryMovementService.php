@@ -22,6 +22,9 @@ class InventoryMovementService
     /** The Supplier Items category that tags an item as supplies. */
     public const SUPPLIES_CATEGORY = 'SUPPLIES';
 
+    /** Above this many item codes the list is left out of the queries - see movementDataForBranches(). */
+    private const ITEM_FILTER_LIMIT = 200;
+
     /**
      * One row per ItemCode, every quantity converted into the item's SAP BaseUOM (36 Gm sold = 0.036 Bag).
      *
@@ -33,35 +36,55 @@ class InventoryMovementService
      */
     public function movementData($sapItems, array $filters): array
     {
-        $movementData = [];
+        if (empty($filters['branch_id'])) {
+            return [];
+        }
 
-        if (empty($filters['branch_id']) || empty($sapItems)) {
+        return $this->movementDataForBranches($sapItems, [$filters['branch_id']], $filters)[(int) $filters['branch_id']] ?? [];
+    }
+
+    /**
+     * movementData() for several branches in one pass. The Qty Variance / Cost Variance
+     * report reads a whole count across stores from here, so its figures are the report's
+     * own and one set of queries serves every store.
+     *
+     * @param  array<int, int>  $branchIds
+     * @return array<int, array<int, array<string, mixed>>> branch id => rows, as movementData() returns them
+     */
+    public function movementDataForBranches($sapItems, array $branchIds, array $filters): array
+    {
+        $branchIds = array_values(array_unique(array_map('intval', $branchIds)));
+        $movementData = array_fill_keys($branchIds, []);
+
+        if (empty($branchIds) || empty($sapItems)) {
             return $movementData;
         }
 
-        $branchId = $filters['branch_id'];
         $dateFrom = $filters['date_from'];
         $dateTo = $filters['date_to'];
         $itemsByCode = collect($sapItems)->filter(fn ($sapItem) => filled($sapItem->ItemCode))->groupBy('ItemCode');
-        $sapItemCodes = $itemsByCode->keys()->all();
+        // As strings: a numeric code ("213") turns into an integer array key, and SQL Server
+        // then casts the whole ItemCode column to int and fails on the first lettered code.
+        $sapItemCodes = $itemsByCode->keys()->map(fn ($itemCode) => (string) $itemCode)->all();
+        // A long item list is not sent to SQL Server: binding it costs about half a
+        // millisecond per code in every query of every request (a month's items took seconds),
+        // and it can exceed the 2100 parameter limit. Each query is already narrowed to the
+        // branches and the period, and rows of other items are never looked up below.
+        $itemFilter = count($sapItemCodes) > self::ITEM_FILTER_LIMIT ? null : $sapItemCodes;
+        $onlyItems = fn (string $column) => fn ($query) => $itemFilter === null ? $query : $query->whereIn($column, $itemFilter);
         $selectedSupplier = !empty($filters['supplier_code']) && $filters['supplier_code'] !== 'all'
             ? Supplier::where('supplier_code', $filters['supplier_code'])->first()
             : null;
 
-        $supplierItems = collect();
-        foreach (array_chunk($sapItemCodes, 1000) as $itemCodeChunk) {
-            $supplierItemQuery = SupplierItems::with('supplier')
-                ->where('is_active', true)
-                ->whereIn('ItemCode', $itemCodeChunk);
+        $supplierItemQuery = SupplierItems::with('supplier')
+            ->where('is_active', true)
+            ->tap($onlyItems('ItemCode'));
 
-            if (!empty($filters['supplier_code']) && $filters['supplier_code'] !== 'all') {
-                $supplierItemQuery->where('SupplierCode', $filters['supplier_code']);
-            }
-
-            $supplierItems = $supplierItems->merge(
-                $supplierItemQuery->get(['ItemCode', 'uom', 'SupplierCode'])
-            );
+        if (!empty($filters['supplier_code']) && $filters['supplier_code'] !== 'all') {
+            $supplierItemQuery->where('SupplierCode', $filters['supplier_code']);
         }
+
+        $supplierItems = $supplierItemQuery->get(['ItemCode', 'uom', 'SupplierCode']);
 
         $supplierLookup = $supplierItems
             ->groupBy('ItemCode')
@@ -73,7 +96,7 @@ class InventoryMovementService
                 ->implode(', ')
             );
 
-        $suppliesTags = $this->suppliesTags($sapItems, $sapItemCodes);
+        $suppliesTags = $this->suppliesTags($sapItems, $onlyItems);
 
         $metrics = ['ordered', 'committed', 'received', 'sales', 'wastage', 'interco_in', 'interco_out', 'beg_bal', 'actual_mec'];
         $totals = array_fill_keys($metrics, collect());
@@ -89,30 +112,30 @@ class InventoryMovementService
             ->first();
 
         $unitKey = fn (string $unitColumn) => "UPPER(LTRIM(RTRIM(COALESCE({$unitColumn}, ''))))";
-        $unitSum = fn (string $itemColumn, string $unitColumn, string $qtyExpression) => [
+        $unitSum = fn (string $branchColumn, string $itemColumn, string $unitColumn, string $qtyExpression) => [
+            "{$branchColumn} as branch_id",
             "{$itemColumn} as item_code",
             DB::raw($unitKey($unitColumn) . ' as unit'),
             DB::raw("SUM({$qtyExpression}) as qty"),
         ];
 
-        // SQL Server limitation: max 2100 parameters. Chunking into 1000 to be safe.
-        foreach (array_chunk($sapItemCodes, 1000) as $chunk) {
-            $procurement = fn () => DB::table('store_order_items as soi')
+        // SQL Server limitation: max 2100 parameters. Chunking branches into 1000 to be safe.
+        foreach (array_chunk($branchIds, 1000) as $branchChunk) {
+            $procurement = fn (string $branchColumn = 'so.store_branch_id') => DB::table('store_order_items as soi')
                 ->join('store_orders as so', 'soi.store_order_id', '=', 'so.id')
-                ->whereIn('soi.item_code', $chunk)
+                ->tap($onlyItems('soi.item_code'))
+                ->whereIn($branchColumn, $branchChunk)
                 ->whereBetween('so.order_date', [$dateFrom, $dateTo])
-                ->groupBy('soi.item_code', DB::raw($unitKey('soi.uom')));
+                ->groupBy($branchColumn, 'soi.item_code', DB::raw($unitKey('soi.uom')));
 
             // 1. Ordered (Regular Procurement)
             $totals['ordered'] = $totals['ordered']->merge($procurement()
-                ->where('so.store_branch_id', $branchId)
                 ->whereNull('so.interco_number')
-                ->select($unitSum('soi.item_code', 'soi.uom', 'COALESCE(soi.quantity_approved, 0)'))
+                ->select($unitSum('so.store_branch_id', 'soi.item_code', 'soi.uom', 'COALESCE(soi.quantity_approved, 0)'))
                 ->get());
 
             // 1.5 Committed (Regular Procurement)
             $totals['committed'] = $totals['committed']->merge($procurement()
-                ->where('so.store_branch_id', $branchId)
                 ->whereNull('so.interco_number')
                 // Auto-committed orders can have no committer. Use the same
                 // eligible statuses as receiving, while retaining explicit line commitments.
@@ -120,25 +143,23 @@ class InventoryMovementService
                     $query->whereNotNull('soi.committed_by')
                         ->orWhereIn('so.order_status', \App\Http\Services\OrderReceivingService::RECEIVING_STATUSES);
                 })
-                ->select($unitSum('soi.item_code', 'soi.uom', 'COALESCE(soi.quantity_commited, 0)'))
+                ->select($unitSum('so.store_branch_id', 'soi.item_code', 'soi.uom', 'COALESCE(soi.quantity_commited, 0)'))
                 ->get());
 
             // 1.6 Received (Regular Procurement) and 4. Interco Inbound (received by this store)
             foreach (['received' => 'whereNull', 'interco_in' => 'whereNotNull'] as $metric => $intercoClause) {
                 $totals[$metric] = $totals[$metric]->merge($procurement()
                     ->join('ordered_item_receive_dates as oird', 'oird.store_order_item_id', '=', 'soi.id')
-                    ->where('so.store_branch_id', $branchId)
                     ->{$intercoClause}('so.interco_number')
                     ->where('oird.status', 'approved')
-                    ->select($unitSum('soi.item_code', 'soi.uom', 'COALESCE(oird.quantity_received, 0)'))
+                    ->select($unitSum('so.store_branch_id', 'soi.item_code', 'soi.uom', 'COALESCE(oird.quantity_received, 0)'))
                     ->get());
             }
 
             // 5. Interco Outbound (Shipped from this store)
-            $totals['interco_out'] = $totals['interco_out']->merge($procurement()
-                ->where('so.sending_store_branch_id', $branchId)
+            $totals['interco_out'] = $totals['interco_out']->merge($procurement('so.sending_store_branch_id')
                 ->whereNotNull('so.interco_number')
-                ->select($unitSum('soi.item_code', 'soi.uom', 'COALESCE(soi.quantity_commited, 0)'))
+                ->select($unitSum('so.sending_store_branch_id', 'soi.item_code', 'soi.uom', 'COALESCE(soi.quantity_commited, 0)'))
                 ->get());
 
             // 2. Sales (dated by the POS sales date, not the import timestamp). The BOM is
@@ -153,22 +174,22 @@ class InventoryMovementService
                                 ->orWhere(fn ($legacy) => $legacy->whereNull('pm.entity_id')->whereNull('bom.entity_id'));
                         });
                 })
-                ->where('st.store_branch_id', $branchId)
+                ->whereIn('st.store_branch_id', $branchChunk)
                 ->whereBetween('st.order_date', [$dateFrom, $dateTo])
-                ->whereIn('bom.ItemCode', $chunk)
-                ->select($unitSum('bom.ItemCode', 'bom.BOMUOM', 'COALESCE(sti.quantity, 0) * COALESCE(bom.BOMQty, 0)'))
-                ->groupBy('bom.ItemCode', DB::raw($unitKey('bom.BOMUOM')))
+                ->tap($onlyItems('bom.ItemCode'))
+                ->select($unitSum('st.store_branch_id', 'bom.ItemCode', 'bom.BOMUOM', 'COALESCE(sti.quantity, 0) * COALESCE(bom.BOMQty, 0)'))
+                ->groupBy('st.store_branch_id', 'bom.ItemCode', DB::raw($unitKey('bom.BOMUOM')))
                 ->get());
 
             // 3. Wastage, in the unit of the masterfile row it was filed against
             $totals['wastage'] = $totals['wastage']->merge(DB::table('wastages')
                 ->join('sap_masterfiles as sap', 'wastages.sap_masterfile_id', '=', 'sap.id')
-                ->where('wastages.store_branch_id', $branchId)
+                ->whereIn('wastages.store_branch_id', $branchChunk)
                 ->where('wastages.wastage_status', \App\Enums\WastageStatus::APPROVED_LVL2->value)
-                ->whereIn('sap.ItemCode', $chunk)
+                ->tap($onlyItems('sap.ItemCode'))
                 ->whereBetween('wastages.created_at', [$dateFrom . ' 00:00:00', $dateTo . ' 23:59:59'])
-                ->select($unitSum('sap.ItemCode', 'sap.AltUOM', 'COALESCE(wastages.approverlvl2_qty, 0)'))
-                ->groupBy('sap.ItemCode', DB::raw($unitKey('sap.AltUOM')))
+                ->select($unitSum('wastages.store_branch_id', 'sap.ItemCode', 'sap.AltUOM', 'COALESCE(wastages.approverlvl2_qty, 0)'))
+                ->groupBy('wastages.store_branch_id', 'sap.ItemCode', DB::raw($unitKey('sap.AltUOM')))
                 ->get());
 
             // 6. MEC Beginning Balance and 7. Actual MEC, in the count's own uom
@@ -181,95 +202,105 @@ class InventoryMovementService
                 $totals[$metric] = $totals[$metric]->merge(DB::table('month_end_count_items as meci')
                     ->join('sap_masterfiles as sap', 'meci.sap_masterfile_id', '=', 'sap.id')
                     ->where('meci.month_end_schedule_id', $schedule->id)
-                    ->where('meci.branch_id', $branchId)
+                    ->whereIn('meci.branch_id', $branchChunk)
                     // A rejected count was sent back to the store; it is not a count.
                     ->where('meci.status', '!=', 'rejected')
-                    ->whereIn('sap.ItemCode', $chunk)
-                    ->select($unitSum('sap.ItemCode', $countUnit, 'COALESCE(meci.total_qty, 0)'))
-                    ->groupBy('sap.ItemCode', DB::raw($unitKey($countUnit)))
+                    ->tap($onlyItems('sap.ItemCode'))
+                    ->select($unitSum('meci.branch_id', 'sap.ItemCode', $countUnit, 'COALESCE(meci.total_qty, 0)'))
+                    ->groupBy('meci.branch_id', 'sap.ItemCode', DB::raw($unitKey($countUnit)))
                     ->get());
             }
         }
 
-        $totals = array_map(fn ($rows) => $rows->groupBy('item_code'), $totals);
+        $totals = array_map(fn ($rows) => $rows->groupBy(['branch_id', 'item_code']), $totals);
 
-        foreach ($itemsByCode as $itemCode => $rows) {
+        // The units belong to the item, whichever branch holds it.
+        $units = $itemsByCode->map(function ($rows) {
             [$displayUnit, $unitSizes] = $this->resolveUnits($rows);
             // A line with no unit is taken to be in the stock unit, when the item has only one.
             $stockUnits = $rows->filter(fn ($row) => strcasecmp(trim((string) $row->AltUOM), trim((string) $row->BaseUOM)) === 0)
                 ->map(fn ($row) => strtoupper(trim((string) $row->BaseUOM)))
                 ->unique();
-            $blankUnit = $stockUnits->count() === 1 ? $stockUnits->first() : '';
-            $unconverted = [];
-            $values = [];
-            $procurementSources = [];
 
-            foreach ($metrics as $metric) {
-                $values[$metric] = 0.0;
+            return [$displayUnit, $unitSizes, $stockUnits->count() === 1 ? $stockUnits->first() : ''];
+        });
 
-                foreach ($totals[$metric]->get($itemCode, []) as $row) {
-                    $size = $unitSizes[$row->unit === '' ? $blankUnit : $row->unit] ?? null;
+        foreach ($branchIds as $branchId) {
+            $branchTotals = array_map(fn ($byBranch) => $byBranch->get($branchId, collect()), $totals);
 
-                    if ($size === null) {
-                        $unconverted[] = $row->unit === '' ? '(blank)' : $row->unit;
-                        continue;
+            foreach ($itemsByCode as $itemCode => $rows) {
+                [$displayUnit, $unitSizes, $blankUnit] = $units[$itemCode];
+                $unconverted = [];
+                $values = [];
+                $procurementSources = [];
+
+                foreach ($metrics as $metric) {
+                    $values[$metric] = 0.0;
+
+                    foreach ($branchTotals[$metric]->get($itemCode, []) as $row) {
+                        $size = $unitSizes[$row->unit === '' ? $blankUnit : $row->unit] ?? null;
+
+                        if ($size === null) {
+                            $unconverted[] = $row->unit === '' ? '(blank)' : $row->unit;
+                            continue;
+                        }
+
+                        $values[$metric] += (float) $row->qty * $size;
+
+                        if (in_array($metric, ['ordered', 'committed', 'received'], true)) {
+                            $sourceKey = $row->unit === '' ? $blankUnit : $row->unit;
+                            $sourceLabel = $rows->flatMap(fn ($sapRow) => [$sapRow->AltUOM, $sapRow->BaseUOM])
+                                ->first(fn ($label) => strtoupper(trim((string) $label)) === $sourceKey) ?? $sourceKey;
+                            $procurementSources[$metric][] = [
+                                'quantity' => (float) $row->qty,
+                                'uom' => trim((string) $sourceLabel),
+                                'conversion_factor' => $size,
+                            ];
+                        }
                     }
 
-                    $values[$metric] += (float) $row->qty * $size;
-
-                    if (in_array($metric, ['ordered', 'committed', 'received'], true)) {
-                        $sourceKey = $row->unit === '' ? $blankUnit : $row->unit;
-                        $sourceLabel = $rows->flatMap(fn ($sapRow) => [$sapRow->AltUOM, $sapRow->BaseUOM])
-                            ->first(fn ($label) => strtoupper(trim((string) $label)) === $sourceKey) ?? $sourceKey;
-                        $procurementSources[$metric][] = [
-                            'quantity' => (float) $row->qty,
-                            'uom' => trim((string) $sourceLabel),
-                            'conversion_factor' => $size,
-                        ];
-                    }
+                    $values[$metric] = round($values[$metric], 6);
                 }
 
-                $values[$metric] = round($values[$metric], 6);
+                $theoretical = $values['beg_bal'] + $values['received'] + $values['interco_in']
+                    - $values['sales'] - $values['wastage'] - $values['interco_out'];
+
+                // Supplies are used up without a transaction (gloves, cleaners, tissue), so only
+                // the month end count shows how much went: whatever the other movements leave
+                // unexplained. Recipe items (cups, lids) are already in Sales, so only the rest
+                // counts. A count above the books is a gain, not usage, and stays as a variance.
+                $suppliesType = $suppliesTags[$itemCode] ?? null;
+                $suppliesCounted = $suppliesType !== null && $branchTotals['actual_mec']->has($itemCode);
+                $supplies = $suppliesCounted ? max(0.0, round($theoretical - $values['actual_mec'], 6)) : 0.0;
+                $theoretical -= $supplies;
+
+                $movementData[$branchId][] = [
+                    'supplier' => ($filters['supplier_code'] ?? null) === 'CPO'
+                        ? ($selectedSupplier?->name ?? 'CPO')
+                        : $supplierLookup->get($itemCode, ''),
+                    'sap_code' => $itemCode,
+                    'item_description' => $rows->first()->ItemDescription,
+                    'uom' => $displayUnit,
+                    'ordered_qty' => $values['ordered'],
+                    'committed_qty' => $values['committed'],
+                    'received_qty' => $values['received'],
+                    'beg_bal_qty' => $values['beg_bal'],
+                    'sales_qty' => $values['sales'],
+                    'wastage_qty' => $values['wastage'],
+                    'supplies_qty' => $supplies,
+                    'supplies_type' => $suppliesType,
+                    'supplies_counted' => $suppliesCounted,
+                    'interco_in_qty' => $values['interco_in'],
+                    'interco_out_qty' => $values['interco_out'],
+                    'theoretical_qty' => round($theoretical, 6),
+                    'actual_mec' => $values['actual_mec'],
+                    // Actual MEC - Theoretical SOH. The + 0.0 turns a rounded -0.0 into 0.
+                    'variance_qty' => round($values['actual_mec'] - $theoretical, 6) + 0.0,
+                    'procurement_sources' => $procurementSources,
+                    // Quantities in a unit with no conversion to the display unit are left out.
+                    'unconverted_units' => array_values(array_unique($unconverted)),
+                ];
             }
-
-            $theoretical = $values['beg_bal'] + $values['received'] + $values['interco_in']
-                - $values['sales'] - $values['wastage'] - $values['interco_out'];
-
-            // Supplies are used up without a transaction (gloves, cleaners, tissue), so only
-            // the month end count shows how much went: whatever the other movements leave
-            // unexplained. Recipe items (cups, lids) are already in Sales, so only the rest
-            // counts. A count above the books is a gain, not usage, and stays as a variance.
-            $suppliesType = $suppliesTags[$itemCode] ?? null;
-            $suppliesCounted = $suppliesType !== null && $totals['actual_mec']->has($itemCode);
-            $supplies = $suppliesCounted ? max(0.0, round($theoretical - $values['actual_mec'], 6)) : 0.0;
-            $theoretical -= $supplies;
-
-            $movementData[] = [
-                'supplier' => ($filters['supplier_code'] ?? null) === 'CPO'
-                    ? ($selectedSupplier?->name ?? 'CPO')
-                    : $supplierLookup->get($itemCode, ''),
-                'sap_code' => $itemCode,
-                'item_description' => $rows->first()->ItemDescription,
-                'uom' => $displayUnit,
-                'ordered_qty' => $values['ordered'],
-                'committed_qty' => $values['committed'],
-                'received_qty' => $values['received'],
-                'beg_bal_qty' => $values['beg_bal'],
-                'sales_qty' => $values['sales'],
-                'wastage_qty' => $values['wastage'],
-                'supplies_qty' => $supplies,
-                'supplies_type' => $suppliesType,
-                'supplies_counted' => $suppliesCounted,
-                'interco_in_qty' => $values['interco_in'],
-                'interco_out_qty' => $values['interco_out'],
-                'theoretical_qty' => round($theoretical, 6),
-                'actual_mec' => $values['actual_mec'],
-                // Actual MEC - Theoretical SOH. The + 0.0 turns a rounded -0.0 into 0.
-                'variance_qty' => round($values['actual_mec'] - $theoretical, 6) + 0.0,
-                'procurement_sources' => $procurementSources,
-                // Quantities in a unit with no conversion to the display unit are left out.
-                'unconverted_units' => array_values(array_unique($unconverted)),
-            ];
         }
 
         return $movementData;
@@ -279,34 +310,34 @@ class InventoryMovementService
      * Supplies items and the tag that makes them so: an OPERATING / CLEANING SUPPLIES
      * SAP Item Type, else a "Supplies" Supplier Items category.
      *
+     * @param  \Closure  $onlyItems  column => the query narrowing to the report's items, as movementDataForBranches() builds it
      * @return array<string, string> ItemCode => tag label
      */
-    private function suppliesTags($sapItems, array $itemCodes): array
+    private function suppliesTags($sapItems, \Closure $onlyItems): array
     {
         $entityIds = collect($sapItems)->pluck('entity_id')->filter()->unique()->values()->all();
         $tags = [];
 
-        foreach (array_chunk($itemCodes, 1000) as $chunk) {
-            $byCategory = SupplierItems::whereIn('ItemCode', $chunk)
-                ->whereRaw('UPPER(LTRIM(RTRIM(category))) = ?', [self::SUPPLIES_CATEGORY])
-                ->distinct()
-                ->pluck('ItemCode');
+        $byCategory = SupplierItems::query()
+            ->tap($onlyItems('ItemCode'))
+            ->whereRaw('UPPER(LTRIM(RTRIM(category))) = ?', [self::SUPPLIES_CATEGORY])
+            ->distinct()
+            ->pluck('ItemCode');
 
-            foreach ($byCategory as $itemCode) {
-                $tags[$itemCode] = 'Supplies';
-            }
+        foreach ($byCategory as $itemCode) {
+            $tags[$itemCode] = 'Supplies';
+        }
 
-            // The Item Type belongs to the ItemCode per entity (sap_item_type_assignments).
-            $byType = DB::table('sap_item_type_assignments as sita')
-                ->join('sap_item_types as sit', 'sit.id', '=', 'sita.sap_item_type_id')
-                ->whereIn('sita.item_code', $chunk)
-                ->when($entityIds, fn ($q) => $q->whereIn('sita.entity_id', $entityIds))
-                ->whereIn(DB::raw('UPPER(LTRIM(RTRIM(sit.name)))'), self::SUPPLIES_ITEM_TYPES)
-                ->get(['sita.item_code', 'sit.name']);
+        // The Item Type belongs to the ItemCode per entity (sap_item_type_assignments).
+        $byType = DB::table('sap_item_type_assignments as sita')
+            ->join('sap_item_types as sit', 'sit.id', '=', 'sita.sap_item_type_id')
+            ->tap($onlyItems('sita.item_code'))
+            ->when($entityIds, fn ($q) => $q->whereIn('sita.entity_id', $entityIds))
+            ->whereIn(DB::raw('UPPER(LTRIM(RTRIM(sit.name)))'), self::SUPPLIES_ITEM_TYPES)
+            ->get(['sita.item_code', 'sit.name']);
 
-            foreach ($byType as $row) {
-                $tags[$row->item_code] = ucwords(strtolower(trim($row->name)));
-            }
+        foreach ($byType as $row) {
+            $tags[$row->item_code] = ucwords(strtolower(trim($row->name)));
         }
 
         return $tags;

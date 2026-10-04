@@ -17,8 +17,12 @@ final class SupplierUnitCost
     /** @param  iterable<string>  $itemCodes */
     public static function forItems(iterable $itemCodes): self
     {
-        $costs = SupplierItems::whereIn('ItemCode', collect($itemCodes)->unique()->values()->all())
-            ->where('is_active', true)
+        $itemCodes = collect($itemCodes)->map(fn ($itemCode) => (string) $itemCode)->unique()->values();
+
+        $costs = SupplierItems::where('is_active', true)
+            // A whole count's item list is slow to bind and can pass SQL Server's 2100
+            // parameters: every priced item is read instead, and the rest are never looked up.
+            ->when($itemCodes->count() <= 200, fn ($query) => $query->whereIn('ItemCode', $itemCodes->all()))
             ->orderBy('id')
             ->get(['ItemCode', 'uom', 'cost'])
             ->groupBy('ItemCode')
@@ -34,6 +38,12 @@ final class SupplierUnitCost
      * factors (1800 per Case = 37.50 per Can at 48 Can = 1 Case), else 1.0.
      */
     public function for(string $itemCode, ?ItemStockUnit $stockUnit, ?string $unit): float
+    {
+        return $this->find($itemCode, $stockUnit, $unit) ?? 1.0;
+    }
+
+    /** As for(), but null when no supplier prices the unit or one linked to it - a report shows no cost, not 1.00. */
+    public function find(string $itemCode, ?ItemStockUnit $stockUnit, ?string $unit): ?float
     {
         $costsByUnit = $this->costs->get($itemCode, collect());
         $key = strtoupper(trim((string) $unit));
@@ -54,6 +64,6 @@ final class SupplierUnitCost
             }
         }
 
-        return 1.0;
+        return null;
     }
 }

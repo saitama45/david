@@ -214,6 +214,13 @@ SQL Server as the target. Rationale and trade-offs: [Decisions.md](docs/knowledg
   (the March 2026 count is dated Apr 5), so never map a picked date to a count through its month. The
   Qty / Cost Variance report picks its one count from a dropdown of those dates (`mec_date`), not from
   a free From / To range.
+- **The Qty / Cost Variance report has no figures of its own - they are the Inventory Movement Report's.**
+  `MonthEndStockVariance::rows()` reads `InventoryMovementService::movementDataForBranches()` over the
+  count's `period()` (1st of the month counted through the MEC Scheduled Date, kept inside that month),
+  so Actual / Theoretical / Qty Variance = Actual MEC / Theoretical SOH / Variance in the SAP base unit,
+  Supplies Used included. Cost is `SupplierUnitCost::find()` for that unit (0 when unpriced, never 1).
+  Never read theoretical back from the stock ledger again: it ignored Supplies Used and mixed count units.
+  Detail: [Data-Flows.md](docs/knowledge/Data-Flows.md#qty-variance--cost-variance-report).
 - **Supplies usage has no transaction - only the MEC count reveals it.** An item is supplies when its
   SAP Item Type is OPERATING / CLEANING SUPPLIES or a supplier item's category is `Supplies`. Nobody
   logs usage (the Stock Management log-usage / cost-centre path has never been used), so the level-2

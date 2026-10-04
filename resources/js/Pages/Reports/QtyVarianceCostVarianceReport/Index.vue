@@ -38,6 +38,12 @@ const props = defineProps({
     defaultMecDate: {
         type: String,
         default: null,
+    },
+    // The dates the selected count's movements cover: { from, to }. The same range in the
+    // Inventory Movement Report shows the same quantities.
+    period: {
+        type: Object,
+        default: null,
     }
 });
 
@@ -109,6 +115,17 @@ const toggleBreakdown = (itemId) => {
 };
 
 const isBreakdownExpanded = (itemId) => !!expandedRows.value[itemId];
+
+// What Theoretical Inventory is made of: the Inventory Movement Report's columns, in its order.
+const breakdownLines = (breakdown) => [
+    { label: 'Beg Bal', value: breakdown.beg_bal, sign: '' },
+    { label: 'Received', value: breakdown.received, sign: '+' },
+    { label: 'Inbound Interco', value: breakdown.interco_in, sign: '+' },
+    { label: 'Sales', value: breakdown.sales, sign: '-' },
+    { label: 'Wastage', value: breakdown.wastage, sign: '-' },
+    ...(breakdown.supplies_type ? [{ label: `Supplies Used (${breakdown.supplies_type})`, value: breakdown.supplies, sign: '-' }] : []),
+    { label: 'Outbound Interco', value: breakdown.interco_out, sign: '-' },
+];
 
 const { hasAccess } = useAuth();
 
@@ -370,7 +387,10 @@ const getVarianceIcon = (variance) => {
                 <!-- Action Buttons -->
                 <div class="flex items-center justify-between mt-6 pt-6 border-t border-gray-200">
                     <div class="text-sm text-gray-600">
-                        Showing {{ paginatedData.data?.length || 0 }} of {{ paginatedData.total || 0 }} results
+                        <div>Showing {{ paginatedData.data?.length || 0 }} of {{ paginatedData.total || 0 }} results</div>
+                        <div v-if="period" class="mt-1 text-xs text-gray-500">
+                            Stock movements from {{ period.from }} to {{ period.to }}. The Inventory Movement Report shows the same quantities for these dates.
+                        </div>
                     </div>
                     <div class="flex items-center gap-3">
                         <Button
@@ -506,7 +526,7 @@ const getVarianceIcon = (variance) => {
                                                     <p class="font-bold text-blue-600 border-b border-blue-100 pb-1 text-xs">Actual Inventory</p>
                                                     <div class="bg-slate-50 p-1.5 rounded border border-slate-100">
                                                         <p class="text-[10px] text-slate-900 leading-relaxed">
-                                                            The physical count of items recorded and approved during the Month-End Count (MEC).
+                                                            The physical count of items recorded and approved during the Month-End Count (MEC), in the UoM shown. The same figure as Actual MEC in the Inventory Movement Report.
                                                         </p>
                                                     </div>
                                                 </div>
@@ -533,13 +553,13 @@ const getVarianceIcon = (variance) => {
                                                     <p class="font-bold text-blue-600 border-b border-blue-100 pb-1 text-xs">Theoretical Inventory</p>
                                                     <div class="bg-slate-50 p-1.5 rounded border border-slate-100">
                                                         <p class="text-[10px] text-slate-900 leading-relaxed mb-2">
-                                                            Expected system-calculated inventory based on movements.
+                                                            Expected system-calculated inventory based on movements. The same figure as Theoretical SOH in the Inventory Movement Report.
                                                         </p>
-                                                        
+
                                                         <div class="text-[10px] space-y-1">
                                                             <p class="font-semibold text-slate-700 border-b border-slate-200 pb-0.5">Formula:</p>
                                                             <p class="font-mono text-slate-900 leading-tight">
-                                                                Beg Bal + Received + CPO - Sales - Wastage
+                                                                Beg Bal + Received + Inbound Interco - Sales - Wastage - Supplies Used - Outbound Interco
                                                             </p>
                                                         </div>
                                                     </div>
@@ -634,7 +654,16 @@ const getVarianceIcon = (variance) => {
                                 <td class="px-4 py-4 text-sm text-gray-900 max-w-xs truncate" :title="item.store_name">{{ item.store_name || 'N/A' }}</td>
                                 <td class="px-4 py-4 text-sm font-mono text-gray-900">{{ item.item_code || 'N/A' }}</td>
                                 <td class="px-4 py-4 text-sm text-gray-900 max-w-xs truncate" :title="item.item_description">{{ item.item_description || 'N/A' }}</td>
-                                <td class="px-4 py-4 text-sm text-gray-600">{{ item.uom || 'N/A' }}</td>
+                                <td class="px-4 py-4 text-sm text-gray-600">
+                                    {{ item.uom || 'N/A' }}
+                                    <div
+                                        v-if="item.unconverted_units?.length"
+                                        class="mt-1 text-[10px] text-amber-700 whitespace-nowrap"
+                                        :title="`No SAP conversion from ${item.unconverted_units.join(', ')} to ${item.uom}; those quantities are excluded.`"
+                                    >
+                                        Excl. {{ item.unconverted_units.join(', ') }}
+                                    </div>
+                                </td>
                                 <td class="px-4 py-4 text-sm text-right font-medium text-gray-900">{{ formatCurrency(item.cost) }}</td>
                                 <td class="px-4 py-4 text-sm text-center font-medium text-gray-900 bg-blue-50">{{ formatNumber(item.actual_inventory) }}</td>
                                 <td class="px-4 py-4 text-sm text-center font-medium text-gray-900 bg-blue-50">{{ formatNumber(item.theoretical_inventory) }}</td>
@@ -671,34 +700,15 @@ const getVarianceIcon = (variance) => {
                                             </div>
                                         </div>
                                         <div class="rounded border border-blue-100 bg-white p-4">
-                                            <p class="mb-3 text-sm font-semibold text-gray-900">Theoretical Inventory</p>
+                                            <p class="text-sm font-semibold text-gray-900">Theoretical Inventory</p>
+                                            <p class="mb-3 text-xs text-gray-500">{{ breakdowns[item.id].period_from }} to {{ breakdowns[item.id].period_to }}, in {{ breakdowns[item.id].uom || 'N/A' }}</p>
                                             <div class="space-y-2 text-sm">
-                                                <div class="flex items-center justify-between">
-                                                    <span class="text-gray-600">Beg Bal</span>
-                                                    <span class="font-mono font-medium text-gray-900">{{ formatNumber(breakdowns[item.id].beg_bal) }}</span>
-                                                </div>
-                                                <div class="flex items-center justify-between">
-                                                    <span class="text-gray-600">Regular Received</span>
-                                                    <span class="font-mono font-medium text-gray-900">+{{ formatNumber(breakdowns[item.id].regular_received) }}</span>
-                                                </div>
-                                                <div class="flex items-center justify-between">
-                                                    <span class="text-gray-600">CPO Received</span>
-                                                    <span class="font-mono font-medium text-gray-900">+{{ formatNumber(breakdowns[item.id].cpo_received) }}</span>
-                                                </div>
-                                                <div class="flex items-center justify-between">
-                                                    <span class="text-gray-600">Sales</span>
-                                                    <span class="font-mono font-medium text-red-600">-{{ formatNumber(breakdowns[item.id].sales) }}</span>
-                                                </div>
-                                                <div class="flex items-center justify-between">
-                                                    <span class="text-gray-600">Wastage</span>
-                                                    <span class="font-mono font-medium text-red-600">-{{ formatNumber(breakdowns[item.id].wastage) }}</span>
-                                                </div>
-                                                <div v-if="Number(breakdowns[item.id].other) !== 0" class="flex items-center justify-between">
-                                                    <span class="text-gray-600">Other Movements</span>
-                                                    <span class="font-mono font-medium text-gray-900">{{ formatNumber(breakdowns[item.id].other) }}</span>
+                                                <div v-for="line in breakdownLines(breakdowns[item.id])" :key="line.label" class="flex items-center justify-between">
+                                                    <span class="text-gray-600">{{ line.label }}</span>
+                                                    <span class="font-mono font-medium" :class="line.sign === '-' ? 'text-red-600' : 'text-gray-900'">{{ line.sign }}{{ formatNumber(line.value) }}</span>
                                                 </div>
                                                 <div class="flex items-center justify-between border-t border-gray-200 pt-2">
-                                                    <span class="font-medium text-gray-700">Stock on Hand</span>
+                                                    <span class="font-medium text-gray-700">Theoretical SOH</span>
                                                     <span class="font-mono font-semibold text-gray-900">{{ formatNumber(breakdowns[item.id].theoretical) }}</span>
                                                 </div>
                                             </div>
@@ -797,27 +807,16 @@ const getVarianceIcon = (variance) => {
                                     </div>
                                 </div>
                                 <div>
-                                    <p class="mb-2 text-sm font-semibold text-gray-900">Theoretical Inventory</p>
+                                    <p class="text-sm font-semibold text-gray-900">Theoretical Inventory</p>
+                                    <p class="mb-2 text-xs text-gray-500">{{ breakdowns[item.id].period_from }} to {{ breakdowns[item.id].period_to }}, in {{ breakdowns[item.id].uom || 'N/A' }}</p>
                                     <div class="space-y-2 text-sm">
-                                        <div class="flex items-center justify-between">
-                                            <span class="text-gray-600">Beg Bal</span>
-                                            <span class="font-mono font-medium text-gray-900">{{ formatNumber(breakdowns[item.id].beg_bal) }}</span>
+                                        <div v-for="line in breakdownLines(breakdowns[item.id])" :key="line.label" class="flex items-center justify-between">
+                                            <span class="text-gray-600">{{ line.label }}</span>
+                                            <span class="font-mono font-medium" :class="line.sign === '-' ? 'text-red-600' : 'text-gray-900'">{{ line.sign }}{{ formatNumber(line.value) }}</span>
                                         </div>
-                                        <div class="flex items-center justify-between">
-                                            <span class="text-gray-600">Regular Received</span>
-                                            <span class="font-mono font-medium text-gray-900">+{{ formatNumber(breakdowns[item.id].regular_received) }}</span>
-                                        </div>
-                                        <div class="flex items-center justify-between">
-                                            <span class="text-gray-600">CPO Received</span>
-                                            <span class="font-mono font-medium text-gray-900">+{{ formatNumber(breakdowns[item.id].cpo_received) }}</span>
-                                        </div>
-                                        <div class="flex items-center justify-between">
-                                            <span class="text-gray-600">Sales</span>
-                                            <span class="font-mono font-medium text-red-600">-{{ formatNumber(breakdowns[item.id].sales) }}</span>
-                                        </div>
-                                        <div class="flex items-center justify-between">
-                                            <span class="text-gray-600">Wastage</span>
-                                            <span class="font-mono font-medium text-red-600">-{{ formatNumber(breakdowns[item.id].wastage) }}</span>
+                                        <div class="flex items-center justify-between border-t border-gray-200 pt-2">
+                                            <span class="font-medium text-gray-700">Theoretical SOH</span>
+                                            <span class="font-mono font-semibold text-gray-900">{{ formatNumber(breakdowns[item.id].theoretical) }}</span>
                                         </div>
                                     </div>
                                 </div>

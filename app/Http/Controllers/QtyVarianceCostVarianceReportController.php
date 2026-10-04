@@ -8,6 +8,7 @@ use App\Models\MonthEndCountItem;
 use App\Models\MonthEndSchedule;
 use App\Services\MonthEndStockVariance;
 use Inertia\Inertia;
+use Illuminate\Support\Arr;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -66,6 +67,7 @@ class QtyVarianceCostVarianceReportController extends Controller
                 'disabled' => ! $option['approved'],
             ])->values(),
             'defaultMecDate' => $defaultMecDate,
+            'period' => $this->periodFor($filters['mec_date']),
         ]);
     }
 
@@ -99,20 +101,23 @@ class QtyVarianceCostVarianceReportController extends Controller
             ->whereIn('branch_id', $assignedStoreIds)
             ->findOrFail($id);
 
-        // The report row is the branch + item group, not this single line: an
-        // item registered under two BaseUOMs is counted twice and adjusted once.
-        $group = MonthEndCountItem::where('month_end_schedule_id', $meci->month_end_schedule_id)
-            ->where('branch_id', $meci->branch_id)->where('item_code', $meci->item_code)
-            ->whereNotNull('level2_approved_at')
-            ->selectRaw('SUM(total_qty) as counted, MAX(level2_approved_at) as approved_at')
-            ->first();
+        // The report row is the branch + item group, not this single line: an item
+        // counted in two units is one row, keyed by the ItemCode of its SAP item.
+        $itemCode = DB::table('sap_masterfiles')->where('id', $meci->sap_masterfile_id)->value('ItemCode') ?? $meci->item_code;
+        $variance = app(MonthEndStockVariance::class);
+        $row = $variance->rows($meci->schedule, [(int) $meci->branch_id], (string) $itemCode)->first();
 
-        $breakdown = app(MonthEndStockVariance::class)->breakdown(
-            (int) $meci->month_end_schedule_id, (int) $meci->branch_id, (string) $meci->item_code,
-            $group->counted, $group->approved_at ? (string) $group->approved_at : null
-        );
+        abort_if($row === null, 404);
 
-        return response()->json(array_merge(['actual_mec' => (float) $group->counted], $breakdown));
+        [$from, $to] = $variance->period($meci->schedule);
+
+        return response()->json([
+            'actual_mec' => $row['actual_inventory'],
+            'theoretical' => $row['theoretical_inventory'],
+            'uom' => $row['uom'],
+            'period_from' => Carbon::parse($from)->format('M j, Y'),
+            'period_to' => Carbon::parse($to)->format('M j, Y'),
+        ] + $row['breakdown']);
     }
 
     /**
@@ -200,61 +205,34 @@ class QtyVarianceCostVarianceReportController extends Controller
         ];
     }
 
-    /** The filtered, computed and sorted report rows, shared by the page and the export. */
+    /**
+     * The filtered and sorted report rows, shared by the page and the export: one row per
+     * branch + item code of the count scheduled on the selected MEC Scheduled Date, with the
+     * Inventory Movement Report's figures for it - see MonthEndStockVariance.
+     */
     private function varianceRows(array $filters): Collection
     {
-        $query = $this->varianceQuery($filters);
+        $variance = app(MonthEndStockVariance::class);
 
-        if ($filters['search']) {
-            $search = $filters['search'];
-            $query->where(function ($q) use ($search) {
-                $q->where('sm.ItemCode', 'like', "%{$search}%")
-                ->orWhere('sm.ItemDescription', 'like', "%{$search}%")
-                ->orWhere('sb.name', 'like', "%{$search}%")
-                ->orWhere('sb.branch_code', 'like', "%{$search}%");
-            });
+        $varianceData = $this->schedules($filters['mec_date'])
+            ->flatMap(fn (MonthEndSchedule $schedule) => $variance->rows($schedule, $filters['store_ids']))
+            ->map(fn (array $row) => Arr::except($row, ['branch_id', 'breakdown']));
+
+        // The rows are computed, so the search and column filters are matched here, not in SQL.
+        $contains = fn ($value, $needle) => mb_stripos((string) $value, (string) $needle) !== false;
+
+        if (filled($filters['search'])) {
+            $varianceData = $varianceData->filter(fn (array $row) => $contains($row['item_code'], $filters['search'])
+                || $contains($row['item_description'], $filters['search'])
+                || $contains($row['store_name'], $filters['search']));
         }
 
-        // Apply column-specific filters
-        if ($filters['filter_store']) {
-            $query->where('sb.name', 'like', "%{$filters['filter_store']}%");
+        foreach (['filter_store' => 'store_name', 'filter_item_code' => 'item_code',
+            'filter_item_description' => 'item_description', 'filter_uom' => 'uom'] as $filter => $field) {
+            if (filled($filters[$filter])) {
+                $varianceData = $varianceData->filter(fn (array $row) => $contains($row[$field], $filters[$filter]));
+            }
         }
-        if ($filters['filter_item_code']) {
-            $query->where('sm.ItemCode', 'like', "%{$filters['filter_item_code']}%");
-        }
-        if ($filters['filter_item_description']) {
-            $query->where('sm.ItemDescription', 'like', "%{$filters['filter_item_description']}%");
-        }
-        if ($filters['filter_uom']) {
-            $query->where('sm.BaseUOM', 'like', "%{$filters['filter_uom']}%");
-        }
-
-        $varianceData = $query->get()->map(function ($item) {
-            $cost = (float) ($item->cost ?? 0);
-            $actualInventory = (float) $item->actual_inventory;
-            $theoreticalInventory = (float) $item->theoretical_inventory;
-
-            $qtyVariance = $actualInventory - $theoreticalInventory;
-            $actualCost = $cost * $actualInventory;
-            $theoreticalCost = $cost * $theoreticalInventory;
-            $costVariance = $actualCost - $theoreticalCost;
-
-            return [
-                'id' => $item->id,
-                'mec_date' => Carbon::parse($item->mec_date)->format('Y-m-d'),
-                'store_name' => $item->store_name,
-                'item_code' => $item->item_code,
-                'item_description' => $item->item_description,
-                'uom' => $item->uom,
-                'cost' => $cost,
-                'actual_inventory' => $actualInventory,
-                'theoretical_inventory' => $theoreticalInventory,
-                'qty_variance' => $qtyVariance,
-                'actual_cost' => $actualCost,
-                'theoretical_cost' => $theoreticalCost,
-                'cost_variance' => $costVariance,
-            ];
-        });
 
         // Apply Sorting to the collection
         if ($filters['sort_field']) {
@@ -264,54 +242,35 @@ class QtyVarianceCostVarianceReportController extends Controller
             return $varianceData->sortBy($sortField, SORT_REGULAR, $sortDir);
         }
 
-        // Default sort by store name
-        return $varianceData->sortBy('store_name');
+        // Default sort by store name, then item code
+        return $varianceData->sortBy([['store_name', 'asc'], ['item_code', 'asc']]);
+    }
+
+    /** The counts scheduled on the selected MEC Scheduled Date - normally one. */
+    private function schedules(?string $mecDate): Collection
+    {
+        return $mecDate
+            ? MonthEndSchedule::whereDate('calculated_date', $mecDate)->orderBy('id')->get()
+            : collect();
     }
 
     /**
-     * One row per count + branch + item code, the grain the month end count is
-     * approved and posted at. Theoretical inventory is the stock on hand the
-     * count reconciled - see MonthEndStockVariance.
+     * The dates the selected count's movements cover, to show on the page: the same range
+     * gives the same figures in the Inventory Movement Report.
      *
-     * The count reported is the one scheduled on the selected MEC Scheduled Date.
+     * @return array{from: string, to: string}|null
      */
-    private function varianceQuery(array $filters)
+    private function periodFor(?string $mecDate): ?array
     {
-        $variance = app(MonthEndStockVariance::class);
-        $scheduleIds = $filters['mec_date']
-            ? MonthEndSchedule::whereDate('calculated_date', $filters['mec_date'])->pluck('id')->all()
-            : [];
+        $schedule = $this->schedules($mecDate)->first();
 
-        return MonthEndCountItem::query()
-            ->from('month_end_count_items as meci')
-            ->join('store_branches as sb', 'meci.branch_id', '=', 'sb.id')
-            ->join('sap_masterfiles as sm', 'meci.sap_masterfile_id', '=', 'sm.id')
-            ->join('month_end_schedules as mes', 'meci.month_end_schedule_id', '=', 'mes.id')
-            ->leftJoinSub($variance->adjustments($scheduleIds), 'adj', function ($join) {
-                $join->on('adj.store_branch_id', '=', 'meci.branch_id')
-                    ->on('adj.item_code', '=', 'meci.item_code')
-                    ->on('adj.month_end_schedule_id', '=', 'meci.month_end_schedule_id');
-            })
-            // The count posts to one base-stock row, which names the UOM it was
-            // reconciled in; without a posting the counted line names it.
-            ->leftJoin('sap_masterfiles as adjsm', 'adjsm.id', '=', 'adj.product_inventory_id')
-            ->leftJoinSub($variance->costs(), 'cost', 'cost.item_code', '=', 'meci.item_code')
-            ->whereNotNull('meci.level2_approved_at')
-            ->whereIn('meci.branch_id', $filters['store_ids'])
-            ->whereIn('meci.month_end_schedule_id', $scheduleIds)
-            ->groupBy('meci.month_end_schedule_id', 'mes.calculated_date', 'meci.branch_id', 'meci.item_code',
-                'sb.name', 'sb.branch_code', 'adj.adjustment', 'adjsm.BaseUOM', 'cost.cost')
-            ->select(
-                DB::raw('MIN(meci.id) as id'),
-                'mes.calculated_date as mec_date',
-                DB::raw("CONCAT(sb.name, ' (', sb.branch_code, ')') as store_name"),
-                'meci.item_code as item_code',
-                DB::raw('MAX(sm.ItemDescription) as item_description'),
-                DB::raw('COALESCE(adjsm.BaseUOM, MAX(sm.BaseUOM)) as uom'),
-                DB::raw('SUM(meci.total_qty) as actual_inventory'),
-                DB::raw('SUM(meci.total_qty) - COALESCE(adj.adjustment, 0) as theoretical_inventory'),
-                DB::raw('cost.cost as cost')
-            );
+        if (! $schedule) {
+            return null;
+        }
+
+        [$from, $to] = app(MonthEndStockVariance::class)->period($schedule);
+
+        return ['from' => Carbon::parse($from)->format('M j, Y'), 'to' => Carbon::parse($to)->format('M j, Y')];
     }
 
     private function getAssignedStoreIds($user)

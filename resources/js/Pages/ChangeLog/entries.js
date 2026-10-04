@@ -18,6 +18,50 @@ export const changeLog = [
     // ---------------------------------------------------------------- October 4, 2026
     {
         date: '2026-10-04',
+        module: 'Qty Variance / Cost Variance Report',
+        type: 'improved',
+        title: 'Actual Inventory, Theoretical Inventory and Qty Variance now match the Inventory Movement Report',
+        summary:
+            'The two reports did not agree. For cups, lids and other supplies, the Qty Variance / Cost Variance Report showed a shortage that the Inventory Movement Report had already explained as Supplies Used. An item counted in two units was also added up as if both were the same unit. The report now takes its quantities from the same calculation as the Inventory Movement Report: Actual Inventory is its Actual MEC, Theoretical Inventory is its Theoretical SOH and Qty Variance is its Variance.',
+        steps: [
+            'Open the Qty Variance / Cost Variance Report and choose the count in "MEC Scheduled Date".',
+            'Under the filters, read the line that starts with "Stock movements from". It gives the dates that the count covers.',
+            'To compare, open the Inventory Movement Report for the same store and enter those same dates. The quantities are the same on both reports.',
+            'Click the arrow under "Details" on a row to see what makes up its Theoretical Inventory: Beg Bal, Received, Inbound Interco, Sales, Wastage, Supplies Used and Outbound Interco.',
+        ],
+        rules: [
+            'Theoretical Inventory = Beg Bal + Received + Inbound Interco - Sales - Wastage - Supplies Used - Outbound Interco.',
+            'Qty Variance = Actual Inventory - Theoretical Inventory.',
+            'The dates covered start on the 1st of the month being counted and end on the MEC Scheduled Date. Stock received, sold or wasted after that date is not included.',
+            'When a count is scheduled in the following month, the dates end on the last day of the month being counted. The March count scheduled on April 5, for example, covers March 1 to March 31.',
+            'Beg Bal is the count of the month before.',
+            'For supplies (items with the Item Type Operating Supplies or Cleaning Supplies, or the Supplies category in Supplier Items), stock that the count does not find is treated as Supplies Used and not as a shortage. A cup with 0.6 Sleeve at the start, 1 Sleeve received and 1 Sleeve counted has 0.6 Supplies Used, a Theoretical Inventory of 1 and a Qty Variance of 0.',
+            'When the count of a supplies item finds more stock than expected, the extra stays as a Qty Variance.',
+            'An item counted in more than one unit is shown on one row, with every quantity converted to the UoM shown. 1 Case and 24 Can of an item with 48 Can per Case is shown as 1.5 Case.',
+            'A quantity in a unit that has no conversion in the SAP Masterlist is left out, and the row shows "Excl." followed by that unit.',
+            'Only counts approved at Level 2 are shown.',
+        ],
+        affects: 'Finance and inventory analysts who review count variances.',
+    },
+    {
+        date: '2026-10-04',
+        module: 'Qty Variance / Cost Variance Report',
+        type: 'improved',
+        title: 'UoM is now the base unit of the item and Cost is the cost of that unit, so Actual Cost, Theoretical Cost and Cost Variance are correct',
+        summary:
+            'The Cost column showed the latest supplier price of the item, whatever unit that price was for, even when the UoM column showed a different unit. An item priced at 37.50 per Can was shown as 37.50 per Case, so Actual Cost, Theoretical Cost and Cost Variance were far too low. The UoM is now the base unit of the item, the same unit the Inventory Movement Report uses, and Cost is converted to that unit.',
+        rules: [
+            'UoM is the base unit of the item in the SAP Masterlist. It is the unit the stock of the item is kept in.',
+            'When a supplier prices the item in that unit, that price is the Cost.',
+            'When the item is priced only in another unit, the price is converted with the conversion in the SAP Masterlist. 37.50 per Can with 48 Can per Case is shown as 1,800.00 per Case.',
+            'An item with no active supplier price, or priced only in a unit that has no conversion to the UoM shown, has a Cost of 0.',
+            'Actual Cost = Cost x Actual Inventory. Theoretical Cost = Cost x Theoretical Inventory. Cost Variance = Actual Cost - Theoretical Cost.',
+            'The Excel export shows the same UoM, Cost and amounts as the page.',
+        ],
+        affects: 'Finance and inventory analysts who review count variances.',
+    },
+    {
+        date: '2026-10-04',
         module: 'MEC Approval 2nd Level',
         type: 'new',
         title: '"Reject" button on MEC Approval 2nd Level: a Level 2 approver can send a count back to the store',
