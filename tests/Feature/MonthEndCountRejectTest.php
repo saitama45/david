@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\MECApproval2Controller;
 use App\Http\Controllers\MonthEndCountApprovalController;
 use App\Http\Controllers\MonthEndCountController;
 use App\Http\Controllers\MonthEndScheduleController;
@@ -98,6 +99,7 @@ it('rejects a count and reopens its upload for that store even after the window 
     $rejection = MonthEndCountRejection::sole();
     expect($rejection->reason)->toBe('Sugar counted in grams, not bags.')
         ->and($rejection->item_count)->toBe(2)
+        ->and($rejection->level)->toBe(1)
         ->and((int) $rejection->rejected_by)->toBe($approver->id);
 
     $reopen = MonthEndCountReopen::sole();
@@ -172,4 +174,109 @@ it('does not shorten a later reopen support already granted', function () {
     rejectMecAs($approver, $schedule, $store, ['reason' => 'Recount.', 'reupload_until' => '2026-10-01 23:59:00']);
 
     expect(MonthEndCountReopen::sole()->reopened_until->format('Y-m-d H:i:s'))->toBe('2026-10-10 23:59:00');
+});
+
+/** The same count, already approved at Level 1 and waiting for Level 2. */
+function mecLevel2RejectFixture(): array
+{
+    $f = mecRejectFixture();
+
+    Permission::findOrCreate('approve month end count level 2');
+    app(PermissionRegistrar::class)->forgetCachedPermissions();
+    $f['level2Approver'] = User::factory()->create();
+    $f['level2Approver']->givePermissionTo('approve month end count level 2');
+
+    MonthEndCountItem::where('month_end_schedule_id', $f['schedule']->id)->update([
+        'status' => 'level1_approved',
+        'level1_approved_by' => $f['approver']->id,
+        'level1_approved_at' => Carbon::now(),
+    ]);
+
+    return $f;
+}
+
+function rejectMecLevel2As(User $user, MonthEndSchedule $schedule, StoreBranch $store, array $input)
+{
+    test()->actingAs($user);
+
+    return app(MECApproval2Controller::class)->rejectLevel2(
+        Request::create('/month-end-count-approvals-level2/reject', 'POST', $input),
+        $schedule->id,
+        $store->id
+    );
+}
+
+it('rejects a count at Level 2 and returns it to the store exactly as Level 1 does', function () {
+    ['store' => $store, 'storeUser' => $storeUser, 'level2Approver' => $level2Approver, 'schedule' => $schedule] = mecLevel2RejectFixture();
+
+    $response = rejectMecLevel2As($level2Approver, $schedule, $store, [
+        'reason' => 'Variance on frozen items is too large. Recount the freezer.',
+        'reupload_until' => '2026-10-01 23:59:00',
+    ]);
+
+    expect($response->getTargetUrl())->toBe(route('month-end-count-approvals-level2.index'))
+        ->and(mecItemStatuses($schedule, $store))->toBe(['rejected', 'rejected']);
+
+    $rejection = MonthEndCountRejection::sole();
+    expect($rejection->level)->toBe(2)
+        ->and($rejection->item_count)->toBe(2)
+        ->and((int) $rejection->rejected_by)->toBe($level2Approver->id);
+
+    expect(MonthEndCountReopen::sole()->reopened_until->format('Y-m-d H:i:s'))->toBe('2026-10-01 23:59:00');
+
+    // The store sees the upload form again, told which level returned it and why.
+    test()->actingAs($storeUser);
+    $page = app(MonthEndCountController::class)
+        ->index(Request::create('/month-end-count', 'GET', [], [], [], ['HTTP_X_INERTIA' => 'true']))
+        ->toResponse(Request::create('/month-end-count', 'GET', [], [], [], ['HTTP_X_INERTIA' => 'true']))
+        ->getData(true)['props'];
+
+    expect(array_keys($page['branchesAwaitingUpload']))->toBe([$store->id])
+        ->and($page['uploadWindow']['state'])->toBe('open')
+        ->and($page['returnedCounts'][0]['level'])->toBe(2)
+        ->and($page['returnedCounts'][0]['reason'])->toBe('Variance on frozen items is too large. Recount the freezer.');
+
+    // The Level 2 page explains the rejected count instead of offering it for approval.
+    test()->actingAs($level2Approver);
+    $show = app(MECApproval2Controller::class)->show($schedule->id, $store->id)
+        ->toResponse(Request::create('/x', 'GET', [], [], [], ['HTTP_X_INERTIA' => 'true']))
+        ->getData(true)['props'];
+    expect($show['rejection']['level'])->toBe(2)
+        ->and($show['schedule']['calculated_date'])->toBe('2026-08-31');
+
+    // The re-upload replaces the rejected rows, so the new count starts again before Level 1.
+    Excel::fake();
+    test()->actingAs($storeUser);
+    $file = UploadedFile::fake()->create('count.xlsx', 5, 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    app(MonthEndCountController::class)->upload(
+        Request::create('/month-end-count/upload', 'POST', ['schedule_id' => $schedule->id, 'branch_id' => $store->id], [], ['file' => $file])
+    );
+    expect(mecItemStatuses($schedule, $store))->toBe([]);
+});
+
+it('refuses a Level 2 rejection that is not allowed and changes nothing', function () {
+    ['store' => $store, 'approver' => $level1Approver, 'level2Approver' => $level2Approver, 'schedule' => $schedule] = mecLevel2RejectFixture();
+    $input = ['reason' => 'x', 'reupload_until' => '2026-10-01 23:59:00'];
+
+    // A deadline already past.
+    rejectMecLevel2As($level2Approver, $schedule, $store, ['reason' => 'x', 'reupload_until' => '2026-09-27 10:00:00']);
+
+    // No reason.
+    expect(fn () => rejectMecLevel2As($level2Approver, $schedule, $store, ['reason' => '', 'reupload_until' => '2026-10-01 23:59:00']))
+        ->toThrow(Illuminate\Validation\ValidationException::class);
+
+    // A Level 1 approver without the Level 2 permission.
+    expect(fn () => rejectMecLevel2As($level1Approver, $schedule, $store, $input))->toThrow(HttpException::class);
+
+    expect(mecItemStatuses($schedule, $store))->toBe(['level1_approved', 'level1_approved']);
+
+    // A count still waiting for Level 1, or already approved at Level 2, is not Level 2's to reject.
+    foreach (['pending_level1_approval', 'level2_approved'] as $status) {
+        MonthEndCountItem::where('month_end_schedule_id', $schedule->id)->update(['status' => $status]);
+        rejectMecLevel2As($level2Approver, $schedule, $store, $input);
+        expect(mecItemStatuses($schedule, $store))->toBe([$status, $status]);
+    }
+
+    expect(MonthEndCountRejection::count())->toBe(0)
+        ->and(MonthEndCountReopen::count())->toBe(0);
 });

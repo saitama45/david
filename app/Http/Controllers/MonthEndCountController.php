@@ -117,12 +117,7 @@ class MonthEndCountController extends Controller
                 ->orderByDesc('id')
                 ->get()
                 ->unique('branch_id')
-                ->map(fn ($r) => [
-                    'branch_name' => $r->branch?->name,
-                    'reason' => $r->reason,
-                    'rejected_by' => $r->rejecter ? trim($r->rejecter->first_name.' '.$r->rejecter->last_name) : null,
-                    'rejected_at' => $r->created_at->timezone('Asia/Manila')->format('M j, Y g:i A'),
-                ])
+                ->map(fn ($r) => ['branch_name' => $r->branch?->name] + $r->toNotice())
                 ->values()
             : collect();
 

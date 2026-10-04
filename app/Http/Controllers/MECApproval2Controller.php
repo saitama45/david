@@ -2,8 +2,10 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Services\MonthEndCountRejectionService;
 use App\Models\MonthEndSchedule;
 use App\Models\MonthEndCountItem;
+use App\Models\MonthEndCountRejection;
 use App\Models\StoreBranch;
 use App\Models\ProductInventoryStock;
 use App\Models\ProductInventoryStockManager;
@@ -118,10 +120,24 @@ class MECApproval2Controller extends Controller
             ->orderBy('item_name')
             ->get();
 
+        $rejection = MonthEndCountRejection::with('rejecter:id,first_name,last_name')
+            ->where('month_end_schedule_id', $schedule->id)
+            ->where('branch_id', $branch->id)
+            ->latest('id')
+            ->first();
+
         return Inertia::render('MECApproval2/Show', [
-            'schedule' => $schedule->only(['id', 'year', 'month', 'calculated_date', 'status']),
+            'schedule' => [
+                'id' => $schedule->id,
+                'year' => $schedule->year,
+                'month' => $schedule->month,
+                // A date string, not the model's UTC timestamp, which the page showed as the day before.
+                'calculated_date' => $schedule->calculated_date ? $schedule->calculated_date->toDateString() : null,
+                'status' => $schedule->status,
+            ],
             'branch' => $branch->only(['id', 'name']),
             'countItems' => $countItems,
+            'rejection' => $rejection?->toNotice(),
             'canApproveLevel2' => $user->can('approve month end count level 2'),
         ]);
     }
@@ -148,6 +164,45 @@ class MECApproval2Controller extends Controller
         foreach ($affectedUserIds as $userId) {
             Cache::forget('user_notifications_v7_' . $userId);
         }
+    }
+
+    /**
+     * Send a count awaiting Level 2 back to the store, exactly as a Level 1 reject does:
+     * the upload reopens for that branch until the approver's deadline, and the re-upload
+     * replaces the rejected rows and goes through Level 1 and Level 2 again.
+     */
+    public function rejectLevel2(Request $request, $scheduleId, $branchId)
+    {
+        $schedule = MonthEndSchedule::findOrFail($scheduleId);
+        $branch = StoreBranch::findOrFail($branchId);
+
+        if (!Auth::user()->can('approve month end count level 2')) {
+            abort(403, 'You do not have permission to reject at Level 2.');
+        }
+
+        $validated = $request->validate([
+            'reason' => 'required|string|max:1000',
+            'reupload_until' => 'required|date',
+        ]);
+
+        try {
+            $until = app(MonthEndCountRejectionService::class)
+                ->returnToStore($schedule, $branch, 2, $validated['reason'], $validated['reupload_until'], Auth::id());
+        } catch (\DomainException $e) {
+            return back()->withErrors(['error' => $e->getMessage()]);
+        } catch (Exception $e) {
+            \Log::error('Error during Level 2 rejection: ' . $e->getMessage(), ['trace' => $e->getTraceAsString()]);
+            return back()->withErrors(['error' => 'Error during Level 2 rejection: ' . $e->getMessage()]);
+        }
+
+        Cache::forget('user_notifications_v7_' . Auth::id());
+        $this->clearMonthEndNotificationCaches($branch->id, ['approve month end count level 2', 'view month end count approvals level 2', 'approve month end count level 1', 'view month end count approvals', 'upload month end count transaction']);
+
+        return redirect()->route('month-end-count-approvals-level2.index')->with('success', sprintf(
+            'Count returned to %s. They can re-upload until %s.',
+            $branch->name,
+            $until->format('M j, Y g:i A')
+        ));
     }
 
     public function approveLevel2($scheduleId, $branchId)

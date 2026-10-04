@@ -2,10 +2,10 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Services\MonthEndCountRejectionService;
 use App\Models\MonthEndSchedule;
 use App\Models\MonthEndCountItem;
 use App\Models\MonthEndCountRejection;
-use App\Models\MonthEndCountReopen;
 use App\Models\StoreBranch;
 use App\Models\ProductInventoryStock;
 use App\Models\ProductInventoryStockManager;
@@ -147,11 +147,7 @@ class MonthEndCountApprovalController extends Controller
                 'name' => $branch->name,
             ],
             'countItems' => $countItems,
-            'rejection' => $rejection ? [
-                'reason' => $rejection->reason,
-                'rejected_by' => $rejection->rejecter ? trim($rejection->rejecter->first_name.' '.$rejection->rejecter->last_name) : null,
-                'rejected_at' => $rejection->created_at->timezone('Asia/Manila')->format('M j, Y g:i A'),
-            ] : null,
+            'rejection' => $rejection?->toNotice(),
             'canApproveLevel1' => Auth::user()->can('approve month end count level 1'),
             'canApproveLevel2' => Auth::user()->can('approve month end count level 2'),
             'canEditItems' => Auth::user()->can('edit month end count approval items'),
@@ -269,68 +265,23 @@ class MonthEndCountApprovalController extends Controller
             'reupload_until' => 'required|date',
         ]);
 
-        $now = Carbon::now('Asia/Manila');
-        $until = Carbon::parse($validated['reupload_until'], 'Asia/Manila');
-
-        if ($until->lte($now)) {
-            return back()->withErrors(['error' => 'The re-upload deadline must be in the future.']);
-        }
-
-        DB::beginTransaction();
         try {
-            $rejectedCount = MonthEndCountItem::where('month_end_schedule_id', $schedule->id)
-                ->where('branch_id', $branch->id)
-                ->where('status', 'pending_level1_approval')
-                ->update(['status' => 'rejected']);
-
-            if ($rejectedCount === 0) {
-                DB::rollBack();
-                return redirect()->back()->withErrors(['error' => 'No items found awaiting Level 1 approval.']);
-            }
-
-            MonthEndCountRejection::create([
-                'entity_id' => $schedule->entity_id,
-                'month_end_schedule_id' => $schedule->id,
-                'branch_id' => $branch->id,
-                'reason' => $validated['reason'],
-                'item_count' => $rejectedCount,
-                'rejected_by' => Auth::id(),
-            ]);
-
-            // Never shorten a later reopen support already granted this branch.
-            $existing = MonthEndCountReopen::where('month_end_schedule_id', $schedule->id)
-                ->where('branch_id', $branch->id)
-                ->first();
-            $existingUntil = $existing
-                ? Carbon::parse($existing->reopened_until->format('Y-m-d H:i:s'), 'Asia/Manila')
-                : null;
-
-            if (!$existingUntil || $existingUntil->lt($until)) {
-                MonthEndCountReopen::updateOrCreate(
-                    ['month_end_schedule_id' => $schedule->id, 'branch_id' => $branch->id],
-                    [
-                        'entity_id' => $schedule->entity_id,
-                        'reopened_until' => $until->format('Y-m-d H:i:s'),
-                        'reopened_by' => Auth::id(),
-                    ]
-                );
-            } else {
-                $until = $existingUntil;
-            }
-
-            DB::commit();
-            Cache::forget('user_notifications_v7_' . Auth::id());
-            $this->clearMonthEndNotificationCaches($branch->id, ['approve month end count level 1', 'view month end count approvals', 'upload month end count transaction']);
-
-            return redirect()->route('month-end-count-approvals.index')->with('success', sprintf(
-                'Count returned to %s. They can re-upload until %s.',
-                $branch->name,
-                $until->format('M j, Y g:i A')
-            ));
+            $until = app(MonthEndCountRejectionService::class)
+                ->returnToStore($schedule, $branch, 1, $validated['reason'], $validated['reupload_until'], Auth::id());
+        } catch (\DomainException $e) {
+            return back()->withErrors(['error' => $e->getMessage()]);
         } catch (Exception $e) {
-            DB::rollBack();
             return back()->withErrors(['error' => 'Error during Level 1 rejection: ' . $e->getMessage()]);
         }
+
+        Cache::forget('user_notifications_v7_' . Auth::id());
+        $this->clearMonthEndNotificationCaches($branch->id, ['approve month end count level 1', 'view month end count approvals', 'upload month end count transaction']);
+
+        return redirect()->route('month-end-count-approvals.index')->with('success', sprintf(
+            'Count returned to %s. They can re-upload until %s.',
+            $branch->name,
+            $until->format('M j, Y g:i A')
+        ));
     }
 
     private function clearMonthEndNotificationCaches(int $branchId, array $permissions): void

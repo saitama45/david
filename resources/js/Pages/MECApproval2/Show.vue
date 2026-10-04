@@ -1,14 +1,16 @@
 <script setup>
 import { Head, router } from '@inertiajs/vue3';
-import { computed } from 'vue';
-import { Check, ArrowLeft } from 'lucide-vue-next';
+import { ref, computed } from 'vue';
+import { Check, Ban, ArrowLeft } from 'lucide-vue-next';
 import { useConfirm } from "primevue/useconfirm";
 import { useToast } from "@/composables/useToast";
+import RejectCountDialog from "@/components/month-end-count/RejectCountDialog.vue";
 
 const props = defineProps({
     schedule: { type: Object, required: true },
     branch: { type: Object, required: true },
     countItems: { type: Array, required: true },
+    rejection: { type: Object, default: null },
     canApproveLevel2: { type: Boolean, required: true },
 });
 
@@ -65,6 +67,9 @@ const approve = () => {
     });
 };
 
+// --- Rejecting: sends the count back and reopens the upload for this store ---
+const showRejectDialog = ref(false);
+
 const goBack = () => {
     router.get(route('month-end-count-approvals-level2.index'));
 };
@@ -90,20 +95,35 @@ const hasItemsForApproval = computed(() => {
             <p><strong>MEC Schedule Date:</strong> {{ formatDate(schedule.calculated_date) }}</p>
             <p><strong>Branch:</strong> {{ branch.name }}</p>
             <p><strong>Current Status:</strong>
-                <Badge class="capitalize bg-blue-500 text-white">{{ branchStatus.replace(/_/g, ' ') }}</Badge>
+                <Badge class="capitalize text-white" :class="branchStatus === 'rejected' ? 'bg-red-500' : 'bg-blue-500'">{{ branchStatus.replace(/_/g, ' ') }}</Badge>
             </p>
+        </div>
+
+        <div v-if="branchStatus === 'rejected' && rejection" class="mb-6 p-4 border border-red-300 bg-red-50 rounded-md text-red-800" data-testid="mec-rejection">
+            <p class="font-medium">Returned to the store for re-upload</p>
+            <p class="text-sm mt-1">Reason: {{ rejection.reason }}</p>
+            <p class="text-xs mt-1 opacity-80">Rejected at Level {{ rejection.level }} by {{ rejection.rejected_by || 'N/A' }} on {{ rejection.rejected_at }}</p>
         </div>
 
         <div class="flex justify-between items-center mb-4">
             <Button @click="goBack" variant="outline">
                 <ArrowLeft class="h-4 w-4 mr-2" /> Back
             </Button>
-            <div v-if="hasItemsForApproval">
-                <Button v-if="canApproveLevel2" @click="approve" variant="success" class="bg-green-600 hover:bg-green-700 text-white">
+            <div class="flex gap-4" v-if="hasItemsForApproval && canApproveLevel2">
+                <Button @click="showRejectDialog = true" variant="outline" class="border-red-300 text-red-700 hover:bg-red-50" data-testid="mec-reject">
+                    <Ban class="h-4 w-4 mr-2" /> Reject
+                </Button>
+                <Button @click="approve" variant="success" class="bg-green-600 hover:bg-green-700 text-white">
                     <Check class="h-4 w-4 mr-2" /> Approve
                 </Button>
             </div>
         </div>
+
+        <RejectCountDialog
+            v-model:visible="showRejectDialog"
+            :branch-name="branch.name"
+            :action="route('month-end-count-approvals-level2.reject', { schedule_id: schedule.id, branch_id: branch.id })"
+        />
 
         <TableContainer>
             <div class="overflow-y-auto max-h-[75vh]">

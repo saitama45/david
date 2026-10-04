@@ -15,6 +15,46 @@
 //   affects  who will notice the change
 
 export const changeLog = [
+    // ---------------------------------------------------------------- October 4, 2026
+    {
+        date: '2026-10-04',
+        module: 'MEC Approval 2nd Level',
+        type: 'new',
+        title: '"Reject" button on MEC Approval 2nd Level: a Level 2 approver can send a count back to the store',
+        summary:
+            'Only the Level 1 approver could reject a month end count. Once a count reached MEC Approval 2nd Level it could only be approved, even when it was wrong. The Level 2 page now has a "Reject" button beside "Approve" that works the same way as the one on MEC Approval 1st Level: the count goes back to the store and uploading reopens for that store.',
+        steps: [
+            'The Level 2 approver opens the count in MEC Approval 2nd Level and clicks "Reject".',
+            'In "Reject Month End Count", the approver types the Reason and sets "Allow re-upload until". The form suggests three days ahead at 11:59 PM.',
+            'The approver clicks "Reject and reopen upload". The count leaves the Level 2 list and is returned to the store.',
+            'On the Month End Count page the store sees that its count was rejected at Level 2, by whom, when and why, and the upload form is open again.',
+            'The store corrects the count and uploads again. The new upload fully replaces the rejected one.',
+            'The new count is approved again at Level 1 first, and then at Level 2.',
+        ],
+        rules: [
+            'A reason is required, and the re-upload deadline must be in the future.',
+            'Rejecting at Level 2 needs the "approve month end count level 2" permission, the same one used to approve.',
+            'Only a count that is waiting for Level 2 approval can be rejected here. A count already approved at Level 2 cannot be rejected, because its stock has been updated.',
+            'Rejecting does not change any stock. Stock is updated only when a count is approved at Level 2.',
+            'Uploading reopens for that store until the deadline, even if the regular upload window has already closed.',
+            'If the store was already given a later reopen date, the later date is kept. A rejection never shortens it.',
+            'The store and the approvers are shown which level rejected the count, for example "Rejected at Level 2".',
+            'A record of each rejection (who, at which level, why and how many items) is kept even after the store uploads the replacement.',
+        ],
+        affects: 'Level 2 approvers, Level 1 approvers and store users.',
+    },
+    {
+        date: '2026-10-04',
+        module: 'MEC Approval 2nd Level',
+        type: 'improved',
+        title: 'MEC Schedule Date on MEC Approval 2nd Level now shows the correct day',
+        summary:
+            'When a count was opened in MEC Approval 2nd Level, the MEC Schedule Date in Schedule Details was shown one day early. A count scheduled for September 30 was shown as 09/29. It now shows the same date as MEC Approval 1st Level and the schedule itself.',
+        rules: [
+            'Only the date shown on the page was wrong. The count, its approval and the stock update always used the correct schedule.',
+        ],
+        affects: 'Level 2 approvers.',
+    },
     // ---------------------------------------------------------------- October 3, 2026
     {
         date: '2026-10-03',

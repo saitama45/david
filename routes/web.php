@@ -672,6 +672,7 @@ Route::middleware('auth')
                 Route::middleware('permission:view month end count approvals level 2')->get('/', 'index')->name('index');
                 Route::middleware('permission:view month end count approvals level 2')->get('/{schedule_id}/{branch_id}', 'show')->name('show');
                 Route::middleware('permission:approve month end count level 2')->post('/{schedule_id}/{branch_id}/approve', 'approveLevel2')->name('approve');
+                Route::middleware('permission:approve month end count level 2')->post('/{schedule_id}/{branch_id}/reject', 'rejectLevel2')->name('reject');
             });
 
         // Interco Approvals

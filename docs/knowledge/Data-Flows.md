@@ -171,16 +171,25 @@ reopen like any other late store.
 `uploaded` (store reviews) → `pending_level1_approval` → `level1_approved` → `level2_approved` (stock
 applied). Statuses live on every `month_end_count_items` row of a schedule + branch.
 
-A Level 1 approver can **reject** (`MonthEndCountApprovalController@rejectLevel1`, same permission as
-approve). It needs a reason and a re-upload deadline, and in one transaction it:
+Either approver can **reject** a count waiting at their own level, with the same permission as that
+level's approve: `MonthEndCountApprovalController@rejectLevel1` (`pending_level1_approval`) and
+`MECApproval2Controller@rejectLevel2` (`level1_approved`, added 2026-10-04). Both go through
+`MonthEndCountRejectionService::returnToStore()`, so a rejection means the same thing at either level.
+It needs a reason and a re-upload deadline, and in one transaction it:
 - sets the rows to `rejected`, which every "has this branch submitted?" check already excludes;
-- writes a `month_end_count_rejections` row (who, why, how many items) that outlives those rows;
+- writes a `month_end_count_rejections` row (who, at which `level`, why, how many items) that outlives
+  those rows;
 - grants a `month_end_count_reopens` row until the deadline, never shortening a later one. The store
   can re-upload even after the window closed.
 
+A Level 2 rejection goes to the **store**, not back to Level 1 (the user's decision), and no stock
+moves: stock is only posted by Level 2 approval, and a `level2_approved` count cannot be rejected.
+
 The re-upload (`MonthEndCountController@upload`) deletes the `rejected` rows inside the import
-transaction, so the new count replaces the old one rather than merging with it. `/month-end-count`
-shows the store the reason (`returnedCounts`).
+transaction, so the new count replaces the old one rather than merging with it, and it starts again
+before Level 1 whichever level returned it. `/month-end-count` shows the store the reason and the level
+(`returnedCounts`, built by `MonthEndCountRejection::toNotice()`, as are both approval pages' banners).
+Both pages use the one dialog, `resources/js/components/month-end-count/RejectCountDialog.vue`.
 
 ## Entity switching
 

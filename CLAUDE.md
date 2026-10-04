@@ -95,7 +95,8 @@ Full detail: [Data-Flows.md](docs/knowledge/Data-Flows.md).
 **Services** ([app/Http/Services/](app/Http/Services/)): `RuleExceptionService`, `OrderingCutoffService`,
 `OrderApprovalService`, `MassOrderService`, `StoreOrderService`, `DTSStoreOrderService`,
 `OrderCalculatorService`, `OrderReceivingService`, `IntercoService`, `WastageService`,
-`MonthEndCountSettingsService`, `MonthEndCountReadinessService`, `InventoryMovementService`,
+`MonthEndCountSettingsService`, `MonthEndCountReadinessService`, `MonthEndCountRejectionService`,
+`InventoryMovementService`,
 `RoleService`, `UserService`, `AdoptionRateTrackingService`, `SuccessRateService`, `GoLiveStoresService`.
 
 **Models**: `StoreOrder` + `StoreOrderItem` (core aggregate, discriminated by `variant` and
@@ -255,6 +256,10 @@ SQL Server as the target. Rationale and trade-offs: [Decisions.md](docs/knowledg
   (the default). A shortfall needs `confirm_negative_stock` on the approve request, enforced by
   `WastageService::approvalStockProblem()`; never re-add a hard stock block in the controllers.
   Detail: [Data-Flows.md](docs/knowledge/Data-Flows.md#approval-flow).
+- **A Month End Count can be rejected at Level 1 or Level 2, and both return it to the store** through
+  `MonthEndCountRejectionService::returnToStore()` (rows `rejected`, upload reopened, re-upload replaces
+  them and starts again before Level 1). Never give one level its own reject logic.
+  Detail: [Data-Flows.md](docs/knowledge/Data-Flows.md#month-end-count-approval-and-rejection).
 - **`supplier_items` text columns (category, brand, classification, packaging_config) and `config` are NOT
   NULL**, but blank form inputs arrive as null (ConvertEmptyStringsToNull). Store `''` / `0`, as the import does.
 - **Fresh migrations create a UNIQUE index on `sap_masterfiles.ItemCode`** that the live database does

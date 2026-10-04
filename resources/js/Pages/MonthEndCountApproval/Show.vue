@@ -1,10 +1,10 @@
 <script setup>
 import { Head, router } from '@inertiajs/vue3';
 import { ref, computed, nextTick } from 'vue';
-import { Check, X, Pencil, Save, Ban, ArrowLeft, Loader2 } from 'lucide-vue-next';
+import { Check, X, Pencil, Save, Ban, ArrowLeft } from 'lucide-vue-next';
 import { useConfirm } from "primevue/useconfirm";
 import { useToast } from "@/composables/useToast";
-import Dialog from "primevue/dialog";
+import RejectCountDialog from "@/components/month-end-count/RejectCountDialog.vue";
 
 const props = defineProps({
     schedule: { type: Object, required: true },
@@ -140,44 +140,6 @@ const approve = () => {
 
 // --- Rejecting: sends the count back and reopens the upload for this store ---
 const showRejectDialog = ref(false);
-const rejectReason = ref('');
-const reuploadUntil = ref('');
-const isRejecting = ref(false);
-
-// Same default grace period as the Store Progress reopen: 3 days out, 11:59 PM.
-const defaultReuploadUntil = () => {
-    const d = new Date();
-    d.setDate(d.getDate() + 3);
-    d.setHours(23, 59, 0, 0);
-    const pad = (n) => String(n).padStart(2, '0');
-    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
-};
-
-const openRejectDialog = () => {
-    rejectReason.value = '';
-    reuploadUntil.value = defaultReuploadUntil();
-    showRejectDialog.value = true;
-};
-
-const submitReject = () => {
-    if (!rejectReason.value.trim() || !reuploadUntil.value) return;
-
-    isRejecting.value = true;
-    router.post(route('month-end-count-approvals.reject-level1', { schedule_id: props.schedule.id, branch_id: props.branch.id }), {
-        reason: rejectReason.value.trim(),
-        reupload_until: reuploadUntil.value.replace('T', ' ') + ':00',
-    }, {
-        onSuccess: () => {
-            showRejectDialog.value = false;
-            toast.add({ severity: 'success', summary: 'Rejected', detail: 'Count returned to the store for re-upload.', life: 3000 });
-        },
-        onError: (errors) => {
-            const errorMsg = Object.values(errors)[0] || 'An unknown error occurred.';
-            toast.add({ severity: 'error', summary: 'Rejection Failed', detail: errorMsg, life: 5000 });
-        },
-        onFinish: () => { isRejecting.value = false; },
-    });
-};
 
 const goBack = () => {
     router.get(route('month-end-count-approvals.index'));
@@ -217,7 +179,7 @@ const branchStatus = computed(() => {
         <div v-if="branchStatus === 'rejected' && rejection" class="mb-6 p-4 border border-red-300 bg-red-50 rounded-md text-red-800" data-testid="mec-rejection">
             <p class="font-medium">Returned to the store for re-upload</p>
             <p class="text-sm mt-1">Reason: {{ rejection.reason }}</p>
-            <p class="text-xs mt-1 opacity-80">Rejected by {{ rejection.rejected_by || 'N/A' }} on {{ rejection.rejected_at }}</p>
+            <p class="text-xs mt-1 opacity-80">Rejected at Level {{ rejection.level }} by {{ rejection.rejected_by || 'N/A' }} on {{ rejection.rejected_at }}</p>
         </div>
 
         <div class="flex justify-between items-center mb-4">
@@ -225,7 +187,7 @@ const branchStatus = computed(() => {
                 <ArrowLeft class="h-4 w-4 mr-2" /> Back
             </Button>
             <div class="flex gap-4" v-if="hasPendingL1Items && canApproveLevel1">
-                <Button @click="openRejectDialog" variant="outline" class="border-red-300 text-red-700 hover:bg-red-50" data-testid="mec-reject">
+                <Button @click="showRejectDialog = true" variant="outline" class="border-red-300 text-red-700 hover:bg-red-50" data-testid="mec-reject">
                     <Ban class="h-4 w-4 mr-2" /> Reject
                 </Button>
                 <Button @click="approve" variant="success" class="bg-green-600 hover:bg-green-700 text-white">
@@ -234,34 +196,11 @@ const branchStatus = computed(() => {
             </div>
         </div>
 
-        <Dialog v-model:visible="showRejectDialog" modal header="Reject Month End Count" :style="{ width: '32rem' }">
-            <div class="space-y-4">
-                <p class="text-sm text-gray-600">
-                    The count for <strong>{{ branch.name }}</strong> goes back to the store. Uploading reopens for this
-                    store until the deadline below, even if the upload window has closed, and the new upload replaces this one.
-                </p>
-                <div>
-                    <Label for="reject_reason">Reason <span class="text-red-600">*</span></Label>
-                    <Textarea id="reject_reason" v-model="rejectReason" rows="3" maxlength="1000" placeholder="What should the store correct?" class="mt-1" />
-                </div>
-                <div>
-                    <Label for="reupload_until">Allow re-upload until <span class="text-red-600">*</span></Label>
-                    <Input id="reupload_until" v-model="reuploadUntil" type="datetime-local" class="mt-1 w-full" />
-                </div>
-                <div class="flex justify-end gap-2">
-                    <Button type="button" variant="outline" @click="showRejectDialog = false">Cancel</Button>
-                    <Button
-                        type="button"
-                        class="bg-red-600 hover:bg-red-700 text-white"
-                        :disabled="!rejectReason.trim() || !reuploadUntil || isRejecting"
-                        @click="submitReject"
-                    >
-                        <Loader2 v-if="isRejecting" class="h-4 w-4 mr-2 animate-spin" />
-                        Reject and reopen upload
-                    </Button>
-                </div>
-            </div>
-        </Dialog>
+        <RejectCountDialog
+            v-model:visible="showRejectDialog"
+            :branch-name="branch.name"
+            :action="route('month-end-count-approvals.reject-level1', { schedule_id: schedule.id, branch_id: branch.id })"
+        />
 
         <TableContainer>
             <div class="overflow-y-auto max-h-[75vh]">
