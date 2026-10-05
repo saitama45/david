@@ -18,6 +18,29 @@ export const changeLog = [
     // ---------------------------------------------------------------- October 5, 2026
     {
         date: '2026-10-05',
+        module: 'Mass Orders Approval',
+        type: 'improved',
+        title: 'Approve and Reject in Mass Orders Approval are no longer offered on an order that is already committed, received or rejected',
+        summary:
+            'Approve and Reject were shown on every order in Mass Orders Approval, including orders the store had already received. Approving a received order again changed its Order Status back to APPROVED or COMMITTED, and on a CPO order it added a second set of TO RECEIVE lines in Inbound Orders (Receiving) that nobody could receive once the delivery was locked with Final Receive All. Now an order can only be approved or rejected while it is still waiting, and the page says why when it no longer can.',
+        steps: [
+            'Open Mass Orders Approval and click the eye icon of an order.',
+            'When the order can still be decided, the Approved quantities can be changed and the Reject and Approve buttons are shown, as before.',
+            'When it cannot, the Reject and Approve buttons are not shown, the Approved quantities are locked, and a note says why. Example: "Order NNEVI-00104 already has received items, so it can no longer be approved or rejected."',
+        ],
+        rules: [
+            'An order can be approved or rejected while its Order Status is PENDING.',
+            'An order whose Order Status is APPROVED can be approved again, for example to correct the Approved quantities, or rejected, as long as nothing on it has been committed or received.',
+            'An order whose Order Status is PARTIAL_COMMITTED, COMMITTED, RECEIVED, INCOMPLETE or REJECTED can no longer be approved or rejected.',
+            'An order with at least one received item can no longer be approved or rejected, even when the store has not clicked Confirm Receive All yet.',
+            'An order whose delivery was locked with Final Receive All can no longer be approved or rejected.',
+            'A CPO order is committed as soon as it is approved, so it can be approved only once.',
+            'The system checks the same rules again when Approve or Reject is clicked. If the order was committed or received while the page was open, nothing is changed and the reason is shown.',
+        ],
+        affects: 'Approvers who use Mass Orders Approval, and store users who receive deliveries in Inbound Orders (Receiving).',
+    },
+    {
+        date: '2026-10-05',
         module: 'Month End Count',
         type: 'improved',
         title: 'Dates inside a month end count that has its final approval can no longer be picked in Mass Orders, DTS Mass Orders, Wastage Record and Store Transactions',

@@ -201,6 +201,11 @@ SQL Server as the target. Rationale and trade-offs: [Decisions.md](docs/knowledg
 - **There is no live approval matrix.** `WorkflowService`, `ApprovalMatrixService` and their
   controllers/tests are dead code (tables dropped 2025-11-30). Real approvals are a Spatie permission
   + the approver's store assignment + a status column on the module's own table.
+- **Mass Orders Approval decides an order once.** Approve and Reject pass only while the order is
+  `pending`, or `approved` with nothing committed or received (`MassOrdersApprovalController::decisionProblem()`,
+  also sent to the page to hide both buttons). Never approve by id without it: approving a received
+  order reset its status and, on CPO, added receiving rows a finalized delivery can never receive.
+  Detail: [Data-Flows.md](docs/knowledge/Data-Flows.md#approval-flow).
 - **Ordering cutoffs are enforced on the server** through `OrderingCutoffService` (mass orders, DTS).
   Never re-derive cutoff maths in a controller or Vue page. A blocked action may only pass with an
   approved one-time grant from `RuleExceptionService`, consumed **inside** the action's transaction.

@@ -9,6 +9,12 @@ const confirm = useConfirm(); // Instantiate useConfirm
 
 const props = defineProps({
     order: Object,
+    // Why this order can no longer be approved or rejected (already committed, received or
+    // rejected), or null while it can. The server refuses both actions on the same rule.
+    decisionProblem: {
+        type: String,
+        default: null,
+    },
 });
 
 const form = useForm({
@@ -47,7 +53,7 @@ const approveOrder = () => {
                     });
                 },
                 onError: (errors) => {
-                    toast.add({ severity: 'error', summary: 'Error', detail: 'Failed to approve order.', life: 3000 });
+                    toast.add({ severity: 'error', summary: 'Error', detail: errors.error ?? 'Failed to approve order.', life: 6000 });
                 }
             });
         },
@@ -75,7 +81,7 @@ const rejectOrder = () => {
                     toast.add({ severity: 'success', summary: 'Success', detail: 'Order rejected successfully.', life: 3000 });
                 },
                 onError: (errors) => {
-                    toast.add({ severity: 'error', summary: 'Error', detail: 'Failed to reject order.', life: 3000 });
+                    toast.add({ severity: 'error', summary: 'Error', detail: errors.error ?? 'Failed to reject order.', life: 6000 });
                 }
             });
         },
@@ -127,6 +133,7 @@ const rejectOrder = () => {
                                         type="number"
                                         v-model="form.items[index].quantity_approved"
                                         class="w-24"
+                                        :disabled="!!decisionProblem"
                                     />
                                 </TD>
                             </tr>
@@ -135,7 +142,14 @@ const rejectOrder = () => {
                 </CardContent>
             </Card>
 
-            <div class="flex justify-end gap-4">
+            <!-- Approve and Reject go away once the order is committed, received or rejected. -->
+            <p
+                v-if="decisionProblem"
+                class="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm font-medium text-amber-800"
+            >
+                {{ decisionProblem }}
+            </p>
+            <div v-else class="flex justify-end gap-4">
                 <Button @click="rejectOrder" variant="destructive">Reject</Button>
                 <Button @click="approveOrder" class="bg-green-500 hover:bg-green-300">Approve</Button> <!-- Corrected -->
             </div>

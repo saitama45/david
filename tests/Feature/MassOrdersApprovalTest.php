@@ -113,3 +113,115 @@ it('keeps non-CPO mass orders approved without creating receiving rows', functio
         ->and((float) $item->quantity_commited)->toBe(4.0)
         ->and(OrderedItemReceiveDate::where('store_order_item_id', $item->id)->exists())->toBeFalse();
 });
+
+/**
+ * The order as a store leaves it after receiving: its line posted, the order received and,
+ * with $finalized, locked by Final Receive All.
+ */
+function receiveMassOrderApprovalOrder(User $user, StoreOrder $order, StoreOrderItem $item, bool $finalized = true): void
+{
+    OrderedItemReceiveDate::create([
+        'store_order_item_id' => $item->id, 'received_by_user_id' => $user->id, 'approval_action_by' => $user->id,
+        'quantity_received' => 4, 'received_date' => now('Asia/Manila')->format('Y-m-d H:i:s'),
+        'remarks' => 'Received', 'status' => 'approved',
+    ]);
+
+    // Not fillable: stamped by a query update, as Final Receive All does.
+    StoreOrder::whereKey($order->id)->update([
+        'order_status' => OrderStatus::RECEIVED->value,
+        'receiving_finalized_at' => $finalized ? now('Asia/Manila')->format('Y-m-d H:i:s') : null,
+        'receiving_finalized_by' => $finalized ? $user->id : null,
+    ]);
+}
+
+it('refuses to approve a received CPO order again, and adds no second set of receiving rows', function (bool $finalized) {
+    [$user, $order, $item] = createMassOrderApprovalOrder('CPO');
+    $this->actingAs($user);
+
+    approveMassOrderThroughController($order, $item, 4);
+    OrderedItemReceiveDate::where('store_order_item_id', $item->id)->update(['status' => 'approved', 'received_date' => now('Asia/Manila')->format('Y-m-d H:i:s')]);
+    StoreOrder::whereKey($order->id)->update([
+        'order_status' => OrderStatus::RECEIVED->value,
+        'receiving_finalized_at' => $finalized ? now('Asia/Manila')->format('Y-m-d H:i:s') : null,
+    ]);
+
+    expect(fn () => approveMassOrderThroughController($order, $item, 9))
+        ->toThrow(Illuminate\Validation\ValidationException::class, 'already has received items');
+
+    expect(StoreOrder::findOrFail($order->id)->order_status)->toBe(OrderStatus::RECEIVED->value)
+        ->and((float) StoreOrderItem::findOrFail($item->id)->quantity_approved)->toBe(4.0)
+        ->and(OrderedItemReceiveDate::where('store_order_item_id', $item->id)->count())->toBe(1);
+})->with([
+    'locked by Final Receive All' => [true],
+    'received, list still open' => [false],
+]);
+
+it('refuses to approve a committed CPO order that nobody has received yet', function () {
+    [$user, $order, $item] = createMassOrderApprovalOrder('CPO');
+    $this->actingAs($user);
+
+    approveMassOrderThroughController($order, $item, 4);
+
+    expect(fn () => approveMassOrderThroughController($order, $item, 9))
+        ->toThrow(Illuminate\Validation\ValidationException::class, 'is already committed');
+
+    expect((float) StoreOrderItem::findOrFail($item->id)->quantity_commited)->toBe(4.0)
+        ->and(OrderedItemReceiveDate::where('store_order_item_id', $item->id)->count())->toBe(1);
+});
+
+it('refuses to approve or reject a received order of any other supplier', function () {
+    [$user, $order, $item] = createMassOrderApprovalOrder('GSI-B');
+    $this->actingAs($user);
+    receiveMassOrderApprovalOrder($user, $order, $item);
+
+    $controller = app(MassOrdersApprovalController::class);
+    $rejectRequest = Request::create("/mass-orders-approval/reject/{$order->id}", 'POST');
+
+    expect(fn () => approveMassOrderThroughController($order, $item, 9))
+        ->toThrow(Illuminate\Validation\ValidationException::class, 'already has received items')
+        ->and(fn () => $controller->reject($rejectRequest, $order->id))
+        ->toThrow(Illuminate\Validation\ValidationException::class, 'already has received items');
+
+    expect(StoreOrder::findOrFail($order->id)->order_status)->toBe(OrderStatus::RECEIVED->value);
+});
+
+it('refuses once a receipt is recorded, even before it is confirmed', function () {
+    [$user, $order, $item] = createMassOrderApprovalOrder('GSI-B');
+    $this->actingAs($user);
+
+    approveMassOrderThroughController($order, $item, 6);
+    OrderedItemReceiveDate::create([
+        'store_order_item_id' => $item->id, 'received_by_user_id' => $user->id, 'quantity_received' => 6,
+        'received_date' => now('Asia/Manila')->format('Y-m-d H:i:s'), 'remarks' => 'Received', 'status' => 'received',
+    ]);
+
+    expect(fn () => approveMassOrderThroughController($order, $item, 9))
+        ->toThrow(Illuminate\Validation\ValidationException::class, 'already has received items');
+
+    expect(StoreOrder::findOrFail($order->id)->order_status)->toBe(OrderStatus::APPROVED->value);
+});
+
+it('still lets an approved order with nothing received be approved again or rejected', function () {
+    [$user, $order, $item] = createMassOrderApprovalOrder('GSI-B');
+    $this->actingAs($user);
+
+    approveMassOrderThroughController($order, $item, 6);
+
+    // A worksheet row nobody has filled in yet is not a receipt.
+    OrderedItemReceiveDate::create([
+        'store_order_item_id' => $item->id, 'received_by_user_id' => null, 'quantity_received' => 6,
+        'received_date' => null, 'status' => 'pending',
+    ]);
+
+    approveMassOrderThroughController($order, $item, 8);
+
+    expect(StoreOrder::findOrFail($order->id)->order_status)->toBe(OrderStatus::APPROVED->value)
+        ->and((float) StoreOrderItem::findOrFail($item->id)->quantity_approved)->toBe(8.0);
+
+    app(MassOrdersApprovalController::class)->reject(Request::create("/mass-orders-approval/reject/{$order->id}", 'POST'), $order->id);
+
+    expect(StoreOrder::findOrFail($order->id)->order_status)->toBe(OrderStatus::REJECTED->value);
+
+    expect(fn () => approveMassOrderThroughController($order, $item, 8))
+        ->toThrow(Illuminate\Validation\ValidationException::class, 'is already rejected');
+});

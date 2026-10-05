@@ -75,6 +75,18 @@ does not convert to a stock row always blocks. A shortfall passes only when the 
 so stock that drops after the page loaded is refused again rather than approved silently. The Show
 pages get the preview as `negative_stock_items` from `getApprovalStockCheck()`.
 
+**Mass Orders Approval decides an order once.** `MassOrdersApprovalController::approve()` and
+`reject()` run `decisionProblem()` under a row lock and refuse unless the order is `pending`, or
+`approved` with nothing committed or received: no `receiving_finalized_at`, no receiving row in
+`received` / `approved`, status not `partial_committed` / `committed` / `received` / `incomplete` /
+`rejected`. `show()` passes the same reason to the page as `decisionProblem`, which then hides Approve
+and Reject. Until 2026-10-05 neither action looked at the status, and the page lists every order under
+its ALL tab: approving a received order set it back to `approved` (or `committed` for CPO), and on a
+CPO order `updateOrCreate(['status' => 'pending'])` found no pending row left and added a second,
+date-less row per item that a delivery locked by Final Receive All could never receive. 46 production
+orders carried a wrong status from this; `database/queries/repair_mass_orders_reapproved_after_receiving.sql`
+puts them back. A CPO order is committed by its approval, so it cannot be approved a second time.
+
 ## Wastage item search
 
 `/wastage/create` and `/wastage/edit` search through `WastageController::getAvailableItems()`
