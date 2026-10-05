@@ -302,6 +302,19 @@ class InventoryMovementReportController extends Controller
                     ->where('wastage_status', \App\Enums\WastageStatus::APPROVED_LVL2->value)
                     ->whereBetween('wastages.created_at', [$dateFrom . ' 00:00:00', $dateTo . ' 23:59:59']);
             })
+            // Check for a wasted Sub-Prep whose BOM uses the item
+            ->orWhereExists(function($sub) use ($branchId, $dateFrom, $dateTo) {
+                $sub->select(DB::raw(1))
+                    ->from('wastages')
+                    ->join('pos_masterfiles as pm2', 'wastages.pos_masterfile_id', '=', 'pm2.id')
+                    ->join('pos_masterfiles_bom as b2', 'b2.POSCode', '=', 'pm2.POSCode')
+                    ->whereColumn('b2.ItemCode', 'sap_masterfiles.ItemCode')
+                    ->whereColumn('b2.entity_id', 'pm2.entity_id')
+                    ->whereNull('wastages.sap_masterfile_id')
+                    ->where('wastages.store_branch_id', $branchId)
+                    ->where('wastages.wastage_status', \App\Enums\WastageStatus::APPROVED_LVL2->value)
+                    ->whereBetween('wastages.created_at', [$dateFrom . ' 00:00:00', $dateTo . ' 23:59:59']);
+            })
             // Check for Interco Outbound (as sending store)
             ->orWhereExists(function($sub) use ($branchId, $dateFrom, $dateTo) {
                 $sub->select(DB::raw(1))

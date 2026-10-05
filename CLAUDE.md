@@ -34,7 +34,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - Store ordering (regular / mass / DTS / interco / emergency / F&V / ice cream), approval matrices,
   receiving, wastage, month-end counts, stock adjustments, cost and inventory reporting.
 - Ingests sales and masterfile data (POS, SAP) through queued Excel imports.
-- Scale: ~90 page modules, 106 module controllers (121 files incl. `Auth/` and `Api/`), 61 models, 136 migrations, 571 routes.
+- Scale: ~90 page modules, 106 module controllers (121 files incl. `Auth/` and `Api/`), 61 models, 149 migrations, 571 routes.
 
 ## Architecture
 
@@ -71,7 +71,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - `app/Console/Commands/` — import reconcilers, `david:e2e`
 - `app/Enum/` **and** `app/Enums/` — two live namespaces (see pitfalls)
 - `resources/js/Pages/<Module>/` — Inertia pages, one directory per module
-- `database/migrations/` (136) · `database/seeders/` (52)
+- `database/migrations/` (149) · `database/seeders/` (52)
 - `tests/Feature/`, `tests/Unit/` — Pest · `e2e/` — self-contained Playwright suite
 - `docs/knowledge/` — detailed notes indexed above
 
@@ -263,10 +263,24 @@ SQL Server as the target. Rationale and trade-offs: [Decisions.md](docs/knowledg
   (the default). A shortfall needs `confirm_negative_stock` on the approve request, enforced by
   `WastageService::approvalStockProblem()`; never re-add a hard stock block in the controllers.
   Detail: [Data-Flows.md](docs/knowledge/Data-Flows.md#approval-flow).
-- **A POS product is never a wastage line.** The wastage item search also matches POS Code / POS
-  Description, but returns the recipe's ingredients (one SAP row each, in the BOM UOM) under the
-  product's heading, with "Add all". Never make the product itself selectable: stock lives on SAP items.
-  Detail: [Data-Flows.md](docs/knowledge/Data-Flows.md#wastage-item-search).
+- **`pos_masterfiles.Category` is free text, not a Menu Categories key.** Forms must offer
+  `POSMasterfileController::categoryNames()` (menu categories + categories in use); a Select given only
+  `MenuCategory::options()` shows blank for every other category. `pos_masterfiles.UOM` (2026-10-05) is
+  free text for reference only; nothing computes with it.
+- **An SOH adjustment waits as a stock history row no balance counts.** `SohAdjustmentService` files
+  it as `product_inventory_stock_managers` action `soh_adjustment` (signed difference, in the item's
+  stock unit, on its stock row); approving rewrites that same row to `add` / `out` and refreshes the
+  cache, rejecting parks it as `soh_adjustment_rejected`. Never add either action to a balance, and
+  never post a correction any other way. `/soh-adjustment` lists SAP unit rows, not the dead
+  `product_inventories` table. Detail: [Data-Flows.md](docs/knowledge/Data-Flows.md#soh-adjustment).
+- **A wastage line can have no SAP item: a Sub-Prep line.** A POS item of the `Sub-Prep` category
+  (`POSMasterfile::isSubPrep()`) is wasted as itself - `wastages.pos_masterfile_id` set,
+  `sap_masterfile_id` NULL, qty in the POS item's UOM, cost = its SRP. Read a line's item with
+  `Wastage::lineItem()`, never `sapMasterfile->...` without a fallback. It holds no stock: approval
+  deducts, and the Inventory Movement Report charges, its raw materials through `App\Support\SubPrepRecipe`
+  (BOM Qty x quantity, **per one unit, as a sale reads the BOM**). Anything that sums wastage per SAP
+  item must add that breakdown. Any other POS product is never a line: the search only lists its
+  ingredients. Detail: [Data-Flows.md](docs/knowledge/Data-Flows.md#sub-prep-wastage).
 - **A Month End Count can be rejected at Level 1 or Level 2, and both return it to the store** through
   `MonthEndCountRejectionService::returnToStore()` (rows `rejected`, upload reopened, re-upload replaces
   them and starts again before Level 1). Never give one level its own reject logic.

@@ -136,6 +136,25 @@ it('does not list the products of another entity', function () {
     expect(wastageSearch($f['store'], 'Hazelnut')['items'])->toBe([]);
 });
 
+it('lists every ingredient of a product, however many it has', function () {
+    $f = wastageSearchFixture();
+
+    $codes = [];
+    foreach (range(1, 25) as $n) {
+        $codes[] = $code = sprintf('RM-BIG-%02d', $n);
+        SAPMasterfile::create([
+            'ItemCode' => $code, 'ItemDescription' => 'Platter Part '.$n,
+            'AltUOM' => 'Pc', 'BaseUOM' => 'Pc', 'AltQty' => 1, 'BaseQty' => 1, 'is_active' => true,
+        ]);
+    }
+    wastageSearchRecipe('SP-BIG', 'Big Party Tray', array_map(fn ($code) => [$code, 1, 'Pc'], $codes));
+
+    $result = wastageSearch($f['store'], 'Big Party Tray');
+
+    expect(array_column($result['items'], 'item_code'))->toBe($codes)
+        ->and($result['more_products'])->toBeFalse();
+});
+
 it('lists ten products at most and says more matched', function () {
     $f = wastageSearchFixture();
 

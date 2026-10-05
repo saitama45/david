@@ -7,6 +7,7 @@ use App\Http\Services\WastageApprovalSettingsService;
 use App\Models\Wastage;
 use App\Models\StoreBranch;
 use App\Models\SAPMasterfile;
+use App\Models\POSMasterfile;
 use App\Models\POSMasterfileBOM;
 use App\Enums\WastageStatus;
 use App\Http\Requests\WastageRequest;
@@ -188,7 +189,7 @@ class WastageController extends Controller
 
         // Fetch all wastage records with the same wastage_no (grouped transaction)
         $relatedWastageRecords = Wastage::where('wastage_no', $wastage->wastage_no)
-            ->with(['sapMasterfile'])
+            ->with(['sapMasterfile', 'posMasterfile'])
             ->get();
 
         // Structure the data to match what Vue component expects
@@ -215,19 +216,15 @@ class WastageController extends Controller
                 return [
                     'id' => $record->id,
                     'sap_masterfile_id' => $record->sap_masterfile_id,
+                    'pos_masterfile_id' => $record->pos_masterfile_id,
                     'wastage_qty' => $record->wastage_qty,
                     'approverlvl1_qty' => $record->approverlvl1_qty,
                     'approverlvl2_qty' => $record->approverlvl2_qty,
                     'cost' => $record->cost,
                     'reason' => $record->reason,
                     'image_url' => $record->image_url, // Added this line to pass per-item images
-                    'sap_masterfile' => $record->sapMasterfile ? [
-                        'id' => $record->sapMasterfile->id,
-                        'ItemCode' => $record->sapMasterfile->ItemCode,
-                        'ItemDescription' => $record->sapMasterfile->ItemDescription,
-                        'BaseUOM' => $record->sapMasterfile->BaseUOM,
-                        'AltUOM' => $record->sapMasterfile->AltUOM,
-                    ] : null,
+                    // The line's item: its SAP row, or - a Sub-Prep line - the POS item under the same keys.
+                    'sap_masterfile' => $record->lineItem(),
                 ];
             })->toArray(),
         ];
@@ -296,6 +293,7 @@ class WastageController extends Controller
             ->with([
                 'storeBranch',
                 'sapMasterfile',
+                'posMasterfile',
                 'encoder',
                 'approver1',
                 'approver2',
@@ -318,17 +316,13 @@ class WastageController extends Controller
                 return [
                     'id' => $record->id,
                     'sap_masterfile_id' => $record->sap_masterfile_id,
+                    'pos_masterfile_id' => $record->pos_masterfile_id,
                     'wastage_qty' => $record->wastage_qty,
                     'cost' => $record->cost,
                     'reason' => $record->reason,
                     'image_url' => $record->image_url, // Added this line
-                    'sap_masterfile' => $record->sapMasterfile ? [
-                        'id' => $record->sapMasterfile->id,
-                        'ItemCode' => $record->sapMasterfile->ItemCode,
-                        'ItemDescription' => $record->sapMasterfile->ItemDescription,
-                        'BaseUOM' => $record->sapMasterfile->BaseUOM,
-                        'AltUOM' => $record->sapMasterfile->AltUOM,
-                    ] : null,
+                    // The line's item: its SAP row, or - a Sub-Prep line - the POS item under the same keys.
+                    'sap_masterfile' => $record->lineItem(),
                 ];
             })->toArray(),
         ];
@@ -707,8 +701,20 @@ class WastageController extends Controller
                 $stockUnits
             );
             $recipeRows = $recipeItems->pluck('row');
+
+            // A Sub-Prep is wasted as itself: it is the row to add, and its raw materials
+            // are listed only to show what it will be deducted from.
+            $productKey = fn ($posCode) => strtoupper(trim((string) $posCode));
+            $subPreps = $recipeLines->isEmpty() ? collect() : POSMasterfile::whereIn('POSCode', $recipeLines->pluck('POSCode')->unique()->values()->all())
+                ->get()
+                ->filter(fn ($posItem) => $posItem->isSubPrep())
+                ->keyBy(fn ($posItem) => $productKey($posItem->POSCode));
+            $subPrepRecipes = $subPreps->map(fn ($posItem) => \App\Support\SubPrepRecipe::ingredients($posItem));
+
             $itemIds = $items->concat($recipeRows)
-                ->map(fn ($item) => $stockUnits->get($item->ItemCode)?->stockRowFor($item->AltUOM)?->id)->filter()->unique()->values()->all();
+                ->map(fn ($item) => $stockUnits->get($item->ItemCode)?->stockRowFor($item->AltUOM)?->id)
+                ->merge($subPrepRecipes->flatten(1)->map(fn ($ingredient) => $ingredient['stock_row']?->id))
+                ->filter()->unique()->values()->all();
 
             $stockByProductId = DB::table('product_inventory_stock_managers')
                 ->select(
@@ -745,11 +751,26 @@ class WastageController extends Controller
                 ];
             };
 
-            $processedItems = $items->map($present)->concat($recipeItems->map(fn ($recipeItem) => $present($recipeItem['row']) + [
-                'product' => $recipeItem['product'],
-                'recipe_qty' => $recipeItem['recipe_qty'],
-                'recipe_uom' => $recipeItem['recipe_uom'],
-            ]))->values();
+            $recipeItemsByProduct = $recipeItems->groupBy(fn ($recipeItem) => $productKey($recipeItem['product']['code']));
+
+            $productRows = $recipeLines->groupBy(fn ($line) => $productKey($line->POSCode))
+                ->flatMap(function ($lines, $posCode) use ($recipeItemsByProduct, $subPreps, $subPrepRecipes, $stockByProductId, $present) {
+                    $subPrep = $subPreps->get($posCode);
+                    $product = ['code' => $lines->first()->POSCode, 'description' => $lines->first()->POSDescription]
+                        + ($subPrep ? ['sub_prep' => true, 'uom' => $subPrep->UOM] : []);
+
+                    $rows = $recipeItemsByProduct->get($posCode, collect())->map(fn ($recipeItem) => $present($recipeItem['row']) + [
+                        'product' => $product,
+                        'recipe_qty' => $recipeItem['recipe_qty'],
+                        'recipe_uom' => $recipeItem['recipe_uom'],
+                    ] + ($subPrep ? ['info_only' => true] : []))->values();
+
+                    return $subPrep
+                        ? $rows->prepend($this->subPrepRow($subPrep, $subPrepRecipes->get($posCode), $stockByProductId) + ['product' => $product])->all()
+                        : $rows->all();
+                });
+
+            $processedItems = $items->map($present)->concat($productRows)->values();
 
             return response()->json([
                 'items' => $processedItems,
@@ -794,6 +815,60 @@ class WastageController extends Controller
             ->get(['id', 'POSCode', 'POSDescription', 'ItemCode', 'BOMQty', 'BOMUOM']);
 
         return [$lines, $posCodes->count() > $maxProducts];
+    }
+
+    /**
+     * The row that adds a Sub-Prep to a wastage record. It holds no stock of its own, so
+     * `stock` is how many of its units the raw materials on hand cover, and it cannot be
+     * added (`blocked_reason`) while one of them is out or cannot be deducted.
+     *
+     * @param  \Illuminate\Support\Collection  $ingredients  as SubPrepRecipe::ingredients() returns them
+     * @param  \Illuminate\Support\Collection  $stockByProductId  stock on hand per SAP stock row id
+     */
+    private function subPrepRow(POSMasterfile $subPrep, $ingredients, $stockByProductId): array
+    {
+        $outOfStock = [];
+        $unconverted = [];
+        $covers = null;
+
+        foreach ($ingredients as $ingredient) {
+            $name = $ingredient['item_description'] ?: $ingredient['item_code'];
+
+            if (! $ingredient['stock_row'] || ! $ingredient['factor']) {
+                $unconverted[] = $name;
+                continue;
+            }
+
+            // On hand in the BOM unit, then how many units of the Sub-Prep that makes.
+            $onHand = ($stockByProductId->get($ingredient['stock_row']->id)->stock_on_hand ?? 0) / $ingredient['factor'];
+            if ($onHand <= 0) {
+                $outOfStock[] = $name;
+            }
+            $covers = min($covers ?? INF, $onHand / $ingredient['bom_qty']);
+        }
+
+        $blockedReason = match (true) {
+            ! $subPrep->is_active => 'Inactive in the POS Masterlist',
+            blank($subPrep->UOM) => 'No UOM in the POS Masterlist',
+            $ingredients->isEmpty() => 'Its BOM has no quantities',
+            $unconverted !== [] => 'No unit conversion in the SAP Masterlist for ' . implode(', ', $unconverted),
+            $outOfStock !== [] => 'Out of stock: ' . implode(', ', $outOfStock),
+            default => null,
+        };
+
+        return [
+            'id' => null,
+            'pos_masterfile_id' => $subPrep->id,
+            'sub_prep' => true,
+            'item_code' => $subPrep->POSCode,
+            'description' => $subPrep->POSDescription,
+            'uom' => $subPrep->UOM,
+            'alt_uom' => $subPrep->UOM,
+            // A Sub-Prep is valued at its SRP.
+            'cost_per_quantity' => (float) $subPrep->SRP,
+            'stock' => $blockedReason === null ? round((float) $covers, 4) : 0,
+            'blocked_reason' => $blockedReason,
+        ];
     }
 
     /**

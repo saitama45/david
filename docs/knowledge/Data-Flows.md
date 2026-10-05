@@ -80,7 +80,8 @@ pages get the preview as `negative_stock_items` from `getApprovalStockCheck()`.
 `/wastage/create` and `/wastage/edit` search through `WastageController::getAvailableItems()`
 (`wastage.items.search`). A term matches SAP items by ItemCode / ItemDescription and, since
 2026-10-05, POS products by `pos_masterfiles_bom.POSCode` / `POSDescription`. **A product is never a
-result** (stock lives on SAP items): `recipeIngredientRows()` turns each matched product (10 at most;
+result, unless it is a Sub-Prep** (stock lives on SAP items; see [Sub-Prep wastage](#sub-prep-wastage)):
+`recipeIngredientRows()` turns each matched product (10 at most;
 `more_products` flags the rest) into one SAP row per ingredient. That row is the item's BOM UOM row,
 or its stock-unit row when SAP gives the item no such unit, and it carries `product {code,
 description}`, `recipe_qty` (that product's BOMQty lines for the item + unit, summed) and
@@ -94,6 +95,61 @@ block is in the search box only: `store` / `update` do not check stock, which is
 approval (`approvalStockProblem()`). Quantity stays 1: the recipe quantity is a guide only
 (`recipe_note`, client-side, never posted). The search row on both pages is always stacked — their
 scoped `.grid-cols-1` rule outranks `md:grid-cols-12` — so do not add a `col-span` child to it.
+
+## Sub-Prep wastage
+
+A POS item whose Category is `Sub-Prep` (`POSMasterfile::isSubPrep()`, case-insensitive) is wasted
+**as itself** (2026-10-05). It is not a SAP item and holds no stock, so three places read its BOM
+through `App\Support\SubPrepRecipe::ingredients()` — one entry per raw material + BOM unit, with the
+stock row and factor from `ItemStockUnit`. **The BOM Qty is per one unit of the POS item, exactly as
+a sale reads it** (`StoreTransactionReceiptProcessor`): 5 ml wasted x 100 Gm BOM Qty = 500 Gm.
+
+- **The line.** `wastages.pos_masterfile_id` is set and `sap_masterfile_id` is NULL
+  (`WastageRequest` allows one or the other, and only an active Sub-Prep with a UOM). Quantity is in
+  `pos_masterfiles.UOM`; `cost` is the SRP, set by `WastageService` whatever the form sent (an
+  existing line keeps the SRP it was filed at). Pages still read `sap_masterfile` in their payloads:
+  `Wastage::lineItem()` fills it with the POS item under the same keys (`sub_prep: true`).
+- **Search.** A Sub-Prep group starts with the Sub-Prep row (`sub_prep`, `pos_masterfile_id`,
+  `cost_per_quantity` = SRP). Its `stock` is how many units its raw materials cover (the minimum of
+  on-hand / BOM Qty), and `blocked_reason` says why it cannot be added: inactive, no UOM, a BOM unit
+  that does not convert, or a raw material at stock <= 0. Its ingredient rows carry `info_only` and
+  are never pickable, so the same waste cannot be entered twice.
+- **Approval.** `WastageService::buildFinalApprovalDeductions()` turns a Sub-Prep line into deductions
+  on each raw material's stock row (quantity x BOM Qty x factor; ledger cost = BOM Qty x BOM Unit
+  Cost), so the negative-stock check and confirmation work per raw material. No BOM, or a unit that
+  does not convert, is a blocking error. `Scrap` deducts nothing, as for a SAP line.
+- **Reports.** `InventoryMovementService` step 3.5 adds approved Sub-Prep wastage to `wastage` per
+  `(bom.ItemCode, bom.BOMUOM)`, and `InventoryMovementReportController::applyMovementFilter()` lists
+  a raw material whose only movement is one. Each row also carries `wastage_sub_preps` (code,
+  description, uom, wasted_qty, quantity in the display unit) - the part of `wastage_qty` that is a
+  Sub-Prep - which the page shows as a "Sub-Prep" line under the figure, the Excel export as a
+  shaded cell with a note, and the PDF as a small line. The Qty / Cost Variance report and the MEC template's
+  Current SOH follow, since they read the same service. The Wastage Report and both wastage exports
+  show the line by its POS code, name and UOM (`leftJoin pos_masterfiles`, grouped by both ids).
+
+Both readings use the BOM as it is now, as sales do: editing a BOM changes past figures in the report.
+
+## SOH adjustment
+
+`/soh-adjustment` (`SOHAdjustmentController` + `SohAdjustmentService`, rebuilt 2026-10-05; the page
+had only ever read uploads through a `product` relation that no longer exists, so it showed an
+empty list and its search threw).
+
+- **Items tab.** The store's SAP items, one row per item + unit as Stock Management lists them,
+  each with its SOH in that unit (`balances()`: the same sum as `MonthEndStockAdjustment::balance()`).
+  "Adjust" posts the **new SOH** in the row's unit.
+- **Filing.** The service stores the *difference* (new - current), converted to the item's stock
+  unit, as a `product_inventory_stock_managers` row on the stock row: action `soh_adjustment`,
+  signed quantity, `is_stock_adjustment_approved = false`. No balance counts that action, so nothing
+  changes yet. One may wait per stock row and store; an unchanged SOH is refused. Remarks carry the
+  reason, the typed SOH and who requested (`... | requested by Name`).
+- **Approving** (`approve soh adjustment`, created 2026-10-05) rewrites that same row to `add` or
+  `out` with the absolute quantity, dated today, and calls `MonthEndStockAdjustment::refreshCache()`.
+  **Rejecting** sets the action to `soh_adjustment_rejected` and keeps the row. Nothing is deleted.
+- **Upload.** Stock Management's "SOH Update" (`UpdateStockManagementSOH`) goes through the same
+  service with a variance per row; the ID must be the SAP row of the Item Code beside it, since old
+  files carry ids of `product_inventories` (an empty, dead table). `StockMangementSOHExport` writes
+  the file from the SAP Masterlist.
 
 ## Business-rule exceptions
 

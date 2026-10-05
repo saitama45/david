@@ -2,142 +2,204 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\ProductInventoryStock;
+use App\Http\Services\SohAdjustmentService;
 use App\Models\ProductInventoryStockManager;
-use App\Models\PurchaseItemBatch;
+use App\Models\SAPMasterfile;
 use App\Models\StoreBranch;
+use App\Support\ItemStockUnit;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
 
 class SOHAdjustmentController extends Controller
 {
+    public const TAB_ITEMS = 'items';
+
+    public const TAB_PENDING = 'pending';
+
+    public function __construct(private SohAdjustmentService $adjustments) {}
+
+    /**
+     * Two tabs for one store: its items with their stock on hand, to file a correction,
+     * and the corrections that wait for approval.
+     */
     public function index()
     {
         $search = request('search');
-        $branches = StoreBranch::options();
-        $branchId = request('branchId') ?? $branches->keys()->first();
+        $tab = request('tab') === self::TAB_PENDING ? self::TAB_PENDING : self::TAB_ITEMS;
+        $branches = $this->branches();
+        $branchId = (int) (request('branchId') ?: ($branches->first()['value'] ?? 0));
 
-        $items = ProductInventoryStockManager::with('product')
-            ->where('store_branch_id', $branchId)
-            ->where('is_stock_adjustment_approved', false)
-            ->when($search, function ($query) use ($search) {
-                $query->whereHas('product', function ($q) use ($search) {
-                    $q->where('name', 'like', "%{$search}%")
-                        ->orWhere('inventory_code', 'like', "%{$search}%");
-                });
-            })
-            ->where('action', 'soh_adjustment')
-            ->orderBy('created_at', 'desc')
-            ->get();
+        if (! $branches->contains('value', $branchId)) {
+            $branchId = (int) ($branches->first()['value'] ?? 0);
+        }
+
+        $pending = $branchId ? $this->adjustments->pending($branchId, null, $tab === self::TAB_PENDING ? $search : null) : collect();
 
         return Inertia::render('SOHAdjustment/Index', [
             'branches' => $branches,
-            'search' => $search,
-            'items' => $items,
-            'filters' => request()->only(['search', 'branchId']),
+            'tab' => $tab,
+            'items' => $tab === self::TAB_ITEMS && $branchId ? $this->items($branchId, $search) : null,
+            'pending' => $tab === self::TAB_PENDING ? $this->pendingRows($branchId, $pending) : [],
+            'pendingCount' => $branchId ? $this->adjustments->pending($branchId)->count() : 0,
+            'filters' => ['search' => $search, 'branchId' => $branchId, 'tab' => $tab],
         ]);
+    }
+
+    /**
+     * File a correction: the new stock on hand of one item at one store, in the unit of the
+     * row picked. It changes no stock until it is approved.
+     */
+    public function store(Request $request)
+    {
+        $validated = $request->validate([
+            'branchId' => ['required', 'integer'],
+            'sap_masterfile_id' => ['required', 'integer'],
+            'new_quantity' => ['required', 'numeric', 'min:0', 'max:99999999'],
+            'remarks' => ['required', 'string', 'max:255'],
+        ], [
+            'new_quantity.required' => 'Enter the new SOH.',
+            'new_quantity.min' => 'The new SOH cannot be below 0.',
+            'remarks.required' => 'Say why the SOH is being adjusted.',
+        ]);
+
+        $this->authorizeBranch((int) $validated['branchId']);
+
+        $this->adjustments->requestNewQuantity(
+            SAPMasterfile::findOrFail($validated['sap_masterfile_id']),
+            (int) $validated['branchId'],
+            (float) $validated['new_quantity'],
+            trim($validated['remarks']),
+            $request->user()
+        );
+
+        return back()->with('success', 'SOH adjustment sent for approval.');
     }
 
     public function approveSelectedItems(Request $request)
     {
+        foreach ($this->selectedAdjustments($request) as $adjustment) {
+            $this->adjustments->approve($adjustment, $request->user());
+        }
+
+        return back()->with('success', 'SOH adjustment approved. Stock on hand updated.');
+    }
+
+    public function rejectSelectedItems(Request $request)
+    {
+        foreach ($this->selectedAdjustments($request) as $adjustment) {
+            $this->adjustments->reject($adjustment, $request->user());
+        }
+
+        return back()->with('success', 'SOH adjustment rejected. Stock on hand was not changed.');
+    }
+
+    /** The stores the user may work on, without the "All Branches" choice: an adjustment is for one store. */
+    private function branches()
+    {
+        return StoreBranch::options()->reject(fn ($option) => $option['value'] === 'all')->values();
+    }
+
+    private function authorizeBranch(int $branchId): void
+    {
+        abort_unless($this->branches()->contains('value', $branchId), 403, 'You are not assigned to this store.');
+    }
+
+    /** The adjustments named in the request, all of the one store the user may work on. */
+    private function selectedAdjustments(Request $request)
+    {
         $validated = $request->validate([
-            'selectedItems' => ['required', 'array'],
-            'branchId' => ['required', 'exists:store_branches,id'],
+            'selectedItems' => ['required', 'array', 'min:1'],
+            'selectedItems.*' => ['integer'],
+            'branchId' => ['required', 'integer'],
         ]);
 
-        DB::beginTransaction();
-        foreach ($validated['selectedItems'] as $itemId) {
-            $item = ProductInventoryStockManager::with('product')->find($itemId);
-            $product = ProductInventoryStock::where('product_inventory_id', $item->product_inventory_id)
-                ->where('store_branch_id', $validated['branchId'])
-                ->first();
+        $this->authorizeBranch((int) $validated['branchId']);
 
-            if ($item->quantity > 0) {
+        return ProductInventoryStockManager::whereIn('id', $validated['selectedItems'])
+            ->where('store_branch_id', $validated['branchId'])
+            ->orderBy('id')
+            ->get();
+    }
 
-                $batch = PurchaseItemBatch::create([
-                    'product_inventory_id' => $item->product_inventory_id,
-                    'purchase_date' => now(),
-                    'store_branch_id' => $validated['branchId'],
-                    'quantity' => $item->quantity,
-                    'unit_cost' => $item->product->cost,
-                    'remaining_quantity' => $item->quantity,
-                ]);
+    /**
+     * The store's items, one row per item + unit as Stock Management lists them, each with
+     * its stock on hand in that unit and the adjustment already waiting on it, if any.
+     */
+    private function items(int $branchId, ?string $search)
+    {
+        // A unit's own base row wins over a conversion row that restates it.
+        $unitRows = SAPMasterfile::query()
+            ->select('sap_masterfiles.id')
+            ->selectRaw('ROW_NUMBER() OVER (PARTITION BY sap_masterfiles.ItemCode, UPPER(LTRIM(RTRIM(sap_masterfiles.AltUOM)))
+                ORDER BY CASE WHEN UPPER(LTRIM(RTRIM(sap_masterfiles.BaseUOM))) = UPPER(LTRIM(RTRIM(sap_masterfiles.AltUOM))) THEN 0 ELSE 1 END, sap_masterfiles.id) as unit_rn')
+            ->whereNotNull('sap_masterfiles.AltUOM')
+            ->where('sap_masterfiles.AltUOM', '!=', '')
+            ->when($search, function ($query) use ($search) {
+                $query->where(function ($q) use ($search) {
+                    $q->where('sap_masterfiles.ItemDescription', 'like', "%{$search}%")
+                        ->orWhere('sap_masterfiles.ItemCode', 'like', "%{$search}%");
+                });
+            });
 
-                $product->quantity += $item->quantity;
-                $product->recently_added = $item->quantity;
-                $product->save();
+        $items = SAPMasterfile::query()
+            ->whereIn('sap_masterfiles.id', DB::query()->fromSub($unitRows, 'unit_rows')->where('unit_rn', 1)->select('id'))
+            ->orderBy('ItemDescription')
+            ->orderBy('ItemCode')
+            ->orderBy('AltUOM')
+            ->paginate(10, ['id', 'ItemCode', 'ItemDescription', 'AltUOM', 'is_active'])
+            ->withQueryString();
 
-                $item->update([
-                    'purchase_item_batch_id' => $batch->id,
-                    'is_stock_adjustment_approved' => true,
-                    'action' => 'soh_adjustment',
-                    'unit_cost' => $item->product->cost,
-                    'total_cost' => $item->product->cost * $item->quantity,
-                ]);
+        $page = $items->getCollection();
+        $stockUnits = SAPMasterfile::whereIn('ItemCode', $page->pluck('ItemCode')->unique()->values()->all())
+            ->orderBy('id')->get()->groupBy('ItemCode')
+            ->map(fn ($rows) => ItemStockUnit::fromRows($rows));
+        $stockRowIds = $page->map(fn ($item) => $stockUnits->get($item->ItemCode)?->stockRowFor($item->AltUOM)?->id)
+            ->filter()->unique()->values()->all();
+        $balances = $this->adjustments->balances($branchId, $stockRowIds);
+        $pending = $this->adjustments->pending($branchId, $stockRowIds)->keyBy('product_inventory_id');
 
-                $item->save();
-            } else {
-                $quantityUsed = abs($item->quantity);
-                $accumulatedQuantity = 0;
-                while ($quantityUsed != $accumulatedQuantity) {
-                    $batch = PurchaseItemBatch::where('remaining_quantity', '>', 0)
-                        ->where('store_branch_id', $validated['branchId'])
-                        ->where('product_inventory_id', $item->product_inventory_id)
-                        ->orderBy('purchase_date', 'asc')
-                        ->first();
+        return $items->through(function ($item) use ($stockUnits, $balances, $pending) {
+            $stockUnit = $stockUnits->get($item->ItemCode);
+            $stockRow = $stockUnit?->stockRowFor($item->AltUOM);
+            $factor = $stockUnit?->factor($item->AltUOM);
+            $waiting = $stockRow ? $pending->get($stockRow->id) : null;
 
-                    if (!$batch) break;
-                    $remainingQuantity = $batch->remaining_quantity;
-                    $totalCost = 0;
-                    $quantity = 0;
+            return [
+                'id' => $item->id,
+                'item_code' => $item->ItemCode,
+                'name' => $item->ItemDescription,
+                'uom' => $item->AltUOM,
+                'is_active' => (bool) $item->is_active,
+                // No stock row or conversion: the unit cannot be adjusted.
+                'adjustable' => (bool) ($stockRow && $factor),
+                'soh' => $stockRow && $factor ? round(($balances->get($stockRow->id) ?? 0) / $factor, 4) : null,
+                // The difference waiting for approval, in this row's unit.
+                'pending_difference' => $waiting && $factor ? round((float) $waiting->quantity / $factor, 4) : null,
+            ];
+        });
+    }
 
-                    if ($remainingQuantity < $quantityUsed) {
-                        $accumulatedQuantity += $remainingQuantity;
-                        $quantity = $remainingQuantity;
-                        $batch->remaining_quantity = 0;
-                        $totalCost = $remainingQuantity * $batch->unit_cost;
-                        $batch->save();
-                    }
-                    if ($remainingQuantity > $quantityUsed) {
-                        $quantityNeed = $quantityUsed  - $accumulatedQuantity;
-                        $accumulatedQuantity += $quantityNeed;
-                        $quantity =  $quantityNeed;
-                        $totalCost = $quantityNeed * $batch->unit_cost;
-                        $batch->remaining_quantity -= $quantityNeed;
-                        $batch->save();
-                    }
+    /** The waiting adjustments as the approval tab shows them, in each item's stock unit. */
+    private function pendingRows(int $branchId, $pending): array
+    {
+        $balances = $this->adjustments->balances($branchId, $pending->pluck('product_inventory_id')->unique()->values()->all());
 
-                    if ($remainingQuantity == $quantityUsed) {
-                        $accumulatedQuantity += $remainingQuantity;
-                        $totalCost = $remainingQuantity * $batch->unit_cost;
-                        $quantity = $remainingQuantity;
-                        $batch->remaining_quantity = 0;
-                        $batch->save();
-                    }
+        return $pending->map(function ($adjustment) use ($balances) {
+            $soh = (float) ($balances->get($adjustment->product_inventory_id) ?? 0);
+            $difference = (float) $adjustment->quantity;
 
-
-                    $batch->product_inventory_stock_managers()->create([
-                        'product_inventory_id' => $item->product_inventory_id,
-                        'store_branch_id' => $validated['branchId'],
-                        'quantity' => -$quantity,
-                        'action' => 'soh_adjustment',
-                        'unit_cost' => $batch->unit_cost,
-                        'total_cost' => -$totalCost,
-                        'is_stock_adjustment' => true,
-                        'is_stock_adjustment_approved' => true,
-                        'transaction_date' => now(),
-                    ]);
-                }
-
-                $item->update([
-                    'is_stock_adjustment_approved' => true,
-                    'action' => 'soh_adjustment',
-                ]);
-            }
-        }
-        DB::commit();
-
-        return back();
+            return [
+                'id' => $adjustment->id,
+                'item_code' => $adjustment->sapMasterfile?->ItemCode,
+                'name' => $adjustment->sapMasterfile?->ItemDescription,
+                'uom' => $adjustment->sapMasterfile?->AltUOM,
+                'soh' => round($soh, 4),
+                'difference' => round($difference, 4),
+                'new_soh' => round($soh + $difference, 4),
+                'remarks' => $adjustment->remarks,
+                'requested_at' => $adjustment->created_at?->timezone('Asia/Manila')->format('M j, Y g:i A'),
+            ];
+        })->values()->all();
     }
 }

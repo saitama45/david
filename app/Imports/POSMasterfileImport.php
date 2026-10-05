@@ -63,16 +63,20 @@ class POSMasterfileImport implements ToCollection, WithHeadingRow, WithChunkRead
                 
                 $toFloat = fn($value) => is_numeric($value) ? (float)$value : (float)str_replace(',', '', (string)$value);
 
-                POSMasterfile::updateOrCreate(
-                    ['POSCode' => $posCode],
-                    [
-                        'POSDescription' => $posDescription,
-                        'Category' => $category,
-                        'SubCategory' => $subCategory,
-                        'SRP' => $toFloat($srp),
-                        'is_active' => filter_var($row['active'] ?? $row['Active'] ?? 1, FILTER_VALIDATE_BOOLEAN),
-                    ]
-                );
+                $values = [
+                    'POSDescription' => $posDescription,
+                    'Category' => $category,
+                    'SubCategory' => $subCategory,
+                    'SRP' => $toFloat($srp),
+                    'is_active' => filter_var($row['active'] ?? $row['Active'] ?? 1, FILTER_VALIDATE_BOOLEAN),
+                ];
+
+                // A file without a UOM column (the template before it had one) leaves the UOM alone.
+                if ($row->has('uom') || $row->has('UOM')) {
+                    $values['UOM'] = (string) Str::of($row['uom'] ?? $row['UOM'] ?? null)->trim() ?: null;
+                }
+
+                POSMasterfile::updateOrCreate(['POSCode' => $posCode], $values);
 
                 $this->processedCount++;
 

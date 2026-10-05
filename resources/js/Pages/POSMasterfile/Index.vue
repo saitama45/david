@@ -287,6 +287,7 @@ onUnmounted(() => {
                     <TH>POS Desc</TH>
                     <TH>Category</TH>
                     <TH>SubCategory</TH>
+                    <TH>UOM</TH>
                     <TH>SRP</TH>
                     <TH>BOM</TH>
                     <TH>Active</TH>
@@ -300,6 +301,7 @@ onUnmounted(() => {
                         <TD>{{ item.POSDescription }}</TD>
                         <TD>{{ item.Category }}</TD>
                         <TD>{{ item.SubCategory }}</TD>
+                        <TD>{{ item.UOM }}</TD>
                         <TD>{{ item.SRP }}</TD>
                         <TD>
                             <span
@@ -375,6 +377,7 @@ onUnmounted(() => {
                     <LabelXS>POS Desc: {{ item.POSDescription }}</LabelXS>
                     <LabelXS>Category: {{ item.Category }}</LabelXS>
                     <LabelXS>SubCategory: {{ item.SubCategory }}</LabelXS>
+                    <LabelXS>UOM: {{ item.UOM }}</LabelXS>
                     <LabelXS>SRP: {{ item.SRP }}</LabelXS>
                     <LabelXS>
                         BOM:

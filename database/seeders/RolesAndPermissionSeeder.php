@@ -31,6 +31,7 @@ class RolesAndPermissionSeeder extends Seeder
             "approve mass order",
             "approve month end count level 1",
             "approve month end count level 2",
+            "approve soh adjustment",
             "approve wastage level 1",
             "approve wastage level 2",
             "cancel wastage approval level 1",

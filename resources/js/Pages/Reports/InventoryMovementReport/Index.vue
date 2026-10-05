@@ -248,6 +248,7 @@ const formatNumber = (num) => {
         <p class="mb-3 text-sm text-gray-600">
             All totals use the SAP base unit shown in the UOM column. Procurement quantities in their original units appear below the totals (for example, 36 Gm sold of a 1,000 Gm Bag = 0.036 Bag).
             Supplies Used applies to Operating / Cleaning Supplies items: the usage the month end count shows once sales, wastage and transfers are accounted for.
+            A Wastage Qty marked <span class="rounded bg-amber-100 px-1 py-0.5 text-[11px] font-semibold text-amber-800">Sub-Prep</span> includes a wasted Sub-Prep, charged to this raw material through its BOM.
         </p>
         <div class="bg-white rounded-xl border border-gray-200 shadow-sm overflow-visible">
             <div v-if="isLoading" class="absolute inset-0 bg-white/80 flex items-center justify-center z-10">
@@ -440,7 +441,19 @@ const formatNumber = (num) => {
                             </td>
                             <td class="px-3 py-4 text-center font-medium text-emerald-600 border-r border-gray-100 bg-emerald-50/30">{{ formatNumber(item.beg_bal_qty) }}</td>
                             <td class="px-3 py-4 text-center font-medium text-red-600 border-r border-gray-100 bg-red-50/30">{{ formatNumber(item.sales_qty) }}</td>
-                            <td class="px-3 py-4 text-center font-medium text-orange-600 border-r border-gray-100 bg-orange-50/30">{{ formatNumber(item.wastage_qty) }}</td>
+                            <td class="px-3 py-4 text-center font-medium text-orange-600 border-r border-gray-100 bg-orange-50/30">
+                                {{ formatNumber(item.wastage_qty) }}
+                                <!-- The part that is a wasted Sub-Prep, charged to this raw material through its BOM -->
+                                <div
+                                    v-for="subPrep in item.wastage_sub_preps || []"
+                                    :key="subPrep.code"
+                                    class="mt-1 text-[10px] font-normal text-amber-800 whitespace-nowrap"
+                                    :title="`${formatNumber(subPrep.wasted_qty)} ${subPrep.uom} of ${subPrep.code} ${subPrep.description || ''} was wasted. Its BOM charges ${formatNumber(subPrep.quantity)} ${item.uom} of that to this item.`"
+                                >
+                                    <span class="rounded bg-amber-100 px-1 py-0.5 font-semibold">Sub-Prep</span>
+                                    {{ formatNumber(subPrep.quantity) }} from {{ subPrep.description || subPrep.code }}
+                                </div>
+                            </td>
                             <td class="px-3 py-4 text-center border-r border-gray-100" :class="item.supplies_type ? 'font-medium text-amber-700 bg-amber-50/30' : 'text-gray-400'">
                                 <template v-if="item.supplies_counted">{{ formatNumber(item.supplies_qty) }}</template>
                                 <span v-else-if="item.supplies_type" class="text-[11px] italic text-gray-400">Awaiting MEC</span>
@@ -478,6 +491,7 @@ const formatNumber = (num) => {
                     <p class="font-bold mt-2 mb-1">Variance Formula:</p>
                     <p>Actual MEC - Theoretical SOH</p>
                     <p class="mt-2 text-xs opacity-80">* Sales Qty is calculated based on BOM (Bill of Materials) linked to POS transactions.</p>
+                    <p class="mt-1 text-xs opacity-80">* Wastage Qty includes the raw materials of a wasted Sub-Prep: the BOM Qty of the item for every unit of the Sub-Prep wasted. The line marked Sub-Prep under the figure shows that part and where it came from.</p>
                 </div>
             </div>
         </div>

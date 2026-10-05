@@ -973,7 +973,9 @@ Route::middleware('auth')
             ->name('soh-adjustment.')
             ->group(function () {
                 Route::middleware('permission:view soh adjustment')->get('/', 'index')->name('index');
+                Route::middleware('permission:create soh adjustment')->post('/', 'store')->name('store');
                 Route::middleware('permission:approve soh adjustment')->post('/approveSelectedItems', 'approveSelectedItems')->name('approve-selected-items');
+                Route::middleware('permission:approve soh adjustment')->post('/rejectSelectedItems', 'rejectSelectedItems')->name('reject-selected-items');
                 Route::middleware('permission:export soh adjustment')->get('/export', 'export')->name('export');
             });
 

@@ -25,6 +25,7 @@ const form = useForm({
     POSDescription: item.POSDescription ?? null, // Changed from ItemDescription
     Category: item.Category ?? null,
     SubCategory: item.SubCategory ?? null,
+    UOM: item.UOM ?? null,
     SRP: item.SRP ?? 0,
     is_active: item.is_active !== null ? Number(item.is_active) : null,
 });
@@ -45,7 +46,10 @@ props.existingIngredients.forEach((ingredient) => {
 });
 
 const { options: productsOption } = useSelectOptions(props.products);
-const { options: categoriesOption } = useSelectOptions(props.categories);
+// Category names, as on the Create page: the item's own category is always among them.
+const categoriesOption = computed(() =>
+    props.categories.map((name) => ({ label: name, value: name }))
+);
 
 const activeStatuses = ref([
     { label: "Active", value: 1 },
@@ -164,7 +168,9 @@ const handleUpdate = () => {
                             :options="categoriesOption"
                             optionLabel="label"
                             optionValue="value"
-                            placeholder="Select a Category"
+                            placeholder="Select or type a category"
+                            editable
+                            showClear
                         />
                         <FormError v-if="form.errors.Category">{{ form.errors.Category }}</FormError>
                     </InputContainer>
@@ -179,6 +185,12 @@ const handleUpdate = () => {
                         <Label>SRP</Label>
                         <Input v-model="form.SRP" type="number" />
                         <FormError v-if="form.errors.SRP">{{ form.errors.SRP }}</FormError>
+                    </InputContainer>
+
+                    <InputContainer>
+                        <Label>UOM</Label>
+                        <Input v-model="form.UOM" maxlength="50" placeholder="e.g. Gm, Cup, Pc" />
+                        <FormError v-if="form.errors.UOM">{{ form.errors.UOM }}</FormError>
                     </InputContainer>
 
                     <InputContainer>

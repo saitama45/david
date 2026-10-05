@@ -24,6 +24,7 @@ class POSMasterfileTemplateExport implements FromCollection, WithHeadings, Shoul
             'POS Desc',
             'Category',
             'SubCategory',
+            'UOM',
             ' SRP ',
             'Active',
         ];

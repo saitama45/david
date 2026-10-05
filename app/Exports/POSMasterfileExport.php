@@ -62,6 +62,7 @@ class POSMasterfileExport implements FromQuery, WithHeadings, WithMapping
             'POS Description',
             'Category',
             'SubCategory',
+            'UOM',
             'SRP',
             'BOM Items',
             'Active',
@@ -84,6 +85,7 @@ class POSMasterfileExport implements FromQuery, WithHeadings, WithMapping
             $item->POSDescription,
             $item->Category,
             $item->SubCategory,
+            $item->UOM,
             $item->SRP,
             $item->bom_items_count,
             $item->is_active ? 'Yes' : 'No', // Convert boolean to readable string

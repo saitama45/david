@@ -2,11 +2,16 @@
 
 namespace App\Exports;
 
-use App\Models\ProductInventory;
+use App\Models\SAPMasterfile;
+use App\Support\ItemStockUnit;
 use Maatwebsite\Excel\Concerns\FromCollection;
 use Maatwebsite\Excel\Concerns\WithHeadings;
 use Maatwebsite\Excel\Concerns\WithMapping;
 
+/**
+ * The SOH Update file: every active item of the SAP Masterlist once per unit, to fill in a
+ * variance (+ adds, - deducts) in that unit. The upload reads the ID and the Item Code.
+ */
 class StockMangementSOHExport implements FromCollection, WithHeadings, WithMapping
 {
     /**
@@ -14,23 +19,21 @@ class StockMangementSOHExport implements FromCollection, WithHeadings, WithMappi
      */
     public function collection()
     {
-        return ProductInventory::get()
-            ->map(function ($item) {
-                return [
-                    'id' => $item->id,
-                    'name' => $item->name,
-                    'inventory_code' => $item->inventory_code,
-                    'variance' => 0,
-                ];
-            });
+        return ItemStockUnit::onePerUnit(
+            SAPMasterfile::where('is_active', true)
+                ->whereNotNull('AltUOM')
+                ->where('AltUOM', '!=', '')
+                ->get(['id', 'ItemCode', 'ItemDescription', 'AltUOM', 'BaseUOM'])
+        )->sortBy(fn ($row) => [$row->ItemDescription, $row->ItemCode, $row->AltUOM])->values();
     }
 
     public function headings(): array
     {
         return [
             'ID',
-            'Product Name',
-            'Inventory Code',
+            'Item Code',
+            'Item Description',
+            'UOM',
             'Variance',
             'Remarks'
         ];
@@ -39,10 +42,11 @@ class StockMangementSOHExport implements FromCollection, WithHeadings, WithMappi
     public function map($row): array
     {
         return [
-            $row['id'],
-            $row['name'],
-            $row['inventory_code'],
-            $row['variance'],
+            $row->id,
+            $row->ItemCode,
+            $row->ItemDescription,
+            $row->AltUOM,
+            0,
             ''
         ];
     }

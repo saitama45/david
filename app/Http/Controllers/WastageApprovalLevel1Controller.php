@@ -165,7 +165,7 @@ class WastageApprovalLevel1Controller extends Controller
 
         // Fetch all wastage records with the same wastage_no (grouped transaction)
         $relatedWastageRecords = Wastage::where('wastage_no', $wastage->wastage_no)
-            ->with(['sapMasterfile'])
+            ->with(['sapMasterfile', 'posMasterfile'])
             ->get();
 
         // Structure the data to match what Vue component expects
@@ -191,19 +191,15 @@ class WastageApprovalLevel1Controller extends Controller
                 return [
                     'id' => $record->id,
                     'sap_masterfile_id' => $record->sap_masterfile_id,
+                    'pos_masterfile_id' => $record->pos_masterfile_id,
                     'wastage_qty' => $record->wastage_qty,
                     'approverlvl1_qty' => $record->approverlvl1_qty,
                     'approverlvl2_qty' => $record->approverlvl2_qty,
                     'cost' => $record->cost,
                     'reason' => $record->reason,
                     'image_url' => $record->image_url,
-                    'sap_masterfile' => $record->sapMasterfile ? [
-                        'id' => $record->sapMasterfile->id,
-                        'ItemCode' => $record->sapMasterfile->ItemCode,
-                        'ItemDescription' => $record->sapMasterfile->ItemDescription,
-                        'BaseUOM' => $record->sapMasterfile->BaseUOM,
-                        'AltUOM' => $record->sapMasterfile->AltUOM,
-                    ] : null,
+                    // The line's item: its SAP row, or - a Sub-Prep line - the POS item under the same keys.
+                    'sap_masterfile' => $record->lineItem(),
                 ];
             })->toArray(),
         ];
@@ -259,7 +255,7 @@ class WastageApprovalLevel1Controller extends Controller
             // Update all records with the same wastage_no
             $relatedWastages = Wastage::where('wastage_no', $wastage->wastage_no)
                 ->where('wastage_status', WastageStatus::PENDING)
-                ->with('sapMasterfile')
+                ->with(['sapMasterfile', 'posMasterfile'])
                 ->get();
 
             if ($relatedWastages->isEmpty()) {

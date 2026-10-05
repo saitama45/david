@@ -55,10 +55,14 @@ class WastageRequest extends FormRequest
                     'required',
                     'array',
                 ];
+                // A line wastes a SAP item, or - a Sub-Prep - a POS item, never both.
                 $rules['items.*.sap_masterfile_id'] = [
-                    'required',
+                    'nullable',
+                    'required_without:items.*.pos_masterfile_id',
+                    'prohibits:items.*.pos_masterfile_id',
                     'exists:sap_masterfiles,id',
                 ];
+                $rules['items.*.pos_masterfile_id'] = $this->subPrepRules();
                 $rules['items.*.wastage_qty'] = [
                     'required',
                     'numeric',
@@ -164,10 +168,14 @@ class WastageRequest extends FormRequest
                 'mimes:jpeg,jpg,png',
                 'max:5120', // 5MB max
             ];
+            // A line wastes a SAP item, or - a Sub-Prep - a POS item, never both.
             $rules['cartItems.*.sap_masterfile_id'] = [
-                'required',
+                'nullable',
+                'required_without:cartItems.*.pos_masterfile_id',
+                'prohibits:cartItems.*.pos_masterfile_id',
                 'exists:sap_masterfiles,id',
             ];
+            $rules['cartItems.*.pos_masterfile_id'] = $this->subPrepRules();
             $rules['cartItems.*.quantity'] = [
                 'required',
                 'numeric',
@@ -188,6 +196,25 @@ class WastageRequest extends FormRequest
         }
 
         return $rules;
+    }
+
+    /**
+     * Only a Sub-Prep can be wasted as a POS item: active, in the active entity, and with
+     * the UOM its quantity is filed in.
+     */
+    private function subPrepRules(): array
+    {
+        return [
+            'nullable',
+            'integer',
+            function (string $attribute, mixed $value, \Closure $fail) {
+                $posItem = \App\Models\POSMasterfile::find($value);
+
+                if (!$posItem || !$posItem->isSubPrep() || !$posItem->is_active || blank($posItem->UOM)) {
+                    $fail('Only an active Sub-Prep with a UOM in the POS Masterlist can be added as itself.');
+                }
+            },
+        ];
     }
 
     /**
@@ -219,6 +246,8 @@ class WastageRequest extends FormRequest
         $messages['cartItems.min'] = 'Please add at least one item to the wastage record.';
 
         $messages['cartItems.*.sap_masterfile_id.required'] = 'Please select a product for each item.';
+        $messages['cartItems.*.sap_masterfile_id.required_without'] = 'Please select a product for each item.';
+        $messages['cartItems.*.sap_masterfile_id.prohibits'] = 'An item cannot be both a SAP item and a Sub-Prep.';
         $messages['cartItems.*.sap_masterfile_id.exists'] = 'Selected product is invalid.';
 
         $messages['cartItems.*.quantity.required'] = 'Quantity is required for each item.';
@@ -244,6 +273,8 @@ class WastageRequest extends FormRequest
         $messages['items.*.id.exists'] = 'Item does not exist.';
 
         $messages['items.*.sap_masterfile_id.required'] = 'Please select a product for each item.';
+        $messages['items.*.sap_masterfile_id.required_without'] = 'Please select a product for each item.';
+        $messages['items.*.sap_masterfile_id.prohibits'] = 'An item cannot be both a SAP item and a Sub-Prep.';
         $messages['items.*.sap_masterfile_id.exists'] = 'Selected product is invalid.';
 
         $messages['items.*.wastage_qty.required'] = 'Wastage quantity is required for each item.';

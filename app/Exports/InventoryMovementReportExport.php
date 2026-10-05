@@ -71,6 +71,8 @@ class InventoryMovementReportExport implements FromCollection, ShouldAutoSize, W
 
     private const LAST_COLUMN = 'P';
 
+    private const WASTAGE_COLUMN = 'J';
+
     public function __construct(
         private $movementData,
         private array $filters,
@@ -99,6 +101,12 @@ class InventoryMovementReportExport implements FromCollection, ShouldAutoSize, W
     {
         // The heading block is written by registerEvents() so it can be merged and grouped.
         return [];
+    }
+
+    /** A quantity as the PDF prints it: up to four decimals, no trailing zeros. */
+    private function plain($quantity): string
+    {
+        return rtrim(rtrim(number_format((float) $quantity, 4), '0'), '.') ?: '0';
     }
 
     public function map($item): array
@@ -204,6 +212,27 @@ class InventoryMovementReportExport implements FromCollection, ShouldAutoSize, W
                 $sheet->getRowDimension(3)->setRowHeight(20);
                 $sheet->getRowDimension(4)->setRowHeight(20);
                 $sheet->getRowDimension(5)->setRowHeight(20);
+
+                // A wastage figure that includes a wasted Sub-Prep is shaded and carries a note
+                // saying which Sub-Prep, as the page marks it.
+                foreach (collect($this->movementData)->values() as $index => $item) {
+                    $subPreps = ((array) $item)['wastage_sub_preps'] ?? [];
+
+                    if (empty($subPreps)) {
+                        continue;
+                    }
+
+                    $cell = self::WASTAGE_COLUMN.(self::FIRST_DATA_ROW + $index);
+                    $sheet->getComment($cell)->getText()->createTextRun(implode("\n", array_map(
+                        fn ($subPrep) => sprintf(
+                            'Sub-Prep %s %s: %s %s wasted = %s %s of this item',
+                            $subPrep['code'], $subPrep['description'], $this->plain($subPrep['wasted_qty']), $subPrep['uom'],
+                            $this->plain($subPrep['quantity']), ((array) $item)['uom']
+                        ),
+                        $subPreps
+                    )));
+                    $sheet->getStyle($cell)->getFill()->setFillType(Fill::FILL_SOLID)->getStartColor()->setRGB('FEF3C7');
+                }
 
                 // Keep the headings visible while scrolling a long item list.
                 $sheet->freezePane('A'.self::FIRST_DATA_ROW);

@@ -150,7 +150,7 @@ const isFormValid = computed(() => {
          form.remarks && form.remarks.trim() !== '' &&  // Required remarks
          cartItems.value.length > 0 &&
          cartItems.value.every(item =>
-           item.sap_masterfile_id &&
+           (item.sap_masterfile_id || item.pos_masterfile_id) &&
            parseFloat(item.quantity) > 0 &&
            parseFloat(item.cost) >= 0 &&
            item.reason &&
@@ -190,7 +190,9 @@ const populateFormFromProps = () => {
 
           return {
             id: wastageItem.id,
+            // A Sub-Prep line comes with its POS item in place of the SAP row, and no SAP id.
             sap_masterfile_id: itemDetails.id,
+            pos_masterfile_id: wastageItem.pos_masterfile_id ?? null,
             item_code: itemDetails.ItemCode,
             description: itemDetails.ItemDescription || 'No description',
             quantity: wastageItem.wastage_qty,
@@ -269,11 +271,14 @@ const handleAutoCompleteItemSelect = (item) => {
 // Cart management functions
 // The cart line of an item picked from the search
 const cartLineFor = (item, id) => {
-  const cost = Number(item.cost_per_quantity || 1.0)
+  // A Sub-Prep is valued at its SRP, which may be 0; any other item with no cost counts as 1.
+  const cost = item.sub_prep ? Number(item.cost_per_quantity || 0) : Number(item.cost_per_quantity || 1.0)
 
   return {
     id, // unique client-side ID (negative to distinguish from DB IDs)
-    sap_masterfile_id: item.id,
+    // A line is a SAP item or - a Sub-Prep - a POS item, never both.
+    sap_masterfile_id: item.sub_prep ? null : item.id,
+    pos_masterfile_id: item.sub_prep ? item.pos_masterfile_id : null,
     item_code: item.item_code,
     description: item.description || 'No description',
     quantity: 1,
@@ -284,11 +289,18 @@ const cartLineFor = (item, id) => {
     images: [], // Per-item images
     existing_image_urls: [], // Per-item existing image urls
     // An item found through a product keeps what that product's recipe uses, as a guide for the quantity
-    recipe_note: item.product && item.recipe_qty
-      ? `${item.product.description || item.product.code} recipe uses ${item.recipe_qty} ${item.recipe_uom}`
-      : null,
+    recipe_note: item.sub_prep
+      ? 'Sub-Prep: its raw materials are deducted on approval'
+      : (item.product && item.recipe_qty
+        ? `${item.product.description || item.product.code} recipe uses ${item.recipe_qty} ${item.recipe_uom}`
+        : null),
   }
 }
+
+// Whether a cart line already holds the item picked in the search
+const isSameItem = (line, item) => (item.sub_prep
+  ? line.pos_masterfile_id === item.pos_masterfile_id
+  : line.sap_masterfile_id === item.id)
 
 const addToCart = () => {
   if (!selectedAutoCompleteItem.value) {
@@ -296,9 +308,7 @@ const addToCart = () => {
   }
 
   // Check if item already exists in cart
-  const existingItem = cartItems.value.find(item =>
-    item.sap_masterfile_id === selectedAutoCompleteItem.value.id
-  )
+  const existingItem = cartItems.value.find(item => isSameItem(item, selectedAutoCompleteItem.value))
 
   if (existingItem) {
     alert('This item is already in the cart. You can update the quantity there.')
@@ -319,7 +329,7 @@ const addToCart = () => {
 // into the cart at once, skipping the ones already there. The search leaves out the
 // ingredients with no stock and says how many (outOfStock).
 const addRecipeToCart = ({ product, items, outOfStock = 0 }) => {
-  const fresh = items.filter(item => !cartItems.value.some(line => line.sap_masterfile_id === item.id))
+  const fresh = items.filter(item => !cartItems.value.some(line => isSameItem(line, item)))
   const now = Date.now()
 
   cartItems.value.unshift(...fresh.map((item, index) => cartLineFor(item, -(now + index))))
@@ -412,7 +422,7 @@ const executeFormSubmission = () => {
   // Map cart items to the format expected by the backend
   const itemsData = cartItems.value.map(item => ({
     id: item.id, // Include ID (could be DB ID or client-side ID for new items)
-    sap_masterfile_id: item.sap_masterfile_id,
+    ...(item.pos_masterfile_id ? { pos_masterfile_id: item.pos_masterfile_id } : { sap_masterfile_id: item.sap_masterfile_id }),
     wastage_qty: parseFloat(item.quantity),
     cost: parseFloat(item.cost),
     reason: item.reason,
@@ -615,7 +625,7 @@ const handleReasonBlur = (item) => {
                 @items-selected="addRecipeToCart"
               />
               <p class="text-xs text-gray-500">
-                Search by item code or item name. To waste a product, type its POS code or product name and its recipe's ingredients are listed.
+                Search by item code or item name. To waste a product, type its POS code or product name: a Sub-Prep is added as itself, and any other product lists its recipe's ingredients.
               </p>
             </div>
 
@@ -675,7 +685,10 @@ const handleReasonBlur = (item) => {
                   <tr v-for="(item, index) in cartItems" :key="item.id" class="hover:bg-gray-50 bg-white">
                     <td class="px-4 py-3">
                       <div>
-                        <div class="font-medium text-gray-900">{{ item.item_code }}</div>
+                        <div class="font-medium text-gray-900">
+                          {{ item.item_code }}
+                          <span v-if="item.pos_masterfile_id" class="ml-1 rounded bg-amber-100 px-1.5 py-0.5 text-[11px] font-semibold text-amber-800">Sub-Prep</span>
+                        </div>
                         <div class="text-sm text-gray-500">{{ item.description }}</div>
                         <div v-if="item.recipe_note" class="text-xs text-amber-700">{{ item.recipe_note }}</div>
                       </div>

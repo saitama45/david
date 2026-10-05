@@ -134,7 +134,51 @@ class WastageService
 
         // Stock lives on the item's SAP base-unit row; each wasted unit converts into it.
         foreach ($relatedWastages as $item) {
-            if ($item->sapMasterfile === null || $item->reason === 'Scrap') {
+            if ($item->reason === 'Scrap') {
+                continue;
+            }
+
+            $approvedQty = $quantityLevel === 'level1'
+                ? ($item->approverlvl1_qty ?? $item->wastage_qty)
+                : ($item->approverlvl2_qty ?? $item->approverlvl1_qty ?? $item->wastage_qty);
+
+            // A Sub-Prep holds no stock itself: what was wasted is deducted from the raw
+            // materials on its BOM, the BOM Qty of each for every unit wasted.
+            if ($item->sapMasterfile === null && $item->posMasterfile !== null) {
+                $ingredients = \App\Support\SubPrepRecipe::ingredients($item->posMasterfile);
+
+                if ($ingredients->isEmpty()) {
+                    $stockErrors[] = [
+                        'item_code' => $item->posMasterfile->POSCode,
+                        'item_description' => $item->posMasterfile->POSDescription,
+                        'available' => 0,
+                        'required' => 0,
+                        'message' => "{$item->posMasterfile->POSCode} has no BOM to deduct its raw materials from.",
+                    ];
+                }
+
+                foreach ($ingredients as $ingredient) {
+                    if (!$ingredient['stock_row'] || !$ingredient['factor']) {
+                        $stockErrors[] = [
+                            'item_code' => $ingredient['item_code'],
+                            'item_description' => $ingredient['item_description'],
+                            'available' => 0,
+                            'required' => 0,
+                            'message' => "No base-stock SAP masterfile that {$ingredient['bom_uom']} converts into for item {$ingredient['item_code']}, a raw material of {$item->posMasterfile->POSCode}.",
+                        ];
+                        continue;
+                    }
+
+                    $targetId = $ingredient['stock_row']->id;
+                    $groups[$targetId] ??= ['target' => $ingredient['stock_row'], 'unit' => $ingredient['stock_unit'], 'quantity' => 0, 'cost' => 0];
+                    $groups[$targetId]['quantity'] += $approvedQty * $ingredient['bom_qty'] * $ingredient['factor'];
+                    $groups[$targetId]['cost'] += $approvedQty * $ingredient['cost'];
+                }
+
+                continue;
+            }
+
+            if ($item->sapMasterfile === null) {
                 continue;
             }
 
@@ -154,10 +198,6 @@ class WastageService
                 ];
                 continue;
             }
-
-            $approvedQty = $quantityLevel === 'level1'
-                ? ($item->approverlvl1_qty ?? $item->wastage_qty)
-                : ($item->approverlvl2_qty ?? $item->approverlvl1_qty ?? $item->wastage_qty);
 
             $groups[$targetSapMasterfile->id] ??= ['target' => $targetSapMasterfile, 'unit' => $stockUnit->unitFor($unit), 'quantity' => 0, 'cost' => 0];
             $groups[$targetSapMasterfile->id]['quantity'] += $approvedQty * $conversionFactor;
@@ -273,9 +313,10 @@ class WastageService
                     'wastage_no' => $wastageNo, // SAME for all items in transaction
                     'wastage_date' => $data['wastage_date'] ?? now('Asia/Manila')->toDateString(),
                     'store_branch_id' => $data['store_branch_id'],
-                    'sap_masterfile_id' => $item['sap_masterfile_id'],
+                    'sap_masterfile_id' => $item['sap_masterfile_id'] ?? null,
+                    'pos_masterfile_id' => $item['pos_masterfile_id'] ?? null,
                     'wastage_qty' => $item['quantity'],
-                    'cost' => $item['cost'],
+                    'cost' => !empty($item['pos_masterfile_id']) ? $this->subPrepCost($item['pos_masterfile_id']) : $item['cost'],
                     'reason' => $item['reason'],
                     'remarks' => $data['remarks'] ?? null,
                     'image_url' => $item['image_url'] ?? null,
@@ -292,6 +333,14 @@ class WastageService
             DB::rollBack();
             throw new Exception("Failed to create wastage records: " . $e->getMessage());
         }
+    }
+
+    /**
+     * A Sub-Prep line is valued at the item's SRP in the POS Masterlist, whatever the form sent.
+     */
+    private function subPrepCost(int|string $posMasterfileId): float
+    {
+        return (float) \App\Models\POSMasterfile::findOrFail($posMasterfileId)->SRP;
     }
 
     /**
@@ -378,14 +427,27 @@ class WastageService
 
             // Handle Updates and Creations
             foreach ($submittedItems as $itemData) {
+                $existingRecord = isset($itemData['id']) && is_numeric($itemData['id']) && $itemData['id'] > 0
+                    ? $allWastageRecords->find($itemData['id'])
+                    : null;
+                $posMasterfileId = $itemData['pos_masterfile_id'] ?? null;
+
                 $updateData = [
                     'remarks' => $data['remarks'] ?? null,
                     'updated_by' => $userId,
-                    'sap_masterfile_id' => $itemData['sap_masterfile_id'],
+                    'sap_masterfile_id' => $itemData['sap_masterfile_id'] ?? null,
+                    'pos_masterfile_id' => $posMasterfileId,
                     'wastage_qty' => $itemData['wastage_qty'],
                     'cost' => $itemData['cost'],
                     'reason' => $itemData['reason'],
                 ];
+
+                // A Sub-Prep line keeps the SRP it was filed at; a new one takes today's.
+                if ($posMasterfileId) {
+                    $updateData['cost'] = $existingRecord && (int) $existingRecord->pos_masterfile_id === (int) $posMasterfileId
+                        ? $existingRecord->cost
+                        : $this->subPrepCost($posMasterfileId);
+                }
 
                 // Use the explicitly passed imageUrl for all items in the transaction
                 if (isset($itemData['image_url'])) {
@@ -610,6 +672,10 @@ class WastageService
                       ->orWhereHas('sapMasterfile', function($sq) use ($search) {
                           $sq->where('ItemCode', 'like', "%{$search}%")
                             ->orWhere('ItemDescription', 'like', "%{$search}%");
+                      })
+                      ->orWhereHas('posMasterfile', function($pq) use ($search) {
+                          $pq->where('POSCode', 'like', "%{$search}%")
+                            ->orWhere('POSDescription', 'like', "%{$search}%");
                       });
                 });
             }
@@ -662,6 +728,10 @@ class WastageService
                       ->orWhereHas('sapMasterfile', function($itemQuery) use ($search) {
                           $itemQuery->where('ItemCode', 'like', "%{$search}%")
                                    ->orWhere('ItemDescription', 'like', "%{$search}%");
+                      })
+                      ->orWhereHas('posMasterfile', function($subPrepQuery) use ($search) {
+                          $subPrepQuery->where('POSCode', 'like', "%{$search}%")
+                                       ->orWhere('POSDescription', 'like', "%{$search}%");
                       });
                 });
             }
@@ -816,7 +886,7 @@ class WastageService
     public function prepareExportData($user, ?array $filters = null): array
     {
         $query = Wastage::query()
-            ->with(['storeBranch', 'sapMasterfile', 'encoder', 'approver1', 'approver2']);
+            ->with(['storeBranch', 'sapMasterfile', 'posMasterfile', 'encoder', 'approver1', 'approver2']);
 
         // Filter by user's assigned stores
         $assignedStoreIds = \App\Models\UserAssignedStoreBranch::where('user_id', $user->id)

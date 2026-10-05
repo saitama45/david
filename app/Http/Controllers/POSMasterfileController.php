@@ -67,19 +67,25 @@ class POSMasterfileController extends Controller
      */
     public function create()
     {
-        // Menu categories cover only a few of the categories POS items carry, so the
-        // ones already in use are offered too; a new one can still be typed.
-        $categories = collect(MenuCategory::pluck('name'))
+        return Inertia::render('POSMasterfile/Create', [
+            'categories' => $this->categoryNames(),
+        ]);
+    }
+
+    /**
+     * The categories the Create and Edit forms offer. Menu categories cover only a few of
+     * the categories POS items carry, so the ones already in use are offered too; a new
+     * one can still be typed.
+     */
+    private function categoryNames()
+    {
+        return collect(MenuCategory::pluck('name'))
             ->merge(POSMasterfile::whereNotNull('Category')->where('Category', '<>', '')->distinct()->pluck('Category'))
             ->map(fn ($name) => trim((string) $name))
             ->filter()
             ->unique(fn ($name) => strtoupper($name))
             ->sort()
             ->values();
-
-        return Inertia::render('POSMasterfile/Create', [
-            'categories' => $categories,
-        ]);
     }
 
     public function export()
@@ -98,7 +104,7 @@ class POSMasterfileController extends Controller
      */
     public function store(Request $request)
     {
-        $request->merge(collect($request->only(['POSCode', 'POSDescription', 'Category', 'SubCategory']))
+        $request->merge(collect($request->only(['POSCode', 'POSDescription', 'Category', 'SubCategory', 'UOM']))
             ->map(fn ($value) => is_string($value) ? trim($value) : $value)
             ->all());
 
@@ -109,6 +115,7 @@ class POSMasterfileController extends Controller
             'POSDescription' => ['required', 'string', 'max:255'],
             'Category' => ['nullable', 'string', 'max:255'],
             'SubCategory' => ['nullable', 'string', 'max:255'],
+            'UOM' => ['nullable', 'string', 'max:50'],
             'SRP' => ['required', 'numeric', 'min:0', 'max:99999999.99'],
             'is_active' => ['required', 'boolean'],
         ], [
@@ -167,8 +174,9 @@ class POSMasterfileController extends Controller
     {
         $item = POSMasterfile::findOrFail($id);
 
-        // Fetch menu categories for the dropdown
-        $categories = MenuCategory::options();
+        // The same list as Create: an item's own category is not always a menu category,
+        // and one missing from the options leaves the dropdown blank.
+        $categories = $this->categoryNames();
 
         // Fetch products from SAPMasterfile for the ingredients dropdown
         $products = SAPMasterfile::options();
@@ -213,11 +221,16 @@ class POSMasterfileController extends Controller
     {
         $item = POSMasterfile::findOrFail($id);
 
+        $request->merge(collect($request->only(['Category', 'UOM']))
+            ->map(fn ($value) => is_string($value) ? trim($value) : $value)
+            ->all());
+
         $validated = $request->validate([
             'POSCode' => ['nullable'],
             'POSDescription' => ['nullable'], // Corrected: Validating POSDescription
             'Category' => ['nullable'],
             'SubCategory' => ['nullable'],
+            'UOM' => ['nullable', 'string', 'max:50'],
             'SRP' => ['nullable'],
             'is_active' => ['nullable'],
             // Removed 'ingredients' validation as it's no longer updated here.

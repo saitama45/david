@@ -73,10 +73,14 @@ not add computed or transaction columns here.
 - `wastages.wastage_date` (nullable) — the day the wastage happened, captured on create. Wastage
   timeliness used to compare `created_at` with itself and could never be late; old rows fall back to
   `created_at`.
+- `wastages.pos_masterfile_id` (nullable, FK to `pos_masterfiles`, no cascade; 2026-10-05) — set on a
+  Sub-Prep line, which then has **no** `sap_masterfile_id`. A line has one or the other.
+- `pos_masterfiles.UOM` (nullable, 50; 2026-10-05) — free text, the unit a Sub-Prep's wastage
+  quantity is filed in. Nothing converts it: the BOM Qty is per one of it.
 
 ## Migrations
 
-136 migrations in `database/migrations/`, plus a shared base class in
+149 migrations in `database/migrations/`, plus a shared base class in
 `database/support/migrations/` (`Database\Support\Migrations\` PSR-4 namespace).
 
 Migrations **run automatically in production** — [startup.sh](../../startup.sh) executes

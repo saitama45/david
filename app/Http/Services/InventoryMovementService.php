@@ -100,6 +100,8 @@ class InventoryMovementService
 
         $metrics = ['ordered', 'committed', 'received', 'sales', 'wastage', 'interco_in', 'interco_out', 'beg_bal', 'actual_mec'];
         $totals = array_fill_keys($metrics, collect());
+        // The wastage rows that came from a wasted Sub-Prep, kept apart so the report can name it.
+        $subPrepWastage = collect();
 
         $prevMonth = Carbon::parse($dateFrom)->subMonth();
         $begMecSchedule = MonthEndSchedule::where('year', $prevMonth->year)
@@ -192,6 +194,38 @@ class InventoryMovementService
                 ->groupBy('wastages.store_branch_id', 'sap.ItemCode', DB::raw($unitKey('sap.AltUOM')))
                 ->get());
 
+            // 3.5 A wasted Sub-Prep is a POS item with no stock of its own: it is charged to
+            // the raw materials on its BOM, the BOM Qty of each per unit wasted, as a sale is.
+            // What was wasted is summed per Sub-Prep first, so each row can say which one it is.
+            $subPrepWasted = DB::table('wastages')
+                ->whereNull('sap_masterfile_id')
+                ->whereNotNull('pos_masterfile_id')
+                ->whereIn('store_branch_id', $branchChunk)
+                ->where('wastage_status', \App\Enums\WastageStatus::APPROVED_LVL2->value)
+                ->whereBetween('created_at', [$dateFrom . ' 00:00:00', $dateTo . ' 23:59:59'])
+                ->groupBy('store_branch_id', 'pos_masterfile_id')
+                ->select('store_branch_id', 'pos_masterfile_id', DB::raw('SUM(COALESCE(approverlvl2_qty, 0)) as wasted'));
+
+            $subPrepRows = DB::query()->fromSub($subPrepWasted, 'w')
+                ->join('pos_masterfiles as pm', 'w.pos_masterfile_id', '=', 'pm.id')
+                ->join('pos_masterfiles_bom as bom', function ($join) {
+                    $join->on('pm.POSCode', '=', 'bom.POSCode')
+                        ->where(function ($entity) {
+                            $entity->whereColumn('pm.entity_id', 'bom.entity_id')
+                                ->orWhere(fn ($legacy) => $legacy->whereNull('pm.entity_id')->whereNull('bom.entity_id'));
+                        });
+                })
+                ->tap($onlyItems('bom.ItemCode'))
+                ->select(array_merge(
+                    $unitSum('w.store_branch_id', 'bom.ItemCode', 'bom.BOMUOM', 'w.wasted * COALESCE(bom.BOMQty, 0)'),
+                    ['pm.POSCode as pos_code', 'pm.POSDescription as pos_description', 'pm.UOM as pos_uom', 'w.wasted']
+                ))
+                ->groupBy('w.store_branch_id', 'bom.ItemCode', DB::raw($unitKey('bom.BOMUOM')), 'pm.POSCode', 'pm.POSDescription', 'pm.UOM', 'w.wasted')
+                ->get();
+
+            $totals['wastage'] = $totals['wastage']->merge($subPrepRows);
+            $subPrepWastage = $subPrepWastage->merge($subPrepRows);
+
             // 6. MEC Beginning Balance and 7. Actual MEC, in the count's own uom
             foreach (['beg_bal' => $begMecSchedule, 'actual_mec' => $currMecSchedule] as $metric => $schedule) {
                 if (!$schedule) {
@@ -213,6 +247,7 @@ class InventoryMovementService
         }
 
         $totals = array_map(fn ($rows) => $rows->groupBy(['branch_id', 'item_code']), $totals);
+        $subPrepWastage = $subPrepWastage->groupBy(['branch_id', 'item_code']);
 
         // The units belong to the item, whichever branch holds it.
         $units = $itemsByCode->map(function ($rows) {
@@ -262,6 +297,26 @@ class InventoryMovementService
                     $values[$metric] = round($values[$metric], 6);
                 }
 
+                // The part of the wastage that came from wasted Sub-Preps, per Sub-Prep, in the
+                // display unit. A unit that does not convert is already under unconverted_units.
+                $subPreps = [];
+                foreach ($subPrepWastage->get($branchId, collect())->get($itemCode, []) as $row) {
+                    $size = $unitSizes[$row->unit === '' ? $blankUnit : $row->unit] ?? null;
+
+                    if ($size === null) {
+                        continue;
+                    }
+
+                    $subPreps[$row->pos_code] ??= [
+                        'code' => $row->pos_code,
+                        'description' => $row->pos_description,
+                        'uom' => trim((string) $row->pos_uom),
+                        'wasted_qty' => (float) $row->wasted,
+                        'quantity' => 0.0,
+                    ];
+                    $subPreps[$row->pos_code]['quantity'] = round($subPreps[$row->pos_code]['quantity'] + (float) $row->qty * $size, 6);
+                }
+
                 $theoretical = $values['beg_bal'] + $values['received'] + $values['interco_in']
                     - $values['sales'] - $values['wastage'] - $values['interco_out'];
 
@@ -287,6 +342,8 @@ class InventoryMovementService
                     'beg_bal_qty' => $values['beg_bal'],
                     'sales_qty' => $values['sales'],
                     'wastage_qty' => $values['wastage'],
+                    // Which wasted Sub-Preps are in that figure, and how much of it each is.
+                    'wastage_sub_preps' => array_values($subPreps),
                     'supplies_qty' => $supplies,
                     'supplies_type' => $suppliesType,
                     'supplies_counted' => $suppliesCounted,

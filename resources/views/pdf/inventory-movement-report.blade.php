@@ -70,7 +70,13 @@
                     <td class="text-right font-bold" style="background-color: #f0f7ff;">{{ rtrim(rtrim(number_format($item['received_qty'], 4), '0'), '.') }}</td>
                     <td class="text-right font-bold" style="background-color: #f0fff4;">{{ rtrim(rtrim(number_format($item['beg_bal_qty'], 4), '0'), '.') }}</td>
                     <td class="text-right">{{ rtrim(rtrim(number_format($item['sales_qty'], 4), '0'), '.') }}</td>
-                    <td class="text-right">{{ rtrim(rtrim(number_format($item['wastage_qty'], 4), '0'), '.') }}</td>
+                    <td class="text-right">
+                        {{ rtrim(rtrim(number_format($item['wastage_qty'], 4), '0'), '.') }}
+                        {{-- The part that is a wasted Sub-Prep, charged to this raw material through its BOM --}}
+                        @foreach($item['wastage_sub_preps'] ?? [] as $subPrep)
+                            <div style="font-size: 80%; font-weight: normal; color: #92400e;">Sub-Prep {{ $subPrep['code'] }}: {{ rtrim(rtrim(number_format($subPrep['quantity'], 4), '0'), '.') }}</div>
+                        @endforeach
+                    </td>
                     <td class="text-right">{{ $item['supplies_counted'] ? rtrim(rtrim(number_format($item['supplies_qty'], 4), '0'), '.') : '-' }}</td>
                     <td class="text-right">{{ rtrim(rtrim(number_format($item['interco_in_qty'], 4), '0'), '.') }}</td>
                     <td class="text-right">{{ rtrim(rtrim(number_format($item['interco_out_qty'], 4), '0'), '.') }}</td>

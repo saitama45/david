@@ -22,6 +22,7 @@ class POSMasterfile extends Model implements Auditable
         'POSName',
         'Category',
         'SubCategory',
+        'UOM',
         'SRP',
         'DeliveryPrice',
         'TableVibePrice',
@@ -39,6 +40,15 @@ class POSMasterfile extends Model implements Auditable
     // Ensure 'id' is used as the unique key for upsert
     protected $primaryKey = 'id';
     public $incrementing = true; // Assuming id is not auto-incrementing
+
+    /** The Category of an item a store prepares itself (a mix, a sauce) rather than sells. */
+    public const SUB_PREP_CATEGORY = 'SUB-PREP';
+
+    /** A Sub-Prep can be wasted as itself; its BOM says which raw materials that used up. */
+    public function isSubPrep(): bool
+    {
+        return strtoupper(trim((string) $this->Category)) === self::SUB_PREP_CATEGORY;
+    }
 
     /**
      * Get the POSMasterfileBOM entries (ingredients) for this POS item.

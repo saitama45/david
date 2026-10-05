@@ -57,13 +57,16 @@ class WastageExport implements FromCollection, WithHeadings, WithMapping, Should
      */
     public function map($wastage): array
     {
+        // The SAP item, or - a Sub-Prep line - the POS item under the same keys.
+        $lineItem = $wastage->lineItem();
+
         return [
             $wastage->wastage_no ?? '',
             $wastage->storeBranch?->name ?? 'Unknown Store',
-            $wastage->sapMasterfile?->ItemCode ?? '',
-            $wastage->sapMasterfile?->ItemDescription ?? '',
+            $lineItem['ItemCode'] ?? '',
+            $lineItem['ItemDescription'] ?? '',
             $wastage->wastage_qty ?? 0,
-            $wastage->sapMasterfile?->BaseUOM ?? '',
+            $lineItem['BaseUOM'] ?? '',
             $wastage->cost ?? 0,
             $wastage->total_cost ?? 0,
             $wastage->wastage_reason ?? '',

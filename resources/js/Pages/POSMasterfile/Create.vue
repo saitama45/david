@@ -26,6 +26,7 @@ const form = useForm({
     POSDescription: "",
     Category: null,
     SubCategory: "",
+    UOM: "",
     SRP: 0,
     is_active: 1,
 });
@@ -92,6 +93,12 @@ const handleCreate = () => {
                     <Label>SRP</Label>
                     <Input v-model="form.SRP" type="number" min="0" step="0.01" />
                     <FormError>{{ form.errors.SRP }}</FormError>
+                </InputContainer>
+
+                <InputContainer>
+                    <Label>UOM</Label>
+                    <Input v-model="form.UOM" maxlength="50" placeholder="e.g. Gm, Cup, Pc" />
+                    <FormError>{{ form.errors.UOM }}</FormError>
                 </InputContainer>
 
                 <InputContainer>

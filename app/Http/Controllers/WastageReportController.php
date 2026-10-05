@@ -101,6 +101,8 @@ class WastageReportController extends Controller
         $query = Wastage::query()
             ->leftJoin('store_branches', 'store_branches.id', '=', 'wastages.store_branch_id')
             ->leftJoin('sap_masterfiles', 'sap_masterfiles.id', '=', 'wastages.sap_masterfile_id')
+            // A Sub-Prep line has a POS item in place of the SAP one.
+            ->leftJoin('pos_masterfiles', 'pos_masterfiles.id', '=', 'wastages.pos_masterfile_id')
             ->when(!empty($assignedStoreIds), function ($q) use ($assignedStoreIds) {
                 $q->whereIn('wastages.store_branch_id', $assignedStoreIds);
             })
@@ -125,7 +127,9 @@ class WastageReportController extends Controller
                           ->orWhere('store_branches.name', 'like', '%' . $search . '%')
                           ->orWhere('store_branches.branch_code', 'like', '%' . $search . '%')
                           ->orWhere('sap_masterfiles.ItemDescription', 'like', '%' . $search . '%')
-                          ->orWhere('sap_masterfiles.ItemCode', 'like', '%' . $search . '%');
+                          ->orWhere('sap_masterfiles.ItemCode', 'like', '%' . $search . '%')
+                          ->orWhere('pos_masterfiles.POSDescription', 'like', '%' . $search . '%')
+                          ->orWhere('pos_masterfiles.POSCode', 'like', '%' . $search . '%');
                 });
             });
 
@@ -139,7 +143,9 @@ class WastageReportController extends Controller
         if (!empty($filters['filter_item'])) {
             $query->where(function ($q) use ($filters) {
                 $q->where('sap_masterfiles.ItemCode', 'like', "%{$filters['filter_item']}%")
-                  ->orWhere('sap_masterfiles.ItemDescription', 'like', "%{$filters['filter_item']}%");
+                  ->orWhere('sap_masterfiles.ItemDescription', 'like', "%{$filters['filter_item']}%")
+                  ->orWhere('pos_masterfiles.POSCode', 'like', "%{$filters['filter_item']}%")
+                  ->orWhere('pos_masterfiles.POSDescription', 'like', "%{$filters['filter_item']}%");
             });
         }
         if (!empty($filters['filter_status'])) {
@@ -183,9 +189,10 @@ class WastageReportController extends Controller
                 DB::raw('YEAR(wastages.created_at) as period_year'),
                 DB::raw('MONTH(wastages.created_at) as period_month'),
                 'wastages.sap_masterfile_id',
-                DB::raw('MAX(sap_masterfiles.ItemCode) as item_code'),
-                DB::raw('MAX(sap_masterfiles.ItemDescription) as item_description'),
-                DB::raw('MAX(sap_masterfiles.BaseUOM) as uom'),
+                'wastages.pos_masterfile_id',
+                DB::raw('MAX(COALESCE(sap_masterfiles.ItemCode, pos_masterfiles.POSCode)) as item_code'),
+                DB::raw('MAX(COALESCE(sap_masterfiles.ItemDescription, pos_masterfiles.POSDescription)) as item_description'),
+                DB::raw('MAX(COALESCE(sap_masterfiles.BaseUOM, pos_masterfiles.UOM)) as uom'),
                 DB::raw('SUM(wastages.wastage_qty) as total_qty'),
                 DB::raw('SUM(wastages.wastage_qty * wastages.cost) as total_amount'),
                 DB::raw('COUNT(*) as record_count'),
@@ -193,7 +200,8 @@ class WastageReportController extends Controller
             ->groupBy(
                 DB::raw('YEAR(wastages.created_at)'),
                 DB::raw('MONTH(wastages.created_at)'),
-                'wastages.sap_masterfile_id'
+                'wastages.sap_masterfile_id',
+                'wastages.pos_masterfile_id'
             )
             ->orderBy(DB::raw('YEAR(wastages.created_at)'), 'desc')
             ->orderBy(DB::raw('MONTH(wastages.created_at)'), 'desc')
@@ -231,7 +239,8 @@ class WastageReportController extends Controller
             if ($topLimit === 0 || count($months[$periodKey]['items']) < $topLimit) {
                 $months[$periodKey]['items'][] = [
                     'rank' => count($months[$periodKey]['items']) + 1,
-                    'sap_masterfile_id' => $row->sap_masterfile_id,
+                    // Also the row's key on the page: Sub-Prep rows have no SAP id to tell them apart.
+                    'sap_masterfile_id' => $row->sap_masterfile_id ?? 'pos-' . $row->pos_masterfile_id,
                     'item_code' => $row->item_code ?: 'N/A',
                     'item_description' => $row->item_description ?: 'No description',
                     'uom' => $row->uom ?: 'N/A',
@@ -273,7 +282,7 @@ class WastageReportController extends Controller
         } else {
             $query = $this->buildFilteredQuery($filters, $assignedStoreIds)
                 ->select('wastages.*')
-                ->with(['storeBranch', 'sapMasterfile']);
+                ->with(['storeBranch', 'sapMasterfile', 'posMasterfile']);
 
             // Apply Sorting
             if (!empty($filters['sort_field'])) {
@@ -283,7 +292,7 @@ class WastageReportController extends Controller
                 $sortMap = [
                     'wastage_no' => 'wastages.wastage_no',
                     'store_name' => 'store_branches.name',
-                    'item_description' => 'sap_masterfiles.ItemDescription',
+                    'item_description' => DB::raw('COALESCE(sap_masterfiles.ItemDescription, pos_masterfiles.POSDescription)'),
                     'wastage_qty' => 'wastages.wastage_qty',
                     'cost' => 'wastages.cost',
                     'total_cost' => DB::raw('wastages.wastage_qty * wastages.cost'),
@@ -299,7 +308,9 @@ class WastageReportController extends Controller
                 $query->orderBy('wastages.created_at', 'desc');
             }
 
-            $paginatedData = $query->paginate($filters['per_page'])->withQueryString();
+            // The page reads each line's item as `sap_masterfile`; a Sub-Prep line gets its POS item there.
+            $paginatedData = $query->paginate($filters['per_page'])->withQueryString()
+                ->through(fn (Wastage $wastage) => array_merge($wastage->toArray(), ['sap_masterfile' => $wastage->lineItem()]));
         }
 
         // Get store options for filtering
@@ -359,18 +370,20 @@ class WastageReportController extends Controller
             // Get all filtered wastage records
             $wastageRecords = $this->buildFilteredQuery($filters, $assignedStoreIds)
                 ->select('wastages.*')
-                ->with(['storeBranch', 'sapMasterfile'])
+                ->with(['storeBranch', 'sapMasterfile', 'posMasterfile'])
                 ->orderBy('wastages.created_at', 'desc')
                 ->get();
 
             // Transform the individual records for export
             $exportData = $wastageRecords->map(function ($item) {
+                $lineItem = $item->lineItem();
+
                 return [
                     'Wastage #' => $item->wastage_no,
                     'Store' => $item->storeBranch ? $item->storeBranch->name : 'N/A',
-                    'Item Code' => $item->sapMasterfile ? $item->sapMasterfile->ItemCode : 'N/A',
-                    'Item Description' => $item->sapMasterfile ? $item->sapMasterfile->ItemDescription : 'N/A',
-                    'UoM' => $item->sapMasterfile ? $item->sapMasterfile->BaseUOM : 'N/A',
+                    'Item Code' => $lineItem['ItemCode'] ?? 'N/A',
+                    'Item Description' => $lineItem['ItemDescription'] ?? 'N/A',
+                    'UoM' => $lineItem['BaseUOM'] ?? 'N/A',
                     'Quantity' => $item->wastage_qty,
                     'Unit Cost' => $item->cost,
                     'Total Cost' => $item->wastage_qty * $item->cost,

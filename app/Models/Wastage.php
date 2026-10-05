@@ -20,6 +20,7 @@ class Wastage extends Model implements Auditable
         'wastage_no',
         'wastage_date',
         'sap_masterfile_id',
+        'pos_masterfile_id',
         'wastage_qty',
         'approverlvl1_qty',
         'approverlvl2_qty',
@@ -78,6 +79,42 @@ class Wastage extends Model implements Auditable
     public function sapMasterfile()
     {
         return $this->belongsTo(SAPMasterfile::class);
+    }
+
+    /** The Sub-Prep a line wastes as itself; such a line has no SAP item. */
+    public function posMasterfile()
+    {
+        return $this->belongsTo(POSMasterfile::class);
+    }
+
+    /**
+     * The item a line wastes, under the keys the pages read a SAP row by: the row itself,
+     * or - for a Sub-Prep line - the POS item, its UOM standing in for both units.
+     */
+    public function lineItem(): ?array
+    {
+        if ($this->sapMasterfile) {
+            return [
+                'id' => $this->sapMasterfile->id,
+                'ItemCode' => $this->sapMasterfile->ItemCode,
+                'ItemDescription' => $this->sapMasterfile->ItemDescription,
+                'BaseUOM' => $this->sapMasterfile->BaseUOM,
+                'AltUOM' => $this->sapMasterfile->AltUOM,
+            ];
+        }
+
+        if ($this->posMasterfile) {
+            return [
+                'id' => null,
+                'ItemCode' => $this->posMasterfile->POSCode,
+                'ItemDescription' => $this->posMasterfile->POSDescription,
+                'BaseUOM' => $this->posMasterfile->UOM,
+                'AltUOM' => $this->posMasterfile->UOM,
+                'sub_prep' => true,
+            ];
+        }
+
+        return null;
     }
 
     public function encoder()
@@ -168,6 +205,10 @@ class Wastage extends Model implements Auditable
               ->orWhereHas('sapMasterfile', function($sq) use ($search) {
                   $sq->where('ItemCode', 'like', "%{$search}%")
                     ->orWhere('ItemDescription', 'like', "%{$search}%");
+              })
+              ->orWhereHas('posMasterfile', function($pq) use ($search) {
+                  $pq->where('POSCode', 'like', "%{$search}%")
+                    ->orWhere('POSDescription', 'like', "%{$search}%");
               });
         });
     }
@@ -316,6 +357,7 @@ class Wastage extends Model implements Auditable
         return [
             'store_branch_id',
             'sap_masterfile_id',
+            'pos_masterfile_id',
             'wastage_qty',
             'cost',
             'reason',
