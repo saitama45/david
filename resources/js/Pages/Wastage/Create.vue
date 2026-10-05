@@ -194,6 +194,28 @@ const handleAutoCompleteItemSelect = (item) => {
 }
 
 // Cart management functions
+// The cart line of an item picked from the search
+const cartLineFor = (item, id) => {
+  const cost = Number(item.cost_per_quantity || 1.0)
+
+  return {
+    id, // unique client-side ID
+    sap_masterfile_id: item.id,
+    item_code: item.item_code,
+    description: item.description || 'No description',
+    quantity: 1,
+    cost,
+    uom: item.alt_uom || item.uom,
+    total_cost: cost,
+    reason: 'Spoilage',
+    images: [], // Per-item images
+    // An item found through a product keeps what that product's recipe uses, as a guide for the quantity
+    recipe_note: item.product && item.recipe_qty
+      ? `${item.product.description || item.product.code} recipe uses ${item.recipe_qty} ${item.recipe_uom}`
+      : null,
+  }
+}
+
 const addToCart = () => {
   if (!selectedAutoCompleteItem.value) {
     return
@@ -209,26 +231,39 @@ const addToCart = () => {
     return
   }
 
-  const cartItem = {
-    id: Date.now(), // unique client-side ID
-    sap_masterfile_id: selectedAutoCompleteItem.value.id,
-    item_code: selectedAutoCompleteItem.value.item_code,
-    description: selectedAutoCompleteItem.value.description || 'No description',
-    quantity: 1,
-    cost: productDetails.cost || 0,
-    uom: productDetails.unit_of_measurement,
-    total_cost: productDetails.cost || 0,
-    reason: 'Spoilage',
-    images: [], // Per-item images
-  }
-
   // Newest item goes on top of the cart
-  cartItems.value.unshift(cartItem)
+  cartItems.value.unshift(cartLineFor(selectedAutoCompleteItem.value, Date.now()))
 
   // Clear selected item
   selectedAutoCompleteItem.value = null
   Object.keys(productDetails).forEach((key) => {
     productDetails[key] = null
+  })
+}
+
+// "Add all" on a product in the search: every ingredient of its recipe that has stock goes
+// into the cart at once, skipping the ones already there. The search leaves out the
+// ingredients with no stock and says how many (outOfStock).
+const addRecipeToCart = ({ product, items, outOfStock = 0 }) => {
+  const fresh = items.filter(item => !cartItems.value.some(line => line.sap_masterfile_id === item.id))
+  const now = Date.now()
+
+  cartItems.value.unshift(...fresh.map((item, index) => cartLineFor(item, now + index)))
+
+  const name = product?.description || product?.code
+  const skipped = items.length - fresh.length
+  const notAdded = outOfStock ? ` ${outOfStock} out of stock ${outOfStock === 1 ? 'was' : 'were'} not added.` : ''
+
+  toast.add({
+    severity: fresh.length ? 'success' : 'info',
+    summary: fresh.length ? 'Ingredients added' : 'Already in the cart',
+    detail: fresh.length
+      ? `${fresh.length} ${fresh.length === 1 ? 'ingredient' : 'ingredients'} of ${name} added to the cart.`
+        + (skipped ? ` ${skipped} already in the cart.` : '')
+        + notAdded
+        + ' Enter the quantity wasted for each.'
+      : `Every ingredient of ${name} that has stock is already in the cart.` + notAdded,
+    life: 5000,
   })
 }
 
@@ -503,10 +538,16 @@ const handleReasonBlur = (item) => {
                 v-model="selectedAutoCompleteItem"
                 :sending-store-id="parseInt(form.store_branch_id)"
                 search-route="wastage.items.search"
-                placeholder="Type at least 3 characters to search for items..."
+                placeholder="Type an item or a product, at least 3 characters..."
+                no-results-label="items or products"
+                :dropdown-max-width="480"
                 :disabled="!form.store_branch_id || isLoading"
                 @item-selected="handleAutoCompleteItemSelect"
+                @items-selected="addRecipeToCart"
               />
+              <p class="text-xs text-gray-500">
+                Search by item code or item name. To waste a product, type its POS code or product name and its recipe's ingredients are listed.
+              </p>
             </div>
 
             <!-- Add to Cart Button -->
@@ -567,6 +608,7 @@ const handleReasonBlur = (item) => {
                       <div>
                         <div class="font-medium text-gray-900">{{ item.item_code }}</div>
                         <div class="text-sm text-gray-500">{{ item.description }}</div>
+                        <div v-if="item.recipe_note" class="text-xs text-amber-700">{{ item.recipe_note }}</div>
                       </div>
                     </td>
                     <td class="px-4 py-3" style="min-width: 170px;">

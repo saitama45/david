@@ -263,6 +263,10 @@ SQL Server as the target. Rationale and trade-offs: [Decisions.md](docs/knowledg
   (the default). A shortfall needs `confirm_negative_stock` on the approve request, enforced by
   `WastageService::approvalStockProblem()`; never re-add a hard stock block in the controllers.
   Detail: [Data-Flows.md](docs/knowledge/Data-Flows.md#approval-flow).
+- **A POS product is never a wastage line.** The wastage item search also matches POS Code / POS
+  Description, but returns the recipe's ingredients (one SAP row each, in the BOM UOM) under the
+  product's heading, with "Add all". Never make the product itself selectable: stock lives on SAP items.
+  Detail: [Data-Flows.md](docs/knowledge/Data-Flows.md#wastage-item-search).
 - **A Month End Count can be rejected at Level 1 or Level 2, and both return it to the store** through
   `MonthEndCountRejectionService::returnToStore()` (rows `rejected`, upload reopened, re-upload replaces
   them and starts again before Level 1). Never give one level its own reject logic.

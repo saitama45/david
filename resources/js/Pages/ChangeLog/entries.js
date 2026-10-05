@@ -15,6 +15,95 @@
 //   affects  who will notice the change
 
 export const changeLog = [
+    // ---------------------------------------------------------------- October 5, 2026
+    {
+        date: '2026-10-05',
+        module: 'Wastage Record',
+        type: 'improved',
+        title: 'Search Items on Create Wastage Record and Edit Wastage Record now finds a product by its POS Code or POS Description and lists its ingredients',
+        summary:
+            'Search Items found an item only by its Item Code or Item Description in the SAP Masterlist. Typing the POS Code or the name of a product, such as SP-0001 or Chocolate Mix, found nothing, so the store had to know every ingredient of the product first. Search Items now also looks in the BOM List and shows the ingredients of the product, so they can be added to the wastage record.',
+        steps: [
+            'Open Wastage Record and click "Create Wastage Record", or edit a pending record.',
+            'Choose the Store Branch.',
+            'In Search Items, type at least 3 characters of the POS Code or the POS Description of the product that was wasted.',
+            'The list shows the heading "Ingredients of" with the POS Code and the name of the product. Under it are the ingredients of its recipe, each with its Item Code, Item Description, UOM, the quantity the recipe uses and the stock of the store.',
+            'Click an ingredient, then click "Add Items" on Create Wastage Record or "Add Item" on Edit Wastage Record.',
+            'Enter the quantity that was wasted.',
+        ],
+        rules: [
+            'The product itself is never added to a wastage record. Only its ingredients can be chosen, because the stock of a store is kept per ingredient.',
+            'A product is found by its POS Code or its POS Description in the BOM List. An item is still found by its Item Code or Item Description in the SAP Masterlist.',
+            'When the text typed matches both items and products, the items are listed first under "Items" and the products follow. The link beside "Items" jumps to the products.',
+            'Each ingredient is listed once for a product, in the BOM UOM of the recipe. "Recipe uses 100 Gm" is the BOM Qty of that ingredient for one product. When the recipe has the same ingredient on more than one line, the quantities are added together.',
+            'When the BOM UOM is not a unit of the item in the SAP Masterlist, the ingredient is listed in the unit its stock is kept in.',
+            'An ingredient that is inactive or is not in the SAP Masterlist is not listed.',
+            'An ingredient with no stock in the Store Branch is listed but cannot be added. It is greyed out and marked "Out of stock" and "Cannot be added".',
+            'The quantity of a new line still starts at 1. The quantity the recipe uses is shown under the item in the cart as a guide, and the store enters the quantity that was actually wasted.',
+            'One search lists up to 10 products. When more products match, the list says so. Type more of the name or code to narrow it down.',
+            'When nothing matches, the list says "No items or products found matching" followed by the text typed.',
+            'Only the products in the BOM List of the entity you are logged in to are searched.',
+        ],
+        affects: 'Store users who record wastage.',
+    },
+    {
+        date: '2026-10-05',
+        module: 'Wastage Record',
+        type: 'new',
+        title: '"Add all" in Search Items adds every ingredient of a product that has stock to the cart in one click',
+        summary:
+            'When a product is wasted, all of its ingredients are usually wasted with it. Each ingredient had to be searched and added one at a time. The heading of a product in Search Items now has an "Add all" button that puts every ingredient of that product that has stock in the cart at once.',
+        steps: [
+            'On Create Wastage Record or Edit Wastage Record, type the POS Code or the name of the product in Search Items.',
+            'Click "Add all" on the heading of the product. The number on the button is how many ingredients will be added.',
+            'For each line in the cart, enter the quantity that was wasted, choose the reason and attach the evidence.',
+            'Click "Save Wastage Record", or "Update Wastage Record" when editing.',
+        ],
+        rules: [
+            'The button is shown when two or more ingredients are listed for the product and at least one of them has stock.',
+            'When every ingredient has stock, the button reads "Add all" with the number of ingredients, such as "Add all 2".',
+            'When some ingredients have no stock, the button reads "Add 1 in stock", with the number of ingredients that have stock. Only those are added.',
+            'When no ingredient has stock, the heading shows "All out of stock" and there is no button.',
+            'An ingredient that is already in the cart is not added a second time. The message says how many ingredients were added, how many were already in the cart and how many were not added because they are out of stock.',
+            'Each line is added with a quantity of 1 and the reason Spoilage. The quantity the recipe uses is shown under the item as a guide.',
+            'Every line still needs a quantity above 0 and at least one evidence image before the record can be saved, the same as an item added one at a time.',
+            'Nothing is saved until the wastage record is saved.',
+        ],
+        affects: 'Store users who record wastage.',
+    },
+    {
+        date: '2026-10-05',
+        module: 'Wastage Record',
+        type: 'improved',
+        title: 'An item that is out of stock can no longer be added in Search Items on Create Wastage Record and Edit Wastage Record',
+        summary:
+            'Search Items listed an item with a Stock of 0 as "Out of stock" but still let it be chosen and added to the cart. An item with no stock in the Store Branch is now shown greyed out with "Cannot be added", and it cannot be chosen.',
+        rules: [
+            'An item can be added only when its Stock in the Store Branch chosen on the record is above 0.',
+            'An item with a Stock of 0 or below stays in the list, greyed out and marked "Out of stock" and "Cannot be added". Clicking it does nothing, and the arrow keys skip it.',
+            'The Stock shown is for the UOM of that row. 2 Bag of an item with 1,000 Gm per Bag is shown as 2,000 on its Gm row.',
+            'The rule is the same for an item found by its Item Code or Item Description and for an ingredient listed under a product.',
+            'Lines that are already on a wastage record being edited are kept. The rule applies when an item is added.',
+            'The Negative Stock on Approval setting in Wastage Settings is not changed. It still decides what happens at approval when the quantity wasted is more than the stock.',
+        ],
+        affects: 'Store users who record wastage.',
+    },
+    {
+        date: '2026-10-05',
+        module: 'Wastage Record and Interco Transfer',
+        type: 'improved',
+        title: 'Search Items now says right away when nothing is found, and marks the text you typed',
+        summary:
+            'When a search found nothing, the box showed no message until it was clicked again, so it looked as if the search was still running. After an item was chosen, clicking the box again could also show "No items found" for the item just chosen. The message now appears as soon as the search finishes, and the text typed is marked in every result.',
+        rules: [
+            'When nothing matches, the message appears as soon as the search finishes.',
+            'The text typed is marked in yellow in the Item Code or Item Description of each item found.',
+            'After an item is chosen, clicking the box again shows the last results and not a "No items found" message.',
+            'When there is not enough room below the box, the list opens above it and stays attached to the box.',
+            'A search still needs at least 3 characters.',
+        ],
+        affects: 'Store users who record wastage or create interco transfers.',
+    },
     // ---------------------------------------------------------------- October 4, 2026
     {
         date: '2026-10-04',

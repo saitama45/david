@@ -7,6 +7,7 @@ use App\Http\Services\WastageApprovalSettingsService;
 use App\Models\Wastage;
 use App\Models\StoreBranch;
 use App\Models\SAPMasterfile;
+use App\Models\POSMasterfileBOM;
 use App\Enums\WastageStatus;
 use App\Http\Requests\WastageRequest;
 use App\Services\GoogleDriveService;
@@ -683,18 +684,31 @@ class WastageController extends Controller
             $limit = $search ? 50 : 100;
             $candidates = $query->limit($limit * 4)->get();
 
+            // A search also finds POS products by code or description; their recipe's
+            // ingredients are offered after the items, never the product itself.
+            [$recipeLines, $moreProducts] = $search ? $this->recipeLinesMatching($search) : [collect(), false];
+
             // Each item's SOH sits on its SAP base-unit row; every unit shows it converted.
-            $stockUnits = SAPMasterfile::whereIn('ItemCode', $candidates->pluck('ItemCode')->unique()->all())
-                ->orderBy('id')->get()->groupBy('ItemCode')
+            $sapRows = SAPMasterfile::whereIn('ItemCode', $candidates->pluck('ItemCode')->merge($recipeLines->pluck('ItemCode'))->unique()->values()->all())
+                ->orderBy('id')->get();
+            $stockUnits = $sapRows->groupBy('ItemCode')
                 ->map(fn ($rows) => \App\Support\ItemStockUnit::fromRows($rows));
+            $wastable = fn ($item) => $stockUnits->get($item->ItemCode)?->stockRowFor($item->AltUOM)
+                && $stockUnits->get($item->ItemCode)?->factor($item->AltUOM);
 
             $items = \App\Support\ItemStockUnit::onePerUnit($candidates)
-                ->filter(fn ($item) => $stockUnits->get($item->ItemCode)?->stockRowFor($item->AltUOM)
-                    && $stockUnits->get($item->ItemCode)?->factor($item->AltUOM))
+                ->filter($wastable)
                 ->sortBy(fn ($item) => [$item->ItemDescription, $item->ItemCode, $item->id])
                 ->take($limit)
                 ->values();
-            $itemIds = $items->map(fn ($item) => $stockUnits->get($item->ItemCode)?->stockRowFor($item->AltUOM)?->id)->filter()->unique()->values()->all();
+            $recipeItems = $this->recipeIngredientRows(
+                $recipeLines,
+                \App\Support\ItemStockUnit::onePerUnit($sapRows->where('is_active', true))->filter($wastable),
+                $stockUnits
+            );
+            $recipeRows = $recipeItems->pluck('row');
+            $itemIds = $items->concat($recipeRows)
+                ->map(fn ($item) => $stockUnits->get($item->ItemCode)?->stockRowFor($item->AltUOM)?->id)->filter()->unique()->values()->all();
 
             $stockByProductId = DB::table('product_inventory_stock_managers')
                 ->select(
@@ -711,9 +725,9 @@ class WastageController extends Controller
                 ->get()
                 ->keyBy('product_inventory_id');
 
-            $supplierCosts = \App\Support\SupplierUnitCost::forItems($items->pluck('ItemCode'));
+            $supplierCosts = \App\Support\SupplierUnitCost::forItems($items->pluck('ItemCode')->merge($recipeRows->pluck('ItemCode')));
 
-            $processedItems = $items->map(function ($item) use ($stockByProductId, $stockUnits, $supplierCosts) {
+            $present = function ($item) use ($stockByProductId, $stockUnits, $supplierCosts) {
                 $stockUnit = $stockUnits->get($item->ItemCode);
                 $factor = $stockUnit?->factor($item->AltUOM);
                 $stockRow = $stockUnit?->stockRowFor($item->AltUOM);
@@ -729,11 +743,18 @@ class WastageController extends Controller
                     'cost_per_quantity' => $supplierCosts->for($item->ItemCode, $stockUnit, $item->AltUOM),
                     'stock' => round($soh ?: 0, 4),
                 ];
-            });
+            };
+
+            $processedItems = $items->map($present)->concat($recipeItems->map(fn ($recipeItem) => $present($recipeItem['row']) + [
+                'product' => $recipeItem['product'],
+                'recipe_qty' => $recipeItem['recipe_qty'],
+                'recipe_uom' => $recipeItem['recipe_uom'],
+            ]))->values();
 
             return response()->json([
                 'items' => $processedItems,
-                'total_items' => $processedItems->count()
+                'total_items' => $processedItems->count(),
+                'more_products' => $moreProducts,
             ]);
 
         } catch (\Exception $e) {
@@ -745,6 +766,76 @@ class WastageController extends Controller
                 'items' => []
             ], 500);
         }
+    }
+
+    /**
+     * The BOM lines of the POS products whose code or description matches the search, and
+     * whether more products matched than the ones returned.
+     *
+     * @return array{0: \Illuminate\Support\Collection, 1: bool}
+     */
+    private function recipeLinesMatching(string $search, int $maxProducts = 10): array
+    {
+        $posCodes = POSMasterfileBOM::query()
+            ->where(function ($q) use ($search) {
+                $q->where('POSCode', 'like', "%{$search}%")
+                  ->orWhere('POSDescription', 'like', "%{$search}%");
+            })
+            ->groupBy('POSCode')
+            ->orderByRaw('MIN(POSDescription)')
+            ->orderBy('POSCode')
+            ->limit($maxProducts + 1)
+            ->pluck('POSCode');
+
+        $lines = POSMasterfileBOM::whereIn('POSCode', $posCodes->take($maxProducts)->all())
+            ->orderBy('POSDescription')
+            ->orderBy('POSCode')
+            ->orderBy('id')
+            ->get(['id', 'POSCode', 'POSDescription', 'ItemCode', 'BOMQty', 'BOMUOM']);
+
+        return [$lines, $posCodes->count() > $maxProducts];
+    }
+
+    /**
+     * One wastable SAP row per ingredient of each product: in the unit the recipe uses, or -
+     * a recipe unit SAP does not give the item - in the unit its stock is kept in. A repeated
+     * ingredient is listed once with its BOM quantities added up.
+     *
+     * @param  \Illuminate\Support\Collection  $unitRows  the wastable rows, one per ItemCode + unit
+     * @return \Illuminate\Support\Collection<int, array{row: object, product: array, recipe_qty: float, recipe_uom: string}>
+     */
+    private function recipeIngredientRows($recipeLines, $unitRows, $stockUnits)
+    {
+        $key = fn ($value) => strtoupper(trim((string) $value));
+        $unitRowsByCode = $unitRows->groupBy(fn ($row) => $key($row->ItemCode));
+        $ingredients = collect();
+
+        foreach ($recipeLines->groupBy(fn ($line) => $key($line->POSCode)) as $lines) {
+            $product = ['code' => $lines->first()->POSCode, 'description' => $lines->first()->POSDescription];
+            $listed = [];
+
+            foreach ($lines->groupBy(fn ($line) => $key($line->ItemCode) . '|' . $key($line->BOMUOM)) as $sameUnit) {
+                $line = $sameUnit->first();
+                $rows = $unitRowsByCode->get($key($line->ItemCode), collect());
+                $row = $rows->first(fn ($row) => $key($row->AltUOM) === $key($line->BOMUOM))
+                    ?? $rows->first(fn ($row) => $row->id === $stockUnits->get($row->ItemCode)?->stockRow()?->id)
+                    ?? $rows->first();
+
+                if (! $row || isset($listed[$row->id])) {
+                    continue;
+                }
+
+                $listed[$row->id] = true;
+                $ingredients->push([
+                    'row' => $row,
+                    'product' => $product,
+                    'recipe_qty' => round((float) $sameUnit->sum('BOMQty'), 7),
+                    'recipe_uom' => trim((string) $line->BOMUOM),
+                ]);
+            }
+        }
+
+        return $ingredients;
     }
 
     /**

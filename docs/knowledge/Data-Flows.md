@@ -75,6 +75,26 @@ does not convert to a stock row always blocks. A shortfall passes only when the 
 so stock that drops after the page loaded is refused again rather than approved silently. The Show
 pages get the preview as `negative_stock_items` from `getApprovalStockCheck()`.
 
+## Wastage item search
+
+`/wastage/create` and `/wastage/edit` search through `WastageController::getAvailableItems()`
+(`wastage.items.search`). A term matches SAP items by ItemCode / ItemDescription and, since
+2026-10-05, POS products by `pos_masterfiles_bom.POSCode` / `POSDescription`. **A product is never a
+result** (stock lives on SAP items): `recipeIngredientRows()` turns each matched product (10 at most;
+`more_products` flags the rest) into one SAP row per ingredient. That row is the item's BOM UOM row,
+or its stock-unit row when SAP gives the item no such unit, and it carries `product {code,
+description}`, `recipe_qty` (that product's BOMQty lines for the item + unit, summed) and
+`recipe_uom`. Direct item rows come first, one per unit as before, with no `product` key.
+
+`ItemAutoComplete.vue` (shared with Interco, whose rows never carry `product`) groups rows by
+`product` under an "Ingredients of" heading. "Add all" emits `items-selected`; the page adds the
+lines its cart does not hold yet. **A row with stock <= 0 is listed but cannot be picked**
+(`canPick()`: click, keyboard and "Add all" skip it; the button then reads "Add N in stock"). That
+block is in the search box only: `store` / `update` do not check stock, which is still checked at
+approval (`approvalStockProblem()`). Quantity stays 1: the recipe quantity is a guide only
+(`recipe_note`, client-side, never posted). The search row on both pages is always stacked — their
+scoped `.grid-cols-1` rule outranks `md:grid-cols-12` — so do not add a `col-span` child to it.
+
 ## Business-rule exceptions
 
 For a store that cannot meet a business rule or deadline. `RuleExceptionService` +

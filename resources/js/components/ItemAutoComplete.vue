@@ -1,5 +1,5 @@
 <script setup>
-import { ref, watch, onMounted, onUnmounted, nextTick } from 'vue'
+import { ref, computed, watch, onMounted, onUnmounted, nextTick, h } from 'vue'
 import axios from 'axios'
 import { debounce } from 'lodash'
 
@@ -23,23 +23,70 @@ const props = defineProps({
     searchRoute: {
         type: String,
         default: 'interco.items.search'
+    },
+    // What the search can find, for the "nothing found" message
+    noResultsLabel: {
+        type: String,
+        default: 'items'
+    },
+    dropdownMaxWidth: {
+        type: Number,
+        default: 320
     }
 })
 
-const emit = defineEmits(['update:modelValue', 'item-selected'])
+const emit = defineEmits(['update:modelValue', 'item-selected', 'items-selected'])
 
 // Component state
 const searchInput = ref('')
 const isDropdownOpen = ref(false)
 const searchResults = ref([])
+const searchedTerm = ref('')
+const moreProducts = ref(false)
 const isLoading = ref(false)
 const errorMessage = ref('')
 const highlightedIndex = ref(-1)
 const inputRef = ref(null)
 const dropdownRef = ref(null)
+const listRef = ref(null)
+
+// An item with no stock on hand is listed, so it is clear why it is missing, but cannot be picked.
+const canPick = (item) => Number(item.stock) > 0
+
+// Rows found through a POS product carry it; they are listed under that product's heading.
+// The index is the row's place in searchResults, which the keyboard moves through.
+const resultGroups = computed(() => {
+    const groups = []
+    searchResults.value.forEach((item, index) => {
+        const key = item.product?.code ?? ''
+        let group = groups[groups.length - 1]
+        if (!group || group.key !== key) {
+            group = { key, product: item.product ?? null, rows: [], pickable: [] }
+            groups.push(group)
+        }
+        group.rows.push({ item, index })
+        if (canPick(item)) {
+            group.pickable.push(item)
+        }
+    })
+    return groups
+})
+
+const productGroupCount = computed(() => resultGroups.value.filter(group => group.product).length)
+const dropdownMaxHeight = computed(() => (productGroupCount.value > 0 ? 320 : 240))
+
+// Marks the typed text inside a code or description, so it is clear why a row was found.
+const Highlight = (highlightProps) => {
+    const text = String(highlightProps.text ?? '')
+    const at = searchedTerm.value ? text.toLowerCase().indexOf(searchedTerm.value.toLowerCase()) : -1
+    if (at === -1) return text
+    const end = at + searchedTerm.value.length
+    return [text.slice(0, at), h('mark', { class: 'bg-yellow-200 text-inherit rounded-sm' }, text.slice(at, end)), text.slice(end)]
+}
+Highlight.props = ['text']
 
 // Fixed positioning state
-const dropdownPosition = ref({ top: '0px', left: '0px', width: '0px' })
+const dropdownPosition = ref({ top: '0px', bottom: 'auto', left: '0px', width: '0px' })
 
 // Calculate dropdown position for fixed positioning
 const calculateDropdownPosition = async () => {
@@ -52,19 +99,21 @@ const calculateDropdownPosition = async () => {
     const scrollX = window.pageXOffset || document.documentElement.scrollLeft
 
     // Calculate position with viewport boundary checks
-    const dropdownHeight = 240 // Approximate max height (60 * 4 rows)
+    const dropdownHeight = dropdownMaxHeight.value // Approximate max height
     const spaceBelow = window.innerHeight - inputRect.bottom
     const spaceAbove = inputRect.top
 
-    let top = inputRect.bottom + scrollY
+    let top = `${inputRect.bottom + scrollY}px`
+    let bottom = 'auto'
 
-    // If not enough space below, position above the input
+    // If not enough space below, open upwards from the input, whatever the list's height
     if (spaceBelow < dropdownHeight && spaceAbove > dropdownHeight) {
-        top = inputRect.top + scrollY - dropdownHeight
+        top = 'auto'
+        bottom = `${window.innerHeight - inputRect.top}px`
     }
 
     // Ensure dropdown doesn't go off screen horizontally
-    const maxWidth = 320 // Maximum width for dropdown
+    const maxWidth = props.dropdownMaxWidth // Maximum width for dropdown
     let left = inputRect.left + scrollX
     let width = Math.min(inputRect.width, maxWidth)
 
@@ -79,7 +128,8 @@ const calculateDropdownPosition = async () => {
     }
 
     dropdownPosition.value = {
-        top: `${top}px`,
+        top,
+        bottom,
         left: `${left}px`,
         width: `${width}px`
     }
@@ -92,11 +142,18 @@ const updateDropdownPosition = () => {
     }
 }
 
+// Only the latest search may show its results; an answer that arrives after a newer
+// search, or after an item was picked, is dropped.
+let searchSeq = 0
+
 // Debounced search function
 const debouncedSearch = debounce(async (searchTerm) => {
+    const seq = ++searchSeq
+
     if (!searchTerm || searchTerm.length < 3) {
         searchResults.value = []
         isDropdownOpen.value = false
+        isLoading.value = false
         return
     }
 
@@ -121,27 +178,44 @@ const debouncedSearch = debounce(async (searchTerm) => {
             params: params
         });
 
+        if (seq !== searchSeq) return
+
         searchResults.value = (response.data.items || []).filter(item => item.stock > 0 || props.searchRoute === 'wastage.items.search')
-        isDropdownOpen.value = searchResults.value.length > 0
+        searchedTerm.value = searchTerm
+        moreProducts.value = Boolean(response.data.more_products)
+        // Stays open with nothing found, so the "nothing found" message answers the search
+        isDropdownOpen.value = true
         highlightedIndex.value = -1
 
         // Calculate dropdown position when results are loaded
-        if (isDropdownOpen.value) {
-            await calculateDropdownPosition()
-        }
+        await calculateDropdownPosition()
     } catch (error) {
+        if (seq !== searchSeq) return
+
         errorMessage.value = error.response?.data?.message || 'Failed to search items'
         searchResults.value = []
         isDropdownOpen.value = false
     } finally {
-        isLoading.value = false
+        if (seq === searchSeq) {
+            isLoading.value = false
+        }
     }
 }, 300)
+
+// The text a selection writes into the box is not something to search for.
+let skipNextSearch = false
+const showSelection = (item) => {
+    const text = `${item.item_code} - ${item.description}`
+    if (searchInput.value !== text) {
+        skipNextSearch = true
+        searchInput.value = text
+    }
+}
 
 // Watch for modelValue changes from parent
 watch(() => props.modelValue, (newValue) => {
     if (newValue && typeof newValue === 'object') {
-        searchInput.value = `${newValue.item_code} - ${newValue.description}`
+        showSelection(newValue)
     } else {
         searchInput.value = ''
     }
@@ -149,16 +223,57 @@ watch(() => props.modelValue, (newValue) => {
 
 // Watch for search input changes
 watch(searchInput, (newValue) => {
+    if (skipNextSearch) {
+        skipNextSearch = false
+        debouncedSearch.cancel()
+        searchSeq++
+        isLoading.value = false
+        return
+    }
     debouncedSearch(newValue)
 })
 
 // Handle item selection
 const selectItem = (item) => {
-    searchInput.value = `${item.item_code} - ${item.description}`
+    if (!canPick(item)) return
+
+    showSelection(item)
     emit('update:modelValue', item)
     emit('item-selected', item)
     isDropdownOpen.value = false
     highlightedIndex.value = -1
+}
+
+// Hand over every ingredient of one product that has stock, at once
+const selectGroup = (group) => {
+    emit('items-selected', {
+        product: group.product,
+        items: group.pickable,
+        outOfStock: group.rows.length - group.pickable.length,
+    })
+    clearSelection()
+}
+
+const showProducts = () => {
+    const heading = listRef.value?.querySelector('[data-product-heading]')
+    if (heading) {
+        listRef.value.scrollTop = heading.offsetTop
+    }
+}
+
+const moveHighlight = (index) => {
+    highlightedIndex.value = index
+    nextTick(() => {
+        listRef.value?.querySelector(`[data-result-index="${index}"]`)?.scrollIntoView({ block: 'nearest' })
+    })
+}
+
+// The next row the keyboard can land on: rows that cannot be picked are stepped over.
+const nextPickable = (from, step) => {
+    for (let index = from + step; index >= 0 && index < searchResults.value.length; index += step) {
+        if (canPick(searchResults.value[index])) return index
+    }
+    return step > 0 ? from : -1
 }
 
 // Handle input click (show initial results if any)
@@ -176,11 +291,11 @@ const handleKeyDown = (event) => {
     switch (event.key) {
         case 'ArrowDown':
             event.preventDefault()
-            highlightedIndex.value = Math.min(highlightedIndex.value + 1, searchResults.value.length - 1)
+            moveHighlight(nextPickable(highlightedIndex.value, 1))
             break
         case 'ArrowUp':
             event.preventDefault()
-            highlightedIndex.value = Math.max(highlightedIndex.value - 1, -1)
+            moveHighlight(nextPickable(highlightedIndex.value, -1))
             break
         case 'Enter':
             event.preventDefault()
@@ -227,7 +342,7 @@ onUnmounted(() => {
 
 // Initialize searchInput based on modelValue
 if (props.modelValue && typeof props.modelValue === 'object') {
-    searchInput.value = `${props.modelValue.item_code} - ${props.modelValue.description}`
+    showSelection(props.modelValue)
 }
 </script>
 
@@ -279,45 +394,101 @@ if (props.modelValue && typeof props.modelValue === 'object') {
         <!-- Search Results Dropdown -->
         <div
             v-if="isDropdownOpen && searchResults.length > 0"
+            ref="listRef"
             class="fixed z-dropdown bg-white border border-gray-300 rounded-md shadow-2xl max-h-60 overflow-y-auto"
             :style="{
                 top: dropdownPosition.top,
+                bottom: dropdownPosition.bottom,
                 left: dropdownPosition.left,
-                width: dropdownPosition.width
+                width: dropdownPosition.width,
+                maxHeight: `${dropdownMaxHeight}px`
             }"
         >
-            <div
-                v-for="(item, index) in searchResults"
-                :key="item.id"
-                class="px-3 py-2 cursor-pointer hover:bg-gray-100 border-b border-gray-100 last:border-b-0"
-                :class="{ 'bg-blue-50': highlightedIndex === index }"
-                @click="selectItem(item)"
-                @mouseenter="highlightedIndex = index"
-            >
-                <div class="flex justify-between items-start">
-                    <div class="flex-1">
-                        <div class="font-medium text-sm text-gray-900">
-                            {{ item.item_code }}
+            <template v-for="group in resultGroups" :key="group.key">
+                <!-- A POS product is a heading over its recipe's ingredients, never a choice itself -->
+                <div
+                    v-if="group.product"
+                    data-product-heading
+                    class="sticky top-0 z-10 flex items-center justify-between gap-2 px-3 py-2 bg-amber-50 border-y border-amber-200"
+                >
+                    <div class="min-w-0">
+                        <div class="text-[11px] font-semibold uppercase tracking-wide text-amber-700">
+                            Ingredients of
                         </div>
-                        <div class="text-sm text-gray-600">
-                            {{ item.description }}
-                        </div>
-                        <div class="text-xs text-gray-500">
-                            UOM: {{ item.alt_uom || item.uom }}
+                        <div class="text-sm font-semibold text-gray-900 truncate" :title="`${group.product.code} - ${group.product.description || ''}`">
+                            <Highlight :text="group.product.code" />
+                            <span v-if="group.product.description"> · <Highlight :text="group.product.description" /></span>
                         </div>
                     </div>
-                    <div class="ml-2 text-right">
-                        <div class="text-sm font-medium" :class="item.stock > 0 ? 'text-green-600' : 'text-red-600'">
-                            Stock: {{ item.stock }}
+                    <button
+                        v-if="group.rows.length > 1 && group.pickable.length > 0"
+                        type="button"
+                        class="shrink-0 px-2 py-1 text-xs font-medium text-white bg-green-600 rounded hover:bg-green-700"
+                        @click.stop="selectGroup(group)"
+                    >
+                        {{ group.pickable.length === group.rows.length ? `Add all ${group.rows.length}` : `Add ${group.pickable.length} in stock` }}
+                    </button>
+                    <span v-else-if="group.rows.length > 1" class="shrink-0 text-xs font-medium text-red-600">
+                        All out of stock
+                    </span>
+                </div>
+                <div
+                    v-else-if="productGroupCount > 0"
+                    class="sticky top-0 z-10 flex items-center justify-between gap-2 px-3 py-1.5 bg-gray-50 border-b border-gray-200 text-[11px] font-semibold uppercase tracking-wide text-gray-500"
+                >
+                    <span>Items</span>
+                    <button type="button" class="font-medium normal-case tracking-normal text-amber-700 hover:underline" @click.stop="showProducts">
+                        {{ productGroupCount }} matching {{ productGroupCount === 1 ? 'product' : 'products' }} below ↓
+                    </button>
+                </div>
+
+                <div
+                    v-for="{ item, index } in group.rows"
+                    :key="`${group.key}|${item.id}`"
+                    :data-result-index="index"
+                    class="px-3 py-2 border-b border-gray-100 last:border-b-0 scroll-mt-14"
+                    :class="[
+                        canPick(item) ? 'cursor-pointer hover:bg-gray-100' : 'cursor-not-allowed bg-gray-50 opacity-60',
+                        { 'bg-blue-50': highlightedIndex === index }
+                    ]"
+                    :aria-disabled="!canPick(item)"
+                    :title="canPick(item) ? null : 'Out of stock. This item cannot be added.'"
+                    @click="selectItem(item)"
+                    @mouseenter="highlightedIndex = canPick(item) ? index : -1"
+                >
+                    <div class="flex justify-between items-start">
+                        <div class="flex-1">
+                            <div class="font-medium text-sm text-gray-900">
+                                <Highlight :text="item.item_code" />
+                            </div>
+                            <div class="text-sm text-gray-600">
+                                <Highlight :text="item.description" />
+                            </div>
+                            <div class="text-xs text-gray-500">
+                                UOM: {{ item.alt_uom || item.uom }}
+                                <span v-if="item.recipe_qty" class="text-amber-700">
+                                    · Recipe uses {{ item.recipe_qty }} {{ item.recipe_uom }}
+                                </span>
+                            </div>
                         </div>
-                        <div v-if="item.stock > 0" class="text-xs text-green-500">
-                            Available
-                        </div>
-                        <div v-else class="text-xs text-red-500">
-                            Out of stock
+                        <div class="ml-2 text-right">
+                            <div class="text-sm font-medium" :class="item.stock > 0 ? 'text-green-600' : 'text-red-600'">
+                                Stock: {{ item.stock }}
+                            </div>
+                            <div v-if="item.stock > 0" class="text-xs text-green-500">
+                                Available
+                            </div>
+                            <div v-else class="text-xs text-red-500">
+                                Out of stock
+                                <div class="text-gray-600">Cannot be added</div>
+                            </div>
                         </div>
                     </div>
                 </div>
+            </template>
+
+            <div v-if="moreProducts" class="px-3 py-2 text-xs text-gray-500 bg-gray-50 border-t border-gray-200">
+                More products match. Type more of the name or code to narrow the list.
             </div>
         </div>
 
@@ -327,11 +498,12 @@ if (props.modelValue && typeof props.modelValue === 'object') {
             class="fixed z-dropdown bg-white border border-gray-300 rounded-md shadow-2xl px-3 py-2 text-sm text-gray-500"
             :style="{
                 top: dropdownPosition.top,
+                bottom: dropdownPosition.bottom,
                 left: dropdownPosition.left,
                 width: dropdownPosition.width
             }"
         >
-            No items found matching "{{ searchInput }}"
+            No {{ noResultsLabel }} found matching "{{ searchInput }}"
         </div>
 
         <!-- Search Hint -->
