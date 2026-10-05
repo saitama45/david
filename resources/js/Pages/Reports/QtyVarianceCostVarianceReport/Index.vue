@@ -1,4 +1,5 @@
 <script setup>
+import { formatReportCurrency, formatReportNumber } from '@/lib/reportNumbers';
 import { ref, watch, computed } from "vue";
 import { throttle } from "lodash";
 import { router } from "@inertiajs/vue3";
@@ -226,19 +227,11 @@ const exportRoute = computed(() =>
 );
 
 // Format currency
-const formatCurrency = (amount) => {
-    if (!amount) return '₱0.00';
-    return new Intl.NumberFormat('en-PH', {
-        style: 'currency',
-        currency: 'PHP'
-    }).format(amount);
-};
+// Every quantity, amount and percentage prints with four decimals, as on all the reports.
+const formatCurrency = formatReportCurrency;
 
 // Format number with commas
-const formatNumber = (num) => {
-    if (!num) return '0';
-    return new Intl.NumberFormat('en-PH').format(num);
-};
+const formatNumber = formatReportNumber;
 
 // Calculate totals for the report
 const reportTotals = computed(() => {

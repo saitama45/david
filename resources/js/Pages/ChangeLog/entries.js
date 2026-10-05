@@ -18,6 +18,28 @@ export const changeLog = [
     // ---------------------------------------------------------------- October 5, 2026
     {
         date: '2026-10-05',
+        module: 'Reports',
+        type: 'improved',
+        title: 'Numbers on the reports are now shown with 4 decimals, on the page, in the Excel export and in the PDF export',
+        summary:
+            'Each report printed its numbers differently. One showed 2 decimals, another showed none, and the same figure could look different on the page and in its export. The Qty Variance / Cost Variance Report, Inventory Movement Report, PMIX Report, Wastage Report, Delivery Report, Actual Cost / COGS Report and Interco Report now print every number with 4 decimals, whatever the value.',
+        rules: [
+            'Every quantity, cost, amount and percentage is shown with exactly 4 decimals. 5 is shown as 5.0000 and 0.1 as 0.1000.',
+            'A value with more than 4 decimals is rounded to 4 for display. 0.036125 is shown as 0.0361.',
+            'Amounts keep the peso sign on the page, such as ₱1,800.0000.',
+            'A count of records or items, and a rank, stays a whole number.',
+            'In the Excel exports the cells are real numbers that can be added up. Excel shows them with 4 decimals and keeps the full value behind them.',
+            'A zero is now written in the Excel exports as 0.0000. It used to be left as an empty cell in most of them.',
+            'In the Excel export of the Qty Variance / Cost Variance Report the figures used to be text with 2 decimals. They are now numbers.',
+            'In the Excel export of the Wastage Report the first two lines had no number format. Every line now has it.',
+            'On the Interco Report page, Committed Qty and Received Qty are now formatted as well.',
+            'Only the Inventory Movement Report has "Export PDF". It prints 4 decimals too.',
+            'The figures themselves are not changed. Only the way they are printed is.',
+        ],
+        affects: 'Everyone who reads or exports these reports.',
+    },
+    {
+        date: '2026-10-05',
         module: 'Inventory Movement Report',
         type: 'improved',
         title: 'Wastage Qty in the Inventory Movement Report now marks the part that came from a wasted Sub-Prep',
@@ -108,7 +130,7 @@ export const changeLog = [
         type: 'new',
         title: 'A Sub-Prep can now be added as itself in Search Items on Create Wastage Record and Edit Wastage Record',
         summary:
-            'A mix or sauce that the store prepares could only be recorded as wastage by adding each of its raw materials one by one. A POS item whose Category is Sub-Prep is now added as itself, in its own UOM, and is valued at its SRP. Its raw materials are shown under it so the store can see what the wastage will be deducted from.',
+            'A mix or sauce that the store prepares could only be recorded as wastage by adding each of its raw materials one by one. A POS item whose Category is Sub-Prep is now added as itself, in its own UOM, and is valued at its Cost in Supplier Items. Searching it shows only the Sub-Prep, and its raw materials are deducted for it when the wastage is approved.',
         steps: [
             'On Create Wastage Record or Edit Wastage Record, choose the Store Branch.',
             'In Search Items, type the POS Code or the name of the Sub-Prep.',
@@ -119,9 +141,13 @@ export const changeLog = [
         rules: [
             'Only a POS item whose Category in the POS Masterlist is Sub-Prep can be added as itself. Any other product still lists its ingredients to add.',
             'The Sub-Prep must be Active and must have a UOM in the POS Masterlist. Without a UOM the list says "No UOM in the POS Masterlist" and the Sub-Prep cannot be added.',
-            'The Cost of the line is the SRP of the Sub-Prep in the POS Masterlist on the day it is added. A Sub-Prep with an SRP of 0 has a cost of 0.',
+            'The Cost of the line is the Cost of the Sub-Prep in Supplier Items: the line whose Item Code is the POS Code of the Sub-Prep and whose Unit is its UOM. A Sub-Prep in ml that Supplier Items prices at 0.53 per Ml costs 0.53 per ml. The SRP is not used, because it is a selling price.',
+            'Only an Active line of Supplier Items with a Cost above 0 is used. The Unit is matched without regard to capital letters.',
+            'When Supplier Items prices the Sub-Prep only in another unit and the SAP Masterlist has a conversion between the two units, the Cost is converted. 106.74 per Batch of 200 Ml is about 0.5337 per Ml.',
+            'A Sub-Prep that Supplier Items does not price has a Cost of 0.',
+            'The Cost is taken on the day the line is added. A line already on a wastage record keeps the Cost it was added with.',
             'The BOM Qty of each raw material is the quantity used by one unit of the Sub-Prep, the same way it is read for a sale. 5 ml of a Sub-Prep with 100 Gm of sugar in its BOM used 500 Gm of sugar.',
-            'The raw materials listed under a Sub-Prep are for information and cannot be added from there. Each shows the quantity used per unit, such as "100 Gm per ml", and the stock of the store. To waste a raw material on its own, search it by its Item Code or Item Description.',
+            'Searching a Sub-Prep shows only the Sub-Prep. Its raw materials are not listed under it. To waste a raw material on its own, search it by its Item Code or Item Description.',
             'A Sub-Prep cannot be added while one of its raw materials has a Stock of 0 or below. The list says "Out of stock:" followed by the raw material.',
             '"Enough for 9.94 ml" is how much of the Sub-Prep the stock of its raw materials covers. It is the lowest figure among the raw materials.',
             'A Sub-Prep whose BOM unit has no conversion in the SAP Masterlist cannot be added, because its raw material could not be deducted.',

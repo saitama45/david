@@ -19,7 +19,8 @@ use PhpOffice\PhpSpreadsheet\Style\NumberFormat;
 use PhpOffice\PhpSpreadsheet\Cell\Coordinate;
 use Carbon\Carbon;
 
-class ActualCostCOGSReportExport implements FromCollection, WithHeadings, WithMapping, ShouldAutoSize, WithStyles, WithTitle, WithCustomStartCell, WithEvents
+// WithStrictNullComparison: a zero is written as 0 (shown 0.0000), not left as an empty cell.
+class ActualCostCOGSReportExport implements FromCollection, WithHeadings, WithMapping, ShouldAutoSize, WithStyles, WithTitle, WithCustomStartCell, WithEvents, \Maatwebsite\Excel\Concerns\WithStrictNullComparison
 {
     protected $data;
     protected $filters;
@@ -305,11 +306,12 @@ class ActualCostCOGSReportExport implements FromCollection, WithHeadings, WithMa
             ],
         ]);
 
-        // Apply number formatting and alignment for numeric columns
+        // Apply number formatting and alignment for numeric columns: four decimals, as every
+        // report prints its numbers
         $currentColIndex = 5; // Unit Cost (E)
         $sheet->getStyle(Coordinate::stringFromColumnIndex($currentColIndex) . $dataStartRow . ':' . Coordinate::stringFromColumnIndex($currentColIndex) . $highestRow)->applyFromArray([
             'alignment' => ['horizontal' => Alignment::HORIZONTAL_RIGHT],
-            'numberFormat' => ['formatCode' => NumberFormat::FORMAT_NUMBER_COMMA_SEPARATED1],
+            'numberFormat' => ['formatCode' => \App\Support\ReportNumber::EXCEL],
         ]);
         $currentColIndex++; // F
 
@@ -322,12 +324,12 @@ class ActualCostCOGSReportExport implements FromCollection, WithHeadings, WithMa
             // Qty columns - center align, number format
             $sheet->getStyle($qtyCol . $dataStartRow . ':' . $qtyCol . $highestRow)->applyFromArray([
                 'alignment' => ['horizontal' => Alignment::HORIZONTAL_CENTER],
-                'numberFormat' => ['formatCode' => NumberFormat::FORMAT_NUMBER_COMMA_SEPARATED1],
+                'numberFormat' => ['formatCode' => \App\Support\ReportNumber::EXCEL],
             ]);
             // Value columns - right align, currency format
             $sheet->getStyle($valueCol . $dataStartRow . ':' . $valueCol . $highestRow)->applyFromArray([
                 'alignment' => ['horizontal' => Alignment::HORIZONTAL_RIGHT],
-                'numberFormat' => ['formatCode' => NumberFormat::FORMAT_NUMBER_COMMA_SEPARATED1], 
+                'numberFormat' => ['formatCode' => \App\Support\ReportNumber::EXCEL], 
             ]);
             $currentColIndex += 2;
         }
@@ -336,7 +338,7 @@ class ActualCostCOGSReportExport implements FromCollection, WithHeadings, WithMa
         $actualCostCol = Coordinate::stringFromColumnIndex($currentColIndex);
         $sheet->getStyle($actualCostCol . $dataStartRow . ':' . $actualCostCol . $highestRow)->applyFromArray([
             'alignment' => ['horizontal' => Alignment::HORIZONTAL_RIGHT],
-            'numberFormat' => ['formatCode' => NumberFormat::FORMAT_NUMBER_COMMA_SEPARATED1], 
+            'numberFormat' => ['formatCode' => \App\Support\ReportNumber::EXCEL], 
             'font' => ['bold' => true], // Make actual cost bold
         ]);
 

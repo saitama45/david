@@ -17,7 +17,8 @@ use PhpOffice\PhpSpreadsheet\Style\Alignment;
 use PhpOffice\PhpSpreadsheet\Style\NumberFormat;
 use PhpOffice\PhpSpreadsheet\Cell\Coordinate;
 
-class PMIXReportExport implements FromCollection, WithHeadings, WithMapping, ShouldAutoSize, WithStyles, WithTitle, WithCustomStartCell, WithEvents
+// WithStrictNullComparison: a zero is written as 0 (shown 0.0000), not left as an empty cell.
+class PMIXReportExport implements FromCollection, WithHeadings, WithMapping, ShouldAutoSize, WithStyles, WithTitle, WithCustomStartCell, WithEvents, \Maatwebsite\Excel\Concerns\WithStrictNullComparison
 {
     /** Sub-columns rendered under every store (and under Total), in order. */
     private const SUB_HEADINGS = ['Qty', 'Sales', '# of Take Out', '# of Dine In'];
@@ -324,12 +325,16 @@ class PMIXReportExport implements FromCollection, WithHeadings, WithMapping, Sho
             $groupStart = $startColumn + ($i * self::COLUMNS_PER_STORE);
             $salesCol = Coordinate::stringFromColumnIndex($groupStart + 1);
 
-            // Center align the count columns (Qty, # of Take Out, # of Dine In)
+            // Center align the count columns (Qty, # of Take Out, # of Dine In), with four
+            // decimals as every report prints its numbers
             foreach ([0, 2, 3] as $offset) {
                 $col = Coordinate::stringFromColumnIndex($groupStart + $offset);
                 $sheet->getStyle($col . $dataStartRow . ':' . $col . $highestRow)->applyFromArray([
                     'alignment' => [
                         'horizontal' => Alignment::HORIZONTAL_CENTER,
+                    ],
+                    'numberFormat' => [
+                        'formatCode' => \App\Support\ReportNumber::EXCEL,
                     ],
                 ]);
             }
@@ -340,7 +345,7 @@ class PMIXReportExport implements FromCollection, WithHeadings, WithMapping, Sho
                     'horizontal' => Alignment::HORIZONTAL_RIGHT,
                 ],
                 'numberFormat' => [
-                    'formatCode' => NumberFormat::FORMAT_NUMBER_COMMA_SEPARATED1,
+                    'formatCode' => \App\Support\ReportNumber::EXCEL,
                 ],
             ]);
         }
@@ -357,6 +362,9 @@ class PMIXReportExport implements FromCollection, WithHeadings, WithMapping, Sho
                 ],
                 'alignment' => [
                     'horizontal' => Alignment::HORIZONTAL_CENTER,
+                ],
+                'numberFormat' => [
+                    'formatCode' => \App\Support\ReportNumber::EXCEL,
                 ],
                 'fill' => [
                     'fillType' => Fill::FILL_SOLID,
@@ -375,7 +383,7 @@ class PMIXReportExport implements FromCollection, WithHeadings, WithMapping, Sho
                 'horizontal' => Alignment::HORIZONTAL_RIGHT,
             ],
             'numberFormat' => [
-                'formatCode' => NumberFormat::FORMAT_NUMBER_COMMA_SEPARATED1,
+                'formatCode' => \App\Support\ReportNumber::EXCEL,
             ],
             'fill' => [
                 'fillType' => Fill::FILL_SOLID,

@@ -20,7 +20,8 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
 
 /**
- * A Sub-Prep (a POS item of the Sub-Prep category) is wasted as itself, valued at its SRP.
+ * A Sub-Prep (a POS item of the Sub-Prep category) is wasted as itself, valued at its Cost
+ * on the Supplier Items list for its unit - never at its SRP, which is a selling price.
  * It holds no stock: approval deducts, and the Inventory Movement Report charges, the raw
  * materials on its BOM - the BOM Qty of each for every unit wasted, as a sale would.
  *
@@ -75,6 +76,14 @@ function subPrepFixture(array $stock = ['RM-COCOA' => 2, 'RM-SUGAR' => 1]): arra
         ]);
     }
 
+    // Supplier Items prices the Sub-Prep per Batch and per Ml; its POS UOM is ml.
+    foreach ([['Batch', 106.74], ['Ml', 0.53]] as [$unit, $cost]) {
+        DB::table('supplier_items')->insert([
+            'entity_id' => $entity->id, 'ItemCode' => 'SP-0001', 'SupplierCode' => 'TGI', 'category' => 'Sub-Prep',
+            'uom' => $unit, 'cost' => $cost, 'is_active' => true,
+        ]);
+    }
+
     // On hand, in the unit each item is kept in: the search reads the stock history, the approval the balance.
     foreach (['RM-COCOA' => 'Bag', 'RM-SUGAR' => 'Kg'] as $code => $unit) {
         if (($stock[$code] ?? 0) == 0) {
@@ -117,21 +126,20 @@ function subPrepBalance(array $f, string $key): float
     return (float) ProductInventoryStock::where('product_inventory_id', $f['sap'][$key])->where('store_branch_id', $f['store']->id)->value('quantity');
 }
 
-it('offers a Sub-Prep as the row to add, at its SRP, with its raw materials for information only', function () {
+it('offers a Sub-Prep as the only row of its group, at its Supplier Items cost, without listing its raw materials', function () {
     $f = subPrepFixture();
 
     $rows = subPrepSearch($f, 'Chocolate Mix');
 
-    expect($rows)->toHaveCount(3)
+    expect($rows)->toHaveCount(1)
         ->and($rows[0])->toMatchArray([
             'sub_prep' => true, 'pos_masterfile_id' => $f['subPrep']->id, 'id' => null,
-            'item_code' => 'SP-0001', 'description' => 'Chocolate Mix', 'alt_uom' => 'ml', 'cost_per_quantity' => 12.5,
+            // 0.53 is the Supplier Items cost per Ml; the SRP of 12.50 is not a cost.
+            'item_code' => 'SP-0001', 'description' => 'Chocolate Mix', 'alt_uom' => 'ml', 'cost_per_quantity' => 0.53,
             // 2,000 Gm of cocoa covers 1,000 ml and 1,000 Gm of sugar 333.33 ml: the least of the two.
             'stock' => 333.3333, 'blocked_reason' => null,
         ])
-        ->and($rows[0]['product'])->toBe(['code' => 'SP-0001', 'description' => 'Chocolate Mix', 'sub_prep' => true, 'uom' => 'ml'])
-        ->and(array_map(fn ($row) => [$row['item_code'], $row['info_only'], $row['recipe_qty'], $row['stock']], array_slice($rows, 1)))
-        ->toBe([['RM-COCOA', true, 2, 2000], ['RM-SUGAR', true, 3, 1000]]);
+        ->and($rows[0]['product'])->toBe(['code' => 'SP-0001', 'description' => 'Chocolate Mix', 'sub_prep' => true, 'uom' => 'ml']);
 });
 
 it('keeps the ingredients of any other product addable', function () {
@@ -141,8 +149,8 @@ it('keeps the ingredients of any other product addable', function () {
 
     expect($rows)->toHaveCount(1)
         ->and($rows[0]['item_code'])->toBe('RM-COCOA')
-        ->and($rows[0])->not->toHaveKey('info_only')
-        ->and($rows[0])->not->toHaveKey('sub_prep');
+        ->and($rows[0])->not->toHaveKey('sub_prep')
+        ->and($rows[0]['product'])->toBe(['code' => 'FG-0001', 'description' => 'Mocha Latte']);
 });
 
 it('blocks a Sub-Prep while a raw material is out of stock, and one with no UOM', function () {
@@ -173,7 +181,7 @@ it('accepts only a Sub-Prep as a POS line, and never a line that is both', funct
         ->and($errors(['pos_masterfile_id' => $f['subPrep']->id, 'sap_masterfile_id' => $f['sap']['RM-COCOA|Gm']]))->toContain('cartItems.0.sap_masterfile_id');
 });
 
-it('files a Sub-Prep line at the SRP, whatever cost the form sent', function () {
+it('files a Sub-Prep line at its Supplier Items cost, whatever cost the form sent', function () {
     $f = subPrepFixture();
 
     $created = app(WastageService::class)->createMultipleWastageRecords([
@@ -185,10 +193,23 @@ it('files a Sub-Prep line at the SRP, whatever cost the form sent', function () 
 
     expect($line->sap_masterfile_id)->toBeNull()
         ->and((int) $line->pos_masterfile_id)->toBe($f['subPrep']->id)
-        ->and((float) $line->cost)->toBe(12.5)
+        ->and((float) $line->cost)->toBe(0.53)
         ->and($line->lineItem())->toBe([
             'id' => null, 'ItemCode' => 'SP-0001', 'ItemDescription' => 'Chocolate Mix', 'BaseUOM' => 'ml', 'AltUOM' => 'ml', 'sub_prep' => true,
         ]);
+});
+
+it('values a Sub-Prep that Supplier Items does not price in its unit at 0, never at its SRP', function () {
+    $f = subPrepFixture();
+    $f['subPrep']->update(['UOM' => 'Cup']);
+
+    expect(subPrepSearch($f, 'SP-0001')[0]['cost_per_quantity'])->toBe(0);
+
+    // An inactive price does not count either.
+    $f['subPrep']->update(['UOM' => 'ml']);
+    DB::table('supplier_items')->where('ItemCode', 'SP-0001')->update(['is_active' => false]);
+
+    expect(subPrepSearch($f, 'SP-0001')[0]['cost_per_quantity'])->toBe(0);
 });
 
 it('deducts the raw materials of an approved Sub-Prep through its BOM', function () {
@@ -287,7 +308,7 @@ it('notes the Sub-Prep on the wastage cell of the Excel export', function () {
     // Row 6 is the first item; column J is Wastage Qty, still a number.
     expect($sheet->getCell('B6')->getValue())->toBe('RM-COCOA')
         ->and((float) $sheet->getCell('J6')->getValue())->toBe(0.01)
-        ->and($sheet->getComment('J6')->getText()->getPlainText())->toBe('Sub-Prep SP-0001 Chocolate Mix: 5 ml wasted = 0.01 Bag of this item');
+        ->and($sheet->getComment('J6')->getText()->getPlainText())->toBe('Sub-Prep SP-0001 Chocolate Mix: 5.0000 ml wasted = 0.0100 Bag of this item');
 });
 
 it('marks no Sub-Prep on wastage filed for the item itself', function () {

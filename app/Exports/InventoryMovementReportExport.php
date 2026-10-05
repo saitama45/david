@@ -103,12 +103,6 @@ class InventoryMovementReportExport implements FromCollection, ShouldAutoSize, W
         return [];
     }
 
-    /** A quantity as the PDF prints it: up to four decimals, no trailing zeros. */
-    private function plain($quantity): string
-    {
-        return rtrim(rtrim(number_format((float) $quantity, 4), '0'), '.') ?: '0';
-    }
-
     public function map($item): array
     {
         $item = (array) $item;
@@ -143,7 +137,7 @@ class InventoryMovementReportExport implements FromCollection, ShouldAutoSize, W
                 $sheet->mergeCells('A1:'.$last.'1');
                 $sheet->setCellValue('A1', 'Inventory Movement Report');
                 $sheet->getComment('D5')->getText()->createTextRun(
-                    'All quantities use the unit shown in this column (the SAP base unit, for example 36 Gm of a 1,000 Gm Bag = 0.036 Bag).'
+                    'All quantities use the unit shown in this column (the SAP base unit, for example 36 Gm of a 1,000 Gm Bag = 0.0360 Bag).'
                 );
 
                 $sheet->mergeCells('A2:'.$last.'2');
@@ -226,8 +220,8 @@ class InventoryMovementReportExport implements FromCollection, ShouldAutoSize, W
                     $sheet->getComment($cell)->getText()->createTextRun(implode("\n", array_map(
                         fn ($subPrep) => sprintf(
                             'Sub-Prep %s %s: %s %s wasted = %s %s of this item',
-                            $subPrep['code'], $subPrep['description'], $this->plain($subPrep['wasted_qty']), $subPrep['uom'],
-                            $this->plain($subPrep['quantity']), ((array) $item)['uom']
+                            $subPrep['code'], $subPrep['description'], \App\Support\ReportNumber::format($subPrep['wasted_qty']), $subPrep['uom'],
+                            \App\Support\ReportNumber::format($subPrep['quantity']), ((array) $item)['uom']
                         ),
                         $subPreps
                     )));
@@ -250,7 +244,7 @@ class InventoryMovementReportExport implements FromCollection, ShouldAutoSize, W
             'borders' => ['allBorders' => ['borderStyle' => Border::BORDER_THIN, 'color' => ['rgb' => 'E0E0E0']]],
         ]);
 
-        // Text columns read left, UOM centres, every quantity right-aligned with two decimals.
+        // Text columns read left, UOM centres, every quantity right-aligned with four decimals.
         $sheet->getStyle('A'.$firstRow.':C'.$lastRow)
             ->getAlignment()->setHorizontal(Alignment::HORIZONTAL_LEFT);
 
@@ -259,7 +253,7 @@ class InventoryMovementReportExport implements FromCollection, ShouldAutoSize, W
 
         $sheet->getStyle('E'.$firstRow.':'.$last.$lastRow)->applyFromArray([
             'alignment' => ['horizontal' => Alignment::HORIZONTAL_RIGHT],
-            'numberFormat' => ['formatCode' => '#,##0.00##'],
+            'numberFormat' => ['formatCode' => \App\Support\ReportNumber::EXCEL],
         ]);
 
         foreach (self::HIGHLIGHTED_COLUMNS as $column => $rgb) {

@@ -702,8 +702,8 @@ class WastageController extends Controller
             );
             $recipeRows = $recipeItems->pluck('row');
 
-            // A Sub-Prep is wasted as itself: it is the row to add, and its raw materials
-            // are listed only to show what it will be deducted from.
+            // A Sub-Prep is wasted as itself: it is the one row of its group. Its raw materials
+            // are not listed; they only decide whether it can be added.
             $productKey = fn ($posCode) => strtoupper(trim((string) $posCode));
             $subPreps = $recipeLines->isEmpty() ? collect() : POSMasterfile::whereIn('POSCode', $recipeLines->pluck('POSCode')->unique()->values()->all())
                 ->get()
@@ -759,15 +759,15 @@ class WastageController extends Controller
                     $product = ['code' => $lines->first()->POSCode, 'description' => $lines->first()->POSDescription]
                         + ($subPrep ? ['sub_prep' => true, 'uom' => $subPrep->UOM] : []);
 
-                    $rows = $recipeItemsByProduct->get($posCode, collect())->map(fn ($recipeItem) => $present($recipeItem['row']) + [
+                    if ($subPrep) {
+                        return [$this->subPrepRow($subPrep, $subPrepRecipes->get($posCode), $stockByProductId) + ['product' => $product]];
+                    }
+
+                    return $recipeItemsByProduct->get($posCode, collect())->map(fn ($recipeItem) => $present($recipeItem['row']) + [
                         'product' => $product,
                         'recipe_qty' => $recipeItem['recipe_qty'],
                         'recipe_uom' => $recipeItem['recipe_uom'],
-                    ] + ($subPrep ? ['info_only' => true] : []))->values();
-
-                    return $subPrep
-                        ? $rows->prepend($this->subPrepRow($subPrep, $subPrepRecipes->get($posCode), $stockByProductId) + ['product' => $product])->all()
-                        : $rows->all();
+                    ])->values()->all();
                 });
 
             $processedItems = $items->map($present)->concat($productRows)->values();
@@ -864,8 +864,8 @@ class WastageController extends Controller
             'description' => $subPrep->POSDescription,
             'uom' => $subPrep->UOM,
             'alt_uom' => $subPrep->UOM,
-            // A Sub-Prep is valued at its SRP.
-            'cost_per_quantity' => (float) $subPrep->SRP,
+            // Its Cost on the Supplier Items list for this unit, not its SRP.
+            'cost_per_quantity' => \App\Support\SubPrepRecipe::unitCost($subPrep),
             'stock' => $blockedReason === null ? round((float) $covers, 4) : 0,
             'blocked_reason' => $blockedReason,
         ];

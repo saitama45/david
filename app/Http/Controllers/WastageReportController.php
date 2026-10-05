@@ -428,7 +428,7 @@ class WastageReportController extends Controller
                     'UoM' => $item['uom'],
                     'Total Qty' => $item['total_qty'],
                     'Total Amount' => $item['total_amount'],
-                    '% of Month' => round($item['amount_share'], 2),
+                    '% of Month' => round($item['amount_share'], \App\Support\ReportNumber::DECIMALS),
                     'Records' => $item['record_count'],
                 ];
             }

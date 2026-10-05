@@ -14,7 +14,8 @@ use PhpOffice\PhpSpreadsheet\Worksheet\Worksheet;
 use PhpOffice\PhpSpreadsheet\Style\Fill;
 use PhpOffice\PhpSpreadsheet\Style\Alignment;
 
-class IntercoReportExport implements FromQuery, WithHeadings, WithMapping, ShouldAutoSize, WithStyles
+// WithStrictNullComparison: a zero is written as 0 (shown 0.0000), not left as an empty cell.
+class IntercoReportExport implements FromQuery, WithHeadings, WithMapping, ShouldAutoSize, WithStyles, \Maatwebsite\Excel\Concerns\WithColumnFormatting, \Maatwebsite\Excel\Concerns\WithStrictNullComparison
 {
     protected $filters;
 
@@ -105,6 +106,12 @@ class IntercoReportExport implements FromQuery, WithHeadings, WithMapping, Shoul
             'Shipped Date',
             'Received Date',
         ];
+    }
+
+    /** Committed Qty, Received Qty, Unit Cost and Total Cost: four decimals, as every report prints its numbers. */
+    public function columnFormats(): array
+    {
+        return array_fill_keys(['C', 'D', 'M', 'N'], \App\Support\ReportNumber::EXCEL);
     }
 
     /**

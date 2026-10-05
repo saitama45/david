@@ -106,14 +106,16 @@ a sale reads it** (`StoreTransactionReceiptProcessor`): 5 ml wasted x 100 Gm BOM
 
 - **The line.** `wastages.pos_masterfile_id` is set and `sap_masterfile_id` is NULL
   (`WastageRequest` allows one or the other, and only an active Sub-Prep with a UOM). Quantity is in
-  `pos_masterfiles.UOM`; `cost` is the SRP, set by `WastageService` whatever the form sent (an
-  existing line keeps the SRP it was filed at). Pages still read `sap_masterfile` in their payloads:
+  `pos_masterfiles.UOM`; `cost` is `SubPrepRecipe::unitCost()` - the Supplier Items cost under the
+  POS Code and that UOM (`SupplierUnitCost::find()`, so another priced unit converts through SAP;
+  0 when unpriced; **not the SRP**, as it was for a few hours on 2026-10-05) - set by `WastageService`
+  whatever the form sent (an existing line keeps the cost it was filed at). Pages still read `sap_masterfile` in their payloads:
   `Wastage::lineItem()` fills it with the POS item under the same keys (`sub_prep: true`).
-- **Search.** A Sub-Prep group starts with the Sub-Prep row (`sub_prep`, `pos_masterfile_id`,
-  `cost_per_quantity` = SRP). Its `stock` is how many units its raw materials cover (the minimum of
+- **Search.** A Sub-Prep group is the Sub-Prep row alone (`sub_prep`, `pos_masterfile_id`,
+  `cost_per_quantity` = that Supplier Items cost); its raw materials are not listed. Its `stock` is how many units its raw materials cover (the minimum of
   on-hand / BOM Qty), and `blocked_reason` says why it cannot be added: inactive, no UOM, a BOM unit
-  that does not convert, or a raw material at stock <= 0. Its ingredient rows carry `info_only` and
-  are never pickable, so the same waste cannot be entered twice.
+  that does not convert, or a raw material at stock <= 0 (named in the reason). A raw material is
+  wasted on its own by searching it directly.
 - **Approval.** `WastageService::buildFinalApprovalDeductions()` turns a Sub-Prep line into deductions
   on each raw material's stock row (quantity x BOM Qty x factor; ledger cost = BOM Qty x BOM Unit
   Cost), so the negative-stock check and confirmation work per raw material. No BOM, or a unit that
@@ -128,6 +130,21 @@ a sale reads it** (`StoreTransactionReceiptProcessor`): 5 ml wasted x 100 Gm BOM
   show the line by its POS code, name and UOM (`leftJoin pos_masterfiles`, grouped by both ids).
 
 Both readings use the BOM as it is now, as sales do: editing a BOM changes past figures in the report.
+
+## Report numbers
+
+The seven reports (Qty / Cost Variance, Inventory Movement, PMIX, Wastage, Delivery, Actual Cost /
+COGS, Interco) print every quantity, amount and percentage with **four decimals whatever the value**
+(2026-10-05), so a page matches its exports.
+
+- **Pages** import `formatReportNumber` / `formatReportCurrency` / `formatReportPercent` /
+  `formatReportCount` from `resources/js/lib/reportNumbers.js` (their local `formatNumber` etc. are
+  aliases of these). Counts of records, items and ranks use `formatReportCount` and stay whole.
+- **Excel exports** keep cells numeric and apply `App\Support\ReportNumber::EXCEL` /
+  `EXCEL_PESO` / `EXCEL_PERCENT`. Each has `WithStrictNullComparison`: without it maatwebsite/excel
+  writes 0 as an empty cell. `WastageReportExport` inserts its two title rows **before** working out
+  any row number - doing it after left the first two lines unformatted.
+- **PDF** (Inventory Movement only) and notes use `ReportNumber::format()`.
 
 ## SOH adjustment
 

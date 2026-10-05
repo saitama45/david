@@ -1,4 +1,5 @@
 <script setup>
+import { formatReportCurrency, formatReportNumber, formatReportPercent, formatReportCount } from '@/lib/reportNumbers';
 import { ref, watch, computed } from "vue";
 import { throttle } from "lodash";
 import { router } from "@inertiajs/vue3";
@@ -392,31 +393,19 @@ const exportRoute = computed(() =>
 );
 
 // Format currency
-const formatCurrency = (amount) => {
-    if (!amount) return '₱0.00';
-    return new Intl.NumberFormat('en-PH', {
-        style: 'currency',
-        currency: 'PHP'
-    }).format(amount);
-};
+// Every quantity, amount and percentage prints with four decimals, as on all the reports.
+const formatCurrency = formatReportCurrency;
 
 // Format number with commas
-const formatNumber = (num) => {
-    if (!num) return '0';
-    return new Intl.NumberFormat('en-PH').format(num);
-};
+const formatNumber = formatReportNumber;
 
-// Format quantity keeping decimals (wastage qty is stored with 3 decimals)
-const formatQty = (num) => {
-    const value = Number(num || 0);
-    return new Intl.NumberFormat('en-PH', {
-        minimumFractionDigits: 0,
-        maximumFractionDigits: 3
-    }).format(value);
-};
+// A count of records or items stays a whole number.
+const formatCount = formatReportCount;
+
+const formatQty = formatReportNumber;
 
 // Format percentage share
-const formatPercent = (num) => `${Number(num || 0).toFixed(1)}%`;
+const formatPercent = formatReportPercent;
 
 // Highlight styling for the first three ranks of each month
 const getRankClass = (rank) => {
@@ -702,7 +691,7 @@ const getStatusClass = (status) => {
                 <div class="flex items-center justify-between">
                     <div>
                         <p class="text-sm text-gray-600">Total Records</p>
-                        <p class="text-2xl font-bold text-gray-900">{{ formatNumber(summaryTotals.total_records || 0) }}</p>
+                        <p class="text-2xl font-bold text-gray-900">{{ formatCount(summaryTotals.total_records || 0) }}</p>
                     </div>
                     <Trash2 class="w-8 h-8 text-blue-500" />
                 </div>
@@ -978,7 +967,7 @@ const getStatusClass = (status) => {
                         <div>
                             <h3 class="text-base font-semibold text-gray-900">{{ month.period_label }}</h3>
                             <p class="text-xs text-gray-500">
-                                {{ formatNumber(month.item_count) }} item{{ month.item_count === 1 ? '' : 's' }} wasted
+                                {{ formatCount(month.item_count) }} item{{ month.item_count === 1 ? '' : 's' }} wasted
                                 <span v-if="topLimit && month.item_count > month.items.length">
                                     &middot; showing top {{ month.items.length }}
                                 </span>
@@ -1036,7 +1025,7 @@ const getStatusClass = (status) => {
                                         <span>{{ formatPercent(item.amount_share) }}</span>
                                     </div>
                                 </td>
-                                <td class="px-6 py-4 text-sm text-center text-gray-600">{{ formatNumber(item.record_count) }}</td>
+                                <td class="px-6 py-4 text-sm text-center text-gray-600">{{ formatCount(item.record_count) }}</td>
                             </tr>
                         </tbody>
                     </table>
@@ -1057,7 +1046,7 @@ const getStatusClass = (status) => {
                                     <p class="text-xs font-mono text-gray-500">{{ item.item_code }}</p>
                                     <p class="text-sm text-gray-900">{{ item.item_description }}</p>
                                     <p class="text-xs text-gray-500 mt-1">
-                                        {{ formatQty(item.total_qty) }} {{ item.uom }} &middot; {{ formatNumber(item.record_count) }} record{{ item.record_count === 1 ? '' : 's' }}
+                                        {{ formatQty(item.total_qty) }} {{ item.uom }} &middot; {{ formatCount(item.record_count) }} record{{ item.record_count === 1 ? '' : 's' }}
                                     </p>
                                 </div>
                             </div>

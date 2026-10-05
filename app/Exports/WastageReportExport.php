@@ -13,7 +13,8 @@ use PhpOffice\PhpSpreadsheet\Style\Alignment;
 use PhpOffice\PhpSpreadsheet\Style\Border;
 use PhpOffice\PhpSpreadsheet\Style\Fill;
 
-class WastageReportExport implements FromCollection, WithHeadings, WithStyles, WithColumnWidths, WithEvents
+// WithStrictNullComparison: a zero is written as 0 (shown 0.0000), not left as an empty cell.
+class WastageReportExport implements FromCollection, WithHeadings, WithStyles, WithColumnWidths, WithEvents, \Maatwebsite\Excel\Concerns\WithStrictNullComparison
 {
     protected $data;
 
@@ -125,10 +126,15 @@ class WastageReportExport implements FromCollection, WithHeadings, WithStyles, W
         return [
             AfterSheet::class => function(AfterSheet $event) {
                 $sheet = $event->sheet->getDelegate();
+                $highestColumn = 'M'; // Updated highest column
+
+                // The two title rows go in first, so every row number below is the final one
+                // (row 3 the headings, row 4 the first line). Worked out before the insert,
+                // the number formats started two rows late and missed the first two lines.
+                $sheet->insertNewRowBefore(1, 2);
 
                 // Get the highest row with data
                 $highestRow = $sheet->getHighestRow();
-                $highestColumn = 'M'; // Updated highest column
 
                 // Apply alternating row colors for better readability
                 for ($row = 4; $row <= $highestRow; $row++) {
@@ -144,15 +150,14 @@ class WastageReportExport implements FromCollection, WithHeadings, WithStyles, W
                 // Format currency columns
                 $sheet->getStyle('H4:I' . $highestRow)
                     ->getNumberFormat()
-                    ->setFormatCode('"₱"#,##0.00');
+                    ->setFormatCode(\App\Support\ReportNumber::EXCEL_PESO);
 
                 // Format quantity columns
                 $sheet->getStyle('G4:G' . $highestRow)
                     ->getNumberFormat()
-                    ->setFormatCode('#,##0.00');
+                    ->setFormatCode(\App\Support\ReportNumber::EXCEL);
 
                 // Add title row with company info
-                $sheet->insertNewRowBefore(1, 2);
                 $sheet->mergeCells('A1:'.$highestColumn.'1');
                 $sheet->setCellValue('A1', 'WASTAGE REPORT');
                 $sheet->getStyle('A1')->applyFromArray([
@@ -233,6 +238,8 @@ class WastageReportExport implements FromCollection, WithHeadings, WithStyles, W
                     $sheet->setCellValue('F' . $summaryRow, 'TOTAL:');
                     $sheet->setCellValue('G' . $summaryRow, $totalQty);
                     $sheet->setCellValue('I' . $summaryRow, $totalCost);
+                    $sheet->getStyle('G' . $summaryRow)->getNumberFormat()->setFormatCode(\App\Support\ReportNumber::EXCEL);
+                    $sheet->getStyle('I' . $summaryRow)->getNumberFormat()->setFormatCode(\App\Support\ReportNumber::EXCEL_PESO);
 
                     // Style summary row
                     $sheet->getStyle('F' . $summaryRow . ':' . $highestColumn . $summaryRow)->applyFromArray([

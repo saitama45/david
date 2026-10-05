@@ -1,4 +1,5 @@
 <script setup>
+import { formatReportNumber } from '@/lib/reportNumbers';
 import { ref, watch, computed } from "vue";
 import { throttle } from "lodash";
 import { router } from "@inertiajs/vue3";
@@ -140,13 +141,8 @@ const formatDate = (dateString) => {
     });
 };
 
-const formatNumber = (num) => {
-    if (num === null || num === undefined) return '0';
-    return parseFloat(num).toLocaleString('en-US', {
-        minimumFractionDigits: 2,
-        maximumFractionDigits: 4
-    });
-};
+// Every quantity, amount and percentage prints with four decimals, as on all the reports.
+const formatNumber = formatReportNumber;
 </script>
 
 <template>
@@ -246,7 +242,7 @@ const formatNumber = (num) => {
         </div>
 
         <p class="mb-3 text-sm text-gray-600">
-            All totals use the SAP base unit shown in the UOM column. Procurement quantities in their original units appear below the totals (for example, 36 Gm sold of a 1,000 Gm Bag = 0.036 Bag).
+            All totals use the SAP base unit shown in the UOM column. Procurement quantities in their original units appear below the totals (for example, 36 Gm sold of a 1,000 Gm Bag = 0.0360 Bag).
             Supplies Used applies to Operating / Cleaning Supplies items: the usage the month end count shows once sales, wastage and transfers are accounted for.
             A Wastage Qty marked <span class="rounded bg-amber-100 px-1 py-0.5 text-[11px] font-semibold text-amber-800">Sub-Prep</span> includes a wasted Sub-Prep, charged to this raw material through its BOM.
         </p>

@@ -65,26 +65,26 @@
                     <td class="text-left">{{ $item['sap_code'] }}</td>
                     <td class="text-left">{{ $item['item_description'] }}</td>
                     <td>{{ $item['uom'] }}</td>
-                    <td class="text-right">{{ rtrim(rtrim(number_format($item['ordered_qty'], 4), '0'), '.') }}</td>
-                    <td class="text-right">{{ rtrim(rtrim(number_format($item['committed_qty'], 4), '0'), '.') }}</td>
-                    <td class="text-right font-bold" style="background-color: #f0f7ff;">{{ rtrim(rtrim(number_format($item['received_qty'], 4), '0'), '.') }}</td>
-                    <td class="text-right font-bold" style="background-color: #f0fff4;">{{ rtrim(rtrim(number_format($item['beg_bal_qty'], 4), '0'), '.') }}</td>
-                    <td class="text-right">{{ rtrim(rtrim(number_format($item['sales_qty'], 4), '0'), '.') }}</td>
+                    <td class="text-right">{{ \App\Support\ReportNumber::format($item['ordered_qty']) }}</td>
+                    <td class="text-right">{{ \App\Support\ReportNumber::format($item['committed_qty']) }}</td>
+                    <td class="text-right font-bold" style="background-color: #f0f7ff;">{{ \App\Support\ReportNumber::format($item['received_qty']) }}</td>
+                    <td class="text-right font-bold" style="background-color: #f0fff4;">{{ \App\Support\ReportNumber::format($item['beg_bal_qty']) }}</td>
+                    <td class="text-right">{{ \App\Support\ReportNumber::format($item['sales_qty']) }}</td>
                     <td class="text-right">
-                        {{ rtrim(rtrim(number_format($item['wastage_qty'], 4), '0'), '.') }}
+                        {{ \App\Support\ReportNumber::format($item['wastage_qty']) }}
                         {{-- The part that is a wasted Sub-Prep, charged to this raw material through its BOM --}}
                         @foreach($item['wastage_sub_preps'] ?? [] as $subPrep)
-                            <div style="font-size: 80%; font-weight: normal; color: #92400e;">Sub-Prep {{ $subPrep['code'] }}: {{ rtrim(rtrim(number_format($subPrep['quantity'], 4), '0'), '.') }}</div>
+                            <div style="font-size: 80%; font-weight: normal; color: #92400e;">Sub-Prep {{ $subPrep['code'] }}: {{ \App\Support\ReportNumber::format($subPrep['quantity']) }}</div>
                         @endforeach
                     </td>
-                    <td class="text-right">{{ $item['supplies_counted'] ? rtrim(rtrim(number_format($item['supplies_qty'], 4), '0'), '.') : '-' }}</td>
-                    <td class="text-right">{{ rtrim(rtrim(number_format($item['interco_in_qty'], 4), '0'), '.') }}</td>
-                    <td class="text-right">{{ rtrim(rtrim(number_format($item['interco_out_qty'], 4), '0'), '.') }}</td>
-                    <td class="text-right font-bold" style="background-color: #f5f3ff;">{{ rtrim(rtrim(number_format($item['theoretical_qty'], 4), '0'), '.') }}</td>
+                    <td class="text-right">{{ $item['supplies_counted'] ? \App\Support\ReportNumber::format($item['supplies_qty']) : '-' }}</td>
+                    <td class="text-right">{{ \App\Support\ReportNumber::format($item['interco_in_qty']) }}</td>
+                    <td class="text-right">{{ \App\Support\ReportNumber::format($item['interco_out_qty']) }}</td>
+                    <td class="text-right font-bold" style="background-color: #f5f3ff;">{{ \App\Support\ReportNumber::format($item['theoretical_qty']) }}</td>
                     <td class="text-right font-bold">
-                        {{ $item['actual_mec'] !== null ? rtrim(rtrim(number_format($item['actual_mec'], 4), '0'), '.') : '-' }}
+                        {{ $item['actual_mec'] !== null ? \App\Support\ReportNumber::format($item['actual_mec']) : '-' }}
                     </td>
-                    <td class="text-right font-bold">{{ rtrim(rtrim(number_format($item['variance_qty'], 4), '0'), '.') }}</td>
+                    <td class="text-right font-bold">{{ \App\Support\ReportNumber::format($item['variance_qty']) }}</td>
                 </tr>
             @endforeach
         </tbody>

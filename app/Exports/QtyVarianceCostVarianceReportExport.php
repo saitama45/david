@@ -2,7 +2,9 @@
 
 namespace App\Exports;
 
+use App\Support\ReportNumber;
 use Maatwebsite\Excel\Concerns\FromCollection;
+use Maatwebsite\Excel\Concerns\WithColumnFormatting;
 use Maatwebsite\Excel\Concerns\WithHeadings;
 use Maatwebsite\Excel\Concerns\WithMapping;
 use Maatwebsite\Excel\Concerns\ShouldAutoSize;
@@ -11,7 +13,8 @@ use PhpOffice\PhpSpreadsheet\Worksheet\Worksheet;
 use PhpOffice\PhpSpreadsheet\Style\Border;
 use PhpOffice\PhpSpreadsheet\Style\Fill;
 
-class QtyVarianceCostVarianceReportExport implements FromCollection, WithHeadings, WithMapping, ShouldAutoSize, WithStyles
+// WithStrictNullComparison: a zero is written as 0 (shown 0.0000), not left as an empty cell.
+class QtyVarianceCostVarianceReportExport implements FromCollection, WithHeadings, WithMapping, ShouldAutoSize, WithStyles, WithColumnFormatting, \Maatwebsite\Excel\Concerns\WithStrictNullComparison
 {
     protected $data;
 
@@ -51,14 +54,21 @@ class QtyVarianceCostVarianceReportExport implements FromCollection, WithHeading
             $item['item_code'],
             $item['item_description'],
             $item['uom'],
-            number_format($item['cost'], 2),
-            number_format($item['actual_inventory'], 2),
-            number_format($item['theoretical_inventory'], 2),
-            number_format($item['qty_variance'], 2),
-            number_format($item['actual_cost'], 2),
-            number_format($item['theoretical_cost'], 2),
-            number_format($item['cost_variance'], 2),
+            // Real numbers, so the sheet can be summed; columnFormats() shows them with four decimals.
+            (float) $item['cost'],
+            (float) $item['actual_inventory'],
+            (float) $item['theoretical_inventory'],
+            (float) $item['qty_variance'],
+            (float) $item['actual_cost'],
+            (float) $item['theoretical_cost'],
+            (float) $item['cost_variance'],
         ];
+    }
+
+    /** Cost to Cost Variance: four decimals, as every report prints its numbers. */
+    public function columnFormats(): array
+    {
+        return array_fill_keys(['F', 'G', 'H', 'I', 'J', 'K', 'L'], ReportNumber::EXCEL);
     }
 
     public function styles(Worksheet $sheet)

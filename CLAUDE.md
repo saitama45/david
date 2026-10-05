@@ -267,6 +267,11 @@ SQL Server as the target. Rationale and trade-offs: [Decisions.md](docs/knowledg
   `POSMasterfileController::categoryNames()` (menu categories + categories in use); a Select given only
   `MenuCategory::options()` shows blank for every other category. `pos_masterfiles.UOM` (2026-10-05) is
   free text for reference only; nothing computes with it.
+- **A report prints every quantity, amount and percentage with four decimals**, whatever the value
+  (5 -> 5.0000), the same on the page, in the PDF and in the Excel export. Pages use
+  `resources/js/lib/reportNumbers.js`; exports use `App\Support\ReportNumber` (`EXCEL` number formats,
+  `format()` for text) and need `WithStrictNullComparison`, or a 0 is written as an empty cell. Never
+  format a report number locally or send Excel a `number_format()` string. Counts and ranks stay whole.
 - **An SOH adjustment waits as a stock history row no balance counts.** `SohAdjustmentService` files
   it as `product_inventory_stock_managers` action `soh_adjustment` (signed difference, in the item's
   stock unit, on its stock row); approving rewrites that same row to `add` / `out` and refreshes the
@@ -275,7 +280,8 @@ SQL Server as the target. Rationale and trade-offs: [Decisions.md](docs/knowledg
   `product_inventories` table. Detail: [Data-Flows.md](docs/knowledge/Data-Flows.md#soh-adjustment).
 - **A wastage line can have no SAP item: a Sub-Prep line.** A POS item of the `Sub-Prep` category
   (`POSMasterfile::isSubPrep()`) is wasted as itself - `wastages.pos_masterfile_id` set,
-  `sap_masterfile_id` NULL, qty in the POS item's UOM, cost = its SRP. Read a line's item with
+  `sap_masterfile_id` NULL, qty in the POS item's UOM, cost = its Supplier Items cost for that unit
+  (`SubPrepRecipe::unitCost()`; the SRP is a selling price, never a cost). Read a line's item with
   `Wastage::lineItem()`, never `sapMasterfile->...` without a fallback. It holds no stock: approval
   deducts, and the Inventory Movement Report charges, its raw materials through `App\Support\SubPrepRecipe`
   (BOM Qty x quantity, **per one unit, as a sale reads the BOM**). Anything that sums wastage per SAP

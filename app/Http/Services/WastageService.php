@@ -336,11 +336,12 @@ class WastageService
     }
 
     /**
-     * A Sub-Prep line is valued at the item's SRP in the POS Masterlist, whatever the form sent.
+     * A Sub-Prep line is valued at its Cost on the Supplier Items list for its unit,
+     * whatever the form sent.
      */
     private function subPrepCost(int|string $posMasterfileId): float
     {
-        return (float) \App\Models\POSMasterfile::findOrFail($posMasterfileId)->SRP;
+        return \App\Support\SubPrepRecipe::unitCost(\App\Models\POSMasterfile::findOrFail($posMasterfileId));
     }
 
     /**
@@ -442,7 +443,7 @@ class WastageService
                     'reason' => $itemData['reason'],
                 ];
 
-                // A Sub-Prep line keeps the SRP it was filed at; a new one takes today's.
+                // A Sub-Prep line keeps the cost it was filed at; a new one takes today's.
                 if ($posMasterfileId) {
                     $updateData['cost'] = $existingRecord && (int) $existingRecord->pos_masterfile_id === (int) $posMasterfileId
                         ? $existingRecord->cost

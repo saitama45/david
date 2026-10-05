@@ -17,7 +17,8 @@ use PhpOffice\PhpSpreadsheet\Style\NumberFormat;
 use PhpOffice\PhpSpreadsheet\Cell\Coordinate;
 use Maatwebsite\Excel\Concerns\WithEvents;
 
-class DeliveryReportExport implements FromCollection, WithHeadings, WithMapping, ShouldAutoSize, WithStyles, WithTitle, WithCustomStartCell, WithEvents
+// WithStrictNullComparison: a zero is written as 0 (shown 0.0000), not left as an empty cell.
+class DeliveryReportExport implements FromCollection, WithHeadings, WithMapping, ShouldAutoSize, WithStyles, WithTitle, WithCustomStartCell, WithEvents, \Maatwebsite\Excel\Concerns\WithStrictNullComparison
 {
     protected $deliveryData;
     protected $filters;
@@ -182,10 +183,10 @@ class DeliveryReportExport implements FromCollection, WithHeadings, WithMapping,
             ]
         ]);
 
-        // Apply number formatting to quantity columns (I, J, K, L, M)
+        // Quantity columns (I, J, K, L, M): four decimals, as every report prints its numbers
         $sheet->getStyle('I5:M' . $lastRow)->applyFromArray([
             'numberFormat' => [
-                'formatCode' => NumberFormat::FORMAT_NUMBER,
+                'formatCode' => \App\Support\ReportNumber::EXCEL,
             ],
         ]);
 

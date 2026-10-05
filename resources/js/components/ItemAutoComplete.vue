@@ -51,9 +51,8 @@ const dropdownRef = ref(null)
 const listRef = ref(null)
 
 // An item with no stock on hand is listed, so it is clear why it is missing, but cannot be picked.
-// Nor can the raw materials listed under a Sub-Prep (info_only: the Sub-Prep is the row to
-// add), or a Sub-Prep the server blocked - its `stock` is what its raw materials cover.
-const canPick = (item) => !item.info_only && !item.blocked_reason && Number(item.stock) > 0
+// Nor can a Sub-Prep the server blocked - its `stock` is what its raw materials cover.
+const canPick = (item) => !item.blocked_reason && Number(item.stock) > 0
 
 // Rows found through a POS product carry it; they are listed under that product's heading.
 // The index is the row's place in searchResults, which the keyboard moves through.
@@ -444,78 +443,66 @@ if (props.modelValue && typeof props.modelValue === 'object') {
                     </button>
                 </div>
 
-                <template v-for="{ item, index } in group.rows" :key="`${group.key}|${item.sub_prep ? 'sub-prep' : item.id}`">
-                    <div
-                        :data-result-index="index"
-                        class="px-3 py-2 border-b border-gray-100 last:border-b-0 scroll-mt-14"
-                        :class="[
-                            canPick(item)
-                                ? 'cursor-pointer hover:bg-gray-100'
-                                : (item.info_only ? 'cursor-default bg-gray-50' : 'cursor-not-allowed bg-gray-50 opacity-60'),
-                            { 'bg-blue-50': highlightedIndex === index }
-                        ]"
-                        :aria-disabled="!canPick(item)"
-                        :title="canPick(item) ? null : (item.info_only ? 'A raw material of the Sub-Prep. Add the Sub-Prep itself.' : (item.blocked_reason || 'Out of stock. This item cannot be added.'))"
-                        @click="selectItem(item)"
-                        @mouseenter="highlightedIndex = canPick(item) ? index : -1"
-                    >
-                        <div class="flex justify-between items-start">
-                            <div class="flex-1">
-                                <div class="font-medium text-sm text-gray-900">
-                                    <Highlight :text="item.item_code" />
-                                </div>
-                                <div class="text-sm text-gray-600">
-                                    <Highlight :text="item.description" />
-                                </div>
-                                <div class="text-xs text-gray-500">
-                                    UOM: {{ item.alt_uom || item.uom || 'not set' }}
-                                    <span v-if="item.sub_prep" class="text-amber-700">
-                                        · Wasted as itself
-                                    </span>
-                                    <span v-else-if="item.recipe_qty && item.info_only" class="text-amber-700">
-                                        · {{ item.recipe_qty }} {{ item.recipe_uom }} per {{ item.product?.uom || 'unit' }}
-                                    </span>
-                                    <span v-else-if="item.recipe_qty" class="text-amber-700">
-                                        · Recipe uses {{ item.recipe_qty }} {{ item.recipe_uom }}
-                                    </span>
-                                </div>
+                <div
+                    v-for="{ item, index } in group.rows"
+                    :key="`${group.key}|${item.sub_prep ? 'sub-prep' : item.id}`"
+                    :data-result-index="index"
+                    class="px-3 py-2 border-b border-gray-100 last:border-b-0 scroll-mt-14"
+                    :class="[
+                        canPick(item) ? 'cursor-pointer hover:bg-gray-100' : 'cursor-not-allowed bg-gray-50 opacity-60',
+                        { 'bg-blue-50': highlightedIndex === index }
+                    ]"
+                    :aria-disabled="!canPick(item)"
+                    :title="canPick(item) ? null : (item.blocked_reason || 'Out of stock. This item cannot be added.')"
+                    @click="selectItem(item)"
+                    @mouseenter="highlightedIndex = canPick(item) ? index : -1"
+                >
+                    <div class="flex justify-between items-start">
+                        <div class="flex-1">
+                            <div class="font-medium text-sm text-gray-900">
+                                <Highlight :text="item.item_code" />
                             </div>
+                            <div class="text-sm text-gray-600">
+                                <Highlight :text="item.description" />
+                            </div>
+                            <div class="text-xs text-gray-500">
+                                UOM: {{ item.alt_uom || item.uom || 'not set' }}
+                                <span v-if="item.sub_prep" class="text-amber-700">
+                                    · Wasted as itself
+                                </span>
+                                <span v-else-if="item.recipe_qty" class="text-amber-700">
+                                    · Recipe uses {{ item.recipe_qty }} {{ item.recipe_uom }}
+                                </span>
+                            </div>
+                        </div>
 
-                            <!-- A Sub-Prep has no stock of its own: what counts is what its raw materials cover -->
-                            <div v-if="item.sub_prep" class="ml-2 text-right max-w-[45%]">
-                                <template v-if="canPick(item)">
-                                    <div class="text-sm font-medium text-green-600">
-                                        Enough for {{ item.stock }} {{ item.alt_uom }}
-                                    </div>
-                                    <div class="text-xs text-green-500">Available</div>
-                                </template>
-                                <template v-else>
-                                    <div class="text-sm font-medium text-red-600">Cannot be added</div>
-                                    <div class="text-xs text-red-500">{{ item.blocked_reason }}</div>
-                                </template>
+                        <!-- A Sub-Prep has no stock of its own: what counts is what its raw materials cover -->
+                        <div v-if="item.sub_prep" class="ml-2 text-right max-w-[45%]">
+                            <template v-if="canPick(item)">
+                                <div class="text-sm font-medium text-green-600">
+                                    Enough for {{ item.stock }} {{ item.alt_uom }}
+                                </div>
+                                <div class="text-xs text-green-500">Available</div>
+                            </template>
+                            <template v-else>
+                                <div class="text-sm font-medium text-red-600">Cannot be added</div>
+                                <div class="text-xs text-red-500">{{ item.blocked_reason }}</div>
+                            </template>
+                        </div>
+                        <div v-else class="ml-2 text-right">
+                            <div class="text-sm font-medium" :class="item.stock > 0 ? 'text-green-600' : 'text-red-600'">
+                                Stock: {{ item.stock }}
                             </div>
-                            <div v-else class="ml-2 text-right">
-                                <div class="text-sm font-medium" :class="item.stock > 0 ? 'text-green-600' : 'text-red-600'">
-                                    Stock: {{ item.stock }}
-                                </div>
-                                <div v-if="item.stock > 0" class="text-xs text-green-500">
-                                    Available
-                                </div>
-                                <div v-else class="text-xs text-red-500">
-                                    Out of stock
-                                    <div v-if="!item.info_only" class="text-gray-600">Cannot be added</div>
-                                </div>
+                            <div v-if="item.stock > 0" class="text-xs text-green-500">
+                                Available
+                            </div>
+                            <div v-else class="text-xs text-red-500">
+                                Out of stock
+                                <div class="text-gray-600">Cannot be added</div>
                             </div>
                         </div>
                     </div>
-
-                    <div
-                        v-if="item.sub_prep && group.rows.length > 1"
-                        class="px-3 py-1 bg-gray-50 border-b border-gray-100 text-[11px] font-semibold uppercase tracking-wide text-gray-500"
-                    >
-                        Deducted from these raw materials
-                    </div>
-                </template>
+                </div>
             </template>
 
             <div v-if="moreProducts" class="px-3 py-2 text-xs text-gray-500 bg-gray-50 border-t border-gray-200">

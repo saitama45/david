@@ -14,7 +14,8 @@ use PhpOffice\PhpSpreadsheet\Style\Border;
 use PhpOffice\PhpSpreadsheet\Style\Fill;
 use Carbon\Carbon;
 
-class WastageTopItemsExport implements FromCollection, WithHeadings, WithStyles, WithColumnWidths, WithEvents
+// WithStrictNullComparison: a zero is written as 0 (shown 0.0000), not left as an empty cell.
+class WastageTopItemsExport implements FromCollection, WithHeadings, WithStyles, WithColumnWidths, WithEvents, \Maatwebsite\Excel\Concerns\WithStrictNullComparison
 {
     protected $data;
     protected $meta;
@@ -170,15 +171,15 @@ class WastageTopItemsExport implements FromCollection, WithHeadings, WithStyles,
                 // Number formats
                 $sheet->getStyle('G' . $firstDataRow . ':G' . $highestRow)
                     ->getNumberFormat()
-                    ->setFormatCode('#,##0.000');
+                    ->setFormatCode(\App\Support\ReportNumber::EXCEL);
 
                 $sheet->getStyle('H' . $firstDataRow . ':H' . $highestRow)
                     ->getNumberFormat()
-                    ->setFormatCode('"₱"#,##0.00');
+                    ->setFormatCode(\App\Support\ReportNumber::EXCEL_PESO);
 
                 $sheet->getStyle('I' . $firstDataRow . ':I' . $highestRow)
                     ->getNumberFormat()
-                    ->setFormatCode('#,##0.00"%"');
+                    ->setFormatCode(\App\Support\ReportNumber::EXCEL_PERCENT);
 
                 // Grand total row
                 $summaryRow = $highestRow + 2;
@@ -194,8 +195,8 @@ class WastageTopItemsExport implements FromCollection, WithHeadings, WithStyles,
                 $sheet->setCellValue('G' . $summaryRow, $totalQty);
                 $sheet->setCellValue('H' . $summaryRow, $totalAmount);
 
-                $sheet->getStyle('G' . $summaryRow)->getNumberFormat()->setFormatCode('#,##0.000');
-                $sheet->getStyle('H' . $summaryRow)->getNumberFormat()->setFormatCode('"₱"#,##0.00');
+                $sheet->getStyle('G' . $summaryRow)->getNumberFormat()->setFormatCode(\App\Support\ReportNumber::EXCEL);
+                $sheet->getStyle('H' . $summaryRow)->getNumberFormat()->setFormatCode(\App\Support\ReportNumber::EXCEL_PESO);
 
                 $sheet->getStyle('F' . $summaryRow . ':' . $highestColumn . $summaryRow)->applyFromArray([
                     'font' => [

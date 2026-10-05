@@ -1,4 +1,5 @@
 <script setup>
+import { formatReportCurrency, formatReportNumber, formatReportCount } from '@/lib/reportNumbers';
 import { ref, watch, computed } from "vue";
 import { throttle } from "lodash";
 import { router } from "@inertiajs/vue3";
@@ -200,19 +201,14 @@ const exportRoute = computed(() =>
 );
 
 // Format currency (for future use if needed)
-const formatCurrency = (amount) => {
-    if (!amount) return '₱0.00';
-    return new Intl.NumberFormat('en-PH', {
-        style: 'currency',
-        currency: 'PHP'
-    }).format(amount);
-};
+// Every quantity, amount and percentage prints with four decimals, as on all the reports.
+const formatCurrency = formatReportCurrency;
 
 // Format number with commas
-const formatNumber = (num) => {
-    if (!num) return '0';
-    return new Intl.NumberFormat('en-PH').format(num);
-};
+const formatNumber = formatReportNumber;
+
+// A count of records stays a whole number.
+const formatCount = formatReportCount;
 
 // Format date
 const formatDate = (dateString) => {
@@ -388,7 +384,7 @@ const formatDateOnly = (dateString) => {
                 <div class="flex items-center justify-between">
                     <div>
                         <p class="text-sm text-gray-600">Total Records</p>
-                        <p class="text-2xl font-bold text-gray-900">{{ formatNumber(paginatedData.total || 0) }}</p>
+                        <p class="text-2xl font-bold text-gray-900">{{ formatCount(paginatedData.total || 0) }}</p>
                     </div>
                     <ChartColumnBig class="w-8 h-8 text-blue-500" />
                 </div>

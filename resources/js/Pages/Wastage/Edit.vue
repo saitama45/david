@@ -271,7 +271,7 @@ const handleAutoCompleteItemSelect = (item) => {
 // Cart management functions
 // The cart line of an item picked from the search
 const cartLineFor = (item, id) => {
-  // A Sub-Prep is valued at its SRP, which may be 0; any other item with no cost counts as 1.
+  // A Sub-Prep is valued at its Supplier Items cost, 0 when it has none; any other item with no cost counts as 1.
   const cost = item.sub_prep ? Number(item.cost_per_quantity || 0) : Number(item.cost_per_quantity || 1.0)
 
   return {

@@ -1,4 +1,5 @@
 <script setup>
+import { formatReportCurrency, formatReportNumber } from '@/lib/reportNumbers';
 import { ref, watch, computed } from "vue";
 import { throttle } from "lodash";
 import { router } from "@inertiajs/vue3";
@@ -218,13 +219,9 @@ const getStatusClass = (status) => {
 };
 
 // Format currency
-const formatCurrency = (amount) => {
-    if (!amount) return '₱0.00';
-    return new Intl.NumberFormat('en-PH', {
-        style: 'currency',
-        currency: 'PHP'
-    }).format(amount);
-};
+// Every quantity, amount and percentage prints with four decimals, as on all the reports.
+const formatCurrency = formatReportCurrency;
+const formatNumber = formatReportNumber;
 
 </script>
 
@@ -442,8 +439,8 @@ const formatCurrency = (amount) => {
                             <tr v-for="(item, index) in lineItems" :key="item.id" class="hover:bg-gray-50 transition-colors">
                                 <td class="px-6 py-4 text-sm font-mono text-gray-900">{{ item.item_code || 'N/A' }}</td>
                                 <td class="px-6 py-4 text-sm text-gray-900 max-w-xs truncate" :title="item.item_description">{{ item.item_description || 'N/A' }}</td>
-                                <td class="px-6 py-4 text-sm text-center font-medium text-gray-900">{{ item.committed_qty || 0 }}</td>
-                                <td class="px-6 py-4 text-sm text-center font-medium text-gray-900">{{ item.received_qty || 0 }}</td>
+                                <td class="px-6 py-4 text-sm text-center font-medium text-gray-900">{{ formatNumber(item.committed_qty) }}</td>
+                                <td class="px-6 py-4 text-sm text-center font-medium text-gray-900">{{ formatNumber(item.received_qty) }}</td>
                                 <td class="px-6 py-4 text-sm text-gray-600">{{ item.uom || 'N/A' }}</td>
                                 <td class="px-6 py-4 text-sm text-gray-600">{{ formatDate(item.requested_delivery_date) }}</td>
                                 <td class="px-6 py-4 text-sm text-gray-600 max-w-xs truncate" :title="item.interco_reason">{{ item.interco_reason || 'N/A' }}</td>
@@ -499,7 +496,7 @@ const formatCurrency = (amount) => {
                             </div>
                             <div class="text-right">
                                 <div class="text-sm font-semibold text-gray-900">{{ formatCurrency(item.total_cost) }}</div>
-                                <div class="text-xs text-gray-500">{{ item.received_qty || 0 }} {{ item.uom || 'N/A' }}</div>
+                                <div class="text-xs text-gray-500">{{ formatNumber(item.received_qty) }} {{ item.uom || 'N/A' }}</div>
                             </div>
                         </div>
 

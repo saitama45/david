@@ -56,6 +56,20 @@ final class SubPrepRecipe
             ->values();
     }
 
+    /**
+     * What one unit of the Sub-Prep costs: the Cost of its line on the Supplier Items list,
+     * under its POS Code and the unit its wastage is filed in - not its SRP, a selling price.
+     * Priced only in another unit SAP links to that one (a Batch of 200 Ml), the cost is
+     * converted; priced nowhere, it is 0.
+     */
+    public static function unitCost(POSMasterfile $subPrep): float
+    {
+        $entityId = $subPrep->entity_id !== null ? (int) $subPrep->entity_id : null;
+
+        return SupplierUnitCost::forItems([$subPrep->POSCode])
+            ->find($subPrep->POSCode, ItemStockUnit::forItem($subPrep->POSCode, $entityId), $subPrep->UOM) ?? 0.0;
+    }
+
     private static function key(?string $value): string
     {
         return strtoupper(trim((string) $value));
