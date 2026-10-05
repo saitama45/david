@@ -1,8 +1,10 @@
 <script setup>
 import { formatReportNumber } from '@/lib/reportNumbers';
-import { ref, watch, computed } from "vue";
+import { ref, reactive, watch, computed } from "vue";
 import { throttle } from "lodash";
 import { router } from "@inertiajs/vue3";
+import axios from "axios";
+import Dialog from "primevue/dialog";
 import { Calendar, Search, RotateCcw, Filter, ChevronDown, Package, CalendarDays, Building2, TrendingUp, TrendingDown, ClipboardCheck, Info, FileText, FileSpreadsheet, Truck, ArrowUpDown, ArrowUp, ArrowDown } from "lucide-vue-next";
 import SearchableSelect from "@/components/ui/select/SearchableSelect.vue";
 import Pagination from "@/components/table/Pagination.vue";
@@ -115,6 +117,69 @@ const resetFilters = () => {
     sortDirection.value = 'asc';
     updateFilters();
 };
+
+// ---- The transactions behind a figure: a click on it opens them in a popup.
+// label is the column as the table heads it; date says which date the report files a line under.
+const detailColumns = {
+    ordered: { label: 'Ordered', date: 'Order Date' },
+    committed: { label: 'Committed', date: 'Order Date' },
+    received: { label: 'Received', date: 'Order Date' },
+    beg_bal: { label: 'Beg Bal Qty', date: 'MEC Date' },
+    sales: { label: 'Sales Qty', date: 'Sales Date' },
+    wastage: { label: 'Wastage Qty', date: 'Date Filed' },
+    supplies: { label: 'Supplies Used', date: 'MEC Date' },
+    interco_in: { label: 'Inbound Interco', date: 'Order Date' },
+    interco_out: { label: 'Outbound Interco', date: 'Order Date' },
+};
+
+const detail = reactive({
+    visible: false,
+    loading: false,
+    error: '',
+    item: null,
+    metric: null,
+    // The period and store the figure was worked out for, kept with it in case the filters are edited meanwhile
+    filters: null,
+    data: null,
+});
+
+const loadDetails = async (page = 1) => {
+    detail.loading = true;
+    detail.error = '';
+
+    try {
+        const response = await axios.get(route('reports.inventory-movement.details'), {
+            params: { ...detail.filters, sap_code: detail.item.sap_code, metric: detail.metric, page },
+        });
+        detail.data = response.data;
+    } catch (error) {
+        detail.error = error.response?.data?.message || 'The transactions could not be loaded. Please try again.';
+    } finally {
+        detail.loading = false;
+    }
+};
+
+const openDetails = (item, metric) => {
+    detail.item = item;
+    detail.metric = metric;
+    detail.data = null;
+    detail.filters = { branch_id: props.filters.branch_id, date_from: props.filters.date_from, date_to: props.filters.date_to };
+    detail.visible = true;
+    loadDetails();
+};
+
+const detailPages = computed(() => (detail.data ? Math.max(1, Math.ceil(detail.data.total_rows / detail.data.per_page)) : 1));
+const detailRange = computed(() => {
+    if (!detail.data || detail.data.total_rows === 0) return '';
+    const first = (detail.data.page - 1) * detail.data.per_page + 1;
+
+    return `${first} to ${first + detail.data.rows.length - 1} of ${detail.data.total_rows}`;
+});
+const detailStore = computed(() => {
+    const branch = props.branches.find((each) => String(each.id) === String(detail.filters?.branch_id));
+
+    return branch ? `${branch.name} (${branch.branch_code})` : '';
+});
 
 const exportParams = () => new URLSearchParams({
     date_from: dateFrom.value,
@@ -245,6 +310,7 @@ const formatNumber = formatReportNumber;
             All totals use the SAP base unit shown in the UOM column. Procurement quantities in their original units appear below the totals (for example, 36 Gm sold of a 1,000 Gm Bag = 0.0360 Bag).
             Supplies Used applies to Operating / Cleaning Supplies items: the usage the month end count shows once sales, wastage and transfers are accounted for.
             A Wastage Qty marked <span class="rounded bg-amber-100 px-1 py-0.5 text-[11px] font-semibold text-amber-800">Sub-Prep</span> includes a wasted Sub-Prep, charged to this raw material through its BOM.
+            Click any underlined figure to see the transactions behind it.
         </p>
         <div class="bg-white rounded-xl border border-gray-200 shadow-sm overflow-visible">
             <div v-if="isLoading" class="absolute inset-0 bg-white/80 flex items-center justify-center z-10">
@@ -425,7 +491,7 @@ const formatNumber = formatReportNumber;
                                 class="px-3 py-4 text-center border-r border-gray-100"
                                 :class="metric === 'received' ? 'font-medium text-blue-600 bg-blue-50/30' : 'text-gray-600'"
                             >
-                                {{ formatNumber(item[`${metric}_qty`]) }}
+                                <button type="button" class="underline decoration-dotted underline-offset-2 hover:decoration-solid focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 rounded-sm" title="Show the transactions" @click="openDetails(item, metric)">{{ formatNumber(item[`${metric}_qty`]) }}</button>
                                 <div
                                     v-for="source in (item.procurement_sources?.[metric] || []).filter((s) => s.uom.toUpperCase() !== item.uom.toUpperCase())"
                                     :key="source.uom"
@@ -435,10 +501,10 @@ const formatNumber = formatReportNumber;
                                     {{ formatNumber(source.quantity) }} {{ source.uom }}
                                 </div>
                             </td>
-                            <td class="px-3 py-4 text-center font-medium text-emerald-600 border-r border-gray-100 bg-emerald-50/30">{{ formatNumber(item.beg_bal_qty) }}</td>
-                            <td class="px-3 py-4 text-center font-medium text-red-600 border-r border-gray-100 bg-red-50/30">{{ formatNumber(item.sales_qty) }}</td>
+                            <td class="px-3 py-4 text-center font-medium text-emerald-600 border-r border-gray-100 bg-emerald-50/30"><button type="button" class="underline decoration-dotted underline-offset-2 hover:decoration-solid focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 rounded-sm" title="Show the transactions" @click="openDetails(item, 'beg_bal')">{{ formatNumber(item.beg_bal_qty) }}</button></td>
+                            <td class="px-3 py-4 text-center font-medium text-red-600 border-r border-gray-100 bg-red-50/30"><button type="button" class="underline decoration-dotted underline-offset-2 hover:decoration-solid focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 rounded-sm" title="Show the transactions" @click="openDetails(item, 'sales')">{{ formatNumber(item.sales_qty) }}</button></td>
                             <td class="px-3 py-4 text-center font-medium text-orange-600 border-r border-gray-100 bg-orange-50/30">
-                                {{ formatNumber(item.wastage_qty) }}
+                                <button type="button" class="underline decoration-dotted underline-offset-2 hover:decoration-solid focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 rounded-sm" title="Show the transactions" @click="openDetails(item, 'wastage')">{{ formatNumber(item.wastage_qty) }}</button>
                                 <!-- The part that is a wasted Sub-Prep, charged to this raw material through its BOM -->
                                 <div
                                     v-for="subPrep in item.wastage_sub_preps || []"
@@ -451,13 +517,13 @@ const formatNumber = formatReportNumber;
                                 </div>
                             </td>
                             <td class="px-3 py-4 text-center border-r border-gray-100" :class="item.supplies_type ? 'font-medium text-amber-700 bg-amber-50/30' : 'text-gray-400'">
-                                <template v-if="item.supplies_counted">{{ formatNumber(item.supplies_qty) }}</template>
-                                <span v-else-if="item.supplies_type" class="text-[11px] italic text-gray-400">Awaiting MEC</span>
+                                <button v-if="item.supplies_counted" type="button" class="underline decoration-dotted underline-offset-2 hover:decoration-solid focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 rounded-sm" title="Show how it was worked out" @click="openDetails(item, 'supplies')">{{ formatNumber(item.supplies_qty) }}</button>
+                                <button v-else-if="item.supplies_type" type="button" class="text-[11px] italic text-gray-400 underline decoration-dotted underline-offset-2 hover:decoration-solid focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 rounded-sm" title="Show how it will be worked out" @click="openDetails(item, 'supplies')">Awaiting MEC</button>
                                 <template v-else>-</template>
                                 <div v-if="item.supplies_type" class="mt-1 text-[10px] font-normal text-gray-500 whitespace-nowrap">{{ item.supplies_type }}</div>
                             </td>
-                            <td class="px-3 py-4 text-center text-gray-600 border-r border-gray-100">{{ formatNumber(item.interco_in_qty) }}</td>
-                            <td class="px-3 py-4 text-center text-gray-600 border-r border-gray-100">{{ formatNumber(item.interco_out_qty) }}</td>
+                            <td class="px-3 py-4 text-center text-gray-600 border-r border-gray-100"><button type="button" class="underline decoration-dotted underline-offset-2 hover:decoration-solid focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 rounded-sm" title="Show the transactions" @click="openDetails(item, 'interco_in')">{{ formatNumber(item.interco_in_qty) }}</button></td>
+                            <td class="px-3 py-4 text-center text-gray-600 border-r border-gray-100"><button type="button" class="underline decoration-dotted underline-offset-2 hover:decoration-solid focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 rounded-sm" title="Show the transactions" @click="openDetails(item, 'interco_out')">{{ formatNumber(item.interco_out_qty) }}</button></td>
                             <td class="px-3 py-4 text-center font-bold text-gray-900 border-r border-gray-100 bg-purple-50/30">{{ formatNumber(item.theoretical_qty) }}</td>
                             <td class="px-3 py-4 text-center font-bold border-r border-gray-100" :class="item.actual_mec !== null ? 'text-indigo-600 bg-indigo-50/30' : 'text-gray-400 font-normal italic'">
                                 {{ item.actual_mec !== null ? formatNumber(item.actual_mec) : 'Not Available' }}
@@ -491,5 +557,105 @@ const formatNumber = formatReportNumber;
                 </div>
             </div>
         </div>
+
+        <!-- The transactions behind the figure that was clicked -->
+        <Dialog
+            v-model:visible="detail.visible"
+            modal
+            :header="detail.item ? `${detailColumns[detail.metric].label}: ${detail.item.sap_code} ${detail.item.item_description}` : ''"
+            :style="{ width: '900px' }"
+            :breakpoints="{ '1023px': '95vw' }"
+        >
+            <div v-if="detail.item" class="space-y-4 text-sm">
+                <div class="flex flex-wrap items-center justify-between gap-2 rounded-md bg-gray-50 px-3 py-2 text-gray-600">
+                    <span>{{ detailStore }} · {{ formatDate(detail.filters.date_from) }} to {{ formatDate(detail.filters.date_to) }}</span>
+                    <span v-if="detail.data" class="font-semibold text-gray-900">
+                        Total: {{ formatNumber(detail.data.total) }} {{ detail.data.uom }}
+                    </span>
+                </div>
+
+                <div v-if="detail.error" class="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-red-700">{{ detail.error }}</div>
+                <div v-else-if="!detail.data" class="py-8 text-center text-gray-500">Loading the transactions...</div>
+
+                <template v-else>
+                    <p v-if="detail.data.note" class="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-amber-800">{{ detail.data.note }}</p>
+
+                    <!-- Supplies Used has no transaction: it is worked out -->
+                    <table v-if="detail.data.calculation.length" class="w-full max-w-md text-sm">
+                        <tbody>
+                            <tr
+                                v-for="line in detail.data.calculation"
+                                :key="line.label"
+                                :class="line.sign === '=' ? 'border-t border-gray-300 font-semibold text-gray-900' : 'text-gray-700'"
+                            >
+                                <td class="w-6 py-1 text-center font-mono">{{ line.sign }}</td>
+                                <td class="py-1">{{ line.label }}</td>
+                                <td class="py-1 text-right font-mono">{{ formatNumber(line.value) }} {{ detail.data.uom }}</td>
+                            </tr>
+                        </tbody>
+                    </table>
+
+                    <div v-if="detail.data.rows.length" class="overflow-x-auto rounded-md border border-gray-200" :class="{ 'opacity-60': detail.loading }">
+                        <table class="min-w-full text-sm">
+                            <thead class="bg-gray-50 text-xs uppercase tracking-wide text-gray-500">
+                                <tr>
+                                    <th class="px-3 py-2 text-left">{{ detailColumns[detail.metric].date }}</th>
+                                    <th class="px-3 py-2 text-left">Ref No.</th>
+                                    <th class="px-3 py-2 text-left">Details</th>
+                                    <th class="px-3 py-2 text-right">Qty</th>
+                                    <th class="px-3 py-2 text-left">UOM</th>
+                                    <th class="px-3 py-2 text-right">In {{ detail.data.uom }}</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-gray-100">
+                                <tr v-for="(row, index) in detail.data.rows" :key="`${row.ref_no}-${index}`" class="hover:bg-gray-50">
+                                    <td class="px-3 py-2 whitespace-nowrap text-gray-700">{{ row.date || '-' }}</td>
+                                    <td class="px-3 py-2 whitespace-nowrap font-mono">
+                                        <a
+                                            v-if="row.ref_url"
+                                            :href="row.ref_url"
+                                            target="_blank"
+                                            rel="noopener"
+                                            class="text-blue-600 underline hover:text-blue-800"
+                                            title="Open this transaction in a new tab"
+                                        >{{ row.ref_no || 'Open' }}</a>
+                                        <span v-else>{{ row.ref_no || '-' }}</span>
+                                    </td>
+                                    <td class="px-3 py-2 text-gray-700">{{ row.details }}</td>
+                                    <td class="px-3 py-2 text-right font-mono">{{ formatNumber(row.quantity) }}</td>
+                                    <td class="px-3 py-2 text-gray-600">{{ row.uom || '-' }}</td>
+                                    <td class="px-3 py-2 text-right font-mono font-medium text-gray-900">
+                                        <template v-if="row.converted !== null">{{ formatNumber(row.converted) }}</template>
+                                        <span v-else class="text-xs font-normal text-amber-700" :title="`No SAP conversion from ${row.uom} to ${detail.data.uom}; this line is not in the figure.`">Excluded</span>
+                                    </td>
+                                </tr>
+                            </tbody>
+                            <tfoot class="bg-gray-50 font-semibold text-gray-900">
+                                <tr>
+                                    <td colspan="5" class="px-3 py-2 text-right">Total of all {{ detail.data.total_rows }} line{{ detail.data.total_rows === 1 ? '' : 's' }}</td>
+                                    <td class="px-3 py-2 text-right font-mono">{{ formatNumber(detail.data.total) }}</td>
+                                </tr>
+                            </tfoot>
+                        </table>
+                    </div>
+                    <p v-else-if="!detail.data.calculation.length && !detail.data.note" class="py-6 text-center text-gray-500">
+                        No transactions make up this figure in the period.
+                    </p>
+
+                    <p v-if="detail.data.unconverted_units.length" class="text-xs text-amber-700">
+                        Lines in {{ detail.data.unconverted_units.join(', ') }} have no SAP conversion to {{ detail.data.uom }} and are not in the figure.
+                    </p>
+
+                    <div v-if="detailPages > 1" class="flex items-center justify-between text-xs text-gray-600">
+                        <span>Showing {{ detailRange }}</span>
+                        <div class="flex items-center gap-2">
+                            <Button variant="outline" size="sm" :disabled="detail.loading || detail.data.page <= 1" @click="loadDetails(detail.data.page - 1)">Previous</Button>
+                            <span>Page {{ detail.data.page }} of {{ detailPages }}</span>
+                            <Button variant="outline" size="sm" :disabled="detail.loading || detail.data.page >= detailPages" @click="loadDetails(detail.data.page + 1)">Next</Button>
+                        </div>
+                    </div>
+                </template>
+            </div>
+        </Dialog>
     </Layout>
 </template>

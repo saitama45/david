@@ -267,6 +267,11 @@ SQL Server as the target. Rationale and trade-offs: [Decisions.md](docs/knowledg
   `POSMasterfileController::categoryNames()` (menu categories + categories in use); a Select given only
   `MenuCategory::options()` shows blank for every other category. `pos_masterfiles.UOM` (2026-10-05) is
   free text for reference only; nothing computes with it.
+- **A figure of the Inventory Movement Report opens its transactions** (`InventoryMovementDetailService`,
+  `/reports/inventory-movement/details`). Each of its queries is the row-by-row twin of the one
+  `InventoryMovementService` sums for that column: **change a column's source, filter or unit in one
+  and change it in the other**, or the popup stops adding up to the figure
+  (`InventoryMovementDetailTest` compares all nine). Unit conversion is shared through `itemUnits()`.
 - **A report prints every quantity, amount and percentage with four decimals**, whatever the value
   (5 -> 5.0000), the same on the page, in the PDF and in the Excel export. Pages use
   `resources/js/lib/reportNumbers.js`; exports use `App\Support\ReportNumber` (`EXCEL` number formats,

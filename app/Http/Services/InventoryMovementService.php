@@ -250,15 +250,7 @@ class InventoryMovementService
         $subPrepWastage = $subPrepWastage->groupBy(['branch_id', 'item_code']);
 
         // The units belong to the item, whichever branch holds it.
-        $units = $itemsByCode->map(function ($rows) {
-            [$displayUnit, $unitSizes] = $this->resolveUnits($rows);
-            // A line with no unit is taken to be in the stock unit, when the item has only one.
-            $stockUnits = $rows->filter(fn ($row) => strcasecmp(trim((string) $row->AltUOM), trim((string) $row->BaseUOM)) === 0)
-                ->map(fn ($row) => strtoupper(trim((string) $row->BaseUOM)))
-                ->unique();
-
-            return [$displayUnit, $unitSizes, $stockUnits->count() === 1 ? $stockUnits->first() : ''];
-        });
+        $units = $itemsByCode->map(fn ($rows) => $this->itemUnits($rows));
 
         foreach ($branchIds as $branchId) {
             $branchTotals = array_map(fn ($byBranch) => $byBranch->get($branchId, collect()), $totals);
@@ -398,6 +390,24 @@ class InventoryMovementService
         }
 
         return $tags;
+    }
+
+    /**
+     * How one item's quantities are converted for the report: the unit shown, how many of it
+     * each of its units holds, and the unit a line with no unit is taken to be in (the stock
+     * unit, when the item has only one). InventoryMovementDetailService converts with the same.
+     *
+     * @param  \Illuminate\Support\Collection  $rows  the item's sap_masterfiles rows
+     * @return array{0: string, 1: array<string, float>, 2: string}
+     */
+    public function itemUnits($rows): array
+    {
+        [$displayUnit, $unitSizes] = $this->resolveUnits($rows);
+        $stockUnits = collect($rows)->filter(fn ($row) => strcasecmp(trim((string) $row->AltUOM), trim((string) $row->BaseUOM)) === 0)
+            ->map(fn ($row) => strtoupper(trim((string) $row->BaseUOM)))
+            ->unique();
+
+        return [$displayUnit, $unitSizes, $stockUnits->count() === 1 ? $stockUnits->first() : ''];
     }
 
     /**

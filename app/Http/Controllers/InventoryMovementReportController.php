@@ -107,6 +107,39 @@ class InventoryMovementReportController extends Controller
         ]);
     }
 
+    /**
+     * The transactions behind one figure of the report, for the popup a click on it opens:
+     * one item, one column, one page of lines, each with the link of its reference.
+     */
+    public function details(Request $request)
+    {
+        $validated = $request->validate([
+            'branch_id' => ['required', 'integer'],
+            'date_from' => ['required', 'date'],
+            'date_to' => ['required', 'date', 'after_or_equal:date_from'],
+            'sap_code' => ['required', 'string', 'max:255'],
+            'metric' => ['required', \Illuminate\Validation\Rule::in(\App\Http\Services\InventoryMovementDetailService::METRICS)],
+            'page' => ['nullable', 'integer', 'min:1'],
+        ]);
+
+        // Only a store the user is assigned to, as the report's own store list.
+        $user = Auth::user();
+        $user->load('store_branches');
+        abort_unless($user->store_branches->contains('id', (int) $validated['branch_id']), 403, 'You are not assigned to this store.');
+
+        // The item's active rows, the ones the report converts its units with.
+        $sapRows = SAPMasterfile::where('is_active', true)->where('ItemCode', $validated['sap_code'])->orderBy('id')->get();
+        abort_if($sapRows->isEmpty(), 404);
+
+        return response()->json(app(\App\Http\Services\InventoryMovementDetailService::class)->details(
+            $sapRows,
+            (int) $validated['branch_id'],
+            ['date_from' => Carbon::parse($validated['date_from'])->toDateString(), 'date_to' => Carbon::parse($validated['date_to'])->toDateString()],
+            $validated['metric'],
+            (int) ($validated['page'] ?? 1)
+        ));
+    }
+
     public function exportPdf(Request $request)
     {
         ['filters' => $filters, 'movementData' => $movementData, 'branch' => $branch, 'supplier' => $supplier, 'generatedAt' => $generatedAt]

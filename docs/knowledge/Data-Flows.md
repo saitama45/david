@@ -131,6 +131,27 @@ a sale reads it** (`StoreTransactionReceiptProcessor`): 5 ml wasted x 100 Gm BOM
 
 Both readings use the BOM as it is now, as sales do: editing a BOM changes past figures in the report.
 
+## Inventory Movement Report drill-down
+
+Nine columns of `/reports/inventory-movement` are clickable (2026-10-05): Ordered, Committed,
+Received, Beg Bal Qty, Sales Qty, Wastage Qty, Supplies Used, Inbound and Outbound Interco. The page
+calls `reports.inventory-movement.details` (branch, dates, `sap_code`, `metric`, `page`), which only
+answers for a store the user is assigned to.
+
+`InventoryMovementDetailService::source()` returns, per metric, one row per source line with the
+same joins and filters as the grouped query in `InventoryMovementService`, as `tx_date, ref_no,
+ref_id, d1, d2, unit, qty`. The service pages it (25), sums it per unit and converts with the
+report's own `itemUnits()`, so `total` equals the cell. Wastage is a `UNION ALL` of the item's own
+lines and the Sub-Prep lines (quantity x BOM Qty). Supplies Used has no source: its popup is the
+calculation (`calculation`) with the current count as its one reference.
+
+Ref No. links (`url()`): an order opens where it was placed - `mass-orders.show` by order number,
+`dts-mass-orders.show` by `batch_reference` for a DTS variant, `store-orders.show` otherwise (that
+module is unused: every live order is a mass variant); Received `orders-receiving.show`; Sales
+`store-transactions.show`; Wastage `wastage.show.by-number`; Beg Bal / Supplies
+`month-end-count-approvals.show`; Interco in `interco-receiving.show` (by interco number), out
+`interco.show` (by order id). Each target keeps its own permission.
+
 ## Report numbers
 
 The seven reports (Qty / Cost Variance, Inventory Movement, PMIX, Wastage, Delivery, Actual Cost /

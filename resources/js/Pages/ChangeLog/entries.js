@@ -18,6 +18,35 @@ export const changeLog = [
     // ---------------------------------------------------------------- October 5, 2026
     {
         date: '2026-10-05',
+        module: 'Inventory Movement Report',
+        type: 'new',
+        title: 'Click a figure in the Inventory Movement Report to see the transactions behind it, each with a Ref No. that opens the transaction',
+        summary:
+            'The report showed one total per column and there was no way to see what made it up. The figures under Ordered, Committed, Received, Beg Bal Qty, Sales Qty, Wastage Qty, Supplies Used, Inbound Interco and Outbound Interco are now underlined. Clicking one opens a list of the transactions behind it, and the Ref No. of each line opens that transaction in a new tab.',
+        steps: [
+            'Open the Inventory Movement Report and choose the Branch and the dates.',
+            'Click an underlined figure on the row of an item.',
+            'The popup shows the store, the dates and the total, then one line for each transaction: its date, Ref No., details, quantity, UOM and the quantity in the UoM of the report.',
+            'Click a Ref No. to open that transaction in a new tab.',
+            'When there are more than 25 lines, use "Previous" and "Next". The total at the bottom is for all the lines.',
+        ],
+        rules: [
+            'The lines always add up to the figure that was clicked. A line in another unit shows its own quantity and the quantity converted to the UoM of the report.',
+            'Ordered and Committed list the orders of the period by Order Date. The Ref No. is the order number and opens the order in Mass Orders, or in DTS Mass Orders for a DTS order.',
+            'Received lists each approved delivery of those orders, with the date it was received. The Ref No. opens the order in Inbound Orders.',
+            'Sales Qty lists one line for each receipt and product sold, with the quantity of the item that its BOM uses. The Ref No. is the receipt number and opens the store transaction.',
+            'Wastage Qty lists each wastage record that is Approved Level 2. A line that came from a wasted Sub-Prep says so and names the Sub-Prep. The Ref No. is the wastage number.',
+            'Beg Bal Qty lists the lines of the month end count of the month before. The Ref No. opens that count.',
+            'Inbound Interco and Outbound Interco list the transfers. The Ref No. is the interco number.',
+            'Supplies Used has no transactions. The popup shows how it was worked out: the stock the books expect, less the Actual MEC. Its Ref No. opens the month end count.',
+            'A line in a unit that has no conversion in the SAP Masterlist is marked "Excluded" and is not in the total, the same as on the report.',
+            'A page opened from a Ref No. still needs its own permission. A user who cannot view that page is told so there.',
+            'Only the stores assigned to the user can be opened.',
+        ],
+        affects: 'Finance and inventory analysts, and stores that review their month end variance.',
+    },
+    {
+        date: '2026-10-05',
         module: 'Reports',
         type: 'improved',
         title: 'Numbers on the reports are now shown with 4 decimals, on the page, in the Excel export and in the PDF export',
