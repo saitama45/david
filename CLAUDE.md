@@ -269,6 +269,10 @@ SQL Server as the target. Rationale and trade-offs: [Decisions.md](docs/knowledg
   every item-list action (receive, edit/delete history, add unlisted, confirm) checks
   `OrderReceivingService::receivingLockedProblem()`. Confirm Receive All posts but leaves the list open.
   The old 3-day window from `order_date` is gone. Delivery receipts and images stay editable.
+- **Receiving has no approval step.** A receipt row's `approved` status means *posted to stock* by the
+  store's Confirm / Final Receive All (`pending` → `received` → `approved`); `/receiving-approvals` is a
+  legacy page outside the process. Never tell a user a receipt is "awaiting approval" or link there:
+  an unposted quantity is "waiting for Confirm Receive All", in Inbound Orders.
 - **Zero All is the one receiving action that needs no delivery receipt and no image.** It is for a
   delivery that did not arrive: `OrderReceivingService::zeroUnconfirmedReceipts()` sets every unposted
   row to 0 / `Unserved` (status `received`) and posts nothing. Confirm / Final Receive All check

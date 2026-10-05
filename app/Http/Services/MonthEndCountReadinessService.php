@@ -186,22 +186,31 @@ class MonthEndCountReadinessService
             }
         }
 
-        // A RECEIVED order whose receipt lines are not all approved: the report's Received
-        // counts approved lines only.
-        $unapprovedReceipts = DB::table('store_orders as so')
+        // A RECEIVED order with a quantity recorded but not posted yet - an item added with Add
+        // Unlisted Item after Confirm Receive All. The report's Received counts posted lines
+        // only ('approved' is the posted state: nobody approves a receipt in Inbound Orders,
+        // the store posts it with Confirm Receive All or Final Receive All).
+        //
+        // Only what the store can still post holds it back. Not a delivery locked by Final
+        // Receive All, not a zero (Unserved) line, which moves no stock, and not a 'pending'
+        // placeholder nobody recorded: on a RECEIVED order that is a leftover beside a posted
+        // receipt, and confirming it would post the item twice.
+        $unconfirmedReceipts = DB::table('store_orders as so')
             ->join('store_order_items as soi', 'soi.store_order_id', '=', 'so.id')
             ->join('ordered_item_receive_dates as oird', 'oird.store_order_item_id', '=', 'soi.id')
             ->whereNull('so.interco_number')
             ->whereIn('so.store_branch_id', $branchIds)
             ->whereBetween('so.order_date', [$from, $through])
             ->where('so.order_status', 'received')
-            ->whereIn('oird.status', ['pending', 'received'])
+            ->whereNull('so.receiving_finalized_at')
+            ->where('oird.status', 'received')
+            ->whereRaw('COALESCE(oird.quantity_received, 0) <> 0')
             ->select('so.store_branch_id', DB::raw('COUNT(DISTINCT so.id) as total'))
             ->groupBy('so.store_branch_id')
             ->get();
-        foreach ($unapprovedReceipts as $row) {
-            $add((int) $row->store_branch_id, 'receipt_approval', (int) $row->total,
-                $plural((int) $row->total, 'delivery', 'deliveries').' with a receipt awaiting approval', 'receiving-approvals.index');
+        foreach ($unconfirmedReceipts as $row) {
+            $add((int) $row->store_branch_id, 'receipt_confirmation', (int) $row->total,
+                $plural((int) $row->total, 'delivery', 'deliveries').' with items waiting for Confirm Receive All', 'orders-receiving.index');
         }
 
         // Interco: the receiving store waits until its transfer is received. The sending

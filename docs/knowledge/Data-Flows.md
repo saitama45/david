@@ -294,12 +294,23 @@ upload, and October movements leaked into September's Current SOH.
 The download is **withheld** while the store has open work in that period
 (`MonthEndCountReadinessService::blockersForPeriods()`): orders not RECEIVED (approval or receiving
 open - there is no "awaiting commit" blocker, since an approved order is received directly and so just
-counts as not yet received), a RECEIVED order with unapproved receipt lines, an incoming interco
+counts as not yet received), a RECEIVED order with a recorded quantity not posted yet (see below), an incoming interco
 transfer not received, wastage below level 2, and the previous month's count not level 2 approved.
 `/month-end-count` lists them per branch with links; the server refuses too. Sales have
 no approval step (`StoreTransactionApprovalController` queries a dropped `is_approved` column).
 Two checks were dropped on 2026-10-01 at the user's request and must not come back: an interco
 transfer the store sends but has not committed, and unapproved SOH adjustments.
+
+**Receiving has no approval step, so there is no "receipt awaiting approval" blocker** (2026-10-05).
+A receipt row (`ordered_item_receive_dates.status`) goes `pending` (worksheet placeholder, TO RECEIVE)
+→ `received` (a quantity recorded) → `approved`, and `approved` only means *posted to stock* by the
+store's own Confirm Receive All / Final Receive All; `/receiving-approvals` is a legacy page outside
+the process. The blocker (`receipt_confirmation`, "delivery with items waiting for Confirm Receive
+All", linked to Inbound Orders) is a RECEIVED order, not finalized, with a `received` row whose
+quantity is not 0 - in practice an Add Unlisted Item made after Confirm Receive All. It leaves out
+what the store cannot post or what moves no stock: a delivery locked by Final Receive All, a zero
+(Unserved) line, and a `pending` row on a RECEIVED order (a leftover beside a posted receipt, e.g.
+from the Mass Orders re-approval bug; confirming it would post the item twice).
 
 ## Qty Variance / Cost Variance report
 

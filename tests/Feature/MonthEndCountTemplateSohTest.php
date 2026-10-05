@@ -102,13 +102,20 @@ it('blocks a store on every unfinished transaction this month, and only this mon
     foreach (['pending', 'approved', 'committed', 'incomplete'] as $status) {
         mecSohOrder($f, $a, '2026-09-10', $status);
     }
-    // Received, but one receipt line still waits for approval.
-    $received = mecSohOrder($f, $a, '2026-09-11', 'received');
-    $line = DB::table('store_order_items')->insertGetId([
-        'store_order_id' => $received, 'item_code' => 'RM-ESP', 'uom' => 'Bag',
-        'quantity_ordered' => 1, 'quantity_approved' => 1, 'quantity_commited' => 1, 'cost_per_quantity' => 0, 'total_cost' => 0,
-    ]);
-    DB::table('ordered_item_receive_dates')->insert(['store_order_item_id' => $line, 'quantity_received' => 1, 'status' => 'received']);
+    $receipt = function (array $order, array $row) use ($f, $a) {
+        $line = DB::table('store_order_items')->insertGetId([
+            'store_order_id' => mecSohOrder($f, $a, '2026-09-11', 'received', $order), 'item_code' => 'RM-ESP', 'uom' => 'Bag',
+            'quantity_ordered' => 1, 'quantity_approved' => 1, 'quantity_commited' => 1, 'cost_per_quantity' => 0, 'total_cost' => 0,
+        ]);
+        DB::table('ordered_item_receive_dates')->insert(['store_order_item_id' => $line] + $row);
+    };
+    // Received, but a quantity recorded on it is not posted yet: Confirm Receive All is due.
+    $receipt([], ['quantity_received' => 1, 'status' => 'received']);
+    // Nothing the store can post, or that would move stock: a delivery locked by Final
+    // Receive All, an Unserved line, and a placeholder nobody recorded.
+    $receipt(['receiving_finalized_at' => '2026-09-12 08:00:00'], ['quantity_received' => 1, 'status' => 'received']);
+    $receipt([], ['quantity_received' => 0, 'status' => 'received', 'remarks' => 'Unserved']);
+    $receipt([], ['quantity_received' => 1, 'status' => 'pending']);
 
     // Interco: A receives one still in transit, and has not committed one it sends.
     mecSohOrder($f, $a, '2026-09-12', 'approved', ['interco_number' => 'IC-1', 'interco_status' => 'in_transit', 'sending_store_branch_id' => $c->id]);
@@ -148,13 +155,18 @@ it('blocks a store on every unfinished transaction this month, and only this mon
         // Approved and committed alike: committing is not a prerequisite of receiving.
         'orders_not_yet_received' => 2,
         'orders_not_yet_fully_received' => 1,
-        'receipt_approval' => 1,
+        'receipt_confirmation' => 1,
         'interco_receive' => 1,
         'wastage_level1' => 1,
         'wastage_level2' => 1,
         'previous_count' => 1,
         // The interco A has not committed as sender, and its unapproved SOH adjustment, do not block.
     ])->and($blockers)->not->toHaveKey($b->id);
+
+    // Receiving has no approval step: the store is sent to Inbound Orders to confirm.
+    $unconfirmed = collect($blockers[$a->id])->firstWhere('key', 'receipt_confirmation');
+    expect($unconfirmed['label'])->toBe('1 delivery with items waiting for Confirm Receive All')
+        ->and($unconfirmed['url'])->toBe(route('orders-receiving.index'));
 });
 
 it('fills Current SOH with the Theoretical SOH of the report, in each line\'s Bulk UOM', function () {
