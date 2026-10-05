@@ -153,13 +153,13 @@ class MonthEndCountReadinessService
             return $blockers;
         }
 
-        $add = function (int $branchId, string $key, int $count, string $label, ?string $route) use (&$blockers) {
+        $add = function (int $branchId, string $key, int $count, string $label, ?string $route, array $parameters = []) use (&$blockers) {
             if ($count > 0) {
                 $blockers[$branchId][] = [
                     'key' => $key,
                     'label' => $label,
                     'count' => $count,
-                    'url' => $route && Route::has($route) ? route($route) : null,
+                    'url' => $route && Route::has($route) ? route($route, $parameters) : null,
                 ];
             }
         };
@@ -186,15 +186,18 @@ class MonthEndCountReadinessService
             }
         }
 
-        // A RECEIVED order with a quantity recorded but not posted yet - an item added with Add
+        // A RECEIVED order with an item that was recorded but never posted - one added with Add
         // Unlisted Item after Confirm Receive All. The report's Received counts posted lines
         // only ('approved' is the posted state: nobody approves a receipt in Inbound Orders,
         // the store posts it with Confirm Receive All or Final Receive All).
         //
-        // Only what the store can still post holds it back. Not a delivery locked by Final
-        // Receive All, not a zero (Unserved) line, which moves no stock, and not a 'pending'
-        // placeholder nobody recorded: on a RECEIVED order that is a leftover beside a posted
-        // receipt, and confirming it would post the item twice.
+        // The order's own status says RECEIVED either way, so Inbound Orders' list cannot show
+        // which one it is: each is named and linked to its own page.
+        //
+        // Only an item the store can still post, and that is missing from stock, holds it back.
+        // Not a delivery locked by Final Receive All, not a zero (Unserved) line, which moves
+        // no stock, and not a row beside a receipt of the same item that is already posted,
+        // recorded or not: that is a leftover, and confirming it would post the item twice.
         $unconfirmedReceipts = DB::table('store_orders as so')
             ->join('store_order_items as soi', 'soi.store_order_id', '=', 'so.id')
             ->join('ordered_item_receive_dates as oird', 'oird.store_order_item_id', '=', 'soi.id')
@@ -205,12 +208,18 @@ class MonthEndCountReadinessService
             ->whereNull('so.receiving_finalized_at')
             ->where('oird.status', 'received')
             ->whereRaw('COALESCE(oird.quantity_received, 0) <> 0')
-            ->select('so.store_branch_id', DB::raw('COUNT(DISTINCT so.id) as total'))
-            ->groupBy('so.store_branch_id')
+            ->whereNotExists(fn ($posted) => $posted->select(DB::raw(1))
+                ->from('ordered_item_receive_dates as posted')
+                ->whereColumn('posted.store_order_item_id', 'soi.id')
+                ->where('posted.status', 'approved'))
+            ->select('so.store_branch_id', 'so.order_number', DB::raw('COUNT(DISTINCT soi.id) as items'))
+            ->groupBy('so.store_branch_id', 'so.id', 'so.order_number')
+            ->orderBy('so.id')
             ->get();
         foreach ($unconfirmedReceipts as $row) {
-            $add((int) $row->store_branch_id, 'receipt_confirmation', (int) $row->total,
-                $plural((int) $row->total, 'delivery', 'deliveries').' with items waiting for Confirm Receive All', 'orders-receiving.index');
+            $add((int) $row->store_branch_id, 'receipt_confirmation_'.$row->order_number, (int) $row->items,
+                $row->order_number.' has '.$plural((int) $row->items, 'item', 'items').' waiting for Confirm Receive All',
+                'orders-receiving.show', [$row->order_number]);
         }
 
         // Interco: the receiving store waits until its transfer is received. The sending

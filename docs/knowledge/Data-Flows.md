@@ -175,6 +175,14 @@ module is unused: every live order is a mass variant); Received `orders-receivin
 `month-end-count-approvals.show`; Interco in `interco-receiving.show` (by interco number), out
 `interco.show` (by order id). Each target keeps its own permission.
 
+**Export Excel in the popup** (2026-10-05): `reports.inventory-movement.details.export-excel` takes the
+popup's own parameters through the same `detailRequest()` check and calls `details()` with
+`$perPage = null`, so the file is every line of the figure, not the page showing.
+`InventoryMovementDetailExport` writes the popup's columns with dates and quantities as real values,
+each Ref No. as a hyperlink, the total row, the notes and - for Supplies Used - the calculation. Its
+column and date headings come from `InventoryMovementDetailService::LABELS`, a copy of `detailColumns`
+in the page: a renamed column must be changed in both.
+
 ## Report numbers
 
 The seven reports (Qty / Cost Variance, Inventory Movement, PMIX, Wastage, Delivery, Actual Cost /
@@ -305,12 +313,18 @@ transfer the store sends but has not committed, and unapproved SOH adjustments.
 A receipt row (`ordered_item_receive_dates.status`) goes `pending` (worksheet placeholder, TO RECEIVE)
 → `received` (a quantity recorded) → `approved`, and `approved` only means *posted to stock* by the
 store's own Confirm Receive All / Final Receive All; `/receiving-approvals` is a legacy page outside
-the process. The blocker (`receipt_confirmation`, "delivery with items waiting for Confirm Receive
-All", linked to Inbound Orders) is a RECEIVED order, not finalized, with a `received` row whose
-quantity is not 0 - in practice an Add Unlisted Item made after Confirm Receive All. It leaves out
-what the store cannot post or what moves no stock: a delivery locked by Final Receive All, a zero
-(Unserved) line, and a `pending` row on a RECEIVED order (a leftover beside a posted receipt, e.g.
-from the Mass Orders re-approval bug; confirming it would post the item twice).
+the process. The blocker is a RECEIVED order, not finalized, with an **item** that has a `received`
+row whose quantity is not 0 and no `approved` row at all - in practice an Add Unlisted Item made after
+Confirm Receive All (it does not re-evaluate the order status). It leaves out what the store cannot
+post, what moves no stock and what is already in stock: a delivery locked by Final Receive All, a zero
+(Unserved) line, a `pending` row on a RECEIVED order, and any row beside a posted receipt of the same
+item (a leftover, e.g. from the Mass Orders re-approval bug; confirming it would post the item twice).
+
+One line per order (`receipt_confirmation_<order number>`, "NNFIL-00329 has 1 item waiting for Confirm
+Receive All"), linked to `orders-receiving.show`, not the list: the order's status is RECEIVED either
+way, and on its page a recorded row and a posted row both read RECEIVED - only the Confirm Receive All
+button and the row's edit button tell them apart. The first version (one counted line linked to the
+list) left a store with 39 RECEIVED orders and no way to find the one meant.
 
 ## Qty Variance / Cost Variance report
 

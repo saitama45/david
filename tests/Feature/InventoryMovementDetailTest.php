@@ -1,6 +1,7 @@
 <?php
 
 use App\Enums\WastageStatus;
+use App\Exports\InventoryMovementDetailExport;
 use App\Http\Services\InventoryMovementDetailService;
 use App\Http\Services\InventoryMovementService;
 use App\Models\Entity;
@@ -12,8 +13,12 @@ use App\Models\StoreBranch;
 use App\Models\User;
 use App\Models\Wastage;
 use App\Support\EntityContext;
+use App\Support\ReportNumber;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
+use Maatwebsite\Excel\Facades\Excel;
+use PhpOffice\PhpSpreadsheet\IOFactory;
+use PhpOffice\PhpSpreadsheet\Shared\Date;
 use Spatie\Permission\Models\Permission;
 use Spatie\Permission\PermissionRegistrar;
 
@@ -129,12 +134,25 @@ function movementDetailFixture(): array
     return compact('entity', 'user', 'store', 'other', 'sap', 'september', 'october', 'receipts', 'outId');
 }
 
-function movementDetail(array $f, string $code, string $metric, int $page = 1): array
+function movementDetail(array $f, string $code, string $metric, int $page = 1, ?int $perPage = InventoryMovementDetailService::PER_PAGE): array
 {
     return app(InventoryMovementDetailService::class)->details(
         SAPMasterfile::where('is_active', true)->where('ItemCode', $code)->orderBy('id')->get(),
-        $f['store']->id, ['date_from' => '2026-10-01', 'date_to' => '2026-10-31'], $metric, $page
+        $f['store']->id, ['date_from' => '2026-10-01', 'date_to' => '2026-10-31'], $metric, $page, $perPage
     );
+}
+
+/** The popup's Excel export of one figure, written to a real file and read back. */
+function movementDetailSheet(array $f, string $code, string $metric): array
+{
+    $path = tempnam(sys_get_temp_dir(), 'imd').'.xlsx';
+
+    file_put_contents($path, Excel::raw(new InventoryMovementDetailExport(
+        movementDetail($f, $code, $metric, 1, null), $metric, $code, SAPMasterfile::where('ItemCode', $code)->value('ItemDescription'),
+        $f['store'], ['date_from' => '2026-10-01', 'date_to' => '2026-10-31'], 'QA Tester', '2026-10-10 10:00:00'
+    ), \Maatwebsite\Excel\Excel::XLSX));
+
+    return [IOFactory::load($path)->getActiveSheet(), $path];
 }
 
 function movementReportRow(array $f, string $code): array
@@ -266,7 +284,75 @@ it('pages a long history and keeps the total of all of it', function () {
     expect([$first['total_rows'], $first['total'], count($first['rows']), $first['rows'][0]['ref_no']])->toBe([32, 0.35, 25, 'P-030'])
         ->and([$second['total'], count($second['rows']), $second['rows'][6]['ref_no']])->toBe([0.35, 7, 'R-100'])
         ->and($first['total'])->toBe(movementReportRow($f, 'RM-COCOA')['sales_qty']);
+
+    // The Excel export of the popup takes every line at once, in the same order.
+    $all = movementDetail($f, 'RM-COCOA', 'sales', 1, null);
+
+    expect([count($all['rows']), $all['total'], $all['rows'][0]['ref_no'], $all['rows'][31]['ref_no']])->toBe([32, 0.35, 'P-030', 'R-100']);
 });
+
+it('exports the popup to Excel with its lines as a date and numbers, each Ref No. linked', function () {
+    $f = movementDetailFixture();
+    [$sheet, $path] = movementDetailSheet($f, 'RM-COCOA', 'wastage');
+    $cell = fn (string $at) => $sheet->getCell($at)->getValue();
+
+    expect($cell('A1'))->toBe('Wastage Qty: RM-COCOA Powder - Cocoa')
+        ->and($cell('A2'))->toBe('Main Store (TIMA)  |  Oct 1, 2026 to Oct 31, 2026')
+        ->and($cell('A3'))->toBe('Total: 0.0500 Bag  |  Generated: 2026-10-10 10:00:00  |  By: QA Tester')
+        ->and(array_map(fn ($column) => $cell($column.'4'), range('A', 'F')))->toBe(['Date Filed', 'Ref No.', 'Details', 'Qty', 'UOM', 'In Bag']);
+
+    // The popup's lines in the popup's order; the Sub-Prep line still says so.
+    expect(Date::excelToDateTimeObject($cell('A5'))->format('Y-m-d'))->toBe('2026-10-10')
+        ->and([$cell('B5'), $cell('C5'), $cell('E5')])->toBe(['WS-2', 'Sub-Prep SP-1 Chocolate Mix · Spoilage', 'Gm'])
+        ->and([$cell('D5'), $cell('F5')])->toEqual([10, 0.01])
+        ->and($sheet->getCell('B5')->getHyperlink()->getUrl())->toBe(route('wastage.show.by-number', 'WS-2'))
+        ->and([$cell('B6'), $cell('D6'), $cell('F6')])->toEqual(['WS-1', 40, 0.04])
+        ->and($sheet->getStyle('D5')->getNumberFormat()->getFormatCode())->toBe(ReportNumber::EXCEL)
+        ->and($sheet->getStyle('F6')->getNumberFormat()->getFormatCode())->toBe(ReportNumber::EXCEL)
+        // The figure that was clicked closes the list.
+        ->and([$cell('A7'), $cell('F7')])->toEqual(['Total of all 2 lines', 0.05]);
+
+    unlink($path);
+});
+
+it('exports how Supplies Used was worked out under its one line', function () {
+    $f = movementDetailFixture();
+    [$sheet, $path] = movementDetailSheet($f, 'RM-GLOVE', 'supplies');
+    $cell = fn (string $at) => $sheet->getCell($at)->getValue();
+
+    expect($cell('A1'))->toBe('Supplies Used: RM-GLOVE Gloves')
+        ->and([$cell('B5'), $cell('C5'), $cell('F5')])->toEqual(['MEC October 2026', 'Not found by the month end count', 30])
+        ->and($cell('A6'))->toBe('Total of all 1 line')
+        ->and($cell('A8'))->toContain('Supplies are used up without a transaction')
+        ->and($cell('A10'))->toBe('How Supplies Used was worked out (Pc)')
+        ->and([$cell('B11'), $cell('F11')])->toEqual(['Beg Bal Qty', 50])
+        ->and([$cell('A17'), $cell('B17'), $cell('F17')])->toEqual(['=', 'Stock the books expect', 150])
+        ->and([$cell('A19'), $cell('B19'), $cell('F19')])->toEqual(['=', 'Supplies Used', 30]);
+
+    unlink($path);
+});
+
+it('downloads the popup as an Excel file, only for a store the user is assigned to', function (string $storeKey, int $status) {
+    $f = movementDetailFixture();
+    Permission::findOrCreate('view inventory movement report');
+    app(PermissionRegistrar::class)->forgetCachedPermissions();
+    $f['user']->givePermissionTo('view inventory movement report');
+    Excel::fake();
+
+    $this->actingAs($f['user'])->get(route('reports.inventory-movement.details.export-excel', [
+        'branch_id' => $f[$storeKey]->id, 'date_from' => '2026-10-01', 'date_to' => '2026-10-31', 'sap_code' => 'RM-COCOA', 'metric' => 'wastage',
+    ]))->assertStatus($status);
+
+    if ($status === 200) {
+        Excel::assertDownloaded(
+            'inventory-movement-wastage-qty-rm-cocoa-tima-2026-10-01-to-2026-10-31.xlsx',
+            fn (InventoryMovementDetailExport $export) => count($export->array()) === 2
+        );
+    }
+})->with([
+    'own store' => ['store', 200],
+    'another store' => ['other', 403],
+]);
 
 it('opens only for a store the user is assigned to', function (string $storeKey, int $status) {
     $f = movementDetailFixture();

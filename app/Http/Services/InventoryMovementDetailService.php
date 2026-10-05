@@ -24,20 +24,38 @@ class InventoryMovementDetailService
 
     public const PER_PAGE = 25;
 
+    /**
+     * Each column as the page heads it, and the date its lines are filed under. The twin of
+     * detailColumns in resources/js/Pages/Reports/InventoryMovementReport/Index.vue, for the
+     * Excel export of the popup.
+     */
+    public const LABELS = [
+        'ordered' => ['Ordered', 'Order Date'],
+        'committed' => ['Committed', 'Order Date'],
+        'received' => ['Received', 'Order Date'],
+        'beg_bal' => ['Beg Bal Qty', 'MEC Date'],
+        'sales' => ['Sales Qty', 'Sales Date'],
+        'wastage' => ['Wastage Qty', 'Date Filed'],
+        'supplies' => ['Supplies Used', 'MEC Date'],
+        'interco_in' => ['Inbound Interco', 'Order Date'],
+        'interco_out' => ['Outbound Interco', 'Order Date'],
+    ];
+
     public function __construct(private InventoryMovementService $movement) {}
 
     /**
      * @param  Collection  $sapRows  the item's active sap_masterfiles rows, as the report reads them
      * @param  array{date_from: string, date_to: string}  $filters
-     * @return array{uom: string, total: float, total_rows: int, page: int, per_page: int, rows: array, unconverted_units: array, calculation: array, note: ?string}
+     * @param  int|null  $perPage  lines per page; null for every line at once, as the Excel export of the popup needs
+     * @return array{uom: string, total: float, total_rows: int, page: int, per_page: ?int, rows: array, unconverted_units: array, calculation: array, note: ?string}
      */
-    public function details(Collection $sapRows, int $branchId, array $filters, string $metric, int $page = 1): array
+    public function details(Collection $sapRows, int $branchId, array $filters, string $metric, int $page = 1, ?int $perPage = self::PER_PAGE): array
     {
         [$displayUnit, $unitSizes, $blankUnit] = $this->movement->itemUnits($sapRows);
         $itemCode = (string) $sapRows->first()->ItemCode;
         $size = fn ($unit) => $unitSizes[$unit === '' ? $blankUnit : $unit] ?? null;
         $result = [
-            'uom' => $displayUnit, 'total' => 0.0, 'total_rows' => 0, 'page' => $page, 'per_page' => self::PER_PAGE,
+            'uom' => $displayUnit, 'total' => 0.0, 'total_rows' => 0, 'page' => $page, 'per_page' => $perPage,
             'rows' => [], 'unconverted_units' => [], 'calculation' => [], 'note' => null,
         ];
 
@@ -69,7 +87,7 @@ class InventoryMovementDetailService
 
         $result['rows'] = DB::query()->fromSub($base, 'd')
             ->orderByDesc('tx_date')->orderByDesc('ref_no')->orderBy('unit')
-            ->forPage($page, self::PER_PAGE)
+            ->when($perPage !== null, fn ($query) => $query->forPage($page, $perPage))
             ->get()
             ->map(fn ($row) => [
                 'date' => $row->tx_date ? Carbon::parse($row->tx_date)->format('M j, Y') : null,

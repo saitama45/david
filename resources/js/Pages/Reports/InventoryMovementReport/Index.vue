@@ -120,6 +120,7 @@ const resetFilters = () => {
 
 // ---- The transactions behind a figure: a click on it opens them in a popup.
 // label is the column as the table heads it; date says which date the report files a line under.
+// The Excel export of the popup words them from its own copy: InventoryMovementDetailService::LABELS.
 const detailColumns = {
     ordered: { label: 'Ordered', date: 'Order Date' },
     committed: { label: 'Committed', date: 'Order Date' },
@@ -180,6 +181,17 @@ const detailStore = computed(() => {
 
     return branch ? `${branch.name} (${branch.branch_code})` : '';
 });
+
+// The popup's list as an Excel file: every line of the figure, not only the page showing.
+const detailExportable = computed(() => !!detail.data && (detail.data.rows.length > 0 || detail.data.calculation.length > 0));
+
+const exportDetailsExcel = () => {
+    window.location.href = route('reports.inventory-movement.details.export-excel') + '?' + new URLSearchParams({
+        ...detail.filters,
+        sap_code: detail.item.sap_code,
+        metric: detail.metric,
+    }).toString();
+};
 
 const exportParams = () => new URLSearchParams({
     date_from: dateFrom.value,
@@ -570,9 +582,22 @@ const formatNumber = formatReportNumber;
             <div v-if="detail.item" class="space-y-4 text-sm">
                 <div class="flex flex-wrap items-center justify-between gap-2 rounded-md bg-gray-50 px-3 py-2 text-gray-600">
                     <span>{{ detailStore }} · {{ formatDate(detail.filters.date_from) }} to {{ formatDate(detail.filters.date_to) }}</span>
-                    <span v-if="detail.data" class="font-semibold text-gray-900">
-                        Total: {{ formatNumber(detail.data.total) }} {{ detail.data.uom }}
-                    </span>
+                    <div class="flex flex-wrap items-center gap-3">
+                        <span v-if="detail.data" class="font-semibold text-gray-900">
+                            Total: {{ formatNumber(detail.data.total) }} {{ detail.data.uom }}
+                        </span>
+                        <Button
+                            v-if="detailExportable"
+                            variant="outline"
+                            size="sm"
+                            class="flex items-center gap-2 border-green-200 text-green-700 hover:bg-green-50"
+                            title="Download every line of this list as an Excel file"
+                            @click="exportDetailsExcel"
+                        >
+                            <FileSpreadsheet class="w-4 h-4" />
+                            Export Excel
+                        </Button>
+                    </div>
                 </div>
 
                 <div v-if="detail.error" class="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-red-700">{{ detail.error }}</div>

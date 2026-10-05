@@ -292,6 +292,8 @@ SQL Server as the target. Rationale and trade-offs: [Decisions.md](docs/knowledg
   `InventoryMovementService` sums for that column: **change a column's source, filter or unit in one
   and change it in the other**, or the popup stops adding up to the figure
   (`InventoryMovementDetailTest` compares all nine). Unit conversion is shared through `itemUnits()`.
+  The popup's Export Excel (`InventoryMovementDetailExport`) is the same `details()` unpaged; its
+  headings are `LABELS`, a copy of `detailColumns` in the page - rename a column in both.
 - **A report prints every quantity, amount and percentage with four decimals**, whatever the value
   (5 -> 5.0000), the same on the page, in the PDF and in the Excel export. Pages use
   `resources/js/lib/reportNumbers.js`; exports use `App\Support\ReportNumber` (`EXCEL` number formats,

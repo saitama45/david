@@ -16,7 +16,9 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Auth;
 use Inertia\Inertia;
 use Carbon\Carbon;
+use App\Exports\InventoryMovementDetailExport;
 use App\Exports\InventoryMovementReportExport;
+use App\Http\Services\InventoryMovementDetailService;
 use App\Http\Services\InventoryMovementService;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Support\Str;
@@ -113,12 +115,59 @@ class InventoryMovementReportController extends Controller
      */
     public function details(Request $request)
     {
+        [$sapRows, $branchId, $filters, $metric, $page] = $this->detailRequest($request);
+
+        return response()->json(app(InventoryMovementDetailService::class)->details($sapRows, $branchId, $filters, $metric, $page));
+    }
+
+    /**
+     * The popup's list as an Excel file: every line of the figure, not only the page of
+     * them the popup is showing.
+     */
+    public function exportDetailsExcel(Request $request)
+    {
+        ini_set('max_execution_time', 600); // 10 minutes
+        ini_set('memory_limit', '1024M');
+
+        [$sapRows, $branchId, $filters, $metric] = $this->detailRequest($request);
+
+        $branch = StoreBranch::find($branchId);
+        $item = $sapRows->first();
+
+        $fileName = 'inventory-movement-' . Str::slug(InventoryMovementDetailService::LABELS[$metric][0])
+            . '-' . Str::slug($item->ItemCode)
+            . ($branch ? '-' . Str::slug($branch->branch_code ?: $branch->name) : '')
+            . '-' . $filters['date_from'] . '-to-' . $filters['date_to'] . '.xlsx';
+
+        return Excel::download(
+            new InventoryMovementDetailExport(
+                app(InventoryMovementDetailService::class)->details($sapRows, $branchId, $filters, $metric, 1, null),
+                $metric,
+                (string) $item->ItemCode,
+                (string) $item->ItemDescription,
+                $branch,
+                $filters,
+                Auth::user()->full_name,
+                Carbon::now('Asia/Manila')->format('Y-m-d H:i:s')
+            ),
+            $fileName
+        );
+    }
+
+    /**
+     * What a request for the transactions behind one figure asks for, checked: the popup
+     * and its Excel export read the same item, store, period and column.
+     *
+     * @return array{0: \Illuminate\Support\Collection, 1: int, 2: array{date_from: string, date_to: string}, 3: string, 4: int}
+     */
+    private function detailRequest(Request $request): array
+    {
         $validated = $request->validate([
             'branch_id' => ['required', 'integer'],
             'date_from' => ['required', 'date'],
             'date_to' => ['required', 'date', 'after_or_equal:date_from'],
             'sap_code' => ['required', 'string', 'max:255'],
-            'metric' => ['required', \Illuminate\Validation\Rule::in(\App\Http\Services\InventoryMovementDetailService::METRICS)],
+            'metric' => ['required', \Illuminate\Validation\Rule::in(InventoryMovementDetailService::METRICS)],
             'page' => ['nullable', 'integer', 'min:1'],
         ]);
 
@@ -131,13 +180,13 @@ class InventoryMovementReportController extends Controller
         $sapRows = SAPMasterfile::where('is_active', true)->where('ItemCode', $validated['sap_code'])->orderBy('id')->get();
         abort_if($sapRows->isEmpty(), 404);
 
-        return response()->json(app(\App\Http\Services\InventoryMovementDetailService::class)->details(
+        return [
             $sapRows,
             (int) $validated['branch_id'],
             ['date_from' => Carbon::parse($validated['date_from'])->toDateString(), 'date_to' => Carbon::parse($validated['date_to'])->toDateString()],
             $validated['metric'],
-            (int) ($validated['page'] ?? 1)
-        ));
+            (int) ($validated['page'] ?? 1),
+        ];
     }
 
     public function exportPdf(Request $request)
