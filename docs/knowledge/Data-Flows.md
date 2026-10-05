@@ -336,6 +336,43 @@ before Level 1 whichever level returned it. `/month-end-count` shows the store t
 (`returnedCounts`, built by `MonthEndCountRejection::toNotice()`, as are both approval pages' banners).
 Both pages use the one dialog, `resources/js/components/month-end-count/RejectCountDialog.vue`.
 
+## Closed dates after the final Month End Count approval
+
+Once a branch's count is `level2_approved`, the period that count covers is settled, and no create or
+edit form may take a transaction date inside it. `MonthEndClosedPeriodService` (2026-10-05) is the one
+source of the rule:
+
+- `closedThrough($branchIds)` → branch id => last closed date. It is the end of the period the count is
+  read over, `MonthEndStockVariance::periodFor()`: the MEC Scheduled Date, kept inside the month counted.
+  September's count dated Sep 30 closes through Sep 30; March's dated Apr 5 closes through Mar 31; a
+  count dated Oct 29 closes through Oct 29, so the store still records Oct 30 and 31. The latest approved
+  count wins. Rows in any other status (`rejected` included) close nothing.
+- `closedForAll($branchIds)` → for a date picker several stores share: the last date closed for *every*
+  one of them, or null while any is open. A later date stays selectable and the closed stores are
+  refused one by one.
+- `problem($branchId, $date)` → the message to show, or null. Every server check goes through it.
+
+It reads `month_end_count_items` joined to `month_end_schedules` by branch with the query builder, not
+the entity-scoped models: a branch belongs to one entity, and older schedules carry no `entity_id`.
+
+| Module | Date picker | Server |
+|---|---|---|
+| Mass Orders (create) | `closedForAllStores` strikes the dates through, CPO included; `available-dates` drops them | `uploadMassOrder` skips a closed store with the reason (the rest still order); the template leaves it out |
+| Mass Orders (edit) | `closedThrough[branch]`, or `closedForAllStores` once a new date cleared the store; `get-branches` drops closed stores | `update` refuses when the date or store changed into a closed period |
+| DTS Mass Orders | `available-dates` drops dates closed for all stores; the Create grid locks a store's closed cells (`closed_through`) | `store` refuses; `update` refuses cells the batch does not already hold (checked before its delete-and-recreate transaction) |
+| Wastage (create) | `min` on Wastage Date for the picked store, red note on a typed closed date | `WastageRequest` rule on `wastage_date` |
+| Store Transactions | Edit's date is read-only | `StoreStoreTransactionRequest` rule on `order_date`; the update applies it only when the date or store changed |
+| Inbound Receiving | - (receipts are stamped `now()`) | `ReceiveOrderRequest` rule on `received_date` (its dialog is not reachable from the page today) |
+
+Only *choosing* a closed date is refused. A transaction that already carries one can still be edited
+(Wastage Edit and the sales correction have no selectable date). Not checked on purpose: the POS sales
+sync and the sales import, which post whatever the POS recorded, and every receipt stamped with the
+current time. The rule is not a business-rule exception: no grant lifts it.
+
+`StoreTransaction/Create.vue` does not load (it uses `ref` / `watch` without importing them and expects
+a `menus` prop the controller stopped sending in 2025), so its date picker carries no limit yet; the
+server rule covers the endpoint.
+
 ## Entity switching
 
 `POST /entity/switch {entity_id}` with an `X-XSRF-TOKEN` header. It updates

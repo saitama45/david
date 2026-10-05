@@ -46,9 +46,19 @@ class MonthEndStockVariance
      */
     public function period(MonthEndSchedule $schedule): array
     {
-        $from = Carbon::create($schedule->year, $schedule->month, 1)->startOfDay();
+        return self::periodFor((int) $schedule->year, (int) $schedule->month, $schedule->calculated_date);
+    }
+
+    /**
+     * period() for a schedule read as plain columns.
+     *
+     * @return array{0: string, 1: string} [Y-m-d from, Y-m-d to]
+     */
+    public static function periodFor(int $year, int $month, $calculatedDate): array
+    {
+        $from = Carbon::create($year, $month, 1)->startOfDay();
         $monthEnd = $from->copy()->endOfMonth()->startOfDay();
-        $scheduled = Carbon::parse($schedule->calculated_date)->startOfDay();
+        $scheduled = Carbon::parse($calculatedDate)->startOfDay();
 
         return [$from->toDateString(), $scheduled->max($from)->min($monthEnd)->toDateString()];
     }

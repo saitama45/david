@@ -12,6 +12,7 @@ use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Carbon\Carbon;
 use Maatwebsite\Excel\Facades\Excel;
+use App\Http\Services\MonthEndClosedPeriodService;
 use App\Http\Services\OrderingCutoffService;
 use App\Http\Services\RuleExceptionService;
 use App\Http\Services\RuleExceptions\DtsEditEvaluator;
@@ -22,6 +23,7 @@ class DTSMassOrdersController extends Controller
     public function __construct(
         private OrderingCutoffService $cutoffs,
         private RuleExceptionService $ruleExceptions,
+        private MonthEndClosedPeriodService $closedPeriods,
     ) {}
 
     /**
@@ -37,19 +39,7 @@ class DTSMassOrdersController extends Controller
             return ["No ordering cutoff is configured for {$variant}.", []];
         }
 
-        // Normalise both payload shapes to date => [store ids with a quantity].
-        $storesByDate = [];
-        foreach ($orders as $key => $value) {
-            $byDate = $variant === 'FRUITS AND VEGETABLES' ? (array) $value : [$key => $value];
-
-            foreach ($byDate as $date => $stores) {
-                foreach ((array) $stores as $storeId => $quantity) {
-                    if (! empty($quantity) && $quantity > 0) {
-                        $storesByDate[Carbon::parse($date)->toDateString()][(int) $storeId] = true;
-                    }
-                }
-            }
-        }
+        $storesByDate = $this->storesByDate($variant, $orders);
 
         // Mirrors the Create screen: any date between the first and last available
         // date is orderable; dates outside that span need an approved exception.
@@ -78,6 +68,49 @@ class DTSMassOrdersController extends Controller
         }
 
         return [null, $grantKeys];
+    }
+
+    /**
+     * Both payload shapes as date => [store id => true], for the cells carrying a quantity.
+     */
+    private function storesByDate(string $variant, array $orders): array
+    {
+        $storesByDate = [];
+        foreach ($orders as $key => $value) {
+            $byDate = $variant === 'FRUITS AND VEGETABLES' ? (array) $value : [$key => $value];
+
+            foreach ($byDate as $date => $stores) {
+                foreach ((array) $stores as $storeId => $quantity) {
+                    if (! empty($quantity) && $quantity > 0) {
+                        $storesByDate[Carbon::parse($date)->toDateString()][(int) $storeId] = true;
+                    }
+                }
+            }
+        }
+
+        return $storesByDate;
+    }
+
+    /**
+     * Why these quantities cannot be saved, or null: a store takes no order dated inside a
+     * period it closed with a final approved month end count. Not waivable.
+     *
+     * @param  string[]  $kept  "Y-m-d|store id" cells the batch already holds, which may be re-saved
+     */
+    private function closedPeriodProblem(string $variant, array $orders, array $kept = []): ?string
+    {
+        $storesByDate = $this->storesByDate($variant, $orders);
+        $closedThrough = $this->closedPeriods->closedThrough(collect($storesByDate)->flatMap(fn ($stores) => array_keys($stores)));
+
+        foreach ($storesByDate as $date => $stores) {
+            foreach (array_keys($stores) as $storeId) {
+                if ($date <= ($closedThrough[$storeId] ?? '') && ! in_array("{$date}|{$storeId}", $kept, true)) {
+                    return $this->closedPeriods->problem($storeId, $date);
+                }
+            }
+        }
+
+        return null;
     }
 
     private function consumeDtsGrants(string $ruleKey, array $keys, string $batchNumber): void
@@ -372,11 +405,12 @@ class DTSMassOrdersController extends Controller
         // Only fetch stores if user is authenticated
         if (auth()->check()) {
             $user = auth()->user();
+            $closedThrough = $this->closedPeriods->closedThrough($user->store_branches()->pluck('store_branches.id'));
             $stores = $user->store_branches()
                 ->where('is_active', true)
                 ->orderBy('name')
                 ->get()
-                ->map(function ($store) use ($variant) {
+                ->map(function ($store) use ($variant, $closedThrough) {
                     // Get delivery schedule IDs for this store and variant
                     $deliveryScheduleIds = \DB::table('d_t_s_delivery_schedules')
                         ->where('store_branch_id', $store->id)
@@ -394,7 +428,9 @@ class DTSMassOrdersController extends Controller
                         'brand_code' => $store->brand_code,
                         'complete_address' => $store->complete_address,
                         'label' => $store->name,
-                        'delivery_schedule_ids' => $deliveryScheduleIds
+                        'delivery_schedule_ids' => $deliveryScheduleIds,
+                        // Dates up to this one are closed: the store's month end count is final approved.
+                        'closed_through' => $closedThrough[$store->id] ?? null,
                     ];
                 })
                 ->values()
@@ -446,6 +482,10 @@ class DTSMassOrdersController extends Controller
         [$cutoffError, $grantKeys] = $this->dtsCutoffCheck((string) $variant, (array) $request->input('orders', []));
         if ($cutoffError) {
             return back()->withErrors(['error' => $cutoffError]);
+        }
+
+        if ($closed = $this->closedPeriodProblem((string) $variant, (array) $request->input('orders', []))) {
+            return back()->withErrors(['error' => $closed]);
         }
 
         // Different validation and processing for FRUITS AND VEGETABLES
@@ -1035,6 +1075,14 @@ class DTSMassOrdersController extends Controller
             }
         }
 
+        $kept = StoreOrder::where('batch_reference', $batchNumber)->get(['order_date', 'store_branch_id'])
+            ->map(fn ($order) => Carbon::parse($order->order_date)->toDateString().'|'.(int) $order->store_branch_id)
+            ->all();
+
+        if ($closed = $this->closedPeriodProblem($facts['variant'], (array) $request->input('orders', []), $kept)) {
+            return back()->withErrors(['error' => $closed]);
+        }
+
         try {
             \DB::beginTransaction();
 
@@ -1432,7 +1480,16 @@ class DTSMassOrdersController extends Controller
             ->map(fn ($grant) => $grant->context['order_date'])
             ->all();
 
-        $enabledDates = array_values(array_unique(array_merge($enabledDates, $grantedDates)));
+        // A date every one of the user's stores has closed with a final approved month end
+        // count cannot be ordered for at all.
+        $closed = $this->closedPeriods->closedForAll(
+            auth()->user()->store_branches()->where('is_active', true)->pluck('store_branches.id')
+        );
+
+        $enabledDates = array_values(array_filter(
+            array_unique(array_merge($enabledDates, $grantedDates)),
+            fn ($date) => ! $closed || $date > $closed
+        ));
         sort($enabledDates);
 
         \Log::info("Initial enabled dates for {$variant}:", $enabledDates);

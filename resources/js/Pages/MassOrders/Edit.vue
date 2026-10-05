@@ -326,6 +326,15 @@ const props = defineProps({
         type: Array,
         required: true,
     },
+    // Last closed date per store, and for every store of the user (final approved month end counts).
+    closedThrough: {
+        type: Object,
+        default: () => ({}),
+    },
+    closedForAllStores: {
+        type: String,
+        default: null,
+    },
     canViewCost: {
         type: Boolean,
         default: false,
@@ -555,6 +564,13 @@ const currentCalendarDate = ref(new Date(props.order.order_date + 'T00:00:00'));
 const dateInputRef = ref(null);
 const calendarPositionClass = ref('top-full mt-2');
 
+// The order cannot be moved into a period its store closed with a final approved month end
+// count. Picking a date clears the store, so until one is picked again only the dates
+// closed for every store are held back.
+const closedThroughDate = computed(() => orderForm.branch_id
+    ? props.closedThrough[orderForm.branch_id]
+    : props.closedForAllStores);
+
 watch(showCalendar, (isShown) => {
     if (isShown && dateInputRef.value) {
         const inputRect = dateInputRef.value.getBoundingClientRect();
@@ -577,12 +593,13 @@ const getCalendarDays = () => {
     const firstDayOfMonth = new Date(year, month, 1).getDay();
     const daysInMonth = new Date(year, month + 1, 0).getDate();
     const enabledDatesSet = new Set(enabledDates.value);
+    const closed = closedThroughDate.value || '';
 
     for (let i = 0; i < firstDayOfMonth; i++) days.push(null);
     for (let i = 1; i <= daysInMonth; i++) {
         const date = new Date(year, month, i);
         const dateString = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
-        const isDisabled = !enabledDatesSet.has(dateString);
+        const isDisabled = !enabledDatesSet.has(dateString) || dateString <= closed;
         days.push({ day: i, date, isDisabled });
     }
     return days;
@@ -1449,6 +1466,9 @@ onUnmounted(() => {
                                     </div>
                                 </div>
                             </div>
+                            <p v-if="closedThroughDate" class="text-xs text-gray-500">
+                                Dates up to {{ closedThroughDate }} are closed: the month end count is final approved.
+                            </p>
                             <FormError>{{ orderForm.errors.order_date }}</FormError>
                         </div>
 

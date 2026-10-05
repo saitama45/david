@@ -182,7 +182,17 @@ const props = defineProps({
         type: Object,
         required: true,
     },
+    // Last date the store closed with a final approved month end count, otherwise null.
+    closedThrough: {
+        type: String,
+        default: null,
+    },
 });
+
+// A receipt cannot be dated inside the closed period: the first day that can be picked.
+const minReceivedDate = computed(() => props.closedThrough
+    ? `${dayjs(props.closedThrough).add(1, "day").format("YYYY-MM-DD")}T00:00`
+    : undefined);
 
 const orderStatus = ref(props.order.order_status);
 
@@ -1415,7 +1425,7 @@ const promptFinalReceive = () => {
                     </InputContainer>
                     <InputContainer>
                         <Label class="text-xs font-medium uppercase text-gray-500">Received Date <span class="text-red-500">*</span></Label>
-                        <Input v-model="form.received_date" type="datetime-local" />
+                        <Input v-model="form.received_date" type="datetime-local" :min="minReceivedDate" />
                         <FormError>{{ form.errors.received_date }}</FormError>
                     </InputContainer>
                     <InputContainer>

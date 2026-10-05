@@ -17,7 +17,9 @@ import { useSelectOptions } from '@/composables/useSelectOptions'
 
 const props = defineProps({
   branches: Array,
-  canViewCost: Boolean
+  canViewCost: Boolean,
+  // Last date each store closed with a final approved month end count, by store id
+  closedThrough: { type: Object, default: () => ({}) }
 })
 
 // Create branch options using composable
@@ -81,6 +83,22 @@ const selectedBranch = computed(() => {
   return props.branches.find(branch => branch.value === form.store_branch_id)
 })
 
+// Wastage cannot be dated inside a period the store closed with a final approved month end count
+const closedThroughDate = computed(() => props.closedThrough[form.store_branch_id] || null)
+
+const minWastageDate = computed(() => {
+  if (!closedThroughDate.value) return undefined
+  const [year, month, day] = closedThroughDate.value.split('-').map(Number)
+  const next = new Date(year, month - 1, day + 1)
+  return `${next.getFullYear()}-${String(next.getMonth() + 1).padStart(2, '0')}-${String(next.getDate()).padStart(2, '0')}`
+})
+
+const isWastageDateClosed = computed(() => !!closedThroughDate.value && !!form.wastage_date && form.wastage_date <= closedThroughDate.value)
+
+const closedThroughLabel = computed(() => closedThroughDate.value
+  ? new Date(`${closedThroughDate.value}T00:00:00`).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+  : '')
+
 const cartTotalCost = computed(() => {
   return cartItems.value.reduce((total, item) => {
     return total + (parseFloat(item.quantity || 0) * parseFloat(item.cost || 0))
@@ -96,6 +114,7 @@ const formattedCartTotal = computed(() => {
 
 const isFormValid = computed(() => {
   return form.store_branch_id &&
+         !isWastageDateClosed.value &&
          form.remarks && form.remarks.trim() !== '' &&  // Required remarks
          cartItems.value.length > 0 &&
          cartItems.value.every(item =>
@@ -115,6 +134,16 @@ const validateAndScroll = () => {
     nextTick(() => {
       const el = document.querySelector('.p-select')
       el?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    })
+    return false
+  }
+
+  if (isWastageDateClosed.value) {
+    openSections.value.wastageDetails = true
+    nextTick(() => {
+      const el = document.getElementById('wastage_date')
+      el?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+      el?.focus()
     })
     return false
   }
@@ -475,11 +504,15 @@ const handleReasonBlur = (item) => {
                 id="wastage_date"
                 v-model="form.wastage_date"
                 type="date"
+                :min="minWastageDate"
                 :max="todayString"
-                :class="{ 'border-red-500': form.errors.wastage_date || (showErrors && !form.wastage_date) }"
+                :class="{ 'border-red-500': form.errors.wastage_date || isWastageDateClosed || (showErrors && !form.wastage_date) }"
                 required
               />
               <p class="text-xs text-gray-500">The day the wastage happened. Record it within 1 working day.</p>
+              <p v-if="closedThroughDate" :class="['text-xs', isWastageDateClosed ? 'text-red-600' : 'text-gray-500']">
+                Dates up to {{ closedThroughLabel }} are closed: the month end count of this store is final approved.
+              </p>
               <p v-if="form.errors.wastage_date" class="text-sm text-red-600">
                 {{ form.errors.wastage_date }}
               </p>

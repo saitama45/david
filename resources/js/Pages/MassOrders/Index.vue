@@ -52,6 +52,11 @@ const props = defineProps({
         type: Array,
         default: () => [],
     },
+    // Last date closed for every store the user orders for (final approved month end counts).
+    closedForAllStores: {
+        type: String,
+        default: null,
+    },
 });
 
 const { hasAccess } = useAuth();
@@ -301,9 +306,11 @@ const getCalendarDays = () => {
         const date = new Date(year, month, i);
         const dateString = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
         
-        // CPO has no restrictions. Others must be in enabledDates.
-        const isDisabled = form.supplier_code !== 'CPO' && !enabledDatesSet.has(dateString);
-        const isSuggested = enabledDatesSet.has(dateString);
+        // CPO has no restrictions. Others must be in enabledDates. No template may order
+        // inside a period the stores closed with a final approved month end count.
+        const isClosed = !!props.closedForAllStores && dateString <= props.closedForAllStores;
+        const isDisabled = isClosed || (form.supplier_code !== 'CPO' && !enabledDatesSet.has(dateString));
+        const isSuggested = !isClosed && enabledDatesSet.has(dateString);
         
         days.push({ day: i, date, isDisabled, isSuggested });
     }
@@ -516,6 +523,9 @@ const downloadFileName = computed(() => {
                             <div v-if="form.order_date" class="mt-2 text-sm text-gray-500">
                                 Selected Day: <span class="font-semibold">{{ selectedDayInfo }}</span>
                             </div>
+                            <p v-if="closedForAllStores" class="mt-2 text-xs text-gray-500">
+                                Dates up to {{ formatDisplayDate(closedForAllStores) }} are closed: the month end count is final approved.
+                            </p>
                             <!-- Calendar Popup -->
                             <div v-show="showCalendar" :class="['absolute z-50 bg-white border border-gray-200 rounded-lg shadow-lg p-4 w-full min-w-[300px]', calendarPositionClass]">
                                 <div class="flex justify-between items-center mb-4">

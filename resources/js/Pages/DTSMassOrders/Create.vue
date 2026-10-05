@@ -432,6 +432,14 @@ const hasDeliverySchedule = (store, dateObj) => {
     return store.delivery_schedule_ids.includes(dateObj.delivery_schedule_id);
 };
 
+// A store takes no order dated inside a period it closed with a final approved month end count
+const isClosedFor = (store, dateObj) => !!store.closed_through && dateObj.date <= store.closed_through;
+
+const closedTitle = (store) => `Closed: the month end count of ${store.name} is final approved up to ${formatDisplayDate(store.closed_through)}`;
+
+// Whether a quantity can be entered for the store on the date
+const canOrder = (store, dateObj) => hasDeliverySchedule(store, dateObj) && !isClosedFor(store, dateObj);
+
 // Get stores that have delivery schedule for a specific date
 const getStoresForDate = (dateObj) => {
     return props.stores.filter(store => hasDeliverySchedule(store, dateObj));
@@ -630,7 +638,7 @@ const getGrandTotalPrice = computed(() => {
                                         <td
                                             v-for="(dateObj, dIndex) in getDatesForStore(store)"
                                             :key="`${item.id}-${store.id}-${dateObj.date}`"
-                                            :class="['border border-gray-300 px-1 py-1', !hasDeliverySchedule(store, dateObj) ? 'bg-gray-100' : '']"
+                                            :class="['border border-gray-300 px-1 py-1', !canOrder(store, dateObj) ? 'bg-gray-100' : '']"
                                         >
                                             <div class="relative w-full h-full">
                                                 <input
@@ -638,14 +646,14 @@ const getGrandTotalPrice = computed(() => {
                                                     type="text"
                                                     :data-r="rIndex"
                                                     :data-c="flatColumns.findIndex(c => c.store.id === store.id && c.dateObj.date === dateObj.date)"
-                                                    :disabled="!hasDeliverySchedule(store, dateObj)"
+                                                    :disabled="!canOrder(store, dateObj)"
                                                     :class="[
                                                         'w-full px-2 py-1 border text-center outline-none',
-                                                        hasDeliverySchedule(store, dateObj)
+                                                        canOrder(store, dateObj)
                                                             ? (isSelected(rIndex, flatColumns.findIndex(c => c.store.id === store.id && c.dateObj.date === dateObj.date)) ? 'bg-blue-50 border-blue-500 z-10' : 'border-gray-300')
                                                             : 'border-gray-200 bg-gray-100 cursor-not-allowed text-gray-400'
                                                     ]"
-                                                    :title="hasDeliverySchedule(store, dateObj) ? '' : 'No delivery schedule for this store on this day'"
+                                                    :title="canOrder(store, dateObj) ? '' : (isClosedFor(store, dateObj) ? closedTitle(store) : 'No delivery schedule for this store on this day')"
                                                     @focus="onFocus(rIndex, flatColumns.findIndex(c => c.store.id === store.id && c.dateObj.date === dateObj.date))"
                                                     @keydown="handleKeyDown(rIndex, flatColumns.findIndex(c => c.store.id === store.id && c.dateObj.date === dateObj.date), $event)"
                                                     @mouseenter="onMouseEnter(rIndex, flatColumns.findIndex(c => c.store.id === store.id && c.dateObj.date === dateObj.date))"
@@ -655,7 +663,7 @@ const getGrandTotalPrice = computed(() => {
                                                 
                                                 <!-- Fill Handle -->
                                                 <div 
-                                                    v-if="isDragEndCell(rIndex, flatColumns.findIndex(c => c.store.id === store.id && c.dateObj.date === dateObj.date)) && hasDeliverySchedule(store, dateObj)"
+                                                    v-if="isDragEndCell(rIndex, flatColumns.findIndex(c => c.store.id === store.id && c.dateObj.date === dateObj.date)) && canOrder(store, dateObj)"
                                                     class="absolute -bottom-1 -right-1 w-3 h-3 bg-blue-600 border border-white cursor-crosshair z-20 pointer-events-auto shadow-sm"
                                                     @mousedown="startDrag(rIndex, flatColumns.findIndex(c => c.store.id === store.id && c.dateObj.date === dateObj.date), $event)"
                                                 ></div>
@@ -746,6 +754,7 @@ const getGrandTotalPrice = computed(() => {
                                                 <div class="font-medium">{{ store.name }}</div>
                                                 <div v-if="store.brand_code" class="text-xs text-gray-600 mt-1">{{ store.brand_code }}</div>
                                                 <div v-if="store.complete_address" class="text-xs text-gray-500 mt-1">{{ store.complete_address }}</div>
+                                                <div v-if="isClosedFor(store, dateObj)" class="text-xs text-red-600 mt-1">{{ closedTitle(store) }}</div>
                                             </div>
                                         </td>
                                         <td class="border border-gray-300 px-2 py-1">
@@ -754,7 +763,8 @@ const getGrandTotalPrice = computed(() => {
                                                 type="number"
                                                 step="0.01"
                                                 :min="props.variant === 'ICE CREAM' ? '5' : '0'"
-                                                class="w-full px-2 py-1 border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 text-center"
+                                                :disabled="isClosedFor(store, dateObj)"
+                                                class="w-full px-2 py-1 border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 text-center disabled:bg-gray-100 disabled:cursor-not-allowed"
                                                 :placeholder="props.variant === 'ICE CREAM' ? 'Min: 5' : '0'"
                                                 @blur="validateQuantity(dateObj.date, store.id, orders[dateObj.date][store.id])"
                                                 @keydown.enter="handleEnterKey"

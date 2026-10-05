@@ -562,6 +562,7 @@ const formatNumber = formatReportNumber;
         <Dialog
             v-model:visible="detail.visible"
             modal
+            :draggable="false"
             :header="detail.item ? `${detailColumns[detail.metric].label}: ${detail.item.sap_code} ${detail.item.item_description}` : ''"
             :style="{ width: '900px' }"
             :breakpoints="{ '1023px': '95vw' }"

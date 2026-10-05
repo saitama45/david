@@ -100,6 +100,9 @@ class OrderReceivingController extends Controller
                 'at' => $order->receiving_finalized_at->format('M j, Y g:i A'),
                 'by' => $order->receivingFinalizedBy?->full_name,
             ] : null,
+            // Last date the store closed with a final approved month end count; a receipt
+            // cannot be dated on or before it.
+            'closedThrough' => app(\App\Http\Services\MonthEndClosedPeriodService::class)->closedThroughFor((int) $order->store_branch_id),
             // The "item delivered but not ordered" picker: the order's own supplier list only.
             // Mapped to a lean shape on purpose: serialising the models would fire
             // SupplierItems' appended sap_master_file accessor once per row.

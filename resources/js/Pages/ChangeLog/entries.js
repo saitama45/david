@@ -18,6 +18,37 @@ export const changeLog = [
     // ---------------------------------------------------------------- October 5, 2026
     {
         date: '2026-10-05',
+        module: 'Month End Count',
+        type: 'improved',
+        title: 'Dates inside a month end count that has its final approval can no longer be picked in Mass Orders, DTS Mass Orders, Wastage Record and Store Transactions',
+        summary:
+            'After the month end count of a store was approved in MEC Approval 2nd Level, a transaction could still be dated inside the month that was counted, which changed figures that were already signed off. Now the dates up to the MEC Scheduled Date of that count are closed for that store. The date pickers no longer offer them, and the system refuses them when the form is saved.',
+        steps: [
+            'The store uploads its month end count. It is approved in MEC Approval 1st Level and then in MEC Approval 2nd Level.',
+            'From that final approval on, the dates up to the MEC Scheduled Date of the count are closed for that store.',
+            'In Wastage Record, pick the Store Branch. The Wastage Date starts on the day after the last closed date, and a note under it says which dates are closed.',
+            'In Mass Orders, click "Create New Mass Order" and pick the Ordering Template. In the Delivery Date calendar the closed dates are struck through and cannot be clicked.',
+            'In DTS Mass Orders, click "Create DTS Mass Order". The closed dates cannot be picked in Date From and Date To, and on the order sheet the quantity of a store is locked on its closed dates.',
+        ],
+        rules: [
+            'Only a count that is approved in MEC Approval 2nd Level closes dates. A count that is uploaded, waiting for Level 1, waiting for Level 2 or returned to the store closes nothing.',
+            'The closed dates end on the MEC Scheduled Date of the count. Example: the September 2026 count of Glorietta 4 is scheduled on Sep 30, 2026. After its final approval Glorietta 4 cannot use Sep 30, 2026 or any earlier date, and Oct 1, 2026 is the first date it can use.',
+            'When the MEC Scheduled Date falls in the following month, the closed dates end on the last day of the month counted. A March count scheduled on Apr 5 closes up to Mar 31.',
+            'When the count is scheduled before the month ends, the days after it stay open. A count scheduled on Oct 29 closes up to Oct 29, so Oct 30 and Oct 31 can still be used.',
+            'The rule is per store. A store whose count does not have its final approval yet keeps all its dates.',
+            'Wastage Record: on Create Wastage Record, the Wastage Date cannot be a closed date of the Store Branch. A closed date that is typed in is marked in red and the record is not saved.',
+            'Mass Orders: a Delivery Date is struck through when it is closed for all the stores assigned to the user. When it is closed for only some of them, those stores are left out of the template that is downloaded and are skipped on upload with the reason, and the other stores are still ordered.',
+            'Mass Orders: when an order is edited, its Order Date cannot be moved to a closed date of its store, and a store that is closed for the date is not offered under Store Branch. An order that already has a closed date keeps it.',
+            'DTS Mass Orders: a date that is closed for all the stores assigned to the user is not offered. A quantity entered for a store on one of its closed dates is refused. A quantity the batch already has on such a date can still be saved again when the batch is edited.',
+            'Store Transactions: a sale cannot be saved on a closed date of its store, and a correction cannot move a sale to one. Sales that are posted from the POS or imported from a file are not checked.',
+            'Inbound Orders stamps a delivery with the date and time it is received, so it has no date to pick.',
+            'The message names the store and the last closed date, for example "The month end count of Glorietta 4 has its final approval, so dates on or before Sep 30, 2026 are closed for it. Choose a later date."',
+            'A closed date cannot be opened with an exception request.',
+        ],
+        affects: 'Store users and encoders who place orders, record wastage or encode sales, and the approvers of the month end count.',
+    },
+    {
+        date: '2026-10-05',
         module: 'Inventory Movement Report',
         type: 'new',
         title: 'Click a figure in the Inventory Movement Report to see the transactions behind it, each with a Ref No. that opens the transaction',

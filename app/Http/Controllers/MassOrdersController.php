@@ -15,6 +15,7 @@ use App\Models\StoreBranch;
 use Maatwebsite\Excel\Facades\Excel;
 use App\Imports\MassOrderImport;
 use App\Http\Services\MassOrderService;
+use App\Http\Services\MonthEndClosedPeriodService;
 use App\Http\Services\OrderingCutoffService;
 use App\Http\Services\RuleExceptionService;
 use App\Http\Services\RuleExceptions\MassOrderLateOrderEvaluator;
@@ -34,6 +35,7 @@ class MassOrdersController extends Controller
         \App\Http\Services\StoreOrderService $storeOrderService,
         private OrderingCutoffService $cutoffs,
         private RuleExceptionService $ruleExceptions,
+        private MonthEndClosedPeriodService $closedPeriods,
     ) {
         $this->massOrderService = $massOrderService;
         $this->storeOrderService = $storeOrderService;
@@ -131,6 +133,7 @@ class MassOrdersController extends Controller
             'canViewCost' => Auth::user()->hasPermissionTo('view cost mass orders'),
             'editGrants' => $editGrants,
             'exceptionStoreOptions' => $exceptionStoreOptions,
+            'closedForAllStores' => $this->closedForUserStores(),
         ]);
     }
 
@@ -232,6 +235,27 @@ class MassOrdersController extends Controller
                 return redirect()->back()->with([
                     'success' => false,
                     'message' => 'Upload failed. No stores in the uploaded file are on the delivery schedule for the selected date.',
+                    'skipped_stores' => $pre_skipped_stores,
+                    'created_count' => 0,
+                ]);
+            }
+
+            // A store whose month end count is final approved has closed that period. It is
+            // skipped with the reason; the other stores in the file still order.
+            foreach ($finalBranches->where('is_active', true) as $branch) {
+                if (in_array($branch->brand_code, $validUploadedStores, true)
+                    && ($closed = $this->closedPeriods->problem((int) $branch->id, $orderDate->toDateString()))) {
+                    $invalidStores[] = $branch->brand_code;
+                    $pre_skipped_stores[] = ['brand_code' => $branch->brand_code, 'reason' => $closed];
+                }
+            }
+
+            $validUploadedStores = array_values(array_diff($validUploadedStores, $invalidStores));
+
+            if (empty($validUploadedStores)) {
+                return redirect()->back()->with([
+                    'success' => false,
+                    'message' => 'Upload blocked. The selected date is inside a month end count that is final approved for every store in the file.',
                     'skipped_stores' => $pre_skipped_stores,
                     'created_count' => 0,
                 ]);
@@ -353,7 +377,7 @@ class MassOrdersController extends Controller
             return $query->exists();
         });
 
-        $dynamicHeaders = $finalBranches->where('is_active', true)->pluck('brand_code')->unique()->sort()->values()->all();
+        $dynamicHeaders = $this->openOn($finalBranches->where('is_active', true), $orderDate)->pluck('brand_code')->unique()->sort()->values()->all();
 
         $items = $this->getMassOrderSupplierItems($supplierCode);
 
@@ -407,7 +431,13 @@ class MassOrdersController extends Controller
             ->map(fn ($grant) => $grant->context['order_date'])
             ->all();
 
-        $enabledDates = array_values(array_unique(array_merge($enabledDates, $grantedDates)));
+        // A date every one of the user's stores has closed cannot be ordered for at all.
+        $closed = $this->closedForUserStores();
+
+        $enabledDates = array_values(array_filter(
+            array_unique(array_merge($enabledDates, $grantedDates)),
+            fn ($date) => ! $closed || $date > $closed
+        ));
         sort($enabledDates);
 
         return response()->json($enabledDates);
@@ -442,6 +472,25 @@ class MassOrdersController extends Controller
     private function hasSupplierAccess(string $supplierCode): bool
     {
         return Auth::user()->suppliers()->where('suppliers.supplier_code', $supplierCode)->exists();
+    }
+
+    /**
+     * The last date closed for every active store the user orders for (final approved
+     * month end counts), or null while any of them is still open.
+     */
+    private function closedForUserStores(): ?string
+    {
+        return $this->closedPeriods->closedForAll(
+            Auth::user()->store_branches()->where('is_active', true)->pluck('store_branches.id')
+        );
+    }
+
+    /** The branches whose period is still open on the date. */
+    private function openOn($branches, Carbon $date)
+    {
+        $closedThrough = $this->closedPeriods->closedThrough($branches->pluck('id'));
+
+        return $branches->reject(fn ($branch) => $date->toDateString() <= ($closedThrough[$branch->id] ?? ''));
     }
 
     private function isCpoSupplierCode(?string $supplierCode): bool
@@ -623,6 +672,9 @@ class MassOrdersController extends Controller
             'branches' => $branches,
             'suppliers' => $suppliers,
             'enabledDates' => $enabledDates, // Pass new prop
+            // Last closed date per store (final approved month end count); cast so none is {}.
+            'closedThrough' => (object) $this->closedPeriods->closedThrough($user->store_branches->pluck('id')->push($order->store_branch_id)),
+            'closedForAllStores' => $this->closedForUserStores(),
             'canViewCost' => Auth::user()->hasPermissionTo('view cost mass orders'),
         ]);
     }
@@ -643,9 +695,17 @@ class MassOrdersController extends Controller
         }
 
         $newDate = Carbon::parse($validatedData['order_date'])->toDateString();
-        if ($newDate !== Carbon::parse($order->order_date)->toDateString()
+        $dateChanged = $newDate !== Carbon::parse($order->order_date)->toDateString();
+        if ($dateChanged
             && ($dateBlock = $this->cutoffs->massOrderDateBlock((string) $validatedData['supplier_id'], $newDate, $now))) {
             return back()->withErrors(['error' => $dateBlock]);
+        }
+
+        // The order keeps a date it already has, but cannot be moved into a period its
+        // store closed with a final approved month end count. Not waivable.
+        if (($dateChanged || (int) $validatedData['branch_id'] !== (int) $order->store_branch_id)
+            && ($closed = $this->closedPeriods->problem((int) $validatedData['branch_id'], $newDate))) {
+            return back()->withErrors(['error' => $closed]);
         }
 
         $editDeadline = $this->cutoffs->massOrderEditDeadline($supplierCode, $order->created_at);
@@ -721,7 +781,7 @@ class MassOrdersController extends Controller
             return $query->exists();
         });
 
-        $activeBranches = $finalBranches->where('is_active', true);
+        $activeBranches = $this->openOn($finalBranches->where('is_active', true), $orderDate);
 
         $options = $activeBranches->mapWithKeys(function ($branch) {
             return [$branch->id => $branch->name . ' (' . $branch->brand_code . ')'];

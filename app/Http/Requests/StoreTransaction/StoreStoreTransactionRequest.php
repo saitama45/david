@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests\StoreTransaction;
 
+use App\Http\Services\MonthEndClosedPeriodService;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Support\Facades\Auth;
 
@@ -23,7 +24,7 @@ class StoreStoreTransactionRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'order_date' => ['required', 'date_format:Y-m-d'],
+            'order_date' => ['required', 'date_format:Y-m-d', $this->openPeriodRule()],
             'lot_serial' => ['nullable'],
             'posted' => ['required'],
             'tim_number' => ['required'],
@@ -41,5 +42,18 @@ class StoreStoreTransactionRequest extends FormRequest
             'items.*.net_total' => ['required', 'numeric', 'min:0'],
             'items.*.take_out' => ['sometimes', 'boolean'],
         ];
+    }
+
+    /**
+     * A sale cannot be dated inside a period its store closed with a final approved month
+     * end count.
+     */
+    protected function openPeriodRule(): \Closure
+    {
+        return function (string $attribute, mixed $value, \Closure $fail) {
+            if ($problem = app(MonthEndClosedPeriodService::class)->problem((int) $this->input('store_branch_id'), $value)) {
+                $fail($problem);
+            }
+        };
     }
 }

@@ -60,7 +60,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## Directory responsibilities
 
 - `app/Http/Controllers/` — 106 module controllers + `Auth/`, one per module, kept thin
-- `app/Http/Services/` — **primary business logic** (23 classes)
+- `app/Http/Services/` — **primary business logic** (34 classes)
 - `app/Services/` — infrastructure only: Google Drive, import queue, UOM commits
 - `app/Models/` — 61 models; 47 use `BelongsToEntity`
 - `app/Models/Concerns/`, `app/Models/Scopes/` — `BelongsToEntity`, `EntityScope`
@@ -96,6 +96,7 @@ Full detail: [Data-Flows.md](docs/knowledge/Data-Flows.md).
 `OrderApprovalService`, `MassOrderService`, `StoreOrderService`, `DTSStoreOrderService`,
 `OrderCalculatorService`, `OrderReceivingService`, `IntercoService`, `WastageService`,
 `MonthEndCountSettingsService`, `MonthEndCountReadinessService`, `MonthEndCountRejectionService`,
+`MonthEndClosedPeriodService`,
 `InventoryMovementService`,
 `RoleService`, `UserService`, `AdoptionRateTrackingService`, `SuccessRateService`, `GoLiveStoresService`.
 
@@ -296,6 +297,15 @@ SQL Server as the target. Rationale and trade-offs: [Decisions.md](docs/knowledg
   `MonthEndCountRejectionService::returnToStore()` (rows `rejected`, upload reopened, re-upload replaces
   them and starts again before Level 1). Never give one level its own reject logic.
   Detail: [Data-Flows.md](docs/knowledge/Data-Flows.md#month-end-count-approval-and-rejection).
+- **A final (Level 2) approved Month End Count closes the store's dates through its MEC Scheduled Date**,
+  kept inside the month counted (`MonthEndStockVariance::periodFor()`: a count dated Oct 29 leaves Oct 30-31
+  open, March's dated Apr 5 closes Mar 31). `MonthEndClosedPeriodService` is the only source. Pages get
+  `closedThrough` (per store) or `closedForAllStores` (a calendar several stores share) to disable the
+  dates, and the server refuses them again with `problem()`: mass order upload / template / edit, DTS
+  store / update, wastage create, sale create, receipt date. Only *choosing* a closed date is refused - a
+  transaction keeps one it already has. POS sales sync / import and receipts stamped `now()` are not
+  checked. A new form with a transaction date must use the service, never its own month maths.
+  Detail: [Data-Flows.md](docs/knowledge/Data-Flows.md#closed-dates-after-the-final-month-end-count-approval).
 - **`supplier_items` text columns (category, brand, classification, packaging_config) and `config` are NOT
   NULL**, but blank form inputs arrive as null (ConvertEmptyStringsToNull). Store `''` / `0`, as the import does.
 - **Fresh migrations create a UNIQUE index on `sap_masterfiles.ItemCode`** that the live database does

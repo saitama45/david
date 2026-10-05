@@ -109,6 +109,8 @@ class WastageController extends Controller
                 'value' => $branch->id,
                 'label' => $branch->name . ' (' . $branch->branch_code . ')',
             ]),
+            // Last date each store closed with a final approved month end count; cast so none is {}.
+            'closedThrough' => (object) app(\App\Http\Services\MonthEndClosedPeriodService::class)->closedThrough($assignedStoreIds),
             'canViewCost' => $user->hasPermissionTo('view cost wastage record'),
         ]);
     }

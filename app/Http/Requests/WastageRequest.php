@@ -151,6 +151,12 @@ class WastageRequest extends FormRequest
                 'required',
                 'date',
                 'before_or_equal:'.\Carbon\Carbon::now('Asia/Manila')->toDateString(),
+                // Not inside a period the store closed with a final approved month end count.
+                function (string $attribute, mixed $value, \Closure $fail) {
+                    if ($problem = app(\App\Http\Services\MonthEndClosedPeriodService::class)->problem((int) $this->input('store_branch_id'), $value)) {
+                        $fail($problem);
+                    }
+                },
             ];
             $rules['cartItems'] = [
                 'required',
