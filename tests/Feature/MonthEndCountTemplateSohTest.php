@@ -133,11 +133,12 @@ it('blocks a store on every unfinished transaction this month, and only this mon
     mecSohWastage($b, $f['user'], 'W-9', 'pending', '2026-08-15 09:00:00');
 
     $readiness = app(MonthEndCountReadinessService::class);
-    // A and B submitted August's count, so both are on September; C still owes August.
+    // A and B submitted August's count, so both are on September, to date; C still owes
+    // August, whose period ended on its MEC Scheduled Date.
     expect($readiness->periods([$a->id, $b->id, $c->id], Carbon::today('Asia/Manila')))->toBe([
         $a->id => ['2026-09-01', '2026-09-28'],
         $b->id => ['2026-09-01', '2026-09-28'],
-        $c->id => ['2026-08-01', '2026-09-28'],
+        $c->id => ['2026-08-01', '2026-08-31'],
     ]);
 
     $blockers = $readiness->blockers([$a->id, $b->id], '2026-09-01', '2026-09-28');
@@ -214,7 +215,7 @@ it('keeps Current SOH on the month being counted once the calendar rolls into th
 
     Carbon::setTestNow(Carbon::parse('2026-10-01 10:00', 'Asia/Manila'));
     $readiness = app(MonthEndCountReadinessService::class);
-    expect($readiness->periods([$a->id], Carbon::today('Asia/Manila')))->toBe([$a->id => ['2026-09-01', '2026-10-01']]);
+    expect($readiness->periods([$a->id], Carbon::today('Asia/Manila')))->toBe([$a->id => ['2026-09-01', '2026-09-30']]);
 
     Excel::fake();
     test()->actingAs($f['user']);
@@ -234,10 +235,49 @@ it('keeps Current SOH on the month being counted once the calendar rolls into th
     expect($readiness->periods([$a->id], Carbon::today('Asia/Manila')))->toBe([$a->id => ['2026-10-01', '2026-10-01']]);
 });
 
+it('does not hold a count back on transactions dated after its MEC Scheduled Date', function () {
+    $f = mecSohFixture();
+    $a = $f['stores']['A'];
+    $sap = mecSohEspresso();
+
+    // September's count, taken on October 5. August's is approved, so nothing older blocks.
+    $september = MonthEndSchedule::create(['year' => 2026, 'month' => 9, 'calculated_date' => '2026-09-30', 'created_by' => $f['user']->id]);
+    mecSohMecCount($f, $a, $sap['Bag'], 'level2_approved');
+    Carbon::setTestNow(Carbon::parse('2026-10-05 10:00', 'Asia/Manila'));
+    $today = Carbon::today('Asia/Manila');
+
+    // October's orders and wastage belong to October's count.
+    mecSohOrder($f, $a, '2026-10-02', 'pending');
+    mecSohOrder($f, $a, '2026-10-05', 'committed');
+    mecSohOrder($f, $a, '2026-10-05', 'committed');
+    mecSohWastage($a, $f['user'], 'W-OCT', 'pending', '2026-10-03 09:00:00');
+
+    $readiness = app(MonthEndCountReadinessService::class);
+    $periods = $readiness->periods([$a->id], $today);
+
+    expect($periods)->toBe([$a->id => ['2026-09-01', '2026-09-30']])
+        ->and($readiness->uploadPeriod($september, $today))->toBe(['2026-09-01', '2026-09-30'])
+        ->and($readiness->blockersForPeriods($periods))->toBe([])
+        ->and($readiness->blockersForUpload($september, [$a->id], $today))->toBe([]);
+
+    // An order of the last day counted still holds it back.
+    mecSohOrder($f, $a, '2026-09-30', 'committed');
+    expect(array_column($readiness->blockersForPeriods($periods)[$a->id], 'label'))->toBe(['1 order not yet received'])
+        ->and(array_column($readiness->blockersForUpload($september, [$a->id], $today)[$a->id], 'label'))->toBe(['1 order not yet received']);
+
+    // A count dated in the following month is settled to the end of the month counted,
+    // and one whose date is still ahead is settled to today.
+    $march = new MonthEndSchedule(['year' => 2026, 'month' => 3, 'calculated_date' => '2026-04-05']);
+    $october = new MonthEndSchedule(['year' => 2026, 'month' => 10, 'calculated_date' => '2026-10-30']);
+    expect($readiness->uploadPeriod($march, $today))->toBe(['2026-03-01', '2026-03-31'])
+        ->and($readiness->uploadPeriod($october, $today))->toBe(['2026-10-01', '2026-10-05']);
+});
+
 it('refuses the template while the store has unfinished transactions, or is not the user\'s', function () {
     $f = mecSohFixture();
     ['A' => $a] = $f['stores']->all();
-    mecSohWastage($a, $f['user'], 'W-1', 'pending', '2026-09-13 09:00:00');
+    // A still owes August's count, so its period is August.
+    mecSohWastage($a, $f['user'], 'W-1', 'pending', '2026-08-13 09:00:00');
 
     Excel::fake();
     test()->actingAs($f['user']);
@@ -268,7 +308,7 @@ it('withholds the upload from a store with unfinished transactions, on the page 
         ->and($page['uploadPendingBranches'])->toHaveCount(1)
         ->and($page['uploadPendingBranches'][0]['id'])->toBe($a->id)
         ->and($page['uploadPendingBranches'][0]['blockers'][0]['label'])->toBe('1 order not yet received')
-        ->and($page['uploadPendingPeriod'])->toBe(['from' => 'Aug 1, 2026', 'through' => 'Sep 1, 2026']);
+        ->and($page['uploadPendingPeriod'])->toBe(['from' => 'Aug 1, 2026', 'through' => 'Aug 31, 2026']);
 
     Excel::fake();
     $upload = fn (StoreBranch $store) => app(MonthEndCountController::class)->upload(Request::create(
@@ -280,7 +320,7 @@ it('withholds the upload from a store with unfinished transactions, on the page 
     $refused = $upload($a);
     expect($refused)->toBeInstanceOf(RedirectResponse::class)
         ->and($refused->getTargetUrl())->not->toContain('review')
-        ->and(session('errors')->get('error')[0])->toContain('Store A still has unfinished transactions since Aug 1, 2026: 1 order not yet received');
+        ->and(session('errors')->get('error')[0])->toContain('Store A still has unfinished transactions from Aug 1, 2026 to Aug 31, 2026: 1 order not yet received');
 
     expect($upload($b)->getTargetUrl())->toBe(route('month-end-count.review', ['schedule' => $f['august']->id, 'branch' => $b->id]));
 

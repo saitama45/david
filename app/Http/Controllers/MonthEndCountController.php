@@ -104,8 +104,9 @@ class MonthEndCountController extends Controller
         // the user as "you have nothing to do" rather than "you are locked out".
         $uploadWindow = $this->describeUploadWindow($now, $today, $userBranchIds, $settings);
 
-        // The template's Current SOH is the Theoretical SOH of the month being counted, so
-        // it is only offered once nothing in that period is still open for the branch.
+        // The template's Current SOH is the Theoretical SOH over the period of the count (to
+        // its MEC Scheduled Date, not to today), so it is only offered once nothing in that
+        // period is still open for the branch.
         $sohPeriods = $this->readiness->periods($userBranchIds, $today);
         $downloadBlockers = $this->readiness->blockersForPeriods($sohPeriods);
 
@@ -368,7 +369,8 @@ class MonthEndCountController extends Controller
         $blockers = $this->readiness->blockers([$branch->id], $from, $through)[$branch->id] ?? [];
 
         if ($blockers !== []) {
-            return back()->withErrors(['download' => "{$branch->name} still has unfinished transactions since ".Carbon::parse($from)->format('M j, Y').': '
+            return back()->withErrors(['download' => "{$branch->name} still has unfinished transactions from "
+                .Carbon::parse($from)->format('M j, Y').' to '.Carbon::parse($through)->format('M j, Y').': '
                 .implode('; ', array_column($blockers, 'label')).'. Finish them, then download the template.']);
         }
 
@@ -538,8 +540,10 @@ class MonthEndCountController extends Controller
                 'blockers' => array_column($pending, 'label'),
             ]);
 
-            return back()->withErrors(['error' => "{$branch->name} still has unfinished transactions since "
-                .Carbon::parse($this->readiness->uploadPeriod($schedule, $today)[0])->format('M j, Y').': '
+            [$from, $through] = $this->readiness->uploadPeriod($schedule, $today);
+
+            return back()->withErrors(['error' => "{$branch->name} still has unfinished transactions from "
+                .Carbon::parse($from)->format('M j, Y').' to '.Carbon::parse($through)->format('M j, Y').': '
                 .implode('; ', array_column($pending, 'label')).'. Finish them, then download the template and upload the count.']);
         }
         Log::info('MonthEndCountController@upload: Branch-specific validation passed.');

@@ -269,16 +269,23 @@ transaction and `WorkflowGuidanceService::reportMetrics()` ignores it.
 ## Month End Count template: Current SOH
 
 The downloaded template's **Current SOH** is the Inventory Movement Report's **Theoretical SOH**
-for the month being counted, to date: previous month's count + approved receipts +
+over the period of the count: previous month's count + approved receipts +
 interco in − sales − level 2 wastage − interco out. Both call `InventoryMovementService::movementData()`,
 so they cannot drift apart. The value is per ItemCode in the SAP base unit, restated in each template
 line's Bulk UOM through `ItemStockUnit` factors; a line with no SAP item or no conversion shows 0.
 
 **The period is per branch, not the calendar month** (`MonthEndCountReadinessService::periods()`): it
-starts on the 1st of the month of the count the branch takes next - the last scheduled count while the
-branch has not submitted it (rejected rows do not count), else the next one on the schedule - and runs
-through today. A count is taken after its month ends (September's on October 1); "1st of this month →
-today" then covered an empty October and every Current SOH came out 0 (fixed 2026-10-01).
+is the period of the count the branch takes next - the last scheduled count while the branch has not
+submitted it (rejected rows do not count), else the next one on the schedule. A count is taken after
+its month ends (September's on October 1); "1st of this month → today" then covered an empty October
+and every Current SOH came out 0 (fixed 2026-10-01).
+
+**A count's period ends on its MEC Scheduled Date, not today** (`countPeriod()`, 2026-10-05): the 1st
+of the month counted through `MonthEndStockVariance::periodFor()`'s end (the scheduled date, kept
+inside the month counted), cut at today only while that date is still ahead. It is the same period
+the Qty / Cost Variance report and the closed dates use. Until then it ran through today, so on Oct 5
+a store's October orders (not yet delivered, or awaiting approval) withheld its September template and
+upload, and October movements leaked into September's Current SOH.
 
 **Zeros need `WithStrictNullComparison`.** maatwebsite/excel writes `0` as an empty cell without it
 (`0 == null`), which is why those zeros looked like a missing column. With it, `''` is written too, so
@@ -325,8 +332,8 @@ already narrowed to the branches and period, and rows of other items are never l
 cast to strings before binding - a numeric code ("213") becomes an int array key, and SQL Server then
 casts the whole `ItemCode` column to int and fails.
 
-The **upload is withheld on the same checks** (`blockersForUpload()`, from the 1st of the month counted
-through today): a branch with open work is taken out of the upload form's branch list and shown in a
+The **upload is withheld on the same checks** (`blockersForUpload()`, over the same `countPeriod()` of
+the schedule being uploaded): a branch with open work is taken out of the upload form's branch list and shown in a
 notice with what it must finish, and `MonthEndCountController@upload` refuses it too. The upload form
 follows the branch picked in the download box: once a branch is picked the form shows only if that
 branch can upload, so a pending branch never sits above a form meant for the user's other stores. Until 2026-10-01

@@ -220,6 +220,10 @@ SQL Server as the target. Rationale and trade-offs: [Decisions.md](docs/knowledg
   (the March 2026 count is dated Apr 5), so never map a picked date to a count through its month. The
   Qty / Cost Variance report picks its one count from a dropdown of those dates (`mec_date`), not from
   a free From / To range.
+- **A count's period ends on its MEC Scheduled Date, never today.** The template's Current SOH and the
+  download / upload blockers (`MonthEndCountReadinessService::countPeriod()`) read the 1st of the month
+  counted through `MonthEndStockVariance::periodFor()`'s end, cut at today only while that date is still
+  ahead. Run to today, October's undelivered orders withheld September's count (fixed 2026-10-05).
 - **The Qty / Cost Variance report has no figures of its own - they are the Inventory Movement Report's.**
   `MonthEndStockVariance::rows()` reads `InventoryMovementService::movementDataForBranches()` over the
   count's `period()` (1st of the month counted through the MEC Scheduled Date, kept inside that month),

@@ -3,6 +3,7 @@
 namespace App\Http\Services;
 
 use App\Models\MonthEndSchedule;
+use App\Services\MonthEndStockVariance;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Route;
@@ -11,8 +12,8 @@ use Illuminate\Support\Facades\Route;
  * What still has to be finished before a store's Month End Count template can carry a
  * trustworthy Current SOH.
  *
- * Current SOH is the Inventory Movement Report's Theoretical SOH for the month being
- * counted, to date. That figure only counts approved receipts, level 2 approved wastage and the previous
+ * Current SOH is the Inventory Movement Report's Theoretical SOH over the period of the
+ * count (countPeriod()). That figure only counts approved receipts, level 2 approved wastage and the previous
  * month's count, so any order, transfer, wastage or count still open in the period would
  * leave it wrong. The template is withheld until the store's period is settled.
  */
@@ -34,8 +35,32 @@ class MonthEndCountReadinessService
     ];
 
     /**
-     * The period each branch's template covers: the first day of the month of the count
-     * the branch takes next, through today.
+     * The dates a count is settled over: the period it is read over everywhere else
+     * (MonthEndStockVariance::periodFor() - the 1st of the month counted through its MEC
+     * Scheduled Date, kept inside that month), ending today while that date is still ahead.
+     *
+     * It must not run on to today once the date has passed. September's count is taken in
+     * October, and an October order still waiting for its delivery then held the September
+     * count back, although it belongs to October's.
+     *
+     * @return array{0: string, 1: string} [Y-m-d from, Y-m-d through]
+     */
+    private function countPeriod(?MonthEndSchedule $schedule, Carbon $today): array
+    {
+        $thisMonth = $today->copy()->startOfMonth()->toDateString();
+
+        if (! $schedule) {
+            return [$thisMonth, $today->toDateString()];
+        }
+
+        [$from, $through] = MonthEndStockVariance::periodFor((int) $schedule->year, (int) $schedule->month, $schedule->calculated_date);
+
+        return [min($from, $thisMonth), min($through, $today->toDateString())];
+    }
+
+    /**
+     * The period each branch's template covers: that of the count the branch takes next
+     * (countPeriod()).
      *
      * That count is the last scheduled one while the branch has not submitted it, else
      * the next one on the schedule. A count is taken after its month has ended (September's
@@ -47,10 +72,6 @@ class MonthEndCountReadinessService
     public function periods($branchIds, Carbon $today): array
     {
         $branchIds = collect($branchIds)->map(fn ($id) => (int) $id)->unique()->values();
-        $thisMonth = $today->copy()->startOfMonth()->toDateString();
-        $monthOf = fn (?MonthEndSchedule $schedule) => $schedule
-            ? min(Carbon::create($schedule->year, $schedule->month, 1)->toDateString(), $thisMonth)
-            : $thisMonth;
 
         $last = MonthEndSchedule::where('calculated_date', '<', $today->toDateString())->orderByDesc('calculated_date')->first();
         $next = MonthEndSchedule::where('calculated_date', '>=', $today->toDateString())->orderBy('calculated_date')->first();
@@ -69,7 +90,7 @@ class MonthEndCountReadinessService
         $periods = [];
         foreach ($branchIds as $branchId) {
             $owesLast = $last && ! $submitted->contains($branchId);
-            $periods[$branchId] = [$monthOf($owesLast ? $last : $next), $today->toDateString()];
+            $periods[$branchId] = $this->countPeriod($owesLast ? $last : $next, $today);
         }
 
         return $periods;
@@ -95,18 +116,15 @@ class MonthEndCountReadinessService
     }
 
     /**
-     * The period a schedule's count must be settled over before it can be uploaded: the
-     * first day of the month counted, through today. For the count a branch takes next
-     * this is the same period its template's Current SOH covers.
+     * The period a schedule's count must be settled over before it can be uploaded
+     * (countPeriod()). For the count a branch takes next this is the same period its
+     * template's Current SOH covers.
      *
      * @return array{0: string, 1: string} [Y-m-d from, Y-m-d through]
      */
     public function uploadPeriod(MonthEndSchedule $schedule, Carbon $today): array
     {
-        return [
-            min(Carbon::create($schedule->year, $schedule->month, 1)->toDateString(), $today->copy()->startOfMonth()->toDateString()),
-            $today->toDateString(),
-        ];
+        return $this->countPeriod($schedule, $today);
     }
 
     /**

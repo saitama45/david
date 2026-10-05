@@ -18,6 +18,30 @@ export const changeLog = [
     // ---------------------------------------------------------------- October 5, 2026
     {
         date: '2026-10-05',
+        module: 'Month End Count',
+        type: 'improved',
+        title: 'A count is held back only by unfinished transactions up to its MEC Schedule Date, and the template "Current SOH" stops at that date too',
+        summary:
+            'The check for unfinished transactions ran from the 1st of the month being counted up to today. The September count is taken in October, so October orders that were still waiting for approval or for their delivery held back the September template and upload, although they belong to the October count. The check now stops at the MEC Schedule Date of the count, and the Current SOH on the template covers the same dates.',
+        steps: [
+            'The store opens Month End Count and selects its branch.',
+            'The system reviews the store\'s transactions from the 1st of the month being counted up to the MEC Schedule Date of that count. Example: for the September 2026 count with MEC Schedule Date September 30, 2026, it reviews September 1 to September 30, 2026.',
+            'If anything in those dates is unfinished, the notices "The template is not available yet." and "Uploading the September 2026 count is not available yet for this branch." list it, together with the dates that were checked.',
+            'If nothing in those dates is unfinished, "Download Count Template" and "Upload and Process Count" are available, even while later orders are still open.',
+        ],
+        rules: [
+            'Only transactions dated from the 1st of the month being counted up to the MEC Schedule Date of the count can hold back the template and the upload.',
+            'An order is dated by its Delivery Date. A wastage record is dated by the day it was created.',
+            'When the MEC Schedule Date falls in the following month, the check stops at the last day of the month being counted. Example: a March count with MEC Schedule Date April 5 is checked from March 1 to March 31.',
+            'While the MEC Schedule Date is still ahead, the check runs up to today.',
+            'The Current SOH on the template is the theoretical stock over the same dates, so transactions after the MEC Schedule Date no longer change it. These are the same dates the Qty Variance / Cost Variance Report uses for that count.',
+            'What holds a store back is unchanged: an order not yet received, a received order with received quantities not yet approved, an incoming interco transfer not yet received, a wastage record not yet approved at Level 2, and the previous month\'s count not yet approved at Level 2.',
+            'The upload window and its deadline still apply.',
+        ],
+        affects: 'Store users who take the count, and the approvers who follow up late stores.',
+    },
+    {
+        date: '2026-10-05',
         module: 'Inbound Orders (Receiving)',
         type: 'new',
         title: 'A "Zero All" button in Inbound Orders marks a delivery that did not arrive as Unserved in one click, without a delivery receipt or an image',

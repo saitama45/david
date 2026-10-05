@@ -35,7 +35,7 @@ const selectedBranchBlockers = computed(() =>
     selectedBranchId.value ? (props.downloadBlockers?.[selectedBranchId.value] ?? []) : []
 );
 
-// The period the selected branch's Current SOH covers: the month of the count it takes next, to date.
+// The period the selected branch's Current SOH covers: the month of the count it takes next, to its MEC Scheduled Date.
 const sohPeriod = computed(() =>
     selectedBranchId.value ? (props.sohPeriods?.[selectedBranchId.value] ?? null) : null
 );
