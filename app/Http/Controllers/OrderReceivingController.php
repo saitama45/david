@@ -272,6 +272,26 @@ class OrderReceivingController extends Controller
 
 
     /**
+     * Zero All: record every receipt not posted yet as unserved (quantity 0). For a delivery
+     * that never arrived, so it asks for no delivery receipt and no image. Nothing is posted:
+     * Confirm Receive All or Final Receive All still follow.
+     */
+    public function zeroAll($id)
+    {
+        $order = StoreOrder::findOrFail($id);
+
+        try {
+            $zeroed = $this->orderReceivingService->zeroUnconfirmedReceipts($order);
+        } catch (\Exception $e) {
+            return back()->withErrors(['error' => $e->getMessage()]);
+        }
+
+        return $zeroed === 0
+            ? back()->with('info', 'No items left to set to 0.')
+            : back()->with('success', "{$zeroed} item(s) set to 0 and marked Unserved.");
+    }
+
+    /**
      * Confirm Receive All: post every recorded but unconfirmed receipt to stock. The item list
      * stays open afterwards, so an item found later can still be added and confirmed.
      */
@@ -280,7 +300,7 @@ class OrderReceivingController extends Controller
         $order = StoreOrder::findOrFail($id);
 
         if ($problem = $this->orderReceivingService->receivingLockedProblem($order)
-            ?? $this->orderReceivingService->deliveryEvidenceProblem($order)) {
+            ?? $this->orderReceivingService->postingEvidenceProblem($order)) {
             return back()->withErrors(['error' => $problem]);
         }
 
@@ -313,7 +333,7 @@ class OrderReceivingController extends Controller
         $order = StoreOrder::findOrFail($id);
 
         if ($problem = $this->orderReceivingService->receivingLockedProblem($order)
-            ?? $this->orderReceivingService->deliveryEvidenceProblem($order)) {
+            ?? $this->orderReceivingService->postingEvidenceProblem($order)) {
             return back()->withErrors(['error' => $problem]);
         }
 

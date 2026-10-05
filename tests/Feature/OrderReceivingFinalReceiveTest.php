@@ -181,3 +181,101 @@ it('refuses Final Receive All without a delivery receipt or image', function () 
     expect($order->fresh()->receiving_finalized_at)->toBeNull()
         ->and(OrderedItemReceiveDate::find($receipt->id)->status)->toBe('received');
 });
+
+/** A second line of the fixture order with one receiving row in the given state. */
+function receivingLine(StoreOrder $order, string $code, array $receipt): OrderedItemReceiveDate
+{
+    $line = StoreOrderItem::create([
+        'store_order_id' => $order->id, 'item_code' => $code,
+        'sap_masterfile_id' => SAPMasterfile::where('ItemCode', $code)->value('id'),
+        'quantity_ordered' => 3, 'quantity_approved' => 3, 'quantity_commited' => 3,
+        'cost_per_quantity' => 25, 'total_cost' => 75, 'uom' => 'Pack',
+    ]);
+
+    return OrderedItemReceiveDate::create(['store_order_item_id' => $line->id] + $receipt);
+}
+
+it('sets every unconfirmed receipt to 0 and Unserved on Zero All, without a delivery receipt or image', function () {
+    [$user, $order, $branch, $recorded, $ordered] = receivingFixture(withImage: false);
+    $this->actingAs($user);
+
+    // A worksheet row nobody filled in, and a receipt that is already posted to stock.
+    $untouched = receivingLine($order, 'UNL-SUP', ['received_by_user_id' => null, 'quantity_received' => 3, 'received_date' => null, 'status' => 'pending']);
+    $posted = receivingLine($order, 'UNL-SAP', [
+        'received_by_user_id' => $user->id, 'approval_action_by' => $user->id, 'quantity_received' => 1,
+        'received_date' => now('Asia/Manila')->format('Y-m-d H:i:s'), 'remarks' => 'Received', 'status' => 'approved',
+    ]);
+
+    $service = app(OrderReceivingService::class);
+    expect($service->deliveryEvidenceProblem($order))->toContain('an image attachment');
+
+    $controller = app(OrderReceivingController::class);
+    $controller->zeroAll($order->id);
+
+    foreach ([$recorded, $untouched] as $row) {
+        $row = OrderedItemReceiveDate::find($row->id);
+
+        expect((float) $row->quantity_received)->toBe(0.0)
+            ->and($row->remarks)->toBe('Unserved')
+            ->and($row->status)->toBe('received')
+            ->and($row->received_date)->not->toBeNull()
+            ->and((int) $row->received_by_user_id)->toBe($user->id);
+    }
+
+    $posted = OrderedItemReceiveDate::find($posted->id);
+
+    // Nothing is posted and the list stays open; the posted receipt keeps its quantity.
+    expect((float) $posted->quantity_received)->toBe(1.0)
+        ->and($posted->status)->toBe('approved')
+        ->and($posted->remarks)->toBe('Received')
+        ->and($order->fresh()->order_status)->toBe(OrderStatus::COMMITTED->value)
+        ->and($order->fresh()->receiving_finalized_at)->toBeNull()
+        ->and(ProductInventoryStock::where('product_inventory_id', $ordered->id)->where('store_branch_id', $branch->id)->exists())->toBeFalse();
+
+    // One receipt above zero is on the order, so finalizing still needs the image.
+    $controller->finalReceive($order->id);
+
+    expect($order->fresh()->receiving_finalized_at)->toBeNull()
+        ->and($service->postingEvidenceProblem($order))->toContain('an image attachment');
+});
+
+it('lets an order with nothing received be finalized without a delivery receipt or image', function () {
+    [$user, $order, $branch, $receipt, $ordered] = receivingFixture(withImage: false);
+    $this->actingAs($user);
+
+    $controller = app(OrderReceivingController::class);
+    $controller->zeroAll($order->id);
+
+    expect(app(OrderReceivingService::class)->postingEvidenceProblem($order))->toBeNull();
+
+    $controller->finalReceive($order->id);
+
+    $order->refresh();
+    $receipt = OrderedItemReceiveDate::find($receipt->id);
+
+    expect($order->receiving_finalized_at)->not->toBeNull()
+        ->and($order->order_status)->toBe(OrderStatus::RECEIVED->value)
+        ->and($receipt->status)->toBe('approved')
+        ->and((float) $receipt->quantity_received)->toBe(0.0)
+        ->and($receipt->remarks)->toBe('Unserved')
+        ->and((float) StoreOrderItem::find($receipt->store_order_item_id)->quantity_received)->toBe(0.0)
+        ->and((float) ProductInventoryStock::where('product_inventory_id', $ordered->id)
+            ->where('store_branch_id', $branch->id)->value('quantity'))->toBe(0.0);
+});
+
+it('refuses Zero All once the delivery is finalized', function () {
+    [$user, $order, , $receipt] = receivingFixture();
+    $this->actingAs($user);
+
+    $controller = app(OrderReceivingController::class);
+    $controller->finalReceive($order->id);
+
+    // A row that should not exist on a locked delivery: Zero All must not touch it either.
+    $stray = receivingLine($order, 'UNL-SUP', ['received_by_user_id' => null, 'quantity_received' => 3, 'received_date' => null, 'status' => 'pending']);
+
+    $controller->zeroAll($order->id);
+
+    expect((float) OrderedItemReceiveDate::find($receipt->id)->quantity_received)->toBe(2.0)
+        ->and((float) OrderedItemReceiveDate::find($stray->id)->quantity_received)->toBe(3.0)
+        ->and(OrderedItemReceiveDate::find($stray->id)->status)->toBe('pending');
+});

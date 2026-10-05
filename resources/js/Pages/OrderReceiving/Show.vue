@@ -3,7 +3,7 @@ import { ref, watch, computed, onMounted, onUnmounted } from "vue";
 import { useForm } from "@inertiajs/vue3";
 import { useToast } from "primevue/usetoast";
 import { router } from "@inertiajs/vue3";
-import { X, Eye, PackagePlus, Search, Check, Loader2, Lock } from "lucide-vue-next";
+import { X, Eye, PackagePlus, PackageX, Search, Check, Loader2, Lock } from "lucide-vue-next";
 import { useConfirm } from "primevue/useconfirm";
 import dayjs from "dayjs";
 import utc from "dayjs/plugin/utc"; // Import UTC plugin
@@ -582,9 +582,18 @@ const evidenceHint = computed(() =>
         : `Add ${missingEvidence.value.join(" and ")} before recording received quantities.`
 );
 
+// Every receipt of the order is zero (Zero All, or each line saved with 0): nothing was
+// delivered, so there is no delivery receipt or image to ask for before confirming. An
+// untouched row still carries its committed quantity, so it does not count as zero. The
+// server applies the same rule (OrderReceivingService::postingEvidenceProblem).
+const nothingReceived = computed(
+    () => props.receiveDatesHistory.length > 0
+        && props.receiveDatesHistory.every((h) => Number(h.quantity_received) === 0)
+);
+
 // Confirm Receive All stays available until it has been used, then disappears because no
 // unconfirmed rows remain. Final Receive All posts any left as well, so none are stranded.
-const canConfirmReceive = computed(() => missingEvidence.value.length === 0);
+const canConfirmReceive = computed(() => missingEvidence.value.length === 0 || nothingReceived.value);
 
 // Rows that have not yet been posted to stock. Confirm Receive keys off these rather than the
 // order status, so an item added after the order was marked received can still be posted.
@@ -843,6 +852,67 @@ const promptConfirmReceive = () => {
 const unconfirmedRowCount = computed(
     () => props.receiveDatesHistory.filter((h) => ["pending", "received"].includes(String(h.status).toLowerCase())).length
 );
+
+// Zero All: for a delivery that did not arrive. Sets every item not yet confirmed to 0 with
+// the remark "Unserved", and is the one receiving action that needs no delivery receipt and
+// no image. It posts nothing: Confirm Receive All or Final Receive All still follow.
+const zeroAllForm = useForm({});
+
+// Unconfirmed rows somebody already filled in with a quantity, which Zero All replaces.
+const recordedQuantityCount = computed(
+    () => props.receiveDatesHistory.filter(
+        (h) => String(h.status).toLowerCase() === "received" && Number(h.quantity_received) !== 0
+    ).length
+);
+
+const zeroAll = () => {
+    zeroAllForm.put(route("orders-receiving.zero-all", props.order.id), {
+        preserveScroll: true,
+        onSuccess: () => {
+            toast.add({
+                severity: "success",
+                summary: "Zero All",
+                detail: 'Every item not yet confirmed is now 0 and marked "Unserved".',
+                life: 5000,
+            });
+        },
+        onError: (errors) => {
+            toast.add({
+                severity: "error",
+                summary: "Unable to Zero All",
+                detail: errors.error || "Please try again.",
+                life: 7000,
+            });
+        },
+    });
+};
+
+const promptZeroAll = () => {
+    const pending = unconfirmedRowCount.value;
+    const recorded = recordedQuantityCount.value;
+
+    confirm.require({
+        header: "Zero All?",
+        message:
+            `${pending} item(s) not yet confirmed will be set to 0 received and marked "Unserved". `
+            + (recorded > 0 ? `${recorded} of them already have a received quantity, which will be replaced by 0. ` : "")
+            + "Use this when the delivery did not arrive. No delivery receipt or image is needed. "
+            + "Afterwards click Confirm Receive All or Final Receive All to finish.",
+        icon: "pi pi-exclamation-triangle",
+        rejectProps: {
+            label: "Cancel",
+            severity: "secondary",
+            outlined: true,
+        },
+        acceptProps: {
+            label: "Zero All",
+            severity: "danger",
+        },
+        accept: () => {
+            zeroAll();
+        },
+    });
+};
 
 const finalReceiveForm = useForm({});
 
@@ -1200,6 +1270,20 @@ const promptFinalReceive = () => {
                              Add Unlisted Item is offered even when the supplier has nothing left
                              to add: the dialog says so. -->
                         <div v-if="!isFinalized && hasReceivePermission" class="flex items-center gap-3">
+                            <!-- First, and never waiting for a delivery receipt or an image: it is
+                                 for the delivery that did not arrive. -->
+                            <Button
+                                v-if="hasUnconfirmedRows"
+                                @click="promptZeroAll"
+                                :disabled="zeroAllForm.processing"
+                                variant="outline"
+                                class="gap-2 border-2 border-rose-300 bg-rose-50 text-rose-700 font-semibold shadow-sm hover:bg-rose-100 hover:border-rose-400 hover:text-rose-800 transition-all"
+                                title="The delivery did not arrive: set every item not yet confirmed to 0 and mark it Unserved. No delivery receipt or image is needed."
+                            >
+                                <Loader2 v-if="zeroAllForm.processing" class="size-4 animate-spin" />
+                                <PackageX v-else class="size-4" />
+                                Zero All
+                            </Button>
                             <Button
                             :disabled="!canRecordReceipt"
                             variant="outline"

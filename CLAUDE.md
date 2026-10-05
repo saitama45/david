@@ -265,6 +265,12 @@ SQL Server as the target. Rationale and trade-offs: [Decisions.md](docs/knowledg
   every item-list action (receive, edit/delete history, add unlisted, confirm) checks
   `OrderReceivingService::receivingLockedProblem()`. Confirm Receive All posts but leaves the list open.
   The old 3-day window from `order_date` is gone. Delivery receipts and images stay editable.
+- **Zero All is the one receiving action that needs no delivery receipt and no image.** It is for a
+  delivery that did not arrive: `OrderReceivingService::zeroUnconfirmedReceipts()` sets every unposted
+  row to 0 / `Unserved` (status `received`) and posts nothing. Confirm / Final Receive All check
+  `postingEvidenceProblem()`, which waives the receipt + image only while every receipt of the order is
+  0; an untouched placeholder still carries its committed quantity. Every other action that records a
+  quantity keeps `deliveryEvidenceProblem()`.
 - **Wastage approval may take SOH negative** while Wastage Settings' "Negative Stock on Approval" is on
   (the default). A shortfall needs `confirm_negative_stock` on the approve request, enforced by
   `WastageService::approvalStockProblem()`; never re-add a hard stock block in the controllers.

@@ -87,6 +87,17 @@ date-less row per item that a delivery locked by Final Receive All could never r
 orders carried a wrong status from this; `database/queries/repair_mass_orders_reapproved_after_receiving.sql`
 puts them back. A CPO order is committed by its approval, so it cannot be approved a second time.
 
+**Receiving: delivery evidence and Zero All.** Recording a quantity on `/orders-receiving/show`
+(receive, edit, Add Unlisted Item) needs a delivery receipt and an image
+(`OrderReceivingService::deliveryEvidenceProblem()`). Zero All (`PUT /orders-receiving/zero-all/{id}`,
+`zeroUnconfirmedReceipts()`) is the exception, for a delivery that did not arrive: under a row lock it
+sets every `pending` / `received` row to quantity 0, remarks `Unserved`, status `received`, stamped
+with the receiver and the Manila time, and leaves `approved` rows alone. It posts nothing and does not
+lock. Confirm Receive All and Final Receive All then run `postingEvidenceProblem()`: no receipt or
+image is asked for while every receiving row of the order is 0, posted or not, and one row above 0
+brings the requirement back (an untouched placeholder holds its committed quantity, so it counts).
+The page mirrors this with `nothingReceived`.
+
 ## Wastage item search
 
 `/wastage/create` and `/wastage/edit` search through `WastageController::getAvailableItems()`

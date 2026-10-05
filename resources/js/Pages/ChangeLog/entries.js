@@ -18,6 +18,32 @@ export const changeLog = [
     // ---------------------------------------------------------------- October 5, 2026
     {
         date: '2026-10-05',
+        module: 'Inbound Orders (Receiving)',
+        type: 'new',
+        title: 'A "Zero All" button in Inbound Orders marks a delivery that did not arrive as Unserved in one click, without a delivery receipt or an image',
+        summary:
+            'When a delivery did not arrive, the store had to open each item, type 0 and save it, and could not even do that before adding a delivery receipt and an image, which do not exist for a delivery that never came. Receiving History now has a Zero All button, shown first, before Add Unlisted Item, Confirm Receive All and Final Receive All. It sets every item that is not yet confirmed to 0 with the remark Unserved, and it does not ask for a delivery receipt or an image.',
+        steps: [
+            'Open Inbound Orders and open the order.',
+            'In Receiving History click "Zero All". A message shows how many items will be set to 0. Click "Zero All" in the message to continue.',
+            'Every item that is not yet confirmed now shows 0 under Received, the status RECEIVED and the remark Unserved.',
+            'Click "Confirm Receive All", or click "Final Receive All" to finish and lock the delivery. While every item of the order is 0, both can be clicked without a delivery receipt and an image.',
+        ],
+        rules: [
+            'Zero All can be clicked without a delivery receipt and without an image attachment.',
+            'Zero All changes only the items that are not yet confirmed. An item that was already confirmed with Confirm Receive All keeps its quantity and its remark.',
+            'An item that already has a received quantity typed in, but is not confirmed yet, is also set to 0. The message says how many of these there are before anything is changed.',
+            'Zero All does not finish the delivery and adds nothing to stock. The delivery is finished with Confirm Receive All or Final Receive All, as before.',
+            'Confirm Receive All and Final Receive All need no delivery receipt and no image only while every item of the order has 0 received. As soon as one item has a quantity above 0, both are required again.',
+            'An item that still shows TO RECEIVE counts as having its committed quantity, so it has to be set to 0 before the order can be confirmed without a delivery receipt and an image.',
+            'Changing one item with the edit button and Add Unlisted Item still need a delivery receipt and an image.',
+            'Zero All is shown only while at least one item is not yet confirmed, and only to users with the "receive orders" permission.',
+            'Zero All is no longer shown once the delivery is locked with Final Receive All.',
+        ],
+        affects: 'Store users who receive deliveries in Inbound Orders.',
+    },
+    {
+        date: '2026-10-05',
         module: 'Mass Orders Approval',
         type: 'improved',
         title: 'Approve and Reject in Mass Orders Approval are no longer offered on an order that is already committed, received or rejected',

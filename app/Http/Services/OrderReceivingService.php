@@ -424,6 +424,66 @@ class OrderReceivingService extends StoreOrderService
     }
 
     /**
+     * Why Confirm Receive All / Final Receive All may not post this order yet, or null when
+     * they may.
+     *
+     * The delivery receipt and the image prove a delivery. An order whose every receipt is
+     * zero (Zero All, or each line saved with 0) had nothing delivered, so there is nothing to
+     * attach and they are not asked for. One receipt above zero, posted or not, brings the
+     * requirement back: an untouched worksheet row still carries its committed quantity.
+     */
+    public function postingEvidenceProblem(StoreOrder $order): ?string
+    {
+        $receipts = OrderedItemReceiveDate::whereHas('store_order_item', fn ($q) => $q->where('store_order_id', $order->id));
+
+        $nothingReceived = (clone $receipts)->exists()
+            && ! (clone $receipts)->where('quantity_received', '<>', 0)->exists();
+
+        return $nothingReceived ? null : $this->deliveryEvidenceProblem($order);
+    }
+
+    /**
+     * Zero All: record every receipt that is not posted yet as nothing received (quantity 0,
+     * remarks "Unserved"), which is what saving each line with 0 in the edit modal does.
+     *
+     * It is for a delivery that did not arrive, so unlike every other receiving action it
+     * asks for no delivery receipt and no image. Nothing is posted and the list stays open:
+     * Confirm Receive All or Final Receive All still follow. Posted receipts are left alone.
+     *
+     * @return int how many receipts were zeroed
+     *
+     * @throws Exception when the order was finalized with Final Receive All.
+     */
+    public function zeroUnconfirmedReceipts(StoreOrder $order): int
+    {
+        return DB::transaction(function () use ($order) {
+            // Locked, so Final Receive All cannot post a receipt while it is being zeroed.
+            $order = StoreOrder::lockForUpdate()->findOrFail($order->id);
+
+            $this->assertReceivingNotFinalized($order);
+
+            // An item nobody has opened yet has no worksheet row to zero.
+            $this->ensureReceivingPlaceholders($order);
+
+            $receipts = OrderedItemReceiveDate::whereHas('store_order_item', fn ($q) => $q->where('store_order_id', $order->id))
+                ->whereIn('status', ['pending', 'received'])
+                ->get();
+
+            foreach ($receipts as $receipt) {
+                $receipt->update([
+                    'quantity_received' => 0,
+                    'remarks' => 'Unserved',
+                    'received_date' => now('Asia/Manila'),
+                    'status' => 'received',
+                    'received_by_user_id' => Auth::id(),
+                ]);
+            }
+
+            return $receipts->count();
+        });
+    }
+
+    /**
      * Why this order's receiving item list can no longer be changed, or null while it can.
      *
      * Confirm Receive All posts what was recorded but leaves the list open: an item found

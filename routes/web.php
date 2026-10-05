@@ -539,6 +539,7 @@ Route::middleware('auth')
 
                 Route::middleware('permission:export approved orders')->get('/orders-receiving/export', 'export')->name('export'); // Corrected permission
 
+                Route::put('/orders-receiving/zero-all/{id}', 'zeroAll')->name('zero-all');
                 Route::put('/orders-receiving/confirm-receive/{id}', 'confirmReceive')->name('confirm-receive');
                 Route::put('/orders-receiving/final-receive/{id}', 'finalReceive')->name('final-receive');
             });
