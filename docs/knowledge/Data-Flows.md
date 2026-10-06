@@ -183,6 +183,31 @@ each Ref No. as a hyperlink, the total row, the notes and - for Supplies Used - 
 column and date headings come from `InventoryMovementDetailService::LABELS`, a copy of `detailColumns`
 in the page: a renamed column must be changed in both.
 
+## Inventory Movement Report adjustment
+
+The last two columns of `/reports/inventory-movement` (2026-10-06) are **Adjustment** and **Final
+Variance**: a signed quantity entered against an item's Variance with a required reason, and
+`Final Variance = Variance + Adjustment`. It explains the variance on this report only - it posts
+**no stock**; a stock correction is still an SOH adjustment.
+
+- **Storage:** `inventory_movement_adjustments` (`InventoryMovementAdjustment`, entity-scoped, audited):
+  one row per `store_branch_id` + `item_code` + `year` + `month`, with `quantity` (in the report's
+  display unit, `uom` kept beside it), `reason` (500) and `adjusted_by`.
+- **Which month:** the To Date's (`InventoryMovementAdjustmentService::period()`), the same rule
+  `InventoryMovementService` picks the Actual MEC count by. The page's default dates run from the 1st
+  to today, so a key on the exact dates would lose the adjustment the next day.
+- **Reading:** `InventoryMovementAdjustmentService::apply()` adds `adjustment_qty`, `adjustment_reason`,
+  `adjustment_by`, `adjustment_at` and `final_variance_qty` to each row in the controller's
+  `getMovementData()`, so the page, its sort, the PDF and the Excel export share them.
+  `InventoryMovementService` itself is untouched: the MEC template and the Qty / Cost Variance report
+  read it directly and do not see adjustments.
+- **Saving:** `POST reports.inventory-movement.adjustment.save` (`branch_id`, `date_to`, `sap_code`,
+  `quantity`, `reason`) behind `adjust inventory movement variance`, for a store the user is assigned
+  to. `updateOrCreate` replaces the month's row; nothing is deleted - a 0 with a reason takes one back.
+  The page posts with axios and overlays the answer on the row instead of reloading the report.
+- **Exports:** Excel columns Q `Adjustment`, R `Final Variance`, S `Adjustment Reason` (fixed width,
+  wrapped, taken back from `ShouldAutoSize` in `AfterSheet`); the PDF prints the reason under the figure.
+
 ## Report numbers
 
 The seven reports (Qty / Cost Variance, Inventory Movement, PMIX, Wastage, Delivery, Actual Cost /

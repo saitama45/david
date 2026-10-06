@@ -21,7 +21,8 @@ use PhpOffice\PhpSpreadsheet\Worksheet\Worksheet;
 /**
  * Excel twin of resources/views/pdf/inventory-movement-report.blade.php — same
  * columns, same grouping and the same highlighted columns, but with real numbers
- * instead of formatted strings so the sheet stays sortable and summable.
+ * instead of formatted strings so the sheet stays sortable and summable. The reason
+ * of an adjustment, a small line under the figure in the PDF, has its own column here.
  *
  * WithStrictNullComparison keeps zero quantities as 0 instead of blank cells —
  * without it a zero column is empty and auto-size never measures it.
@@ -40,7 +41,7 @@ class InventoryMovementReportExport implements FromCollection, ShouldAutoSize, W
         'PROCUREMENT (DATE RANGE)' => 3,
         'BEGINNING' => 1,
         'DEDUCTIONS / TRANSFERS' => 5,
-        'FINAL BALANCE' => 3,
+        'FINAL BALANCE' => 6,
     ];
 
     private const COLUMN_HEADINGS = [
@@ -60,6 +61,9 @@ class InventoryMovementReportExport implements FromCollection, ShouldAutoSize, W
         'Theoretical',
         'Actual MEC',
         'Variance',
+        'Adjustment',
+        'Final Variance',
+        'Adjustment Reason',
     ];
 
     /** Columns the PDF shades and bolds, keyed by column letter. */
@@ -69,7 +73,15 @@ class InventoryMovementReportExport implements FromCollection, ShouldAutoSize, W
         'N' => 'F5F3FF', // Theoretical
     ];
 
-    private const LAST_COLUMN = 'P';
+    private const LAST_COLUMN = 'S';
+
+    /** The last column that holds a quantity; the one after it is the adjustment's reason, a text. */
+    private const LAST_QUANTITY_COLUMN = 'R';
+
+    private const REASON_COLUMN = 'S';
+
+    /** A reason can run to 500 characters: it wraps in a column of this width instead of sizing it. */
+    private const REASON_COLUMN_WIDTH = 45;
 
     private const WASTAGE_COLUMN = 'J';
 
@@ -124,6 +136,9 @@ class InventoryMovementReportExport implements FromCollection, ShouldAutoSize, W
             (float) $item['theoretical_qty'],
             (float) $item['actual_mec'],
             (float) $item['variance_qty'],
+            (float) ($item['adjustment_qty'] ?? 0),
+            (float) ($item['final_variance_qty'] ?? $item['variance_qty']),
+            (string) ($item['adjustment_reason'] ?? ''),
         ];
     }
 
@@ -228,6 +243,9 @@ class InventoryMovementReportExport implements FromCollection, ShouldAutoSize, W
                     $sheet->getStyle($cell)->getFill()->setFillType(Fill::FILL_SOLID)->getStartColor()->setRGB('FEF3C7');
                 }
 
+                // ShouldAutoSize has already claimed every column; the reason is taken back from it.
+                $sheet->getColumnDimension(self::REASON_COLUMN)->setAutoSize(false)->setWidth(self::REASON_COLUMN_WIDTH);
+
                 // Keep the headings visible while scrolling a long item list.
                 $sheet->freezePane('A'.self::FIRST_DATA_ROW);
             },
@@ -251,10 +269,13 @@ class InventoryMovementReportExport implements FromCollection, ShouldAutoSize, W
         $sheet->getStyle('D'.$firstRow.':D'.$lastRow)
             ->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
 
-        $sheet->getStyle('E'.$firstRow.':'.$last.$lastRow)->applyFromArray([
+        $sheet->getStyle('E'.$firstRow.':'.self::LAST_QUANTITY_COLUMN.$lastRow)->applyFromArray([
             'alignment' => ['horizontal' => Alignment::HORIZONTAL_RIGHT],
             'numberFormat' => ['formatCode' => \App\Support\ReportNumber::EXCEL],
         ]);
+
+        $sheet->getStyle(self::REASON_COLUMN.$firstRow.':'.self::REASON_COLUMN.$lastRow)
+            ->getAlignment()->setHorizontal(Alignment::HORIZONTAL_LEFT)->setWrapText(true);
 
         foreach (self::HIGHLIGHTED_COLUMNS as $column => $rgb) {
             $sheet->getStyle($column.$firstRow.':'.$column.$lastRow)->applyFromArray([
@@ -263,8 +284,8 @@ class InventoryMovementReportExport implements FromCollection, ShouldAutoSize, W
             ]);
         }
 
-        // Actual MEC and Variance are bold in the PDF but carry no fill.
-        $sheet->getStyle('O'.$firstRow.':'.$last.$lastRow)
+        // Actual MEC, Variance, Adjustment and Final Variance are bold in the PDF but carry no fill.
+        $sheet->getStyle('O'.$firstRow.':'.self::LAST_QUANTITY_COLUMN.$lastRow)
             ->getFont()->setBold(true);
 
         return $sheet;

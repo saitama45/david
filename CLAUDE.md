@@ -34,7 +34,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - Store ordering (regular / mass / DTS / interco / emergency / F&V / ice cream), approval matrices,
   receiving, wastage, month-end counts, stock adjustments, cost and inventory reporting.
 - Ingests sales and masterfile data (POS, SAP) through queued Excel imports.
-- Scale: ~90 page modules, 106 module controllers (121 files incl. `Auth/` and `Api/`), 61 models, 149 migrations, 571 routes.
+- Scale: ~90 page modules, 106 module controllers (121 files incl. `Auth/` and `Api/`), 62 models, 151 migrations, 572 routes.
 
 ## Architecture
 
@@ -60,9 +60,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## Directory responsibilities
 
 - `app/Http/Controllers/` — 106 module controllers + `Auth/`, one per module, kept thin
-- `app/Http/Services/` — **primary business logic** (34 classes)
+- `app/Http/Services/` — **primary business logic** (35 classes)
 - `app/Services/` — infrastructure only: Google Drive, import queue, UOM commits
-- `app/Models/` — 61 models; 47 use `BelongsToEntity`
+- `app/Models/` — 62 models; 48 use `BelongsToEntity`
 - `app/Models/Concerns/`, `app/Models/Scopes/` — `BelongsToEntity`, `EntityScope`
 - `app/Support/` — `EntityContext`, `StockQuantity`
 - `app/Http/Middleware/` — `SetActiveEntity`, `HandleInertiaRequests`, `CheckUserPermission`, `CheckSidebarMenuActive`
@@ -71,7 +71,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - `app/Console/Commands/` — import reconcilers, `david:e2e`
 - `app/Enum/` **and** `app/Enums/` — two live namespaces (see pitfalls)
 - `resources/js/Pages/<Module>/` — Inertia pages, one directory per module
-- `database/migrations/` (149) · `database/seeders/` (52)
+- `database/migrations/` (151) · `database/seeders/` (52)
 - `tests/Feature/`, `tests/Unit/` — Pest · `e2e/` — self-contained Playwright suite
 - `docs/knowledge/` — detailed notes indexed above
 
@@ -294,6 +294,13 @@ SQL Server as the target. Rationale and trade-offs: [Decisions.md](docs/knowledg
   (`InventoryMovementDetailTest` compares all nine). Unit conversion is shared through `itemUnits()`.
   The popup's Export Excel (`InventoryMovementDetailExport`) is the same `details()` unpaged; its
   headings are `LABELS`, a copy of `detailColumns` in the page - rename a column in both.
+- **The Inventory Movement Report's Adjustment explains a Variance; it posts no stock.**
+  `inventory_movement_adjustments` holds one signed quantity + required reason per store, ItemCode and
+  month (the To Date's, the rule that picks Actual MEC), and Final Variance = Variance + Adjustment.
+  `InventoryMovementAdjustmentService::apply()` adds both in the report's controller only, so the MEC
+  template and the Qty / Cost Variance report, which read `InventoryMovementService` directly, never see
+  them. Saving needs `adjust inventory movement variance`; a 0 with a reason takes one back, nothing is
+  deleted. Detail: [Data-Flows.md](docs/knowledge/Data-Flows.md#inventory-movement-report-adjustment).
 - **A report prints every quantity, amount and percentage with four decimals**, whatever the value
   (5 -> 5.0000), the same on the page, in the PDF and in the Excel export. Pages use
   `resources/js/lib/reportNumbers.js`; exports use `App\Support\ReportNumber` (`EXCEL` number formats,

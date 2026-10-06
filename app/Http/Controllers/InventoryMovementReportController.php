@@ -18,6 +18,7 @@ use Inertia\Inertia;
 use Carbon\Carbon;
 use App\Exports\InventoryMovementDetailExport;
 use App\Exports\InventoryMovementReportExport;
+use App\Http\Services\InventoryMovementAdjustmentService;
 use App\Http\Services\InventoryMovementDetailService;
 use App\Http\Services\InventoryMovementService;
 use Barryvdh\DomPDF\Facade\Pdf;
@@ -187,6 +188,49 @@ class InventoryMovementReportController extends Controller
             $validated['metric'],
             (int) ($validated['page'] ?? 1),
         ];
+    }
+
+    /**
+     * Enters, or replaces, the adjustment of one item's Variance with the reason for it.
+     * It belongs to the store and the month of the report's To Date, and posts no stock.
+     */
+    public function saveAdjustment(Request $request, InventoryMovementAdjustmentService $adjustments)
+    {
+        $validated = $request->validate([
+            'branch_id' => ['required', 'integer'],
+            'date_to' => ['required', 'date'],
+            'sap_code' => ['required', 'string', 'max:255'],
+            'quantity' => ['required', 'numeric', 'between:-999999999,999999999'],
+            'reason' => ['required', 'string', 'max:500'],
+        ], [
+            'quantity.required' => 'Enter the adjustment quantity. Enter 0 to take an adjustment back.',
+            'quantity.numeric' => 'The adjustment must be a number.',
+            'reason.required' => 'Enter the reason for the adjustment.',
+            'reason.max' => 'The reason may not be longer than 500 characters.',
+        ]);
+
+        // Only a store the user is assigned to, as the report's own store list.
+        $user = Auth::user();
+        $user->load('store_branches');
+        abort_unless($user->store_branches->contains('id', (int) $validated['branch_id']), 403, 'You are not assigned to this store.');
+
+        $branch = StoreBranch::findOrFail((int) $validated['branch_id']);
+
+        // The item's active rows: the report shows it in their unit, and so is the adjustment.
+        $sapRows = SAPMasterfile::where('is_active', true)->where('ItemCode', $validated['sap_code'])->orderBy('id')->get();
+        abort_if($sapRows->isEmpty(), 404);
+
+        $adjustment = $adjustments->save(
+            $branch,
+            (string) $sapRows->first()->ItemCode,
+            ['date_to' => Carbon::parse($validated['date_to'])->toDateString()],
+            (float) $validated['quantity'],
+            $validated['reason'],
+            app(InventoryMovementService::class)->itemUnits($sapRows)[0],
+            $user->id
+        );
+
+        return response()->json(['adjustment' => $adjustments->fields($adjustment)]);
     }
 
     public function exportPdf(Request $request)
@@ -432,9 +476,16 @@ class InventoryMovementReportController extends Controller
     }
 
 
-    /** The per-item movement rows, from the service the Month End Count template shares. */
+    /**
+     * The per-item movement rows, from the service the Month End Count template shares,
+     * with the report's own Adjustment and Final Variance added to each.
+     */
     private function getMovementData($sapItems, $filters)
     {
-        return app(InventoryMovementService::class)->movementData($sapItems, $filters);
+        return app(InventoryMovementAdjustmentService::class)->apply(
+            app(InventoryMovementService::class)->movementData($sapItems, $filters),
+            $filters['branch_id'] ?? null,
+            $filters
+        );
     }
 }

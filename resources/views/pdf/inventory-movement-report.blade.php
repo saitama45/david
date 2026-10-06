@@ -29,7 +29,7 @@
         <strong>By:</strong> {{ $generated_by }}
     </div>
 
-    <p>All quantities use the SAP base unit shown in the UOM column (for example, 36 Gm of a 1,000 Gm Bag = 0.036 Bag). Supplies Used is the usage the month end count shows for Operating / Cleaning Supplies items.</p>
+    <p>All quantities use the SAP base unit shown in the UOM column (for example, 36 Gm of a 1,000 Gm Bag = 0.036 Bag). Supplies Used is the usage the month end count shows for Operating / Cleaning Supplies items. Final Variance = Variance + Adjustment.</p>
     <table>
         <thead>
             <tr style="background-color: #f3f4f6; font-size: 8px;">
@@ -37,12 +37,12 @@
                 <th colspan="3">PROCUREMENT (DATE RANGE)</th>
                 <th>BEGINNING</th>
                 <th colspan="5">DEDUCTIONS / TRANSFERS</th>
-                <th colspan="3">FINAL BALANCE</th>
+                <th colspan="5">FINAL BALANCE</th>
             </tr>
             <tr style="background-color: #eee;">
-                <th class="text-left" width="12%">Supplier</th>
+                <th class="text-left" width="10%">Supplier</th>
                 <th class="text-left">SAP Code</th>
-                <th class="text-left" width="18%">Item Description</th>
+                <th class="text-left" width="15%">Item Description</th>
                 <th>UOM</th>
                 <th>Ordered</th>
                 <th>Committed</th>
@@ -56,6 +56,8 @@
                 <th>Theoretical</th>
                 <th>Actual MEC</th>
                 <th>Variance</th>
+                <th width="9%">Adjustment</th>
+                <th>Final Variance</th>
             </tr>
         </thead>
         <tbody>
@@ -85,6 +87,14 @@
                         {{ $item['actual_mec'] !== null ? \App\Support\ReportNumber::format($item['actual_mec']) : '-' }}
                     </td>
                     <td class="text-right font-bold">{{ \App\Support\ReportNumber::format($item['variance_qty']) }}</td>
+                    <td class="text-right font-bold">
+                        {{ \App\Support\ReportNumber::format($item['adjustment_qty'] ?? 0) }}
+                        {{-- Why the variance was adjusted --}}
+                        @if(!empty($item['adjustment_reason']))
+                            <div style="font-size: 80%; font-weight: normal; color: #4b5563; text-align: left;">{{ $item['adjustment_reason'] }}</div>
+                        @endif
+                    </td>
+                    <td class="text-right font-bold">{{ \App\Support\ReportNumber::format($item['final_variance_qty'] ?? $item['variance_qty']) }}</td>
                 </tr>
             @endforeach
         </tbody>

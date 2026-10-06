@@ -8,6 +8,11 @@ import Dialog from "primevue/dialog";
 import { Calendar, Search, RotateCcw, Filter, ChevronDown, Package, CalendarDays, Building2, TrendingUp, TrendingDown, ClipboardCheck, Info, FileText, FileSpreadsheet, Truck, ArrowUpDown, ArrowUp, ArrowDown } from "lucide-vue-next";
 import SearchableSelect from "@/components/ui/select/SearchableSelect.vue";
 import Pagination from "@/components/table/Pagination.vue";
+import { useAuth } from "@/composables/useAuth";
+import { useToast } from "@/composables/useToast";
+
+const { hasAccess } = useAuth();
+const { toast } = useToast();
 
 const props = defineProps({
     movementData: {
@@ -193,6 +198,89 @@ const exportDetailsExcel = () => {
     }).toString();
 };
 
+// ---- Adjustment: a quantity entered against an item's Variance, with the reason for it.
+// Final Variance = Variance + Adjustment. It belongs to the store and the month of the To Date.
+const canAdjust = computed(() => hasAccess('adjust inventory movement variance'));
+
+// An adjustment saved in the popup shows at once; the report is not worked out again for it.
+const savedAdjustments = ref({});
+watch(() => props.movementData, () => { savedAdjustments.value = {}; });
+
+const adjustmentOf = (item) => savedAdjustments.value[item.sap_code] ?? item;
+
+// Rounded as the server rounds it, so a variance adjusted away is 0 and not a stray 0.0000001.
+const plusAdjustment = (variance, quantity) => {
+    const total = Math.round((Number(variance) + (Number(quantity) || 0)) * 1000000) / 1000000;
+
+    return total === 0 ? 0 : total;
+};
+
+const finalVarianceOf = (item) => (savedAdjustments.value[item.sap_code]
+    ? plusAdjustment(item.variance_qty, savedAdjustments.value[item.sap_code].adjustment_qty)
+    : item.final_variance_qty);
+
+const adjustment = reactive({
+    visible: false,
+    saving: false,
+    item: null,
+    quantity: '',
+    reason: '',
+    errors: {},
+    // The store and the To Date the report was worked out for, in case the filters are edited meanwhile
+    filters: null,
+});
+
+const openAdjustment = (item) => {
+    const current = adjustmentOf(item);
+
+    adjustment.item = item;
+    adjustment.quantity = current.adjustment_reason ? Number(current.adjustment_qty) : '';
+    adjustment.reason = current.adjustment_reason || '';
+    adjustment.errors = {};
+    adjustment.filters = { branch_id: props.filters.branch_id, date_to: props.filters.date_to };
+    adjustment.visible = true;
+};
+
+const adjustmentCurrent = computed(() => (adjustment.item ? adjustmentOf(adjustment.item) : null));
+const adjustmentPreview = computed(() => (adjustment.item ? plusAdjustment(adjustment.item.variance_qty, adjustment.quantity) : 0));
+const adjustmentMonth = computed(() => (adjustment.filters?.date_to
+    ? new Date(`${adjustment.filters.date_to}T00:00:00`).toLocaleDateString('en-PH', { year: 'numeric', month: 'long' })
+    : ''));
+const adjustmentStore = computed(() => {
+    const branch = props.branches.find((each) => String(each.id) === String(adjustment.filters?.branch_id));
+
+    return branch ? `${branch.name} (${branch.branch_code})` : '';
+});
+
+const saveAdjustment = async () => {
+    adjustment.saving = true;
+    adjustment.errors = {};
+
+    try {
+        const response = await axios.post(route('reports.inventory-movement.adjustment.save'), {
+            ...adjustment.filters,
+            sap_code: adjustment.item.sap_code,
+            quantity: adjustment.quantity,
+            reason: adjustment.reason,
+        });
+
+        savedAdjustments.value = { ...savedAdjustments.value, [adjustment.item.sap_code]: response.data.adjustment };
+        adjustment.visible = false;
+        toast.add({
+            severity: 'success',
+            summary: 'Adjustment Saved',
+            detail: `${adjustment.item.sap_code} ${adjustment.item.item_description}: Final Variance is now ${formatNumber(finalVarianceOf(adjustment.item))} ${adjustment.item.uom}.`,
+            life: 4000,
+        });
+    } catch (error) {
+        adjustment.errors = error.response?.status === 422
+            ? (error.response.data.errors || {})
+            : { general: [error.response?.data?.message || 'The adjustment could not be saved. Please try again.'] };
+    } finally {
+        adjustment.saving = false;
+    }
+};
+
 const exportParams = () => new URLSearchParams({
     date_from: dateFrom.value,
     date_to: dateTo.value,
@@ -323,6 +411,7 @@ const formatNumber = formatReportNumber;
             Supplies Used applies to Operating / Cleaning Supplies items: the usage the month end count shows once sales, wastage and transfers are accounted for.
             A Wastage Qty marked <span class="rounded bg-amber-100 px-1 py-0.5 text-[11px] font-semibold text-amber-800">Sub-Prep</span> includes a wasted Sub-Prep, charged to this raw material through its BOM.
             Click any underlined figure to see the transactions behind it.
+            <template v-if="canAdjust">Click a figure under Adjustment to enter an adjustment for the Variance and the reason for it.</template>
         </p>
         <div class="bg-white rounded-xl border border-gray-200 shadow-sm overflow-visible">
             <div v-if="isLoading" class="absolute inset-0 bg-white/80 flex items-center justify-center z-10">
@@ -336,138 +425,154 @@ const formatNumber = formatReportNumber;
                 <table class="min-w-full border-separate border-spacing-0">
                     <thead class="sticky -top-4 lg:-top-6 z-20 bg-gray-50 shadow-sm">
                         <tr>
-                            <th colspan="4" class="px-3 py-3 text-center text-xs font-bold text-gray-500 uppercase tracking-wider border-r border-gray-200 bg-gray-100">Item Info</th>
-                            <th colspan="3" class="px-3 py-3 text-center text-xs font-bold text-gray-500 uppercase tracking-wider border-r border-gray-200 bg-blue-50">Procurement (Date Range)</th>
-                            <th class="px-3 py-3 text-center text-xs font-bold text-gray-500 uppercase tracking-wider border-r border-gray-200 bg-emerald-50">Beginning</th>
-                            <th colspan="5" class="px-3 py-3 text-center text-xs font-bold text-gray-500 uppercase tracking-wider border-r border-gray-200 bg-orange-50">Deductions / Transfers</th>
-                            <th colspan="3" class="px-3 py-3 text-center text-xs font-bold text-gray-500 uppercase tracking-wider bg-purple-50">Final Balance</th>
+                            <th colspan="4" class="px-1.5 py-3 text-center text-xs font-bold text-gray-500 uppercase tracking-wider border-r border-gray-200 bg-gray-100">Item Info</th>
+                            <th colspan="3" class="px-1.5 py-3 text-center text-xs font-bold text-gray-500 uppercase tracking-wider border-r border-gray-200 bg-blue-50">Procurement (Date Range)</th>
+                            <th class="px-1.5 py-3 text-center text-xs font-bold text-gray-500 uppercase tracking-wider border-r border-gray-200 bg-emerald-50">Beginning</th>
+                            <th colspan="5" class="px-1.5 py-3 text-center text-xs font-bold text-gray-500 uppercase tracking-wider border-r border-gray-200 bg-orange-50">Deductions / Transfers</th>
+                            <th colspan="5" class="px-1.5 py-3 text-center text-xs font-bold text-gray-500 uppercase tracking-wider bg-purple-50">Final Balance</th>
                         </tr>
                         <tr class="text-[10px] text-gray-500 uppercase tracking-wider font-semibold">
-                            <th @click="handleSort('supplier')" class="px-3 py-3 text-left border-r border-gray-200 min-w-[160px] cursor-pointer hover:bg-gray-100 group transition-colors">
-                                <div class="flex items-center justify-between gap-2">
+                            <th @click="handleSort('supplier')" class="px-1.5 py-3 text-left border-r border-gray-200 min-w-[90px] cursor-pointer hover:bg-gray-100 group transition-colors">
+                                <div class="flex items-center justify-between gap-1">
                                     Supplier
                                     <ArrowUp v-if="sortField === 'supplier' && sortDirection === 'asc'" class="w-3 h-3 text-blue-600" />
                                     <ArrowDown v-else-if="sortField === 'supplier' && sortDirection === 'desc'" class="w-3 h-3 text-blue-600" />
                                     <ArrowUpDown v-else class="w-3 h-3 text-gray-400 group-hover:text-blue-400" />
                                 </div>
                             </th>
-                            <th @click="handleSort('sap_code')" class="px-3 py-3 text-left border-r border-gray-200 cursor-pointer hover:bg-gray-100 group transition-colors">
-                                <div class="flex items-center justify-between gap-2">
+                            <th @click="handleSort('sap_code')" class="px-1.5 py-3 text-left border-r border-gray-200 cursor-pointer hover:bg-gray-100 group transition-colors">
+                                <div class="flex items-center justify-between gap-1">
                                     SAP Code
                                     <ArrowUp v-if="sortField === 'sap_code' && sortDirection === 'asc'" class="w-3 h-3 text-blue-600" />
                                     <ArrowDown v-else-if="sortField === 'sap_code' && sortDirection === 'desc'" class="w-3 h-3 text-blue-600" />
                                     <ArrowUpDown v-else class="w-3 h-3 text-gray-400 group-hover:text-blue-400" />
                                 </div>
                             </th>
-                            <th @click="handleSort('item_description')" class="px-3 py-3 text-left border-r border-gray-200 min-w-[200px] cursor-pointer hover:bg-gray-100 group transition-colors">
-                                <div class="flex items-center justify-between gap-2">
+                            <th @click="handleSort('item_description')" class="px-1.5 py-3 text-left border-r border-gray-200 min-w-[140px] cursor-pointer hover:bg-gray-100 group transition-colors">
+                                <div class="flex items-center justify-between gap-1">
                                     Item Description
                                     <ArrowUp v-if="sortField === 'item_description' && sortDirection === 'asc'" class="w-3 h-3 text-blue-600" />
                                     <ArrowDown v-else-if="sortField === 'item_description' && sortDirection === 'desc'" class="w-3 h-3 text-blue-600" />
                                     <ArrowUpDown v-else class="w-3 h-3 text-gray-400 group-hover:text-blue-400" />
                                 </div>
                             </th>
-                            <th @click="handleSort('uom')" class="px-3 py-3 text-center border-r border-gray-200 cursor-pointer hover:bg-gray-100 group transition-colors">
-                                <div class="flex items-center justify-center gap-2">
+                            <th @click="handleSort('uom')" class="px-1.5 py-3 text-center border-r border-gray-200 cursor-pointer hover:bg-gray-100 group transition-colors">
+                                <div class="flex items-center justify-center gap-1">
                                     UOM
                                     <ArrowUp v-if="sortField === 'uom' && sortDirection === 'asc'" class="w-3 h-3 text-blue-600" />
                                     <ArrowDown v-else-if="sortField === 'uom' && sortDirection === 'desc'" class="w-3 h-3 text-blue-600" />
                                     <ArrowUpDown v-else class="w-3 h-3 text-gray-400 group-hover:text-blue-400" />
                                 </div>
                             </th>
-                            <th @click="handleSort('ordered_qty')" class="px-3 py-3 text-center border-r border-gray-200 cursor-pointer hover:bg-gray-100 group transition-colors">
-                                <div class="flex items-center justify-center gap-2">
+                            <th @click="handleSort('ordered_qty')" class="px-1.5 py-3 text-center border-r border-gray-200 cursor-pointer hover:bg-gray-100 group transition-colors">
+                                <div class="flex items-center justify-center gap-1">
                                     Ordered
                                     <ArrowUp v-if="sortField === 'ordered_qty' && sortDirection === 'asc'" class="w-3 h-3 text-blue-600" />
                                     <ArrowDown v-else-if="sortField === 'ordered_qty' && sortDirection === 'desc'" class="w-3 h-3 text-blue-600" />
                                     <ArrowUpDown v-else class="w-3 h-3 text-gray-400 group-hover:text-blue-400" />
                                 </div>
                             </th>
-                            <th @click="handleSort('committed_qty')" class="px-3 py-3 text-center border-r border-gray-200 cursor-pointer hover:bg-gray-100 group transition-colors">
-                                <div class="flex items-center justify-center gap-2">
+                            <th @click="handleSort('committed_qty')" class="px-1.5 py-3 text-center border-r border-gray-200 cursor-pointer hover:bg-gray-100 group transition-colors">
+                                <div class="flex items-center justify-center gap-1">
                                     Committed
                                     <ArrowUp v-if="sortField === 'committed_qty' && sortDirection === 'asc'" class="w-3 h-3 text-blue-600" />
                                     <ArrowDown v-else-if="sortField === 'committed_qty' && sortDirection === 'desc'" class="w-3 h-3 text-blue-600" />
                                     <ArrowUpDown v-else class="w-3 h-3 text-gray-400 group-hover:text-blue-400" />
                                 </div>
                             </th>
-                            <th @click="handleSort('received_qty')" class="px-3 py-3 text-center border-r border-gray-200 cursor-pointer hover:bg-gray-100 group transition-colors">
-                                <div class="flex items-center justify-center gap-2">
+                            <th @click="handleSort('received_qty')" class="px-1.5 py-3 text-center border-r border-gray-200 cursor-pointer hover:bg-gray-100 group transition-colors">
+                                <div class="flex items-center justify-center gap-1">
                                     Received
                                     <ArrowUp v-if="sortField === 'received_qty' && sortDirection === 'asc'" class="w-3 h-3 text-blue-600" />
                                     <ArrowDown v-else-if="sortField === 'received_qty' && sortDirection === 'desc'" class="w-3 h-3 text-blue-600" />
                                     <ArrowUpDown v-else class="w-3 h-3 text-gray-400 group-hover:text-blue-400" />
                                 </div>
                             </th>
-                            <th @click="handleSort('beg_bal_qty')" class="px-3 py-3 text-center border-r border-gray-200 cursor-pointer hover:bg-gray-100 group transition-colors">
-                                <div class="flex items-center justify-center gap-2">
+                            <th @click="handleSort('beg_bal_qty')" class="px-1.5 py-3 text-center border-r border-gray-200 cursor-pointer hover:bg-gray-100 group transition-colors">
+                                <div class="flex items-center justify-center gap-1">
                                     Beg Bal Qty
                                     <ArrowUp v-if="sortField === 'beg_bal_qty' && sortDirection === 'asc'" class="w-3 h-3 text-blue-600" />
                                     <ArrowDown v-else-if="sortField === 'beg_bal_qty' && sortDirection === 'desc'" class="w-3 h-3 text-blue-600" />
                                     <ArrowUpDown v-else class="w-3 h-3 text-gray-400 group-hover:text-blue-400" />
                                 </div>
                             </th>
-                            <th @click="handleSort('sales_qty')" class="px-3 py-3 text-center border-r border-gray-200 cursor-pointer hover:bg-gray-100 group transition-colors">
-                                <div class="flex items-center justify-center gap-2">
+                            <th @click="handleSort('sales_qty')" class="px-1.5 py-3 text-center border-r border-gray-200 cursor-pointer hover:bg-gray-100 group transition-colors">
+                                <div class="flex items-center justify-center gap-1">
                                     Sales Qty
                                     <ArrowUp v-if="sortField === 'sales_qty' && sortDirection === 'asc'" class="w-3 h-3 text-blue-600" />
                                     <ArrowDown v-else-if="sortField === 'sales_qty' && sortDirection === 'desc'" class="w-3 h-3 text-blue-600" />
                                     <ArrowUpDown v-else class="w-3 h-3 text-gray-400 group-hover:text-blue-400" />
                                 </div>
                             </th>
-                            <th @click="handleSort('wastage_qty')" class="px-3 py-3 text-center border-r border-gray-200 cursor-pointer hover:bg-gray-100 group transition-colors">
-                                <div class="flex items-center justify-center gap-2">
+                            <th @click="handleSort('wastage_qty')" class="px-1.5 py-3 text-center border-r border-gray-200 cursor-pointer hover:bg-gray-100 group transition-colors">
+                                <div class="flex items-center justify-center gap-1">
                                     Wastage Qty
                                     <ArrowUp v-if="sortField === 'wastage_qty' && sortDirection === 'asc'" class="w-3 h-3 text-blue-600" />
                                     <ArrowDown v-else-if="sortField === 'wastage_qty' && sortDirection === 'desc'" class="w-3 h-3 text-blue-600" />
                                     <ArrowUpDown v-else class="w-3 h-3 text-gray-400 group-hover:text-blue-400" />
                                 </div>
                             </th>
-                            <th @click="handleSort('supplies_qty')" class="px-3 py-3 text-center border-r border-gray-200 cursor-pointer hover:bg-gray-100 group transition-colors" title="Operating / Cleaning Supplies used, from the month end count">
-                                <div class="flex items-center justify-center gap-2">
+                            <th @click="handleSort('supplies_qty')" class="px-1.5 py-3 text-center border-r border-gray-200 cursor-pointer hover:bg-gray-100 group transition-colors" title="Operating / Cleaning Supplies used, from the month end count">
+                                <div class="flex items-center justify-center gap-1">
                                     Supplies Used
                                     <ArrowUp v-if="sortField === 'supplies_qty' && sortDirection === 'asc'" class="w-3 h-3 text-blue-600" />
                                     <ArrowDown v-else-if="sortField === 'supplies_qty' && sortDirection === 'desc'" class="w-3 h-3 text-blue-600" />
                                     <ArrowUpDown v-else class="w-3 h-3 text-gray-400 group-hover:text-blue-400" />
                                 </div>
                             </th>
-                            <th @click="handleSort('interco_in_qty')" class="px-3 py-3 text-center border-r border-gray-200 cursor-pointer hover:bg-gray-100 group transition-colors">
-                                <div class="flex items-center justify-center gap-2">
+                            <th @click="handleSort('interco_in_qty')" class="px-1.5 py-3 text-center border-r border-gray-200 cursor-pointer hover:bg-gray-100 group transition-colors">
+                                <div class="flex items-center justify-center gap-1">
                                     Inbound Interco
                                     <ArrowUp v-if="sortField === 'interco_in_qty' && sortDirection === 'asc'" class="w-3 h-3 text-blue-600" />
                                     <ArrowDown v-else-if="sortField === 'interco_in_qty' && sortDirection === 'desc'" class="w-3 h-3 text-blue-600" />
                                     <ArrowUpDown v-else class="w-3 h-3 text-gray-400 group-hover:text-blue-400" />
                                 </div>
                             </th>
-                            <th @click="handleSort('interco_out_qty')" class="px-3 py-3 text-center border-r border-gray-200 cursor-pointer hover:bg-gray-100 group transition-colors">
-                                <div class="flex items-center justify-center gap-2">
+                            <th @click="handleSort('interco_out_qty')" class="px-1.5 py-3 text-center border-r border-gray-200 cursor-pointer hover:bg-gray-100 group transition-colors">
+                                <div class="flex items-center justify-center gap-1">
                                     Outbound Interco
                                     <ArrowUp v-if="sortField === 'interco_out_qty' && sortDirection === 'asc'" class="w-3 h-3 text-blue-600" />
                                     <ArrowDown v-else-if="sortField === 'interco_out_qty' && sortDirection === 'desc'" class="w-3 h-3 text-blue-600" />
                                     <ArrowUpDown v-else class="w-3 h-3 text-gray-400 group-hover:text-blue-400" />
                                 </div>
                             </th>
-                            <th @click="handleSort('theoretical_qty')" class="px-3 py-3 text-center border-r border-gray-200 cursor-pointer hover:bg-gray-100 group transition-colors">
-                                <div class="flex items-center justify-center gap-2">
+                            <th @click="handleSort('theoretical_qty')" class="px-1.5 py-3 text-center border-r border-gray-200 cursor-pointer hover:bg-gray-100 group transition-colors">
+                                <div class="flex items-center justify-center gap-1">
                                     Theoretical SOH
                                     <ArrowUp v-if="sortField === 'theoretical_qty' && sortDirection === 'asc'" class="w-3 h-3 text-blue-600" />
                                     <ArrowDown v-else-if="sortField === 'theoretical_qty' && sortDirection === 'desc'" class="w-3 h-3 text-blue-600" />
                                     <ArrowUpDown v-else class="w-3 h-3 text-gray-400 group-hover:text-blue-400" />
                                 </div>
                             </th>
-                            <th @click="handleSort('actual_mec')" class="px-3 py-3 text-center border-r border-gray-200 cursor-pointer hover:bg-gray-100 group transition-colors">
-                                <div class="flex items-center justify-center gap-2">
+                            <th @click="handleSort('actual_mec')" class="px-1.5 py-3 text-center border-r border-gray-200 cursor-pointer hover:bg-gray-100 group transition-colors">
+                                <div class="flex items-center justify-center gap-1">
                                     Actual MEC
                                     <ArrowUp v-if="sortField === 'actual_mec' && sortDirection === 'asc'" class="w-3 h-3 text-blue-600" />
                                     <ArrowDown v-else-if="sortField === 'actual_mec' && sortDirection === 'desc'" class="w-3 h-3 text-blue-600" />
                                     <ArrowUpDown v-else class="w-3 h-3 text-gray-400 group-hover:text-blue-400" />
                                 </div>
                             </th>
-                            <th @click="handleSort('variance_qty')" class="px-3 py-3 text-center cursor-pointer hover:bg-gray-100 group transition-colors" title="Actual MEC - Theoretical SOH">
-                                <div class="flex items-center justify-center gap-2">
+                            <th @click="handleSort('variance_qty')" class="px-1.5 py-3 text-center border-r border-gray-200 cursor-pointer hover:bg-gray-100 group transition-colors" title="Actual MEC - Theoretical SOH">
+                                <div class="flex items-center justify-center gap-1">
                                     Variance
                                     <ArrowUp v-if="sortField === 'variance_qty' && sortDirection === 'asc'" class="w-3 h-3 text-blue-600" />
                                     <ArrowDown v-else-if="sortField === 'variance_qty' && sortDirection === 'desc'" class="w-3 h-3 text-blue-600" />
+                                    <ArrowUpDown v-else class="w-3 h-3 text-gray-400 group-hover:text-blue-400" />
+                                </div>
+                            </th>
+                            <th @click="handleSort('adjustment_qty')" class="px-1.5 py-3 text-center border-r border-gray-200 cursor-pointer hover:bg-gray-100 group transition-colors" title="Entered against the Variance, with a reason">
+                                <div class="flex items-center justify-center gap-1">
+                                    Adjustment
+                                    <ArrowUp v-if="sortField === 'adjustment_qty' && sortDirection === 'asc'" class="w-3 h-3 text-blue-600" />
+                                    <ArrowDown v-else-if="sortField === 'adjustment_qty' && sortDirection === 'desc'" class="w-3 h-3 text-blue-600" />
+                                    <ArrowUpDown v-else class="w-3 h-3 text-gray-400 group-hover:text-blue-400" />
+                                </div>
+                            </th>
+                            <th @click="handleSort('final_variance_qty')" class="px-1.5 py-3 text-center cursor-pointer hover:bg-gray-100 group transition-colors" title="Variance + Adjustment">
+                                <div class="flex items-center justify-center gap-1">
+                                    Final Variance
+                                    <ArrowUp v-if="sortField === 'final_variance_qty' && sortDirection === 'asc'" class="w-3 h-3 text-blue-600" />
+                                    <ArrowDown v-else-if="sortField === 'final_variance_qty' && sortDirection === 'desc'" class="w-3 h-3 text-blue-600" />
                                     <ArrowUpDown v-else class="w-3 h-3 text-gray-400 group-hover:text-blue-400" />
                                 </div>
                             </th>
@@ -475,7 +580,7 @@ const formatNumber = formatReportNumber;
                     </thead>
                     <tbody class="bg-white divide-y divide-gray-100">
                         <tr v-if="movementData.length === 0" class="hover:bg-gray-50">
-                            <td colspan="16" class="text-center py-12 text-gray-500">
+                            <td colspan="18" class="text-center py-12 text-gray-500">
                                 <div class="flex flex-col items-center">
                                     <Package class="w-12 h-12 text-gray-300 mb-3" />
                                     <span class="text-lg font-medium">No movement data found</span>
@@ -484,10 +589,10 @@ const formatNumber = formatReportNumber;
                             </td>
                         </tr>
                         <tr v-for="item in movementData" :key="item.sap_code + item.uom" class="hover:bg-gray-50 transition-colors text-xs">
-                            <td class="px-3 py-4 text-gray-900 border-r border-gray-100">{{ item.supplier || '-' }}</td>
-                            <td class="px-3 py-4 font-mono text-gray-900 border-r border-gray-100">{{ item.sap_code }}</td>
-                            <td class="px-3 py-4 text-gray-900 border-r border-gray-100">{{ item.item_description }}</td>
-                            <td class="px-3 py-4 text-center text-gray-500 border-r border-gray-100 italic">
+                            <td class="px-1.5 py-4 text-gray-900 border-r border-gray-100">{{ item.supplier || '-' }}</td>
+                            <td class="px-1.5 py-4 font-mono text-gray-900 border-r border-gray-100">{{ item.sap_code }}</td>
+                            <td class="px-1.5 py-4 text-gray-900 border-r border-gray-100">{{ item.item_description }}</td>
+                            <td class="px-1.5 py-4 text-center text-gray-500 border-r border-gray-100 italic">
                                 {{ item.uom }}
                                 <div
                                     v-if="item.unconverted_units?.length"
@@ -500,7 +605,7 @@ const formatNumber = formatReportNumber;
                             <td
                                 v-for="metric in ['ordered', 'committed', 'received']"
                                 :key="metric"
-                                class="px-3 py-4 text-center border-r border-gray-100"
+                                class="px-1.5 py-4 text-center border-r border-gray-100"
                                 :class="metric === 'received' ? 'font-medium text-blue-600 bg-blue-50/30' : 'text-gray-600'"
                             >
                                 <button type="button" class="underline decoration-dotted underline-offset-2 hover:decoration-solid focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 rounded-sm" title="Show the transactions" @click="openDetails(item, metric)">{{ formatNumber(item[`${metric}_qty`]) }}</button>
@@ -513,35 +618,54 @@ const formatNumber = formatReportNumber;
                                     {{ formatNumber(source.quantity) }} {{ source.uom }}
                                 </div>
                             </td>
-                            <td class="px-3 py-4 text-center font-medium text-emerald-600 border-r border-gray-100 bg-emerald-50/30"><button type="button" class="underline decoration-dotted underline-offset-2 hover:decoration-solid focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 rounded-sm" title="Show the transactions" @click="openDetails(item, 'beg_bal')">{{ formatNumber(item.beg_bal_qty) }}</button></td>
-                            <td class="px-3 py-4 text-center font-medium text-red-600 border-r border-gray-100 bg-red-50/30"><button type="button" class="underline decoration-dotted underline-offset-2 hover:decoration-solid focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 rounded-sm" title="Show the transactions" @click="openDetails(item, 'sales')">{{ formatNumber(item.sales_qty) }}</button></td>
-                            <td class="px-3 py-4 text-center font-medium text-orange-600 border-r border-gray-100 bg-orange-50/30">
+                            <td class="px-1.5 py-4 text-center font-medium text-emerald-600 border-r border-gray-100 bg-emerald-50/30"><button type="button" class="underline decoration-dotted underline-offset-2 hover:decoration-solid focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 rounded-sm" title="Show the transactions" @click="openDetails(item, 'beg_bal')">{{ formatNumber(item.beg_bal_qty) }}</button></td>
+                            <td class="px-1.5 py-4 text-center font-medium text-red-600 border-r border-gray-100 bg-red-50/30"><button type="button" class="underline decoration-dotted underline-offset-2 hover:decoration-solid focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 rounded-sm" title="Show the transactions" @click="openDetails(item, 'sales')">{{ formatNumber(item.sales_qty) }}</button></td>
+                            <td class="px-1.5 py-4 text-center font-medium text-orange-600 border-r border-gray-100 bg-orange-50/30">
                                 <button type="button" class="underline decoration-dotted underline-offset-2 hover:decoration-solid focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 rounded-sm" title="Show the transactions" @click="openDetails(item, 'wastage')">{{ formatNumber(item.wastage_qty) }}</button>
                                 <!-- The part that is a wasted Sub-Prep, charged to this raw material through its BOM -->
                                 <div
                                     v-for="subPrep in item.wastage_sub_preps || []"
                                     :key="subPrep.code"
-                                    class="mt-1 text-[10px] font-normal text-amber-800 whitespace-nowrap"
+                                    class="mt-1 text-[10px] font-normal text-amber-800"
                                     :title="`${formatNumber(subPrep.wasted_qty)} ${subPrep.uom} of ${subPrep.code} ${subPrep.description || ''} was wasted. Its BOM charges ${formatNumber(subPrep.quantity)} ${item.uom} of that to this item.`"
                                 >
                                     <span class="rounded bg-amber-100 px-1 py-0.5 font-semibold">Sub-Prep</span>
                                     {{ formatNumber(subPrep.quantity) }} from {{ subPrep.description || subPrep.code }}
                                 </div>
                             </td>
-                            <td class="px-3 py-4 text-center border-r border-gray-100" :class="item.supplies_type ? 'font-medium text-amber-700 bg-amber-50/30' : 'text-gray-400'">
+                            <td class="px-1.5 py-4 text-center border-r border-gray-100" :class="item.supplies_type ? 'font-medium text-amber-700 bg-amber-50/30' : 'text-gray-400'">
                                 <button v-if="item.supplies_counted" type="button" class="underline decoration-dotted underline-offset-2 hover:decoration-solid focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 rounded-sm" title="Show how it was worked out" @click="openDetails(item, 'supplies')">{{ formatNumber(item.supplies_qty) }}</button>
                                 <button v-else-if="item.supplies_type" type="button" class="text-[11px] italic text-gray-400 underline decoration-dotted underline-offset-2 hover:decoration-solid focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 rounded-sm" title="Show how it will be worked out" @click="openDetails(item, 'supplies')">Awaiting MEC</button>
                                 <template v-else>-</template>
-                                <div v-if="item.supplies_type" class="mt-1 text-[10px] font-normal text-gray-500 whitespace-nowrap">{{ item.supplies_type }}</div>
+                                <div v-if="item.supplies_type" class="mt-1 text-[10px] font-normal text-gray-500">{{ item.supplies_type }}</div>
                             </td>
-                            <td class="px-3 py-4 text-center text-gray-600 border-r border-gray-100"><button type="button" class="underline decoration-dotted underline-offset-2 hover:decoration-solid focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 rounded-sm" title="Show the transactions" @click="openDetails(item, 'interco_in')">{{ formatNumber(item.interco_in_qty) }}</button></td>
-                            <td class="px-3 py-4 text-center text-gray-600 border-r border-gray-100"><button type="button" class="underline decoration-dotted underline-offset-2 hover:decoration-solid focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 rounded-sm" title="Show the transactions" @click="openDetails(item, 'interco_out')">{{ formatNumber(item.interco_out_qty) }}</button></td>
-                            <td class="px-3 py-4 text-center font-bold text-gray-900 border-r border-gray-100 bg-purple-50/30">{{ formatNumber(item.theoretical_qty) }}</td>
-                            <td class="px-3 py-4 text-center font-bold border-r border-gray-100" :class="item.actual_mec !== null ? 'text-indigo-600 bg-indigo-50/30' : 'text-gray-400 font-normal italic'">
+                            <td class="px-1.5 py-4 text-center text-gray-600 border-r border-gray-100"><button type="button" class="underline decoration-dotted underline-offset-2 hover:decoration-solid focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 rounded-sm" title="Show the transactions" @click="openDetails(item, 'interco_in')">{{ formatNumber(item.interco_in_qty) }}</button></td>
+                            <td class="px-1.5 py-4 text-center text-gray-600 border-r border-gray-100"><button type="button" class="underline decoration-dotted underline-offset-2 hover:decoration-solid focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 rounded-sm" title="Show the transactions" @click="openDetails(item, 'interco_out')">{{ formatNumber(item.interco_out_qty) }}</button></td>
+                            <td class="px-1.5 py-4 text-center font-bold text-gray-900 border-r border-gray-100 bg-purple-50/30">{{ formatNumber(item.theoretical_qty) }}</td>
+                            <td class="px-1.5 py-4 text-center font-bold border-r border-gray-100" :class="item.actual_mec !== null ? 'text-indigo-600 bg-indigo-50/30' : 'text-gray-400 font-normal italic'">
                                 {{ item.actual_mec !== null ? formatNumber(item.actual_mec) : 'Not Available' }}
                             </td>
-                            <td class="px-3 py-4 text-center font-bold" :class="item.variance_qty < 0 ? 'text-red-600' : item.variance_qty > 0 ? 'text-emerald-600' : 'text-gray-500'">
+                            <td class="px-1.5 py-4 text-center font-bold border-r border-gray-100" :class="item.variance_qty < 0 ? 'text-red-600' : item.variance_qty > 0 ? 'text-emerald-600' : 'text-gray-500'">
                                 {{ formatNumber(item.variance_qty) }}
+                            </td>
+                            <td class="px-1.5 py-4 text-center border-r border-gray-100" :class="adjustmentOf(item).adjustment_reason ? 'font-medium text-sky-700 bg-sky-50/40' : 'text-gray-500'">
+                                <button
+                                    v-if="canAdjust || adjustmentOf(item).adjustment_reason"
+                                    type="button"
+                                    class="underline decoration-dotted underline-offset-2 hover:decoration-solid focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 rounded-sm"
+                                    :title="canAdjust ? 'Enter the adjustment and its reason' : 'Show the reason'"
+                                    @click="openAdjustment(item)"
+                                >{{ formatNumber(adjustmentOf(item).adjustment_qty) }}</button>
+                                <template v-else>{{ formatNumber(adjustmentOf(item).adjustment_qty) }}</template>
+                                <!-- Why the variance was adjusted; the popup shows it in full -->
+                                <div
+                                    v-if="adjustmentOf(item).adjustment_reason"
+                                    class="mt-1 text-[10px] font-normal text-gray-500 line-clamp-2 break-words"
+                                    :title="adjustmentOf(item).adjustment_reason"
+                                >{{ adjustmentOf(item).adjustment_reason }}</div>
+                            </td>
+                            <td class="px-1.5 py-4 text-center font-bold bg-purple-50/30" :class="finalVarianceOf(item) < 0 ? 'text-red-600' : finalVarianceOf(item) > 0 ? 'text-emerald-600' : 'text-gray-500'">
+                                {{ formatNumber(finalVarianceOf(item)) }}
                             </td>
                         </tr>
                     </tbody>
@@ -564,7 +688,10 @@ const formatNumber = formatReportNumber;
                     <p>Beginning Balance + Received Qty + Inbound Interco - Sales Qty - Wastage Qty - Outbound Interco</p>
                     <p class="font-bold mt-2 mb-1">Variance Formula:</p>
                     <p>Actual MEC - Theoretical SOH</p>
-                    <p class="mt-2 text-xs opacity-80">* Sales Qty is calculated based on BOM (Bill of Materials) linked to POS transactions.</p>
+                    <p class="font-bold mt-2 mb-1">Final Variance Formula:</p>
+                    <p>Variance + Adjustment</p>
+                    <p class="mt-2 text-xs opacity-80">* Adjustment is entered for the store and the month of the To Date, with a reason. Enter it with a minus sign to bring a positive Variance down. It explains the Variance on this report only and does not change the stock on hand.</p>
+                    <p class="mt-1 text-xs opacity-80">* Sales Qty is calculated based on BOM (Bill of Materials) linked to POS transactions.</p>
                     <p class="mt-1 text-xs opacity-80">* Wastage Qty includes the raw materials of a wasted Sub-Prep: the BOM Qty of the item for every unit of the Sub-Prep wasted. The line marked Sub-Prep under the figure shows that part and where it came from.</p>
                 </div>
             </div>
@@ -681,6 +808,80 @@ const formatNumber = formatReportNumber;
                         </div>
                     </div>
                 </template>
+            </div>
+        </Dialog>
+
+        <!-- The adjustment of one item's Variance, and the reason for it -->
+        <Dialog
+            v-model:visible="adjustment.visible"
+            modal
+            :draggable="false"
+            :header="adjustment.item ? `Adjustment: ${adjustment.item.sap_code} ${adjustment.item.item_description}` : ''"
+            :style="{ width: '520px' }"
+            :breakpoints="{ '639px': '95vw' }"
+        >
+            <div v-if="adjustment.item" class="space-y-4 text-sm">
+                <div class="rounded-md bg-gray-50 px-3 py-2 text-gray-600">
+                    {{ adjustmentStore }} · {{ adjustmentMonth }} · in {{ adjustment.item.uom }}
+                </div>
+
+                <div v-if="adjustment.errors.general" class="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-red-700">{{ adjustment.errors.general[0] }}</div>
+
+                <div class="space-y-1">
+                    <label for="adjustment-quantity" class="font-medium text-gray-700">Adjustment</label>
+                    <Input
+                        id="adjustment-quantity"
+                        v-model="adjustment.quantity"
+                        type="number"
+                        step="any"
+                        placeholder="0.0000"
+                        :disabled="!canAdjust || adjustment.saving"
+                    />
+                    <p v-if="canAdjust" class="text-xs text-gray-500">Added to the Variance. Use a minus sign to take away from it (for example -0.1000). Enter 0 to take an adjustment back.</p>
+                    <FormError v-if="adjustment.errors.quantity">{{ adjustment.errors.quantity[0] }}</FormError>
+                </div>
+
+                <div class="space-y-1">
+                    <label for="adjustment-reason" class="font-medium text-gray-700">Reason</label>
+                    <Textarea
+                        id="adjustment-reason"
+                        v-model="adjustment.reason"
+                        rows="3"
+                        maxlength="500"
+                        placeholder="Why the Variance is adjusted"
+                        :disabled="!canAdjust || adjustment.saving"
+                    />
+                    <FormError v-if="adjustment.errors.reason">{{ adjustment.errors.reason[0] }}</FormError>
+                </div>
+
+                <table class="w-full text-sm">
+                    <tbody>
+                        <tr class="text-gray-700">
+                            <td class="w-6 py-1 text-center font-mono"></td>
+                            <td class="py-1">Variance</td>
+                            <td class="py-1 text-right font-mono">{{ formatNumber(adjustment.item.variance_qty) }} {{ adjustment.item.uom }}</td>
+                        </tr>
+                        <tr class="text-gray-700">
+                            <td class="w-6 py-1 text-center font-mono">+</td>
+                            <td class="py-1">Adjustment</td>
+                            <td class="py-1 text-right font-mono">{{ formatNumber(adjustment.quantity) }} {{ adjustment.item.uom }}</td>
+                        </tr>
+                        <tr class="border-t border-gray-300 font-semibold text-gray-900">
+                            <td class="w-6 py-1 text-center font-mono">=</td>
+                            <td class="py-1">Final Variance</td>
+                            <td class="py-1 text-right font-mono">{{ formatNumber(adjustmentPreview) }} {{ adjustment.item.uom }}</td>
+                        </tr>
+                    </tbody>
+                </table>
+
+                <p v-if="adjustmentCurrent?.adjustment_at" class="text-xs text-gray-500">
+                    Last saved {{ adjustmentCurrent.adjustment_at }}<template v-if="adjustmentCurrent.adjustment_by"> by {{ adjustmentCurrent.adjustment_by }}</template>.
+                </p>
+
+                <div class="flex justify-end gap-2">
+                    <Button variant="outline" :disabled="adjustment.saving" @click="adjustment.visible = false">{{ canAdjust ? 'Cancel' : 'Close' }}</Button>
+                    <Button v-if="canAdjust" :disabled="adjustment.saving" @click="saveAdjustment">{{ adjustment.saving ? 'Saving...' : 'Save Adjustment' }}</Button>
+                </div>
             </div>
         </Dialog>
     </Layout>

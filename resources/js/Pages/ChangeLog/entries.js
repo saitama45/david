@@ -15,6 +15,52 @@
 //   affects  who will notice the change
 
 export const changeLog = [
+    // ---------------------------------------------------------------- October 6, 2026
+    {
+        date: '2026-10-06',
+        module: 'Inventory Movement Report',
+        type: 'new',
+        title: 'New "Adjustment" and "Final Variance" columns in the Inventory Movement Report, with a reason for every adjustment',
+        summary:
+            'A Variance in the Inventory Movement Report could not be explained on the report itself. Two columns now follow Variance under Final Balance. Adjustment holds a quantity entered against the Variance together with the reason for it. Final Variance shows what is left of the Variance after the adjustment.',
+        steps: [
+            'Open Inventory Movement Report, choose the Branch and the dates, and click Search.',
+            'Click the underlined figure under Adjustment on the line of the item.',
+            'Type the Adjustment. Use a minus sign to take away from the Variance. For example, a Variance of 0.1000 and an Adjustment of -0.1000 give a Final Variance of 0.0000.',
+            'Type the Reason. The popup shows the Variance, the Adjustment and the Final Variance before anything is saved.',
+            'Click "Save Adjustment". The report shows the adjustment with its reason under it, and the new Final Variance, right away.',
+        ],
+        rules: [
+            'Final Variance is Variance plus Adjustment.',
+            'A reason is required every time an adjustment is saved. It may not be longer than 500 characters.',
+            'The Adjustment is in the unit shown in the UOM column of the item.',
+            'There is one adjustment for each item, in each store, in each month. The month is the month of the To Date, the same month whose count the report shows as Actual MEC. A report from October 1 to October 6 and a report from October 1 to October 31 show the same adjustment.',
+            'Saving again for the same item, store and month replaces the earlier adjustment and its reason.',
+            'An adjustment cannot be removed. To take one back, save an Adjustment of 0 with the reason.',
+            'An adjustment only explains the Variance on this report. It does not change the stock on hand, the Theoretical SOH, the Actual MEC or any other report. To correct the stock, use SOH Adjustment.',
+            'Only a user whose role has the new permission "adjust inventory movement variance" can enter an adjustment, and only for a store assigned to that user. The Admin role has it. Other roles are given it in Roles, under Inventory Movement Report.',
+            'A user without the permission sees both columns and can click an adjustment to read its reason, who saved it and when.',
+            'Export PDF and Export Excel include Adjustment and Final Variance. The Excel file has the reason in its own column, Adjustment Reason. The PDF prints the reason under the figure.',
+            'The Adjustment and Final Variance columns can be sorted like the other columns.',
+        ],
+        affects: 'Finance, inventory analysts and area managers who read the report and explain its variances.',
+    },
+    {
+        date: '2026-10-06',
+        module: 'Inventory Movement Report',
+        type: 'improved',
+        title: 'The Inventory Movement Report table fits the screen, so the Final Balance columns show without scrolling to the right',
+        summary:
+            'The table of the Inventory Movement Report was wider than the screen. Theoretical SOH, Actual MEC and Variance under Final Balance could only be read after scrolling to the right. The columns are now narrower, so every column shows at once on a full HD monitor (1920 wide) with the browser at 100% zoom.',
+        rules: [
+            'Every column has less empty space on its left and right.',
+            'Supplier and Item Description are narrower. A long supplier name or description continues on a second line.',
+            'The line marked Sub-Prep under a Wastage Qty and the supplies type under Supplies Used continue on a second line instead of widening their columns.',
+            'No figure, column or formula changed. The Export PDF and Export Excel files are the same as before.',
+            'On a smaller screen, or when the browser is zoomed in, the table can still be wider than the screen and scroll to the right.',
+        ],
+        affects: 'Finance, inventory analysts and area managers who read the report.',
+    },
     // ---------------------------------------------------------------- October 5, 2026
     {
         date: '2026-10-05',

@@ -229,6 +229,7 @@ Route::middleware('auth')
             Route::middleware('permission:view inventory movement report')->get('/inventory-movement', [InventoryMovementReportController::class, 'index'])->name('reports.inventory-movement.index');
             Route::middleware('permission:view inventory movement report')->get('/inventory-movement/details', [InventoryMovementReportController::class, 'details'])->name('reports.inventory-movement.details');
             Route::middleware('permission:view inventory movement report')->get('/inventory-movement/details/export-excel', [InventoryMovementReportController::class, 'exportDetailsExcel'])->name('reports.inventory-movement.details.export-excel');
+            Route::middleware('permission:adjust inventory movement variance')->post('/inventory-movement/adjustment', [InventoryMovementReportController::class, 'saveAdjustment'])->name('reports.inventory-movement.adjustment.save');
             Route::middleware('permission:view inventory movement report')->get('/inventory-movement/export-pdf', [InventoryMovementReportController::class, 'exportPdf'])->name('reports.inventory-movement.export-pdf');
             Route::middleware('permission:view inventory movement report')->get('/inventory-movement/export-excel', [InventoryMovementReportController::class, 'exportExcel'])->name('reports.inventory-movement.export-excel');
             Route::middleware('permission:view adoption rate tracking report')->get('/adoption-rate-tracking', [AdoptionRateTrackingController::class, 'index'])->name('reports.adoption-rate-tracking.index');

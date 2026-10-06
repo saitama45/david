@@ -27,6 +27,7 @@ class RolesAndPermissionSeeder extends Seeder
             "edit entities",
             "delete entities",
             "add stock quantity",
+            "adjust inventory movement variance",
             "approve interco requests",
             "approve mass order",
             "approve month end count level 1",
