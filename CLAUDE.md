@@ -34,7 +34,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - Store ordering (regular / mass / DTS / interco / emergency / F&V / ice cream), approval matrices,
   receiving, wastage, month-end counts, stock adjustments, cost and inventory reporting.
 - Ingests sales and masterfile data (POS, SAP) through queued Excel imports.
-- Scale: ~90 page modules, 106 module controllers (121 files incl. `Auth/` and `Api/`), 62 models, 151 migrations, 572 routes.
+- Scale: ~90 page modules, 106 module controllers (121 files incl. `Auth/` and `Api/`), 62 models, 151 migrations, 574 routes.
 
 ## Architecture
 
@@ -267,12 +267,21 @@ SQL Server as the target. Rationale and trade-offs: [Decisions.md](docs/knowledg
   takes only the order's supplier list (item + unit, at the supplier cost); the SAP tab was removed "for now".
 - **Receiving is locked by Final Receive All, not by time.** `store_orders.receiving_finalized_at/_by`;
   every item-list action (receive, edit/delete history, add unlisted, confirm) checks
-  `OrderReceivingService::receivingLockedProblem()`. Confirm Receive All posts but leaves the list open.
+  `OrderReceivingService::receivingLockedProblem()`. Confirm Receive All leaves the list open.
   The old 3-day window from `order_date` is gone. Delivery receipts and images stay editable.
+- **Only Final Receive All posts a delivery to stock** (since 2026-10-06; Confirm Receive All posted too
+  before). Confirm Receive All (`confirmUnpostedReceipts()`) only turns `pending` rows into `received` at
+  their committed quantity and marks the order received; `OrderReceivingController::postReceiptsToStock()`
+  is called by Final Receive All alone. Never post stock from another receiving action. A confirmed
+  delivery therefore counts in no report and holds its Month End Count back until it is finalized;
+  Inbound Orders lists them under the For Final Receive All tab (`currentFilter=for_final`: open order
+  with a `received` row). Interco Receiving has the same three actions (Zero All, Confirm Receive All,
+  Final Receive All); its transfer stays `in_transit` until Final Receive All moves the stock out of the
+  sending store and into the receiving one. Detail: [Data-Flows.md](docs/knowledge/Data-Flows.md#approval-flow).
 - **Receiving has no approval step.** A receipt row's `approved` status means *posted to stock* by the
-  store's Confirm / Final Receive All (`pending` → `received` → `approved`); `/receiving-approvals` is a
+  store's Final Receive All (`pending` → `received` → `approved`); `/receiving-approvals` is a
   legacy page outside the process. Never tell a user a receipt is "awaiting approval" or link there:
-  an unposted quantity is "waiting for Confirm Receive All", in Inbound Orders.
+  an unposted quantity is "waiting for Final Receive All", in Inbound Orders.
 - **Zero All is the one receiving action that needs no delivery receipt and no image.** It is for a
   delivery that did not arrive: `OrderReceivingService::zeroUnconfirmedReceipts()` sets every unposted
   row to 0 / `Unserved` (status `received`) and posts nothing. Confirm / Final Receive All check

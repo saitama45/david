@@ -186,18 +186,18 @@ class MonthEndCountReadinessService
             }
         }
 
-        // A RECEIVED order with an item that was recorded but never posted - one added with Add
-        // Unlisted Item after Confirm Receive All. The report's Received counts posted lines
-        // only ('approved' is the posted state: nobody approves a receipt in Inbound Orders,
-        // the store posts it with Confirm Receive All or Final Receive All).
+        // A RECEIVED order with items recorded but not posted: the store confirmed the delivery
+        // and has not clicked Final Receive All yet, the only action that posts to stock. The
+        // report's Received counts posted lines only ('approved' is the posted state: nobody
+        // approves a receipt in Inbound Orders).
         //
-        // The order's own status says RECEIVED either way, so Inbound Orders' list cannot show
-        // which one it is: each is named and linked to its own page.
+        // Each is named and linked to its own page; Inbound Orders lists them all under its
+        // For Final Receive All tab.
         //
         // Only an item the store can still post, and that is missing from stock, holds it back.
         // Not a delivery locked by Final Receive All, not a zero (Unserved) line, which moves
         // no stock, and not a row beside a receipt of the same item that is already posted,
-        // recorded or not: that is a leftover, and confirming it would post the item twice.
+        // recorded or not: that is a leftover, and posting it would add the item twice.
         $unconfirmedReceipts = DB::table('store_orders as so')
             ->join('store_order_items as soi', 'soi.store_order_id', '=', 'so.id')
             ->join('ordered_item_receive_dates as oird', 'oird.store_order_item_id', '=', 'soi.id')
@@ -218,7 +218,7 @@ class MonthEndCountReadinessService
             ->get();
         foreach ($unconfirmedReceipts as $row) {
             $add((int) $row->store_branch_id, 'receipt_confirmation_'.$row->order_number, (int) $row->items,
-                $row->order_number.' has '.$plural((int) $row->items, 'item', 'items').' waiting for Confirm Receive All',
+                $row->order_number.' has '.$plural((int) $row->items, 'item', 'items').' waiting for Final Receive All',
                 'orders-receiving.show', [$row->order_number]);
         }
 

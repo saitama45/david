@@ -585,7 +585,7 @@ class MassOrdersController extends Controller
                 'u.first_name as received_by_first_name',
                 'u.last_name as received_by_last_name',
                 // Mirrors the receiving page: a row counts as received once it is 'received'
-                // (saved by the receiver) or 'approved' (swept into stock by Confirm Receive).
+                // (saved by the receiver) or 'approved' (posted to stock by Final Receive All).
                 // Commitment is read from the order status, not from committed_by — orders are
                 // auto-committed from approval onwards, and a line committed that way carries
                 // no committer.

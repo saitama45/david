@@ -98,6 +98,37 @@ image is asked for while every receiving row of the order is 0, posted or not, a
 brings the requirement back (an untouched placeholder holds its committed quantity, so it counts).
 The page mirrors this with `nothingReceived`.
 
+**Receiving: only Final Receive All posts to stock** (2026-10-06). Until then Confirm Receive All posted
+too. Now:
+
+- Saving a line, Add Unlisted Item and Zero All record a quantity (`received`), as before.
+- **Confirm Receive All** (`OrderReceivingService::confirmUnpostedReceipts()`) turns every `pending`
+  row into `received` at the committed quantity it carries (date, receiver and remark stamped), leaves
+  recorded rows as they are and re-evaluates the order status (RECEIVED). No stock, no `approved`, no
+  `store_order_items.quantity_received`, no lock: every row stays editable. The page shows the button
+  while a `pending` row exists or the order is not yet received / incomplete (`needsConfirmReceive`).
+- **Final Receive All** (`OrderReceivingController::postReceiptsToStock()`) posts every `pending` /
+  `received` row (`approved`, stock row, batch, `add_quantity` history, line `quantity_received`) and
+  locks the delivery. It is the only caller.
+- `approved` therefore still means *in stock*, so everything reading it (Inventory Movement Received,
+  Delivery Report, Actual Cost / COGS, Adoption Rate delivery logging, the MEC blocker below) follows
+  without change: a confirmed delivery counts nowhere until it is finalized. Rows posted by the old
+  Confirm Receive All stay posted.
+- **Interco Receiving follows the same rule** (`IntercoReceivingController`, 2026-10-06): Zero All
+  (`POST interco-receiving/zero-all/{intercoNumber}`, the shared `zeroUnconfirmedReceipts()`), Confirm
+  Receive All (shared `confirmUnpostedReceipts()`, no stock) and Final Receive All
+  (`POST interco-receiving/final-receive/{intercoNumber}` → its own `postReceiptsToStock()`: out of the
+  sending store, into the receiving store, `approved`, `interco_status` RECEIVED, `receiving_finalized_at`).
+  **A transfer stays `in_transit` until Final Receive All**: RECEIVED still means the stock moved, so the
+  IN TRANSIT tab, My Actions and the MEC "interco transfer not yet received" blocker keep holding it.
+  Evidence is an image only (`evidenceProblem()`), waived while every receipt is 0. Saving a line marks
+  it `received`. The three actions check the receiving store's assignment, not a permission, as the old
+  Confirm Receive did.
+- **For Final Receive All tab** on `/orders-receiving` (`currentFilter=for_final`,
+  `applyForFinalReceiveFilter()`): receiving statuses, `receiving_finalized_at` null, and at least one
+  `received` row. It cuts across the status tabs and is not part of the ALL count. Each listed order
+  carries `unposted_receipts_count`, which the list shows as a "For Final Receive All" marker.
+
 ## Wastage item search
 
 `/wastage/create` and `/wastage/edit` search through `WastageController::getAvailableItems()`
@@ -336,20 +367,21 @@ transfer the store sends but has not committed, and unapproved SOH adjustments.
 
 **Receiving has no approval step, so there is no "receipt awaiting approval" blocker** (2026-10-05).
 A receipt row (`ordered_item_receive_dates.status`) goes `pending` (worksheet placeholder, TO RECEIVE)
-→ `received` (a quantity recorded) → `approved`, and `approved` only means *posted to stock* by the
-store's own Confirm Receive All / Final Receive All; `/receiving-approvals` is a legacy page outside
-the process. The blocker is a RECEIVED order, not finalized, with an **item** that has a `received`
-row whose quantity is not 0 and no `approved` row at all - in practice an Add Unlisted Item made after
-Confirm Receive All (it does not re-evaluate the order status). It leaves out what the store cannot
+→ `received` (a quantity recorded or confirmed) → `approved`, and `approved` only means *posted to
+stock* by the store's own Final Receive All (until 2026-10-06 also by Confirm Receive All);
+`/receiving-approvals` is a legacy page outside the process. The blocker is a RECEIVED order, not
+finalized, with an **item** that has a `received` row whose quantity is not 0 and no `approved` row at
+all - every delivery the store confirmed and has not finalized yet. It leaves out what the store cannot
 post, what moves no stock and what is already in stock: a delivery locked by Final Receive All, a zero
 (Unserved) line, a `pending` row on a RECEIVED order, and any row beside a posted receipt of the same
-item (a leftover, e.g. from the Mass Orders re-approval bug; confirming it would post the item twice).
+item (a leftover, e.g. from the Mass Orders re-approval bug; posting it would add the item twice).
 
-One line per order (`receipt_confirmation_<order number>`, "NNFIL-00329 has 1 item waiting for Confirm
+One line per order (`receipt_confirmation_<order number>`, "NNFIL-00329 has 1 item waiting for Final
 Receive All"), linked to `orders-receiving.show`, not the list: the order's status is RECEIVED either
-way, and on its page a recorded row and a posted row both read RECEIVED - only the Confirm Receive All
-button and the row's edit button tell them apart. The first version (one counted line linked to the
-list) left a store with 39 RECEIVED orders and no way to find the one meant.
+way, and on its page a recorded row and a posted row both read RECEIVED - only the "Not in stock on
+hand yet" notice and the row's edit button tell them apart. The first version (one counted line linked
+to the list) left a store with 39 RECEIVED orders and no way to find the one meant; the list now has
+the For Final Receive All tab for that.
 
 ## Qty Variance / Cost Variance report
 

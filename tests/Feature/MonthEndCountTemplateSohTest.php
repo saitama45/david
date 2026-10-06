@@ -116,7 +116,7 @@ it('blocks a store on every unfinished transaction this month, and only this mon
         return DB::table('store_orders')->where('id', $orderId)->value('order_number');
     };
     $recorded = ['quantity_received' => 1, 'status' => 'received'];
-    // Received, but an item recorded on it never reached stock: Confirm Receive All is due.
+    // Received, but an item recorded on it never reached stock: Final Receive All is due.
     $unconfirmed = $delivery([], $recorded);
     // Nothing the store can post, or that is missing from stock: a delivery locked by Final
     // Receive All, an Unserved line, a placeholder nobody recorded, and a row left beside a
@@ -175,7 +175,7 @@ it('blocks a store on every unfinished transaction this month, and only this mon
     // Receiving has no approval step, and Inbound Orders lists this delivery as RECEIVED like
     // every other: the line names it and opens its own page.
     $line = collect($blockers[$a->id])->firstWhere('key', 'receipt_confirmation_'.$unconfirmed);
-    expect($line['label'])->toBe($unconfirmed.' has 1 item waiting for Confirm Receive All')
+    expect($line['label'])->toBe($unconfirmed.' has 1 item waiting for Final Receive All')
         ->and($line['url'])->toBe(route('orders-receiving.show', $unconfirmed));
 });
 

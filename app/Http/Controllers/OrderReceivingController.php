@@ -274,7 +274,7 @@ class OrderReceivingController extends Controller
     /**
      * Zero All: record every receipt not posted yet as unserved (quantity 0). For a delivery
      * that never arrived, so it asks for no delivery receipt and no image. Nothing is posted:
-     * Confirm Receive All or Final Receive All still follow.
+     * Final Receive All still follows.
      */
     public function zeroAll($id)
     {
@@ -292,8 +292,10 @@ class OrderReceivingController extends Controller
     }
 
     /**
-     * Confirm Receive All: post every recorded but unconfirmed receipt to stock. The item list
-     * stays open afterwards, so an item found later can still be added and confirmed.
+     * Confirm Receive All: accept every receipt not in stock yet as received (an item nobody
+     * filled in, at its committed quantity) and mark the order received. It posts nothing:
+     * stock on hand moves only on Final Receive All. The item list stays open afterwards, so
+     * an item found later can still be added and every quantity corrected.
      */
     public function confirmReceive($id)
     {
@@ -306,10 +308,10 @@ class OrderReceivingController extends Controller
 
         DB::beginTransaction();
         try {
-            $posted = $this->postUnconfirmedReceipts($id);
+            $confirmed = $this->orderReceivingService->confirmUnpostedReceipts($order);
 
-            // Re-evaluated even when nothing was posted, in case a previous attempt left the
-            // order 'incomplete'.
+            // Re-evaluated even when nothing was confirmed, in case a previous attempt left
+            // the order 'incomplete'.
             $this->orderReceivingService->getOrderStatus($id);
             DB::commit();
         } catch (\Exception $e) {
@@ -320,13 +322,14 @@ class OrderReceivingController extends Controller
             return back()->with('error', 'Failed to confirm receive. Check logs for details.');
         }
 
-        return $posted === 0 ? back()->with('info', 'No pending items to confirm.') : back();
+        return $confirmed === 0 ? back()->with('info', 'No pending items to confirm.') : back();
     }
 
     /**
-     * Final Receive All: post every unconfirmed receipt exactly as Confirm Receive All does,
-     * then lock the order's item list for good. Nothing can be added, edited or received on
-     * it afterwards (OrderReceivingService::receivingLockedProblem).
+     * Final Receive All: the one action that posts to stock. It posts every receipt not in
+     * stock yet, at the quantity on its row, then locks the order's item list for good.
+     * Nothing can be added, edited or received on it afterwards
+     * (OrderReceivingService::receivingLockedProblem).
      */
     public function finalReceive($id)
     {
@@ -354,7 +357,7 @@ class OrderReceivingController extends Controller
                 return back()->withErrors(['error' => 'This delivery was already finalized.']);
             }
 
-            $this->postUnconfirmedReceipts($id);
+            $this->postReceiptsToStock($id);
             $this->orderReceivingService->getOrderStatus($id);
             DB::commit();
         } catch (\Exception $e) {
@@ -370,11 +373,12 @@ class OrderReceivingController extends Controller
 
     /**
      * Post every pending or received (not yet approved) receipt of the order to stock and
-     * mark it approved. Runs inside the caller's transaction.
+     * mark it approved. Only Final Receive All calls it: nothing else on this page moves
+     * stock on hand. Runs inside the caller's transaction.
      *
      * @return int how many receipts were posted
      */
-    private function postUnconfirmedReceipts($id): int
+    private function postReceiptsToStock($id): int
     {
         // 1. Update remarks for any ALREADY APPROVED items that have no remarks (Fix for data consistency)
         OrderedItemReceiveDate::whereHas('store_order_item.store_order', fn ($q) => $q->where('id', $id))

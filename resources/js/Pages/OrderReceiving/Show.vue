@@ -559,8 +559,9 @@ const missingEvidence = computed(() => {
     return missing;
 });
 
-// Confirm Receive All does not end receiving: an item found afterwards can still be added and
-// corrected. Only Final Receive All does, and for good - the item list is then read-only. The
+// Confirm Receive All accepts the recorded quantities but posts nothing and does not end
+// receiving: an item found afterwards can still be added and corrected. Only Final Receive All
+// adds to stock on hand, and it ends receiving for good - the item list is then read-only. The
 // server enforces the same rule (OrderReceivingService::receivingLockedProblem).
 const isFinalized = computed(() => !!props.receivingFinalized);
 
@@ -591,14 +592,29 @@ const nothingReceived = computed(
         && props.receiveDatesHistory.every((h) => Number(h.quantity_received) === 0)
 );
 
-// Confirm Receive All stays available until it has been used, then disappears because no
-// unconfirmed rows remain. Final Receive All posts any left as well, so none are stranded.
+// Whether the delivery receipt and image rule lets Confirm Receive All / Final Receive All run.
 const canConfirmReceive = computed(() => missingEvidence.value.length === 0 || nothingReceived.value);
 
-// Rows that have not yet been posted to stock. Confirm Receive keys off these rather than the
-// order status, so an item added after the order was marked received can still be posted.
+// Rows that are not in stock on hand yet: only Final Receive All posts them ('approved').
 const hasUnconfirmedRows = computed(() =>
     props.receiveDatesHistory.some((h) => ["pending", "received"].includes(String(h.status).toLowerCase()))
+);
+
+// Confirm Receive All has something to do while an item is still to receive, or while the
+// order is not marked received yet. Once used it disappears: a quantity corrected or an item
+// added afterwards needs no second confirmation, Final Receive All posts it as it stands.
+const needsConfirmReceive = computed(() =>
+    hasUnconfirmedRows.value && (
+        props.receiveDatesHistory.some((h) => String(h.status).toLowerCase() === "pending")
+        || !["received", "incomplete"].includes(String(props.order.order_status).toLowerCase())
+    )
+);
+
+// Received quantities recorded on this delivery that stock on hand does not hold yet.
+const quantityWaitingForFinal = computed(() =>
+    props.receiveDatesHistory.some(
+        (h) => String(h.status).toLowerCase() === "received" && Number(h.quantity_received) !== 0
+    )
 );
 
 const openEditModalForm = (id) => {
@@ -800,9 +816,9 @@ const confirmReceive = () => {
         onSuccess: () => {
             toast.add({
                 severity: "success",
-                summary: "Success",
-                detail: "Action Completed.",
-                life: 5000,
+                summary: "Received Quantities Confirmed",
+                detail: "Nothing is added to stock on hand yet. Click Final Receive All to add it and lock this delivery.",
+                life: 7000,
             });
         },
         onError: (err) => {
@@ -830,8 +846,10 @@ const promptConfirmReceive = () => {
     }
 
     confirm.require({
-        message: 'Are you sure you want to confirm all pending received items? This action cannot be undone.',
-        header: 'Confirm Receiving',
+        message: 'Confirm the received quantity of every item? An item not filled in yet is received at its committed quantity. '
+            + 'Nothing is added to stock on hand (SOH) yet: that happens only on Final Receive All. '
+            + 'Until then the items can still be changed.',
+        header: 'Confirm Receive All?',
         icon: 'pi pi-exclamation-triangle',
         rejectProps: {
             label: 'Cancel',
@@ -848,14 +866,14 @@ const promptConfirmReceive = () => {
     });
 };
 
-// Final Receive All: posts whatever is still unconfirmed, then locks the item list for good.
+// Final Receive All: posts every row not in stock yet, then locks the item list for good.
 const unconfirmedRowCount = computed(
     () => props.receiveDatesHistory.filter((h) => ["pending", "received"].includes(String(h.status).toLowerCase())).length
 );
 
 // Zero All: for a delivery that did not arrive. Sets every item not yet confirmed to 0 with
 // the remark "Unserved", and is the one receiving action that needs no delivery receipt and
-// no image. It posts nothing: Confirm Receive All or Final Receive All still follow.
+// no image. It posts nothing: Final Receive All still follows.
 const zeroAllForm = useForm({});
 
 // Unconfirmed rows somebody already filled in with a quantity, which Zero All replaces.
@@ -897,7 +915,7 @@ const promptZeroAll = () => {
             `${pending} item(s) not yet confirmed will be set to 0 received and marked "Unserved". `
             + (recorded > 0 ? `${recorded} of them already have a received quantity, which will be replaced by 0. ` : "")
             + "Use this when the delivery did not arrive. No delivery receipt or image is needed. "
-            + "Afterwards click Confirm Receive All or Final Receive All to finish.",
+            + "Afterwards click Final Receive All to finish.",
         icon: "pi pi-exclamation-triangle",
         rejectProps: {
             label: "Cancel",
@@ -923,7 +941,7 @@ const finalReceive = () => {
             toast.add({
                 severity: "success",
                 summary: "Receiving Finalized",
-                detail: "This delivery is now locked. Its items can no longer be changed.",
+                detail: "The received quantities are added to stock on hand and this delivery is now locked. Its items can no longer be changed.",
                 life: 5000,
             });
         },
@@ -955,8 +973,8 @@ const promptFinalReceive = () => {
         header: "Final Receive All?",
         message:
             (pending > 0
-                ? `${pending} item(s) not yet confirmed will be received now, exactly as Confirm Receive All does. `
-                : "Every item is already confirmed. ")
+                ? `${pending} item(s) will be added to stock on hand (SOH) now, each at the quantity on its line. An item not filled in yet is received at its committed quantity. `
+                : "Every item of this delivery is already in stock on hand. ")
             + "This is the final step for this delivery: afterwards no item can be added, edited or received on this page. This cannot be undone.",
         icon: "pi pi-lock",
         rejectProps: {
@@ -1265,6 +1283,14 @@ const promptFinalReceive = () => {
                             <p v-else-if="!canRecordReceipt" class="mt-1 text-xs font-medium text-red-600">
                                 🔒 {{ evidenceHint }}
                             </p>
+                            <!-- Recorded or confirmed is not in stock: only Final Receive All posts -->
+                            <p
+                                v-if="!isFinalized && quantityWaitingForFinal"
+                                class="mt-1 inline-flex items-center gap-1.5 rounded-md border border-amber-200 bg-amber-50 px-2 py-1 text-xs font-semibold text-amber-800"
+                            >
+                                <Lock class="size-3.5" />
+                                Not in stock on hand yet. The received quantities are added to SOH only when Final Receive All is clicked.
+                            </p>
                         </div>
                         <!-- Everything here goes away once Final Receive All has locked the list.
                              Add Unlisted Item is offered even when the supplier has nothing left
@@ -1295,11 +1321,11 @@ const promptFinalReceive = () => {
                             Add Unlisted Item
                         </Button>
                         <Button
-                            v-if="hasUnconfirmedRows"
+                            v-if="needsConfirmReceive"
                             @click="promptConfirmReceive"
                             :disabled="!canConfirmReceive"
                             :variant="!canConfirmReceive ? 'secondary' : 'default'"
-                            :title="!canConfirmReceive ? 'A delivery receipt and image are required before confirming.' : 'Confirm all pending received items. The list stays open for changes.'"
+                            :title="!canConfirmReceive ? 'A delivery receipt and image are required before confirming.' : 'Confirm the received quantity of every item. Nothing is added to stock on hand yet, and the list stays open for changes.'"
                         >
                             Confirm Receive All
                         </Button>
@@ -1312,7 +1338,7 @@ const promptFinalReceive = () => {
                                     ? 'bg-emerald-600 text-white ring-emerald-300 hover:bg-emerald-700'
                                     : 'bg-gray-200 text-gray-500 ring-gray-200',
                             ]"
-                            :title="!canConfirmReceive ? 'A delivery receipt and image are required before finalizing.' : 'Final step: receive everything and lock this delivery so its items can no longer be changed'"
+                            :title="!canConfirmReceive ? 'A delivery receipt and image are required before finalizing.' : 'Final step: add the received quantities to stock on hand (SOH) and lock this delivery so its items can no longer be changed'"
                         >
                             <Loader2 v-if="finalReceiveForm.processing" class="size-4 animate-spin" />
                             <Lock v-else class="size-4" />

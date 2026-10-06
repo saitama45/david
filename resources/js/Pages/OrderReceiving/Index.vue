@@ -198,6 +198,11 @@ const statusBadgeColor = (status) => {
     }
 };
 
+// A delivery still open that holds received quantities not in stock on hand yet: the rule of
+// the For Final Receive All tab (OrderReceivingService::applyForFinalReceiveFilter).
+const waitsForFinalReceive = (order) =>
+    !order.receiving_finalized_at && Number(order.unposted_receipts_count) > 0;
+
 const viewDetails = (id) => {
     router.get(`/orders-receiving/show/${id}`);
 };
@@ -270,6 +275,20 @@ const getSupplierDisplayName = (supplier, variant) => {
                     class="sm:flex hidden border border-gray bg-transparent text-gray-900 px-2"
                     :class="isFilterActive('commited')"
                 >{{ counts.commited }}</Badge>
+            </Button>
+
+            <!-- Deliveries with received quantities not in stock on hand yet: only Final
+                 Receive All posts them. It cuts across the status tabs above. -->
+            <Button
+                class="sm:px-10 px-3 bg-white/10 text-gray-800 hover:text-white gap-5 sm:text-sm text-xs"
+                :class="isFilterActive('for_final')"
+                title="Deliveries with received quantities that are not in stock on hand yet. Open one and click Final Receive All."
+                @click="changeFilter('for_final')"
+            >FOR FINAL RECEIVE ALL
+                <Badge
+                    class="sm:flex hidden border border-gray bg-transparent text-gray-900 px-2"
+                    :class="isFilterActive('for_final')"
+                >{{ counts.for_final }}</Badge>
             </Button>
         </FilterTab>
 
@@ -524,6 +543,12 @@ const getSupplierDisplayName = (supplier, variant) => {
                             >{{
                                 (order.order_status.toUpperCase() === 'RECEIVED' || order.order_status.toUpperCase() === 'INCOMPLETE') ? 'RECEIVED' : order.order_status.toUpperCase().replace("_", " ")
                             }}</Badge>
+                            <!-- Received is not yet in stock: Final Receive All is what posts it -->
+                            <div
+                                v-if="waitsForFinalReceive(order)"
+                                class="mt-1 text-[11px] font-semibold text-amber-700"
+                                title="This delivery has received quantities that are not in stock on hand yet. Open it and click Final Receive All."
+                            >For Final Receive All</div>
                         </TD>
                         <TD>
                             <Button
@@ -550,7 +575,7 @@ const getSupplierDisplayName = (supplier, variant) => {
                     <LabelXS>SO/PO Number: {{ order.delivery_receipts && order.delivery_receipts.length > 0 ? order.delivery_receipts[0].sap_so_number : "N/A" }}</LabelXS>
                     <LabelXS
                         >Receiving Status:
-                        {{ (order.order_status.toUpperCase() === 'RECEIVED' || order.order_status.toUpperCase() === 'INCOMPLETE') ? 'RECEIVED' : order.order_status.toUpperCase().replace("_", " ") }}</LabelXS
+                        {{ (order.order_status.toUpperCase() === 'RECEIVED' || order.order_status.toUpperCase() === 'INCOMPLETE') ? 'RECEIVED' : order.order_status.toUpperCase().replace("_", " ") }}<template v-if="waitsForFinalReceive(order)"> (For Final Receive All)</template></LabelXS
                     >
                     <LabelXS>Order Date: {{ order.order_date }}</LabelXS>
                     <LabelXS v-if="String(order.supplier_id) === '5' && order.variant && order.variant !== 'N/A' && order.variant !== 'mass dts'">

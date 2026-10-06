@@ -118,19 +118,116 @@ it('refuses an item the supplier does not list, an item already on the order, an
     expect(StoreOrderItem::where('store_order_id', $order->id)->count())->toBe(1);
 });
 
-it('keeps the list open after Confirm Receive All', function () {
-    [$user, $order, , $receipt] = receivingFixture();
+it('confirms the received quantities on Confirm Receive All without posting anything to stock', function () {
+    [$user, $order, $branch, $receipt] = receivingFixture();
     $this->actingAs($user);
+
+    // A worksheet row nobody filled in: it is received at the committed quantity it carries.
+    $untouched = receivingLine($order, 'UNL-SAP', ['received_by_user_id' => null, 'quantity_received' => 3, 'received_date' => null, 'status' => 'pending']);
 
     app(OrderReceivingController::class)->confirmReceive($order->id);
 
-    expect(OrderedItemReceiveDate::find($receipt->id)->status)->toBe('approved')
+    $untouched = OrderedItemReceiveDate::find($untouched->id);
+
+    // Recorded, not posted: 'approved' is the posted state.
+    expect(OrderedItemReceiveDate::find($receipt->id)->status)->toBe('received')
+        ->and($untouched->status)->toBe('received')
+        ->and((float) $untouched->quantity_received)->toBe(3.0)
+        ->and($untouched->received_date)->not->toBeNull()
+        ->and((int) $untouched->received_by_user_id)->toBe($user->id)
+        ->and($untouched->remarks)->toBe('Received')
+        ->and($order->fresh()->order_status)->toBe(OrderStatus::RECEIVED->value)
         ->and($order->fresh()->receiving_finalized_at)->toBeNull();
 
-    // An item found afterwards can still be added.
+    // Nothing reached stock on hand, and no line carries a posted quantity.
+    expect(ProductInventoryStock::where('store_branch_id', $branch->id)->exists())->toBeFalse()
+        ->and((float) StoreOrderItem::find($receipt->store_order_item_id)->quantity_received)->toBe(0.0);
+
+    // The list stays open: an item found afterwards can still be added.
     addUnlisted($order, 'UNL-SUP');
 
-    expect(StoreOrderItem::where('store_order_id', $order->id)->count())->toBe(2);
+    expect(StoreOrderItem::where('store_order_id', $order->id)->count())->toBe(3);
+});
+
+it('posts to stock only on Final Receive All, and once, after Confirm Receive All', function () {
+    [$user, $order, $branch, $receipt, $ordered] = receivingFixture();
+    $this->actingAs($user);
+
+    $controller = app(OrderReceivingController::class);
+    $stock = fn () => (float) ProductInventoryStock::where('product_inventory_id', $ordered->id)
+        ->where('store_branch_id', $branch->id)->value('quantity');
+
+    // Confirming, even twice, leaves stock on hand alone.
+    $controller->confirmReceive($order->id);
+    $controller->confirmReceive($order->id);
+
+    expect($stock())->toBe(0.0);
+
+    // A quantity corrected after confirming is the one that reaches stock.
+    $controller->updateReceiveDateHistory(Request::create('/', 'POST', [
+        'id' => $receipt->id, 'quantity_received' => 1.5, 'remarks' => 'Short delivery',
+    ]));
+
+    expect($stock())->toBe(0.0);
+
+    $controller->finalReceive($order->id);
+
+    expect($stock())->toBe(1.5)
+        ->and(OrderedItemReceiveDate::find($receipt->id)->status)->toBe('approved')
+        ->and((float) StoreOrderItem::find($receipt->store_order_item_id)->quantity_received)->toBe(1.5)
+        ->and($order->fresh()->receiving_finalized_at)->not->toBeNull();
+});
+
+it('lists under For Final Receive All only an open delivery with received quantities not in stock yet', function () {
+    [$user, $order] = receivingFixture();
+    $this->actingAs($user);
+
+    $recorded = ['received_by_user_id' => $user->id, 'quantity_received' => 3, 'received_date' => now('Asia/Manila')->format('Y-m-d H:i:s'), 'remarks' => 'Received'];
+
+    // Another delivery of the same store and supplier, with one row per given state.
+    $delivery = function (string $orderStatus, array $rowStatuses, bool $finalized = false) use ($order, $recorded) {
+        $other = StoreOrder::create([
+            'encoder_id' => $order->encoder_id, 'supplier_id' => $order->supplier_id, 'store_branch_id' => $order->store_branch_id,
+            'order_number' => 'UNL-ORDER-'.uniqid(), 'order_date' => $order->order_date, 'order_status' => $orderStatus, 'variant' => 'mass regular',
+        ]);
+
+        foreach ($rowStatuses as $index => $status) {
+            receivingLine($other, ['UNL-ORD', 'UNL-SUP'][$index], $status === 'pending'
+                ? ['received_by_user_id' => null, 'quantity_received' => 3, 'received_date' => null, 'status' => 'pending']
+                : $recorded + ['status' => $status]);
+        }
+
+        if ($finalized) {
+            StoreOrder::whereKey($other->id)->update(['receiving_finalized_at' => now('Asia/Manila')->format('Y-m-d H:i:s')]);
+        }
+
+        return (int) $other->id;
+    };
+
+    // Nobody has received anything yet; everything is already in stock (confirmed before
+    // this rule); an item added after that; and a delivery already locked.
+    $delivery(OrderStatus::COMMITTED->value, ['pending']);
+    $delivery(OrderStatus::RECEIVED->value, ['approved']);
+    $addedLater = $delivery(OrderStatus::RECEIVED->value, ['approved', 'received']);
+    $delivery(OrderStatus::RECEIVED->value, ['received'], finalized: true);
+
+    $service = app(OrderReceivingService::class);
+    $listed = fn () => $service->applyStatusFilter(StoreOrder::query(), OrderReceivingService::FOR_FINAL_RECEIVE)
+        ->orderBy('id')->pluck('id')->map(fn ($id) => (int) $id)->all();
+
+    // The fixture's own delivery has a recorded quantity and is still open.
+    expect($listed())->toBe([(int) $order->id, $addedLater])
+        ->and($service->getCounts(StoreOrder::query())[OrderReceivingService::FOR_FINAL_RECEIVE])->toBe(2);
+
+    // Confirm Receive All does not take it off the list; Final Receive All does.
+    $controller = app(OrderReceivingController::class);
+    $controller->confirmReceive($order->id);
+
+    expect($listed())->toBe([(int) $order->id, $addedLater]);
+
+    $controller->finalReceive($order->id);
+
+    expect($listed())->toBe([$addedLater]);
 });
 
 it('posts every unconfirmed receipt on Final Receive All and then locks the item list', function () {

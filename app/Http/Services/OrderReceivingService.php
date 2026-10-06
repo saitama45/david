@@ -44,6 +44,9 @@ class OrderReceivingService extends StoreOrderService
         OrderStatus::INCOMPLETE->value,
     ];
 
+    /** The list tab of deliveries waiting for Final Receive All (applyForFinalReceiveFilter()). */
+    public const FOR_FINAL_RECEIVE = 'for_final';
+
     /**
      * Get a list of orders for receiving, filtered by status and search term.
      *
@@ -55,7 +58,9 @@ class OrderReceivingService extends StoreOrderService
         Log::debug("OrderReceivingService: getOrdersList called with currentFilter: {$currentFilter}");
 
         // Start with a base query that includes relationships
-        $query = StoreOrder::query()->with(['store_branch', 'supplier', 'delivery_receipts']);
+        $query = StoreOrder::query()->with(['store_branch', 'supplier', 'delivery_receipts'])
+            // Receipts recorded but not in stock yet: the list marks the delivery "For Final Receive All".
+            ->withCount(['ordered_item_receive_dates as unposted_receipts_count' => fn ($receipts) => $receipts->where('ordered_item_receive_dates.status', 'received')]);
 
         // Apply all advanced/suggester filters (search, dates, store, supplier, variant, aging, ...)
         // but NOT the receiving-status tab filter, so the tab counts reflect the applied filters.
@@ -234,6 +239,10 @@ class OrderReceivingService extends StoreOrderService
             return $query;
         }
 
+        if ($currentFilter === self::FOR_FINAL_RECEIVE) {
+            return $this->applyForFinalReceiveFilter($query);
+        }
+
         // The Committed tab covers everything that is ready to receive but not yet received:
         // approved, partially committed and fully committed orders.
         $map = [
@@ -253,6 +262,25 @@ class OrderReceivingService extends StoreOrderService
         }
 
         return $query;
+    }
+
+    /**
+     * The "For Final Receive All" tab: deliveries still open (not locked by Final Receive All)
+     * that hold at least one receipt recorded but not in stock yet. 'received' is that state;
+     * 'approved' is the posted one and 'pending' a worksheet row nobody has filled in. Stock on
+     * hand moves only on Final Receive All, so these are the quantities it is still missing.
+     *
+     * It cuts across the order statuses: a delivery marked RECEIVED and one still being
+     * received line by line are both listed.
+     *
+     * @param \Illuminate\Database\Eloquent\Builder $query
+     * @return \Illuminate\Database\Eloquent\Builder
+     */
+    public function applyForFinalReceiveFilter($query)
+    {
+        return $query->whereIn('order_status', self::RECEIVING_STATUSES)
+            ->whereNull('receiving_finalized_at')
+            ->whereHas('ordered_item_receive_dates', fn ($receipts) => $receipts->where('ordered_item_receive_dates.status', 'received'));
     }
 
     /**
@@ -356,6 +384,7 @@ class OrderReceivingService extends StoreOrderService
                 ['value' => 'received', 'label' => 'Received'],
                 ['value' => 'incomplete', 'label' => 'Partial Received'],
                 ['value' => 'commited', 'label' => 'Committed'],
+                ['value' => self::FOR_FINAL_RECEIVE, 'label' => 'For Final Receive All'],
             ],
         ];
     }
@@ -375,6 +404,9 @@ class OrderReceivingService extends StoreOrderService
         ];
         // The 'all' count is the sum of relevant receiving statuses
         $counts['all'] = $counts['received'] + $counts['incomplete'] + $counts['commited'];
+
+        // Not part of 'all': it cuts across the statuses above instead of being one of them.
+        $counts[self::FOR_FINAL_RECEIVE] = $this->applyForFinalReceiveFilter(clone $baseQuery)->count();
 
         return $counts;
     }
@@ -424,8 +456,8 @@ class OrderReceivingService extends StoreOrderService
     }
 
     /**
-     * Why Confirm Receive All / Final Receive All may not post this order yet, or null when
-     * they may.
+     * Why Confirm Receive All may not accept, and Final Receive All may not post, this order
+     * yet, or null when they may.
      *
      * The delivery receipt and the image prove a delivery. An order whose every receipt is
      * zero (Zero All, or each line saved with 0) had nothing delivered, so there is nothing to
@@ -448,7 +480,7 @@ class OrderReceivingService extends StoreOrderService
      *
      * It is for a delivery that did not arrive, so unlike every other receiving action it
      * asks for no delivery receipt and no image. Nothing is posted and the list stays open:
-     * Confirm Receive All or Final Receive All still follow. Posted receipts are left alone.
+     * Final Receive All still follows. Posted receipts are left alone.
      *
      * @return int how many receipts were zeroed
      *
@@ -484,11 +516,51 @@ class OrderReceivingService extends StoreOrderService
     }
 
     /**
+     * Confirm Receive All: accept every receipt that is not in stock yet as received. A
+     * worksheet row nobody filled in is received at the committed quantity it carries, with
+     * the date and the receiver stamped; a row already recorded keeps what it has.
+     *
+     * Nothing is posted and nothing is locked: stock on hand moves only on Final Receive All
+     * (OrderReceivingController::postReceiptsToStock()), and until then every row can still
+     * be corrected. The rows stay 'received' - 'approved' means posted to stock.
+     *
+     * @return int how many receipts now wait for Final Receive All
+     */
+    public function confirmUnpostedReceipts(StoreOrder $order): int
+    {
+        $receipts = OrderedItemReceiveDate::whereHas('store_order_item', fn ($q) => $q->where('store_order_id', $order->id))
+            ->whereIn('status', ['pending', 'received'])
+            ->get();
+
+        foreach ($receipts as $receipt) {
+            $changes = ['status' => 'received'];
+
+            if (! $receipt->received_date) {
+                $changes['received_date'] = now('Asia/Manila');
+            }
+
+            // A row nobody received yet has no receiver of its own: an interco transfer's
+            // carries the sending store's committer until the receiving store accepts it.
+            if ($receipt->status === 'pending' || ! $receipt->received_by_user_id) {
+                $changes['received_by_user_id'] = Auth::id();
+            }
+
+            if (trim((string) $receipt->remarks) === '') {
+                $changes['remarks'] = 'Received';
+            }
+
+            $receipt->update($changes);
+        }
+
+        return $receipts->count();
+    }
+
+    /**
      * Why this order's receiving item list can no longer be changed, or null while it can.
      *
-     * Confirm Receive All posts what was recorded but leaves the list open: an item found
-     * afterwards can still be added and corrected. Only "Final Receive All" closes it, and
-     * for good. (It replaced a 3-day window counted from the delivery date.)
+     * Confirm Receive All accepts what was recorded but leaves the list open: an item found
+     * afterwards can still be added and corrected. Only "Final Receive All" posts to stock
+     * and closes it, for good. (It replaced a 3-day window counted from the delivery date.)
      */
     public function receivingLockedProblem(StoreOrder $order): ?string
     {
@@ -620,8 +692,8 @@ class OrderReceivingService extends StoreOrderService
     public function addUnlistedItem(StoreOrder $order, array $data): StoreOrderItem
     {
         // Deliberately not gated on order status: an item found after Confirm Receive All can
-        // still be added, and the button reappears for it (it keys off unconfirmed rows, not
-        // the order status), so it still reaches stock. Only Final Receive All closes the list.
+        // still be added. It reaches stock with everything else, on Final Receive All, which
+        // is also what closes the list.
         $this->assertReceivingNotFinalized($order);
         $this->assertDeliveryEvidence($order);
 

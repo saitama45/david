@@ -3,7 +3,7 @@ import { ref, watch, computed, onMounted, onUnmounted } from "vue";
 import { useForm } from "@inertiajs/vue3";
 import { useToast } from "primevue/usetoast";
 import { router } from "@inertiajs/vue3";
-import { X, Pencil } from "lucide-vue-next";
+import { X, Pencil, Lock, PackageX, Loader2 } from "lucide-vue-next";
 
 import { Button } from '@/components/ui/button';
 import {
@@ -58,13 +58,68 @@ const props = defineProps({
         type: Object,
         required: true,
     },
+    // { at, by } once Final Receive All moved the stock and locked the transfer, otherwise null.
+    receivingFinalized: {
+        type: Object,
+        default: null,
+    },
 });
 
 const orderStatus = ref(props.order?.interco_status);
 
+// Receiving works as on Inbound Orders. Zero All, saving a line and Confirm Receive All only
+// record quantities; Final Receive All alone moves the stock - out of the sending store, into
+// this one - and it locks the transfer for good. The server enforces the same rules.
+const isFinalized = computed(() => !!props.receivingFinalized);
+
+const finalizedHint = computed(() =>
+    props.receivingFinalized
+        ? `Finalized with Final Receive All on ${props.receivingFinalized.at}${
+              props.receivingFinalized.by ? ` by ${props.receivingFinalized.by}` : ""
+          }. Items can no longer be changed or received.`
+        : ""
+);
+
+const rowStatus = (history) => String(history?.status ?? "").toLowerCase();
+
+// Rows that are not in stock yet: only Final Receive All posts them ('approved').
+const unpostedRows = computed(() =>
+    props.receiveDatesHistory.filter((h) => ["pending", "received"].includes(rowStatus(h)))
+);
+const hasUnpostedRows = computed(() => unpostedRows.value.length > 0);
+
+// Confirm Receive All has something to do while an item is still to receive.
+const hasPendingRows = computed(() => unpostedRows.value.some((h) => rowStatus(h) === "pending"));
+
+// Every receipt of the transfer is zero (Zero All, or each line saved with 0): nothing
+// arrived, so there is no image to ask for. A row nobody touched still carries its
+// committed quantity, so it does not count as zero.
+const nothingReceived = computed(
+    () => props.receiveDatesHistory.length > 0
+        && props.receiveDatesHistory.every((h) => Number(h.quantity_received) === 0)
+);
+
 const canConfirmReceive = computed(() => {
-    return props.images && props.images.length > 0;
+    return (props.images && props.images.length > 0) || nothingReceived.value;
 });
+
+// Received quantities recorded on this transfer that stock on hand does not hold yet.
+const quantityWaitingForFinal = computed(() =>
+    unpostedRows.value.some((h) => rowStatus(h) === "received" && Number(h.quantity_received) !== 0)
+);
+
+// Unposted rows somebody already filled in with a quantity, which Zero All replaces.
+const recordedQuantityCount = computed(
+    () => unpostedRows.value.filter((h) => rowStatus(h) === "received" && Number(h.quantity_received) !== 0).length
+);
+
+const receivingRowStatus = (history) => {
+    const status = rowStatus(history);
+
+    if (status === "approved" || status === "received") return "RECEIVED";
+
+    return status === "pending" ? "TO RECEIVE" : status.toUpperCase();
+};
 
 const isImageModalVisible = ref(false);
 const openImageModal = () => {
@@ -309,15 +364,25 @@ const deleteImage = () => {
 
 const confirmReceive = () => {
     router.post(route('interco-receiving.confirm-receive', props.order.interco_number), {}, {
-        onSuccess: () => {
-            toast.add({ severity: 'success', summary: 'Success', detail: 'Receive Confirmed.', life: 3000 });
+        preserveScroll: true,
+        onSuccess: (page) => {
+            if (page.props.flash?.info) {
+                toast.add({ severity: 'info', summary: 'Confirm Receive All', detail: page.props.flash.info, life: 5000 });
+                return;
+            }
+            toast.add({
+                severity: 'success',
+                summary: 'Received Quantities Confirmed',
+                detail: 'No stock is moved yet. Click Final Receive All to move it and lock this transfer.',
+                life: 7000,
+            });
         },
         onError: (err) => {
             toast.add({
                 severity: "error",
-                summary: "Error",
-                detail: err.message || "An error occurred.",
-                life: 5000,
+                summary: "Unable to Confirm",
+                detail: err.error || err.message || "An error occurred.",
+                life: 7000,
             });
         }
     });
@@ -334,8 +399,9 @@ const promptConfirmReceive = () => {
         return;
     }
     confirm.require({
-        message: 'Are you sure you want to confirm all pending received items?',
-        header: 'Confirm Receiving',
+        message: 'Confirm the received quantity of every item? An item not changed is received at its committed quantity. '
+            + 'No stock is moved yet: that happens only on Final Receive All. Until then the quantities can still be changed.',
+        header: 'Confirm Receive All?',
         icon: 'pi pi-exclamation-triangle',
         rejectProps: {
             label: 'Cancel',
@@ -348,6 +414,120 @@ const promptConfirmReceive = () => {
         },
         accept: () => {
             confirmReceive();
+        },
+    });
+};
+
+// Zero All: for a transfer that did not arrive. Sets every item not in stock yet to 0 with
+// the remark "Unserved", and is the one receiving action that needs no image. It moves no
+// stock: Final Receive All still follows.
+const zeroAllForm = useForm({});
+
+const zeroAll = () => {
+    zeroAllForm.post(route('interco-receiving.zero-all', props.order.interco_number), {
+        preserveScroll: true,
+        onSuccess: () => {
+            toast.add({
+                severity: 'success',
+                summary: 'Zero All',
+                detail: 'Every item not yet in stock is now 0 and marked "Unserved".',
+                life: 5000,
+            });
+        },
+        onError: (errors) => {
+            toast.add({
+                severity: 'error',
+                summary: 'Unable to Zero All',
+                detail: errors.error || 'Please try again.',
+                life: 7000,
+            });
+        },
+    });
+};
+
+const promptZeroAll = () => {
+    const pending = unpostedRows.value.length;
+    const recorded = recordedQuantityCount.value;
+
+    confirm.require({
+        header: 'Zero All?',
+        message:
+            `${pending} item(s) will be set to 0 received and marked "Unserved". `
+            + (recorded > 0 ? `${recorded} of them already have a received quantity, which will be replaced by 0. ` : '')
+            + 'Use this when the transfer did not arrive. No image is needed. '
+            + 'Afterwards click Final Receive All to finish.',
+        icon: 'pi pi-exclamation-triangle',
+        rejectProps: {
+            label: 'Cancel',
+            severity: 'secondary',
+            outlined: true,
+        },
+        acceptProps: {
+            label: 'Zero All',
+            severity: 'danger',
+        },
+        accept: () => {
+            zeroAll();
+        },
+    });
+};
+
+// Final Receive All: moves the stock of every item not in stock yet, then locks the transfer.
+const finalReceiveForm = useForm({});
+
+const finalReceive = () => {
+    finalReceiveForm.post(route('interco-receiving.final-receive', props.order.interco_number), {
+        preserveScroll: true,
+        onSuccess: () => {
+            toast.add({
+                severity: 'success',
+                summary: 'Receiving Finalized',
+                detail: 'The stock is moved and this transfer is now locked. Its items can no longer be changed.',
+                life: 5000,
+            });
+        },
+        onError: (errors) => {
+            toast.add({
+                severity: 'error',
+                summary: 'Unable to Finalize',
+                detail: errors.error || 'Please try again.',
+                life: 7000,
+            });
+        },
+    });
+};
+
+const promptFinalReceive = () => {
+    if (!canConfirmReceive.value) {
+        toast.add({
+            severity: 'error',
+            summary: 'Image Required',
+            detail: 'Please attach at least one image before finalizing.',
+            life: 5000,
+        });
+        return;
+    }
+
+    const pending = unpostedRows.value.length;
+
+    confirm.require({
+        header: 'Final Receive All?',
+        message:
+            `${pending} item(s) will be added to the stock on hand (SOH) of ${props.order?.store_branch?.name || 'the receiving store'} `
+            + `and taken out of ${props.order?.from_store_name || 'the sending store'} now, each at the quantity on its line. `
+            + 'This is the final step for this transfer: afterwards no quantity can be changed. This cannot be undone.',
+        icon: 'pi pi-lock',
+        rejectProps: {
+            label: 'Cancel',
+            severity: 'secondary',
+            outlined: true,
+        },
+        acceptProps: {
+            label: 'Final Receive All',
+            severity: 'danger',
+        },
+        accept: () => {
+            finalReceive();
         },
     });
 };
@@ -479,18 +659,65 @@ const promptConfirmReceive = () => {
             <!-- Receiving History -->
             <div class="bg-white rounded-lg shadow">
                 <div class="p-6 border-b border-gray-200">
-                    <div class="flex justify-between items-center">
-                        <h2 class="text-lg font-semibold">Receiving History</h2>
-                        <button
-                            v-if="order?.interco_status !== 'received'"
-                            @click="promptConfirmReceive"
-                            :disabled="!canConfirmReceive"
-                            class="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors"
-                            :class="{ 'opacity-50 cursor-not-allowed': !canConfirmReceive }"
-                            :title="!canConfirmReceive ? 'An image is required before confirming.' : 'Confirm all pending received items'"
-                        >
-                            Confirm Receive
-                        </button>
+                    <div class="flex justify-between items-start gap-4">
+                        <div class="flex flex-col gap-1">
+                            <h2 class="text-lg font-semibold">Receiving History</h2>
+                            <p
+                                v-if="isFinalized"
+                                class="inline-flex items-center gap-1.5 rounded-md border border-emerald-200 bg-emerald-50 px-2 py-1 text-xs font-semibold text-emerald-800"
+                            >
+                                <Lock class="size-3.5" />
+                                {{ finalizedHint }}
+                            </p>
+                            <!-- Recorded or confirmed is not in stock: only Final Receive All moves it -->
+                            <p
+                                v-else-if="quantityWaitingForFinal"
+                                class="inline-flex items-center gap-1.5 rounded-md border border-amber-200 bg-amber-50 px-2 py-1 text-xs font-semibold text-amber-800"
+                            >
+                                <Lock class="size-3.5" />
+                                Not in stock on hand yet. The stock is moved between the two stores only when Final Receive All is clicked.
+                            </p>
+                        </div>
+                        <!-- Everything here goes away once the transfer is in stock and locked -->
+                        <div v-if="!isFinalized && hasUnpostedRows" class="flex items-center gap-3">
+                            <!-- First, and never waiting for an image: it is for the transfer
+                                 that did not arrive. -->
+                            <Button
+                                @click="promptZeroAll"
+                                :disabled="zeroAllForm.processing"
+                                variant="outline"
+                                class="gap-2 border-2 border-rose-300 bg-rose-50 text-rose-700 font-semibold shadow-sm hover:bg-rose-100 hover:border-rose-400 hover:text-rose-800 transition-all"
+                                title="The transfer did not arrive: set every item not yet in stock to 0 and mark it Unserved. No image is needed."
+                            >
+                                <Loader2 v-if="zeroAllForm.processing" class="size-4 animate-spin" />
+                                <PackageX v-else class="size-4" />
+                                Zero All
+                            </Button>
+                            <Button
+                                v-if="hasPendingRows"
+                                @click="promptConfirmReceive"
+                                :disabled="!canConfirmReceive"
+                                :variant="!canConfirmReceive ? 'secondary' : 'default'"
+                                :title="!canConfirmReceive ? 'An image is required before confirming.' : 'Confirm the received quantity of every item. No stock is moved yet, and the quantities stay open for changes.'"
+                            >
+                                Confirm Receive All
+                            </Button>
+                            <Button
+                                @click="promptFinalReceive"
+                                :disabled="!canConfirmReceive || finalReceiveForm.processing"
+                                :class="[
+                                    'gap-2 font-bold shadow-md ring-2 ring-offset-1 transition-all',
+                                    canConfirmReceive
+                                        ? 'bg-emerald-600 text-white ring-emerald-300 hover:bg-emerald-700'
+                                        : 'bg-gray-200 text-gray-500 ring-gray-200',
+                                ]"
+                                :title="!canConfirmReceive ? 'An image is required before finalizing.' : 'Final step: move the received quantities into stock on hand (SOH) and lock this transfer so its items can no longer be changed'"
+                            >
+                                <Loader2 v-if="finalReceiveForm.processing" class="size-4 animate-spin" />
+                                <Lock v-else class="size-4" />
+                                Final Receive All
+                            </Button>
+                        </div>
                     </div>
                 </div>
                 <div class="overflow-x-auto">
@@ -505,6 +732,7 @@ const promptConfirmReceive = () => {
                                 <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Received At</th>
                                 <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Received By</th>
                                 <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Remarks</th>
                                 <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
                             </tr>
                         </thead>
@@ -516,18 +744,26 @@ const promptConfirmReceive = () => {
                                 <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{{ history.store_order_item?.uom }}</td>
                                 <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{{ history.quantity_received }}</td>
                                 <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                                    {{ dayjs(history.received_date).tz("Asia/Manila").format("MMMM D, YYYY h:mm A") }}
+                                    {{ history.received_date ? dayjs(history.received_date).tz("Asia/Manila").format("MMMM D, YYYY h:mm A") : '-' }}
                                 </td>
-                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{{ history.received_by_user?.first_name }} {{ history.received_by_user?.last_name }}</td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                    <!-- A row nobody received yet still names the sending store's committer -->
+                                    <template v-if="rowStatus(history) !== 'pending'">{{ history.received_by_user?.first_name }} {{ history.received_by_user?.last_name }}</template>
+                                    <template v-else>-</template>
+                                </td>
                                 <td class="px-6 py-4 whitespace-nowrap">
-                                    <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-blue-100 text-blue-800">
-                                        {{ history.status }}
+                                    <span
+                                        class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full"
+                                        :class="rowStatus(history) === 'pending' ? 'bg-blue-100 text-blue-800' : 'bg-green-100 text-green-800'"
+                                    >
+                                        {{ receivingRowStatus(history) }}
                                     </span>
                                 </td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{{ history.remarks || '-' }}</td>
                                 <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
                                     <div class="flex space-x-2">
                                         <button
-                                            v-if="history.status === 'pending'"
+                                            v-if="!isFinalized && (history.status === 'pending' || history.status === 'received')"
                                             @click="openEditModalForm(history.id)"
                                             class="text-yellow-600 hover:text-yellow-900"
                                         >

@@ -697,6 +697,8 @@ Route::middleware('auth')
             Route::middleware('permission:export interco receiving')->get('/export', 'export')->name('export');
             Route::post('/update-receiving-history', 'updateReceiveDateHistory')->name('update-receiving-history');
             Route::post('/confirm-receive/{intercoNumber}', 'confirmReceive')->name('confirm-receive');
+            Route::post('/zero-all/{intercoNumber}', 'zeroAll')->name('zero-all');
+            Route::post('/final-receive/{intercoNumber}', 'finalReceive')->name('final-receive');
         });
 
         // Store Commits
