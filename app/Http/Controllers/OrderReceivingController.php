@@ -100,6 +100,13 @@ class OrderReceivingController extends Controller
                 'at' => $order->receiving_finalized_at->format('M j, Y g:i A'),
                 'by' => $order->receivingFinalizedBy?->full_name,
             ] : null,
+            // Set while the Delivery Date is still ahead: nothing can be received before it,
+            // so the page hides every receiving action and says when receiving opens.
+            'receivingNotDue' => ($opensOn = $this->orderReceivingService->receivingOpensOn($order)) ? [
+                'date' => $opensOn->format('F j, Y'),
+                'weekday' => $opensOn->format('l'),
+                'days' => (int) Carbon::today('Asia/Manila')->diffInDays($opensOn),
+            ] : null,
             // Last date the store closed with a final approved month end count; a receipt
             // cannot be dated on or before it.
             'closedThrough' => app(\App\Http\Services\MonthEndClosedPeriodService::class)->closedThroughFor((int) $order->store_branch_id),
@@ -143,6 +150,17 @@ class OrderReceivingController extends Controller
         );
     }
 
+    /**
+     * Why nothing may be recorded, zeroed, confirmed or posted on this delivery right now, or
+     * null when it may: it is locked by Final Receive All, or its Delivery Date is still
+     * ahead. Every item-list action checks it; delivery receipts and images do not.
+     */
+    private function receivingClosedProblem(StoreOrder $order): ?string
+    {
+        return $this->orderReceivingService->receivingLockedProblem($order)
+            ?? $this->orderReceivingService->receivingNotDueProblem($order);
+    }
+
     public function addUnlistedItem(AddUnlistedReceivedItemRequest $request, StoreOrder $order)
     {
         try {
@@ -160,7 +178,7 @@ class OrderReceivingController extends Controller
     {
         $order = StoreOrderItem::findOrFail($id)->store_order;
 
-        if ($problem = $this->orderReceivingService->receivingLockedProblem($order)
+        if ($problem = $this->receivingClosedProblem($order)
             ?? $this->orderReceivingService->deliveryEvidenceProblem($order)) {
             return back()->withErrors(['error' => $problem]);
         }
@@ -204,7 +222,7 @@ class OrderReceivingController extends Controller
         $history = OrderedItemReceiveDate::with('store_order_item.store_order')->findOrFail($id);
 
         if ($order = $history->store_order_item?->store_order) {
-            if ($problem = $this->orderReceivingService->receivingLockedProblem($order)) {
+            if ($problem = $this->receivingClosedProblem($order)) {
                 return back()->withErrors(['error' => $problem]);
             }
         }
@@ -230,7 +248,7 @@ class OrderReceivingController extends Controller
         // the whole order without ever attaching a delivery receipt or an image.
         $order = $history->store_order_item?->store_order;
 
-        if ($order && $problem = $this->orderReceivingService->receivingLockedProblem($order)
+        if ($order && $problem = $this->receivingClosedProblem($order)
             ?? $this->orderReceivingService->deliveryEvidenceProblem($order)) {
             return back()->withErrors(['error' => $problem]);
         }
@@ -280,6 +298,10 @@ class OrderReceivingController extends Controller
     {
         $order = StoreOrder::findOrFail($id);
 
+        if ($problem = $this->receivingClosedProblem($order)) {
+            return back()->withErrors(['error' => $problem]);
+        }
+
         try {
             $zeroed = $this->orderReceivingService->zeroUnconfirmedReceipts($order);
         } catch (\Exception $e) {
@@ -301,7 +323,7 @@ class OrderReceivingController extends Controller
     {
         $order = StoreOrder::findOrFail($id);
 
-        if ($problem = $this->orderReceivingService->receivingLockedProblem($order)
+        if ($problem = $this->receivingClosedProblem($order)
             ?? $this->orderReceivingService->postingEvidenceProblem($order)) {
             return back()->withErrors(['error' => $problem]);
         }
@@ -335,7 +357,7 @@ class OrderReceivingController extends Controller
     {
         $order = StoreOrder::findOrFail($id);
 
-        if ($problem = $this->orderReceivingService->receivingLockedProblem($order)
+        if ($problem = $this->receivingClosedProblem($order)
             ?? $this->orderReceivingService->postingEvidenceProblem($order)) {
             return back()->withErrors(['error' => $problem]);
         }

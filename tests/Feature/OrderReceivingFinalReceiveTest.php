@@ -279,6 +279,55 @@ it('refuses Final Receive All without a delivery receipt or image', function () 
         ->and(OrderedItemReceiveDate::find($receipt->id)->status)->toBe('received');
 });
 
+it('refuses every receiving action before the Delivery Date and allows them from that day on', function () {
+    [$user, $order, $branch, $receipt, $ordered] = receivingFixture();
+    $this->actingAs($user);
+
+    $service = app(OrderReceivingService::class);
+    $controller = app(OrderReceivingController::class);
+
+    // Due tomorrow, Manila time.
+    $tomorrow = now('Asia/Manila')->addDay();
+    StoreOrder::whereKey($order->id)->update(['order_date' => $tomorrow->toDateString()]);
+    $order->refresh();
+
+    expect($service->receivingOpensOn($order)?->toDateString())->toBe($tomorrow->toDateString())
+        ->and($service->receivingNotDueProblem($order))->toContain('due on '.$tomorrow->format('M j, Y'));
+
+    // Nothing may be edited, zeroed, confirmed, finalized or added.
+    $controller->updateReceiveDateHistory(Request::create('/', 'POST', [
+        'id' => $receipt->id, 'quantity_received' => 1, 'remarks' => 'changed',
+    ]));
+    $controller->zeroAll($order->id);
+    $controller->confirmReceive($order->id);
+    $controller->finalReceive($order->id);
+
+    expect(fn () => addUnlisted($order, 'UNL-SUP'))->toThrow(Exception::class, 'on its Delivery Date or later');
+
+    $kept = OrderedItemReceiveDate::find($receipt->id);
+
+    expect((float) $kept->quantity_received)->toBe(2.0)
+        ->and($kept->remarks)->toBe('Received')
+        ->and($kept->status)->toBe('received')
+        ->and($order->fresh()->order_status)->toBe(OrderStatus::COMMITTED->value)
+        ->and($order->fresh()->receiving_finalized_at)->toBeNull()
+        ->and(StoreOrderItem::where('store_order_id', $order->id)->count())->toBe(1)
+        ->and(ProductInventoryStock::where('store_branch_id', $branch->id)->exists())->toBeFalse();
+
+    // On the Delivery Date itself receiving is open.
+    StoreOrder::whereKey($order->id)->update(['order_date' => now('Asia/Manila')->toDateString()]);
+    $order->refresh();
+
+    expect($service->receivingOpensOn($order))->toBeNull()
+        ->and($service->receivingNotDueProblem($order))->toBeNull();
+
+    $controller->finalReceive($order->id);
+
+    expect($order->fresh()->receiving_finalized_at)->not->toBeNull()
+        ->and((float) ProductInventoryStock::where('product_inventory_id', $ordered->id)
+            ->where('store_branch_id', $branch->id)->value('quantity'))->toBe(2.0);
+});
+
 /** A second line of the fixture order with one receiving row in the given state. */
 function receivingLine(StoreOrder $order, string $code, array $receipt): OrderedItemReceiveDate
 {

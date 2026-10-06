@@ -578,6 +578,37 @@ class OrderReceivingService extends StoreOrderService
     }
 
     /**
+     * The order's Delivery Date (order_date) while it is still ahead, or null once it is
+     * today or past. Nothing is received before its Delivery Date: a delivery cannot have
+     * arrived before the day it is due, so a quantity recorded then is a mistake or a guess.
+     * The day is Manila's.
+     */
+    public function receivingOpensOn(StoreOrder $order): ?Carbon
+    {
+        if (! $order->order_date) {
+            return null;
+        }
+
+        $deliveryDate = Carbon::parse(Carbon::parse($order->order_date)->toDateString(), 'Asia/Manila');
+
+        return $deliveryDate->gt(Carbon::today('Asia/Manila')) ? $deliveryDate : null;
+    }
+
+    /**
+     * Why this order cannot be received yet, or null once it can (receivingOpensOn()).
+     * Every Inbound Orders action that records, zeroes, confirms or posts a quantity checks
+     * it; the delivery receipt and the image can be added ahead of the date.
+     */
+    public function receivingNotDueProblem(StoreOrder $order): ?string
+    {
+        $opensOn = $this->receivingOpensOn($order);
+
+        return $opensOn
+            ? 'This delivery is due on '.$opensOn->format('M j, Y').'. It can be received on its Delivery Date or later, not before.'
+            : null;
+    }
+
+    /**
      * @throws Exception when the order was finalized with Final Receive All.
      */
     public function assertReceivingNotFinalized(StoreOrder $order): void
@@ -695,6 +726,11 @@ class OrderReceivingService extends StoreOrderService
         // still be added. It reaches stock with everything else, on Final Receive All, which
         // is also what closes the list.
         $this->assertReceivingNotFinalized($order);
+
+        if ($problem = $this->receivingNotDueProblem($order)) {
+            throw new \Exception($problem);
+        }
+
         $this->assertDeliveryEvidence($order);
 
         $supplierCode = (string) ($order->supplier?->supplier_code ?? '');

@@ -18,6 +18,28 @@ export const changeLog = [
     // ---------------------------------------------------------------- October 6, 2026
     {
         date: '2026-10-06',
+        module: 'Inbound Orders',
+        type: 'improved',
+        title: 'A delivery can no longer be received before its Delivery Date in Inbound Orders',
+        summary:
+            'A delivery that was due tomorrow could already be received today with "Zero All", "Confirm Receive All" or "Final Receive All". Now nothing can be received before the Delivery Date. Until that day the buttons are not shown, and Receiving History shows the notice "Receiving is not open yet for this delivery" with the date receiving opens.',
+        steps: [
+            'Open a delivery in Inbound Orders whose Delivery Date is still ahead.',
+            'Receiving History shows the notice with the Delivery Date, for example "Wednesday, October 7, 2026 (tomorrow)". No receiving button is shown.',
+            'Open the delivery again on its Delivery Date. The notice is gone and the buttons are back, and the delivery is received as usual.',
+        ],
+        rules: [
+            'A delivery can be received on its Delivery Date or on any day after it. It cannot be received before.',
+            'Before the Delivery Date, "Zero All", "Add Unlisted Item", "Confirm Receive All", "Final Receive All" and the edit button of each item are not shown, and the system refuses them.',
+            'The delivery receipt and the image can already be added before the Delivery Date.',
+            'The day is counted in Philippine time.',
+            'Quantities that were recorded on such a delivery before this change are kept. They can be changed and finalized from the Delivery Date.',
+            'Interco Receiving is not affected by this rule.',
+        ],
+        affects: 'Store users who receive deliveries in Inbound Orders.',
+    },
+    {
+        date: '2026-10-06',
         module: 'Interco Receiving',
         type: 'new',
         title: '"Final Receive All" on Interco Receiving: the stock moves between the two stores only when it is clicked',

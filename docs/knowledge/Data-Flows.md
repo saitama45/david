@@ -98,6 +98,15 @@ image is asked for while every receiving row of the order is 0, posted or not, a
 brings the requirement back (an untouched placeholder holds its committed quantity, so it counts).
 The page mirrors this with `nothingReceived`.
 
+**Receiving opens on the Delivery Date** (2026-10-06). `OrderReceivingService::receivingOpensOn()`
+returns `store_orders.order_date` while it is after today in Manila, and `receivingNotDueProblem()` the
+message. `OrderReceivingController::receivingClosedProblem()` (locked, else not due) guards every
+item-list action - receive, edit and delete history, Zero All, Confirm and Final Receive All - and
+`addUnlistedItem()` checks it in the service. Delivery receipts and images are not guarded. The page
+gets `receivingNotDue` (`date`, `weekday`, `days`), hides every receiving button and shows a notice in
+Receiving History. Interco Receiving does not apply it: the check is deliberately not inside the
+shared `assertReceivingNotFinalized()` / `zeroUnconfirmedReceipts()`.
+
 **Receiving: only Final Receive All posts to stock** (2026-10-06). Until then Confirm Receive All posted
 too. Now:
 

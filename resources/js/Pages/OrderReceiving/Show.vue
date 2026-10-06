@@ -3,7 +3,7 @@ import { ref, watch, computed, onMounted, onUnmounted } from "vue";
 import { useForm } from "@inertiajs/vue3";
 import { useToast } from "primevue/usetoast";
 import { router } from "@inertiajs/vue3";
-import { X, Eye, PackagePlus, PackageX, Search, Check, Loader2, Lock } from "lucide-vue-next";
+import { X, Eye, PackagePlus, PackageX, Search, Check, Loader2, Lock, CalendarClock } from "lucide-vue-next";
 import { useConfirm } from "primevue/useconfirm";
 import dayjs from "dayjs";
 import utc from "dayjs/plugin/utc"; // Import UTC plugin
@@ -185,6 +185,11 @@ const props = defineProps({
     // Last date the store closed with a final approved month end count, otherwise null.
     closedThrough: {
         type: String,
+        default: null,
+    },
+    // { date, weekday, days } while the Delivery Date is still ahead, otherwise null.
+    receivingNotDue: {
+        type: Object,
         default: null,
     },
 });
@@ -573,8 +578,21 @@ const finalizedHint = computed(() =>
         : ""
 );
 
+// A delivery is received on its Delivery Date or later, never before: until then the page
+// offers no receiving action at all and says when receiving opens. The server refuses the
+// same actions (OrderReceivingService::receivingNotDueProblem).
+const notYetDue = computed(() => !isFinalized.value && !!props.receivingNotDue);
+
+const notYetDueWhen = computed(() => {
+    if (!props.receivingNotDue) return "";
+
+    const days = Number(props.receivingNotDue.days);
+
+    return days === 1 ? "tomorrow" : `in ${days} days`;
+});
+
 const canRecordReceipt = computed(
-    () => !isFinalized.value && missingEvidence.value.length === 0
+    () => !isFinalized.value && !notYetDue.value && missingEvidence.value.length === 0
 );
 
 const evidenceHint = computed(() =>
@@ -1280,7 +1298,7 @@ const promptFinalReceive = () => {
                                 <Lock class="size-3.5" />
                                 {{ finalizedHint }}
                             </p>
-                            <p v-else-if="!canRecordReceipt" class="mt-1 text-xs font-medium text-red-600">
+                            <p v-else-if="!notYetDue && !canRecordReceipt" class="mt-1 text-xs font-medium text-red-600">
                                 🔒 {{ evidenceHint }}
                             </p>
                             <!-- Recorded or confirmed is not in stock: only Final Receive All posts -->
@@ -1295,7 +1313,7 @@ const promptFinalReceive = () => {
                         <!-- Everything here goes away once Final Receive All has locked the list.
                              Add Unlisted Item is offered even when the supplier has nothing left
                              to add: the dialog says so. -->
-                        <div v-if="!isFinalized && hasReceivePermission" class="flex items-center gap-3">
+                        <div v-if="!isFinalized && !notYetDue && hasReceivePermission" class="flex items-center gap-3">
                             <!-- First, and never waiting for a delivery receipt or an image: it is
                                  for the delivery that did not arrive. -->
                             <Button
@@ -1345,6 +1363,29 @@ const promptFinalReceive = () => {
                             Final Receive All
                         </Button>
                         </div>
+                    </div>
+                </div>
+                <!-- Before the Delivery Date nothing can be received: said in full, in place of
+                     the buttons, so nobody looks for them. -->
+                <div
+                    v-if="notYetDue"
+                    role="alert"
+                    class="flex items-start gap-4 border-b-2 border-amber-300 bg-amber-50 px-5 py-4"
+                >
+                    <CalendarClock class="mt-0.5 size-8 shrink-0 text-amber-600" />
+                    <div class="space-y-1">
+                        <p class="text-base font-bold text-amber-900">
+                            Receiving is not open yet for this delivery
+                        </p>
+                        <p class="text-sm text-amber-900">
+                            Its Delivery Date is
+                            <span class="font-bold underline decoration-2 underline-offset-2">{{ receivingNotDue.weekday }}, {{ receivingNotDue.date }}</span>
+                            ({{ notYetDueWhen }}). A delivery can be received only on its Delivery Date or after it, not before.
+                        </p>
+                        <p class="text-sm text-amber-800">
+                            Zero All, Add Unlisted Item, Confirm Receive All, Final Receive All and the edit buttons will appear here on {{ receivingNotDue.date }}.
+                            The delivery receipt and the image can already be added.
+                        </p>
                     </div>
                 </div>
                 <div class="overflow-auto max-h-[600px]">
@@ -1423,7 +1464,7 @@ const promptFinalReceive = () => {
                                             title="View Details"
                                         />
                                         <EditButton
-                                            v-if="!isFinalized && hasReceivePermission && (history.status === 'pending' || history.status === 'received')"
+                                            v-if="!isFinalized && !notYetDue && hasReceivePermission && (history.status === 'pending' || history.status === 'received')"
                                             :disabled="!canRecordReceipt"
                                             :class="!canRecordReceipt ? 'opacity-40 cursor-not-allowed' : ''"
                                             @click="canRecordReceipt && openEditModalForm(history.id)"
@@ -1448,7 +1489,7 @@ const promptFinalReceive = () => {
                                 />
                                 <EditButton
                                     class="size-8"
-                                    v-if="!isFinalized && hasReceivePermission && (history.status === 'pending' || history.status === 'received')"
+                                    v-if="!isFinalized && !notYetDue && hasReceivePermission && (history.status === 'pending' || history.status === 'received')"
                                     :disabled="!canRecordReceipt"
                                     :class="!canRecordReceipt ? 'opacity-40 cursor-not-allowed' : ''"
                                     @click="canRecordReceipt && openEditModalForm(history.id)"

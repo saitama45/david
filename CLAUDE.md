@@ -269,6 +269,10 @@ SQL Server as the target. Rationale and trade-offs: [Decisions.md](docs/knowledg
   every item-list action (receive, edit/delete history, add unlisted, confirm) checks
   `OrderReceivingService::receivingLockedProblem()`. Confirm Receive All leaves the list open.
   The old 3-day window from `order_date` is gone. Delivery receipts and images stay editable.
+- **An Inbound Orders delivery cannot be received before its Delivery Date** (`order_date`, Manila day).
+  `OrderReceivingController::receivingClosedProblem()` (locked, else `receivingNotDueProblem()`) guards
+  every item-list action; a new one must call it. The page hides the buttons and shows a notice from the
+  `receivingNotDue` prop. Interco Receiving does not apply the rule.
 - **Only Final Receive All posts a delivery to stock** (since 2026-10-06; Confirm Receive All posted too
   before). Confirm Receive All (`confirmUnpostedReceipts()`) only turns `pending` rows into `received` at
   their committed quantity and marks the order received; `OrderReceivingController::postReceiptsToStock()`
