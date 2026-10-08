@@ -18,6 +18,27 @@ export const changeLog = [
     // ---------------------------------------------------------------- October 8, 2026
     {
         date: '2026-10-08',
+        module: 'Store Branches',
+        type: 'new',
+        title: 'Store Branches now shows "Created By", "Updated By", "Created At" and "Updated At" for a branch',
+        summary:
+            'A branch showed its details but not who made it or who changed it last. The "Edit Store Branch Details" page and the "Store Branch Details" page now show four boxes under the details: "Created By", "Updated By", "Created At" and "Updated At". The "Create New Store Branch" page shows them too, with your name under "Created By".',
+        steps: [
+            'Open Store Branches and open a branch to edit it or to view it.',
+            'Look under the details of the branch. The four boxes show who created the branch, who changed it last, and the date and time of each.',
+        ],
+        rules: [
+            '"Created By" is the user who created the branch. "Updated By" is the user who saved the last change to it.',
+            'A branch that nobody has changed since it was created shows the same user and the same date in both.',
+            'A name is shown only when the system has a record of who made the change. An older branch can show a dash in place of the name. Its dates are still shown.',
+            'On "Create New Store Branch" only "Created By" is filled, with the user who is logged in. The other three show a dash until the branch is saved.',
+            'Dates and times are shown in Philippine time.',
+            'Nothing is typed in these boxes. The system fills them when a branch is created or updated.',
+        ],
+        affects: 'Office users who maintain Store Branches.',
+    },
+    {
+        date: '2026-10-08',
         module: 'Month End Count',
         type: 'improved',
         title: '"Upload and Process Count" no longer fails on a very small loose quantity',

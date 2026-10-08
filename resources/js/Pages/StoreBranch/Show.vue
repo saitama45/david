@@ -1,9 +1,14 @@
 <script setup>
 import { useBackButton } from "@/composables/useBackButton";
+import RecordDetails from "@/components/RecordDetails.vue";
 defineProps({
     branch: {
         type: Object,
         required: true,
+    },
+    recordDetails: {
+        type: Object,
+        default: () => ({}),
     },
 });
 
@@ -80,6 +85,7 @@ const { backButton } = useBackButton(route("branches.index"));
                     branch.is_active ? "Active" : "Inactive"
                 }}</SpanBold>
             </InputContainer>
+            <RecordDetails class="sm:col-span-2" :details="recordDetails" />
         </Card>
 
         <Button variant="outline" class="text-lg px-7" @click="backButton">

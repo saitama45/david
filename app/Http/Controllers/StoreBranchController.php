@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Exports\StoreBranchesExport;
 use App\Models\StoreBranch;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 use Inertia\Inertia;
 use Maatwebsite\Excel\Facades\Excel;
 
@@ -58,7 +59,8 @@ class StoreBranchController extends Controller
     {
         $branch = StoreBranch::findOrFail($id);
         return Inertia::render('StoreBranch/Show', [
-            'branch' => $branch
+            'branch' => $branch,
+            'recordDetails' => $this->recordDetails($branch),
         ]);
     }
 
@@ -67,13 +69,30 @@ class StoreBranchController extends Controller
         $branch = StoreBranch::findOrFail($id);
 
         return Inertia::render('StoreBranch/Edit', [
-            'branch' => $branch
+            'branch' => $branch,
+            'recordDetails' => $this->recordDetails($branch),
         ]);
     }
 
     public function create()
     {
-        return Inertia::render('StoreBranch/Create');
+        // Nothing is saved yet: only the person about to create the branch is known.
+        return Inertia::render('StoreBranch/Create', [
+            'recordDetails' => ['created_by' => Auth::user()?->full_name],
+        ]);
+    }
+
+    // Who created the branch and who changed it last. The branch has no user columns: the
+    // names are read from its audit trail, so a branch that was seeded, or that nobody has
+    // saved since its changes were audited, has none.
+    private function recordDetails(StoreBranch $branch): array
+    {
+        return [
+            'created_by' => $branch->audits()->where('event', 'created')->latest('id')->first()?->user?->full_name,
+            'created_at' => $branch->created_at,
+            'updated_by' => $branch->audits()->latest('id')->first()?->user?->full_name,
+            'updated_at' => $branch->updated_at,
+        ];
     }
 
     public function destroy($id)

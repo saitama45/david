@@ -3,6 +3,14 @@ import { useForm } from "@inertiajs/vue3";
 import { useToast } from "@/composables/useToast";
 import { ref } from 'vue'; // Explicitly import ref
 import { router } from "@inertiajs/vue3"; // Import router for client-side navigation
+import RecordDetails from "@/components/RecordDetails.vue";
+
+defineProps({
+    recordDetails: {
+        type: Object,
+        default: () => ({}),
+    },
+});
 
 const { toast } = useToast();
 const form = useForm({
@@ -230,6 +238,9 @@ const activeStatuses = ref([
                         {{ form.errors.is_active }}
                     </FormError>
                 </InputContainer>
+            </CardContent>
+            <CardContent>
+                <RecordDetails :details="recordDetails" />
             </CardContent>
             <CardFooter class="flex justify-end gap-3">
                 <BackButton />
