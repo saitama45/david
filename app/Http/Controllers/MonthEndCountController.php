@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Http\Services\InventoryMovementService;
+use App\Http\Services\MonthEndCountIncidentReportService;
 use App\Http\Services\MonthEndCountReadinessService;
 use App\Http\Services\MonthEndCountSettingsService;
 use App\Http\Services\RuleExceptionService;
@@ -34,6 +35,7 @@ class MonthEndCountController extends Controller
         private RuleExceptionService $ruleExceptions,
         private MonthEndCountReadinessService $readiness,
         private InventoryMovementService $movements,
+        private MonthEndCountIncidentReportService $incidentReports,
     ) {}
 
     public function index(Request $request)
@@ -90,6 +92,7 @@ class MonthEndCountController extends Controller
         // with what it still has to finish.
         $uploadPendingBranches = collect();
         $uploadPendingPeriod = null;
+        $pending = [];
         if ($uploadSchedule) {
             $pending = $this->readiness->blockersForUpload($uploadSchedule, $branchesAwaitingUpload->keys(), $today);
             $uploadPendingBranches = $branchesAwaitingUpload->only(array_keys($pending))
@@ -109,6 +112,43 @@ class MonthEndCountController extends Controller
         // period is still open for the branch.
         $sohPeriods = $this->readiness->periods($userBranchIds, $today);
         $downloadBlockers = $this->readiness->blockersForPeriods($sohPeriods);
+
+        // A branch still pending after the MEC Scheduled Date of a count it owes explains it
+        // in an Incident Report. Until that is filed it gets neither the template nor the
+        // upload, even once the pendings themselves are finished.
+        $incidentReports = collect();
+        if ($this->incidentReports->enabled()) {
+            [$owedSchedule, $owing] = $this->readiness->owedPastCount($userBranchIds, $today);
+            if ($owedSchedule) {
+                $this->incidentReports->record($owedSchedule, array_intersect_key($downloadBlockers, array_flip($owing)), $today);
+            }
+            if ($uploadSchedule && $uploadSchedule->id !== $owedSchedule?->id) {
+                $this->incidentReports->record($uploadSchedule, $pending, $today);
+            }
+
+            // What each branch still has pending right now, on the count its report is about.
+            $stillPending = fn ($schedule, $branchId) => array_column(
+                $schedule->id === $owedSchedule?->id ? ($downloadBlockers[$branchId] ?? []) : ($pending[$branchId] ?? []),
+                'key'
+            );
+
+            $incidentReports = collect([$owedSchedule, $uploadSchedule])->filter()->unique('id')
+                ->flatMap(fn ($schedule) => $this->incidentReports->reportsFor($schedule, $userBranchIds)
+                    ->map(fn ($report) => $this->incidentReports->toArray($report, $stillPending($schedule, (int) $report->branch_id)) + [
+                        'branch_name' => $userBranches[$report->branch_id] ?? null,
+                        'count_label' => Carbon::create($schedule->year, $schedule->month, 1)->format('F Y'),
+                        'count_date' => $schedule->calculated_date->format('M j, Y'),
+                        'blocks_template' => $schedule->id === $owedSchedule?->id && in_array((int) $report->branch_id, $owing, true),
+                    ])->values())
+                ->values();
+
+            // A branch that owes its report is not offered the upload either.
+            if ($uploadSchedule) {
+                $branchesAwaitingUpload = $branchesAwaitingUpload->except(
+                    $incidentReports->where('filed', false)->where('schedule_id', $uploadSchedule->id)->pluck('branch_id')->all()
+                );
+            }
+        }
 
         // Why a branch now owes this count again, when an approver returned it.
         $returnedCounts = $uploadSchedule
@@ -216,6 +256,7 @@ class MonthEndCountController extends Controller
             ] : null,
             'returnedCounts' => $returnedCounts,
             'downloadBlockers' => (object) $downloadBlockers,
+            'incidentReports' => $incidentReports,
             'sohPeriods' => (object) array_map(fn ($period) => [
                 'from' => Carbon::parse($period[0])->format('M j, Y'),
                 'through' => Carbon::parse($period[1])->format('M j, Y'),
@@ -365,13 +406,25 @@ class MonthEndCountController extends Controller
 
         // Current SOH is only as good as the transactions behind it: nothing in the
         // period may still be waiting on approval, commit or receiving.
-        [$from, $through] = $this->readiness->periods([$branch->id], Carbon::today('Asia/Manila'))[$branch->id];
+        $today = Carbon::today('Asia/Manila');
+        [$from, $through] = $this->readiness->periods([$branch->id], $today)[$branch->id];
         $blockers = $this->readiness->blockers([$branch->id], $from, $through)[$branch->id] ?? [];
+
+        // Pendings on a count the branch owes, after its date, open its Incident Report.
+        [$owedSchedule, $owing] = $this->readiness->owedPastCount([$branch->id], $today);
+        $owedSchedule = $owing ? $owedSchedule : null;
+        if ($owedSchedule) {
+            $this->incidentReports->record($owedSchedule, [$branch->id => $blockers], $today);
+        }
 
         if ($blockers !== []) {
             return back()->withErrors(['download' => "{$branch->name} still has unfinished transactions from "
                 .Carbon::parse($from)->format('M j, Y').' to '.Carbon::parse($through)->format('M j, Y').': '
                 .implode('; ', array_column($blockers, 'label')).'. Finish them, then download the template.']);
+        }
+
+        if ($problem = $this->incidentReports->problem($owedSchedule, (int) $branch->id)) {
+            return back()->withErrors(['download' => $problem]);
         }
 
         // Fetch only Active records from MonthEndCountTemplate
@@ -540,11 +593,18 @@ class MonthEndCountController extends Controller
                 'blockers' => array_column($pending, 'label'),
             ]);
 
+            $this->incidentReports->record($schedule, [$branch->id => $pending], $today);
             [$from, $through] = $this->readiness->uploadPeriod($schedule, $today);
 
             return back()->withErrors(['error' => "{$branch->name} still has unfinished transactions from "
                 .Carbon::parse($from)->format('M j, Y').' to '.Carbon::parse($through)->format('M j, Y').': '
                 .implode('; ', array_column($pending, 'label')).'. Finish them, then download the template and upload the count.']);
+        }
+
+        if ($problem = $this->incidentReports->problem($schedule, (int) $branch->id)) {
+            Log::warning('MonthEndCountController@upload: Branch owes an Incident Report.', ['schedule_id' => $schedule->id, 'branch_id' => $branch->id]);
+
+            return back()->withErrors(['error' => $problem]);
         }
         Log::info('MonthEndCountController@upload: Branch-specific validation passed.');
 

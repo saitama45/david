@@ -18,6 +18,34 @@ export const changeLog = [
     // ---------------------------------------------------------------- October 8, 2026
     {
         date: '2026-10-08',
+        module: 'Month End Count',
+        type: 'new',
+        title: '"File Incident Report" in Month End Count: a store explains what it still had pending after the count date',
+        summary:
+            'Month End Count already listed what a store still has to finish before it can count, such as orders not yet received or wastage reports awaiting approval. Now a store that still has any of these after the MEC Scheduled Date has to explain each one in an Incident Report. Until the report is filed, the store cannot download the count template or upload its count, even after the pendings themselves are finished. The filed report opens as a PDF in a new tab.',
+        steps: [
+            'After the MEC Scheduled Date, the store opens Month End Count. If the branch still has pendings from the period of the count, the page shows "Incident Report required" with the list of pendings.',
+            'Click "File Incident Report".',
+            'Type the reason for the delay beside each pending. Type the "Action taken". If something is still pending, pick the "Target date to finish what is still pending".',
+            'Click "File Incident Report" to save. The page then shows the report number and the link "View Incident Report (PDF)", which opens the report in a new tab for printing.',
+            'Finish the pendings that are still open. The count template and "Upload and Process Count" are then available as usual.',
+        ],
+        rules: [
+            'A report is asked for only after the MEC Scheduled Date of a count the branch has not uploaded yet. On or before that date a pending needs no report.',
+            'The report is opened when the system finds the pendings: when the store opens Month End Count, tries to download the template or tries to upload the count.',
+            'There is one Incident Report for each branch and each count. It lists every pending the system found after the MEC Scheduled Date, also the ones finished before the report was filed. Each shows "still pending" or "finished".',
+            'A reason is required for every pending, and "Action taken" is required. The target date is required only while something is still pending, and it cannot be a past date.',
+            'Until the report is filed, the branch cannot download the count template and cannot upload its count. The system refuses both, even when all pendings are already finished.',
+            'Filing the report does not finish the pendings. The count still waits until they are finished, as before.',
+            'A filed report cannot be changed. It shows the IR number, the store, the count, the period covered, when the pendings were found, who filed it and when, the reason for each pending, the action taken and the target date.',
+            'Only a user assigned to the branch can file its report and open its PDF. The office can open the report of any store from "Store Progress" in Month End Count Schedules, where a store that has not filed yet shows "Incident Report not filed yet".',
+            'The office turns this on or off in Month End Count Schedules, tab "Configuration", with "Require an Incident Report for pendings after the MEC Schedule Date". It is on by default. While it is off, no report is asked for and nothing waits on one.',
+            'No approval is needed for a report. Filing it is enough.',
+        ],
+        affects: 'Store users who take the month end count, and office users who follow it in Month End Count Schedules.',
+    },
+    {
+        date: '2026-10-08',
         module: 'Store Branches',
         type: 'new',
         title: 'Store Branches now shows "Created By", "Updated By", "Created At" and "Updated At" for a branch',

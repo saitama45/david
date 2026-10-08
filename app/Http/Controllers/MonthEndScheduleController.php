@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Http\Services\MonthEndCountSettingsService;
+use App\Models\MonthEndCountIncidentReport;
 use App\Models\MonthEndCountReopen;
 use App\Models\MonthEndCountSetting;
 use App\Models\MonthEndSchedule;
@@ -75,6 +76,7 @@ class MonthEndScheduleController extends Controller
             'upload_cutoff_days' => 'nullable|integer|min:0|max:90|required_if:upload_cutoff_enabled,true',
             'upload_cutoff_unit' => 'required|in:business,calendar',
             'upload_cutoff_time' => 'nullable|date_format:H:i|required_if:upload_cutoff_enabled,true',
+            'incident_report_required' => 'sometimes|boolean',
         ]);
 
         $entityId = app(EntityContext::class)->id();
@@ -301,9 +303,15 @@ class MonthEndScheduleController extends Controller
             ->get()
             ->keyBy('branch_id');
 
+        // Incident Reports on this count: who still owes one, and the filed ones to open.
+        $incidentReports = MonthEndCountIncidentReport::where('month_end_schedule_id', $schedule->id)
+            ->whereIn('branch_id', $storeIdsOnPage)
+            ->get()
+            ->keyBy('branch_id');
+
         $now = Carbon::now('Asia/Manila');
 
-        $paginatedStores->getCollection()->transform(function ($store) use ($progress, $reopens, $now) {
+        $paginatedStores->getCollection()->transform(function ($store) use ($progress, $reopens, $incidentReports, $now) {
             $status = $progress->get($store->id);
             $store->status = $status ? str_replace('_', ' ', Str::title($status->status)) : 'Not Started';
 
@@ -319,6 +327,13 @@ class MonthEndScheduleController extends Controller
 
             $store->reopened_until = $reopenUntil?->format('M j, Y g:i A');
             $store->reopen_active = $reopenUntil ? $reopenUntil->gte($now) : false;
+
+            $report = $incidentReports->get($store->id);
+            $store->incident_report = $report ? [
+                'number' => $report->number,
+                'filed' => $report->isFiled(),
+                'pdf_url' => $report->isFiled() ? route('month-end-count.incident-reports.pdf', $report->id) : null,
+            ] : null;
 
             return $store;
         });

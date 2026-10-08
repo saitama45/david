@@ -96,7 +96,7 @@ Full detail: [Data-Flows.md](docs/knowledge/Data-Flows.md).
 `OrderApprovalService`, `MassOrderService`, `StoreOrderService`, `DTSStoreOrderService`,
 `OrderCalculatorService`, `OrderReceivingService`, `IntercoService`, `WastageService`,
 `MonthEndCountSettingsService`, `MonthEndCountReadinessService`, `MonthEndCountRejectionService`,
-`MonthEndClosedPeriodService`,
+`MonthEndCountIncidentReportService`, `MonthEndClosedPeriodService`,
 `InventoryMovementService`,
 `RoleService`, `UserService`, `AdoptionRateTrackingService`, `SuccessRateService`, `GoLiveStoresService`.
 
@@ -338,6 +338,13 @@ SQL Server as the target. Rationale and trade-offs: [Decisions.md](docs/knowledg
   `MonthEndCountRejectionService::returnToStore()` (rows `rejected`, upload reopened, re-upload replaces
   them and starts again before Level 1). Never give one level its own reject logic.
   Detail: [Data-Flows.md](docs/knowledge/Data-Flows.md#month-end-count-approval-and-rejection).
+- **A store still pending after the MEC Scheduled Date owes an Incident Report, and the gate outlives
+  the pendings.** `MonthEndCountIncidentReportService::problem()` refuses the template and the upload
+  until the report is filed, even once every pending is finished; a new way to take or upload a count
+  must call it. The report row is opened only when the server sees the pendings (page, download,
+  upload - nothing sweeps the stores) and collects them until filed. Switched per entity by
+  `month_end_count_settings.incident_report_required` (default on); a test of the pendings gate alone
+  must switch it off. Detail: [Data-Flows.md](docs/knowledge/Data-Flows.md#month-end-count-incident-report).
 - **A final (Level 2) approved Month End Count closes the store's dates through its MEC Scheduled Date**,
   kept inside the month counted (`MonthEndStockVariance::periodFor()`: a count dated Oct 29 leaves Oct 30-31
   open, March's dated Apr 5 closes Mar 31). `MonthEndClosedPeriodService` is the only source. Pages get

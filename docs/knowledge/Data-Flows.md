@@ -457,6 +457,37 @@ before Level 1 whichever level returned it. `/month-end-count` shows the store t
 (`returnedCounts`, built by `MonthEndCountRejection::toNotice()`, as are both approval pages' banners).
 Both pages use the one dialog, `resources/js/components/month-end-count/RejectCountDialog.vue`.
 
+## Month End Count Incident Report
+
+Added 2026-10-08. A store that still has pendings (the readiness blockers above) **after the MEC
+Scheduled Date** of a count it has not submitted owes an Incident Report: a reason for each pending,
+the action taken, and a target date while anything is still open. `MonthEndCountIncidentReportService`,
+`MonthEndCountIncidentReportController`, table `month_end_count_incident_reports` (one row per
+schedule + branch, unique).
+
+- **Switch:** `month_end_count_settings.incident_report_required` (Configuration tab of
+  `/month-end-schedules`, default **on**, the user's choice). Off: nothing is recorded and
+  `problem()` returns null, so an open report holds nothing back. Filed reports stay readable.
+- **Nothing sweeps the stores.** The row is opened (`record()`) the moment the server sees the
+  pendings: `MonthEndCountController@index`, `@downloadTemplate` and `@upload`. A store that finishes
+  everything before anyone opens the page is never asked. `required_at` is that moment.
+- **The row accumulates until it is filed.** Each sighting merges the current blockers into `pendings`
+  by key, keeping the highest count, so the store explains everything that was late and not only what
+  is left. Filing stamps each pending with its `reason` and `open` (still a blocker then).
+- **The gate outlives the pendings.** `problem($schedule, $branchId)` refuses the template and the
+  upload while a report is unfiled, even with no blocker left; the page drops such a branch from the
+  upload form and replaces the download button with a notice (`blocks_template`). Filing lifts only
+  this gate: remaining pendings still block as before.
+- **A filed report is final** (`file()` locks the row and refuses a second filing). No approval step.
+- **Which count:** the one the branch owes, `MonthEndCountReadinessService::owedPastCount()` (the
+  latest schedule whose date has passed, unless submitted; `periods()` uses the same method), plus the
+  upload schedule when a reopened older count is being uploaded.
+- **PDF:** `GET /month-end-count/incident-reports/{report}/pdf` streams
+  `pdf.month-end-count-incident-report` inline (dompdf), so the link opens in a new tab. Filing and the
+  store's own PDF need `perform month end count` and the branch assignment; `view month end schedules`
+  reads any store's PDF, linked per store in Store Progress (`getDetails()` → `incident_report`).
+  No new permission was added.
+
 ## Closed dates after the final Month End Count approval
 
 Once a branch's count is `level2_approved`, the period that count covers is settled, and no create or

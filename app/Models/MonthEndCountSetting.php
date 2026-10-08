@@ -25,6 +25,7 @@ class MonthEndCountSetting extends Model
         'upload_cutoff_days',
         'upload_cutoff_unit',
         'upload_cutoff_time',
+        'incident_report_required',
     ];
 
     protected $casts = [
@@ -33,6 +34,7 @@ class MonthEndCountSetting extends Model
         'upload_start_days' => 'integer',
         'upload_cutoff_enabled' => 'boolean',
         'upload_cutoff_days' => 'integer',
+        'incident_report_required' => 'boolean',
     ];
 
     /**
@@ -51,6 +53,8 @@ class MonthEndCountSetting extends Model
             'upload_cutoff_days' => 2,
             'upload_cutoff_unit' => 'calendar',
             'upload_cutoff_time' => '23:59:00',
+            // Stores explain what they still had pending after the count date (on by default).
+            'incident_report_required' => true,
         ];
     }
 

@@ -5,6 +5,7 @@ use App\Http\Controllers\MonthEndCountController;
 use App\Http\Services\InventoryMovementService;
 use App\Http\Services\MonthEndCountReadinessService;
 use App\Models\Entity;
+use App\Models\MonthEndCountSetting;
 use App\Models\MonthEndCountTemplate;
 use App\Models\MonthEndSchedule;
 use App\Models\SAPMasterfile;
@@ -316,6 +317,9 @@ it('refuses the template while the store has unfinished transactions, or is not 
 it('withholds the upload from a store with unfinished transactions, on the page and on the server', function () {
     $f = mecSohFixture();
     ['A' => $a, 'B' => $b, 'C' => $c] = $f['stores']->all();
+
+    // The Incident Report a late pending calls for has its own test; it is switched off here.
+    MonthEndCountSetting::create(['entity_id' => $f['august']->entity_id, 'incident_report_required' => false]);
 
     // The day after August's count: the upload window is open for every store.
     Carbon::setTestNow(Carbon::parse('2026-09-01 10:00', 'Asia/Manila'));

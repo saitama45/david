@@ -57,6 +57,7 @@ class MonthEndCountSettingsService
             'upload_cutoff_time' => $row->upload_cutoff_time
                 ? Carbon::parse($row->upload_cutoff_time)->format('H:i:s')
                 : $defaults['upload_cutoff_time'],
+            'incident_report_required' => (bool) ($row->incident_report_required ?? $defaults['incident_report_required']),
         ]);
     }
 

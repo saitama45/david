@@ -73,27 +73,41 @@ class MonthEndCountReadinessService
     {
         $branchIds = collect($branchIds)->map(fn ($id) => (int) $id)->unique()->values();
 
-        $last = MonthEndSchedule::where('calculated_date', '<', $today->toDateString())->orderByDesc('calculated_date')->first();
+        [$last, $owing] = $this->owedPastCount($branchIds, $today);
         $next = MonthEndSchedule::where('calculated_date', '>=', $today->toDateString())->orderBy('calculated_date')->first();
-
-        // A rejected count was sent back to the store; it is not a count.
-        $submitted = $last && $branchIds->isNotEmpty()
-            ? DB::table('month_end_count_items')
-                ->where('month_end_schedule_id', $last->id)
-                ->whereIn('branch_id', $branchIds->all())
-                ->where('status', '!=', 'rejected')
-                ->distinct()
-                ->pluck('branch_id')
-                ->map(fn ($id) => (int) $id)
-            : collect();
 
         $periods = [];
         foreach ($branchIds as $branchId) {
-            $owesLast = $last && ! $submitted->contains($branchId);
-            $periods[$branchId] = $this->countPeriod($owesLast ? $last : $next, $today);
+            $periods[$branchId] = $this->countPeriod(in_array($branchId, $owing, true) ? $last : $next, $today);
         }
 
         return $periods;
+    }
+
+    /**
+     * The count whose MEC Scheduled Date has passed most recently, and the branches that
+     * still owe it. A rejected count was sent back to the store; it is not a count.
+     *
+     * @return array{0: ?MonthEndSchedule, 1: list<int>} [the count, branch ids owing it]
+     */
+    public function owedPastCount($branchIds, Carbon $today): array
+    {
+        $branchIds = collect($branchIds)->map(fn ($id) => (int) $id)->unique()->values();
+        $last = MonthEndSchedule::where('calculated_date', '<', $today->toDateString())->orderByDesc('calculated_date')->first();
+
+        if (! $last || $branchIds->isEmpty()) {
+            return [$last, []];
+        }
+
+        $submitted = DB::table('month_end_count_items')
+            ->where('month_end_schedule_id', $last->id)
+            ->whereIn('branch_id', $branchIds->all())
+            ->where('status', '!=', 'rejected')
+            ->distinct()
+            ->pluck('branch_id')
+            ->map(fn ($id) => (int) $id);
+
+        return [$last, $branchIds->diff($submitted)->values()->all()];
     }
 
     /**

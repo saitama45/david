@@ -36,6 +36,7 @@ const settingsForm = useForm({
     upload_cutoff_unit: props.settings.upload_cutoff_unit,
     // <input type="time"> expects HH:mm; the backend stores/returns HH:mm:ss.
     upload_cutoff_time: (props.settings.upload_cutoff_time || '23:59:00').slice(0, 5),
+    incident_report_required: props.settings.incident_report_required,
 });
 
 const saveSettings = () => {
@@ -514,6 +515,23 @@ const getStatusColor = (status) => {
                     </div>
                 </div>
 
+                <!-- Incident Report -->
+                <div class="bg-white rounded-lg shadow-sm p-6">
+                    <h3 class="text-lg font-semibold text-gray-800">Incident Report</h3>
+                    <p class="text-sm text-gray-500 mt-1">
+                        A store that still has unfinished transactions after the MEC Schedule Date explains each of them in an Incident Report.
+                    </p>
+                    <label class="mt-4 flex items-center gap-2 cursor-pointer">
+                        <input type="checkbox" v-model="settingsForm.incident_report_required" data-testid="incident-report-required" class="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500" />
+                        <span class="text-sm font-medium text-gray-700">Require an Incident Report for pendings after the MEC Schedule Date</span>
+                    </label>
+                    <p v-if="settingsForm.incident_report_required" class="mt-2 text-sm text-gray-500">
+                        On: such a store cannot download the count template or upload its count until the report is filed, even after the pendings are finished.
+                    </p>
+                    <p v-else class="mt-2 text-sm text-gray-500">Off: no Incident Report is asked for, and nothing waits on one. Reports already filed stay available in Store Progress.</p>
+                    <InputError :message="settingsForm.errors.incident_report_required" class="mt-1" />
+                </div>
+
                 <div class="flex justify-end">
                     <Button type="submit" :disabled="settingsForm.processing" class="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold">
                         <Save class="-ml-1 mr-2 h-5 w-5" />
@@ -572,8 +590,15 @@ const getStatusColor = (status) => {
                             />
                             <span class="min-w-0">
                                 <span class="text-gray-800 font-medium truncate block">{{ item.name }}</span>
-                                <span v-if="item.reopen_active" class="text-xs text-amber-700">
+                                <span v-if="item.reopen_active" class="text-xs text-amber-700 block">
                                     Reopened until {{ item.reopened_until }}
+                                </span>
+                                <a v-if="item.incident_report?.filed" :href="item.incident_report.pdf_url" target="_blank" rel="noopener"
+                                   class="text-xs text-indigo-700 underline block" @click.stop>
+                                    Incident Report {{ item.incident_report.number }} (PDF)
+                                </a>
+                                <span v-else-if="item.incident_report" class="text-xs text-red-700 block">
+                                    Incident Report not filed yet
                                 </span>
                             </span>
                         </label>

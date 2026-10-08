@@ -1,9 +1,10 @@
 <script setup>
 import { useForm, Head, router } from '@inertiajs/vue3';
-import { Download, Upload, Eye, ArrowUp, ArrowDown } from 'lucide-vue-next';
+import { Download, Upload, Eye, ArrowUp, ArrowDown, FileText } from 'lucide-vue-next';
 import { ref, computed, watch } from 'vue';
 import { throttle } from 'lodash';
 import InputError from '@/components/InputError.vue';
+import IncidentReportDialog from '@/components/month-end-count/IncidentReportDialog.vue';
 import { useToast } from '@/composables/useToast';
 
 const props = defineProps({
@@ -18,6 +19,10 @@ const props = defineProps({
     uploadPendingPeriod: { type: Object, default: null },
     returnedCounts: { type: Array, default: () => [] },
     downloadBlockers: { type: Object, default: () => ({}) },
+    // Incident Reports of the user's branches on the count that is due: what each branch
+    // still had pending after the MEC Scheduled Date. Until a report is filed the branch
+    // gets neither the template (blocks_template) nor the upload.
+    incidentReports: { type: Array, default: () => [] },
     sohPeriods: { type: Object, default: () => ({}) },
     uploadWindow: { type: Object, default: null },
     supportEmail: { type: String, default: '' },
@@ -39,6 +44,23 @@ const selectedBranchBlockers = computed(() =>
 const sohPeriod = computed(() =>
     selectedBranchId.value ? (props.sohPeriods?.[selectedBranchId.value] ?? null) : null
 );
+
+// Like the rest of the page, the reports follow the branch picked in the download box.
+const visibleIncidentReports = computed(() => selectedBranchId.value
+    ? props.incidentReports.filter((report) => String(report.branch_id) === String(selectedBranchId.value))
+    : props.incidentReports);
+
+const selectedBranchOwesReport = computed(() => visibleIncidentReports.value.some(
+    (report) => selectedBranchId.value && !report.filed && report.blocks_template,
+));
+
+const showIncidentReportDialog = ref(false);
+const incidentReportToFile = ref(null);
+
+const openIncidentReport = (report) => {
+    incidentReportToFile.value = report;
+    showIncidentReportDialog.value = true;
+};
 
 // Stores still locked out after the window closed.
 const blockedBranches = computed(() =>
@@ -309,6 +331,9 @@ const viewReviewPage = (scheduleId, branchId) => {
                             </li>
                         </ul>
                     </div>
+                    <p v-else-if="selectedBranchOwesReport" class="mt-4 p-3 border border-red-300 bg-red-50 rounded-md text-red-800 text-sm" data-testid="mec-download-needs-report">
+                        The template is not available yet. File the Incident Report below first.
+                    </p>
                     <a v-else-if="selectedBranchId" :href="route('month-end-count.download', { branch_id: selectedBranchId })"
                        class="mt-4 inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
                         <Download class="-ml-1 mr-2 h-5 w-5" />
@@ -389,6 +414,37 @@ const viewReviewPage = (scheduleId, branchId) => {
                 </div>
                 <p class="text-sm mt-3">Once these are finished, download the template and upload the completed count sheet here.</p>
                 <p v-if="uploadPendingDeadline" class="text-sm mt-1 font-semibold">Deadline: upload by {{ uploadPendingDeadline }}.</p>
+            </div>
+
+            <!-- Incident Report: owed for pendings found after the MEC Scheduled Date, or already filed -->
+            <div v-for="report in visibleIncidentReports" :key="report.id" class="mb-6 p-4 border rounded-md"
+                 :class="report.filed ? 'border-gray-300 bg-gray-50 text-gray-700' : 'border-red-300 bg-red-50 text-red-800'" data-testid="mec-incident-report">
+                <template v-if="!report.filed">
+                    <p class="font-medium">Incident Report required for {{ report.branch_name }}</p>
+                    <p class="text-sm mt-1">
+                        This branch still had unfinished transactions after the MEC Scheduled Date ({{ report.count_date }}) of the {{ report.count_label }} count:
+                    </p>
+                    <ul class="list-disc ml-5 mt-2 space-y-1 text-sm">
+                        <li v-for="pending in report.pendings" :key="pending.key">
+                            {{ pending.label }}<span v-if="!pending.open" class="opacity-80"> (finished)</span>
+                        </li>
+                    </ul>
+                    <p class="text-sm mt-2">
+                        Give the reason for each in an Incident Report. Until it is filed, the count template and the upload stay unavailable for this branch, even after these are finished.
+                    </p>
+                    <Button type="button" class="mt-3 bg-red-600 hover:bg-red-700 text-white" @click="openIncidentReport(report)">
+                        <FileText class="-ml-1 mr-2 h-5 w-5" />
+                        File Incident Report
+                    </Button>
+                </template>
+                <template v-else>
+                    <p class="font-medium">Incident Report {{ report.number }} filed for {{ report.branch_name }}</p>
+                    <p class="text-sm mt-1">{{ report.count_label }} count. Filed on {{ report.filed_at }} by {{ report.filed_by || 'N/A' }}.</p>
+                    <a :href="report.pdf_url" target="_blank" rel="noopener" class="mt-2 inline-flex items-center text-sm font-medium underline">
+                        <FileText class="mr-1 h-4 w-4" />
+                        View Incident Report (PDF)
+                    </a>
+                </template>
             </div>
 
             <!-- Upload Not Available: explain the rule instead of showing nothing -->
@@ -562,5 +618,7 @@ const viewReviewPage = (scheduleId, branchId) => {
                 <Pagination :data="transactions" />
             </TableContainer>
         </div>
+
+        <IncidentReportDialog v-model:visible="showIncidentReportDialog" :report="incidentReportToFile" />
     </Layout>
 </template>

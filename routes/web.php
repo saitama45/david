@@ -25,6 +25,7 @@ use App\Http\Controllers\MonthEndCountApprovalController;
 use App\Http\Controllers\MonthEndCountTemplateController;
 use App\Http\Controllers\MECApproval2Controller;
 use App\Http\Controllers\MonthEndCountController;
+use App\Http\Controllers\MonthEndCountIncidentReportController;
 use App\Http\Controllers\MonthEndScheduleController;
 use App\Http\Controllers\DaysInventoryOutstanding;
 use App\Http\Controllers\DaysPayableOutStanding;
@@ -653,6 +654,15 @@ Route::middleware('auth')
                 Route::middleware('permission:perform month end count')->get('/review/{schedule}/{branch}', 'review')->name('review');
                 Route::middleware('permission:perform month end count')->post('/submit-for-approval/{schedule}/{branch}', 'submitForApproval')->name('submit-for-approval');
                 Route::middleware('permission:edit month end count items')->put('/review/{monthEndCountItem}', 'updateReviewItem')->name('update-review-item');
+            });
+
+        // Month End Count Incident Reports: filed by the store, read by the store and the office.
+        Route::controller(MonthEndCountIncidentReportController::class)
+            ->prefix('month-end-count/incident-reports')
+            ->name('month-end-count.incident-reports.')
+            ->group(function () {
+                Route::middleware('permission:perform month end count')->post('/{report}', 'file')->name('file');
+                Route::middleware('permission:perform month end count|view month end schedules')->get('/{report}/pdf', 'pdf')->name('pdf');
             });
 
         // Month End Count Approvals
