@@ -121,6 +121,19 @@ Multi-column distinct counts do not translate — wrap a subquery:
   thousands of `store_order_items`, so `AdoptionRateTrackingService` loads those relations in
   batches (`chunkedLoad()` / `EAGER_LOAD_CHUNK`) instead of one statement. Any new report that
   eager-loads across a full date range needs the same treatment.
+- **A PHP float below 0.0001 cannot be written to a decimal column, and the error hides itself.**
+  PDO binds a float as text and PHP writes `1 / 18720` as `5.3418803418803E-5`, which SQL Server
+  refuses (`Error converting data type nvarchar to numeric`). Unlike most errors, that one rolls
+  back the whole SQL Server transaction, savepoints included. Inside nested `DB::transaction()`
+  calls Laravel then tries to roll back to its savepoint, fails, and reports only
+  `SQLSTATE[25000] ... Cannot roll back trans3. No transaction or savepoint of that name was found.`
+  (`updateOrCreate` opens a savepoint of its own inside a transaction, and so does a
+  maatwebsite/excel import). When that message appears, look for the statement that failed
+  first, not at the transactions. Send a computed quantity as fixed-point text:
+  `MonthEndCountItem::setAttribute()` formats its four decimal columns with
+  `number_format($v, 4, '.', '')`, because upload, submit and both edit forms all store
+  `bulk + loose / conversion` (a count with 1 Gm loose of an 18,720 Gm Case could not be
+  uploaded until 2026-10-08). Any other division stored in a decimal column needs the same.
 - **Never chain `->with()` onto a `selectRaw` + `groupBy` query.** Without the primary key in the
   select, Eloquent cannot match relations and silently returns null. Load related models separately
   and key them in PHP.

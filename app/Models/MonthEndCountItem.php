@@ -46,6 +46,22 @@ class MonthEndCountItem extends Model
         'level2_approved_at' => 'datetime',
     ];
 
+    // The decimal columns, all four decimals wide.
+    private const QUANTITIES = ['current_soh', 'bulk_qty', 'loose_qty', 'total_qty'];
+
+    // Quantities go to SQL Server as fixed-point text. A PHP float below 0.0001 (1 Gm loose of
+    // an 18,720 Gm Case) is otherwise sent as "5.3E-5", which SQL Server cannot read as a
+    // decimal; that error rolls back the whole transaction, so the upload only ever reported
+    // "Cannot roll back trans3".
+    public function setAttribute($key, $value)
+    {
+        if (in_array($key, self::QUANTITIES, true) && is_numeric($value)) {
+            $value = number_format((float) $value, 4, '.', '');
+        }
+
+        return parent::setAttribute($key, $value);
+    }
+
     public function schedule()
     {
         return $this->belongsTo(MonthEndSchedule::class, 'month_end_schedule_id');

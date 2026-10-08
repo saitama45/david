@@ -362,6 +362,11 @@ SQL Server as the target. Rationale and trade-offs: [Decisions.md](docs/knowledg
 - **Services live in `app/Http/Services/`**, not `app/Services/`.
 - **SQL Server, not MySQL**: no `LIMIT` in raw SQL, `CONVERT(date, col)` not `DATE()`, `DATEDIFF`
   not `TIMESTAMPDIFF`, `STRING_AGG` not `GROUP_CONCAT`. Multi-column distinct counts need a subquery.
+- **`Cannot roll back trans3. No transaction or savepoint of that name was found` is never the real
+  error.** A statement inside nested transactions failed in a way that rolled the whole SQL Server
+  transaction back, usually a PHP float below 0.0001 sent to a decimal column as `5.3E-5`. Store a
+  computed quantity as fixed-point text, as `MonthEndCountItem::setAttribute()` does.
+  Detail: [Database.md](docs/knowledge/Database.md#eloquent-gotchas).
 - **Never chain `->with()` onto `selectRaw` + `groupBy`** — Eloquent silently returns null relations.
 - **Date-only columns need `'date:Y-m-d'` casts**, or UTC serialization shows the previous day.
 - **Toast each action from one place.** The layout mounts the only PrimeVue `<Toast />`; a page adding its

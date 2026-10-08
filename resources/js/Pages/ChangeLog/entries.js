@@ -15,6 +15,26 @@
 //   affects  who will notice the change
 
 export const changeLog = [
+    // ---------------------------------------------------------------- October 8, 2026
+    {
+        date: '2026-10-08',
+        module: 'Month End Count',
+        type: 'improved',
+        title: '"Upload and Process Count" no longer fails on a very small loose quantity',
+        summary:
+            'A count sheet was refused with "Upload Failed" and a message starting with "Cannot roll back" when one of its lines had no Bulk Qty and a Loose Qty that is a very small part of the bulk unit, for example 1 Gm of an 18,720 Gm Case. The whole file was refused, so the store could not upload its count at all. Such a count is now uploaded, and "Submit for Level 1 Approval" accepts it too.',
+        steps: [
+            'Open Month End Count, choose the branch and the completed count sheet, and click "Upload and Process Count". A store whose count sheet was refused can upload the same file again.',
+            'Review the count and click "Submit for Level 1 Approval" as usual.',
+        ],
+        rules: [
+            'The total of a line is its Bulk Qty plus its Loose Qty divided by the Conversion, as before.',
+            'A total is kept with four decimals. 1 Gm of an 18,720 Gm Case is 0.0000534 Case and is saved as 0.0001 Case.',
+            'A total smaller than 0.00005 of the bulk unit is saved as 0.0000.',
+            'The Bulk Qty and the Loose Qty are kept on the line with four decimals, as before.',
+        ],
+        affects: 'Store users who upload the month end count.',
+    },
     // ---------------------------------------------------------------- October 6, 2026
     {
         date: '2026-10-06',
