@@ -5,6 +5,7 @@ import { router } from "@inertiajs/vue3";
 import { useReferenceDelete } from "@/composables/useReferenceDelete";
 import { ref, computed, watch } from 'vue'; // Explicitly import ref and computed
 import { throttle } from "lodash";
+import { ArrowUp, ArrowDown } from "lucide-vue-next";
 
 const isEditModalVisible = ref(false);
 
@@ -49,15 +50,49 @@ const props = defineProps({
 const search = ref(usePage().props.filters?.search ?? "");
 const status = ref(usePage().props.filters?.status ?? null);
 
+// Created At / Updated At are sorted by the server, so the order holds across pages. It
+// always sends the sort in effect: newest first (Created At descending) when none is picked.
+const sortKey = ref(usePage().props.filters.sort);
+const sortDir = ref(usePage().props.filters.direction);
+
 const reload = () => {
     router.get(
         route("branches.index"),
-        { search: search.value || undefined, status: status.value || undefined },
+        {
+            search: search.value || undefined,
+            status: status.value || undefined,
+            sort: sortKey.value,
+            direction: sortDir.value,
+        },
         { preserveState: true, replace: true }
     );
 };
 
 watch(search, throttle(reload, 500));
+
+// Clicking the sorted column again turns it around; a new column starts ascending.
+const sortBy = (key) => {
+    sortDir.value = sortKey.value === key && sortDir.value === "asc" ? "desc" : "asc";
+    sortKey.value = key;
+    reload();
+};
+
+const sortColumns = [
+    { key: "created_at", label: "Created At" },
+    { key: "updated_at", label: "Updated At" },
+];
+
+const formatDate = (value) =>
+    value
+        ? new Date(value).toLocaleString("en-US", {
+              month: "short",
+              day: "numeric",
+              year: "numeric",
+              hour: "numeric",
+              minute: "2-digit",
+              timeZone: "Asia/Manila",
+          })
+        : "—";
 
 // Clicking the selected card again clears the filter.
 const toggleStatus = (value) => {
@@ -140,6 +175,18 @@ const exportRoute = computed(() =>
                     <TH> Branch Code</TH>
                     <TH> Location Code</TH> <!-- Added Location Code -->
                     <TH> Active Status</TH>
+                    <TH v-for="column in sortColumns" :key="column.key">
+                        <button
+                            type="button"
+                            class="flex items-center cursor-pointer"
+                            :title="`Sort by ${column.label}`"
+                            @click="sortBy(column.key)"
+                        >
+                            {{ column.label }}
+                            <ArrowUp v-if="sortKey === column.key && sortDir === 'asc'" class="h-4 w-4 ml-1" />
+                            <ArrowDown v-if="sortKey === column.key && sortDir === 'desc'" class="h-4 w-4 ml-1" />
+                        </button>
+                    </TH>
                     <TH> Actions </TH>
                 </TableHead>
                 <TableBody>
@@ -156,6 +203,8 @@ const exportRoute = computed(() =>
                                 {{ isActive(branch) ? "Active" : "Inactive" }}
                             </span>
                         </TD>
+                        <TD>{{ formatDate(branch.created_at) }}</TD>
+                        <TD>{{ formatDate(branch.updated_at) }}</TD>
                         <TD>
                             <ShowButton @click="viewDetails(branch.id)" />
                             <EditButton
@@ -185,6 +234,8 @@ const exportRoute = computed(() =>
                     <LabelXS>{{ branch.branch_code }}</LabelXS>
                     <LabelXS>{{ branch.location_code ?? "N/a" }}</LabelXS> <!-- Added Location Code for mobile -->
                     <LabelXS>Status: {{ isActive(branch) ? "Active" : "Inactive" }}</LabelXS>
+                    <LabelXS>Created At: {{ formatDate(branch.created_at) }}</LabelXS>
+                    <LabelXS>Updated At: {{ formatDate(branch.updated_at) }}</LabelXS>
                 </MobileTableRow>
             </MobileTableContainer>
             <Pagination :data="data" />

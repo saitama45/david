@@ -25,7 +25,12 @@ class StoreBranchController extends Controller
         elseif ($status === 'inactive')
             $query->where(fn ($q) => $q->where('is_active', false)->orWhereNull('is_active'));
 
-        $branches = $query->latest()->paginate(10)->withQueryString();
+        // Only the two date columns sort; anything else keeps the newest branch first. The id
+        // settles branches saved in the same second, so a page never repeats or skips one.
+        $sort = in_array(request('sort'), ['created_at', 'updated_at'], true) ? request('sort') : 'created_at';
+        $direction = request('direction') === 'asc' ? 'asc' : 'desc';
+
+        $branches = $query->orderBy($sort, $direction)->orderBy('id', $direction)->paginate(10)->withQueryString();
 
         // Counted on is_active ("Active Status") only; store_status is free text
         // and reads "Active" even for inactive branches.
@@ -41,7 +46,9 @@ class StoreBranchController extends Controller
                 'active' => (int) ($statusCounts->active ?? 0),
                 'inactive' => (int) ($statusCounts->inactive ?? 0),
             ],
-            'filters' => request()->only(['search', 'status'])
+            // The sort in effect is always sent. Left out, an empty filter list reaches the page
+            // as an array, and an array's own `sort` is a function, not a missing value.
+            'filters' => request()->only(['search', 'status']) + ['sort' => $sort, 'direction' => $direction],
         ]);
     }
 

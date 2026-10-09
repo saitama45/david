@@ -15,6 +15,30 @@
 //   affects  who will notice the change
 
 export const changeLog = [
+    // ---------------------------------------------------------------- October 9, 2026
+    {
+        date: '2026-10-09',
+        module: 'Store Branches',
+        type: 'new',
+        title: 'Store Branches now lists "Created At" and "Updated At" for every branch, and a click on either heading sorts the list',
+        summary:
+            'The list of branches showed the Id, Name, Branch Code, Location Code and Active Status, and the dates of a branch could only be seen by opening it. The list now has two more columns, "Created At" and "Updated At", with the date and time for each branch. Click either heading to sort the whole list by that date, and click it again to turn the order around.',
+        steps: [
+            'Open Store Branches. The columns "Created At" and "Updated At" are between "Active Status" and "Actions".',
+            'Click the heading "Created At" or "Updated At". The list is sorted by that date with the oldest branch first, and an arrow pointing up appears beside the heading.',
+            'Click the same heading again. The list is sorted with the newest branch first, and the arrow points down.',
+            'Click the other heading to sort by the other date. It starts with the oldest first.',
+        ],
+        rules: [
+            'When you open the page, the list is sorted by "Created At" with the newest branch first, as before. The arrow beside "Created At" points down to show it.',
+            'The sort covers every branch, not only the ones on the page you are looking at. It stays when you go to the next page, type in the search box, or click "Active Stores" or "Inactive Stores".',
+            '"Created At" is the date and time the branch was created. "Updated At" is the date and time the last change to the branch was saved. A branch that nobody has changed since it was created shows the same date and time in both.',
+            'Dates and times are shown in Philippine time.',
+            'Only "Created At" and "Updated At" can be sorted by a click. The other columns are not sorted.',
+            'On a phone the two dates are shown under each branch. The headings to click are on the wider table.',
+        ],
+        affects: 'Office users who maintain the list of stores in Store Branches.',
+    },
     // ---------------------------------------------------------------- October 8, 2026
     {
         date: '2026-10-08',
