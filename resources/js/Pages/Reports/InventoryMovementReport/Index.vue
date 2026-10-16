@@ -136,6 +136,7 @@ const detailColumns = {
     supplies: { label: 'Supplies Used', date: 'MEC Date' },
     interco_in: { label: 'Inbound Interco', date: 'Order Date' },
     interco_out: { label: 'Outbound Interco', date: 'Order Date' },
+    interco_pending: { label: 'Pending Interco Transactions', date: 'Order Date' },
 };
 
 const detail = reactive({
@@ -429,7 +430,7 @@ const formatNumber = formatReportNumber;
                             <th colspan="3" class="px-1.5 py-3 text-center text-xs font-bold text-gray-500 uppercase tracking-wider border-r border-gray-200 bg-blue-50">Procurement (Date Range)</th>
                             <th class="px-1.5 py-3 text-center text-xs font-bold text-gray-500 uppercase tracking-wider border-r border-gray-200 bg-emerald-50">Beginning</th>
                             <th colspan="5" class="px-1.5 py-3 text-center text-xs font-bold text-gray-500 uppercase tracking-wider border-r border-gray-200 bg-orange-50">Deductions / Transfers</th>
-                            <th colspan="5" class="px-1.5 py-3 text-center text-xs font-bold text-gray-500 uppercase tracking-wider bg-purple-50">Final Balance</th>
+                            <th colspan="6" class="px-1.5 py-3 text-center text-xs font-bold text-gray-500 uppercase tracking-wider bg-purple-50">Final Balance</th>
                         </tr>
                         <tr class="text-[10px] text-gray-500 uppercase tracking-wider font-semibold">
                             <th @click="handleSort('supplier')" class="px-1.5 py-3 text-left border-r border-gray-200 min-w-[90px] cursor-pointer hover:bg-gray-100 group transition-colors">
@@ -560,6 +561,14 @@ const formatNumber = formatReportNumber;
                                     <ArrowUpDown v-else class="w-3 h-3 text-gray-400 group-hover:text-blue-400" />
                                 </div>
                             </th>
+                            <th @click="handleSort('interco_pending_qty')" class="px-1.5 py-3 text-center border-r border-gray-200 cursor-pointer hover:bg-gray-100 group transition-colors" title="Interco transfers approved for the period, not in stock yet: + coming in, - going out. Not part of Theoretical SOH or Variance.">
+                                <div class="flex items-center justify-center gap-1">
+                                    Pending Interco Transactions
+                                    <ArrowUp v-if="sortField === 'interco_pending_qty' && sortDirection === 'asc'" class="w-3 h-3 text-blue-600" />
+                                    <ArrowDown v-else-if="sortField === 'interco_pending_qty' && sortDirection === 'desc'" class="w-3 h-3 text-blue-600" />
+                                    <ArrowUpDown v-else class="w-3 h-3 text-gray-400 group-hover:text-blue-400" />
+                                </div>
+                            </th>
                             <th @click="handleSort('adjustment_qty')" class="px-1.5 py-3 text-center border-r border-gray-200 cursor-pointer hover:bg-gray-100 group transition-colors" title="Entered against the Variance, with a reason">
                                 <div class="flex items-center justify-center gap-1">
                                     Adjustment
@@ -580,7 +589,7 @@ const formatNumber = formatReportNumber;
                     </thead>
                     <tbody class="bg-white divide-y divide-gray-100">
                         <tr v-if="movementData.length === 0" class="hover:bg-gray-50">
-                            <td colspan="18" class="text-center py-12 text-gray-500">
+                            <td colspan="19" class="text-center py-12 text-gray-500">
                                 <div class="flex flex-col items-center">
                                     <Package class="w-12 h-12 text-gray-300 mb-3" />
                                     <span class="text-lg font-medium">No movement data found</span>
@@ -648,6 +657,10 @@ const formatNumber = formatReportNumber;
                             <td class="px-1.5 py-4 text-center font-bold border-r border-gray-100" :class="item.variance_qty < 0 ? 'text-red-600' : item.variance_qty > 0 ? 'text-emerald-600' : 'text-gray-500'">
                                 {{ formatNumber(item.variance_qty) }}
                             </td>
+                            <!-- Beside the Variance it may explain; it is in no balance -->
+                            <td class="px-1.5 py-4 text-center border-r border-gray-100" :class="item.interco_pending_qty ? 'font-medium text-amber-700 bg-amber-50/30' : 'text-gray-500'">
+                                <button type="button" class="underline decoration-dotted underline-offset-2 hover:decoration-solid focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 rounded-sm" title="Show the transactions" @click="openDetails(item, 'interco_pending')">{{ formatNumber(item.interco_pending_qty) }}</button>
+                            </td>
                             <td class="px-1.5 py-4 text-center border-r border-gray-100" :class="adjustmentOf(item).adjustment_reason ? 'font-medium text-sky-700 bg-sky-50/40' : 'text-gray-500'">
                                 <button
                                     v-if="canAdjust || adjustmentOf(item).adjustment_reason"
@@ -690,6 +703,7 @@ const formatNumber = formatReportNumber;
                     <p>Actual MEC - Theoretical SOH</p>
                     <p class="font-bold mt-2 mb-1">Final Variance Formula:</p>
                     <p>Variance + Adjustment</p>
+                    <p class="mt-2 text-xs opacity-80">* Pending Interco Transactions are interco transfers approved for the period that are not in stock yet: + coming into this store (at the quantity it received, or the quantity sent until it records one), - going out of it (at the quantity sent). They are shown to explain a Variance and are not part of Theoretical SOH, Variance or Final Variance.</p>
                     <p class="mt-2 text-xs opacity-80">* Adjustment is entered for the store and the month of the To Date, with a reason. Enter it with a minus sign to bring a positive Variance down. It explains the Variance on this report only and does not change the stock on hand.</p>
                     <p class="mt-1 text-xs opacity-80">* Sales Qty is calculated based on BOM (Bill of Materials) linked to POS transactions.</p>
                     <p class="mt-1 text-xs opacity-80">* Wastage Qty includes the raw materials of a wasted Sub-Prep: the BOM Qty of the item for every unit of the Sub-Prep wasted. The line marked Sub-Prep under the figure shows that part and where it came from.</p>

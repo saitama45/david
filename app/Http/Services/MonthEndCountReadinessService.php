@@ -252,6 +252,27 @@ class MonthEndCountReadinessService
                 $plural((int) $row->total, 'interco transfer', 'interco transfers').' not yet received', 'interco-receiving.index');
         }
 
+        // A quantity received short or over waits for the sending store to confirm it (or
+        // re-send it), and holds the sending store's count too: neither store's stock has
+        // moved for that line. This is not the dropped "not committed" check.
+        $intercoToConfirm = DB::table('store_orders as so')
+            ->whereNotNull('so.interco_number')
+            ->whereIn('so.sending_store_branch_id', $branchIds)
+            ->whereBetween('so.order_date', [$from, $through])
+            ->whereExists(fn ($q) => $q->select(DB::raw(1))
+                ->from('store_order_items as soi')
+                ->join('ordered_item_receive_dates as oird', 'oird.store_order_item_id', '=', 'soi.id')
+                ->whereColumn('soi.store_order_id', 'so.id')
+                ->where('oird.status', IntercoReceivingService::FOR_CONFIRMATION))
+            ->select('so.sending_store_branch_id', DB::raw('COUNT(*) as total'))
+            ->groupBy('so.sending_store_branch_id')
+            ->get();
+        foreach ($intercoToConfirm as $row) {
+            $add((int) $row->sending_store_branch_id, 'interco_confirm', (int) $row->total,
+                $plural((int) $row->total, 'interco transfer', 'interco transfers').' waiting for your confirmation of the received quantity',
+                'interco.index', ['status' => IntercoReceivingService::FOR_CONFIRMATION]);
+        }
+
         // Wastage is dated by created_at, as the report's Wastage is.
         $wastageLevels = [
             'pending' => ['wastage_level1', 'awaiting level 1 approval', 'wastage-approval-lvl1.index'],

@@ -68,25 +68,57 @@ const props = defineProps({
 const orderStatus = ref(props.order?.interco_status);
 
 // Receiving works as on Inbound Orders. Zero All, saving a line and Confirm Receive All only
-// record quantities; Final Receive All alone moves the stock - out of the sending store, into
-// this one - and it locks the transfer for good. The server enforces the same rules.
+// record quantities; Final Receive All moves the stock of every item received as sent - out of
+// the sending store, into this one. An item received short or over is not moved: it waits for
+// the sending store to confirm it (or re-send it to be recounted). The transfer locks once
+// every item is in stock. The server enforces the same rules.
 const isFinalized = computed(() => !!props.receivingFinalized);
 
 const finalizedHint = computed(() =>
     props.receivingFinalized
-        ? `Finalized with Final Receive All on ${props.receivingFinalized.at}${
-              props.receivingFinalized.by ? ` by ${props.receivingFinalized.by}` : ""
+        ? `Fully received on ${props.receivingFinalized.at}${
+              props.receivingFinalized.by ? ` (${props.receivingFinalized.by})` : ""
           }. Items can no longer be changed or received.`
         : ""
 );
 
+const senderName = computed(() => props.order?.from_store_name || 'the sending store');
+
+// Quantities are stored as floats (0.7 comes back as 0.69999999999999996): show four decimals at most.
+const qty = (value) => Math.round((Number(value) || 0) * 10000) / 10000;
+
 const rowStatus = (history) => String(history?.status ?? "").toLowerCase();
 
-// Rows that are not in stock yet: only Final Receive All posts them ('approved').
+// Rows this store still holds: not in stock ('approved') and not with the sending store.
 const unpostedRows = computed(() =>
     props.receiveDatesHistory.filter((h) => ["pending", "received"].includes(rowStatus(h)))
 );
 const hasUnpostedRows = computed(() => unpostedRows.value.length > 0);
+
+// Rows received short or over, waiting for the sending store to confirm them.
+const awaitingSenderRows = computed(() =>
+    props.receiveDatesHistory.filter((h) => rowStatus(h) === "for_confirmation")
+);
+
+// What an item's rows add up to against the quantity sent (four decimals, as reports print).
+const itemVariance = (history) => {
+    const itemId = history?.store_order_item_id;
+    const received = props.receiveDatesHistory
+        .filter((h) => h.store_order_item_id === itemId)
+        .reduce((total, h) => total + (Number(h.quantity_received) || 0), 0);
+
+    return Math.round((received - (Number(history?.store_order_item?.quantity_commited) || 0)) * 10000) / 10000;
+};
+
+// Of the items this store holds, how many Final Receive All moves now and how many it sends
+// to the sending store to confirm.
+const finalReceiveSplit = computed(() => {
+    const items = new Map();
+    unpostedRows.value.forEach((h) => items.set(h.store_order_item_id, h));
+    const differing = [...items.values()].filter((h) => itemVariance(h) !== 0).length;
+
+    return { matching: items.size - differing, differing };
+});
 
 // Confirm Receive All has something to do while an item is still to receive.
 const hasPendingRows = computed(() => unpostedRows.value.some((h) => rowStatus(h) === "pending"));
@@ -116,10 +148,17 @@ const recordedQuantityCount = computed(
 const receivingRowStatus = (history) => {
     const status = rowStatus(history);
 
-    if (status === "approved" || status === "received") return "RECEIVED";
+    if (status === "approved") return "IN STOCK";
+    if (status === "received") return "RECEIVED";
+    if (status === "for_confirmation") return "WAITING FOR SENDER";
 
     return status === "pending" ? "TO RECEIVE" : status.toUpperCase();
 };
+
+const receivingRowStatusClass = (history) => ({
+    pending: 'bg-blue-100 text-blue-800',
+    for_confirmation: 'bg-amber-100 text-amber-800',
+}[rowStatus(history)] || 'bg-green-100 text-green-800');
 
 const isImageModalVisible = ref(false);
 const openImageModal = () => {
@@ -267,7 +306,8 @@ const editReceiveDetailsForm = useForm({
 
 // Computed property for variance calculation
 const variance = computed(() => {
-    if (!currentEditingItem.value || !editReceiveDetailsForm.quantity_received) {
+    // 0 is a quantity (nothing arrived), so only an empty field has no variance.
+    if (!currentEditingItem.value || editReceiveDetailsForm.quantity_received === null || editReceiveDetailsForm.quantity_received === '') {
         return 0;
     }
     const committed = currentEditingItem.value.store_order_item?.quantity_commited || 0;
@@ -282,7 +322,7 @@ const openEditModalForm = (id) => {
 
     currentEditingItem.value = history;
     editReceiveDetailsForm.id = history.id;
-    editReceiveDetailsForm.quantity_received = history.quantity_received;
+    editReceiveDetailsForm.quantity_received = qty(history.quantity_received);
     editReceiveDetailsForm.remarks = history.remarks;
     isEditModalVisible.value = true;
 };
@@ -455,7 +495,7 @@ const promptZeroAll = () => {
             `${pending} item(s) will be set to 0 received and marked "Unserved". `
             + (recorded > 0 ? `${recorded} of them already have a received quantity, which will be replaced by 0. ` : '')
             + 'Use this when the transfer did not arrive. No image is needed. '
-            + 'Afterwards click Final Receive All to finish.',
+            + `Afterwards click Final Receive All: each item then goes to ${senderName.value} to confirm that nothing was received.`,
         icon: 'pi pi-exclamation-triangle',
         rejectProps: {
             label: 'Cancel',
@@ -478,12 +518,13 @@ const finalReceiveForm = useForm({});
 const finalReceive = () => {
     finalReceiveForm.post(route('interco-receiving.final-receive', props.order.interco_number), {
         preserveScroll: true,
-        onSuccess: () => {
+        onSuccess: (page) => {
+            const flash = page.props.flash || {};
             toast.add({
-                severity: 'success',
-                summary: 'Receiving Finalized',
-                detail: 'The stock is moved and this transfer is now locked. Its items can no longer be changed.',
-                life: 5000,
+                severity: flash.info ? 'info' : 'success',
+                summary: 'Final Receive All',
+                detail: flash.info || flash.success || 'Done.',
+                life: 8000,
             });
         },
         onError: (errors) => {
@@ -508,14 +549,19 @@ const promptFinalReceive = () => {
         return;
     }
 
-    const pending = unpostedRows.value.length;
+    const { matching, differing } = finalReceiveSplit.value;
 
     confirm.require({
         header: 'Final Receive All?',
         message:
-            `${pending} item(s) will be added to the stock on hand (SOH) of ${props.order?.store_branch?.name || 'the receiving store'} `
-            + `and taken out of ${props.order?.from_store_name || 'the sending store'} now, each at the quantity on its line. `
-            + 'This is the final step for this transfer: afterwards no quantity can be changed. This cannot be undone.',
+            (matching > 0
+                ? `${matching} item(s) received as sent will be added to the stock on hand (SOH) of ${props.order?.store_branch?.name || 'the receiving store'} `
+                    + `and taken out of ${senderName.value} now. These can no longer be changed. `
+                : '')
+            + (differing > 0
+                ? `${differing} item(s) received short or over will NOT be moved yet: they go to ${senderName.value} to confirm the received quantity. `
+                    + `Until ${senderName.value} confirms, neither store can do its Month End Count.`
+                : 'This cannot be undone.'),
         icon: 'pi pi-lock',
         rejectProps: {
             label: 'Cancel',
@@ -677,6 +723,14 @@ const promptFinalReceive = () => {
                                 <Lock class="size-3.5" />
                                 Not in stock on hand yet. The stock is moved between the two stores only when Final Receive All is clicked.
                             </p>
+                            <!-- Received short or over: the sending store answers before anything moves -->
+                            <p
+                                v-if="!isFinalized && awaitingSenderRows.length"
+                                class="inline-flex items-center gap-1.5 rounded-md border border-amber-200 bg-amber-50 px-2 py-1 text-xs font-semibold text-amber-800"
+                            >
+                                {{ awaitingSenderRows.length }} item(s) differ from what was sent and wait for {{ senderName }} to confirm the received quantity.
+                                Neither store can do its Month End Count until then.
+                            </p>
                         </div>
                         <!-- Everything here goes away once the transfer is in stock and locked -->
                         <div v-if="!isFinalized && hasUnpostedRows" class="flex items-center gap-3">
@@ -728,7 +782,9 @@ const promptFinalReceive = () => {
                                 <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Item</th>
                                 <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Item Code</th>
                                 <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">UOM</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Sent</th>
                                 <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Quantity Received</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Variance</th>
                                 <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Received At</th>
                                 <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Received By</th>
                                 <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
@@ -742,7 +798,14 @@ const promptFinalReceive = () => {
                                 <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{{ history.store_order_item?.item_name }}</td>
                                 <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{{ history.store_order_item?.ItemCode }}</td>
                                 <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{{ history.store_order_item?.uom }}</td>
-                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{{ history.quantity_received }}</td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{{ qty(history.store_order_item?.quantity_commited) }}</td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{{ qty(history.quantity_received) }}</td>
+                                <td
+                                    class="px-6 py-4 whitespace-nowrap text-sm font-semibold"
+                                    :class="itemVariance(history) === 0 ? 'text-gray-500' : 'text-amber-700'"
+                                >
+                                    {{ itemVariance(history) > 0 ? '+' : '' }}{{ itemVariance(history) }}
+                                </td>
                                 <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                                     {{ history.received_date ? dayjs(history.received_date).tz("Asia/Manila").format("MMMM D, YYYY h:mm A") : '-' }}
                                 </td>
@@ -754,12 +817,26 @@ const promptFinalReceive = () => {
                                 <td class="px-6 py-4 whitespace-nowrap">
                                     <span
                                         class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full"
-                                        :class="rowStatus(history) === 'pending' ? 'bg-blue-100 text-blue-800' : 'bg-green-100 text-green-800'"
+                                        :class="receivingRowStatusClass(history)"
                                     >
                                         {{ receivingRowStatus(history) }}
                                     </span>
                                 </td>
-                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{{ history.remarks || '-' }}</td>
+                                <td class="px-6 py-4 text-sm text-gray-900">
+                                    <div>{{ history.remarks || '-' }}</div>
+                                    <!-- The sending store did not accept the quantity: recount, then Final Receive All again -->
+                                    <div
+                                        v-if="history.sender_decision === 'resent' && rowStatus(history) !== 'approved'"
+                                        class="mt-1 max-w-xs whitespace-normal rounded border border-amber-200 bg-amber-50 px-2 py-1 text-xs text-amber-800"
+                                    >
+                                        Re-sent by {{ history.sender_decided_by_user?.first_name }} {{ history.sender_decided_by_user?.last_name }}
+                                        ({{ senderName }}){{ history.sender_remarks ? `: ${history.sender_remarks}` : '' }}.
+                                        Recount, correct the quantity if needed, then click Final Receive All.
+                                    </div>
+                                    <div v-else-if="history.sender_decision === 'confirmed'" class="mt-1 text-xs text-gray-500">
+                                        Quantity confirmed by {{ senderName }}
+                                    </div>
+                                </td>
                                 <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
                                     <div class="flex space-x-2">
                                         <button
@@ -860,6 +937,12 @@ const promptFinalReceive = () => {
                         />
                         <FormError>{{ editReceiveDetailsForm.errors.quantity_received }}</FormError>
                     </InputContainer>
+                    <p v-if="currentEditingItem" class="text-xs text-gray-600">
+                        Sent: {{ qty(currentEditingItem.store_order_item?.quantity_commited) }}.
+                        <span v-if="variance !== 0" class="font-semibold text-amber-700">
+                            This differs by {{ variance > 0 ? '+' : '' }}{{ Math.round(variance * 10000) / 10000 }}: on Final Receive All it goes to {{ senderName }} to confirm instead of moving into stock.
+                        </span>
+                    </p>
                 </div>
                 <DialogFooter>
                     <Button

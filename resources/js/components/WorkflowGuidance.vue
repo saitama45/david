@@ -11,6 +11,7 @@ const catalog = computed(() => page.props.workflowGuidance?.catalog || {});
 const branches = computed(() => page.props.workflowGuidance?.branches || []);
 const suppliers = computed(() => page.props.workflowGuidance?.suppliers || []);
 const recordBranch = computed(() => context.value.current.includes('interco_commit')
+    || (context.value.current.includes('interco_confirm') && !context.value.current.includes('interco_receive'))
     ? context.value.record?.sending_store_branch_id
     : context.value.record?.store_branch_id || page.props.branch?.id);
 watch(() => [page.url, recordBranch.value], () => {

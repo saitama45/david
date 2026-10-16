@@ -126,17 +126,53 @@ too. Now:
 - **Interco Receiving follows the same rule** (`IntercoReceivingController`, 2026-10-06): Zero All
   (`POST interco-receiving/zero-all/{intercoNumber}`, the shared `zeroUnconfirmedReceipts()`), Confirm
   Receive All (shared `confirmUnpostedReceipts()`, no stock) and Final Receive All
-  (`POST interco-receiving/final-receive/{intercoNumber}` → its own `postReceiptsToStock()`: out of the
-  sending store, into the receiving store, `approved`, `interco_status` RECEIVED, `receiving_finalized_at`).
-  **A transfer stays `in_transit` until Final Receive All**: RECEIVED still means the stock moved, so the
+  (`POST interco-receiving/final-receive/{intercoNumber}` → `IntercoReceivingService::finalReceive()`),
+  which since 2026-10-16 posts per line - see
+  [Interco receiving and sender confirmation](#interco-receiving-and-sender-confirmation).
+  **A transfer stays `in_transit` until every line is posted**: RECEIVED still means the stock moved, so the
   IN TRANSIT tab, My Actions and the MEC "interco transfer not yet received" blocker keep holding it.
   Evidence is an image only (`evidenceProblem()`), waived while every receipt is 0. Saving a line marks
-  it `received`. The three actions check the receiving store's assignment, not a permission, as the old
-  Confirm Receive did.
+  it `received`. The actions check the receiving store's assignment and, since 2026-10-16, the route
+  permission `receive interco requests` (as Inbound Orders gates its own with `receive orders`).
 - **For Final Receive All tab** on `/orders-receiving` (`currentFilter=for_final`,
   `applyForFinalReceiveFilter()`): receiving statuses, `receiving_finalized_at` null, and at least one
   `received` row. It cuts across the status tabs and is not part of the ALL count. Each listed order
   carries `unposted_receipts_count`, which the list shows as a "For Final Receive All" marker.
+
+## Interco receiving and sender confirmation
+
+Since 2026-10-16 (`IntercoReceivingService`):
+
+- **Receiving opens at `approved`.** The sending store's commit (Store Commits) is optional. Interco
+  Receiving lists `approved`/`committed`/`in_transit` under IN TRANSIT, and `ensureLines()` gives each
+  line its `pending` row at `quantity_commited` (the approved quantity unless restated) on show and
+  before every action. The first receiving action (`startReceiving()`: save a line, Zero All, Confirm,
+  Final) moves the transfer `in_transit`, and Store Commits only edits `approved` transfers, so the
+  sender can restate a quantity until then. A restatement, or a late commit, updates the `pending` row.
+- **Final Receive All posts per line.** A line whose receipts sum to `quantity_commited` (to 4 dp) is
+  posted (out of the sending store, into the receiving store, rows `approved`). Any other line, short
+  or over, Zero All included, becomes `for_confirmation` (`confirmation_requested_at` stamped). Every
+  receiving action reads only `pending`/`received` rows, so those rows are frozen for the receiving
+  store, and `updateReceiveDateHistory()` refuses them explicitly.
+- **The sending store answers** on `/interco/show/{id}` (`senderConfirmation` prop; user assigned to the
+  sending store with `receive interco requests`): `POST interco/{id}/received-quantity/confirm` posts
+  the rows at the received quantity (`sender_decision = confirmed`), `.../resend` sets them back to
+  `received` with `sender_decision = resent` and an optional `sender_remarks` shown to the receiving
+  store, which recounts and runs Final Receive All again. `store_order_item_id` absent = every line.
+- **Completion:** `finishIfComplete()` stamps `receiving_finalized_at/_by` and RECEIVED only when every
+  receipt is `approved` - by Final Receive All or by the sender's last Confirm.
+- **Holds:** a `for_confirmation` row holds the sending store's MEC (`interco_confirm`, by `order_date`
+  in the count period) and puts `interco_confirm` in its My Actions; the receiving store stays held by
+  "not yet received". This is not the dropped "not committed" check.
+- **Reports:** Inventory Movement Outbound Interco (and its drill-down) sums posted receipt rows
+  (`oird.status = 'approved'`, `quantity_received`) by the sending store, dated by `order_date`, as
+  Inbound Interco does. It used to sum `quantity_commited` of every transfer, whatever its status.
+- **Pending Interco Transactions** (`interco_pending_qty`, between Variance and Adjustment on the page,
+  PDF and Excel): lines of transfers in `PENDING_INTERCO_STATUSES` (approved, committed, in_transit)
+  with no posted receipt, dated by `order_date`. Coming in: the line's receipt rows' `quantity_received`
+  (`quantity_commited` while it has none); going out: `-quantity_commited`. Information only, at the
+  business's request: it is in no balance (not Theoretical SOH, Variance, Final Variance, Supplies Used).
+  The drill-down twin is `InventoryMovementDetailService::pendingInterco()`; `kind` = in/out picks the link.
 
 ## Wastage item search
 
@@ -196,8 +232,9 @@ Both readings use the BOM as it is now, as sales do: editing a BOM changes past 
 
 ## Inventory Movement Report drill-down
 
-Nine columns of `/reports/inventory-movement` are clickable (2026-10-05): Ordered, Committed,
-Received, Beg Bal Qty, Sales Qty, Wastage Qty, Supplies Used, Inbound and Outbound Interco. The page
+Ten columns of `/reports/inventory-movement` are clickable (2026-10-05): Ordered, Committed,
+Received, Beg Bal Qty, Sales Qty, Wastage Qty, Supplies Used, Inbound and Outbound Interco, and
+(2026-10-16) Pending Interco Transactions. The page
 calls `reports.inventory-movement.details` (branch, dates, `sap_code`, `metric`, `page`), which only
 answers for a store the user is assigned to.
 
@@ -372,7 +409,9 @@ transfer not received, wastage below level 2, and the previous month's count not
 `/month-end-count` lists them per branch with links; the server refuses too. Sales have
 no approval step (`StoreTransactionApprovalController` queries a dropped `is_approved` column).
 Two checks were dropped on 2026-10-01 at the user's request and must not come back: an interco
-transfer the store sends but has not committed, and unapproved SOH adjustments.
+transfer the store sends but has not committed, and unapproved SOH adjustments. A different one was
+added on 2026-10-16: the sending store is held while an interco line it sent waits for its
+confirmation of a short or over receipt (`interco_confirm`).
 
 **Receiving has no approval step, so there is no "receipt awaiting approval" blocker** (2026-10-05).
 A receipt row (`ordered_item_receive_dates.status`) goes `pending` (worksheet placeholder, TO RECEIVE)

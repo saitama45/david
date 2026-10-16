@@ -15,6 +15,129 @@
 //   affects  who will notice the change
 
 export const changeLog = [
+    // ---------------------------------------------------------------- October 16, 2026
+    {
+        date: '2026-10-16',
+        module: 'Inventory Movement Report',
+        type: 'new',
+        title: 'New column "Pending Interco Transactions" in the Inventory Movement Report, between Variance and Adjustment',
+        summary:
+            'Inbound Interco and Outbound Interco show only what was received and moved into stock. A transfer still on its way showed nowhere, although it often explains a Variance. The new column "Pending Interco Transactions" shows those transfers for each item, coming in as a plus and going out as a minus. It is for information only and is not part of the computation.',
+        steps: [
+            'Open the Inventory Movement Report for a store and a date range.',
+            'Read "Pending Interco Transactions" between Variance and Adjustment. Example: 1 Kg of beans approved from GLO to ACS and not received yet shows +1.0000 at ACS and -1.0000 at GLO.',
+            'Click the figure to see each transfer behind it, with where it comes from or goes to and what it is waiting for. A click on the reference opens the transfer.',
+        ],
+        rules: [
+            'A transfer counts while it is approved and its item is not in stock yet. Transfers still waiting for approval, and disapproved ones, are not counted.',
+            'Coming in, the item counts at the quantity this store received, or at the quantity sent while nothing is recorded yet. Going out, it counts at the quantity sent.',
+            'An item waiting for the sending store to confirm a quantity received short or over is still pending.',
+            'Pending Interco Transactions is not part of Theoretical SOH, Variance or Final Variance. Once the item is received into stock, it leaves this column and is counted in Inbound or Outbound Interco.',
+            'A transfer is placed in the report by its transfer date, the same as Inbound and Outbound Interco.',
+            'The column is also in the PDF and the Excel export of the report.',
+        ],
+        affects: 'Store and office users who read the Inventory Movement Report of a store that sends or receives interco transfers.',
+    },
+    {
+        date: '2026-10-16',
+        module: 'Interco Receiving',
+        type: 'improved',
+        title: '"Final Receive All" moves only the items received as sent. An item received short or over shows WAITING FOR SENDER until the sending store confirms it',
+        summary:
+            '"Final Receive All" used to move every item at the quantity on its line, whatever the sending store had sent. Now an item is moved only when its received quantity is the same as the quantity sent. An item received short or over is not moved: it goes to the sending store, which either confirms the received quantity or re-sends the item to be recounted. The transfer is locked once every item is in stock.',
+        steps: [
+            'Open the transfer in Interco Receiving. Attach an image and use the edit button to record the quantity of any item that did not arrive as sent. The edit window shows the quantity sent and warns when yours is different.',
+            'Click "Final Receive All". The confirmation says how many items move into stock now and how many go to the sending store.',
+            'Items received as sent are taken out of the sending store and added to your stock on hand at once. They show IN STOCK.',
+            'An item received short or over shows WAITING FOR SENDER, and the page says it waits for the sending store. It cannot be changed while it waits.',
+            'If the sending store clicks "Confirm", the item is moved at the quantity you received. If it clicks "Re-Send", the item comes back to you with its reason. Recount it, correct the quantity if needed, and click "Final Receive All" again.',
+            'When every item is in stock, the page shows "Fully received on" with the date, and the transfer is locked.',
+        ],
+        rules: [
+            'An item matches when the quantity received is the same as the quantity sent, to four decimals. Example: 0.7 Kg received of 1 Kg sent does not match, so the item waits for the sending store.',
+            'A quantity above what was sent also waits for the sending store, the same as a quantity below it.',
+            'An item set to 0 with "Zero All" differs from what was sent, so it also goes to the sending store to confirm that nothing arrived.',
+            '"Final Receive All" stays on the page as long as you hold an item that is not in stock yet, so it can be clicked again after a "Re-Send".',
+            'While an item waits for the sending store, neither store can do its Month End Count.',
+            'Receiving History has two new columns, "Sent" and "Variance". An item moved into stock now shows IN STOCK. An item recorded but not moved yet still shows RECEIVED.',
+            'An item the sending store re-sent shows who re-sent it and the reason it gave. An item it confirmed shows "Quantity confirmed by" and the store name.',
+            '"Zero All", "Confirm Receive All", "Final Receive All" and the edit button now need the permission "receive interco requests", the same permission "Attach Image" already needed. A user who can only view Interco Receiving can still open the transfer but cannot record or move anything.',
+        ],
+        affects: 'Store users who receive and send interco transfers, and everyone who reads the stock on hand of the two stores.',
+    },
+    {
+        date: '2026-10-16',
+        module: 'Interco Transfer',
+        type: 'new',
+        title: '"Received Quantity Confirmation" on Interco Transfer: the sending store answers an item received short or over with "Confirm" or "Re-Send"',
+        summary:
+            'Until now the sending store had no say when the receiving store recorded a different quantity: its stock went down by whatever was recorded. Now an item received short or over waits for the sending store. The transfer page shows it under "Received Quantity Confirmation", with what was sent, what was received and the difference, and the sending store decides.',
+        steps: [
+            'Open Interco Transfer and choose the status "For Your Confirmation". It lists the transfers your store sent that wait for your answer.',
+            'Open the transfer. "Received Quantity Confirmation" lists each item with Sent, Received, Variance, the receiver\'s remarks and when it was sent for confirmation.',
+            'Click "Confirm" to accept the quantity received. It is taken out of your stock and added to the receiving store at once.',
+            'Or click "Re-Send" to send the item back to the receiving store to recount. You can type a reason, which the receiving store sees.',
+            'With more than one item waiting, "Confirm All" and "Re-Send All" answer every item at once.',
+        ],
+        rules: [
+            'Only a user assigned to the sending store who has the permission "receive interco requests" can click "Confirm" or "Re-Send". Others can see the items waiting, without the buttons.',
+            'Nothing moves for an item until it is confirmed, or until the receiving store recounts it to the quantity sent.',
+            'A re-sent item comes back to you if the receiving store finishes it again with a different quantity.',
+            'The confirmation of the last item waiting completes the transfer: it shows RECEIVED and is locked.',
+            'My Actions shows the task "Confirm interco received quantity" to the sending store while an item waits.',
+        ],
+        affects: 'Store users of the store that sends an interco transfer.',
+    },
+    {
+        date: '2026-10-16',
+        module: 'Interco Receiving',
+        type: 'improved',
+        title: 'An approved interco transfer can be received at once. "Store Commits" is no longer required first',
+        summary:
+            'A transfer could only be received after the sending store committed it in Store Commits. Now it can be received as soon as it is approved, at the approved quantity. The commit in Store Commits is optional: the sending store can still use it to change the quantity it sends, until the receiving store starts receiving.',
+        steps: [
+            'The transfer is approved in Interco Approval.',
+            'It appears right away in Interco Receiving under the In Transit tab, with each item ready to receive at the approved quantity.',
+            'The receiving store receives it as usual and clicks "Final Receive All".',
+        ],
+        rules: [
+            'Nothing is taken out of the sending store before the receiving store receives the transfer.',
+            'Until the receiving store records a quantity, uses "Zero All", "Confirm Receive All" or "Final Receive All", the sending store can change the quantity in Store Commits, and the receiving store sees the new quantity.',
+            'The first of those actions moves the transfer to IN TRANSIT. From then on Store Commits can no longer change it.',
+            'A transfer that is still open or was disapproved cannot be received.',
+            'My Actions now gives an approved transfer to the receiving store to receive, not to the sending store to commit.',
+        ],
+        affects: 'Store users who send and receive interco transfers, and approvers of interco requests.',
+    },
+    {
+        date: '2026-10-16',
+        module: 'Month End Count',
+        type: 'improved',
+        title: 'Month End Count now also waits for the sending store\'s answer on an interco item received short or over',
+        summary:
+            'Month End Count waited only for the receiving store to receive its interco transfers. Now, when an item was received short or over and waits for the sending store to confirm it, the sending store cannot count either. The page shows "interco transfer waiting for your confirmation of the received quantity" with a link to the transfers waiting.',
+        rules: [
+            'The sending store is held by a transfer dated within the period of the count while any of its items waits for the store\'s "Confirm" or "Re-Send".',
+            'The receiving store is held, as before, until the transfer is fully received.',
+            'A transfer the sending store has not committed still does not hold its count.',
+        ],
+        affects: 'Store users who take the Month End Count of a store that sends interco transfers.',
+    },
+    {
+        date: '2026-10-16',
+        module: 'Inventory Movement Report',
+        type: 'improved',
+        title: 'Outbound Interco in the Inventory Movement Report counts only what the receiving store received into stock',
+        summary:
+            'Outbound Interco counted every transfer a store sent at the requested quantity from the day it was made, also transfers not yet approved, disapproved or not yet received. Now it counts only what actually left the store: the quantity the receiving store received and moved into stock, with "Final Receive All" or the sending store\'s "Confirm". Clicking the figure lists each transfer with the date it was received.',
+        rules: [
+            'A transfer not yet received, or an item waiting for the sending store\'s confirmation, is not counted in Outbound Interco.',
+            'An item received short is counted at the quantity received. Example: 0.7 Kg confirmed of 1 Kg sent counts as 0.7 Kg.',
+            'A transfer is still placed in the report by its transfer date.',
+            'Theoretical SOH and Variance follow, and so do the Current SOH of the Month End Count template and the Qty Variance / Cost Variance Report, which use the same figures.',
+        ],
+        affects: 'Store and office users who read the Inventory Movement Report or the count template of a store that sends interco transfers.',
+    },
     // ---------------------------------------------------------------- October 9, 2026
     {
         date: '2026-10-09',

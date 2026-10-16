@@ -218,18 +218,19 @@ it('writes the adjustment, the Final Variance and the reason to the Excel export
     $sheet = IOFactory::load($path)->getActiveSheet();
 
     expect($sheet->getCell('N4')->getValue())->toBe('FINAL BALANCE');
-    expect([$sheet->getCell('Q5')->getValue(), $sheet->getCell('R5')->getValue(), $sheet->getCell('S5')->getValue()])
-        ->toBe(['Adjustment', 'Final Variance', 'Adjustment Reason']);
+    expect([$sheet->getCell('Q5')->getValue(), $sheet->getCell('R5')->getValue(), $sheet->getCell('S5')->getValue(), $sheet->getCell('T5')->getValue()])
+        ->toBe(['Pending Interco Transactions', 'Adjustment', 'Final Variance', 'Adjustment Reason']);
 
     expect($sheet->getCell('P6')->getValue())->toBe(4.0);
-    expect($sheet->getCell('Q6')->getValue())->toBe(-1.5);
-    expect($sheet->getCell('R6')->getValue())->toBe(2.5);
-    expect($sheet->getCell('R6')->getStyle()->getNumberFormat()->getFormatCode())->toBe('#,##0.0000');
-    expect($sheet->getCell('S6')->getValue())->toBe('Four bags were given to the commissary and not recorded.');
+    expect($sheet->getCell('Q6')->getValue())->toBe(0.0);
+    expect($sheet->getCell('R6')->getValue())->toBe(-1.5);
+    expect($sheet->getCell('S6')->getValue())->toBe(2.5);
+    expect($sheet->getCell('S6')->getStyle()->getNumberFormat()->getFormatCode())->toBe('#,##0.0000');
+    expect($sheet->getCell('T6')->getValue())->toBe('Four bags were given to the commissary and not recorded.');
 
     // A long reason wraps in its column instead of stretching it.
-    expect($sheet->getColumnDimension('S')->getWidth())->toBe(45.0);
-    expect($sheet->getStyle('S6')->getAlignment()->getWrapText())->toBeTrue();
+    expect($sheet->getColumnDimension('T')->getWidth())->toBe(45.0);
+    expect($sheet->getStyle('T6')->getAlignment()->getWrapText())->toBeTrue();
 
     unlink($path);
 });

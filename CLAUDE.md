@@ -94,7 +94,7 @@ Full detail: [Data-Flows.md](docs/knowledge/Data-Flows.md).
 
 **Services** ([app/Http/Services/](app/Http/Services/)): `RuleExceptionService`, `OrderingCutoffService`,
 `OrderApprovalService`, `MassOrderService`, `StoreOrderService`, `DTSStoreOrderService`,
-`OrderCalculatorService`, `OrderReceivingService`, `IntercoService`, `WastageService`,
+`OrderCalculatorService`, `OrderReceivingService`, `IntercoService`, `IntercoReceivingService`, `WastageService`,
 `MonthEndCountSettingsService`, `MonthEndCountReadinessService`, `MonthEndCountRejectionService`,
 `MonthEndCountIncidentReportService`, `MonthEndClosedPeriodService`,
 `InventoryMovementService`,
@@ -280,8 +280,20 @@ SQL Server as the target. Rationale and trade-offs: [Decisions.md](docs/knowledg
   delivery therefore counts in no report and holds its Month End Count back until it is finalized;
   Inbound Orders lists them under the For Final Receive All tab (`currentFilter=for_final`: open order
   with a `received` row). Interco Receiving has the same three actions (Zero All, Confirm Receive All,
-  Final Receive All); its transfer stays `in_transit` until Final Receive All moves the stock out of the
-  sending store and into the receiving one. Detail: [Data-Flows.md](docs/knowledge/Data-Flows.md#approval-flow).
+  Final Receive All), with per-line posting (next bullet). Detail: [Data-Flows.md](docs/knowledge/Data-Flows.md#approval-flow).
+- **An interco line received short or over waits for the sending store, and nothing moves for it.**
+  `IntercoReceivingService::finalReceive()` posts only lines whose receipts add up to `quantity_commited`
+  (4 dp); the rest become receipt status `for_confirmation`, which the `pending`/`received` lists of every
+  receiving action already skip. The sending store (assigned + `receive interco requests`) answers on
+  `/interco/show`: Confirm posts at the received quantity, Re-Send returns the row `received` with
+  `sender_decision = resent`. The transfer is RECEIVED and locked only once every receipt is `approved`.
+  Receiving opens at `approved`: the Store Commits commit is optional, and the first receiving action
+  moves the transfer `in_transit`, which closes Store Commits. A `for_confirmation` row holds the
+  sending store's MEC (`interco_confirm`) - not the dropped "not committed" check. Outbound Interco in
+  the Inventory Movement Report is posted receipts only, never `quantity_commited`; what is not posted
+  yet shows in its Pending Interco Transactions column (`interco_pending_qty`, + in / - out), which
+  is in no balance: never add it to Theoretical SOH, Variance or Final Variance.
+  Detail: [Data-Flows.md](docs/knowledge/Data-Flows.md#interco-receiving-and-sender-confirmation).
 - **Receiving has no approval step.** A receipt row's `approved` status means *posted to stock* by the
   store's Final Receive All (`pending` → `received` → `approved`); `/receiving-approvals` is a
   legacy page outside the process. Never tell a user a receipt is "awaiting approval" or link there:
@@ -304,7 +316,7 @@ SQL Server as the target. Rationale and trade-offs: [Decisions.md](docs/knowledg
   `/reports/inventory-movement/details`). Each of its queries is the row-by-row twin of the one
   `InventoryMovementService` sums for that column: **change a column's source, filter or unit in one
   and change it in the other**, or the popup stops adding up to the figure
-  (`InventoryMovementDetailTest` compares all nine). Unit conversion is shared through `itemUnits()`.
+  (`InventoryMovementDetailTest` compares all ten). Unit conversion is shared through `itemUnits()`.
   The popup's Export Excel (`InventoryMovementDetailExport`) is the same `details()` unpaged; its
   headings are `LABELS`, a copy of `detailColumns` in the page - rename a column in both.
 - **The Inventory Movement Report's Adjustment explains a Variance; it posts no stock.**

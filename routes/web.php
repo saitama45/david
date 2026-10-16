@@ -491,6 +491,9 @@ Route::middleware('auth')
             Route::middleware('permission:approve interco requests')->patch('/{interco}/approve', 'approve')->name('approve');
             Route::middleware('permission:approve interco requests')->patch('/{interco}/disapprove', 'disapprove')->name('disapprove');
             Route::middleware('permission:commit interco requests')->patch('/{interco}/commit', 'commit')->name('commit');
+            // The sending store's answer to a quantity received short or over.
+            Route::middleware('permission:receive interco requests')->post('/{interco}/received-quantity/confirm', 'confirmReceivedQuantity')->name('received-quantity.confirm');
+            Route::middleware('permission:receive interco requests')->post('/{interco}/received-quantity/resend', 'resendReceivedQuantity')->name('received-quantity.resend');
             // Note: approve, commit, and receive actions are handled by existing approval and receiving systems
         });
 
@@ -705,10 +708,13 @@ Route::middleware('auth')
             Route::middleware('permission:receive interco requests')->post('/receive/{id}', 'receive')->name('receive');
             Route::middleware('permission:receive interco requests')->post('/attach-image/{id}', 'attachImage')->name('attach-image');
             Route::middleware('permission:export interco receiving')->get('/export', 'export')->name('export');
-            Route::post('/update-receiving-history', 'updateReceiveDateHistory')->name('update-receiving-history');
-            Route::post('/confirm-receive/{intercoNumber}', 'confirmReceive')->name('confirm-receive');
-            Route::post('/zero-all/{intercoNumber}', 'zeroAll')->name('zero-all');
-            Route::post('/final-receive/{intercoNumber}', 'finalReceive')->name('final-receive');
+            // Every action that records or posts a quantity, as Inbound Orders gates its own.
+            Route::middleware('permission:receive interco requests')->group(function () {
+                Route::post('/update-receiving-history', 'updateReceiveDateHistory')->name('update-receiving-history');
+                Route::post('/confirm-receive/{intercoNumber}', 'confirmReceive')->name('confirm-receive');
+                Route::post('/zero-all/{intercoNumber}', 'zeroAll')->name('zero-all');
+                Route::post('/final-receive/{intercoNumber}', 'finalReceive')->name('final-receive');
+            });
         });
 
         // Store Commits

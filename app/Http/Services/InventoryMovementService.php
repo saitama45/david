@@ -22,6 +22,9 @@ class InventoryMovementService
     /** The Supplier Items category that tags an item as supplies. */
     public const SUPPLIES_CATEGORY = 'SUPPLIES';
 
+    /** Interco transfers that will move stock once received: approved, with or without a commit. */
+    public const PENDING_INTERCO_STATUSES = ['approved', 'committed', 'in_transit'];
+
     /** Above this many item codes the list is left out of the queries - see movementDataForBranches(). */
     private const ITEM_FILTER_LIMIT = 200;
 
@@ -98,7 +101,7 @@ class InventoryMovementService
 
         $suppliesTags = $this->suppliesTags($sapItems, $onlyItems);
 
-        $metrics = ['ordered', 'committed', 'received', 'sales', 'wastage', 'interco_in', 'interco_out', 'beg_bal', 'actual_mec'];
+        $metrics = ['ordered', 'committed', 'received', 'sales', 'wastage', 'interco_in', 'interco_out', 'interco_pending', 'beg_bal', 'actual_mec'];
         $totals = array_fill_keys($metrics, collect());
         // The wastage rows that came from a wasted Sub-Prep, kept apart so the report can name it.
         $subPrepWastage = collect();
@@ -158,11 +161,43 @@ class InventoryMovementService
                     ->get());
             }
 
-            // 5. Interco Outbound (Shipped from this store)
+            // 5. Interco Outbound: what left this store, which is what the receiving store
+            // posted (received as sent, or confirmed by this store), never the quantity asked for.
             $totals['interco_out'] = $totals['interco_out']->merge($procurement('so.sending_store_branch_id')
+                ->join('ordered_item_receive_dates as oird', 'oird.store_order_item_id', '=', 'soi.id')
                 ->whereNotNull('so.interco_number')
-                ->select($unitSum('so.sending_store_branch_id', 'soi.item_code', 'soi.uom', 'COALESCE(soi.quantity_commited, 0)'))
+                ->where('oird.status', 'approved')
+                ->select($unitSum('so.sending_store_branch_id', 'soi.item_code', 'soi.uom', 'COALESCE(oird.quantity_received, 0)'))
                 ->get());
+
+            // 5.5 Pending Interco: lines of approved transfers not in stock yet (a line is posted
+            // whole), + coming in at what this store recorded (the quantity sent until it records
+            // one), - going out at the quantity sent. It is in no balance: it explains a Variance.
+            $pendingLine = fn ($query) => $query
+                ->whereNotNull('so.interco_number')
+                ->whereIn('so.interco_status', self::PENDING_INTERCO_STATUSES)
+                ->whereNotExists(fn ($posted) => $posted->select(DB::raw(1))
+                    ->from('ordered_item_receive_dates as posted')
+                    ->whereColumn('posted.store_order_item_id', 'soi.id')
+                    ->where('posted.status', 'approved'));
+
+            $totals['interco_pending'] = $totals['interco_pending']
+                ->merge($procurement()
+                    ->tap($pendingLine)
+                    ->join('ordered_item_receive_dates as oird', 'oird.store_order_item_id', '=', 'soi.id')
+                    ->select($unitSum('so.store_branch_id', 'soi.item_code', 'soi.uom', 'COALESCE(oird.quantity_received, 0)'))
+                    ->get())
+                ->merge($procurement()
+                    ->tap($pendingLine)
+                    ->whereNotExists(fn ($rows) => $rows->select(DB::raw(1))
+                        ->from('ordered_item_receive_dates as opened')
+                        ->whereColumn('opened.store_order_item_id', 'soi.id'))
+                    ->select($unitSum('so.store_branch_id', 'soi.item_code', 'soi.uom', 'COALESCE(soi.quantity_commited, 0)'))
+                    ->get())
+                ->merge($procurement('so.sending_store_branch_id')
+                    ->tap($pendingLine)
+                    ->select($unitSum('so.sending_store_branch_id', 'soi.item_code', 'soi.uom', '-COALESCE(soi.quantity_commited, 0)'))
+                    ->get());
 
             // 2. Sales (dated by the POS sales date, not the import timestamp). The BOM is
             // matched within the product's entity, as sales posting does.
@@ -345,6 +380,8 @@ class InventoryMovementService
                     'actual_mec' => $values['actual_mec'],
                     // Actual MEC - Theoretical SOH. The + 0.0 turns a rounded -0.0 into 0.
                     'variance_qty' => round($values['actual_mec'] - $theoretical, 6) + 0.0,
+                    // Shown beside the Variance it may explain; never part of a balance.
+                    'interco_pending_qty' => $values['interco_pending'] + 0.0,
                     'procurement_sources' => $procurementSources,
                     // Quantities in a unit with no conversion to the display unit are left out.
                     'unconverted_units' => array_values(array_unique($unconverted)),

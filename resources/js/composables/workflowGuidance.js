@@ -14,8 +14,14 @@ export function guidanceContext(component, props = {}, branchId = null) {
             if (status === 'rejected') message = 'This order was rejected. Review the rejection reason and the available correction actions before placing a replacement.';
         }
     } else if (['Interco', 'IntercoApproval', 'StoreCommits', 'IntercoReceiving'].includes(module)) {
-        steps = ['interco', 'interco_approval', 'interco_commit', 'interco_receive'];
-        if (record) current = ({ open: ['interco_approval'], approved: ['interco_commit'], committed: ['interco_receive'], in_transit: ['interco_receive'] })[status] || [];
+        steps = ['interco', 'interco_approval', 'interco_commit', 'interco_receive', 'interco_confirm'];
+        // The sending branch's commit is optional: an approved transfer is the receiving branch's to receive.
+        if (record) current = ({ open: ['interco_approval'], approved: ['interco_receive'], committed: ['interco_receive'], in_transit: ['interco_receive'] })[status] || [];
+        // Items received short or over wait for the sending branch.
+        const receipts = props.receiveDatesHistory || [];
+        if (props.senderConfirmation?.lines?.length || receipts.some(item => item.status === 'for_confirmation')) {
+            current = [...(receipts.some(item => ['pending', 'received'].includes(item.status)) ? ['interco_receive'] : []), 'interco_confirm'];
+        }
         if (status === 'received') message = 'Transfer received. No further receiving action is required.';
         if (status === 'disapproved') message = 'This request was disapproved. Review the reason and available correction actions.';
     } else if (['Wastage', 'WastageApprovalLevel1', 'WastageApprovalLevel2'].includes(module)) {

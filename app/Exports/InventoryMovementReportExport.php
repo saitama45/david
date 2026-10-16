@@ -41,7 +41,7 @@ class InventoryMovementReportExport implements FromCollection, ShouldAutoSize, W
         'PROCUREMENT (DATE RANGE)' => 3,
         'BEGINNING' => 1,
         'DEDUCTIONS / TRANSFERS' => 5,
-        'FINAL BALANCE' => 6,
+        'FINAL BALANCE' => 7,
     ];
 
     private const COLUMN_HEADINGS = [
@@ -61,6 +61,7 @@ class InventoryMovementReportExport implements FromCollection, ShouldAutoSize, W
         'Theoretical',
         'Actual MEC',
         'Variance',
+        'Pending Interco Transactions',
         'Adjustment',
         'Final Variance',
         'Adjustment Reason',
@@ -73,12 +74,12 @@ class InventoryMovementReportExport implements FromCollection, ShouldAutoSize, W
         'N' => 'F5F3FF', // Theoretical
     ];
 
-    private const LAST_COLUMN = 'S';
+    private const LAST_COLUMN = 'T';
 
     /** The last column that holds a quantity; the one after it is the adjustment's reason, a text. */
-    private const LAST_QUANTITY_COLUMN = 'R';
+    private const LAST_QUANTITY_COLUMN = 'S';
 
-    private const REASON_COLUMN = 'S';
+    private const REASON_COLUMN = 'T';
 
     /** A reason can run to 500 characters: it wraps in a column of this width instead of sizing it. */
     private const REASON_COLUMN_WIDTH = 45;
@@ -136,6 +137,8 @@ class InventoryMovementReportExport implements FromCollection, ShouldAutoSize, W
             (float) $item['theoretical_qty'],
             (float) $item['actual_mec'],
             (float) $item['variance_qty'],
+            // Beside the Variance it may explain; it is in no balance.
+            (float) ($item['interco_pending_qty'] ?? 0),
             (float) ($item['adjustment_qty'] ?? 0),
             (float) ($item['final_variance_qty'] ?? $item['variance_qty']),
             (string) ($item['adjustment_reason'] ?? ''),
@@ -284,7 +287,7 @@ class InventoryMovementReportExport implements FromCollection, ShouldAutoSize, W
             ]);
         }
 
-        // Actual MEC, Variance, Adjustment and Final Variance are bold in the PDF but carry no fill.
+        // Actual MEC, Variance, Pending Interco Transactions, Adjustment and Final Variance are bold in the PDF but carry no fill.
         $sheet->getStyle('O'.$firstRow.':'.self::LAST_QUANTITY_COLUMN.$lastRow)
             ->getFont()->setBold(true);
 

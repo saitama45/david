@@ -25,7 +25,7 @@ class MyActionsService
         $canView = fn (array $keys) => collect($keys)->contains(fn ($key) => $user->can($catalog[$key]['view']));
 
         // Open work is not restricted to the current month: old handoffs must remain visible.
-        if ($canView(['order', 'dts_order', 'order_approval', 'fg_commit', 'other_commit', 'dts_commit', 'receive', 'receipt_approval', 'interco', 'interco_approval', 'interco_commit', 'interco_receive'])) {
+        if ($canView(['order', 'dts_order', 'order_approval', 'fg_commit', 'other_commit', 'dts_commit', 'receive', 'receipt_approval', 'interco', 'interco_approval', 'interco_commit', 'interco_receive', 'interco_confirm'])) {
             StoreOrder::with(['supplier', 'store_branch', 'sendingStore', 'store_order_items'])
                 ->where(fn ($q) => $q->whereIn('store_branch_id', $branchIds)->orWhereIn('sending_store_branch_id', $branchIds))
                 ->where(fn ($q) => $q->whereIn('order_status', ['pending', 'approved', 'partial_committed', 'committed', 'incomplete'])
@@ -33,20 +33,30 @@ class MyActionsService
                     ->orWhereHas('ordered_item_receive_dates', fn ($r) => $r->where('status', 'pending')))
                 ->withCount(['ordered_item_receive_dates as pending_receipt' => fn ($q) => $q->where('status', 'pending')])
                 ->withMin(['ordered_item_receive_dates as receipt_submitted_at' => fn ($q) => $q->where('status', 'pending')], 'created_at')
+                // Interco lines the receiving store still holds, and lines waiting for the sending store.
+                ->withCount(['ordered_item_receive_dates as interco_open_receipts' => fn ($q) => $q->whereIn('status', IntercoReceivingService::OPEN)])
+                ->withMin(['ordered_item_receive_dates as sender_confirmation_since' => fn ($q) => $q->where('status', IntercoReceivingService::FOR_CONFIRMATION)], 'confirmation_requested_at')
                 ->orderBy('id')->chunkById(200, function ($orders) use ($user, $branchIds, $tasks, $canView) {
                     $pendingCommits = $this->adoption->pendingCommitKeys($orders);
                     foreach ($orders as $order) {
                         $interco = $order->isInterco();
-                        if ($interco && ! $canView(['interco', 'interco_approval', 'interco_commit', 'interco_receive'])) {
+                        if ($interco && ! $canView(['interco', 'interco_approval', 'interco_commit', 'interco_receive', 'interco_confirm'])) {
                             continue;
                         }
                         if (! $interco && ! $canView(['order', 'dts_order', 'order_approval', 'fg_commit', 'other_commit', 'dts_commit', 'receive', 'receipt_approval'])) {
                             continue;
                         }
                         $status = $interco ? $order->interco_status?->value : strtolower($order->order_status);
+                        // Receiving does not wait for the sending store's commit, which is optional.
+                        // Once every line the receiving store held went to the sending store to
+                        // confirm, only the sending store has something to do.
                         $keys = $interco ? match ($status) {
-                            'open' => ['interco_approval'], 'approved' => ['interco_commit'],
-                            'committed', 'in_transit' => ['interco_receive'], default => [],
+                            'open' => ['interco_approval'],
+                            'approved', 'committed', 'in_transit' => array_merge(
+                                $order->sender_confirmation_since && ! $order->interco_open_receipts ? [] : ['interco_receive'],
+                                $order->sender_confirmation_since ? ['interco_confirm'] : []
+                            ),
+                            default => [],
                         } : match ($status) {
                             'pending' => $order->variant === 'mass regular' && $order->supplier?->is_forapproval_massorders ? ['order_approval'] : [],
                             'approved', 'partial_committed' => $order->variant === 'mass dts' ? ['dts_commit'] : ($order->variant === 'mass regular' ? ($pendingCommits[$order->id] ?? []) : []),
@@ -56,7 +66,8 @@ class MyActionsService
                             $keys = ['receipt_approval'];
                         }
                         foreach ($keys as $key) {
-                            $branchId = $key === 'interco_commit' ? $order->sending_store_branch_id : $order->store_branch_id;
+                            $sendingSide = in_array($key, ['interco_commit', 'interco_confirm']);
+                            $branchId = $sendingSide ? $order->sending_store_branch_id : $order->store_branch_id;
                             // Do not expose a counterpart branch's people or tasks without branch access.
                             if (! $branchIds->contains($branchId)) {
                                 continue;
@@ -67,11 +78,14 @@ class MyActionsService
                             if ($key === 'receipt_approval') {
                                 $since = $order->receipt_submitted_at ?? $since;
                             }
+                            if ($key === 'interco_confirm') {
+                                $since = $order->sender_confirmation_since;
+                            }
                             $context = [
                                 'id' => 'order:'.$order->id.':'.$key,
                                 'record_id' => $order->id,
                                 'branch_id' => (int) $branchId,
-                                'branch' => $key === 'interco_commit' ? $order->sendingStore?->name : $order->store_branch?->name,
+                                'branch' => $sendingSide ? $order->sendingStore?->name : $order->store_branch?->name,
                                 'supplier_id' => $order->supplier_id,
                                 'reference' => $order->interco_number ?: $order->order_number,
                                 'date' => substr((string) $order->order_date, 0, 10),
@@ -207,7 +221,8 @@ class MyActionsService
             'receive' => ['orders-receiving.show', 'view approved order'],
             'interco_approval' => ['interco-approval.show', 'view interco approvals'],
             'interco_commit' => ['store-commits.show', 'view store commits'],
-            'interco_receive' => ['interco-receiving.show', 'view interco receiving'], default => null,
+            'interco_receive' => ['interco-receiving.show', 'view interco receiving'],
+            'interco_confirm' => ['interco.show', 'view interco requests'], default => null,
         };
         if ($route && $user->can($route[1])) {
             // orders-receiving.show resolves by order_number, interco-receiving.show by interco_number,

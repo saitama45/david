@@ -29,7 +29,7 @@
         <strong>By:</strong> {{ $generated_by }}
     </div>
 
-    <p>All quantities use the SAP base unit shown in the UOM column (for example, 36 Gm of a 1,000 Gm Bag = 0.036 Bag). Supplies Used is the usage the month end count shows for Operating / Cleaning Supplies items. Final Variance = Variance + Adjustment.</p>
+    <p>All quantities use the SAP base unit shown in the UOM column (for example, 36 Gm of a 1,000 Gm Bag = 0.036 Bag). Supplies Used is the usage the month end count shows for Operating / Cleaning Supplies items. Final Variance = Variance + Adjustment. Pending Interco Transactions are interco transfers approved for the period and not in stock yet (+ coming in, - going out); they are not part of Theoretical, Variance or Final Variance.</p>
     <table>
         <thead>
             <tr style="background-color: #f3f4f6; font-size: 8px;">
@@ -37,7 +37,7 @@
                 <th colspan="3">PROCUREMENT (DATE RANGE)</th>
                 <th>BEGINNING</th>
                 <th colspan="5">DEDUCTIONS / TRANSFERS</th>
-                <th colspan="5">FINAL BALANCE</th>
+                <th colspan="6">FINAL BALANCE</th>
             </tr>
             <tr style="background-color: #eee;">
                 <th class="text-left" width="10%">Supplier</th>
@@ -56,6 +56,7 @@
                 <th>Theoretical</th>
                 <th>Actual MEC</th>
                 <th>Variance</th>
+                <th>Pending Interco Transactions</th>
                 <th width="9%">Adjustment</th>
                 <th>Final Variance</th>
             </tr>
@@ -87,6 +88,8 @@
                         {{ $item['actual_mec'] !== null ? \App\Support\ReportNumber::format($item['actual_mec']) : '-' }}
                     </td>
                     <td class="text-right font-bold">{{ \App\Support\ReportNumber::format($item['variance_qty']) }}</td>
+                    {{-- Beside the Variance it may explain; it is in no balance --}}
+                    <td class="text-right font-bold">{{ \App\Support\ReportNumber::format($item['interco_pending_qty'] ?? 0) }}</td>
                     <td class="text-right font-bold">
                         {{ \App\Support\ReportNumber::format($item['adjustment_qty'] ?? 0) }}
                         {{-- Why the variance was adjusted --}}

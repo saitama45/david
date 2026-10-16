@@ -88,10 +88,20 @@ function movementDetailFixture(): array
     $receive($line($orderId, 'RM-GLOVE', 'Pc', 100, 100), 100, '2026-10-06 09:00:00');
     $line($order('ORD-0', '2026-09-20', 'received'), 'RM-COCOA', 'Bag', 7, 7);
 
-    // 500 Gm came in from the other store; 1 Bag went out to it.
+    // 500 Gm came in from the other store; 1 Bag went out to it. Out is what the other store
+    // posted: a transfer it has not received yet (2 Bag) has not left this store.
     $receive($line($order('ICO-IN', '2026-10-06', 'received', ['interco_number' => 'IC-IN-1', 'sending_store_branch_id' => $other->id]), 'RM-COCOA', 'Gm', 500, 500), 500, '2026-10-07 09:00:00');
-    $outId = $order('ICO-OUT', '2026-10-09', 'committed', ['interco_number' => 'IC-OUT-1', 'sending_store_branch_id' => $store->id, 'store_branch_id' => $other->id]);
-    $line($outId, 'RM-COCOA', 'Bag', 1, 1);
+    $outId = $order('ICO-OUT', '2026-10-09', 'received', ['interco_number' => 'IC-OUT-1', 'sending_store_branch_id' => $store->id, 'store_branch_id' => $other->id]);
+    $receive($line($outId, 'RM-COCOA', 'Bag', 1, 1), 1, '2026-10-10 09:00:00');
+    $pendingOut = $order('ICO-OUT-2', '2026-10-11', 'pending', ['interco_number' => 'IC-OUT-2', 'interco_status' => 'in_transit', 'sending_store_branch_id' => $store->id, 'store_branch_id' => $other->id]);
+    $receive($line($pendingOut, 'RM-COCOA', 'Bag', 2, 2), 2, '2026-10-12 09:00:00', 'for_confirmation');
+
+    // Pending Interco: 300 Gm approved and not opened yet, 250 Gm recorded of 400 sent, both
+    // coming in; the 2 Bag above going out. A disapproved transfer is never pending.
+    $in = fn (string $number, string $date, string $status) => $order($number, $date, 'pending', ['interco_number' => str_replace('ICO', 'IC', $number), 'interco_status' => $status, 'sending_store_branch_id' => $other->id]);
+    $line($in('ICO-IN-2', '2026-10-12', 'approved'), 'RM-COCOA', 'Gm', 300, 300);
+    $receive($line($in('ICO-IN-3', '2026-10-13', 'in_transit'), 'RM-COCOA', 'Gm', 400, 400), 250, '2026-10-14 09:00:00', 'received');
+    $line($in('ICO-IN-4', '2026-10-14', 'disapproved'), 'RM-COCOA', 'Gm', 999, 999);
 
     // A drink uses 10 Gm of cocoa: 4 sold on one receipt, 1 on another.
     $drink = POSMasterfile::create(['POSCode' => 'FG-1', 'POSDescription' => 'Mocha Latte', 'SRP' => 180, 'is_active' => true]);
@@ -131,7 +141,7 @@ function movementDetailFixture(): array
         ]);
     }
 
-    return compact('entity', 'user', 'store', 'other', 'sap', 'september', 'october', 'receipts', 'outId');
+    return compact('entity', 'user', 'store', 'other', 'sap', 'september', 'october', 'receipts', 'outId', 'pendingOut');
 }
 
 function movementDetail(array $f, string $code, string $metric, int $page = 1, ?int $perPage = InventoryMovementDetailService::PER_PAGE): array
@@ -173,9 +183,15 @@ it('adds up, for every clickable column, to the figure the report shows', functi
         ->toBe([3.0, 2.0, 2.0, 4.0, 0.05, 0.05, 0.5, 1.0])
         ->and($gloves['supplies_qty'])->toBe(30.0);
 
+    // Pending Interco: + 0.3 + 0.25 coming in, - 2 going out. It is in no balance.
+    expect($cocoa['interco_pending_qty'])->toBe(-1.45)
+        ->and($cocoa['theoretical_qty'])->toBe(round(4.0 + 2.0 + 0.5 - 0.05 - 0.05 - 1.0, 6))
+        ->and($cocoa['variance_qty'])->toBe(round(3.0 - $cocoa['theoretical_qty'], 6));
+
     foreach ([
         'ordered' => 'ordered_qty', 'committed' => 'committed_qty', 'received' => 'received_qty', 'beg_bal' => 'beg_bal_qty',
         'sales' => 'sales_qty', 'wastage' => 'wastage_qty', 'interco_in' => 'interco_in_qty', 'interco_out' => 'interco_out_qty',
+        'interco_pending' => 'interco_pending_qty',
     ] as $metric => $field) {
         $detail = movementDetail($f, 'RM-COCOA', $metric);
 
@@ -204,7 +220,12 @@ it('lists each transaction with its own quantity and the link that opens it', fu
     ])->and($lines('interco_in'))->toBe([
         ['Oct 6, 2026', 'IC-IN-1', 'From Other Store · received Oct 7, 2026', 500.0, 'Gm', 0.5, route('interco-receiving.show', 'IC-IN-1')],
     ])->and($lines('interco_out'))->toBe([
-        ['Oct 9, 2026', 'IC-OUT-1', 'To Other Store · Committed', 1.0, 'Bag', 1.0, route('interco.show', $f['outId'])],
+        ['Oct 9, 2026', 'IC-OUT-1', 'To Other Store · received Oct 10, 2026', 1.0, 'Bag', 1.0, route('interco.show', $f['outId'])],
+    ])->and($lines('interco_pending'))->toBe([
+        // Coming in opens on Interco Receiving; going out, on the transfer this store sent.
+        ['Oct 13, 2026', 'IC-IN-3', 'From Other Store · received, not in stock yet', 250.0, 'Gm', 0.25, route('interco-receiving.show', 'IC-IN-3')],
+        ['Oct 12, 2026', 'IC-IN-2', 'From Other Store · not received yet', 300.0, 'Gm', 0.3, route('interco-receiving.show', 'IC-IN-2')],
+        ['Oct 11, 2026', 'IC-OUT-2', 'To Other Store · waiting for your confirmation', -2.0, 'Bag', -2.0, route('interco.show', $f['pendingOut'])],
     ])->and($lines('sales'))->toBe([
         ['Oct 8, 2026', 'R-101', 'Mocha Latte (FG-1)', 10.0, 'Gm', 0.01, route('store-transactions.show', $f['receipts']['R-101'])],
         ['Oct 7, 2026', 'R-100', 'Mocha Latte (FG-1)', 40.0, 'Gm', 0.04, route('store-transactions.show', $f['receipts']['R-100'])],

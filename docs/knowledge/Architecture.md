@@ -48,7 +48,7 @@ equivalent to them (80,352 cutoff/time combinations, 0 mismatches). `StoreOrderC
 `app/Http/Services/RuleExceptions/`; the rule registry is `config/rule_exceptions.php`.
 
 Ordering is split by variant: `StoreOrderService` (regular), `MassOrderService` (mass),
-`DTSStoreOrderService` (direct-to-store), `IntercoService` (inter-company),
+`DTSStoreOrderService` (direct-to-store), `IntercoService` (inter-company), `IntercoReceivingService` (interco receiving, per-line posting, sender confirmation),
 `OrderCalculatorService` (suggested quantities), `OrderReceivingService` (receiving),
 `OrderApprovalService` (approval transitions).
 

@@ -71,10 +71,11 @@ enum IntercoStatus: string
         };
     }
 
+    // Receiving does not wait for the sending store's commit, which is optional.
     public function canBeReceived(): bool
     {
         return match($this) {
-            self::COMMITTED, self::IN_TRANSIT => true,
+            self::APPROVED, self::COMMITTED, self::IN_TRANSIT => true,
             default => false,
         };
     }

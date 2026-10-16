@@ -301,6 +301,16 @@ class StoreCommitsController extends Controller
 
             if ($newStatus === 'in_transit') {
                 foreach ($order->store_order_items as $item) {
+                    // Receiving no longer waits for this commit, so the receiving store may
+                    // already have opened the line: it now carries the committed quantity.
+                    $placeholders = $item->ordered_item_receive_dates()->get();
+                    if ($placeholders->isNotEmpty()) {
+                        $placeholders->where('status', 'pending')
+                            ->each(fn ($row) => $row->update(['quantity_received' => $item->quantity_commited]));
+
+                        continue;
+                    }
+
                     OrderedItemReceiveDate::create([
                         'store_order_item_id' => $item->id,
                         'received_by_user_id' => $user->id,
@@ -415,6 +425,11 @@ class StoreCommitsController extends Controller
             $updateResult = $orderItem->update([
                 'quantity_commited' => $request->quantity_commited,
             ]);
+
+            // The receiving store may already see the line (receiving does not wait for the
+            // commit); until it receives anything, the line follows the quantity to send.
+            $orderItem->ordered_item_receive_dates()->where('status', 'pending')->get()
+                ->each(fn ($row) => $row->update(['quantity_received' => $request->quantity_commited]));
 
             \Log::info('Database update successful', [
                 'updateResult' => $updateResult,

@@ -14,16 +14,21 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Log;
-use App\Models\ProductInventoryStockManager;
-use App\Models\PurchaseItemBatch;
 use App\Models\SAPMasterfile;
+use App\Http\Services\IntercoReceivingService;
 use App\Http\Services\OrderReceivingService;
 use App\Support\ItemStockUnit;
 use Inertia\Inertia;
-use Carbon\Carbon;
 
 class IntercoReceivingController extends Controller
 {
+    /** Still to receive: an approved transfer needs no commit from the sending store first. */
+    private const TO_RECEIVE = ['approved', 'committed', 'in_transit'];
+
+    public function __construct(private IntercoReceivingService $intercoReceiving)
+    {
+    }
+
     /**
      * Display a listing of interco orders for receiving.
      */
@@ -34,10 +39,7 @@ class IntercoReceivingController extends Controller
 
         $baseQuery = StoreOrder::whereNotNull('interco_number')
             ->whereNotNull('sending_store_branch_id')
-            ->whereIn('interco_status', [
-                IntercoStatus::IN_TRANSIT->value,
-                IntercoStatus::RECEIVED->value,
-            ]);
+            ->whereIn('interco_status', [...self::TO_RECEIVE, IntercoStatus::RECEIVED->value]);
 
         $user = Auth::user();
         $user->load('store_branches');
@@ -67,7 +69,7 @@ class IntercoReceivingController extends Controller
                 $query->where('interco_status', IntercoStatus::RECEIVED->value);
                 break;
             case 'in_transit':
-                $query->where('interco_status', IntercoStatus::IN_TRANSIT->value);
+                $query->whereIn('interco_status', self::TO_RECEIVE);
                 break;
             case 'all':
             default:
@@ -104,6 +106,9 @@ class IntercoReceivingController extends Controller
             abort(403, 'Unauthorized access to this interco order.');
         }
 
+        // Without a commit nothing else gives an approved transfer its lines to receive.
+        $this->intercoReceiving->ensureLines($order);
+
         // Load supplierItem relationship, but we'll process it manually
         $orderedItems = StoreOrderItem::where('store_order_id', $order->id)
             ->with('supplierItem')
@@ -137,7 +142,8 @@ class IntercoReceivingController extends Controller
         $receiveDatesHistory = OrderedItemReceiveDate::with([
             'store_order_item.supplierItem', // Load up to supplierItem
             'received_by_user',
-            'approval_action_by_user'
+            'approval_action_by_user',
+            'sender_decided_by_user',
         ])->whereHas('store_order_item', function ($query) use ($order) {
             $query->where('store_order_id', $order->id);
         })->get();
@@ -164,8 +170,9 @@ class IntercoReceivingController extends Controller
             'orderedItems' => $orderedItems,
             'receiveDatesHistory' => $receiveDatesHistory,
             'images' => $images,
-            // Set once Final Receive All moved the stock and locked the transfer; the page
-            // then hides every receiving action, on the same rule the server enforces.
+            // Set once every line is in stock (by Final Receive All, or the sending store's
+            // confirmation of the last line) and the transfer is locked; the page then hides
+            // every receiving action, on the same rule the server enforces.
             'receivingFinalized' => $order->receiving_finalized_at ? [
                 'at' => $order->receiving_finalized_at->format('M j, Y g:i A'),
                 'by' => $order->receivingFinalizedBy?->full_name,
@@ -198,7 +205,7 @@ class IntercoReceivingController extends Controller
             abort(403, 'Unauthorized to receive items for this order.');
         }
 
-        if ($problem = app(OrderReceivingService::class)->receivingLockedProblem($order)) {
+        if ($problem = $this->intercoReceiving->receivingProblem($order)) {
             return back()->withErrors(['error' => $problem]);
         }
 
@@ -208,6 +215,8 @@ class IntercoReceivingController extends Controller
 
         DB::beginTransaction();
         try {
+            // Recorded only: Final Receive All posts it (and adds it to the line's received
+            // quantity), or sends it to the sending store when the line differs from what was sent.
             OrderedItemReceiveDate::create([
                 'store_order_item_id' => $storeOrderItem->id,
                 'quantity_received' => $request->quantity_received,
@@ -215,17 +224,14 @@ class IntercoReceivingController extends Controller
                 'expiry_date' => $request->expiry_date,
                 'remarks' => $request->remarks,
                 'received_by_user_id' => Auth::user()->id,
-                'status' => 'pending'
+                'status' => 'received'
             ]);
 
-            $storeOrderItem->quantity_received += $request->quantity_received;
-            $storeOrderItem->save();
-
-            $this->updateOrderStatus($order);
+            $this->intercoReceiving->startReceiving($order);
 
             DB::commit();
 
-            return back()->with('success', 'Items received successfully and pending approval.');
+            return back()->with('success', 'Items received. Click Final Receive All to move the stock.');
         } catch (\Exception $e) {
             DB::rollBack();
             return back()->with('error', 'Failed to receive items: ' . $e->getMessage());
@@ -273,16 +279,27 @@ class IntercoReceivingController extends Controller
     }
 
     /**
-     * Zero All: record every receipt not posted yet as nothing received (quantity 0, remarks
-     * "Unserved"). For a transfer that did not arrive, so it asks for no image. Nothing is
-     * posted and the transfer stays open: Final Receive All still follows.
+     * Zero All: record every receipt the store still holds as nothing received (quantity 0,
+     * remarks "Unserved"). For a transfer that did not arrive, so it asks for no image. Nothing
+     * is posted: Final Receive All still follows, and sends the lines to the sending store to
+     * confirm, as every line that differs from what was sent.
      */
     public function zeroAll($intercoNumber)
     {
         $order = $this->transferOfReceivingStore($intercoNumber);
 
+        if ($problem = $this->intercoReceiving->receivingProblem($order)) {
+            return back()->withErrors(['error' => $problem]);
+        }
+
         try {
-            $zeroed = app(OrderReceivingService::class)->zeroUnconfirmedReceipts($order);
+            $zeroed = DB::transaction(function () use ($order) {
+                $this->intercoReceiving->ensureLines($order);
+                $zeroed = app(OrderReceivingService::class)->zeroUnconfirmedReceipts($order);
+                $this->intercoReceiving->startReceiving($order);
+
+                return $zeroed;
+            });
         } catch (\Exception $e) {
             return back()->withErrors(['error' => $e->getMessage()]);
         }
@@ -293,21 +310,25 @@ class IntercoReceivingController extends Controller
     }
 
     /**
-     * Confirm Receive All: accept every receipt not in stock yet as received, at the quantity
-     * on its row. It posts nothing: stock moves between the two stores only on Final Receive
-     * All, and the transfer stays in transit, with every quantity still open to correction,
-     * until then.
+     * Confirm Receive All: accept every receipt the store still holds as received, at the
+     * quantity on its row. It posts nothing: stock moves between the two stores only on Final
+     * Receive All, and every quantity stays open to correction until then.
      */
     public function confirmReceive($intercoNumber)
     {
         $order = $this->transferOfReceivingStore($intercoNumber);
-        $receiving = app(OrderReceivingService::class);
 
-        if ($problem = $receiving->receivingLockedProblem($order) ?? $this->evidenceProblem($order)) {
+        if ($problem = $this->intercoReceiving->receivingProblem($order) ?? $this->evidenceProblem($order)) {
             return back()->withErrors(['error' => $problem]);
         }
 
-        $confirmed = DB::transaction(fn () => $receiving->confirmUnpostedReceipts($order));
+        $confirmed = DB::transaction(function () use ($order) {
+            $this->intercoReceiving->ensureLines($order);
+            $confirmed = app(OrderReceivingService::class)->confirmUnpostedReceipts($order);
+            $this->intercoReceiving->startReceiving($order);
+
+            return $confirmed;
+        });
 
         return $confirmed === 0
             ? back()->with('info', 'No pending items to confirm.')
@@ -315,169 +336,45 @@ class IntercoReceivingController extends Controller
     }
 
     /**
-     * Final Receive All: the one action that moves stock. It posts every receipt not in stock
-     * yet - out of the sending store, into the receiving store - marks the transfer received
-     * and locks it for good.
+     * Final Receive All: the receiving store's one action that moves stock. Every line received
+     * as sent is posted - out of the sending store, into this one. A line received short or
+     * over is not: it waits for the sending store to confirm it, and the button stays until
+     * every line is in stock. The transfer is then received and locked for good.
      */
     public function finalReceive($intercoNumber)
     {
         $order = $this->transferOfReceivingStore($intercoNumber);
-        $receiving = app(OrderReceivingService::class);
 
-        if ($problem = $receiving->receivingLockedProblem($order) ?? $this->evidenceProblem($order)) {
+        if ($problem = $this->evidenceProblem($order)) {
             return back()->withErrors(['error' => $problem]);
         }
 
-        DB::beginTransaction();
         try {
-            // Stamped first and only while still open, so two receivers clicking at once
-            // cannot both post the same receipts.
-            $stamped = StoreOrder::whereKey($order->id)
-                ->whereNull('receiving_finalized_at')
-                ->update([
-                    'receiving_finalized_at' => Carbon::now('Asia/Manila')->format('Y-m-d H:i:s'),
-                    'receiving_finalized_by' => Auth::id(),
-                ]);
-
-            if ($stamped === 0) {
-                DB::rollBack();
-
-                return back()->withErrors(['error' => 'This transfer was already finalized.']);
-            }
-
-            $this->postReceiptsToStock($order);
-            $this->updateFinalOrderStatus($order->id);
-
-            DB::commit();
-
-            return back()->with('success', 'Receiving finalized. The stock is moved and this transfer is now locked.');
+            $result = $this->intercoReceiving->finalReceive($order);
         } catch (\Exception $e) {
-            DB::rollBack();
             Log::error("IntercoReceivingController: Error finalizing receive for interco {$intercoNumber}: " . $e->getMessage(), [
                 'trace' => $e->getTraceAsString()
             ]);
 
             return back()->withErrors(['error' => 'Failed to finalize receiving. Nothing was changed. ' . $e->getMessage()]);
         }
-    }
 
-    /**
-     * Post every receipt of the transfer that is not in stock yet (pending or received) and
-     * mark it approved: out of the sending store, into the receiving store. Only Final
-     * Receive All calls it. Runs inside the caller's transaction.
-     *
-     * @return int how many receipts were posted
-     */
-    private function postReceiptsToStock(StoreOrder $order): int
-    {
-        $pendingItems = OrderedItemReceiveDate::with('store_order_item')
-            ->whereHas('store_order_item', function ($query) use ($order) {
-            $query->where('store_order_id', $order->id);
-        })->whereIn('status', ['pending', 'received'])->get();
+        $sender = $order->sendingStore?->name ?? 'the sending store';
 
-        if ($pendingItems->isEmpty()) {
-            return 0;
+        if ($result['posted'] === 0 && $result['for_confirmation'] === 0) {
+            return back()->with('info', "Nothing to finalize: every item not in stock yet is waiting for {$sender} to confirm it.");
         }
 
-        $aggregatedData = [];
-
-        // 1. Aggregate quantities in BASE UOM
-        foreach ($pendingItems as $history) {
-            $storeOrderItem = $history->store_order_item;
-            $itemCode = $storeOrderItem->item_code;
-            $uom = $storeOrderItem->uom;
-
-            if (!$itemCode || !$uom) {
-                Log::warning("IntercoReceivingController: Skipping history item ID {$history->id} due to incomplete data (ItemCode or UOM missing on StoreOrderItem).");
-                continue;
-            }
-
-            // Stock lives on the item's SAP base-unit row; the received unit converts into it.
-            $stockUnit = ItemStockUnit::forItem($itemCode);
-            $stockUpdateTarget = $stockUnit->stockRowFor($uom);
-            $conversionFactor = $stockUnit->factor($uom);
-
-            if (!$stockUpdateTarget || !$conversionFactor) {
-                Log::warning("IntercoReceivingController: No SAP conversion from '{$uom}' to the stock unit of '{$itemCode}'. Skipping history item ID {$history->id}.");
-                continue;
-            }
-
-            $quantityInBaseUom = $history->quantity_received * $conversionFactor;
-            $costInBaseUom = $storeOrderItem->cost_per_quantity / $conversionFactor;
-
-            // Aggregate data by the target SOH item's ID
-            $targetId = $stockUpdateTarget->id;
-            if (!isset($aggregatedData[$targetId])) {
-                $aggregatedData[$targetId] = [
-                    'total_base_qty' => 0,
-                    'total_cost' => 0,
-                    'unit_cost' => $costInBaseUom, // Base cost per base UOM
-                    'target_masterfile' => $stockUpdateTarget,
-                    'store_order' => $storeOrderItem->store_order,
-                    'store_order_item_ids' => [], // To create batches
-                ];
-            }
-            $aggregatedData[$targetId]['total_base_qty'] += $quantityInBaseUom;
-            $aggregatedData[$targetId]['total_cost'] += $history->quantity_received * $storeOrderItem->cost_per_quantity;
-            $aggregatedData[$targetId]['store_order_item_ids'][] = $storeOrderItem->id;
+        if ($result['finalized']) {
+            return back()->with('success', 'Receiving finalized. The stock is moved and this transfer is now locked.');
         }
 
-        // 2. Process aggregated data
-        foreach ($aggregatedData as $targetId => $data) {
-            $finalSOHToAdd = $data['total_base_qty'];
-            $storeOrder = $data['store_order'];
-            $targetSapMasterfile = $data['target_masterfile'];
-
-            if ($storeOrder->isInterco()) {
-                $this->processInventoryOutForInterco($storeOrder, $finalSOHToAdd, $targetSapMasterfile, $data['unit_cost'], $data['total_cost']);
-            }
-
-            ProductInventoryStock::create([
-                'product_inventory_id' => $targetSapMasterfile->id,
-                'store_branch_id' => $storeOrder->store_branch_id,
-                'quantity' => $finalSOHToAdd,
-                'recently_added' => $finalSOHToAdd,
-                'used' => 0,
-            ]);
-
-            $firstStoreOrderItemId = $data['store_order_item_ids'][0] ?? null;
-
-            if ($firstStoreOrderItemId) {
-                 $batch = PurchaseItemBatch::create([
-                    'store_order_item_id' => $firstStoreOrderItemId,
-                    'product_inventory_id' => $targetSapMasterfile->id,
-                    'store_branch_id' => $storeOrder->store_branch_id,
-                    'purchase_date' => Carbon::today()->format('Y-m-d'),
-                    'quantity' => $finalSOHToAdd,
-                    'unit_cost' => $data['unit_cost'],
-                    'remaining_quantity' => $finalSOHToAdd
-                ]);
-
-                $batch->product_inventory_stock_managers()->create([
-                    'product_inventory_id' => $targetSapMasterfile->id,
-                    'store_branch_id' => $storeOrder->store_branch_id,
-                    'quantity' => $finalSOHToAdd,
-                    'action' => 'add_quantity',
-                    'transaction_date' => Carbon::today()->format('Y-m-d'),
-                    'unit_cost' =>  $data['unit_cost'],
-                    'total_cost' => $data['total_cost'],
-                    'remarks' => 'From newly received interco items. (Interco Number: ' . $storeOrder->interco_number . ')'
-                ]);
-            }
+        $message = $result['posted'] > 0 ? "{$result['posted']} item(s) received as sent are now in stock. " : '';
+        if ($result['for_confirmation'] > 0) {
+            $message .= "{$result['for_confirmation']} item(s) differ from what was sent and wait for {$sender} to confirm the received quantity.";
         }
 
-        // 3. Update individual history and order item records
-        foreach ($pendingItems as $item) {
-            $item->update([
-                'status' => 'approved',
-                'approval_action_by' => Auth::user()->id,
-                'received_date' => $item->received_date ?? Carbon::now('Asia/Manila'),
-            ]);
-            $item->store_order_item->quantity_received += $item->quantity_received;
-            $item->store_order_item->save();
-        }
-
-        return $pendingItems->count();
+        return back()->with('success', trim($message));
     }
 
     public function attachImage(Request $request, $id)
@@ -521,15 +418,25 @@ class IntercoReceivingController extends Controller
             abort(403, 'Unauthorized action.');
         }
 
-        // Nothing changes on a transfer locked by Final Receive All, nor on a posted receipt:
-        // its quantity is already in stock.
-        if ($problem = app(OrderReceivingService::class)->receivingLockedProblem($history->store_order_item->store_order)) {
+        $order = $history->store_order_item->store_order;
+
+        // Nothing changes on a locked transfer, nor on a posted receipt: its quantity is
+        // already in stock. A receipt with the sending store waits for its answer.
+        if ($problem = $this->intercoReceiving->receivingProblem($order)) {
             return back()->withErrors(['error' => $problem]);
         }
 
         if ($history->status === 'approved') {
             return back()->withErrors(['error' => 'This receipt is already in stock and can no longer be changed.']);
         }
+
+        if ($history->status === IntercoReceivingService::FOR_CONFIRMATION) {
+            $sender = $order->sendingStore?->name ?? 'the sending store';
+
+            return back()->withErrors(['error' => "This item is waiting for {$sender} to confirm the received quantity. It can be changed again if {$sender} re-sends it."]);
+        }
+
+        $this->intercoReceiving->startReceiving($order);
 
         // Recording a quantity marks the line received, by the user and at the time it is
         // recorded, as on Inbound Orders. Nothing is posted until Final Receive All.
@@ -548,76 +455,14 @@ class IntercoReceivingController extends Controller
         $counts = [
             'received' => (clone $baseQuery)->where('interco_status', IntercoStatus::RECEIVED->value)->count(),
             'commited' => (clone $baseQuery)->where('interco_status', IntercoStatus::COMMITTED->value)->count(),
-            'in_transit' => (clone $baseQuery)->where('interco_status', IntercoStatus::IN_TRANSIT->value)->count(),
+            'in_transit' => (clone $baseQuery)->whereIn('interco_status', self::TO_RECEIVE)->count(),
         ];
         $counts['all'] = $counts['received'] + $counts['in_transit'];
         return $counts;
     }
 
-    private function updateOrderStatus($order)
-    {
-        $items = $order->store_order_items;
-        $totalCommited = $items->sum('quantity_commited');
-        $totalReceived = $items->sum('quantity_received');
-        if ($totalReceived >= $totalCommited) {
-            $order->interco_status = IntercoStatus::RECEIVED->value;
-        } else {
-            $order->interco_status = IntercoStatus::IN_TRANSIT->value;
-        }
-        $order->save();
-    }
-
-    public function updateFinalOrderStatus($id)
-    {
-        $storeOrder = StoreOrder::find($id);
-        $storeOrder->interco_status = IntercoStatus::RECEIVED->value;
-        $storeOrder->save();
-    }
-
     private function processReceivedItem($receiveDate)
     {
         // This method is now obsolete and replaced by the logic in confirmReceive.
-    }
-
-    private function processInventoryOutForInterco($storeOrder, $quantityToDeduct, $stockUpdateTarget, $unitCost, $totalCost): void
-    {
-        try {
-            ProductInventoryStockManager::create([
-                'product_inventory_id' => $stockUpdateTarget->id,
-                'store_branch_id' => $storeOrder->sending_store_branch_id,
-                'quantity' => $quantityToDeduct,
-                'action' => 'out',
-                'transaction_date' => Carbon::today()->format('Y-m-d'),
-                'remarks' => "Interco transfer to {$storeOrder->store_branch->name} (Interco: {$storeOrder->interco_number})",
-                'unit_cost' => $unitCost,
-                'total_cost' => $totalCost
-            ]);
-
-            ProductInventoryStock::create([
-                'product_inventory_id' => $stockUpdateTarget->id,
-                'store_branch_id' => $storeOrder->sending_store_branch_id,
-                'quantity' => -$quantityToDeduct,
-                'recently_added' => 0,
-                'used' => $quantityToDeduct,
-            ]);
-
-            $deductedFromBatches = $quantityToDeduct;
-            $sendingBatches = PurchaseItemBatch::where('product_inventory_id', $stockUpdateTarget->id)
-                ->where('store_branch_id', $storeOrder->sending_store_branch_id)
-                ->where('remaining_quantity', '>', 0)
-                ->orderBy('purchase_date', 'asc')
-                ->get();
-
-            foreach ($sendingBatches as $batch) {
-                if ($deductedFromBatches <= 0) break;
-                $deductAmount = min($deductedFromBatches, $batch->remaining_quantity);
-                $batch->remaining_quantity -= $deductAmount;
-                $batch->save();
-                $deductedFromBatches -= $deductAmount;
-            }
-        } catch (\Exception $e) {
-            Log::error("IntercoReceivingController: Error processing inventory OUT for interco: " . $e->getMessage());
-            throw $e;
-        }
     }
 }

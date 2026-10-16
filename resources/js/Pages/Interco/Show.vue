@@ -1,7 +1,18 @@
 <script setup>
-import { computed } from 'vue'
-import { Link, router } from '@inertiajs/vue3'
+import { computed, ref } from 'vue'
+import { Link, router, useForm } from '@inertiajs/vue3'
+import { useToast } from 'primevue/usetoast'
+import { useConfirm } from 'primevue/useconfirm'
 import { Button } from '@/components/ui/button'
+import { Textarea } from '@/components/ui/textarea'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import {
@@ -21,8 +32,75 @@ import StockIndicator from './components/StockIndicator.vue'
 
 const props = defineProps({
   order: Object,
-  permissions: Object
+  permissions: Object,
+  // Items the receiving store received short or over: { lines: [...], can_answer }
+  senderConfirmation: {
+    type: Object,
+    default: () => ({ lines: [], can_answer: false })
+  }
 })
+
+const toast = useToast()
+const confirm = useConfirm()
+
+// The receiving store received a different quantity than was sent. Nothing has moved for these
+// items: Confirm moves the received quantity out of this store and into theirs; Re-Send gives
+// the item back to them to recount. Until then neither store can do its Month End Count.
+const linesToConfirm = computed(() => props.senderConfirmation?.lines || [])
+const canAnswer = computed(() => !!props.senderConfirmation?.can_answer)
+const formatQty = (value) => Number(value ?? 0).toFixed(4)
+const formatVariance = (value) => `${Number(value) > 0 ? '+' : ''}${formatQty(value)}`
+
+const answerForm = useForm({ store_order_item_id: null, remarks: '' })
+
+const flashToast = (page, summary) => {
+  const flash = page.props.flash || {}
+  toast.add({ severity: flash.info ? 'info' : 'success', summary, detail: flash.info || flash.success || 'Done.', life: 6000 })
+}
+const errorToast = (errors, summary) => {
+  toast.add({ severity: 'error', summary, detail: errors.error || Object.values(errors)[0] || 'Please try again.', life: 7000 })
+}
+
+const promptConfirm = (line = null) => {
+  const what = line
+    ? `${formatQty(line.received)} ${line.uom} of ${line.description}`
+    : `the received quantity of all ${linesToConfirm.value.length} item(s)`
+  confirm.require({
+    header: 'Confirm Received Quantity?',
+    message: `Confirm ${what}? That quantity is taken out of ${fromStoreName.value} and added to ${toStoreName.value} now. This cannot be undone.`,
+    icon: 'pi pi-exclamation-triangle',
+    rejectProps: { label: 'Cancel', severity: 'secondary', outlined: true },
+    acceptProps: { label: 'Confirm', severity: 'success' },
+    accept: () => {
+      answerForm.store_order_item_id = line?.item_id ?? null
+      answerForm.remarks = ''
+      answerForm.post(route('interco.received-quantity.confirm', props.order.id), {
+        preserveScroll: true,
+        onSuccess: (page) => flashToast(page, 'Received Quantity Confirmed'),
+        onError: (errors) => errorToast(errors, 'Unable to Confirm'),
+      })
+    },
+  })
+}
+
+const resendLine = ref(null)
+const isResendOpen = ref(false)
+const openResend = (line = null) => {
+  resendLine.value = line
+  answerForm.store_order_item_id = line?.item_id ?? null
+  answerForm.remarks = ''
+  isResendOpen.value = true
+}
+const submitResend = () => {
+  answerForm.post(route('interco.received-quantity.resend', props.order.id), {
+    preserveScroll: true,
+    onSuccess: (page) => {
+      isResendOpen.value = false
+      flashToast(page, 'Re-Sent to Recount')
+    },
+    onError: (errors) => errorToast(errors, 'Unable to Re-Send'),
+  })
+}
 
 // Computed properties
 const intercoNumber = computed(() => props.order.interco_number || 'N/A')
@@ -177,9 +255,10 @@ const displayApprovedQty = (item) => {
   return 0;
 };
 
+// The quantity to send: approved, or restated by the sending store's optional commit.
 const displayCommittedQty = (item) => {
   const currentStatus = props.order.interco_status;
-  if (['committed', 'in_transit', 'received'].includes(currentStatus)) {
+  if (['approved', 'committed', 'in_transit', 'received'].includes(currentStatus)) {
     return item.quantity_commited || 0;
   }
   return 0;
@@ -202,6 +281,71 @@ const displayCommittedQty = (item) => {
     <div class="grid gap-6">
       <!-- Transfer Summary -->
       <TransferSummary :transfer="order" />
+
+      <!-- Received short or over: the sending store confirms or re-sends -->
+      <Card v-if="linesToConfirm.length" class="border-amber-300">
+        <CardHeader>
+          <div class="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <CardTitle class="flex items-center gap-2">
+                <AlertCircle class="w-5 h-5 text-amber-600" />
+                Received Quantity Confirmation
+              </CardTitle>
+              <p class="mt-1 text-sm text-muted-foreground">
+                {{ toStoreName }} received a different quantity than {{ fromStoreName }} sent for these items, and nothing has moved for them yet.
+                Confirm to move the received quantity out of {{ fromStoreName }} and into {{ toStoreName }}, or Re-Send for {{ toStoreName }} to recount.
+                Neither store can do its Month End Count until every item is answered.
+              </p>
+            </div>
+            <div v-if="canAnswer && linesToConfirm.length > 1" class="flex gap-2">
+              <Button variant="outline" :disabled="answerForm.processing" @click="openResend()">Re-Send All</Button>
+              <Button :disabled="answerForm.processing" @click="promptConfirm()">Confirm All</Button>
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Item</TableHead>
+                <TableHead>UOM</TableHead>
+                <TableHead>Sent</TableHead>
+                <TableHead>Received</TableHead>
+                <TableHead>Variance</TableHead>
+                <TableHead>Receiver's Remarks</TableHead>
+                <TableHead>Sent for Confirmation</TableHead>
+                <TableHead v-if="canAnswer">Actions</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              <TableRow v-for="line in linesToConfirm" :key="line.item_id">
+                <TableCell>
+                  <p class="font-medium">{{ line.description }}</p>
+                  <p class="text-xs text-muted-foreground">{{ line.item_code }}</p>
+                </TableCell>
+                <TableCell>{{ line.uom }}</TableCell>
+                <TableCell>{{ formatQty(line.sent) }}</TableCell>
+                <TableCell class="font-semibold">{{ formatQty(line.received) }}</TableCell>
+                <TableCell class="font-semibold text-amber-700">{{ formatVariance(line.variance) }}</TableCell>
+                <TableCell>{{ line.remarks || '-' }}</TableCell>
+                <TableCell>
+                  <p>{{ line.requested_at || '-' }}</p>
+                  <p v-if="line.received_by" class="text-xs text-muted-foreground">by {{ line.received_by }}</p>
+                </TableCell>
+                <TableCell v-if="canAnswer">
+                  <div class="flex gap-2">
+                    <Button size="sm" :disabled="answerForm.processing" @click="promptConfirm(line)">Confirm</Button>
+                    <Button size="sm" variant="outline" :disabled="answerForm.processing" @click="openResend(line)">Re-Send</Button>
+                  </div>
+                </TableCell>
+              </TableRow>
+            </TableBody>
+          </Table>
+          <p v-if="!canAnswer" class="mt-3 text-xs text-muted-foreground">
+            Only the people of {{ fromStoreName }} can confirm or re-send these items.
+          </p>
+        </CardContent>
+      </Card>
 
       <!-- Main Content Grid -->
       <div class="grid lg:grid-cols-1 gap-6">
@@ -290,6 +434,27 @@ const displayCommittedQty = (item) => {
         </div>
       </div>
     </div>
+
+    <!-- Re-Send: back to the receiving store to recount -->
+    <Dialog v-model:open="isResendOpen">
+      <DialogContent class="sm:max-w-[520px]">
+        <DialogHeader>
+          <DialogTitle>Re-Send to {{ toStoreName }}?</DialogTitle>
+          <DialogDescription>
+            {{ resendLine ? resendLine.description : `All ${linesToConfirm.length} item(s)` }} go back to {{ toStoreName }} to recount.
+            Nothing moves until the quantities match or you confirm them.
+          </DialogDescription>
+        </DialogHeader>
+        <div class="space-y-2">
+          <label class="text-xs font-medium" for="resend-remarks">Reason (optional, shown to {{ toStoreName }})</label>
+          <Textarea id="resend-remarks" v-model="answerForm.remarks" maxlength="500" placeholder="e.g. We sent the full 1 kg, please recount." />
+        </div>
+        <DialogFooter>
+          <Button variant="ghost" @click="isResendOpen = false">Cancel</Button>
+          <Button :disabled="answerForm.processing" @click="submitResend">Re-Send</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   </Layout>
 </template>
 

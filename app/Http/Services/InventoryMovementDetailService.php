@@ -20,7 +20,7 @@ use Illuminate\Support\Facades\DB;
 class InventoryMovementDetailService
 {
     /** The clickable columns, by the key the page sends. */
-    public const METRICS = ['ordered', 'committed', 'received', 'beg_bal', 'sales', 'wastage', 'supplies', 'interco_in', 'interco_out'];
+    public const METRICS = ['ordered', 'committed', 'received', 'beg_bal', 'sales', 'wastage', 'supplies', 'interco_in', 'interco_out', 'interco_pending'];
 
     public const PER_PAGE = 25;
 
@@ -39,6 +39,7 @@ class InventoryMovementDetailService
         'supplies' => ['Supplies Used', 'MEC Date'],
         'interco_in' => ['Inbound Interco', 'Order Date'],
         'interco_out' => ['Outbound Interco', 'Order Date'],
+        'interco_pending' => ['Pending Interco Transactions', 'Order Date'],
     ];
 
     public function __construct(private InventoryMovementService $movement) {}
@@ -82,6 +83,12 @@ class InventoryMovementDetailService
         }
 
         $result['total'] = round($result['total'], 6);
+
+        if ($metric === 'interco_pending') {
+            $result['note'] = 'Interco transfers approved for this period that are not in stock yet: + coming into this store, - going out of it. '
+                .'They are not part of Theoretical SOH, Variance or Final Variance. Each moves into Inbound or Outbound Interco once it is received.';
+        }
+
         $labels = $sapRows->flatMap(fn ($row) => [$row->AltUOM, $row->BaseUOM])
             ->filter()->mapWithKeys(fn ($label) => [strtoupper(trim((string) $label)) => trim((string) $label)]);
 
@@ -158,10 +165,12 @@ class InventoryMovementDetailService
                 ->selectRaw($columns('so.interco_number', 'so.interco_number', 'other.name', 'CONVERT(varchar(10), oird.received_date, 23)', 'soi.uom', 'COALESCE(oird.quantity_received, 0)')),
 
             'interco_out' => $procurement('so.sending_store_branch_id')
+                ->join('ordered_item_receive_dates as oird', 'oird.store_order_item_id', '=', 'soi.id')
                 ->leftJoin('store_branches as other', 'other.id', '=', 'so.store_branch_id')
                 ->whereNotNull('so.interco_number')
-                ->whereRaw('COALESCE(soi.quantity_commited, 0) <> 0')
-                ->selectRaw($columns('so.interco_number', 'CAST(so.id AS varchar(20))', 'other.name', 'so.order_status', 'soi.uom', 'COALESCE(soi.quantity_commited, 0)')),
+                ->where('oird.status', 'approved')
+                ->whereRaw('COALESCE(oird.quantity_received, 0) <> 0')
+                ->selectRaw($columns('so.interco_number', 'CAST(so.id AS varchar(20))', 'other.name', 'CONVERT(varchar(10), oird.received_date, 23)', 'soi.uom', 'COALESCE(oird.quantity_received, 0)')),
 
             // One line per receipt and product; the BOM is matched within the product's entity.
             'sales' => DB::table('store_transaction_items as sti')
@@ -206,8 +215,54 @@ class InventoryMovementDetailService
 
             'beg_bal' => $this->count($this->schedule(Carbon::parse($from)->subMonth()), $itemCode, $branchId, $unit),
 
+            'interco_pending' => $this->pendingInterco($procurement, $unit),
+
             default => null,
         };
+    }
+
+    /**
+     * Pending Interco, line by line: the three sums InventoryMovementService adds up. Coming in,
+     * one row per receipt recorded (or the line at the quantity sent while it has none); going
+     * out, the line at the quantity sent, as a minus. kind says which way, for the link.
+     */
+    private function pendingInterco(\Closure $procurement, \Closure $unit): Builder
+    {
+        $pendingLine = fn ($query) => $query
+            ->whereNotNull('so.interco_number')
+            ->whereIn('so.interco_status', InventoryMovementService::PENDING_INTERCO_STATUSES)
+            ->whereNotExists(fn ($posted) => $posted->select(DB::raw(1))
+                ->from('ordered_item_receive_dates as posted')
+                ->whereColumn('posted.store_order_item_id', 'soi.id')
+                ->where('posted.status', 'approved'));
+        $columns = fn (string $refId, string $state, string $qty, string $direction) =>
+            "so.order_date as tx_date, so.interco_number as ref_no, {$refId} as ref_id, other.name as d1, CAST({$state} AS nvarchar(255)) as d2, {$unit('soi.uom')} as unit, {$qty} as qty, CAST('{$direction}' AS nvarchar(255)) as kind, CAST(NULL AS nvarchar(255)) as batch";
+
+        $recorded = $procurement('so.store_branch_id')
+            ->tap($pendingLine)
+            ->join('ordered_item_receive_dates as oird', 'oird.store_order_item_id', '=', 'soi.id')
+            ->leftJoin('store_branches as other', 'other.id', '=', 'so.sending_store_branch_id')
+            ->selectRaw($columns('so.interco_number', "CASE oird.status WHEN 'pending' THEN 'to_receive' WHEN 'for_confirmation' THEN 'for_confirmation' ELSE 'recorded' END", 'COALESCE(oird.quantity_received, 0)', 'in'));
+
+        $notOpened = $procurement('so.store_branch_id')
+            ->tap($pendingLine)
+            ->whereNotExists(fn ($rows) => $rows->select(DB::raw(1))
+                ->from('ordered_item_receive_dates as opened')
+                ->whereColumn('opened.store_order_item_id', 'soi.id'))
+            ->leftJoin('store_branches as other', 'other.id', '=', 'so.sending_store_branch_id')
+            ->selectRaw($columns('so.interco_number', "'to_receive'", 'COALESCE(soi.quantity_commited, 0)', 'in'));
+
+        $outgoing = $procurement('so.sending_store_branch_id')
+            ->tap($pendingLine)
+            ->leftJoin('store_branches as other', 'other.id', '=', 'so.store_branch_id')
+            ->selectRaw($columns(
+                'CAST(so.id AS varchar(20))',
+                "CASE WHEN EXISTS (SELECT 1 FROM ordered_item_receive_dates waiting WHERE waiting.store_order_item_id = soi.id AND waiting.status = 'for_confirmation') THEN 'for_confirmation' ELSE 'to_receive' END",
+                '-COALESCE(soi.quantity_commited, 0)',
+                'out'
+            ));
+
+        return $recorded->unionAll($notOpened)->unionAll($outgoing);
     }
 
     /** The lines of one month end count for the item; a rejected count went back to the store and is not one. */
@@ -305,6 +360,8 @@ class InventoryMovementDetailService
             'received' => route('orders-receiving.show', $row->ref_id),
             'interco_in' => route('interco-receiving.show', $row->ref_id),
             'interco_out' => route('interco.show', $row->ref_id),
+            // Coming in opens where this store receives it; going out, the transfer it sent.
+            'interco_pending' => $row->kind === 'in' ? route('interco-receiving.show', $row->ref_id) : route('interco.show', $row->ref_id),
             'sales' => route('store-transactions.show', $row->ref_id),
             'wastage' => route('wastage.show.by-number', $row->ref_id),
             'beg_bal' => route('month-end-count-approvals.show', [$row->ref_id, $branchId]),
@@ -338,7 +395,14 @@ class InventoryMovementDetailService
             'ordered', 'committed' => trim(($row->d1 ?: 'Supplier not set') . ' · ' . $status($row->d2), ' ·'),
             'received' => trim(($row->d1 ?: 'Supplier not set') . ($day($row->d2) ? ' · received ' . $day($row->d2) : ''), ' ·'),
             'interco_in' => 'From ' . ($row->d1 ?: 'another store') . ($day($row->d2) ? ' · received ' . $day($row->d2) : ''),
-            'interco_out' => 'To ' . ($row->d1 ?: 'another store') . ' · ' . $status($row->d2),
+            'interco_out' => 'To ' . ($row->d1 ?: 'another store') . ($day($row->d2) ? ' · received ' . $day($row->d2) : ''),
+            'interco_pending' => $row->kind === 'in'
+                ? 'From ' . ($row->d1 ?: 'another store') . ' · ' . match ($row->d2) {
+                    'for_confirmation' => 'received, waiting for the sending store to confirm',
+                    'recorded' => 'received, not in stock yet',
+                    default => 'not received yet',
+                }
+                : 'To ' . ($row->d1 ?: 'another store') . ' · ' . ($row->d2 === 'for_confirmation' ? 'waiting for your confirmation' : 'not received yet'),
             // The product by its name, its POS Code after it: a bare "5 Spanish Latte" reads as a quantity.
             'sales' => trim((string) $row->d2) !== '' ? trim($row->d2) . ' (' . $row->d1 . ')' : (string) $row->d1,
             'wastage' => $row->d2 ? 'Sub-Prep ' . trim($row->d2) . ' · ' . $row->d1 : (string) $row->d1,

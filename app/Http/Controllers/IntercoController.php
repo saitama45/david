@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Services\IntercoReceivingService;
 use App\Http\Services\IntercoService;
 use App\Models\StoreOrder;
 use App\Models\StoreBranch;
@@ -54,8 +55,12 @@ class IntercoController extends Controller
             $query->whereRaw('1 = 0');
         }
 
-        // Filter by status
-        if ($status && $status !== 'all') {
+        // Filter by status. "For Your Confirmation": transfers the user's store sent whose
+        // received quantity differs from what was sent and waits for the store to confirm it.
+        if ($status === IntercoReceivingService::FOR_CONFIRMATION) {
+            $query->whereIn('sending_store_branch_id', $assignedStoreIds)
+                ->whereHas('ordered_item_receive_dates', fn ($q) => $q->where('status', IntercoReceivingService::FOR_CONFIRMATION));
+        } elseif ($status && $status !== 'all') {
             $query->where('interco_status', $status);
         }
 
@@ -96,7 +101,11 @@ class IntercoController extends Controller
                 'value' => $status->value,
                 'label' => $status->getLabel(),
                 'color' => $status->getColor(),
-            ])),
+            ]))->push([
+                'value' => IntercoReceivingService::FOR_CONFIRMATION,
+                'label' => 'For Your Confirmation',
+                'color' => 'orange',
+            ]),
             'permissions' => [
                 'can_create' => $user->hasPermissionTo('create interco requests'),
                 'can_edit' => $user->hasPermissionTo('edit interco requests'),
@@ -330,7 +339,77 @@ class IntercoController extends Controller
                 'can_receive' => $this->intercoService->canUserPerformAction($interco, 'receive', $user),
             ],
             'statusTransitions' => $this->getAvailableStatusTransitions($interco->interco_status, $user),
+            // Lines received short or over, waiting for the sending store to confirm or re-send.
+            'senderConfirmation' => [
+                'lines' => app(IntercoReceivingService::class)->linesAwaitingSender($interco),
+                'can_answer' => $this->answersForSendingStore($interco, $user),
+            ],
         ]);
+    }
+
+    /**
+     * Confirm the received quantity of a line the receiving store received short or over
+     * (store_order_item_id), or of every line waiting: it is posted at that quantity - out of
+     * this store, into the receiving one.
+     */
+    public function confirmReceivedQuantity(Request $request, StoreOrder $interco)
+    {
+        $validated = $request->validate(['store_order_item_id' => 'nullable|integer']);
+
+        if (! $this->answersForSendingStore($interco, Auth::user())) {
+            abort(403, 'Only the sending store can confirm the received quantity.');
+        }
+
+        try {
+            $confirmed = app(IntercoReceivingService::class)->confirmBySender($interco, $validated['store_order_item_id'] ?? null);
+        } catch (\Exception $e) {
+            return back()->withErrors(['error' => $e->getMessage()]);
+        }
+
+        return $confirmed === 0
+            ? back()->with('info', 'Nothing is waiting for your confirmation on this transfer.')
+            : back()->with('success', "{$confirmed} item(s) confirmed and moved into the receiving store's stock.");
+    }
+
+    /**
+     * Re-send a line received short or over (or every line waiting) to the receiving store, to
+     * recount it and finish it with Final Receive All again.
+     */
+    public function resendReceivedQuantity(Request $request, StoreOrder $interco)
+    {
+        $validated = $request->validate([
+            'store_order_item_id' => 'nullable|integer',
+            'remarks' => 'nullable|string|max:500',
+        ]);
+
+        if (! $this->answersForSendingStore($interco, Auth::user())) {
+            abort(403, 'Only the sending store can re-send the received quantity.');
+        }
+
+        try {
+            $resent = app(IntercoReceivingService::class)->resendBySender(
+                $interco,
+                $validated['store_order_item_id'] ?? null,
+                filled($validated['remarks'] ?? null) ? trim($validated['remarks']) : null
+            );
+        } catch (\Exception $e) {
+            return back()->withErrors(['error' => $e->getMessage()]);
+        }
+
+        return $resent === 0
+            ? back()->with('info', 'Nothing is waiting for your confirmation on this transfer.')
+            : back()->with('success', "{$resent} item(s) re-sent to {$interco->store_branch?->name} to recount.");
+    }
+
+    /**
+     * Whether the user answers for the transfer's sending store: assigned to it and allowed to
+     * receive interco transfers (the store's own people).
+     */
+    private function answersForSendingStore(StoreOrder $interco, $user): bool
+    {
+        return $interco->isInterco()
+            && $user->can('receive interco requests')
+            && $user->store_branches()->where('store_branches.id', $interco->sending_store_branch_id)->exists();
     }
 
     /**
